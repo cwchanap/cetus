@@ -1,0 +1,59 @@
+---
+import { cn } from "@/lib/utils"
+import Button from './Button.astro'
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'section'> {
+  title: string
+  subtitle?: string
+  description: string
+  primaryAction?: string
+  secondaryAction?: string
+  primaryHref?: string
+  secondaryHref?: string
+  class?: string
+}
+
+const { 
+  title,
+  subtitle,
+  description,
+  primaryAction = "Start Playing",
+  secondaryAction = "Watch Demo",
+  primaryHref = "#games",
+  secondaryHref = "#",
+  class: className = '',
+  ...props 
+} = Astro.props
+
+const classes = cn(
+  "relative z-10 px-6 py-16",
+  className
+)
+---
+
+<section class={classes} {...props}>
+  <div class="max-w-6xl mx-auto text-center">
+    <h2 class="text-6xl md:text-8xl font-orbitron font-black mb-6 text-holographic animate-pulse">
+      {title}
+    </h2>
+    {subtitle && (
+      <h3 class="text-2xl md:text-4xl font-orbitron font-bold mb-8 text-neon-cyan">
+        {subtitle}
+      </h3>
+    )}
+    <p class="text-xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed" set:html={description} />
+    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+      <Button variant="primary" size="lg">
+        <a href={primaryHref} class="text-white no-underline">
+          {primaryAction}
+        </a>
+      </Button>
+      <Button variant="outline" size="lg">
+        <a href={secondaryHref} class="text-white no-underline">
+          {secondaryAction}
+        </a>
+      </Button>
+    </div>
+  </div>
+</section>

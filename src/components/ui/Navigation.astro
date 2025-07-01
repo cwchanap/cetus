@@ -1,0 +1,58 @@
+---
+import { cn } from "@/lib/utils"
+import Button from './Button.astro'
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'header'> {
+  logo?: string
+  title?: string
+  navigation?: Array<{ href: string; label: string }>
+  ctaLabel?: string
+  ctaHref?: string
+  class?: string
+}
+
+const { 
+  logo = "C",
+  title = "CETUS",
+  navigation = [
+    { href: "#games", label: "Games" },
+    { href: "#about", label: "About" },
+    { href: "#contact", label: "Contact" }
+  ],
+  ctaLabel = "Play Now",
+  ctaHref = "#games",
+  class: className = '',
+  ...props 
+} = Astro.props
+
+const classes = cn(
+  "relative z-10 px-6 py-8",
+  className
+)
+---
+
+<header class={classes} {...props}>
+  <nav class="max-w-7xl mx-auto flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-400/25">
+        <span class="text-xl font-bold text-white">{logo}</span>
+      </div>
+      <h1 class="text-2xl font-orbitron font-bold text-holographic">
+        {title}
+      </h1>
+    </div>
+    <div class="hidden md:flex items-center space-x-8">
+      {navigation.map((item) => (
+        <a href={item.href} class="text-gray-300 hover:text-cyan-400 transition-colors duration-300">
+          {item.label}
+        </a>
+      ))}
+      <Button variant="primary">
+        <a href={ctaHref} class="text-white no-underline">
+          {ctaLabel}
+        </a>
+      </Button>
+    </div>
+  </nav>
+</header>

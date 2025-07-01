@@ -1,0 +1,35 @@
+---
+import { cn } from "@/lib/utils"
+import Avatar from './Avatar.astro'
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'div'> {
+  icon: string
+  title: string
+  description: string
+  variant?: 'cyan-purple' | 'purple-pink' | 'pink-cyan'
+  class?: string
+}
+
+const { 
+  icon,
+  title,
+  description,
+  variant = 'cyan-purple',
+  class: className = '',
+  ...props 
+} = Astro.props
+
+const classes = cn(
+  "text-center group",
+  className
+)
+---
+
+<div class={classes} {...props}>
+  <Avatar variant={variant} size="lg" class="mx-auto mb-4">
+    <span class="text-2xl">{icon}</span>
+  </Avatar>
+  <h4 class="text-xl font-orbitron font-bold mb-2 text-white">{title}</h4>
+  <p class="text-gray-400">{description}</p>
+</div>

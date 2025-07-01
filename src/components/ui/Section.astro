@@ -1,0 +1,31 @@
+---
+import { cn } from "@/lib/utils"
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'section'> {
+  variant?: 'default' | 'hero' | 'features' | 'cta'
+  class?: string
+}
+
+const { 
+  variant = 'default',
+  class: className = '',
+  ...props 
+} = Astro.props
+
+const sectionVariants = {
+  default: "relative z-10 px-6 py-16",
+  hero: "relative z-10 px-6 py-16",
+  features: "relative z-10 px-6 py-16 bg-gradient-to-b from-transparent to-slate-900/20",
+  cta: "relative z-10 px-6 py-16 bg-gradient-to-t from-transparent to-cyan-400/5"
+}
+
+const classes = cn(
+  sectionVariants[variant],
+  className
+)
+---
+
+<section class={classes} {...props}>
+  <slot />
+</section>

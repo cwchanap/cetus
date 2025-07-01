@@ -2,9 +2,15 @@
 import '@/styles/global.css';
 // Component Imports
 import Button from '@/components/ui/Button.astro';
-import Badge from '@/components/ui/Badge.astro';
 import Card from '@/components/ui/Card.astro';
-import Avatar from '@/components/ui/Avatar.astro';
+import Section from '@/components/ui/Section.astro';
+import Container from '@/components/ui/Container.astro';
+import Heading from '@/components/ui/Heading.astro';
+import Hero from '@/components/ui/Hero.astro';
+import Navigation from '@/components/ui/Navigation.astro';
+import FeatureCard from '@/components/ui/FeatureCard.astro';
+import GameCard from '@/components/ui/GameCard.astro';
+import Footer from '@/components/ui/Footer.astro';
 
 // Mock data for single player minigames
 const games = [
@@ -101,172 +107,82 @@ const games = [
 		</div>
 
 		<!-- Header -->
-		<header class="relative z-10 px-6 py-8">
-			<nav class="max-w-7xl mx-auto flex items-center justify-between">
-				<div class="flex items-center space-x-3">
-					<div class="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-400/25">
-						<span class="text-xl font-bold text-white">C</span>
-					</div>
-					<h1 class="text-2xl font-orbitron font-bold text-holographic">
-						CETUS
-					</h1>
-				</div>
-				<div class="hidden md:flex items-center space-x-8">
-					<a href="#games" class="text-gray-300 hover:text-cyan-400 transition-colors duration-300">Games</a>
-					<a href="#about" class="text-gray-300 hover:text-cyan-400 transition-colors duration-300">About</a>
-					<a href="#contact" class="text-gray-300 hover:text-cyan-400 transition-colors duration-300">Contact</a>
-					<Button variant="primary">
-						Play Now
-					</Button>
-				</div>
-			</nav>
-		</header>
+		<Navigation />
 
 		<!-- Hero Section -->
-		<section class="relative z-10 px-6 py-16">
-			<div class="max-w-6xl mx-auto text-center">
-				<h2 class="text-6xl md:text-8xl font-orbitron font-black mb-6 text-holographic animate-pulse">
-					MINIGAMES
-				</h2>
-				<h3 class="text-2xl md:text-4xl font-orbitron font-bold mb-8 text-neon-cyan">
-					OF THE FUTURE
-				</h3>
-				<p class="text-xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-					Welcome to the ultimate single-player gaming experience. Choose from our collection of 
-					<span class="text-cyan-400 font-semibold text-neon-cyan">futuristic mini-games</span> designed to challenge your skills 
-					and create amazing gaming moments.
-				</p>
-				<div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-					<Button variant="primary" size="lg">
-						Start Playing
-					</Button>
-					<Button variant="outline" size="lg">
-						Watch Demo
-					</Button>
-				</div>
-			</div>
-		</section>
+		<Hero 
+			title="MINIGAMES"
+			subtitle="OF THE FUTURE"
+			description="Welcome to the ultimate single-player gaming experience. Choose from our collection of <span class='text-cyan-400 font-semibold text-neon-cyan'>futuristic mini-games</span> designed to challenge your skills and create amazing gaming moments."
+			primaryHref="#games"
+		/>
 
 		<!-- Games Grid -->
-		<section id="games" class="relative z-10 px-6 py-16">
-			<div class="max-w-7xl mx-auto">
-				<h3 class="text-4xl font-orbitron font-bold text-center mb-4 text-holographic">
+		<Section id="games">
+			<Container class="max-w-7xl">
+				<Heading level={3} variant="section" align="center" class="mb-4">
 					SELECT YOUR GAME
-				</h3>
+				</Heading>
 				<p class="text-center text-gray-400 mb-12 text-lg">
 					Choose from our arsenal of single-player minigames
 				</p>
 
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 					{games.map((game) => (
-						<Card variant="sci-fi" class="p-6">
-							<div class="relative z-10">
-								<div class="flex items-center justify-between mb-4">
-									<span class="text-4xl animate-float">{game.icon}</span>
-									<div class="text-right">
-										<div class="text-xs text-gray-400">{game.duration}</div>
-									</div>
-								</div>
-								
-								<h4 class="text-xl font-orbitron font-bold mb-2 text-white group-hover:text-cyan-400 transition-colors duration-300">
-									{game.title}
-								</h4>
-								
-								<p class="text-gray-300 mb-4 text-sm leading-relaxed">
-									{game.description}
-								</p>
-								
-								<div class="flex items-center justify-between">
-									<Badge variant={
-										game.difficulty === 'Easy' ? 'success' :
-										game.difficulty === 'Medium' ? 'warning' :
-										'error'
-									}>
-										{game.difficulty}
-									</Badge>
-									
-									{game.available ? (
-										game.title === 'Quick Draw Challenge' ? (
-											<Button variant="primary" size="sm">
-												<a href="/drawing" class="text-white no-underline">
-													Play Now
-												</a>
-											</Button>
-										) : (
-											<Button variant="primary" size="sm">
-												Play Now
-											</Button>
-										)
-									) : (
-										<Badge variant="outline">
-											Coming Soon
-										</Badge>
-									)}
-								</div>
-							</div>
-						</Card>
+						<GameCard game={game} />
 					))}
 				</div>
-			</div>
-		</section>
+			</Container>
+		</Section>
 
 		<!-- Features Section -->
-		<section class="relative z-10 px-6 py-16">
-			<div class="max-w-6xl mx-auto">
-				<h3 class="text-4xl font-orbitron font-bold text-center mb-16 text-holographic">
+		<Section variant="features">
+			<Container>
+				<Heading level={3} variant="section" align="center" class="mb-16">
 					WHY CHOOSE CETUS?
-				</h3>
+				</Heading>
 				
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-					<div class="text-center group">
-						<Avatar variant="cyan-purple" size="lg" class="mx-auto mb-4">
-							<span class="text-2xl">⚡</span>
-						</Avatar>
-						<h4 class="text-xl font-orbitron font-bold mb-2 text-white">Instant Play</h4>
-						<p class="text-gray-400">No downloads required. Jump into any game instantly from your browser.</p>
-					</div>
+					<FeatureCard 
+						icon="⚡"
+						title="Instant Play"
+						description="No downloads required. Jump into any game instantly from your browser."
+						variant="cyan-purple"
+					/>
 					
-					<div class="text-center group">
-						<Avatar variant="purple-pink" size="lg" class="mx-auto mb-4">
-							<span class="text-2xl">🌐</span>
-						</Avatar>
-						<h4 class="text-xl font-orbitron font-bold mb-2 text-white">Cross Platform</h4>
-						<p class="text-gray-400">Play seamlessly across desktop, mobile, and tablet devices.</p>
-					</div>
+					<FeatureCard 
+						icon="🌐"
+						title="Cross Platform"
+						description="Play seamlessly across desktop, mobile, and tablet devices."
+						variant="purple-pink"
+					/>
 					
-					<div class="text-center group">
-						<Avatar variant="pink-cyan" size="lg" class="mx-auto mb-4">
-							<span class="text-2xl">🎮</span>
-						</Avatar>
-						<h4 class="text-xl font-orbitron font-bold mb-2 text-white">Skill Building</h4>
-						<p class="text-gray-400">Challenge yourself and improve your skills with engaging gameplay.</p>
-					</div>
+					<FeatureCard 
+						icon="🎮"
+						title="Skill Building"
+						description="Challenge yourself and improve your skills with engaging gameplay."
+						variant="pink-cyan"
+					/>
 				</div>
-			</div>
-		</section>
+			</Container>
+		</Section>
 		<!-- CTA Section -->
-		<section class="relative z-10 px-6 py-16">
-			<div class="max-w-4xl mx-auto text-center">
+		<Section variant="cta">
+			<Container class="max-w-4xl text-center">
 				<Card variant="glass" class="p-12">
-					<h3 class="text-3xl font-orbitron font-bold mb-4 text-holographic">
+					<Heading level={3} variant="section" align="center" class="mb-4">
 						Ready to Start Playing?
-					</h3>
+					</Heading>
 					<p class="text-gray-300 mb-8 text-lg">
 						Join thousands of players already having fun with our games
 					</p>
 					<Button variant="primary" size="lg">Launch Game Hub 🚀</Button>
 				</Card>
-			</div>
-		</section>
+			</Container>
+		</Section>
 
 		<!-- Footer -->
-		<footer class="relative z-10 px-6 py-8 border-t border-slate-700/50">
-			<div class="max-w-7xl mx-auto text-center">
-				<p class="text-gray-400">
-					© 2025 Cetus Games. Built for the future of party entertainment.
-				</p>
-			</div>
-		</footer>
+		<Footer />
 
 		<script>
 			// Add some interactive effects using pure DOM manipulation

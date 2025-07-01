@@ -1,0 +1,83 @@
+---
+import { cn } from "@/lib/utils"
+import Card from './Card.astro'
+import Badge from './Badge.astro'
+import Button from './Button.astro'
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'div'> {
+  game: {
+    id: number
+    title: string
+    description: string
+    icon: string
+    duration: string
+    difficulty: string
+    available: boolean
+  }
+  class?: string
+}
+
+const { 
+  game,
+  class: className = '',
+  ...props 
+} = Astro.props
+
+const classes = cn(
+  className
+)
+
+const getDifficultyVariant = (difficulty: string) => {
+  switch (difficulty) {
+    case 'Easy': return 'success'
+    case 'Medium': return 'warning'
+    case 'Hard': return 'error'
+    default: return 'outline'
+  }
+}
+
+const getGameUrl = (title: string) => {
+  switch (title) {
+    case 'Quick Draw Challenge': return '/drawing'
+    default: return '#'
+  }
+}
+---
+
+<Card variant="sci-fi" class={cn("p-6", classes)} {...props}>
+  <div class="relative z-10">
+    <div class="flex items-center justify-between mb-4">
+      <span class="text-4xl animate-float">{game.icon}</span>
+      <div class="text-right">
+        <div class="text-xs text-gray-400">{game.duration}</div>
+      </div>
+    </div>
+    
+    <h4 class="text-xl font-orbitron font-bold mb-2 text-white group-hover:text-cyan-400 transition-colors duration-300">
+      {game.title}
+    </h4>
+    
+    <p class="text-gray-300 mb-4 text-sm leading-relaxed">
+      {game.description}
+    </p>
+    
+    <div class="flex items-center justify-between">
+      <Badge variant={getDifficultyVariant(game.difficulty)}>
+        {game.difficulty}
+      </Badge>
+      
+      {game.available ? (
+        <Button variant="primary" size="sm">
+          <a href={getGameUrl(game.title)} class="text-white no-underline">
+            Play Now
+          </a>
+        </Button>
+      ) : (
+        <Badge variant="outline">
+          Coming Soon
+        </Badge>
+      )}
+    </div>
+  </div>
+</Card>

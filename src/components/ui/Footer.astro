@@ -1,0 +1,28 @@
+---
+import { cn } from "@/lib/utils"
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'footer'> {
+  copyright?: string
+  class?: string
+}
+
+const { 
+  copyright = "© 2025 Cetus Games. Built for the future of gaming entertainment.",
+  class: className = '',
+  ...props 
+} = Astro.props
+
+const classes = cn(
+  "relative z-10 px-6 py-8 border-t border-slate-700/50",
+  className
+)
+---
+
+<footer class={classes} {...props}>
+  <div class="max-w-7xl mx-auto text-center">
+    <p class="text-gray-400">
+      {copyright}
+    </p>
+  </div>
+</footer>
