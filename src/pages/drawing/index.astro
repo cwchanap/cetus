@@ -3,7 +3,6 @@ import '@/styles/global.css';
 import Button from '@/components/ui/Button.astro';
 import Card from '@/components/ui/Card.astro';
 import Badge from '@/components/ui/Badge.astro';
-import Avatar from '@/components/ui/Avatar.astro';
 ---
 
 <html lang="en" class="dark">
@@ -12,7 +11,7 @@ import Avatar from '@/components/ui/Avatar.astro';
 		<meta name="viewport" content="width=device-width" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Quick Draw Lobby - Cetus Party Games</title>
+		<title>Quick Draw Challenge - Cetus Minigames</title>
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -23,250 +22,190 @@ import Avatar from '@/components/ui/Avatar.astro';
 		<div class="fixed inset-0 pointer-events-none">
 			<div class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"></div>
 			<div class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse" style="animation-delay: 1s;"></div>
-			<div class="absolute inset-0 bg-gradient-radial from-pink-400/20 via-transparent to-transparent animate-pulse" style="animation-delay: 2s;"></div>
 		</div>
 
 		<!-- Header -->
 		<header class="relative z-10 px-6 py-4 border-b border-slate-700/50">
 			<nav class="max-w-7xl mx-auto flex items-center justify-between">
 				<div class="flex items-center space-x-3">
-					<a href="/" class="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+					<a href="/" class="flex items-center space-x-3">
 						<div class="w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-400/25">
 							<span class="text-lg font-bold text-white">C</span>
 						</div>
 						<h1 class="text-xl font-orbitron font-bold text-holographic">CETUS</h1>
 					</a>
-					<div class="text-cyan-400 text-sm">/ Quick Draw</div>
+					<div class="text-cyan-400 text-sm">/ Single Player Drawing Challenge</div>
 				</div>
 				<div class="flex items-center space-x-4">
-					<Badge variant="outline">Lobby</Badge>
 					<Button variant="outline" size="sm">
-						<span class="mr-2">⚙️</span>
-						Settings
+						<a href="/" class="text-white no-underline flex items-center">
+							<span class="mr-2">🏠</span>
+							Back to Menu
+						</a>
 					</Button>
 				</div>
 			</nav>
 		</header>
 
 		<main class="relative z-10 px-6 py-8">
-			<div class="max-w-6xl mx-auto">
-				<!-- Game Title & Description -->
-				<div class="text-center mb-12">
-					<div class="flex items-center justify-center mb-6">
-						<div class="w-16 h-16 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-400/25 mr-4">
-							<span class="text-3xl">🎨</span>
-						</div>
-						<div>
-							<h1 class="text-4xl md:text-5xl font-orbitron font-bold text-holographic mb-2">Quick Draw</h1>
-							<p class="text-xl text-gray-300">Draw, guess, and compete in this fast-paced art game!</p>
-						</div>
-					</div>
-					<p class="text-gray-400 max-w-2xl mx-auto text-lg">
-						Take turns drawing words while others guess. Race against time to earn points and climb the leaderboard in this exciting multiplayer drawing challenge.
-					</p>
+			<div class="max-w-7xl mx-auto">
+				<!-- Game Status Bar -->
+				<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+					<Card variant="sci-fi" class="p-6 text-center">
+						<h3 class="text-lg font-orbitron font-bold mb-2 text-cyan-400">Score</h3>
+						<div class="text-3xl font-bold text-white" id="score-counter">0</div>
+					</Card>
+					
+					<Card variant="sci-fi" class="p-6 text-center">
+						<h3 class="text-lg font-orbitron font-bold mb-2 text-purple-400">Time Remaining</h3>
+						<div class="text-3xl font-bold text-white" id="timer">01:30</div>
+					</Card>
+					
+					<Card variant="sci-fi" class="p-6 text-center">
+						<h3 class="text-lg font-orbitron font-bold mb-2 text-pink-400">Current Round</h3>
+						<div class="text-xl font-bold text-white" id="round-counter">1 / 5</div>
+					</Card>
 				</div>
 
-				<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-					<!-- Game Rooms -->
-					<div class="lg:col-span-2 space-y-6">
-						<div class="flex items-center justify-between">
-							<h2 class="text-2xl font-orbitron font-bold text-cyan-400">Available Rooms</h2>
-							<Button variant="primary" size="sm" id="create-room-btn">
-								<span class="mr-2">➕</span>
-								Create Room
-							</Button>
-						</div>
+				<!-- Main Game Area -->
+				<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+					<!-- Drawing Canvas Section -->
+					<div class="lg:col-span-3">
+						<Card variant="sci-fi" class="p-6">
+							<!-- Word Display (for artist) -->
+							<div class="mb-4 text-center">
+								<div class="bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-400/30 rounded-lg p-4">
+									<p class="text-sm text-cyan-400 mb-1">Draw this word:</p>
+									<h2 class="text-2xl font-orbitron font-bold text-white" id="word-to-draw">SPACESHIP</h2>
+								</div>
+							</div>
 
-						<!-- Room List -->
-						<div class="space-y-4">
-							<!-- Active Room -->
-							<Card variant="sci-fi" class="p-6 hover:border-cyan-400/50 transition-colors cursor-pointer">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center space-x-4">
-										<div class="w-12 h-12 bg-gradient-to-r from-green-400 to-cyan-500 rounded-xl flex items-center justify-center">
-											<span class="text-2xl">🌟</span>
-										</div>
-										<div>
-											<h3 class="text-xl font-bold text-white">Cosmic Artists</h3>
-											<p class="text-gray-400">Round 2/5 • 3 minutes per turn</p>
-											<div class="flex items-center space-x-2 mt-1">
-												<Badge variant="success" size="sm">In Progress</Badge>
-												<span class="text-sm text-gray-500">Started 5 min ago</span>
-											</div>
-										</div>
+							<!-- Drawing Tools -->
+							<div class="flex items-center justify-between mb-4 p-4 bg-glass border border-slate-600/50 rounded-lg">
+								<div class="flex items-center space-x-4">
+									<div class="flex items-center space-x-2">
+										<span class="text-sm text-gray-400">Brush:</span>
+										<button class="w-10 h-10 bg-glass border border-cyan-400 bg-cyan-400/20 rounded-lg flex items-center justify-center hover:border-cyan-400 transition-colors" data-tool="brush">
+											<span class="text-xl">🖌️</span>
+										</button>
+										<button class="w-10 h-10 bg-glass border border-slate-600 rounded-lg flex items-center justify-center hover:border-cyan-400 transition-colors" data-tool="eraser">
+											<span class="text-xl">🧽</span>
+										</button>
 									</div>
-									<div class="text-right">
-										<div class="flex items-center space-x-2 mb-2">
-											<span class="text-2xl text-green-400">👥</span>
-											<span class="text-lg font-bold text-white player-count">4/6</span>
-										</div>
-										<Button variant="outline" size="sm" class="spectate-btn">
-											<span class="mr-2">👁️</span>
-											Spectate
-										</Button>
+									
+									<div class="flex items-center space-x-2">
+										<span class="text-sm text-gray-400">Size:</span>
+										<input type="range" id="brush-size" min="1" max="20" value="3" class="w-20 accent-cyan-400">
+										<span id="size-display" class="text-sm text-white w-6">3</span>
 									</div>
 								</div>
-							</Card>
 
-							<!-- Waiting Room -->
-							<Card variant="sci-fi" class="p-6 hover:border-cyan-400/50 transition-colors cursor-pointer" id="joinable-room">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center space-x-4">
-										<div class="w-12 h-12 bg-gradient-to-r from-purple-400 to-pink-500 rounded-xl flex items-center justify-center">
-											<span class="text-2xl">🎯</span>
-										</div>
-										<div>
-											<h3 class="text-xl font-bold text-white">Neon Sketchers</h3>
-											<p class="text-gray-400">Round 1/3 • 2 minutes per turn</p>
-											<div class="flex items-center space-x-2 mt-1">
-												<Badge variant="warning" size="sm">Waiting</Badge>
-												<span class="text-sm text-gray-500">Host: Player_2047</span>
-											</div>
-										</div>
+								<div class="flex items-center space-x-2">
+									<span class="text-sm text-gray-400">Colors:</span>
+									<div class="flex space-x-1">
+										<button class="w-8 h-8 rounded-full border-2 border-cyan-400 ring-2 ring-cyan-400/50 hover:border-white transition-colors cursor-pointer" data-color="#ffffff" style="background-color: #ffffff;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#000000" style="background-color: #000000;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#ff0000" style="background-color: #ff0000;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#00ff00" style="background-color: #00ff00;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#0000ff" style="background-color: #0000ff;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#ffff00" style="background-color: #ffff00;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#ff00ff" style="background-color: #ff00ff;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#00ffff" style="background-color: #00ffff;"></button>
 									</div>
-									<div class="text-right">
-										<div class="flex items-center space-x-2 mb-2">
-											<span class="text-2xl text-yellow-400">👥</span>
-											<span class="text-lg font-bold text-white player-count">2/4</span>
-										</div>
-										<Button variant="primary" size="sm" class="join-btn">
-											<span class="mr-2">🚀</span>
-											Join Game
-										</Button>
-									</div>
-								</div>
-							</Card>
-
-							<!-- Quick Match -->
-							<Card variant="sci-fi" class="p-6 border-dashed border-cyan-400/30 hover:border-cyan-400/50 transition-colors">
-								<div class="text-center py-8">
-									<div class="w-16 h-16 bg-gradient-to-r from-cyan-400/20 to-purple-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-										<span class="text-3xl">⚡</span>
-									</div>
-									<h3 class="text-xl font-bold text-white mb-2">Quick Match</h3>
-									<p class="text-gray-400 mb-4">Jump into the next available game instantly</p>
-									<Button variant="primary" size="lg" class="quick-match-btn">
-										<span class="mr-2">🎲</span>
-										Find Match
+									<Button variant="outline" size="sm" id="clear-canvas">
+										Clear
 									</Button>
 								</div>
-							</Card>
+							</div>
 
-							<!-- Empty State -->
-							<Card variant="sci-fi" class="p-6 opacity-50">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center space-x-4">
-										<div class="w-12 h-12 bg-gray-600 rounded-xl flex items-center justify-center">
-											<span class="text-2xl">💤</span>
-										</div>
-										<div>
-											<h3 class="text-xl font-bold text-gray-400">No More Rooms</h3>
-											<p class="text-gray-500">Create a new room to start playing</p>
-										</div>
-									</div>
-									<Button variant="outline" size="sm" disabled>
-										<span class="mr-2">🔒</span>
-										Full
-									</Button>
-								</div>
-							</Card>
-						</div>
+							<!-- Canvas -->
+							<div class="relative bg-white rounded-lg border-2 border-cyan-400/30 overflow-hidden" style="aspect-ratio: 16/10;">
+								<div 
+									id="drawing-container" 
+									class="w-full h-full"
+								></div>
+							</div>
+						</Card>
 					</div>
 
 					<!-- Sidebar -->
 					<div class="space-y-6">
-						<!-- Player Profile -->
+						<!-- Current Challenge -->
 						<Card variant="sci-fi" class="p-6">
 							<h3 class="text-lg font-orbitron font-bold mb-4 text-cyan-400">
-								<span class="mr-2">🎮</span>
-								Your Profile
+								<span class="mr-2">🎯</span>
+								Challenge
 							</h3>
 							<div class="text-center">
-								<Avatar size="lg" class="mx-auto mb-4">
-									<div class="w-full h-full bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full flex items-center justify-center">
-										<span class="text-2xl font-bold text-white">U</span>
-									</div>
-								</Avatar>
-								<h4 class="text-lg font-bold text-white mb-1">Anonymous_User</h4>
-								<p class="text-gray-400 text-sm mb-4">New Artist</p>
+								<div class="text-lg font-bold text-white mb-2">Draw the word above!</div>
+								<p class="text-gray-400 text-sm mb-4">You have 90 seconds to complete your drawing.</p>
 								
-								<div class="grid grid-cols-2 gap-4 mb-4">
-									<div class="text-center">
-										<div class="text-2xl font-bold text-cyan-400">0</div>
-										<div class="text-xs text-gray-400">Games Won</div>
+								<div class="space-y-2">
+									<div class="flex justify-between text-sm">
+										<span class="text-gray-400">Best Time:</span>
+										<span class="text-green-400 font-medium">45s</span>
 									</div>
-									<div class="text-center">
-										<div class="text-2xl font-bold text-purple-400">0</div>
-										<div class="text-xs text-gray-400">Best Score</div>
+									<div class="flex justify-between text-sm">
+										<span class="text-gray-400">High Score:</span>
+										<span class="text-cyan-400 font-medium">2,850</span>
 									</div>
 								</div>
-
-								<Button variant="outline" size="sm" class="w-full">
-									<span class="mr-2">✏️</span>
-									Edit Profile
-								</Button>
 							</div>
 						</Card>
 
-						<!-- Game Rules -->
+						<!-- Progress -->
 						<Card variant="sci-fi" class="p-6">
 							<h3 class="text-lg font-orbitron font-bold mb-4 text-purple-400">
-								<span class="mr-2">📋</span>
-								How to Play
+								<span class="mr-2">📈</span>
+								Progress
 							</h3>
-							<div class="space-y-3 text-sm">
-								<div class="flex items-start space-x-3">
-									<span class="text-cyan-400 font-bold">1.</span>
-									<p class="text-gray-300">Take turns drawing words given to you</p>
+							<div class="space-y-3">
+								<div class="flex justify-between items-center">
+									<span class="text-gray-300">Round 1</span>
+									<Badge variant="success" size="sm">✓ Complete</Badge>
 								</div>
-								<div class="flex items-start space-x-3">
-									<span class="text-cyan-400 font-bold">2.</span>
-									<p class="text-gray-300">Other players guess what you're drawing</p>
+								<div class="flex justify-between items-center">
+									<span class="text-gray-300">Round 2</span>
+									<Badge variant="warning" size="sm">● Current</Badge>
 								</div>
-								<div class="flex items-start space-x-3">
-									<span class="text-cyan-400 font-bold">3.</span>
-									<p class="text-gray-300">Earn points for correct guesses and good drawings</p>
+								<div class="flex justify-between items-center">
+									<span class="text-gray-400">Round 3</span>
+									<Badge variant="outline" size="sm">○ Pending</Badge>
 								</div>
-								<div class="flex items-start space-x-3">
-									<span class="text-cyan-400 font-bold">4.</span>
-									<p class="text-gray-300">Player with most points wins!</p>
+								<div class="flex justify-between items-center">
+									<span class="text-gray-400">Round 4</span>
+									<Badge variant="outline" size="sm">○ Pending</Badge>
+								</div>
+								<div class="flex justify-between items-center">
+									<span class="text-gray-400">Round 5</span>
+									<Badge variant="outline" size="sm">○ Pending</Badge>
 								</div>
 							</div>
 						</Card>
 
-						<!-- Recent Activity -->
+						<!-- Game Controls -->
 						<Card variant="sci-fi" class="p-6">
 							<h3 class="text-lg font-orbitron font-bold mb-4 text-pink-400">
-								<span class="mr-2">📈</span>
-								Leaderboard
+								<span class="mr-2">🎮</span>
+								Controls
 							</h3>
 							<div class="space-y-3">
-								<div class="flex items-center justify-between p-2 bg-glass rounded-lg">
-									<div class="flex items-center space-x-3">
-										<span class="text-lg">🥇</span>
-										<span class="text-white font-medium">ArtMaster_3000</span>
-									</div>
-									<Badge variant="success" size="sm">1,250</Badge>
-								</div>
-								<div class="flex items-center justify-between p-2 bg-glass rounded-lg">
-									<div class="flex items-center space-x-3">
-										<span class="text-lg">🥈</span>
-										<span class="text-white font-medium">PixelPainter</span>
-									</div>
-									<Badge variant="warning" size="sm">1,180</Badge>
-								</div>
-								<div class="flex items-center justify-between p-2 bg-glass rounded-lg">
-									<div class="flex items-center space-x-3">
-										<span class="text-lg">🥉</span>
-										<span class="text-white font-medium">CosmicSketch</span>
-									</div>
-									<Badge variant="error" size="sm">1,050</Badge>
-								</div>
-								<div class="text-center pt-2">
-									<Button variant="outline" size="sm">
-										View Full Rankings
-									</Button>
-								</div>
+								<Button variant="outline" class="w-full justify-start" id="new-word-btn">
+									<span class="mr-2">🔄</span>
+									New Word
+								</Button>
+								<Button variant="outline" class="w-full justify-start" id="skip-round-btn">
+									<span class="mr-2">⏭️</span>
+									Skip Round
+								</Button>
+								<Button variant="primary" class="w-full justify-start" id="finish-drawing-btn">
+									<span class="mr-2">✅</span>
+									Finish Drawing
+								</Button>
+								<Button variant="destructive" class="w-full justify-start" id="quit-game-btn">
+									<span class="mr-2">🚪</span>
+									Quit Game
+								</Button>
 							</div>
 						</Card>
 					</div>
@@ -274,185 +213,341 @@ import Avatar from '@/components/ui/Avatar.astro';
 			</div>
 		</main>
 
+		<style>
+			#drawing-container canvas {
+				cursor: crosshair;
+			}
+			
+			.cursor-brush canvas {
+				cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2" fill="cyan"/></svg>') 8 8, crosshair;
+			}
+			
+			.cursor-eraser canvas {
+				cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" fill="red" opacity="0.5"/></svg>') 8 8, crosshair;
+			}
+		</style>
+
 		<script>
-			document.addEventListener('DOMContentLoaded', () => {
-				// Get button elements
-				const joinBtn = document.querySelector('.join-btn');
-				const quickMatchBtn = document.querySelector('.quick-match-btn');
-				const spectateBtn = document.querySelector('.spectate-btn');
-				const createRoomBtn = document.getElementById('create-room-btn');
-
-				// Create Room Modal Functions
-				function createRoomModal() {
-					const modal = document.createElement('div');
-					modal.className = 'fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4';
-					modal.innerHTML = `
-						<div class="bg-sci-fi-dark border border-cyan-400/30 rounded-2xl p-8 max-w-md w-full relative overflow-hidden">
-							<div class="absolute inset-0 bg-gradient-to-br from-cyan-400/10 to-purple-500/10"></div>
-							<div class="relative z-10">
-								<div class="flex items-center justify-between mb-6">
-									<h3 class="text-2xl font-orbitron font-bold text-cyan-400">Create Room</h3>
-									<button class="close-modal text-gray-400 hover:text-white text-2xl">&times;</button>
-								</div>
-								
-								<form class="space-y-4">
-									<div>
-										<label class="block text-sm font-medium text-gray-300 mb-2">Room Name</label>
-										<input type="text" placeholder="Enter room name..." 
-											class="w-full px-4 py-3 bg-glass border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:border-cyan-400 focus:outline-none">
-									</div>
-									
-									<div class="grid grid-cols-2 gap-4">
-										<div>
-											<label class="block text-sm font-medium text-gray-300 mb-2">Max Players</label>
-											<select class="w-full px-4 py-3 bg-glass border border-slate-600 rounded-lg text-white focus:border-cyan-400 focus:outline-none">
-												<option value="4">4 Players</option>
-												<option value="6">6 Players</option>
-												<option value="8">8 Players</option>
-											</select>
-										</div>
-										<div>
-											<label class="block text-sm font-medium text-gray-300 mb-2">Rounds</label>
-											<select class="w-full px-4 py-3 bg-glass border border-slate-600 rounded-lg text-white focus:border-cyan-400 focus:outline-none">
-												<option value="3">3 Rounds</option>
-												<option value="5">5 Rounds</option>
-												<option value="7">7 Rounds</option>
-											</select>
-										</div>
-									</div>
-									
-									<div>
-										<label class="block text-sm font-medium text-gray-300 mb-2">Time per Turn</label>
-										<select class="w-full px-4 py-3 bg-glass border border-slate-600 rounded-lg text-white focus:border-cyan-400 focus:outline-none">
-											<option value="60">1 minute</option>
-											<option value="90">1.5 minutes</option>
-											<option value="120">2 minutes</option>
-											<option value="180">3 minutes</option>
-										</select>
-									</div>
-									
-									<div class="flex items-center space-x-3">
-										<input type="checkbox" id="private-room" class="w-4 h-4 text-cyan-400 bg-glass border-slate-600 rounded focus:ring-cyan-400">
-										<label for="private-room" class="text-sm text-gray-300">Private Room</label>
-									</div>
-									
-									<div class="flex space-x-3 pt-4">
-										<button type="button" class="close-modal flex-1 px-4 py-3 bg-glass border border-slate-600 rounded-lg text-gray-300 hover:border-gray-400 transition-colors">
-											Cancel
-										</button>
-										<button type="submit" class="create-room-submit flex-1 px-4 py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-lg text-white font-medium hover:from-cyan-400 hover:to-purple-500 transition-all">
-											Create Room
-										</button>
-									</div>
-								</form>
-							</div>
-						</div>
-					`;
-
-					document.body.appendChild(modal);
-
-					// Modal event handlers
-					const closeButtons = modal.querySelectorAll('.close-modal');
-					closeButtons.forEach(btn => {
-						btn.addEventListener('click', () => {
-							document.body.removeChild(modal);
-						});
-					});
-
-					modal.addEventListener('click', (e) => {
-						if (e.target === modal) {
-							document.body.removeChild(modal);
-						}
-					});
-
-					modal.querySelector('.create-room-submit')?.addEventListener('click', (e) => {
-						e.preventDefault();
-						// Simulate room creation
-						const target = e.target as HTMLButtonElement;
-						target.innerHTML = '⏳ Creating...';
-						target.disabled = true;
-						
-						setTimeout(() => {
-							window.location.href = '/drawing/game';
-						}, 1500);
-					});
-				}
-
-				// Event Listeners
-				if (createRoomBtn) {
-					createRoomBtn.addEventListener('click', createRoomModal);
-				}
-
-				if (joinBtn) {
-					joinBtn.addEventListener('click', () => {
-						(joinBtn as HTMLElement).innerHTML = '<span class="mr-2">⏳</span>Joining...';
-						(joinBtn as HTMLButtonElement).disabled = true;
-						
-						setTimeout(() => {
-							window.location.href = '/drawing/game';
-						}, 1500);
-					});
-				}
-
-				if (quickMatchBtn) {
-					quickMatchBtn.addEventListener('click', () => {
-						(quickMatchBtn as HTMLElement).innerHTML = '<span class="mr-2">🔍</span>Finding...';
-						(quickMatchBtn as HTMLButtonElement).disabled = true;
-						
-						setTimeout(() => {
-							window.location.href = '/drawing/game';
-						}, 2000);
-					});
-				}
-
-				if (spectateBtn) {
-					spectateBtn.addEventListener('click', () => {
-						(spectateBtn as HTMLElement).innerHTML = '<span class="mr-2">👁️</span>Loading...';
-						(spectateBtn as HTMLButtonElement).disabled = true;
-						
-						setTimeout(() => {
-							window.location.href = '/drawing/game?mode=spectate';
-						}, 1000);
-					});
-				}
-
-				// Room click handlers
-				const joinableRoom = document.getElementById('joinable-room');
-				if (joinableRoom) {
-					joinableRoom.addEventListener('click', (e) => {
-						if (e.target && !(e.target as Element).closest('button')) {
-							(joinBtn as HTMLButtonElement | null)?.click();
-						}
-					});
-				}
-
-				// Animate room list on load
-				const cards = document.querySelectorAll('main [class*="Card"]');
-				cards.forEach((card, index) => {
-					const htmlCard = card as HTMLElement;
-					htmlCard.style.opacity = '0';
-					htmlCard.style.transform = 'translateY(20px)';
-					
-					setTimeout(() => {
-						htmlCard.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-						htmlCard.style.opacity = '1';
-						htmlCard.style.transform = 'translateY(0)';
-					}, index * 100);
+			import * as PIXI from 'pixi.js';
+			
+			// Drawing functionality with PixiJS
+			document.addEventListener('DOMContentLoaded', async () => {
+				const container = document.getElementById('drawing-container');
+				if (!container) return;
+				
+				// Create PixiJS application
+				const app = new PIXI.Application();
+				await app.init({
+					width: 800,
+					height: 500,
+					backgroundColor: '#ffffff',
+					antialias: true,
+					resolution: window.devicePixelRatio || 1,
+					autoDensity: true,
 				});
-
-				// Add some dynamic updates
-				setInterval(() => {
-					const playerCounts = document.querySelectorAll('.player-count');
-					playerCounts.forEach(count => {
-						if (count.textContent?.includes('/')) {
-							const [current, max] = count.textContent.split('/');
-							const newCurrent = Math.min(parseInt(max), Math.max(1, parseInt(current) + (Math.random() > 0.8 ? (Math.random() > 0.5 ? 1 : -1) : 0)));
-							if (newCurrent !== parseInt(current)) {
-								count.textContent = `${newCurrent}/${max}`;
-							}
+				
+				// Add the canvas to the DOM
+				container.appendChild(app.canvas);
+				app.canvas.style.width = '100%';
+				app.canvas.style.height = '100%';
+				app.canvas.style.cursor = 'crosshair';
+				
+				// Drawing state
+				let isDrawing = false;
+				let currentTool = 'brush';
+				let currentColor = 0xffffff; // White in hex
+				let currentSize = 3;
+				let lastPoint = { x: 0, y: 0 };
+				
+				// Create graphics object for drawing
+				const drawingGraphics = new PIXI.Graphics();
+				app.stage.addChild(drawingGraphics);
+				
+				// Color conversion helper
+				function hexStringToNumber(hexString: string): number {
+					return parseInt(hexString.replace('#', ''), 16);
+				}
+				
+				function getLocalPosition(event: MouseEvent | Touch): PIXI.Point {
+					const rect = app.canvas.getBoundingClientRect();
+					const scaleX = app.screen.width / rect.width;
+					const scaleY = app.screen.height / rect.height;
+					
+					return new PIXI.Point(
+						(event.clientX - rect.left) * scaleX,
+						(event.clientY - rect.top) * scaleY
+					);
+				}
+				
+				function startDrawing(event: MouseEvent | Touch) {
+					isDrawing = true;
+					const point = getLocalPosition(event);
+					lastPoint = { x: point.x, y: point.y };
+					
+					// Start a new drawing path for brush tool
+					if (currentTool === 'brush') {
+						drawingGraphics.moveTo(point.x, point.y);
+					}
+				}
+				
+				function draw(event: MouseEvent | Touch) {
+					if (!isDrawing) return;
+					
+					const point = getLocalPosition(event);
+					
+					if (currentTool === 'brush') {
+						// Draw smooth line with current color
+						drawingGraphics.stroke({ 
+							color: currentColor, 
+							width: currentSize,
+							cap: 'round',
+							join: 'round'
+						});
+						drawingGraphics.moveTo(lastPoint.x, lastPoint.y);
+						drawingGraphics.lineTo(point.x, point.y);
+					} else if (currentTool === 'eraser') {
+						// Eraser using destination-out blend mode
+						const tempGraphics = new PIXI.Graphics();
+						tempGraphics.blendMode = 'destination-out' as any;
+						tempGraphics.circle(point.x, point.y, currentSize);
+						tempGraphics.fill(0xffffff);
+						app.stage.addChild(tempGraphics);
+						
+						// Remove the temporary graphics after a frame
+						setTimeout(() => {
+							app.stage.removeChild(tempGraphics);
+						}, 16);
+					}
+					
+					lastPoint = { x: point.x, y: point.y };
+				}
+				
+				function stopDrawing() {
+					isDrawing = false;
+				}
+				
+				function clearCanvas() {
+					drawingGraphics.clear();
+					// Redraw white background
+					drawingGraphics.rect(0, 0, app.screen.width, app.screen.height);
+					drawingGraphics.fill(0xffffff);
+				}
+				
+				function updateCursor() {
+					if (currentTool === 'brush') {
+						app.canvas.className = 'w-full h-full cursor-brush';
+					} else {
+						app.canvas.className = 'w-full h-full cursor-eraser';
+					}
+				}
+				
+				// Mouse events
+				app.canvas.addEventListener('mousedown', (e) => startDrawing(e));
+				app.canvas.addEventListener('mousemove', (e) => draw(e));
+				app.canvas.addEventListener('mouseup', stopDrawing);
+				app.canvas.addEventListener('mouseleave', stopDrawing);
+				
+				// Touch events
+				app.canvas.addEventListener('touchstart', (e) => {
+					e.preventDefault();
+					startDrawing(e.touches[0]);
+				});
+				app.canvas.addEventListener('touchmove', (e) => {
+					e.preventDefault();
+					draw(e.touches[0]);
+				});
+				app.canvas.addEventListener('touchend', (e) => {
+					e.preventDefault();
+					stopDrawing();
+				});
+				
+				// Tool selection
+				document.querySelectorAll('[data-tool]').forEach(btn => {
+					btn.addEventListener('click', () => {
+						// Remove active state from all tool buttons
+						document.querySelectorAll('[data-tool]').forEach(b => {
+							b.classList.remove('border-cyan-400', 'bg-cyan-400/20');
+							b.classList.add('border-slate-600');
+						});
+						// Add active state to clicked button
+						btn.classList.remove('border-slate-600');
+						btn.classList.add('border-cyan-400', 'bg-cyan-400/20');
+						
+						const toolBtn = btn as HTMLElement;
+						currentTool = toolBtn.dataset.tool || 'brush';
+						updateCursor();
+					});
+				});
+				
+				// Color selection
+				document.querySelectorAll('[data-color]').forEach(btn => {
+					btn.addEventListener('click', () => {
+						// Remove active state from all color buttons
+						document.querySelectorAll('[data-color]').forEach(b => {
+							b.classList.remove('border-cyan-400', 'ring-2', 'ring-cyan-400/50');
+							b.classList.add('border-slate-600');
+						});
+						// Add active state to clicked button
+						btn.classList.remove('border-slate-600');
+						btn.classList.add('border-cyan-400', 'ring-2', 'ring-cyan-400/50');
+						
+						const colorBtn = btn as HTMLElement;
+						const colorStr = colorBtn.dataset.color || '#ffffff';
+						currentColor = hexStringToNumber(colorStr);
+					});
+				});
+				
+				// Brush size
+				const sizeSlider = document.getElementById('brush-size') as HTMLInputElement;
+				const sizeDisplay = document.getElementById('size-display');
+				if (sizeSlider && sizeDisplay) {
+					sizeSlider.addEventListener('input', () => {
+						currentSize = parseInt(sizeSlider.value);
+						sizeDisplay.textContent = currentSize.toString();
+					});
+				}
+				
+				// Clear canvas
+				const clearBtn = document.getElementById('clear-canvas');
+				if (clearBtn) {
+					clearBtn.addEventListener('click', clearCanvas);
+				}
+				
+				// Chat functionality
+				function addGameMessage(message: string, type: 'info' | 'success' | 'warning' = 'info') {
+					const scoreDisplay = document.getElementById('score-counter');
+					if (!scoreDisplay) return;
+					
+					// Show message as a temporary overlay or update score
+					console.log(`Game: ${message}`);
+				}
+				
+				function updateScore(points: number) {
+					const scoreDisplay = document.getElementById('score-counter');
+					if (!scoreDisplay) return;
+					
+					const currentScore = parseInt(scoreDisplay.textContent || '0');
+					const newScore = currentScore + points;
+					scoreDisplay.textContent = newScore.toString();
+				}
+				
+				// Single player game words
+				const gameWords = [
+					'SPACESHIP', 'ROBOT', 'PLANET', 'STAR', 'GALAXY', 'ROCKET',
+					'ALIEN', 'METEOR', 'COMET', 'SATELLITE', 'ASTRONAUT', 'MOON',
+					'SUN', 'UNIVERSE', 'NEBULA', 'ASTEROID', 'TELESCOPE', 'ORBIT'
+				];
+				
+				let currentWordIndex = 0;
+				let currentRound = 1;
+				let gameScore = 0;
+				
+				function getNextWord() {
+					const word = gameWords[Math.floor(Math.random() * gameWords.length)];
+					const wordDisplay = document.getElementById('word-to-draw');
+					if (wordDisplay) {
+						wordDisplay.textContent = word;
+					}
+					return word;
+				}
+				
+				function nextRound() {
+					currentRound++;
+					const roundDisplay = document.getElementById('round-counter');
+					if (roundDisplay) {
+						roundDisplay.textContent = `${currentRound} / 5`;
+					}
+					
+					if (currentRound > 5) {
+						// Game complete
+						addGameMessage('Game Complete! Well done!', 'success');
+						return;
+					}
+					
+					getNextWord();
+					resetTimer();
+				}
+				
+				function setupTimer() {
+					let timeLeft = 90; // 1:30
+					const timerDisplay = document.getElementById('timer');
+					if (!timerDisplay) return;
+					
+					const timer = setInterval(() => {
+						const minutes = Math.floor(timeLeft / 60);
+						const seconds = timeLeft % 60;
+						timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+						
+						if (timeLeft <= 0) {
+							clearInterval(timer);
+							addGameMessage('Time\'s up! Moving to next round...', 'warning');
+							setTimeout(() => nextRound(), 2000);
+						}
+						timeLeft--;
+					}, 1000);
+					
+					return timer;
+				}
+				
+				function resetTimer() {
+					setupTimer();
+				}
+				
+				// Game control handlers
+				const newWordBtn = document.getElementById('new-word-btn');
+				const skipRoundBtn = document.getElementById('skip-round-btn');
+				const finishDrawingBtn = document.getElementById('finish-drawing-btn');
+				const quitGameBtn = document.getElementById('quit-game-btn');
+				
+				if (newWordBtn) {
+					newWordBtn.addEventListener('click', () => {
+						getNextWord();
+						addGameMessage('New word generated!', 'info');
+					});
+				}
+				
+				if (skipRoundBtn) {
+					skipRoundBtn.addEventListener('click', () => {
+						nextRound();
+					});
+				}
+				
+				if (finishDrawingBtn) {
+					finishDrawingBtn.addEventListener('click', () => {
+						const basePoints = 100;
+						const timerElement = document.getElementById('timer');
+						const timeRemaining = timerElement?.textContent || '01:30';
+						const [minutes, seconds] = timeRemaining.split(':').map(Number);
+						const totalSecondsLeft = (minutes * 60) + seconds;
+						const timeBonus = Math.max(0, totalSecondsLeft * 2); // 2 points per second remaining
+						const totalPoints = basePoints + timeBonus;
+						
+						updateScore(totalPoints);
+						addGameMessage(`Drawing completed! +${totalPoints} points`, 'success');
+						
+						setTimeout(() => nextRound(), 2000);
+					});
+				}
+				
+				if (quitGameBtn) {
+					quitGameBtn.addEventListener('click', () => {
+						if (confirm('Are you sure you want to quit the game? Your progress will be lost.')) {
+							window.location.href = '/';
 						}
 					});
-				}, 15000);
+				}
+				
+				// Initialize everything
+				clearCanvas(); // Set white background
+				setupTimer();
+				updateCursor();
+				getNextWord(); // Start with first word
+				
+				// Handle window resize
+				window.addEventListener('resize', () => {
+					const rect = container.getBoundingClientRect();
+					app.renderer.resize(rect.width, rect.height);
+				});
 			});
 		</script>
 	</body>
