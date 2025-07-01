@@ -1,0 +1,517 @@
+---
+import '@/styles/global.css';
+import Button from '@/components/ui/Button.astro';
+import Card from '@/components/ui/Card.astro';
+import Badge from '@/components/ui/Badge.astro';
+---
+
+<html lang="en" class="dark">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>Quick Draw - Cetus Party Games</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+	</head>
+
+	<body class="min-h-screen bg-sci-fi-dark text-white overflow-x-hidden font-inter">
+		<!-- Animated background -->
+		<div class="fixed inset-0 pointer-events-none">
+			<div class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"></div>
+			<div class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse" style="animation-delay: 1s;"></div>
+		</div>
+
+		<!-- Header -->
+		<header class="relative z-10 px-6 py-4 border-b border-slate-700/50">
+			<nav class="max-w-7xl mx-auto flex items-center justify-between">
+				<div class="flex items-center space-x-3">
+					<a href="/" class="flex items-center space-x-3">
+						<div class="w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-400/25">
+							<span class="text-lg font-bold text-white">C</span>
+						</div>
+						<h1 class="text-xl font-orbitron font-bold text-holographic">CETUS</h1>
+					</a>
+					<div class="text-cyan-400 text-sm">/ Quick Draw</div>
+				</div>
+				<div class="flex items-center space-x-4">
+					<Badge variant="success">Game Active</Badge>
+					<Button variant="outline" size="sm">
+						<span class="mr-2">⚙️</span>
+						Settings
+					</Button>
+				</div>
+			</nav>
+		</header>
+
+		<main class="relative z-10 px-6 py-8">
+			<div class="max-w-7xl mx-auto">
+				<!-- Game Status Bar -->
+				<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+					<Card variant="sci-fi" class="p-6 text-center">
+						<h3 class="text-lg font-orbitron font-bold mb-2 text-cyan-400">Current Round</h3>
+						<div class="text-3xl font-bold text-white" id="round-counter">1 / 5</div>
+					</Card>
+					
+					<Card variant="sci-fi" class="p-6 text-center">
+						<h3 class="text-lg font-orbitron font-bold mb-2 text-purple-400">Time Remaining</h3>
+						<div class="text-3xl font-bold text-white" id="timer">01:30</div>
+					</Card>
+					
+					<Card variant="sci-fi" class="p-6 text-center">
+						<h3 class="text-lg font-orbitron font-bold mb-2 text-pink-400">Current Artist</h3>
+						<div class="text-xl font-bold text-white" id="current-artist">Player_2047</div>
+					</Card>
+				</div>
+
+				<!-- Main Game Area -->
+				<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+					<!-- Drawing Canvas Section -->
+					<div class="lg:col-span-3">
+						<Card variant="sci-fi" class="p-6">
+							<!-- Word Display (for artist) -->
+							<div class="mb-4 text-center">
+								<div class="bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-400/30 rounded-lg p-4">
+									<p class="text-sm text-cyan-400 mb-1">Draw this word:</p>
+									<h2 class="text-2xl font-orbitron font-bold text-white" id="word-to-draw">SPACESHIP</h2>
+								</div>
+							</div>
+
+							<!-- Drawing Tools -->
+							<div class="flex items-center justify-between mb-4 p-4 bg-glass border border-slate-600/50 rounded-lg">
+								<div class="flex items-center space-x-4">
+									<div class="flex items-center space-x-2">
+										<span class="text-sm text-gray-400">Brush:</span>
+										<button class="w-10 h-10 bg-glass border border-cyan-400 bg-cyan-400/20 rounded-lg flex items-center justify-center hover:border-cyan-400 transition-colors" data-tool="brush">
+											<span class="text-xl">🖌️</span>
+										</button>
+										<button class="w-10 h-10 bg-glass border border-slate-600 rounded-lg flex items-center justify-center hover:border-cyan-400 transition-colors" data-tool="eraser">
+											<span class="text-xl">🧽</span>
+										</button>
+									</div>
+									
+									<div class="flex items-center space-x-2">
+										<span class="text-sm text-gray-400">Size:</span>
+										<input type="range" id="brush-size" min="1" max="20" value="3" class="w-20 accent-cyan-400">
+										<span id="size-display" class="text-sm text-white w-6">3</span>
+									</div>
+								</div>
+
+								<div class="flex items-center space-x-2">
+									<span class="text-sm text-gray-400">Colors:</span>
+									<div class="flex space-x-1">
+										<button class="w-8 h-8 rounded-full border-2 border-cyan-400 ring-2 ring-cyan-400/50 hover:border-white transition-colors cursor-pointer" data-color="#ffffff" style="background-color: #ffffff;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#000000" style="background-color: #000000;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#ff0000" style="background-color: #ff0000;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#00ff00" style="background-color: #00ff00;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#0000ff" style="background-color: #0000ff;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#ffff00" style="background-color: #ffff00;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#ff00ff" style="background-color: #ff00ff;"></button>
+										<button class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer" data-color="#00ffff" style="background-color: #00ffff;"></button>
+									</div>
+									<Button variant="outline" size="sm" id="clear-canvas">
+										Clear
+									</Button>
+								</div>
+							</div>
+
+							<!-- Canvas -->
+							<div class="relative bg-white rounded-lg border-2 border-cyan-400/30 overflow-hidden" style="aspect-ratio: 16/10;">
+								<div 
+									id="drawing-container" 
+									class="w-full h-full"
+								></div>
+							</div>
+						</Card>
+					</div>
+
+					<!-- Sidebar -->
+					<div class="space-y-6">
+						<!-- Players List -->
+						<Card variant="sci-fi" class="p-6">
+							<h3 class="text-lg font-orbitron font-bold mb-4 text-cyan-400">
+								<span class="mr-2">👥</span>
+								Players (4)
+							</h3>
+							<div class="space-y-3">
+								<div class="flex items-center justify-between p-3 bg-glass border border-cyan-400/30 rounded-lg">
+									<div class="flex items-center space-x-3">
+										<div class="w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full flex items-center justify-center">
+											<span class="text-xs font-bold">P1</span>
+										</div>
+										<span class="text-white font-medium">Player_2047</span>
+									</div>
+									<div class="flex items-center space-x-2">
+										<span class="text-xl">🎨</span>
+										<Badge variant="success" size="sm">850</Badge>
+									</div>
+								</div>
+								
+								<div class="flex items-center justify-between p-3 bg-glass rounded-lg">
+									<div class="flex items-center space-x-3">
+										<div class="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center justify-center">
+											<span class="text-xs font-bold">P2</span>
+										</div>
+										<span class="text-white font-medium">CosmicArt</span>
+									</div>
+									<Badge variant="warning" size="sm">720</Badge>
+								</div>
+								
+								<div class="flex items-center justify-between p-3 bg-glass rounded-lg">
+									<div class="flex items-center space-x-3">
+										<div class="w-8 h-8 bg-gradient-to-r from-pink-400 to-cyan-500 rounded-full flex items-center justify-center">
+											<span class="text-xs font-bold">P3</span>
+										</div>
+										<span class="text-white font-medium">NeonSketch</span>
+									</div>
+									<Badge variant="error" size="sm">680</Badge>
+								</div>
+								
+								<div class="flex items-center justify-between p-3 bg-glass rounded-lg">
+									<div class="flex items-center space-x-3">
+										<div class="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+											<span class="text-xs font-bold">P4</span>
+										</div>
+										<span class="text-white font-medium">StarDraw</span>
+									</div>
+									<Badge variant="outline" size="sm">590</Badge>
+								</div>
+							</div>
+						</Card>
+
+						<!-- Chat/Guesses -->
+						<Card variant="sci-fi" class="p-6">
+							<h3 class="text-lg font-orbitron font-bold mb-4 text-purple-400">
+								<span class="mr-2">💭</span>
+								Guesses
+							</h3>
+							<div class="space-y-2 mb-4 h-48 overflow-y-auto" id="chat-messages">
+								<div class="text-sm">
+									<span class="text-cyan-400 font-medium">CosmicArt:</span>
+									<span class="text-gray-300 ml-2">rocket?</span>
+								</div>
+								<div class="text-sm">
+									<span class="text-pink-400 font-medium">NeonSketch:</span>
+									<span class="text-gray-300 ml-2">airplane</span>
+								</div>
+								<div class="text-sm">
+									<span class="text-green-400 font-medium">StarDraw:</span>
+									<span class="text-gray-300 ml-2">ufo</span>
+								</div>
+								<div class="text-sm">
+									<span class="text-yellow-400 font-medium">System:</span>
+									<span class="text-yellow-300 ml-2">CosmicArt is close!</span>
+								</div>
+							</div>
+							<div class="flex space-x-2">
+								<input 
+									type="text" 
+									placeholder="Enter your guess..." 
+									id="guess-input"
+									class="flex-1 px-3 py-2 bg-glass border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:border-cyan-400 focus:outline-none"
+								>
+								<Button variant="primary" size="sm" id="send-guess">
+									Send
+								</Button>
+							</div>
+						</Card>
+
+						<!-- Game Controls -->
+						<Card variant="sci-fi" class="p-6">
+							<h3 class="text-lg font-orbitron font-bold mb-4 text-pink-400">
+								<span class="mr-2">🎮</span>
+								Controls
+							</h3>
+							<div class="space-y-3">
+								<Button variant="outline" class="w-full justify-start">
+									<span class="mr-2">⏸️</span>
+									Pause Game
+								</Button>
+								<Button variant="outline" class="w-full justify-start">
+									<span class="mr-2">⏭️</span>
+									Skip Turn
+								</Button>
+								<Button variant="destructive" class="w-full justify-start">
+									<span class="mr-2">🚪</span>
+									Leave Game
+								</Button>
+							</div>
+						</Card>
+					</div>
+				</div>
+			</div>
+		</main>
+
+		<style>
+			#drawing-container canvas {
+				cursor: crosshair;
+			}
+			
+			.cursor-brush canvas {
+				cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2" fill="cyan"/></svg>') 8 8, crosshair;
+			}
+			
+			.cursor-eraser canvas {
+				cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" fill="red" opacity="0.5"/></svg>') 8 8, crosshair;
+			}
+		</style>
+
+		<script>
+			import * as PIXI from 'pixi.js';
+			
+			// Drawing functionality with PixiJS
+			document.addEventListener('DOMContentLoaded', async () => {
+				const container = document.getElementById('drawing-container');
+				if (!container) return;
+				
+				// Create PixiJS application
+				const app = new PIXI.Application();
+				await app.init({
+					width: 800,
+					height: 500,
+					backgroundColor: '#ffffff',
+					antialias: true,
+					resolution: window.devicePixelRatio || 1,
+					autoDensity: true,
+				});
+				
+				// Add the canvas to the DOM
+				container.appendChild(app.canvas);
+				app.canvas.style.width = '100%';
+				app.canvas.style.height = '100%';
+				app.canvas.style.cursor = 'crosshair';
+				
+				// Drawing state
+				let isDrawing = false;
+				let currentTool = 'brush';
+				let currentColor = 0xffffff; // White in hex
+				let currentSize = 3;
+				let lastPoint = { x: 0, y: 0 };
+				
+				// Create graphics object for drawing
+				const drawingGraphics = new PIXI.Graphics();
+				app.stage.addChild(drawingGraphics);
+				
+				// Color conversion helper
+				function hexStringToNumber(hexString: string): number {
+					return parseInt(hexString.replace('#', ''), 16);
+				}
+				
+				function getLocalPosition(event: MouseEvent | Touch): PIXI.Point {
+					const rect = app.canvas.getBoundingClientRect();
+					const scaleX = app.screen.width / rect.width;
+					const scaleY = app.screen.height / rect.height;
+					
+					return new PIXI.Point(
+						(event.clientX - rect.left) * scaleX,
+						(event.clientY - rect.top) * scaleY
+					);
+				}
+				
+				function startDrawing(event: MouseEvent | Touch) {
+					isDrawing = true;
+					const point = getLocalPosition(event);
+					lastPoint = { x: point.x, y: point.y };
+					
+					// Start a new drawing path for brush tool
+					if (currentTool === 'brush') {
+						drawingGraphics.moveTo(point.x, point.y);
+					}
+				}
+				
+				function draw(event: MouseEvent | Touch) {
+					if (!isDrawing) return;
+					
+					const point = getLocalPosition(event);
+					
+					if (currentTool === 'brush') {
+						// Draw smooth line with current color
+						drawingGraphics.stroke({ 
+							color: currentColor, 
+							width: currentSize,
+							cap: 'round',
+							join: 'round'
+						});
+						drawingGraphics.moveTo(lastPoint.x, lastPoint.y);
+						drawingGraphics.lineTo(point.x, point.y);
+					} else if (currentTool === 'eraser') {
+						// Eraser using destination-out blend mode
+						const tempGraphics = new PIXI.Graphics();
+						tempGraphics.blendMode = 'destination-out' as any;
+						tempGraphics.circle(point.x, point.y, currentSize);
+						tempGraphics.fill(0xffffff);
+						app.stage.addChild(tempGraphics);
+						
+						// Remove the temporary graphics after a frame
+						setTimeout(() => {
+							app.stage.removeChild(tempGraphics);
+						}, 16);
+					}
+					
+					lastPoint = { x: point.x, y: point.y };
+				}
+				
+				function stopDrawing() {
+					isDrawing = false;
+				}
+				
+				function clearCanvas() {
+					drawingGraphics.clear();
+					// Redraw white background
+					drawingGraphics.rect(0, 0, app.screen.width, app.screen.height);
+					drawingGraphics.fill(0xffffff);
+				}
+				
+				function updateCursor() {
+					if (currentTool === 'brush') {
+						app.canvas.className = 'w-full h-full cursor-brush';
+					} else {
+						app.canvas.className = 'w-full h-full cursor-eraser';
+					}
+				}
+				
+				// Mouse events
+				app.canvas.addEventListener('mousedown', (e) => startDrawing(e));
+				app.canvas.addEventListener('mousemove', (e) => draw(e));
+				app.canvas.addEventListener('mouseup', stopDrawing);
+				app.canvas.addEventListener('mouseleave', stopDrawing);
+				
+				// Touch events
+				app.canvas.addEventListener('touchstart', (e) => {
+					e.preventDefault();
+					startDrawing(e.touches[0]);
+				});
+				app.canvas.addEventListener('touchmove', (e) => {
+					e.preventDefault();
+					draw(e.touches[0]);
+				});
+				app.canvas.addEventListener('touchend', (e) => {
+					e.preventDefault();
+					stopDrawing();
+				});
+				
+				// Tool selection
+				document.querySelectorAll('[data-tool]').forEach(btn => {
+					btn.addEventListener('click', () => {
+						// Remove active state from all tool buttons
+						document.querySelectorAll('[data-tool]').forEach(b => {
+							b.classList.remove('border-cyan-400', 'bg-cyan-400/20');
+							b.classList.add('border-slate-600');
+						});
+						// Add active state to clicked button
+						btn.classList.remove('border-slate-600');
+						btn.classList.add('border-cyan-400', 'bg-cyan-400/20');
+						
+						const toolBtn = btn as HTMLElement;
+						currentTool = toolBtn.dataset.tool || 'brush';
+						updateCursor();
+					});
+				});
+				
+				// Color selection
+				document.querySelectorAll('[data-color]').forEach(btn => {
+					btn.addEventListener('click', () => {
+						// Remove active state from all color buttons
+						document.querySelectorAll('[data-color]').forEach(b => {
+							b.classList.remove('border-cyan-400', 'ring-2', 'ring-cyan-400/50');
+							b.classList.add('border-slate-600');
+						});
+						// Add active state to clicked button
+						btn.classList.remove('border-slate-600');
+						btn.classList.add('border-cyan-400', 'ring-2', 'ring-cyan-400/50');
+						
+						const colorBtn = btn as HTMLElement;
+						const colorStr = colorBtn.dataset.color || '#ffffff';
+						currentColor = hexStringToNumber(colorStr);
+					});
+				});
+				
+				// Brush size
+				const sizeSlider = document.getElementById('brush-size') as HTMLInputElement;
+				const sizeDisplay = document.getElementById('size-display');
+				if (sizeSlider && sizeDisplay) {
+					sizeSlider.addEventListener('input', () => {
+						currentSize = parseInt(sizeSlider.value);
+						sizeDisplay.textContent = currentSize.toString();
+					});
+				}
+				
+				// Clear canvas
+				const clearBtn = document.getElementById('clear-canvas');
+				if (clearBtn) {
+					clearBtn.addEventListener('click', clearCanvas);
+				}
+				
+				// Chat functionality
+				function addChatMessage(player: string, message: string) {
+					const chatMessages = document.getElementById('chat-messages');
+					if (!chatMessages) return;
+					
+					const messageDiv = document.createElement('div');
+					messageDiv.className = 'text-sm';
+					messageDiv.innerHTML = `
+						<span class="text-cyan-400 font-medium">${player}:</span>
+						<span class="text-gray-300 ml-2">${message}</span>
+					`;
+					chatMessages.appendChild(messageDiv);
+					chatMessages.scrollTop = chatMessages.scrollHeight;
+				}
+				
+				function setupTimer() {
+					let timeLeft = 90; // 1:30
+					const timerDisplay = document.getElementById('timer');
+					if (!timerDisplay) return;
+					
+					const timer = setInterval(() => {
+						const minutes = Math.floor(timeLeft / 60);
+						const seconds = timeLeft % 60;
+						timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+						
+						if (timeLeft <= 0) {
+							clearInterval(timer);
+							addChatMessage('System', 'Time\'s up! The word was SPACESHIP');
+						}
+						timeLeft--;
+					}, 1000);
+				}
+				
+				const guessInput = document.getElementById('guess-input') as HTMLInputElement;
+				const sendBtn = document.getElementById('send-guess');
+				
+				function sendGuess() {
+					if (!guessInput) return;
+					const guess = guessInput.value.trim();
+					if (guess) {
+						addChatMessage('You', guess);
+						guessInput.value = '';
+					}
+				}
+				
+				if (sendBtn) {
+					sendBtn.addEventListener('click', sendGuess);
+				}
+				
+				if (guessInput) {
+					guessInput.addEventListener('keypress', (e) => {
+						if (e.key === 'Enter') {
+							sendGuess();
+						}
+					});
+				}
+				
+				// Initialize everything
+				clearCanvas(); // Set white background
+				setupTimer();
+				updateCursor();
+				
+				// Handle window resize
+				window.addEventListener('resize', () => {
+					const rect = container.getBoundingClientRect();
+					app.renderer.resize(rect.width, rect.height);
+				});
+			});
+		</script>
+	</body>
+</html>

@@ -1,0 +1,459 @@
+---
+import '@/styles/global.css';
+import Button from '@/components/ui/Button.astro';
+import Card from '@/components/ui/Card.astro';
+import Badge from '@/components/ui/Badge.astro';
+import Avatar from '@/components/ui/Avatar.astro';
+---
+
+<html lang="en" class="dark">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>Quick Draw Lobby - Cetus Party Games</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+	</head>
+
+	<body class="min-h-screen bg-sci-fi-dark text-white overflow-x-hidden font-inter">
+		<!-- Animated background -->
+		<div class="fixed inset-0 pointer-events-none">
+			<div class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"></div>
+			<div class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse" style="animation-delay: 1s;"></div>
+			<div class="absolute inset-0 bg-gradient-radial from-pink-400/20 via-transparent to-transparent animate-pulse" style="animation-delay: 2s;"></div>
+		</div>
+
+		<!-- Header -->
+		<header class="relative z-10 px-6 py-4 border-b border-slate-700/50">
+			<nav class="max-w-7xl mx-auto flex items-center justify-between">
+				<div class="flex items-center space-x-3">
+					<a href="/" class="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+						<div class="w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-400/25">
+							<span class="text-lg font-bold text-white">C</span>
+						</div>
+						<h1 class="text-xl font-orbitron font-bold text-holographic">CETUS</h1>
+					</a>
+					<div class="text-cyan-400 text-sm">/ Quick Draw</div>
+				</div>
+				<div class="flex items-center space-x-4">
+					<Badge variant="outline">Lobby</Badge>
+					<Button variant="outline" size="sm">
+						<span class="mr-2">⚙️</span>
+						Settings
+					</Button>
+				</div>
+			</nav>
+		</header>
+
+		<main class="relative z-10 px-6 py-8">
+			<div class="max-w-6xl mx-auto">
+				<!-- Game Title & Description -->
+				<div class="text-center mb-12">
+					<div class="flex items-center justify-center mb-6">
+						<div class="w-16 h-16 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-400/25 mr-4">
+							<span class="text-3xl">🎨</span>
+						</div>
+						<div>
+							<h1 class="text-4xl md:text-5xl font-orbitron font-bold text-holographic mb-2">Quick Draw</h1>
+							<p class="text-xl text-gray-300">Draw, guess, and compete in this fast-paced art game!</p>
+						</div>
+					</div>
+					<p class="text-gray-400 max-w-2xl mx-auto text-lg">
+						Take turns drawing words while others guess. Race against time to earn points and climb the leaderboard in this exciting multiplayer drawing challenge.
+					</p>
+				</div>
+
+				<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+					<!-- Game Rooms -->
+					<div class="lg:col-span-2 space-y-6">
+						<div class="flex items-center justify-between">
+							<h2 class="text-2xl font-orbitron font-bold text-cyan-400">Available Rooms</h2>
+							<Button variant="primary" size="sm" id="create-room-btn">
+								<span class="mr-2">➕</span>
+								Create Room
+							</Button>
+						</div>
+
+						<!-- Room List -->
+						<div class="space-y-4">
+							<!-- Active Room -->
+							<Card variant="sci-fi" class="p-6 hover:border-cyan-400/50 transition-colors cursor-pointer">
+								<div class="flex items-center justify-between">
+									<div class="flex items-center space-x-4">
+										<div class="w-12 h-12 bg-gradient-to-r from-green-400 to-cyan-500 rounded-xl flex items-center justify-center">
+											<span class="text-2xl">🌟</span>
+										</div>
+										<div>
+											<h3 class="text-xl font-bold text-white">Cosmic Artists</h3>
+											<p class="text-gray-400">Round 2/5 • 3 minutes per turn</p>
+											<div class="flex items-center space-x-2 mt-1">
+												<Badge variant="success" size="sm">In Progress</Badge>
+												<span class="text-sm text-gray-500">Started 5 min ago</span>
+											</div>
+										</div>
+									</div>
+									<div class="text-right">
+										<div class="flex items-center space-x-2 mb-2">
+											<span class="text-2xl text-green-400">👥</span>
+											<span class="text-lg font-bold text-white player-count">4/6</span>
+										</div>
+										<Button variant="outline" size="sm" class="spectate-btn">
+											<span class="mr-2">👁️</span>
+											Spectate
+										</Button>
+									</div>
+								</div>
+							</Card>
+
+							<!-- Waiting Room -->
+							<Card variant="sci-fi" class="p-6 hover:border-cyan-400/50 transition-colors cursor-pointer" id="joinable-room">
+								<div class="flex items-center justify-between">
+									<div class="flex items-center space-x-4">
+										<div class="w-12 h-12 bg-gradient-to-r from-purple-400 to-pink-500 rounded-xl flex items-center justify-center">
+											<span class="text-2xl">🎯</span>
+										</div>
+										<div>
+											<h3 class="text-xl font-bold text-white">Neon Sketchers</h3>
+											<p class="text-gray-400">Round 1/3 • 2 minutes per turn</p>
+											<div class="flex items-center space-x-2 mt-1">
+												<Badge variant="warning" size="sm">Waiting</Badge>
+												<span class="text-sm text-gray-500">Host: Player_2047</span>
+											</div>
+										</div>
+									</div>
+									<div class="text-right">
+										<div class="flex items-center space-x-2 mb-2">
+											<span class="text-2xl text-yellow-400">👥</span>
+											<span class="text-lg font-bold text-white player-count">2/4</span>
+										</div>
+										<Button variant="primary" size="sm" class="join-btn">
+											<span class="mr-2">🚀</span>
+											Join Game
+										</Button>
+									</div>
+								</div>
+							</Card>
+
+							<!-- Quick Match -->
+							<Card variant="sci-fi" class="p-6 border-dashed border-cyan-400/30 hover:border-cyan-400/50 transition-colors">
+								<div class="text-center py-8">
+									<div class="w-16 h-16 bg-gradient-to-r from-cyan-400/20 to-purple-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+										<span class="text-3xl">⚡</span>
+									</div>
+									<h3 class="text-xl font-bold text-white mb-2">Quick Match</h3>
+									<p class="text-gray-400 mb-4">Jump into the next available game instantly</p>
+									<Button variant="primary" size="lg" class="quick-match-btn">
+										<span class="mr-2">🎲</span>
+										Find Match
+									</Button>
+								</div>
+							</Card>
+
+							<!-- Empty State -->
+							<Card variant="sci-fi" class="p-6 opacity-50">
+								<div class="flex items-center justify-between">
+									<div class="flex items-center space-x-4">
+										<div class="w-12 h-12 bg-gray-600 rounded-xl flex items-center justify-center">
+											<span class="text-2xl">💤</span>
+										</div>
+										<div>
+											<h3 class="text-xl font-bold text-gray-400">No More Rooms</h3>
+											<p class="text-gray-500">Create a new room to start playing</p>
+										</div>
+									</div>
+									<Button variant="outline" size="sm" disabled>
+										<span class="mr-2">🔒</span>
+										Full
+									</Button>
+								</div>
+							</Card>
+						</div>
+					</div>
+
+					<!-- Sidebar -->
+					<div class="space-y-6">
+						<!-- Player Profile -->
+						<Card variant="sci-fi" class="p-6">
+							<h3 class="text-lg font-orbitron font-bold mb-4 text-cyan-400">
+								<span class="mr-2">🎮</span>
+								Your Profile
+							</h3>
+							<div class="text-center">
+								<Avatar size="lg" class="mx-auto mb-4">
+									<div class="w-full h-full bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full flex items-center justify-center">
+										<span class="text-2xl font-bold text-white">U</span>
+									</div>
+								</Avatar>
+								<h4 class="text-lg font-bold text-white mb-1">Anonymous_User</h4>
+								<p class="text-gray-400 text-sm mb-4">New Artist</p>
+								
+								<div class="grid grid-cols-2 gap-4 mb-4">
+									<div class="text-center">
+										<div class="text-2xl font-bold text-cyan-400">0</div>
+										<div class="text-xs text-gray-400">Games Won</div>
+									</div>
+									<div class="text-center">
+										<div class="text-2xl font-bold text-purple-400">0</div>
+										<div class="text-xs text-gray-400">Best Score</div>
+									</div>
+								</div>
+
+								<Button variant="outline" size="sm" class="w-full">
+									<span class="mr-2">✏️</span>
+									Edit Profile
+								</Button>
+							</div>
+						</Card>
+
+						<!-- Game Rules -->
+						<Card variant="sci-fi" class="p-6">
+							<h3 class="text-lg font-orbitron font-bold mb-4 text-purple-400">
+								<span class="mr-2">📋</span>
+								How to Play
+							</h3>
+							<div class="space-y-3 text-sm">
+								<div class="flex items-start space-x-3">
+									<span class="text-cyan-400 font-bold">1.</span>
+									<p class="text-gray-300">Take turns drawing words given to you</p>
+								</div>
+								<div class="flex items-start space-x-3">
+									<span class="text-cyan-400 font-bold">2.</span>
+									<p class="text-gray-300">Other players guess what you're drawing</p>
+								</div>
+								<div class="flex items-start space-x-3">
+									<span class="text-cyan-400 font-bold">3.</span>
+									<p class="text-gray-300">Earn points for correct guesses and good drawings</p>
+								</div>
+								<div class="flex items-start space-x-3">
+									<span class="text-cyan-400 font-bold">4.</span>
+									<p class="text-gray-300">Player with most points wins!</p>
+								</div>
+							</div>
+						</Card>
+
+						<!-- Recent Activity -->
+						<Card variant="sci-fi" class="p-6">
+							<h3 class="text-lg font-orbitron font-bold mb-4 text-pink-400">
+								<span class="mr-2">📈</span>
+								Leaderboard
+							</h3>
+							<div class="space-y-3">
+								<div class="flex items-center justify-between p-2 bg-glass rounded-lg">
+									<div class="flex items-center space-x-3">
+										<span class="text-lg">🥇</span>
+										<span class="text-white font-medium">ArtMaster_3000</span>
+									</div>
+									<Badge variant="success" size="sm">1,250</Badge>
+								</div>
+								<div class="flex items-center justify-between p-2 bg-glass rounded-lg">
+									<div class="flex items-center space-x-3">
+										<span class="text-lg">🥈</span>
+										<span class="text-white font-medium">PixelPainter</span>
+									</div>
+									<Badge variant="warning" size="sm">1,180</Badge>
+								</div>
+								<div class="flex items-center justify-between p-2 bg-glass rounded-lg">
+									<div class="flex items-center space-x-3">
+										<span class="text-lg">🥉</span>
+										<span class="text-white font-medium">CosmicSketch</span>
+									</div>
+									<Badge variant="error" size="sm">1,050</Badge>
+								</div>
+								<div class="text-center pt-2">
+									<Button variant="outline" size="sm">
+										View Full Rankings
+									</Button>
+								</div>
+							</div>
+						</Card>
+					</div>
+				</div>
+			</div>
+		</main>
+
+		<script>
+			document.addEventListener('DOMContentLoaded', () => {
+				// Get button elements
+				const joinBtn = document.querySelector('.join-btn');
+				const quickMatchBtn = document.querySelector('.quick-match-btn');
+				const spectateBtn = document.querySelector('.spectate-btn');
+				const createRoomBtn = document.getElementById('create-room-btn');
+
+				// Create Room Modal Functions
+				function createRoomModal() {
+					const modal = document.createElement('div');
+					modal.className = 'fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+					modal.innerHTML = `
+						<div class="bg-sci-fi-dark border border-cyan-400/30 rounded-2xl p-8 max-w-md w-full relative overflow-hidden">
+							<div class="absolute inset-0 bg-gradient-to-br from-cyan-400/10 to-purple-500/10"></div>
+							<div class="relative z-10">
+								<div class="flex items-center justify-between mb-6">
+									<h3 class="text-2xl font-orbitron font-bold text-cyan-400">Create Room</h3>
+									<button class="close-modal text-gray-400 hover:text-white text-2xl">&times;</button>
+								</div>
+								
+								<form class="space-y-4">
+									<div>
+										<label class="block text-sm font-medium text-gray-300 mb-2">Room Name</label>
+										<input type="text" placeholder="Enter room name..." 
+											class="w-full px-4 py-3 bg-glass border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:border-cyan-400 focus:outline-none">
+									</div>
+									
+									<div class="grid grid-cols-2 gap-4">
+										<div>
+											<label class="block text-sm font-medium text-gray-300 mb-2">Max Players</label>
+											<select class="w-full px-4 py-3 bg-glass border border-slate-600 rounded-lg text-white focus:border-cyan-400 focus:outline-none">
+												<option value="4">4 Players</option>
+												<option value="6">6 Players</option>
+												<option value="8">8 Players</option>
+											</select>
+										</div>
+										<div>
+											<label class="block text-sm font-medium text-gray-300 mb-2">Rounds</label>
+											<select class="w-full px-4 py-3 bg-glass border border-slate-600 rounded-lg text-white focus:border-cyan-400 focus:outline-none">
+												<option value="3">3 Rounds</option>
+												<option value="5">5 Rounds</option>
+												<option value="7">7 Rounds</option>
+											</select>
+										</div>
+									</div>
+									
+									<div>
+										<label class="block text-sm font-medium text-gray-300 mb-2">Time per Turn</label>
+										<select class="w-full px-4 py-3 bg-glass border border-slate-600 rounded-lg text-white focus:border-cyan-400 focus:outline-none">
+											<option value="60">1 minute</option>
+											<option value="90">1.5 minutes</option>
+											<option value="120">2 minutes</option>
+											<option value="180">3 minutes</option>
+										</select>
+									</div>
+									
+									<div class="flex items-center space-x-3">
+										<input type="checkbox" id="private-room" class="w-4 h-4 text-cyan-400 bg-glass border-slate-600 rounded focus:ring-cyan-400">
+										<label for="private-room" class="text-sm text-gray-300">Private Room</label>
+									</div>
+									
+									<div class="flex space-x-3 pt-4">
+										<button type="button" class="close-modal flex-1 px-4 py-3 bg-glass border border-slate-600 rounded-lg text-gray-300 hover:border-gray-400 transition-colors">
+											Cancel
+										</button>
+										<button type="submit" class="create-room-submit flex-1 px-4 py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-lg text-white font-medium hover:from-cyan-400 hover:to-purple-500 transition-all">
+											Create Room
+										</button>
+									</div>
+								</form>
+							</div>
+						</div>
+					`;
+
+					document.body.appendChild(modal);
+
+					// Modal event handlers
+					const closeButtons = modal.querySelectorAll('.close-modal');
+					closeButtons.forEach(btn => {
+						btn.addEventListener('click', () => {
+							document.body.removeChild(modal);
+						});
+					});
+
+					modal.addEventListener('click', (e) => {
+						if (e.target === modal) {
+							document.body.removeChild(modal);
+						}
+					});
+
+					modal.querySelector('.create-room-submit')?.addEventListener('click', (e) => {
+						e.preventDefault();
+						// Simulate room creation
+						const target = e.target as HTMLButtonElement;
+						target.innerHTML = '⏳ Creating...';
+						target.disabled = true;
+						
+						setTimeout(() => {
+							window.location.href = '/drawing/game';
+						}, 1500);
+					});
+				}
+
+				// Event Listeners
+				if (createRoomBtn) {
+					createRoomBtn.addEventListener('click', createRoomModal);
+				}
+
+				if (joinBtn) {
+					joinBtn.addEventListener('click', () => {
+						(joinBtn as HTMLElement).innerHTML = '<span class="mr-2">⏳</span>Joining...';
+						(joinBtn as HTMLButtonElement).disabled = true;
+						
+						setTimeout(() => {
+							window.location.href = '/drawing/game';
+						}, 1500);
+					});
+				}
+
+				if (quickMatchBtn) {
+					quickMatchBtn.addEventListener('click', () => {
+						(quickMatchBtn as HTMLElement).innerHTML = '<span class="mr-2">🔍</span>Finding...';
+						(quickMatchBtn as HTMLButtonElement).disabled = true;
+						
+						setTimeout(() => {
+							window.location.href = '/drawing/game';
+						}, 2000);
+					});
+				}
+
+				if (spectateBtn) {
+					spectateBtn.addEventListener('click', () => {
+						(spectateBtn as HTMLElement).innerHTML = '<span class="mr-2">👁️</span>Loading...';
+						(spectateBtn as HTMLButtonElement).disabled = true;
+						
+						setTimeout(() => {
+							window.location.href = '/drawing/game?mode=spectate';
+						}, 1000);
+					});
+				}
+
+				// Room click handlers
+				const joinableRoom = document.getElementById('joinable-room');
+				if (joinableRoom) {
+					joinableRoom.addEventListener('click', (e) => {
+						if (e.target && !(e.target as Element).closest('button')) {
+							(joinBtn as HTMLButtonElement | null)?.click();
+						}
+					});
+				}
+
+				// Animate room list on load
+				const cards = document.querySelectorAll('main [class*="Card"]');
+				cards.forEach((card, index) => {
+					const htmlCard = card as HTMLElement;
+					htmlCard.style.opacity = '0';
+					htmlCard.style.transform = 'translateY(20px)';
+					
+					setTimeout(() => {
+						htmlCard.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+						htmlCard.style.opacity = '1';
+						htmlCard.style.transform = 'translateY(0)';
+					}, index * 100);
+				});
+
+				// Add some dynamic updates
+				setInterval(() => {
+					const playerCounts = document.querySelectorAll('.player-count');
+					playerCounts.forEach(count => {
+						if (count.textContent?.includes('/')) {
+							const [current, max] = count.textContent.split('/');
+							const newCurrent = Math.min(parseInt(max), Math.max(1, parseInt(current) + (Math.random() > 0.8 ? (Math.random() > 0.5 ? 1 : -1) : 0)));
+							if (newCurrent !== parseInt(current)) {
+								count.textContent = `${newCurrent}/${max}`;
+							}
+						}
+					});
+				}, 15000);
+			});
+		</script>
+	</body>
+</html>

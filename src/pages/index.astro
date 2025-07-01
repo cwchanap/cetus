@@ -1,10 +1,10 @@
 ---
-import '../styles/global.css';
+import '@/styles/global.css';
 // Component Imports
 import Button from '@/components/ui/Button.astro';
-import Badge from '../components/ui/Badge.astro';
-import Card from '../components/ui/Card.astro';
-import Avatar from '../components/ui/Avatar.astro';
+import Badge from '@/components/ui/Badge.astro';
+import Card from '@/components/ui/Card.astro';
+import Avatar from '@/components/ui/Avatar.astro';
 
 // Mock data for party games
 const games = [
@@ -186,9 +186,17 @@ const games = [
 										{game.difficulty}
 									</Badge>
 									
-									<Button variant="primary" size="sm">
-										Play Now
-									</Button>
+									{game.title === 'Quick Draw' ? (
+										<Button variant="primary" size="sm">
+											<a href="/drawing" class="text-white no-underline">
+												Play Now
+											</a>
+										</Button>
+									) : (
+										<Button variant="primary" size="sm">
+											Play Now
+										</Button>
+									)}
 								</div>
 							</div>
 						</Card>
