@@ -1,0 +1,33 @@
+---
+import { cn } from "../../lib/utils"
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'div'> {
+  variant?: 'default' | 'sci-fi' | 'glass' | 'elevated'
+  class?: string
+}
+
+const { 
+  variant = 'default', 
+  class: className = '',
+  ...props 
+} = Astro.props
+
+const cardVariants = {
+  variant: {
+    default: "rounded-lg border bg-card text-card-foreground shadow-sm",
+    'sci-fi': "group relative bg-glass border-neon rounded-2xl hover:border-cyan-400/50 transition-all duration-300 transform hover:scale-105 hover-glow-cyan",
+    glass: "bg-glass-strong rounded-3xl border-neon",
+    elevated: "rounded-lg border bg-card text-card-foreground shadow-lg hover:shadow-xl transition-shadow duration-300"
+  }
+}
+
+const classes = cn(
+  cardVariants.variant[variant],
+  className
+)
+---
+
+<div class={classes} {...props}>
+  <slot />
+</div>

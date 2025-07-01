@@ -1,0 +1,45 @@
+---
+import { cn } from "../../lib/utils"
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'span'> {
+  variant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'error'
+  size?: 'default' | 'sm' | 'lg'
+  class?: string
+}
+
+const { 
+  variant = 'default', 
+  size = 'default', 
+  class: className = '',
+  ...props 
+} = Astro.props
+
+const badgeVariants = {
+  variant: {
+    default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+    secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+    destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
+    outline: "text-foreground",
+    success: "bg-green-500/20 text-green-400 border border-green-400/30",
+    warning: "bg-yellow-500/20 text-yellow-400 border border-yellow-400/30",
+    error: "bg-red-500/20 text-red-400 border border-red-400/30"
+  },
+  size: {
+    default: "px-3 py-1 text-xs",
+    sm: "px-2.5 py-0.5 text-xs",
+    lg: "px-4 py-1.5 text-sm"
+  }
+}
+
+const classes = cn(
+  "inline-flex items-center rounded-full font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  badgeVariants.variant[variant],
+  badgeVariants.size[size],
+  className
+)
+---
+
+<span class={classes} {...props}>
+  <slot />
+</span>

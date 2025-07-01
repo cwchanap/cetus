@@ -1,25 +1,283 @@
 ---
 import '../styles/global.css';
 // Component Imports
-import Button from '../components/Button.astro';
+import Button from '@/components/ui/Button.astro';
+import Badge from '../components/ui/Badge.astro';
+import Card from '../components/ui/Card.astro';
+import Avatar from '../components/ui/Avatar.astro';
 
-// Full Astro Component Syntax:
-// https://docs.astro.build/basics/astro-components/
+// Mock data for party games
+const games = [
+	{
+		id: 1,
+		title: "Truth or Dare",
+		description: "Classic party game with a digital twist",
+		icon: "🎭",
+		players: "2-10 players",
+		duration: "15-30 min",
+		difficulty: "Easy"
+	},
+	{
+		id: 2,
+		title: "Charades Arena",
+		description: "Act it out in this digital charades experience",
+		icon: "🎪",
+		players: "4-12 players",
+		duration: "20-45 min",
+		difficulty: "Medium"
+	},
+	{
+		id: 3,
+		title: "Never Have I Ever",
+		description: "Discover secrets with this revealing game",
+		icon: "🤫",
+		players: "3-8 players",
+		duration: "10-25 min",
+		difficulty: "Easy"
+	},
+	{
+		id: 4,
+		title: "Quick Draw",
+		description: "Speed drawing challenge with friends",
+		icon: "🎨",
+		players: "2-6 players",
+		duration: "15-30 min",
+		difficulty: "Medium"
+	},
+	{
+		id: 5,
+		title: "Word Chain",
+		description: "Build words in this fast-paced word game",
+		icon: "📝",
+		players: "2-8 players",
+		duration: "10-20 min",
+		difficulty: "Hard"
+	},
+	{
+		id: 6,
+		title: "Memory Matrix",
+		description: "Test your memory in this pattern game",
+		icon: "🧠",
+		players: "1-4 players",
+		duration: "5-15 min",
+		difficulty: "Hard"
+	}
+];
 ---
 
-<html lang="en">
+<html lang="en" class="dark">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro + TailwindCSS</title>
+		<title>Cetus - Party Games Hub</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 	</head>
 
-	<body>
-		<div class="grid place-items-center h-screen content-center">
-			<Button>Tailwind Button in Astro!</Button>
-			<a href="/markdown-page" class="p-4 underline">Markdown is also supported...</a>
+	<body class="min-h-screen bg-sci-fi-dark text-white overflow-x-hidden scrollbar-sci-fi font-inter">
+		<!-- Animated background -->
+		<div class="fixed inset-0 pointer-events-none">
+			<div class="absolute inset-0 bg-gradient-radial from-cyan-400/30 via-transparent to-transparent animate-pulse"></div>
+			<div class="absolute inset-0 bg-gradient-radial from-purple-400/30 via-transparent to-transparent animate-pulse" style="animation-delay: 1s;"></div>
+			<div class="absolute inset-0 bg-gradient-radial from-pink-400/20 via-transparent to-transparent animate-pulse" style="animation-delay: 2s;"></div>
 		</div>
+
+		<!-- Floating particles -->
+		<div class="fixed inset-0 pointer-events-none">
+			{Array.from({length: 30}).map((_, i) => (
+				<div 
+					class="absolute w-1 h-1 bg-cyan-400 rounded-full opacity-30 animate-bounce"
+					style={`
+						left: ${Math.random() * 100}%;
+						top: ${Math.random() * 100}%;
+						animation-delay: ${Math.random() * 3}s;
+						animation-duration: ${2 + Math.random() * 2}s;
+					`}
+				></div>
+			))}
+		</div>
+
+		<!-- Header -->
+		<header class="relative z-10 px-6 py-8">
+			<nav class="max-w-7xl mx-auto flex items-center justify-between">
+				<div class="flex items-center space-x-3">
+					<div class="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-400/25">
+						<span class="text-xl font-bold text-white">C</span>
+					</div>
+					<h1 class="text-2xl font-orbitron font-bold text-holographic">
+						CETUS
+					</h1>
+				</div>
+				<div class="hidden md:flex items-center space-x-8">
+					<a href="#games" class="text-gray-300 hover:text-cyan-400 transition-colors duration-300">Games</a>
+					<a href="#about" class="text-gray-300 hover:text-cyan-400 transition-colors duration-300">About</a>
+					<a href="#contact" class="text-gray-300 hover:text-cyan-400 transition-colors duration-300">Contact</a>
+					<Button variant="primary">
+						Join Game
+					</Button>
+				</div>
+			</nav>
+		</header>
+
+		<!-- Hero Section -->
+		<section class="relative z-10 px-6 py-16">
+			<div class="max-w-6xl mx-auto text-center">
+				<h2 class="text-6xl md:text-8xl font-orbitron font-black mb-6 text-holographic animate-pulse">
+					PARTY GAMES
+				</h2>
+				<h3 class="text-2xl md:text-4xl font-orbitron font-bold mb-8 text-neon-cyan">
+					OF THE FUTURE
+				</h3>
+				<p class="text-xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+					Welcome to the ultimate digital party experience. Choose from our collection of 
+					<span class="text-cyan-400 font-semibold text-neon-cyan">futuristic mini-games</span> designed to bring friends together 
+					and create unforgettable memories.
+				</p>
+				<div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+					<Button variant="primary" size="lg">
+						Start Playing
+					</Button>
+					<Button variant="outline" size="lg">
+						Watch Demo
+					</Button>
+				</div>
+			</div>
+		</section>
+
+		<!-- Games Grid -->
+		<section id="games" class="relative z-10 px-6 py-16">
+			<div class="max-w-7xl mx-auto">
+				<h3 class="text-4xl font-orbitron font-bold text-center mb-4 text-holographic">
+					SELECT YOUR GAME
+				</h3>
+				<p class="text-center text-gray-400 mb-12 text-lg">
+					Choose from our arsenal of party games
+				</p>
+
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+					{games.map((game) => (
+						<Card variant="sci-fi" class="p-6">
+							<div class="relative z-10">
+								<div class="flex items-center justify-between mb-4">
+									<span class="text-4xl animate-float">{game.icon}</span>
+									<div class="text-right">
+										<div class="text-sm text-cyan-400 font-medium">{game.players}</div>
+										<div class="text-xs text-gray-400">{game.duration}</div>
+									</div>
+								</div>
+								
+								<h4 class="text-xl font-orbitron font-bold mb-2 text-white group-hover:text-cyan-400 transition-colors duration-300">
+									{game.title}
+								</h4>
+								
+								<p class="text-gray-300 mb-4 text-sm leading-relaxed">
+									{game.description}
+								</p>
+								
+								<div class="flex items-center justify-between">
+									<Badge variant={
+										game.difficulty === 'Easy' ? 'success' :
+										game.difficulty === 'Medium' ? 'warning' :
+										'error'
+									}>
+										{game.difficulty}
+									</Badge>
+									
+									<Button variant="primary" size="sm">
+										Play Now
+									</Button>
+								</div>
+							</div>
+						</Card>
+					))}
+				</div>
+			</div>
+		</section>
+
+		<!-- Features Section -->
+		<section class="relative z-10 px-6 py-16">
+			<div class="max-w-6xl mx-auto">
+				<h3 class="text-4xl font-orbitron font-bold text-center mb-16 text-holographic">
+					WHY CHOOSE CETUS?
+				</h3>
+				
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+					<div class="text-center group">
+						<Avatar variant="cyan-purple" size="lg" class="mx-auto mb-4">
+							<span class="text-2xl">⚡</span>
+						</Avatar>
+						<h4 class="text-xl font-orbitron font-bold mb-2 text-white">Instant Play</h4>
+						<p class="text-gray-400">No downloads required. Jump into any game instantly from your browser.</p>
+					</div>
+					
+					<div class="text-center group">
+						<Avatar variant="purple-pink" size="lg" class="mx-auto mb-4">
+							<span class="text-2xl">🌐</span>
+						</Avatar>
+						<h4 class="text-xl font-orbitron font-bold mb-2 text-white">Cross Platform</h4>
+						<p class="text-gray-400">Play seamlessly across desktop, mobile, and tablet devices.</p>
+					</div>
+					
+					<div class="text-center group">
+						<Avatar variant="pink-cyan" size="lg" class="mx-auto mb-4">
+							<span class="text-2xl">👥</span>
+						</Avatar>
+						<h4 class="text-xl font-orbitron font-bold mb-2 text-white">Social First</h4>
+						<p class="text-gray-400">Built for bringing people together and creating lasting memories.</p>
+					</div>
+				</div>
+			</div>
+		</section>
+		<!-- CTA Section -->
+		<section class="relative z-10 px-6 py-16">
+			<div class="max-w-4xl mx-auto text-center">
+				<Card variant="glass" class="p-12">
+					<h3 class="text-3xl font-orbitron font-bold mb-4 text-holographic">
+						Ready to Start the Party?
+					</h3>
+					<p class="text-gray-300 mb-8 text-lg">
+						Join thousands of players already having fun with our games
+					</p>
+					<Button variant="primary" size="lg">Launch Game Hub 🚀</Button>
+				</Card>
+			</div>
+		</section>
+
+		<!-- Footer -->
+		<footer class="relative z-10 px-6 py-8 border-t border-slate-700/50">
+			<div class="max-w-7xl mx-auto text-center">
+				<p class="text-gray-400">
+					© 2025 Cetus Games. Built for the future of party entertainment.
+				</p>
+			</div>
+		</footer>
+
+		<script>
+			// Add some interactive effects using pure DOM manipulation
+			document.addEventListener('DOMContentLoaded', () => {
+				// Add glow effect on game cards
+				const gameCards = document.querySelectorAll('.group') as NodeListOf<HTMLElement>;
+				gameCards.forEach(card => {
+					card.addEventListener('mouseenter', () => {
+						card.classList.add('glow-cyan');
+					});
+					
+					card.addEventListener('mouseleave', () => {
+						card.classList.remove('glow-cyan');
+					});
+				});
+
+				// Add floating animation to particles
+				const particles = document.querySelectorAll('.animate-bounce') as NodeListOf<HTMLElement>;
+				particles.forEach((particle, index) => {
+					if (index % 3 === 0) {
+						particle.classList.add('animate-float');
+					}
+				});
+			});
+		</script>
 	</body>
 </html>
