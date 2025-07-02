@@ -15,11 +15,13 @@ export interface Props extends HTMLAttributes<'div'> {
     difficulty: string
     available: boolean
   }
+  user?: any
   class?: string
 }
 
 const { 
   game,
+  user,
   class: className = '',
   ...props 
 } = Astro.props
@@ -70,8 +72,8 @@ const getGameUrl = (title: string) => {
       
       {game.available ? (
         <Button variant="primary" size="sm">
-          <a href="/login" class="text-white no-underline">
-            Login to Play
+          <a href={getGameUrl(game.title)} class="text-white no-underline">
+            Play Now
           </a>
         </Button>
       ) : (

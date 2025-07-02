@@ -15,7 +15,7 @@ import Footer from '@/components/ui/Footer.astro';
 		<meta name="viewport" content="width=device-width" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Login - Cetus Gaming Platform</title>
+		<title>Sign Up - Cetus Gaming Platform</title>
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -46,35 +46,50 @@ import Footer from '@/components/ui/Footer.astro';
 
 		<!-- Header -->
 		<Navigation 
-			ctaLabel="Home"
-			ctaHref="/"
+			ctaLabel="Login"
+			ctaHref="/login"
 		/>
 
-		<!-- Login Section -->
+		<!-- Sign Up Section -->
 		<Section>
 			<Container class="max-w-md">
 				<div class="text-center mb-8">
 					<Heading level={2} variant="section" align="center" class="mb-4">
-						PLAYER LOGIN
+						CREATE ACCOUNT
 					</Heading>
 					<p class="text-gray-400 text-lg">
-						Access your gaming account to continue
+						Join the future of gaming on Cetus
 					</p>
 				</div>
 
 				<Card variant="glass" class="p-8">
-					<form id="login-form" class="space-y-6">
-						<!-- Username/Email Field -->
+					<form id="signup-form" class="space-y-6">
+						<!-- Name Field -->
 						<div class="space-y-2">
-							<label for="username" class="block text-sm font-medium text-cyan-400">
-								Username or Email
+							<label for="name" class="block text-sm font-medium text-cyan-400">
+								Full Name
 							</label>
 							<input 
 								type="text" 
-								id="username" 
-								name="username"
+								id="name" 
+								name="name"
 								class="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/50 transition-all duration-300"
-								placeholder="Enter your username or email"
+								placeholder="Enter your full name"
+								required
+							/>
+						</div>
+
+						<!-- Email Field -->
+						<div class="space-y-2">
+							<label for="email" class="block text-sm font-medium text-cyan-400">
+								Email Address
+							</label>
+							<input 
+								type="email" 
+								id="email" 
+								name="email"
+								class="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/50 transition-all duration-300"
+								placeholder="Enter your email address"
 								required
 							/>
 						</div>
@@ -89,30 +104,48 @@ import Footer from '@/components/ui/Footer.astro';
 								id="password" 
 								name="password"
 								class="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/50 transition-all duration-300"
-								placeholder="Enter your password"
+								placeholder="Create a secure password"
 								required
 							/>
 						</div>
 
-						<!-- Remember Me & Forgot Password -->
-						<div class="flex items-center justify-between">
-							<label class="flex items-center">
-								<input 
-									type="checkbox" 
-									class="w-4 h-4 text-cyan-400 bg-slate-800 border-slate-600 rounded focus:ring-cyan-400 focus:ring-2"
-								/>
-								<span class="ml-2 text-sm text-gray-300">Remember me</span>
+						<!-- Confirm Password Field -->
+						<div class="space-y-2">
+							<label for="confirmPassword" class="block text-sm font-medium text-cyan-400">
+								Confirm Password
 							</label>
-							<a href="#" class="text-sm text-cyan-400 hover:text-cyan-300 transition-colors duration-300">
-								Forgot password?
-							</a>
+							<input 
+								type="password" 
+								id="confirmPassword" 
+								name="confirmPassword"
+								class="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/50 transition-all duration-300"
+								placeholder="Confirm your password"
+								required
+							/>
 						</div>
 
-						<!-- Login Button -->
+						<!-- Terms Agreement -->
+						<div class="flex items-center">
+							<input 
+								type="checkbox" 
+								id="terms"
+								name="terms"
+								class="w-4 h-4 text-cyan-400 bg-slate-800 border-slate-600 rounded focus:ring-cyan-400 focus:ring-2"
+								required
+							/>
+							<label for="terms" class="ml-2 text-sm text-gray-300">
+								I agree to the 
+								<a href="#" class="text-cyan-400 hover:text-cyan-300 transition-colors duration-300">Terms of Service</a>
+								and 
+								<a href="#" class="text-cyan-400 hover:text-cyan-300 transition-colors duration-300">Privacy Policy</a>
+							</label>
+						</div>
+
+						<!-- Sign Up Button -->
 						<Button variant="primary" size="lg" class="w-full">
 							<span class="flex items-center justify-center">
 								<span class="mr-2">🚀</span>
-								Login to Play
+								Create Account
 							</span>
 						</Button>
 
@@ -132,22 +165,22 @@ import Footer from '@/components/ui/Footer.astro';
 						<div class="flex-1 border-t border-slate-600"></div>
 					</div>
 
-					<!-- Social Login Options -->
+					<!-- Social Sign Up Options -->
 					<div class="space-y-3">
 						<Button variant="outline" size="lg" class="w-full" data-social="google">
 							<span class="flex items-center justify-center">
 								<span class="mr-2">🌐</span>
-								Continue with Google
+								Sign up with Google
 							</span>
 						</Button>
 					</div>
 
-					<!-- Sign Up Link -->
+					<!-- Login Link -->
 					<div class="text-center mt-6 pt-6 border-t border-slate-600">
 						<p class="text-gray-400">
-							Don't have an account? 
-							<a href="/signup" class="text-cyan-400 hover:text-cyan-300 transition-colors duration-300 font-medium">
-								Sign up here
+							Already have an account? 
+							<a href="/login" class="text-cyan-400 hover:text-cyan-300 transition-colors duration-300 font-medium">
+								Sign in here
 							</a>
 						</p>
 					</div>
@@ -162,12 +195,12 @@ import Footer from '@/components/ui/Footer.astro';
 			import { authClient } from '@/lib/auth-client';
 
 			document.addEventListener('DOMContentLoaded', () => {
-				const loginForm = document.getElementById('login-form') as HTMLFormElement;
+				const signupForm = document.getElementById('signup-form') as HTMLFormElement;
 				const errorMessage = document.getElementById('error-message');
 				const successMessage = document.getElementById('success-message');
 
-				if (loginForm) {
-					loginForm.addEventListener('submit', async (e) => {
+				if (signupForm) {
+					signupForm.addEventListener('submit', async (e) => {
 						e.preventDefault();
 
 						// Hide previous messages
@@ -175,34 +208,48 @@ import Footer from '@/components/ui/Footer.astro';
 						if (successMessage) successMessage.classList.add('hidden');
 
 						// Get form data
-						const formData = new FormData(loginForm);
-						const email = formData.get('username') as string;
+						const formData = new FormData(signupForm);
+						const name = formData.get('name') as string;
+						const email = formData.get('email') as string;
 						const password = formData.get('password') as string;
+						const confirmPassword = formData.get('confirmPassword') as string;
+						const terms = formData.get('terms') as string;
 
 						// Basic validation
-						if (!email || !password) {
+						if (!name || !email || !password || !confirmPassword) {
 							showError('Please fill in all fields.');
 							return;
 						}
 
+						if (password !== confirmPassword) {
+							showError('Passwords do not match.');
+							return;
+						}
+
+						if (!terms) {
+							showError('Please agree to the Terms of Service and Privacy Policy.');
+							return;
+						}
+
 						// Show loading state
-						const submitButton = loginForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+						const submitButton = signupForm.querySelector('button[type="submit"]') as HTMLButtonElement;
 						const originalText = submitButton.innerHTML;
-						submitButton.innerHTML = '<span class="flex items-center justify-center"><span class="mr-2">⏳</span>Logging in...</span>';
+						submitButton.innerHTML = '<span class="flex items-center justify-center"><span class="mr-2">⏳</span>Creating Account...</span>';
 						submitButton.disabled = true;
 
 						try {
-							// Use Better Auth for login
-							const result = await authClient.signIn.email({
+							// Use Better Auth for sign up
+							const result = await authClient.signUp.email({
 								email,
 								password,
+								name,
 								callbackURL: "/#games"
 							});
 
 							if (result.error) {
-								showError(result.error.message || 'Login failed. Please try again.');
+								showError(result.error.message || 'Sign up failed. Please try again.');
 							} else {
-								showSuccess('Login successful! Redirecting to games...');
+								showSuccess('Account created successfully! Redirecting to games...');
 								
 								// Redirect to games after success
 								setTimeout(() => {
@@ -210,8 +257,8 @@ import Footer from '@/components/ui/Footer.astro';
 								}, 1000);
 							}
 						} catch (error) {
-							console.error('Login error:', error);
-							showError('An error occurred during login. Please try again.');
+							console.error('Sign up error:', error);
+							showError('An error occurred during sign up. Please try again.');
 						} finally {
 							// Reset button
 							submitButton.innerHTML = originalText;
@@ -220,7 +267,7 @@ import Footer from '@/components/ui/Footer.astro';
 					});
 				}
 
-				// Social login handlers
+				// Social sign up handlers
 				const googleBtn = document.querySelector('[data-social="google"]') as HTMLButtonElement;
 
 				if (googleBtn) {
@@ -231,8 +278,8 @@ import Footer from '@/components/ui/Footer.astro';
 								callbackURL: '/#games'
 							});
 						} catch (error) {
-							console.error('Google login error:', error);
-							showError('Google login failed. Please try again.');
+							console.error('Google sign up error:', error);
+							showError('Google sign up failed. Please try again.');
 						}
 					});
 				}
@@ -253,7 +300,7 @@ import Footer from '@/components/ui/Footer.astro';
 				}
 
 				// Add glow effects to input fields
-				const inputs = document.querySelectorAll('input[type="text"], input[type="password"]');
+				const inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]');
 				inputs.forEach(input => {
 					input.addEventListener('focus', () => {
 						input.classList.add('shadow-glow-cyan');

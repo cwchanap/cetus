@@ -12,6 +12,10 @@ import FeatureCard from '@/components/ui/FeatureCard.astro';
 import GameCard from '@/components/ui/GameCard.astro';
 import Footer from '@/components/ui/Footer.astro';
 
+// Check if user is authenticated
+const user = Astro.locals.user;
+const session = Astro.locals.session;
+
 // Mock data for single player minigames
 const games = [
 	{
@@ -116,13 +120,17 @@ const games = [
 		</div>
 
 		<!-- Header -->
-		<Navigation />
+		<Navigation 
+			ctaLabel={user ? `Welcome, ${user.name}` : "Login"}
+			ctaHref={user ? "#" : "/login"}
+		/>
 
 		<!-- Hero Section -->
 		<Hero 
 			title="MINIGAMES"
 			subtitle="OF THE FUTURE"
 			description="Welcome to the ultimate single-player gaming experience. Choose from our collection of <span class='text-cyan-400 font-semibold text-neon-cyan'>futuristic mini-games</span> designed to challenge your skills and create amazing gaming moments."
+			primaryAction="Start Playing"
 			primaryHref="#games"
 		/>
 
@@ -133,12 +141,12 @@ const games = [
 					SELECT YOUR GAME
 				</Heading>
 				<p class="text-center text-gray-400 mb-12 text-lg">
-					Choose from our arsenal of single-player minigames
+					Choose from our arsenal of single-player minigames - no login required!
 				</p>
 
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 					{games.map((game) => (
-						<GameCard game={game} />
+						<GameCard game={game} user={user} />
 					))}
 				</div>
 			</Container>
@@ -151,11 +159,11 @@ const games = [
 					WHY CHOOSE CETUS?
 				</Heading>
 				
-				<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
 					<FeatureCard 
 						icon="⚡"
 						title="Instant Play"
-						description="No downloads required. Jump into any game instantly from your browser."
+						description="No downloads or registration required. Jump into any game instantly from your browser."
 						variant="cyan-purple"
 					/>
 					
@@ -172,22 +180,49 @@ const games = [
 						description="Challenge yourself and improve your skills with engaging gameplay."
 						variant="pink-cyan"
 					/>
+
+					<FeatureCard 
+						icon="📊"
+						title="Optional Progress"
+						description="Login to track your scores and achievements, or just play anonymously."
+						variant="cyan-purple"
+					/>
 				</div>
 			</Container>
 		</Section>
+
 		<!-- CTA Section -->
 		<Section variant="cta">
 			<Container class="max-w-4xl text-center">
 				<Card variant="glass" class="p-12">
 					<Heading level={3} variant="section" align="center" class="mb-4">
-						Ready to Start Playing?
+						{user ? "Welcome Back, Player!" : "Ready to Start Playing?"}
 					</Heading>
 					<p class="text-gray-300 mb-8 text-lg">
-						Join thousands of players already having fun with our games
+						{user 
+							? "Continue your gaming journey with our collection of minigames" 
+							: "Jump right into our games or create an account to track your progress"
+						}
 					</p>
-					<Button variant="primary" size="lg">
-						<a href="/login" class="text-white no-underline">Login to Continue �</a>
-					</Button>
+					{user ? (
+						<div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+							<Button variant="primary" size="lg">
+								<a href="#games" class="text-white no-underline">Continue Playing 🎮</a>
+							</Button>
+							<Button variant="outline" size="lg" id="logout-btn">
+								<span class="text-white no-underline">Logout</span>
+							</Button>
+						</div>
+					) : (
+						<div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+							<Button variant="primary" size="lg">
+								<a href="#games" class="text-white no-underline">Start Playing 🎮</a>
+							</Button>
+							<Button variant="outline" size="lg">
+								<a href="/login" class="text-white no-underline">Login for Progress �</a>
+							</Button>
+						</div>
+					)}
 				</Card>
 			</Container>
 		</Section>
@@ -196,8 +231,23 @@ const games = [
 		<Footer />
 
 		<script>
+			import { authClient } from '@/lib/auth-client';
+
 			// Add some interactive effects using pure DOM manipulation
 			document.addEventListener('DOMContentLoaded', () => {
+				// Handle logout
+				const logoutBtn = document.getElementById('logout-btn');
+				if (logoutBtn) {
+					logoutBtn.addEventListener('click', async () => {
+						try {
+							await authClient.signOut();
+							window.location.reload();
+						} catch (error) {
+							console.error('Logout error:', error);
+						}
+					});
+				}
+
 				// Add glow effect on game cards
 				const gameCards = document.querySelectorAll('.group') as NodeListOf<HTMLElement>;
 				gameCards.forEach(card => {
