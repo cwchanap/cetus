@@ -1,5 +1,5 @@
 import { createAuthClient } from "better-auth/client"
 
 export const authClient = createAuthClient({
-  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:4324",
+  baseURL: import.meta.env.BETTER_AUTH_URL || "",
 })
