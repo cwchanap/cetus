@@ -1,0 +1,185 @@
+---
+interface Props {
+  user: {
+    name?: string
+    email?: string
+  }
+}
+
+const { user } = Astro.props
+const userName = user.name || user.email?.split('@')[0] || 'User'
+---
+
+<div class="relative" id="user-dropdown">
+  <!-- Dropdown trigger button -->
+  <button
+    id="user-menu-button"
+    class="inline-flex items-center justify-center h-11 rounded-md px-4 bg-gradient-to-r from-cyan-500/20 to-purple-600/20 border border-cyan-400/30 text-cyan-400 hover:from-cyan-500/30 hover:to-purple-600/30 hover:border-cyan-400/50 font-medium transition-all duration-300 text-sm backdrop-blur-sm"
+    aria-expanded="false"
+    aria-haspopup="true"
+  >
+    <span class="flex items-center">
+      <span class="mr-2">👤</span>
+      Welcome, {userName}
+      <svg
+        class="ml-2 h-4 w-4 transition-transform duration-200"
+        id="dropdown-arrow"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M19 9l-7 7-7-7"></path>
+      </svg>
+    </span>
+  </button>
+
+  <!-- Dropdown menu -->
+  <div
+    id="user-menu"
+    class="absolute right-0 mt-2 w-56 rounded-lg bg-slate-900/95 backdrop-blur-md border border-cyan-400/30 shadow-lg shadow-cyan-500/25 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 origin-top-right"
+  >
+    <div class="py-2">
+      <!-- User info section -->
+      <div class="px-4 py-3 border-b border-slate-700/50">
+        <p class="text-sm text-cyan-400 font-medium">{userName}</p>
+        <p class="text-xs text-gray-400 truncate">{user.email}</p>
+      </div>
+
+      <!-- Menu items -->
+      <div class="py-1">
+        <a
+          href="/profile"
+          class="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors duration-200"
+        >
+          <span class="flex items-center">
+            <span class="mr-3">⚙️</span>
+            Profile Settings
+          </span>
+        </a>
+
+        <a
+          href="/dashboard"
+          class="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors duration-200"
+        >
+          <span class="flex items-center">
+            <span class="mr-3">📊</span>
+            Dashboard
+          </span>
+        </a>
+
+        <div class="border-t border-slate-700/50 my-1"></div>
+
+        <button
+          id="logout-btn"
+          class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors duration-200"
+        >
+          <span class="flex items-center">
+            <span class="mr-3">🚪</span>
+            Logout
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { authClient } from '@/lib/auth-client'
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const dropdownButton = document.getElementById('user-menu-button')
+    const dropdownMenu = document.getElementById('user-menu')
+    const dropdownArrow = document.getElementById('dropdown-arrow')
+    const logoutBtn = document.getElementById('logout-btn')
+
+    if (dropdownButton && dropdownMenu && dropdownArrow) {
+      // Toggle dropdown
+      dropdownButton.addEventListener('click', () => {
+        const isOpen = dropdownMenu.classList.contains('opacity-100')
+
+        if (isOpen) {
+          // Close dropdown
+          dropdownMenu.classList.remove(
+            'opacity-100',
+            'scale-100',
+            'pointer-events-auto'
+          )
+          dropdownMenu.classList.add(
+            'opacity-0',
+            'scale-95',
+            'pointer-events-none'
+          )
+          dropdownArrow.classList.remove('rotate-180')
+          dropdownButton.setAttribute('aria-expanded', 'false')
+        } else {
+          // Open dropdown
+          dropdownMenu.classList.remove(
+            'opacity-0',
+            'scale-95',
+            'pointer-events-none'
+          )
+          dropdownMenu.classList.add(
+            'opacity-100',
+            'scale-100',
+            'pointer-events-auto'
+          )
+          dropdownArrow.classList.add('rotate-180')
+          dropdownButton.setAttribute('aria-expanded', 'true')
+        }
+      })
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', event => {
+        const dropdown = document.getElementById('user-dropdown')
+        if (dropdown && !dropdown.contains(event.target as Node)) {
+          dropdownMenu.classList.remove(
+            'opacity-100',
+            'scale-100',
+            'pointer-events-auto'
+          )
+          dropdownMenu.classList.add(
+            'opacity-0',
+            'scale-95',
+            'pointer-events-none'
+          )
+          dropdownArrow.classList.remove('rotate-180')
+          dropdownButton.setAttribute('aria-expanded', 'false')
+        }
+      })
+
+      // Close dropdown on escape key
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          dropdownMenu.classList.remove(
+            'opacity-100',
+            'scale-100',
+            'pointer-events-auto'
+          )
+          dropdownMenu.classList.add(
+            'opacity-0',
+            'scale-95',
+            'pointer-events-none'
+          )
+          dropdownArrow.classList.remove('rotate-180')
+          dropdownButton.setAttribute('aria-expanded', 'false')
+        }
+      })
+    }
+
+    // Handle logout
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        try {
+          await authClient.signOut()
+          window.location.reload()
+        } catch (error) {
+          console.error('Logout error:', error)
+        }
+      })
+    }
+  })
+</script>

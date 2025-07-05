@@ -1,6 +1,7 @@
 ---
 import { cn } from '@/lib/utils'
 import Button from './Button.astro'
+import UserDropdown from '../UserDropdown.astro'
 import type { HTMLAttributes } from 'astro/types'
 
 export interface Props extends HTMLAttributes<'header'> {
@@ -11,6 +12,10 @@ export interface Props extends HTMLAttributes<'header'> {
   ctaHref?: string
   class?: string
 }
+
+// Get the current session and user from Astro.locals
+const session = Astro.locals.session
+const user = Astro.locals.user
 
 const {
   logo = 'C',
@@ -52,11 +57,17 @@ const classes = cn('relative z-10 px-6 py-8', className)
           </a>
         ))
       }
-      <Button variant="primary">
-        <a href={ctaHref} class="text-white no-underline">
-          {ctaLabel}
-        </a>
-      </Button>
+      {
+        user ? (
+          <UserDropdown user={user} />
+        ) : (
+          <Button variant="primary">
+            <a href={ctaHref} class="text-white no-underline">
+              {ctaLabel}
+            </a>
+          </Button>
+        )
+      }
     </div>
   </nav>
 </header>

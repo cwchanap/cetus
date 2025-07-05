@@ -139,10 +139,7 @@ const games = [
     </div>
 
     <!-- Header -->
-    <Navigation
-      ctaLabel={user ? `Welcome, ${user.name}` : 'Login'}
-      ctaHref={user ? '#' : '/login'}
-    />
+    <Navigation />
 
     <!-- Hero Section -->
     <Hero
@@ -258,23 +255,8 @@ const games = [
     <Footer />
 
     <script>
-      import { authClient } from '@/lib/auth-client'
-
       // Add some interactive effects using pure DOM manipulation
       document.addEventListener('DOMContentLoaded', () => {
-        // Handle logout
-        const logoutBtn = document.getElementById('logout-btn')
-        if (logoutBtn) {
-          logoutBtn.addEventListener('click', async () => {
-            try {
-              await authClient.signOut()
-              window.location.reload()
-            } catch (error) {
-              console.error('Logout error:', error)
-            }
-          })
-        }
-
         // Add glow effect on game cards
         const gameCards = document.querySelectorAll(
           '.group'
@@ -301,10 +283,7 @@ const games = [
 
         // Check if user just logged in and should be redirected to games
         const urlParams = new URLSearchParams(window.location.search)
-        if (
-          urlParams.get('redirect') === 'games' ||
-          window.location.hash === '#games'
-        ) {
+        if (urlParams.get('redirect') === 'games') {
           // Smooth scroll to games section after a brief delay
           setTimeout(() => {
             const gamesSection = document.getElementById('games')
