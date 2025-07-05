@@ -1,5 +1,5 @@
 ---
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils'
 import type { HTMLAttributes } from 'astro/types'
 
 export interface Props extends HTMLAttributes<'div'> {
@@ -8,31 +8,33 @@ export interface Props extends HTMLAttributes<'div'> {
   class?: string
 }
 
-const { 
-  size = 'default', 
+const {
+  size = 'default',
   variant = 'default',
   class: className = '',
-  ...props 
+  ...props
 } = Astro.props
 
 const avatarVariants = {
   size: {
-    sm: "w-8 h-8",
-    default: "w-12 h-12",
-    lg: "w-16 h-16",
-    xl: "w-20 h-20"
+    sm: 'w-8 h-8',
+    default: 'w-12 h-12',
+    lg: 'w-16 h-16',
+    xl: 'w-20 h-20',
   },
   variant: {
-    default: "bg-gradient-to-r from-primary to-primary-foreground",
-    'cyan-purple': "bg-gradient-to-r from-cyan-500 to-purple-600 shadow-glow-cyan",
-    'purple-pink': "bg-gradient-to-r from-purple-500 to-pink-600 shadow-glow-purple",
-    'pink-cyan': "bg-gradient-to-r from-pink-500 to-cyan-600 shadow-glow-pink",
-    solid: "bg-muted"
-  }
+    default: 'bg-gradient-to-r from-primary to-primary-foreground',
+    'cyan-purple':
+      'bg-gradient-to-r from-cyan-500 to-purple-600 shadow-glow-cyan',
+    'purple-pink':
+      'bg-gradient-to-r from-purple-500 to-pink-600 shadow-glow-purple',
+    'pink-cyan': 'bg-gradient-to-r from-pink-500 to-cyan-600 shadow-glow-pink',
+    solid: 'bg-muted',
+  },
 }
 
 const classes = cn(
-  "relative flex items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110",
+  'relative flex items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110',
   avatarVariants.size[size],
   avatarVariants.variant[variant],
   className

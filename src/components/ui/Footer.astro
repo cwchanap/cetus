@@ -1,5 +1,5 @@
 ---
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils'
 import type { HTMLAttributes } from 'astro/types'
 
 export interface Props extends HTMLAttributes<'footer'> {
@@ -7,14 +7,14 @@ export interface Props extends HTMLAttributes<'footer'> {
   class?: string
 }
 
-const { 
-  copyright = "© 2025 Cetus Games. Built for the future of gaming entertainment.",
+const {
+  copyright = '© 2025 Cetus Games. Built for the future of gaming entertainment.',
   class: className = '',
-  ...props 
+  ...props
 } = Astro.props
 
 const classes = cn(
-  "relative z-10 px-6 py-8 border-t border-slate-700/50",
+  'relative z-10 px-6 py-8 border-t border-slate-700/50',
   className
 )
 ---

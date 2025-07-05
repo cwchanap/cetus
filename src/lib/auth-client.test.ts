@@ -23,19 +23,21 @@ describe('Auth Client', () => {
 
   describe('Email Authentication', () => {
     it('should successfully sign in with valid email and password', async () => {
-      const mockResult = { data: { user: { id: '1', email: 'test@example.com' } } }
+      const mockResult = {
+        data: { user: { id: '1', email: 'test@example.com' } },
+      }
       vi.mocked(authClient.signIn.email).mockResolvedValue(mockResult)
 
       const result = await authClient.signIn.email({
         email: 'test@example.com',
         password: 'password123',
-        callbackURL: '/'
+        callbackURL: '/',
       })
 
       expect(authClient.signIn.email).toHaveBeenCalledWith({
         email: 'test@example.com',
         password: 'password123',
-        callbackURL: '/'
+        callbackURL: '/',
       })
       expect(result).toEqual(mockResult)
     })
@@ -47,7 +49,7 @@ describe('Auth Client', () => {
       const result = await authClient.signIn.email({
         email: 'test@example.com',
         password: 'wrongpassword',
-        callbackURL: '/'
+        callbackURL: '/',
       })
 
       expect(result.error).toBeDefined()
@@ -55,21 +57,23 @@ describe('Auth Client', () => {
     })
 
     it('should successfully sign up with valid email and password', async () => {
-      const mockResult = { data: { user: { id: '1', email: 'newuser@example.com' } } }
+      const mockResult = {
+        data: { user: { id: '1', email: 'newuser@example.com' } },
+      }
       vi.mocked(authClient.signUp.email).mockResolvedValue(mockResult)
 
       const result = await authClient.signUp.email({
         email: 'newuser@example.com',
         password: 'password123',
         name: 'newuser',
-        callbackURL: '/'
+        callbackURL: '/',
       })
 
       expect(authClient.signUp.email).toHaveBeenCalledWith({
         email: 'newuser@example.com',
         password: 'password123',
         name: 'newuser',
-        callbackURL: '/'
+        callbackURL: '/',
       })
       expect(result).toEqual(mockResult)
     })
@@ -82,7 +86,7 @@ describe('Auth Client', () => {
         email: 'existing@example.com',
         password: 'password123',
         name: 'existing',
-        callbackURL: '/'
+        callbackURL: '/',
       })
 
       expect(result.error).toBeDefined()
@@ -92,17 +96,19 @@ describe('Auth Client', () => {
 
   describe('Social Authentication', () => {
     it('should successfully sign in with Google', async () => {
-      const mockResult = { data: { user: { id: '1', email: 'google@example.com' } } }
+      const mockResult = {
+        data: { user: { id: '1', email: 'google@example.com' } },
+      }
       vi.mocked(authClient.signIn.social).mockResolvedValue(mockResult)
 
       const result = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: '/'
+        callbackURL: '/',
       })
 
       expect(authClient.signIn.social).toHaveBeenCalledWith({
         provider: 'google',
-        callbackURL: '/'
+        callbackURL: '/',
       })
       expect(result).toEqual(mockResult)
     })
@@ -113,7 +119,7 @@ describe('Auth Client', () => {
 
       const result = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: '/'
+        callbackURL: '/',
       })
 
       expect(result.error).toBeDefined()
@@ -133,11 +139,11 @@ describe('Auth Client', () => {
     })
 
     it('should get current session', async () => {
-      const mockSession = { 
-        data: { 
+      const mockSession = {
+        data: {
           user: { id: '1', email: 'test@example.com' },
-          session: { id: 'session-1', expiresAt: new Date() }
-        } 
+          session: { id: 'session-1', expiresAt: new Date() },
+        },
       }
       vi.mocked(authClient.getSession).mockResolvedValue(mockSession)
 

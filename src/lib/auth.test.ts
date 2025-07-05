@@ -11,7 +11,7 @@ describe('Auth Configuration', () => {
     expect(typeof process.env.BETTER_AUTH_URL).toBe('undefined')
     expect(typeof process.env.GOOGLE_CLIENT_ID).toBe('undefined')
     expect(typeof process.env.GOOGLE_CLIENT_SECRET).toBe('undefined')
-    
+
     // Verify mocked values are being used in tests
     expect(vi.isMockFunction).toBeDefined()
   })
@@ -33,11 +33,11 @@ describe('Auth Configuration', () => {
           google: {
             clientId: 'test-google-client-id',
             clientSecret: 'test-google-secret',
-          }
-        }
+          },
+        },
       }
 
-      // This is a structure test - in a real implementation, 
+      // This is a structure test - in a real implementation,
       // we would import and test the actual auth configuration
       expect(expectedConfig.secret).toBeDefined()
       expect(expectedConfig.baseURL).toBeDefined()
@@ -58,7 +58,7 @@ describe('Auth Configuration', () => {
         session: {
           id: 'session-123',
           expiresAt: new Date(),
-        }
+        },
       }
 
       expect(mockSession.user.id).toBe('user-123')
@@ -80,8 +80,14 @@ describe('Auth Configuration', () => {
       const authErrors = [
         { type: 'INVALID_CREDENTIALS', message: 'Invalid email or password' },
         { type: 'USER_NOT_FOUND', message: 'User does not exist' },
-        { type: 'EMAIL_ALREADY_EXISTS', message: 'Account with this email already exists' },
-        { type: 'WEAK_PASSWORD', message: 'Password must be at least 8 characters' },
+        {
+          type: 'EMAIL_ALREADY_EXISTS',
+          message: 'Account with this email already exists',
+        },
+        {
+          type: 'WEAK_PASSWORD',
+          message: 'Password must be at least 8 characters',
+        },
         { type: 'SOCIAL_AUTH_FAILED', message: 'Social authentication failed' },
       ]
 

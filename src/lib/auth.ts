@@ -1,10 +1,10 @@
-import { betterAuth } from "better-auth";
-import { dialect } from "./db";
+import { betterAuth } from 'better-auth'
+import { dialect } from './db'
 
 export const auth = betterAuth({
   database: {
     dialect,
-    type: "sqlite",
+    type: 'sqlite',
   },
   emailAndPassword: {
     enabled: true,
@@ -12,8 +12,8 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: import.meta.env.GOOGLE_CLIENT_ID || "placeholder",
-      clientSecret: import.meta.env.GOOGLE_CLIENT_SECRET || "placeholder",
+      clientId: import.meta.env.GOOGLE_CLIENT_ID || 'placeholder',
+      clientSecret: import.meta.env.GOOGLE_CLIENT_SECRET || 'placeholder',
     },
   },
   session: {
@@ -21,15 +21,15 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24, // 1 day
   },
   trustedOrigins: [
-    "http://localhost:4321",
-    "http://localhost:4322", 
-    "https://cetus.vercel.app",
-    "http://localhost:4321/#games",
-    "http://localhost:4322/#games",
-    "https://cetus.vercel.app/#games",
+    'http://localhost:4321',
+    'http://localhost:4322',
+    'https://cetus.vercel.app',
+    'http://localhost:4321/#games',
+    'http://localhost:4322/#games',
+    'https://cetus.vercel.app/#games',
   ],
   secret: import.meta.env.BETTER_AUTH_SECRET!,
-  baseURL: import.meta.env.BETTER_AUTH_URL || "",
-});
+  baseURL: import.meta.env.BETTER_AUTH_URL || '',
+})
 
-export type Session = typeof auth.$Infer.Session;
+export type Session = typeof auth.$Infer.Session
