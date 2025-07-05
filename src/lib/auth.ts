@@ -12,8 +12,8 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID || "placeholder",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "placeholder",
+      clientId: import.meta.env.GOOGLE_CLIENT_ID || "placeholder",
+      clientSecret: import.meta.env.GOOGLE_CLIENT_SECRET || "placeholder",
     },
   },
   session: {
@@ -22,11 +22,14 @@ export const auth = betterAuth({
   },
   trustedOrigins: [
     "http://localhost:4321",
-    "http://localhost:4322",
+    "http://localhost:4322", 
     "https://cetus.vercel.app",
+    "http://localhost:4321/#games",
+    "http://localhost:4322/#games",
+    "https://cetus.vercel.app/#games",
   ],
-  secret: process.env.BETTER_AUTH_SECRET!,
-  baseURL: process.env.BETTER_AUTH_URL || "",
+  secret: import.meta.env.BETTER_AUTH_SECRET!,
+  baseURL: import.meta.env.BETTER_AUTH_URL || "",
 });
 
 export type Session = typeof auth.$Infer.Session;

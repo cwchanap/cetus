@@ -64,21 +64,6 @@ import Footer from '@/components/ui/Footer.astro';
 
 				<Card variant="glass" class="p-8">
 					<form id="signup-form" class="space-y-6">
-						<!-- Name Field -->
-						<div class="space-y-2">
-							<label for="name" class="block text-sm font-medium text-cyan-400">
-								Full Name
-							</label>
-							<input 
-								type="text" 
-								id="name" 
-								name="name"
-								class="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/50 transition-all duration-300"
-								placeholder="Enter your full name"
-								required
-							/>
-						</div>
-
 						<!-- Email Field -->
 						<div class="space-y-2">
 							<label for="email" class="block text-sm font-medium text-cyan-400">
@@ -142,12 +127,12 @@ import Footer from '@/components/ui/Footer.astro';
 						</div>
 
 						<!-- Sign Up Button -->
-						<Button variant="primary" size="lg" class="w-full">
+						<button type="submit" class="w-full inline-flex items-center justify-center h-11 rounded-md px-8 bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg shadow-purple-500/25 hover:from-cyan-400 hover:to-purple-500 font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50 text-sm">
 							<span class="flex items-center justify-center">
 								<span class="mr-2">🚀</span>
 								Create Account
 							</span>
-						</Button>
+						</button>
 
 						<!-- Error Message -->
 						<div id="error-message" class="hidden p-4 bg-red-500/20 border border-red-400/30 rounded-lg text-red-400 text-sm">
@@ -167,12 +152,12 @@ import Footer from '@/components/ui/Footer.astro';
 
 					<!-- Social Sign Up Options -->
 					<div class="space-y-3">
-						<Button variant="outline" size="lg" class="w-full" data-social="google">
+						<button type="button" data-social="google" class="w-full inline-flex items-center justify-center h-11 rounded-md px-8 border-2 border-cyan-400 text-cyan-400 bg-transparent hover:bg-cyan-400 hover:text-slate-900 font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50 text-sm">
 							<span class="flex items-center justify-center">
 								<span class="mr-2">🌐</span>
 								Sign up with Google
 							</span>
-						</Button>
+						</button>
 					</div>
 
 					<!-- Login Link -->
@@ -209,14 +194,13 @@ import Footer from '@/components/ui/Footer.astro';
 
 						// Get form data
 						const formData = new FormData(signupForm);
-						const name = formData.get('name') as string;
 						const email = formData.get('email') as string;
 						const password = formData.get('password') as string;
 						const confirmPassword = formData.get('confirmPassword') as string;
 						const terms = formData.get('terms') as string;
 
 						// Basic validation
-						if (!name || !email || !password || !confirmPassword) {
+						if (!email || !password || !confirmPassword) {
 							showError('Please fill in all fields.');
 							return;
 						}
@@ -238,12 +222,12 @@ import Footer from '@/components/ui/Footer.astro';
 						submitButton.disabled = true;
 
 						try {
-							// Use Better Auth for sign up
+							// Use Better Auth for sign up (using email as name since full name field was removed)
 							const result = await authClient.signUp.email({
 								email,
 								password,
-								name,
-								callbackURL: "/#games"
+								name: email.split('@')[0], // Use email username part as name
+								callbackURL: "/"
 							});
 
 							if (result.error) {
@@ -275,7 +259,7 @@ import Footer from '@/components/ui/Footer.astro';
 						try {
 							await authClient.signIn.social({
 								provider: 'google',
-								callbackURL: '/#games'
+								callbackURL: '/'
 							});
 						} catch (error) {
 							console.error('Google sign up error:', error);

@@ -6,3 +6,5 @@ export const ALL: APIRoute = async (ctx) => {
 	// ctx.request.headers.set("x-forwarded-for", ctx.clientAddress);
 	return auth.handler(ctx.request);
 };
+
+export const prerender = false;

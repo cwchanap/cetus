@@ -1,5 +1,6 @@
 ---
 import '@/styles/global.css';
+
 // Component Imports
 import Button from '@/components/ui/Button.astro';
 import Card from '@/components/ui/Card.astro';
@@ -267,6 +268,18 @@ const games = [
 						particle.classList.add('animate-float');
 					}
 				});
+
+				// Check if user just logged in and should be redirected to games
+				const urlParams = new URLSearchParams(window.location.search);
+				if (urlParams.get('redirect') === 'games' || window.location.hash === '#games') {
+					// Smooth scroll to games section after a brief delay
+					setTimeout(() => {
+						const gamesSection = document.getElementById('games');
+						if (gamesSection) {
+							gamesSection.scrollIntoView({ behavior: 'smooth' });
+						}
+					}, 500);
+				}
 			});
 		</script>
 	</body>

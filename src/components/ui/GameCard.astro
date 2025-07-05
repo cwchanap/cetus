@@ -71,11 +71,12 @@ const getGameUrl = (title: string) => {
       </Badge>
       
       {game.available ? (
-        <Button variant="primary" size="sm">
-          <a href={getGameUrl(game.title)} class="text-white no-underline">
-            Play Now
-          </a>
-        </Button>
+        <a 
+          href={getGameUrl(game.title)} 
+          class="inline-flex items-center justify-center h-9 rounded-md px-3 bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg shadow-purple-500/25 hover:from-cyan-400 hover:to-purple-500 font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50 text-sm no-underline"
+        >
+          Play Now
+        </a>
       ) : (
         <Badge variant="outline">
           Coming Soon
