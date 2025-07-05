@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.astro/
+coverage/
+db/
+public/
+*.md
+*.json
+*.lock
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
