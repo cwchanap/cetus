@@ -8,7 +8,9 @@
   "bracketSpacing": true,
   "arrowParens": "avoid",
   "endOfLine": "lf",
-  "plugins": ["prettier-plugin-astro"],
+  "plugins": [
+    "prettier-plugin-astro"
+  ],
   "overrides": [
     {
       "files": "*.astro",
