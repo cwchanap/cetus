@@ -651,13 +651,37 @@ import Badge from '@/components/ui/Badge.astro'
           }
         }
 
-        endGame() {
+        async endGame() {
           this.gameOver = true
           this.gameStarted = false
           document.getElementById('final-score').textContent = this.score
           document
             .getElementById('game-over-overlay')
             .classList.remove('hidden')
+
+          // Submit score to server
+          if (this.score > 0) {
+            try {
+              const response = await fetch('/api/scores', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  gameId: 'tetris',
+                  score: this.score,
+                }),
+              })
+
+              if (response.ok) {
+                console.log('Score submitted successfully')
+              } else {
+                console.error('Failed to submit score')
+              }
+            } catch (error) {
+              console.error('Error submitting score:', error)
+            }
+          }
         }
 
         gameLoop() {

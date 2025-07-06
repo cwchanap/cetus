@@ -11,6 +11,8 @@ import Button from '@/components/ui/Button.astro'
 import Navigation from '@/components/ui/Navigation.astro'
 import Footer from '@/components/ui/Footer.astro'
 
+import { getUserStats, getUserGameHistory } from '@/lib/db/queries'
+
 // Check if user is authenticated
 const user = Astro.locals.user
 const session = Astro.locals.session
@@ -19,6 +21,10 @@ const session = Astro.locals.session
 if (!user) {
   return Astro.redirect('/login?redirect=/profile')
 }
+
+// Fetch user stats and game history
+const userStats = await getUserStats(user.id)
+const gameHistory = await getUserGameHistory(user.id, 10)
 
 // Get user display name
 const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
@@ -172,7 +178,9 @@ const userBadges = [
                   </div>
                   <div class="flex items-center justify-start space-x-1">
                     <span>🎮</span>
-                    <span>Games Played: 0</span>
+                    <span
+                      >Games Played: {userStats?.total_games_played || 0}</span
+                    >
                   </div>
                 </div>
               </div>
@@ -188,11 +196,15 @@ const userBadges = [
               <div class="space-y-3">
                 <div class="flex justify-between">
                   <span class="text-gray-400">Total Score</span>
-                  <span class="text-white font-semibold">0</span>
+                  <span class="text-white font-semibold"
+                    >{userStats?.total_score?.toLocaleString() || 0}</span
+                  >
                 </div>
                 <div class="flex justify-between">
                   <span class="text-gray-400">Games Played</span>
-                  <span class="text-white font-semibold">0</span>
+                  <span class="text-white font-semibold"
+                    >{userStats?.total_games_played || 0}</span
+                  >
                 </div>
                 <div class="flex justify-between">
                   <span class="text-gray-400">Achievements</span>
@@ -214,6 +226,74 @@ const userBadges = [
               </div>
             </Card>
           </div>
+
+          <!-- Game History Section -->
+          <Card variant="glass" class="p-6 md:p-8 mb-8">
+            <h3 class="text-2xl font-orbitron font-bold text-holographic mb-6">
+              RECENT GAMES
+            </h3>
+            <p class="text-gray-400 mb-8">
+              Your recent game sessions and scores
+            </p>
+
+            {
+              gameHistory.length > 0 ? (
+                <div class="space-y-4">
+                  {gameHistory.map((game, index) => (
+                    <div
+                      key={index}
+                      class="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
+                    >
+                      <div class="flex items-center space-x-4">
+                        <div class="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center">
+                          <span class="text-white font-bold">
+                            {game.game_id === 'tetris'
+                              ? '🔲'
+                              : game.game_id === 'quick_draw'
+                                ? '🎨'
+                                : '🎮'}
+                          </span>
+                        </div>
+                        <div>
+                          <h4 class="font-orbitron font-semibold text-white">
+                            {game.game_name}
+                          </h4>
+                          <p class="text-sm text-gray-400">
+                            {new Date(game.created_at).toLocaleDateString(
+                              'en-US',
+                              {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              }
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div class="text-right">
+                        <div class="text-xl font-bold text-cyan-400">
+                          {game.score.toLocaleString()}
+                        </div>
+                        <div class="text-sm text-gray-400">points</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div class="text-center py-8">
+                  <div class="text-6xl mb-4 opacity-50">🎮</div>
+                  <p class="text-gray-400 mb-4">No games played yet</p>
+                  <Button variant="outline">
+                    <a href="/" class="text-white no-underline">
+                      Start Playing
+                    </a>
+                  </Button>
+                </div>
+              )
+            }
+          </Card>
 
           <!-- Achievements Section -->
           <Card variant="glass" class="p-6 md:p-8">
