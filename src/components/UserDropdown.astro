@@ -10,7 +10,7 @@ const { user } = Astro.props
 const userName = user.name || user.email?.split('@')[0] || 'User'
 ---
 
-<div class="relative" id="user-dropdown">
+<div class="relative z-[10000]" id="user-dropdown">
   <!-- Dropdown trigger button -->
   <button
     id="user-menu-button"
@@ -40,7 +40,7 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
   <!-- Dropdown menu -->
   <div
     id="user-menu"
-    class="absolute right-0 mt-2 w-56 rounded-lg bg-slate-900/95 backdrop-blur-md border border-cyan-400/30 shadow-lg shadow-cyan-500/25 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 origin-top-right"
+    class="absolute right-0 mt-2 w-56 rounded-lg bg-slate-900/95 backdrop-blur-md border border-cyan-400/30 shadow-lg shadow-cyan-500/25 z-[9999] opacity-0 scale-95 pointer-events-none transition-all duration-200 origin-top-right"
   >
     <div class="py-2">
       <!-- User info section -->
@@ -74,7 +74,7 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
         <div class="border-t border-slate-700/50 my-1"></div>
 
         <button
-          id="logout-btn"
+          id="dropdown-logout-btn"
           class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors duration-200"
         >
           <span class="flex items-center">
@@ -94,27 +94,31 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
     const dropdownButton = document.getElementById('user-menu-button')
     const dropdownMenu = document.getElementById('user-menu')
     const dropdownArrow = document.getElementById('dropdown-arrow')
-    const logoutBtn = document.getElementById('logout-btn')
+    const logoutBtn = document.getElementById('dropdown-logout-btn')
 
     if (dropdownButton && dropdownMenu && dropdownArrow) {
+      // Helper function to close dropdown
+      const closeDropdown = () => {
+        dropdownMenu.classList.remove(
+          'opacity-100',
+          'scale-100',
+          'pointer-events-auto'
+        )
+        dropdownMenu.classList.add(
+          'opacity-0',
+          'scale-95',
+          'pointer-events-none'
+        )
+        dropdownArrow.classList.remove('rotate-180')
+        dropdownButton.setAttribute('aria-expanded', 'false')
+      }
+
       // Toggle dropdown
       dropdownButton.addEventListener('click', () => {
         const isOpen = dropdownMenu.classList.contains('opacity-100')
 
         if (isOpen) {
-          // Close dropdown
-          dropdownMenu.classList.remove(
-            'opacity-100',
-            'scale-100',
-            'pointer-events-auto'
-          )
-          dropdownMenu.classList.add(
-            'opacity-0',
-            'scale-95',
-            'pointer-events-none'
-          )
-          dropdownArrow.classList.remove('rotate-180')
-          dropdownButton.setAttribute('aria-expanded', 'false')
+          closeDropdown()
         } else {
           // Open dropdown
           dropdownMenu.classList.remove(
@@ -136,48 +140,59 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
       document.addEventListener('click', event => {
         const dropdown = document.getElementById('user-dropdown')
         if (dropdown && !dropdown.contains(event.target as Node)) {
-          dropdownMenu.classList.remove(
-            'opacity-100',
-            'scale-100',
-            'pointer-events-auto'
-          )
-          dropdownMenu.classList.add(
-            'opacity-0',
-            'scale-95',
-            'pointer-events-none'
-          )
-          dropdownArrow.classList.remove('rotate-180')
-          dropdownButton.setAttribute('aria-expanded', 'false')
+          closeDropdown()
+        }
+      })
+
+      // Handle clicks on dropdown menu items
+      dropdownMenu.addEventListener('click', event => {
+        // Stop event propagation to prevent the outside click handler from firing
+        event.stopPropagation()
+
+        // If clicking on a link (Profile or Dashboard), close the dropdown after a short delay
+        // to allow the navigation to complete
+        if (event.target.tagName === 'A' || event.target.closest('a')) {
+          setTimeout(closeDropdown, 100)
         }
       })
 
       // Close dropdown on escape key
       document.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
-          dropdownMenu.classList.remove(
-            'opacity-100',
-            'scale-100',
-            'pointer-events-auto'
-          )
-          dropdownMenu.classList.add(
-            'opacity-0',
-            'scale-95',
-            'pointer-events-none'
-          )
-          dropdownArrow.classList.remove('rotate-180')
-          dropdownButton.setAttribute('aria-expanded', 'false')
+          closeDropdown()
         }
       })
     }
 
     // Handle logout
     if (logoutBtn) {
-      logoutBtn.addEventListener('click', async () => {
+      logoutBtn.addEventListener('click', async event => {
+        event.preventDefault()
         try {
+          // Show loading state
+          logoutBtn.textContent = 'Logging out...'
+          logoutBtn.setAttribute('disabled', 'true')
+
           await authClient.signOut()
           window.location.reload()
         } catch (error) {
           console.error('Logout error:', error)
+
+          // Check if this is just a JSON parsing error but logout was successful
+          if (error.message && error.message.includes('JSON')) {
+            // Logout probably succeeded, just reload the page
+            window.location.reload()
+            return
+          }
+
+          // Reset button state on actual error
+          logoutBtn.innerHTML = `
+            <span class="flex items-center">
+              <span class="mr-3">🚪</span>
+              Logout
+            </span>
+          `
+          logoutBtn.removeAttribute('disabled')
         }
       })
     }

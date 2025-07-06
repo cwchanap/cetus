@@ -15,7 +15,6 @@ import Footer from '@/components/ui/Footer.astro'
 
 // Check if user is authenticated
 const user = Astro.locals.user
-const session = Astro.locals.session
 
 // Mock data for single player minigames
 const games = [
@@ -124,7 +123,7 @@ const games = [
     <!-- Floating particles -->
     <div class="fixed inset-0 pointer-events-none">
       {
-        Array.from({ length: 30 }).map((_, i) => (
+        Array.from({ length: 30 }).map((_, _i) => (
           <div
             class="absolute w-1 h-1 bg-cyan-400 rounded-full opacity-30 animate-bounce"
             style={`
@@ -228,9 +227,6 @@ const games = [
                     Continue Playing 🎮
                   </a>
                 </Button>
-                <Button variant="outline" size="lg" id="logout-btn">
-                  <span class="text-white no-underline">Logout</span>
-                </Button>
               </div>
             ) : (
               <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -258,9 +254,7 @@ const games = [
       // Add some interactive effects using pure DOM manipulation
       document.addEventListener('DOMContentLoaded', () => {
         // Add glow effect on game cards
-        const gameCards = document.querySelectorAll(
-          '.group'
-        ) as NodeListOf<HTMLElement>
+        const gameCards = document.querySelectorAll('.group')
         gameCards.forEach(card => {
           card.addEventListener('mouseenter', () => {
             card.classList.add('glow-cyan')
@@ -272,9 +266,7 @@ const games = [
         })
 
         // Add floating animation to particles
-        const particles = document.querySelectorAll(
-          '.animate-bounce'
-        ) as NodeListOf<HTMLElement>
+        const particles = document.querySelectorAll('.animate-bounce')
         particles.forEach((particle, index) => {
           if (index % 3 === 0) {
             particle.classList.add('animate-float')
