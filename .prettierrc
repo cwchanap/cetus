@@ -15,6 +15,12 @@
       "options": {
         "parser": "astro"
       }
+    },
+    {
+      "files": "*.ts",
+      "options": {
+        "tabWidth": 4
+      }
     }
   ]
 }
