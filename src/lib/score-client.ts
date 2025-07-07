@@ -90,6 +90,8 @@ export function formatGameName(gameId: string): string {
       return 'Tetris Challenge'
     case 'quick_draw':
       return 'Quick Draw'
+    case 'bubble_shooter':
+      return 'Bubble Shooter'
     default:
       return gameId.charAt(0).toUpperCase() + gameId.slice(1)
   }
