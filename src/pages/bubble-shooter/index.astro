@@ -244,9 +244,9 @@ import Badge from '@/components/ui/Badge.astro'
         resetGame,
         togglePause,
         gameLoop,
-        setupPixiJS,
         draw,
       } from '@/lib/games/bubble-shooter/game'
+      import { setupPixiJS } from '@/lib/games/bubble-shooter/renderer'
 
       // Initialize game when page loads
       document.addEventListener('DOMContentLoaded', async () => {
@@ -262,7 +262,7 @@ import Badge from '@/components/ui/Badge.astro'
 
         // Initialize game state
         const state = createGameState()
-        const renderer = setupPixiJS(gameContainer, {
+        const renderer = await setupPixiJS(gameContainer, {
           BUBBLE_RADIUS: 20,
           GRID_WIDTH: 14,
           GRID_HEIGHT: 20,

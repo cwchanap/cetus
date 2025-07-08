@@ -7,7 +7,7 @@ import {
     drawBubbleOnCanvas,
 } from './utils'
 import { updateProjectile } from './physics'
-import { setupPixiJS, draw, type RendererState } from './renderer'
+import { draw, type RendererState } from './renderer'
 
 export const GAME_CONSTANTS: GameConstants = {
     BUBBLE_RADIUS: 20,
@@ -176,7 +176,10 @@ export function handleMouseMove(
         return
     }
 
-    const rect = renderer.canvas.getBoundingClientRect()
+    if (!renderer.app || !renderer.app.canvas) {
+        return
+    }
+    const rect = renderer.app.canvas.getBoundingClientRect()
     const mouseX = e.clientX - rect.left
     const mouseY = e.clientY - rect.top
     const newAimAngle = Math.atan2(
@@ -369,4 +372,4 @@ export async function endGame(state: GameState): Promise<void> {
     }
 }
 
-export { setupPixiJS, draw }
+export { draw }

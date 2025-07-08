@@ -1,55 +1,67 @@
-// Canvas 2D rendering for Bubble Shooter
+// PixiJS rendering for Bubble Shooter
+import { Application, Container, Graphics } from 'pixi.js'
 import type { GameState, GameConstants, Position } from './types'
 
 export interface RendererState {
-    canvas: HTMLCanvasElement
-    ctx: CanvasRenderingContext2D
-    width: number
-    height: number
+    app: Application
+    stage: Container
+    gridContainer: Container
+    uiContainer: Container
+    bubbleGraphics: Graphics[]
 }
 
-export function setupCanvas(
+export async function setupPixiJS(
     gameContainer: HTMLElement,
     constants: GameConstants
-): RendererState {
+): Promise<RendererState> {
     try {
-        // Create canvas element
-        const canvas = document.createElement('canvas')
-        canvas.width = constants.GAME_WIDTH
-        canvas.height = constants.GAME_HEIGHT
-        canvas.style.border = '2px solid rgba(6, 182, 212, 0.5)'
-        canvas.style.borderRadius = '8px'
-        canvas.style.backgroundColor = 'rgba(0, 0, 0, 0.8)'
+        // Create PixiJS application - using exact same pattern as working drawing page
+        const app = new Application()
 
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-            throw new Error('Failed to get 2D rendering context')
-        }
-
-        // Set up canvas properties
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = 'high'
-
-        // Append canvas to container
-        gameContainer.appendChild(canvas)
-
-        console.log('Canvas 2D renderer initialized successfully')
-
-        return {
-            canvas,
-            ctx,
+        await app.init({
             width: constants.GAME_WIDTH,
             height: constants.GAME_HEIGHT,
+            backgroundColor: '#000000',
+            antialias: true,
+            resolution: window.devicePixelRatio || 1,
+            autoDensity: true,
+        })
+
+        // Add the canvas to the DOM - same as drawing page
+        gameContainer.appendChild(app.canvas)
+        app.canvas.style.border = '2px solid rgba(6, 182, 212, 0.5)'
+        app.canvas.style.borderRadius = '8px'
+
+        // Create containers for organized rendering
+        const gridContainer = new Container()
+        const uiContainer = new Container()
+
+        app.stage.addChild(gridContainer)
+        app.stage.addChild(uiContainer)
+
+        return {
+            app,
+            stage: app.stage,
+            gridContainer,
+            uiContainer,
+            bubbleGraphics: [],
         }
     } catch (error) {
-        console.error('Failed to initialize Canvas renderer:', error)
+        // Clear the container if we failed to initialize
+        gameContainer.innerHTML =
+            '<div class="text-red-400 text-center p-4">Failed to initialize game renderer. Please check if your browser supports WebGL.</div>'
         throw error
     }
 }
 
-export function clearCanvas(renderer: RendererState): void {
-    // Clear the entire canvas
-    renderer.ctx.clearRect(0, 0, renderer.width, renderer.height)
+export function clearPixiJS(renderer: RendererState): void {
+    // Clear all graphics from containers
+    renderer.gridContainer.removeChildren()
+    renderer.uiContainer.removeChildren()
+
+    // Reset bubble graphics array
+    renderer.bubbleGraphics.forEach(graphic => graphic.destroy())
+    renderer.bubbleGraphics = []
 }
 
 export function drawBubble(
@@ -59,31 +71,26 @@ export function drawBubble(
     color: number,
     constants: GameConstants
 ): void {
-    const ctx = renderer.ctx
-
-    // Convert PixiJS color to CSS color
-    const hexColor = '#' + color.toString(16).padStart(6, '0')
+    const bubbleGraphic = new Graphics()
 
     // Draw main bubble
-    ctx.beginPath()
-    ctx.arc(x, y, constants.BUBBLE_RADIUS, 0, Math.PI * 2)
-    ctx.fillStyle = hexColor
-    ctx.fill()
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 2
-    ctx.stroke()
+    bubbleGraphic.circle(x, y, constants.BUBBLE_RADIUS)
+    bubbleGraphic.fill(color)
+
+    // Draw white border
+    bubbleGraphic.circle(x, y, constants.BUBBLE_RADIUS)
+    bubbleGraphic.stroke({ width: 2, color: 0xffffff })
 
     // Draw highlight
-    ctx.beginPath()
-    ctx.arc(
+    bubbleGraphic.circle(
         x - constants.BUBBLE_RADIUS * 0.3,
         y - constants.BUBBLE_RADIUS * 0.3,
-        constants.BUBBLE_RADIUS * 0.3,
-        0,
-        Math.PI * 2
+        constants.BUBBLE_RADIUS * 0.3
     )
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'
-    ctx.fill()
+    bubbleGraphic.fill({ color: 0xffffff, alpha: 0.3 })
+
+    renderer.gridContainer.addChild(bubbleGraphic)
+    renderer.bubbleGraphics.push(bubbleGraphic)
 }
 
 export function drawCurrentBubble(
@@ -95,36 +102,33 @@ export function drawCurrentBubble(
         return
     }
 
-    const ctx = renderer.ctx
-    const hexColor =
-        '#' + state.currentBubble.color.toString(16).padStart(6, '0')
+    const bubbleGraphic = new Graphics()
 
     // Draw main bubble
-    ctx.beginPath()
-    ctx.arc(
+    bubbleGraphic.circle(
         state.currentBubble.x,
         state.currentBubble.y,
-        constants.BUBBLE_RADIUS,
-        0,
-        Math.PI * 2
+        constants.BUBBLE_RADIUS
     )
-    ctx.fillStyle = hexColor
-    ctx.fill()
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 3
-    ctx.stroke()
+    bubbleGraphic.fill(state.currentBubble.color)
+
+    // Draw white border (thicker for current bubble)
+    bubbleGraphic.circle(
+        state.currentBubble.x,
+        state.currentBubble.y,
+        constants.BUBBLE_RADIUS
+    )
+    bubbleGraphic.stroke({ width: 3, color: 0xffffff })
 
     // Draw highlight
-    ctx.beginPath()
-    ctx.arc(
+    bubbleGraphic.circle(
         state.currentBubble.x - constants.BUBBLE_RADIUS * 0.3,
         state.currentBubble.y - constants.BUBBLE_RADIUS * 0.3,
-        constants.BUBBLE_RADIUS * 0.25,
-        0,
-        Math.PI * 2
+        constants.BUBBLE_RADIUS * 0.25
     )
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
-    ctx.fill()
+    bubbleGraphic.fill({ color: 0xffffff, alpha: 0.5 })
+
+    renderer.uiContainer.addChild(bubbleGraphic)
 }
 
 export function drawShooter(
@@ -132,16 +136,17 @@ export function drawShooter(
     shooter: Position,
     constants: GameConstants
 ): void {
-    const ctx = renderer.ctx
+    const shooterGraphic = new Graphics()
 
     // Draw shooter base
-    ctx.beginPath()
-    ctx.arc(shooter.x, shooter.y, constants.BUBBLE_RADIUS * 0.8, 0, Math.PI * 2)
-    ctx.fillStyle = '#333333'
-    ctx.fill()
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 2
-    ctx.stroke()
+    shooterGraphic.circle(shooter.x, shooter.y, constants.BUBBLE_RADIUS * 0.8)
+    shooterGraphic.fill(0x333333)
+
+    // Draw white border
+    shooterGraphic.circle(shooter.x, shooter.y, constants.BUBBLE_RADIUS * 0.8)
+    shooterGraphic.stroke({ width: 2, color: 0xffffff })
+
+    renderer.uiContainer.addChild(shooterGraphic)
 }
 
 export function drawAimLine(
@@ -149,18 +154,15 @@ export function drawAimLine(
     shooter: Position,
     aimAngle: number
 ): void {
-    const ctx = renderer.ctx
+    const aimLineGraphic = new Graphics()
     const length = 80
     const endX = shooter.x + Math.cos(aimAngle) * length
     const endY = shooter.y + Math.sin(aimAngle) * length
 
     // Draw aim line
-    ctx.beginPath()
-    ctx.moveTo(shooter.x, shooter.y)
-    ctx.lineTo(endX, endY)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)'
-    ctx.lineWidth = 2
-    ctx.stroke()
+    aimLineGraphic.moveTo(shooter.x, shooter.y)
+    aimLineGraphic.lineTo(endX, endY)
+    aimLineGraphic.stroke({ width: 2, color: 0xffffff, alpha: 0.7 })
 
     // Draw arrow head
     const arrowSize = 10
@@ -170,13 +172,14 @@ export function drawAimLine(
     const rightX = endX + Math.cos(aimAngle + Math.PI + arrowAngle) * arrowSize
     const rightY = endY + Math.sin(aimAngle + Math.PI + arrowAngle) * arrowSize
 
-    ctx.beginPath()
-    ctx.moveTo(endX, endY)
-    ctx.lineTo(leftX, leftY)
-    ctx.lineTo(rightX, rightY)
-    ctx.closePath()
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
-    ctx.fill()
+    aimLineGraphic.poly([
+        { x: endX, y: endY },
+        { x: leftX, y: leftY },
+        { x: rightX, y: rightY },
+    ])
+    aimLineGraphic.fill({ color: 0xffffff, alpha: 0.7 })
+
+    renderer.uiContainer.addChild(aimLineGraphic)
 }
 
 export function drawProjectile(
@@ -188,35 +191,33 @@ export function drawProjectile(
         return
     }
 
-    const ctx = renderer.ctx
-    const hexColor = '#' + state.projectile.color.toString(16).padStart(6, '0')
+    const projectileGraphic = new Graphics()
 
     // Draw main projectile
-    ctx.beginPath()
-    ctx.arc(
+    projectileGraphic.circle(
         state.projectile.x,
         state.projectile.y,
-        constants.BUBBLE_RADIUS,
-        0,
-        Math.PI * 2
+        constants.BUBBLE_RADIUS
     )
-    ctx.fillStyle = hexColor
-    ctx.fill()
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 2
-    ctx.stroke()
+    projectileGraphic.fill(state.projectile.color)
+
+    // Draw white border
+    projectileGraphic.circle(
+        state.projectile.x,
+        state.projectile.y,
+        constants.BUBBLE_RADIUS
+    )
+    projectileGraphic.stroke({ width: 2, color: 0xffffff })
 
     // Draw highlight
-    ctx.beginPath()
-    ctx.arc(
+    projectileGraphic.circle(
         state.projectile.x - constants.BUBBLE_RADIUS * 0.3,
         state.projectile.y - constants.BUBBLE_RADIUS * 0.3,
-        constants.BUBBLE_RADIUS * 0.3,
-        0,
-        Math.PI * 2
+        constants.BUBBLE_RADIUS * 0.3
     )
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'
-    ctx.fill()
+    projectileGraphic.fill({ color: 0xffffff, alpha: 0.3 })
+
+    renderer.uiContainer.addChild(projectileGraphic)
 }
 
 export function draw(
@@ -229,7 +230,7 @@ export function draw(
         return
     }
 
-    clearCanvas(renderer)
+    clearPixiJS(renderer)
 
     // Draw grid bubbles
     for (let row = 0; row < state.grid.length; row++) {
@@ -272,5 +273,3 @@ export function draw(
     // Reset the redraw flag
     state.needsRedraw = false
 }
-
-export { setupCanvas as setupPixiJS }
