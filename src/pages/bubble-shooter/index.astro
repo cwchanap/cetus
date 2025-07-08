@@ -245,6 +245,7 @@ import Badge from '@/components/ui/Badge.astro'
         togglePause,
         gameLoop,
         draw,
+        GAME_CONSTANTS,
       } from '@/lib/games/bubble-shooter/game'
       import { setupPixiJS } from '@/lib/games/bubble-shooter/renderer'
 
@@ -262,15 +263,7 @@ import Badge from '@/components/ui/Badge.astro'
 
         // Initialize game state
         const state = createGameState()
-        const renderer = await setupPixiJS(gameContainer, {
-          BUBBLE_RADIUS: 20,
-          GRID_WIDTH: 14,
-          GRID_HEIGHT: 20,
-          COLORS: [0xff4444, 0x44ff44, 0x4444ff],
-          GAME_WIDTH: 600,
-          GAME_HEIGHT: 800,
-          SHOOTER_Y: 740,
-        })
+        const renderer = await setupPixiJS(gameContainer, GAME_CONSTANTS)
 
         // Helper functions that close over local state
         const updateCurrentBubbleDisplayFn = () =>
@@ -319,11 +312,11 @@ import Badge from '@/components/ui/Badge.astro'
             .getElementById('resume-btn')
             ?.addEventListener('click', () => togglePause(state, gameLoopFn))
 
-          if (renderer.canvas) {
-            renderer.canvas.addEventListener('mousemove', e =>
+          if (renderer.app && renderer.app.canvas) {
+            renderer.app.canvas.addEventListener('mousemove', e =>
               handleMouseMove(e, state, renderer)
             )
-            renderer.canvas.addEventListener('click', e =>
+            renderer.app.canvas.addEventListener('click', e =>
               handleClick(e, state, updateCurrentBubbleDisplayFn)
             )
           }
@@ -346,15 +339,7 @@ import Badge from '@/components/ui/Badge.astro'
 
         // Start continuous draw loop for rendering
         function drawLoop() {
-          draw(renderer, state, {
-            BUBBLE_RADIUS: 20,
-            GRID_WIDTH: 14,
-            GRID_HEIGHT: 20,
-            COLORS: [0xff4444, 0x44ff44, 0x4444ff],
-            GAME_WIDTH: 600,
-            GAME_HEIGHT: 800,
-            SHOOTER_Y: 740,
-          })
+          draw(renderer, state, GAME_CONSTANTS)
           requestAnimationFrame(drawLoop)
         }
         drawLoop()
