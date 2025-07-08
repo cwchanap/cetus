@@ -330,6 +330,12 @@ export function gameLoop(state: GameState, renderer: RendererState): void {
     updateProjectile(state, GAME_CONSTANTS)
     updateUI(state)
 
+    // Check for game over after each update
+    if (state.gameOver) {
+        endGame(state)
+        return
+    }
+
     requestAnimationFrame(() => gameLoop(state, renderer))
 }
 
@@ -339,6 +345,7 @@ export async function endGame(state: GameState): Promise<void> {
 
     const finalScoreElement = document.getElementById('final-score')
     const gameOverOverlay = document.getElementById('game-over-overlay')
+    const startBtn = document.getElementById('start-btn') as HTMLButtonElement
 
     if (finalScoreElement) {
         finalScoreElement.textContent = state.score.toString()
@@ -346,6 +353,12 @@ export async function endGame(state: GameState): Promise<void> {
     if (gameOverOverlay) {
         gameOverOverlay.classList.remove('hidden')
     }
+    if (startBtn) {
+        startBtn.textContent = 'Start'
+        startBtn.disabled = false
+    }
+
+    console.log('Game Over! Final Score:', state.score)
 
     // Submit score to server
     if (state.score > 0) {
