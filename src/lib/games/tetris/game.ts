@@ -143,7 +143,9 @@ export function spawnPiece(state: GameState): void {
             GAME_CONSTANTS
         )
     ) {
-        endGame(state)
+        endGame(state).catch(error => {
+            console.error('Error ending game:', error)
+        })
     }
 
     state.needsRedraw = true
@@ -343,7 +345,7 @@ export function resetGame(
     }
 }
 
-export function endGame(state: GameState): void {
+export async function endGame(state: GameState): Promise<void> {
     state.gameOver = true
     state.gameStarted = false
 
@@ -355,6 +357,32 @@ export function endGame(state: GameState): void {
     const gameOverOverlay = document.getElementById('game-over-overlay')
     if (gameOverOverlay) {
         gameOverOverlay.classList.remove('hidden')
+    }
+
+    console.log('Game Over! Final Score:', state.score)
+
+    // Submit score to server
+    if (state.score > 0) {
+        try {
+            const response = await fetch('/api/scores', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    gameId: 'tetris',
+                    score: state.score,
+                }),
+            })
+
+            if (response.ok) {
+                console.log('Score submitted successfully')
+            } else {
+                console.error('Failed to submit score')
+            }
+        } catch (error) {
+            console.error('Error submitting score:', error)
+        }
     }
 }
 
