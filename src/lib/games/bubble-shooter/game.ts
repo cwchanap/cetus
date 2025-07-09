@@ -76,7 +76,7 @@ export function generateBubble(state: GameState): Bubble {
     const bubble = {
         color: GAME_CONSTANTS.COLORS[colorIndex],
         x: state.shooter.x,
-        y: state.shooter.y,
+        y: state.shooter.y - GAME_CONSTANTS.BUBBLE_RADIUS * 1.5, // Position bubble above shooter
     }
     state.currentBubble = bubble
     state.needsRedraw = true
@@ -182,10 +182,16 @@ export function handleMouseMove(
     const rect = renderer.app.canvas.getBoundingClientRect()
     const mouseX = e.clientX - rect.left
     const mouseY = e.clientY - rect.top
-    const newAimAngle = Math.atan2(
-        mouseY - state.shooter.y,
-        mouseX - state.shooter.x
-    )
+
+    // Calculate aim angle from current bubble position if available, otherwise from shooter
+    const aimFromY = state.currentBubble
+        ? state.currentBubble.y
+        : state.shooter.y
+    const aimFromX = state.currentBubble
+        ? state.currentBubble.x
+        : state.shooter.x
+
+    const newAimAngle = Math.atan2(mouseY - aimFromY, mouseX - aimFromX)
 
     let clampedAngle = newAimAngle
     if (clampedAngle > -Math.PI * 0.1) {
@@ -230,7 +236,7 @@ export function handleClick(
     state.currentBubble = {
         ...state.nextBubble,
         x: state.shooter.x,
-        y: state.shooter.y,
+        y: state.shooter.y - GAME_CONSTANTS.BUBBLE_RADIUS * 1.5, // Position bubble above shooter
     }
     generateNextBubble(state)
     updateCurrentBubbleDisplayFn()

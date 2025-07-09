@@ -259,16 +259,17 @@ export function draw(
         !state.projectile &&
         state.gameStarted &&
         !state.gameOver &&
-        !state.paused
+        !state.paused &&
+        state.currentBubble
     ) {
-        drawAimLine(renderer, state.shooter, state.aimAngle)
+        drawAimLine(renderer, state.currentBubble, state.aimAngle)
     }
 
     if (state.projectile) {
         drawProjectile(renderer, state, constants)
     }
 
-    drawShooter(renderer, state.shooter, constants)
+    // Shooter ball removed - current bubble is now visible above
 
     // Reset the redraw flag
     state.needsRedraw = false
