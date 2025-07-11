@@ -1,233 +1,185 @@
 ---
-import '@/styles/global.css'
+import AppLayout from '@/layouts/AppLayout.astro'
 import Button from '@/components/ui/Button.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
+
+// Custom navigation for game pages with breadcrumb
+const gameNavigation = [
+  { href: '/', label: 'Home' },
+  { href: '#', label: 'Bubble Shooter' },
+]
 ---
 
-<html lang="en" class="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="generator" content={Astro.generator} />
-    <title>Bubble Shooter - Cetus Minigames</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-
-  <body
-    class="min-h-screen bg-sci-fi-dark text-white overflow-x-hidden font-inter"
-  >
-    <!-- Animated background -->
-    <div class="fixed inset-0 pointer-events-none">
-      <div
-        class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"
-      >
-      </div>
-      <div
-        class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse"
-        style="animation-delay: 1s;"
-      >
+<AppLayout
+  title="Bubble Shooter - Cetus Minigames"
+  description="Match bubbles of the same color in this classic arcade game with a futuristic twist"
+  includeFooter={false}
+  navigation={gameNavigation}
+>
+  <!-- Game Breadcrumb -->
+  <div class="px-6 py-4 border-b border-slate-700/50">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center space-x-3">
+        <div class="text-cyan-400 text-sm">🫧 Bubble Shooter</div>
       </div>
     </div>
+  </div>
 
-    <!-- Header -->
-    <header class="relative z-10 px-6 py-4 border-b border-slate-700/50">
-      <nav class="max-w-7xl mx-auto flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-          <a href="/" class="flex items-center space-x-3">
-            <div
-              class="w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-400/25"
-            >
-              <span class="text-lg font-bold text-white">C</span>
+  <div class="px-6 py-8">
+    <div class="max-w-6xl mx-auto">
+      <!-- Game Title -->
+      <div class="text-center mb-8">
+        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
+          BUBBLE SHOOTER
+        </h2>
+        <p class="text-gray-400 text-lg">
+          Match 3 or more bubbles of the same color to clear them
+        </p>
+      </div>
+
+      <!-- Game Container -->
+      <div class="flex flex-col lg:flex-row gap-8 items-start justify-center">
+        <!-- Game Board -->
+        <Card variant="glass" class="p-6 flex-shrink-0">
+          <div class="flex flex-col items-center space-y-4">
+            <!-- Game Status -->
+            <div class="flex space-x-4 mb-4">
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono">Score: <span id="score">0</span></span>
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Bubbles: <span id="bubbles-remaining">0</span></span
+                >
+              </Badge>
             </div>
-            <h1 class="text-xl font-orbitron font-bold text-holographic">
-              CETUS
-            </h1>
-          </a>
-          <div class="text-cyan-400 text-sm">/ Bubble Shooter</div>
-        </div>
-        <div class="flex items-center space-x-4">
-          <Button variant="outline" size="sm">
-            <a href="/" class="text-white no-underline flex items-center">
-              <span class="mr-2">🏠</span>
-              Back to Menu
-            </a>
-          </Button>
-        </div>
-      </nav>
-    </header>
 
-    <main class="relative z-10 px-6 py-8">
-      <div class="max-w-6xl mx-auto">
-        <!-- Game Title -->
-        <div class="text-center mb-8">
-          <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
-            BUBBLE SHOOTER
-          </h2>
-          <p class="text-gray-400 text-lg">
-            Match 3 or more bubbles of the same color to clear them
-          </p>
-        </div>
-
-        <!-- Game Container -->
-        <div class="flex flex-col lg:flex-row gap-8 items-start justify-center">
-          <!-- Game Board -->
-          <Card variant="glass" class="p-6 flex-shrink-0">
-            <div class="flex flex-col items-center space-y-4">
-              <!-- Game Status -->
-              <div class="flex space-x-4 mb-4">
-                <Badge variant="outline" class="px-4 py-2">
-                  <span class="font-mono">Score: <span id="score">0</span></span
-                  >
-                </Badge>
-                <Badge variant="outline" class="px-4 py-2">
-                  <span class="font-mono"
-                    >Bubbles: <span id="bubbles-remaining">0</span></span
-                  >
-                </Badge>
+            <!-- Game Canvas -->
+            <div class="relative">
+              <div
+                id="game-container"
+                class="border-2 border-cyan-400/50 bg-black/50 rounded-lg shadow-glow-cyan"
+                style="width: 600px; height: 800px;"
+              >
               </div>
 
-              <!-- Game Canvas -->
-              <div class="relative">
-                <div
-                  id="game-container"
-                  class="border-2 border-cyan-400/50 bg-black/50 rounded-lg shadow-glow-cyan"
-                  style="width: 600px; height: 800px;"
-                >
-                </div>
-
-                <!-- Game Over Overlay -->
-                <div
-                  id="game-over-overlay"
-                  class="absolute inset-0 bg-black/80 rounded-lg flex items-center justify-center hidden"
-                >
-                  <div class="text-center">
-                    <h3
-                      class="text-3xl font-orbitron font-bold text-red-400 mb-4"
+              <!-- Game Over Overlay -->
+              <div
+                id="game-over-overlay"
+                class="absolute inset-0 bg-black/80 rounded-lg flex items-center justify-center hidden"
+              >
+                <div class="text-center">
+                  <h3
+                    class="text-3xl font-orbitron font-bold text-red-400 mb-4"
+                  >
+                    GAME OVER
+                  </h3>
+                  <p class="text-gray-400 mb-4">
+                    Final Score: <span id="final-score" class="text-cyan-400"
+                      >0</span
                     >
-                      GAME OVER
-                    </h3>
-                    <p class="text-gray-400 mb-4">
-                      Final Score: <span id="final-score" class="text-cyan-400"
-                        >0</span
-                      >
-                    </p>
-                    <Button id="restart-btn" variant="primary"
-                      >Play Again</Button
-                    >
-                  </div>
-                </div>
-
-                <!-- Pause Overlay -->
-                <div
-                  id="pause-overlay"
-                  class="absolute inset-0 bg-black/80 rounded-lg flex items-center justify-center hidden"
-                >
-                  <div class="text-center">
-                    <h3
-                      class="text-3xl font-orbitron font-bold text-cyan-400 mb-4"
-                    >
-                      PAUSED
-                    </h3>
-                    <Button id="resume-btn" variant="primary">Resume</Button>
-                  </div>
+                  </p>
+                  <Button id="restart-btn" variant="primary">Play Again</Button>
                 </div>
               </div>
 
-              <!-- Game Controls -->
-              <div class="flex space-x-2">
-                <Button id="start-btn" variant="primary" size="sm">Start</Button
-                >
-                <Button id="pause-btn" variant="outline" size="sm">Pause</Button
-                >
-                <Button id="reset-btn" variant="outline" size="sm">Reset</Button
-                >
+              <!-- Pause Overlay -->
+              <div
+                id="pause-overlay"
+                class="absolute inset-0 bg-black/80 rounded-lg flex items-center justify-center hidden"
+              >
+                <div class="text-center">
+                  <h3
+                    class="text-3xl font-orbitron font-bold text-cyan-400 mb-4"
+                  >
+                    PAUSED
+                  </h3>
+                  <Button id="resume-btn" variant="primary">Resume</Button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Game Controls -->
+            <div class="flex space-x-2">
+              <Button id="start-btn" variant="primary" size="sm">Start</Button>
+              <Button id="pause-btn" variant="outline" size="sm">Pause</Button>
+              <Button id="reset-btn" variant="outline" size="sm">Reset</Button>
+            </div>
+          </div>
+        </Card>
+
+        <!-- Game Info & Controls -->
+        <div class="flex flex-col space-y-6">
+          <!-- Current Bubble -->
+          <Card variant="glass" class="p-6">
+            <h3
+              class="text-lg font-orbitron font-bold text-cyan-400 mb-4 text-center"
+            >
+              CURRENT BUBBLE
+            </h3>
+            <div class="flex justify-center">
+              <canvas
+                id="current-bubble"
+                width="64"
+                height="64"
+                class="rounded-full shadow-lg"></canvas>
+            </div>
+          </Card>
+
+          <!-- Next Bubble -->
+          <Card variant="glass" class="p-6">
+            <h3
+              class="text-lg font-orbitron font-bold text-purple-400 mb-4 text-center"
+            >
+              NEXT BUBBLE
+            </h3>
+            <div class="flex justify-center">
+              <canvas
+                id="next-bubble"
+                width="48"
+                height="48"
+                class="rounded-full shadow-lg"></canvas>
+            </div>
+          </Card>
+
+          <!-- Controls Guide -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              CONTROLS
+            </h3>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-400">Aim:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">Mouse</Badge>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Shoot:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">Click</Badge>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Pause:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">P</Badge>
               </div>
             </div>
           </Card>
 
-          <!-- Game Info & Controls -->
-          <div class="flex flex-col space-y-6">
-            <!-- Current Bubble -->
-            <Card variant="glass" class="p-6">
-              <h3
-                class="text-lg font-orbitron font-bold text-cyan-400 mb-4 text-center"
-              >
-                CURRENT BUBBLE
-              </h3>
-              <div class="flex justify-center">
-                <canvas
-                  id="current-bubble"
-                  width="64"
-                  height="64"
-                  class="rounded-full shadow-lg"></canvas>
-              </div>
-            </Card>
-
-            <!-- Next Bubble -->
-            <Card variant="glass" class="p-6">
-              <h3
-                class="text-lg font-orbitron font-bold text-purple-400 mb-4 text-center"
-              >
-                NEXT BUBBLE
-              </h3>
-              <div class="flex justify-center">
-                <canvas
-                  id="next-bubble"
-                  width="48"
-                  height="48"
-                  class="rounded-full shadow-lg"></canvas>
-              </div>
-            </Card>
-
-            <!-- Controls Guide -->
-            <Card variant="glass" class="p-6">
-              <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-                CONTROLS
-              </h3>
-              <div class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                  <span class="text-gray-400">Aim:</span>
-                  <Badge variant="outline" class="px-2 py-1 text-xs"
-                    >Mouse</Badge
-                  >
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-400">Shoot:</span>
-                  <Badge variant="outline" class="px-2 py-1 text-xs"
-                    >Click</Badge
-                  >
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-400">Pause:</span>
-                  <Badge variant="outline" class="px-2 py-1 text-xs">P</Badge>
-                </div>
-              </div>
-            </Card>
-
-            <!-- Game Rules -->
-            <Card variant="glass" class="p-6">
-              <h3 class="text-lg font-orbitron font-bold text-purple-400 mb-4">
-                RULES
-              </h3>
-              <div class="space-y-2 text-sm text-gray-300">
-                <p>• Match 3+ bubbles of the same color</p>
-                <p>• Bubbles must be connected to pop</p>
-                <p>• New row appears after each shot</p>
-                <p>• Game ends when bubbles reach bottom</p>
-                <p>• Higher combos = more points</p>
-              </div>
-            </Card>
-          </div>
+          <!-- Game Rules -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-purple-400 mb-4">
+              RULES
+            </h3>
+            <div class="space-y-2 text-sm text-gray-300">
+              <p>• Match 3+ bubbles of the same color</p>
+              <p>• Bubbles must be connected to pop</p>
+              <p>• New row appears after each shot</p>
+              <p>• Game ends when bubbles reach bottom</p>
+              <p>• Higher combos = more points</p>
+            </div>
+          </Card>
         </div>
       </div>
-    </main>
+    </div>
 
     <!-- Bubble Shooter Game Logic -->
     <script>
@@ -345,5 +297,5 @@ import Badge from '@/components/ui/Badge.astro'
         drawLoop()
       })
     </script>
-  </body>
-</html>
+  </div>
+</AppLayout>

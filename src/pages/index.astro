@@ -1,5 +1,6 @@
 ---
-import '@/styles/global.css'
+// Layout Import
+import AppLayout from '@/layouts/AppLayout.astro'
 
 // Component Imports
 import Button from '@/components/ui/Button.astro'
@@ -8,10 +9,8 @@ import Section from '@/components/ui/Section.astro'
 import Container from '@/components/ui/Container.astro'
 import Heading from '@/components/ui/Heading.astro'
 import Hero from '@/components/ui/Hero.astro'
-import Navigation from '@/components/ui/Navigation.astro'
 import FeatureCard from '@/components/ui/FeatureCard.astro'
 import GameCard from '@/components/ui/GameCard.astro'
-import Footer from '@/components/ui/Footer.astro'
 
 // Check if user is authenticated
 const user = Astro.locals.user
@@ -93,207 +92,113 @@ const games = [
 ]
 ---
 
-<html lang="en" class="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="generator" content={Astro.generator} />
-    <title>Cetus - Single Player Minigames</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-  </head>
+<AppLayout
+  title="Cetus - Single Player Minigames"
+  description="Welcome to the ultimate single-player gaming experience. Choose from our collection of futuristic mini-games designed to challenge your skills."
+>
+  <!-- Hero Section -->
+  <Hero
+    title="MINIGAMES"
+    subtitle="OF THE FUTURE"
+    description="Welcome to the ultimate single-player gaming experience. Choose from our collection of <span class='text-cyan-400 font-semibold text-neon-cyan'>futuristic mini-games</span> designed to challenge your skills and create amazing gaming moments."
+    primaryAction="Start Playing"
+    primaryHref="#games"
+  />
 
-  <body
-    class="min-h-screen bg-sci-fi-dark text-white overflow-x-hidden scrollbar-sci-fi font-inter"
-  >
-    <!-- Animated background -->
-    <div class="fixed inset-0 pointer-events-none">
-      <div
-        class="absolute inset-0 bg-gradient-radial from-cyan-400/30 via-transparent to-transparent animate-pulse"
-      >
+  <!-- Games Grid -->
+  <Section id="games">
+    <Container class="max-w-7xl">
+      <Heading level={3} variant="section" align="center" class="mb-4">
+        SELECT YOUR GAME
+      </Heading>
+      <p class="text-center text-gray-400 mb-12 text-lg">
+        Choose from our arsenal of single-player minigames - no login required!
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {games.map(game => <GameCard game={game} user={user} />)}
       </div>
-      <div
-        class="absolute inset-0 bg-gradient-radial from-purple-400/30 via-transparent to-transparent animate-pulse"
-        style="animation-delay: 1s;"
-      >
+    </Container>
+  </Section>
+
+  <!-- Features Section -->
+  <Section variant="features">
+    <Container>
+      <Heading level={3} variant="section" align="center" class="mb-16">
+        WHY CHOOSE CETUS?
+      </Heading>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <FeatureCard
+          icon="⚡"
+          title="Instant Play"
+          description="No downloads or registration required. Jump into any game instantly from your browser."
+          variant="cyan-purple"
+        />
+
+        <FeatureCard
+          icon="🌐"
+          title="Cross Platform"
+          description="Play seamlessly across desktop, mobile, and tablet devices."
+          variant="purple-pink"
+        />
+
+        <FeatureCard
+          icon="🎮"
+          title="Skill Building"
+          description="Challenge yourself and improve your skills with engaging gameplay."
+          variant="pink-cyan"
+        />
+
+        <FeatureCard
+          icon="📊"
+          title="Optional Progress"
+          description="Login to track your scores and achievements, or just play anonymously."
+          variant="cyan-purple"
+        />
       </div>
-      <div
-        class="absolute inset-0 bg-gradient-radial from-pink-400/20 via-transparent to-transparent animate-pulse"
-        style="animation-delay: 2s;"
-      >
-      </div>
-    </div>
+    </Container>
+  </Section>
 
-    <!-- Floating particles -->
-    <div class="fixed inset-0 pointer-events-none">
-      {
-        Array.from({ length: 30 }).map((_, _i) => (
-          <div
-            class="absolute w-1 h-1 bg-cyan-400 rounded-full opacity-30 animate-bounce"
-            style={`
-						left: ${Math.random() * 100}%;
-						top: ${Math.random() * 100}%;
-						animation-delay: ${Math.random() * 3}s;
-						animation-duration: ${2 + Math.random() * 2}s;
-					`}
-          />
-        ))
-      }
-    </div>
-
-    <!-- Header -->
-    <Navigation />
-
-    <!-- Hero Section -->
-    <Hero
-      title="MINIGAMES"
-      subtitle="OF THE FUTURE"
-      description="Welcome to the ultimate single-player gaming experience. Choose from our collection of <span class='text-cyan-400 font-semibold text-neon-cyan'>futuristic mini-games</span> designed to challenge your skills and create amazing gaming moments."
-      primaryAction="Start Playing"
-      primaryHref="#games"
-    />
-
-    <!-- Games Grid -->
-    <Section id="games">
-      <Container class="max-w-7xl">
+  <!-- CTA Section -->
+  <Section variant="cta">
+    <Container class="max-w-4xl text-center">
+      <Card variant="glass" class="p-12">
         <Heading level={3} variant="section" align="center" class="mb-4">
-          SELECT YOUR GAME
+          {user ? 'Welcome Back, Player!' : 'Ready to Start Playing?'}
         </Heading>
-        <p class="text-center text-gray-400 mb-12 text-lg">
-          Choose from our arsenal of single-player minigames - no login
-          required!
-        </p>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {games.map(game => <GameCard game={game} user={user} />)}
-        </div>
-      </Container>
-    </Section>
-
-    <!-- Features Section -->
-    <Section variant="features">
-      <Container>
-        <Heading level={3} variant="section" align="center" class="mb-16">
-          WHY CHOOSE CETUS?
-        </Heading>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          <FeatureCard
-            icon="⚡"
-            title="Instant Play"
-            description="No downloads or registration required. Jump into any game instantly from your browser."
-            variant="cyan-purple"
-          />
-
-          <FeatureCard
-            icon="🌐"
-            title="Cross Platform"
-            description="Play seamlessly across desktop, mobile, and tablet devices."
-            variant="purple-pink"
-          />
-
-          <FeatureCard
-            icon="🎮"
-            title="Skill Building"
-            description="Challenge yourself and improve your skills with engaging gameplay."
-            variant="pink-cyan"
-          />
-
-          <FeatureCard
-            icon="📊"
-            title="Optional Progress"
-            description="Login to track your scores and achievements, or just play anonymously."
-            variant="cyan-purple"
-          />
-        </div>
-      </Container>
-    </Section>
-
-    <!-- CTA Section -->
-    <Section variant="cta">
-      <Container class="max-w-4xl text-center">
-        <Card variant="glass" class="p-12">
-          <Heading level={3} variant="section" align="center" class="mb-4">
-            {user ? 'Welcome Back, Player!' : 'Ready to Start Playing?'}
-          </Heading>
-          <p class="text-gray-300 mb-8 text-lg">
-            {
-              user
-                ? 'Continue your gaming journey with our collection of minigames'
-                : 'Jump right into our games or create an account to track your progress'
-            }
-          </p>
+        <p class="text-gray-300 mb-8 text-lg">
           {
-            user ? (
-              <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Button variant="primary" size="lg">
-                  <a href="#games" class="text-white no-underline">
-                    Continue Playing 🎮
-                  </a>
-                </Button>
-              </div>
-            ) : (
-              <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Button variant="primary" size="lg">
-                  <a href="#games" class="text-white no-underline">
-                    Start Playing 🎮
-                  </a>
-                </Button>
-                <Button variant="outline" size="lg">
-                  <a href="/login" class="text-white no-underline">
-                    Login for Progress �
-                  </a>
-                </Button>
-              </div>
-            )
+            user
+              ? 'Continue your gaming journey with our collection of minigames'
+              : 'Jump right into our games or create an account to track your progress'
           }
-        </Card>
-      </Container>
-    </Section>
-
-    <!-- Footer -->
-    <Footer />
-
-    <script>
-      // Add some interactive effects using pure DOM manipulation
-      document.addEventListener('DOMContentLoaded', () => {
-        // Add glow effect on game cards
-        const gameCards = document.querySelectorAll('.group')
-        gameCards.forEach(card => {
-          card.addEventListener('mouseenter', () => {
-            card.classList.add('glow-cyan')
-          })
-
-          card.addEventListener('mouseleave', () => {
-            card.classList.remove('glow-cyan')
-          })
-        })
-
-        // Add floating animation to particles
-        const particles = document.querySelectorAll('.animate-bounce')
-        particles.forEach((particle, index) => {
-          if (index % 3 === 0) {
-            particle.classList.add('animate-float')
-          }
-        })
-
-        // Check if user just logged in and should be redirected to games
-        const urlParams = new URLSearchParams(window.location.search)
-        if (urlParams.get('redirect') === 'games') {
-          // Smooth scroll to games section after a brief delay
-          setTimeout(() => {
-            const gamesSection = document.getElementById('games')
-            if (gamesSection) {
-              gamesSection.scrollIntoView({ behavior: 'smooth' })
-            }
-          }, 500)
+        </p>
+        {
+          user ? (
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Button variant="primary" size="lg">
+                <a href="#games" class="text-white no-underline">
+                  Continue Playing 🎮
+                </a>
+              </Button>
+            </div>
+          ) : (
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Button variant="primary" size="lg">
+                <a href="#games" class="text-white no-underline">
+                  Start Playing 🎮
+                </a>
+              </Button>
+              <Button variant="outline" size="lg">
+                <a href="/login" class="text-white no-underline">
+                  Login for Progress 📊
+                </a>
+              </Button>
+            </div>
+          )
         }
-      })
-    </script>
-  </body>
-</html>
+      </Card>
+    </Container>
+  </Section>
+</AppLayout>

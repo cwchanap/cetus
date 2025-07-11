@@ -14,7 +14,6 @@ export interface Props extends HTMLAttributes<'header'> {
 }
 
 // Get the current session and user from Astro.locals
-const session = Astro.locals.session
 const user = Astro.locals.user
 
 const {
@@ -36,7 +35,10 @@ const classes = cn('relative z-[10001] px-6 py-8', className)
 
 <header class={classes} {...props}>
   <nav class="max-w-7xl mx-auto flex items-center justify-between">
-    <div class="flex items-center space-x-3">
+    <a
+      href="/"
+      class="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-300"
+    >
       <div
         class="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-400/25"
       >
@@ -45,7 +47,7 @@ const classes = cn('relative z-[10001] px-6 py-8', className)
       <h1 class="text-2xl font-orbitron font-bold text-holographic">
         {title}
       </h1>
-    </div>
+    </a>
     <div class="hidden md:flex items-center space-x-8">
       {
         navigation.map(item => (

@@ -1,313 +1,272 @@
 ---
-import '@/styles/global.css'
+import AppLayout from '@/layouts/AppLayout.astro'
 import Button from '@/components/ui/Button.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
+
+// Custom navigation for game pages with breadcrumb
+const gameNavigation = [
+  { href: '/', label: 'Home' },
+  { href: '#', label: 'Quick Draw Challenge' },
+]
 ---
 
-<html lang="en" class="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="generator" content={Astro.generator} />
-    <title>Quick Draw Challenge - Cetus Minigames</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-
-  <body
-    class="min-h-screen bg-sci-fi-dark text-white overflow-x-hidden font-inter"
-  >
-    <!-- Animated background -->
-    <div class="fixed inset-0 pointer-events-none">
-      <div
-        class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"
-      >
-      </div>
-      <div
-        class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse"
-        style="animation-delay: 1s;"
-      >
+<AppLayout
+  title="Quick Draw Challenge - Cetus Minigames"
+  description="Test your drawing skills against the clock in this futuristic drawing challenge"
+  includeFooter={false}
+  navigation={gameNavigation}
+>
+  <!-- Game Breadcrumb -->
+  <div class="px-6 py-4 border-b border-slate-700/50">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center space-x-3">
+        <div class="text-cyan-400 text-sm">
+          🎨 Single Player Drawing Challenge
+        </div>
       </div>
     </div>
+  </div>
 
-    <!-- Header -->
-    <header class="relative z-10 px-6 py-4 border-b border-slate-700/50">
-      <nav class="max-w-7xl mx-auto flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-          <a href="/" class="flex items-center space-x-3">
-            <div
-              class="w-8 h-8 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-400/25"
-            >
-              <span class="text-lg font-bold text-white">C</span>
-            </div>
-            <h1 class="text-xl font-orbitron font-bold text-holographic">
-              CETUS
-            </h1>
-          </a>
-          <div class="text-cyan-400 text-sm">
-            / Single Player Drawing Challenge
+  <div class="px-6 py-8">
+    <div class="max-w-7xl mx-auto">
+      <!-- Game Status Bar -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <Card variant="sci-fi" class="p-6 text-center">
+          <h3 class="text-lg font-orbitron font-bold mb-2 text-cyan-400">
+            Score
+          </h3>
+          <div class="text-3xl font-bold text-white" id="score-counter">0</div>
+        </Card>
+
+        <Card variant="sci-fi" class="p-6 text-center">
+          <h3 class="text-lg font-orbitron font-bold mb-2 text-purple-400">
+            Time Remaining
+          </h3>
+          <div class="text-3xl font-bold text-white" id="timer">01:30</div>
+        </Card>
+
+        <Card variant="sci-fi" class="p-6 text-center">
+          <h3 class="text-lg font-orbitron font-bold mb-2 text-pink-400">
+            Current Round
+          </h3>
+          <div class="text-xl font-bold text-white" id="round-counter">
+            1 / 5
           </div>
-        </div>
-        <div class="flex items-center space-x-4">
-          <Button variant="outline" size="sm">
-            <a href="/" class="text-white no-underline flex items-center">
-              <span class="mr-2">🏠</span>
-              Back to Menu
-            </a>
-          </Button>
-        </div>
-      </nav>
-    </header>
+        </Card>
+      </div>
 
-    <main class="relative z-10 px-6 py-8">
-      <div class="max-w-7xl mx-auto">
-        <!-- Game Status Bar -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <Card variant="sci-fi" class="p-6 text-center">
-            <h3 class="text-lg font-orbitron font-bold mb-2 text-cyan-400">
-              Score
-            </h3>
-            <div class="text-3xl font-bold text-white" id="score-counter">
-              0
-            </div>
-          </Card>
-
-          <Card variant="sci-fi" class="p-6 text-center">
-            <h3 class="text-lg font-orbitron font-bold mb-2 text-purple-400">
-              Time Remaining
-            </h3>
-            <div class="text-3xl font-bold text-white" id="timer">01:30</div>
-          </Card>
-
-          <Card variant="sci-fi" class="p-6 text-center">
-            <h3 class="text-lg font-orbitron font-bold mb-2 text-pink-400">
-              Current Round
-            </h3>
-            <div class="text-xl font-bold text-white" id="round-counter">
-              1 / 5
-            </div>
-          </Card>
-        </div>
-
-        <!-- Main Game Area -->
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <!-- Drawing Canvas Section -->
-          <div class="lg:col-span-3">
-            <Card variant="sci-fi" class="p-6">
-              <!-- Word Display (for artist) -->
-              <div class="mb-4 text-center">
-                <div
-                  class="bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-400/30 rounded-lg p-4"
-                >
-                  <p class="text-sm text-cyan-400 mb-1">Draw this word:</p>
-                  <h2
-                    class="text-2xl font-orbitron font-bold text-white"
-                    id="word-to-draw"
-                  >
-                    SPACESHIP
-                  </h2>
-                </div>
-              </div>
-
-              <!-- Drawing Tools -->
+      <!-- Main Game Area -->
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <!-- Drawing Canvas Section -->
+        <div class="lg:col-span-3">
+          <Card variant="sci-fi" class="p-6">
+            <!-- Word Display (for artist) -->
+            <div class="mb-4 text-center">
               <div
-                class="flex items-center justify-between mb-4 p-4 bg-glass border border-slate-600/50 rounded-lg"
+                class="bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-400/30 rounded-lg p-4"
               >
-                <div class="flex items-center space-x-4">
-                  <div class="flex items-center space-x-2">
-                    <span class="text-sm text-gray-400">Brush:</span>
-                    <button
-                      class="w-10 h-10 bg-glass border border-cyan-400 bg-cyan-400/20 rounded-lg flex items-center justify-center hover:border-cyan-400 transition-colors"
-                      data-tool="brush"
-                    >
-                      <span class="text-xl">🖌️</span>
-                    </button>
-                    <button
-                      class="w-10 h-10 bg-glass border border-slate-600 rounded-lg flex items-center justify-center hover:border-cyan-400 transition-colors"
-                      data-tool="eraser"
-                    >
-                      <span class="text-xl">🧽</span>
-                    </button>
-                  </div>
+                <p class="text-sm text-cyan-400 mb-1">Draw this word:</p>
+                <h2
+                  class="text-2xl font-orbitron font-bold text-white"
+                  id="word-to-draw"
+                >
+                  SPACESHIP
+                </h2>
+              </div>
+            </div>
 
-                  <div class="flex items-center space-x-2">
-                    <span class="text-sm text-gray-400">Size:</span>
-                    <input
-                      type="range"
-                      id="brush-size"
-                      min="1"
-                      max="20"
-                      value="3"
-                      class="w-20 accent-cyan-400"
-                    />
-                    <span id="size-display" class="text-sm text-white w-6"
-                      >3</span
-                    >
-                  </div>
+            <!-- Drawing Tools -->
+            <div
+              class="flex items-center justify-between mb-4 p-4 bg-glass border border-slate-600/50 rounded-lg"
+            >
+              <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                  <span class="text-sm text-gray-400">Brush:</span>
+                  <button
+                    class="w-10 h-10 bg-glass border border-cyan-400 bg-cyan-400/20 rounded-lg flex items-center justify-center hover:border-cyan-400 transition-colors"
+                    data-tool="brush"
+                  >
+                    <span class="text-xl">🖌️</span>
+                  </button>
+                  <button
+                    class="w-10 h-10 bg-glass border border-slate-600 rounded-lg flex items-center justify-center hover:border-cyan-400 transition-colors"
+                    data-tool="eraser"
+                  >
+                    <span class="text-xl">🧽</span>
+                  </button>
                 </div>
 
                 <div class="flex items-center space-x-2">
-                  <span class="text-sm text-gray-400">Colors:</span>
-                  <div class="flex space-x-1">
-                    <button
-                      class="w-8 h-8 rounded-full border-2 border-cyan-400 ring-2 ring-cyan-400/50 hover:border-white transition-colors cursor-pointer"
-                      data-color="#ffffff"
-                      style="background-color: #ffffff;"></button>
-                    <button
-                      class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
-                      data-color="#000000"
-                      style="background-color: #000000;"></button>
-                    <button
-                      class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
-                      data-color="#ff0000"
-                      style="background-color: #ff0000;"></button>
-                    <button
-                      class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
-                      data-color="#00ff00"
-                      style="background-color: #00ff00;"></button>
-                    <button
-                      class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
-                      data-color="#0000ff"
-                      style="background-color: #0000ff;"></button>
-                    <button
-                      class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
-                      data-color="#ffff00"
-                      style="background-color: #ffff00;"></button>
-                    <button
-                      class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
-                      data-color="#ff00ff"
-                      style="background-color: #ff00ff;"></button>
-                    <button
-                      class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
-                      data-color="#00ffff"
-                      style="background-color: #00ffff;"></button>
-                  </div>
-                  <Button variant="outline" size="sm" id="clear-canvas">
-                    Clear
-                  </Button>
+                  <span class="text-sm text-gray-400">Size:</span>
+                  <input
+                    type="range"
+                    id="brush-size"
+                    min="1"
+                    max="20"
+                    value="3"
+                    class="w-20 accent-cyan-400"
+                  />
+                  <span id="size-display" class="text-sm text-white w-6">3</span
+                  >
                 </div>
               </div>
 
-              <!-- Canvas -->
-              <div
-                class="relative bg-white rounded-lg border-2 border-cyan-400/30 overflow-hidden"
-                style="aspect-ratio: 16/10;"
+              <div class="flex items-center space-x-2">
+                <span class="text-sm text-gray-400">Colors:</span>
+                <div class="flex space-x-1">
+                  <button
+                    class="w-8 h-8 rounded-full border-2 border-cyan-400 ring-2 ring-cyan-400/50 hover:border-white transition-colors cursor-pointer"
+                    data-color="#ffffff"
+                    style="background-color: #ffffff;"></button>
+                  <button
+                    class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
+                    data-color="#000000"
+                    style="background-color: #000000;"></button>
+                  <button
+                    class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
+                    data-color="#ff0000"
+                    style="background-color: #ff0000;"></button>
+                  <button
+                    class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
+                    data-color="#00ff00"
+                    style="background-color: #00ff00;"></button>
+                  <button
+                    class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
+                    data-color="#0000ff"
+                    style="background-color: #0000ff;"></button>
+                  <button
+                    class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
+                    data-color="#ffff00"
+                    style="background-color: #ffff00;"></button>
+                  <button
+                    class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
+                    data-color="#ff00ff"
+                    style="background-color: #ff00ff;"></button>
+                  <button
+                    class="w-8 h-8 rounded-full border-2 border-slate-600 hover:border-white transition-colors cursor-pointer"
+                    data-color="#00ffff"
+                    style="background-color: #00ffff;"></button>
+                </div>
+                <Button variant="outline" size="sm" id="clear-canvas">
+                  Clear
+                </Button>
+              </div>
+            </div>
+
+            <!-- Canvas -->
+            <div
+              class="relative bg-white rounded-lg border-2 border-cyan-400/30 overflow-hidden"
+              style="aspect-ratio: 16/10;"
+            >
+              <div id="drawing-container" class="w-full h-full"></div>
+            </div>
+          </Card>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+          <!-- Current Challenge -->
+          <Card variant="sci-fi" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold mb-4 text-cyan-400">
+              <span class="mr-2">🎯</span>
+              Challenge
+            </h3>
+            <div class="text-center">
+              <div class="text-lg font-bold text-white mb-2">
+                Draw the word above!
+              </div>
+              <p class="text-gray-400 text-sm mb-4">
+                You have 90 seconds to complete your drawing.
+              </p>
+
+              <div class="space-y-2">
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-400">Best Time:</span>
+                  <span class="text-green-400 font-medium">45s</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-400">High Score:</span>
+                  <span class="text-cyan-400 font-medium">2,850</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <!-- Progress -->
+          <Card variant="sci-fi" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold mb-4 text-purple-400">
+              <span class="mr-2">📈</span>
+              Progress
+            </h3>
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-300">Round 1</span>
+                <Badge variant="success" size="sm">✓ Complete</Badge>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-300">Round 2</span>
+                <Badge variant="warning" size="sm">● Current</Badge>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Round 3</span>
+                <Badge variant="outline" size="sm">○ Pending</Badge>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Round 4</span>
+                <Badge variant="outline" size="sm">○ Pending</Badge>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Round 5</span>
+                <Badge variant="outline" size="sm">○ Pending</Badge>
+              </div>
+            </div>
+          </Card>
+
+          <!-- Game Controls -->
+          <Card variant="sci-fi" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold mb-4 text-pink-400">
+              <span class="mr-2">🎮</span>
+              Controls
+            </h3>
+            <div class="space-y-3">
+              <Button
+                variant="outline"
+                class="w-full justify-start"
+                id="new-word-btn"
               >
-                <div id="drawing-container" class="w-full h-full"></div>
-              </div>
-            </Card>
-          </div>
-
-          <!-- Sidebar -->
-          <div class="space-y-6">
-            <!-- Current Challenge -->
-            <Card variant="sci-fi" class="p-6">
-              <h3 class="text-lg font-orbitron font-bold mb-4 text-cyan-400">
-                <span class="mr-2">🎯</span>
-                Challenge
-              </h3>
-              <div class="text-center">
-                <div class="text-lg font-bold text-white mb-2">
-                  Draw the word above!
-                </div>
-                <p class="text-gray-400 text-sm mb-4">
-                  You have 90 seconds to complete your drawing.
-                </p>
-
-                <div class="space-y-2">
-                  <div class="flex justify-between text-sm">
-                    <span class="text-gray-400">Best Time:</span>
-                    <span class="text-green-400 font-medium">45s</span>
-                  </div>
-                  <div class="flex justify-between text-sm">
-                    <span class="text-gray-400">High Score:</span>
-                    <span class="text-cyan-400 font-medium">2,850</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            <!-- Progress -->
-            <Card variant="sci-fi" class="p-6">
-              <h3 class="text-lg font-orbitron font-bold mb-4 text-purple-400">
-                <span class="mr-2">📈</span>
-                Progress
-              </h3>
-              <div class="space-y-3">
-                <div class="flex justify-between items-center">
-                  <span class="text-gray-300">Round 1</span>
-                  <Badge variant="success" size="sm">✓ Complete</Badge>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-gray-300">Round 2</span>
-                  <Badge variant="warning" size="sm">● Current</Badge>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-gray-400">Round 3</span>
-                  <Badge variant="outline" size="sm">○ Pending</Badge>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-gray-400">Round 4</span>
-                  <Badge variant="outline" size="sm">○ Pending</Badge>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-gray-400">Round 5</span>
-                  <Badge variant="outline" size="sm">○ Pending</Badge>
-                </div>
-              </div>
-            </Card>
-
-            <!-- Game Controls -->
-            <Card variant="sci-fi" class="p-6">
-              <h3 class="text-lg font-orbitron font-bold mb-4 text-pink-400">
-                <span class="mr-2">🎮</span>
-                Controls
-              </h3>
-              <div class="space-y-3">
-                <Button
-                  variant="outline"
-                  class="w-full justify-start"
-                  id="new-word-btn"
-                >
-                  <span class="mr-2">🔄</span>
-                  New Word
-                </Button>
-                <Button
-                  variant="outline"
-                  class="w-full justify-start"
-                  id="skip-round-btn"
-                >
-                  <span class="mr-2">⏭️</span>
-                  Skip Round
-                </Button>
-                <Button
-                  variant="primary"
-                  class="w-full justify-start"
-                  id="finish-drawing-btn"
-                >
-                  <span class="mr-2">✅</span>
-                  Finish Drawing
-                </Button>
-                <Button
-                  variant="destructive"
-                  class="w-full justify-start"
-                  id="quit-game-btn"
-                >
-                  <span class="mr-2">🚪</span>
-                  Quit Game
-                </Button>
-              </div>
-            </Card>
-          </div>
+                <span class="mr-2">🔄</span>
+                New Word
+              </Button>
+              <Button
+                variant="outline"
+                class="w-full justify-start"
+                id="skip-round-btn"
+              >
+                <span class="mr-2">⏭️</span>
+                Skip Round
+              </Button>
+              <Button
+                variant="primary"
+                class="w-full justify-start"
+                id="finish-drawing-btn"
+              >
+                <span class="mr-2">✅</span>
+                Finish Drawing
+              </Button>
+              <Button
+                variant="destructive"
+                class="w-full justify-start"
+                id="quit-game-btn"
+              >
+                <span class="mr-2">🚪</span>
+                Quit Game
+              </Button>
+            </div>
+          </Card>
         </div>
       </div>
-    </main>
+    </div>
 
     <style>
       #drawing-container canvas {
@@ -693,5 +652,5 @@ import Badge from '@/components/ui/Badge.astro'
         })
       })
     </script>
-  </body>
-</html>
+  </div>
+</AppLayout>

@@ -1,5 +1,5 @@
 ---
-import '@/styles/global.css'
+import AppLayout from '@/layouts/AppLayout.astro'
 
 // Component Imports
 import Container from '@/components/ui/Container.astro'
@@ -8,8 +8,6 @@ import Heading from '@/components/ui/Heading.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
-import Navigation from '@/components/ui/Navigation.astro'
-import Footer from '@/components/ui/Footer.astro'
 
 import { getUserStats, getUserGameHistoryPaginated } from '@/lib/db/queries'
 
@@ -81,297 +79,277 @@ const userBadges = [
 ]
 ---
 
-<html lang="en" class="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="generator" content={Astro.generator} />
-    <title>Profile - Cetus</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-
-  <body
-    class="min-h-screen bg-sci-fi-dark text-white overflow-x-hidden scrollbar-sci-fi font-inter"
-  >
-    <!-- Animated background -->
-    <div class="fixed inset-0 pointer-events-none">
-      <div
-        class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"
-      >
-      </div>
-      <div
-        class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse"
-        style="animation-delay: 1s;"
-      >
-      </div>
-      <div
-        class="absolute inset-0 bg-gradient-radial from-pink-400/15 via-transparent to-transparent animate-pulse"
-        style="animation-delay: 2s;"
-      >
-      </div>
+<AppLayout
+  title="Profile - Cetus Gaming Platform"
+  description="View your gaming profile, statistics, and game history on Cetus"
+>
+  <!-- Animated background -->
+  <div class="fixed inset-0 pointer-events-none">
+    <div
+      class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"
+    >
     </div>
+    <div
+      class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse"
+      style="animation-delay: 1s;"
+    >
+    </div>
+    <div
+      class="absolute inset-0 bg-gradient-radial from-pink-400/15 via-transparent to-transparent animate-pulse"
+      style="animation-delay: 2s;"
+    >
+    </div>
+  </div>
 
-    <!-- Floating particles -->
-    <div class="fixed inset-0 pointer-events-none">
-      {
-        Array.from({ length: 20 }).map((_, _i) => (
-          <div
-            class="absolute w-1 h-1 bg-cyan-400 rounded-full opacity-20 animate-bounce"
-            style={`
+  <!-- Floating particles -->
+  <div class="fixed inset-0 pointer-events-none">
+    {
+      Array.from({ length: 20 }).map((_, _i) => (
+        <div
+          class="absolute w-1 h-1 bg-cyan-400 rounded-full opacity-20 animate-bounce"
+          style={`
               left: ${Math.random() * 100}%;
               top: ${Math.random() * 100}%;
               animation-delay: ${Math.random() * 3}s;
               animation-duration: ${2 + Math.random() * 2}s;
             `}
-          />
-        ))
-      }
-    </div>
+        />
+      ))
+    }
+  </div>
 
-    <!-- Header -->
-    <Navigation />
+  <!-- Profile Content -->
+  <main class="relative z-10 min-h-screen">
+    <Section class="py-20">
+      <Container class="max-w-4xl">
+        <!-- Page Title -->
+        <div class="text-center mb-12">
+          <Heading level={1} variant="hero" align="center" class="mb-4">
+            USER PROFILE
+          </Heading>
+          <p class="text-gray-400 text-lg">
+            Manage your account and track your achievements
+          </p>
+        </div>
 
-    <!-- Profile Content -->
-    <main class="relative z-10 min-h-screen">
-      <Section class="py-20">
-        <Container class="max-w-4xl">
-          <!-- Page Title -->
-          <div class="text-center mb-12">
-            <Heading level={1} variant="hero" align="center" class="mb-4">
-              USER PROFILE
-            </Heading>
-            <p class="text-gray-400 text-lg">
-              Manage your account and track your achievements
-            </p>
-          </div>
+        <!-- User Info Card -->
+        <Card variant="glass" class="p-6 md:p-8 mb-8">
+          <div class="flex flex-row items-start">
+            <!-- Avatar -->
+            <div class="flex-shrink-0 mr-2.5">
+              <div
+                class="w-20 h-20 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-400/25"
+              >
+                <span class="text-2xl font-bold text-white">
+                  {userName.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            </div>
 
-          <!-- User Info Card -->
-          <Card variant="glass" class="p-6 md:p-8 mb-8">
-            <div class="flex flex-row items-start">
-              <!-- Avatar -->
-              <div class="flex-shrink-0 mr-2.5">
-                <div
-                  class="w-20 h-20 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-400/25"
-                >
-                  <span class="text-2xl font-bold text-white">
-                    {userName.charAt(0).toUpperCase()}
-                  </span>
-                </div>
+            <!-- User Details -->
+            <div class="flex-1 min-w-0 text-left">
+              <div class="flex items-center gap-3 mb-2">
+                <h2 class="text-2xl font-orbitron font-bold text-holographic">
+                  {userName}
+                </h2>
+                <Badge variant="success" size="sm"> Space Explorer 🚀 </Badge>
               </div>
 
-              <!-- User Details -->
-              <div class="flex-1 min-w-0 text-left">
-                <div class="flex items-center gap-3 mb-2">
-                  <h2 class="text-2xl font-orbitron font-bold text-holographic">
-                    {userName}
-                  </h2>
-                  <Badge variant="success" size="sm"> Space Explorer 🚀 </Badge>
+              <p class="text-gray-300 mb-4">
+                {userEmail}
+              </p>
+
+              <div
+                class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-sm text-gray-400 space-y-2 sm:space-y-0"
+              >
+                <div class="flex items-center justify-start space-x-1">
+                  <span>📅</span>
+                  <span>Member since {memberSince}</span>
                 </div>
+                <div class="flex items-center justify-start space-x-1">
+                  <span>🎮</span>
+                  <span>Games Played: {userStats?.total_games_played || 0}</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
 
-                <p class="text-gray-300 mb-4">
-                  {userEmail}
-                </p>
-
-                <div
-                  class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-sm text-gray-400 space-y-2 sm:space-y-0"
+        <!-- Quick Stats and Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              Quick Stats
+            </h3>
+            <div class="space-y-3">
+              <div class="flex justify-between">
+                <span class="text-gray-400">Total Score</span>
+                <span class="text-white font-semibold"
+                  >{userStats?.total_score?.toLocaleString() || 0}</span
                 >
-                  <div class="flex items-center justify-start space-x-1">
-                    <span>📅</span>
-                    <span>Member since {memberSince}</span>
-                  </div>
-                  <div class="flex items-center justify-start space-x-1">
-                    <span>🎮</span>
-                    <span
-                      >Games Played: {userStats?.total_games_played || 0}</span
-                    >
-                  </div>
-                </div>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Games Played</span>
+                <span class="text-white font-semibold"
+                  >{userStats?.total_games_played || 0}</span
+                >
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Achievements</span>
+                <span class="text-white font-semibold">1</span>
               </div>
             </div>
           </Card>
 
-          <!-- Quick Stats and Actions -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <Card variant="glass" class="p-6">
-              <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-                Quick Stats
-              </h3>
-              <div class="space-y-3">
-                <div class="flex justify-between">
-                  <span class="text-gray-400">Total Score</span>
-                  <span class="text-white font-semibold"
-                    >{userStats?.total_score?.toLocaleString() || 0}</span
-                  >
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-400">Games Played</span>
-                  <span class="text-white font-semibold"
-                    >{userStats?.total_games_played || 0}</span
-                  >
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-400">Achievements</span>
-                  <span class="text-white font-semibold">1</span>
-                </div>
-              </div>
-            </Card>
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-purple-400 mb-4">
+              Quick Actions
+            </h3>
+            <div class="flex justify-center">
+              <Button variant="outline" class="w-full max-w-xs">
+                <a href="/" class="text-white no-underline">
+                  🏠 Back to Home
+                </a>
+              </Button>
+            </div>
+          </Card>
+        </div>
 
-            <Card variant="glass" class="p-6">
-              <h3 class="text-lg font-orbitron font-bold text-purple-400 mb-4">
-                Quick Actions
-              </h3>
-              <div class="flex justify-center">
-                <Button variant="outline" class="w-full max-w-xs">
+        <!-- Game History Section -->
+        <Card variant="glass" class="p-6 md:p-8 mb-8">
+          <h3 class="text-2xl font-orbitron font-bold text-holographic mb-6">
+            RECENT GAMES
+          </h3>
+          <p class="text-gray-400 mb-8">Your recent game sessions and scores</p>
+
+          {
+            gameHistoryData.games.length > 0 ? (
+              <div class="space-y-4">
+                {gameHistoryData.games.map(game => (
+                  <div class="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-cyan-400/30 transition-all duration-300">
+                    <div class="flex items-center space-x-4">
+                      <div class="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold">
+                          {game.game_id === 'tetris'
+                            ? '🔲'
+                            : game.game_id === 'quick_draw'
+                              ? '🎨'
+                              : game.game_id === 'bubble_shooter'
+                                ? '🫧'
+                                : '🎮'}
+                        </span>
+                      </div>
+                      <div>
+                        <h4 class="font-orbitron font-semibold text-white">
+                          {game.game_name}
+                        </h4>
+                        <p class="text-sm text-gray-400">
+                          {new Date(game.created_at).toLocaleDateString(
+                            'en-US',
+                            {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-xl font-bold text-cyan-400">
+                        {game.score.toLocaleString()}
+                      </div>
+                      <div class="text-sm text-gray-400">points</div>
+                    </div>
+                  </div>
+                ))}
+
+                {gameHistoryData.totalPages > 1 && (
+                  <div class="flex items-center justify-between pt-6 border-t border-gray-700/50">
+                    <div class="text-sm text-gray-400">
+                      Showing{' '}
+                      {(gameHistoryData.page - 1) * gameHistoryData.pageSize +
+                        1}{' '}
+                      to{' '}
+                      {Math.min(
+                        gameHistoryData.page * gameHistoryData.pageSize,
+                        gameHistoryData.total
+                      )}{' '}
+                      of {gameHistoryData.total} games
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                      {/* Previous button */}
+                      {gameHistoryData.page > 1 && (
+                        <a
+                          href={`/profile?page=${gameHistoryData.page - 1}`}
+                          class="px-3 py-1 text-sm bg-gray-800/50 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
+                        >
+                          Previous
+                        </a>
+                      )}
+
+                      {/* Page numbers */}
+                      {Array.from(
+                        { length: gameHistoryData.totalPages },
+                        (_, i) => i + 1
+                      ).map(pageNum => (
+                        <a
+                          href={`/profile?page=${pageNum}`}
+                          class={`px-3 py-1 text-sm rounded-lg transition-all duration-300 ${
+                            pageNum === gameHistoryData.page
+                              ? 'bg-cyan-500/20 border border-cyan-400/50 text-cyan-400'
+                              : 'bg-gray-800/50 border border-gray-600/50 text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30'
+                          }`}
+                        >
+                          {pageNum}
+                        </a>
+                      ))}
+
+                      {/* Next button */}
+                      {gameHistoryData.page < gameHistoryData.totalPages && (
+                        <a
+                          href={`/profile?page=${gameHistoryData.page + 1}`}
+                          class="px-3 py-1 text-sm bg-gray-800/50 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
+                        >
+                          Next
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div class="text-center py-8">
+                <div class="text-6xl mb-4 opacity-50">🎮</div>
+                <p class="text-gray-400 mb-4">No games played yet</p>
+                <Button variant="outline">
                   <a href="/" class="text-white no-underline">
-                    🏠 Back to Home
+                    Start Playing
                   </a>
                 </Button>
               </div>
-            </Card>
-          </div>
+            )
+          }
+        </Card>
 
-          <!-- Game History Section -->
-          <Card variant="glass" class="p-6 md:p-8 mb-8">
-            <h3 class="text-2xl font-orbitron font-bold text-holographic mb-6">
-              RECENT GAMES
-            </h3>
-            <p class="text-gray-400 mb-8">
-              Your recent game sessions and scores
-            </p>
+        <!-- Achievements Section -->
+        <Card variant="glass" class="p-6 md:p-8">
+          <h3 class="text-2xl font-orbitron font-bold text-holographic mb-6">
+            ACHIEVEMENTS
+          </h3>
+          <p class="text-gray-400 mb-8">
+            Unlock badges by playing games and reaching milestones
+          </p>
 
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
             {
-              gameHistoryData.games.length > 0 ? (
-                <div class="space-y-4">
-                  {gameHistoryData.games.map(game => (
-                    <div class="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-cyan-400/30 transition-all duration-300">
-                      <div class="flex items-center space-x-4">
-                        <div class="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center">
-                          <span class="text-white font-bold">
-                            {game.game_id === 'tetris'
-                              ? '🔲'
-                              : game.game_id === 'quick_draw'
-                                ? '🎨'
-                                : game.game_id === 'bubble_shooter'
-                                  ? '🫧'
-                                  : '🎮'}
-                          </span>
-                        </div>
-                        <div>
-                          <h4 class="font-orbitron font-semibold text-white">
-                            {game.game_name}
-                          </h4>
-                          <p class="text-sm text-gray-400">
-                            {new Date(game.created_at).toLocaleDateString(
-                              'en-US',
-                              {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              }
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <div class="text-right">
-                        <div class="text-xl font-bold text-cyan-400">
-                          {game.score.toLocaleString()}
-                        </div>
-                        <div class="text-sm text-gray-400">points</div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {gameHistoryData.totalPages > 1 && (
-                    <div class="flex items-center justify-between pt-6 border-t border-gray-700/50">
-                      <div class="text-sm text-gray-400">
-                        Showing{' '}
-                        {(gameHistoryData.page - 1) * gameHistoryData.pageSize +
-                          1}{' '}
-                        to{' '}
-                        {Math.min(
-                          gameHistoryData.page * gameHistoryData.pageSize,
-                          gameHistoryData.total
-                        )}{' '}
-                        of {gameHistoryData.total} games
-                      </div>
-
-                      <div class="flex items-center space-x-2">
-                        {/* Previous button */}
-                        {gameHistoryData.page > 1 && (
-                          <a
-                            href={`/profile?page=${gameHistoryData.page - 1}`}
-                            class="px-3 py-1 text-sm bg-gray-800/50 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
-                          >
-                            Previous
-                          </a>
-                        )}
-
-                        {/* Page numbers */}
-                        {Array.from(
-                          { length: gameHistoryData.totalPages },
-                          (_, i) => i + 1
-                        ).map(pageNum => (
-                          <a
-                            href={`/profile?page=${pageNum}`}
-                            class={`px-3 py-1 text-sm rounded-lg transition-all duration-300 ${
-                              pageNum === gameHistoryData.page
-                                ? 'bg-cyan-500/20 border border-cyan-400/50 text-cyan-400'
-                                : 'bg-gray-800/50 border border-gray-600/50 text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30'
-                            }`}
-                          >
-                            {pageNum}
-                          </a>
-                        ))}
-
-                        {/* Next button */}
-                        {gameHistoryData.page < gameHistoryData.totalPages && (
-                          <a
-                            href={`/profile?page=${gameHistoryData.page + 1}`}
-                            class="px-3 py-1 text-sm bg-gray-800/50 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
-                          >
-                            Next
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div class="text-center py-8">
-                  <div class="text-6xl mb-4 opacity-50">🎮</div>
-                  <p class="text-gray-400 mb-4">No games played yet</p>
-                  <Button variant="outline">
-                    <a href="/" class="text-white no-underline">
-                      Start Playing
-                    </a>
-                  </Button>
-                </div>
-              )
-            }
-          </Card>
-
-          <!-- Achievements Section -->
-          <Card variant="glass" class="p-6 md:p-8">
-            <h3 class="text-2xl font-orbitron font-bold text-holographic mb-6">
-              ACHIEVEMENTS
-            </h3>
-            <p class="text-gray-400 mb-8">
-              Unlock badges by playing games and reaching milestones
-            </p>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-              {
-                userBadges.map(badge => (
-                  <div
-                    class={`
+              userBadges.map(badge => (
+                <div
+                  class={`
                     relative p-4 md:p-6 rounded-xl border transition-all duration-300 hover:scale-105
                     ${
                       badge.earned
@@ -379,11 +357,11 @@ const userBadges = [
                         : 'bg-gray-800/30 border-gray-700/50 opacity-60'
                     }
                   `}
-                  >
-                    <div class="grid grid-cols-[auto_1fr] gap-4">
-                      <div class="flex items-start justify-center">
-                        <div
-                          class={`
+                >
+                  <div class="grid grid-cols-[auto_1fr] gap-4">
+                    <div class="flex items-start justify-center">
+                      <div
+                        class={`
                           text-2xl md:text-3xl p-2 md:p-3 rounded-full
                           ${
                             badge.earned
@@ -391,75 +369,71 @@ const userBadges = [
                               : 'bg-gray-700/50'
                           }
                         `}
-                        >
-                          {badge.icon}
-                        </div>
-                      </div>
-
-                      <div class="grid grid-rows-[auto_auto] gap-2">
-                        <div class="flex flex-col gap-2">
-                          <h4 class="font-orbitron font-bold text-white text-sm md:text-base">
-                            {badge.name}
-                          </h4>
-                          <Badge
-                            variant={badge.earned ? 'success' : 'outline'}
-                            size="sm"
-                            class="w-fit"
-                          >
-                            {badge.earned ? 'Earned' : 'Locked'}
-                          </Badge>
-                        </div>
-
-                        <div>
-                          <p class="text-xs md:text-sm text-gray-400">
-                            {badge.description}
-                          </p>
-                        </div>
+                      >
+                        {badge.icon}
                       </div>
                     </div>
 
-                    {!badge.earned && (
-                      <div class="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center">
-                        <div class="text-gray-500 text-xl md:text-2xl">🔒</div>
+                    <div class="grid grid-rows-[auto_auto] gap-2">
+                      <div class="flex flex-col gap-2">
+                        <h4 class="font-orbitron font-bold text-white text-sm md:text-base">
+                          {badge.name}
+                        </h4>
+                        <Badge
+                          variant={badge.earned ? 'success' : 'outline'}
+                          size="sm"
+                          class="w-fit"
+                        >
+                          {badge.earned ? 'Earned' : 'Locked'}
+                        </Badge>
                       </div>
-                    )}
+
+                      <div>
+                        <p class="text-xs md:text-sm text-gray-400">
+                          {badge.description}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                ))
-              }
-            </div>
-          </Card>
-        </Container>
-      </Section>
-    </main>
 
-    <!-- Footer -->
-    <Footer />
-
-    <script>
-      // Add some interactive effects
-      document.addEventListener('DOMContentLoaded', () => {
-        // Add glow effect on achievement cards
-        const achievementCards = document.querySelectorAll('[data-achievement]')
-        achievementCards.forEach(card => {
-          card.addEventListener('mouseenter', () => {
-            if (!card.classList.contains('opacity-60')) {
-              card.classList.add('glow-cyan')
+                  {!badge.earned && (
+                    <div class="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center">
+                      <div class="text-gray-500 text-xl md:text-2xl">🔒</div>
+                    </div>
+                  )}
+                </div>
+              ))
             }
-          })
+          </div>
+        </Card>
+      </Container>
+    </Section>
+  </main>
 
-          card.addEventListener('mouseleave', () => {
-            card.classList.remove('glow-cyan')
-          })
-        })
-
-        // Add floating animation to particles
-        const particles = document.querySelectorAll('.animate-bounce')
-        particles.forEach((particle, index) => {
-          if (index % 3 === 0) {
-            particle.classList.add('animate-float')
+  <script>
+    // Add some interactive effects
+    document.addEventListener('DOMContentLoaded', () => {
+      // Add glow effect on achievement cards
+      const achievementCards = document.querySelectorAll('[data-achievement]')
+      achievementCards.forEach(card => {
+        card.addEventListener('mouseenter', () => {
+          if (!card.classList.contains('opacity-60')) {
+            card.classList.add('glow-cyan')
           }
         })
+
+        card.addEventListener('mouseleave', () => {
+          card.classList.remove('glow-cyan')
+        })
       })
-    </script>
-  </body>
-</html>
+
+      // Add floating animation to particles
+      const particles = document.querySelectorAll('.animate-bounce')
+      particles.forEach((particle, index) => {
+        if (index % 3 === 0) {
+          particle.classList.add('animate-float')
+        }
+      })
+    })
+  </script>
+</AppLayout>
