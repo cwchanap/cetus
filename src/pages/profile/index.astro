@@ -11,7 +11,7 @@ import Button from '@/components/ui/Button.astro'
 import Navigation from '@/components/ui/Navigation.astro'
 import Footer from '@/components/ui/Footer.astro'
 
-import { getUserStats, getUserGameHistory } from '@/lib/db/queries'
+import { getUserStats, getUserGameHistoryPaginated } from '@/lib/db/queries'
 
 // Check if user is authenticated
 const user = Astro.locals.user
@@ -22,9 +22,18 @@ if (!user) {
   return Astro.redirect('/login?redirect=/profile')
 }
 
-// Fetch user stats and game history
+// Get pagination parameters from URL
+const url = new URL(Astro.request.url)
+const currentPage = parseInt(url.searchParams.get('page') || '1', 10)
+const pageSize = 5
+
+// Fetch user stats and paginated game history
 const userStats = await getUserStats(user.id)
-const gameHistory = await getUserGameHistory(user.id, 10)
+const gameHistoryData = await getUserGameHistoryPaginated(
+  user.id,
+  currentPage,
+  pageSize
+)
 
 // Get user display name
 const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
@@ -134,7 +143,7 @@ const userBadges = [
         <Container class="max-w-4xl">
           <!-- Page Title -->
           <div class="text-center mb-12">
-            <Heading level={1} variant="page" align="center" class="mb-4">
+            <Heading level={1} variant="hero" align="center" class="mb-4">
               USER PROFILE
             </Heading>
             <p class="text-gray-400 text-lg">
@@ -237,13 +246,10 @@ const userBadges = [
             </p>
 
             {
-              gameHistory.length > 0 ? (
+              gameHistoryData.games.length > 0 ? (
                 <div class="space-y-4">
-                  {gameHistory.map((game, index) => (
-                    <div
-                      key={index}
-                      class="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
-                    >
+                  {gameHistoryData.games.map(game => (
+                    <div class="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-cyan-400/30 transition-all duration-300">
                       <div class="flex items-center space-x-4">
                         <div class="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center">
                           <span class="text-white font-bold">
@@ -282,6 +288,61 @@ const userBadges = [
                       </div>
                     </div>
                   ))}
+
+                  {gameHistoryData.totalPages > 1 && (
+                    <div class="flex items-center justify-between pt-6 border-t border-gray-700/50">
+                      <div class="text-sm text-gray-400">
+                        Showing{' '}
+                        {(gameHistoryData.page - 1) * gameHistoryData.pageSize +
+                          1}{' '}
+                        to{' '}
+                        {Math.min(
+                          gameHistoryData.page * gameHistoryData.pageSize,
+                          gameHistoryData.total
+                        )}{' '}
+                        of {gameHistoryData.total} games
+                      </div>
+
+                      <div class="flex items-center space-x-2">
+                        {/* Previous button */}
+                        {gameHistoryData.page > 1 && (
+                          <a
+                            href={`/profile?page=${gameHistoryData.page - 1}`}
+                            class="px-3 py-1 text-sm bg-gray-800/50 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
+                          >
+                            Previous
+                          </a>
+                        )}
+
+                        {/* Page numbers */}
+                        {Array.from(
+                          { length: gameHistoryData.totalPages },
+                          (_, i) => i + 1
+                        ).map(pageNum => (
+                          <a
+                            href={`/profile?page=${pageNum}`}
+                            class={`px-3 py-1 text-sm rounded-lg transition-all duration-300 ${
+                              pageNum === gameHistoryData.page
+                                ? 'bg-cyan-500/20 border border-cyan-400/50 text-cyan-400'
+                                : 'bg-gray-800/50 border border-gray-600/50 text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30'
+                            }`}
+                          >
+                            {pageNum}
+                          </a>
+                        ))}
+
+                        {/* Next button */}
+                        {gameHistoryData.page < gameHistoryData.totalPages && (
+                          <a
+                            href={`/profile?page=${gameHistoryData.page + 1}`}
+                            class="px-3 py-1 text-sm bg-gray-800/50 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
+                          >
+                            Next
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div class="text-center py-8">

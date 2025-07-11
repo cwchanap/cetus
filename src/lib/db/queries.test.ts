@@ -4,6 +4,7 @@ import {
   getGameById,
   saveGameScore,
   getUserGameHistory,
+  getUserGameHistoryPaginated,
   getUserBestScoreByGame,
   getUserStats,
   upsertUserStats,
@@ -16,6 +17,11 @@ vi.mock('@/lib/db/client', () => ({
     selectFrom: vi.fn(),
     insertInto: vi.fn(),
     updateTable: vi.fn(),
+    fn: {
+      count: vi.fn().mockReturnValue({
+        as: vi.fn().mockReturnValue('COUNT'),
+      }),
+    },
   },
 }))
 
@@ -362,6 +368,201 @@ describe('Database Queries', () => {
       // Assert
       expect(result).toBeNull()
       expect(consoleSpy).toHaveBeenCalledWith('Error fetching user best score:', expect.any(Error))
+      
+      consoleSpy.mockRestore()
+    })
+  })
+
+  describe('getUserGameHistoryPaginated', () => {
+    it('should return paginated game history with correct pagination info', async () => {
+      // Arrange
+      const mockTotalResult = { total: 23 }
+      const mockHistory = [
+        {
+          game_id: 'tetris',
+          game_name: 'Tetris Challenge',
+          score: 1500,
+          created_at: new Date('2025-07-10T12:00:00Z'),
+        },
+        {
+          game_id: 'bubble_shooter',
+          game_name: 'Bubble Shooter',
+          score: 2000,
+          created_at: new Date('2025-07-10T11:00:00Z'),
+        },
+      ]
+
+      // Mock the count query
+      const mockCountQuery = {
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirst: vi.fn().mockResolvedValue(mockTotalResult),
+      }
+
+      // Mock the paginated results query
+      const mockResultsQuery = {
+        innerJoin: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        offset: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue(mockHistory),
+      }
+
+      // Mock selectFrom to return different queries for count and results
+      vi.mocked(db.selectFrom)
+        .mockReturnValueOnce(mockCountQuery as any) // First call for count
+        .mockReturnValueOnce(mockResultsQuery as any) // Second call for results
+
+      // Act
+      const result = await getUserGameHistoryPaginated('user-123', 2, 5)
+
+      // Assert
+      expect(result).toEqual({
+        games: [
+          {
+            game_id: 'tetris',
+            game_name: 'Tetris Challenge',
+            score: 1500,
+            created_at: '2025-07-10T12:00:00.000Z',
+          },
+          {
+            game_id: 'bubble_shooter',
+            game_name: 'Bubble Shooter',
+            score: 2000,
+            created_at: '2025-07-10T11:00:00.000Z',
+          },
+        ],
+        total: 23,
+        page: 2,
+        pageSize: 5,
+        totalPages: 5,
+      })
+
+      // Verify pagination calculations
+      expect(mockResultsQuery.offset).toHaveBeenCalledWith(5) // (page 2 - 1) * pageSize 5
+      expect(mockResultsQuery.limit).toHaveBeenCalledWith(5)
+    })
+
+    it('should handle empty results correctly', async () => {
+      // Arrange
+      const mockCountQuery = {
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirst: vi.fn().mockResolvedValue({ total: 0 }),
+      }
+
+      const mockResultsQuery = {
+        innerJoin: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        offset: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue([]),
+      }
+
+      vi.mocked(db.selectFrom)
+        .mockReturnValueOnce(mockCountQuery as any)
+        .mockReturnValueOnce(mockResultsQuery as any)
+
+      // Act
+      const result = await getUserGameHistoryPaginated('user-123', 1, 5)
+
+      // Assert
+      expect(result).toEqual({
+        games: [],
+        total: 0,
+        page: 1,
+        pageSize: 5,
+        totalPages: 0,
+      })
+    })
+
+    it('should calculate total pages correctly', async () => {
+      // Arrange
+      const mockCountQuery = {
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirst: vi.fn().mockResolvedValue({ total: 23 }),
+      }
+
+      const mockResultsQuery = {
+        innerJoin: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        offset: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue([]),
+      }
+
+      vi.mocked(db.selectFrom)
+        .mockReturnValueOnce(mockCountQuery as any)
+        .mockReturnValueOnce(mockResultsQuery as any)
+
+      // Act
+      const result = await getUserGameHistoryPaginated('user-123', 1, 5)
+
+      // Assert
+      // 23 items with page size 5 should result in 5 pages (Math.ceil(23/5) = 5)
+      expect(result.totalPages).toBe(5)
+    })
+
+    it('should handle first page correctly', async () => {
+      // Arrange
+      const mockCountQuery = {
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirst: vi.fn().mockResolvedValue({ total: 3 }),
+      }
+
+      const mockResultsQuery = {
+        innerJoin: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        offset: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue([]),
+      }
+
+      vi.mocked(db.selectFrom)
+        .mockReturnValueOnce(mockCountQuery as any)
+        .mockReturnValueOnce(mockResultsQuery as any)
+
+      // Act
+      await getUserGameHistoryPaginated('user-123', 1, 5)
+
+      // Assert
+      // First page should have offset 0
+      expect(mockResultsQuery.offset).toHaveBeenCalledWith(0)
+    })
+
+    it('should return error state on database failure', async () => {
+      // Arrange
+      const mockCountQuery = {
+        select: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirst: vi.fn().mockRejectedValue(new Error('Database error')),
+      }
+
+      vi.mocked(db.selectFrom).mockReturnValue(mockCountQuery as any)
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      // Act
+      const result = await getUserGameHistoryPaginated('user-123', 1, 5)
+
+      // Assert
+      expect(result).toEqual({
+        games: [],
+        total: 0,
+        page: 1,
+        pageSize: 5,
+        totalPages: 0,
+      })
+      expect(consoleSpy).toHaveBeenCalledWith('Error fetching paginated user game history:', expect.any(Error))
       
       consoleSpy.mockRestore()
     })

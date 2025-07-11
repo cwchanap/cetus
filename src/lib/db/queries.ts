@@ -238,6 +238,80 @@ export async function getUserGameHistory(userId: string, limit: number = 10): Pr
 }
 
 /**
+ * Get paginated user's game history with total count
+ */
+export async function getUserGameHistoryPaginated(
+  userId: string, 
+  page: number = 1, 
+  pageSize: number = 5
+): Promise<{
+  games: Array<{
+    game_id: string
+    game_name: string
+    score: number
+    created_at: string
+  }>
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}> {
+  try {
+    const offset = (page - 1) * pageSize
+
+    // Get total count
+    const totalResult = await db
+      .selectFrom("game_scores")
+      .select(db.fn.count("id").as("total"))
+      .where("user_id", "=", userId)
+      .executeTakeFirst()
+    
+    const total = Number(totalResult?.total) || 0
+    const totalPages = Math.ceil(total / pageSize)
+
+    // Get paginated results
+    const results = await db
+      .selectFrom("game_scores")
+      .innerJoin("games", "games.id", "game_scores.game_id")
+      .select([
+        "game_scores.game_id",
+        "games.name as game_name",
+        "game_scores.score",
+        "game_scores.created_at"
+      ])
+      .where("game_scores.user_id", "=", userId)
+      .orderBy("game_scores.created_at", "desc")
+      .limit(pageSize)
+      .offset(offset)
+      .execute()
+    
+    const games = results.map(row => ({
+      game_id: row.game_id,
+      game_name: row.game_name,
+      score: row.score,
+      created_at: row.created_at.toString()
+    }))
+
+    return {
+      games,
+      total,
+      page,
+      pageSize,
+      totalPages
+    }
+  } catch (error) {
+    console.error("Error fetching paginated user game history:", error)
+    return {
+      games: [],
+      total: 0,
+      page: 1,
+      pageSize,
+      totalPages: 0
+    }
+  }
+}
+
+/**
  * Get user's best score for a specific game
  */
 export async function getUserBestScoreByGame(userId: string, gameId: string): Promise<number | null> {
