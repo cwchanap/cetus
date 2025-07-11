@@ -3,7 +3,7 @@ dist/
 .astro/
 .vercel/
 coverage/
-db/
+/db/
 public/
 *.md
 *.json
