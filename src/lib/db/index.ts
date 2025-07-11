@@ -1,5 +1,5 @@
 // Re-export the database client for easier imports
-export { db, dialect, type DbClient } from "./client";
+export { db, dialect, type DbClient } from './client'
 
 // Re-export utility functions
 export * from './queries'
