@@ -12,7 +12,22 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
       .where("user_id", "=", userId)
       .executeTakeFirst()
     
-    return stats || null
+    if (!stats) {
+      return null
+    }
+
+    // Calculate the correct count of distinct games played
+    const distinctGames = await db
+      .selectFrom("game_scores")
+      .select("game_id")
+      .distinct()
+      .where("user_id", "=", userId)
+      .execute()
+
+    return {
+      ...stats,
+      total_games_played: distinctGames.length
+    }
   } catch (error) {
     console.error("Error fetching user stats:", error)
     return null
