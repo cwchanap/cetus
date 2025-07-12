@@ -6,7 +6,6 @@ import type {
     UserUpdate,
     GameScore,
     UserStats,
-    Game,
     NewUserAchievement,
     UserAchievementRecord,
 } from './types'
@@ -169,41 +168,7 @@ export async function getUserBestScore(
     }
 }
 
-/**
- * Get all available games
- */
-export async function getAllGames(): Promise<Game[]> {
-    try {
-        const games = await db
-            .selectFrom('games')
-            .selectAll()
-            .orderBy('created_at', 'asc')
-            .execute()
-
-        return games
-    } catch (error) {
-        console.error('Error fetching games:', error)
-        return []
-    }
-}
-
-/**
- * Get game by ID
- */
-export async function getGameById(gameId: string): Promise<Game | null> {
-    try {
-        const game = await db
-            .selectFrom('games')
-            .selectAll()
-            .where('id', '=', gameId)
-            .executeTakeFirst()
-
-        return game || null
-    } catch (error) {
-        console.error('Error fetching game:', error)
-        return null
-    }
-}
+// Note: Game queries removed - game data now comes from src/lib/games.ts
 
 /**
  * Save score using game_scores table
@@ -288,10 +253,8 @@ export async function getUserGameHistory(
     try {
         const results = await db
             .selectFrom('game_scores')
-            .innerJoin('games', 'games.id', 'game_scores.game_id')
             .select([
                 'game_scores.game_id',
-                'games.name as game_name',
                 'game_scores.score',
                 'game_scores.created_at',
             ])
@@ -300,9 +263,12 @@ export async function getUserGameHistory(
             .limit(limit)
             .execute()
 
+        // Import game definitions to get names
+        const { getGameById } = await import('../games')
+
         return results.map(row => ({
             game_id: row.game_id,
-            game_name: row.game_name,
+            game_name: getGameById(row.game_id as any)?.name || 'Unknown Game',
             score: row.score,
             created_at: row.created_at.toString(),
         }))
@@ -347,10 +313,8 @@ export async function getUserGameHistoryPaginated(
         // Get paginated results
         const results = await db
             .selectFrom('game_scores')
-            .innerJoin('games', 'games.id', 'game_scores.game_id')
             .select([
                 'game_scores.game_id',
-                'games.name as game_name',
                 'game_scores.score',
                 'game_scores.created_at',
             ])
@@ -360,9 +324,12 @@ export async function getUserGameHistoryPaginated(
             .offset(offset)
             .execute()
 
+        // Import game definitions to get names
+        const { getGameById } = await import('../games')
+
         const games = results.map(row => ({
             game_id: row.game_id,
-            game_name: row.game_name,
+            game_name: getGameById(row.game_id as any)?.name || 'Unknown Game',
             score: row.score,
             created_at: row.created_at.toString(),
         }))

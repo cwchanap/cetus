@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro'
-import { saveGameScore, getGameById } from '@/lib/db/queries'
+import { saveGameScore } from '@/lib/db/queries'
+import { getGameById } from '@/lib/games'
 import { auth } from '@/lib/auth'
 
 export const POST: APIRoute = async ({ request }) => {
@@ -29,7 +30,7 @@ export const POST: APIRoute = async ({ request }) => {
         }
 
         // Verify game exists
-        const game = await getGameById(gameId)
+        const game = getGameById(gameId as any)
         if (!game) {
             return new Response(JSON.stringify({ error: 'Invalid game ID' }), {
                 status: 400,

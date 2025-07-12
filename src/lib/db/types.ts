@@ -47,14 +47,6 @@ export interface VerificationTable {
     updatedAt: ColumnType<Date, string | Date, string | Date> | null
 }
 
-// Games table for storing game definitions
-export interface GamesTable {
-    id: string // Primary key
-    name: string
-    description: string | null
-    created_at: ColumnType<Date, never, never> // DEFAULT CURRENT_TIMESTAMP
-}
-
 // Game-specific table types
 export interface GameScoresTable {
     id: ColumnType<number, never, never> // AUTO INCREMENT
@@ -94,7 +86,6 @@ export interface Database {
     verification: VerificationTable
 
     // Game-specific tables
-    games: GamesTable
     game_scores: GameScoresTable
     user_stats: UserStatsTable
 
@@ -107,9 +98,6 @@ export type NewUser = Omit<UserTable, 'id' | 'createdAt' | 'updatedAt'>
 export type UserUpdate = Partial<
     Pick<UserTable, 'name' | 'email' | 'emailVerified' | 'image'>
 >
-
-export type NewGame = Omit<GamesTable, 'created_at'>
-export type Game = Selectable<GamesTable>
 
 export type NewGameScore = Omit<GameScoresTable, 'id' | 'created_at'>
 export type GameScore = Selectable<GameScoresTable>

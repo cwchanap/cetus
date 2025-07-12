@@ -2,19 +2,8 @@
 -- This script only includes tables not covered by Better Auth
 -- Better Auth will automatically create: user, session, account, verification tables
 
--- Games table - stores game definitions
-CREATE TABLE IF NOT EXISTS games (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    description TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Insert default games
-INSERT OR IGNORE INTO games (id, name, description) VALUES 
-('tetris', 'Tetris Challenge', 'Classic block-stacking puzzle game'),
-('quick_draw', 'Quick Draw', 'Fast-paced drawing and guessing game'),
-('bubble_shooter', 'Bubble Shooter', 'Aim and shoot bubbles to clear the board');
+-- Note: Game definitions moved to code (src/lib/games.ts) 
+-- Only game-related user data is stored in database
 
 -- Game scores table - stores individual game session scores
 CREATE TABLE IF NOT EXISTS game_scores (
@@ -24,7 +13,7 @@ CREATE TABLE IF NOT EXISTS game_scores (
     score INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
-    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+    -- game_id references game definitions in code
 );
 
 -- User statistics table - aggregated user gaming data
@@ -51,7 +40,6 @@ CREATE TABLE IF NOT EXISTS user_achievements (
 );
 
 -- Indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_games_id ON games(id);
 CREATE INDEX IF NOT EXISTS idx_game_scores_user_id ON game_scores(user_id);
 CREATE INDEX IF NOT EXISTS idx_game_scores_game_id ON game_scores(game_id);
 CREATE INDEX IF NOT EXISTS idx_game_scores_created_at ON game_scores(created_at);

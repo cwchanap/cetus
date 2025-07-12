@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/pages/api/scores'
-import { saveGameScore, getGameById } from '@/lib/db/queries'
+import { saveGameScore } from '@/lib/db/queries'
 import { auth } from '@/lib/auth'
 
 // Mock dependencies
 vi.mock('@/lib/db/queries', () => ({
     saveGameScore: vi.fn(),
+}))
+
+vi.mock('@/lib/games', () => ({
     getGameById: vi.fn(),
 }))
 
@@ -43,8 +46,9 @@ describe('POST /api/scores', () => {
     it('should successfully save a score for authenticated user', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
-        vi.mocked(getGameById).mockResolvedValue(mockGame)
-        vi.mocked(saveGameScore).mockResolvedValue(true)
+        const { getGameById } = await import('@/lib/games')
+        vi.mocked(getGameById).mockReturnValue(mockGame)
+        vi.mocked(saveGameScore).mockResolvedValue({ success: true })
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -173,7 +177,8 @@ describe('POST /api/scores', () => {
     it('should return 400 for invalid game ID', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
-        vi.mocked(getGameById).mockResolvedValue(null)
+        const { getGameById } = await import('@/lib/games')
+        vi.mocked(getGameById).mockReturnValue(null)
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -200,8 +205,9 @@ describe('POST /api/scores', () => {
     it('should return 500 when save fails', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
-        vi.mocked(getGameById).mockResolvedValue(mockGame)
-        vi.mocked(saveGameScore).mockResolvedValue(false)
+        const { getGameById } = await import('@/lib/games')
+        vi.mocked(getGameById).mockReturnValue(mockGame)
+        vi.mocked(saveGameScore).mockResolvedValue({ success: false })
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -228,7 +234,10 @@ describe('POST /api/scores', () => {
     it('should return 500 for database errors', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
-        vi.mocked(getGameById).mockRejectedValue(new Error('Database error'))
+        const { getGameById } = await import('@/lib/games')
+        vi.mocked(getGameById).mockImplementation(() => {
+            throw new Error('Database error')
+        })
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',

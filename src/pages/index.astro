@@ -12,38 +12,45 @@ import Hero from '@/components/ui/Hero.astro'
 import FeatureCard from '@/components/ui/FeatureCard.astro'
 import GameCard from '@/components/ui/GameCard.astro'
 
+// Games System Import
+import { getAllGames, type Game } from '@/lib/games'
+
 // Check if user is authenticated
 const user = Astro.locals.user
 
-// Mock data for single player minigames
-const games = [
-  {
-    id: 1,
-    title: 'Quick Draw Challenge',
-    description: 'Test your drawing skills against the clock',
-    icon: '🎨',
-    duration: '5-15 min',
-    difficulty: 'Medium',
-    available: true,
-  },
-  {
-    id: 2,
-    title: 'Tetris Challenge',
-    description: 'Stack the blocks and clear lines in this classic puzzle',
-    icon: '🔲',
-    duration: '10-30 min',
-    difficulty: 'Medium',
-    available: true,
-  },
-  {
-    id: 3,
-    title: 'Bubble Shooter',
-    description: 'Match bubbles of the same color in this classic arcade game',
-    icon: '🫧',
-    duration: '5-20 min',
-    difficulty: 'Easy',
-    available: true,
-  },
+// Game icon and URL mapping
+const gameIcons: Record<string, string> = {
+  tetris: '🔲',
+  quick_draw: '🎨',
+  bubble_shooter: '🫧',
+}
+
+const gameUrls: Record<string, string> = {
+  tetris: '/tetris',
+  quick_draw: '/drawing',
+  bubble_shooter: '/bubble-shooter',
+}
+
+// Convert Games system data to GameCard format
+function convertGameToCardFormat(game: Game) {
+  return {
+    id: game.id === 'tetris' ? 2 : game.id === 'quick_draw' ? 1 : 3, // Keep original IDs for consistency
+    title: game.name,
+    description: game.description,
+    icon: gameIcons[game.id] || '🎮',
+    duration: game.estimatedDuration || '5-15 min',
+    difficulty:
+      game.difficulty.charAt(0).toUpperCase() + game.difficulty.slice(1),
+    available: game.isActive,
+  }
+}
+
+// Get games from the Games system
+const systemGames = getAllGames()
+const availableGames = systemGames.map(convertGameToCardFormat)
+
+// Add placeholder games for future development
+const comingSoonGames = [
   {
     id: 4,
     title: 'Memory Matrix',
@@ -90,6 +97,9 @@ const games = [
     available: false,
   },
 ]
+
+// Combine available games with coming soon games
+const games = [...availableGames, ...comingSoonGames]
 ---
 
 <AppLayout
