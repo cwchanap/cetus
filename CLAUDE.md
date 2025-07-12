@@ -4,88 +4,166 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS. The project focuses on creating futuristic, interactive multiplayer games with a specific emphasis on the "Quick Draw" drawing game. The application features a modern, neon-styled design with gradients, glowing effects, and animated backgrounds.
+Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS. The platform features multiple interactive games including Tetris, Bubble Shooter, and Quick Draw with user authentication, score tracking, and a modern neon-styled design.
 
 ## Development Commands
 
+### Core Commands
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
 - `npm run astro` - Run Astro CLI commands
 
+### Database
+- `npm run db:dev` - Start local Turso SQLite database server
+
+### Testing
+- `npm run test` - Run tests with Vitest
+- `npm run test:ui` - Run tests with Vitest UI
+- `npm run test:run` - Run tests once (CI mode)
+- `npm run test:coverage` - Run tests with coverage report
+- `npm run test:watch` - Run tests in watch mode
+
+### Code Quality
+- `npm run lint` - Lint codebase with ESLint
+- `npm run lint:fix` - Auto-fix lint issues
+- `npm run format` - Format code with Prettier
+- `npm run format:check` - Check code formatting
+
 ## Architecture
 
 ### Tech Stack
-- **Framework**: Astro 5.10.1 with TypeScript
-- **Styling**: Tailwind CSS 4.1.3 with custom sci-fi theme
-- **UI Components**: Custom component library with shadcn/ui patterns
-- **Graphics**: PixiJS 8.10.2 for canvas-based drawing functionality
-- **Utilities**: clsx and tailwind-merge for conditional styling
+- **Framework**: Astro 5.10.1 (server-side rendering) with TypeScript
+- **Deployment**: Vercel adapter with server output
+- **Styling**: Tailwind CSS 4.1.3 with extensive sci-fi theme system
+- **Database**: LibSQL (Turso) with Kysely query builder
+- **Authentication**: Better Auth with email/password and Google OAuth
+- **Graphics**: PixiJS 8.10.2 for game rendering
+- **Testing**: Vitest with jsdom environment and Testing Library
+- **Code Quality**: ESLint + Prettier with lint-staged and Husky
+
+### Database Architecture
+- **LibSQL/SQLite**: Primary database with Turso for production
+- **Kysely**: Type-safe SQL query builder with schema validation
+- **Better Auth**: Handles user authentication, sessions, and social providers
+- **Game Scores**: User game history and statistics tracking
+- **Type Safety**: Complete TypeScript interfaces for all database entities
+
+Key database entities:
+- `user`, `session`, `account`, `verification` (Better Auth tables)
+- `games` - Game definitions and metadata
+- `game_scores` - Individual game score records
+- `user_stats` - Aggregated user statistics and preferences
 
 ### Project Structure
 ```
 src/
-├── components/ui/     # Reusable UI components (Button, Card, Badge, Avatar)
-├── lib/              # Utility functions (cn helper)
-├── pages/            # Astro pages and routing
-│   ├── index.astro   # Main landing page
-│   └── drawing/      # Quick Draw game pages
-├── styles/           # Global CSS and Tailwind configuration
-└── layouts/          # Page layouts
+├── components/ui/     # Reusable UI components with sci-fi styling
+├── lib/
+│   ├── auth.ts        # Better Auth configuration
+│   ├── auth-client.ts # Client-side auth utilities
+│   ├── score-client.ts # Score tracking utilities
+│   ├── db/           # Database layer (Kysely + LibSQL)
+│   │   ├── client.ts  # Database connection
+│   │   ├── queries.ts # Typed query functions
+│   │   └── types.ts   # Database schema types
+│   └── games/        # Game-specific logic
+│       ├── tetris/    # Tetris game implementation
+│       └── bubble-shooter/ # Bubble shooter implementation
+├── pages/
+│   ├── api/          # API routes (auth, scores)
+│   ├── login/        # Authentication pages
+│   ├── signup/
+│   ├── profile/      # User profile and statistics
+│   └── [game]/       # Game-specific pages
+├── layouts/          # Page layouts (main, app)
+└── middleware.ts     # Auth middleware
 ```
 
+### Authentication System
+- **Better Auth**: Production-ready auth with email/password + OAuth
+- **Session Management**: 7-day sessions with 1-day update intervals
+- **Social Providers**: Google OAuth configured
+- **Middleware**: Route protection and session validation
+- **Type Safety**: Full TypeScript integration with auth state
+
+### Game Engine Architecture
+Games are modular with consistent patterns:
+- **Types**: Game state, config, and entity definitions
+- **Game Logic**: Core game mechanics and state management
+- **Renderer**: PixiJS-based rendering with canvas management
+- **Utils**: Shared utilities and helper functions
+- **Init**: Game initialization and setup
+
+Each game follows: `types.ts` → `game.ts` → `renderer.ts` → `utils.ts`
+
 ### UI Component System
-- **Button**: Supports variants (primary, outline, destructive, etc.) with sci-fi styling and hover effects
-- **Card**: Glass-morphism effects with neon borders and glow animations
-- **Badge**: Status indicators with color-coded variants
-- **Avatar**: Circular avatars with gradient backgrounds
+All components follow consistent patterns:
+- **TypeScript Props**: Strongly typed component interfaces
+- **Variant System**: Button, Badge, Card variants with class-variance-authority
+- **Sci-Fi Theme**: Neon glows, glass-morphism, holographic effects
+- **Responsive Design**: Mobile-first with touch/hover states
+- **Accessibility**: Focus management and ARIA attributes
 
-### Styling Approach
-- Uses a comprehensive sci-fi theme with custom Tailwind utilities
-- Holographic text effects, neon glows, and animated gradients
-- Glass-morphism with backdrop blur effects
-- Custom animations: float, glow, holographic
-- Consistent color palette: cyan, purple, pink gradients
+### Tailwind Theme System
+Comprehensive sci-fi design system:
+- **Custom Utilities**: `.text-holographic`, `.bg-glass`, `.border-neon`
+- **Animations**: `float`, `glow`, `holographic` keyframes
+- **Color Palette**: Cyan/purple/pink gradients with opacity variants
+- **Typography**: Orbitron (headers) + Inter (body) font stack
+- **Effects**: Custom scrollbars, neon shadows, backdrop filters
 
-### Quick Draw Game Features
-- **Lobby System**: Room creation, joining, and spectating
-- **Drawing Canvas**: PixiJS-powered drawing with brush tools, colors, and eraser
-- **Real-time Chat**: Guess submission and chat messaging
-- **Game State**: Timer, rounds, player scores, and leaderboards
+## Testing Strategy
 
-## Key Implementation Details
+### Test Structure
+- **Unit Tests**: `*.test.ts` files co-located with source code
+- **Integration Tests**: API and database interaction testing
+- **Setup**: Global test setup in `src/test/setup.ts`
+- **Coverage**: V8 coverage reports with HTML output
+- **Environment**: jsdom for DOM testing with Testing Library
 
-### Canvas Drawing System
-- Built with PixiJS for high-performance 2D graphics
-- Supports brush and eraser tools with variable sizes
-- Color palette with hex-to-number conversion
-- Touch and mouse event handling
-- Responsive canvas sizing
+### Testing Patterns
+- Database queries tested with in-memory SQLite
+- Auth flows tested with mock sessions
+- Game logic unit tests for core mechanics
+- API endpoints tested with request/response mocking
 
-### Component Patterns
-- All components use TypeScript interfaces for props
-- Consistent use of `cn()` utility for conditional classes
-- Astro component syntax with frontmatter and JSX-like templates
-- Built-in hover effects and animations
+## Development Guidelines
 
-### Navigation Structure
-- Main hub at root (`/`) showcasing all available games
-- Quick Draw game at `/drawing` (lobby) and `/drawing/game` (gameplay)
-- Breadcrumb navigation showing current game context
+### Code Quality Standards
+- **ESLint Rules**: TypeScript-specific rules with Astro plugin
+- **Prettier**: Consistent formatting with Astro plugin
+- **Husky**: Pre-commit hooks for linting and formatting
+- **Unused Variables**: Warn on unused vars (prefix with `_` to ignore)
+- **Type Safety**: Strict TypeScript with explicit any warnings
 
-## Common Development Patterns
+### Component Development
+1. Use existing UI components from `src/components/ui/`
+2. Follow TypeScript interface patterns for props
+3. Apply sci-fi theme classes consistently
+4. Implement responsive design with mobile-first approach
+5. Use `cn()` utility for conditional styling
+6. Add proper hover/focus states with accessibility
 
-When adding new games or features:
-1. Follow the existing component structure in `src/components/ui/`
-2. Use the established sci-fi theme classes (neon, glow, holographic)
-3. Implement responsive design with mobile-first approach
-4. Add hover states and transitions for interactive elements
-5. Use the `cn()` utility for conditional styling
-6. Follow TypeScript patterns for component props
+### Game Development
+1. Follow modular game architecture pattern
+2. Use PixiJS for canvas-based games
+3. Implement proper state management
+4. Add score tracking with database integration
+5. Ensure mobile compatibility with touch events
 
-## Important Notes
+### Database Operations
+1. Use Kysely for all database queries
+2. Follow established patterns in `src/lib/db/queries.ts`
+3. Add proper TypeScript types for new entities
+4. Test database operations with unit tests
+5. Handle migrations through Better Auth system
 
-- The project uses Astro's static site generation with client-side interactivity
-- All animations and effects are CSS-based with some JavaScript enhancements
-- The design system prioritizes accessibility while maintaining the sci-fi aesthetic
-- Game state management is currently client-side only (no backend integration)
+## Important Architecture Notes
+
+- **Server-Side Rendering**: Astro SSR with Vercel adapter
+- **Client Hydration**: Minimal client-side JavaScript for interactivity
+- **Type Safety**: End-to-end TypeScript from database to UI
+- **Error Handling**: Consistent error patterns across API routes
+- **Performance**: Optimized with code splitting and lazy loading
+- **Security**: CSRF protection, secure sessions, environment variables

@@ -3,6 +3,7 @@ import type {
     NewGameScore,
     NewUserStats,
     UserStatsUpdate,
+    UserUpdate,
     GameScore,
     UserStats,
     Game,
@@ -370,5 +371,29 @@ export async function getUserBestScoreByGame(
     } catch (error) {
         console.error('Error fetching user best score:', error)
         return null
+    }
+}
+
+/**
+ * Update user profile information
+ */
+export async function updateUser(
+    userId: string,
+    updates: UserUpdate
+): Promise<boolean> {
+    try {
+        await db
+            .updateTable('user')
+            .set({
+                ...updates,
+                updatedAt: new Date().toISOString(),
+            })
+            .where('id', '=', userId)
+            .execute()
+
+        return true
+    } catch (error) {
+        console.error('Error updating user:', error)
+        return false
     }
 }

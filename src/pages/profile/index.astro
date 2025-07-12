@@ -149,9 +149,52 @@ const userBadges = [
             <!-- User Details -->
             <div class="flex-1 min-w-0 text-left">
               <div class="flex items-center gap-3 mb-2">
-                <h2 class="text-2xl font-orbitron font-bold text-holographic">
-                  {userName}
-                </h2>
+                <div class="flex-1">
+                  <!-- Name display/edit form -->
+                  <div id="name-display" class="flex items-center gap-3">
+                    <h2
+                      class="text-2xl font-orbitron font-bold text-holographic"
+                    >
+                      {userName}
+                    </h2>
+                    <button
+                      id="edit-name-btn"
+                      class="text-cyan-400 hover:text-cyan-300 transition-colors"
+                      title="Edit name"
+                    >
+                      ✏️
+                    </button>
+                  </div>
+
+                  <!-- Name edit form (hidden by default) -->
+                  <div id="name-edit-form" class="hidden">
+                    <form class="flex items-center gap-2">
+                      <input
+                        type="text"
+                        id="name-input"
+                        value={userName}
+                        maxlength="100"
+                        class="flex-1 px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white font-orbitron font-bold text-xl focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/50"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="submit"
+                        id="save-name-btn"
+                      >
+                        💾
+                      </Button>
+                      <button
+                        type="button"
+                        id="cancel-edit-btn"
+                        class="px-2 py-1 text-gray-400 hover:text-gray-300 transition-colors"
+                      >
+                        ❌
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
                 <Badge variant="success" size="sm"> Space Explorer 🚀 </Badge>
               </div>
 
@@ -176,45 +219,30 @@ const userBadges = [
           </div>
         </Card>
 
-        <!-- Quick Stats and Actions -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              Quick Stats
-            </h3>
-            <div class="space-y-3">
-              <div class="flex justify-between">
-                <span class="text-gray-400">Total Score</span>
-                <span class="text-white font-semibold"
-                  >{userStats?.total_score?.toLocaleString() || 0}</span
-                >
+        <!-- Quick Stats -->
+        <Card variant="glass" class="p-6 mb-8">
+          <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+            Quick Stats
+          </h3>
+          <div class="grid grid-cols-3 gap-6">
+            <div class="text-center">
+              <div class="text-2xl font-bold text-white mb-1">
+                {userStats?.total_score?.toLocaleString() || 0}
               </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Games Played</span>
-                <span class="text-white font-semibold"
-                  >{userStats?.total_games_played || 0}</span
-                >
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Achievements</span>
-                <span class="text-white font-semibold">1</span>
-              </div>
+              <div class="text-sm text-gray-400">Total Score</div>
             </div>
-          </Card>
-
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-purple-400 mb-4">
-              Quick Actions
-            </h3>
-            <div class="flex justify-center">
-              <Button variant="outline" class="w-full max-w-xs">
-                <a href="/" class="text-white no-underline">
-                  🏠 Back to Home
-                </a>
-              </Button>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-white mb-1">
+                {userStats?.total_games_played || 0}
+              </div>
+              <div class="text-sm text-gray-400">Games Played</div>
             </div>
-          </Card>
-        </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-white mb-1">1</div>
+              <div class="text-sm text-gray-400">Achievements</div>
+            </div>
+          </div>
+        </Card>
 
         <!-- Game History Section -->
         <Card variant="glass" class="p-6 md:p-8 mb-8">
@@ -325,12 +353,10 @@ const userBadges = [
             ) : (
               <div class="text-center py-8">
                 <div class="text-6xl mb-4 opacity-50">🎮</div>
-                <p class="text-gray-400 mb-4">No games played yet</p>
-                <Button variant="outline">
-                  <a href="/" class="text-white no-underline">
-                    Start Playing
-                  </a>
-                </Button>
+                <p class="text-gray-400">No games played yet</p>
+                <p class="text-sm text-gray-500 mt-2">
+                  Start playing games to see your history here!
+                </p>
               </div>
             )
           }
@@ -434,6 +460,128 @@ const userBadges = [
           particle.classList.add('animate-float')
         }
       })
+
+      // Name editing functionality
+      const nameDisplay = document.getElementById('name-display')
+      const nameEditForm = document.getElementById('name-edit-form')
+      const editNameBtn = document.getElementById('edit-name-btn')
+      const cancelEditBtn = document.getElementById('cancel-edit-btn')
+      const nameInput = document.getElementById('name-input')
+      const nameForm = nameEditForm?.querySelector('form')
+      const nameHeading = nameDisplay?.querySelector('h2')
+
+      // Enter edit mode
+      editNameBtn?.addEventListener('click', () => {
+        nameDisplay?.classList.add('hidden')
+        nameEditForm?.classList.remove('hidden')
+        nameInput?.focus()
+      })
+
+      // Cancel editing
+      cancelEditBtn?.addEventListener('click', () => {
+        nameEditForm?.classList.add('hidden')
+        nameDisplay?.classList.remove('hidden')
+        if (nameInput && nameHeading) {
+          ;(nameInput as HTMLInputElement).value =
+            nameHeading.textContent?.trim() || ''
+        }
+      })
+
+      // Handle form submission
+      nameForm?.addEventListener('submit', async e => {
+        e.preventDefault()
+
+        const newName = (nameInput as HTMLInputElement)?.value?.trim()
+        if (!newName) {
+          alert('Name cannot be empty')
+          return
+        }
+
+        if (newName.length > 100) {
+          alert('Name must be 100 characters or less')
+          return
+        }
+
+        // Show loading state
+        const saveBtn = document.getElementById('save-name-btn')
+        const originalText = saveBtn?.textContent || '💾'
+
+        try {
+          if (saveBtn) {
+            saveBtn.textContent = '⏳'
+          }
+
+          const response = await fetch('/api/user/profile', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name: newName }),
+          })
+
+          const result = await response.json()
+
+          if (response.ok && result.success) {
+            // Update the display
+            if (nameHeading) {
+              nameHeading.textContent = result.name
+            }
+
+            // Exit edit mode
+            nameEditForm?.classList.add('hidden')
+            nameDisplay?.classList.remove('hidden')
+
+            // Show success message
+            showMessage('Profile updated successfully!', 'success')
+          } else {
+            showMessage(result.error || 'Failed to update profile', 'error')
+          }
+        } catch (error) {
+          console.error('Error updating profile:', error)
+          showMessage('Network error. Please try again.', 'error')
+        } finally {
+          // Reset button
+          if (saveBtn) {
+            saveBtn.textContent = originalText
+          }
+        }
+      })
+
+      // Handle escape key to cancel editing
+      nameInput?.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+          cancelEditBtn?.click()
+        }
+      })
     })
+
+    // Show message function
+    function showMessage(message: string, type: string = 'info') {
+      // Create message element
+      const messageEl = document.createElement('div')
+      messageEl.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium transform translate-x-full transition-transform duration-300 ${
+        type === 'success'
+          ? 'bg-green-500/90'
+          : type === 'error'
+            ? 'bg-red-500/90'
+            : 'bg-blue-500/90'
+      }`
+      messageEl.textContent = message
+
+      document.body.appendChild(messageEl)
+
+      // Animate in
+      setTimeout(() => {
+        messageEl.classList.remove('translate-x-full')
+      }, 100)
+
+      // Remove after 3 seconds
+      setTimeout(() => {
+        messageEl.classList.add('translate-x-full')
+        setTimeout(() => {
+          document.body.removeChild(messageEl)
+        }, 300)
+      }, 3000)
+    }
   </script>
 </AppLayout>
