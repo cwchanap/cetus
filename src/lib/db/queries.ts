@@ -7,6 +7,8 @@ import type {
     GameScore,
     UserStats,
     Game,
+    NewUserAchievement,
+    UserAchievementRecord,
 } from './types'
 
 /**
@@ -210,7 +212,7 @@ export async function saveGameScore(
     userId: string,
     gameId: string,
     score: number
-): Promise<boolean> {
+): Promise<{ success: boolean; newAchievements?: string[] }> {
     try {
         const newScore: NewGameScore = {
             user_id: userId,
@@ -228,10 +230,44 @@ export async function saveGameScore(
             favorite_game: gameId,
         })
 
-        return true
+        return { success: true }
     } catch (error) {
         console.error('Error saving game score:', error)
-        return false
+        return { success: false }
+    }
+}
+
+/**
+ * Save game score and check for achievements
+ */
+export async function saveGameScoreWithAchievements(
+    userId: string,
+    gameId: string,
+    score: number
+): Promise<{ success: boolean; newAchievements: string[] }> {
+    try {
+        // First save the score
+        const saveResult = await saveGameScore(userId, gameId, score)
+        if (!saveResult.success) {
+            return { success: false, newAchievements: [] }
+        }
+
+        // Import achievement service here to avoid circular dependency
+        const { checkAndAwardAchievements } = await import(
+            '../achievementService'
+        )
+
+        // Check and award achievements
+        const newAchievements = await checkAndAwardAchievements(
+            userId,
+            gameId as any,
+            score
+        )
+
+        return { success: true, newAchievements }
+    } catch (error) {
+        console.error('Error saving game score with achievements:', error)
+        return { success: false, newAchievements: [] }
     }
 }
 
@@ -395,5 +431,106 @@ export async function updateUser(
     } catch (error) {
         console.error('Error updating user:', error)
         return false
+    }
+}
+
+/**
+ * Get user's earned achievements (just the records)
+ */
+export async function getUserAchievements(
+    userId: string
+): Promise<UserAchievementRecord[]> {
+    try {
+        const userAchievements = await db
+            .selectFrom('user_achievements')
+            .selectAll()
+            .where('user_id', '=', userId)
+            .orderBy('earned_at', 'desc')
+            .execute()
+
+        return userAchievements
+    } catch (error) {
+        console.error('Error fetching user achievements:', error)
+        return []
+    }
+}
+
+/**
+ * Check if user has earned a specific achievement
+ */
+export async function hasUserEarnedAchievement(
+    userId: string,
+    achievementId: string
+): Promise<boolean> {
+    try {
+        const result = await db
+            .selectFrom('user_achievements')
+            .select('id')
+            .where('user_id', '=', userId)
+            .where('achievement_id', '=', achievementId)
+            .executeTakeFirst()
+
+        return !!result
+    } catch (error) {
+        console.error('Error checking user achievement:', error)
+        return false
+    }
+}
+
+/**
+ * Award achievement to user
+ */
+export async function awardAchievement(
+    userId: string,
+    achievementId: string
+): Promise<boolean> {
+    try {
+        // Check if user already has this achievement
+        const hasAchievement = await hasUserEarnedAchievement(
+            userId,
+            achievementId
+        )
+        if (hasAchievement) {
+            return true // Already earned
+        }
+
+        const newUserAchievement: NewUserAchievement = {
+            user_id: userId,
+            achievement_id: achievementId,
+        }
+
+        await db
+            .insertInto('user_achievements')
+            .values(newUserAchievement)
+            .execute()
+
+        return true
+    } catch (error) {
+        console.error('Error awarding achievement:', error)
+        return false
+    }
+}
+
+/**
+ * Get user's best score for a specific game (for achievement checking)
+ */
+export async function getUserBestScoreForGame(
+    userId: string,
+    gameId: string
+): Promise<number> {
+    try {
+        const result = await db
+            .selectFrom('game_scores')
+            .select('score')
+            .where('user_id', '=', userId)
+            .where('game_id', '=', gameId)
+            .orderBy('score', 'desc')
+            .limit(1)
+            .executeTakeFirst()
+
+        return result?.score || 0
+    } catch (error) {
+        console.error('Error fetching user best score:', error)
+        return 0
     }
 }

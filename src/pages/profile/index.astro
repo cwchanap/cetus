@@ -9,7 +9,16 @@ import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
 
-import { getUserStats, getUserGameHistoryPaginated } from '@/lib/db/queries'
+import {
+  getUserStats,
+  getUserGameHistoryPaginated,
+  getUserAchievements,
+} from '@/lib/db/queries'
+import {
+  getRarityColor,
+  getRarityGlow,
+  getAllAchievements,
+} from '@/lib/achievements'
 
 // Check if user is authenticated
 const user = Astro.locals.user
@@ -25,13 +34,15 @@ const url = new URL(Astro.request.url)
 const currentPage = parseInt(url.searchParams.get('page') || '1', 10)
 const pageSize = 5
 
-// Fetch user stats and paginated game history
+// Fetch user stats, paginated game history, and achievements
 const userStats = await getUserStats(user.id)
 const gameHistoryData = await getUserGameHistoryPaginated(
   user.id,
   currentPage,
   pageSize
 )
+const userAchievementRecords = await getUserAchievements(user.id)
+const allAchievements = getAllAchievements() // Get from code definitions
 
 // Get user display name
 const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
@@ -46,37 +57,39 @@ const memberSince = session?.createdAt
     })
   : 'Recently'
 
-// User badges - this can be expanded with actual game achievements
-const userBadges = [
-  {
-    name: 'Space Explorer',
-    description: 'Welcome to the Cetus universe!',
-    icon: '🚀',
-    variant: 'success' as const,
-    earned: true,
-  },
-  {
-    name: 'Quick Draw Artist',
-    description: 'Complete your first drawing challenge',
-    icon: '🎨',
-    variant: 'outline' as const,
-    earned: false,
-  },
-  {
-    name: 'Tetris Master',
-    description: 'Clear 100 lines in Tetris',
-    icon: '🔲',
-    variant: 'outline' as const,
-    earned: false,
-  },
-  {
-    name: 'Score Hunter',
-    description: 'Achieve a high score in any game',
-    icon: '⭐',
-    variant: 'outline' as const,
-    earned: false,
-  },
-]
+// Process achievements data
+const earnedAchievementIds = new Set(
+  userAchievementRecords.map(ua => ua.achievement_id)
+)
+const totalEarnedCount = earnedAchievementIds.size
+
+// Combine earned and unearned achievements for display
+const achievementDisplayData = allAchievements
+  .map(achievement => {
+    const isEarned = earnedAchievementIds.has(achievement.id)
+    const userAchievement = userAchievementRecords.find(
+      ua => ua.achievement_id === achievement.id
+    )
+
+    return {
+      ...achievement,
+      earned: isEarned,
+      earnedAt: userAchievement?.earned_at,
+      rarityColor: getRarityColor(achievement.rarity),
+      rarityGlow: getRarityGlow(achievement.rarity),
+    }
+  })
+  .sort((a, b) => {
+    // Sort by earned status first (earned first), then by rarity, then by name
+    if (a.earned !== b.earned) {
+      return b.earned ? 1 : -1
+    }
+    const rarityOrder = { common: 1, rare: 2, epic: 3, legendary: 4 }
+    const rarityDiff =
+      (rarityOrder[a.rarity as keyof typeof rarityOrder] || 1) -
+      (rarityOrder[b.rarity as keyof typeof rarityOrder] || 1)
+    return rarityDiff !== 0 ? rarityDiff : a.name.localeCompare(b.name)
+  })
 ---
 
 <AppLayout
@@ -238,7 +251,9 @@ const userBadges = [
               <div class="text-sm text-gray-400">Games Played</div>
             </div>
             <div class="text-center">
-              <div class="text-2xl font-bold text-white mb-1">1</div>
+              <div class="text-2xl font-bold text-white mb-1">
+                {totalEarnedCount}
+              </div>
               <div class="text-sm text-gray-400">Achievements</div>
             </div>
           </div>
@@ -371,15 +386,17 @@ const userBadges = [
             Unlock badges by playing games and reaching milestones
           </p>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
+          >
             {
-              userBadges.map(badge => (
+              achievementDisplayData.map(achievement => (
                 <div
                   class={`
                     relative p-4 md:p-6 rounded-xl border transition-all duration-300 hover:scale-105
                     ${
-                      badge.earned
-                        ? 'bg-gradient-to-r from-green-500/10 to-cyan-500/10 border-green-400/30 shadow-glow-cyan'
+                      achievement.earned
+                        ? `bg-gradient-to-r from-${achievement.rarity === 'legendary' ? 'yellow' : achievement.rarity === 'epic' ? 'purple' : achievement.rarity === 'rare' ? 'blue' : 'green'}-500/10 to-cyan-500/10 border-${achievement.rarity === 'legendary' ? 'yellow' : achievement.rarity === 'epic' ? 'purple' : achievement.rarity === 'rare' ? 'blue' : 'green'}-400/30 ${achievement.rarityGlow}`
                         : 'bg-gray-800/30 border-gray-700/50 opacity-60'
                     }
                   `}
@@ -388,41 +405,63 @@ const userBadges = [
                     <div class="flex items-start justify-center">
                       <div
                         class={`
-                          text-2xl md:text-3xl p-2 md:p-3 rounded-full
+                          text-2xl md:text-3xl p-2 md:p-3 rounded-full border
                           ${
-                            badge.earned
-                              ? 'bg-gradient-to-r from-green-500/20 to-cyan-500/20'
-                              : 'bg-gray-700/50'
+                            achievement.earned
+                              ? achievement.rarityColor
+                              : 'bg-gray-700/50 border-gray-600/50'
                           }
                         `}
                       >
-                        {badge.icon}
+                        {achievement.logo}
                       </div>
                     </div>
 
                     <div class="grid grid-rows-[auto_auto] gap-2">
                       <div class="flex flex-col gap-2">
                         <h4 class="font-orbitron font-bold text-white text-sm md:text-base">
-                          {badge.name}
+                          {achievement.name}
                         </h4>
-                        <Badge
-                          variant={badge.earned ? 'success' : 'outline'}
-                          size="sm"
-                          class="w-fit"
-                        >
-                          {badge.earned ? 'Earned' : 'Locked'}
-                        </Badge>
+                        <div class="flex items-center gap-2">
+                          <Badge
+                            variant={achievement.earned ? 'success' : 'outline'}
+                            size="sm"
+                            class="w-fit"
+                          >
+                            {achievement.earned ? 'Earned' : 'Locked'}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            size="sm"
+                            class={`w-fit capitalize ${achievement.rarityColor}`}
+                          >
+                            {achievement.rarity}
+                          </Badge>
+                        </div>
                       </div>
 
                       <div>
-                        <p class="text-xs md:text-sm text-gray-400">
-                          {badge.description}
+                        <p class="text-xs md:text-sm text-gray-400 mb-2">
+                          {achievement.description}
                         </p>
+                        {achievement.earned && achievement.earnedAt && (
+                          <p class="text-xs text-cyan-400">
+                            Earned{' '}
+                            {new Date(
+                              achievement.earnedAt
+                            ).toLocaleDateString()}
+                          </p>
+                        )}
+                        {achievement.gameId !== 'global' && (
+                          <p class="text-xs text-purple-400 capitalize">
+                            {achievement.gameId.replace('_', ' ')} Game
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {!badge.earned && (
+                  {!achievement.earned && (
                     <div class="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center">
                       <div class="text-gray-500 text-xl md:text-2xl">🔒</div>
                     </div>

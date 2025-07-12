@@ -65,7 +65,15 @@ export interface GameScoresTable {
 }
 
 // Available games enum
-export type GameType = 'tetris' | 'quick_draw'
+export type GameType = 'tetris' | 'quick_draw' | 'bubble_shooter'
+
+// Achievement tables - only stores user-achievement mapping
+export interface UserAchievementsTable {
+    id: ColumnType<number, never, never> // AUTO INCREMENT
+    user_id: string
+    achievement_id: string // References achievement ID from code definitions
+    earned_at: ColumnType<Date, never, never> // DEFAULT CURRENT_TIMESTAMP
+}
 
 export interface UserStatsTable {
     id: ColumnType<number, never, never> // AUTO INCREMENT
@@ -89,6 +97,9 @@ export interface Database {
     games: GamesTable
     game_scores: GameScoresTable
     user_stats: UserStatsTable
+
+    // Achievement system tables
+    user_achievements: UserAchievementsTable
 }
 
 // Type helpers for common operations
@@ -113,3 +124,9 @@ export type UserStatsUpdate = Partial<{
     favorite_game: string | null
 }>
 export type UserStats = Selectable<UserStatsTable>
+
+// Achievement type helpers
+export type NewUserAchievement = Omit<UserAchievementsTable, 'id' | 'earned_at'>
+export type UserAchievementRecord = Selectable<UserAchievementsTable>
+
+// Note: UserAchievementWithDetails type moved to achievements.ts to avoid circular dependency
