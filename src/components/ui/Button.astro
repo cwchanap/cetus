@@ -49,7 +49,7 @@ const defaultClasses =
 
 // Add sci-fi specific classes for the theme
 const sciFiClasses =
-  'relative overflow-hidden font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50'
+  'relative overflow-hidden font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50'
 
 const classes = cn(
   defaultClasses,
@@ -62,58 +62,8 @@ const classes = cn(
 ---
 
 <button class={classes} {...props}>
-  <!-- Animated background overlay for sci-fi effect -->
-  {
-    variant === 'primary' && (
-      <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-    )
-  }
-
   <!-- Button content -->
   <span class="relative z-10 flex items-center gap-2">
     <slot />
   </span>
 </button>
-
-<script>
-  // Only add confetti effect if canvas-confetti is available
-  const addConfettiEffect = async () => {
-    try {
-      const confetti = (await import('canvas-confetti')).default
-
-      document.addEventListener('DOMContentLoaded', () => {
-        const buttons = document.querySelectorAll(
-          'button[class*="from-cyan-500"]'
-        ) as NodeListOf<HTMLButtonElement>
-
-        buttons.forEach(button => {
-          button.addEventListener('click', () => {
-            // Custom sci-fi confetti
-            confetti({
-              particleCount: 100,
-              spread: 70,
-              origin: { y: 0.6 },
-              colors: ['#00ffff', '#ff00ff', '#ffff00', '#00ff00', '#ff6600'],
-              shapes: ['star', 'circle'],
-              gravity: 0.8,
-              scalar: 1.2,
-            })
-          })
-
-          // Add hover glow effect
-          button.addEventListener('mouseenter', () => {
-            button.classList.add('glow-cyan')
-          })
-
-          button.addEventListener('mouseleave', () => {
-            button.classList.remove('glow-cyan')
-          })
-        })
-      })
-    } catch (error) {
-      console.log('Canvas confetti not available:', error)
-    }
-  }
-
-  addConfettiEffect()
-</script>

@@ -1,0 +1,245 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+
+// Custom navigation for game pages with breadcrumb
+const gameNavigation = [
+  { href: '/', label: 'Home' },
+  { href: '#', label: 'Quick Math' },
+]
+---
+
+<AppLayout
+  title="Quick Math - Cetus Minigames"
+  description="Fast-paced math challenge - solve as many problems as you can in 60 seconds"
+  includeFooter={false}
+  navigation={gameNavigation}
+>
+  <!-- Game Breadcrumb -->
+  <div class="px-6 py-4 border-b border-slate-700/50">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center space-x-3">
+        <div class="text-cyan-400 text-sm">🧮 Quick Math</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-6 py-8">
+    <div class="max-w-6xl mx-auto">
+      <!-- Game Title -->
+      <div class="text-center mb-8">
+        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
+          QUICK MATH
+        </h2>
+        <p class="text-gray-400 text-lg">
+          Solve as many math problems as you can in 60 seconds!
+        </p>
+      </div>
+
+      <!-- Game Container - Centered -->
+      <div class="flex justify-center mb-12">
+        <!-- Game Board -->
+        <Card variant="glass" class="p-8 w-full max-w-lg">
+          <div class="flex flex-col items-center space-y-6">
+            <!-- Game Status -->
+            <div class="flex space-x-4 mb-4">
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Score: <span id="score" class="text-cyan-400">0</span></span
+                >
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Time: <span id="time-remaining" class="text-cyan-400"
+                    >60</span
+                  >s</span
+                >
+              </Badge>
+            </div>
+
+            <!-- Question Display -->
+            <div class="text-center mb-6">
+              <div
+                class="text-6xl font-orbitron font-bold text-white mb-4 min-h-20 flex items-center justify-center"
+              >
+                <span id="question" class="text-holographic">Ready?</span>
+              </div>
+              <div class="text-lg text-gray-400">What's the answer?</div>
+            </div>
+
+            <!-- Answer Input -->
+            <div class="w-full max-w-xs">
+              <input
+                id="answer-input"
+                type="text"
+                class="w-full px-4 py-3 text-2xl font-mono text-center bg-black/50 border-2 border-cyan-400/50 rounded-lg focus:border-cyan-400 focus:outline-none text-white placeholder-gray-500 disabled:opacity-50"
+                placeholder="Enter answer"
+                disabled
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Submit Button -->
+            <Button id="submit-answer" variant="primary" size="lg" disabled>
+              Submit Answer
+            </Button>
+
+            <!-- Game Controls -->
+            <div class="flex space-x-3 mt-6">
+              <Button id="start-btn" variant="primary">Start Game</Button>
+            </div>
+
+            <!-- Current Session Stats - Inline -->
+            <div class="flex space-x-6 text-sm mt-4">
+              <div class="text-center">
+                <div class="text-gray-400">Questions</div>
+                <div id="current-questions" class="text-white font-bold">0</div>
+              </div>
+              <div class="text-center">
+                <div class="text-gray-400">Correct</div>
+                <div id="current-correct" class="text-green-400 font-bold">
+                  0
+                </div>
+              </div>
+              <div class="text-center">
+                <div class="text-gray-400">Score</div>
+                <div id="current-score" class="text-cyan-400 font-bold">0</div>
+              </div>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div
+              id="game-over-overlay"
+              class="absolute inset-0 bg-black/90 rounded-lg flex items-center justify-center hidden"
+              style="margin: -2rem;"
+            >
+              <div class="text-center p-8">
+                <h3 class="text-4xl font-orbitron font-bold text-cyan-400 mb-6">
+                  TIME'S UP!
+                </h3>
+
+                <!-- Final Stats -->
+                <div class="space-y-4 mb-8">
+                  <div class="text-xl">
+                    Final Score: <span
+                      id="final-score"
+                      class="text-holographic font-bold">0</span
+                    >
+                  </div>
+                  <div class="text-lg text-gray-300">
+                    Questions Answered: <span
+                      id="total-questions"
+                      class="text-cyan-400">0</span
+                    >
+                  </div>
+                  <div class="text-lg text-gray-300">
+                    Accuracy: <span id="accuracy" class="text-green-400"
+                      >0%</span
+                    >
+                  </div>
+                </div>
+
+                <Button id="play-again-btn" variant="primary" size="lg">
+                  Play Again
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <!-- Game Info & Rules - Bottom Section -->
+      <div class="max-w-5xl mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Game Rules -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              GAME RULES
+            </h3>
+            <div class="space-y-3 text-sm text-gray-300">
+              <div class="flex items-center space-x-2">
+                <span class="text-green-400">✓</span>
+                <span>Solve math problems as fast as you can</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-green-400">✓</span>
+                <span>60 seconds to get the highest score</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-green-400">✓</span>
+                <span>Each correct answer = 20 points</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-green-400">✓</span>
+                <span>Numbers range from 1 to 999</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-green-400">✓</span>
+                <span>Addition and subtraction only</span>
+              </div>
+            </div>
+          </Card>
+
+          <!-- Tips -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              TIPS
+            </h3>
+            <div class="space-y-3 text-sm text-gray-300">
+              <div class="flex items-start space-x-2">
+                <span class="text-yellow-400 mt-0.5">💡</span>
+                <span>Use mental math techniques for speed</span>
+              </div>
+              <div class="flex items-start space-x-2">
+                <span class="text-yellow-400 mt-0.5">💡</span>
+                <span>Press Enter to submit your answer quickly</span>
+              </div>
+              <div class="flex items-start space-x-2">
+                <span class="text-yellow-400 mt-0.5">💡</span>
+                <span>Don't worry about mistakes - speed matters!</span>
+              </div>
+              <div class="flex items-start space-x-2">
+                <span class="text-yellow-400 mt-0.5">💡</span>
+                <span>All subtraction results are positive</span>
+              </div>
+            </div>
+          </Card>
+
+          <!-- Controls -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              CONTROLS
+            </h3>
+            <div class="space-y-4 text-sm">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Submit Answer:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">Enter</Badge>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Numbers Only:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">0-9</Badge>
+              </div>
+              <div class="pt-2 border-t border-gray-700">
+                <div class="text-gray-400 text-xs">
+                  💡 Type your answer and press Enter for fastest gameplay
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Math Game Logic -->
+    <script>
+      import { initQuickMathGame } from '@/lib/games/quick-math/init'
+
+      // Initialize game when page loads
+      document.addEventListener('DOMContentLoaded', async () => {
+        await initQuickMathGame()
+      })
+    </script>
+  </div>
+</AppLayout>

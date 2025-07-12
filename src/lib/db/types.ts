@@ -57,7 +57,7 @@ export interface GameScoresTable {
 }
 
 // Available games enum
-export type GameType = 'tetris' | 'quick_draw' | 'bubble_shooter'
+export type GameType = 'tetris' | 'quick_draw' | 'bubble_shooter' | 'quick_math'
 
 // Achievement tables - only stores user-achievement mapping
 export interface UserAchievementsTable {

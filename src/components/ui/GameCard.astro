@@ -2,7 +2,6 @@
 import { cn } from '@/lib/utils'
 import Card from './Card.astro'
 import Badge from './Badge.astro'
-import Button from './Button.astro'
 import type { HTMLAttributes } from 'astro/types'
 
 export interface Props extends HTMLAttributes<'div'> {
@@ -46,6 +45,8 @@ const getGameUrl = (title: string) => {
       return '/tetris'
     case 'Bubble Shooter':
       return '/bubble-shooter'
+    case 'Quick Math':
+      return '/quick-math'
     default:
       return '#'
   }

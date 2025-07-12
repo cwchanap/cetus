@@ -49,6 +49,18 @@ export const GAMES: Game[] = [
         tags: ['bubbles', 'matching', 'single-player', 'casual'],
         isActive: true,
     },
+    {
+        id: 'quick_math',
+        name: 'Quick Math',
+        description:
+            'Fast-paced math challenge - solve as many problems as you can in 60 seconds',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '1 minute',
+        difficulty: 'medium',
+        tags: ['math', 'arithmetic', 'speed', 'single-player', 'educational'],
+        isActive: true,
+    },
 ]
 
 // Helper functions
