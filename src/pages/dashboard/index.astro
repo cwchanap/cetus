@@ -1,0 +1,248 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+
+// Component Imports
+import Container from '@/components/ui/Container.astro'
+import Section from '@/components/ui/Section.astro'
+import Heading from '@/components/ui/Heading.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import Button from '@/components/ui/Button.astro'
+
+import { getUserGameHistoryPaginated } from '@/lib/db/queries'
+
+// Check if user is authenticated
+const user = Astro.locals.user
+const session = Astro.locals.session
+
+// Redirect to login if not authenticated
+if (!user) {
+  return Astro.redirect('/login?redirect=/dashboard')
+}
+
+// Get pagination parameters from URL
+const url = new URL(Astro.request.url)
+const currentPage = parseInt(url.searchParams.get('page') || '1', 10)
+const pageSize = 10 // Show more games on dashboard than on profile
+
+// Fetch paginated game history
+const gameHistoryData = await getUserGameHistoryPaginated(
+  user.id,
+  currentPage,
+  pageSize
+)
+
+// Calculate pagination pages to display
+const totalPages = gameHistoryData.totalPages
+const maxPagesToShow = 7
+let pagesToShow: number[] = []
+
+if (totalPages <= maxPagesToShow) {
+  pagesToShow = Array.from({ length: totalPages }, (_, i) => i + 1)
+} else {
+  if (currentPage <= 4) {
+    pagesToShow = Array.from({ length: maxPagesToShow }, (_, i) => i + 1)
+  } else if (currentPage >= totalPages - 3) {
+    pagesToShow = Array.from(
+      { length: maxPagesToShow },
+      (_, i) => totalPages - maxPagesToShow + 1 + i
+    )
+  } else {
+    pagesToShow = Array.from(
+      { length: maxPagesToShow },
+      (_, i) => currentPage - 3 + i
+    )
+  }
+}
+
+// Get user display name
+const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
+---
+
+<AppLayout
+  title="Dashboard - Cetus Gaming Platform"
+  description="View your gaming dashboard, statistics, and game history on Cetus"
+>
+  <!-- Animated background -->
+  <div class="fixed inset-0 pointer-events-none">
+    <div
+      class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"
+    >
+    </div>
+    <div
+      class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse"
+      style="animation-delay: 1s;"
+    >
+    </div>
+    <div
+      class="absolute inset-0 bg-gradient-radial from-pink-400/15 via-transparent to-transparent animate-pulse"
+      style="animation-delay: 2s;"
+    >
+    </div>
+  </div>
+
+  <!-- Floating particles -->
+  <div class="fixed inset-0 pointer-events-none">
+    {
+      Array.from({ length: 20 }).map((_, _i) => (
+        <div
+          class="absolute w-1 h-1 bg-cyan-400 rounded-full opacity-20 animate-bounce"
+          style={`
+              left: ${Math.random() * 100}%;
+              top: ${Math.random() * 100}%;
+              animation-delay: ${Math.random() * 3}s;
+              animation-duration: ${2 + Math.random() * 2}s;
+            `}
+        />
+      ))
+    }
+  </div>
+
+  <!-- Dashboard Content -->
+  <main class="relative z-10 min-h-screen">
+    <Section class="py-20">
+      <Container class="max-w-6xl">
+        <!-- Page Title -->
+        <div class="text-center mb-12">
+          <Heading level={1} variant="hero" align="center" class="mb-4">
+            GAMING DASHBOARD
+          </Heading>
+          <p class="text-gray-400 text-lg">
+            Welcome back, {userName}! Here's your gaming overview
+          </p>
+        </div>
+
+        <!-- Game History Section -->
+        <Card variant="glass" class="p-6 md:p-8">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-2xl font-orbitron font-bold text-holographic">
+              GAME HISTORY
+            </h3>
+            <Button variant="outline" size="sm">
+              <a href="/profile" class="text-cyan-400 no-underline">
+                View Profile
+              </a>
+            </Button>
+          </div>
+          <p class="text-gray-400 mb-8">
+            Your complete game history and performance
+          </p>
+
+          {
+            gameHistoryData.games.length > 0 ? (
+              <div class="space-y-4">
+                {gameHistoryData.games.map(game => (
+                  <div class="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-cyan-400/30 transition-all duration-300">
+                    <div class="flex items-center space-x-4">
+                      <div class="w-12 h-12 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">
+                          {game.game_id === 'tetris'
+                            ? '🔲'
+                            : game.game_id === 'quick_draw'
+                              ? '🎨'
+                              : game.game_id === 'bubble_shooter'
+                                ? '🫧'
+                                : game.game_id === 'quick_math'
+                                  ? '🧮'
+                                  : '🎮'}
+                        </span>
+                      </div>
+                      <div>
+                        <h4 class="font-orbitron font-semibold text-white text-lg">
+                          {game.game_name}
+                        </h4>
+                        <p class="text-sm text-gray-400">
+                          {new Date(game.created_at).toLocaleDateString(
+                            'en-US',
+                            {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-2xl font-bold text-cyan-400">
+                        {game.score.toLocaleString()}
+                      </div>
+                      <div class="text-sm text-gray-400">points</div>
+                    </div>
+                  </div>
+                ))}
+
+                {gameHistoryData.totalPages > 1 && (
+                  <div class="flex items-center justify-between pt-6 border-t border-gray-700/50">
+                    <div class="text-sm text-gray-400">
+                      Showing{' '}
+                      {(gameHistoryData.page - 1) * gameHistoryData.pageSize +
+                        1}{' '}
+                      to{' '}
+                      {Math.min(
+                        gameHistoryData.page * gameHistoryData.pageSize,
+                        gameHistoryData.total
+                      )}{' '}
+                      of {gameHistoryData.total} games
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                      {/* Previous button */}
+                      {gameHistoryData.page > 1 && (
+                        <a
+                          href={`/dashboard?page=${gameHistoryData.page - 1}`}
+                          class="px-3 py-1 text-sm bg-gray-800/50 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
+                        >
+                          Previous
+                        </a>
+                      )}
+
+                      {/* Page numbers */}
+                      {pagesToShow.map(pageNum => (
+                        <a
+                          href={`/dashboard?page=${pageNum}`}
+                          class={`px-3 py-1 text-sm rounded-lg transition-all duration-300 ${
+                            pageNum === gameHistoryData.page
+                              ? 'bg-cyan-500/20 border border-cyan-400/50 text-cyan-400'
+                              : 'bg-gray-800/50 border border-gray-600/50 text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30'
+                          }`}
+                        >
+                          {pageNum}
+                        </a>
+                      ))}
+
+                      {/* Next button */}
+                      {gameHistoryData.page < gameHistoryData.totalPages && (
+                        <a
+                          href={`/dashboard?page=${gameHistoryData.page + 1}`}
+                          class="px-3 py-1 text-sm bg-gray-800/50 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
+                        >
+                          Next
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div class="text-center py-12">
+                <div class="text-6xl mb-4 opacity-50">🎮</div>
+                <p class="text-gray-400 text-lg">No games played yet</p>
+                <p class="text-sm text-gray-500 mt-2 mb-6">
+                  Start playing games to see your history here!
+                </p>
+                <Button variant="primary">
+                  <a href="/#games" class="text-white no-underline">
+                    Browse Games
+                  </a>
+                </Button>
+              </div>
+            )
+          }
+        </Card>
+      </Container>
+    </Section>
+  </main>
+</AppLayout>

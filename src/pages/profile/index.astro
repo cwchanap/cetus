@@ -9,7 +9,7 @@ import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
 
-import { getUserStats, getUserGameHistoryPaginated } from '@/lib/db/queries'
+import { getUserStats } from '@/lib/db/queries'
 
 // Check if user is authenticated
 const user = Astro.locals.user
@@ -20,18 +20,8 @@ if (!user) {
   return Astro.redirect('/login?redirect=/profile')
 }
 
-// Get pagination parameters from URL
-const url = new URL(Astro.request.url)
-const currentPage = parseInt(url.searchParams.get('page') || '1', 10)
-const pageSize = 5
-
-// Fetch user stats and paginated game history
+// Fetch user stats
 const userStats = await getUserStats(user.id)
-const gameHistoryData = await getUserGameHistoryPaginated(
-  user.id,
-  currentPage,
-  pageSize
-)
 
 // Get user display name
 const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
@@ -214,122 +204,31 @@ const memberSince = session?.createdAt
           </div>
         </Card>
 
-        <!-- Game History Section -->
-        <Card variant="glass" class="p-6 md:p-8 mb-8">
-          <h3 class="text-2xl font-orbitron font-bold text-holographic mb-6">
-            RECENT GAMES
+        <!-- Quick Actions -->
+        <Card variant="glass" class="p-6 mb-8">
+          <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+            Quick Actions
           </h3>
-          <p class="text-gray-400 mb-8">Your recent game sessions and scores</p>
-
-          {
-            gameHistoryData.games.length > 0 ? (
-              <div class="space-y-4">
-                {gameHistoryData.games.map(game => (
-                  <div class="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-cyan-400/30 transition-all duration-300">
-                    <div class="flex items-center space-x-4">
-                      <div class="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center">
-                        <span class="text-white font-bold">
-                          {game.game_id === 'tetris'
-                            ? '🔲'
-                            : game.game_id === 'quick_draw'
-                              ? '🎨'
-                              : game.game_id === 'bubble_shooter'
-                                ? '🫧'
-                                : '🎮'}
-                        </span>
-                      </div>
-                      <div>
-                        <h4 class="font-orbitron font-semibold text-white">
-                          {game.game_name}
-                        </h4>
-                        <p class="text-sm text-gray-400">
-                          {new Date(game.created_at).toLocaleDateString(
-                            'en-US',
-                            {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            }
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <div class="text-right">
-                      <div class="text-xl font-bold text-cyan-400">
-                        {game.score.toLocaleString()}
-                      </div>
-                      <div class="text-sm text-gray-400">points</div>
-                    </div>
-                  </div>
-                ))}
-
-                {gameHistoryData.totalPages > 1 && (
-                  <div class="flex items-center justify-between pt-6 border-t border-gray-700/50">
-                    <div class="text-sm text-gray-400">
-                      Showing{' '}
-                      {(gameHistoryData.page - 1) * gameHistoryData.pageSize +
-                        1}{' '}
-                      to{' '}
-                      {Math.min(
-                        gameHistoryData.page * gameHistoryData.pageSize,
-                        gameHistoryData.total
-                      )}{' '}
-                      of {gameHistoryData.total} games
-                    </div>
-
-                    <div class="flex items-center space-x-2">
-                      {/* Previous button */}
-                      {gameHistoryData.page > 1 && (
-                        <a
-                          href={`/profile?page=${gameHistoryData.page - 1}`}
-                          class="px-3 py-1 text-sm bg-gray-800/50 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
-                        >
-                          Previous
-                        </a>
-                      )}
-
-                      {/* Page numbers */}
-                      {Array.from(
-                        { length: gameHistoryData.totalPages },
-                        (_, i) => i + 1
-                      ).map(pageNum => (
-                        <a
-                          href={`/profile?page=${pageNum}`}
-                          class={`px-3 py-1 text-sm rounded-lg transition-all duration-300 ${
-                            pageNum === gameHistoryData.page
-                              ? 'bg-cyan-500/20 border border-cyan-400/50 text-cyan-400'
-                              : 'bg-gray-800/50 border border-gray-600/50 text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30'
-                          }`}
-                        >
-                          {pageNum}
-                        </a>
-                      ))}
-
-                      {/* Next button */}
-                      {gameHistoryData.page < gameHistoryData.totalPages && (
-                        <a
-                          href={`/profile?page=${gameHistoryData.page + 1}`}
-                          class="px-3 py-1 text-sm bg-gray-800/50 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300"
-                        >
-                          Next
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div class="text-center py-8">
-                <div class="text-6xl mb-4 opacity-50">🎮</div>
-                <p class="text-gray-400">No games played yet</p>
-                <p class="text-sm text-gray-500 mt-2">
-                  Start playing games to see your history here!
-                </p>
-              </div>
-            )
-          }
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Button variant="outline" size="lg" class="justify-center">
+              <a
+                href="/dashboard"
+                class="text-cyan-400 no-underline flex items-center"
+              >
+                <span class="mr-2">📊</span>
+                View Dashboard
+              </a>
+            </Button>
+            <Button variant="outline" size="lg" class="justify-center">
+              <a
+                href="/#games"
+                class="text-cyan-400 no-underline flex items-center"
+              >
+                <span class="mr-2">🎮</span>
+                Play Games
+              </a>
+            </Button>
+          </div>
         </Card>
       </Container>
     </Section>
