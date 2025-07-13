@@ -4,8 +4,7 @@ import {
     getUserGameHistory,
     getUserGameHistoryPaginated,
     getUserBestScoreByGame,
-    getUserStats,
-    upsertUserStats,
+    getUserAchievementsPaginated,
 } from '@/lib/db/queries'
 import { db } from '@/lib/db/client'
 
@@ -484,6 +483,226 @@ describe('Database Queries', () => {
             )
 
             consoleSpy.mockRestore()
+        })
+    })
+
+    describe('getUserAchievementsPaginated', () => {
+        it('should return paginated user achievements with default parameters', async () => {
+            // Arrange
+            const mockCountQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue({ total: 15 }),
+            }
+
+            const mockSelectQuery = {
+                selectAll: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                orderBy: vi.fn().mockReturnThis(),
+                limit: vi.fn().mockReturnThis(),
+                offset: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue([
+                    {
+                        id: '1',
+                        user_id: 'user1',
+                        achievement_id: 'achievement1',
+                        earned_at: new Date().toISOString(),
+                    },
+                    {
+                        id: '2',
+                        user_id: 'user1',
+                        achievement_id: 'achievement2',
+                        earned_at: new Date().toISOString(),
+                    },
+                ]),
+            }
+
+            vi.mocked(db.selectFrom)
+                .mockReturnValueOnce(mockCountQuery as any)
+                .mockReturnValueOnce(mockSelectQuery as any)
+
+            // Act
+            const result = await getUserAchievementsPaginated('user1')
+
+            // Assert
+            expect(result.page).toBe(1)
+            expect(result.pageSize).toBe(10)
+            expect(result.total).toBe(15)
+            expect(result.totalPages).toBe(2)
+            expect(result.userAchievements).toHaveLength(2)
+        })
+
+        it('should handle custom page and page size', async () => {
+            // Arrange
+            const mockCountQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue({ total: 25 }),
+            }
+
+            const mockSelectQuery = {
+                selectAll: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                orderBy: vi.fn().mockReturnThis(),
+                limit: vi.fn().mockReturnThis(),
+                offset: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue([
+                    {
+                        id: '6',
+                        user_id: 'user1',
+                        achievement_id: 'achievement6',
+                        earned_at: new Date().toISOString(),
+                    },
+                    {
+                        id: '7',
+                        user_id: 'user1',
+                        achievement_id: 'achievement7',
+                        earned_at: new Date().toISOString(),
+                    },
+                    {
+                        id: '8',
+                        user_id: 'user1',
+                        achievement_id: 'achievement8',
+                        earned_at: new Date().toISOString(),
+                    },
+                    {
+                        id: '9',
+                        user_id: 'user1',
+                        achievement_id: 'achievement9',
+                        earned_at: new Date().toISOString(),
+                    },
+                    {
+                        id: '10',
+                        user_id: 'user1',
+                        achievement_id: 'achievement10',
+                        earned_at: new Date().toISOString(),
+                    },
+                ]),
+            }
+
+            vi.mocked(db.selectFrom)
+                .mockReturnValueOnce(mockCountQuery as any)
+                .mockReturnValueOnce(mockSelectQuery as any)
+
+            // Act
+            const result = await getUserAchievementsPaginated('user1', 2, 5)
+
+            // Assert
+            expect(result.page).toBe(2)
+            expect(result.pageSize).toBe(5)
+            expect(result.total).toBe(25)
+            expect(result.totalPages).toBe(5)
+            expect(result.userAchievements).toHaveLength(5)
+
+            // Verify offset calculation: (page - 1) * pageSize = (2 - 1) * 5 = 5
+            expect(mockSelectQuery.offset).toHaveBeenCalledWith(5)
+        })
+
+        it('should handle empty results', async () => {
+            // Arrange
+            const mockCountQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue({ total: 0 }),
+            }
+
+            const mockSelectQuery = {
+                selectAll: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                orderBy: vi.fn().mockReturnThis(),
+                limit: vi.fn().mockReturnThis(),
+                offset: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue([]),
+            }
+
+            vi.mocked(db.selectFrom)
+                .mockReturnValueOnce(mockCountQuery as any)
+                .mockReturnValueOnce(mockSelectQuery as any)
+
+            // Act
+            const result = await getUserAchievementsPaginated('user1')
+
+            // Assert
+            expect(result.page).toBe(1)
+            expect(result.pageSize).toBe(10)
+            expect(result.total).toBe(0)
+            expect(result.totalPages).toBe(0)
+            expect(result.userAchievements).toHaveLength(0)
+        })
+
+        it('should handle database errors gracefully', async () => {
+            // Arrange
+            vi.mocked(db.selectFrom).mockImplementation(() => {
+                throw new Error('Database connection failed')
+            })
+
+            const consoleSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+
+            // Act
+            const result = await getUserAchievementsPaginated('user1')
+
+            // Assert
+            expect(result.userAchievements).toEqual([])
+            expect(result.total).toBe(0)
+            expect(result.page).toBe(1)
+            expect(result.pageSize).toBe(10)
+            expect(result.totalPages).toBe(0)
+            expect(consoleSpy).toHaveBeenCalledWith(
+                'Error fetching paginated user achievements:',
+                expect.any(Error)
+            )
+
+            consoleSpy.mockRestore()
+        })
+
+        it('should calculate total pages correctly', async () => {
+            const testCases = [
+                { total: 10, pageSize: 10, expectedPages: 1 },
+                { total: 11, pageSize: 10, expectedPages: 2 },
+                { total: 20, pageSize: 10, expectedPages: 2 },
+                { total: 21, pageSize: 10, expectedPages: 3 },
+                { total: 1, pageSize: 10, expectedPages: 1 },
+                { total: 0, pageSize: 10, expectedPages: 0 },
+            ]
+
+            for (const testCase of testCases) {
+                // Arrange
+                const mockCountQuery = {
+                    select: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi
+                        .fn()
+                        .mockResolvedValue({ total: testCase.total }),
+                }
+
+                const mockSelectQuery = {
+                    selectAll: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    orderBy: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockReturnThis(),
+                    offset: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue([]),
+                }
+
+                vi.mocked(db.selectFrom)
+                    .mockReturnValueOnce(mockCountQuery as any)
+                    .mockReturnValueOnce(mockSelectQuery as any)
+
+                // Act
+                const result = await getUserAchievementsPaginated(
+                    'user1',
+                    1,
+                    testCase.pageSize
+                )
+
+                // Assert
+                expect(result.totalPages).toBe(testCase.expectedPages)
+                expect(result.total).toBe(testCase.total)
+
+                vi.clearAllMocks()
+            }
         })
     })
 })

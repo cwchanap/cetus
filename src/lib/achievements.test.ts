@@ -6,6 +6,7 @@ import {
     getGlobalAchievements,
     getRarityColor,
     getRarityGlow,
+    getPaginatedAchievements,
     type Achievement,
 } from './achievements'
 
@@ -13,7 +14,7 @@ describe('Achievement System', () => {
     describe('getAllAchievements', () => {
         it('should return all achievements', () => {
             const achievements = getAllAchievements()
-            expect(achievements).toHaveLength(9) // 1 global + 4 tetris + 4 bubble shooter
+            expect(achievements).toHaveLength(13) // 1 global + 4 welcome + 4 tetris + 4 bubble shooter
             expect(achievements[0]).toHaveProperty('id')
             expect(achievements[0]).toHaveProperty('name')
             expect(achievements[0]).toHaveProperty('description')
@@ -41,7 +42,7 @@ describe('Achievement System', () => {
     describe('getAchievementsByGame', () => {
         it('should return tetris achievements', () => {
             const achievements = getAchievementsByGame('tetris')
-            expect(achievements).toHaveLength(4)
+            expect(achievements).toHaveLength(5) // Including tetris_welcome
             achievements.forEach(achievement => {
                 expect(achievement.gameId).toBe('tetris')
             })
@@ -49,7 +50,7 @@ describe('Achievement System', () => {
 
         it('should return bubble shooter achievements', () => {
             const achievements = getAchievementsByGame('bubble_shooter')
-            expect(achievements).toHaveLength(4)
+            expect(achievements).toHaveLength(5) // Including bubble_shooter_welcome
             achievements.forEach(achievement => {
                 expect(achievement.gameId).toBe('bubble_shooter')
             })
@@ -78,7 +79,7 @@ describe('Achievement System', () => {
                 .filter(Boolean)
                 .sort((a, b) => a! - b!)
 
-            expect(thresholds).toEqual([100, 250, 500, 1000])
+            expect(thresholds).toEqual([1, 100, 250, 500, 1000]) // Including welcome achievement threshold
         })
 
         it('should have correct bubble shooter score thresholds', () => {
@@ -88,7 +89,7 @@ describe('Achievement System', () => {
                 .filter(Boolean)
                 .sort((a, b) => a! - b!)
 
-            expect(thresholds).toEqual([100, 200, 400, 800])
+            expect(thresholds).toEqual([1, 100, 200, 400, 800]) // Including welcome achievement threshold
         })
     })
 
@@ -184,6 +185,7 @@ describe('Achievement System', () => {
                     'tetris',
                     'bubble_shooter',
                     'quick_draw',
+                    'quick_math',
                 ]).toContain(achievement.gameId)
             })
         })
@@ -198,6 +200,136 @@ describe('Achievement System', () => {
                 expect(achievement.condition.threshold).toBeGreaterThan(0)
                 expect(typeof achievement.condition.threshold).toBe('number')
             })
+        })
+    })
+
+    describe('Pagination', () => {
+        // Mock achievement data for testing
+        const mockAchievements = [
+            {
+                id: 'test_1',
+                name: 'Test Achievement 1',
+                description: 'First test achievement',
+                logo: '🏆',
+                rarity: 'common',
+                gameId: 'global',
+                scoreThreshold: 100,
+            },
+            {
+                id: 'test_2',
+                name: 'Test Achievement 2',
+                description: 'Second test achievement',
+                logo: '🥇',
+                rarity: 'rare',
+                gameId: 'tetris',
+                scoreThreshold: 200,
+            },
+            {
+                id: 'test_3',
+                name: 'Test Achievement 3',
+                description: 'Third test achievement',
+                logo: '🥈',
+                rarity: 'epic',
+                gameId: 'tetris',
+                scoreThreshold: 300,
+            },
+            {
+                id: 'test_4',
+                name: 'Test Achievement 4',
+                description: 'Fourth test achievement',
+                logo: '🥉',
+                rarity: 'legendary',
+                gameId: 'bubble_shooter',
+                scoreThreshold: 400,
+            },
+            {
+                id: 'test_5',
+                name: 'Test Achievement 5',
+                description: 'Fifth test achievement',
+                logo: '🎖️',
+                rarity: 'common',
+                gameId: 'global',
+                scoreThreshold: 500,
+            },
+        ]
+
+        it('should return first page with default page size', () => {
+            const result = getPaginatedAchievements(mockAchievements)
+
+            expect(result.page).toBe(1)
+            expect(result.pageSize).toBe(10)
+            expect(result.total).toBe(5)
+            expect(result.totalPages).toBe(1)
+            expect(result.achievements).toHaveLength(5)
+            expect(result.achievements[0].id).toBe('test_1')
+        })
+
+        it('should return correct page with custom page size', () => {
+            const result = getPaginatedAchievements(mockAchievements, 1, 2)
+
+            expect(result.page).toBe(1)
+            expect(result.pageSize).toBe(2)
+            expect(result.total).toBe(5)
+            expect(result.totalPages).toBe(3)
+            expect(result.achievements).toHaveLength(2)
+            expect(result.achievements[0].id).toBe('test_1')
+            expect(result.achievements[1].id).toBe('test_2')
+        })
+
+        it('should return second page correctly', () => {
+            const result = getPaginatedAchievements(mockAchievements, 2, 2)
+
+            expect(result.page).toBe(2)
+            expect(result.pageSize).toBe(2)
+            expect(result.total).toBe(5)
+            expect(result.totalPages).toBe(3)
+            expect(result.achievements).toHaveLength(2)
+            expect(result.achievements[0].id).toBe('test_3')
+            expect(result.achievements[1].id).toBe('test_4')
+        })
+
+        it('should return last page with remaining items', () => {
+            const result = getPaginatedAchievements(mockAchievements, 3, 2)
+
+            expect(result.page).toBe(3)
+            expect(result.pageSize).toBe(2)
+            expect(result.total).toBe(5)
+            expect(result.totalPages).toBe(3)
+            expect(result.achievements).toHaveLength(1)
+            expect(result.achievements[0].id).toBe('test_5')
+        })
+
+        it('should handle empty achievements array', () => {
+            const result = getPaginatedAchievements([])
+
+            expect(result.page).toBe(1)
+            expect(result.pageSize).toBe(10)
+            expect(result.total).toBe(0)
+            expect(result.totalPages).toBe(0)
+            expect(result.achievements).toHaveLength(0)
+        })
+
+        it('should handle page beyond total pages', () => {
+            const result = getPaginatedAchievements(mockAchievements, 10, 2)
+
+            expect(result.page).toBe(10)
+            expect(result.pageSize).toBe(2)
+            expect(result.total).toBe(5)
+            expect(result.totalPages).toBe(3)
+            expect(result.achievements).toHaveLength(0)
+        })
+
+        it('should preserve achievement properties in paginated results', () => {
+            const result = getPaginatedAchievements(mockAchievements, 1, 3)
+
+            expect(result.achievements[0]).toEqual(mockAchievements[0])
+            expect(result.achievements[0]).toHaveProperty('id')
+            expect(result.achievements[0]).toHaveProperty('name')
+            expect(result.achievements[0]).toHaveProperty('description')
+            expect(result.achievements[0]).toHaveProperty('logo')
+            expect(result.achievements[0]).toHaveProperty('rarity')
+            expect(result.achievements[0]).toHaveProperty('gameId')
+            expect(result.achievements[0]).toHaveProperty('scoreThreshold')
         })
     })
 })

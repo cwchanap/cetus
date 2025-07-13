@@ -1,0 +1,155 @@
+---
+import { cn } from '@/lib/utils'
+import Button from './Button.astro'
+
+export interface Props {
+  currentPage: number
+  totalPages: number
+  pageSize: number
+  total: number
+  baseUrl?: string
+  class?: string
+}
+
+const {
+  currentPage,
+  totalPages,
+  pageSize,
+  total,
+  baseUrl = '',
+  class: className = '',
+} = Astro.props
+
+// Generate page numbers to show
+const getPageNumbers = (current: number, total: number): (number | '...')[] => {
+  const pages: (number | '...')[] = []
+
+  if (total <= 7) {
+    // Show all pages if total is 7 or less
+    for (let i = 1; i <= total; i++) {
+      pages.push(i)
+    }
+  } else {
+    // Always show first page
+    pages.push(1)
+
+    if (current <= 4) {
+      // Show pages 2, 3, 4, 5 and ellipsis
+      for (let i = 2; i <= 5; i++) {
+        pages.push(i)
+      }
+      pages.push('...')
+    } else if (current >= total - 3) {
+      // Show ellipsis and last 4 pages
+      pages.push('...')
+      for (let i = total - 4; i < total; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Show ellipsis, current-1, current, current+1, ellipsis
+      pages.push('...')
+      for (let i = current - 1; i <= current + 1; i++) {
+        pages.push(i)
+      }
+      pages.push('...')
+    }
+
+    // Always show last page (if not already included)
+    if (total > 1) {
+      pages.push(total)
+    }
+  }
+
+  return pages
+}
+
+const pageNumbers = getPageNumbers(currentPage, totalPages)
+
+// Helper function to build URL with page parameter
+const getPageUrl = (page: number) => {
+  if (!baseUrl) {
+    return `?page=${page}`
+  }
+  const url = new URL(baseUrl)
+  url.searchParams.set('page', page.toString())
+  return url.toString()
+}
+
+const showingFrom = (currentPage - 1) * pageSize + 1
+const showingTo = Math.min(currentPage * pageSize, total)
+---
+
+<div class={cn('flex flex-col gap-4', className)}>
+  <!-- Pagination info -->
+  <div class="text-sm text-gray-400 text-center">
+    Showing {showingFrom} to {showingTo} of {total} achievements
+  </div>
+
+  <!-- Pagination controls -->
+  {
+    totalPages > 1 && (
+      <nav
+        class="flex items-center justify-center gap-2"
+        aria-label="Pagination"
+      >
+        {/* Previous button */}
+        {currentPage > 1 ? (
+          <a href={getPageUrl(currentPage - 1)} class="inline-block">
+            <Button variant="outline" size="sm" class="min-w-[40px]">
+              ←
+            </Button>
+          </a>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            class="min-w-[40px] opacity-50 cursor-not-allowed"
+            disabled
+          >
+            ←
+          </Button>
+        )}
+
+        {/* Page numbers */}
+        {pageNumbers.map(pageNum =>
+          pageNum === '...' ? (
+            <span class="px-2 text-gray-400">...</span>
+          ) : (
+            <a href={getPageUrl(pageNum)} class="inline-block">
+              <Button
+                variant={pageNum === currentPage ? 'primary' : 'outline'}
+                size="sm"
+                class="min-w-[40px]"
+              >
+                {pageNum}
+              </Button>
+            </a>
+          )
+        )}
+
+        {/* Next button */}
+        {currentPage < totalPages ? (
+          <a href={getPageUrl(currentPage + 1)} class="inline-block">
+            <Button variant="outline" size="sm" class="min-w-[40px]">
+              →
+            </Button>
+          </a>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            class="min-w-[40px] opacity-50 cursor-not-allowed"
+            disabled
+          >
+            →
+          </Button>
+        )}
+      </nav>
+    )
+  }
+
+  <!-- Page size info (optional) -->
+  <div class="text-xs text-gray-500 text-center">
+    Page {currentPage} of {totalPages}
+  </div>
+</div>

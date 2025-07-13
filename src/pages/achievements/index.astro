@@ -12,12 +12,14 @@ import Select from '@/components/ui/Select.astro'
 import Tabs from '@/components/ui/Tabs.astro'
 import TabsTrigger from '@/components/ui/TabsTrigger.astro'
 import TabsContent from '@/components/ui/TabsContent.astro'
+import Pagination from '@/components/ui/Pagination.astro'
 
 import { getUserAchievements } from '@/lib/db/queries'
 import {
   getRarityColor,
   getRarityGlow,
   getAllAchievements,
+  getPaginatedAchievements,
 } from '@/lib/achievements'
 import { getAllGames } from '@/lib/games'
 
@@ -30,6 +32,14 @@ if (!user) {
   return Astro.redirect('/login?redirect=/achievements')
 }
 
+// Get pagination parameters from URL
+const url = new URL(Astro.request.url)
+const currentPage = Math.max(
+  1,
+  parseInt(url.searchParams.get('page') || '1', 10)
+)
+const pageSize = 10 // Default page size
+
 // Get all achievements and user's earned achievements
 const userAchievementRecords = await getUserAchievements(user.id)
 const allAchievements = getAllAchievements()
@@ -41,7 +51,7 @@ const earnedAchievementIds = new Set(
 )
 
 // Combine earned and unearned achievements for display
-const achievementDisplayData = allAchievements
+const allAchievementDisplayData = allAchievements
   .map(achievement => {
     const isEarned = earnedAchievementIds.has(achievement.id)
     const userAchievement = userAchievementRecords.find(
@@ -68,8 +78,16 @@ const achievementDisplayData = allAchievements
     return rarityDiff !== 0 ? rarityDiff : a.name.localeCompare(b.name)
   })
 
-// Group achievements by game
-const achievementsByGame = achievementDisplayData.reduce(
+// Apply pagination to the full achievement list
+const paginatedResults = getPaginatedAchievements(
+  allAchievementDisplayData,
+  currentPage,
+  pageSize
+)
+const achievementDisplayData = paginatedResults.achievements
+
+// Group all achievements by game (for non-paginated tabs)
+const allAchievementsByGame = allAchievementDisplayData.reduce(
   (acc, achievement) => {
     const gameId = achievement.gameId || 'global'
     if (!acc[gameId]) {
@@ -78,7 +96,7 @@ const achievementsByGame = achievementDisplayData.reduce(
     acc[gameId].push(achievement)
     return acc
   },
-  {} as Record<string, typeof achievementDisplayData>
+  {} as Record<string, typeof allAchievementDisplayData>
 )
 
 // Get game filter options
@@ -86,24 +104,32 @@ const gameFilterOptions = [
   { value: 'all', label: 'All Games' },
   { value: 'global', label: 'Global' },
   ...games
-    .filter(game => achievementsByGame[game.id]) // Only show games with achievements
+    .filter(game => allAchievementsByGame[game.id]) // Only show games with achievements
     .map(game => ({ value: game.id, label: game.name })),
 ]
 
 // Create tabs data for games with achievements
 const tabsData = [
-  { id: 'all', label: 'All', achievements: achievementDisplayData },
+  {
+    id: 'all',
+    label: 'All',
+    achievements: achievementDisplayData, // Use paginated data for "All" tab
+    isPaginated: true,
+    paginationData: paginatedResults,
+  },
   {
     id: 'global',
     label: 'Global',
-    achievements: achievementsByGame['global'] || [],
+    achievements: allAchievementsByGame['global'] || [],
+    isPaginated: false,
   },
   ...games
-    .filter(game => achievementsByGame[game.id])
+    .filter(game => allAchievementsByGame[game.id])
     .map(game => ({
       id: game.id,
       label: game.name,
-      achievements: achievementsByGame[game.id] || [],
+      achievements: allAchievementsByGame[game.id] || [],
+      isPaginated: false,
     })),
 ]
 
@@ -217,8 +243,9 @@ const totalAchievementsCount = allAchievements.length
                     <TabsTrigger value={tab.id}>
                       {tab.label}
                       <Badge variant="outline" size="sm" class="ml-2">
-                        {tab.achievements.filter(a => a.earned).length}/
-                        {tab.achievements.length}
+                        {tab.id === 'all'
+                          ? `${allAchievementDisplayData.filter(a => a.earned).length}/${allAchievementDisplayData.length}`
+                          : `${tab.achievements.filter(a => a.earned).length}/${tab.achievements.length}`}
                       </Badge>
                     </TabsTrigger>
                   ))
@@ -230,106 +257,121 @@ const totalAchievementsCount = allAchievements.length
                   tabsData.map(tab => (
                     <TabsContent value={tab.id}>
                       {tab.achievements.length > 0 ? (
-                        <div class="space-y-4">
-                          {tab.achievements.map(achievement => (
-                            <div
-                              class={`
-                              relative p-4 md:p-6 rounded-xl border transition-all duration-300 hover:scale-[1.02] w-full
-                              ${
-                                achievement.earned
-                                  ? `bg-gradient-to-r from-${achievement.rarity === 'legendary' ? 'yellow' : achievement.rarity === 'epic' ? 'purple' : achievement.rarity === 'rare' ? 'blue' : 'green'}-500/10 to-cyan-500/10 border-${achievement.rarity === 'legendary' ? 'yellow' : achievement.rarity === 'epic' ? 'purple' : achievement.rarity === 'rare' ? 'blue' : 'green'}-400/30 ${achievement.rarityGlow}`
-                                  : 'bg-gray-800/30 border-gray-700/50 opacity-60'
-                              }
-                            `}
-                            >
-                              <div class="flex items-start gap-6">
-                                <div class="flex-shrink-0">
-                                  <div
-                                    class={`
-                                    text-3xl md:text-4xl p-3 md:p-4 rounded-full border
-                                    ${
-                                      achievement.earned
-                                        ? achievement.rarityColor
-                                        : 'bg-gray-700/50 border-gray-600/50'
-                                    }
-                                  `}
-                                  >
-                                    {achievement.logo}
+                        <div class="space-y-6">
+                          <div class="space-y-4">
+                            {tab.achievements.map(achievement => (
+                              <div
+                                class={`
+                                relative p-4 md:p-6 rounded-xl border transition-all duration-300 hover:scale-[1.02] w-full
+                                ${
+                                  achievement.earned
+                                    ? `bg-gradient-to-r from-${achievement.rarity === 'legendary' ? 'yellow' : achievement.rarity === 'epic' ? 'purple' : achievement.rarity === 'rare' ? 'blue' : 'green'}-500/10 to-cyan-500/10 border-${achievement.rarity === 'legendary' ? 'yellow' : achievement.rarity === 'epic' ? 'purple' : achievement.rarity === 'rare' ? 'blue' : 'green'}-400/30 ${achievement.rarityGlow}`
+                                    : 'bg-gray-800/30 border-gray-700/50 opacity-60'
+                                }
+                              `}
+                              >
+                                <div class="flex items-start gap-6">
+                                  <div class="flex-shrink-0">
+                                    <div
+                                      class={`
+                                      text-3xl md:text-4xl p-3 md:p-4 rounded-full border
+                                      ${
+                                        achievement.earned
+                                          ? achievement.rarityColor
+                                          : 'bg-gray-700/50 border-gray-600/50'
+                                      }
+                                    `}
+                                    >
+                                      {achievement.logo}
+                                    </div>
                                   </div>
-                                </div>
 
-                                <div class="flex-1 min-w-0">
-                                  <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                                    <div class="flex-1">
-                                      <h4 class="font-orbitron font-bold text-white text-lg md:text-xl mb-2">
-                                        {achievement.name}
-                                      </h4>
-                                      <p class="text-sm md:text-base text-gray-400 mb-3">
-                                        {achievement.description}
-                                      </p>
-                                      <div class="flex flex-wrap items-center gap-2 mb-2">
-                                        <Badge
-                                          variant={
-                                            achievement.earned
-                                              ? 'success'
-                                              : 'outline'
-                                          }
-                                          size="sm"
-                                          class="w-fit"
-                                        >
-                                          {achievement.earned
-                                            ? 'Earned'
-                                            : 'Locked'}
-                                        </Badge>
-                                        <Badge
-                                          variant="outline"
-                                          size="sm"
-                                          class={`w-fit capitalize ${achievement.rarityColor}`}
-                                        >
-                                          {achievement.rarity}
-                                        </Badge>
-                                        {achievement.gameId !== 'global' && (
+                                  <div class="flex-1 min-w-0">
+                                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                                      <div class="flex-1">
+                                        <h4 class="font-orbitron font-bold text-white text-lg md:text-xl mb-2">
+                                          {achievement.name}
+                                        </h4>
+                                        <p class="text-sm md:text-base text-gray-400 mb-3">
+                                          {achievement.description}
+                                        </p>
+                                        <div class="flex flex-wrap items-center gap-2 mb-2">
+                                          <Badge
+                                            variant={
+                                              achievement.earned
+                                                ? 'success'
+                                                : 'outline'
+                                            }
+                                            size="sm"
+                                            class="w-fit"
+                                          >
+                                            {achievement.earned
+                                              ? 'Earned'
+                                              : 'Locked'}
+                                          </Badge>
                                           <Badge
                                             variant="outline"
                                             size="sm"
-                                            class="w-fit text-purple-400 border-purple-400/30"
+                                            class={`w-fit capitalize ${achievement.rarityColor}`}
                                           >
-                                            {achievement.gameId.replace(
-                                              '_',
-                                              ' '
-                                            )}
+                                            {achievement.rarity}
                                           </Badge>
-                                        )}
+                                          {achievement.gameId !== 'global' && (
+                                            <Badge
+                                              variant="outline"
+                                              size="sm"
+                                              class="w-fit text-purple-400 border-purple-400/30"
+                                            >
+                                              {achievement.gameId.replace(
+                                                '_',
+                                                ' '
+                                              )}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        {achievement.earned &&
+                                          achievement.earnedAt && (
+                                            <p class="text-sm text-cyan-400">
+                                              Earned{' '}
+                                              {new Date(
+                                                achievement.earnedAt
+                                              ).toLocaleDateString('en-US', {
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                              })}
+                                            </p>
+                                          )}
                                       </div>
-                                      {achievement.earned &&
-                                        achievement.earnedAt && (
-                                          <p class="text-sm text-cyan-400">
-                                            Earned{' '}
-                                            {new Date(
-                                              achievement.earnedAt
-                                            ).toLocaleDateString('en-US', {
-                                              year: 'numeric',
-                                              month: 'long',
-                                              day: 'numeric',
-                                              hour: '2-digit',
-                                              minute: '2-digit',
-                                            })}
-                                          </p>
-                                        )}
                                     </div>
                                   </div>
                                 </div>
-                              </div>
 
-                              {!achievement.earned && (
-                                <div class="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center">
-                                  <div class="text-gray-500 text-3xl md:text-4xl">
-                                    🔒
+                                {!achievement.earned && (
+                                  <div class="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center">
+                                    <div class="text-gray-500 text-3xl md:text-4xl">
+                                      🔒
+                                    </div>
                                   </div>
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Add pagination for "All" tab */}
+                          {tab.id === 'all' &&
+                            tab.isPaginated &&
+                            tab.paginationData && (
+                              <Pagination
+                                currentPage={tab.paginationData.page}
+                                totalPages={tab.paginationData.totalPages}
+                                pageSize={tab.paginationData.pageSize}
+                                total={tab.paginationData.total}
+                                class="mt-8"
+                              />
+                            )}
                         </div>
                       ) : (
                         <div class="text-center py-12">
@@ -397,6 +439,16 @@ const totalAchievementsCount = allAchievements.length
             if (matchingOption) {
               valueSpan.textContent =
                 matchingOption.textContent?.trim() || selectedTab
+            }
+          }
+
+          // Reset to first page when switching tabs (if on paginated content)
+          if (selectedTab === 'all') {
+            const currentUrl = new URL(window.location.href)
+            const currentPage = currentUrl.searchParams.get('page')
+            if (currentPage && currentPage !== '1') {
+              currentUrl.searchParams.set('page', '1')
+              window.location.href = currentUrl.toString()
             }
           }
         })

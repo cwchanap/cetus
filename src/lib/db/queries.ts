@@ -423,6 +423,62 @@ export async function getUserAchievements(
 }
 
 /**
+ * Get paginated user achievements with total count
+ */
+export async function getUserAchievementsPaginated(
+    userId: string,
+    page: number = 1,
+    pageSize: number = 10
+): Promise<{
+    userAchievements: UserAchievementRecord[]
+    total: number
+    page: number
+    pageSize: number
+    totalPages: number
+}> {
+    try {
+        const offset = (page - 1) * pageSize
+
+        // Get total count of user achievements
+        const totalResult = await db
+            .selectFrom('user_achievements')
+            .select(db.fn.count('id').as('total'))
+            .where('user_id', '=', userId)
+            .executeTakeFirst()
+
+        const total = Number(totalResult?.total) || 0
+        const totalPages = Math.ceil(total / pageSize)
+
+        // Get paginated user achievements
+        const userAchievements = await db
+            .selectFrom('user_achievements')
+            .selectAll()
+            .where('user_id', '=', userId)
+            .orderBy('earned_at', 'desc')
+            .limit(pageSize)
+            .offset(offset)
+            .execute()
+
+        return {
+            userAchievements,
+            total,
+            page,
+            pageSize,
+            totalPages,
+        }
+    } catch (error) {
+        console.error('Error fetching paginated user achievements:', error)
+        return {
+            userAchievements: [],
+            total: 0,
+            page: 1,
+            pageSize,
+            totalPages: 0,
+        }
+    }
+}
+
+/**
  * Check if user has earned a specific achievement
  */
 export async function hasUserEarnedAchievement(

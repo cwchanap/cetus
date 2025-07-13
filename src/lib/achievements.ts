@@ -205,6 +205,32 @@ export function getAllAchievements(): Achievement[] {
     return ACHIEVEMENTS
 }
 
+// Pagination helper functions
+export function getPaginatedAchievements(
+    achievements: Achievement[],
+    page: number = 1,
+    pageSize: number = 10
+): {
+    achievements: Achievement[]
+    total: number
+    page: number
+    pageSize: number
+    totalPages: number
+} {
+    const total = achievements.length
+    const totalPages = Math.ceil(total / pageSize)
+    const offset = (page - 1) * pageSize
+    const paginatedAchievements = achievements.slice(offset, offset + pageSize)
+
+    return {
+        achievements: paginatedAchievements,
+        total,
+        page,
+        pageSize,
+        totalPages,
+    }
+}
+
 // Rarity styling helpers
 export function getRarityColor(rarity: Achievement['rarity']): string {
     switch (rarity) {
