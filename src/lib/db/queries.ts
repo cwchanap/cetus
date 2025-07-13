@@ -177,7 +177,7 @@ export async function saveGameScore(
     userId: string,
     gameId: string,
     score: number
-): Promise<{ success: boolean; newAchievements?: string[] }> {
+): Promise<boolean> {
     try {
         const newScore: NewGameScore = {
             user_id: userId,
@@ -195,10 +195,10 @@ export async function saveGameScore(
             favorite_game: gameId,
         })
 
-        return { success: true }
+        return true
     } catch (error) {
         console.error('Error saving game score:', error)
-        return { success: false }
+        return false
     }
 }
 
@@ -213,7 +213,7 @@ export async function saveGameScoreWithAchievements(
     try {
         // First save the score
         const saveResult = await saveGameScore(userId, gameId, score)
-        if (!saveResult.success) {
+        if (!saveResult) {
             return { success: false, newAchievements: [] }
         }
 

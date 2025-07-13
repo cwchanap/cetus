@@ -33,6 +33,7 @@ export interface GameCallbacks {
     onQuestionUpdate: (question: MathQuestion) => void
     onGameOver: (finalScore: number, stats: GameStats) => void
     onGameStart: () => void
+    onScoreUpload?: (success: boolean) => void
 }
 
 export interface GameStats {

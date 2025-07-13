@@ -1,7 +1,9 @@
 import { QuickMathGame } from './game'
 import type { GameConfig, GameCallbacks } from './types'
+import { submitScore } from '../../score-client'
 
 let gameInstance: QuickMathGame | null = null
+let gameCallbacks: GameCallbacks | null = null
 
 export async function initQuickMathGame(): Promise<void> {
     // Game configuration
@@ -104,7 +106,31 @@ export async function initQuickMathGame(): Promise<void> {
                 currentScoreElement.textContent = '0'
             }
         },
+        onScoreUpload: (success: boolean) => {
+            // Add visual feedback for score upload status
+            const scoreStatus = document.createElement('div')
+            scoreStatus.className = `text-sm mt-2 ${success ? 'text-green-400' : 'text-yellow-400'}`
+            scoreStatus.textContent = success
+                ? 'Score saved!'
+                : 'Score not saved (offline?)'
+
+            // Add the status message to the game over overlay
+            const gameOverContent = gameOverOverlay.querySelector('.space-y-4')
+            if (gameOverContent) {
+                gameOverContent.appendChild(scoreStatus)
+
+                // Remove the status message after 3 seconds
+                setTimeout(() => {
+                    if (scoreStatus.parentNode) {
+                        scoreStatus.parentNode.removeChild(scoreStatus)
+                    }
+                }, 3000)
+            }
+        },
     }
+
+    // Store callbacks for use in other functions
+    gameCallbacks = callbacks
 
     // Initialize game
     gameInstance = new QuickMathGame(config, callbacks)
@@ -209,22 +235,28 @@ export async function initQuickMathGame(): Promise<void> {
 
 async function saveScore(score: number): Promise<void> {
     try {
-        const response = await fetch('/api/scores', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                gameId: 'quick_math',
-                score: score,
-            }),
+        const success = await submitScore({
+            gameId: 'quick_math',
+            score: score,
         })
 
-        if (!response.ok) {
-            console.warn('Failed to save score:', response.statusText)
+        if (success) {
+            console.log('Score saved successfully!')
+        } else {
+            console.warn('Failed to save score')
+        }
+
+        // Notify via callback if available
+        if (gameCallbacks?.onScoreUpload) {
+            gameCallbacks.onScoreUpload(success)
         }
     } catch (error) {
         console.warn('Error saving score:', error)
+
+        // Notify via callback if available
+        if (gameCallbacks?.onScoreUpload) {
+            gameCallbacks.onScoreUpload(false)
+        }
     }
 }
 

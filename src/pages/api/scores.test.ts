@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/pages/api/scores'
 import { saveGameScore } from '@/lib/db/queries'
+import { getGameById } from '@/lib/games'
 import { auth } from '@/lib/auth'
 
 // Mock dependencies
@@ -48,7 +49,7 @@ describe('POST /api/scores', () => {
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
-        vi.mocked(saveGameScore).mockResolvedValue({ success: true })
+        vi.mocked(saveGameScore).mockResolvedValue(true)
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -207,7 +208,7 @@ describe('POST /api/scores', () => {
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
-        vi.mocked(saveGameScore).mockResolvedValue({ success: false })
+        vi.mocked(saveGameScore).mockResolvedValue(false)
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
