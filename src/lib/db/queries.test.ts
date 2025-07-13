@@ -63,7 +63,7 @@ describe('Database Queries', () => {
             const result = await saveGameScore('user-123', 'tetris', 5000)
 
             // Assert
-            expect(result.success).toBe(true)
+            expect(result).toBe(true)
             expect(db.insertInto).toHaveBeenCalledWith('game_scores')
             expect(mockInsertQuery.values).toHaveBeenCalledWith({
                 user_id: 'user-123',
@@ -89,7 +89,7 @@ describe('Database Queries', () => {
             const result = await saveGameScore('user-123', 'tetris', 5000)
 
             // Assert
-            expect(result.success).toBe(false)
+            expect(result).toBe(false)
             expect(consoleSpy).toHaveBeenCalledWith(
                 'Error saving game score:',
                 expect.any(Error)

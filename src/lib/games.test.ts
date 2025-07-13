@@ -16,7 +16,7 @@ describe('Games System', () => {
     describe('getAllGames', () => {
         it('should return all games', () => {
             const games = getAllGames()
-            expect(games).toHaveLength(3) // tetris, quick_draw, bubble_shooter
+            expect(games).toHaveLength(4) // tetris, quick_draw, bubble_shooter, quick_math
             expect(games[0]).toHaveProperty('id')
             expect(games[0]).toHaveProperty('name')
             expect(games[0]).toHaveProperty('description')
@@ -185,7 +185,12 @@ describe('Games System', () => {
 
         it('should have valid game types', () => {
             const games = getAllGames()
-            const validGameTypes = ['tetris', 'quick_draw', 'bubble_shooter']
+            const validGameTypes = [
+                'tetris',
+                'quick_draw',
+                'bubble_shooter',
+                'quick_math',
+            ]
 
             games.forEach(game => {
                 expect(validGameTypes).toContain(game.id)
@@ -288,7 +293,7 @@ describe('Games System', () => {
             const games = getAllGames()
             const convertedGames = games.map(convertGameToCardFormat)
 
-            expect(convertedGames).toHaveLength(3)
+            expect(convertedGames).toHaveLength(4)
 
             // Test Tetris conversion
             const tetris = convertedGames.find(g => g.id === 2)
