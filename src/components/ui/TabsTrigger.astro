@@ -1,0 +1,29 @@
+---
+import { cn } from '@/lib/utils'
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'button'> {
+  value: string
+  class?: string
+}
+
+const { value, class: className = '', ...props } = Astro.props
+
+const classes = cn(
+  // Base styles are handled by the Tabs component CSS
+  className
+)
+---
+
+<button
+  class={classes}
+  role="tab"
+  aria-selected="false"
+  tabindex="-1"
+  data-tab-trigger
+  data-value={value}
+  type="button"
+  {...props}
+>
+  <slot />
+</button>

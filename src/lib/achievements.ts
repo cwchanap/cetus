@@ -37,6 +37,56 @@ export const ACHIEVEMENTS: Achievement[] = [
         rarity: 'common',
     },
 
+    // Welcome achievements for games
+    {
+        id: 'tetris_welcome',
+        name: 'First Drop',
+        description: 'Welcome to Tetris! You scored your first points.',
+        logo: '🎮',
+        gameId: 'tetris',
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: 'common',
+    },
+    {
+        id: 'bubble_shooter_welcome',
+        name: 'First Pop',
+        description: 'Welcome to Bubble Shooter! You popped your first bubble.',
+        logo: '🎮',
+        gameId: 'bubble_shooter',
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: 'common',
+    },
+    {
+        id: 'quick_math_welcome',
+        name: 'First Calculation',
+        description: 'Welcome to Quick Math! You solved your first problem.',
+        logo: '🎮',
+        gameId: 'quick_math',
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: 'common',
+    },
+    {
+        id: 'quick_draw_welcome',
+        name: 'First Sketch',
+        description: 'Welcome to Quick Draw! You completed your first drawing.',
+        logo: '🎮',
+        gameId: 'quick_draw',
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: 'common',
+    },
+
     // Tetris achievements
     {
         id: 'tetris_novice',

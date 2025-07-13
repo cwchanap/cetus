@@ -1,0 +1,420 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+
+// Component Imports
+import Container from '@/components/ui/Container.astro'
+import Section from '@/components/ui/Section.astro'
+import Heading from '@/components/ui/Heading.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import Button from '@/components/ui/Button.astro'
+import Select from '@/components/ui/Select.astro'
+import Tabs from '@/components/ui/Tabs.astro'
+import TabsTrigger from '@/components/ui/TabsTrigger.astro'
+import TabsContent from '@/components/ui/TabsContent.astro'
+
+import { getUserAchievements } from '@/lib/db/queries'
+import {
+  getRarityColor,
+  getRarityGlow,
+  getAllAchievements,
+} from '@/lib/achievements'
+import { getAllGames } from '@/lib/games'
+
+// Check if user is authenticated
+const user = Astro.locals.user
+const session = Astro.locals.session
+
+// Redirect to login if not authenticated
+if (!user) {
+  return Astro.redirect('/login?redirect=/achievements')
+}
+
+// Get all achievements and user's earned achievements
+const userAchievementRecords = await getUserAchievements(user.id)
+const allAchievements = getAllAchievements()
+const games = getAllGames()
+
+// Process achievements data
+const earnedAchievementIds = new Set(
+  userAchievementRecords.map(ua => ua.achievement_id)
+)
+
+// Combine earned and unearned achievements for display
+const achievementDisplayData = allAchievements
+  .map(achievement => {
+    const isEarned = earnedAchievementIds.has(achievement.id)
+    const userAchievement = userAchievementRecords.find(
+      ua => ua.achievement_id === achievement.id
+    )
+
+    return {
+      ...achievement,
+      earned: isEarned,
+      earnedAt: userAchievement?.earned_at,
+      rarityColor: getRarityColor(achievement.rarity),
+      rarityGlow: getRarityGlow(achievement.rarity),
+    }
+  })
+  .sort((a, b) => {
+    // Sort by earned status first (earned first), then by rarity, then by name
+    if (a.earned !== b.earned) {
+      return b.earned ? 1 : -1
+    }
+    const rarityOrder = { common: 1, rare: 2, epic: 3, legendary: 4 }
+    const rarityDiff =
+      (rarityOrder[a.rarity as keyof typeof rarityOrder] || 1) -
+      (rarityOrder[b.rarity as keyof typeof rarityOrder] || 1)
+    return rarityDiff !== 0 ? rarityDiff : a.name.localeCompare(b.name)
+  })
+
+// Group achievements by game
+const achievementsByGame = achievementDisplayData.reduce(
+  (acc, achievement) => {
+    const gameId = achievement.gameId || 'global'
+    if (!acc[gameId]) {
+      acc[gameId] = []
+    }
+    acc[gameId].push(achievement)
+    return acc
+  },
+  {} as Record<string, typeof achievementDisplayData>
+)
+
+// Get game filter options
+const gameFilterOptions = [
+  { value: 'all', label: 'All Games' },
+  { value: 'global', label: 'Global' },
+  ...games
+    .filter(game => achievementsByGame[game.id]) // Only show games with achievements
+    .map(game => ({ value: game.id, label: game.name })),
+]
+
+// Create tabs data for games with achievements
+const tabsData = [
+  { id: 'all', label: 'All', achievements: achievementDisplayData },
+  {
+    id: 'global',
+    label: 'Global',
+    achievements: achievementsByGame['global'] || [],
+  },
+  ...games
+    .filter(game => achievementsByGame[game.id])
+    .map(game => ({
+      id: game.id,
+      label: game.name,
+      achievements: achievementsByGame[game.id] || [],
+    })),
+]
+
+// Get stats
+const totalEarnedCount = earnedAchievementIds.size
+const totalAchievementsCount = allAchievements.length
+---
+
+<AppLayout
+  title="Achievements - Cetus Gaming Platform"
+  description="View all your achievements and progress on Cetus"
+>
+  <!-- Animated background -->
+  <div class="fixed inset-0 pointer-events-none">
+    <div
+      class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"
+    >
+    </div>
+    <div
+      class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse"
+      style="animation-delay: 1s;"
+    >
+    </div>
+    <div
+      class="absolute inset-0 bg-gradient-radial from-pink-400/15 via-transparent to-transparent animate-pulse"
+      style="animation-delay: 2s;"
+    >
+    </div>
+  </div>
+
+  <!-- Floating particles -->
+  <div class="fixed inset-0 pointer-events-none">
+    {
+      Array.from({ length: 20 }).map((_, _i) => (
+        <div
+          class="absolute w-1 h-1 bg-cyan-400 rounded-full opacity-20 animate-bounce"
+          style={`
+            left: ${Math.random() * 100}%;
+            top: ${Math.random() * 100}%;
+            animation-delay: ${Math.random() * 3}s;
+            animation-duration: ${2 + Math.random() * 2}s;
+          `}
+        />
+      ))
+    }
+  </div>
+
+  <!-- Achievements Content -->
+  <main class="relative z-10 min-h-screen">
+    <Section class="py-20">
+      <Container class="max-w-6xl">
+        <!-- Page Title -->
+        <div class="text-center mb-12">
+          <Heading level={1} variant="hero" align="center" class="mb-4">
+            ACHIEVEMENTS
+          </Heading>
+          <p class="text-gray-400 text-lg mb-6">
+            Track your progress and unlock badges across all games
+          </p>
+
+          <!-- Achievement Stats -->
+          <div class="flex justify-center gap-8 mb-8">
+            <div class="text-center">
+              <div class="text-3xl font-bold text-cyan-400">
+                {totalEarnedCount}
+              </div>
+              <div class="text-sm text-gray-400">Earned</div>
+            </div>
+            <div class="text-center">
+              <div class="text-3xl font-bold text-purple-400">
+                {totalAchievementsCount}
+              </div>
+              <div class="text-sm text-gray-400">Total</div>
+            </div>
+            <div class="text-center">
+              <div class="text-3xl font-bold text-pink-400">
+                {Math.round((totalEarnedCount / totalAchievementsCount) * 100)}%
+              </div>
+              <div class="text-sm text-gray-400">Complete</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Achievements Section -->
+        <Card variant="glass" class="p-6 md:p-8">
+          <!-- Filter and Tabs -->
+          <div class="mb-8">
+            <!-- Game Filter Dropdown -->
+            <div
+              class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
+            >
+              <h3 class="text-xl font-orbitron font-bold text-holographic">
+                Filter by Game
+              </h3>
+              <div class="w-full sm:w-64">
+                <Select
+                  variant="glass"
+                  placeholder="Select a game..."
+                  options={gameFilterOptions}
+                  id="game-filter"
+                  name="game-filter"
+                />
+              </div>
+            </div>
+
+            <!-- Game Tabs -->
+            <Tabs variant="glass" defaultTab="all" data-default-tab="all">
+              <div slot="tabs">
+                {
+                  tabsData.map(tab => (
+                    <TabsTrigger value={tab.id}>
+                      {tab.label}
+                      <Badge variant="outline" size="sm" class="ml-2">
+                        {tab.achievements.filter(a => a.earned).length}/
+                        {tab.achievements.length}
+                      </Badge>
+                    </TabsTrigger>
+                  ))
+                }
+              </div>
+
+              <div slot="panels">
+                {
+                  tabsData.map(tab => (
+                    <TabsContent value={tab.id}>
+                      {tab.achievements.length > 0 ? (
+                        <div class="space-y-4">
+                          {tab.achievements.map(achievement => (
+                            <div
+                              class={`
+                              relative p-4 md:p-6 rounded-xl border transition-all duration-300 hover:scale-[1.02] w-full
+                              ${
+                                achievement.earned
+                                  ? `bg-gradient-to-r from-${achievement.rarity === 'legendary' ? 'yellow' : achievement.rarity === 'epic' ? 'purple' : achievement.rarity === 'rare' ? 'blue' : 'green'}-500/10 to-cyan-500/10 border-${achievement.rarity === 'legendary' ? 'yellow' : achievement.rarity === 'epic' ? 'purple' : achievement.rarity === 'rare' ? 'blue' : 'green'}-400/30 ${achievement.rarityGlow}`
+                                  : 'bg-gray-800/30 border-gray-700/50 opacity-60'
+                              }
+                            `}
+                            >
+                              <div class="flex items-start gap-6">
+                                <div class="flex-shrink-0">
+                                  <div
+                                    class={`
+                                    text-3xl md:text-4xl p-3 md:p-4 rounded-full border
+                                    ${
+                                      achievement.earned
+                                        ? achievement.rarityColor
+                                        : 'bg-gray-700/50 border-gray-600/50'
+                                    }
+                                  `}
+                                  >
+                                    {achievement.logo}
+                                  </div>
+                                </div>
+
+                                <div class="flex-1 min-w-0">
+                                  <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                                    <div class="flex-1">
+                                      <h4 class="font-orbitron font-bold text-white text-lg md:text-xl mb-2">
+                                        {achievement.name}
+                                      </h4>
+                                      <p class="text-sm md:text-base text-gray-400 mb-3">
+                                        {achievement.description}
+                                      </p>
+                                      <div class="flex flex-wrap items-center gap-2 mb-2">
+                                        <Badge
+                                          variant={
+                                            achievement.earned
+                                              ? 'success'
+                                              : 'outline'
+                                          }
+                                          size="sm"
+                                          class="w-fit"
+                                        >
+                                          {achievement.earned
+                                            ? 'Earned'
+                                            : 'Locked'}
+                                        </Badge>
+                                        <Badge
+                                          variant="outline"
+                                          size="sm"
+                                          class={`w-fit capitalize ${achievement.rarityColor}`}
+                                        >
+                                          {achievement.rarity}
+                                        </Badge>
+                                        {achievement.gameId !== 'global' && (
+                                          <Badge
+                                            variant="outline"
+                                            size="sm"
+                                            class="w-fit text-purple-400 border-purple-400/30"
+                                          >
+                                            {achievement.gameId.replace(
+                                              '_',
+                                              ' '
+                                            )}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {achievement.earned &&
+                                        achievement.earnedAt && (
+                                          <p class="text-sm text-cyan-400">
+                                            Earned{' '}
+                                            {new Date(
+                                              achievement.earnedAt
+                                            ).toLocaleDateString('en-US', {
+                                              year: 'numeric',
+                                              month: 'long',
+                                              day: 'numeric',
+                                              hour: '2-digit',
+                                              minute: '2-digit',
+                                            })}
+                                          </p>
+                                        )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {!achievement.earned && (
+                                <div class="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center">
+                                  <div class="text-gray-500 text-3xl md:text-4xl">
+                                    🔒
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div class="text-center py-12">
+                          <div class="text-6xl mb-4 opacity-50">🏆</div>
+                          <p class="text-gray-400">
+                            No achievements in this category yet
+                          </p>
+                          <p class="text-sm text-gray-500 mt-2">
+                            Play games to start earning achievements!
+                          </p>
+                        </div>
+                      )}
+                    </TabsContent>
+                  ))
+                }
+              </div>
+            </Tabs>
+          </div>
+        </Card>
+      </Container>
+    </Section>
+  </main>
+
+  <script>
+    // Sync dropdown filter with tabs
+    document.addEventListener('DOMContentLoaded', () => {
+      const gameFilter = document.querySelector('#game-filter')
+      const tabsContainer = document.querySelector('[data-tabs-container]')
+
+      if (gameFilter && tabsContainer) {
+        // Listen for dropdown changes
+        gameFilter.addEventListener('change', event => {
+          const selectedGame = (event.target as HTMLInputElement).value
+
+          // Find corresponding tab trigger and click it
+          const tabTrigger = tabsContainer.querySelector(
+            `[data-value="${selectedGame}"]`
+          )
+          if (tabTrigger) {
+            ;(tabTrigger as HTMLElement).click()
+          }
+        })
+
+        // Listen for tab changes to update dropdown
+        tabsContainer.addEventListener('tab-change', (event: any) => {
+          const selectedTab = event.detail.value
+
+          // Update dropdown value
+          const hiddenInput = gameFilter.querySelector(
+            '[data-select-input]'
+          ) as HTMLInputElement
+          const valueSpan = gameFilter.querySelector(
+            '[data-select-value]'
+          ) as HTMLElement
+
+          if (hiddenInput && valueSpan) {
+            hiddenInput.value = selectedTab
+
+            // Find the corresponding option label
+            const options = gameFilter.querySelectorAll('[data-select-option]')
+            const matchingOption = Array.from(options).find(
+              option => (option as HTMLElement).dataset.value === selectedTab
+            )
+
+            if (matchingOption) {
+              valueSpan.textContent =
+                matchingOption.textContent?.trim() || selectedTab
+            }
+          }
+        })
+      }
+
+      // Add glow effect on achievement cards
+      const achievementCards = document.querySelectorAll('[data-achievement]')
+      achievementCards.forEach(card => {
+        card.addEventListener('mouseenter', () => {
+          if (!card.classList.contains('opacity-60')) {
+            card.classList.add('glow-cyan')
+          }
+        })
+
+        card.addEventListener('mouseleave', () => {
+          card.classList.remove('glow-cyan')
+        })
+      })
+    })
+  </script>
+</AppLayout>

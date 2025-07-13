@@ -1,0 +1,310 @@
+---
+import { cn } from '@/lib/utils'
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'div'> {
+  variant?: 'default' | 'glass' | 'pills'
+  size?: 'default' | 'sm' | 'lg'
+  class?: string
+  defaultTab?: string
+}
+
+const {
+  variant = 'default',
+  size = 'default',
+  class: className = '',
+  defaultTab: _defaultTab,
+  ...props
+} = Astro.props
+
+const tabsVariants = {
+  variant: {
+    default: 'bg-gray-800/50 border-gray-600/30',
+    glass: 'bg-glass border-gray-600/20 backdrop-blur-md',
+    pills: 'bg-transparent',
+  },
+  size: {
+    default: 'p-1',
+    sm: 'p-0.5',
+    lg: 'p-2',
+  },
+}
+
+const defaultClasses = 'relative border transition-all duration-200'
+const sciFiClasses = 'shadow-lg'
+
+const tabsClasses = cn(
+  defaultClasses,
+  sciFiClasses,
+  tabsVariants.variant[variant],
+  tabsVariants.size[size],
+  variant === 'pills' && 'border-transparent',
+  className
+)
+---
+
+<div
+  class={tabsClasses}
+  style="border-radius: 0.5rem;"
+  data-tabs-container
+  {...props}
+>
+  <!-- Tab List -->
+  <div class="flex space-x-1" role="tablist" data-tabs-list>
+    <slot name="tabs" />
+  </div>
+
+  <!-- Tab Panels -->
+  <div class="mt-4" data-tabs-content>
+    <slot name="panels" />
+  </div>
+</div>
+
+<script>
+  class TabsComponent {
+    private container: HTMLElement
+    private tabList: HTMLElement
+    private contentContainer: HTMLElement
+    private tabs: NodeListOf<HTMLElement>
+    private panels: NodeListOf<HTMLElement>
+    private activeTab: string | null = null
+
+    constructor(container: HTMLElement) {
+      this.container = container
+
+      const tabList = container.querySelector('[data-tabs-list]')
+      const contentContainer = container.querySelector('[data-tabs-content]')
+
+      if (!tabList || !contentContainer) {
+        throw new Error(
+          'Tabs component requires both tab list and content container'
+        )
+      }
+
+      this.tabList = tabList as HTMLElement
+      this.contentContainer = contentContainer as HTMLElement
+      this.tabs = container.querySelectorAll('[data-tab-trigger]')
+      this.panels = container.querySelectorAll('[data-tab-panel]')
+
+      this.init()
+    }
+
+    private init() {
+      // Set up initial state
+      const defaultTab = this.container.dataset.defaultTab
+      if (defaultTab) {
+        this.setActiveTab(defaultTab)
+      } else if (this.tabs.length > 0) {
+        const firstTabValue = this.tabs[0].dataset.value
+        if (firstTabValue) {
+          this.setActiveTab(firstTabValue)
+        }
+      }
+
+      // Event listeners
+      this.tabs.forEach(tab => {
+        tab.addEventListener('click', this.handleTabClick.bind(this))
+        tab.addEventListener('keydown', this.handleKeyDown.bind(this))
+      })
+    }
+
+    private handleTabClick(event: Event) {
+      const tab = event.currentTarget as HTMLElement
+      const value = tab.dataset.value
+      if (value) {
+        this.setActiveTab(value)
+      }
+    }
+
+    private handleKeyDown(event: KeyboardEvent) {
+      const currentTab = event.currentTarget as HTMLElement
+      const currentIndex = Array.from(this.tabs).indexOf(currentTab)
+
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault()
+          this.focusTab(currentIndex - 1)
+          break
+        case 'ArrowRight':
+          event.preventDefault()
+          this.focusTab(currentIndex + 1)
+          break
+        case 'Home':
+          event.preventDefault()
+          this.focusTab(0)
+          break
+        case 'End':
+          event.preventDefault()
+          this.focusTab(this.tabs.length - 1)
+          break
+        case 'Enter':
+        case ' ': {
+          event.preventDefault()
+          const value = currentTab.dataset.value
+          if (value) {
+            this.setActiveTab(value)
+          }
+          break
+        }
+      }
+    }
+
+    private focusTab(index: number) {
+      const tabsArray = Array.from(this.tabs)
+      let newIndex = index
+
+      // Wrap around
+      if (newIndex < 0) {
+        newIndex = tabsArray.length - 1
+      } else if (newIndex >= tabsArray.length) {
+        newIndex = 0
+      }
+
+      const targetTab = tabsArray[newIndex]
+      if (targetTab) {
+        targetTab.focus()
+        const value = targetTab.dataset.value
+        if (value) {
+          this.setActiveTab(value)
+        }
+      }
+    }
+
+    private setActiveTab(value: string) {
+      this.activeTab = value
+
+      // Update tab states
+      this.tabs.forEach(tab => {
+        const isActive = tab.dataset.value === value
+        tab.setAttribute('aria-selected', isActive.toString())
+        tab.setAttribute('tabindex', isActive ? '0' : '-1')
+
+        if (isActive) {
+          tab.classList.add(
+            'data-[state=active]:bg-gradient-to-r',
+            'data-[state=active]:from-cyan-500/20',
+            'data-[state=active]:to-purple-600/20',
+            'data-[state=active]:text-cyan-300',
+            'data-[state=active]:border-cyan-400/50'
+          )
+          tab.setAttribute('data-state', 'active')
+        } else {
+          tab.classList.remove(
+            'data-[state=active]:bg-gradient-to-r',
+            'data-[state=active]:from-cyan-500/20',
+            'data-[state=active]:to-purple-600/20',
+            'data-[state=active]:text-cyan-300',
+            'data-[state=active]:border-cyan-400/50'
+          )
+          tab.setAttribute('data-state', 'inactive')
+        }
+      })
+
+      // Update panel states
+      this.panels.forEach(panel => {
+        const isActive = panel.dataset.value === value
+        panel.setAttribute('data-state', isActive ? 'active' : 'inactive')
+
+        if (isActive) {
+          panel.classList.remove('hidden')
+          panel.classList.add('block')
+        } else {
+          panel.classList.remove('block')
+          panel.classList.add('hidden')
+        }
+      })
+
+      // Dispatch change event
+      this.container.dispatchEvent(
+        new CustomEvent('tab-change', {
+          detail: { value },
+          bubbles: true,
+        })
+      )
+    }
+  }
+
+  // Initialize all tabs components
+  document.addEventListener('DOMContentLoaded', () => {
+    const tabsContainers = document.querySelectorAll('[data-tabs-container]')
+    tabsContainers.forEach(container => {
+      new TabsComponent(container as HTMLElement)
+    })
+  })
+</script>
+
+<style>
+  /* Tab trigger styles */
+  [data-tab-trigger] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    outline: none;
+    color: rgb(156 163 175);
+    font-family: 'Orbitron', monospace;
+    border: 1px solid transparent;
+  }
+
+  [data-tab-trigger]:hover {
+    color: rgb(229 231 235);
+    background-color: rgb(55 65 81 / 0.5);
+    border-color: rgb(34 211 238 / 0.3);
+  }
+
+  [data-tab-trigger]:focus-visible {
+    outline: 2px solid rgb(34 211 238);
+    outline-offset: 2px;
+  }
+
+  [data-tab-trigger]:disabled {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  [data-tab-trigger][data-state='active'] {
+    background: linear-gradient(
+      to right,
+      rgb(6 182 212 / 0.2),
+      rgb(147 51 234 / 0.2)
+    );
+    color: rgb(103 232 249);
+    border-color: rgb(34 211 238 / 0.5);
+    box-shadow: 0 10px 15px -3px rgb(34 211 238 / 0.2);
+  }
+
+  /* Tab panel styles */
+  [data-tab-panel] {
+    outline: none;
+  }
+
+  [data-tab-panel]:focus-visible {
+    outline: 2px solid rgb(34 211 238);
+    outline-offset: 2px;
+  }
+
+  [data-tab-panel][data-state='inactive'] {
+    display: none;
+  }
+
+  [data-tab-panel][data-state='active'] {
+    display: block;
+    animation: fadeIn 0.2s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+</style>
