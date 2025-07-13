@@ -24,12 +24,22 @@ const gameIcons: Record<string, string> = {
   quick_draw: '🎨',
   bubble_shooter: '🫧',
   quick_math: '🧮',
+  memory_matrix: '🧠',
 }
 
 // Convert Games system data to GameCard format
 function convertGameToCardFormat(game: Game) {
+  // Map game IDs to legacy numeric IDs for consistency
+  const idMapping: Record<string, number> = {
+    quick_draw: 1,
+    tetris: 2,
+    bubble_shooter: 3,
+    quick_math: 5,
+    memory_matrix: 4,
+  }
+
   return {
-    id: game.id === 'tetris' ? 2 : game.id === 'quick_draw' ? 1 : 3, // Keep original IDs for consistency
+    id: idMapping[game.id] || 99,
     title: game.name,
     description: game.description,
     icon: gameIcons[game.id] || '🎮',
@@ -47,16 +57,7 @@ const availableGames = systemGames.map(convertGameToCardFormat)
 // Add placeholder games for future development
 const comingSoonGames = [
   {
-    id: 4,
-    title: 'Memory Matrix',
-    description: 'Test your memory in this pattern game',
-    icon: '🧠',
-    duration: '3-10 min',
-    difficulty: 'Hard',
-    available: false,
-  },
-  {
-    id: 5,
+    id: 6,
     title: 'Word Scramble',
     description: 'Unscramble words as fast as you can',
     icon: '📝',
@@ -65,7 +66,7 @@ const comingSoonGames = [
     available: false,
   },
   {
-    id: 6,
+    id: 7,
     title: 'Color Match',
     description: 'Match colors in this fast-paced puzzle',
     icon: '🌈',
@@ -74,7 +75,7 @@ const comingSoonGames = [
     available: false,
   },
   {
-    id: 7,
+    id: 8,
     title: 'Number Puzzle',
     description: 'Solve number sequences and patterns',
     icon: '🔢',
@@ -83,7 +84,7 @@ const comingSoonGames = [
     available: false,
   },
   {
-    id: 8,
+    id: 9,
     title: 'Reflex Test',
     description: 'Test your reaction time and reflexes',
     icon: '⚡',

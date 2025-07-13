@@ -61,6 +61,18 @@ export const GAMES: Game[] = [
         tags: ['math', 'arithmetic', 'speed', 'single-player', 'educational'],
         isActive: true,
     },
+    {
+        id: 'memory_matrix',
+        name: 'Memory Matrix',
+        description:
+            'Test your memory by matching pairs of shapes in this grid-based puzzle game',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '3-10 minutes',
+        difficulty: 'hard',
+        tags: ['memory', 'matching', 'shapes', 'single-player', 'cognitive'],
+        isActive: true,
+    },
 ]
 
 // Helper functions
