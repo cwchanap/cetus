@@ -381,7 +381,26 @@ export async function endGame(state: GameState): Promise<void> {
             })
 
             if (response.ok) {
+                const result = await response.json()
                 console.log('Score submitted successfully')
+
+                // Handle newly earned achievements
+                if (
+                    result.newAchievements &&
+                    result.newAchievements.length > 0
+                ) {
+                    console.log(
+                        'New achievements earned:',
+                        result.newAchievements
+                    )
+
+                    // Dispatch an event for achievement notifications
+                    window.dispatchEvent(
+                        new CustomEvent('achievementsEarned', {
+                            detail: { achievementIds: result.newAchievements },
+                        })
+                    )
+                }
             } else {
                 console.error('Failed to submit score')
             }

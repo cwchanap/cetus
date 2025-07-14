@@ -86,6 +86,18 @@ export const ACHIEVEMENTS: Achievement[] = [
         },
         rarity: 'common',
     },
+    {
+        id: 'memory_matrix_welcome',
+        name: 'First Memory',
+        description: 'Welcome to Memory Matrix! You completed your first game.',
+        logo: '🎮',
+        gameId: 'memory_matrix',
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: 'common',
+    },
 
     // Tetris achievements
     {
@@ -183,6 +195,56 @@ export const ACHIEVEMENTS: Achievement[] = [
         condition: {
             type: 'score_threshold',
             threshold: 800,
+        },
+        rarity: 'epic',
+    },
+
+    // Memory Matrix achievements
+    {
+        id: 'memory_novice',
+        name: 'Memory Novice',
+        description: 'Score 100 points in Memory Matrix',
+        logo: '🧠',
+        gameId: 'memory_matrix',
+        condition: {
+            type: 'score_threshold',
+            threshold: 100,
+        },
+        rarity: 'common',
+    },
+    {
+        id: 'memory_apprentice',
+        name: 'Memory Apprentice',
+        description: 'Score 200 points in Memory Matrix',
+        logo: '🔍',
+        gameId: 'memory_matrix',
+        condition: {
+            type: 'score_threshold',
+            threshold: 200,
+        },
+        rarity: 'common',
+    },
+    {
+        id: 'memory_expert',
+        name: 'Memory Expert',
+        description: 'Score 500 points in Memory Matrix',
+        logo: '🎯',
+        gameId: 'memory_matrix',
+        condition: {
+            type: 'score_threshold',
+            threshold: 500,
+        },
+        rarity: 'rare',
+    },
+    {
+        id: 'memory_master',
+        name: 'Memory Master',
+        description: 'Score 1000 points in Memory Matrix',
+        logo: '👑',
+        gameId: 'memory_matrix',
+        condition: {
+            type: 'score_threshold',
+            threshold: 1000,
         },
         rarity: 'epic',
     },

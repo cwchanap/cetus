@@ -97,7 +97,20 @@ async function saveScore(score: number): Promise<void> {
         if (!response.ok) {
             console.warn('Failed to save score:', response.statusText)
         } else {
+            const result = await response.json()
             console.log('Score saved successfully')
+
+            // Handle newly earned achievements
+            if (result.newAchievements && result.newAchievements.length > 0) {
+                console.log('New achievements earned:', result.newAchievements)
+
+                // Dispatch an event for achievement notifications
+                window.dispatchEvent(
+                    new CustomEvent('achievementsEarned', {
+                        detail: { achievementIds: result.newAchievements },
+                    })
+                )
+            }
         }
     } catch (error) {
         console.warn('Error saving score:', error)

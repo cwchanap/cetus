@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/pages/api/scores'
-import { saveGameScore } from '@/lib/db/queries'
+import { saveGameScoreWithAchievements } from '@/lib/db/queries'
 import { getGameById } from '@/lib/games'
 import { auth } from '@/lib/auth'
 
 // Mock dependencies
 vi.mock('@/lib/db/queries', () => ({
-    saveGameScore: vi.fn(),
+    saveGameScoreWithAchievements: vi.fn(),
 }))
 
 vi.mock('@/lib/games', () => ({
@@ -49,7 +49,10 @@ describe('POST /api/scores', () => {
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
-        vi.mocked(saveGameScore).mockResolvedValue(true)
+        vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
+            success: true,
+            newAchievements: ['tetris_welcome'],
+        })
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -68,9 +71,16 @@ describe('POST /api/scores', () => {
 
         // Assert
         expect(response.status).toBe(200)
-        expect(result).toEqual({ success: true })
+        expect(result).toEqual({
+            success: true,
+            newAchievements: ['tetris_welcome'],
+        })
         expect(getGameById).toHaveBeenCalledWith('tetris')
-        expect(saveGameScore).toHaveBeenCalledWith('user-123', 'tetris', 5000)
+        expect(saveGameScoreWithAchievements).toHaveBeenCalledWith(
+            'user-123',
+            'tetris',
+            5000
+        )
     })
 
     it('should return 401 for unauthenticated user', async () => {
@@ -96,7 +106,7 @@ describe('POST /api/scores', () => {
         expect(response.status).toBe(401)
         expect(result).toEqual({ error: 'Unauthorized' })
         expect(getGameById).not.toHaveBeenCalled()
-        expect(saveGameScore).not.toHaveBeenCalled()
+        expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
     })
 
     it('should return 400 for missing gameId', async () => {
@@ -121,7 +131,7 @@ describe('POST /api/scores', () => {
         expect(response.status).toBe(400)
         expect(result).toEqual({ error: 'Invalid data' })
         expect(getGameById).not.toHaveBeenCalled()
-        expect(saveGameScore).not.toHaveBeenCalled()
+        expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
     })
 
     it('should return 400 for missing score', async () => {
@@ -146,7 +156,7 @@ describe('POST /api/scores', () => {
         expect(response.status).toBe(400)
         expect(result).toEqual({ error: 'Invalid data' })
         expect(getGameById).not.toHaveBeenCalled()
-        expect(saveGameScore).not.toHaveBeenCalled()
+        expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
     })
 
     it('should return 400 for invalid score type', async () => {
@@ -172,7 +182,7 @@ describe('POST /api/scores', () => {
         expect(response.status).toBe(400)
         expect(result).toEqual({ error: 'Invalid data' })
         expect(getGameById).not.toHaveBeenCalled()
-        expect(saveGameScore).not.toHaveBeenCalled()
+        expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
     })
 
     it('should return 400 for invalid game ID', async () => {
@@ -200,7 +210,7 @@ describe('POST /api/scores', () => {
         expect(response.status).toBe(400)
         expect(result).toEqual({ error: 'Invalid game ID' })
         expect(getGameById).toHaveBeenCalledWith('invalid-game')
-        expect(saveGameScore).not.toHaveBeenCalled()
+        expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
     })
 
     it('should return 500 when save fails', async () => {
@@ -208,7 +218,10 @@ describe('POST /api/scores', () => {
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
-        vi.mocked(saveGameScore).mockResolvedValue(false)
+        vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
+            success: false,
+            newAchievements: [],
+        })
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -229,7 +242,11 @@ describe('POST /api/scores', () => {
         expect(response.status).toBe(500)
         expect(result).toEqual({ error: 'Failed to save score' })
         expect(getGameById).toHaveBeenCalledWith('tetris')
-        expect(saveGameScore).toHaveBeenCalledWith('user-123', 'tetris', 5000)
+        expect(saveGameScoreWithAchievements).toHaveBeenCalledWith(
+            'user-123',
+            'tetris',
+            5000
+        )
     })
 
     it('should return 500 for database errors', async () => {

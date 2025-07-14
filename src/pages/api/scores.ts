@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro'
-import { saveGameScore } from '@/lib/db/queries'
+import { saveGameScoreWithAchievements } from '@/lib/db/queries'
 import { getGameById } from '@/lib/games'
 import { auth } from '@/lib/auth'
 
@@ -40,9 +40,13 @@ export const POST: APIRoute = async ({ request }) => {
             })
         }
 
-        const success = await saveGameScore(session.user.id, gameId, score)
+        const result = await saveGameScoreWithAchievements(
+            session.user.id,
+            gameId,
+            score
+        )
 
-        if (!success) {
+        if (!result.success) {
             return new Response(
                 JSON.stringify({ error: 'Failed to save score' }),
                 {
@@ -54,12 +58,18 @@ export const POST: APIRoute = async ({ request }) => {
             )
         }
 
-        return new Response(JSON.stringify({ success: true }), {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        })
+        return new Response(
+            JSON.stringify({
+                success: true,
+                newAchievements: result.newAchievements,
+            }),
+            {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }
+        )
     } catch (error) {
         console.error('Error in POST /api/scores:', error)
         return new Response(
