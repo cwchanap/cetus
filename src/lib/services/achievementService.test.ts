@@ -8,14 +8,14 @@ import {
 } from './achievementService'
 
 // Mock the database queries
-vi.mock('./db/queries', () => ({
+vi.mock('../db/queries', () => ({
     awardAchievement: vi.fn(),
     hasUserEarnedAchievement: vi.fn(),
     getUserBestScoreForGame: vi.fn(),
 }))
 
 // Mock the achievements
-vi.mock('./achievements', () => ({
+vi.mock('../achievements', () => ({
     getAchievementsByGame: vi.fn(),
     ACHIEVEMENTS: [
         {
@@ -52,8 +52,8 @@ import {
     awardAchievement,
     hasUserEarnedAchievement,
     getUserBestScoreForGame,
-} from './db/queries'
-import { getAchievementsByGame, ACHIEVEMENTS } from './achievements'
+} from '../db/queries'
+import { getAchievementsByGame, ACHIEVEMENTS } from '../achievements'
 
 const mockAwardAchievement = vi.mocked(awardAchievement)
 const mockHasUserEarnedAchievement = vi.mocked(hasUserEarnedAchievement)

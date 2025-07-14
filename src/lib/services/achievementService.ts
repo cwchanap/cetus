@@ -2,13 +2,13 @@ import {
     ACHIEVEMENTS,
     getAchievementsByGame,
     type Achievement,
-} from './achievements'
+} from '../achievements'
 import {
     awardAchievement,
     hasUserEarnedAchievement,
     getUserBestScoreForGame,
-} from './db/queries'
-import type { GameType } from './db/types'
+} from '../db/queries'
+import type { GameType } from '../db/types'
 
 /**
  * Check and award achievements for a user after a game score

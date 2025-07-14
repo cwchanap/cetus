@@ -3,3 +3,4 @@
  */
 
 export * from './scoreService'
+export * from './achievementService'

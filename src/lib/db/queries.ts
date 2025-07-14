@@ -219,7 +219,7 @@ export async function saveGameScoreWithAchievements(
 
         // Import achievement service here to avoid circular dependency
         const { checkAndAwardAchievements } = await import(
-            '../achievementService'
+            '../services/achievementService'
         )
 
         // Check and award achievements
