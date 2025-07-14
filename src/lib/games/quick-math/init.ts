@@ -1,6 +1,6 @@
 import { QuickMathGame } from './game'
 import type { GameConfig, GameCallbacks } from './types'
-import { submitScore } from '../../score-client'
+import { saveGameScore } from '@/lib/services/scoreService'
 
 let gameInstance: QuickMathGame | null = null
 let gameCallbacks: GameCallbacks | null = null
@@ -234,30 +234,36 @@ export async function initQuickMathGame(): Promise<void> {
 }
 
 async function saveScore(score: number): Promise<void> {
-    try {
-        const success = await submitScore({
-            gameId: 'quick_math',
-            score: score,
-        })
+    await saveGameScore(
+        'quick_math',
+        score,
+        result => {
+            // Handle newly earned achievements
+            if (result.newAchievements && result.newAchievements.length > 0) {
+                console.log('New achievements earned:', result.newAchievements)
 
-        if (success) {
-            console.log('Score saved successfully!')
-        } else {
-            console.warn('Failed to save score')
-        }
+                // Dispatch an event for achievement notifications
+                window.dispatchEvent(
+                    new CustomEvent('achievementsEarned', {
+                        detail: { achievementIds: result.newAchievements },
+                    })
+                )
+            }
 
-        // Notify via callback if available
-        if (gameCallbacks?.onScoreUpload) {
-            gameCallbacks.onScoreUpload(success)
-        }
-    } catch (error) {
-        console.warn('Error saving score:', error)
+            // Notify via callback if available
+            if (gameCallbacks?.onScoreUpload) {
+                gameCallbacks.onScoreUpload(true)
+            }
+        },
+        error => {
+            console.warn('Failed to save score:', error)
 
-        // Notify via callback if available
-        if (gameCallbacks?.onScoreUpload) {
-            gameCallbacks.onScoreUpload(false)
+            // Notify via callback if available
+            if (gameCallbacks?.onScoreUpload) {
+                gameCallbacks.onScoreUpload(false)
+            }
         }
-    }
+    )
 }
 
 export { gameInstance }

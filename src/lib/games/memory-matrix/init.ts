@@ -1,5 +1,6 @@
 import { MemoryMatrixGame } from './game'
 import { MemoryMatrixRenderer } from './renderer'
+import { saveGameScore } from '@/lib/services/scoreService'
 
 let game: MemoryMatrixGame | null = null
 let renderer: MemoryMatrixRenderer | null = null
@@ -82,24 +83,10 @@ function setupGameControls(): void {
 }
 
 async function saveScore(score: number): Promise<void> {
-    try {
-        const response = await fetch('/api/scores', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                gameId: 'memory_matrix',
-                score: score,
-            }),
-        })
-
-        if (!response.ok) {
-            console.warn('Failed to save score:', response.statusText)
-        } else {
-            const result = await response.json()
-            console.log('Score saved successfully')
-
+    await saveGameScore(
+        'memory_matrix',
+        score,
+        result => {
             // Handle newly earned achievements
             if (result.newAchievements && result.newAchievements.length > 0) {
                 console.log('New achievements earned:', result.newAchievements)
@@ -111,10 +98,11 @@ async function saveScore(score: number): Promise<void> {
                     })
                 )
             }
+        },
+        error => {
+            console.warn('Error saving score:', error)
         }
-    } catch (error) {
-        console.warn('Error saving score:', error)
-    }
+    )
 }
 
 function cleanup(): void {

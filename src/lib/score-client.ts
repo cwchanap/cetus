@@ -1,6 +1,19 @@
 /**
- * Client-side score management utilities
+ * @deprecated Use @/lib/services/scoreService instead
+ * Client-side score management utilities - maintained for backward compatibility
  */
+
+import {
+    submitScore as serviceSubmitScore,
+    getUserGameHistory as serviceGetUserGameHistory,
+    getUserBestScore as serviceGetUserBestScore,
+    formatGameName as serviceFormatGameName,
+    formatScore as serviceFormatScore,
+    formatDate as serviceFormatDate,
+    type GameHistoryEntry as ServiceGameHistoryEntry,
+    type ScoreData as ServiceScoreData,
+} from '@/lib/services/scoreService'
+import type { GameType } from '@/lib/db/types'
 
 export interface ScoreData {
     gameId: string
@@ -15,107 +28,55 @@ export interface GameHistoryEntry {
 }
 
 /**
+ * @deprecated Use saveGameScore from @/lib/services/scoreService instead
  * Submit a score to the server
  */
 export async function submitScore(scoreData: ScoreData): Promise<boolean> {
-    try {
-        const response = await fetch('/api/scores', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(scoreData),
-        })
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const result = await response.json()
-        return result.success
-    } catch (error) {
-        console.error('Error submitting score:', error)
-        return false
-    }
+    const result = await serviceSubmitScore({
+        gameId: scoreData.gameId as GameType,
+        score: scoreData.score,
+    })
+    return result.success
 }
 
 /**
+ * @deprecated Use getUserGameHistory from @/lib/services/scoreService instead
  * Get user's game history
  */
 export async function getUserGameHistory(
     limit: number = 10
 ): Promise<GameHistoryEntry[]> {
-    try {
-        const response = await fetch(`/api/scores/history?limit=${limit}`)
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const result = await response.json()
-        return result.history || []
-    } catch (error) {
-        console.error('Error fetching game history:', error)
-        return []
-    }
+    return serviceGetUserGameHistory(limit)
 }
 
 /**
+ * @deprecated Use getUserBestScore from @/lib/services/scoreService instead
  * Get user's best score for a specific game
  */
 export async function getUserBestScore(gameId: string): Promise<number | null> {
-    try {
-        const response = await fetch(
-            `/api/scores/best?gameId=${encodeURIComponent(gameId)}`
-        )
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const result = await response.json()
-        return result.bestScore
-    } catch (error) {
-        console.error('Error fetching best score:', error)
-        return null
-    }
+    return serviceGetUserBestScore(gameId as GameType)
 }
 
 /**
+ * @deprecated Use formatGameName from @/lib/services/scoreService instead
  * Format game name for display
  */
 export function formatGameName(gameId: string): string {
-    switch (gameId) {
-        case 'tetris':
-            return 'Tetris Challenge'
-        case 'quick_draw':
-            return 'Quick Draw'
-        case 'quick_math':
-            return 'Quick Math'
-        case 'bubble_shooter':
-            return 'Bubble Shooter'
-        default:
-            return gameId.charAt(0).toUpperCase() + gameId.slice(1)
-    }
+    return serviceFormatGameName(gameId as GameType)
 }
 
 /**
+ * @deprecated Use formatScore from @/lib/services/scoreService instead
  * Format score for display
  */
 export function formatScore(score: number): string {
-    return score.toLocaleString()
+    return serviceFormatScore(score)
 }
 
 /**
+ * @deprecated Use formatDate from @/lib/services/scoreService instead
  * Format date for display
  */
 export function formatDate(dateString: string): string {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    })
+    return serviceFormatDate(dateString)
 }

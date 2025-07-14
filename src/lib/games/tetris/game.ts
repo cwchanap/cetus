@@ -9,6 +9,7 @@ import {
     drawNextPiece,
 } from './utils'
 import { draw, type RendererState } from './renderer'
+import { saveGameScore } from '@/lib/services/scoreService'
 
 export const GAME_CONSTANTS: GameConstants = {
     BOARD_WIDTH: 10,
@@ -361,48 +362,27 @@ export async function endGame(state: GameState): Promise<void> {
 
     console.log('Game Over! Final Score:', state.score)
 
-    // Submit score to server
-    if (state.score > 0) {
-        try {
-            const response = await fetch('/api/scores', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    gameId: 'tetris',
-                    score: state.score,
-                }),
-            })
+    // Submit score to server using scoreService
+    await saveGameScore(
+        'tetris',
+        state.score,
+        result => {
+            // Handle newly earned achievements
+            if (result.newAchievements && result.newAchievements.length > 0) {
+                console.log('New achievements earned:', result.newAchievements)
 
-            if (response.ok) {
-                const result = await response.json()
-                console.log('Score submitted successfully')
-
-                // Handle newly earned achievements
-                if (
-                    result.newAchievements &&
-                    result.newAchievements.length > 0
-                ) {
-                    console.log(
-                        'New achievements earned:',
-                        result.newAchievements
-                    )
-
-                    // Dispatch an event for achievement notifications
-                    window.dispatchEvent(
-                        new CustomEvent('achievementsEarned', {
-                            detail: { achievementIds: result.newAchievements },
-                        })
-                    )
-                }
-            } else {
-                console.error('Failed to submit score')
+                // Dispatch an event for achievement notifications
+                window.dispatchEvent(
+                    new CustomEvent('achievementsEarned', {
+                        detail: { achievementIds: result.newAchievements },
+                    })
+                )
             }
-        } catch (error) {
-            console.error('Error submitting score:', error)
+        },
+        error => {
+            console.error('Failed to save score:', error)
         }
-    }
+    )
 }
 
 export function gameLoop(state: GameState): void {
