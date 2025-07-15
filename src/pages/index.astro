@@ -25,6 +25,7 @@ const gameIcons: Record<string, string> = {
   bubble_shooter: '🫧',
   quick_math: '🧮',
   memory_matrix: '🧠',
+  word_scramble: '📝',
 }
 
 // Convert Games system data to GameCard format
@@ -36,6 +37,7 @@ function convertGameToCardFormat(game: Game) {
     bubble_shooter: 3,
     quick_math: 5,
     memory_matrix: 4,
+    word_scramble: 6,
   }
 
   return {
@@ -56,15 +58,6 @@ const availableGames = systemGames.map(convertGameToCardFormat)
 
 // Add placeholder games for future development
 const comingSoonGames = [
-  {
-    id: 6,
-    title: 'Word Scramble',
-    description: 'Unscramble words as fast as you can',
-    icon: '📝',
-    duration: '5-12 min',
-    difficulty: 'Medium',
-    available: false,
-  },
   {
     id: 7,
     title: 'Color Match',

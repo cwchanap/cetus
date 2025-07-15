@@ -73,6 +73,18 @@ export const GAMES: Game[] = [
         tags: ['memory', 'matching', 'shapes', 'single-player', 'cognitive'],
         isActive: true,
     },
+    {
+        id: 'word_scramble',
+        name: 'Word Scramble',
+        description:
+            'Unscramble words as fast as you can in this 60-second word puzzle challenge',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '1 minute',
+        difficulty: 'medium',
+        tags: ['words', 'anagram', 'vocabulary', 'single-player', 'speed'],
+        isActive: true,
+    },
 ]
 
 // Helper functions

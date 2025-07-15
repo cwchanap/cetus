@@ -98,6 +98,19 @@ export const ACHIEVEMENTS: Achievement[] = [
         },
         rarity: 'common',
     },
+    {
+        id: 'word_scramble_welcome',
+        name: 'First Unscramble',
+        description:
+            'Welcome to Word Scramble! You unscrambled your first word.',
+        logo: '🎮',
+        gameId: 'word_scramble',
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: 'common',
+    },
 
     // Tetris achievements
     {
@@ -247,6 +260,68 @@ export const ACHIEVEMENTS: Achievement[] = [
             threshold: 1000,
         },
         rarity: 'epic',
+    },
+
+    // Word Scramble achievements
+    {
+        id: 'word_novice',
+        name: 'Word Novice',
+        description: 'Score 100 points in Word Scramble',
+        logo: '📝',
+        gameId: 'word_scramble',
+        condition: {
+            type: 'score_threshold',
+            threshold: 100,
+        },
+        rarity: 'common',
+    },
+    {
+        id: 'word_apprentice',
+        name: 'Word Apprentice',
+        description: 'Score 200 points in Word Scramble',
+        logo: '📚',
+        gameId: 'word_scramble',
+        condition: {
+            type: 'score_threshold',
+            threshold: 200,
+        },
+        rarity: 'common',
+    },
+    {
+        id: 'word_expert',
+        name: 'Word Expert',
+        description: 'Score 400 points in Word Scramble',
+        logo: '🔤',
+        gameId: 'word_scramble',
+        condition: {
+            type: 'score_threshold',
+            threshold: 400,
+        },
+        rarity: 'rare',
+    },
+    {
+        id: 'word_master',
+        name: 'Word Master',
+        description: 'Score 600 points in Word Scramble',
+        logo: '🏆',
+        gameId: 'word_scramble',
+        condition: {
+            type: 'score_threshold',
+            threshold: 600,
+        },
+        rarity: 'epic',
+    },
+    {
+        id: 'vocabulary_virtuoso',
+        name: 'Vocabulary Virtuoso',
+        description: 'Score 800 points in Word Scramble',
+        logo: '✨',
+        gameId: 'word_scramble',
+        condition: {
+            type: 'score_threshold',
+            threshold: 800,
+        },
+        rarity: 'legendary',
     },
 ]
 

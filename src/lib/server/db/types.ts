@@ -63,6 +63,7 @@ export type GameType =
     | 'bubble_shooter'
     | 'quick_math'
     | 'memory_matrix'
+    | 'word_scramble'
 
 // Achievement tables - only stores user-achievement mapping
 export interface UserAchievementsTable {

@@ -14,7 +14,7 @@ describe('Achievement System', () => {
     describe('getAllAchievements', () => {
         it('should return all achievements', () => {
             const achievements = getAllAchievements()
-            expect(achievements).toHaveLength(18) // 1 global + 5 welcome + 4 tetris + 4 bubble shooter + 4 memory matrix
+            expect(achievements).toHaveLength(24) // 1 global + 6 welcome + 4 tetris + 4 bubble shooter + 4 memory matrix + 5 word scramble
             expect(achievements[0]).toHaveProperty('id')
             expect(achievements[0]).toHaveProperty('name')
             expect(achievements[0]).toHaveProperty('description')
@@ -187,6 +187,7 @@ describe('Achievement System', () => {
                     'quick_draw',
                     'quick_math',
                     'memory_matrix',
+                    'word_scramble',
                 ]).toContain(achievement.gameId)
             })
         })

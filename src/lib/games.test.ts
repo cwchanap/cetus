@@ -16,7 +16,7 @@ describe('Games System', () => {
     describe('getAllGames', () => {
         it('should return all games', () => {
             const games = getAllGames()
-            expect(games).toHaveLength(5) // tetris, quick_draw, bubble_shooter, quick_math, memory_matrix
+            expect(games).toHaveLength(6) // tetris, quick_draw, bubble_shooter, quick_math, memory_matrix, word_scramble
             expect(games[0]).toHaveProperty('id')
             expect(games[0]).toHaveProperty('name')
             expect(games[0]).toHaveProperty('description')
@@ -191,6 +191,7 @@ describe('Games System', () => {
                 'bubble_shooter',
                 'quick_math',
                 'memory_matrix',
+                'word_scramble',
             ]
 
             games.forEach(game => {
@@ -294,7 +295,7 @@ describe('Games System', () => {
             const games = getAllGames()
             const convertedGames = games.map(convertGameToCardFormat)
 
-            expect(convertedGames).toHaveLength(5)
+            expect(convertedGames).toHaveLength(6)
 
             // Test Tetris conversion
             const tetris = convertedGames.find(g => g.id === 2)

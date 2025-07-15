@@ -1,0 +1,274 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+
+// Custom navigation for game pages with breadcrumb
+const gameNavigation = [
+  { href: '/', label: 'Home' },
+  { href: '#', label: 'Word Scramble' },
+]
+---
+
+<AppLayout
+  title="Word Scramble - Cetus Minigames"
+  description="Unscramble words as fast as you can in this 60-second word puzzle challenge"
+  includeFooter={false}
+  navigation={gameNavigation}
+>
+  <!-- Game Breadcrumb -->
+  <div class="px-6 py-4 border-b border-slate-700/50">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center space-x-3">
+        <div class="text-cyan-400 text-sm">🔤 Word Scramble</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-6 py-8">
+    <div class="max-w-6xl mx-auto">
+      <!-- Game Title -->
+      <div class="text-center mb-8">
+        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
+          WORD SCRAMBLE
+        </h2>
+        <p class="text-gray-400 text-lg">
+          Unscramble words as fast as you can in 60 seconds!
+        </p>
+      </div>
+
+      <!-- Game Container - Centered -->
+      <div class="flex justify-center mb-12">
+        <!-- Game Board -->
+        <Card variant="glass" class="p-8 w-full max-w-lg">
+          <div class="flex flex-col items-center space-y-6">
+            <!-- Game Status -->
+            <div class="flex space-x-4 mb-4">
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Score: <span id="score" class="text-cyan-400">0</span></span
+                >
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Time: <span id="time-remaining" class="text-cyan-400"
+                    >60</span
+                  >s</span
+                >
+              </Badge>
+            </div>
+
+            <!-- Scrambled Word Display -->
+            <div class="text-center mb-6">
+              <div class="text-lg text-gray-400 mb-2">
+                Unscramble this word:
+              </div>
+              <div
+                class="text-6xl font-orbitron font-bold text-white mb-4 min-h-20 flex items-center justify-center"
+              >
+                <span id="scrambled-word" class="text-holographic">READY?</span>
+              </div>
+              <div class="text-sm text-gray-500">
+                <span id="word-difficulty" class="px-2 py-1 rounded bg-gray-800"
+                ></span>
+              </div>
+            </div>
+
+            <!-- Answer Input -->
+            <div class="w-full max-w-xs">
+              <input
+                id="answer-input"
+                type="text"
+                class="w-full px-4 py-3 text-2xl font-mono text-center bg-black/50 border-2 border-cyan-400/50 rounded-lg focus:border-cyan-400 focus:outline-none text-white placeholder-gray-500 disabled:opacity-50 transition-colors"
+                placeholder="Your answer"
+                disabled
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Submit Button -->
+            <div class="flex space-x-3">
+              <Button id="submit-answer" variant="primary" size="lg" disabled>
+                Submit Answer
+              </Button>
+              <Button id="skip-word" variant="outline" size="lg" disabled>
+                Skip Word
+              </Button>
+            </div>
+
+            <!-- Game Controls -->
+            <div class="flex space-x-3 mt-6">
+              <Button id="start-btn" variant="primary">Start Game</Button>
+            </div>
+
+            <!-- Current Session Stats - Inline -->
+            <div class="flex space-x-6 text-sm mt-4">
+              <div class="text-center">
+                <div class="text-gray-400">Words</div>
+                <div id="current-words" class="text-white font-bold">0</div>
+              </div>
+              <div class="text-center">
+                <div class="text-gray-400">Correct</div>
+                <div id="current-correct" class="text-green-400 font-bold">
+                  0
+                </div>
+              </div>
+              <div class="text-center">
+                <div class="text-gray-400">Score</div>
+                <div id="current-score" class="text-cyan-400 font-bold">0</div>
+              </div>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div
+              id="game-over-overlay"
+              class="absolute inset-0 bg-black/90 rounded-lg flex items-center justify-center hidden"
+              style="margin: -2rem;"
+            >
+              <div class="text-center p-8">
+                <h3 class="text-4xl font-orbitron font-bold text-cyan-400 mb-6">
+                  TIME'S UP!
+                </h3>
+
+                <!-- Final Stats -->
+                <div class="space-y-4 mb-8">
+                  <div class="text-xl">
+                    Final Score: <span
+                      id="final-score"
+                      class="text-holographic font-bold">0</span
+                    >
+                  </div>
+                  <div class="text-lg text-gray-300">
+                    Words Attempted: <span
+                      id="total-words"
+                      class="text-cyan-400">0</span
+                    >
+                  </div>
+                  <div class="text-lg text-gray-300">
+                    Accuracy: <span id="accuracy" class="text-green-400"
+                      >0%</span
+                    >
+                  </div>
+                  <div class="text-lg text-gray-300">
+                    Longest Word: <span
+                      id="longest-word"
+                      class="text-purple-400">None</span
+                    >
+                  </div>
+                </div>
+
+                <Button id="play-again-btn" variant="primary" size="lg">
+                  Play Again
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <!-- Game Info & Rules - Bottom Section -->
+      <div class="max-w-5xl mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Game Rules -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              GAME RULES
+            </h3>
+            <div class="space-y-3 text-sm text-gray-300">
+              <div class="flex items-center space-x-2">
+                <span class="text-green-400">✓</span>
+                <span>Unscramble words as fast as you can</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-green-400">✓</span>
+                <span>60 seconds to achieve the highest score</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-green-400">✓</span>
+                <span>Easy words = 10 points, Medium = 20, Hard = 30</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-green-400">✓</span>
+                <span>Quick answers earn bonus points</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-green-400">✓</span>
+                <span>Skip words if you're stuck</span>
+              </div>
+            </div>
+          </Card>
+
+          <!-- Scoring System -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              SCORING
+            </h3>
+            <div class="space-y-3 text-sm text-gray-300">
+              <div class="flex justify-between items-center">
+                <span class="text-green-400">Easy Words (3-4 letters):</span>
+                <span class="font-bold">10 pts</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-yellow-400">Medium Words (5-6 letters):</span>
+                <span class="font-bold">20 pts</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-red-400">Hard Words (7+ letters):</span>
+                <span class="font-bold">30 pts</span>
+              </div>
+              <div class="border-t border-gray-700 pt-3 mt-3">
+                <div class="text-gray-400 text-xs mb-2">Speed Bonuses:</div>
+                <div class="flex justify-between items-center">
+                  <span class="text-cyan-400">Under 3 seconds:</span>
+                  <span class="font-bold">+10 pts</span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-cyan-400">Under 5 seconds:</span>
+                  <span class="font-bold">+5 pts</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <!-- Controls -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              CONTROLS
+            </h3>
+            <div class="space-y-4 text-sm">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Submit Answer:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">Enter</Badge>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Skip Word:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">Button</Badge
+                >
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Letters Only:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">A-Z</Badge>
+              </div>
+              <div class="pt-2 border-t border-gray-700">
+                <div class="text-gray-400 text-xs">
+                  💡 Type your answer and press Enter for fastest gameplay
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Word Scramble Game Logic -->
+    <script>
+      import { initWordScrambleGame } from '@/lib/games/word-scramble/init'
+
+      // Initialize game when page loads
+      document.addEventListener('DOMContentLoaded', async () => {
+        await initWordScrambleGame()
+      })
+    </script>
+  </div>
+</AppLayout>
