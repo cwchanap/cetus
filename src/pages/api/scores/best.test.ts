@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from '@/pages/api/scores/best'
-import { getUserBestScoreByGame } from '@/lib/db/queries'
+import { getUserBestScoreByGame } from '@/lib/server/db/queries'
 import { getGameById } from '@/lib/games'
 import { auth } from '@/lib/auth'
 
 // Mock dependencies
-vi.mock('@/lib/db/queries', () => ({
+vi.mock('@/lib/server/db/queries', () => ({
     getUserBestScoreByGame: vi.fn(),
 }))
 

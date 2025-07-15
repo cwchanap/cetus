@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS. The platform features multiple interactive games including Tetris, Bubble Shooter, and Quick Draw with user authentication, score tracking, and a modern neon-styled design.
+Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS. The platform features multiple interactive games including Tetris, Bubble Shooter, Quick Draw, Memory Matrix, and Quick Math with user authentication, score tracking, achievement system, and a modern neon-styled design.
 
 ## Development Commands
 
@@ -51,9 +51,9 @@ Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS.
 
 Key database entities:
 - `user`, `session`, `account`, `verification` (Better Auth tables)
-- `games` - Game definitions and metadata
 - `game_scores` - Individual game score records
 - `user_stats` - Aggregated user statistics and preferences
+- `user_achievements` - User achievement tracking (achievement definitions stored in code)
 
 ### Project Structure
 ```
@@ -63,13 +63,19 @@ src/
 │   ├── auth.ts        # Better Auth configuration
 │   ├── auth-client.ts # Client-side auth utilities
 │   ├── score-client.ts # Score tracking utilities
-│   ├── db/           # Database layer (Kysely + LibSQL)
-│   │   ├── client.ts  # Database connection
-│   │   ├── queries.ts # Typed query functions
-│   │   └── types.ts   # Database schema types
+│   ├── server/        # Server-side utilities
+│   │   └── db/        # Database layer (Kysely + LibSQL)
+│   │       ├── client.ts  # Database connection
+│   │       ├── queries.ts # Typed query functions
+│   │       └── types.ts   # Database schema types
+│   ├── services/     # Business logic services
+│   │   ├── achievementService.ts # Achievement checking and awarding
+│   │   └── scoreService.ts # Centralized score management
 │   └── games/        # Game-specific logic
 │       ├── tetris/    # Tetris game implementation
-│       └── bubble-shooter/ # Bubble shooter implementation
+│       ├── bubble-shooter/ # Bubble shooter implementation
+│       ├── memory-matrix/ # Memory Matrix implementation
+│       └── quick-math/ # Quick Math implementation
 ├── pages/
 │   ├── api/          # API routes (auth, scores)
 │   ├── login/        # Authentication pages
@@ -96,6 +102,11 @@ Games are modular with consistent patterns:
 - **Init**: Game initialization and setup
 
 Each game follows: `types.ts` → `game.ts` → `renderer.ts` → `utils.ts`
+
+### Services Architecture
+- **Achievement Service**: Checks score thresholds and awards achievements automatically
+- **Score Service**: Centralized score submission with achievement integration
+- **Type Safety**: All services use strongly typed GameType and database interfaces
 
 ### UI Component System
 All components follow consistent patterns:
@@ -154,7 +165,7 @@ Comprehensive sci-fi design system:
 
 ### Database Operations
 1. Use Kysely for all database queries
-2. Follow established patterns in `src/lib/db/queries.ts`
+2. Follow established patterns in `src/lib/server/db/queries.ts`
 3. Add proper TypeScript types for new entities
 4. Test database operations with unit tests
 5. Handle migrations through Better Auth system
@@ -167,3 +178,11 @@ Comprehensive sci-fi design system:
 - **Error Handling**: Consistent error patterns across API routes
 - **Performance**: Optimized with code splitting and lazy loading
 - **Security**: CSRF protection, secure sessions, environment variables
+- **Achievement System**: Code-based achievement definitions with automatic checking
+- **Score Integration**: All games use centralized score service with achievement notifications
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

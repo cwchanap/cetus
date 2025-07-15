@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro'
-import { getUserBestScoreByGame } from '@/lib/db/queries'
+import { getUserBestScoreByGame } from '@/lib/server/db/queries'
 import { getGameById } from '@/lib/games'
 import { auth } from '@/lib/auth'
 

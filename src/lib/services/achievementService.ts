@@ -7,8 +7,8 @@ import {
     awardAchievement,
     hasUserEarnedAchievement,
     getUserBestScoreForGame,
-} from '../db/queries'
-import type { GameType } from '../db/types'
+} from '../server/db/queries'
+import type { GameType } from '../server/db/types'
 
 /**
  * Check and award achievements for a user after a game score

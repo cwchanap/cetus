@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth'
-import { dialect } from './db'
+import { dialect } from './server/db'
 
 export const auth = betterAuth({
     database: {

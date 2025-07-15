@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro'
-import { updateUser } from '@/lib/db/queries'
+import { updateUser } from '@/lib/server/db/queries'
 
 export const POST: APIRoute = async ({ request, locals }) => {
     // Check if user is authenticated

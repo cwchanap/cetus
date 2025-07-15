@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro'
-import { saveGameScoreWithAchievements } from '@/lib/db/queries'
+import { saveGameScoreWithAchievements } from '@/lib/server/db/queries'
 import { getGameById } from '@/lib/games'
 import { auth } from '@/lib/auth'
 

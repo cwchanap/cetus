@@ -1,4 +1,4 @@
-import type { GameType, UserAchievementRecord } from './db/types'
+import type { GameType, UserAchievementRecord } from './server/db/types'
 
 // Achievement system types
 export interface Achievement {

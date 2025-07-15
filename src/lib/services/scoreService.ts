@@ -2,7 +2,7 @@
  * Score Service - Centralized score management for all games
  */
 
-import type { GameType } from '@/lib/db/types'
+import type { GameType } from '@/lib/server/db/types'
 
 export interface ScoreSubmissionResult {
     success: boolean

@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/pages/api/scores'
-import { saveGameScoreWithAchievements } from '@/lib/db/queries'
+import { saveGameScoreWithAchievements } from '@/lib/server/db/queries'
 import { getGameById } from '@/lib/games'
 import { auth } from '@/lib/auth'
 
 // Mock dependencies
-vi.mock('@/lib/db/queries', () => ({
+vi.mock('@/lib/server/db/queries', () => ({
     saveGameScoreWithAchievements: vi.fn(),
 }))
 

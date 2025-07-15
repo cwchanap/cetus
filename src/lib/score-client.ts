@@ -13,7 +13,7 @@ import {
     type GameHistoryEntry as ServiceGameHistoryEntry,
     type ScoreData as ServiceScoreData,
 } from '@/lib/services/scoreService'
-import type { GameType } from '@/lib/db/types'
+import type { GameType } from '@/lib/server/db/types'
 
 export interface ScoreData {
     gameId: string

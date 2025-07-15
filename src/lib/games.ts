@@ -1,4 +1,4 @@
-import type { GameType } from './db/types'
+import type { GameType } from './server/db/types'
 
 // Game system types
 export interface Game {

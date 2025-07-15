@@ -5,11 +5,11 @@ import {
     getUserGameHistoryPaginated,
     getUserBestScoreByGame,
     getUserAchievementsPaginated,
-} from '@/lib/db/queries'
-import { db } from '@/lib/db/client'
+} from '@/lib/server/db/queries'
+import { db } from '@/lib/server/db/client'
 
 // Mock the database client
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/lib/server/db/client', () => ({
     db: {
         selectFrom: vi.fn(),
         insertInto: vi.fn(),
@@ -49,8 +49,8 @@ describe('Database Queries', () => {
             }
 
             // Mock the getUserStats and upsertUserStats functions
-            vi.doMock('@/lib/db/queries', async () => {
-                const actual = await vi.importActual('@/lib/db/queries')
+            vi.doMock('@/lib/server/db/queries', async () => {
+                const actual = await vi.importActual('@/lib/server/db/queries')
                 return {
                     ...actual,
                     getUserStats: vi.fn().mockResolvedValue(mockUserStats),

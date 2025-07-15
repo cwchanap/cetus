@@ -219,7 +219,7 @@ export async function saveGameScoreWithAchievements(
 
         // Import achievement service here to avoid circular dependency
         const { checkAndAwardAchievements } = await import(
-            '../services/achievementService'
+            '../../services/achievementService'
         )
 
         // Check and award achievements
@@ -264,7 +264,7 @@ export async function getUserGameHistory(
             .execute()
 
         // Import game definitions to get names
-        const { getGameById } = await import('../games')
+        const { getGameById } = await import('../../games')
 
         return results.map(row => ({
             game_id: row.game_id,
@@ -325,7 +325,7 @@ export async function getUserGameHistoryPaginated(
             .execute()
 
         // Import game definitions to get names
-        const { getGameById } = await import('../games')
+        const { getGameById } = await import('../../games')
 
         const games = results.map(row => ({
             game_id: row.game_id,

@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro'
-import { getUserGameHistory } from '@/lib/db/queries'
+import { getUserGameHistory } from '@/lib/server/db/queries'
 import { auth } from '@/lib/auth'
 
 export const GET: APIRoute = async ({ request, url }) => {

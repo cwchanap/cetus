@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from '@/pages/api/scores/history'
-import { getUserGameHistory } from '@/lib/db/queries'
+import { getUserGameHistory } from '@/lib/server/db/queries'
 import { auth } from '@/lib/auth'
 
 // Mock dependencies
-vi.mock('@/lib/db/queries', () => ({
+vi.mock('@/lib/server/db/queries', () => ({
     getUserGameHistory: vi.fn(),
 }))
 
