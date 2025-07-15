@@ -11,6 +11,7 @@ export interface ScoreSubmissionResult {
         name: string
         description: string
         icon: string
+        rarity: 'common' | 'rare' | 'epic' | 'legendary'
     }>
     error?: string
 }
@@ -95,7 +96,14 @@ export async function saveGameScore(
             // Handle newly earned achievements
             if (result.newAchievements && result.newAchievements.length > 0) {
                 console.log('New achievements earned:', result.newAchievements)
-                // You can add a notification system here in the future
+
+                // Show achievement award notifications
+                if (
+                    typeof window !== 'undefined' &&
+                    window.showAchievementAward
+                ) {
+                    window.showAchievementAward(result.newAchievements)
+                }
             }
 
             onSuccess?.(result)

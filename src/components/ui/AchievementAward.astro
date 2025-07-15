@@ -1,0 +1,379 @@
+---
+import { cn } from '@/lib/utils'
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'div'> {
+  class?: string
+}
+
+const { class: className = '', ...props } = Astro.props
+
+const classes = cn(
+  'fixed inset-0 z-50 flex items-center justify-center pointer-events-none',
+  className
+)
+---
+
+<div id="achievement-award-overlay" class={classes} {...props}>
+  <!-- Backdrop -->
+  <div
+    id="achievement-award-backdrop"
+    class="absolute inset-0 bg-black/70 backdrop-blur-sm opacity-0 transition-opacity duration-500 pointer-events-none"
+  >
+  </div>
+
+  <!-- Achievement Award Container -->
+  <div
+    id="achievement-award-container"
+    class="relative max-w-md mx-4 transform scale-75 opacity-0 transition-all duration-700 ease-out pointer-events-auto"
+  >
+    <!-- Achievement Cards will be rendered here -->
+  </div>
+</div>
+
+<script>
+  interface AchievementData {
+    id: string
+    name: string
+    description: string
+    icon: string
+    rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  }
+
+  class AchievementAward {
+    private overlay: HTMLElement
+    private backdrop: HTMLElement
+    private container: HTMLElement
+    private queue: AchievementData[] = []
+    private isShowing = false
+
+    constructor() {
+      this.overlay = document.getElementById('achievement-award-overlay')!
+      this.backdrop = document.getElementById('achievement-award-backdrop')!
+      this.container = document.getElementById('achievement-award-container')!
+
+      // Hide initially
+      this.overlay.style.display = 'none'
+    }
+
+    /**
+     * Show achievement awards for newly earned achievements
+     */
+    async showAchievements(achievements: AchievementData[]): Promise<void> {
+      if (!achievements || achievements.length === 0) {
+        return
+      }
+
+      // Add to queue
+      this.queue.push(...achievements)
+
+      // Start showing if not already showing
+      if (!this.isShowing) {
+        await this.processQueue()
+      }
+    }
+
+    /**
+     * Process the achievement queue
+     */
+    private async processQueue(): Promise<void> {
+      if (this.queue.length === 0) {
+        this.isShowing = false
+        return
+      }
+
+      this.isShowing = true
+
+      // Show next achievement
+      const achievement = this.queue.shift()!
+      await this.showSingleAchievement(achievement)
+
+      // Continue with next achievement after delay
+      setTimeout(() => {
+        this.processQueue()
+      }, 1000)
+    }
+
+    /**
+     * Show a single achievement
+     */
+    private async showSingleAchievement(
+      achievement: AchievementData
+    ): Promise<void> {
+      // Create achievement card
+      const card = this.createAchievementCard(achievement)
+
+      // Clear container and add new card
+      this.container.innerHTML = ''
+      this.container.appendChild(card)
+
+      // Show overlay
+      this.overlay.style.display = 'flex'
+
+      // Animate in
+      await this.animateIn()
+
+      // Wait for user interaction or timeout
+      await this.waitForDismiss()
+
+      // Animate out
+      await this.animateOut()
+
+      // Hide overlay
+      this.overlay.style.display = 'none'
+    }
+
+    /**
+     * Create achievement card element
+     */
+    private createAchievementCard(achievement: AchievementData): HTMLElement {
+      const { rarityColor, rarityGlow, particleColor, glowColor } =
+        this.getRarityStyles(achievement.rarity)
+
+      const card = document.createElement('div')
+      card.className = `
+        relative bg-glass-strong rounded-2xl border-2 p-6 text-center
+        shadow-2xl transform transition-all duration-300
+        ${rarityColor} ${rarityGlow}
+        hover:scale-105 cursor-pointer
+      `
+
+      card.innerHTML = `
+        <!-- Particle Effects -->
+        <div class="absolute inset-0 pointer-events-none">
+          ${this.createParticles(particleColor)}
+        </div>
+
+        <!-- Achievement Content -->
+        <div class="relative z-10">
+          <!-- Achievement Icon -->
+          <div class="mb-4">
+            <div class="relative inline-block">
+              <div class="text-6xl mb-2 animate-bounce">${achievement.icon}</div>
+              <div class="absolute inset-0 ${glowColor} rounded-full blur-xl opacity-50"></div>
+            </div>
+          </div>
+
+          <!-- Achievement Info -->
+          <div class="space-y-3">
+            <!-- Achievement Unlocked Text -->
+            <div class="text-cyan-400 font-orbitron font-bold text-sm tracking-wider mb-2">
+              🏆 ACHIEVEMENT UNLOCKED!
+            </div>
+
+            <!-- Achievement Name -->
+            <h3 class="font-orbitron font-bold text-xl text-white mb-2">
+              ${achievement.name}
+            </h3>
+
+            <!-- Achievement Description -->
+            <p class="text-gray-300 text-sm leading-relaxed">
+              ${achievement.description}
+            </p>
+
+            <!-- Rarity Badge -->
+            <div class="flex justify-center mt-4">
+              <span class="
+                px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
+                ${this.getRarityBadgeClass(achievement.rarity)}
+                border ${rarityColor}
+              ">
+                ${achievement.rarity}
+              </span>
+            </div>
+          </div>
+
+          <!-- Dismiss Instructions -->
+          <div class="mt-6 text-xs text-gray-400 opacity-75">
+            Click anywhere to continue
+          </div>
+        </div>
+
+        <!-- Animated Border -->
+        <div class="absolute inset-0 rounded-2xl border-2 border-transparent animate-pulse">
+          <div class="absolute inset-0 rounded-2xl border-2 ${rarityColor} opacity-30"></div>
+        </div>
+      `
+
+      // Add click handler
+      card.addEventListener('click', () => {
+        this.dismissCurrent()
+      })
+
+      return card
+    }
+
+    /**
+     * Get rarity-specific styles
+     */
+    private getRarityStyles(rarity: string) {
+      switch (rarity) {
+        case 'legendary':
+          return {
+            rarityColor: 'border-yellow-400/50',
+            rarityGlow: 'shadow-yellow-400/25',
+            particleColor: 'rgb(251 191 36)',
+            glowColor: 'bg-yellow-400/20',
+          }
+        case 'epic':
+          return {
+            rarityColor: 'border-purple-400/50',
+            rarityGlow: 'shadow-purple-400/25',
+            particleColor: 'rgb(168 85 247)',
+            glowColor: 'bg-purple-400/20',
+          }
+        case 'rare':
+          return {
+            rarityColor: 'border-blue-400/50',
+            rarityGlow: 'shadow-blue-400/25',
+            particleColor: 'rgb(59 130 246)',
+            glowColor: 'bg-blue-400/20',
+          }
+        default: // common
+          return {
+            rarityColor: 'border-gray-400/50',
+            rarityGlow: 'shadow-gray-400/25',
+            particleColor: 'rgb(156 163 175)',
+            glowColor: 'bg-gray-400/20',
+          }
+      }
+    }
+
+    /**
+     * Get rarity badge class
+     */
+    private getRarityBadgeClass(rarity: string): string {
+      switch (rarity) {
+        case 'legendary':
+          return 'bg-yellow-500/20 text-yellow-400'
+        case 'epic':
+          return 'bg-purple-500/20 text-purple-400'
+        case 'rare':
+          return 'bg-blue-500/20 text-blue-400'
+        default:
+          return 'bg-gray-500/20 text-gray-400'
+      }
+    }
+
+    /**
+     * Create particle effects
+     */
+    private createParticles(color: string): string {
+      const particles = []
+      for (let i = 0; i < 12; i++) {
+        particles.push(`
+          <div 
+            class="absolute w-1 h-1 rounded-full animate-ping"
+            style="
+              background-color: ${color};
+              left: ${Math.random() * 100}%;
+              top: ${Math.random() * 100}%;
+              animation-delay: ${Math.random() * 2}s;
+              animation-duration: ${1 + Math.random() * 1}s;
+              opacity: ${0.3 + Math.random() * 0.7};
+            "
+          ></div>
+        `)
+      }
+      return particles.join('')
+    }
+
+    /**
+     * Animate in
+     */
+    private async animateIn(): Promise<void> {
+      return new Promise(resolve => {
+        requestAnimationFrame(() => {
+          this.backdrop.style.opacity = '1'
+          this.container.style.transform = 'scale(1)'
+          this.container.style.opacity = '1'
+
+          // Add entrance sound effect (optional)
+          this.playSound('achievement-unlock')
+
+          setTimeout(resolve, 700)
+        })
+      })
+    }
+
+    /**
+     * Animate out
+     */
+    private async animateOut(): Promise<void> {
+      return new Promise(resolve => {
+        this.backdrop.style.opacity = '0'
+        this.container.style.transform = 'scale(0.9)'
+        this.container.style.opacity = '0'
+
+        setTimeout(resolve, 500)
+      })
+    }
+
+    /**
+     * Wait for user to dismiss or timeout
+     */
+    private async waitForDismiss(): Promise<void> {
+      return new Promise(resolve => {
+        let resolved = false
+
+        const resolveOnce = () => {
+          if (!resolved) {
+            resolved = true
+            resolve()
+          }
+        }
+
+        // Auto-dismiss after 5 seconds
+        const timeout = setTimeout(resolveOnce, 5000)
+
+        // Store dismiss handler
+        this.dismissHandler = () => {
+          clearTimeout(timeout)
+          resolveOnce()
+        }
+      })
+    }
+
+    private dismissHandler: (() => void) | null = null
+
+    /**
+     * Dismiss current achievement
+     */
+    private dismissCurrent(): void {
+      if (this.dismissHandler) {
+        this.dismissHandler()
+        this.dismissHandler = null
+      }
+    }
+
+    /**
+     * Play sound effect (optional)
+     */
+    private playSound(soundName: string): void {
+      // This is optional - you can implement sound effects if desired
+      console.log(`Playing sound: ${soundName}`)
+    }
+  }
+
+  // Global instance
+  let achievementAward: AchievementAward
+
+  // Initialize when DOM is ready
+  document.addEventListener('DOMContentLoaded', () => {
+    achievementAward = new AchievementAward()
+  })
+
+  // Global function to show achievements
+  window.showAchievementAward = function (achievements: AchievementData[]) {
+    if (achievementAward) {
+      achievementAward.showAchievements(achievements)
+    }
+  }
+
+  // Add to global scope for TypeScript
+  declare global {
+    interface Window {
+      showAchievementAward: (achievements: AchievementData[]) => void
+    }
+  }
+</script>

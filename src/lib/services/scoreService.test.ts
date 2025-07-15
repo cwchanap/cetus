@@ -12,9 +12,18 @@ import {
 // Mock fetch globally
 global.fetch = vi.fn()
 
+// Mock window object for AchievementAward tests
+const mockWindow = {
+    showAchievementAward: vi.fn(),
+}
+
 describe('Score Service', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        // Reset the mock function
+        mockWindow.showAchievementAward = vi.fn()
+        // Setup window mock
+        global.window = mockWindow as any
     })
 
     describe('submitScore', () => {
@@ -211,6 +220,188 @@ describe('Score Service', () => {
         it('should format dates correctly', () => {
             const result = formatDate('2023-01-15T10:30:00Z')
             expect(result).toMatch(/Jan 15, 2023/)
+        })
+    })
+
+    describe('AchievementAward Integration', () => {
+        it('should call showAchievementAward when achievements are earned', async () => {
+            const mockResponse = {
+                success: true,
+                newAchievements: [
+                    {
+                        id: 'tetris_novice',
+                        name: 'Tetris Novice',
+                        description: 'Score 100 points in Tetris',
+                        icon: '🔰',
+                        rarity: 'common',
+                    },
+                ],
+            }
+
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve(mockResponse),
+            })
+
+            const consoleSpy = vi
+                .spyOn(console, 'log')
+                .mockImplementation(() => {})
+            const onSuccess = vi.fn()
+
+            await saveGameScore('tetris', 150, onSuccess)
+
+            expect(mockWindow.showAchievementAward).toHaveBeenCalledWith(
+                mockResponse.newAchievements
+            )
+            expect(onSuccess).toHaveBeenCalledWith(mockResponse)
+            expect(consoleSpy).toHaveBeenCalledWith('Score saved successfully!')
+            expect(consoleSpy).toHaveBeenCalledWith(
+                'New achievements earned:',
+                mockResponse.newAchievements
+            )
+        })
+
+        it('should not call showAchievementAward when no achievements are earned', async () => {
+            const mockResponse = {
+                success: true,
+                newAchievements: [],
+            }
+
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve(mockResponse),
+            })
+
+            const onSuccess = vi.fn()
+            await saveGameScore('tetris', 50, onSuccess)
+
+            expect(mockWindow.showAchievementAward).not.toHaveBeenCalled()
+            expect(onSuccess).toHaveBeenCalledWith(mockResponse)
+        })
+
+        it('should handle multiple achievements correctly', async () => {
+            const mockResponse = {
+                success: true,
+                newAchievements: [
+                    {
+                        id: 'tetris_novice',
+                        name: 'Tetris Novice',
+                        description: 'Score 100 points in Tetris',
+                        icon: '🔰',
+                        rarity: 'common',
+                    },
+                    {
+                        id: 'tetris_apprentice',
+                        name: 'Tetris Apprentice',
+                        description: 'Score 250 points in Tetris',
+                        icon: '⭐',
+                        rarity: 'common',
+                    },
+                ],
+            }
+
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve(mockResponse),
+            })
+
+            const onSuccess = vi.fn()
+            await saveGameScore('tetris', 300, onSuccess)
+
+            expect(mockWindow.showAchievementAward).toHaveBeenCalledWith(
+                mockResponse.newAchievements
+            )
+            expect(mockResponse.newAchievements).toHaveLength(2)
+        })
+
+        it('should work without window.showAchievementAward available', async () => {
+            // Remove showAchievementAward from window
+            delete (global.window as any).showAchievementAward
+
+            const mockResponse = {
+                success: true,
+                newAchievements: [
+                    {
+                        id: 'tetris_novice',
+                        name: 'Tetris Novice',
+                        description: 'Score 100 points in Tetris',
+                        icon: '🔰',
+                        rarity: 'common',
+                    },
+                ],
+            }
+
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve(mockResponse),
+            })
+
+            const onSuccess = vi.fn()
+
+            // Should not throw error even without showAchievementAward
+            await expect(
+                saveGameScore('tetris', 150, onSuccess)
+            ).resolves.toBeUndefined()
+            expect(onSuccess).toHaveBeenCalledWith(mockResponse)
+        })
+
+        it('should work in non-browser environment', async () => {
+            // Remove window object
+            delete (global as any).window
+
+            const mockResponse = {
+                success: true,
+                newAchievements: [
+                    {
+                        id: 'tetris_novice',
+                        name: 'Tetris Novice',
+                        description: 'Score 100 points in Tetris',
+                        icon: '🔰',
+                        rarity: 'common',
+                    },
+                ],
+            }
+
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve(mockResponse),
+            })
+
+            const onSuccess = vi.fn()
+
+            // Should not throw error even without window
+            await expect(
+                saveGameScore('tetris', 150, onSuccess)
+            ).resolves.toBeUndefined()
+            expect(onSuccess).toHaveBeenCalledWith(mockResponse)
+        })
+
+        it('should handle different rarity achievements', async () => {
+            const mockResponse = {
+                success: true,
+                newAchievements: [
+                    {
+                        id: 'tetris_master',
+                        name: 'Tetris Master',
+                        description: 'Score 1000 points in Tetris',
+                        icon: '👑',
+                        rarity: 'epic',
+                    },
+                ],
+            }
+
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve(mockResponse),
+            })
+
+            const onSuccess = vi.fn()
+            await saveGameScore('tetris', 1200, onSuccess)
+
+            expect(mockWindow.showAchievementAward).toHaveBeenCalledWith(
+                mockResponse.newAchievements
+            )
+            expect(mockResponse.newAchievements[0].rarity).toBe('epic')
         })
     })
 })

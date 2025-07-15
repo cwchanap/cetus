@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro'
 import { saveGameScoreWithAchievements } from '@/lib/server/db/queries'
 import { getGameById } from '@/lib/games'
 import { auth } from '@/lib/auth'
+import { getAchievementNotifications } from '@/lib/services/achievementService'
 
 export const POST: APIRoute = async ({ request }) => {
     try {
@@ -58,10 +59,21 @@ export const POST: APIRoute = async ({ request }) => {
             )
         }
 
+        // Convert achievement IDs to full achievement data
+        const achievementNotifications = getAchievementNotifications(
+            result.newAchievements
+        )
+
         return new Response(
             JSON.stringify({
                 success: true,
-                newAchievements: result.newAchievements,
+                newAchievements: achievementNotifications.map(achievement => ({
+                    id: achievement.id,
+                    name: achievement.name,
+                    description: achievement.description,
+                    icon: achievement.logo,
+                    rarity: achievement.rarity,
+                })),
             }),
             {
                 status: 200,
