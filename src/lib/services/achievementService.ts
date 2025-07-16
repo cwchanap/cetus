@@ -169,3 +169,120 @@ export async function checkSpaceExplorerAchievement(
 ): Promise<boolean> {
     return await awardGlobalAchievement(userId, 'space_explorer')
 }
+
+/**
+ * Check and award in-game achievements for Tetris
+ */
+export async function checkTetrisInGameAchievements(
+    userId: string,
+    gameEvent: {
+        type: 'lines_cleared'
+        linesCleared: number
+        consecutiveLineClears: number
+    }
+): Promise<string[]> {
+    const newlyEarnedAchievements: string[] = []
+
+    try {
+        // Check for double clear (2 lines in single strike)
+        if (
+            gameEvent.type === 'lines_cleared' &&
+            gameEvent.linesCleared === 2
+        ) {
+            const alreadyEarned = await hasUserEarnedAchievement(
+                userId,
+                'tetris_double_clear'
+            )
+            if (!alreadyEarned) {
+                const awarded = await awardAchievement(
+                    userId,
+                    'tetris_double_clear'
+                )
+                if (awarded) {
+                    newlyEarnedAchievements.push('tetris_double_clear')
+                }
+            }
+        }
+
+        // Check for quadruple clear (4 lines in single strike)
+        if (
+            gameEvent.type === 'lines_cleared' &&
+            gameEvent.linesCleared === 4
+        ) {
+            const alreadyEarned = await hasUserEarnedAchievement(
+                userId,
+                'tetris_quadruple_clear'
+            )
+            if (!alreadyEarned) {
+                const awarded = await awardAchievement(
+                    userId,
+                    'tetris_quadruple_clear'
+                )
+                if (awarded) {
+                    newlyEarnedAchievements.push('tetris_quadruple_clear')
+                }
+            }
+        }
+
+        // Check for consecutive line clears (2 times in a row)
+        if (
+            gameEvent.type === 'lines_cleared' &&
+            gameEvent.consecutiveLineClears >= 2
+        ) {
+            const alreadyEarned = await hasUserEarnedAchievement(
+                userId,
+                'tetris_double_streak'
+            )
+            if (!alreadyEarned) {
+                const awarded = await awardAchievement(
+                    userId,
+                    'tetris_double_streak'
+                )
+                if (awarded) {
+                    newlyEarnedAchievements.push('tetris_double_streak')
+                }
+            }
+        }
+
+        // Check for consecutive line clears (4 times in a row)
+        if (
+            gameEvent.type === 'lines_cleared' &&
+            gameEvent.consecutiveLineClears >= 4
+        ) {
+            const alreadyEarned = await hasUserEarnedAchievement(
+                userId,
+                'tetris_combo_streak'
+            )
+            if (!alreadyEarned) {
+                const awarded = await awardAchievement(
+                    userId,
+                    'tetris_combo_streak'
+                )
+                if (awarded) {
+                    newlyEarnedAchievements.push('tetris_combo_streak')
+                }
+            }
+        }
+
+        return newlyEarnedAchievements
+    } catch (error) {
+        console.error('Error checking Tetris in-game achievements:', error)
+        return []
+    }
+}
+
+/**
+ * Generic function to check in-game achievements for any game
+ */
+export async function checkInGameAchievements(
+    userId: string,
+    gameId: GameType,
+    gameEvent: any
+): Promise<string[]> {
+    switch (gameId) {
+        case 'tetris':
+            return await checkTetrisInGameAchievements(userId, gameEvent)
+        default:
+            return []
+    }
+}

@@ -161,6 +161,54 @@ export const ACHIEVEMENTS: Achievement[] = [
         },
         rarity: 'epic',
     },
+    {
+        id: 'tetris_double_clear',
+        name: 'Double Clear',
+        description: 'Clear 2 rows in a single strike',
+        logo: '⚡',
+        gameId: 'tetris',
+        condition: {
+            type: 'custom',
+            customCheck: 'double_clear',
+        },
+        rarity: 'common',
+    },
+    {
+        id: 'tetris_double_streak',
+        name: 'Double Streak',
+        description: 'Clear 2 rows consecutively',
+        logo: '🎯',
+        gameId: 'tetris',
+        condition: {
+            type: 'custom',
+            customCheck: 'consecutive_double',
+        },
+        rarity: 'common',
+    },
+    {
+        id: 'tetris_combo_streak',
+        name: 'Combo Streak',
+        description: 'Clear 4 rows consecutively',
+        logo: '🔥',
+        gameId: 'tetris',
+        condition: {
+            type: 'custom',
+            customCheck: 'consecutive_lines',
+        },
+        rarity: 'rare',
+    },
+    {
+        id: 'tetris_quadruple_clear',
+        name: 'Tetris',
+        description: 'Clear 4 rows in a single strike',
+        logo: '💥',
+        gameId: 'tetris',
+        condition: {
+            type: 'custom',
+            customCheck: 'quadruple_clear',
+        },
+        rarity: 'rare',
+    },
 
     // Bubble Shooter achievements
     {
