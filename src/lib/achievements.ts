@@ -2,6 +2,12 @@ import type { GameType, UserAchievementRecord } from './server/db/types'
 import { GameID } from './games'
 
 // Achievement system types
+export enum AchievementRarity {
+    COMMON = 'common',
+    RARE = 'rare',
+    EPIC = 'epic',
+    LEGENDARY = 'legendary',
+}
 export interface Achievement {
     id: string
     name: string
@@ -14,7 +20,7 @@ export interface Achievement {
         customCheck?: string // For future extensibility
     }
     isHidden?: boolean // Hidden until unlocked
-    rarity: 'common' | 'rare' | 'epic' | 'legendary'
+    rarity: AchievementRarity
 }
 
 // Combined type for user achievements with details
@@ -35,7 +41,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'custom',
             customCheck: 'user_registration',
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
 
     // Welcome achievements for games
@@ -49,7 +55,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 1,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'bubble_shooter_welcome',
@@ -61,7 +67,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 1,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'quick_math_welcome',
@@ -73,7 +79,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 1,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'quick_draw_welcome',
@@ -85,7 +91,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 1,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'memory_matrix_welcome',
@@ -97,7 +103,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 1,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'word_scramble_welcome',
@@ -110,7 +116,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 1,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
 
     // Tetris achievements
@@ -124,7 +130,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 100,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'tetris_apprentice',
@@ -136,7 +142,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 250,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'tetris_expert',
@@ -148,7 +154,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 500,
         },
-        rarity: 'rare',
+        rarity: AchievementRarity.RARE,
     },
     {
         id: 'tetris_master',
@@ -160,7 +166,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 1000,
         },
-        rarity: 'epic',
+        rarity: AchievementRarity.EPIC,
     },
     {
         id: 'tetris_double_clear',
@@ -172,7 +178,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'custom',
             customCheck: 'double_clear',
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'tetris_double_streak',
@@ -184,7 +190,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'custom',
             customCheck: 'consecutive_double',
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'tetris_combo_streak',
@@ -196,7 +202,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'custom',
             customCheck: 'consecutive_lines',
         },
-        rarity: 'rare',
+        rarity: AchievementRarity.RARE,
     },
     {
         id: 'tetris_quadruple_clear',
@@ -208,7 +214,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'custom',
             customCheck: 'quadruple_clear',
         },
-        rarity: 'rare',
+        rarity: AchievementRarity.RARE,
     },
 
     // Bubble Shooter achievements
@@ -222,7 +228,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 100,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'bubble_shooter',
@@ -234,7 +240,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 200,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'bubble_marksman',
@@ -246,7 +252,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 400,
         },
-        rarity: 'rare',
+        rarity: AchievementRarity.RARE,
     },
     {
         id: 'bubble_legend',
@@ -258,7 +264,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 800,
         },
-        rarity: 'epic',
+        rarity: AchievementRarity.EPIC,
     },
 
     // Memory Matrix achievements
@@ -272,7 +278,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 100,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'memory_apprentice',
@@ -284,7 +290,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 200,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'memory_expert',
@@ -296,7 +302,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 500,
         },
-        rarity: 'rare',
+        rarity: AchievementRarity.RARE,
     },
     {
         id: 'memory_master',
@@ -308,7 +314,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 1000,
         },
-        rarity: 'epic',
+        rarity: AchievementRarity.EPIC,
     },
 
     // Word Scramble achievements
@@ -322,7 +328,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 100,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'word_apprentice',
@@ -334,7 +340,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 200,
         },
-        rarity: 'common',
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'word_expert',
@@ -346,7 +352,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 400,
         },
-        rarity: 'rare',
+        rarity: AchievementRarity.RARE,
     },
     {
         id: 'word_master',
@@ -358,7 +364,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 600,
         },
-        rarity: 'epic',
+        rarity: AchievementRarity.EPIC,
     },
     {
         id: 'vocabulary_virtuoso',
@@ -370,7 +376,7 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'score_threshold',
             threshold: 800,
         },
-        rarity: 'legendary',
+        rarity: AchievementRarity.LEGENDARY,
     },
 ]
 
@@ -422,13 +428,13 @@ export function getPaginatedAchievements(
 // Rarity styling helpers
 export function getRarityColor(rarity: Achievement['rarity']): string {
     switch (rarity) {
-        case 'common':
+        case AchievementRarity.COMMON:
             return 'text-gray-400 border-gray-400/30'
-        case 'rare':
+        case AchievementRarity.RARE:
             return 'text-blue-400 border-blue-400/30'
-        case 'epic':
+        case AchievementRarity.EPIC:
             return 'text-purple-400 border-purple-400/30'
-        case 'legendary':
+        case AchievementRarity.LEGENDARY:
             return 'text-yellow-400 border-yellow-400/30'
         default:
             return 'text-gray-400 border-gray-400/30'
@@ -437,13 +443,13 @@ export function getRarityColor(rarity: Achievement['rarity']): string {
 
 export function getRarityGlow(rarity: Achievement['rarity']): string {
     switch (rarity) {
-        case 'common':
+        case AchievementRarity.COMMON:
             return 'shadow-gray-400/25'
-        case 'rare':
+        case AchievementRarity.RARE:
             return 'shadow-blue-400/25'
-        case 'epic':
+        case AchievementRarity.EPIC:
             return 'shadow-purple-400/25'
-        case 'legendary':
+        case AchievementRarity.LEGENDARY:
             return 'shadow-yellow-400/25'
         default:
             return 'shadow-gray-400/25'

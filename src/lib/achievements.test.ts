@@ -7,6 +7,7 @@ import {
     getRarityColor,
     getRarityGlow,
     getPaginatedAchievements,
+    AchievementRarity,
     type Achievement,
 } from './achievements'
 import { GameID } from './games'
@@ -114,12 +115,16 @@ describe('Achievement System', () => {
             const tetrisAchievements = getAchievementsByGame('tetris')
 
             // Find master achievement (epic rarity)
-            const master = tetrisAchievements.find(a => a.rarity === 'epic')
+            const master = tetrisAchievements.find(
+                a => a.rarity === AchievementRarity.EPIC
+            )
             expect(master?.condition.threshold).toBe(1000)
 
             // Find novice achievement (common rarity)
             const novice = tetrisAchievements.find(
-                a => a.rarity === 'common' && a.condition.threshold === 100
+                a =>
+                    a.rarity === AchievementRarity.COMMON &&
+                    a.condition.threshold === 100
             )
             expect(novice?.condition.threshold).toBe(100)
         })
@@ -171,7 +176,7 @@ describe('Achievement System', () => {
                 expect(achievement.rarity).toBeTruthy()
 
                 // Validate rarity values
-                expect(['common', 'rare', 'epic', 'legendary']).toContain(
+                expect(Object.values(AchievementRarity)).toContain(
                     achievement.rarity
                 )
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/pages/api/scores'
 import { saveGameScoreWithAchievements } from '@/lib/server/db/queries'
 import { getGameById } from '@/lib/games'
+import { AchievementRarity } from '@/lib/achievements'
 import { auth } from '@/lib/auth'
 
 // Mock dependencies
@@ -84,7 +85,7 @@ describe('POST /api/scores', () => {
                     description:
                         'Welcome to Tetris! You scored your first points.',
                     icon: '🎮',
-                    rarity: 'common',
+                    rarity: AchievementRarity.COMMON,
                 },
             ],
         })

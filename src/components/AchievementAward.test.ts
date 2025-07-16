@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
+import { AchievementRarity } from '@/lib/achievements'
 
 // Mock achievement data for testing
 const mockAchievements = [
@@ -12,28 +13,28 @@ const mockAchievements = [
         name: 'Test Common Achievement',
         description: 'This is a test common achievement',
         icon: '🎯',
-        rarity: 'common' as const,
+        rarity: AchievementRarity.COMMON,
     },
     {
         id: 'test_rare',
         name: 'Test Rare Achievement',
         description: 'This is a test rare achievement',
         icon: '💎',
-        rarity: 'rare' as const,
+        rarity: AchievementRarity.RARE,
     },
     {
         id: 'test_epic',
         name: 'Test Epic Achievement',
         description: 'This is a test epic achievement',
         icon: '🌟',
-        rarity: 'epic' as const,
+        rarity: AchievementRarity.EPIC,
     },
     {
         id: 'test_legendary',
         name: 'Test Legendary Achievement',
         description: 'This is a test legendary achievement',
         icon: '👑',
-        rarity: 'legendary' as const,
+        rarity: AchievementRarity.LEGENDARY,
     },
 ]
 

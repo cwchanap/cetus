@@ -16,6 +16,7 @@ import Pagination from '@/components/ui/Pagination.astro'
 
 import { getUserAchievements } from '@/lib/server/db/queries'
 import {
+  AchievementRarity,
   getRarityColor,
   getRarityGlow,
   getAllAchievements,
@@ -70,7 +71,12 @@ const allAchievementDisplayData = allAchievements
     if (a.earned !== b.earned) {
       return b.earned ? 1 : -1
     }
-    const rarityOrder = { common: 1, rare: 2, epic: 3, legendary: 4 }
+    const rarityOrder = {
+      [AchievementRarity.COMMON]: 1,
+      [AchievementRarity.RARE]: 2,
+      [AchievementRarity.EPIC]: 3,
+      [AchievementRarity.LEGENDARY]: 4,
+    }
     const rarityDiff =
       (rarityOrder[a.rarity as keyof typeof rarityOrder] || 1) -
       (rarityOrder[b.rarity as keyof typeof rarityOrder] || 1)
@@ -283,7 +289,7 @@ const totalAchievementsCount = allAchievements.length
                                 relative p-4 md:p-6 rounded-xl border transition-all duration-300 hover:scale-[1.02] w-full
                                 ${
                                   achievement.earned
-                                    ? `bg-gradient-to-r from-${achievement.rarity === 'legendary' ? 'yellow' : achievement.rarity === 'epic' ? 'purple' : achievement.rarity === 'rare' ? 'blue' : 'green'}-500/10 to-cyan-500/10 border-${achievement.rarity === 'legendary' ? 'yellow' : achievement.rarity === 'epic' ? 'purple' : achievement.rarity === 'rare' ? 'blue' : 'green'}-400/30 ${achievement.rarityGlow}`
+                                    ? `bg-gradient-to-r from-${achievement.rarity === AchievementRarity.LEGENDARY ? 'yellow' : achievement.rarity === AchievementRarity.EPIC ? 'purple' : achievement.rarity === AchievementRarity.RARE ? 'blue' : 'green'}-500/10 to-cyan-500/10 border-${achievement.rarity === AchievementRarity.LEGENDARY ? 'yellow' : achievement.rarity === AchievementRarity.EPIC ? 'purple' : achievement.rarity === AchievementRarity.RARE ? 'blue' : 'green'}-400/30 ${achievement.rarityGlow}`
                                     : 'bg-gray-800/30 border-gray-700/50 opacity-60'
                                 }
                               `}

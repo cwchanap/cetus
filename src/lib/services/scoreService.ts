@@ -3,6 +3,7 @@
  */
 
 import type { GameType } from '@/lib/server/db/types'
+import { AchievementRarity } from '@/lib/achievements'
 
 export interface ScoreSubmissionResult {
     success: boolean
@@ -11,7 +12,7 @@ export interface ScoreSubmissionResult {
         name: string
         description: string
         icon: string
-        rarity: 'common' | 'rare' | 'epic' | 'legendary'
+        rarity: AchievementRarity
     }>
     error?: string
 }
