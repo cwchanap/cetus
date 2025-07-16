@@ -1,8 +1,18 @@
 import type { GameType } from './server/db/types'
 
+// Game ID enum class
+export enum GameID {
+    TETRIS = 'tetris',
+    QUICK_DRAW = 'quick_draw',
+    BUBBLE_SHOOTER = 'bubble_shooter',
+    QUICK_MATH = 'quick_math',
+    MEMORY_MATRIX = 'memory_matrix',
+    WORD_SCRAMBLE = 'word_scramble',
+}
+
 // Game system types
 export interface Game {
-    id: GameType
+    id: GameID
     name: string
     description: string
     category: 'puzzle' | 'drawing' | 'action' | 'strategy'
@@ -16,7 +26,7 @@ export interface Game {
 // Game definitions for all available games
 export const GAMES: Game[] = [
     {
-        id: 'tetris',
+        id: GameID.TETRIS,
         name: 'Tetris Challenge',
         description: 'Classic block-stacking puzzle game',
         category: 'puzzle',
@@ -27,7 +37,7 @@ export const GAMES: Game[] = [
         isActive: true,
     },
     {
-        id: 'quick_draw',
+        id: GameID.QUICK_DRAW,
         name: 'Quick Draw',
         description: 'Fast-paced drawing and guessing game',
         category: 'drawing',
@@ -38,7 +48,7 @@ export const GAMES: Game[] = [
         isActive: true,
     },
     {
-        id: 'bubble_shooter',
+        id: GameID.BUBBLE_SHOOTER,
         name: 'Bubble Shooter',
         description:
             'Classic bubble shooter game with color matching mechanics',
@@ -50,7 +60,7 @@ export const GAMES: Game[] = [
         isActive: true,
     },
     {
-        id: 'quick_math',
+        id: GameID.QUICK_MATH,
         name: 'Quick Math',
         description:
             'Fast-paced math challenge - solve as many problems as you can in 60 seconds',
@@ -62,7 +72,7 @@ export const GAMES: Game[] = [
         isActive: true,
     },
     {
-        id: 'memory_matrix',
+        id: GameID.MEMORY_MATRIX,
         name: 'Memory Matrix',
         description:
             'Test your memory by matching pairs of shapes in this grid-based puzzle game',
@@ -74,7 +84,7 @@ export const GAMES: Game[] = [
         isActive: true,
     },
     {
-        id: 'word_scramble',
+        id: GameID.WORD_SCRAMBLE,
         name: 'Word Scramble',
         description:
             'Unscramble words as fast as you can in this 60-second word puzzle challenge',
@@ -88,7 +98,7 @@ export const GAMES: Game[] = [
 ]
 
 // Helper functions
-export function getGameById(id: GameType): Game | undefined {
+export function getGameById(id: GameID): Game | undefined {
     return GAMES.find(game => game.id === id)
 }
 

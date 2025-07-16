@@ -1,6 +1,7 @@
 import { MemoryMatrixGame } from './game'
 import { MemoryMatrixRenderer } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
+import { GameID } from '@/lib/games'
 
 let game: MemoryMatrixGame | null = null
 let renderer: MemoryMatrixRenderer | null = null
@@ -84,7 +85,7 @@ function setupGameControls(): void {
 
 async function saveScore(score: number): Promise<void> {
     await saveGameScore(
-        'memory_matrix',
+        GameID.MEMORY_MATRIX,
         score,
         result => {
             // Handle newly earned achievements

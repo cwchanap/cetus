@@ -1,6 +1,7 @@
 import { WordScrambleGame } from './game'
 import type { GameConfig, GameCallbacks, GameStats } from './types'
 import { submitScore } from '@/lib/score-client'
+import { GameID } from '@/lib/games'
 
 // Game configuration
 const GAME_CONFIG: GameConfig = {
@@ -238,7 +239,7 @@ export async function initWordScrambleGame(): Promise<void> {
             // Upload score
             try {
                 const success = await submitScore({
-                    gameId: 'word_scramble',
+                    gameId: GameID.WORD_SCRAMBLE,
                     score: finalScore,
                 })
                 callbacks.onScoreUpload?.(success)

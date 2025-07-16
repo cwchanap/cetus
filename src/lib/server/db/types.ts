@@ -56,14 +56,11 @@ export interface GameScoresTable {
     created_at: ColumnType<Date, never, never> // DEFAULT CURRENT_TIMESTAMP
 }
 
-// Available games enum
-export type GameType =
-    | 'tetris'
-    | 'quick_draw'
-    | 'bubble_shooter'
-    | 'quick_math'
-    | 'memory_matrix'
-    | 'word_scramble'
+// Import GameID enum
+import { GameID } from '../../games'
+
+// Available games type - now using the enum
+export type GameType = GameID
 
 // Achievement tables - only stores user-achievement mapping
 export interface UserAchievementsTable {

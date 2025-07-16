@@ -9,9 +9,13 @@ vi.mock('@/lib/server/db/queries', () => ({
     saveGameScoreWithAchievements: vi.fn(),
 }))
 
-vi.mock('@/lib/games', () => ({
-    getGameById: vi.fn(),
-}))
+vi.mock('@/lib/games', async importOriginal => {
+    const actual = await importOriginal()
+    return {
+        ...actual,
+        getGameById: vi.fn(),
+    }
+})
 
 vi.mock('@/lib/auth', () => ({
     auth: {
@@ -73,7 +77,16 @@ describe('POST /api/scores', () => {
         expect(response.status).toBe(200)
         expect(result).toEqual({
             success: true,
-            newAchievements: ['tetris_welcome'],
+            newAchievements: [
+                {
+                    id: 'tetris_welcome',
+                    name: 'First Drop',
+                    description:
+                        'Welcome to Tetris! You scored your first points.',
+                    icon: '🎮',
+                    rarity: 'common',
+                },
+            ],
         })
         expect(getGameById).toHaveBeenCalledWith('tetris')
         expect(saveGameScoreWithAchievements).toHaveBeenCalledWith(

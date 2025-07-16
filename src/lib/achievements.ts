@@ -1,4 +1,5 @@
 import type { GameType, UserAchievementRecord } from './server/db/types'
+import { GameID } from './games'
 
 // Achievement system types
 export interface Achievement {
@@ -6,7 +7,7 @@ export interface Achievement {
     name: string
     description: string
     logo: string
-    gameId: GameType | 'global' // 'global' for system-wide achievements
+    gameId: GameID | 'global' // 'global' for system-wide achievements
     condition: {
         type: 'score_threshold' | 'games_played' | 'custom'
         threshold?: number
@@ -43,7 +44,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'First Drop',
         description: 'Welcome to Tetris! You scored your first points.',
         logo: '🎮',
-        gameId: 'tetris',
+        gameId: GameID.TETRIS,
         condition: {
             type: 'score_threshold',
             threshold: 1,
@@ -55,7 +56,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'First Pop',
         description: 'Welcome to Bubble Shooter! You popped your first bubble.',
         logo: '🎮',
-        gameId: 'bubble_shooter',
+        gameId: GameID.BUBBLE_SHOOTER,
         condition: {
             type: 'score_threshold',
             threshold: 1,
@@ -67,7 +68,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'First Calculation',
         description: 'Welcome to Quick Math! You solved your first problem.',
         logo: '🎮',
-        gameId: 'quick_math',
+        gameId: GameID.QUICK_MATH,
         condition: {
             type: 'score_threshold',
             threshold: 1,
@@ -79,7 +80,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'First Sketch',
         description: 'Welcome to Quick Draw! You completed your first drawing.',
         logo: '🎮',
-        gameId: 'quick_draw',
+        gameId: GameID.QUICK_DRAW,
         condition: {
             type: 'score_threshold',
             threshold: 1,
@@ -91,7 +92,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'First Memory',
         description: 'Welcome to Memory Matrix! You completed your first game.',
         logo: '🎮',
-        gameId: 'memory_matrix',
+        gameId: GameID.MEMORY_MATRIX,
         condition: {
             type: 'score_threshold',
             threshold: 1,
@@ -104,7 +105,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         description:
             'Welcome to Word Scramble! You unscrambled your first word.',
         logo: '🎮',
-        gameId: 'word_scramble',
+        gameId: GameID.WORD_SCRAMBLE,
         condition: {
             type: 'score_threshold',
             threshold: 1,
@@ -118,7 +119,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Tetris Novice',
         description: 'Score 100 points in Tetris',
         logo: '🔰',
-        gameId: 'tetris',
+        gameId: GameID.TETRIS,
         condition: {
             type: 'score_threshold',
             threshold: 100,
@@ -130,7 +131,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Tetris Apprentice',
         description: 'Score 250 points in Tetris',
         logo: '⭐',
-        gameId: 'tetris',
+        gameId: GameID.TETRIS,
         condition: {
             type: 'score_threshold',
             threshold: 250,
@@ -142,7 +143,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Tetris Expert',
         description: 'Score 500 points in Tetris',
         logo: '💫',
-        gameId: 'tetris',
+        gameId: GameID.TETRIS,
         condition: {
             type: 'score_threshold',
             threshold: 500,
@@ -154,7 +155,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Tetris Master',
         description: 'Score 1000 points in Tetris',
         logo: '👑',
-        gameId: 'tetris',
+        gameId: GameID.TETRIS,
         condition: {
             type: 'score_threshold',
             threshold: 1000,
@@ -166,7 +167,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Double Clear',
         description: 'Clear 2 rows in a single strike',
         logo: '⚡',
-        gameId: 'tetris',
+        gameId: GameID.TETRIS,
         condition: {
             type: 'custom',
             customCheck: 'double_clear',
@@ -178,7 +179,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Double Streak',
         description: 'Clear 2 rows consecutively',
         logo: '🎯',
-        gameId: 'tetris',
+        gameId: GameID.TETRIS,
         condition: {
             type: 'custom',
             customCheck: 'consecutive_double',
@@ -190,7 +191,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Combo Streak',
         description: 'Clear 4 rows consecutively',
         logo: '🔥',
-        gameId: 'tetris',
+        gameId: GameID.TETRIS,
         condition: {
             type: 'custom',
             customCheck: 'consecutive_lines',
@@ -202,7 +203,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Tetris',
         description: 'Clear 4 rows in a single strike',
         logo: '💥',
-        gameId: 'tetris',
+        gameId: GameID.TETRIS,
         condition: {
             type: 'custom',
             customCheck: 'quadruple_clear',
@@ -216,7 +217,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Bubble Beginner',
         description: 'Score 100 points in Bubble Shooter',
         logo: '🫧',
-        gameId: 'bubble_shooter',
+        gameId: GameID.BUBBLE_SHOOTER,
         condition: {
             type: 'score_threshold',
             threshold: 100,
@@ -228,7 +229,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Bubble Shooter',
         description: 'Score 200 points in Bubble Shooter',
         logo: '🎯',
-        gameId: 'bubble_shooter',
+        gameId: GameID.BUBBLE_SHOOTER,
         condition: {
             type: 'score_threshold',
             threshold: 200,
@@ -240,7 +241,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Bubble Marksman',
         description: 'Score 400 points in Bubble Shooter',
         logo: '🏹',
-        gameId: 'bubble_shooter',
+        gameId: GameID.BUBBLE_SHOOTER,
         condition: {
             type: 'score_threshold',
             threshold: 400,
@@ -252,7 +253,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Bubble Legend',
         description: 'Score 800 points in Bubble Shooter',
         logo: '🌟',
-        gameId: 'bubble_shooter',
+        gameId: GameID.BUBBLE_SHOOTER,
         condition: {
             type: 'score_threshold',
             threshold: 800,
@@ -266,7 +267,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Memory Novice',
         description: 'Score 100 points in Memory Matrix',
         logo: '🧠',
-        gameId: 'memory_matrix',
+        gameId: GameID.MEMORY_MATRIX,
         condition: {
             type: 'score_threshold',
             threshold: 100,
@@ -278,7 +279,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Memory Apprentice',
         description: 'Score 200 points in Memory Matrix',
         logo: '🔍',
-        gameId: 'memory_matrix',
+        gameId: GameID.MEMORY_MATRIX,
         condition: {
             type: 'score_threshold',
             threshold: 200,
@@ -290,7 +291,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Memory Expert',
         description: 'Score 500 points in Memory Matrix',
         logo: '🎯',
-        gameId: 'memory_matrix',
+        gameId: GameID.MEMORY_MATRIX,
         condition: {
             type: 'score_threshold',
             threshold: 500,
@@ -302,7 +303,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Memory Master',
         description: 'Score 1000 points in Memory Matrix',
         logo: '👑',
-        gameId: 'memory_matrix',
+        gameId: GameID.MEMORY_MATRIX,
         condition: {
             type: 'score_threshold',
             threshold: 1000,
@@ -316,7 +317,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Word Novice',
         description: 'Score 100 points in Word Scramble',
         logo: '📝',
-        gameId: 'word_scramble',
+        gameId: GameID.WORD_SCRAMBLE,
         condition: {
             type: 'score_threshold',
             threshold: 100,
@@ -328,7 +329,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Word Apprentice',
         description: 'Score 200 points in Word Scramble',
         logo: '📚',
-        gameId: 'word_scramble',
+        gameId: GameID.WORD_SCRAMBLE,
         condition: {
             type: 'score_threshold',
             threshold: 200,
@@ -340,7 +341,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Word Expert',
         description: 'Score 400 points in Word Scramble',
         logo: '🔤',
-        gameId: 'word_scramble',
+        gameId: GameID.WORD_SCRAMBLE,
         condition: {
             type: 'score_threshold',
             threshold: 400,
@@ -352,7 +353,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Word Master',
         description: 'Score 600 points in Word Scramble',
         logo: '🏆',
-        gameId: 'word_scramble',
+        gameId: GameID.WORD_SCRAMBLE,
         condition: {
             type: 'score_threshold',
             threshold: 600,
@@ -364,7 +365,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         name: 'Vocabulary Virtuoso',
         description: 'Score 800 points in Word Scramble',
         logo: '✨',
-        gameId: 'word_scramble',
+        gameId: GameID.WORD_SCRAMBLE,
         condition: {
             type: 'score_threshold',
             threshold: 800,
@@ -378,7 +379,9 @@ export function getAchievementById(id: string): Achievement | undefined {
     return ACHIEVEMENTS.find(achievement => achievement.id === id)
 }
 
-export function getAchievementsByGame(gameId: string): Achievement[] {
+export function getAchievementsByGame(
+    gameId: GameID | 'global'
+): Achievement[] {
     return ACHIEVEMENTS.filter(achievement => achievement.gameId === gameId)
 }
 

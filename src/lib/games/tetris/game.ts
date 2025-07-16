@@ -10,6 +10,7 @@ import {
 } from './utils'
 import { draw, type RendererState } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
+import { GameID } from '@/lib/games'
 
 export const GAME_CONSTANTS: GameConstants = {
     BOARD_WIDTH: 10,
@@ -364,7 +365,7 @@ export async function endGame(state: GameState): Promise<void> {
 
     // Submit score to server using scoreService
     await saveGameScore(
-        'tetris',
+        GameID.TETRIS,
         state.score,
         result => {
             // Handle newly earned achievements

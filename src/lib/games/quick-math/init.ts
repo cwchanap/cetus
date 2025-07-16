@@ -1,6 +1,7 @@
 import { QuickMathGame } from './game'
 import type { GameConfig, GameCallbacks } from './types'
 import { saveGameScore } from '@/lib/services/scoreService'
+import { GameID } from '@/lib/games'
 
 let gameInstance: QuickMathGame | null = null
 let gameCallbacks: GameCallbacks | null = null
@@ -235,7 +236,7 @@ export async function initQuickMathGame(): Promise<void> {
 
 async function saveScore(score: number): Promise<void> {
     await saveGameScore(
-        'quick_math',
+        GameID.QUICK_MATH,
         score,
         result => {
             // Handle newly earned achievements

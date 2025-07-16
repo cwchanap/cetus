@@ -9,6 +9,7 @@ import {
 import { updateProjectile } from './physics'
 import { draw, type RendererState } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
+import { GameID } from '@/lib/games'
 
 export const GAME_CONSTANTS: GameConstants = {
     BUBBLE_RADIUS: 20,
@@ -369,7 +370,7 @@ export async function endGame(state: GameState): Promise<void> {
 
     // Submit score to server using scoreService
     await saveGameScore(
-        'bubble_shooter',
+        GameID.BUBBLE_SHOOTER,
         state.score,
         result => {
             // Handle newly earned achievements

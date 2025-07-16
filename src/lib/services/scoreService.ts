@@ -64,7 +64,7 @@ export async function submitScore(
 
         const result = await response.json()
         return {
-            success: true,
+            success: result.success !== false,
             newAchievements: result.newAchievements || [],
         }
     } catch (error) {

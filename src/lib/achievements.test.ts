@@ -9,12 +9,13 @@ import {
     getPaginatedAchievements,
     type Achievement,
 } from './achievements'
+import { GameID } from './games'
 
 describe('Achievement System', () => {
     describe('getAllAchievements', () => {
         it('should return all achievements', () => {
             const achievements = getAllAchievements()
-            expect(achievements).toHaveLength(24) // 1 global + 6 welcome + 4 tetris + 4 bubble shooter + 4 memory matrix + 5 word scramble
+            expect(achievements).toHaveLength(28) // 1 global + 6 welcome + 9 tetris + 4 bubble shooter + 4 memory matrix + 4 word scramble
             expect(achievements[0]).toHaveProperty('id')
             expect(achievements[0]).toHaveProperty('name')
             expect(achievements[0]).toHaveProperty('description')
@@ -41,18 +42,18 @@ describe('Achievement System', () => {
 
     describe('getAchievementsByGame', () => {
         it('should return tetris achievements', () => {
-            const achievements = getAchievementsByGame('tetris')
-            expect(achievements).toHaveLength(5) // Including tetris_welcome
+            const achievements = getAchievementsByGame(GameID.TETRIS)
+            expect(achievements).toHaveLength(9) // Including tetris_welcome + 8 others
             achievements.forEach(achievement => {
-                expect(achievement.gameId).toBe('tetris')
+                expect(achievement.gameId).toBe(GameID.TETRIS)
             })
         })
 
         it('should return bubble shooter achievements', () => {
-            const achievements = getAchievementsByGame('bubble_shooter')
+            const achievements = getAchievementsByGame(GameID.BUBBLE_SHOOTER)
             expect(achievements).toHaveLength(5) // Including bubble_shooter_welcome
             achievements.forEach(achievement => {
-                expect(achievement.gameId).toBe('bubble_shooter')
+                expect(achievement.gameId).toBe(GameID.BUBBLE_SHOOTER)
             })
         })
 
