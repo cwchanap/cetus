@@ -28,6 +28,7 @@ pnpm-debug.log*
 .env*
 
 coverage/
+test-results/
 
 # ESLint cache
 .eslintcache
