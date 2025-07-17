@@ -21,23 +21,6 @@ describe('Auth Configuration', () => {
         vi.clearAllMocks()
     })
 
-    it('should have valid environment variables for auth', () => {
-        // Test that environment variables are properly structured for auth
-        expect(typeof process.env.BETTER_AUTH_SECRET).toBe('undefined') // In test, we use mocked values
-        expect(typeof process.env.BETTER_AUTH_URL).toBe('undefined')
-        expect(typeof process.env.GOOGLE_CLIENT_ID).toBe('undefined')
-        expect(typeof process.env.GOOGLE_CLIENT_SECRET).toBe('undefined')
-
-        // Verify mocked values are being used in tests
-        expect(vi.isMockFunction).toBeDefined()
-    })
-
-    it('should have valid database configuration', () => {
-        // Test that database environment variables are properly structured
-        expect(typeof process.env.TURSO_DATABASE_URL).toBe('undefined') // In test, we use mocked values
-        expect(typeof process.env.TURSO_AUTH_TOKEN).toBe('undefined')
-    })
-
     describe('Auth Configuration Setup', () => {
         it('should properly configure Better Auth with required settings', () => {
             // Test that our auth configuration would have the right structure

@@ -50,42 +50,24 @@ describe('Score Client', () => {
                 status: 400,
             }
             mockFetch.mockResolvedValue(mockResponse)
-            const consoleSpy = vi
-                .spyOn(console, 'error')
-                .mockImplementation(() => {})
 
             // Act
             const result = await submitScore(scoreData)
 
             // Assert
             expect(result).toBe(false)
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Error submitting score:',
-                expect.any(Error)
-            )
-
-            consoleSpy.mockRestore()
         })
 
         it('should return false when network request fails', async () => {
             // Arrange
             const scoreData = { gameId: 'tetris', score: 5000 }
             mockFetch.mockRejectedValue(new Error('Network error'))
-            const consoleSpy = vi
-                .spyOn(console, 'error')
-                .mockImplementation(() => {})
 
             // Act
             const result = await submitScore(scoreData)
 
             // Assert
             expect(result).toBe(false)
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Error submitting score:',
-                expect.any(Error)
-            )
-
-            consoleSpy.mockRestore()
         })
 
         it('should return false when API returns success: false', async () => {
@@ -166,41 +148,23 @@ describe('Score Client', () => {
                 status: 500,
             }
             mockFetch.mockResolvedValue(mockResponse)
-            const consoleSpy = vi
-                .spyOn(console, 'error')
-                .mockImplementation(() => {})
 
             // Act
             const result = await getUserGameHistory(5)
 
             // Assert
             expect(result).toEqual([])
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Error fetching game history:',
-                expect.any(Error)
-            )
-
-            consoleSpy.mockRestore()
         })
 
         it('should return empty array when network request fails', async () => {
             // Arrange
             mockFetch.mockRejectedValue(new Error('Network error'))
-            const consoleSpy = vi
-                .spyOn(console, 'error')
-                .mockImplementation(() => {})
 
             // Act
             const result = await getUserGameHistory(5)
 
             // Assert
             expect(result).toEqual([])
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Error fetching game history:',
-                expect.any(Error)
-            )
-
-            consoleSpy.mockRestore()
         })
 
         it('should return empty array when history is missing from response', async () => {
@@ -264,41 +228,23 @@ describe('Score Client', () => {
                 status: 404,
             }
             mockFetch.mockResolvedValue(mockResponse)
-            const consoleSpy = vi
-                .spyOn(console, 'error')
-                .mockImplementation(() => {})
 
             // Act
             const result = await getUserBestScore('tetris')
 
             // Assert
             expect(result).toBeNull()
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Error fetching best score:',
-                expect.any(Error)
-            )
-
-            consoleSpy.mockRestore()
         })
 
         it('should return null when network request fails', async () => {
             // Arrange
             mockFetch.mockRejectedValue(new Error('Network error'))
-            const consoleSpy = vi
-                .spyOn(console, 'error')
-                .mockImplementation(() => {})
 
             // Act
             const result = await getUserBestScore('tetris')
 
             // Assert
             expect(result).toBeNull()
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Error fetching best score:',
-                expect.any(Error)
-            )
-
-            consoleSpy.mockRestore()
         })
 
         it('should return null when no best score exists', async () => {

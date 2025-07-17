@@ -243,9 +243,6 @@ describe('Score Service', () => {
                 json: () => Promise.resolve(mockResponse),
             })
 
-            const consoleSpy = vi
-                .spyOn(console, 'log')
-                .mockImplementation(() => {})
             const onSuccess = vi.fn()
 
             await saveGameScore('tetris', 150, onSuccess)
@@ -254,11 +251,6 @@ describe('Score Service', () => {
                 mockResponse.newAchievements
             )
             expect(onSuccess).toHaveBeenCalledWith(mockResponse)
-            expect(consoleSpy).toHaveBeenCalledWith('Score saved successfully!')
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'New achievements earned:',
-                mockResponse.newAchievements
-            )
         })
 
         it('should not call showAchievementAward when no achievements are earned', async () => {

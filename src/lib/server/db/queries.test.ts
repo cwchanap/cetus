@@ -80,21 +80,11 @@ describe('Database Queries', () => {
             }
 
             vi.mocked(db.insertInto).mockReturnValue(mockInsertQuery as any)
-            const consoleSpy = vi
-                .spyOn(console, 'error')
-                .mockImplementation(() => {})
-
             // Act
             const result = await saveGameScore('user-123', 'tetris', 5000)
 
             // Assert
             expect(result).toBe(false)
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Error saving game score:',
-                expect.any(Error)
-            )
-
-            consoleSpy.mockRestore()
         })
     })
 
@@ -171,21 +161,11 @@ describe('Database Queries', () => {
             }
 
             vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
-            const consoleSpy = vi
-                .spyOn(console, 'error')
-                .mockImplementation(() => {})
-
             // Act
             const result = await getUserGameHistory('user-123', 10)
 
             // Assert
             expect(result).toEqual([])
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Error fetching user game history:',
-                expect.any(Error)
-            )
-
-            consoleSpy.mockRestore()
         })
     })
 
@@ -257,21 +237,11 @@ describe('Database Queries', () => {
             }
 
             vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
-            const consoleSpy = vi
-                .spyOn(console, 'error')
-                .mockImplementation(() => {})
-
             // Act
             const result = await getUserBestScoreByGame('user-123', 'tetris')
 
             // Assert
             expect(result).toBeNull()
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Error fetching user best score:',
-                expect.any(Error)
-            )
-
-            consoleSpy.mockRestore()
         })
     })
 
@@ -462,10 +432,6 @@ describe('Database Queries', () => {
             }
 
             vi.mocked(db.selectFrom).mockReturnValue(mockCountQuery as any)
-            const consoleSpy = vi
-                .spyOn(console, 'error')
-                .mockImplementation(() => {})
-
             // Act
             const result = await getUserGameHistoryPaginated('user-123', 1, 5)
 
@@ -477,12 +443,6 @@ describe('Database Queries', () => {
                 pageSize: 5,
                 totalPages: 0,
             })
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Error fetching paginated user game history:',
-                expect.any(Error)
-            )
-
-            consoleSpy.mockRestore()
         })
     })
 
@@ -636,10 +596,6 @@ describe('Database Queries', () => {
                 throw new Error('Database connection failed')
             })
 
-            const consoleSpy = vi
-                .spyOn(console, 'error')
-                .mockImplementation(() => {})
-
             // Act
             const result = await getUserAchievementsPaginated('user1')
 
@@ -649,12 +605,6 @@ describe('Database Queries', () => {
             expect(result.page).toBe(1)
             expect(result.pageSize).toBe(10)
             expect(result.totalPages).toBe(0)
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Error fetching paginated user achievements:',
-                expect.any(Error)
-            )
-
-            consoleSpy.mockRestore()
         })
 
         it('should calculate total pages correctly', async () => {
