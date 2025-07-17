@@ -378,6 +378,56 @@ export const ACHIEVEMENTS: Achievement[] = [
         },
         rarity: AchievementRarity.LEGENDARY,
     },
+
+    // Quick Math achievements
+    {
+        id: 'math_novice',
+        name: 'Math Novice',
+        description: 'Score 100 points in Quick Math',
+        logo: '🔰',
+        gameId: GameID.QUICK_MATH,
+        condition: {
+            type: 'score_threshold',
+            threshold: 100,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'math_apprentice',
+        name: 'Math Apprentice',
+        description: 'Score 250 points in Quick Math',
+        logo: '⭐',
+        gameId: GameID.QUICK_MATH,
+        condition: {
+            type: 'score_threshold',
+            threshold: 250,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'math_expert',
+        name: 'Math Expert',
+        description: 'Score 500 points in Quick Math',
+        logo: '💫',
+        gameId: GameID.QUICK_MATH,
+        condition: {
+            type: 'score_threshold',
+            threshold: 500,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'math_master',
+        name: 'Math Master',
+        description: 'Score 1000 points in Quick Math',
+        logo: '👑',
+        gameId: GameID.QUICK_MATH,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1000,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
 ]
 
 // Helper functions
