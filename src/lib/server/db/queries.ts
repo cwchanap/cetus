@@ -38,7 +38,6 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
             total_games_played: distinctGames.length,
         }
     } catch (error) {
-        console.error('Error fetching user stats:', error)
         return null
     }
 }
@@ -78,7 +77,6 @@ export async function upsertUserStats(
 
         return true
     } catch (error) {
-        console.error('Error upserting user stats:', error)
         return false
     }
 }
@@ -116,7 +114,6 @@ export async function getGameLeaderboard(
             created_at: row.created_at.toString(),
         }))
     } catch (error) {
-        console.error('Error fetching leaderboard:', error)
         return []
     }
 }
@@ -139,7 +136,6 @@ export async function getUserRecentScores(
 
         return scores
     } catch (error) {
-        console.error('Error fetching user recent scores:', error)
         return []
     }
 }
@@ -163,7 +159,6 @@ export async function getUserBestScore(
 
         return result?.score || null
     } catch (error) {
-        console.error('Error fetching user best score:', error)
         return null
     }
 }
@@ -197,7 +192,6 @@ export async function saveGameScore(
 
         return true
     } catch (error) {
-        console.error('Error saving game score:', error)
         return false
     }
 }
@@ -231,7 +225,6 @@ export async function saveGameScoreWithAchievements(
 
         return { success: true, newAchievements }
     } catch (error) {
-        console.error('Error saving game score with achievements:', error)
         return { success: false, newAchievements: [] }
     }
 }
@@ -273,7 +266,6 @@ export async function getUserGameHistory(
             created_at: row.created_at.toString(),
         }))
     } catch (error) {
-        console.error('Error fetching user game history:', error)
         return []
     }
 }
@@ -342,7 +334,6 @@ export async function getUserGameHistoryPaginated(
             totalPages,
         }
     } catch (error) {
-        console.error('Error fetching paginated user game history:', error)
         return {
             games: [],
             total: 0,
@@ -372,7 +363,6 @@ export async function getUserBestScoreByGame(
 
         return result?.score || null
     } catch (error) {
-        console.error('Error fetching user best score:', error)
         return null
     }
 }
@@ -396,7 +386,6 @@ export async function updateUser(
 
         return true
     } catch (error) {
-        console.error('Error updating user:', error)
         return false
     }
 }
@@ -417,7 +406,6 @@ export async function getUserAchievements(
 
         return userAchievements
     } catch (error) {
-        console.error('Error fetching user achievements:', error)
         return []
     }
 }
@@ -467,7 +455,6 @@ export async function getUserAchievementsPaginated(
             totalPages,
         }
     } catch (error) {
-        console.error('Error fetching paginated user achievements:', error)
         return {
             userAchievements: [],
             total: 0,
@@ -495,7 +482,6 @@ export async function hasUserEarnedAchievement(
 
         return !!result
     } catch (error) {
-        console.error('Error checking user achievement:', error)
         return false
     }
 }
@@ -529,7 +515,6 @@ export async function awardAchievement(
 
         return true
     } catch (error) {
-        console.error('Error awarding achievement:', error)
         return false
     }
 }
@@ -553,7 +538,6 @@ export async function getUserBestScoreForGame(
 
         return result?.score || 0
     } catch (error) {
-        console.error('Error fetching user best score:', error)
         return 0
     }
 }

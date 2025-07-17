@@ -18,9 +18,6 @@ export async function initMemoryMatrixGame(): Promise<void> {
         })
 
         game.setGameEndCallback(async (finalScore, stats) => {
-            console.log('Game ended with score:', finalScore)
-            console.log('Game stats:', stats)
-
             // Save score if user is logged in
             await saveScore(finalScore)
         })
@@ -41,10 +38,8 @@ export async function initMemoryMatrixGame(): Promise<void> {
         const initialState = game.getGameState()
         const initialStats = game.getGameStats()
         renderer.render(initialState, initialStats)
-
-        console.log('Memory Matrix game initialized successfully')
     } catch (error) {
-        console.error('Failed to initialize Memory Matrix game:', error)
+        // TODO: Handle initialization errors more gracefully, e.g., display a message to the user
     }
 }
 
@@ -90,8 +85,6 @@ async function saveScore(score: number): Promise<void> {
         result => {
             // Handle newly earned achievements
             if (result.newAchievements && result.newAchievements.length > 0) {
-                console.log('New achievements earned:', result.newAchievements)
-
                 // Dispatch an event for achievement notifications
                 window.dispatchEvent(
                     new CustomEvent('achievementsEarned', {
@@ -101,7 +94,7 @@ async function saveScore(score: number): Promise<void> {
             }
         },
         error => {
-            console.warn('Error saving score:', error)
+            // Score save failed
         }
     )
 }

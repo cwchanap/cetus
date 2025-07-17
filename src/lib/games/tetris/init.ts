@@ -24,7 +24,6 @@ export async function initTetrisGame(): Promise<void> {
     const nextCtx = nextCanvas?.getContext('2d')
 
     if (!gameContainer || !nextCtx) {
-        console.error('Required DOM elements not found')
         return
     }
 

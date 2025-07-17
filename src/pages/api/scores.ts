@@ -83,7 +83,6 @@ export const POST: APIRoute = async ({ request }) => {
             }
         )
     } catch (error) {
-        console.error('Error in POST /api/scores:', error)
         return new Response(
             JSON.stringify({ error: 'Internal server error' }),
             {

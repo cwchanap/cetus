@@ -145,9 +145,7 @@ export function spawnPiece(state: GameState): void {
             GAME_CONSTANTS
         )
     ) {
-        endGame(state).catch(error => {
-            console.error('Error ending game:', error)
-        })
+        endGame(state)
     }
 
     state.needsRedraw = true
@@ -361,29 +359,18 @@ export async function endGame(state: GameState): Promise<void> {
         gameOverOverlay.classList.remove('hidden')
     }
 
-    console.log('Game Over! Final Score:', state.score)
-
     // Submit score to server using scoreService
-    await saveGameScore(
-        GameID.TETRIS,
-        state.score,
-        result => {
-            // Handle newly earned achievements
-            if (result.newAchievements && result.newAchievements.length > 0) {
-                console.log('New achievements earned:', result.newAchievements)
-
-                // Dispatch an event for achievement notifications
-                window.dispatchEvent(
-                    new CustomEvent('achievementsEarned', {
-                        detail: { achievementIds: result.newAchievements },
-                    })
-                )
-            }
-        },
-        error => {
-            console.error('Failed to save score:', error)
+    await saveGameScore(GameID.TETRIS, state.score, result => {
+        // Handle newly earned achievements
+        if (result.newAchievements && result.newAchievements.length > 0) {
+            // Dispatch an event for achievement notifications
+            window.dispatchEvent(
+                new CustomEvent('achievementsEarned', {
+                    detail: { achievementIds: result.newAchievements },
+                })
+            )
         }
-    )
+    })
 }
 
 export function gameLoop(state: GameState): void {

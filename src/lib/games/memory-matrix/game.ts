@@ -143,14 +143,10 @@ export class MemoryMatrixGame {
             this.gameState.matchedPairs++
             this.gameState.score += CONSTANTS.POINTS_PER_MATCH
             this.gameStats.matchesFound++
-
-            console.log('Match found! Score:', this.gameState.score)
         } else {
             // Cards don't match, flip them back
             card1.isFlipped = false
             card2.isFlipped = false
-
-            console.log('No match, cards flipped back')
         }
 
         // Reset flipped cards array

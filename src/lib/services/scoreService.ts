@@ -46,9 +46,6 @@ export async function submitScore(
 
         if (!response.ok) {
             const errorText = await response.text()
-            console.error(
-                `HTTP error! status: ${response.status}, body: ${errorText}`
-            )
 
             // Handle specific error cases
             if (response.status === 401) {
@@ -69,7 +66,6 @@ export async function submitScore(
             newAchievements: result.newAchievements || [],
         }
     } catch (error) {
-        console.error('Error submitting score:', error)
         return { success: false, error: 'Network error occurred' }
     }
 }
@@ -84,7 +80,6 @@ export async function saveGameScore(
     onError?: (error: string) => void
 ): Promise<void> {
     if (score <= 0) {
-        console.log('Score is 0 or negative, not saving')
         return
     }
 
@@ -92,12 +87,8 @@ export async function saveGameScore(
         const result = await submitScore({ gameId, score })
 
         if (result.success) {
-            console.log('Score saved successfully!')
-
             // Handle newly earned achievements
             if (result.newAchievements && result.newAchievements.length > 0) {
-                console.log('New achievements earned:', result.newAchievements)
-
                 // Show achievement award notifications
                 if (
                     typeof window !== 'undefined' &&
@@ -109,11 +100,9 @@ export async function saveGameScore(
 
             onSuccess?.(result)
         } else {
-            console.warn('Failed to save score:', result.error)
             onError?.(result.error || 'Failed to save score')
         }
     } catch (error) {
-        console.error('Error saving score:', error)
         onError?.('Network error occurred')
     }
 }
@@ -134,7 +123,6 @@ export async function getUserGameHistory(
         const result = await response.json()
         return result.history || []
     } catch (error) {
-        console.error('Error fetching game history:', error)
         return []
     }
 }
@@ -157,7 +145,6 @@ export async function getUserBestScore(
         const result = await response.json()
         return result.bestScore
     } catch (error) {
-        console.error('Error fetching best score:', error)
         return null
     }
 }

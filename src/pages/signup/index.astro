@@ -241,7 +241,6 @@ import Heading from '@/components/ui/Heading.astro'
               }, 1000)
             }
           } catch (error) {
-            console.error('Sign up error:', error)
             showError('An error occurred during sign up. Please try again.')
           } finally {
             // Reset button
@@ -264,7 +263,6 @@ import Heading from '@/components/ui/Heading.astro'
               callbackURL: '/',
             })
           } catch (error) {
-            console.error('Google sign up error:', error)
             showError('Google sign up failed. Please try again.')
           }
         })

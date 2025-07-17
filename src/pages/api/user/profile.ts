@@ -67,7 +67,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
             }
         )
     } catch (error) {
-        console.error('Error updating user profile:', error)
         return new Response(
             JSON.stringify({ error: 'Internal server error' }),
             {

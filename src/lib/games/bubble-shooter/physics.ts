@@ -98,7 +98,6 @@ export function attachBubble(state: GameState, constants: GameConstants): void {
 
     // Check for game over condition after every bubble attachment
     if (checkGameOverCondition(state, constants)) {
-        console.log('Setting game over from attachBubble')
         state.gameOver = true
         state.gameStarted = false
         state.needsRedraw = true
@@ -240,7 +239,6 @@ function addNewRow(state: GameState, constants: GameConstants): void {
 
     // Check if any bubble reached the danger zone (near shooter)
     if (checkGameOverCondition(state, constants)) {
-        console.log('Setting game over from addNewRow')
         state.gameOver = true
         state.gameStarted = false
         state.needsRedraw = true
@@ -300,9 +298,6 @@ function checkGameOverCondition(
             for (let col = 0; col < state.grid[row].length; col++) {
                 const bubble = state.grid[row][col]
                 if (bubble && bubble.y >= dangerZone) {
-                    console.log(
-                        `Game Over! Bubble at row ${row}, col ${col} reached danger zone. Y: ${bubble.y}, Danger Zone: ${dangerZone}`
-                    )
                     return true
                 }
             }

@@ -53,7 +53,6 @@ export async function checkAndAwardAchievements(
 
         return newlyEarnedAchievements
     } catch (error) {
-        console.error('Error checking achievements:', error)
         return []
     }
 }
@@ -70,7 +69,6 @@ export async function awardGlobalAchievement(
             a => a.id === achievementId && a.gameId === 'global'
         )
         if (!achievement) {
-            console.error(`Global achievement ${achievementId} not found`)
             return false
         }
 
@@ -84,7 +82,6 @@ export async function awardGlobalAchievement(
 
         return await awardAchievement(userId, achievementId)
     } catch (error) {
-        console.error('Error awarding global achievement:', error)
         return false
     }
 }
@@ -134,7 +131,6 @@ export async function getUserGameAchievementProgress(
 
         return progress
     } catch (error) {
-        console.error('Error getting user achievement progress:', error)
         return []
     }
 }
@@ -266,7 +262,6 @@ export async function checkTetrisInGameAchievements(
 
         return newlyEarnedAchievements
     } catch (error) {
-        console.error('Error checking Tetris in-game achievements:', error)
         return []
     }
 }

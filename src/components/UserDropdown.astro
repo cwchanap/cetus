@@ -186,8 +186,6 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
           await authClient.signOut()
           window.location.reload()
         } catch (error) {
-          console.error('Logout error:', error)
-
           // Check if this is just a JSON parsing error but logout was successful
           if (error.message && error.message.includes('JSON')) {
             // Logout probably succeeded, just reload the page

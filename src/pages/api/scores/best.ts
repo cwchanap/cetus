@@ -52,7 +52,6 @@ export const GET: APIRoute = async ({ request, url }) => {
             },
         })
     } catch (error) {
-        console.error('Error in GET /api/scores/best:', error)
         return new Response(
             JSON.stringify({ error: 'Internal server error' }),
             {

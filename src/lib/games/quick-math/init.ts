@@ -48,7 +48,6 @@ export async function initQuickMathGame(): Promise<void> {
         !totalQuestionsElement ||
         !playAgainButton
     ) {
-        console.error('Required DOM elements not found')
         return
     }
 
@@ -241,8 +240,6 @@ async function saveScore(score: number): Promise<void> {
         result => {
             // Handle newly earned achievements
             if (result.newAchievements && result.newAchievements.length > 0) {
-                console.log('New achievements earned:', result.newAchievements)
-
                 // Dispatch an event for achievement notifications
                 window.dispatchEvent(
                     new CustomEvent('achievementsEarned', {
@@ -257,8 +254,6 @@ async function saveScore(score: number): Promise<void> {
             }
         },
         error => {
-            console.warn('Failed to save score:', error)
-
             // Notify via callback if available
             if (gameCallbacks?.onScoreUpload) {
                 gameCallbacks.onScoreUpload(false)

@@ -19,8 +19,6 @@ const GAME_CONFIG: GameConfig = {
 let gameInstance: WordScrambleGame | null = null
 
 export async function initWordScrambleGame(): Promise<void> {
-    console.log('🎮 Initializing Word Scramble Game...')
-
     // Get DOM elements
     const scrambledWordElement = document.getElementById('scrambled-word')
     const answerInput = document.getElementById(
@@ -53,7 +51,6 @@ export async function initWordScrambleGame(): Promise<void> {
         !submitButton ||
         !startButton
     ) {
-        console.error('❌ Required game elements not found')
         return
     }
 
@@ -116,8 +113,6 @@ export async function initWordScrambleGame(): Promise<void> {
         },
 
         onGameStart: () => {
-            console.log('🎮 Game started!')
-
             // Enable game controls
             if (answerInput) {
                 answerInput.disabled = false
@@ -153,8 +148,6 @@ export async function initWordScrambleGame(): Promise<void> {
         },
 
         onCorrectAnswer: (word: string) => {
-            console.log(`✅ Correct: ${word}`)
-
             // Update stats
             if (gameInstance) {
                 const state = gameInstance.getState()
@@ -178,8 +171,6 @@ export async function initWordScrambleGame(): Promise<void> {
         },
 
         onIncorrectAnswer: (word: string, userAnswer: string) => {
-            console.log(`❌ Incorrect: ${userAnswer} (correct: ${word})`)
-
             // Update stats
             if (gameInstance) {
                 const state = gameInstance.getState()
@@ -199,8 +190,6 @@ export async function initWordScrambleGame(): Promise<void> {
         },
 
         onGameOver: async (finalScore: number, stats: GameStats) => {
-            console.log('🏁 Game over!', { finalScore, stats })
-
             // Disable game controls
             if (answerInput) {
                 answerInput.disabled = true
@@ -243,21 +232,13 @@ export async function initWordScrambleGame(): Promise<void> {
                     score: finalScore,
                 })
                 callbacks.onScoreUpload?.(success)
-                if (success) {
-                    console.log('✅ Score uploaded successfully')
-                } else {
-                    console.log('⚠️ Score upload failed or user not logged in')
-                }
             } catch (error) {
-                console.error('❌ Error uploading score:', error)
                 callbacks.onScoreUpload?.(false)
             }
         },
 
         onScoreUpload: (success: boolean) => {
-            if (success) {
-                console.log('📊 Score uploaded successfully!')
-            }
+            // Score upload completed
         },
     }
 
@@ -315,6 +296,4 @@ export async function initWordScrambleGame(): Promise<void> {
     window.addEventListener('beforeunload', () => {
         gameInstance?.destroy()
     })
-
-    console.log('✅ Word Scramble Game initialized successfully!')
 }

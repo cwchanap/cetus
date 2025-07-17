@@ -188,7 +188,6 @@ import Heading from '@/components/ui/Heading.astro'
               callbackURL: '/',
             })
           } catch (error) {
-            console.error('Login error:', error)
             showError('An error occurred during login. Please try again.')
           } finally {
             // Reset button
@@ -211,7 +210,6 @@ import Heading from '@/components/ui/Heading.astro'
               callbackURL: '/?redirect=games',
             })
           } catch (error) {
-            console.error('Google login error:', error)
             showError('Google login failed. Please try again.')
           }
         })
