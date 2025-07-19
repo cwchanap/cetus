@@ -118,6 +118,19 @@ export const ACHIEVEMENTS: Achievement[] = [
         },
         rarity: AchievementRarity.COMMON,
     },
+    {
+        id: 'reflex_welcome',
+        name: 'First Reflex',
+        description:
+            'Welcome to Reflex Coin Collection! You scored your first points.',
+        logo: '🎮',
+        gameId: GameID.REFLEX,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
 
     // Tetris achievements
     {
@@ -427,6 +440,68 @@ export const ACHIEVEMENTS: Achievement[] = [
             threshold: 1000,
         },
         rarity: AchievementRarity.EPIC,
+    },
+
+    // Reflex achievements
+    {
+        id: 'reflex_novice',
+        name: 'Reflex Novice',
+        description: 'Score 100 points in Reflex Coin Collection',
+        logo: '⚡',
+        gameId: GameID.REFLEX,
+        condition: {
+            type: 'score_threshold',
+            threshold: 100,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'reflex_apprentice',
+        name: 'Reflex Apprentice',
+        description: 'Score 250 points in Reflex Coin Collection',
+        logo: '🪙',
+        gameId: GameID.REFLEX,
+        condition: {
+            type: 'score_threshold',
+            threshold: 250,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'reflex_expert',
+        name: 'Reflex Expert',
+        description: 'Score 500 points in Reflex Coin Collection',
+        logo: '💰',
+        gameId: GameID.REFLEX,
+        condition: {
+            type: 'score_threshold',
+            threshold: 500,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'reflex_master',
+        name: 'Reflex Master',
+        description: 'Score 1000 points in Reflex Coin Collection',
+        logo: '👑',
+        gameId: GameID.REFLEX,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1000,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: 'lightning_reflexes',
+        name: 'Lightning Reflexes',
+        description: 'Score 1500 points in Reflex Coin Collection',
+        logo: '⚡',
+        gameId: GameID.REFLEX,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1500,
+        },
+        rarity: AchievementRarity.LEGENDARY,
     },
 ]
 

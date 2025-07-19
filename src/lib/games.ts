@@ -8,6 +8,7 @@ export enum GameID {
     QUICK_MATH = 'quick_math',
     MEMORY_MATRIX = 'memory_matrix',
     WORD_SCRAMBLE = 'word_scramble',
+    REFLEX = 'reflex',
 }
 
 // Game system types
@@ -93,6 +94,18 @@ export const GAMES: Game[] = [
         estimatedDuration: '1 minute',
         difficulty: 'medium',
         tags: ['words', 'anagram', 'vocabulary', 'single-player', 'speed'],
+        isActive: true,
+    },
+    {
+        id: GameID.REFLEX,
+        name: 'Reflex Coin Collection',
+        description:
+            'Test your reflexes by collecting coins and avoiding bombs in this fast-paced grid game',
+        category: 'action',
+        maxPlayers: 1,
+        estimatedDuration: '1 minute',
+        difficulty: 'medium',
+        tags: ['reflex', 'reaction', 'coins', 'single-player', 'speed'],
         isActive: true,
     },
 ]

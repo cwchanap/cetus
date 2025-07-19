@@ -24,6 +24,13 @@ Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS.
 - `npm run test:coverage` - Run tests with coverage report
 - `npm run test:watch` - Run tests in watch mode
 
+### End-to-End Testing
+- `npm run test:e2e` - Run Playwright end-to-end tests
+- `npm run test:e2e:ui` - Run Playwright tests with UI mode
+- `npm run test:e2e:headed` - Run Playwright tests in headed mode
+- `npm run test:e2e:debug` - Run Playwright tests in debug mode
+- `npm run test:e2e:report` - Show Playwright test report
+
 ### Code Quality
 - `npm run lint` - Lint codebase with ESLint
 - `npm run lint:fix` - Auto-fix lint issues
@@ -40,6 +47,7 @@ Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS.
 - **Authentication**: Better Auth with email/password and Google OAuth
 - **Graphics**: PixiJS 8.10.2 for game rendering
 - **Testing**: Vitest with jsdom environment and Testing Library
+- **E2E Testing**: Playwright for end-to-end testing across browsers
 - **Code Quality**: ESLint + Prettier with lint-staged and Husky
 
 ### Database Architecture
@@ -129,6 +137,7 @@ Comprehensive sci-fi design system:
 ### Test Structure
 - **Unit Tests**: `*.test.ts` files co-located with source code
 - **Integration Tests**: API and database interaction testing
+- **E2E Tests**: Playwright tests in `tests/e2e/` directory
 - **Setup**: Global test setup in `src/test/setup.ts`
 - **Coverage**: V8 coverage reports with HTML output
 - **Environment**: jsdom for DOM testing with Testing Library
@@ -138,6 +147,7 @@ Comprehensive sci-fi design system:
 - Auth flows tested with mock sessions
 - Game logic unit tests for core mechanics
 - API endpoints tested with request/response mocking
+- End-to-end user workflows tested with Playwright across browsers
 
 ## Development Guidelines
 

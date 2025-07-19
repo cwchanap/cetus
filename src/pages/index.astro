@@ -26,6 +26,7 @@ const gameIcons: Record<string, string> = {
   quick_math: '🧮',
   memory_matrix: '🧠',
   word_scramble: '📝',
+  reflex: '⚡',
 }
 
 // Convert Games system data to GameCard format
@@ -38,6 +39,7 @@ function convertGameToCardFormat(game: Game) {
     quick_math: 5,
     memory_matrix: 4,
     word_scramble: 6,
+    reflex: 7,
   }
 
   return {
@@ -59,7 +61,7 @@ const availableGames = systemGames.map(convertGameToCardFormat)
 // Add placeholder games for future development
 const comingSoonGames = [
   {
-    id: 7,
+    id: 8,
     title: 'Color Match',
     description: 'Match colors in this fast-paced puzzle',
     icon: '🌈',
@@ -68,21 +70,12 @@ const comingSoonGames = [
     available: false,
   },
   {
-    id: 8,
+    id: 9,
     title: 'Number Puzzle',
     description: 'Solve number sequences and patterns',
     icon: '🔢',
     duration: '5-15 min',
     difficulty: 'Hard',
-    available: false,
-  },
-  {
-    id: 9,
-    title: 'Reflex Test',
-    description: 'Test your reaction time and reflexes',
-    icon: '⚡',
-    duration: '2-5 min',
-    difficulty: 'Easy',
     available: false,
   },
 ]
