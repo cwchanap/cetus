@@ -93,8 +93,6 @@ const games = [...availableGames, ...comingSoonGames]
     title="MINIGAMES"
     subtitle="OF THE FUTURE"
     description="Welcome to the ultimate single-player gaming experience. Choose from our collection of <span class='text-cyan-400 font-semibold text-neon-cyan'>futuristic mini-games</span> designed to challenge your skills and create amazing gaming moments."
-    primaryAction="Start Playing"
-    primaryHref="#games"
   />
 
   <!-- Games Grid -->
@@ -149,48 +147,6 @@ const games = [...availableGames, ...comingSoonGames]
           variant="cyan-purple"
         />
       </div>
-    </Container>
-  </Section>
-
-  <!-- CTA Section -->
-  <Section variant="cta">
-    <Container class="max-w-4xl text-center">
-      <Card variant="glass" class="p-12">
-        <Heading level={3} variant="section" align="center" class="mb-4">
-          {user ? 'Welcome Back, Player!' : 'Ready to Start Playing?'}
-        </Heading>
-        <p class="text-gray-300 mb-8 text-lg">
-          {
-            user
-              ? 'Continue your gaming journey with our collection of minigames'
-              : 'Jump right into our games or create an account to track your progress'
-          }
-        </p>
-        {
-          user ? (
-            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button variant="primary" size="lg">
-                <a href="#games" class="text-white no-underline">
-                  Continue Playing 🎮
-                </a>
-              </Button>
-            </div>
-          ) : (
-            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button variant="primary" size="lg">
-                <a href="#games" class="text-white no-underline">
-                  Start Playing 🎮
-                </a>
-              </Button>
-              <Button variant="outline" size="lg">
-                <a href="/login" class="text-white no-underline">
-                  Login for Progress 📊
-                </a>
-              </Button>
-            </div>
-          )
-        }
-      </Card>
     </Container>
   </Section>
 </AppLayout>

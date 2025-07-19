@@ -5,7 +5,11 @@
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(npm run build:*)",
-      "Bash(sqlite3:*)"
+      "Bash(sqlite3:*)",
+      "WebFetch(domain:pixijs.com)",
+      "WebFetch(domain:docs.astro.build)",
+      "Bash(npm run dev:*)",
+      "Bash(npm test:*)"
     ],
     "deny": []
   }

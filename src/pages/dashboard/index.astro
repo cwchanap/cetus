@@ -11,6 +11,17 @@ import Button from '@/components/ui/Button.astro'
 
 import { getUserGameHistoryPaginated } from '@/lib/server/db/queries'
 
+// Game icon mapping (consistent with home page)
+const gameIcons: Record<string, string> = {
+  tetris: '🔲',
+  quick_draw: '🎨',
+  bubble_shooter: '🫧',
+  quick_math: '🧮',
+  memory_matrix: '🧠',
+  word_scramble: '📝',
+  reflex: '⚡',
+}
+
 // Check if user is authenticated
 const user = Astro.locals.user
 const session = Astro.locals.session
@@ -136,15 +147,7 @@ const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
                     <div class="flex items-center space-x-4">
                       <div class="w-12 h-12 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center">
                         <span class="text-white font-bold text-lg">
-                          {game.game_id === 'tetris'
-                            ? '🔲'
-                            : game.game_id === 'quick_draw'
-                              ? '🎨'
-                              : game.game_id === 'bubble_shooter'
-                                ? '🫧'
-                                : game.game_id === 'quick_math'
-                                  ? '🧮'
-                                  : '🎮'}
+                          {gameIcons[game.game_id] || '🎮'}
                         </span>
                       </div>
                       <div>
