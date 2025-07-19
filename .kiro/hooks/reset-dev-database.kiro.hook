@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Reset Dev Database",
+  "description": "Monitors the SQLite database file and automatically cleans all achievements and scores when changes are detected, keeping the development environment fresh",
+  "version": "1",
+  "when": {
+    "type": "userTriggered",
+    "patterns": [
+      "db/db.sqlite"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The SQLite database file has been modified. Please clean all achievements and scores from the database to reset the local development environment. Connect to the database at db/db.sqlite and execute DELETE statements to remove all records from the achievements and scores tables while preserving the table structure."
+  }
+}
