@@ -143,7 +143,7 @@ export class ReflexGame {
         const randomCell =
             availableCells[Math.floor(Math.random() * availableCells.length)]
 
-        // Determine object type based on coin:bomb ratio (8:1)
+        // Determine object type based on coin:bomb ratio (2:1)
         const isCoin =
             Math.random() <
             this.config.coinToBombRatio / (this.config.coinToBombRatio + 1)

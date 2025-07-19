@@ -21,7 +21,7 @@ const DEFAULT_CONFIG: GameConfig = {
     cellSize: 40, // 40px per cell
     objectLifetime: 2, // 2 seconds
     spawnInterval: 1, // 1 second
-    coinToBombRatio: 8, // 8:1 ratio (coins:bombs)
+    coinToBombRatio: 2, // 2:1 ratio (coins:bombs)
     pointsForCoin: 10,
     pointsForBomb: -15,
     pointsForMissedCoin: -5,

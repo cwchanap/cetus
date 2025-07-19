@@ -14,7 +14,7 @@ describe('ReflexGame', () => {
         cellSize: 40,
         objectLifetime: 2,
         spawnInterval: 1,
-        coinToBombRatio: 8,
+        coinToBombRatio: 2,
         pointsForCoin: 10,
         pointsForBomb: -15,
         pointsForMissedCoin: -5,
@@ -195,11 +195,11 @@ describe('ReflexGame', () => {
             const coins = history.filter(h => h.type === 'coin').length
             const bombs = history.filter(h => h.type === 'bomb').length
 
-            // Should be approximately 8:1 ratio (allowing for some randomness)
+            // Should be approximately 2:1 ratio (allowing for some randomness)
             if (coins > 0 && bombs > 0) {
                 const ratio = coins / bombs
-                expect(ratio).toBeGreaterThan(4) // At least 4:1
-                expect(ratio).toBeLessThan(16) // At most 16:1
+                expect(ratio).toBeGreaterThan(1.0) // At least 1:1
+                expect(ratio).toBeLessThan(4.0) // At most 4:1
             }
         })
     })
@@ -224,7 +224,7 @@ describe('ReflexGame', () => {
         it('should apply penalty for missed coins', () => {
             // Mock spawn to always create coins for predictable testing
             const originalRandom = Math.random
-            Math.random = vi.fn(() => 0.5) // Always spawn coins
+            Math.random = vi.fn(() => 0.5) // Always spawn coins (< 2 / (2 + 1) ≈ 0.667)
 
             game.startGame()
             vi.advanceTimersByTime(1000) // Spawn coin
@@ -242,7 +242,7 @@ describe('ReflexGame', () => {
         it('should handle coin clicks correctly', () => {
             // Mock spawn to always create coins
             const originalRandom = Math.random
-            Math.random = vi.fn(() => 0.5)
+            Math.random = vi.fn(() => 0.5) // Always spawn coins (< 2 / (2 + 1) ≈ 0.667)
 
             game.startGame()
             vi.advanceTimersByTime(1000) // Spawn coin
@@ -305,7 +305,7 @@ describe('ReflexGame', () => {
         it('should calculate accuracy correctly', () => {
             // Mock spawns for predictable testing
             const originalRandom = Math.random
-            Math.random = vi.fn(() => 0.5) // Always coins
+            Math.random = vi.fn(() => 0.5) // Always coins (< 2 / (2 + 1) ≈ 0.667)
 
             game.startGame()
 
@@ -333,7 +333,7 @@ describe('ReflexGame', () => {
 
         it('should track game history correctly', () => {
             const originalRandom = Math.random
-            Math.random = vi.fn(() => 0.5) // Always coins
+            Math.random = vi.fn(() => 0.5) // Always coins (< 2 / (2 + 1) ≈ 0.667)
 
             game.startGame()
             vi.advanceTimersByTime(1000) // Spawn coin

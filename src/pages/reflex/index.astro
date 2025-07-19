@@ -112,8 +112,7 @@ const gameNavigation = [
             <!-- Game Over Overlay -->
             <div
               id="game-over-overlay"
-              class="absolute inset-0 bg-black/90 rounded-lg flex items-center justify-center hidden"
-              style="margin: -2rem;"
+              class="fixed inset-0 bg-black/90 flex items-center justify-center hidden z-50"
             >
               <div class="text-center p-8">
                 <h3 class="text-4xl font-orbitron font-bold text-cyan-400 mb-6">
@@ -153,7 +152,7 @@ const gameNavigation = [
                 </div>
 
                 <Button id="play-again-btn" variant="primary" size="lg">
-                  Play Again
+                  Close
                 </Button>
               </div>
             </div>
@@ -188,7 +187,7 @@ const gameNavigation = [
               </div>
               <div class="flex items-center space-x-2">
                 <span class="text-purple-400">📊</span>
-                <span>8:1 coin to bomb ratio</span>
+                <span>2:1 coin to bomb ratio</span>
               </div>
             </div>
           </Card>
@@ -255,7 +254,8 @@ const gameNavigation = [
     <!-- Reflex Game Logic -->
     <script>
       import { initializeReflexGame } from '@/lib/games/reflex/init'
-      import { submitScore } from '@/lib/score-client'
+      import { saveGameScore } from '@/lib/services/scoreService'
+      import { GameID } from '@/lib/games'
 
       let gameInstance: any = null
 
@@ -304,14 +304,47 @@ const gameNavigation = [
               // Show game over overlay
               gameOverOverlay.classList.remove('hidden')
               startBtn.style.display = 'inline-flex'
+              startBtn.style.opacity = '1'
+              startBtn.style.pointerEvents = 'auto'
               stopBtn.style.display = 'none'
 
               // Submit score
               try {
-                await submitScore('reflex', finalScore)
+                await saveGameScore(
+                  GameID.REFLEX,
+                  finalScore,
+                  result => {
+                    // Handle newly earned achievements
+                    if (
+                      result.newAchievements &&
+                      result.newAchievements.length > 0
+                    ) {
+                      // Dispatch an event for achievement notifications
+                      window.dispatchEvent(
+                        new CustomEvent('achievementsEarned', {
+                          detail: { achievementIds: result.newAchievements },
+                        })
+                      )
+                    }
+                    console.log('Score saved successfully')
+                  },
+                  error => {
+                    console.error('Failed to submit score:', error)
+                  }
+                )
               } catch (error) {
                 console.error('Failed to submit score:', error)
               }
+            },
+            onObjectSpawn: (object: any) => {
+              // Optional: Handle object spawn events (e.g., visual effects, sound)
+              console.log(
+                `Object spawned: ${object.type} at (${object.cell.row}, ${object.cell.col})`
+              )
+            },
+            onObjectExpire: (object: any) => {
+              // Optional: Handle object expiration events (e.g., visual effects, sound)
+              console.log(`Object expired: ${object.type}`)
             },
             onObjectClick: (object: any, points: number) => {
               // Update live stats
@@ -339,7 +372,8 @@ const gameNavigation = [
           })
 
           playAgainBtn.addEventListener('click', () => {
-            gameInstance.startGame()
+            gameOverOverlay.classList.add('hidden')
+            gameStatusElement.style.display = 'flex'
           })
         } catch (error) {
           console.error('Failed to initialize Reflex game:', error)
