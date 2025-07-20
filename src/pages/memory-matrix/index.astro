@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/AppLayout.astro'
 import Button from '@/components/ui/Button.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
+import GameOverlay from '@/components/GameOverlay.astro'
 
 // Custom navigation for game pages with breadcrumb
 const gameNavigation = [
@@ -78,6 +79,12 @@ const gameNavigation = [
             <div class="flex space-x-2">
               <Button id="start-btn" variant="primary" size="sm"
                 >Start Game</Button
+              >
+              <Button
+                id="end-btn"
+                variant="outline"
+                size="sm"
+                style="display: none;">End Game</Button
               >
               <Button id="reset-btn" variant="outline" size="sm">Reset</Button>
             </div>
@@ -176,11 +183,128 @@ const gameNavigation = [
     <!-- Memory Matrix Game Logic -->
     <script>
       import { initMemoryMatrixGame } from '@/lib/games/memory-matrix/init'
+      import { saveGameScore } from '@/lib/services/scoreService'
+      import { GameID } from '@/lib/games'
 
       // Initialize game when page loads
       document.addEventListener('DOMContentLoaded', async () => {
-        await initMemoryMatrixGame()
+        try {
+          const gameInstance = await initMemoryMatrixGame({
+            onGameComplete: async (finalScore: number, stats: any) => {
+              // Set dynamic title based on game outcome
+              const gameOverTitle = document.getElementById('game-over-title')!
+              if (stats.gameWon) {
+                gameOverTitle.textContent = 'VICTORY!'
+                gameOverTitle.className =
+                  'text-4xl font-orbitron font-bold text-green-400 mb-6'
+              } else {
+                gameOverTitle.textContent = "TIME'S UP!"
+                gameOverTitle.className =
+                  'text-4xl font-orbitron font-bold text-cyan-400 mb-6'
+              }
+
+              // Update final stats in overlay
+              document.getElementById('final-score')!.textContent =
+                finalScore.toString()
+              document.getElementById('final-pairs')!.textContent =
+                `${stats.pairsFound || 0}/24`
+              document.getElementById('final-accuracy')!.textContent =
+                `${Math.round(stats.accuracy || 0)}%`
+              document.getElementById('final-time')!.textContent =
+                `${stats.timeRemaining || 0}s`
+              document.getElementById('final-attempts')!.textContent = (
+                stats.totalAttempts || 0
+              ).toString()
+
+              // Show game over overlay
+              const gameOverOverlay =
+                document.getElementById('game-over-overlay')!
+              gameOverOverlay.classList.remove('hidden')
+
+              // Reset buttons
+              const startBtn = document.getElementById('start-btn')!
+              const endBtn = document.getElementById('end-btn')!
+              startBtn.style.display = 'inline-flex'
+              endBtn.style.display = 'none'
+
+              // Submit score
+              try {
+                await saveGameScore(
+                  GameID.MEMORY_MATRIX,
+                  finalScore,
+                  result => {
+                    // Handle newly earned achievements
+                    if (
+                      result.newAchievements &&
+                      result.newAchievements.length > 0
+                    ) {
+                      // Dispatch an event for achievement notifications
+                      window.dispatchEvent(
+                        new CustomEvent('achievementsEarned', {
+                          detail: { achievementIds: result.newAchievements },
+                        })
+                      )
+                    }
+                    console.log('Score saved successfully')
+                  },
+                  error => {
+                    console.error('Failed to submit score:', error)
+                  }
+                )
+              } catch (error) {
+                console.error('Failed to submit score:', error)
+              }
+            },
+          })
+
+          // Add end game button functionality
+          const startBtn = document.getElementById('start-btn')!
+          const endBtn = document.getElementById('end-btn')!
+
+          // Show end button when game starts
+          startBtn.addEventListener('click', () => {
+            startBtn.style.display = 'none'
+            endBtn.style.display = 'inline-flex'
+          })
+
+          // End game button click handler
+          endBtn.addEventListener('click', () => {
+            if (gameInstance && gameInstance.endGame) {
+              gameInstance.endGame()
+            }
+          })
+
+          // Handle play again button
+          document
+            .getElementById('play-again-btn')
+            ?.addEventListener('click', () => {
+              const gameOverOverlay =
+                document.getElementById('game-over-overlay')!
+              gameOverOverlay.classList.add('hidden')
+              if (gameInstance && gameInstance.restart) {
+                gameInstance.restart()
+              }
+            })
+        } catch (error) {
+          console.error('Failed to initialize Memory Matrix game:', error)
+        }
       })
     </script>
   </div>
 </AppLayout>
+
+<!-- Game Over Overlay - Outside AppLayout to avoid stacking context issues -->
+<GameOverlay titleId="game-over-title">
+  <div class="text-lg text-gray-300">
+    Pairs Found: <span id="final-pairs" class="text-green-400">0/24</span>
+  </div>
+  <div class="text-lg text-gray-300">
+    Accuracy: <span id="final-accuracy" class="text-cyan-400">0%</span>
+  </div>
+  <div class="text-lg text-gray-300">
+    Time Remaining: <span id="final-time" class="text-purple-400">0s</span>
+  </div>
+  <div class="text-lg text-gray-300">
+    Total Attempts: <span id="final-attempts" class="text-yellow-400">0</span>
+  </div>
+</GameOverlay>

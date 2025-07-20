@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/AppLayout.astro'
 import Button from '@/components/ui/Button.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
+import GameOverlay from '@/components/GameOverlay.astro'
 
 // Custom navigation for game pages with breadcrumb
 const gameNavigation = [
@@ -65,30 +66,39 @@ const gameNavigation = [
               >
               </div>
 
-              <!-- Game Over Overlay -->
-              <div
-                id="game-over-overlay"
-                class="absolute inset-0 bg-black/80 rounded-lg flex items-center justify-center hidden"
-              >
-                <div class="text-center">
-                  <h3
-                    class="text-3xl font-orbitron font-bold text-red-400 mb-4"
+              <GameOverlay defaultTitle="GAME OVER" buttonId="restart-btn">
+                <div class="text-lg text-gray-300">
+                  Level Reached: <span id="final-level" class="text-cyan-400"
+                    >1</span
                   >
-                    GAME OVER
-                  </h3>
-                  <p class="text-gray-400 mb-4">
-                    Final Score: <span id="final-score" class="text-cyan-400"
-                      >0</span
-                    >
-                  </p>
-                  <Button id="restart-btn" variant="primary">Play Again</Button>
                 </div>
-              </div>
+                <div class="text-lg text-gray-300">
+                  Lines Cleared: <span id="final-lines" class="text-green-400"
+                    >0</span
+                  >
+                </div>
+                <div class="text-lg text-gray-300">
+                  Pieces Placed: <span id="final-pieces" class="text-purple-400"
+                    >0</span
+                  >
+                </div>
+                <div class="text-lg text-gray-300">
+                  Tetrises: <span id="final-tetrises" class="text-yellow-400"
+                    >0</span
+                  >
+                </div>
+              </GameOverlay>
             </div>
 
             <!-- Game Controls -->
             <div class="flex space-x-2">
               <Button id="start-btn" variant="primary" size="sm">Start</Button>
+              <Button
+                id="end-btn"
+                variant="outline"
+                size="sm"
+                style="display: none;">End Game</Button
+              >
               <Button id="pause-btn" variant="outline" size="sm">Pause</Button>
               <Button id="reset-btn" variant="outline" size="sm">Reset</Button>
             </div>
@@ -180,10 +190,98 @@ const gameNavigation = [
     <!-- Tetris Game Logic -->
     <script>
       import { initTetrisGame } from '@/lib/games/tetris/init'
+      import { saveGameScore } from '@/lib/services/scoreService'
+      import { GameID } from '@/lib/games'
 
       // Initialize game when page loads
       document.addEventListener('DOMContentLoaded', async () => {
-        await initTetrisGame()
+        try {
+          const gameInstance = await initTetrisGame({
+            onGameOver: async (finalScore: number, stats: any) => {
+              // Update final stats in overlay
+              document.getElementById('final-score')!.textContent =
+                finalScore.toString()
+              document.getElementById('final-level')!.textContent =
+                stats.level?.toString() || '1'
+              document.getElementById('final-lines')!.textContent =
+                stats.lines?.toString() || '0'
+              document.getElementById('final-pieces')!.textContent =
+                stats.pieces?.toString() || '0'
+              document.getElementById('final-tetrises')!.textContent =
+                stats.tetrises?.toString() || '0'
+
+              // Show game over overlay
+              const gameOverOverlay =
+                document.getElementById('game-over-overlay')!
+              gameOverOverlay.classList.remove('hidden')
+
+              // Reset buttons
+              const startBtn = document.getElementById('start-btn')!
+              const endBtn = document.getElementById('end-btn')!
+              startBtn.style.display = 'inline-flex'
+              endBtn.style.display = 'none'
+
+              // Submit score
+              try {
+                await saveGameScore(
+                  GameID.TETRIS,
+                  finalScore,
+                  result => {
+                    // Handle newly earned achievements
+                    if (
+                      result.newAchievements &&
+                      result.newAchievements.length > 0
+                    ) {
+                      // Dispatch an event for achievement notifications
+                      window.dispatchEvent(
+                        new CustomEvent('achievementsEarned', {
+                          detail: { achievementIds: result.newAchievements },
+                        })
+                      )
+                    }
+                    console.log('Score saved successfully')
+                  },
+                  error => {
+                    console.error('Failed to submit score:', error)
+                  }
+                )
+              } catch (error) {
+                console.error('Failed to submit score:', error)
+              }
+            },
+          })
+
+          // Add end game button functionality
+          const startBtn = document.getElementById('start-btn')!
+          const endBtn = document.getElementById('end-btn')!
+
+          // Show end button when game starts
+          startBtn.addEventListener('click', () => {
+            startBtn.style.display = 'none'
+            endBtn.style.display = 'inline-flex'
+          })
+
+          // End game button click handler
+          endBtn.addEventListener('click', () => {
+            if (gameInstance && gameInstance.endGame) {
+              gameInstance.endGame()
+            }
+          })
+
+          // Handle restart button
+          document
+            .getElementById('restart-btn')
+            ?.addEventListener('click', () => {
+              const gameOverOverlay =
+                document.getElementById('game-over-overlay')!
+              gameOverOverlay.classList.add('hidden')
+              if (gameInstance && gameInstance.restart) {
+                gameInstance.restart()
+              }
+            })
+        } catch (error) {
+          console.error('Failed to initialize Tetris game:', error)
+        }
       })
     </script>
   </div>

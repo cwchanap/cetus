@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/AppLayout.astro'
 import Button from '@/components/ui/Button.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
+import GameOverlay from '@/components/GameOverlay.astro'
 
 // Custom navigation for game pages with breadcrumb
 const gameNavigation = [
@@ -89,6 +90,9 @@ const gameNavigation = [
             <!-- Game Controls -->
             <div class="flex space-x-3 mt-6">
               <Button id="start-btn" variant="primary">Start Game</Button>
+              <Button id="end-btn" variant="outline" style="display: none;"
+                >End Game</Button
+              >
             </div>
 
             <!-- Current Session Stats - Inline -->
@@ -109,43 +113,17 @@ const gameNavigation = [
               </div>
             </div>
 
-            <!-- Game Over Overlay -->
-            <div
-              id="game-over-overlay"
-              class="absolute inset-0 bg-black/90 rounded-lg flex items-center justify-center hidden"
-              style="margin: -2rem;"
-            >
-              <div class="text-center p-8">
-                <h3 class="text-4xl font-orbitron font-bold text-cyan-400 mb-6">
-                  TIME'S UP!
-                </h3>
-
-                <!-- Final Stats -->
-                <div class="space-y-4 mb-8">
-                  <div class="text-xl">
-                    Final Score: <span
-                      id="final-score"
-                      class="text-holographic font-bold">0</span
-                    >
-                  </div>
-                  <div class="text-lg text-gray-300">
-                    Questions Answered: <span
-                      id="total-questions"
-                      class="text-cyan-400">0</span
-                    >
-                  </div>
-                  <div class="text-lg text-gray-300">
-                    Accuracy: <span id="accuracy" class="text-green-400"
-                      >0%</span
-                    >
-                  </div>
-                </div>
-
-                <Button id="play-again-btn" variant="primary" size="lg">
-                  Play Again
-                </Button>
+            <GameOverlay defaultTitle="TIME'S UP!">
+              <div class="text-lg text-gray-300">
+                Questions Answered: <span
+                  id="total-questions"
+                  class="text-cyan-400">0</span
+                >
               </div>
-            </div>
+              <div class="text-lg text-gray-300">
+                Accuracy: <span id="accuracy" class="text-green-400">0%</span>
+              </div>
+            </GameOverlay>
           </div>
         </Card>
       </div>
@@ -235,10 +213,101 @@ const gameNavigation = [
     <!-- Quick Math Game Logic -->
     <script>
       import { initQuickMathGame } from '@/lib/games/quick-math/init'
+      import { saveGameScore } from '@/lib/services/scoreService'
+      import { GameID } from '@/lib/games'
 
       // Initialize game when page loads
       document.addEventListener('DOMContentLoaded', async () => {
-        await initQuickMathGame()
+        try {
+          const gameInstance = await initQuickMathGame({
+            onGameOver: async (finalScore: number, stats: unknown) => {
+              // Update final stats in overlay
+              document.getElementById('final-score')!.textContent =
+                finalScore.toString()
+              document.getElementById('total-questions')!.textContent = (
+                stats.totalQuestions || 0
+              ).toString()
+              document.getElementById('accuracy')!.textContent =
+                `${Math.round(stats.accuracy || 0)}%`
+
+              // Show game over overlay
+              const gameOverOverlay =
+                document.getElementById('game-over-overlay')!
+              gameOverOverlay.classList.remove('hidden')
+
+              // Reset buttons
+              const startBtn = document.getElementById('start-btn')!
+              const endBtn = document.getElementById('end-btn')!
+              startBtn.style.display = 'inline-flex'
+              endBtn.style.display = 'none'
+
+              // Submit score
+              try {
+                await saveGameScore(
+                  GameID.QUICK_MATH,
+                  finalScore,
+                  result => {
+                    // Handle newly earned achievements
+                    if (
+                      result.newAchievements &&
+                      result.newAchievements.length > 0
+                    ) {
+                      // Dispatch an event for achievement notifications
+                      window.dispatchEvent(
+                        new CustomEvent('achievementsEarned', {
+                          detail: { achievementIds: result.newAchievements },
+                        })
+                      )
+                    }
+                    console.log('Score saved successfully')
+                  },
+                  error => {
+                    console.error('Failed to submit score:', error)
+                  }
+                )
+              } catch (error) {
+                console.error('Failed to submit score:', error)
+              }
+            },
+          })
+
+          // Add end game button functionality
+          const startBtn = document.getElementById('start-btn')!
+          const endBtn = document.getElementById('end-btn')!
+
+          // Show end button when game starts
+          const originalOnGameStart = gameInstance.callbacks?.onGameStart
+          if (gameInstance.callbacks) {
+            gameInstance.callbacks.onGameStart = () => {
+              startBtn.style.display = 'none'
+              endBtn.style.display = 'inline-flex'
+              if (originalOnGameStart) {
+                originalOnGameStart()
+              }
+            }
+          }
+
+          // End game button click handler
+          endBtn.addEventListener('click', () => {
+            if (gameInstance && gameInstance.endGame) {
+              gameInstance.endGame()
+            }
+          })
+
+          // Handle play again button
+          document
+            .getElementById('play-again-btn')
+            ?.addEventListener('click', () => {
+              const gameOverOverlay =
+                document.getElementById('game-over-overlay')!
+              gameOverOverlay.classList.add('hidden')
+              if (gameInstance && gameInstance.restart) {
+                gameInstance.restart()
+              }
+            })
+        } catch (error) {
+          console.error('Failed to initialize Quick Math game:', error)
+        }
       })
     </script>
   </div>

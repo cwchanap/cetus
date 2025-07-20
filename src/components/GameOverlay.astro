@@ -1,0 +1,52 @@
+---
+import Button from '@/components/ui/Button.astro'
+
+export interface Props {
+  id?: string
+  titleId?: string
+  scoreId?: string
+  buttonId?: string
+  buttonText?: string
+  defaultTitle?: string
+}
+
+const {
+  id = 'game-over-overlay',
+  titleId = 'game-over-title',
+  scoreId = 'final-score',
+  buttonId = 'play-again-btn',
+  buttonText = 'Play Again',
+  defaultTitle = 'GAME OVER!',
+} = Astro.props
+---
+
+<!-- Game Over Overlay -->
+<div
+  id={id}
+  class="fixed inset-0 bg-black/90 flex items-center justify-center hidden z-50"
+>
+  <div class="text-center p-8">
+    <h3
+      id={titleId}
+      class="text-4xl font-orbitron font-bold text-cyan-400 mb-6"
+    >
+      {defaultTitle}
+    </h3>
+
+    <!-- Final Stats -->
+    <div class="space-y-4 mb-8">
+      <div class="text-xl">
+        Final Score: <span id={scoreId} class="text-holographic font-bold"
+          >0</span
+        >
+      </div>
+
+      <!-- Custom stats slot -->
+      <slot />
+    </div>
+
+    <Button id={buttonId} variant="primary" size="lg">
+      {buttonText}
+    </Button>
+  </div>
+</div>

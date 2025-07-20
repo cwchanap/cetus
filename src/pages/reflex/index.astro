@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/AppLayout.astro'
 import Button from '@/components/ui/Button.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
+import GameOverlay from '@/components/GameOverlay.astro'
 
 // Custom navigation for game pages with breadcrumb
 const gameNavigation = [
@@ -87,7 +88,7 @@ const gameNavigation = [
             <div class="flex space-x-3">
               <Button id="start-btn" variant="primary">Start Game</Button>
               <Button id="stop-btn" variant="outline" style="display: none;"
-                >Stop Game</Button
+                >End Game</Button
               >
             </div>
 
@@ -109,53 +110,26 @@ const gameNavigation = [
               </div>
             </div>
 
-            <!-- Game Over Overlay -->
-            <div
-              id="game-over-overlay"
-              class="fixed inset-0 bg-black/90 flex items-center justify-center hidden z-50"
-            >
-              <div class="text-center p-8">
-                <h3 class="text-4xl font-orbitron font-bold text-cyan-400 mb-6">
-                  TIME'S UP!
-                </h3>
-
-                <!-- Final Stats -->
-                <div class="space-y-4 mb-8">
-                  <div class="text-xl">
-                    Final Score: <span
-                      id="final-score"
-                      class="text-holographic font-bold">0</span
-                    >
-                  </div>
-                  <div class="text-lg text-gray-300">
-                    Coins Collected: <span
-                      id="final-coins"
-                      class="text-green-400">0</span
-                    >
-                  </div>
-                  <div class="text-lg text-gray-300">
-                    Bombs Hit: <span id="final-bombs" class="text-red-400"
-                      >0</span
-                    >
-                  </div>
-                  <div class="text-lg text-gray-300">
-                    Accuracy: <span id="final-accuracy" class="text-cyan-400"
-                      >0%</span
-                    >
-                  </div>
-                  <div class="text-lg text-gray-300">
-                    Avg Reaction: <span
-                      id="avg-reaction"
-                      class="text-purple-400">0ms</span
-                    >
-                  </div>
-                </div>
-
-                <Button id="play-again-btn" variant="primary" size="lg">
-                  Close
-                </Button>
+            <GameOverlay defaultTitle="TIME'S UP!" buttonText="Close">
+              <div class="text-lg text-gray-300">
+                Coins Collected: <span id="final-coins" class="text-green-400"
+                  >0</span
+                >
               </div>
-            </div>
+              <div class="text-lg text-gray-300">
+                Bombs Hit: <span id="final-bombs" class="text-red-400">0</span>
+              </div>
+              <div class="text-lg text-gray-300">
+                Accuracy: <span id="final-accuracy" class="text-cyan-400"
+                  >0%</span
+                >
+              </div>
+              <div class="text-lg text-gray-300">
+                Avg Reaction: <span id="avg-reaction" class="text-purple-400"
+                  >0ms</span
+                >
+              </div>
+            </GameOverlay>
           </div>
         </Card>
       </div>
