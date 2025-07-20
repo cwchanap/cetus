@@ -18,7 +18,9 @@ const GAME_CONFIG: GameConfig = {
 
 let gameInstance: WordScrambleGame | null = null
 
-export async function initWordScrambleGame(): Promise<void> {
+export async function initWordScrambleGame(externalCallbacks?: {
+    onGameOver?: (finalScore: number, stats: any) => void
+}): Promise<any> {
     // Get DOM elements
     const scrambledWordElement = document.getElementById('scrambled-word')
     const answerInput = document.getElementById(
@@ -225,15 +227,20 @@ export async function initWordScrambleGame(): Promise<void> {
                 gameOverOverlay.classList.remove('hidden')
             }
 
-            // Upload score
-            try {
-                const success = await submitScore({
-                    gameId: GameID.WORD_SCRAMBLE,
-                    score: finalScore,
-                })
-                callbacks.onScoreUpload?.(success)
-            } catch (error) {
-                callbacks.onScoreUpload?.(false)
+            // Call external callback if provided
+            if (externalCallbacks?.onGameOver) {
+                await externalCallbacks.onGameOver(finalScore, stats)
+            } else {
+                // Fallback to original behavior
+                try {
+                    const success = await submitScore({
+                        gameId: GameID.WORD_SCRAMBLE,
+                        score: finalScore,
+                    })
+                    callbacks.onScoreUpload?.(success)
+                } catch (error) {
+                    callbacks.onScoreUpload?.(false)
+                }
             }
         },
 
@@ -296,4 +303,12 @@ export async function initWordScrambleGame(): Promise<void> {
     window.addEventListener('beforeunload', () => {
         gameInstance?.destroy()
     })
+
+    // Return game instance for external control
+    return {
+        restart: () => gameInstance?.startGame(),
+        getState: () => gameInstance?.getState(),
+        endGame: () => gameInstance?.endGame(),
+        callbacks: callbacks,
+    }
 }

@@ -181,7 +181,10 @@ export class MemoryMatrixGame {
         }
 
         this.notifyStateChange()
-        this.onGameEnd?.(this.gameState.score, this.gameStats)
+        this.onGameEnd?.(this.gameState.score, {
+            ...this.gameStats,
+            gameWon: this.gameState.gameWon,
+        })
     }
 
     public getGameState(): GameState {
@@ -190,6 +193,10 @@ export class MemoryMatrixGame {
 
     public getGameStats(): GameStats {
         return { ...this.gameStats }
+    }
+
+    public endGameEarly(): void {
+        this.endGame(false)
     }
 
     public destroy(): void {

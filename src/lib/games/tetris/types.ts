@@ -34,6 +34,9 @@ export interface GameState {
     dropTime: number
     dropInterval: number
     needsRedraw: boolean
+    onGameOver?: (finalScore: number, stats: any) => void
+    piecesPlaced?: number
+    tetrises?: number
 }
 
 export interface GameConstants {

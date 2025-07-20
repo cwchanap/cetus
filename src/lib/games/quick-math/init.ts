@@ -6,7 +6,9 @@ import { GameID } from '@/lib/games'
 let gameInstance: QuickMathGame | null = null
 let gameCallbacks: GameCallbacks | null = null
 
-export async function initQuickMathGame(): Promise<void> {
+export async function initQuickMathGame(externalCallbacks?: {
+    onGameOver?: (finalScore: number, stats: any) => void
+}): Promise<any> {
     // Game configuration
     const config: GameConfig = {
         gameDuration: 60, // 60 seconds
@@ -76,7 +78,7 @@ export async function initQuickMathGame(): Promise<void> {
             answerInput.value = ''
             answerInput.focus()
         },
-        onGameOver: (finalScore, stats) => {
+        onGameOver: async (finalScore, stats) => {
             finalScoreElement.textContent = finalScore.toString()
             accuracyElement.textContent = `${stats.accuracy.toFixed(1)}%`
             totalQuestionsElement.textContent = stats.totalQuestions.toString()
@@ -85,8 +87,13 @@ export async function initQuickMathGame(): Promise<void> {
             answerInput.disabled = true
             submitButton.disabled = true
 
-            // Save score to backend
-            saveScore(finalScore)
+            // Call external callback if provided
+            if (externalCallbacks?.onGameOver) {
+                await externalCallbacks.onGameOver(finalScore, stats)
+            } else {
+                // Fallback to original behavior
+                saveScore(finalScore)
+            }
         },
         onGameStart: () => {
             gameOverOverlay.classList.add('hidden')
@@ -231,6 +238,14 @@ export async function initQuickMathGame(): Promise<void> {
             gameInstance.destroy()
         }
     })
+
+    // Return game instance for external control
+    return {
+        restart: () => gameInstance?.startGame(),
+        getState: () => gameInstance?.getState(),
+        endGame: () => gameInstance?.endGame(),
+        callbacks: callbacks,
+    }
 }
 
 async function saveScore(score: number): Promise<void> {

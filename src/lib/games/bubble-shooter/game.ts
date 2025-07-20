@@ -351,33 +351,52 @@ export async function endGame(state: GameState): Promise<void> {
     state.gameOver = true
     state.gameStarted = false
 
-    const finalScoreElement = document.getElementById('final-score')
-    const gameOverOverlay = document.getElementById('game-over-overlay')
-    const startBtn = document.getElementById('start-btn') as HTMLButtonElement
-
-    if (finalScoreElement) {
-        finalScoreElement.textContent = state.score.toString()
-    }
-    if (gameOverOverlay) {
-        gameOverOverlay.classList.remove('hidden')
-    }
-    if (startBtn) {
-        startBtn.textContent = 'Start'
-        startBtn.disabled = false
+    // Prepare game stats
+    const stats = {
+        bubblesPopped: state.bubblesPopped || 0,
+        shotsFired: state.shotsFired || 0,
+        accuracy:
+            state.shotsFired > 0
+                ? ((state.bubblesPopped || 0) / state.shotsFired) * 100
+                : 0,
+        largestCombo: state.largestCombo || 0,
     }
 
-    // Submit score to server using scoreService
-    await saveGameScore(GameID.BUBBLE_SHOOTER, state.score, result => {
-        // Handle newly earned achievements
-        if (result.newAchievements && result.newAchievements.length > 0) {
-            // Dispatch an event for achievement notifications
-            window.dispatchEvent(
-                new CustomEvent('achievementsEarned', {
-                    detail: { achievementIds: result.newAchievements },
-                })
-            )
+    // Call external callback if provided
+    if (state.onGameOver) {
+        await state.onGameOver(state.score, stats)
+    } else {
+        // Fallback to original behavior
+        const finalScoreElement = document.getElementById('final-score')
+        const gameOverOverlay = document.getElementById('game-over-overlay')
+        const startBtn = document.getElementById(
+            'start-btn'
+        ) as HTMLButtonElement
+
+        if (finalScoreElement) {
+            finalScoreElement.textContent = state.score.toString()
         }
-    })
+        if (gameOverOverlay) {
+            gameOverOverlay.classList.remove('hidden')
+        }
+        if (startBtn) {
+            startBtn.textContent = 'Start'
+            startBtn.disabled = false
+        }
+
+        // Submit score to server using scoreService
+        await saveGameScore(GameID.BUBBLE_SHOOTER, state.score, result => {
+            // Handle newly earned achievements
+            if (result.newAchievements && result.newAchievements.length > 0) {
+                // Dispatch an event for achievement notifications
+                window.dispatchEvent(
+                    new CustomEvent('achievementsEarned', {
+                        detail: { achievementIds: result.newAchievements },
+                    })
+                )
+            }
+        })
+    }
 }
 
 export { draw }

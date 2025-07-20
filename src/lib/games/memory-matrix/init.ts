@@ -6,40 +6,51 @@ import { GameID } from '@/lib/games'
 let game: MemoryMatrixGame | null = null
 let renderer: MemoryMatrixRenderer | null = null
 
-export async function initMemoryMatrixGame(): Promise<void> {
-    try {
-        // Initialize game and renderer
-        game = new MemoryMatrixGame()
-        renderer = new MemoryMatrixRenderer('memory-matrix-container')
+export async function initMemoryMatrixGame(callbacks?: {
+    onGameComplete?: (finalScore: number, stats: any) => void
+}): Promise<any> {
+    // Initialize game and renderer
+    game = new MemoryMatrixGame()
+    renderer = new MemoryMatrixRenderer('memory-matrix-container')
 
-        // Set up callbacks
-        game.setStateChangeCallback((state, stats) => {
-            renderer?.render(state, stats)
-        })
+    // Set up callbacks
+    game.setStateChangeCallback((state, stats) => {
+        renderer?.render(state, stats)
+    })
 
-        game.setGameEndCallback(async (finalScore, stats) => {
-            // Save score if user is logged in
+    game.setGameEndCallback(async (finalScore, stats) => {
+        // Call external callback if provided
+        if (callbacks?.onGameComplete) {
+            callbacks.onGameComplete(finalScore, stats)
+        } else {
+            // Fallback to original behavior
             await saveScore(finalScore)
-        })
+        }
+    })
 
-        renderer.setCardClickCallback((row, col) => {
-            game?.flipCard({ row, col })
-        })
+    renderer.setCardClickCallback((row, col) => {
+        game?.flipCard({ row, col })
+    })
 
-        // Set up game controls
-        setupGameControls()
+    // Set up game controls
+    setupGameControls()
 
-        // Set up restart listener
-        window.addEventListener('memory-matrix-restart', () => {
-            game?.resetGame()
-        })
+    // Set up restart listener
+    window.addEventListener('memory-matrix-restart', () => {
+        game?.resetGame()
+    })
 
-        // Initial render
-        const initialState = game.getGameState()
-        const initialStats = game.getGameStats()
-        renderer.render(initialState, initialStats)
-    } catch (error) {
-        // TODO: Handle initialization errors more gracefully, e.g., display a message to the user
+    // Initial render
+    const initialState = game.getGameState()
+    const initialStats = game.getGameStats()
+    renderer.render(initialState, initialStats)
+
+    // Return game instance for external control
+    return {
+        restart: () => game?.resetGame(),
+        getState: () => game?.getGameState(),
+        getStats: () => game?.getGameStats(),
+        endGame: () => game?.endGameEarly(),
     }
 }
 
@@ -108,7 +119,7 @@ function cleanup(): void {
 
 // Export for debugging
 if (typeof window !== 'undefined') {
-    ;(window as any).memoryMatrixGame = {
+    ;(window as unknown).memoryMatrixGame = {
         getGame: () => game,
         getRenderer: () => renderer,
         cleanup,

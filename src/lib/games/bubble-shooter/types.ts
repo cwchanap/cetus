@@ -39,6 +39,10 @@ export interface GameState {
     rowOffset: number
     shotCount: number
     needsRedraw: boolean
+    onGameOver?: (finalScore: number, stats: any) => void
+    bubblesPopped?: number
+    shotsFired?: number
+    largestCombo?: number
 }
 
 export interface GameConstants {

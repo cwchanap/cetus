@@ -349,28 +349,42 @@ export async function endGame(state: GameState): Promise<void> {
     state.gameOver = true
     state.gameStarted = false
 
-    const finalScoreElement = document.getElementById('final-score')
-    if (finalScoreElement) {
-        finalScoreElement.textContent = state.score.toString()
+    // Prepare game stats
+    const stats = {
+        level: state.level,
+        lines: state.lines,
+        pieces: state.piecesPlaced || 0,
+        tetrises: state.tetrises || 0,
     }
 
-    const gameOverOverlay = document.getElementById('game-over-overlay')
-    if (gameOverOverlay) {
-        gameOverOverlay.classList.remove('hidden')
-    }
-
-    // Submit score to server using scoreService
-    await saveGameScore(GameID.TETRIS, state.score, result => {
-        // Handle newly earned achievements
-        if (result.newAchievements && result.newAchievements.length > 0) {
-            // Dispatch an event for achievement notifications
-            window.dispatchEvent(
-                new CustomEvent('achievementsEarned', {
-                    detail: { achievementIds: result.newAchievements },
-                })
-            )
+    // Call external callback if provided
+    if (state.onGameOver) {
+        await state.onGameOver(state.score, stats)
+    } else {
+        // Fallback to original behavior
+        const finalScoreElement = document.getElementById('final-score')
+        if (finalScoreElement) {
+            finalScoreElement.textContent = state.score.toString()
         }
-    })
+
+        const gameOverOverlay = document.getElementById('game-over-overlay')
+        if (gameOverOverlay) {
+            gameOverOverlay.classList.remove('hidden')
+        }
+
+        // Submit score to server using scoreService
+        await saveGameScore(GameID.TETRIS, state.score, result => {
+            // Handle newly earned achievements
+            if (result.newAchievements && result.newAchievements.length > 0) {
+                // Dispatch an event for achievement notifications
+                window.dispatchEvent(
+                    new CustomEvent('achievementsEarned', {
+                        detail: { achievementIds: result.newAchievements },
+                    })
+                )
+            }
+        })
+    }
 }
 
 export function gameLoop(state: GameState): void {
