@@ -304,7 +304,8 @@ const gameNavigation = [
                   },
                   error => {
                     console.error('Failed to submit score:', error)
-                  }
+                  },
+                  stats // Pass game statistics for achievement checking
                 )
               } catch (error) {
                 console.error('Failed to submit score:', error)

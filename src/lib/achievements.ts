@@ -503,6 +503,57 @@ export const ACHIEVEMENTS: Achievement[] = [
         },
         rarity: AchievementRarity.LEGENDARY,
     },
+
+    // New Reflex achievements for coin/bomb collection patterns
+    {
+        id: 'reflex_coin_streak',
+        name: 'Coin Collector',
+        description: 'Collect 10 coins in a row without hitting a bomb',
+        logo: '🪙',
+        gameId: GameID.REFLEX,
+        condition: {
+            type: 'custom',
+            customCheck: 'coin_streak_10',
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'reflex_bomb_streak',
+        name: 'Bomb Magnet',
+        description: 'Hit 10 bombs in a row without collecting a coin',
+        logo: '💣',
+        gameId: GameID.REFLEX,
+        condition: {
+            type: 'custom',
+            customCheck: 'bomb_streak_10',
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'reflex_perfect_run',
+        name: 'Perfect Reflexes',
+        description: 'Score over 500 points without hitting any bombs',
+        logo: '✨',
+        gameId: GameID.REFLEX,
+        condition: {
+            type: 'custom',
+            customCheck: 'perfect_run_500',
+        },
+        rarity: AchievementRarity.LEGENDARY,
+    },
+    {
+        id: 'reflex_balanced_collector',
+        name: 'Balanced Collector',
+        description:
+            'End a game with exactly the same number of coins and bombs collected',
+        logo: '⚖️',
+        gameId: GameID.REFLEX,
+        condition: {
+            type: 'custom',
+            customCheck: 'balanced_collection',
+        },
+        rarity: AchievementRarity.RARE,
+    },
 ]
 
 // Helper functions

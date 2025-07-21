@@ -267,6 +267,149 @@ export async function checkTetrisInGameAchievements(
 }
 
 /**
+ * Check and award in-game achievements for Reflex
+ */
+export async function checkReflexInGameAchievements(
+    userId: string,
+    gameStats: {
+        finalScore: number
+        coinsCollected: number
+        bombsHit: number
+        gameHistory: Array<{
+            objectId: string
+            type: 'coin' | 'bomb'
+            clicked: boolean
+            timeToClick?: number
+            pointsAwarded: number
+        }>
+    }
+): Promise<string[]> {
+    const newlyEarnedAchievements: string[] = []
+
+    try {
+        // Check for 10 coins in a row
+        const coinStreak = checkConsecutiveObjectType(
+            gameStats.gameHistory,
+            'coin',
+            10
+        )
+        if (coinStreak) {
+            const alreadyEarned = await hasUserEarnedAchievement(
+                userId,
+                'reflex_coin_streak'
+            )
+            if (!alreadyEarned) {
+                const awarded = await awardAchievement(
+                    userId,
+                    'reflex_coin_streak'
+                )
+                if (awarded) {
+                    newlyEarnedAchievements.push('reflex_coin_streak')
+                }
+            }
+        }
+
+        // Check for 10 bombs in a row
+        const bombStreak = checkConsecutiveObjectType(
+            gameStats.gameHistory,
+            'bomb',
+            10
+        )
+        if (bombStreak) {
+            const alreadyEarned = await hasUserEarnedAchievement(
+                userId,
+                'reflex_bomb_streak'
+            )
+            if (!alreadyEarned) {
+                const awarded = await awardAchievement(
+                    userId,
+                    'reflex_bomb_streak'
+                )
+                if (awarded) {
+                    newlyEarnedAchievements.push('reflex_bomb_streak')
+                }
+            }
+        }
+
+        // Check for perfect run (score > 500 with 0 bombs hit)
+        if (gameStats.finalScore > 500 && gameStats.bombsHit === 0) {
+            const alreadyEarned = await hasUserEarnedAchievement(
+                userId,
+                'reflex_perfect_run'
+            )
+            if (!alreadyEarned) {
+                const awarded = await awardAchievement(
+                    userId,
+                    'reflex_perfect_run'
+                )
+                if (awarded) {
+                    newlyEarnedAchievements.push('reflex_perfect_run')
+                }
+            }
+        }
+
+        // Check for balanced collection (same number of coins and bombs)
+        if (
+            gameStats.coinsCollected === gameStats.bombsHit &&
+            gameStats.coinsCollected > 0
+        ) {
+            const alreadyEarned = await hasUserEarnedAchievement(
+                userId,
+                'reflex_balanced_collector'
+            )
+            if (!alreadyEarned) {
+                const awarded = await awardAchievement(
+                    userId,
+                    'reflex_balanced_collector'
+                )
+                if (awarded) {
+                    newlyEarnedAchievements.push('reflex_balanced_collector')
+                }
+            }
+        }
+
+        return newlyEarnedAchievements
+    } catch (error) {
+        return []
+    }
+}
+
+/**
+ * Helper function to check for consecutive object types in game history
+ */
+function checkConsecutiveObjectType(
+    gameHistory: Array<{
+        objectId: string
+        type: 'coin' | 'bomb'
+        clicked: boolean
+        timeToClick?: number
+        pointsAwarded: number
+    }>,
+    targetType: 'coin' | 'bomb',
+    requiredCount: number
+): boolean {
+    let consecutiveCount = 0
+    let maxConsecutiveCount = 0
+
+    // Only consider clicked objects for streaks
+    const clickedObjects = gameHistory.filter(entry => entry.clicked)
+
+    for (const entry of clickedObjects) {
+        if (entry.type === targetType) {
+            consecutiveCount++
+            maxConsecutiveCount = Math.max(
+                maxConsecutiveCount,
+                consecutiveCount
+            )
+        } else {
+            consecutiveCount = 0
+        }
+    }
+
+    return maxConsecutiveCount >= requiredCount
+}
+
+/**
  * Generic function to check in-game achievements for any game
  */
 export async function checkInGameAchievements(
@@ -277,6 +420,8 @@ export async function checkInGameAchievements(
     switch (gameId) {
         case 'tetris':
             return await checkTetrisInGameAchievements(userId, gameEvent)
+        case 'reflex':
+            return await checkReflexInGameAchievements(userId, gameEvent)
         default:
             return []
     }

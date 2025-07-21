@@ -20,6 +20,7 @@ export interface ScoreSubmissionResult {
 export interface ScoreData {
     gameId: GameType
     score: number
+    gameData?: any
 }
 
 export interface GameHistoryEntry {
@@ -77,14 +78,15 @@ export async function saveGameScore(
     gameId: GameType,
     score: number,
     onSuccess?: (result: ScoreSubmissionResult) => void,
-    onError?: (error: string) => void
+    onError?: (error: string) => void,
+    gameData?: any
 ): Promise<void> {
     if (score <= 0) {
         return
     }
 
     try {
-        const result = await submitScore({ gameId, score })
+        const result = await submitScore({ gameId, score, gameData })
 
         if (result.success) {
             // Handle newly earned achievements

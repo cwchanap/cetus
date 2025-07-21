@@ -202,7 +202,8 @@ export async function saveGameScore(
 export async function saveGameScoreWithAchievements(
     userId: string,
     gameId: string,
-    score: number
+    score: number,
+    gameData?: any
 ): Promise<{ success: boolean; newAchievements: string[] }> {
     try {
         // First save the score
@@ -212,18 +213,29 @@ export async function saveGameScoreWithAchievements(
         }
 
         // Import achievement service here to avoid circular dependency
-        const { checkAndAwardAchievements } = await import(
-            '../../services/achievementService'
-        )
+        const { checkAndAwardAchievements, checkInGameAchievements } =
+            await import('../../services/achievementService')
 
-        // Check and award achievements
-        const newAchievements = await checkAndAwardAchievements(
+        // Check and award score-based achievements
+        const scoreAchievements = await checkAndAwardAchievements(
             userId,
             gameId as any,
             score
         )
 
-        return { success: true, newAchievements }
+        // Check and award in-game achievements if game data is provided
+        let inGameAchievements: string[] = []
+        if (gameData) {
+            inGameAchievements = await checkInGameAchievements(
+                userId,
+                gameId as any,
+                gameData
+            )
+        }
+
+        const allNewAchievements = [...scoreAchievements, ...inGameAchievements]
+
+        return { success: true, newAchievements: allNewAchievements }
     } catch (error) {
         return { success: false, newAchievements: [] }
     }

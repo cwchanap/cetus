@@ -4,6 +4,7 @@ import Button from '@/components/ui/Button.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import GameOverlay from '@/components/GameOverlay.astro'
+import AchievementAward from '@/components/AchievementAward.astro'
 
 // Custom navigation for game pages with breadcrumb
 const gameNavigation = [
@@ -197,7 +198,7 @@ const gameNavigation = [
       document.addEventListener('DOMContentLoaded', async () => {
         try {
           const gameInstance = await initTetrisGame({
-            onGameOver: async (finalScore: number, stats: any) => {
+            onGameOver: async (finalScore: number, stats: unknown) => {
               // Update final stats in overlay
               document.getElementById('final-score')!.textContent =
                 finalScore.toString()
@@ -248,6 +249,16 @@ const gameNavigation = [
               } catch (error) {
                 console.error('Failed to submit score:', error)
               }
+
+              // Achievement Testing - Show test achievements after game over
+              if (
+                window.showAchievementAward &&
+                window.location.search.includes('test=achievements')
+              ) {
+                setTimeout(() => {
+                  showTestAchievements()
+                }, 1000)
+              }
             },
           })
 
@@ -279,10 +290,224 @@ const gameNavigation = [
                 gameInstance.restart()
               }
             })
+
+          // Achievement Testing Functions
+          window.showTestAchievements = function () {
+            const testAchievements = [
+              {
+                id: 'test_short',
+                name: 'Quick Win',
+                description: 'Fast victory!',
+                icon: '⚡',
+                rarity: 'common',
+              },
+              {
+                id: 'test_medium',
+                name: 'Strategic Player Achievement',
+                description:
+                  'You have demonstrated excellent strategic thinking and planning skills in your gameplay.',
+                icon: '🧠',
+                rarity: 'rare',
+              },
+              {
+                id: 'test_long',
+                name: 'Master of the Cosmic Gaming Universe and Beyond',
+                description:
+                  'You have achieved the ultimate level of mastery in this cosmic gaming experience, demonstrating exceptional skill, dedication, and perseverance through countless challenges and obstacles.',
+                icon: '🌌',
+                rarity: 'epic',
+              },
+              {
+                id: 'test_very_long',
+                name: 'The Ultimate Supreme Galactic Champion of All Time and Space Throughout the Entire Known Universe',
+                description:
+                  'This is an extraordinarily long achievement description that tests how the achievement card handles extremely verbose content. It includes multiple sentences with detailed explanations of what the player has accomplished. The description goes on and on to test the line clamping and overflow handling capabilities of the achievement card component. This should demonstrate how the card maintains consistent sizing even with excessive content.',
+                icon: '👑',
+                rarity: 'legendary',
+              },
+            ]
+
+            if (window.showAchievementAward) {
+              window.showAchievementAward(testAchievements)
+            }
+          }
+
+          // Add testing buttons if in test mode
+          if (window.location.search.includes('test=achievements')) {
+            addTestingUI()
+          }
         } catch (error) {
           console.error('Failed to initialize Tetris game:', error)
         }
       })
+
+      // Add testing UI function
+      function addTestingUI() {
+        const testingSection = document.createElement('div')
+        testingSection.className =
+          'mt-8 p-6 bg-glass-strong rounded-2xl border border-yellow-400/50'
+        testingSection.innerHTML = `
+          <h3 class="text-lg font-orbitron font-bold text-yellow-400 mb-4 text-center">
+            🧪 ACHIEVEMENT TESTING MODE
+          </h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <button id="test-short-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm">
+              Short Content
+            </button>
+            <button id="test-medium-btn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm">
+              Medium Content
+            </button>
+            <button id="test-long-btn" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded text-sm">
+              Long Content
+            </button>
+            <button id="test-very-long-btn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm">
+              Very Long Content
+            </button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button id="test-mixed-btn" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-sm">
+              Test Mixed Rarities
+            </button>
+            <button id="test-all-btn" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm">
+              Test All Scenarios
+            </button>
+          </div>
+          <p class="text-xs text-gray-400 mt-3 text-center">
+            Click buttons to test different achievement card content lengths and verify consistent sizing.
+          </p>
+        `
+
+        // Insert after the game container
+        const gameContainer = document.querySelector('.max-w-6xl')
+        if (gameContainer) {
+          gameContainer.appendChild(testingSection)
+        }
+
+        // Add event listeners for test buttons
+        const testAchievements = {
+          short: [
+            {
+              id: 'test_short_1',
+              name: 'Quick Win',
+              description: 'Fast victory!',
+              icon: '⚡',
+              rarity: 'common',
+            },
+          ],
+          medium: [
+            {
+              id: 'test_medium_1',
+              name: 'Strategic Player Achievement',
+              description:
+                'You have demonstrated excellent strategic thinking and planning skills in your gameplay.',
+              icon: '🧠',
+              rarity: 'rare',
+            },
+          ],
+          long: [
+            {
+              id: 'test_long_1',
+              name: 'Master of the Cosmic Gaming Universe and Beyond',
+              description:
+                'You have achieved the ultimate level of mastery in this cosmic gaming experience, demonstrating exceptional skill, dedication, and perseverance through countless challenges and obstacles.',
+              icon: '🌌',
+              rarity: 'epic',
+            },
+          ],
+          veryLong: [
+            {
+              id: 'test_very_long_1',
+              name: 'The Ultimate Supreme Galactic Champion of All Time and Space Throughout the Entire Known Universe',
+              description:
+                'This is an extraordinarily long achievement description that tests how the achievement card handles extremely verbose content. It includes multiple sentences with detailed explanations of what the player has accomplished. The description goes on and on to test the line clamping and overflow handling capabilities of the achievement card component. This should demonstrate how the card maintains consistent sizing even with excessive content.',
+              icon: '👑',
+              rarity: 'legendary',
+            },
+          ],
+          mixed: [
+            {
+              id: 'test_mixed_1',
+              name: 'Short',
+              description: 'Brief.',
+              icon: '🎯',
+              rarity: 'common',
+            },
+            {
+              id: 'test_mixed_2',
+              name: 'Medium Length Achievement Name',
+              description:
+                'This is a moderately long description that provides a good balance of information.',
+              icon: '💎',
+              rarity: 'rare',
+            },
+            {
+              id: 'test_mixed_3',
+              name: 'Very Long Achievement Name That Tests Wrapping',
+              description:
+                "An extremely detailed description that explains every aspect of this achievement in great detail, testing the card's ability to handle varying content lengths consistently.",
+              icon: '🌟',
+              rarity: 'epic',
+            },
+          ],
+        }
+
+        document
+          .getElementById('test-short-btn')
+          ?.addEventListener('click', () => {
+            if (window.showAchievementAward) {
+              window.showAchievementAward(testAchievements.short)
+            }
+          })
+
+        document
+          .getElementById('test-medium-btn')
+          ?.addEventListener('click', () => {
+            if (window.showAchievementAward) {
+              window.showAchievementAward(testAchievements.medium)
+            }
+          })
+
+        document
+          .getElementById('test-long-btn')
+          ?.addEventListener('click', () => {
+            if (window.showAchievementAward) {
+              window.showAchievementAward(testAchievements.long)
+            }
+          })
+
+        document
+          .getElementById('test-very-long-btn')
+          ?.addEventListener('click', () => {
+            if (window.showAchievementAward) {
+              window.showAchievementAward(testAchievements.veryLong)
+            }
+          })
+
+        document
+          .getElementById('test-mixed-btn')
+          ?.addEventListener('click', () => {
+            if (window.showAchievementAward) {
+              window.showAchievementAward(testAchievements.mixed)
+            }
+          })
+
+        document
+          .getElementById('test-all-btn')
+          ?.addEventListener('click', () => {
+            const allAchievements = [
+              ...testAchievements.short,
+              ...testAchievements.medium,
+              ...testAchievements.long,
+              ...testAchievements.veryLong,
+            ]
+            if (window.showAchievementAward) {
+              window.showAchievementAward(allAchievements)
+            }
+          })
+      }
     </script>
   </div>
+
+  <!-- Achievement Award Component -->
+  <AchievementAward />
 </AppLayout>

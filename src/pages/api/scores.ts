@@ -19,7 +19,7 @@ export const POST: APIRoute = async ({ request }) => {
             })
         }
 
-        const { gameId, score } = await request.json()
+        const { gameId, score, gameData } = await request.json()
 
         if (!gameId || typeof score !== 'number') {
             return new Response(JSON.stringify({ error: 'Invalid data' }), {
@@ -44,7 +44,8 @@ export const POST: APIRoute = async ({ request }) => {
         const result = await saveGameScoreWithAchievements(
             session.user.id,
             gameId,
-            score
+            score,
+            gameData
         )
 
         if (!result.success) {
