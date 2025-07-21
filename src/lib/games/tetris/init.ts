@@ -16,10 +16,10 @@ import {
     GAME_CONSTANTS,
 } from './game'
 import { setupPixiJS } from './renderer'
+import { saveGameScore } from '@/lib/services/scoreService'
+import { GameID } from '@/lib/games'
 
-export async function initTetrisGame(callbacks?: {
-    onGameOver?: (finalScore: number, stats: any) => void
-}): Promise<unknown> {
+export async function initTetrisGame(): Promise<unknown> {
     const gameContainer = document.getElementById('tetris-container')
     const nextCanvas = document.getElementById(
         'next-canvas'
@@ -34,10 +34,79 @@ export async function initTetrisGame(callbacks?: {
     const state = createGameState()
     const renderer = await setupPixiJS(gameContainer, GAME_CONSTANTS)
 
-    // Enhanced state with callbacks
+    // Enhanced state with score handling
     const enhancedState = {
         ...state,
-        onGameOver: callbacks?.onGameOver,
+        onGameOver: async (finalScore: number, stats: any) => {
+            // Update final stats in overlay
+            const finalScoreElement = document.getElementById('final-score')
+            if (finalScoreElement) {
+                finalScoreElement.textContent = finalScore.toString()
+            }
+
+            const finalLevelElement = document.getElementById('final-level')
+            if (finalLevelElement) {
+                finalLevelElement.textContent = stats.level?.toString() || '1'
+            }
+
+            const finalLinesElement = document.getElementById('final-lines')
+            if (finalLinesElement) {
+                finalLinesElement.textContent = stats.lines?.toString() || '0'
+            }
+
+            const finalPiecesElement = document.getElementById('final-pieces')
+            if (finalPiecesElement) {
+                finalPiecesElement.textContent = stats.pieces?.toString() || '0'
+            }
+
+            const finalTetrisesElement =
+                document.getElementById('final-tetrises')
+            if (finalTetrisesElement) {
+                finalTetrisesElement.textContent =
+                    stats.tetrises?.toString() || '0'
+            }
+
+            // Show game over overlay
+            const gameOverOverlay = document.getElementById('game-over-overlay')
+            if (gameOverOverlay) {
+                gameOverOverlay.classList.remove('hidden')
+            }
+
+            // Reset buttons
+            const startBtn = document.getElementById('start-btn')
+            const endBtn = document.getElementById('end-btn')
+            if (startBtn) {
+                startBtn.style.display = 'inline-flex'
+            }
+            if (endBtn) {
+                endBtn.style.display = 'none'
+            }
+
+            // Submit score
+            await saveGameScore(
+                GameID.TETRIS,
+                finalScore,
+                result => {
+                    // Handle newly earned achievements
+                    if (
+                        result.newAchievements &&
+                        result.newAchievements.length > 0
+                    ) {
+                        // Dispatch an event for achievement notifications
+                        window.dispatchEvent(
+                            new CustomEvent('achievementsEarned', {
+                                detail: {
+                                    achievementIds: result.newAchievements,
+                                },
+                            })
+                        )
+                    }
+                },
+                error => {
+                    console.error('Failed to submit score:', error)
+                }
+            )
+        },
     }
 
     // Helper functions that close over local state

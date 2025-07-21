@@ -240,8 +240,6 @@ const gameNavigation = [
     <!-- Word Scramble Game Logic -->
     <script>
       import { initWordScrambleGame } from '@/lib/games/word-scramble/init'
-      import { saveGameScore } from '@/lib/services/scoreService'
-      import { GameID } from '@/lib/games'
 
       // Initialize game when page loads
       document.addEventListener('DOMContentLoaded', async () => {
@@ -269,34 +267,6 @@ const gameNavigation = [
               const endBtn = document.getElementById('end-btn')!
               startBtn.style.display = 'inline-flex'
               endBtn.style.display = 'none'
-
-              // Submit score
-              try {
-                await saveGameScore(
-                  GameID.WORD_SCRAMBLE,
-                  finalScore,
-                  result => {
-                    // Handle newly earned achievements
-                    if (
-                      result.newAchievements &&
-                      result.newAchievements.length > 0
-                    ) {
-                      // Dispatch an event for achievement notifications
-                      window.dispatchEvent(
-                        new CustomEvent('achievementsEarned', {
-                          detail: { achievementIds: result.newAchievements },
-                        })
-                      )
-                    }
-                    console.log('Score saved successfully')
-                  },
-                  error => {
-                    console.error('Failed to submit score:', error)
-                  }
-                )
-              } catch (error) {
-                console.error('Failed to submit score:', error)
-              }
             },
           })
 

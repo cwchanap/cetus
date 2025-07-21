@@ -1,6 +1,6 @@
 import { WordScrambleGame } from './game'
 import type { GameConfig, GameCallbacks, GameStats } from './types'
-import { submitScore } from '@/lib/score-client'
+import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 
 // Game configuration
@@ -227,20 +227,35 @@ export async function initWordScrambleGame(externalCallbacks?: {
                 gameOverOverlay.classList.remove('hidden')
             }
 
+            // Submit score and handle achievements
+            await saveGameScore(
+                GameID.WORD_SCRAMBLE,
+                finalScore,
+                result => {
+                    // Handle newly earned achievements
+                    if (
+                        result.newAchievements &&
+                        result.newAchievements.length > 0
+                    ) {
+                        // Dispatch an event for achievement notifications
+                        window.dispatchEvent(
+                            new CustomEvent('achievementsEarned', {
+                                detail: {
+                                    achievementIds: result.newAchievements,
+                                },
+                            })
+                        )
+                    }
+                    callbacks.onScoreUpload?.(true)
+                },
+                error => {
+                    callbacks.onScoreUpload?.(false)
+                }
+            )
+
             // Call external callback if provided
             if (externalCallbacks?.onGameOver) {
                 await externalCallbacks.onGameOver(finalScore, stats)
-            } else {
-                // Fallback to original behavior
-                try {
-                    const success = await submitScore({
-                        gameId: GameID.WORD_SCRAMBLE,
-                        score: finalScore,
-                    })
-                    callbacks.onScoreUpload?.(success)
-                } catch (error) {
-                    callbacks.onScoreUpload?.(false)
-                }
             }
         },
 

@@ -8,8 +8,6 @@ import {
 } from './utils'
 import { updateProjectile } from './physics'
 import { draw, type RendererState } from './renderer'
-import { saveGameScore } from '@/lib/services/scoreService'
-import { GameID } from '@/lib/games'
 
 export const GAME_CONSTANTS: GameConstants = {
     BUBBLE_RADIUS: 20,
@@ -383,19 +381,6 @@ export async function endGame(state: GameState): Promise<void> {
             startBtn.textContent = 'Start'
             startBtn.disabled = false
         }
-
-        // Submit score to server using scoreService
-        await saveGameScore(GameID.BUBBLE_SHOOTER, state.score, result => {
-            // Handle newly earned achievements
-            if (result.newAchievements && result.newAchievements.length > 0) {
-                // Dispatch an event for achievement notifications
-                window.dispatchEvent(
-                    new CustomEvent('achievementsEarned', {
-                        detail: { achievementIds: result.newAchievements },
-                    })
-                )
-            }
-        })
     }
 }
 

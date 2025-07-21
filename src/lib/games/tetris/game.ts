@@ -9,8 +9,6 @@ import {
     drawNextPiece,
 } from './utils'
 import { draw, type RendererState } from './renderer'
-import { saveGameScore } from '@/lib/services/scoreService'
-import { GameID } from '@/lib/games'
 
 export const GAME_CONSTANTS: GameConstants = {
     BOARD_WIDTH: 10,
@@ -360,30 +358,6 @@ export async function endGame(state: GameState): Promise<void> {
     // Call external callback if provided
     if (state.onGameOver) {
         await state.onGameOver(state.score, stats)
-    } else {
-        // Fallback to original behavior
-        const finalScoreElement = document.getElementById('final-score')
-        if (finalScoreElement) {
-            finalScoreElement.textContent = state.score.toString()
-        }
-
-        const gameOverOverlay = document.getElementById('game-over-overlay')
-        if (gameOverOverlay) {
-            gameOverOverlay.classList.remove('hidden')
-        }
-
-        // Submit score to server using scoreService
-        await saveGameScore(GameID.TETRIS, state.score, result => {
-            // Handle newly earned achievements
-            if (result.newAchievements && result.newAchievements.length > 0) {
-                // Dispatch an event for achievement notifications
-                window.dispatchEvent(
-                    new CustomEvent('achievementsEarned', {
-                        detail: { achievementIds: result.newAchievements },
-                    })
-                )
-            }
-        })
     }
 }
 

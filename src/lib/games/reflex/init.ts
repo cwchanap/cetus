@@ -14,6 +14,8 @@ import type {
     GameStats,
     RendererState,
 } from './types'
+import { saveGameScore } from '@/lib/services/scoreService'
+import { GameID } from '@/lib/games'
 
 const DEFAULT_CONFIG: GameConfig = {
     gameDuration: 60, // 60 seconds
@@ -25,6 +27,75 @@ const DEFAULT_CONFIG: GameConfig = {
     pointsForCoin: 10,
     pointsForBomb: -15,
     pointsForMissedCoin: -5,
+}
+
+async function handleGameOver(
+    finalScore: number,
+    stats: GameStats
+): Promise<void> {
+    // Update final stats in overlay
+    const finalScoreElement = document.getElementById('final-score')
+    if (finalScoreElement) {
+        finalScoreElement.textContent = finalScore.toString()
+    }
+
+    const finalCoinsElement = document.getElementById('final-coins')
+    if (finalCoinsElement) {
+        finalCoinsElement.textContent = stats.coinsCollected.toString()
+    }
+
+    const finalBombsElement = document.getElementById('final-bombs')
+    if (finalBombsElement) {
+        finalBombsElement.textContent = stats.bombsHit.toString()
+    }
+
+    const finalAccuracyElement = document.getElementById('final-accuracy')
+    if (finalAccuracyElement) {
+        const accuracy =
+            stats.totalClicks > 0
+                ? Math.round((stats.coinsCollected / stats.totalClicks) * 100)
+                : 0
+        finalAccuracyElement.textContent = `${accuracy}%`
+    }
+
+    // Show game over overlay
+    const gameOverOverlay = document.getElementById('game-over-overlay')
+    if (gameOverOverlay) {
+        gameOverOverlay.classList.remove('hidden')
+    }
+
+    // Reset buttons
+    const startBtn = document.getElementById('start-btn')
+    const stopBtn = document.getElementById('stop-btn')
+    if (startBtn) {
+        startBtn.style.display = 'inline-flex'
+        startBtn.style.opacity = '1'
+        startBtn.style.pointerEvents = 'auto'
+    }
+    if (stopBtn) {
+        stopBtn.style.display = 'none'
+    }
+
+    // Submit score
+    await saveGameScore(
+        GameID.REFLEX,
+        finalScore,
+        result => {
+            // Handle newly earned achievements
+            if (result.newAchievements && result.newAchievements.length > 0) {
+                // Dispatch an event for achievement notifications
+                window.dispatchEvent(
+                    new CustomEvent('achievementsEarned', {
+                        detail: { achievementIds: result.newAchievements },
+                    })
+                )
+            }
+        },
+        error => {
+            console.error('Failed to submit score:', error)
+        },
+        stats // Pass game statistics for achievement checking
+    )
 }
 
 export async function initializeReflexGame(
@@ -43,9 +114,13 @@ export async function initializeReflexGame(
         // Setup PixiJS renderer
         const rendererState = await setupPixiJS(gameContainer, finalConfig)
 
-        // Create enhanced callbacks that include rendering
+        // Create enhanced callbacks that include rendering and score handling
         const enhancedCallbacks: GameCallbacks = {
             ...callbacks,
+            onGameOver: async (finalScore: number, stats: GameStats) => {
+                await handleGameOver(finalScore, stats)
+                callbacks.onGameOver?.(finalScore, stats)
+            },
             onObjectSpawn: object => {
                 renderObject(rendererState, object, finalConfig)
                 callbacks.onObjectSpawn?.(object)

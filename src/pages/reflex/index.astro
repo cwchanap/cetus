@@ -228,8 +228,6 @@ const gameNavigation = [
     <!-- Reflex Game Logic -->
     <script>
       import { initializeReflexGame } from '@/lib/games/reflex/init'
-      import { saveGameScore } from '@/lib/services/scoreService'
-      import { GameID } from '@/lib/games'
 
       let gameInstance: any = null
 
@@ -263,52 +261,10 @@ const gameNavigation = [
               gameOverOverlay.classList.add('hidden')
             },
             onGameOver: async (finalScore: number, stats: any) => {
-              // Update UI elements
-              document.getElementById('final-score')!.textContent =
-                finalScore.toString()
-              document.getElementById('final-coins')!.textContent =
-                stats.coinsCollected.toString()
-              document.getElementById('final-bombs')!.textContent =
-                stats.bombsHit.toString()
-              document.getElementById('final-accuracy')!.textContent =
-                `${Math.round(stats.accuracy)}%`
-              document.getElementById('avg-reaction')!.textContent =
-                `${Math.round(stats.averageReactionTime)}ms`
-
-              // Show game over overlay
-              gameOverOverlay.classList.remove('hidden')
-              startBtn.style.display = 'inline-flex'
-              startBtn.style.opacity = '1'
-              startBtn.style.pointerEvents = 'auto'
-              stopBtn.style.display = 'none'
-
-              // Submit score
-              try {
-                await saveGameScore(
-                  GameID.REFLEX,
-                  finalScore,
-                  result => {
-                    // Handle newly earned achievements
-                    if (
-                      result.newAchievements &&
-                      result.newAchievements.length > 0
-                    ) {
-                      // Dispatch an event for achievement notifications
-                      window.dispatchEvent(
-                        new CustomEvent('achievementsEarned', {
-                          detail: { achievementIds: result.newAchievements },
-                        })
-                      )
-                    }
-                    console.log('Score saved successfully')
-                  },
-                  error => {
-                    console.error('Failed to submit score:', error)
-                  },
-                  stats // Pass game statistics for achievement checking
-                )
-              } catch (error) {
-                console.error('Failed to submit score:', error)
+              // Additional UI updates if needed
+              const avgReactionElement = document.getElementById('avg-reaction')
+              if (avgReactionElement) {
+                avgReactionElement.textContent = `${Math.round(stats.averageReactionTime)}ms`
               }
             },
             onObjectSpawn: (object: any) => {
