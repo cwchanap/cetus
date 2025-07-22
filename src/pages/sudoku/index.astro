@@ -1,0 +1,283 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import GameOverlay from '@/components/GameOverlay.astro'
+
+// Custom navigation for game pages with breadcrumb
+const gameNavigation = [
+  { href: '/', label: 'Home' },
+  { href: '#', label: 'Sudoku' },
+]
+---
+
+<AppLayout
+  title="Sudoku - Cetus Minigames"
+  description="Classic number puzzle game - fill the grid so each row, column, and 3x3 box contains digits 1-9"
+  includeFooter={false}
+  navigation={gameNavigation}
+>
+  <!-- Game Breadcrumb -->
+  <div class="px-6 py-4 border-b border-slate-700/50">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center space-x-3">
+        <div class="text-cyan-400 text-sm">🔢 Sudoku Challenge</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-6 py-8">
+    <div class="max-w-6xl mx-auto">
+      <!-- Game Title -->
+      <div class="text-center mb-8">
+        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
+          SUDOKU CHALLENGE
+        </h2>
+        <p class="text-gray-400 text-lg">
+          Fill the grid so each row, column, and 3x3 box contains digits 1-9
+        </p>
+      </div>
+
+      <!-- Game Container -->
+      <div class="flex flex-col items-center gap-8">
+        <!-- Game Board -->
+        <Card variant="glass" class="p-6">
+          <div class="flex flex-col items-center space-y-4">
+            <!-- Game Status -->
+            <div class="flex flex-wrap justify-center gap-4 mb-4">
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Time: <span id="game-time">00:00</span></span
+                >
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Mistakes: <span id="mistakes-count">0</span>/3</span
+                >
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Difficulty: <span id="difficulty">Medium</span></span
+                >
+              </Badge>
+            </div>
+
+            <!-- Sudoku Game Container -->
+            <div class="relative">
+              <div
+                id="sudoku-container"
+                class="border-2 border-cyan-400/50 bg-black/50 rounded-lg shadow-glow-cyan"
+                style="width: 450px; height: 450px;"
+              >
+                <!-- Game will be rendered here -->
+              </div>
+
+              <GameOverlay defaultTitle="GAME OVER" buttonId="restart-btn">
+                <div class="text-lg text-gray-300">
+                  Time Played: <span id="final-time" class="text-cyan-400"
+                    >00:00</span
+                  >
+                </div>
+                <div class="text-lg text-gray-300">
+                  Mistakes Made: <span id="final-mistakes" class="text-red-400"
+                    >0</span
+                  >
+                </div>
+                <div class="text-lg text-gray-300">
+                  Difficulty: <span
+                    id="final-difficulty"
+                    class="text-purple-400">Medium</span
+                  >
+                </div>
+              </GameOverlay>
+            </div>
+
+            <!-- Game Controls -->
+            <div class="flex space-x-2">
+              <Button id="start-btn" variant="primary" size="sm"
+                >New Game</Button
+              >
+              <Button id="pause-btn" variant="outline" size="sm">Pause</Button>
+              <Button id="reset-btn" variant="outline" size="sm">Reset</Button>
+            </div>
+          </div>
+        </Card>
+
+        <!-- Game Info & Controls - Below Game Board -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+          <!-- Controls Guide -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              CONTROLS
+            </h3>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-400">Select Cell:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">Click</Badge>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Enter Number:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">1-9</Badge>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Clear Cell:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">Delete</Badge
+                >
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Navigate:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs"
+                  >Arrow Keys</Badge
+                >
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Pause:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">P</Badge>
+              </div>
+            </div>
+          </Card>
+
+          <!-- Difficulty Settings -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-purple-400 mb-4">
+              DIFFICULTY
+            </h3>
+            <div class="space-y-3">
+              <Button
+                id="easy-btn"
+                variant="outline"
+                class="w-full justify-start"
+              >
+                <span class="mr-2">🟢</span>
+                Easy (40 clues)
+              </Button>
+              <Button
+                id="medium-btn"
+                variant="primary"
+                class="w-full justify-start"
+              >
+                <span class="mr-2">🟡</span>
+                Medium (30 clues)
+              </Button>
+              <Button
+                id="hard-btn"
+                variant="outline"
+                class="w-full justify-start"
+              >
+                <span class="mr-2">🔴</span>
+                Hard (20 clues)
+              </Button>
+            </div>
+          </Card>
+
+          <!-- How to Play -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              HOW TO PLAY
+            </h3>
+            <div class="space-y-2 text-sm text-gray-300">
+              <p>• Click on any empty cell to select it</p>
+              <p>• Type numbers 1-9 to fill cells</p>
+              <p>• Each row, column, and 3×3 box must contain all digits 1-9</p>
+              <p>• Use Delete/Backspace to clear cells</p>
+              <p>• You have 3 mistakes allowed</p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sudoku Game Logic -->
+    <script>
+      // Initialize game when page loads
+      document.addEventListener('DOMContentLoaded', async () => {
+        const container = document.getElementById('sudoku-container')
+        if (container) {
+          try {
+            const { initSudokuGame } = await import('@/lib/games/sudoku/init')
+            let currentDifficulty = 'medium'
+            let gameCleanup = null
+
+            // Initialize game
+            const initGame = (difficulty = 'medium') => {
+              if (gameCleanup) {
+                gameCleanup()
+              }
+              gameCleanup = initSudokuGame(container, difficulty)
+              currentDifficulty = difficulty
+
+              // Update difficulty display
+              document.getElementById('difficulty').textContent =
+                difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
+
+              // Update button states
+              document.querySelectorAll('[id$="-btn"]').forEach(btn => {
+                if (btn.id === `${difficulty}-btn`) {
+                  btn.classList.remove('variant-outline')
+                  btn.classList.add('variant-primary')
+                } else if (
+                  btn.id.includes('easy-') ||
+                  btn.id.includes('medium-') ||
+                  btn.id.includes('hard-')
+                ) {
+                  btn.classList.remove('variant-primary')
+                  btn.classList.add('variant-outline')
+                }
+              })
+            }
+
+            // Initialize with medium difficulty
+            initGame('medium')
+
+            // Difficulty buttons
+            document
+              .getElementById('easy-btn')
+              ?.addEventListener('click', () => initGame('easy'))
+            document
+              .getElementById('medium-btn')
+              ?.addEventListener('click', () => initGame('medium'))
+            document
+              .getElementById('hard-btn')
+              ?.addEventListener('click', () => initGame('hard'))
+
+            // Control buttons
+            document
+              .getElementById('start-btn')
+              ?.addEventListener('click', () => initGame(currentDifficulty))
+            document
+              .getElementById('reset-btn')
+              ?.addEventListener('click', () => initGame(currentDifficulty))
+
+            // Handle restart button from overlay
+            document
+              .getElementById('restart-btn')
+              ?.addEventListener('click', () => {
+                const gameOverOverlay =
+                  document.getElementById('game-over-overlay')
+                gameOverOverlay?.classList.add('hidden')
+                initGame(currentDifficulty)
+              })
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', () => {
+              if (gameCleanup) {
+                gameCleanup()
+              }
+            })
+          } catch (error) {
+            console.error('Failed to initialize Sudoku game:', error)
+            container.innerHTML = `
+              <div class="flex items-center justify-center h-full">
+                <div class="text-center">
+                  <div class="text-red-400 text-xl mb-2">Failed to Load Game</div>
+                  <div class="text-gray-400">Please refresh the page to try again</div>
+                </div>
+              </div>
+            `
+          }
+        }
+      })
+    </script>
+  </div>
+</AppLayout>

@@ -26,6 +26,7 @@ const gameIcons: Record<string, string> = {
   memory_matrix: '🧠',
   word_scramble: '📝',
   reflex: '⚡',
+  sudoku: '🧩',
 }
 
 // Convert Games system data to GameCard format
@@ -38,6 +39,7 @@ function convertGameToCardFormat(game: Game) {
     memory_matrix: 4,
     word_scramble: 6,
     reflex: 7,
+    sudoku: 8,
   }
 
   return {

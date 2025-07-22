@@ -8,6 +8,7 @@ export enum GameID {
     MEMORY_MATRIX = 'memory_matrix',
     WORD_SCRAMBLE = 'word_scramble',
     REFLEX = 'reflex',
+    SUDOKU = 'sudoku',
 }
 
 // Game system types
@@ -94,6 +95,18 @@ export const GAMES: Game[] = [
         estimatedDuration: '1 minute',
         difficulty: 'medium',
         tags: ['reflex', 'reaction', 'coins', 'single-player', 'speed'],
+        isActive: true,
+    },
+    {
+        id: GameID.SUDOKU,
+        name: 'Sudoku',
+        description:
+            'Classic number puzzle game - fill the grid so each row, column, and 3x3 box contains digits 1-9',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '5-20 minutes',
+        difficulty: 'medium',
+        tags: ['numbers', 'logic', 'puzzle', 'single-player', 'classic'],
         isActive: true,
     },
 ]
