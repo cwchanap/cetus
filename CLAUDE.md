@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS. The platform features multiple interactive games including Tetris, Bubble Shooter, Quick Draw, Memory Matrix, and Quick Math with user authentication, score tracking, achievement system, and a modern neon-styled design.
+Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS. The platform features multiple interactive games including Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, and Reflex with user authentication, score tracking, achievement system, and a modern neon-styled design.
 
 ## Development Commands
 
