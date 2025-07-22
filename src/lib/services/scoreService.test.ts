@@ -200,7 +200,6 @@ describe('Score Service', () => {
     describe('formatGameName', () => {
         it('should format game names correctly', () => {
             expect(formatGameName('tetris')).toBe('Tetris Challenge')
-            expect(formatGameName('quick_draw')).toBe('Quick Draw')
             expect(formatGameName('quick_math')).toBe('Quick Math')
             expect(formatGameName('bubble_shooter')).toBe('Bubble Shooter')
             expect(formatGameName('memory_matrix')).toBe('Memory Matrix')

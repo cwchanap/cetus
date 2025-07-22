@@ -98,7 +98,7 @@ describe('Database Queries', () => {
                     created_at: new Date('2023-01-01'),
                 },
                 {
-                    game_id: 'quick_draw',
+                    game_id: 'bubble_shooter',
                     score: 3000,
                     created_at: new Date('2023-01-02'),
                 },
@@ -126,8 +126,8 @@ describe('Database Queries', () => {
                     created_at: mockScores[0].created_at.toString(),
                 },
                 {
-                    game_id: 'quick_draw',
-                    game_name: 'Quick Draw',
+                    game_id: 'bubble_shooter',
+                    game_name: 'Bubble Shooter',
                     score: 3000,
                     created_at: mockScores[1].created_at.toString(),
                 },

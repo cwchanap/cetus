@@ -46,10 +46,6 @@ export class HomePage {
         await this.clickGamePlayNow('Tetris Challenge')
     }
 
-    async goToQuickDraw() {
-        await this.clickGamePlayNow('Quick Draw')
-    }
-
     async goToBubbleShooter() {
         await this.clickGamePlayNow('Bubble Shooter')
     }

@@ -305,6 +305,10 @@ const gameNavigation = [
           playAgainBtn.addEventListener('click', () => {
             gameOverOverlay.classList.add('hidden')
             gameStatusElement.style.display = 'flex'
+
+            // Reset buttons
+            startBtn.style.display = 'inline-flex'
+            stopBtn.style.display = 'none'
           })
         } catch (error) {
           console.error('Failed to initialize Reflex game:', error)

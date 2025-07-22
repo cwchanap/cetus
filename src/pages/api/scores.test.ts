@@ -93,7 +93,8 @@ describe('POST /api/scores', () => {
         expect(saveGameScoreWithAchievements).toHaveBeenCalledWith(
             'user-123',
             'tetris',
-            5000
+            5000,
+            undefined
         )
     })
 
@@ -259,7 +260,8 @@ describe('POST /api/scores', () => {
         expect(saveGameScoreWithAchievements).toHaveBeenCalledWith(
             'user-123',
             'tetris',
-            5000
+            5000,
+            undefined
         )
     })
 

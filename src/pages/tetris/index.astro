@@ -221,6 +221,13 @@ const gameNavigation = [
               const gameOverOverlay =
                 document.getElementById('game-over-overlay')!
               gameOverOverlay.classList.add('hidden')
+
+              // Reset buttons
+              const startBtn = document.getElementById('start-btn')!
+              const endBtn = document.getElementById('end-btn')!
+              startBtn.style.display = 'inline-flex'
+              endBtn.style.display = 'none'
+
               if (gameInstance && gameInstance.restart) {
                 gameInstance.restart()
               }

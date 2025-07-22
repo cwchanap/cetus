@@ -64,13 +64,9 @@ describe('Games System', () => {
     })
 
     describe('getMultiplayerGames', () => {
-        it('should return games with more than 1 player', () => {
+        it('should return empty array when no multiplayer games exist', () => {
             const multiplayerGames = getMultiplayerGames()
-            expect(multiplayerGames.length).toBeGreaterThan(0)
-            multiplayerGames.forEach(game => {
-                expect(game.maxPlayers).toBeGreaterThan(1)
-                expect(game.isActive).toBe(true)
-            })
+            expect(multiplayerGames.length).toBe(0)
         })
     })
 
@@ -134,7 +130,6 @@ describe('Games System', () => {
     describe('Category and Difficulty Styling', () => {
         it('should return correct colors for categories', () => {
             expect(getCategoryColor('puzzle')).toContain('blue-400')
-            expect(getCategoryColor('drawing')).toContain('pink-400')
             expect(getCategoryColor('action')).toContain('red-400')
             expect(getCategoryColor('strategy')).toContain('purple-400')
         })

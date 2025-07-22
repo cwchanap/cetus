@@ -30,7 +30,6 @@ test.describe('Homepage', () => {
         // Test navigation to different game pages using "Play Now" links
         const games = [
             { title: 'Tetris Challenge', url: '/tetris' },
-            { title: 'Quick Draw', url: '/drawing' },
             { title: 'Bubble Shooter', url: '/bubble-shooter' },
             { title: 'Quick Math', url: '/quick-math' },
             { title: 'Memory Matrix', url: '/memory-matrix' },

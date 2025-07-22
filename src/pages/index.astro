@@ -21,7 +21,6 @@ const user = Astro.locals.user
 // Game icon and URL mapping
 const gameIcons: Record<string, string> = {
   tetris: '🔲',
-  quick_draw: '🎨',
   bubble_shooter: '🫧',
   quick_math: '🧮',
   memory_matrix: '🧠',
@@ -33,7 +32,6 @@ const gameIcons: Record<string, string> = {
 function convertGameToCardFormat(game: Game) {
   // Map game IDs to legacy numeric IDs for consistency
   const idMapping: Record<string, number> = {
-    quick_draw: 1,
     tetris: 2,
     bubble_shooter: 3,
     quick_math: 5,

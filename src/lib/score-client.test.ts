@@ -266,7 +266,7 @@ describe('Score Client', () => {
     describe('formatGameName', () => {
         it('should format known game IDs correctly', () => {
             expect(formatGameName('tetris')).toBe('Tetris Challenge')
-            expect(formatGameName('quick_draw')).toBe('Quick Draw')
+            expect(formatGameName('bubble_shooter')).toBe('Bubble Shooter')
         })
 
         it('should capitalize unknown game IDs', () => {

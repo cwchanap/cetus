@@ -158,8 +158,6 @@ export function formatGameName(gameId: GameType): string {
     switch (gameId) {
         case 'tetris':
             return 'Tetris Challenge'
-        case 'quick_draw':
-            return 'Quick Draw'
         case 'quick_math':
             return 'Quick Math'
         case 'bubble_shooter':

@@ -3,7 +3,6 @@ import type { GameType } from './server/db/types'
 // Game ID enum class
 export enum GameID {
     TETRIS = 'tetris',
-    QUICK_DRAW = 'quick_draw',
     BUBBLE_SHOOTER = 'bubble_shooter',
     QUICK_MATH = 'quick_math',
     MEMORY_MATRIX = 'memory_matrix',
@@ -16,7 +15,7 @@ export interface Game {
     id: GameID
     name: string
     description: string
-    category: 'puzzle' | 'drawing' | 'action' | 'strategy'
+    category: 'puzzle' | 'action' | 'strategy'
     maxPlayers?: number
     estimatedDuration?: string // e.g., "5-10 minutes"
     difficulty: 'easy' | 'medium' | 'hard'
@@ -35,17 +34,6 @@ export const GAMES: Game[] = [
         estimatedDuration: '5-15 minutes',
         difficulty: 'medium',
         tags: ['classic', 'puzzle', 'blocks', 'single-player'],
-        isActive: true,
-    },
-    {
-        id: GameID.QUICK_DRAW,
-        name: 'Quick Draw',
-        description: 'Fast-paced drawing and guessing game',
-        category: 'drawing',
-        maxPlayers: 8,
-        estimatedDuration: '3-5 minutes',
-        difficulty: 'easy',
-        tags: ['drawing', 'multiplayer', 'creative', 'quick'],
         isActive: true,
     },
     {
@@ -153,8 +141,6 @@ export function getCategoryColor(category: Game['category']): string {
     switch (category) {
         case 'puzzle':
             return 'text-blue-400 border-blue-400/30'
-        case 'drawing':
-            return 'text-pink-400 border-pink-400/30'
         case 'action':
             return 'text-red-400 border-red-400/30'
         case 'strategy':

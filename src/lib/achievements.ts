@@ -82,18 +82,6 @@ export const ACHIEVEMENTS: Achievement[] = [
         rarity: AchievementRarity.COMMON,
     },
     {
-        id: 'quick_draw_welcome',
-        name: 'First Sketch',
-        description: 'Welcome to Quick Draw! You completed your first drawing.',
-        logo: '🎮',
-        gameId: GameID.QUICK_DRAW,
-        condition: {
-            type: 'score_threshold',
-            threshold: 1,
-        },
-        rarity: AchievementRarity.COMMON,
-    },
-    {
         id: 'memory_matrix_welcome',
         name: 'First Memory',
         description: 'Welcome to Memory Matrix! You completed your first game.',
