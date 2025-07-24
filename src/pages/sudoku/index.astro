@@ -78,6 +78,11 @@ const gameNavigation = [
                   >
                 </div>
                 <div class="text-lg text-gray-300">
+                  Final Score: <span id="final-score" class="text-green-400"
+                    >0</span
+                  >
+                </div>
+                <div class="text-lg text-gray-300">
                   Difficulty: <span
                     id="final-difficulty"
                     class="text-purple-400">Medium</span
@@ -182,6 +187,10 @@ const gameNavigation = [
         if (container) {
           try {
             const { initSudokuGame } = await import('@/lib/games/sudoku/init')
+            const { saveGameScore } = await import(
+              '@/lib/services/scoreService'
+            )
+            const { GameID } = await import('@/lib/games')
             let currentDifficulty: 'easy' | 'medium' | 'hard' = 'medium'
             let gameCleanup: (() => void) | null = null
 
@@ -317,8 +326,22 @@ const gameNavigation = [
                   if (finalScoreElement) {
                     const scoreElement = document.getElementById('score')
                     if (scoreElement) {
-                      finalScoreElement.textContent = scoreElement.textContent
+                      const score = parseInt(
+                        scoreElement.textContent || '0',
+                        10
+                      )
+                      finalScoreElement.textContent = score.toString()
+                      // Save score to trigger achievement check
+                      saveGameScore(GameID.SUDOKU, score)
                     }
+                  }
+
+                  const finalDifficultyElement =
+                    document.getElementById('final-difficulty')
+                  if (finalDifficultyElement) {
+                    finalDifficultyElement.textContent =
+                      currentDifficulty.charAt(0).toUpperCase() +
+                      currentDifficulty.slice(1)
                   }
 
                   // Show game over overlay

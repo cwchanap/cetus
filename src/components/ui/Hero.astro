@@ -7,8 +7,8 @@ export interface Props extends HTMLAttributes<'section'> {
   title: string
   subtitle?: string
   description: string
-  primaryAction?: string
-  secondaryAction?: string
+  primaryAction?: string | null
+  secondaryAction?: string | null
   primaryHref?: string
   secondaryHref?: string
   class?: string
@@ -48,18 +48,26 @@ const classes = cn('relative z-10 px-6 py-16', className)
       set:html={description}
     />
     <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-      <a
-        href={primaryHref}
-        class="inline-flex items-center justify-center h-11 rounded-md px-8 bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg shadow-purple-500/25 hover:from-cyan-400 hover:to-purple-500 font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50 text-sm no-underline"
-      >
-        {primaryAction}
-      </a>
-      <a
-        href={secondaryHref}
-        class="inline-flex items-center justify-center h-11 rounded-md px-8 border-2 border-cyan-400 text-cyan-400 bg-transparent hover:bg-cyan-400 hover:text-slate-900 font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50 text-sm no-underline"
-      >
-        {secondaryAction}
-      </a>
+      {
+        primaryAction && (
+          <a
+            href={primaryHref}
+            class="inline-flex items-center justify-center h-11 rounded-md px-8 bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg shadow-purple-500/25 hover:from-cyan-400 hover:to-purple-500 font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50 text-sm no-underline"
+          >
+            {primaryAction}
+          </a>
+        )
+      }
+      {
+        secondaryAction && (
+          <a
+            href={secondaryHref}
+            class="inline-flex items-center justify-center h-11 rounded-md px-8 border-2 border-cyan-400 text-cyan-400 bg-transparent hover:bg-cyan-400 hover:text-slate-900 font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50 text-sm no-underline"
+          >
+            {secondaryAction}
+          </a>
+        )
+      }
     </div>
   </div>
 </section>
