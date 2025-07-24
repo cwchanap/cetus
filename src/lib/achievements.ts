@@ -120,6 +120,56 @@ export const ACHIEVEMENTS: Achievement[] = [
         rarity: AchievementRarity.COMMON,
     },
 
+    // Sudoku achievements
+    {
+        id: 'sudoku_welcome',
+        name: 'First Grid',
+        description: 'Welcome to Sudoku! You played your first game.',
+        logo: '🎮',
+        gameId: GameID.SUDOKU,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'sudoku_novice',
+        name: 'Sudoku Novice',
+        description: 'Score 1000 points in Sudoku',
+        logo: '🔰',
+        gameId: GameID.SUDOKU,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1000,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'sudoku_adept',
+        name: 'Sudoku Adept',
+        description: 'Score 2000 points in Sudoku',
+        logo: '⭐',
+        gameId: GameID.SUDOKU,
+        condition: {
+            type: 'score_threshold',
+            threshold: 2000,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'sudoku_master',
+        name: 'Sudoku Master',
+        description: 'Score 3000 points in Sudoku',
+        logo: '👑',
+        gameId: GameID.SUDOKU,
+        condition: {
+            type: 'score_threshold',
+            threshold: 3000,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+
     // Tetris achievements
     {
         id: 'tetris_novice',

@@ -40,6 +40,7 @@ export function initializeGame(
         isComplete: false,
         isPaused: false,
         isGameOver: false,
+        score: 0,
     }
 }
 
@@ -136,12 +137,10 @@ export function placeNumber(state: GameState, num: number): void {
     // If invalid, increment mistakes
     if (!isValid) {
         state.mistakes++
-
-        // Game over after 3 mistakes
-        if (state.mistakes >= 3) {
-            state.isGameOver = true
-        }
     }
+
+    // Update score
+    calculateScore(state)
 
     // Clear selection
     state.grid.selectedCell = null
@@ -196,4 +195,26 @@ export function togglePause(state: GameState): void {
         return
     }
     state.isPaused = !state.isPaused
+}
+
+/**
+ * Calculates the score based on solved rows and difficulty
+ */
+export function calculateScore(state: GameState): void {
+    const difficultyPoints = {
+        easy: 150,
+        medium: 250,
+        hard: 500,
+    }
+
+    let solvedRows = 0
+    for (let i = 0; i < 9; i++) {
+        const row = state.grid.cells[i]
+        if (row.every(cell => cell.value !== null && !cell.isConflicting)) {
+            solvedRows++
+        }
+    }
+
+    state.score =
+        solvedRows * solvedRows * 10 + difficultyPoints[state.difficulty]
 }

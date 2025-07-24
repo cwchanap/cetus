@@ -7,6 +7,8 @@ import {
     togglePause,
 } from './game'
 import type { GameState } from './types'
+import { GameID } from '@/lib/games'
+import { saveGameScore } from '@/lib/services/scoreService'
 
 /**
  * Initializes and sets up the Sudoku game
@@ -91,22 +93,10 @@ function updateUI(state: GameState): void {
         timeElement.textContent = `${minutes}:${seconds}`
     }
 
-    // Update mistakes
-    const mistakesElement = document.getElementById('mistakes-count')
-    if (mistakesElement) {
-        mistakesElement.textContent = state.mistakes.toString()
-
-        // Change color when approaching limit
-        const badge = mistakesElement.closest('.px-4')
-        if (badge) {
-            if (state.mistakes >= 2) {
-                badge.classList.add('border-red-400', 'text-red-400')
-                badge.classList.remove('border-cyan-400', 'text-cyan-400')
-            } else if (state.mistakes >= 1) {
-                badge.classList.add('border-yellow-400', 'text-yellow-400')
-                badge.classList.remove('border-cyan-400', 'text-cyan-400')
-            }
-        }
+    // Update score
+    const scoreElement = document.getElementById('score')
+    if (scoreElement) {
+        scoreElement.textContent = state.score.toString()
     }
 }
 
@@ -343,6 +333,9 @@ function showGameOverOverlay(state: GameState): void {
         return
     }
 
+    // Save score and check for achievements
+    saveGameScore(GameID.SUDOKU, state.score)
+
     // Update final stats
     const finalTimeElement = document.getElementById('final-time')
     if (finalTimeElement) {
@@ -353,9 +346,9 @@ function showGameOverOverlay(state: GameState): void {
         finalTimeElement.textContent = `${minutes}:${seconds}`
     }
 
-    const finalMistakesElement = document.getElementById('final-mistakes')
-    if (finalMistakesElement) {
-        finalMistakesElement.textContent = state.mistakes.toString()
+    const finalScoreElement = document.getElementById('final-score')
+    if (finalScoreElement) {
+        finalScoreElement.textContent = state.score.toString()
     }
 
     const finalDifficultyElement = document.getElementById('final-difficulty')

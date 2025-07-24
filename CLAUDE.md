@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS. The platform features multiple interactive games including Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, and Reflex with user authentication, score tracking, achievement system, and a modern neon-styled design.
+Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS. The platform features multiple interactive games including Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, and Sudoku with user authentication, score tracking, achievement system, and a modern neon-styled design.
 
 ## Development Commands
 
@@ -16,6 +16,17 @@ Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS.
 
 ### Database
 - `npm run db:dev` - Start local Turso SQLite database server
+
+### Environment Setup
+Required environment variables in `.env`:
+```
+TURSO_DATABASE_URL=your_turso_database_url
+TURSO_AUTH_TOKEN=your_turso_auth_token
+BETTER_AUTH_SECRET=your_32_char_secret
+BETTER_AUTH_URL=http://localhost:4321 # for development
+GOOGLE_CLIENT_ID=your_google_client_id # optional
+GOOGLE_CLIENT_SECRET=your_google_client_secret # optional
+```
 
 ### Testing
 - `npm run test` - Run tests with Vitest
@@ -83,7 +94,10 @@ src/
 │       ├── tetris/    # Tetris game implementation
 │       ├── bubble-shooter/ # Bubble shooter implementation
 │       ├── memory-matrix/ # Memory Matrix implementation
-│       └── quick-math/ # Quick Math implementation
+│       ├── quick-math/ # Quick Math implementation
+│       ├── word-scramble/ # Word Scramble implementation
+│       ├── reflex/ # Reflex game implementation
+│       └── sudoku/ # Sudoku puzzle implementation
 ├── pages/
 │   ├── api/          # API routes (auth, scores)
 │   ├── login/        # Authentication pages
@@ -110,6 +124,12 @@ Games are modular with consistent patterns:
 - **Init**: Game initialization and setup
 
 Each game follows: `types.ts` → `game.ts` → `renderer.ts` → `utils.ts`
+
+**Game-Specific Notes:**
+- **Sudoku**: Uses `utils.ts` for validation logic and puzzle generation
+- **Word Scramble**: Includes `words.ts` for word dictionary
+- **Reflex/Memory Matrix**: Have dedicated test files for game logic
+- **Quick Math**: Simpler structure without renderer (text-based)
 
 ### Services Architecture
 - **Achievement Service**: Checks score thresholds and awards achievements automatically

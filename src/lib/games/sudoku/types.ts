@@ -18,6 +18,7 @@ export interface GameState {
     isComplete: boolean
     isPaused: boolean
     isGameOver: boolean
+    score: number
 }
 
 export type GameDifficulty = 'easy' | 'medium' | 'hard'

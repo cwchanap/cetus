@@ -53,13 +53,11 @@ const gameNavigation = [
               </Badge>
               <Badge variant="outline" class="px-4 py-2">
                 <span class="font-mono"
-                  >Mistakes: <span id="mistakes-count">0</span>/3</span
+                  >Difficulty: <span id="difficulty">Medium</span></span
                 >
               </Badge>
               <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Difficulty: <span id="difficulty">Medium</span></span
-                >
+                <span class="font-mono">Score: <span id="score">0</span></span>
               </Badge>
             </div>
 
@@ -80,11 +78,6 @@ const gameNavigation = [
                   >
                 </div>
                 <div class="text-lg text-gray-300">
-                  Mistakes Made: <span id="final-mistakes" class="text-red-400"
-                    >0</span
-                  >
-                </div>
-                <div class="text-lg text-gray-300">
                   Difficulty: <span
                     id="final-difficulty"
                     class="text-purple-400">Medium</span
@@ -96,7 +89,13 @@ const gameNavigation = [
             <!-- Game Controls -->
             <div class="flex space-x-2">
               <Button id="start-btn" variant="primary" size="sm"
-                >New Game</Button
+                >Start Game</Button
+              >
+              <Button
+                id="end-btn"
+                variant="outline"
+                size="sm"
+                style="display: none;">End Game</Button
               >
               <Button id="pause-btn" variant="outline" size="sm">Pause</Button>
               <Button id="reset-btn" variant="outline" size="sm">Reset</Button>
@@ -144,27 +143,15 @@ const gameNavigation = [
               DIFFICULTY
             </h3>
             <div class="space-y-3">
-              <Button
-                id="easy-btn"
-                variant="outline"
-                class="w-full justify-start"
-              >
+              <Button id="easy-btn" class="w-full justify-start">
                 <span class="mr-2">🟢</span>
                 Easy (40 clues)
               </Button>
-              <Button
-                id="medium-btn"
-                variant="primary"
-                class="w-full justify-start"
-              >
+              <Button id="medium-btn" class="w-full justify-start">
                 <span class="mr-2">🟡</span>
                 Medium (30 clues)
               </Button>
-              <Button
-                id="hard-btn"
-                variant="outline"
-                class="w-full justify-start"
-              >
+              <Button id="hard-btn" class="w-full justify-start">
                 <span class="mr-2">🔴</span>
                 Hard (20 clues)
               </Button>
@@ -181,7 +168,6 @@ const gameNavigation = [
               <p>• Type numbers 1-9 to fill cells</p>
               <p>• Each row, column, and 3×3 box must contain all digits 1-9</p>
               <p>• Use Delete/Backspace to clear cells</p>
-              <p>• You have 3 mistakes allowed</p>
             </div>
           </Card>
         </div>
@@ -196,11 +182,25 @@ const gameNavigation = [
         if (container) {
           try {
             const { initSudokuGame } = await import('@/lib/games/sudoku/init')
-            let currentDifficulty = 'medium'
-            let gameCleanup = null
+            let currentDifficulty: 'easy' | 'medium' | 'hard' = 'medium'
+            let gameCleanup: (() => void) | null = null
+
+            const updateDifficultyButtonsState = (disabled: boolean) => {
+              document.querySelectorAll('[id$="-btn"]').forEach(btn => {
+                if (
+                  btn.id.includes('easy-') ||
+                  btn.id.includes('medium-') ||
+                  btn.id.includes('hard-')
+                ) {
+                  ;(btn as HTMLButtonElement).disabled = disabled
+                }
+              })
+            }
 
             // Initialize game
-            const initGame = (difficulty = 'medium') => {
+            const initGame = (
+              difficulty: 'easy' | 'medium' | 'hard' = 'medium'
+            ) => {
               if (gameCleanup) {
                 gameCleanup()
               }
@@ -208,43 +208,132 @@ const gameNavigation = [
               currentDifficulty = difficulty
 
               // Update difficulty display
-              document.getElementById('difficulty').textContent =
-                difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
+              const difficultyElement = document.getElementById('difficulty')
+              if (difficultyElement) {
+                difficultyElement.textContent =
+                  difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
+              }
 
-              // Update button states
-              document.querySelectorAll('[id$="-btn"]').forEach(btn => {
-                if (btn.id === `${difficulty}-btn`) {
-                  btn.classList.remove('variant-outline')
-                  btn.classList.add('variant-primary')
-                } else if (
-                  btn.id.includes('easy-') ||
-                  btn.id.includes('medium-') ||
-                  btn.id.includes('hard-')
-                ) {
-                  btn.classList.remove('variant-primary')
-                  btn.classList.add('variant-outline')
-                }
-              })
+              // Disable difficulty buttons
+              updateDifficultyButtonsState(true)
+
+              // Show End Game button and hide Start Game button
+              const startBtn = document.getElementById(
+                'start-btn'
+              ) as HTMLElement
+              const endBtn = document.getElementById('end-btn') as HTMLElement
+              if (startBtn && endBtn) {
+                startBtn.style.display = 'none'
+                endBtn.style.display = 'inline-flex'
+              }
             }
 
-            // Initialize with medium difficulty
-            initGame('medium')
-
             // Difficulty buttons
+            const buttonVariantClasses = {
+              primary: [
+                'bg-gradient-to-r',
+                'from-cyan-500',
+                'to-purple-600',
+                'text-white',
+                'shadow-lg',
+                'shadow-purple-500/25',
+                'hover:from-cyan-400',
+                'hover:to-purple-500',
+                'hover-glow-cyan',
+              ],
+              outline: [
+                'border-2',
+                'border-cyan-400',
+                'text-white',
+                'bg-transparent',
+                'hover:bg-cyan-400',
+                'hover:text-slate-900',
+              ],
+            }
+
+            const setDifficulty = (difficulty: 'easy' | 'medium' | 'hard') => {
+              currentDifficulty = difficulty
+              const difficultyButtons = document.querySelectorAll(
+                '#easy-btn, #medium-btn, #hard-btn'
+              )
+
+              difficultyButtons.forEach(btn => {
+                // Remove all possible variant classes
+                btn.classList.remove(
+                  ...buttonVariantClasses.primary,
+                  ...buttonVariantClasses.outline
+                )
+
+                // Add the correct classes based on selection
+                if (btn.id === `${difficulty}-btn`) {
+                  btn.classList.add(...buttonVariantClasses.primary)
+                } else {
+                  btn.classList.add(...buttonVariantClasses.outline)
+                }
+              })
+
+              // Update difficulty display
+              const difficultyElement = document.getElementById('difficulty')
+              if (difficultyElement) {
+                difficultyElement.textContent =
+                  difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
+              }
+            }
+
+            setDifficulty(currentDifficulty)
+
             document
               .getElementById('easy-btn')
-              ?.addEventListener('click', () => initGame('easy'))
+              ?.addEventListener('click', () => setDifficulty('easy'))
             document
               .getElementById('medium-btn')
-              ?.addEventListener('click', () => initGame('medium'))
+              ?.addEventListener('click', () => setDifficulty('medium'))
             document
               .getElementById('hard-btn')
-              ?.addEventListener('click', () => initGame('hard'))
+              ?.addEventListener('click', () => setDifficulty('hard'))
 
             // Control buttons
             document
               .getElementById('start-btn')
               ?.addEventListener('click', () => initGame(currentDifficulty))
+            document
+              .getElementById('end-btn')
+              ?.addEventListener('click', () => {
+                // Trigger game over
+                const gameOverOverlay =
+                  document.getElementById('game-over-overlay')
+                if (gameOverOverlay) {
+                  // Update final stats
+                  const finalTimeElement = document.getElementById('final-time')
+                  if (finalTimeElement) {
+                    const timeElement = document.getElementById('game-time')
+                    if (timeElement) {
+                      finalTimeElement.textContent = timeElement.textContent
+                    }
+                  }
+
+                  const finalScoreElement =
+                    document.getElementById('final-score')
+                  if (finalScoreElement) {
+                    const scoreElement = document.getElementById('score')
+                    if (scoreElement) {
+                      finalScoreElement.textContent = scoreElement.textContent
+                    }
+                  }
+
+                  // Show game over overlay
+                  gameOverOverlay.classList.remove('hidden')
+
+                  // Reset button states
+                  const startBtn = document.getElementById('start-btn')
+                  const endBtn = document.getElementById('end-btn')
+                  if (startBtn && endBtn) {
+                    startBtn.style.display = 'inline-flex'
+                    endBtn.style.display = 'none'
+                  }
+                  updateDifficultyButtonsState(false)
+                }
+              })
             document
               .getElementById('reset-btn')
               ?.addEventListener('click', () => initGame(currentDifficulty))
@@ -256,7 +345,23 @@ const gameNavigation = [
                 const gameOverOverlay =
                   document.getElementById('game-over-overlay')
                 gameOverOverlay?.classList.add('hidden')
-                initGame(currentDifficulty)
+
+                // Reset button states to show Start Game instead of starting immediately
+                const startBtn = document.getElementById(
+                  'start-btn'
+                ) as HTMLElement
+                const endBtn = document.getElementById('end-btn') as HTMLElement
+                if (startBtn && endBtn) {
+                  startBtn.style.display = 'inline-flex'
+                  endBtn.style.display = 'none'
+                }
+
+                // Clean up any existing game
+                if (gameCleanup) {
+                  gameCleanup()
+                  gameCleanup = null
+                }
+                updateDifficultyButtonsState(false)
               })
 
             // Cleanup on page unload
