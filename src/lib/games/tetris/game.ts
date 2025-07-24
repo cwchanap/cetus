@@ -96,6 +96,7 @@ export function createGameState(): GameState {
             doubles: 0,
             triples: 0,
             tetrises: 0,
+            consecutiveLineClears: 0,
         },
         dropTime: 0,
         dropInterval: 1000,
@@ -232,6 +233,8 @@ function handlePiecePlacement(state: GameState): void {
         updateLevel(state)
         updateScore(state, linesCleared)
         updateStats(state, linesCleared)
+    } else {
+        state.stats.consecutiveLineClears = 0
     }
 
     // Spawn next piece
@@ -244,6 +247,10 @@ function updateScore(state: GameState, linesCleared: number): void {
 }
 
 function updateStats(state: GameState, linesCleared: number): void {
+    if (linesCleared > 0) {
+        state.stats.consecutiveLineClears++
+    }
+
     switch (linesCleared) {
         case 1:
             state.stats.singles++
@@ -318,6 +325,7 @@ export function resetGame(
         doubles: 0,
         triples: 0,
         tetrises: 0,
+        consecutiveLineClears: 0,
     }
     state.dropInterval = 1000
     state.needsRedraw = true
@@ -351,8 +359,11 @@ export async function endGame(state: GameState): Promise<void> {
     const stats = {
         level: state.level,
         lines: state.lines,
-        pieces: state.piecesPlaced || 0,
-        tetrises: state.tetrises || 0,
+        pieces: state.stats.pieces,
+        tetrises: state.stats.tetrises,
+        doubles: state.stats.doubles,
+        triples: state.stats.triples,
+        consecutiveLineClears: state.stats.consecutiveLineClears,
     }
 
     // Call external callback if provided

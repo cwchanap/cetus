@@ -4,7 +4,6 @@ import Button from '@/components/ui/Button.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import GameOverlay from '@/components/GameOverlay.astro'
-import AchievementAward from '@/components/AchievementAward.astro'
 
 // Custom navigation for game pages with breadcrumb
 const gameNavigation = [
@@ -190,12 +189,16 @@ const gameNavigation = [
 
     <!-- Tetris Game Logic -->
     <script>
-      import { initTetrisGame } from '@/lib/games/tetris/init'
+      import {
+        initTetrisGame,
+        type TetrisGameInstance,
+      } from '@/lib/games/tetris/init'
 
       // Initialize game when page loads
       document.addEventListener('DOMContentLoaded', async () => {
         try {
-          const gameInstance = await initTetrisGame()
+          const gameInstance: TetrisGameInstance | undefined =
+            await initTetrisGame()
 
           // Add end game button functionality
           const startBtn = document.getElementById('start-btn')!
@@ -238,7 +241,4 @@ const gameNavigation = [
       })
     </script>
   </div>
-
-  <!-- Achievement Award Component -->
-  <AchievementAward />
 </AppLayout>

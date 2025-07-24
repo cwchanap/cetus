@@ -15,8 +15,10 @@ export interface Achievement {
     logo: string
     gameId: GameID | 'global' // 'global' for system-wide achievements
     condition: {
-        type: 'score_threshold' | 'games_played' | 'custom'
+        type: 'score_threshold' | 'games_played' | 'in_game' | 'custom'
         threshold?: number
+        // For in-game achievements, a check function is required
+        check?: (gameData: any, score: number) => boolean
         customCheck?: string // For future extensibility
     }
     isHidden?: boolean // Hidden until unlocked
@@ -226,8 +228,8 @@ export const ACHIEVEMENTS: Achievement[] = [
         logo: '⚡',
         gameId: GameID.TETRIS,
         condition: {
-            type: 'custom',
-            customCheck: 'double_clear',
+            type: 'in_game',
+            check: (gameData: { doubles: number }) => gameData.doubles > 0,
         },
         rarity: AchievementRarity.COMMON,
     },
@@ -238,8 +240,9 @@ export const ACHIEVEMENTS: Achievement[] = [
         logo: '🎯',
         gameId: GameID.TETRIS,
         condition: {
-            type: 'custom',
-            customCheck: 'consecutive_double',
+            type: 'in_game',
+            check: (gameData: { consecutiveLineClears: number }) =>
+                gameData.consecutiveLineClears >= 2,
         },
         rarity: AchievementRarity.COMMON,
     },
@@ -250,8 +253,9 @@ export const ACHIEVEMENTS: Achievement[] = [
         logo: '🔥',
         gameId: GameID.TETRIS,
         condition: {
-            type: 'custom',
-            customCheck: 'consecutive_lines',
+            type: 'in_game',
+            check: (gameData: { consecutiveLineClears: number }) =>
+                gameData.consecutiveLineClears >= 4,
         },
         rarity: AchievementRarity.RARE,
     },
@@ -262,8 +266,8 @@ export const ACHIEVEMENTS: Achievement[] = [
         logo: '💥',
         gameId: GameID.TETRIS,
         condition: {
-            type: 'custom',
-            customCheck: 'quadruple_clear',
+            type: 'in_game',
+            check: (gameData: { tetrises: number }) => gameData.tetrises > 0,
         },
         rarity: AchievementRarity.RARE,
     },
@@ -550,8 +554,9 @@ export const ACHIEVEMENTS: Achievement[] = [
         logo: '🪙',
         gameId: GameID.REFLEX,
         condition: {
-            type: 'custom',
-            customCheck: 'coin_streak_10',
+            type: 'in_game',
+            check: (gameData: { gameHistory: any[] }) =>
+                checkConsecutiveObjectType(gameData.gameHistory, 'coin', 10),
         },
         rarity: AchievementRarity.COMMON,
     },
@@ -562,8 +567,9 @@ export const ACHIEVEMENTS: Achievement[] = [
         logo: '💣',
         gameId: GameID.REFLEX,
         condition: {
-            type: 'custom',
-            customCheck: 'bomb_streak_10',
+            type: 'in_game',
+            check: (gameData: { gameHistory: any[] }) =>
+                checkConsecutiveObjectType(gameData.gameHistory, 'bomb', 10),
         },
         rarity: AchievementRarity.RARE,
     },
@@ -574,8 +580,9 @@ export const ACHIEVEMENTS: Achievement[] = [
         logo: '✨',
         gameId: GameID.REFLEX,
         condition: {
-            type: 'custom',
-            customCheck: 'perfect_run_500',
+            type: 'in_game',
+            check: (gameData: { bombsHit: number }, score: number) =>
+                score > 500 && gameData.bombsHit === 0,
         },
         rarity: AchievementRarity.LEGENDARY,
     },
@@ -587,14 +594,48 @@ export const ACHIEVEMENTS: Achievement[] = [
         logo: '⚖️',
         gameId: GameID.REFLEX,
         condition: {
-            type: 'custom',
-            customCheck: 'balanced_collection',
+            type: 'in_game',
+            check: (gameData: { coinsCollected: number; bombsHit: number }) =>
+                gameData.coinsCollected === gameData.bombsHit &&
+                gameData.coinsCollected > 0,
         },
         rarity: AchievementRarity.RARE,
     },
 ]
 
 // Helper functions
+function checkConsecutiveObjectType(
+    gameHistory: Array<{
+        objectId: string
+        type: 'coin' | 'bomb'
+        clicked: boolean
+        timeToClick?: number
+        pointsAwarded: number
+    }>,
+    targetType: 'coin' | 'bomb',
+    requiredCount: number
+): boolean {
+    let consecutiveCount = 0
+    let maxConsecutiveCount = 0
+
+    // Only consider clicked objects for streaks
+    const clickedObjects = gameHistory.filter(entry => entry.clicked)
+
+    for (const entry of clickedObjects) {
+        if (entry.type === targetType) {
+            consecutiveCount++
+            maxConsecutiveCount = Math.max(
+                maxConsecutiveCount,
+                consecutiveCount
+            )
+        } else {
+            consecutiveCount = 0
+        }
+    }
+
+    return maxConsecutiveCount >= requiredCount
+}
+
 export function getAchievementById(id: string): Achievement | undefined {
     return ACHIEVEMENTS.find(achievement => achievement.id === id)
 }

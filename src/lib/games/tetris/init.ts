@@ -1,4 +1,5 @@
 // Tetris game initialization module
+import type { GameState } from './types'
 import {
     createGameState,
     generateNextPiece,
@@ -19,7 +20,15 @@ import { setupPixiJS } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 
-export async function initTetrisGame(): Promise<unknown> {
+export interface TetrisGameInstance {
+    restart: () => void
+    getState: () => GameState
+    endGame: () => Promise<void>
+}
+
+export async function initTetrisGame(): Promise<
+    TetrisGameInstance | undefined
+> {
     const gameContainer = document.getElementById('tetris-container')
     const nextCanvas = document.getElementById(
         'next-canvas'
@@ -27,7 +36,7 @@ export async function initTetrisGame(): Promise<unknown> {
     const nextCtx = nextCanvas?.getContext('2d')
 
     if (!gameContainer || !nextCtx) {
-        return
+        return undefined
     }
 
     // Initialize game state
@@ -104,7 +113,8 @@ export async function initTetrisGame(): Promise<unknown> {
                 },
                 error => {
                     console.error('Failed to submit score:', error)
-                }
+                },
+                stats
             )
         },
     }

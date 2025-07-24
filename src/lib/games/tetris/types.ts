@@ -18,6 +18,7 @@ export interface GameStats {
     doubles: number
     triples: number
     tetrises: number
+    consecutiveLineClears: number
 }
 
 export interface GameState {

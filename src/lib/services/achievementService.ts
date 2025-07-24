@@ -169,209 +169,39 @@ export async function checkSpaceExplorerAchievement(
 /**
  * Check and award in-game achievements for Tetris
  */
-export async function checkTetrisInGameAchievements(
+export async function checkInGameAchievements(
     userId: string,
-    gameEvent: {
-        type: 'lines_cleared'
-        linesCleared: number
-        consecutiveLineClears: number
-    }
+    gameId: GameType,
+    gameData: any,
+    score: number
 ): Promise<string[]> {
     const newlyEarnedAchievements: string[] = []
+    const gameAchievements = getAchievementsByGame(gameId)
 
-    try {
-        // Check for double clear (2 lines in single strike)
+    for (const achievement of gameAchievements) {
         if (
-            gameEvent.type === 'lines_cleared' &&
-            gameEvent.linesCleared === 2
+            achievement.condition.type === 'in_game' &&
+            achievement.condition.check
         ) {
-            const alreadyEarned = await hasUserEarnedAchievement(
-                userId,
-                'tetris_double_clear'
-            )
-            if (!alreadyEarned) {
-                const awarded = await awardAchievement(
+            if (achievement.condition.check(gameData, score)) {
+                const alreadyEarned = await hasUserEarnedAchievement(
                     userId,
-                    'tetris_double_clear'
+                    achievement.id
                 )
-                if (awarded) {
-                    newlyEarnedAchievements.push('tetris_double_clear')
+                if (!alreadyEarned) {
+                    const awarded = await awardAchievement(
+                        userId,
+                        achievement.id
+                    )
+                    if (awarded) {
+                        newlyEarnedAchievements.push(achievement.id)
+                    }
                 }
             }
         }
-
-        // Check for quadruple clear (4 lines in single strike)
-        if (
-            gameEvent.type === 'lines_cleared' &&
-            gameEvent.linesCleared === 4
-        ) {
-            const alreadyEarned = await hasUserEarnedAchievement(
-                userId,
-                'tetris_quadruple_clear'
-            )
-            if (!alreadyEarned) {
-                const awarded = await awardAchievement(
-                    userId,
-                    'tetris_quadruple_clear'
-                )
-                if (awarded) {
-                    newlyEarnedAchievements.push('tetris_quadruple_clear')
-                }
-            }
-        }
-
-        // Check for consecutive line clears (2 times in a row)
-        if (
-            gameEvent.type === 'lines_cleared' &&
-            gameEvent.consecutiveLineClears >= 2
-        ) {
-            const alreadyEarned = await hasUserEarnedAchievement(
-                userId,
-                'tetris_double_streak'
-            )
-            if (!alreadyEarned) {
-                const awarded = await awardAchievement(
-                    userId,
-                    'tetris_double_streak'
-                )
-                if (awarded) {
-                    newlyEarnedAchievements.push('tetris_double_streak')
-                }
-            }
-        }
-
-        // Check for consecutive line clears (4 times in a row)
-        if (
-            gameEvent.type === 'lines_cleared' &&
-            gameEvent.consecutiveLineClears >= 4
-        ) {
-            const alreadyEarned = await hasUserEarnedAchievement(
-                userId,
-                'tetris_combo_streak'
-            )
-            if (!alreadyEarned) {
-                const awarded = await awardAchievement(
-                    userId,
-                    'tetris_combo_streak'
-                )
-                if (awarded) {
-                    newlyEarnedAchievements.push('tetris_combo_streak')
-                }
-            }
-        }
-
-        return newlyEarnedAchievements
-    } catch (error) {
-        return []
     }
-}
 
-/**
- * Check and award in-game achievements for Reflex
- */
-export async function checkReflexInGameAchievements(
-    userId: string,
-    gameStats: {
-        finalScore: number
-        coinsCollected: number
-        bombsHit: number
-        gameHistory: Array<{
-            objectId: string
-            type: 'coin' | 'bomb'
-            clicked: boolean
-            timeToClick?: number
-            pointsAwarded: number
-        }>
-    }
-): Promise<string[]> {
-    const newlyEarnedAchievements: string[] = []
-
-    try {
-        // Check for 10 coins in a row
-        const coinStreak = checkConsecutiveObjectType(
-            gameStats.gameHistory,
-            'coin',
-            10
-        )
-        if (coinStreak) {
-            const alreadyEarned = await hasUserEarnedAchievement(
-                userId,
-                'reflex_coin_streak'
-            )
-            if (!alreadyEarned) {
-                const awarded = await awardAchievement(
-                    userId,
-                    'reflex_coin_streak'
-                )
-                if (awarded) {
-                    newlyEarnedAchievements.push('reflex_coin_streak')
-                }
-            }
-        }
-
-        // Check for 10 bombs in a row
-        const bombStreak = checkConsecutiveObjectType(
-            gameStats.gameHistory,
-            'bomb',
-            10
-        )
-        if (bombStreak) {
-            const alreadyEarned = await hasUserEarnedAchievement(
-                userId,
-                'reflex_bomb_streak'
-            )
-            if (!alreadyEarned) {
-                const awarded = await awardAchievement(
-                    userId,
-                    'reflex_bomb_streak'
-                )
-                if (awarded) {
-                    newlyEarnedAchievements.push('reflex_bomb_streak')
-                }
-            }
-        }
-
-        // Check for perfect run (score > 500 with 0 bombs hit)
-        if (gameStats.finalScore > 500 && gameStats.bombsHit === 0) {
-            const alreadyEarned = await hasUserEarnedAchievement(
-                userId,
-                'reflex_perfect_run'
-            )
-            if (!alreadyEarned) {
-                const awarded = await awardAchievement(
-                    userId,
-                    'reflex_perfect_run'
-                )
-                if (awarded) {
-                    newlyEarnedAchievements.push('reflex_perfect_run')
-                }
-            }
-        }
-
-        // Check for balanced collection (same number of coins and bombs)
-        if (
-            gameStats.coinsCollected === gameStats.bombsHit &&
-            gameStats.coinsCollected > 0
-        ) {
-            const alreadyEarned = await hasUserEarnedAchievement(
-                userId,
-                'reflex_balanced_collector'
-            )
-            if (!alreadyEarned) {
-                const awarded = await awardAchievement(
-                    userId,
-                    'reflex_balanced_collector'
-                )
-                if (awarded) {
-                    newlyEarnedAchievements.push('reflex_balanced_collector')
-                }
-            }
-        }
-
-        return newlyEarnedAchievements
-    } catch (error) {
-        return []
-    }
+    return newlyEarnedAchievements
 }
 
 /**
@@ -407,22 +237,4 @@ function checkConsecutiveObjectType(
     }
 
     return maxConsecutiveCount >= requiredCount
-}
-
-/**
- * Generic function to check in-game achievements for any game
- */
-export async function checkInGameAchievements(
-    userId: string,
-    gameId: GameType,
-    gameEvent: any
-): Promise<string[]> {
-    switch (gameId) {
-        case 'tetris':
-            return await checkTetrisInGameAchievements(userId, gameEvent)
-        case 'reflex':
-            return await checkReflexInGameAchievements(userId, gameEvent)
-        default:
-            return []
-    }
 }

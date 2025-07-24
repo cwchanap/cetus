@@ -229,7 +229,8 @@ export async function saveGameScoreWithAchievements(
             inGameAchievements = await checkInGameAchievements(
                 userId,
                 gameId as any,
-                gameData
+                gameData,
+                score
             )
         }
 
