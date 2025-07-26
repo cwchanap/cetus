@@ -245,6 +245,12 @@ const gameNavigation = [
           const startBtn = document.getElementById('start-btn')!
           const endBtn = document.getElementById('end-btn')!
 
+          startBtn.addEventListener('click', () => {
+            if (gameInstance) {
+              gameInstance.startGame()
+            }
+          })
+
           // Show end button when game starts
           const originalOnGameStart = gameInstance.callbacks?.onGameStart
           if (gameInstance.callbacks) {

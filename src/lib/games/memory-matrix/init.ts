@@ -19,6 +19,13 @@ export async function initMemoryMatrixGame(callbacks?: {
     })
 
     game.setGameEndCallback(async (finalScore, stats) => {
+        // Reset button state when game ends
+        const startBtn = document.getElementById('start-btn')
+        if (startBtn) {
+            startBtn.textContent = 'Start Game'
+            ;(startBtn as HTMLButtonElement).disabled = false
+        }
+
         // Call external callback if provided
         if (callbacks?.onGameComplete) {
             callbacks.onGameComplete(finalScore, stats)

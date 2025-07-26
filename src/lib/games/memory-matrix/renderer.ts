@@ -25,19 +25,6 @@ export class MemoryMatrixRenderer {
                     <div id="memory-board" class="game-board grid grid-cols-8 gap-2 p-4 bg-black/50 rounded-lg border-2 border-cyan-400/50">
                         <!-- Cards will be rendered here -->
                     </div>
-                    
-                    <!-- Game Over Overlay -->
-                    <div id="game-over-overlay" class="absolute inset-0 bg-black/80 rounded-lg flex items-center justify-center hidden">
-                        <div class="text-center">
-                            <h3 id="game-over-title" class="text-3xl font-orbitron font-bold mb-4"></h3>
-                            <div id="game-over-stats" class="text-gray-400 mb-4 space-y-2">
-                                <!-- Stats will be populated here -->
-                            </div>
-                            <button id="play-again-btn" class="px-6 py-2 bg-cyan-500 hover:bg-cyan-400 text-white font-bold rounded-lg transition-colors">
-                                Play Again
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
         `
@@ -209,46 +196,17 @@ export class MemoryMatrixRenderer {
     }
 
     private showGameOverOverlay(
-        gameState: GameState,
-        gameStats: GameStats
+        _gameState: GameState,
+        _gameStats: GameStats
     ): void {
-        const overlay = document.getElementById('game-over-overlay')
-        const title = document.getElementById('game-over-title')
-        const stats = document.getElementById('game-over-stats')
-
-        if (!overlay || !title || !stats) {
-            return
-        }
-
-        // Set title
-        if (gameState.gameWon) {
-            title.textContent = 'VICTORY!'
-            title.className =
-                'text-3xl font-orbitron font-bold text-green-400 mb-4'
-        } else {
-            title.textContent = "TIME'S UP!"
-            title.className =
-                'text-3xl font-orbitron font-bold text-red-400 mb-4'
-        }
-
-        // Set stats
-        stats.innerHTML = `
-            <div class="space-y-2">
-                <p>Final Score: <span class="text-cyan-400 font-bold">${gameState.score}</span></p>
-                <p>Pairs Found: <span class="text-green-400">${gameStats.matchesFound}</span>/${gameState.totalPairs}</p>
-                <p>Accuracy: <span class="text-yellow-400">${gameStats.accuracy}%</span></p>
-                <p>Time Elapsed: <span class="text-white">${formatTime(gameStats.timeElapsed)}</span></p>
-            </div>
-        `
-
-        overlay.classList.remove('hidden')
+        // The overlay is now handled by the page's GameOverlay component
+        // This method is kept for compatibility but doesn't need to do anything
+        // as the game end logic in the page will handle showing the overlay
     }
 
     private hideGameOverOverlay(): void {
-        const overlay = document.getElementById('game-over-overlay')
-        if (overlay) {
-            overlay.classList.add('hidden')
-        }
+        // The overlay is now handled by the page's GameOverlay component
+        // This method is kept for compatibility
     }
 
     public destroy(): void {

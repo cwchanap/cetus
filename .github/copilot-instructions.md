@@ -2,19 +2,33 @@
 
 This repository contains Cetus, a sci-fi themed single-player minigames platform built with Astro and Tailwind CSS.
 
+## Current Status (January 2025)
+
+The platform is feature-complete with all 7 core games implemented and fully functional:
+- ✅ **Tetris Challenge** - Classic block-stacking with line clear achievements
+- ✅ **Bubble Shooter** - Color matching with combo scoring
+- ✅ **Memory Matrix** - Grid-based memory matching game
+- ✅ **Quick Math** - 60-second arithmetic challenge
+- ✅ **Word Scramble** - Timed word unscrambling game
+- ✅ **Reflex Coin Collection** - Fast-paced reaction testing
+- ✅ **Sudoku** - Logic puzzle with multiple difficulty levels
+
+Recent major updates include comprehensive end-to-end testing, enhanced achievement integration, and removal of the previously planned Quick Draw game in favor of completing the core 7-game experience.
+
 ## Project Context
 
 ### Overview
-Cetus is a futuristic single-player gaming platform featuring interactive minigames including Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, and Sudoku. The application features a modern, neon-styled design with gradients, glowing effects, and animated backgrounds, plus a comprehensive achievement system.
+Cetus is a futuristic single-player gaming platform featuring 7 complete interactive minigames: Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, and Sudoku. The application features a modern, neon-styled design with gradients, glowing effects, and animated backgrounds, plus a comprehensive achievement system with real-time notifications.
 
 ### Tech Stack
-- **Framework**: Astro 5.10.1 with TypeScript
+- **Framework**: Astro 5.10.1 with TypeScript and SSR via Vercel adapter
 - **Styling**: Tailwind CSS 4.1.3 with custom sci-fi theme + tw-animate-css
 - **Authentication**: Better Auth 1.2.12 with Google OAuth integration
 - **Database**: LibSQL/SQLite with Turso, Kysely 0.28.2 as query builder
 - **UI Components**: Custom component library following shadcn/ui patterns
-- **Graphics**: PixiJS 8.10.2 for canvas-based drawing functionality
+- **Graphics**: PixiJS 8.10.2 for canvas-based game rendering
 - **Testing**: Vitest 3.2.4 (unit tests), Playwright 1.54.1 (E2E tests)
+- **Code Quality**: ESLint 9.30.1, Prettier 3.6.2, Husky 9.1.7 with lint-staged
 - **Utilities**: clsx, tailwind-merge, class-variance-authority for styling
 
 ## Code Style & Patterns
@@ -49,10 +63,10 @@ When working with UI components:
 - **Avatar**: Implement gradient backgrounds with proper sizing
 
 ### Canvas & Interactive Elements
-- Use PixiJS for any canvas-based functionality
-- Implement proper touch and mouse event handling
-- Support variable brush sizes and color palettes
-- Handle responsive canvas sizing with proper scaling
+- Use PixiJS for canvas-based game rendering and interactive gameplay
+- Implement proper touch and mouse event handling for mobile/desktop compatibility
+- Handle responsive canvas sizing with proper scaling across devices
+- All games use canvas rendering for optimal performance and visual effects
 
 ## File Structure Patterns
 
@@ -143,6 +157,8 @@ const scores = await db
 4. Add responsive design considerations
 5. Include hover states and smooth transitions
 6. Test canvas functionality across devices
+7. Follow the comprehensive testing strategy with both unit and E2E tests
+8. Ensure compatibility with the achievement system integration
 
 ### Achievement System Development
 - **Definitions**: All achievements defined in `src/lib/achievements.ts` with rarity levels
@@ -162,11 +178,12 @@ const scores = await db
 ### Game Development
 - Focus on single-player experiences with comprehensive scoring systems
 - Implement proper game state management with TypeScript types
-- Use PixiJS for any drawing/canvas features
+- Use PixiJS for canvas-based game rendering and interactive elements
 - Include timer and scoring systems with real-time updates
 - Add progress tracking and comprehensive achievement integration
 - Support both score-based and event-based achievements (Tetris line clears, Reflex streaks)
 - Use `/api/scores` endpoint for score submission with automatic achievement checking
+- All 7 core games are fully implemented: Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, Sudoku
 
 ### Navigation & Routing
 - Use breadcrumb navigation for game context
@@ -187,6 +204,12 @@ const scores = await db
 - **Protected Routes**: Check `Astro.locals.user` for authentication
 - **API Security**: Validate sessions on all protected API endpoints
 - **Environment Variables**: Use `.env` for sensitive configuration
+
+## Deployment & Configuration
+- **Platform**: Vercel with SSR adapter for server-side functionality
+- **Database**: Turso (LibSQL) for production, local SQLite for development
+- **Environment**: Supports `dev`, `build`, `preview` workflows
+- **Database Management**: `turso dev` for local development database
 
 ## Accessibility Guidelines
 - Maintain sci-fi aesthetic while ensuring accessibility
@@ -211,14 +234,21 @@ import { getAchievementNotifications } from '@/lib/services/achievementService';
 // Achievement System
 import { getAllAchievements, getAchievementsByGame, AchievementRarity } from '@/lib/achievements';
 import { checkAndAwardAchievements } from '@/lib/services/achievementService';
+
+// Game System
+import { GameID } from '@/lib/games';
+import type { GameType } from '@/lib/server/db/types';
 ```
 
 ## Testing Considerations
-- Test drawing functionality across different devices
-- Verify responsive behavior of game interfaces
-- Ensure proper game state transitions
-- Test touch interactions on mobile devices
-- **Unit Tests**: Vitest with jsdom environment for component and service testing
-- **E2E Tests**: Playwright for browser automation and full user journey testing
+- Test game functionality across different devices and screen sizes
+- Verify responsive behavior of game interfaces and canvas elements
+- Ensure proper game state transitions and score submissions
+- Test touch interactions on mobile devices for optimal gameplay
+- **Unit Tests**: Vitest 3.2.4 with jsdom environment for component and service testing
+- **E2E Tests**: Playwright 1.54.1 for browser automation and full user journey testing
+- **Achievement System**: Test score thresholds and in-game event achievements
+- **Database Queries**: Mock Kysely for service layer testing
+- **Code Quality**: Pre-commit hooks with lint-staged ensure code standards
 - **Achievement System**: Test score thresholds and in-game event achievements
 - **Database Queries**: Mock Kysely for service layer testing

@@ -73,6 +73,31 @@ const gameNavigation = [
               >
                 <!-- Game will be rendered here -->
               </div>
+
+              <!-- Game Over Overlay - Inside relative container for proper positioning -->
+              <GameOverlay titleId="game-over-title">
+                <div class="text-lg text-gray-300">
+                  Pairs Found: <span id="final-pairs" class="text-green-400"
+                    >0/24</span
+                  >
+                </div>
+                <div class="text-lg text-gray-300">
+                  Accuracy: <span id="final-accuracy" class="text-cyan-400"
+                    >0%</span
+                  >
+                </div>
+                <div class="text-lg text-gray-300">
+                  Time Remaining: <span id="final-time" class="text-purple-400"
+                    >0s</span
+                  >
+                </div>
+                <div class="text-lg text-gray-300">
+                  Total Attempts: <span
+                    id="final-attempts"
+                    class="text-yellow-400">0</span
+                  >
+                </div>
+              </GameOverlay>
             </div>
 
             <!-- Game Controls -->
@@ -220,8 +245,12 @@ const gameNavigation = [
               gameOverOverlay.classList.remove('hidden')
 
               // Reset buttons
-              const startBtn = document.getElementById('start-btn')!
+              const startBtn = document.getElementById(
+                'start-btn'
+              )! as HTMLButtonElement
               const endBtn = document.getElementById('end-btn')!
+              startBtn.textContent = 'Start Game'
+              startBtn.disabled = false
               startBtn.style.display = 'inline-flex'
               endBtn.style.display = 'none'
             },
@@ -262,19 +291,3 @@ const gameNavigation = [
     </script>
   </div>
 </AppLayout>
-
-<!-- Game Over Overlay - Outside AppLayout to avoid stacking context issues -->
-<GameOverlay titleId="game-over-title">
-  <div class="text-lg text-gray-300">
-    Pairs Found: <span id="final-pairs" class="text-green-400">0/24</span>
-  </div>
-  <div class="text-lg text-gray-300">
-    Accuracy: <span id="final-accuracy" class="text-cyan-400">0%</span>
-  </div>
-  <div class="text-lg text-gray-300">
-    Time Remaining: <span id="final-time" class="text-purple-400">0s</span>
-  </div>
-  <div class="text-lg text-gray-300">
-    Total Attempts: <span id="final-attempts" class="text-yellow-400">0</span>
-  </div>
-</GameOverlay>
