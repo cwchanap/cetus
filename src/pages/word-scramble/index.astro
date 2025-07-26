@@ -101,8 +101,8 @@ const gameNavigation = [
             <!-- Game Controls -->
             <div class="flex space-x-3 mt-6">
               <Button id="start-btn" variant="primary">Start Game</Button>
-              <Button id="end-btn" variant="outline" style="display: none;"
-                >End Game</Button
+              <Button id="end-btn" variant="outline" style="display: none;">
+                End Game</Button
               >
             </div>
 
@@ -162,7 +162,7 @@ const gameNavigation = [
               </div>
               <div class="flex items-center space-x-2">
                 <span class="text-green-400">✓</span>
-                <span>Easy words = 10 points, Medium = 20, Hard = 30</span>
+                <span>Easy words = 40 points, Medium = 20, Hard = 30</span>
               </div>
               <div class="flex items-center space-x-2">
                 <span class="text-green-400">✓</span>
@@ -236,78 +236,73 @@ const gameNavigation = [
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Word Scramble Game Logic -->
-    <script>
-      import { initWordScrambleGame } from '@/lib/games/word-scramble/init'
+  <!-- Word Scramble Game Logic -->
+  <script>
+    import { initWordScrambleGame } from '@/lib/games/word-scramble/init'
 
-      // Initialize game when page loads
-      document.addEventListener('DOMContentLoaded', async () => {
-        try {
-          const gameInstance = await initWordScrambleGame({
-            onGameOver: async (finalScore: number, stats: unknown) => {
-              // Update final stats in overlay
-              document.getElementById('final-score')!.textContent =
-                finalScore.toString()
-              document.getElementById('total-words')!.textContent = (
-                stats.totalWords || 0
-              ).toString()
-              document.getElementById('accuracy')!.textContent =
-                `${Math.round(stats.accuracy || 0)}%`
-              document.getElementById('longest-word')!.textContent =
-                stats.longestWord || 'None'
+    // Initialize game when page loads
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const gameInstance = await initWordScrambleGame({
+          onGameOver: async (finalScore: number, stats: any) => {
+            // Update final stats in overlay
+            document.getElementById('final-score')!.textContent =
+              finalScore.toString()
+            document.getElementById('total-words')!.textContent = (
+              stats.totalWords || 0
+            ).toString()
+            document.getElementById('accuracy')!.textContent =
+              `${Math.round(stats.accuracy || 0)}%`
+            document.getElementById('longest-word')!.textContent =
+              stats.longestWord || 'None'
 
-              // Show game over overlay
-              const gameOverOverlay =
-                document.getElementById('game-over-overlay')!
-              gameOverOverlay.classList.remove('hidden')
+            // Show game over overlay
+            const gameOverOverlay =
+              document.getElementById('game-over-overlay')!
+            gameOverOverlay.classList.remove('hidden')
 
-              // Reset buttons
-              const startBtn = document.getElementById('start-btn')!
-              const endBtn = document.getElementById('end-btn')!
-              startBtn.style.display = 'inline-flex'
-              endBtn.style.display = 'none'
-            },
-          })
+            // Hide the Start button and show only the End Game button
+            const startBtn = document.getElementById('start-btn')!
+            const endBtn = document.getElementById('end-btn')!
+            startBtn.style.display = 'none'
+            endBtn.style.display = 'inline-flex'
+          },
+        })
 
-          // Add end game button functionality
-          const startBtn = document.getElementById('start-btn')!
-          const endBtn = document.getElementById('end-btn')!
+        // Add end game button functionality
+        const startBtn = document.getElementById('start-btn')!
+        const endBtn = document.getElementById('end-btn')!
 
-          // Show end button when game starts
-          const originalOnGameStart = gameInstance.callbacks?.onGameStart
-          if (gameInstance.callbacks) {
-            gameInstance.callbacks.onGameStart = () => {
-              startBtn.style.display = 'none'
-              endBtn.style.display = 'inline-flex'
-              if (originalOnGameStart) {
-                originalOnGameStart()
-              }
+        // Show end button when game starts
+        const originalOnGameStart = gameInstance.callbacks?.onGameStart
+        if (gameInstance.callbacks) {
+          gameInstance.callbacks.onGameStart = () => {
+            startBtn.style.display = 'none'
+            endBtn.style.display = 'inline-flex'
+            if (originalOnGameStart) {
+              originalOnGameStart()
             }
           }
-
-          // End game button click handler
-          endBtn.addEventListener('click', () => {
-            if (gameInstance && gameInstance.endGame) {
-              gameInstance.endGame()
-            }
-          })
-
-          // Handle play again button
-          document
-            .getElementById('play-again-btn')
-            ?.addEventListener('click', () => {
-              const gameOverOverlay =
-                document.getElementById('game-over-overlay')!
-              gameOverOverlay.classList.add('hidden')
-              if (gameInstance && gameInstance.restart) {
-                gameInstance.restart()
-              }
-            })
-        } catch (error) {
-          console.error('Failed to initialize Word Scramble game:', error)
         }
-      })
-    </script>
-  </div>
+
+        // End game button click handler
+        endBtn.addEventListener('click', () => {
+          if (gameInstance && gameInstance.endGame) {
+            gameInstance.endGame()
+          }
+        })
+
+        // Handle play again button
+        document
+          .getElementById('play-again-btn')
+          ?.addEventListener('click', () => {
+            window.location.reload()
+          })
+      } catch (error) {
+        console.error('Failed to initialize Word Scramble game:', error)
+      }
+    })
+  </script>
 </AppLayout>
