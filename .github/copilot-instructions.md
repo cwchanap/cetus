@@ -68,6 +68,38 @@ When working with UI components:
 - Handle responsive canvas sizing with proper scaling across devices
 - All games use canvas rendering for optimal performance and visual effects
 
+### Critical Astro-TypeScript Integration Pattern
+**All game HTML structure should be in Astro components** - TypeScript only manipulates dynamic content:
+
+```typescript
+// ✅ CORRECT - Query for existing Astro elements
+private setupDOM(): void {
+  // Astro provides: <div id="memory-board" class="..."></div>
+  this.boardElement = document.getElementById('memory-board') // Query existing
+  // Only add/remove children, never overwrite parent HTML
+}
+
+private renderBoard(gameState: GameState): void {
+  if (!this.boardElement) return
+  // Clear children safely
+  while (this.boardElement.firstChild) {
+    this.boardElement.removeChild(this.boardElement.firstChild)
+  }
+  // Add new children
+  gameState.board.forEach(row => {
+    this.boardElement.appendChild(createCardElement())
+  })
+}
+
+// ❌ WRONG - Don't use innerHTML to create structure
+this.container.innerHTML = '<div>game content</div>' // Breaks styling
+```
+
+**Game Container Pattern**: 
+- **Astro responsibility**: All HTML structure, styling, layout, overlays
+- **TypeScript responsibility**: Only dynamic content (cards, pieces, game objects)
+- **No innerHTML needed**: Astro provides all necessary DOM structure upfront
+
 ## File Structure Patterns
 
 ### Page Organization
@@ -150,6 +182,49 @@ const scores = await db
 
 ## Development Guidelines
 
+### Critical Development Workflows
+**Local Development Setup**:
+```bash
+npm run dev              # Astro dev server (localhost:4321)
+npm run db:dev          # Local Turso database (required for auth/scores)
+```
+
+**Game Development Debugging**:
+- Use browser DevTools for canvas/DOM inspection
+- Games expose debug objects: `window.memoryMatrixGame.getGame()`
+- Check `gameInstance.getState()` for game state debugging
+- Console logs are preserved in game init functions
+
+**Testing Strategy**:
+```bash
+npm run test            # Unit tests (Vitest + jsdom)
+npm run test:e2e        # E2E tests (Playwright browser automation)
+```
+
+### Game Page Architecture Pattern
+All games follow identical structure in `/pages/[game-name]/index.astro`:
+
+1. **Astro Frontmatter**: Import components, navigation setup
+2. **Static Layout**: Game container, overlay, UI elements with specific IDs
+3. **Script Section**: Game initialization with callbacks, button event handlers
+
+**Standard Game Container Structure**:
+```astro
+<div id="[game]-container" class="border-2 border-cyan-400/50">
+  <div id="[game]-board"></div> <!-- Renderer target -->
+</div>
+<GameOverlay titleId="game-over-title"><!-- Overlay content --></GameOverlay>
+```
+
+**Button State Management Pattern**:
+```javascript
+// Show "End Game" when started, reset to "Start Game" when finished
+startBtn.addEventListener('click', () => {
+  startBtn.style.display = 'none'
+  endBtn.style.display = 'inline-flex'
+})
+```
+
 ### When Adding New Features
 1. Follow the established single-player minigames pattern
 2. Use the sci-fi component system consistently
@@ -184,6 +259,19 @@ const scores = await db
 - Support both score-based and event-based achievements (Tetris line clears, Reflex streaks)
 - Use `/api/scores` endpoint for score submission with automatic achievement checking
 - All 7 core games are fully implemented: Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, Sudoku
+
+**Game Renderer Architecture**:
+- **Memory Matrix**: DOM-based renderer with card grid manipulation
+- **Tetris/Reflex**: PixiJS canvas rendering with container/graphics system
+- **Common Pattern**: `init.ts` → `game.ts` (logic) → `renderer.ts` (display)
+
+**Game Integration Checklist**:
+1. Game container in Astro with specific ID
+2. Renderer queries for existing DOM elements (never overwrites)
+3. Game initialization with proper callback structure
+4. Button state management (Start/End/Reset)
+5. GameOverlay integration with score display
+6. Achievement system integration via score submission
 
 ### Navigation & Routing
 - Use breadcrumb navigation for game context

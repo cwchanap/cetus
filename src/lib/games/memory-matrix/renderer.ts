@@ -19,16 +19,7 @@ export class MemoryMatrixRenderer {
     }
 
     private setupDOM(): void {
-        this.container.innerHTML = `
-            <div class="memory-matrix-game">
-                <div class="game-board-container relative">
-                    <div id="memory-board" class="game-board grid grid-cols-8 gap-2 p-4 bg-black/50 rounded-lg border-2 border-cyan-400/50">
-                        <!-- Cards will be rendered here -->
-                    </div>
-                </div>
-            </div>
-        `
-
+        // Query for the board element that's already in the Astro component
         this.boardElement = document.getElementById('memory-board')
         this.scoreElement = document.getElementById('score')
         this.timeElement = document.getElementById('time')
@@ -57,12 +48,14 @@ export class MemoryMatrixRenderer {
     }
 
     private renderBoard(gameState: GameState): void {
-        if (!this.boardElement) {
+        const boardElement = this.boardElement
+        if (!boardElement) {
             return
         }
-
-        this.boardElement.innerHTML = ''
-
+        // Remove all children (cards) without touching parent HTML
+        while (boardElement.firstChild) {
+            boardElement.removeChild(boardElement.firstChild)
+        }
         gameState.board.forEach((row, rowIndex) => {
             row.forEach((card, colIndex) => {
                 const cardElement = this.createCardElement(
@@ -70,7 +63,7 @@ export class MemoryMatrixRenderer {
                     rowIndex,
                     colIndex
                 )
-                this.boardElement!.appendChild(cardElement)
+                boardElement.appendChild(cardElement)
             })
         })
     }
@@ -210,7 +203,11 @@ export class MemoryMatrixRenderer {
     }
 
     public destroy(): void {
-        // Clean up event listeners and DOM
-        this.container.innerHTML = ''
+        // Clean up by clearing only the board element, not the container
+        if (this.boardElement) {
+            while (this.boardElement.firstChild) {
+                this.boardElement.removeChild(this.boardElement.firstChild)
+            }
+        }
     }
 }
