@@ -60,6 +60,7 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret # optional
 - **Testing**: Vitest with jsdom environment and Testing Library
 - **E2E Testing**: Playwright for end-to-end testing across browsers
 - **Code Quality**: ESLint + Prettier with lint-staged and Husky
+- **Environment**: dotenv for environment variable management
 
 ### Database Architecture
 - **LibSQL/SQLite**: Primary database with Turso for production

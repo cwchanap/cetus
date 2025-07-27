@@ -20,3 +20,11 @@ interface ImportMetaEnv {
 interface ImportMeta {
     readonly env: ImportMetaEnv
 }
+
+interface Window {
+    memoryMatrixGame?: {
+        getGame: () => MemoryMatrixGame | null
+        getRenderer: () => MemoryMatrixRenderer | null
+        cleanup: () => void
+    }
+}

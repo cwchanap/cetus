@@ -126,7 +126,7 @@ function cleanup(): void {
 
 // Export for debugging
 if (typeof window !== 'undefined') {
-    ;(window as unknown).memoryMatrixGame = {
+    ;(window as Window & typeof globalThis).memoryMatrixGame = {
         getGame: () => game,
         getRenderer: () => renderer,
         cleanup,
