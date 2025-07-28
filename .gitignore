@@ -32,3 +32,4 @@ test-results/
 
 # ESLint cache
 .eslintcache
+playwright-report/

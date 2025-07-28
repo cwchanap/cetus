@@ -1,143 +1,73 @@
----
-description: Repository Information Overview
-alwaysApply: true
----
+# Cetus - Sci-Fi Gaming Platform Repository Rules
 
-# Cetus - Sci-Fi Gaming Platform
-
-
-## Summary
-Cetus is a futuristic single-player gaming platform featuring interactive minigames with a focus on the "Quick Draw Challenge" drawing game and "Tetris Challenge". Built with Astro, TypeScript, and Tailwind CSS, it offers a sci-fi themed user interface with neon effects and animations. The platform includes multiple games such as Tetris, Bubble Shooter, Quick Math, and Memory Matrix.
-
-## Structure
-- **src/**: Main source code directory containing components, layouts, pages, and styles
-  - **src/lib/**: Core application logic, game definitions, and utilities
-  - **src/pages/**: Astro pages for each game and application routes
-  - **src/components/**: Reusable UI components
-- **public/**: Static assets like images and fonts
-- **scripts/**: Database initialization and utility scripts
-- **.github/**: CI/CD workflows and GitHub configurations
-- **better-auth_migrations/**: Database migrations for authentication
-
-## Language & Runtime
-**Language**: TypeScript
-**Version**: Based on tsconfig.json using Astro's strict TypeScript configuration
-**Build System**: Astro build system
-**Package Manager**: npm
-
-## Dependencies
-**Main Dependencies**:
-- astro: ^5.10.1 - Main framework for building the application
-- @astrojs/vercel: ^8.2.0 - Vercel adapter for Astro deployment
-- @libsql/client: ^0.15.9 - Turso/LibSQL database client
-- kysely: ^0.28.2 - SQL query builder for type-safe database operations
-- better-auth: ^1.2.12 - Authentication library
-- pixi.js: ^8.10.2 - Canvas-based graphics library for drawing game
-- tailwindcss: ^4.1.3 - CSS framework for styling
-
-**Development Dependencies**:
-- vitest: ^3.2.4 - Testing framework with JSDOM for browser-like testing
-- eslint: ^9.30.1 - Code linting
-- prettier: ^3.6.2 - Code formatting
-- husky: ^9.1.7 - Git hooks for code quality checks
-- typescript-eslint: ^8.35.1 - TypeScript ESLint integration
-
-## Build & Installation
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-```
-
-## Database
-**Type**: Turso (LibSQL/SQLite)
-**Development Command**: `npm run db:dev`
-**Schema**: 
-- Authentication tables (user, session, account, verification) managed by better-auth
-- Game-specific tables (game_scores, user_stats, user_achievements)
-**Initialization**: `scripts/init-db.sql`
-**Query Builder**: Kysely for type-safe database operations
-
-## Testing
-**Unit Testing Framework**: Vitest with JSDOM
+## Testing Framework
 **E2E Testing Framework**: Playwright
-**Test Locations**: 
-- Unit tests: `src/test/` and test files alongside source files
-- E2E tests: `tests/e2e/`
-**Naming Convention**: `*.test.ts` or `*.spec.ts`
-**Configuration**: 
-- Unit tests: `vitest.config.ts`
-- E2E tests: `playwright.config.ts`
-**Run Commands**:
-```bash
-# Unit tests
-npm run test          # Run tests in watch mode
-npm run test:run      # Run tests once
-npm run test:coverage # Run tests with coverage
-npm run test:ui       # Run tests with UI
+- **Version**: Latest
+- **Language**: TypeScript
+- **Test Location**: `tests/e2e/`
+- **Configuration**: `playwright.config.ts`
+- **Run Commands**:
+  - `npm run test:e2e` - Run E2E tests
+  - `npm run test:e2e:ui` - Run E2E tests with Playwright UI
+  - `npm run test:e2e:headed` - Run E2E tests in headed mode
+  - `npm run test:e2e:debug` - Run E2E tests in debug mode
+  - `npm run test:e2e:report` - Show E2E test report
 
-# E2E tests
-npm run test:e2e      # Run E2E tests
-npm run test:e2e:ui   # Run E2E tests with Playwright UI
-npm run test:e2e:headed # Run E2E tests in headed mode
-npm run test:e2e:debug  # Run E2E tests in debug mode
-npm run test:e2e:report # Show E2E test report
-```
+## Test Structure
+- **Page Object Model**: Used for maintainable test code
+- **Test Categories**:
+  - **Game Tests**: `tests/e2e/games/` - Individual game functionality tests
+  - **Authentication Tests**: `tests/e2e/auth/` - Login/signup flow tests
+  - **Navigation Tests**: `tests/e2e/games/all-games-navigation.spec.ts` - Cross-game navigation
+  - **User Journey Tests**: `tests/e2e/user-journey/` - End-to-end user scenarios
 
-## CI/CD Pipeline
-**Provider**: GitHub Actions
-**Workflow Files**: 
-- `.github/workflows/ci.yml` - Main CI pipeline
-- `.github/workflows/e2e-tests.yml` - E2E tests (manual trigger)
+## Element Selectors
+- **Prefer Element IDs**: Use `#element-id` for reliable, stable selectors
+- **Game-Specific IDs**:
+  - **Tetris**: `#score`, `#level`, `#lines`, `#pieces-count`, `#start-btn`, `#pause-btn`, `#reset-btn`
+  - **Quick Math**: `#score`, `#time-remaining`, `#question`, `#current-questions`, `#current-correct`, `#current-score`
+- **Fallback**: Use semantic role-based selectors: `getByRole('button', { name: 'Button Text' })`
+- **Avoid**: Generic CSS selectors that might match multiple elements
 
-**Main CI Pipeline Steps**:
-1. Lint & Format: ESLint and Prettier checks
-2. Test: Unit tests with Vitest
-3. Build: Astro production build
-4. Coverage: Test coverage reporting
+## Best Practices
+- **Deterministic Tests**: No hard waits, use appropriate assertions
+- **Stable Selectors**: Prefer data-testid, IDs, or ARIA roles over CSS classes
+- **Page Object Pattern**: Encapsulate page interactions in Page Object classes  
+- **Cross-Browser Testing**: Tests run on Chromium, Firefox, and Webkit
+- **Test Independence**: Each test should be able to run independently
+- **Meaningful Assertions**: Assert on user-visible behavior, not implementation details
 
-**E2E Pipeline**:
-- **Trigger**: Manual (`workflow_dispatch`)
-- **Options**: Browser selection (chromium/firefox/webkit/all), headed mode
-- **Artifacts**: Playwright reports, screenshots, videos
-- **Timeout**: 20 minutes
+## Game Testing Approach
+- **Test Game States**: Initial state, running state, paused state, ended state
+- **Test User Interactions**: Button clicks, form submissions, keyboard inputs
+- **Test Navigation**: Between games, to home page, browser back/forward
+- **Test Score Tracking**: Verify score updates, statistics, achievements
+- **Test Error Handling**: Invalid inputs, network issues, game failures
 
-## Deployment
-**Platform**: Vercel
-**Configuration**: `astro.config.mjs` with Vercel adapter
-**Output Mode**: Server-side rendering (`output: 'server'`)
+## CI/CD Integration
+- **GitHub Actions**: `.github/workflows/e2e-tests.yml`
+- **Manual Trigger**: E2E tests run manually via workflow_dispatch
+- **Artifacts**: Test reports, screenshots, videos saved on failure
+- **Timeout**: 20 minutes maximum execution time
+- **Parallel Execution**: Tests run in parallel across multiple workers
 
-## Authentication
-**System**: better-auth library
-**Providers**: 
-- Email/Password authentication
-- Google OAuth
-**Session Management**: 7-day expiration with 1-day refresh
-**Configuration**: Defined in `src/lib/auth.ts`
+## Development Workflow
+1. **Write Tests First**: Create E2E tests for new features before implementation
+2. **Browser Verification**: Manually verify scenarios in browser before coding tests
+3. **Element Inspection**: Use browser dev tools to find reliable selectors
+4. **Test Execution**: Run tests locally before pushing changes
+5. **CI Verification**: Ensure tests pass in CI environment
 
-## Game System
-**Games**: 
-- Tetris Challenge: Classic block-stacking puzzle game
-- Quick Draw: Fast-paced drawing and guessing game using PixiJS
-- Bubble Shooter: Color matching bubble game
-- Quick Math: Fast-paced math challenge
-- Memory Matrix: Memory-based matching game
+## Authentication Testing
+- **Login Flow**: Email/password and Google OAuth
+- **Signup Flow**: Account creation with validation
+- **Session Management**: Login persistence and logout
+- **Protected Routes**: Game features requiring authentication
+- **Error States**: Invalid credentials, network failures
 
-**Achievement System**: 
-- Tiered achievements for each game with different rarity levels (common, rare, epic, legendary)
-- Achievement definitions in `src/lib/achievements.ts`
-- User achievements stored in database
-
-## Main Features
-- **Multiple Minigames**: Collection of interactive games with different mechanics
-- **User Authentication**: Optional login to track scores and progress
-- **Achievement System**: Unlock achievements based on game performance
-- **Sci-Fi UI**: Custom Tailwind theme with neon effects, animations, and futuristic styling
+## Game-Specific Testing Notes
+- **Tetris**: Canvas-based game, test via game state elements not canvas content
+- **Quick Math**: Time-based game, use waitForTimeout judiciously
+- **All Games**: Test basic gameplay loop, not complex game mechanics
+- **Navigation**: Consistent navigation behavior across all games
+- **Responsive**: Tests should work across different viewport sizes

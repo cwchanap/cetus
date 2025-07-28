@@ -65,12 +65,8 @@ test.describe('Authentication System', () => {
         await expect(
             page.getByRole('textbox', { name: 'Email Address' })
         ).toBeVisible()
-        await expect(
-            page.getByRole('textbox', { name: 'Password' })
-        ).toBeVisible()
-        await expect(
-            page.getByRole('textbox', { name: 'Confirm Password' })
-        ).toBeVisible()
+        await expect(page.locator('#password')).toBeVisible()
+        await expect(page.locator('#confirmPassword')).toBeVisible()
         await expect(
             page.getByRole('checkbox', {
                 name: 'I agree to the Terms of Service and Privacy Policy',
@@ -137,7 +133,7 @@ test.describe('Authentication System', () => {
                 page.getByRole('link', { name: 'Contact' })
             ).toBeVisible()
             await expect(
-                page.getByRole('button', { name: 'Login' })
+                page.getByRole('button', { name: 'Login' }).first()
             ).toBeVisible()
 
             // Footer should be present
@@ -153,7 +149,7 @@ test.describe('Authentication System', () => {
         await page.goto('/')
 
         // Click login button in navigation
-        await page.getByRole('button', { name: 'Login' }).click()
+        await page.getByRole('button', { name: 'Login' }).first().click()
         await expect(page).toHaveURL('/login')
         await expect(
             page.getByRole('heading', { name: 'PLAYER LOGIN' })
@@ -167,7 +163,7 @@ test.describe('Authentication System', () => {
             await page.goto(gamePage)
 
             // Click login button
-            await page.getByRole('button', { name: 'Login' }).click()
+            await page.getByRole('button', { name: 'Login' }).first().click()
             await expect(page).toHaveURL('/login')
             await expect(
                 page.getByRole('heading', { name: 'PLAYER LOGIN' })
@@ -252,7 +248,7 @@ test.describe('Authentication System', () => {
 
             // Login button should be present (indicating user is not logged in)
             await expect(
-                page.getByRole('button', { name: 'Login' })
+                page.getByRole('button', { name: 'Login' }).first()
             ).toBeVisible()
         }
     })

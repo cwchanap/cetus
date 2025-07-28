@@ -6,12 +6,18 @@ export interface Props extends HTMLAttributes<'div'> {
   size?: 'sm' | 'default' | 'lg' | 'xl'
   variant?: 'default' | 'cyan-purple' | 'purple-pink' | 'pink-cyan' | 'solid'
   class?: string
+  src?: string
+  alt?: string
+  fallback?: string
 }
 
 const {
   size = 'default',
   variant = 'default',
   class: className = '',
+  src,
+  alt = 'Avatar',
+  fallback,
   ...props
 } = Astro.props
 
@@ -42,5 +48,17 @@ const classes = cn(
 ---
 
 <div class={classes} {...props}>
-  <slot />
+  {
+    src ? (
+      <img
+        src={src}
+        alt={alt}
+        class="w-full h-full object-cover rounded-full"
+      />
+    ) : fallback ? (
+      <span class="text-white font-bold">{fallback}</span>
+    ) : (
+      <slot />
+    )
+  }
 </div>

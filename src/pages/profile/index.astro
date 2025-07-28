@@ -41,6 +41,51 @@ const memberSince = session?.createdAt
   title="Profile - Cetus Gaming Platform"
   description="View your gaming profile, statistics, and game history on Cetus"
 >
+  <!-- Cropper.js CSS -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css"
+  />
+  <!-- Custom cropper styles -->
+  <style>
+    /* Ensure cropper fills the container properly */
+    #crop-container {
+      position: relative;
+    }
+
+    #crop-container .cropper-container {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Make the canvas fill as much space as possible */
+    #crop-container .cropper-canvas {
+      max-width: none !important;
+      max-height: none !important;
+    }
+
+    /* Ensure crop box has reasonable minimum size */
+    #crop-container .cropper-crop-box {
+      min-width: 100px !important;
+      min-height: 100px !important;
+    }
+
+    /* Ensure the image can scale to fill available space */
+    #crop-container .cropper-canvas img {
+      max-width: none !important;
+      max-height: none !important;
+    }
+
+    /* Make modal background more subtle */
+    #crop-container .cropper-modal {
+      background-color: rgba(0, 0, 0, 0.6) !important;
+    }
+
+    /* Style the drag area */
+    #crop-container .cropper-drag-box {
+      background-color: rgba(255, 255, 255, 0.1) !important;
+    }
+  </style>
   <!-- Animated background -->
   <div class="fixed inset-0 pointer-events-none">
     <div
@@ -95,12 +140,56 @@ const memberSince = session?.createdAt
           <div class="flex flex-row items-start">
             <!-- Avatar -->
             <div class="flex-shrink-0 mr-2.5">
-              <div
-                class="w-20 h-20 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-400/25"
-              >
-                <span class="text-2xl font-bold text-white">
-                  {userName.charAt(0).toUpperCase()}
-                </span>
+              <div class="relative group">
+                <div
+                  id="avatar-display"
+                  class="w-20 h-20 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-400/25 overflow-hidden"
+                >
+                  {
+                    user.image ? (
+                      <img
+                        src={user.image}
+                        alt="User avatar"
+                        class="w-full h-full object-cover"
+                        id="current-avatar"
+                      />
+                    ) : (
+                      <span
+                        class="text-2xl font-bold text-white"
+                        id="avatar-initial"
+                      >
+                        {userName.charAt(0).toUpperCase()}
+                      </span>
+                    )
+                  }
+                </div>
+                <!-- Avatar upload overlay -->
+                <div
+                  class="absolute inset-0 bg-black/50 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  id="avatar-upload-overlay"
+                >
+                  <span class="text-white text-xs font-medium mb-1"
+                    >📷 Upload</span
+                  >
+                  {
+                    user.image && (
+                      <button
+                        id="remove-avatar-btn"
+                        class="text-red-400 text-xs font-medium hover:text-red-300 transition-colors"
+                        type="button"
+                      >
+                        🗑️ Remove
+                      </button>
+                    )
+                  }
+                </div>
+                <!-- Hidden file input -->
+                <input
+                  type="file"
+                  id="avatar-input"
+                  accept="image/*"
+                  class="hidden"
+                />
               </div>
             </div>
 
@@ -353,6 +442,422 @@ const memberSince = session?.createdAt
       })
     })
 
+    // Avatar upload functionality
+    document.addEventListener('DOMContentLoaded', () => {
+      const avatarUploadOverlay = document.getElementById(
+        'avatar-upload-overlay'
+      )
+      const avatarInput = document.getElementById(
+        'avatar-input'
+      ) as HTMLInputElement
+      const avatarDisplay = document.getElementById('avatar-display')
+      const currentAvatar = document.getElementById(
+        'current-avatar'
+      ) as HTMLImageElement
+      const avatarInitial = document.getElementById('avatar-initial')
+      const removeAvatarBtn = document.getElementById('remove-avatar-btn')
+
+      // Cropping modal elements
+      const cropModal = document.getElementById('crop-modal')
+      let cropImage = document.getElementById('crop-image') as HTMLImageElement
+      const cropContainer = document.getElementById('crop-container')
+      const cropCancelBtn = document.getElementById('crop-cancel-btn')
+      const cropApplyBtn = document.getElementById('crop-apply-btn')
+
+      let cropper: any = null
+
+      // Click overlay to trigger file input (but not when clicking remove button)
+      avatarUploadOverlay?.addEventListener('click', e => {
+        if (
+          e.target !== removeAvatarBtn &&
+          !removeAvatarBtn?.contains(e.target as Node)
+        ) {
+          avatarInput?.click()
+        }
+      })
+
+      // Handle avatar removal
+      removeAvatarBtn?.addEventListener('click', async e => {
+        e.stopPropagation()
+
+        if (!confirm('Are you sure you want to remove your avatar?')) {
+          return
+        }
+
+        try {
+          const response = await fetch('/api/user/avatar', {
+            method: 'DELETE',
+          })
+
+          const result = await response.json()
+
+          if (response.ok && result.success) {
+            // Remove avatar image and show initial
+            if (currentAvatar) {
+              currentAvatar.remove()
+            }
+            if (avatarInitial) {
+              avatarInitial.style.display = 'block'
+            }
+
+            // Update overlay to remove the remove button
+            if (avatarUploadOverlay) {
+              avatarUploadOverlay.innerHTML =
+                '<span class="text-white text-xs font-medium">📷 Upload</span>'
+            }
+
+            showMessage('Avatar removed successfully!', 'success')
+          } else {
+            showMessage(result.error || 'Failed to remove avatar', 'error')
+          }
+        } catch (error) {
+          console.error('Error removing avatar:', error)
+          showMessage('Network error. Please try again.', 'error')
+        }
+      })
+
+      // Handle file selection
+      avatarInput?.addEventListener('change', async e => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) {
+          return
+        }
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          showMessage('Please select an image file', 'error')
+          return
+        }
+
+        // Validate file size (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          showMessage('File size must be less than 5MB', 'error')
+          return
+        }
+
+        // Show cropping modal
+        showCropModal(file)
+      })
+
+      // Show crop modal
+      function showCropModal(file: File) {
+        // Clean up any existing cropper first
+        if (cropper && typeof cropper.destroy === 'function') {
+          try {
+            cropper.destroy()
+          } catch (error) {
+            console.warn('Error destroying existing cropper:', error)
+          }
+          cropper = null
+        }
+
+        const reader = new FileReader()
+        reader.onload = e => {
+          if (cropImage && e.target?.result) {
+            cropImage.src = e.target.result as string
+            cropImage.style.display = 'block'
+            cropModal?.classList.remove('hidden')
+
+            // Wait for image to load before initializing cropper
+            cropImage.onload = () => {
+              // Initialize cropper with minimal configuration
+              import('cropperjs')
+                .then(({ default: Cropper }) => {
+                  try {
+                    cropper = new Cropper(cropImage, {
+                      aspectRatio: 1,
+                      viewMode: 1, // Restrict crop box to not exceed the size of the canvas
+                      dragMode: 'move',
+                      autoCropArea: 1, // Make crop area fill 100% of available space
+                      restore: false,
+                      guides: true,
+                      center: true,
+                      highlight: false,
+                      cropBoxMovable: true,
+                      cropBoxResizable: true,
+                      toggleDragModeOnDblclick: false,
+                      responsive: true,
+                      checkOrientation: false,
+                      background: true,
+                      modal: true,
+                      scalable: true,
+                      zoomable: true,
+                      rotatable: false,
+                      // Ensure canvas fills container
+                      minCanvasWidth: 480,
+                      minCanvasHeight: 480,
+                      ready: function () {
+                        // Auto-fit image to fill container when ready
+                        const containerData = this.cropper.getContainerData()
+                        const imageData = this.cropper.getImageData()
+
+                        if (
+                          containerData &&
+                          imageData &&
+                          imageData.naturalWidth &&
+                          imageData.naturalHeight
+                        ) {
+                          // Calculate scale to make image fill the container (minimum 80% coverage)
+                          const scaleX =
+                            (containerData.width * 0.9) / imageData.naturalWidth
+                          const scaleY =
+                            (containerData.height * 0.9) /
+                            imageData.naturalHeight
+                          const scale = Math.max(scaleX, scaleY, 0.8) // Minimum scale
+
+                          // Apply the scale to fill container better
+                          this.cropper.zoomTo(scale)
+                        }
+                      },
+                    } as any)
+                  } catch (error) {
+                    console.error('Error creating cropper:', error)
+                    showMessage('Failed to initialize image cropper', 'error')
+                    closeCropModal()
+                  }
+                })
+                .catch(error => {
+                  console.error('Error loading cropper library:', error)
+                  showMessage('Failed to load image cropper', 'error')
+                  closeCropModal()
+                })
+            }
+          }
+        }
+        reader.readAsDataURL(file)
+      }
+
+      // Handle crop cancel
+      cropCancelBtn?.addEventListener('click', () => {
+        closeCropModal()
+      })
+
+      // Handle crop apply
+      cropApplyBtn?.addEventListener('click', async () => {
+        if (!cropper || typeof cropper.getCroppedCanvas !== 'function') {
+          showMessage('Cropper not properly initialized', 'error')
+          return
+        }
+
+        try {
+          // Show loading state
+          if (cropApplyBtn) {
+            cropApplyBtn.textContent = '⏳ Processing...'
+            cropApplyBtn.disabled = true
+          }
+
+          // Get cropped canvas at original quality
+          const canvas = cropper.getCroppedCanvas({
+            width: 512,
+            height: 512,
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high',
+          })
+
+          // Convert to blob
+          canvas.toBlob(
+            async blob => {
+              if (!blob) {
+                showMessage('Failed to process image', 'error')
+                return
+              }
+
+              // Create form data with cropped image
+              const formData = new FormData()
+              formData.append('avatar', blob, 'avatar.png')
+
+              try {
+                // Upload avatar
+                const response = await fetch('/api/user/avatar', {
+                  method: 'POST',
+                  body: formData,
+                })
+
+                const result = await response.json()
+
+                if (response.ok && result.success) {
+                  // Update avatar display
+                  if (currentAvatar) {
+                    currentAvatar.src = result.avatar
+                    currentAvatar.style.display = 'block'
+                  } else {
+                    // Create new image element if it doesn't exist
+                    const newImg = document.createElement('img')
+                    newImg.src = result.avatar
+                    newImg.alt = 'User avatar'
+                    newImg.className = 'w-full h-full object-cover'
+                    newImg.id = 'current-avatar'
+
+                    // Hide initial and add image
+                    if (avatarInitial) {
+                      avatarInitial.style.display = 'none'
+                    }
+                    avatarDisplay?.appendChild(newImg)
+                  }
+
+                  // Hide initial if it exists
+                  if (avatarInitial) {
+                    avatarInitial.style.display = 'none'
+                  }
+
+                  // Update overlay to include remove button
+                  if (avatarUploadOverlay) {
+                    avatarUploadOverlay.innerHTML = `
+                    <span class="text-white text-xs font-medium mb-1">📷 Upload</span>
+                    <button 
+                      id="remove-avatar-btn"
+                      class="text-red-400 text-xs font-medium hover:text-red-300 transition-colors"
+                      type="button"
+                    >
+                      🗑️ Remove
+                    </button>
+                  `
+                    // Re-attach event listener for new remove button
+                    const newRemoveBtn =
+                      document.getElementById('remove-avatar-btn')
+                    newRemoveBtn?.addEventListener('click', async e => {
+                      e.stopPropagation()
+
+                      if (
+                        !confirm('Are you sure you want to remove your avatar?')
+                      ) {
+                        return
+                      }
+
+                      try {
+                        const response = await fetch('/api/user/avatar', {
+                          method: 'DELETE',
+                        })
+
+                        const result = await response.json()
+
+                        if (response.ok && result.success) {
+                          // Remove avatar image and show initial
+                          if (currentAvatar) {
+                            currentAvatar.remove()
+                          }
+                          if (avatarInitial) {
+                            avatarInitial.style.display = 'block'
+                          }
+
+                          // Update overlay to remove the remove button
+                          if (avatarUploadOverlay) {
+                            avatarUploadOverlay.innerHTML =
+                              '<span class="text-white text-xs font-medium">📷 Upload</span>'
+                          }
+
+                          showMessage('Avatar removed successfully!', 'success')
+                        } else {
+                          showMessage(
+                            result.error || 'Failed to remove avatar',
+                            'error'
+                          )
+                        }
+                      } catch (error) {
+                        console.error('Error removing avatar:', error)
+                        showMessage('Network error. Please try again.', 'error')
+                      }
+                    })
+                  }
+
+                  closeCropModal()
+                  showMessage('Avatar updated successfully!', 'success')
+                } else {
+                  showMessage(
+                    result.error || 'Failed to update avatar',
+                    'error'
+                  )
+                }
+              } catch (error) {
+                console.error('Error uploading avatar:', error)
+                showMessage('Network error. Please try again.', 'error')
+              }
+            },
+            'image/png',
+            0.9
+          )
+        } catch (error) {
+          console.error('Error processing image:', error)
+          showMessage('Failed to process image', 'error')
+        } finally {
+          // Reset button
+          if (cropApplyBtn) {
+            cropApplyBtn.textContent = 'Apply Crop'
+            cropApplyBtn.disabled = false
+          }
+        }
+      })
+
+      // Close crop modal
+      function closeCropModal() {
+        // Hide modal first
+        cropModal?.classList.add('hidden')
+
+        // Destroy cropper instance completely
+        if (cropper) {
+          try {
+            if (typeof cropper.destroy === 'function') {
+              cropper.destroy()
+            }
+          } catch (error) {
+            console.warn('Error destroying cropper:', error)
+          }
+          cropper = null
+        }
+
+        // Complete cleanup of crop container
+        if (cropContainer) {
+          // Remove all cropper-generated elements
+          const cropperElements = cropContainer.querySelectorAll(
+            '.cropper-container, .cropper-canvas, .cropper-drag-box, .cropper-crop-box, .cropper-view-box, .cropper-dashed, .cropper-center'
+          )
+          cropperElements.forEach(el => {
+            try {
+              el.remove()
+            } catch (error) {
+              console.warn('Error removing cropper element:', error)
+            }
+          })
+
+          // Reset container content to just the image
+          cropContainer.innerHTML =
+            '<img id="crop-image" style="display: none;" />'
+
+          // Re-get the image element reference after resetting container
+          cropImage = document.getElementById('crop-image') as HTMLImageElement
+        }
+
+        // Reset image element completely
+        if (cropImage) {
+          cropImage.style.display = 'none'
+          cropImage.src = ''
+          cropImage.onload = null
+          cropImage.onerror = null
+
+          // Remove any inline styles that cropper might have added
+          cropImage.removeAttribute('style')
+          cropImage.style.display = 'none'
+        }
+
+        // Clear file input
+        if (avatarInput) {
+          avatarInput.value = ''
+        }
+
+        // Force garbage collection hint
+        if (window.gc) {
+          window.gc()
+        }
+      }
+
+      // Close modal on escape key
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !cropModal?.classList.contains('hidden')) {
+          closeCropModal()
+        }
+      })
+    })
+
     // Show message function
     function showMessage(message: string, type: string = 'info') {
       // Create message element
@@ -382,4 +887,46 @@ const memberSince = session?.createdAt
       }, 3000)
     }
   </script>
+
+  <!-- Image Cropping Modal -->
+  <div
+    id="crop-modal"
+    class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4"
+  >
+    <div
+      class="bg-gray-900 rounded-lg border border-cyan-400/30 p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+    >
+      <h3
+        class="text-xl font-orbitron font-bold text-holographic mb-4 text-center"
+      >
+        Crop Your Avatar
+      </h3>
+
+      <!-- Crop container -->
+      <div class="mb-4">
+        <div
+          id="crop-container"
+          class="w-full h-[500px] bg-gray-800 rounded-lg overflow-hidden"
+        >
+          <img id="crop-image" style="display: none;" />
+        </div>
+      </div>
+
+      <!-- Crop controls -->
+      <div class="flex gap-3 justify-center">
+        <button
+          id="crop-cancel-btn"
+          class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          id="crop-apply-btn"
+          class="px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white rounded-lg transition-all"
+        >
+          Apply Crop
+        </button>
+      </div>
+    </div>
+  </div>
 </AppLayout>
