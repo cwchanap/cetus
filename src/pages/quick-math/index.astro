@@ -42,7 +42,11 @@ const gameNavigation = [
       <!-- Game Container - Centered -->
       <div class="flex justify-center mb-12">
         <!-- Game Board -->
-        <Card variant="glass" class="p-8 w-full max-w-lg">
+        <Card
+          variant="glass"
+          class="p-8 w-full max-w-lg"
+          id="quick-math-container"
+        >
           <div class="flex flex-col items-center space-y-6">
             <!-- Game Status -->
             <div class="flex space-x-4 mb-4">
@@ -212,77 +216,37 @@ const gameNavigation = [
 
     <!-- Quick Math Game Logic -->
     <script>
-      import { initQuickMathGame } from '@/lib/games/quick-math/init'
+      import { initQuickMathFramework } from '@/lib/games/quick-math/FrameworkInit'
 
       // Initialize game when page loads
       document.addEventListener('DOMContentLoaded', async () => {
         try {
-          const gameInstance = await initQuickMathGame({
-            onGameOver: async (finalScore: number, stats: unknown) => {
-              // Update final stats in overlay
-              document.getElementById('final-score')!.textContent =
-                finalScore.toString()
-              document.getElementById('total-questions')!.textContent = (
-                stats.totalQuestions || 0
-              ).toString()
-              document.getElementById('accuracy')!.textContent =
-                `${Math.round(stats.accuracy || 0)}%`
-
-              // Show game over overlay
-              const gameOverOverlay =
-                document.getElementById('game-over-overlay')!
-              gameOverOverlay.classList.remove('hidden')
-
-              // Reset buttons
-              const startBtn = document.getElementById('start-btn')!
-              const endBtn = document.getElementById('end-btn')!
-              startBtn.style.display = 'inline-flex'
-              endBtn.style.display = 'none'
+          const {
+            game: _game,
+            renderer: _renderer,
+            cleanup,
+          } = await initQuickMathFramework(
+            {
+              // Custom config if needed (all defaults are good)
             },
-          })
-
-          // Add end game button functionality
-          const startBtn = document.getElementById('start-btn')!
-          const endBtn = document.getElementById('end-btn')!
-
-          startBtn.addEventListener('click', () => {
-            if (gameInstance) {
-              gameInstance.startGame()
+            {
+              onEnd: async (_finalScore: number, _stats: unknown) => {
+                // Additional custom handling if needed
+                // Stats are already handled by framework
+              },
             }
+          )
+
+          // Game is now fully initialized with framework
+          // All button handlers are set up automatically by the framework
+          // The game has proper start(), end(), reset() methods
+
+          // Clean up on page unload
+          window.addEventListener('beforeunload', () => {
+            cleanup()
           })
-
-          // Show end button when game starts
-          const originalOnGameStart = gameInstance.callbacks?.onGameStart
-          if (gameInstance.callbacks) {
-            gameInstance.callbacks.onGameStart = () => {
-              startBtn.style.display = 'none'
-              endBtn.style.display = 'inline-flex'
-              if (originalOnGameStart) {
-                originalOnGameStart()
-              }
-            }
-          }
-
-          // End game button click handler
-          endBtn.addEventListener('click', () => {
-            if (gameInstance && gameInstance.endGame) {
-              gameInstance.endGame()
-            }
-          })
-
-          // Handle play again button
-          document
-            .getElementById('play-again-btn')
-            ?.addEventListener('click', () => {
-              const gameOverOverlay =
-                document.getElementById('game-over-overlay')!
-              gameOverOverlay.classList.add('hidden')
-              if (gameInstance && gameInstance.restart) {
-                gameInstance.restart()
-              }
-            })
-        } catch (error) {
-          console.error('Failed to initialize Quick Math game:', error)
+        } catch (_error) {
+          // Failed to initialize game - could show error UI
         }
       })
     </script>
