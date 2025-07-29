@@ -1,0 +1,57 @@
+---
+import Badge from '@/components/ui/Badge.astro'
+import Card from '@/components/ui/Card.astro'
+
+interface Props {
+  gameId: string
+  showScore?: boolean
+  showTime?: boolean
+  class?: string
+}
+
+const {
+  gameId,
+  showScore = true,
+  showTime = true,
+  class: className,
+} = Astro.props
+---
+
+<Card variant="glass" class={`p-6 ${className || ''}`}>
+  <div class="flex flex-col items-center space-y-4">
+    <!-- Game Status -->
+    <div class="flex flex-wrap justify-center gap-4 mb-4">
+      {
+        showScore && (
+          <Badge variant="outline" class="px-4 py-2">
+            <span class="font-mono">
+              Score:{' '}
+              <span id="score" class="text-cyan-400">
+                0
+              </span>
+            </span>
+          </Badge>
+        )
+      }
+      {
+        showTime && (
+          <Badge variant="outline" class="px-4 py-2">
+            <span class="font-mono">
+              Time:{' '}
+              <span id="time-remaining" class="text-cyan-400">
+                60
+              </span>
+              s
+            </span>
+          </Badge>
+        )
+      }
+
+      <!-- Additional stats slot -->
+      <slot />
+    </div>
+
+    <!-- Game Container Slot -->
+    <slot name="game-container" />
+  </div>
+</Card>

@@ -1,0 +1,19 @@
+---
+interface Props {
+  title: string
+  description: string
+  class?: string
+}
+
+const { title, description, class: className } = Astro.props
+---
+
+<!-- Game Title -->
+<div class={`text-center mb-8 ${className || ''}`}>
+  <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
+    {title.toUpperCase()}
+  </h2>
+  <p class="text-gray-400 text-lg">
+    {description}
+  </p>
+</div>

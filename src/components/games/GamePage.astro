@@ -1,0 +1,81 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+import GameBreadcrumb from './GameBreadcrumb.astro'
+import GameTitle from './GameTitle.astro'
+import GameControls from './GameControls.astro'
+import GameStats from './GameStats.astro'
+import GameOverlay from '@/components/GameOverlay.astro'
+
+interface Props {
+  gameId: string
+  title: string
+  description: string
+  icon: string
+  navigation?: Array<{ href: string; label: string }>
+  includeFooter?: boolean
+  class?: string
+}
+
+const {
+  gameId,
+  title,
+  description,
+  icon,
+  navigation = [
+    { href: '/', label: 'Home' },
+    { href: '#', label: title },
+  ],
+  includeFooter = false,
+  class: className,
+} = Astro.props
+---
+
+<AppLayout
+  title={`${title} - Cetus Minigames`}
+  description={description}
+  includeFooter={includeFooter}
+  navigation={navigation}
+>
+  <!-- Game Breadcrumb -->
+  <GameBreadcrumb icon={icon} title={title} />
+
+  <div class={`px-6 py-8 ${className || ''}`}>
+    <div class="max-w-6xl mx-auto">
+      <!-- Game Title -->
+      <GameTitle title={title} description={description} />
+
+      <!-- Game Container -->
+      <div class="flex flex-col lg:flex-row gap-8 items-start justify-center">
+        <!-- Main Game Board -->
+        <div class="flex-shrink-0">
+          <slot name="game-board" />
+        </div>
+
+        <!-- Game Sidebar -->
+        <div class="flex flex-col space-y-6">
+          <!-- Game Stats -->
+          <GameStats gameId={gameId}>
+            <slot name="additional-stats" />
+          </GameStats>
+
+          <!-- Game Controls -->
+          <GameControls gameId={gameId} />
+
+          <!-- Game Information -->
+          <slot name="game-info" />
+        </div>
+      </div>
+
+      <!-- Bottom Information Section -->
+      <slot name="bottom-info" />
+    </div>
+
+    <!-- Game Over Overlay -->
+    <GameOverlay>
+      <slot name="final-stats" />
+    </GameOverlay>
+  </div>
+
+  <!-- Game Logic Script Slot -->
+  <slot name="game-script" />
+</AppLayout>

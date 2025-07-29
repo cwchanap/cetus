@@ -1,0 +1,58 @@
+---
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+
+interface Props {
+  gameId: string
+  showPause?: boolean
+  showReset?: boolean
+  showEnd?: boolean
+  class?: string
+}
+
+const {
+  gameId,
+  showPause = true,
+  showReset = true,
+  showEnd = true,
+  class: className,
+} = Astro.props
+---
+
+<Card variant="glass" class={`p-6 ${className || ''}`}>
+  <div class="flex flex-col items-center space-y-4">
+    <!-- Game Controls -->
+    <div class="flex space-x-2">
+      <Button id="start-btn" variant="primary" size="sm">Start Game</Button>
+      {
+        showEnd && (
+          <Button
+            id="end-btn"
+            variant="outline"
+            size="sm"
+            style="display: none;"
+          >
+            End Game
+          </Button>
+        )
+      }
+      {
+        showPause && (
+          <Button id="pause-btn" variant="outline" size="sm">
+            Pause
+          </Button>
+        )
+      }
+      {
+        showReset && (
+          <Button id="reset-btn" variant="outline" size="sm">
+            Reset
+          </Button>
+        )
+      }
+    </div>
+
+    <!-- Custom control slot -->
+    <slot />
+  </div>
+</Card>
