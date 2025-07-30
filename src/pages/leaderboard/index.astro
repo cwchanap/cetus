@@ -21,12 +21,15 @@ const games = getAllGames()
 const limit = 10 // Top 10 for each game
 
 // Fetch leaderboard data for all games
-const gameLeaderboards: Record<string, Array<{
-  rank: number
-  name: string
-  score: number
-  created_at: string
-}>> = {}
+const gameLeaderboards: Record<
+  string,
+  Array<{
+    rank: number
+    name: string
+    score: number
+    created_at: string
+  }>
+> = {}
 
 for (const game of games) {
   const leaderboard = await getGameLeaderboard(game.id, limit)
@@ -94,7 +97,7 @@ function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
   })
 }
 
@@ -122,7 +125,7 @@ const tabsData = [
   title="Leaderboards - Cetus Gaming Platform"
   description="View the top scores and rankings for all games on Cetus"
 >
-  <!-- Animated background -->
+  {/* Animated background */}
   <div class="fixed inset-0 pointer-events-none">
     <div
       class="absolute inset-0 bg-gradient-to-br from-cyan-900/10 via-purple-900/10 to-pink-900/10"
@@ -134,121 +137,137 @@ const tabsData = [
 
   <Section class="relative min-h-screen pt-24 pb-16">
     <Container>
-      <!-- Header -->
+      {/* Header */}
       <div class="text-center mb-12">
-        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full mb-6">
+        <div
+          class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full mb-6"
+        >
           <span class="text-2xl">🏆</span>
         </div>
         <Heading level={1} class="mb-4 holographic-text text-center">
           LEADERBOARDS
         </Heading>
         <p class="text-xl text-gray-400 max-w-2xl mx-auto">
-          Compete with players across the galaxy and claim your place among the stars
+          Compete with players across the galaxy and claim your place among the
+          stars
         </p>
       </div>
 
-      <!-- Tabs for different game categories -->
+      {/* Tabs for different game categories */}
       <Tabs defaultValue="all" class="w-full">
         <div class="flex flex-wrap justify-center gap-2 mb-8">
-          {tabsData.map(tab => (
-            <TabsTrigger
-              value={tab.id}
-              class="px-6 py-3 bg-gray-800/30 border border-gray-700/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300 data-[state=active]:bg-cyan-400/10 data-[state=active]:border-cyan-400/50 data-[state=active]:text-cyan-400"
-            >
-              {tab.label}
-            </TabsTrigger>
-          ))}
+          {
+            tabsData.map(tab => (
+              <TabsTrigger
+                value={tab.id}
+                class="px-6 py-3 bg-gray-800/30 border border-gray-700/50 rounded-lg text-gray-300 hover:bg-gray-700/50 hover:border-cyan-400/30 transition-all duration-300 data-[state=active]:bg-cyan-400/10 data-[state=active]:border-cyan-400/50 data-[state=active]:text-cyan-400"
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))
+          }
         </div>
 
-        {tabsData.map(tab => (
-          <TabsContent value={tab.id} class="space-y-8">
-            <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {tab.games.map(game => {
-                const leaderboard = gameLeaderboards[game.id] || []
-                const categoryColor = getCategoryColor(game.category)
-                
-                return (
-                  <Card variant="glass" class="p-6">
-                    <!-- Game Header -->
-                    <div class="flex items-center gap-4 mb-6">
-                      <div class="w-12 h-12 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center">
-                        <span class="text-white font-bold text-lg">
-                          {gameIcons[game.id] || '🎮'}
-                        </span>
-                      </div>
-                      <div class="flex-1">
-                        <h3 class="font-orbitron font-bold text-white text-lg mb-1">
-                          {game.name}
-                        </h3>
-                        <Badge variant="outline" class={`text-xs ${categoryColor}`}>
-                          {game.category.charAt(0).toUpperCase() + game.category.slice(1)}
-                        </Badge>
-                      </div>
-                    </div>
+        {
+          tabsData.map(tab => (
+            <TabsContent value={tab.id} class="space-y-8">
+              <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+                {tab.games.map(game => {
+                  const leaderboard = gameLeaderboards[game.id] || []
+                  const categoryColor = getCategoryColor(game.category)
 
-                    <!-- Leaderboard -->
-                    <div class="space-y-3">
-                      {leaderboard.length > 0 ? (
-                        leaderboard.map(entry => (
-                          <div class="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg border border-gray-700/50">
-                            <div class="flex items-center gap-3">
-                              {entry.rank <= 3 ? (
-                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gradient-to-r from-gray-800 to-gray-700">
-                                  <span class={getRankColor(entry.rank)}>
-                                    {getRankEmoji(entry.rank)}
-                                  </span>
-                                </div>
-                              ) : (
-                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-700/50">
-                                  <span class={getRankColor(entry.rank)}>
-                                    #{entry.rank}
-                                  </span>
-                                </div>
-                              )}
-                              <div>
-                                <div class="font-semibold text-white">
-                                  {entry.name || 'Anonymous'}
-                                </div>
-                                <div class="text-xs text-gray-400">
-                                  {formatDate(entry.created_at)}
-                                </div>
-                              </div>
-                            </div>
-                            <div class="text-right">
-                              <div class="text-lg font-bold text-cyan-400">
-                                {entry.score.toLocaleString()}
-                              </div>
-                              <div class="text-xs text-gray-400">points</div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div class="text-center py-8 text-gray-400">
-                          <div class="text-4xl mb-2">🎯</div>
-                          <p>No scores yet!</p>
-                          <p class="text-sm">Be the first to play and set a record.</p>
+                  return (
+                    <Card variant="glass" class="p-6">
+                      {/* Game Header */}
+                      <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center">
+                          <span class="text-white font-bold text-lg">
+                            {gameIcons[game.id] || '🎮'}
+                          </span>
                         </div>
-                      )}
-                    </div>
+                        <div class="flex-1">
+                          <h3 class="font-orbitron font-bold text-white text-lg mb-1">
+                            {game.name}
+                          </h3>
+                          <Badge
+                            variant="outline"
+                            class={`text-xs ${categoryColor}`}
+                          >
+                            {game.category.charAt(0).toUpperCase() +
+                              game.category.slice(1)}
+                          </Badge>
+                        </div>
+                      </div>
 
-                    <!-- View Game Button -->
-                    <div class="mt-6 pt-4 border-t border-gray-700/50">
-                      <Button variant="outline" size="sm" class="w-full">
-                        <a href={`/${game.id.replace('_', '-')}`} class="text-cyan-400 no-underline flex items-center justify-center gap-2">
-                          <span>Play Game</span>
-                          <span>🎮</span>
-                        </a>
-                      </Button>
-                    </div>
-                  </Card>
-                )
-              })}
-            </div>
-          </TabsContent>
-        ))}
+                      {/* Leaderboard */}
+                      <div class="space-y-3">
+                        {leaderboard.length > 0 ? (
+                          leaderboard.map(entry => (
+                            <div class="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg border border-gray-700/50">
+                              <div class="flex items-center gap-3">
+                                {entry.rank <= 3 ? (
+                                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gradient-to-r from-gray-800 to-gray-700">
+                                    <span class={getRankColor(entry.rank)}>
+                                      {getRankEmoji(entry.rank)}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-700/50">
+                                    <span class={getRankColor(entry.rank)}>
+                                      #{entry.rank}
+                                    </span>
+                                  </div>
+                                )}
+                                <div>
+                                  <div class="font-semibold text-white">
+                                    {entry.name || 'Anonymous'}
+                                  </div>
+                                  <div class="text-xs text-gray-400">
+                                    {formatDate(entry.created_at)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div class="text-right">
+                                <div class="text-lg font-bold text-cyan-400">
+                                  {entry.score.toLocaleString()}
+                                </div>
+                                <div class="text-xs text-gray-400">points</div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div class="text-center py-8 text-gray-400">
+                            <div class="text-4xl mb-2">🎯</div>
+                            <p>No scores yet!</p>
+                            <p class="text-sm">
+                              Be the first to play and set a record.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* View Game Button */}
+                      <div class="mt-6 pt-4 border-t border-gray-700/50">
+                        <Button variant="outline" size="sm" class="w-full">
+                          <a
+                            href={`/${game.id.replace('_', '-')}`}
+                            class="text-cyan-400 no-underline flex items-center justify-center gap-2"
+                          >
+                            <span>Play Game</span>
+                            <span>🎮</span>
+                          </a>
+                        </Button>
+                      </div>
+                    </Card>
+                  )
+                })}
+              </div>
+            </TabsContent>
+          ))
+        }
       </Tabs>
 
-      <!-- Overall Stats Section -->
+      {/* Overall Stats Section */}
       <div class="mt-16 text-center">
         <Card variant="glass" class="p-8 max-w-4xl mx-auto">
           <h2 class="text-2xl font-orbitron font-bold text-holographic mb-6">
@@ -263,21 +282,37 @@ const tabsData = [
             </div>
             <div class="text-center">
               <div class="text-3xl font-bold text-purple-400 mb-2">
-                {Object.values(gameLeaderboards).reduce((total, board) => total + board.length, 0)}
+                {
+                  Object.values(gameLeaderboards).reduce(
+                    (total, board) => total + board.length,
+                    0
+                  )
+                }
               </div>
               <div class="text-sm text-gray-400">Total Scores</div>
             </div>
             <div class="text-center">
               <div class="text-3xl font-bold text-yellow-400 mb-2">
-                {Object.values(gameLeaderboards).filter(board => board.length > 0).length}
+                {
+                  Object.values(gameLeaderboards).filter(
+                    board => board.length > 0
+                  ).length
+                }
               </div>
               <div class="text-sm text-gray-400">Games with Scores</div>
             </div>
             <div class="text-center">
               <div class="text-3xl font-bold text-pink-400 mb-2">
-                {Math.max(...Object.values(gameLeaderboards).map(board => 
-                  board.length > 0 ? Math.max(...board.map(entry => entry.score)) : 0
-                ), 0).toLocaleString()}
+                {
+                  Math.max(
+                    ...Object.values(gameLeaderboards).map(board =>
+                      board.length > 0
+                        ? Math.max(...board.map(entry => entry.score))
+                        : 0
+                    ),
+                    0
+                  ).toLocaleString()
+                }
               </div>
               <div class="text-sm text-gray-400">Highest Score</div>
             </div>
@@ -318,7 +353,8 @@ const tabsData = [
   }
 
   .bg-grid-white {
-    background-image: linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
   }
 </style>
