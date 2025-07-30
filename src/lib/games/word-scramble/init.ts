@@ -203,9 +203,13 @@ export async function initWordScrambleGame(externalCallbacks?: {
                 skipButton.setAttribute('disabled', 'true')
             }
 
-            // Show start button again
+            // Reset buttons - show start button and hide end button
             if (startButton) {
-                startButton.style.display = 'block'
+                startButton.style.display = 'inline-flex'
+            }
+            const endButton = document.getElementById('end-btn')
+            if (endButton) {
+                endButton.style.display = 'none'
             }
 
             // Update final stats
