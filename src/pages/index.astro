@@ -4,7 +4,6 @@ import AppLayout from '@/layouts/AppLayout.astro'
 
 // Component Imports
 import Button from '@/components/ui/Button.astro'
-import Card from '@/components/ui/Card.astro'
 import Section from '@/components/ui/Section.astro'
 import Container from '@/components/ui/Container.astro'
 import Heading from '@/components/ui/Heading.astro'
@@ -113,10 +112,48 @@ const games = [...availableGames, ...comingSoonGames]
     </Container>
   </Section>
 
+  <!-- Leaderboard Promotion Section -->
+  <Section class="py-16">
+    <Container class="max-w-4xl text-center">
+      <div
+        class="bg-gradient-to-r from-cyan-900/20 to-purple-900/20 rounded-2xl p-8 border border-cyan-400/20"
+      >
+        <div class="text-6xl mb-4">🏆</div>
+        <Heading level={2} class="mb-4 text-holographic">
+          COMPETE FOR GLORY
+        </Heading>
+        <p class="text-xl text-gray-300 mb-8">
+          Think you've got what it takes? Check out the leaderboards and see how
+          you stack up against players from across the galaxy!
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button variant="primary" size="lg">
+            <a
+              href="/leaderboard"
+              class="text-white no-underline flex items-center gap-2"
+            >
+              <span>🎯</span>
+              View Leaderboards
+            </a>
+          </Button>
+          <Button variant="outline" size="lg">
+            <a
+              href="/achievements"
+              class="text-cyan-400 no-underline flex items-center gap-2"
+            >
+              <span>🏅</span>
+              Achievements
+            </a>
+          </Button>
+        </div>
+      </div>
+    </Container>
+  </Section>
+
   <!-- Features Section -->
-  <Section variant="features">
+  <Section class="py-20">
     <Container>
-      <Heading level={3} variant="section" align="center" class="mb-16">
+      <Heading level={2} variant="section" align="center" class="mb-16">
         WHY CHOOSE CETUS?
       </Heading>
 

@@ -82,7 +82,7 @@ export async function upsertUserStats(
 }
 
 /**
- * Get game leaderboard
+ * Get game leaderboard (includes anonymous players)
  */
 export async function getGameLeaderboard(
     gameId: string,
@@ -97,7 +97,7 @@ export async function getGameLeaderboard(
     try {
         const results = await db
             .selectFrom('game_scores')
-            .innerJoin('user', 'user.id', 'game_scores.user_id')
+            .leftJoin('user', 'user.id', 'game_scores.user_id')
             .select([
                 'user.name',
                 'game_scores.score',
@@ -109,7 +109,7 @@ export async function getGameLeaderboard(
             .execute()
 
         return results.map(row => ({
-            name: row.name,
+            name: row.name || 'Anonymous Player',
             score: row.score,
             created_at: row.created_at.toString(),
         }))

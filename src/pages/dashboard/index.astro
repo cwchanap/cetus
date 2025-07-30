@@ -117,9 +117,40 @@ const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
           <Heading level={1} variant="hero" align="center" class="mb-4">
             GAMING DASHBOARD
           </Heading>
-          <p class="text-gray-400 text-lg">
+          <p class="text-gray-400 text-lg mb-6">
             Welcome back, {userName}! Here's your gaming overview
           </p>
+
+          <!-- Quick Navigation -->
+          <div class="flex flex-wrap justify-center gap-4">
+            <Button variant="outline" size="sm">
+              <a
+                href="/leaderboard"
+                class="text-cyan-400 no-underline flex items-center gap-2"
+              >
+                <span>🏆</span>
+                Leaderboards
+              </a>
+            </Button>
+            <Button variant="outline" size="sm">
+              <a
+                href="/achievements"
+                class="text-cyan-400 no-underline flex items-center gap-2"
+              >
+                <span>🏅</span>
+                Achievements
+              </a>
+            </Button>
+            <Button variant="outline" size="sm">
+              <a
+                href="/profile"
+                class="text-cyan-400 no-underline flex items-center gap-2"
+              >
+                <span>👤</span>
+                Profile
+              </a>
+            </Button>
+          </div>
         </div>
 
         <!-- Game History Section -->
