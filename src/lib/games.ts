@@ -1,5 +1,3 @@
-import type { GameType } from './server/db/types'
-
 // Game ID enum class
 export enum GameID {
     TETRIS = 'tetris',
@@ -9,6 +7,7 @@ export enum GameID {
     WORD_SCRAMBLE = 'word_scramble',
     REFLEX = 'reflex',
     SUDOKU = 'sudoku',
+    PATH_NAVIGATOR = 'path_navigator',
 }
 
 // Game system types
@@ -107,6 +106,18 @@ export const GAMES: Game[] = [
         estimatedDuration: '5-20 minutes',
         difficulty: 'medium',
         tags: ['numbers', 'logic', 'puzzle', 'single-player', 'classic'],
+        isActive: true,
+    },
+    {
+        id: GameID.PATH_NAVIGATOR,
+        name: 'Path Navigator',
+        description:
+            'Guide your cursor through challenging paths to the goal without touching the edges',
+        category: 'action',
+        maxPlayers: 1,
+        estimatedDuration: '1-2 minutes',
+        difficulty: 'medium',
+        tags: ['precision', 'mouse', 'navigation', 'single-player', 'skill'],
         isActive: true,
     },
 ]
