@@ -6,7 +6,6 @@ import {
     renderPath,
     renderGoal,
     renderCursor,
-    handleMouseMove,
 } from './renderer'
 import type {
     GameConfig,
@@ -129,17 +128,49 @@ export async function initializePathNavigatorGame(
             onScoreUpload: callbacks.onScoreUpload,
         }
 
-        // Set up mouse tracking
-        let isMouseTrackingActive = false
+        // Set up keyboard controls
 
-        const handleMouseMoveEvent = (event: MouseEvent) => {
-            if (!renderer || !game || !isMouseTrackingActive) {
+        const handleKeyPress = (event: KeyboardEvent) => {
+            if (!renderer || !game || !game.getState().isGameActive) {
                 return
             }
 
-            const mousePos = handleMouseMove(renderer, event)
-            game.updateCursorPosition(mousePos.x, mousePos.y)
+            const state = game.getState()
+            const currentPos = { x: state.cursor.x, y: state.cursor.y }
+
+            // Movement step size - increased by 5x for faster movement
+            const step = 25
+
+            let newX = currentPos.x
+            let newY = currentPos.y
+
+            // Handle arrow key movement
+            switch (event.key) {
+                case 'ArrowUp':
+                    newY = Math.max(0, currentPos.y - step)
+                    break
+                case 'ArrowDown':
+                    newY = Math.min(gameConfig.gameHeight, currentPos.y + step)
+                    break
+                case 'ArrowLeft':
+                    newX = Math.max(0, currentPos.x - step)
+                    break
+                case 'ArrowRight':
+                    newX = Math.min(gameConfig.gameWidth, currentPos.x + step)
+                    break
+                default:
+                    return
+            }
+
+            // Prevent default arrow key behavior
+            event.preventDefault()
+
+            // Update player position
+            game.updatePlayerPosition(newX, newY)
         }
+
+        // Track previous level for player positioning
+        let previousLevel = 1
 
         // Game loop
         function gameLoop() {
@@ -149,6 +180,14 @@ export async function initializePathNavigatorGame(
 
             const state = game.getState()
             const currentLevel = game.getCurrentLevel()
+
+            // Check if level has changed
+            if (state.currentLevel !== previousLevel) {
+                // Position player at start of new level
+                const startPoint = currentLevel.path.startPoint
+                game.setCursorPosition(startPoint.x, startPoint.y)
+                previousLevel = state.currentLevel
+            }
 
             // Clear and render
             renderBackground(renderer, gameConfig)
@@ -163,7 +202,6 @@ export async function initializePathNavigatorGame(
 
             // Check game over
             if (state.isGameOver) {
-                isMouseTrackingActive = false
                 const stats = game.getStats()
                 gameCallbacks.onGameOver(state.score, stats)
                 return
@@ -185,14 +223,13 @@ export async function initializePathNavigatorGame(
                 // Start the game first
                 game.startGame()
 
-                // Position cursor at start of current level immediately
+                // Position player at start of current level immediately
                 const currentLevel = game.getCurrentLevel()
-                game.setCursorPosition(
-                    currentLevel.path.startPoint.x,
-                    currentLevel.path.startPoint.y
-                )
+                const startPoint = currentLevel.path.startPoint
 
-                // Force an initial render to show the cursor immediately
+                game.setCursorPosition(startPoint.x, startPoint.y)
+
+                // Force an initial render to show the player immediately
                 if (renderer) {
                     const state = game.getState()
                     renderBackground(renderer, gameConfig)
@@ -206,66 +243,35 @@ export async function initializePathNavigatorGame(
                     )
                 }
 
-                isMouseTrackingActive = true
+                // Enable keyboard controls
+                document.addEventListener('keydown', handleKeyPress)
+                animationFrame = requestAnimationFrame(gameLoop)
 
-                // Add mouse move listener
-                gameContainer.addEventListener(
-                    'mousemove',
-                    handleMouseMoveEvent
-                )
-
-                // Start game loop
+                // Call game start callback
                 gameCallbacks.onGameStart()
-                gameLoop()
             },
             endGame: () => {
-                if (!game) {
-                    return
+                if (game) {
+                    game.endGame()
                 }
-
-                game.endGame()
-                isMouseTrackingActive = false
-
-                // Remove mouse listener
-                gameContainer.removeEventListener(
-                    'mousemove',
-                    handleMouseMoveEvent
-                )
-
-                // Cancel animation
                 if (animationFrame) {
                     cancelAnimationFrame(animationFrame)
-                    animationFrame = null
                 }
             },
-
             pauseGame: () => {
-                if (!game) {
-                    return
+                if (game) {
+                    game.pauseGame()
                 }
-
-                game.pauseGame()
-                isMouseTrackingActive = false
-
-                // Cancel animation
                 if (animationFrame) {
                     cancelAnimationFrame(animationFrame)
-                    animationFrame = null
                 }
             },
-
             resumeGame: () => {
-                if (!game) {
-                    return
+                if (game && game.getState().isGameActive) {
+                    animationFrame = requestAnimationFrame(gameLoop)
                 }
-
-                game.resumeGame()
-                isMouseTrackingActive = true
-
-                // Resume game loop
                 gameLoop()
             },
-
             resetGame: () => {
                 if (!game) {
                     return
@@ -273,13 +279,6 @@ export async function initializePathNavigatorGame(
 
                 // Reset game state
                 game.resetGame()
-                isMouseTrackingActive = false
-
-                // Remove mouse listener
-                gameContainer.removeEventListener(
-                    'mousemove',
-                    handleMouseMoveEvent
-                )
 
                 // Cancel animation
                 if (animationFrame) {
@@ -292,17 +291,14 @@ export async function initializePathNavigatorGame(
                 gameCallbacks.onTimeUpdate(gameConfig.gameDuration)
                 gameCallbacks.onLevelChange(1)
             },
-
             cleanup: () => {
                 // Clean up resources
                 if (animationFrame) {
                     cancelAnimationFrame(animationFrame)
                 }
 
-                gameContainer.removeEventListener(
-                    'mousemove',
-                    handleMouseMoveEvent
-                )
+                // Remove keyboard event listener
+                document.removeEventListener('keydown', handleKeyPress)
 
                 if (game) {
                     game.cleanup()

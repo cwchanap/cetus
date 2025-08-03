@@ -263,7 +263,7 @@ export class PathNavigatorGame {
         this.state = this.createInitialState()
     }
 
-    public updateCursorPosition(x: number, y: number): CollisionResult {
+    public updatePlayerPosition(x: number, y: number): CollisionResult {
         if (!this.state.isGameActive) {
             return { isOnPath: true, hasReachedGoal: false }
         }
@@ -273,18 +273,8 @@ export class PathNavigatorGame {
 
         const currentLevel = GAME_LEVELS[this.state.currentLevel - 1]
 
-        // Check if user has reached the start position (enable boundary detection)
-        if (!this.state.isBoundaryDetectionEnabled) {
-            const startDistance = this.distance(
-                { x, y },
-                currentLevel.path.startPoint
-            )
-            // Enable boundary detection when user is close to start position
-            if (startDistance <= 30) {
-                // Same buffer as START_BUFFER in checkCollision
-                this.state.isBoundaryDetectionEnabled = true
-            }
-        }
+        // Enable boundary detection immediately for keyboard controls
+        this.state.isBoundaryDetectionEnabled = true
 
         const collisionResult = this.checkCollision(
             { x, y },
@@ -295,15 +285,12 @@ export class PathNavigatorGame {
         this.state.isOnPath = collisionResult.isOnPath
         this.state.hasReachedGoal = collisionResult.hasReachedGoal
 
-        // Only check boundaries if detection is enabled
-        if (this.state.isBoundaryDetectionEnabled) {
-            // Check if cursor went out of bounds
-            if (!collisionResult.isOnPath) {
-                this.endGame()
-            }
+        // Check if player went out of bounds
+        if (!collisionResult.isOnPath) {
+            this.endGame()
         }
 
-        // Check if goal reached (always enabled)
+        // Check if goal reached
         if (collisionResult.hasReachedGoal) {
             this.completeLevel()
         }

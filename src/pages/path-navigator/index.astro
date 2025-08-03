@@ -217,6 +217,9 @@ const gameNavigation = [
     <!-- Game Over Overlay -->
     <GameOverlay defaultTitle="GAME OVER" buttonId="play-again-btn">
       <div class="text-lg text-gray-300">
+        Final Score: <span id="final-score" class="text-cyan-400">0</span>
+      </div>
+      <div class="text-lg text-gray-300">
         Levels Completed: <span id="levels-completed" class="text-cyan-400"
           >0</span
         >
@@ -298,9 +301,71 @@ const gameNavigation = [
 
           // End game button click handler
           if (endBtn) {
-            endBtn.addEventListener('click', () => {
+            endBtn.addEventListener('click', async () => {
               if (gameInstance && gameInstance.endGame) {
                 gameInstance.endGame()
+
+                // Wait a moment for game to finish
+                setTimeout(async () => {
+                  try {
+                    // Get the game instance and trigger popup manually
+                    const finalScore = 0 // Default when manually ended
+                    const levelsCompleted = 0
+                    const totalTime = 0
+
+                    // Update overlay with final stats
+                    const finalScoreElement =
+                      document.getElementById('final-score')
+                    if (finalScoreElement) {
+                      finalScoreElement.textContent = finalScore.toString()
+                    }
+
+                    const levelsCompletedElement =
+                      document.getElementById('levels-completed')
+                    if (levelsCompletedElement) {
+                      levelsCompletedElement.textContent =
+                        levelsCompleted.toString()
+                    }
+
+                    const totalTimeElement =
+                      document.getElementById('total-time')
+                    if (totalTimeElement) {
+                      totalTimeElement.textContent =
+                        Math.round(totalTime).toString()
+                    }
+
+                    // Show game over overlay
+                    const gameOverOverlay =
+                      document.getElementById('game-over-overlay')
+                    if (gameOverOverlay) {
+                      gameOverOverlay.classList.remove('hidden')
+                    }
+
+                    // Import saveGameScore function
+                    try {
+                      const { saveGameScore } = await import(
+                        '@/lib/services/scoreService'
+                      )
+                      const gameData = {
+                        levelsCompleted,
+                        totalTime,
+                        finalScore,
+                      }
+                      await saveGameScore(
+                        'PATH_NAVIGATOR',
+                        finalScore,
+                        undefined,
+                        undefined,
+                        gameData
+                      )
+                    } catch (e) {
+                      // Score saving failed - non-critical
+                    }
+                  } catch (error) {
+                    console.error('Error showing game over popup:', error)
+                  }
+                }, 100)
+
                 // Update button visibility
                 endBtn.style.display = 'none'
                 if (startBtn) {
