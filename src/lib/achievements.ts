@@ -434,6 +434,57 @@ export const ACHIEVEMENTS: Achievement[] = [
         rarity: AchievementRarity.LEGENDARY,
     },
 
+    // Path Navigator achievements
+    {
+        id: 'path_navigator_welcome',
+        name: 'First Path',
+        description:
+            'Welcome to Path Navigator! You completed your first path.',
+        logo: '🎮',
+        gameId: GameID.PATH_NAVIGATOR,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'path_navigator_explorer',
+        name: 'Path Explorer',
+        description: 'Score 100 points in Path Navigator',
+        logo: '🗺️',
+        gameId: GameID.PATH_NAVIGATOR,
+        condition: {
+            type: 'score_threshold',
+            threshold: 100,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'path_navigator_navigator',
+        name: 'Master Navigator',
+        description: 'Score 250 points in Path Navigator',
+        logo: '🧭',
+        gameId: GameID.PATH_NAVIGATOR,
+        condition: {
+            type: 'score_threshold',
+            threshold: 250,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'path_navigator_expert',
+        name: 'Path Expert',
+        description: 'Score 500 points in Path Navigator',
+        logo: '⭐',
+        gameId: GameID.PATH_NAVIGATOR,
+        condition: {
+            type: 'score_threshold',
+            threshold: 500,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+
     // Quick Math achievements
     {
         id: 'math_novice',

@@ -253,6 +253,8 @@ export async function initializePathNavigatorGame(
             endGame: () => {
                 if (game) {
                     game.endGame()
+                    const stats = game.getStats()
+                    handleGameOver(game.getState().score, stats)
                 }
                 if (animationFrame) {
                     cancelAnimationFrame(animationFrame)
