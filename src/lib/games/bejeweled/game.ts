@@ -4,9 +4,10 @@ import type { BaseGameCallbacks, ScoringConfig } from '@/lib/games/core/types'
 import {
     JEWEL_TYPES,
     type BejeweledConfig,
-    type BejeweledState,
     type BejeweledStats,
     type Position,
+    type BejeweledAnimator,
+    type BejeweledState,
 } from './types'
 import {
     generateInitialGrid,
@@ -16,6 +17,7 @@ import {
     refillGrid,
     isAdjacent,
     swap as swapCells,
+    cloneGrid,
 } from './utils'
 
 export class BejeweledGame extends BaseGame<
@@ -26,6 +28,7 @@ export class BejeweledGame extends BaseGame<
     private maxCombo: number = 0
     private largestMatch: number = 0
     private totalMatches: number = 0
+    private animator?: BejeweledAnimator
 
     constructor(
         gameId: GameID,
@@ -116,6 +119,11 @@ export class BejeweledGame extends BaseGame<
         // Nothing special to cleanup in game logic
     }
 
+    // Renderer bridge
+    public setAnimator(animator: BejeweledAnimator): void {
+        this.animator = animator
+    }
+
     // Public API used by renderer/init
     public clickCell(row: number, col: number): void {
         if (
@@ -155,35 +163,46 @@ export class BejeweledGame extends BaseGame<
             return
         }
 
-        // Attempt swap
-        this.attemptSwap(a, b)
+        // Attempt swap (animated)
+        void this.attemptSwap(a, b)
     }
 
-    private attemptSwap(a: Position, b: Position): void {
+    private async attemptSwap(a: Position, b: Position): Promise<void> {
         if (this.state.isAnimating) {
             return
         }
 
-        const grid = this.state.grid
-        swapCells(grid, a, b)
+        const SWAP_MS = 500
+        const CLEAR_MS = 1000
 
-        let matches = findMatches(grid, this.config.minMatch)
+        // Predict if swap will create a match without mutating grid
+        const temp = cloneGrid(this.state.grid)
+        swapCells(temp, a, b)
+        const wouldMatches = findMatches(temp, this.config.minMatch)
 
-        if (matches.length === 0) {
-            // Invalid move, swap back
-            swapCells(grid, a, b)
-            // Keep selection on the second clicked cell for UX
+        // Block input and animate forward swap
+        this.state.isAnimating = true
+        this.emitStateChange()
+        await this.animator?.animateSwap(a, b, this.getState(), SWAP_MS)
+
+        if (wouldMatches.length === 0) {
+            // Invalid move: animate back and restore selection to the second cell
+            await this.animator?.animateSwapBack(a, b, this.getState(), SWAP_MS)
+            this.state.isAnimating = false
             this.state.selected = b
             this.emitStateChange()
             return
         }
 
-        // Valid move
+        // Valid move: commit the swap and render
+        const grid = this.state.grid
+        swapCells(grid, a, b)
         this.state.movesMade += 1
-        this.state.isAnimating = true
         this.state.selected = null
+        this.emitStateChange()
 
-        // Process cascades synchronously (no animation yet)
+        // Process cascades with clear animations
+        let matches = findMatches(grid, this.config.minMatch)
         let currentCombo = 0
         while (matches.length > 0) {
             currentCombo += 1
@@ -191,10 +210,17 @@ export class BejeweledGame extends BaseGame<
             this.maxCombo = Math.max(this.maxCombo, currentCombo)
             this.totalMatches += matches.length
 
+            // Animate annihilation effect for all matched cells
+            const allCells = matches.flatMap(m => m.positions)
+            await this.animator?.animateClear(
+                allCells,
+                this.getState(),
+                CLEAR_MS
+            )
+
             const { removed, largest } = removeMatches(grid, matches)
             this.largestMatch = Math.max(this.largestMatch, largest)
 
-            // Scoring: jewels removed * pointsPerJewel * combo multiplier (1x, 2x, 3x...)
             const comboMultiplier = currentCombo
             const points =
                 removed * this.config.pointsPerJewel * comboMultiplier

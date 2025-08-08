@@ -108,6 +108,8 @@ export async function initBejeweledGame(
     }
 
     const game = new BejeweledGame(GameID.BEJEWELED, config, enhancedCallbacks)
+    // Bridge animations: renderer implements BejeweledAnimator
+    game.setAnimator(renderer)
 
     // Wire renderer input to game action
     renderer.setCellClickCallback((row, col) => {

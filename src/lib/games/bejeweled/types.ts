@@ -59,3 +59,25 @@ export interface BejeweledStats extends BaseGameStats {
     largestMatch: number
     totalMatches: number
 }
+
+// Animation hooks that the renderer can implement and the game can call.
+// These perform visual effects but do not mutate the game grid.
+export interface BejeweledAnimator {
+    animateSwap(
+        a: Position,
+        b: Position,
+        state: BejeweledState,
+        durationMs?: number
+    ): Promise<void>
+    animateSwapBack(
+        a: Position,
+        b: Position,
+        state: BejeweledState,
+        durationMs?: number
+    ): Promise<void>
+    animateClear(
+        cells: Position[],
+        state: BejeweledState,
+        durationMs?: number
+    ): Promise<void>
+}
