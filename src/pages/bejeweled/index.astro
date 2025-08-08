@@ -1,0 +1,126 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import GameOverlay from '@/components/GameOverlay.astro'
+
+// Custom navigation for game pages with breadcrumb
+const gameNavigation = [
+  { href: '/', label: 'Home' },
+  { href: '#', label: 'Bejeweled' },
+]
+---
+
+<AppLayout
+  title="Bejeweled - Cetus Minigames"
+  description="Swap gems to match 3+ and trigger cascading combos in a neon-styled match-3 puzzle"
+  includeFooter={false}
+  navigation={gameNavigation}
+>
+  <!-- Game Breadcrumb -->
+  <div class="px-6 py-4 border-b border-slate-700/50">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center space-x-3">
+        <div class="text-cyan-400 text-sm">💎 Bejeweled</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-6 py-8">
+    <div class="max-w-6xl mx-auto">
+      <!-- Game Title -->
+      <div class="text-center mb-8">
+        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
+          BEJEWELED
+        </h2>
+        <p class="text-gray-400 text-lg">
+          Swap adjacent gems to make matches and rack up points before time runs
+          out
+        </p>
+      </div>
+
+      <!-- Game Container -->
+      <div class="flex flex-col lg:flex-row gap-8 items-start justify-center">
+        <!-- Game Board -->
+        <Card variant="glass" class="p-6 flex-shrink-0">
+          <div class="flex flex-col items-center space-y-4">
+            <!-- Game Status -->
+            <div class="flex space-x-4 mb-4">
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono">Score: <span id="score">0</span></span>
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Time: <span id="time-remaining">60</span>s</span
+                >
+              </Badge>
+            </div>
+
+            <!-- Bejeweled Game Container -->
+            <div class="relative">
+              <div
+                id="bejeweled-container"
+                class="border-2 border-cyan-400/50 bg-black/50 rounded-lg shadow-glow-cyan"
+                style="width: 480px; height: 480px;"
+              >
+              </div>
+
+              <GameOverlay defaultTitle="TIME UP" buttonId="play-again-btn">
+                <!-- Extra stats could be slotted here if needed -->
+              </GameOverlay>
+            </div>
+
+            <!-- Game Controls -->
+            <div class="flex space-x-2">
+              <Button id="start-btn" variant="primary" size="sm">Start</Button>
+              <Button
+                id="end-btn"
+                variant="outline"
+                size="sm"
+                style="display: none;">End Game</Button
+              >
+            </div>
+          </div>
+        </Card>
+
+        <!-- How to Play -->
+        <Card variant="glass" class="p-6">
+          <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+            HOW TO PLAY
+          </h3>
+          <div class="space-y-2 text-sm text-gray-300">
+            <p>• Click two adjacent gems to swap them.</p>
+            <p>• Form a line of 3 or more matching gems to score.</p>
+            <p>• Matches may cascade for combo points.</p>
+            <p>• You have 60 seconds—maximize your score!</p>
+          </div>
+        </Card>
+      </div>
+    </div>
+
+    <!-- Bejeweled Game Logic -->
+    <script>
+      import {
+        initBejeweledGame,
+        type BejeweledInitResult,
+      } from '@/lib/games/bejeweled/init'
+
+      document.addEventListener('DOMContentLoaded', async () => {
+        try {
+          const result: BejeweledInitResult | undefined =
+            await initBejeweledGame()
+
+          // Wire restart button (overlay) just in case
+          document
+            .getElementById('play-again-btn')
+            ?.addEventListener('click', () => {
+              // Overlay handled in init, game.reset() is called there
+            })
+        } catch (error) {
+          console.error('Failed to initialize Bejeweled game:', error)
+        }
+      })
+    </script>
+  </div>
+</AppLayout>

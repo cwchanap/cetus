@@ -2,6 +2,7 @@
 export enum GameID {
     TETRIS = 'tetris',
     BUBBLE_SHOOTER = 'bubble_shooter',
+    BEJEWELED = 'bejeweled',
     QUICK_MATH = 'quick_math',
     MEMORY_MATRIX = 'memory_matrix',
     WORD_SCRAMBLE = 'word_scramble',
@@ -46,6 +47,17 @@ export const GAMES: Game[] = [
         estimatedDuration: '10-20 minutes',
         difficulty: 'easy',
         tags: ['bubbles', 'matching', 'single-player', 'casual'],
+        isActive: true,
+    },
+    {
+        id: GameID.BEJEWELED,
+        name: 'Bejeweled',
+        description: 'Swap gems to match 3+ and trigger cascading combos',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '1-3 minutes',
+        difficulty: 'easy',
+        tags: ['match-3', 'gems', 'puzzle', 'single-player', 'casual'],
         isActive: true,
     },
     {
