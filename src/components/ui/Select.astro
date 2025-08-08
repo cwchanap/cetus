@@ -141,36 +141,64 @@ const optionClasses = cn(
 
 <script>
   class SelectComponent {
-    private trigger: HTMLElement
-    private dropdown: HTMLElement
-    private valueSpan: HTMLElement
-    private iconSpan: HTMLElement
-    private hiddenInput: HTMLInputElement
-    private options: NodeListOf<HTMLElement>
+    private trigger!: HTMLElement
+    private dropdown!: HTMLElement
+    private valueSpan!: HTMLElement
+    private iconSpan!: HTMLElement
+    private hiddenInput!: HTMLInputElement
+    private options!: NodeListOf<HTMLElement>
     private isOpen = false
     private selectedValue = ''
     private selectedLabel = ''
 
     constructor(container: HTMLElement) {
-      this.trigger = container.querySelector('[data-select-trigger]')!
-      this.dropdown = container.querySelector('[data-select-dropdown]')!
-      this.valueSpan = container.querySelector('[data-select-value]')!
-      this.iconSpan = container.querySelector('[data-select-icon]')!
-      this.hiddenInput = container.querySelector('[data-select-input]')!
-      this.options = container.querySelectorAll('[data-select-option]')!
+      // Wait for the next tick to ensure all elements are rendered
+      setTimeout(() => {
+        const trigger = container.querySelector<HTMLElement>(
+          '[data-select-trigger]'
+        )
+        const dropdown = container.querySelector<HTMLElement>(
+          '[data-select-dropdown]'
+        )
+        const valueSpan = container.querySelector<HTMLElement>(
+          '[data-select-value]'
+        )
+        const iconSpan =
+          container.querySelector<HTMLElement>('[data-select-icon]')
+        const hiddenInput = container.querySelector<HTMLInputElement>(
+          '[data-select-input]'
+        )
+        const options = container.querySelectorAll<HTMLElement>(
+          '[data-select-option]'
+        )
 
-      this.init()
+        if (!trigger || !dropdown || !valueSpan || !iconSpan || !hiddenInput) {
+          // Elements not found, possibly due to timing issues
+          return
+        }
+
+        this.trigger = trigger
+        this.dropdown = dropdown
+        this.valueSpan = valueSpan
+        this.iconSpan = iconSpan
+        this.hiddenInput = hiddenInput
+        this.options = options
+
+        this.init()
+      }, 0)
     }
 
     private init() {
       // Set initial value if provided
-      const initialValue = this.hiddenInput.value
-      if (initialValue) {
-        const initialOption = Array.from(this.options).find(
-          option => option.dataset.value === initialValue
-        )
-        if (initialOption) {
-          this.selectOption(initialOption)
+      if (this.hiddenInput) {
+        const initialValue = this.hiddenInput.value
+        if (initialValue) {
+          const initialOption = Array.from(this.options).find(
+            option => option.dataset.value === initialValue
+          )
+          if (initialOption) {
+            this.selectOption(initialOption)
+          }
         }
       }
 
@@ -219,8 +247,12 @@ const optionClasses = cn(
     }
 
     private selectOption(option: HTMLElement) {
-      const value = option.dataset.value!
-      const label = option.textContent!.trim()
+      const value = option.dataset.value
+      const label = option.textContent?.trim() || ''
+
+      if (!value) {
+        return
+      }
 
       this.selectedValue = value
       this.selectedLabel = label
@@ -313,13 +345,24 @@ const optionClasses = cn(
   }
 
   // Initialize all select components
-  document.addEventListener('DOMContentLoaded', () => {
+  const initSelects = () => {
     const selects = document.querySelectorAll('[data-select-trigger]')
     selects.forEach(select => {
       const container = select.closest('.relative') as HTMLElement
       if (container) {
-        new SelectComponent(container)
+        try {
+          new SelectComponent(container)
+        } catch (error) {
+          // Failed to initialize Select component
+        }
       }
     })
-  })
+  }
+
+  // Try to initialize immediately if DOM is already loaded
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSelects)
+  } else {
+    initSelects()
+  }
 </script>

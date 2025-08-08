@@ -6,40 +6,30 @@ import Container from '@/components/ui/Container.astro'
 import Section from '@/components/ui/Section.astro'
 import Heading from '@/components/ui/Heading.astro'
 import Card from '@/components/ui/Card.astro'
-import Badge from '@/components/ui/Badge.astro'
-import Button from '@/components/ui/Button.astro'
-import Tabs from '@/components/ui/Tabs.astro'
-import TabsTrigger from '@/components/ui/TabsTrigger.astro'
-import TabsContent from '@/components/ui/TabsContent.astro'
+import Select from '@/components/ui/Select.astro'
 
-import { getGameLeaderboard } from '@/lib/server/db/queries'
+// Server-side data fetching
 import { getAllGames } from '@/lib/games'
+import { getGameLeaderboard } from '@/lib/server/db/queries'
 
-// Get all games and their leaderboards
-const games = getAllGames()
-const limit = 10 // Top 10 for each game
-
-// Fetch leaderboard data for all games
-const gameLeaderboards: Record<
-  string,
-  Array<{
-    rank: number
-    name: string
-    score: number
-    created_at: string
-  }>
-> = {}
-
-for (const game of games) {
-  const leaderboard = await getGameLeaderboard(game.id, limit)
-  gameLeaderboards[game.id] = leaderboard.map((entry, index) => ({
-    rank: index + 1,
-    ...entry,
-  }))
+// Define types
+type LeaderboardEntry = {
+  name: string
+  score: number
+  created_at: string
 }
 
-// Game icon mapping (consistent with other pages)
-const gameIcons: Record<string, string> = {
+// Fetch all games and leaderboards
+const games = getAllGames()
+const gameLeaderboards: Record<string, LeaderboardEntry[]> = {}
+
+// Fetch leaderboard data for each game
+for (const game of games) {
+  gameLeaderboards[game.id] = await getGameLeaderboard(game.id, 10)
+}
+
+// Game icons mapping
+const gameIcons: { [key: string]: string } = {
   tetris: '🔲',
   bubble_shooter: '🫧',
   quick_math: '🧮',
@@ -47,60 +37,21 @@ const gameIcons: Record<string, string> = {
   word_scramble: '📝',
   reflex: '⚡',
   sudoku: '🧩',
+  path_navigator: '🎮',
 }
 
-// Get category colors
-function getCategoryColor(category: string): string {
-  switch (category) {
-    case 'puzzle':
-      return 'text-blue-400 border-blue-400/30'
-    case 'action':
-      return 'text-red-400 border-red-400/30'
-    case 'strategy':
-      return 'text-purple-400 border-purple-400/30'
-    default:
-      return 'text-gray-400 border-gray-400/30'
+// Category color utility
+const getCategoryColor = (category: string) => {
+  const colors: { [key: string]: string } = {
+    puzzle: 'from-purple-500 to-pink-500',
+    action: 'from-red-500 to-orange-500',
+    strategy: 'from-green-500 to-teal-500',
+    trivia: 'from-blue-500 to-cyan-500',
   }
+  return colors[category] || 'from-gray-500 to-gray-600'
 }
 
-// Get rank colors for top 3
-function getRankColor(rank: number): string {
-  switch (rank) {
-    case 1:
-      return 'text-yellow-400' // Gold
-    case 2:
-      return 'text-gray-300' // Silver
-    case 3:
-      return 'text-amber-600' // Bronze
-    default:
-      return 'text-gray-400'
-  }
-}
-
-// Get rank emoji for top 3
-function getRankEmoji(rank: number): string {
-  switch (rank) {
-    case 1:
-      return '🥇'
-    case 2:
-      return '🥈'
-    case 3:
-      return '🥉'
-    default:
-      return `#${rank}`
-  }
-}
-
-// Format date for display
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-// Prepare tabs data - individual games only
+// Create tabs data
 const tabsData = games.map(game => ({
   id: game.id,
   label: game.name,
@@ -108,36 +59,10 @@ const tabsData = games.map(game => ({
   icon: gameIcons[game.id] || '🎮',
 }))
 
-// Calculate total stats
-const totalScores = Object.values(gameLeaderboards).reduce(
-  (total, board) => total + board.length,
-  0
-)
-const gamesWithScores = Object.values(gameLeaderboards).filter(
-  board => board.length > 0
-).length
-const highestScore = Math.max(
-  ...Object.values(gameLeaderboards).map(board =>
-    board.length > 0 ? Math.max(...board.map(entry => entry.score)) : 0
-  ),
-  0
-)
+const defaultGameId = games[0]?.id || 'tetris'
 ---
 
-<AppLayout
-  title="Leaderboards - Cetus Gaming Platform"
-  description="View the top scores and rankings for all games on Cetus"
->
-  {/* Animated background */}
-  <div class="fixed inset-0 pointer-events-none">
-    <div
-      class="absolute inset-0 bg-gradient-to-br from-cyan-900/10 via-purple-900/10 to-pink-900/10"
-    >
-    </div>
-    <div class="absolute inset-0 bg-grid-white/[0.02] bg-[size:50px_50px]">
-    </div>
-  </div>
-
+<AppLayout title="Leaderboards - Cetus Gaming Platform">
   <main class="relative z-10 min-h-screen">
     <Section class="py-20">
       <Container class="max-w-6xl">
@@ -148,225 +73,246 @@ const highestScore = Math.max(
           >
             <span class="text-2xl">🏆</span>
           </div>
-          <Heading level={1} class="mb-4 holographic-text text-center">
-            LEADERBOARDS
+          <Heading level={1} class="text-4xl md:text-5xl font-bold mb-4">
+            <span class="holographic-text">Leaderboards</span>
           </Heading>
-          <p class="text-xl text-gray-400 max-w-2xl mx-auto mb-8">
-            Compete with players across the galaxy and claim your place among
-            the stars
+          <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+            Compete for the top scores across all games. See who's dominating
+            the leaderboard!
           </p>
-
-          {/* Galaxy Statistics */}
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-2xl mx-auto">
-            <div class="text-center">
-              <div class="text-2xl font-bold text-cyan-400 mb-1">
-                {games.length}
-              </div>
-              <div class="text-xs text-gray-400">Active Games</div>
-            </div>
-            <div class="text-center">
-              <div class="text-2xl font-bold text-purple-400 mb-1">
-                {totalScores}
-              </div>
-              <div class="text-xs text-gray-400">Total Scores</div>
-            </div>
-            <div class="text-center">
-              <div class="text-2xl font-bold text-yellow-400 mb-1">
-                {gamesWithScores}
-              </div>
-              <div class="text-xs text-gray-400">Games with Scores</div>
-            </div>
-            <div class="text-center">
-              <div class="text-2xl font-bold text-pink-400 mb-1">
-                {highestScore.toLocaleString()}
-              </div>
-              <div class="text-xs text-gray-400">Highest Score</div>
-            </div>
-          </div>
         </div>
 
-        {/* Leaderboards Section */}
-        <Card variant="glass" class="p-6 md:p-8">
-          {/* Game Tabs */}
-          <div class="mb-8">
-            <div class="relative">
-              {/* Background glow effects */}
-              <div
-                class="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-purple-500/5 to-pink-500/5 rounded-xl blur-lg"
-              >
-              </div>
-              <div
-                class="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400/5 to-transparent rounded-xl"
-              >
-              </div>
+        <Card variant="glass" class="p-8">
+          <div class="relative">
+            {/* Background effects */}
+            <div
+              class="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400/5 to-transparent rounded-xl"
+            >
+            </div>
 
-              <Tabs
-                variant="glass"
-                defaultTab={games[0]?.id || 'tetris'}
-                class="relative"
-                data-default-tab={games[0]?.id || 'tetris'}
-              >
-                <div
-                  slot="tabs"
-                  class="flex flex-wrap gap-2 p-4 bg-gray-900/30 rounded-xl border border-cyan-400/20 backdrop-blur-md"
-                >
-                  {
-                    tabsData.map(tab => (
-                      <TabsTrigger
-                        value={tab.id}
-                        class="font-orbitron font-semibold px-4 py-2 rounded-lg border border-transparent hover:text-holographic hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:glow-cyan transition-all duration-300 relative group flex items-center gap-2 text-sm"
-                      >
-                        <span class="text-base">{tab.icon}</span>
-                        <span>{tab.label}</span>
-                        <Badge
-                          variant="outline"
-                          size="sm"
-                          class="border-cyan-400/30 text-cyan-400 bg-cyan-500/10 group-hover:bg-cyan-500/20 group-hover:border-cyan-400/50 transition-all duration-300"
-                        >
-                          {gameLeaderboards[tab.id]?.length || 0}
-                        </Badge>
+            {/* Game Selector Dropdown */}
+            <div class="mb-8 text-center">
+              <Select
+                options={tabsData.map(tab => ({
+                  value: tab.id,
+                  label: `${tab.icon} ${tab.label}`,
+                }))}
+                placeholder="Select a game..."
+                class="w-full max-w-md"
+                id="game-selector"
+                name="game-selector"
+                value={defaultGameId}
+                data-select-game
+              />
+            </div>
 
-                        <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-cyan-400 to-purple-400 group-data-[state=active]:w-full transition-all duration-300" />
-                      </TabsTrigger>
-                    ))
-                  }
-                </div>
+            {/* Game Leaderboards */}
+            <div data-game-leaderboards>
+              {
+                tabsData.map(tab => (
+                  <div
+                    data-game-leaderboard={tab.id}
+                    data-game-id={tab.id}
+                    class={tab.id === defaultGameId ? '' : 'hidden'}
+                  >
+                    <div class="w-full max-w-4xl mx-auto">
+                      {tab.games.map(game => {
+                        const leaderboard = gameLeaderboards[game.id] || []
+                        const categoryColor = getCategoryColor(game.category)
+                        const gameHighestScore =
+                          leaderboard.length > 0
+                            ? Math.max(...leaderboard.map(entry => entry.score))
+                            : 0
 
-                <div slot="panels">
-                  {
-                    tabsData.map(tab => {
-                      const defaultTabId = games[0]?.id || 'tetris'
-                      const isDefaultTab = tab.id === defaultTabId
-                      return (
-                        <TabsContent
-                          value={tab.id}
-                          class={isDefaultTab ? '' : 'hidden'}
-                        >
-                          {/* Individual Game - Full Leaderboard */}
-                          <div class="w-full max-w-4xl mx-auto">
-                            {tab.games.map(game => {
-                              const leaderboard =
-                                gameLeaderboards[game.id] || []
-                              const categoryColor = getCategoryColor(
-                                game.category
-                              )
-
-                              return (
-                                <div>
-                                  {/* Game Header */}
-                                  <div class="flex items-center gap-6 mb-8">
-                                    <div class="w-16 h-16 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-xl flex items-center justify-center">
-                                      <span class="text-white font-bold text-2xl">
-                                        {gameIcons[game.id] || '🎮'}
-                                      </span>
-                                    </div>
-                                    <div class="flex-1">
-                                      <h2 class="font-orbitron font-bold text-white text-2xl mb-2">
-                                        {game.name}
-                                      </h2>
-                                      <div class="flex items-center gap-4">
-                                        <Badge
-                                          variant="outline"
-                                          class={categoryColor}
-                                        >
-                                          {game.category
-                                            .charAt(0)
-                                            .toUpperCase() +
-                                            game.category.slice(1)}
-                                        </Badge>
-                                        <Badge
-                                          variant="outline"
-                                          class="text-cyan-400 border-cyan-400/30"
-                                        >
-                                          {leaderboard.length} scores
-                                        </Badge>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Full Leaderboard Table */}
-                                  <div class="w-full space-y-3">
-                                    {leaderboard.length > 0 ? (
-                                      leaderboard.map(entry => (
-                                        <div class="w-full flex items-center justify-between p-4 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:bg-gray-700/30 transition-colors">
-                                          <div class="flex items-center gap-4 flex-1 min-w-0">
-                                            {entry.rank <= 3 ? (
-                                              <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold bg-gradient-to-r from-gray-800 to-gray-700 flex-shrink-0">
-                                                <span
-                                                  class={getRankColor(
-                                                    entry.rank
-                                                  )}
-                                                >
-                                                  {getRankEmoji(entry.rank)}
-                                                </span>
-                                              </div>
-                                            ) : (
-                                              <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold bg-gray-700/50 flex-shrink-0">
-                                                <span
-                                                  class={getRankColor(
-                                                    entry.rank
-                                                  )}
-                                                >
-                                                  #{entry.rank}
-                                                </span>
-                                              </div>
-                                            )}
-                                            <div class="flex-1 min-w-0">
-                                              <div class="font-semibold text-white truncate">
-                                                {entry.name ||
-                                                  'Anonymous Player'}
-                                              </div>
-                                              <div class="text-sm text-gray-400">
-                                                {formatDate(entry.created_at)}
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <div class="text-right flex-shrink-0 ml-4">
-                                            <div class="text-xl font-bold text-cyan-400">
-                                              {entry.score.toLocaleString()}
-                                            </div>
-                                            <div class="text-sm text-gray-400">
-                                              points
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <div class="w-full text-center py-12 text-gray-400">
-                                        <div class="text-6xl mb-4">🎯</div>
-                                        <p class="text-lg">No scores yet!</p>
-                                        <p class="text-sm mt-2">
-                                          Be the first to play and set a record.
-                                        </p>
-                                        <div class="mt-6">
-                                          <Button variant="primary">
-                                            <a
-                                              href={`/${game.id.replace('_', '-')}`}
-                                              class="text-white no-underline flex items-center gap-2"
-                                            >
-                                              <span>Play {game.name}</span>
-                                              <span>🎮</span>
-                                            </a>
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
+                        return (
+                          <div>
+                            {/* Game Header */}
+                            <div class="flex items-center gap-6 mb-8">
+                              <div
+                                class={`w-16 h-16 bg-gradient-to-r ${categoryColor} rounded-xl flex items-center justify-center`}
+                              >
+                                <span class="text-white font-bold text-2xl">
+                                  {gameIcons[game.id] || '🎮'}
+                                </span>
+                              </div>
+                              <div class="flex-1">
+                                <h3 class="text-2xl font-bold text-white mb-2">
+                                  {game.name} Leaderboard
+                                </h3>
+                                <div class="flex items-center gap-4 text-sm">
+                                  <span
+                                    class={`px-2 py-1 rounded-full bg-gradient-to-r ${categoryColor} text-white`}
+                                  >
+                                    {game.category}
+                                  </span>
+                                  <span class="text-gray-400">
+                                    {leaderboard.length} entries
+                                  </span>
+                                  {gameHighestScore > 0 && (
+                                    <span class="text-cyan-400 font-bold">
+                                      {gameHighestScore.toLocaleString()}{' '}
+                                      highest score
+                                    </span>
+                                  )}
                                 </div>
-                              )
-                            })}
+                              </div>
+                            </div>
+
+                            {/* Leaderboard Content */}
+                            <div class="space-y-4">
+                              {leaderboard.length > 0 ? (
+                                leaderboard.map((entry, index) => (
+                                  <div class="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 hover:border-cyan-400/50 transition-colors">
+                                    <div class="flex items-center gap-4">
+                                      <div
+                                        class={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                          index === 0
+                                            ? 'bg-yellow-500 text-black'
+                                            : index === 1
+                                              ? 'bg-gray-400 text-black'
+                                              : index === 2
+                                                ? 'bg-orange-600 text-white'
+                                                : 'bg-gray-700 text-white'
+                                        }`}
+                                      >
+                                        {index + 1}
+                                      </div>
+                                      <div>
+                                        <div class="font-semibold text-white">
+                                          {entry.name || 'Anonymous'}
+                                        </div>
+                                        <div class="text-sm text-gray-400">
+                                          {new Date(
+                                            entry.created_at
+                                          ).toLocaleDateString()}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div class="text-right">
+                                      <div class="text-xl font-bold text-cyan-400">
+                                        {entry.score.toLocaleString()}
+                                      </div>
+                                      {entry.achievements &&
+                                        entry.achievements.length > 0 && (
+                                          <div class="text-sm text-yellow-400">
+                                            {entry.achievements.join(', ')}
+                                          </div>
+                                        )}
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div class="text-center py-12">
+                                  <div class="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-full flex items-center justify-center">
+                                    <span class="text-2xl">🎯</span>
+                                  </div>
+                                  <p class="text-gray-400 mb-4">
+                                    No scores yet!
+                                  </p>
+                                  <p class="text-sm text-gray-500 mb-6">
+                                    Be the first to play and set a record.
+                                  </p>
+                                  <a
+                                    href={`/${game.id}`}
+                                    class="inline-flex items-center px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+                                  >
+                                    Play {game.name} 🎮
+                                  </a>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </TabsContent>
-                      )
-                    })
-                  }
-                </div>
-              </Tabs>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))
+              }
             </div>
           </div>
         </Card>
       </Container>
     </Section>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const gameSelector = document.getElementById('game-selector')
+        const gameSelectorDropdown = document.querySelector<HTMLElement>(
+          '[data-select-dropdown]'
+        )
+        const selectedValueDisplay = gameSelector?.querySelector('span')
+        const hiddenInput = document.querySelector(
+          'input[data-select-input]'
+        ) as HTMLInputElement
+        const leaderboards = document.querySelectorAll(
+          '[data-game-leaderboard]'
+        )
+
+        if (
+          !gameSelector ||
+          !gameSelectorDropdown ||
+          !selectedValueDisplay ||
+          !hiddenInput ||
+          !leaderboards.length
+        ) {
+          return
+        }
+
+        function updateLeaderboardVisibility(selectedGameId: string) {
+          leaderboards.forEach(leaderboard => {
+            const gameId = leaderboard.getAttribute('data-game-id')
+            leaderboard.classList.toggle('hidden', gameId !== selectedGameId)
+          })
+        }
+
+        const alignDropdownWidth = () => {
+          const width = gameSelector.getBoundingClientRect().width
+          gameSelectorDropdown.style.width = `${width}px`
+        }
+
+        const resizeObserver = new ResizeObserver(alignDropdownWidth)
+        resizeObserver.observe(gameSelector)
+        alignDropdownWidth()
+
+        const toggleDropdown = (forceClose = false) => {
+          const isOpen = gameSelectorDropdown.hasAttribute('data-open')
+          if (forceClose || isOpen) {
+            gameSelectorDropdown.removeAttribute('data-open')
+          } else {
+            gameSelectorDropdown.setAttribute('data-open', 'true')
+          }
+        }
+
+        gameSelector.addEventListener('click', e => {
+          e.stopPropagation()
+          toggleDropdown()
+        })
+
+        const options = gameSelectorDropdown.querySelectorAll(
+          '[data-select-option]'
+        )
+        options.forEach(option => {
+          option.addEventListener('click', e => {
+            e.stopPropagation()
+            const target = e.currentTarget as HTMLElement
+            const gameId = target.getAttribute('data-value')
+            const gameName = target.textContent?.trim()
+
+            if (gameId && gameName) {
+              selectedValueDisplay.textContent = gameName
+              hiddenInput.value = gameId
+              hiddenInput.dispatchEvent(new Event('change', { bubbles: true }))
+              updateLeaderboardVisibility(gameId)
+            }
+            toggleDropdown(true)
+          })
+        })
+
+        document.addEventListener('click', () => toggleDropdown(true))
+
+        updateLeaderboardVisibility(hiddenInput.value || 'tetris')
+      })
+    </script>
   </main>
 </AppLayout>
 
@@ -377,24 +323,16 @@ const highestScore = Math.max(
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: gradient 3s ease infinite;
+    animation: holographic 3s ease-in-out infinite;
   }
 
-  @keyframes gradient {
-    0% {
+  @keyframes holographic {
+    0%,
+    100% {
       background-position: 0% 50%;
     }
     50% {
       background-position: 100% 50%;
     }
-    100% {
-      background-position: 0% 50%;
-    }
-  }
-
-  .bg-grid-white {
-    background-image:
-      linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
   }
 </style>

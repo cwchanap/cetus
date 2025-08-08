@@ -98,8 +98,10 @@ export async function getGameLeaderboard(
         const results = await db
             .selectFrom('game_scores')
             .leftJoin('user', 'user.id', 'game_scores.user_id')
-            .select([
-                'user.name',
+            .select(eb => [
+                eb
+                    .fn<string>('coalesce', ['user.name', 'user.email'])
+                    .as('name'),
                 'game_scores.score',
                 'game_scores.created_at',
             ])
@@ -109,11 +111,12 @@ export async function getGameLeaderboard(
             .execute()
 
         return results.map(row => ({
-            name: row.name || 'Anonymous Player',
+            name: row.name || 'Anonymous',
             score: row.score,
-            created_at: row.created_at.toString(),
+            created_at: new Date(row.created_at).toISOString(),
         }))
     } catch (error) {
+        console.error('Error fetching leaderboard:', error)
         return []
     }
 }

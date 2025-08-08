@@ -217,3 +217,7 @@ Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+# IMPORTANT!!
+
+Use Playwright MCP to interact with browser for testing. DON't USE windsurf built browser! Also don't run `npm run dev` to start the server as it may already started, check if it is running first: http://localhost:4325/
