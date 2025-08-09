@@ -29,6 +29,7 @@ export class BejeweledGame extends BaseGame<
     private largestMatch: number = 0
     private totalMatches: number = 0
     private animator?: BejeweledAnimator
+    private straightFiveAchieved: boolean = false
 
     constructor(
         gameId: GameID,
@@ -61,6 +62,7 @@ export class BejeweledGame extends BaseGame<
         this.maxCombo = 0
         this.largestMatch = 0
         this.totalMatches = 0
+        this.straightFiveAchieved = false
 
         return {
             score: 0,
@@ -104,6 +106,7 @@ export class BejeweledGame extends BaseGame<
         this.maxCombo = 0
         this.largestMatch = 0
         this.totalMatches = 0
+        this.straightFiveAchieved = false
         this.emitStateChange()
     }
 
@@ -210,6 +213,16 @@ export class BejeweledGame extends BaseGame<
             this.maxCombo = Math.max(this.maxCombo, currentCombo)
             this.totalMatches += matches.length
 
+            // Detect if any match forms a straight line of 5 or more
+            if (!this.straightFiveAchieved) {
+                for (const m of matches) {
+                    if (this.isStraightRunAtLeast(m.positions, 5)) {
+                        this.straightFiveAchieved = true
+                        break
+                    }
+                }
+            }
+
             // Animate annihilation effect for all matched cells
             const allCells = matches.flatMap(m => m.positions)
             await this.animator?.animateClear(
@@ -263,7 +276,60 @@ export class BejeweledGame extends BaseGame<
             maxCombo: s.maxCombo,
             largestMatch: s.largestMatch,
             totalMatches: s.totalMatches,
+            straightFive: this.straightFiveAchieved,
         }
+    }
+
+    private isStraightRunAtLeast(positions: Position[], n: number): boolean {
+        if (positions.length < n) {
+            return false
+        }
+
+        // Group by row and check contiguous columns
+        const byRow = new Map<number, number[]>()
+        for (const p of positions) {
+            const arr = byRow.get(p.row) ?? []
+            arr.push(p.col)
+            byRow.set(p.row, arr)
+        }
+        for (const cols of byRow.values()) {
+            cols.sort((a, b) => a - b)
+            let run = 1
+            for (let i = 1; i < cols.length; i++) {
+                if (cols[i] === cols[i - 1] + 1) {
+                    run++
+                    if (run >= n) {
+                        return true
+                    }
+                } else {
+                    run = 1
+                }
+            }
+        }
+
+        // Group by column and check contiguous rows
+        const byCol = new Map<number, number[]>()
+        for (const p of positions) {
+            const arr = byCol.get(p.col) ?? []
+            arr.push(p.row)
+            byCol.set(p.col, arr)
+        }
+        for (const rows of byCol.values()) {
+            rows.sort((a, b) => a - b)
+            let run = 1
+            for (let i = 1; i < rows.length; i++) {
+                if (rows[i] === rows[i - 1] + 1) {
+                    run++
+                    if (run >= n) {
+                        return true
+                    }
+                } else {
+                    run = 1
+                }
+            }
+        }
+
+        return false
     }
 
     private emitStateChange(): void {

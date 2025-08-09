@@ -409,6 +409,19 @@ export const ACHIEVEMENTS: Achievement[] = [
         rarity: AchievementRarity.RARE,
     },
     {
+        id: 'bejeweled_straight_five',
+        name: 'Five in a Row',
+        description: 'Clear 5 gems in a straight line',
+        logo: '➖',
+        gameId: GameID.BEJEWELED,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { straightFive?: boolean }) =>
+                Boolean(gameData.straightFive),
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
         id: 'bejeweled_match_maker',
         name: 'Match Maker',
         description: 'Clear 20 total matches in a game',
