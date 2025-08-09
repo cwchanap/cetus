@@ -72,6 +72,18 @@ export const ACHIEVEMENTS: Achievement[] = [
         rarity: AchievementRarity.COMMON,
     },
     {
+        id: 'bejeweled_welcome',
+        name: 'First Gem',
+        description: 'Welcome to Bejeweled! You cleared your first match.',
+        logo: '💎',
+        gameId: GameID.BEJEWELED,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
         id: 'quick_math_welcome',
         name: 'First Calculation',
         description: 'Welcome to Quick Math! You solved your first problem.',
@@ -320,6 +332,94 @@ export const ACHIEVEMENTS: Achievement[] = [
             threshold: 800,
         },
         rarity: AchievementRarity.EPIC,
+    },
+
+    // Bejeweled achievements
+    {
+        id: 'bejeweled_novice',
+        name: 'Gem Novice',
+        description: 'Score 100 points in Bejeweled',
+        logo: '🔰',
+        gameId: GameID.BEJEWELED,
+        condition: {
+            type: 'score_threshold',
+            threshold: 100,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'bejeweled_apprentice',
+        name: 'Gem Apprentice',
+        description: 'Score 250 points in Bejeweled',
+        logo: '⭐',
+        gameId: GameID.BEJEWELED,
+        condition: {
+            type: 'score_threshold',
+            threshold: 250,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'bejeweled_expert',
+        name: 'Gem Expert',
+        description: 'Score 500 points in Bejeweled',
+        logo: '💫',
+        gameId: GameID.BEJEWELED,
+        condition: {
+            type: 'score_threshold',
+            threshold: 500,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'bejeweled_master',
+        name: 'Gem Master',
+        description: 'Score 1000 points in Bejeweled',
+        logo: '👑',
+        gameId: GameID.BEJEWELED,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1000,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: 'bejeweled_combo_artist',
+        name: 'Combo Artist',
+        description: 'Reach a combo of 3 or more in a single cascade',
+        logo: '🎨',
+        gameId: GameID.BEJEWELED,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { maxCombo: number }) => gameData.maxCombo >= 3,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'bejeweled_big_gem',
+        name: 'Big Match',
+        description: 'Clear a match of 5 or more gems',
+        logo: '💎',
+        gameId: GameID.BEJEWELED,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { largestMatch: number }) =>
+                gameData.largestMatch >= 5,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'bejeweled_match_maker',
+        name: 'Match Maker',
+        description: 'Clear 20 total matches in a game',
+        logo: '🔗',
+        gameId: GameID.BEJEWELED,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { totalMatches: number }) =>
+                gameData.totalMatches >= 20,
+        },
+        rarity: AchievementRarity.COMMON,
     },
 
     // Memory Matrix achievements
