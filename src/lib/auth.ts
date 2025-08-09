@@ -25,14 +25,7 @@ export const auth = betterAuth({
             httpOnly: true,
         },
     },
-    trustedOrigins: [
-        'http://localhost:4321',
-        'http://localhost:4322',
-        'https://cetus.vercel.app',
-        'http://localhost:4321/#games',
-        'http://localhost:4322/#games',
-        'https://cetus.vercel.app/#games',
-    ],
+    trustedOrigins: ['http://localhost:4325'],
     secret: import.meta.env.BETTER_AUTH_SECRET!,
     baseURL: import.meta.env.BETTER_AUTH_URL || '',
 })
