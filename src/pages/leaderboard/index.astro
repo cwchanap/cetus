@@ -91,14 +91,14 @@ const defaultGameId = games[0]?.id || 'tetris'
             </div>
 
             {/* Game Selector Dropdown */}
-            <div class="mb-8 text-center">
+            <div class="mb-8 flex justify-center">
               <Select
                 options={tabsData.map(tab => ({
                   value: tab.id,
                   label: `${tab.icon} ${tab.label}`,
                 }))}
                 placeholder="Select a game..."
-                class="w-full max-w-md"
+                class="w-full max-w-md mx-auto"
                 id="game-selector"
                 name="game-selector"
                 value={defaultGameId}

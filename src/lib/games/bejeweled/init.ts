@@ -32,6 +32,21 @@ export interface BejeweledInitResult {
     cleanup: () => void
 }
 
+// Minimal shape returned by /api/scores newAchievements payload
+interface AchievementNotification {
+    id: string
+    name: string
+    description: string
+    icon: string
+    rarity: 'common' | 'rare' | 'epic' | 'legendary'
+}
+
+declare global {
+    interface Window {
+        showAchievementAward?: (achievements: AchievementNotification[]) => void
+    }
+}
+
 export async function initBejeweledGame(
     customConfig?: Partial<BejeweledConfig>,
     customCallbacks?: BaseGameCallbacks,
@@ -114,6 +129,21 @@ export async function initBejeweledGame(
     // Wire renderer input to game action
     renderer.setCellClickCallback((row, col) => {
         game.clickCell(row, col)
+    })
+
+    // Show achievement awards on game end (parity with GameInitializer)
+    game.on('end', event => {
+        const data = event.data as {
+            newAchievements?: AchievementNotification[]
+        }
+        if (data?.newAchievements && data.newAchievements.length > 0) {
+            if (
+                typeof window !== 'undefined' &&
+                typeof window.showAchievementAward === 'function'
+            ) {
+                window.showAchievementAward(data.newAchievements)
+            }
+        }
     })
 
     // Hook up standard buttons
