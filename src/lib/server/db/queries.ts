@@ -1,4 +1,6 @@
 import { db } from './client'
+import { sql } from 'kysely'
+import type { GameID } from '../../games'
 import type {
     NewGameScore,
     NewUserStats,
@@ -37,7 +39,7 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
             ...stats,
             total_games_played: distinctGames.length,
         }
-    } catch (error) {
+    } catch (_e) {
         return null
     }
 }
@@ -70,13 +72,14 @@ export async function upsertUserStats(
                 total_games_played: updates.total_games_played || 0,
                 total_score: updates.total_score || 0,
                 favorite_game: updates.favorite_game || null,
+                streak_days: updates.streak_days || 0,
             }
 
             await db.insertInto('user_stats').values(newStats).execute()
         }
 
         return true
-    } catch (error) {
+    } catch (_e) {
         return false
     }
 }
@@ -115,8 +118,7 @@ export async function getGameLeaderboard(
             score: row.score,
             created_at: new Date(row.created_at).toISOString(),
         }))
-    } catch (error) {
-        console.error('Error fetching leaderboard:', error)
+    } catch (_e) {
         return []
     }
 }
@@ -138,7 +140,7 @@ export async function getUserRecentScores(
             .execute()
 
         return scores
-    } catch (error) {
+    } catch (_e) {
         return []
     }
 }
@@ -161,7 +163,7 @@ export async function getUserBestScore(
             .executeTakeFirst()
 
         return result?.score || null
-    } catch (error) {
+    } catch (_e) {
         return null
     }
 }
@@ -194,7 +196,7 @@ export async function saveGameScore(
         })
 
         return true
-    } catch (error) {
+    } catch (_e) {
         return false
     }
 }
@@ -206,7 +208,7 @@ export async function saveGameScoreWithAchievements(
     userId: string,
     gameId: string,
     score: number,
-    gameData?: any
+    gameData?: unknown
 ): Promise<{ success: boolean; newAchievements: string[] }> {
     try {
         // First save the score
@@ -222,7 +224,7 @@ export async function saveGameScoreWithAchievements(
         // Check and award score-based achievements
         const scoreAchievements = await checkAndAwardAchievements(
             userId,
-            gameId as any,
+            gameId as GameID,
             score
         )
 
@@ -231,7 +233,7 @@ export async function saveGameScoreWithAchievements(
         if (gameData) {
             inGameAchievements = await checkInGameAchievements(
                 userId,
-                gameId as any,
+                gameId as GameID,
                 gameData,
                 score
             )
@@ -240,7 +242,7 @@ export async function saveGameScoreWithAchievements(
         const allNewAchievements = [...scoreAchievements, ...inGameAchievements]
 
         return { success: true, newAchievements: allNewAchievements }
-    } catch (error) {
+    } catch (_e) {
         return { success: false, newAchievements: [] }
     }
 }
@@ -277,11 +279,12 @@ export async function getUserGameHistory(
 
         return results.map(row => ({
             game_id: row.game_id,
-            game_name: getGameById(row.game_id as any)?.name || 'Unknown Game',
+            game_name:
+                getGameById(row.game_id as GameID)?.name || 'Unknown Game',
             score: row.score,
             created_at: row.created_at.toString(),
         }))
-    } catch (error) {
+    } catch (_e) {
         return []
     }
 }
@@ -337,7 +340,8 @@ export async function getUserGameHistoryPaginated(
 
         const games = results.map(row => ({
             game_id: row.game_id,
-            game_name: getGameById(row.game_id as any)?.name || 'Unknown Game',
+            game_name:
+                getGameById(row.game_id as GameID)?.name || 'Unknown Game',
             score: row.score,
             created_at: row.created_at.toString(),
         }))
@@ -349,7 +353,7 @@ export async function getUserGameHistoryPaginated(
             pageSize,
             totalPages,
         }
-    } catch (error) {
+    } catch (_e) {
         return {
             games: [],
             total: 0,
@@ -378,7 +382,7 @@ export async function getUserBestScoreByGame(
             .executeTakeFirst()
 
         return result?.score || null
-    } catch (error) {
+    } catch (_e) {
         return null
     }
 }
@@ -401,7 +405,7 @@ export async function updateUser(
             .execute()
 
         return true
-    } catch (error) {
+    } catch (_e) {
         return false
     }
 }
@@ -421,7 +425,7 @@ export async function getUserAchievements(
             .execute()
 
         return userAchievements
-    } catch (error) {
+    } catch (_e) {
         return []
     }
 }
@@ -470,7 +474,7 @@ export async function getUserAchievementsPaginated(
             pageSize,
             totalPages,
         }
-    } catch (error) {
+    } catch (_e) {
         return {
             userAchievements: [],
             total: 0,
@@ -497,7 +501,7 @@ export async function hasUserEarnedAchievement(
             .executeTakeFirst()
 
         return !!result
-    } catch (error) {
+    } catch (_e) {
         return false
     }
 }
@@ -530,7 +534,7 @@ export async function awardAchievement(
             .execute()
 
         return true
-    } catch (error) {
+    } catch (_e) {
         return false
     }
 }
@@ -553,7 +557,126 @@ export async function getUserBestScoreForGame(
             .executeTakeFirst()
 
         return result?.score || 0
-    } catch (error) {
+    } catch (_e) {
         return 0
     }
+}
+
+/**
+ * Ensure streak_days column exists on user_stats (safe, idempotent)
+ */
+export async function ensureStreakColumn(): Promise<void> {
+    try {
+        const result = await sql<{
+            name: string
+        }>`PRAGMA table_info(user_stats)`.execute(db)
+        const hasCol = result.rows?.some(r => r.name === 'streak_days')
+        if (!hasCol) {
+            await sql`ALTER TABLE user_stats ADD COLUMN streak_days INTEGER NOT NULL DEFAULT 0`.execute(
+                db
+            )
+        }
+    } catch (_e) {
+        // swallow to avoid breaking primary flows
+    }
+}
+
+/**
+ * Get all user IDs
+ */
+export async function getAllUserIds(): Promise<string[]> {
+    try {
+        const rows = await db.selectFrom('user').select('id').execute()
+        return rows.map(r => r.id)
+    } catch (_e) {
+        return []
+    }
+}
+
+/**
+ * Get user IDs that had activity between [start, end)
+ */
+export async function getActiveUserIdsBetween(
+    start: Date,
+    end: Date
+): Promise<string[]> {
+    try {
+        const rows = await db
+            .selectFrom('game_scores')
+            .select('user_id')
+            .distinct()
+            .where('created_at', '>=', start)
+            .where('created_at', '<', end)
+            .execute()
+        return rows.map(r => r.user_id)
+    } catch (_e) {
+        return []
+    }
+}
+
+/**
+ * Increment user's streak (creates stats row if missing)
+ */
+export async function incrementUserStreak(userId: string): Promise<boolean> {
+    try {
+        const current = await getUserStats(userId)
+        const next = (current?.streak_days ?? 0) + 1
+        await upsertUserStats(userId, { streak_days: next })
+        return true
+    } catch (_e) {
+        return false
+    }
+}
+
+/**
+ * Reset user's streak to zero (creates stats row if missing)
+ */
+export async function resetUserStreak(userId: string): Promise<boolean> {
+    try {
+        await upsertUserStats(userId, { streak_days: 0 })
+        return true
+    } catch (_e) {
+        return false
+    }
+}
+
+/**
+ * Update all users' streaks for 00:00 UTC.
+ * If user had activity yesterday (UTC), increment streak; otherwise reset to 0.
+ */
+export async function updateAllUserStreaksForUTC(): Promise<{
+    processed: number
+    incremented: number
+    reset: number
+}> {
+    await ensureStreakColumn()
+
+    const now = new Date()
+    const todayUTC = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    )
+    const yesterdayUTC = new Date(todayUTC.getTime() - 24 * 60 * 60 * 1000)
+
+    const [allUserIds, activeYesterday] = await Promise.all([
+        getAllUserIds(),
+        getActiveUserIdsBetween(yesterdayUTC, todayUTC),
+    ])
+
+    const activeSet = new Set(activeYesterday)
+    let inc = 0
+    let rst = 0
+
+    for (const uid of allUserIds) {
+        if (activeSet.has(uid)) {
+            if (await incrementUserStreak(uid)) {
+                inc++
+            }
+        } else {
+            if (await resetUserStreak(uid)) {
+                rst++
+            }
+        }
+    }
+
+    return { processed: allUserIds.length, incremented: inc, reset: rst }
 }

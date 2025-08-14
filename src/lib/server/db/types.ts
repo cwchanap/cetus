@@ -76,6 +76,7 @@ export interface UserStatsTable {
     total_games_played: number
     total_score: number
     favorite_game: string | null
+    streak_days: number
     created_at: ColumnType<Date, never, never> // DEFAULT CURRENT_TIMESTAMP
     updated_at: ColumnType<Date, never, string | Date> // DEFAULT CURRENT_TIMESTAMP
 }
@@ -113,6 +114,7 @@ export type UserStatsUpdate = Partial<{
     total_games_played: number
     total_score: number
     favorite_game: string | null
+    streak_days: number
 }>
 export type UserStats = Selectable<UserStatsTable>
 

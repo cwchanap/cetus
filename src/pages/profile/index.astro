@@ -271,7 +271,7 @@ const memberSince = session?.createdAt
           <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
             Quick Stats
           </h3>
-          <div class="grid grid-cols-3 gap-6">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div class="text-center">
               <div class="text-2xl font-bold text-white mb-1">
                 {userStats?.total_score?.toLocaleString() || 0}
@@ -286,9 +286,22 @@ const memberSince = session?.createdAt
             </div>
             <div class="text-center">
               <div class="text-2xl font-bold text-white mb-1">
-                {userStats?.avg_score?.toFixed(0) || 0}
+                {
+                  userStats
+                    ? Math.round(
+                        (userStats.total_score || 0) /
+                          Math.max(1, userStats.total_games_played || 0)
+                      )
+                    : 0
+                }
               </div>
               <div class="text-sm text-gray-400">Avg Score</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-white mb-1">
+                {userStats?.streak_days || 0}
+              </div>
+              <div class="text-sm text-gray-400">Streak Days</div>
             </div>
           </div>
         </Card>
