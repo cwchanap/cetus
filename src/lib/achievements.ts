@@ -547,6 +547,86 @@ export const ACHIEVEMENTS: Achievement[] = [
         rarity: AchievementRarity.LEGENDARY,
     },
 
+    // Word Scramble hidden word-specific achievements
+    {
+        id: 'word_secret_dog',
+        name: 'Pawsitive Thinker',
+        description: 'Unscramble the hidden word: dog',
+        logo: '🐶',
+        gameId: GameID.WORD_SCRAMBLE,
+        condition: {
+            type: 'in_game',
+            check: (gameData: {
+                lastCorrectWord?: string
+                correctWords?: string[]
+            }) => {
+                const target = 'dog'
+                const last = (gameData?.lastCorrectWord || '').toLowerCase()
+                const words = Array.isArray(gameData?.correctWords)
+                    ? gameData.correctWords
+                    : []
+                return (
+                    last === target ||
+                    words.some(w => (w || '').toLowerCase() === target)
+                )
+            },
+        },
+        isHidden: true,
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'word_secret_supernova',
+        name: 'Stellar Mind',
+        description: 'Unscramble the hidden word: supernova',
+        logo: '🌌',
+        gameId: GameID.WORD_SCRAMBLE,
+        condition: {
+            type: 'in_game',
+            check: (gameData: {
+                lastCorrectWord?: string
+                correctWords?: string[]
+            }) => {
+                const target = 'supernova'
+                const last = (gameData?.lastCorrectWord || '').toLowerCase()
+                const words = Array.isArray(gameData?.correctWords)
+                    ? gameData.correctWords
+                    : []
+                return (
+                    last === target ||
+                    words.some(w => (w || '').toLowerCase() === target)
+                )
+            },
+        },
+        isHidden: true,
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: 'word_secret_mercury',
+        name: 'Swift Messenger',
+        description: 'Unscramble the hidden word: mercury',
+        logo: '🪐',
+        gameId: GameID.WORD_SCRAMBLE,
+        condition: {
+            type: 'in_game',
+            check: (gameData: {
+                lastCorrectWord?: string
+                correctWords?: string[]
+            }) => {
+                const target = 'mercury'
+                const last = (gameData?.lastCorrectWord || '').toLowerCase()
+                const words = Array.isArray(gameData?.correctWords)
+                    ? gameData.correctWords
+                    : []
+                return (
+                    last === target ||
+                    words.some(w => (w || '').toLowerCase() === target)
+                )
+            },
+        },
+        isHidden: true,
+        rarity: AchievementRarity.RARE,
+    },
+
     // Path Navigator achievements
     {
         id: 'path_navigator_welcome',

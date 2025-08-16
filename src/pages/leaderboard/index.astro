@@ -67,13 +67,17 @@ const defaultGameId = games[0]?.id || 'tetris'
     <Section class="py-20">
       <Container class="max-w-6xl">
         {/* Page Title */}
-        <div class="text-center mb-12">
+        <div class="mb-12">
           <div
             class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full mb-6"
           >
             <span class="text-2xl">🏆</span>
           </div>
-          <Heading level={1} class="text-4xl md:text-5xl font-bold mb-4">
+          <Heading
+            level={1}
+            align="center"
+            class="text-4xl md:text-5xl font-bold mb-4"
+          >
             <span class="holographic-text">Leaderboards</span>
           </Heading>
           <p class="text-xl text-gray-300 max-w-2xl mx-auto">
@@ -91,14 +95,15 @@ const defaultGameId = games[0]?.id || 'tetris'
             </div>
 
             {/* Game Selector Dropdown */}
-            <div class="mb-8 flex justify-center">
+            <div class="mb-8 flex justify-end">
               <Select
+                client:load
                 options={tabsData.map(tab => ({
                   value: tab.id,
                   label: `${tab.icon} ${tab.label}`,
                 }))}
                 placeholder="Select a game..."
-                class="w-full max-w-md mx-auto"
+                class="w-96"
                 id="game-selector"
                 name="game-selector"
                 value={defaultGameId}

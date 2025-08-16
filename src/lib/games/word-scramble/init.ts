@@ -19,7 +19,7 @@ const GAME_CONFIG: GameConfig = {
 let gameInstance: WordScrambleGame | null = null
 
 export async function initWordScrambleGame(externalCallbacks?: {
-    onGameOver?: (finalScore: number, stats: any) => void
+    onGameOver?: (finalScore: number, stats: GameStats) => void
 }): Promise<any> {
     // Get DOM elements
     const scrambledWordElement = document.getElementById('scrambled-word')
@@ -149,7 +149,7 @@ export async function initWordScrambleGame(externalCallbacks?: {
             }
         },
 
-        onCorrectAnswer: (word: string) => {
+        onCorrectAnswer: (_word: string) => {
             // Update stats
             if (gameInstance) {
                 const state = gameInstance.getState()
@@ -172,7 +172,7 @@ export async function initWordScrambleGame(externalCallbacks?: {
             }
         },
 
-        onIncorrectAnswer: (word: string, userAnswer: string) => {
+        onIncorrectAnswer: (_word: string, _userAnswer: string) => {
             // Update stats
             if (gameInstance) {
                 const state = gameInstance.getState()
@@ -252,8 +252,19 @@ export async function initWordScrambleGame(externalCallbacks?: {
                     }
                     callbacks.onScoreUpload?.(true)
                 },
-                error => {
+                _error => {
                     callbacks.onScoreUpload?.(false)
+                },
+                {
+                    lastCorrectWord: (() => {
+                        const words = stats.wordsUnscrambled
+                            .filter(w => w.correct)
+                            .map(w => w.word)
+                        return words[words.length - 1] || null
+                    })(),
+                    correctWords: stats.wordsUnscrambled
+                        .filter(w => w.correct)
+                        .map(w => w.word),
                 }
             )
 
@@ -263,7 +274,7 @@ export async function initWordScrambleGame(externalCallbacks?: {
             }
         },
 
-        onScoreUpload: (success: boolean) => {
+        onScoreUpload: (_success: boolean) => {
             // Score upload completed
         },
     }

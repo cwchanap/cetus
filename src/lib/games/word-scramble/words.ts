@@ -135,6 +135,8 @@ export const WORD_DATABASE: WordDatabase = {
         'science',
         'treasure',
         'universe',
+        'supernova',
+        'mercury',
         'victory',
         'wonderful',
         'excellent',
