@@ -9,9 +9,7 @@ import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
 
-import Tabs from '@/components/ui/Tabs.astro'
-import TabsTrigger from '@/components/ui/TabsTrigger.astro'
-import TabsContent from '@/components/ui/TabsContent.astro'
+import Select from '@/components/ui/Select.astro'
 import Pagination from '@/components/ui/Pagination.astro'
 
 import { getUserAchievements } from '@/lib/server/db/queries'
@@ -39,6 +37,7 @@ const currentPage = Math.max(
   parseInt(url.searchParams.get('page') || '1', 10)
 )
 const pageSize = 10 // Default page size
+const selectedGame = (url.searchParams.get('game') || 'all').toString()
 
 // Get all achievements and user's earned achievements
 const userAchievementRecords = await getUserAchievements(user.id)
@@ -83,13 +82,17 @@ const allAchievementDisplayData = allAchievements
     return rarityDiff !== 0 ? rarityDiff : a.name.localeCompare(b.name)
   })
 
+// Narrowed display type for achievements on this page
+type DisplayAchievement = (typeof allAchievementDisplayData)[number]
+
 // Apply pagination to the full achievement list
-const paginatedResults = getPaginatedAchievements(
+const paginatedResults = getPaginatedAchievements<DisplayAchievement>(
   allAchievementDisplayData,
   currentPage,
   pageSize
 )
-const achievementDisplayData = paginatedResults.achievements
+const achievementDisplayData: DisplayAchievement[] =
+  paginatedResults.achievements
 
 // Group all achievements by game (for non-paginated tabs)
 const allAchievementsByGame = allAchievementDisplayData.reduce(
@@ -101,11 +104,11 @@ const allAchievementsByGame = allAchievementDisplayData.reduce(
     acc[gameId].push(achievement)
     return acc
   },
-  {} as Record<string, typeof allAchievementDisplayData>
+  {} as Record<string, DisplayAchievement[]>
 )
 
-// Get game filter options
-const gameFilterOptions = [
+// Dropdown options for game filter
+const gameOptions = [
   { value: 'all', label: 'All Games' },
   { value: 'global', label: 'Global' },
   ...games
@@ -113,30 +116,14 @@ const gameFilterOptions = [
     .map(game => ({ value: game.id, label: game.name })),
 ]
 
-// Create tabs data for games with achievements
-const tabsData = [
-  {
-    id: 'all',
-    label: 'All',
-    achievements: achievementDisplayData, // Use paginated data for "All" tab
-    isPaginated: true,
-    paginationData: paginatedResults,
-  },
-  {
-    id: 'global',
-    label: 'Global',
-    achievements: allAchievementsByGame['global'] || [],
-    isPaginated: false,
-  },
-  ...games
-    .filter(game => allAchievementsByGame[game.id])
-    .map(game => ({
-      id: game.id,
-      label: game.name,
-      achievements: allAchievementsByGame[game.id] || [],
-      isPaginated: false,
-    })),
-]
+// Resolve displayed achievements based on selected game
+const isPaginated = selectedGame === 'all'
+const displayedAchievements: DisplayAchievement[] =
+  selectedGame === 'all'
+    ? achievementDisplayData
+    : selectedGame === 'global'
+      ? allAchievementsByGame['global'] || []
+      : allAchievementsByGame[selectedGame] || []
 
 // Get stats
 const totalEarnedCount = earnedAchievementIds.size
@@ -251,9 +238,8 @@ const totalAchievementsCount = allAchievements.length
 
         <!-- Achievements Section -->
         <Card variant="glass" class="p-6 md:p-8">
-          <!-- Game Filter Tabs -->
+          <!-- Game Filter Dropdown -->
           <div class="mb-8">
-            <!-- Enhanced Game Tabs Filter -->
             <div class="relative">
               <!-- Background glow effects -->
               <div
@@ -265,210 +251,190 @@ const totalAchievementsCount = allAchievements.length
               >
               </div>
 
-              <Tabs
-                variant="glass"
-                defaultTab="all"
-                data-default-tab="all"
-                class="relative"
+              <div
+                class="relative z-10 flex items-center justify-between gap-4 p-4 bg-gray-900/30 rounded-xl border border-cyan-400/20 backdrop-blur-md"
               >
-                <div
-                  slot="tabs"
-                  class="gap-3 p-4 bg-gray-900/30 rounded-xl border border-cyan-400/20 backdrop-blur-md"
-                >
-                  {
-                    tabsData.map(tab => (
-                      <TabsTrigger
-                        value={tab.id}
-                        class="font-orbitron font-semibold px-6 py-3 rounded-lg border border-transparent hover:text-holographic hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:glow-cyan transition-all duration-300 relative group"
-                      >
-                        <div class="flex items-center gap-3">
-                          <span class="text-lg">
-                            {tab.id === 'all'
-                              ? '🌟'
-                              : tab.id === 'global'
-                                ? '🌍'
-                                : '🎯'}
-                          </span>
-                          <span>{tab.label}</span>
-                          <Badge
-                            variant="outline"
-                            size="sm"
-                            class="border-cyan-400/30 text-cyan-400 bg-cyan-500/10 group-hover:bg-cyan-500/20 group-hover:border-cyan-400/50 transition-all duration-300"
-                          >
-                            {tab.id === 'all'
-                              ? `${allAchievementDisplayData.filter(a => a.earned).length}/${allAchievementDisplayData.length}`
-                              : `${tab.achievements.filter(a => a.earned).length}/${tab.achievements.length}`}
-                          </Badge>
-                        </div>
-
-                        <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-cyan-400 to-purple-400 group-data-[state=active]:w-full transition-all duration-300" />
-                      </TabsTrigger>
-                    ))
-                  }
+                <div class="flex items-center gap-3">
+                  <span class="text-lg">🎮</span>
+                  <span class="font-orbitron font-semibold">Filter</span>
                 </div>
-
-                <div slot="panels">
-                  {
-                    tabsData.map(tab => (
-                      <TabsContent value={tab.id}>
-                        {tab.achievements.length > 0 ? (
-                          <div class="space-y-6">
-                            <div class="space-y-4">
-                              {tab.achievements.map(achievement => (
-                                <div
-                                  class={`
-                                relative p-4 md:p-6 rounded-xl border transition-all duration-300 hover:scale-[1.02] w-full
-                                ${
-                                  achievement.earned
-                                    ? `bg-gradient-to-r from-${achievement.rarity === AchievementRarity.LEGENDARY ? 'yellow' : achievement.rarity === AchievementRarity.EPIC ? 'purple' : achievement.rarity === AchievementRarity.RARE ? 'blue' : 'green'}-500/10 to-cyan-500/10 border-${achievement.rarity === AchievementRarity.LEGENDARY ? 'yellow' : achievement.rarity === AchievementRarity.EPIC ? 'purple' : achievement.rarity === AchievementRarity.RARE ? 'blue' : 'green'}-400/30 ${achievement.rarityGlow}`
-                                    : 'bg-gray-800/30 border-gray-700/50 opacity-60'
-                                }
-                              `}
-                                >
-                                  <div class="flex items-start gap-6">
-                                    <div class="flex-shrink-0">
-                                      <div
-                                        class={`
-                                      text-3xl md:text-4xl p-3 md:p-4 rounded-full border
-                                      ${
-                                        achievement.earned
-                                          ? achievement.rarityColor
-                                          : 'bg-gray-700/50 border-gray-600/50'
-                                      }
-                                    `}
-                                      >
-                                        {achievement.logo}
-                                      </div>
-                                    </div>
-
-                                    <div class="flex-1 min-w-0">
-                                      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                                        <div class="flex-1">
-                                          <h4 class="font-orbitron font-bold text-white text-lg md:text-xl mb-2">
-                                            {achievement.name}
-                                          </h4>
-                                          <p class="text-sm md:text-base text-gray-400 mb-3">
-                                            {achievement.description}
-                                          </p>
-                                          <div class="flex flex-wrap items-center gap-2 mb-2">
-                                            <Badge
-                                              variant={
-                                                achievement.earned
-                                                  ? 'success'
-                                                  : 'outline'
-                                              }
-                                              size="sm"
-                                              class="w-fit"
-                                            >
-                                              {achievement.earned
-                                                ? 'Earned'
-                                                : 'Locked'}
-                                            </Badge>
-                                            <Badge
-                                              variant="outline"
-                                              size="sm"
-                                              class={`w-fit capitalize ${achievement.rarityColor}`}
-                                            >
-                                              {achievement.rarity}
-                                            </Badge>
-                                            {achievement.gameId !==
-                                              'global' && (
-                                              <Badge
-                                                variant="outline"
-                                                size="sm"
-                                                class="w-fit text-purple-400 border-purple-400/30"
-                                              >
-                                                {achievement.gameId.replace(
-                                                  '_',
-                                                  ' '
-                                                )}
-                                              </Badge>
-                                            )}
-                                          </div>
-                                          {achievement.earned &&
-                                            achievement.earnedAt && (
-                                              <p class="text-sm text-cyan-400">
-                                                Earned{' '}
-                                                {new Date(
-                                                  achievement.earnedAt
-                                                ).toLocaleDateString('en-US', {
-                                                  year: 'numeric',
-                                                  month: 'long',
-                                                  day: 'numeric',
-                                                  hour: '2-digit',
-                                                  minute: '2-digit',
-                                                })}
-                                              </p>
-                                            )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {!achievement.earned && (
-                                    <div class="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-end pr-4">
-                                      <div class="text-gray-500 text-3xl md:text-4xl">
-                                        🔒
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Add pagination for "All" tab */}
-                            {tab.id === 'all' &&
-                              tab.isPaginated &&
-                              tab.paginationData && (
-                                <Pagination
-                                  currentPage={tab.paginationData.page}
-                                  totalPages={tab.paginationData.totalPages}
-                                  pageSize={tab.paginationData.pageSize}
-                                  total={tab.paginationData.total}
-                                  class="mt-8"
-                                />
-                              )}
-                          </div>
-                        ) : (
-                          <div class="text-center py-12">
-                            <div class="text-6xl mb-4 opacity-50">🏆</div>
-                            <p class="text-gray-400">
-                              No achievements in this category yet
-                            </p>
-                            <p class="text-sm text-gray-500 mt-2">
-                              Play games to start earning achievements!
-                            </p>
-                          </div>
-                        )}
-                      </TabsContent>
-                    ))
-                  }
+                <div class="w-full md:w-64" id="game-filter-container">
+                  <Select
+                    id="game-filter-select"
+                    name="game"
+                    value={selectedGame}
+                    options={gameOptions}
+                    variant="glass"
+                  />
                 </div>
-              </Tabs>
+              </div>
             </div>
           </div>
+
+          {
+            displayedAchievements.length > 0 ? (
+              <div class="space-y-6">
+                <div class="space-y-4">
+                  {displayedAchievements.map(achievement => (
+                    <div
+                      class={`
+                      relative p-4 md:p-6 rounded-xl border transition-all duration-300 hover:scale-[1.02] w-full
+                      ${
+                        achievement.earned
+                          ? `bg-gradient-to-r from-${achievement.rarity === AchievementRarity.LEGENDARY ? 'yellow' : achievement.rarity === AchievementRarity.EPIC ? 'purple' : achievement.rarity === AchievementRarity.RARE ? 'blue' : 'green'}-500/10 to-cyan-500/10 border-${achievement.rarity === AchievementRarity.LEGENDARY ? 'yellow' : achievement.rarity === AchievementRarity.EPIC ? 'purple' : achievement.rarity === AchievementRarity.RARE ? 'blue' : 'green'}-400/30 ${achievement.rarityGlow}`
+                          : 'bg-gray-800/30 border-gray-700/50 opacity-60'
+                      }
+                    `}
+                      data-achievement
+                    >
+                      <div class="flex items-start gap-6">
+                        <div class="flex-shrink-0">
+                          <div
+                            class={`
+                            text-3xl md:text-4xl p-3 md:p-4 rounded-full border
+                            ${
+                              achievement.earned
+                                ? achievement.rarityColor
+                                : 'bg-gray-700/50 border-gray-600/50'
+                            }
+                          `}
+                          >
+                            {achievement.isHidden && !achievement.earned
+                              ? '🔒'
+                              : achievement.logo}
+                          </div>
+                        </div>
+
+                        <div class="flex-1 min-w-0">
+                          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                            <div class="flex-1">
+                              <h4 class="font-orbitron font-bold text-white text-lg md:text-xl mb-2">
+                                {achievement.isHidden && !achievement.earned
+                                  ? 'Hidden achievement'
+                                  : achievement.name}
+                              </h4>
+                              {!(
+                                achievement.isHidden && !achievement.earned
+                              ) && (
+                                <>
+                                  <p class="text-sm md:text-base text-gray-400 mb-3">
+                                    {achievement.description}
+                                  </p>
+                                  <div class="flex flex-wrap items-center gap-2 mb-2">
+                                    <Badge
+                                      variant={
+                                        achievement.earned
+                                          ? 'success'
+                                          : 'outline'
+                                      }
+                                      size="sm"
+                                      class="w-fit"
+                                    >
+                                      {achievement.earned ? 'Earned' : 'Locked'}
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      size="sm"
+                                      class={`w-fit capitalize ${achievement.rarityColor}`}
+                                    >
+                                      {achievement.rarity}
+                                    </Badge>
+                                    {achievement.gameId !== 'global' && (
+                                      <Badge
+                                        variant="outline"
+                                        size="sm"
+                                        class="w-fit text-purple-400 border-purple-400/30"
+                                      >
+                                        {achievement.gameId.replace('_', ' ')}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                              {achievement.earned && achievement.earnedAt && (
+                                <p class="text-sm text-cyan-400">
+                                  Earned{' '}
+                                  {new Date(
+                                    achievement.earnedAt
+                                  ).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {!achievement.earned && (
+                        <div class="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-end pr-4">
+                          <div class="text-gray-500 text-3xl md:text-4xl">
+                            🔒
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {isPaginated && (
+                  <Pagination
+                    currentPage={paginatedResults.page}
+                    totalPages={paginatedResults.totalPages}
+                    pageSize={paginatedResults.pageSize}
+                    total={paginatedResults.total}
+                    class="mt-8"
+                  />
+                )}
+              </div>
+            ) : (
+              <div class="text-center py-12">
+                <div class="text-6xl mb-4 opacity-50">🏆</div>
+                <p class="text-gray-400">
+                  No achievements in this category yet
+                </p>
+                <p class="text-sm text-gray-500 mt-2">
+                  Play games to start earning achievements!
+                </p>
+              </div>
+            )
+          }
         </Card>
       </Container>
     </Section>
 
     <script>
       document.addEventListener('DOMContentLoaded', () => {
-        const tabsContainer = document.querySelector('[data-tabs-container]')
+        // Handle dropdown change -> update URL ?game and page param
+        const container = document.getElementById('game-filter-container')
+        const hiddenInput = container?.querySelector(
+          '[data-select-input]'
+        ) as HTMLInputElement | null
 
-        if (tabsContainer) {
-          // Listen for tab changes to reset pagination
-          tabsContainer.addEventListener('tab-change', (event: any) => {
-            const selectedTab = event.detail.value
-
-            // Reset to first page when switching tabs (if on paginated content)
-            if (selectedTab === 'all') {
-              const currentUrl = new URL(window.location.href)
-              const currentPage = currentUrl.searchParams.get('page')
-              if (currentPage && currentPage !== '1') {
-                currentUrl.searchParams.set('page', '1')
-                window.location.href = currentUrl.toString()
-              }
+        if (hiddenInput) {
+          hiddenInput.addEventListener('change', (e: Event) => {
+            const value = (e.target as HTMLInputElement).value
+            const current = new URL(window.location.href)
+            const url = new URL(window.location.href)
+            url.searchParams.set('game', value)
+            if (value === 'all') {
+              url.searchParams.set('page', '1')
+            } else {
+              url.searchParams.delete('page')
             }
+
+            // Only navigate if the destination actually differs
+            const nextPath = url.pathname + url.search
+            const currentPath = current.pathname + current.search
+            if (nextPath === currentPath) {
+              return
+            }
+
+            window.location.href = url.toString()
           })
         }
 

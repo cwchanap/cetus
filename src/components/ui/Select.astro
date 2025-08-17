@@ -42,7 +42,7 @@ const selectVariants = {
 }
 
 const defaultClasses =
-  'relative w-full border transition-all duration-200 cursor-pointer focus:outline-none'
+  'w-full border transition-all duration-200 cursor-pointer focus:outline-none'
 
 const sciFiClasses = 'font-orbitron shadow-lg backdrop-blur-sm'
 
@@ -65,9 +65,13 @@ const optionClasses = cn(
   'hover:bg-cyan-400/20 hover:text-cyan-300',
   'focus:bg-cyan-400/30 focus:text-cyan-200 focus:outline-none'
 )
+
+// Compute initial label on the server to avoid client-side placeholder flicker
+const selectedOption = options.find(o => o.value === value)
+const initialLabel = selectedOption ? selectedOption.label : placeholder
 ---
 
-<div class="relative" {...props}>
+<div class="relative" data-select-root {...props}>
   <div
     class={selectClasses}
     style="border-radius: 0.5rem;"
@@ -79,7 +83,7 @@ const optionClasses = cn(
     id={id}
   >
     <span class="block truncate" data-select-value>
-      {placeholder}
+      {initialLabel}
     </span>
     <span
       class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none"
@@ -111,6 +115,7 @@ const optionClasses = cn(
           role="option"
           data-value={option.value}
           data-select-option
+          aria-selected={option.value === value ? 'true' : undefined}
         >
           {option.label}
         </div>
@@ -197,7 +202,8 @@ const optionClasses = cn(
             option => option.dataset.value === initialValue
           )
           if (initialOption) {
-            this.selectOption(initialOption)
+            // Initialize UI without dispatching a change event
+            this.applyInitialOption(initialOption)
           }
         }
       }
@@ -246,11 +252,35 @@ const optionClasses = cn(
       this.trigger.focus()
     }
 
+    private applyInitialOption(option: HTMLElement) {
+      const value = option.dataset.value
+      const label = option.textContent?.trim() || ''
+      if (!value) {
+        return
+      }
+
+      this.selectedValue = value
+      this.selectedLabel = label
+      this.valueSpan.textContent = label
+      // Keep hidden input in sync without dispatching change
+      this.hiddenInput.value = value
+
+      // Update selected state
+      this.options.forEach(opt => opt.removeAttribute('aria-selected'))
+      option.setAttribute('aria-selected', 'true')
+    }
+
     private selectOption(option: HTMLElement) {
       const value = option.dataset.value
       const label = option.textContent?.trim() || ''
 
       if (!value) {
+        return
+      }
+
+      // If selecting the already-selected value, just close without dispatching
+      if (value === this.hiddenInput.value) {
+        this.close()
         return
       }
 
@@ -346,15 +376,12 @@ const optionClasses = cn(
 
   // Initialize all select components
   const initSelects = () => {
-    const selects = document.querySelectorAll('[data-select-trigger]')
-    selects.forEach(select => {
-      const container = select.closest('.relative') as HTMLElement
-      if (container) {
-        try {
-          new SelectComponent(container)
-        } catch (error) {
-          // Failed to initialize Select component
-        }
+    const containers = document.querySelectorAll('[data-select-root]')
+    containers.forEach(container => {
+      try {
+        new SelectComponent(container as HTMLElement)
+      } catch (_error) {
+        // Failed to initialize Select component
       }
     })
   }

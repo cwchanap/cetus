@@ -221,3 +221,8 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 # IMPORTANT!!
 
 Use Playwright MCP to interact with browser for testing. DON't USE windsurf built browser! Also don't run `npm run dev` to start the server as it may already started, check if it is running first: http://localhost:4325/
+
+# Test account
+
+email: test@test.com
+password: testtest

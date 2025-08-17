@@ -899,12 +899,12 @@ export function getAllAchievements(): Achievement[] {
 }
 
 // Pagination helper functions
-export function getPaginatedAchievements(
-    achievements: Achievement[],
+export function getPaginatedAchievements<T extends Achievement>(
+    achievements: T[],
     page: number = 1,
     pageSize: number = 10
 ): {
-    achievements: Achievement[]
+    achievements: T[]
     total: number
     page: number
     pageSize: number
