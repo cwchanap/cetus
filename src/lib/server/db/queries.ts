@@ -124,6 +124,46 @@ export async function getGameLeaderboard(
 }
 
 /**
+ * Get user's daily activity counts for a specific year (UTC day buckets).
+ * Returns array of { date: 'YYYY-MM-DD', count } for days that have activity.
+ */
+export async function getUserDailyActivity(
+    userId: string,
+    year?: number
+): Promise<Array<{ date: string; count: number }>> {
+    try {
+        const now = new Date()
+        const y = year ?? now.getUTCFullYear()
+
+        const start = new Date(Date.UTC(y, 0, 1))
+        const end = new Date(Date.UTC(y + 1, 0, 1))
+
+        // strftime('%Y-%m-%d', created_at) groups by UTC-like day string
+        const dayExpr = sql<string>`strftime('%Y-%m-%d', "created_at")`
+
+        const rows = (await db
+            .selectFrom('game_scores')
+            .select([dayExpr.as('day'), db.fn.count('id').as('count')])
+            .where('user_id', '=', userId)
+            .where('created_at', '>=', start)
+            .where('created_at', '<', end)
+            .groupBy(dayExpr)
+            .orderBy('day', 'asc')
+            .execute()) as unknown as Array<{
+            day: string
+            count: number | string | bigint
+        }>
+
+        return rows.map(r => ({
+            date: r.day,
+            count: Number(r.count),
+        }))
+    } catch (_e) {
+        return []
+    }
+}
+
+/**
  * Get user's recent game scores
  */
 export async function getUserRecentScores(

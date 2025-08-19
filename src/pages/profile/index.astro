@@ -9,7 +9,7 @@ import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
 
-import { getUserStats } from '@/lib/server/db/queries'
+import { getUserStats, getUserDailyActivity } from '@/lib/server/db/queries'
 
 // Check if user is authenticated
 const user = Astro.locals.user
@@ -22,6 +22,86 @@ if (!user) {
 
 // Fetch user stats
 const userStats = await getUserStats(user.id)
+
+// Build contribution data for current year (UTC)
+const now = new Date()
+const year = now.getUTCFullYear()
+const rawDaily = await getUserDailyActivity(user.id, year)
+const dailyMap = new Map(rawDaily.map(d => [d.date, d.count]))
+
+const firstDay = new Date(Date.UTC(year, 0, 1))
+const lastDay = new Date(Date.UTC(year + 1, 0, 0)) // Dec 31
+
+// Start from Sunday on or before Jan 1
+const calendarStart = new Date(firstDay)
+calendarStart.setUTCDate(firstDay.getUTCDate() - firstDay.getUTCDay())
+
+// End on Saturday on or after Dec 31
+const calendarEnd = new Date(lastDay)
+calendarEnd.setUTCDate(lastDay.getUTCDate() + (6 - lastDay.getUTCDay()))
+
+type DayCell = { date: Date; dateStr: string; count: number; month: number }
+const weeks: DayCell[][] = []
+const d = new Date(calendarStart)
+let maxCount = 0
+while (d <= calendarEnd) {
+  const week: DayCell[] = []
+  for (let i = 0; i < 7; i++) {
+    const y = d.getUTCFullYear()
+    const m = d.getUTCMonth()
+    const day = d.getUTCDate()
+    const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const inYear = d >= firstDay && d <= lastDay
+    const count = inYear ? (dailyMap.get(dateStr) ?? 0) : -1 // -1 = padding cell
+    if (count > maxCount) {
+      maxCount = count
+    }
+    week.push({ date: new Date(d), dateStr, count, month: m })
+    d.setUTCDate(d.getUTCDate() + 1)
+  }
+  weeks.push(week)
+}
+
+// Precompute month label per week using first in-year day to avoid showing previous year's Dec before Jan
+const weekLabelMonth: number[] = weeks.map(week => {
+  const inYearCell =
+    week.find(c => c.date >= firstDay && c.date <= lastDay) ?? week[0]
+  return inYearCell.month
+})
+const showMonthFlags: boolean[] = weekLabelMonth.map(
+  (m, i) => i === 0 || weekLabelMonth[i - 1] !== m
+)
+
+function intensityLevel(count: number): 0 | 1 | 2 | 3 | 4 {
+  if (count <= 0) {
+    return 0
+  }
+  if (count <= 1) {
+    return 1
+  }
+  if (count <= 3) {
+    return 2
+  }
+  if (count <= 6) {
+    return 3
+  }
+  return 4
+}
+
+const monthShort = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
 
 // Get user display name
 const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
@@ -261,6 +341,98 @@ const memberSince = session?.createdAt
                   <span>Games Played: {userStats?.total_games_played || 0}</span
                   >
                 </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <!-- Activity Graph -->
+        <Card variant="glass" class="p-6 mb-8">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400">
+              Activity · {year}
+            </h3>
+            <div
+              class="hidden sm:flex items-center gap-2 text-xs text-gray-400"
+            >
+              <span>Less</span>
+              <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-gray-800/60"
+              ></span>
+              <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-500/10"
+              ></span>
+              <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-500/30"
+              ></span>
+              <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-400/60"
+              ></span>
+              <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-300"
+              ></span>
+              <span>More</span>
+            </div>
+          </div>
+          <div class="flex">
+            <!-- Month Labels -->
+            <div class="sticky left-0 text-xs text-gray-400 hidden md:block">
+              <div class="h-[0.891rem]"></div>
+              <div class="grid grid-rows-7 auto-rows-[0.891rem] gap-[2px]">
+                <span class="h-[0.891rem]">Sun</span>
+                <span class="h-[0.891rem]">Mon</span>
+                <span class="h-[0.891rem]">Tue</span>
+                <span class="h-[0.891rem]">Wed</span>
+                <span class="h-[0.891rem]">Thu</span>
+                <span class="h-[0.891rem]">Fri</span>
+                <span class="h-[0.891rem]">Sat</span>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto" data-testid="activity-graph">
+              <div class="flex items-start gap-[2px]">
+                {
+                  weeks.map((week, wi) => {
+                    const labelMonth = weekLabelMonth[wi]
+                    const showMonth = showMonthFlags[wi]
+                    return (
+                      <div
+                        class="flex flex-col items-center w-[0.891rem] shrink-0"
+                        title={showMonth ? monthShort[labelMonth] : ''}
+                      >
+                        <div class="h-[0.891rem] leading-[0.891rem] whitespace-nowrap overflow-visible text-[10px] text-gray-400">
+                          {showMonth ? monthShort[labelMonth] : ''}
+                        </div>
+                        <div class="grid grid-rows-7 auto-rows-[0.891rem] gap-[2px]">
+                          {week.map(day => {
+                            const lvl =
+                              day.count < 0 ? -1 : intensityLevel(day.count)
+                            const cls =
+                              lvl === -1
+                                ? 'opacity-20 bg-transparent'
+                                : lvl === 0
+                                  ? 'bg-gray-800/60'
+                                  : lvl === 1
+                                    ? 'bg-cyan-500/10'
+                                    : lvl === 2
+                                      ? 'bg-cyan-500/30'
+                                      : lvl === 3
+                                        ? 'bg-cyan-400/60'
+                                        : 'bg-cyan-300'
+
+                            const tooltip =
+                              day.count < 0
+                                ? ''
+                                : `${day.count} activit${day.count === 1 ? 'y' : 'ies'} on ${day.date.toUTCString().slice(0, 16)}`
+
+                            return (
+                              <div
+                                data-testid="activity-cell"
+                                class={`w-[0.891rem] h-[0.891rem] rounded-[3px] ${cls}`}
+                                title={tooltip}
+                              />
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })
+                }
               </div>
             </div>
           </div>
@@ -570,6 +742,7 @@ const memberSince = session?.createdAt
             cropImage.src = e.target.result as string
             cropImage.style.display = 'block'
             cropModal?.classList.remove('hidden')
+            cropModal?.classList.add('flex')
 
             // Wait for image to load before initializing cropper
             cropImage.onload = () => {
@@ -805,6 +978,7 @@ const memberSince = session?.createdAt
       function closeCropModal() {
         // Hide modal first
         cropModal?.classList.add('hidden')
+        cropModal?.classList.remove('flex')
 
         // Destroy cropper instance completely
         if (cropper) {
@@ -904,7 +1078,7 @@ const memberSince = session?.createdAt
   <!-- Image Cropping Modal -->
   <div
     id="crop-modal"
-    class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4"
+    class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4"
   >
     <div
       class="bg-gray-900 rounded-lg border border-cyan-400/30 p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
