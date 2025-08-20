@@ -95,6 +95,7 @@ export async function getGameLeaderboard(
         name: string
         score: number
         created_at: string
+        image: string | null
     }>
 > {
     try {
@@ -107,16 +108,27 @@ export async function getGameLeaderboard(
                     .as('name'),
                 'game_scores.score',
                 'game_scores.created_at',
+                'user.image',
             ])
             .where('game_scores.game_id', '=', gameId)
             .orderBy('game_scores.score', 'desc')
             .limit(limit)
             .execute()
 
-        return results.map(row => ({
+        type Row = {
+            name: string | null
+            score: number
+            created_at: Date
+            image: string | null
+        }
+
+        const rows = results as Row[]
+
+        return rows.map(row => ({
             name: row.name || 'Anonymous',
             score: row.score,
             created_at: new Date(row.created_at).toISOString(),
+            image: row.image ?? null,
         }))
     } catch (_e) {
         return []
