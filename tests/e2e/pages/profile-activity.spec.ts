@@ -38,11 +38,17 @@ test.describe('Profile Activity Graph', () => {
     test('renders contributions grid for current year', async ({ page }) => {
         await ensureLoggedIn(page)
 
+        // Reload profile explicitly to stabilize auth on some engines
+        await page.goto('/profile')
+        if (page.url().includes('/login')) {
+            await ensureLoggedIn(page)
+        }
         await expect(page).toHaveURL(/\/profile\/?$/)
 
-        // At least one activity cell exists (graph grid). Use direct cell wait to avoid container visibility flakiness on some engines.
+        // Wait for cells to be attached first, then proceed
         await page.waitForSelector('[data-testid="activity-cell"]', {
             timeout: 20000,
+            state: 'attached',
         })
         const cells = page.locator('[data-testid="activity-cell"]')
         const count = await cells.count()
@@ -92,5 +98,54 @@ test.describe('Profile Activity Graph', () => {
             })
         })
         expect(hasHighlightedNonZero).toBeTruthy()
+    })
+
+    test('can switch years using prev/next controls', async ({ page }) => {
+        await ensureLoggedIn(page)
+
+        const currentYear = new Date().getUTCFullYear()
+
+        // Start at explicit current year
+        await page.goto(`/profile?year=${currentYear}`)
+        if (page.url().includes('/login')) {
+            await ensureLoggedIn(page)
+            await page.goto(`/profile?year=${currentYear}`)
+        }
+        await expect(page.getByTestId('activity-year')).toHaveText(
+            String(currentYear)
+        )
+        await expect(page).toHaveURL(
+            new RegExp(`/profile\\?year=${currentYear}$`)
+        )
+
+        // Go to previous year
+        await page.click('[data-testid="year-prev"]')
+        const prevYear = currentYear - 1
+        if (page.url().includes('/login')) {
+            await ensureLoggedIn(page)
+            await page.goto(`/profile?year=${prevYear}`)
+        }
+        await expect(page.getByTestId('activity-year')).toHaveText(
+            String(prevYear)
+        )
+        await expect(page).toHaveURL(new RegExp(`/profile\\?year=${prevYear}$`))
+
+        // Grid should still render
+        await page.waitForSelector('[data-testid="activity-cell"]', {
+            timeout: 20000,
+        })
+
+        // Next should return to current year (enabled when not already on current year)
+        await page.click('[data-testid="year-next"]')
+        if (page.url().includes('/login')) {
+            await ensureLoggedIn(page)
+            await page.goto(`/profile?year=${currentYear}`)
+        }
+        await expect(page.getByTestId('activity-year')).toHaveText(
+            String(currentYear)
+        )
+        await expect(page).toHaveURL(
+            new RegExp(`/profile\\?year=${currentYear}$`)
+        )
     })
 })

@@ -23,15 +23,28 @@ if (!user) {
 // Fetch user stats
 const userStats = await getUserStats(user.id)
 
-// Build contribution data for current year (UTC)
+// Build contribution data for selected year (UTC) via query param (?year=YYYY)
 const now = new Date()
-const year = now.getUTCFullYear()
+const currentYear = now.getUTCFullYear()
+const yearParam = Astro.url.searchParams.get('year')
+const parsedYear = yearParam ? parseInt(yearParam, 10) : currentYear
+const year =
+  Number.isFinite(parsedYear) &&
+  parsedYear >= 1970 &&
+  parsedYear <= currentYear + 10
+    ? parsedYear
+    : currentYear
 const rawDaily = await getUserDailyActivity(user.id, year)
 const dailyMap = new Map(rawDaily.map(d => [d.date, d.count]))
 const totalActivities = rawDaily.reduce((sum, d) => sum + (d.count || 0), 0)
 
 const firstDay = new Date(Date.UTC(year, 0, 1))
 const lastDay = new Date(Date.UTC(year + 1, 0, 0)) // Dec 31
+
+// Year navigation helpers
+const canGoNext = year < currentYear
+const prevYear = year - 1
+const nextYear = canGoNext ? year + 1 : year
 
 // Start from Sunday on or before Jan 1
 const calendarStart = new Date(firstDay)
@@ -351,26 +364,53 @@ const memberSince = session?.createdAt
         <Card variant="glass" class="p-6 mb-8">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-orbitron font-bold text-cyan-400">
-              Activity · {year}
+              Activity · <span data-testid="activity-year">{year}</span>
               <span class="ml-2 text-sm text-gray-400 font-normal">
                 {totalActivities} activit{totalActivities === 1 ? 'y' : 'ies'}
               </span>
             </h3>
-            <div
-              class="hidden sm:flex items-center gap-2 text-xs text-gray-400"
-            >
-              <span>Less</span>
-              <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-gray-800/60"
-              ></span>
-              <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-500/10"
-              ></span>
-              <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-500/30"
-              ></span>
-              <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-400/60"
-              ></span>
-              <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-300"
-              ></span>
-              <span>More</span>
+            <div class="flex items-center gap-4">
+              <!-- Year controls -->
+              <div class="flex items-center gap-2 text-xs">
+                <a
+                  data-testid="year-prev"
+                  href={`/profile?year=${prevYear}`}
+                  class="px-2 py-1 rounded border border-gray-600/50 text-gray-300 hover:text-white hover:border-cyan-400/50 transition-colors"
+                  aria-label="Previous year"
+                >
+                  ◀ {prevYear}
+                </a>
+                <a
+                  data-testid="year-next"
+                  href={`/profile?year=${nextYear}`}
+                  class={`px-2 py-1 rounded border border-gray-600/50 transition-colors ${canGoNext ? 'text-gray-300 hover:text-white hover:border-cyan-400/50' : 'pointer-events-none opacity-40 text-gray-500'}`}
+                  aria-label="Next year"
+                  aria-disabled={!canGoNext}
+                >
+                  {nextYear} ▶
+                </a>
+              </div>
+              <!-- Legend -->
+              <div
+                class="hidden sm:flex items-center gap-2 text-xs text-gray-400"
+              >
+                <span>Less</span>
+                <span
+                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-gray-800/60"
+                ></span>
+                <span
+                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-500/10"
+                ></span>
+                <span
+                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-500/30"
+                ></span>
+                <span
+                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-400/60"
+                ></span>
+                <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-300"
+                ></span>
+                <span>More</span>
+              </div>
             </div>
           </div>
           <div class="flex">
