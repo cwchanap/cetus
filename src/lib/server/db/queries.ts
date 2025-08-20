@@ -135,18 +135,20 @@ export async function getUserDailyActivity(
         const now = new Date()
         const y = year ?? now.getUTCFullYear()
 
-        const start = new Date(Date.UTC(y, 0, 1))
-        const end = new Date(Date.UTC(y + 1, 0, 1))
+        // Filter by year directly using SQLite strftime to avoid type/format issues
+        const yearStr = String(y)
 
-        // strftime('%Y-%m-%d', created_at) groups by UTC-like day string
-        const dayExpr = sql<string>`strftime('%Y-%m-%d', "created_at")`
+        // Use UTC for grouping to match UTC calendar logic in the UI
+        const dayExpr = sql<string>`strftime('%Y-%m-%d', "created_at", 'utc')`
 
         const rows = (await db
             .selectFrom('game_scores')
             .select([dayExpr.as('day'), db.fn.count('id').as('count')])
             .where('user_id', '=', userId)
-            .where('created_at', '>=', start)
-            .where('created_at', '<', end)
+            // Filter by matching year in UTC
+            .where(
+                sql<boolean>`strftime('%Y', "created_at", 'utc') = ${yearStr}`
+            )
             .groupBy(dayExpr)
             .orderBy('day', 'asc')
             .execute()) as unknown as Array<{

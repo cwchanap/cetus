@@ -72,5 +72,25 @@ test.describe('Profile Activity Graph', () => {
             }
         }
         expect(anyMonthVisible).toBeTruthy()
+
+        // Verify at least one non-zero activity cell is highlighted (cyan background)
+        const hasHighlightedNonZero = await page.evaluate(() => {
+            const cells = Array.from(
+                document.querySelectorAll('[data-testid="activity-cell"]')
+            )
+            return cells.some(el => {
+                const title = el.getAttribute('title') || ''
+                const match = title.match(/^(\d+)\s+activit/)
+                const count = parseInt(match?.[1] ?? '0', 10)
+                if (count <= 0) {
+                    return false
+                }
+                const cls = el.getAttribute('class') || ''
+                const bg = getComputedStyle(el).backgroundColor
+                // Cyan highlight classes are used for >0 counts
+                return /bg-cyan/.test(cls) && bg !== 'rgba(0, 0, 0, 0)'
+            })
+        })
+        expect(hasHighlightedNonZero).toBeTruthy()
     })
 })

@@ -28,6 +28,7 @@ const now = new Date()
 const year = now.getUTCFullYear()
 const rawDaily = await getUserDailyActivity(user.id, year)
 const dailyMap = new Map(rawDaily.map(d => [d.date, d.count]))
+const totalActivities = rawDaily.reduce((sum, d) => sum + (d.count || 0), 0)
 
 const firstDay = new Date(Date.UTC(year, 0, 1))
 const lastDay = new Date(Date.UTC(year + 1, 0, 0)) // Dec 31
@@ -351,6 +352,9 @@ const memberSince = session?.createdAt
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-orbitron font-bold text-cyan-400">
               Activity · {year}
+              <span class="ml-2 text-sm text-gray-400 font-normal">
+                {totalActivities} activit{totalActivities === 1 ? 'y' : 'ies'}
+              </span>
             </h3>
             <div
               class="hidden sm:flex items-center gap-2 text-xs text-gray-400"
@@ -608,8 +612,7 @@ const memberSince = session?.createdAt
           } else {
             showMessage(result.error || 'Failed to update profile', 'error')
           }
-        } catch (error) {
-          console.error('Error updating profile:', error)
+        } catch (_error) {
           showMessage('Network error. Please try again.', 'error')
         } finally {
           // Reset button
@@ -647,9 +650,24 @@ const memberSince = session?.createdAt
       let cropImage = document.getElementById('crop-image') as HTMLImageElement
       const cropContainer = document.getElementById('crop-container')
       const cropCancelBtn = document.getElementById('crop-cancel-btn')
-      const cropApplyBtn = document.getElementById('crop-apply-btn')
+      const cropApplyBtn = document.getElementById(
+        'crop-apply-btn'
+      ) as HTMLButtonElement
 
-      let cropper: any = null
+      type CropperInstance = {
+        destroy?: () => void
+        getCroppedCanvas?: (options?: {
+          width?: number
+          height?: number
+          imageSmoothingEnabled?: boolean
+          imageSmoothingQuality?: 'low' | 'medium' | 'high'
+        }) => HTMLCanvasElement
+        zoomTo?: (ratio: number) => void
+        getContainerData?: () => { width: number; height: number }
+        getImageData?: () => { naturalWidth: number; naturalHeight: number }
+      }
+
+      let cropper: CropperInstance | null = null
 
       // Click overlay to trigger file input (but not when clicking remove button)
       avatarUploadOverlay?.addEventListener('click', e => {
@@ -695,8 +713,7 @@ const memberSince = session?.createdAt
           } else {
             showMessage(result.error || 'Failed to remove avatar', 'error')
           }
-        } catch (error) {
-          console.error('Error removing avatar:', error)
+        } catch (_error) {
           showMessage('Network error. Please try again.', 'error')
         }
       })
@@ -730,8 +747,8 @@ const memberSince = session?.createdAt
         if (cropper && typeof cropper.destroy === 'function') {
           try {
             cropper.destroy()
-          } catch (error) {
-            console.warn('Error destroying existing cropper:', error)
+          } catch (_error) {
+            // noop
           }
           cropper = null
         }
@@ -750,7 +767,11 @@ const memberSince = session?.createdAt
               import('cropperjs')
                 .then(({ default: Cropper }) => {
                   try {
-                    cropper = new Cropper(cropImage, {
+                    const CropperCtor = Cropper as unknown as new (
+                      image: HTMLImageElement,
+                      options: object
+                    ) => CropperInstance
+                    cropper = new CropperCtor(cropImage, {
                       aspectRatio: 1,
                       viewMode: 1, // Restrict crop box to not exceed the size of the canvas
                       dragMode: 'move',
@@ -772,10 +793,10 @@ const memberSince = session?.createdAt
                       // Ensure canvas fills container
                       minCanvasWidth: 480,
                       minCanvasHeight: 480,
-                      ready: function () {
+                      ready: () => {
                         // Auto-fit image to fill container when ready
-                        const containerData = this.cropper.getContainerData()
-                        const imageData = this.cropper.getImageData()
+                        const containerData = cropper?.getContainerData?.()
+                        const imageData = cropper?.getImageData?.()
 
                         if (
                           containerData &&
@@ -792,18 +813,16 @@ const memberSince = session?.createdAt
                           const scale = Math.max(scaleX, scaleY, 0.8) // Minimum scale
 
                           // Apply the scale to fill container better
-                          this.cropper.zoomTo(scale)
+                          cropper?.zoomTo?.(scale)
                         }
                       },
-                    } as any)
-                  } catch (error) {
-                    console.error('Error creating cropper:', error)
+                    })
+                  } catch (_error) {
                     showMessage('Failed to initialize image cropper', 'error')
                     closeCropModal()
                   }
                 })
-                .catch(error => {
-                  console.error('Error loading cropper library:', error)
+                .catch(_error => {
                   showMessage('Failed to load image cropper', 'error')
                   closeCropModal()
                 })
@@ -842,7 +861,7 @@ const memberSince = session?.createdAt
 
           // Convert to blob
           canvas.toBlob(
-            async blob => {
+            async (blob: Blob | null) => {
               if (!blob) {
                 showMessage('Failed to process image', 'error')
                 return
@@ -939,8 +958,7 @@ const memberSince = session?.createdAt
                             'error'
                           )
                         }
-                      } catch (error) {
-                        console.error('Error removing avatar:', error)
+                      } catch (_error) {
                         showMessage('Network error. Please try again.', 'error')
                       }
                     })
@@ -954,16 +972,14 @@ const memberSince = session?.createdAt
                     'error'
                   )
                 }
-              } catch (error) {
-                console.error('Error uploading avatar:', error)
+              } catch (_error) {
                 showMessage('Network error. Please try again.', 'error')
               }
             },
             'image/png',
             0.9
           )
-        } catch (error) {
-          console.error('Error processing image:', error)
+        } catch (_error) {
           showMessage('Failed to process image', 'error')
         } finally {
           // Reset button
@@ -986,8 +1002,8 @@ const memberSince = session?.createdAt
             if (typeof cropper.destroy === 'function') {
               cropper.destroy()
             }
-          } catch (error) {
-            console.warn('Error destroying cropper:', error)
+          } catch (_error) {
+            // noop
           }
           cropper = null
         }
@@ -1001,8 +1017,8 @@ const memberSince = session?.createdAt
           cropperElements.forEach(el => {
             try {
               el.remove()
-            } catch (error) {
-              console.warn('Error removing cropper element:', error)
+            } catch (_error) {
+              // noop
             }
           })
 
