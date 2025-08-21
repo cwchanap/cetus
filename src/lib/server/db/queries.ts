@@ -93,6 +93,7 @@ export async function getGameLeaderboard(
 ): Promise<
     Array<{
         name: string
+        username: string | null
         score: number
         created_at: string
         image: string | null
@@ -112,6 +113,7 @@ export async function getGameLeaderboard(
                         'user.email',
                     ])
                     .as('name'),
+                'user.username',
                 'game_scores.score',
                 'game_scores.created_at',
                 'user.image',
@@ -123,6 +125,7 @@ export async function getGameLeaderboard(
 
         type Row = {
             name: string | null
+            username: string | null
             score: number
             created_at: Date
             image: string | null
@@ -132,6 +135,7 @@ export async function getGameLeaderboard(
 
         return rows.map(row => ({
             name: row.name || 'Anonymous',
+            username: row.username ?? null,
             score: row.score,
             created_at: new Date(row.created_at).toISOString(),
             image: row.image ?? null,
@@ -192,6 +196,95 @@ export async function isUsernameAvailable(
         return !row
     } catch (_e) {
         return false
+    }
+}
+
+/**
+ * Get a user by username (for public profile viewing)
+ */
+export type PublicUser = {
+    id: string
+    username: string | null
+    displayName: string | null
+    image: string | null
+    name: string
+    email: string
+    createdAt: string // ISO string
+}
+
+export async function getUserByUsername(
+    username: string
+): Promise<PublicUser | null> {
+    try {
+        await ensureUserIdentityColumns()
+        const row = await db
+            .selectFrom('user')
+            .select([
+                'id',
+                'username',
+                'displayName',
+                'image',
+                'name',
+                'email',
+                'createdAt',
+            ])
+            .where('username', '=', username)
+            .executeTakeFirst()
+
+        if (!row) {
+            return null
+        }
+        return {
+            id: row.id,
+            username: row.username ?? null,
+            displayName: row.displayName ?? null,
+            image: row.image ?? null,
+            name: row.name,
+            email: row.email,
+            createdAt: new Date(String(row.createdAt)).toISOString(),
+        }
+    } catch (_e) {
+        return null
+    }
+}
+
+/**
+ * Get a user by ID (includes public identity fields)
+ */
+export async function getUserIdentityById(
+    userId: string
+): Promise<PublicUser | null> {
+    try {
+        await ensureUserIdentityColumns()
+        const row = await db
+            .selectFrom('user')
+            .select([
+                'id',
+                'username',
+                'displayName',
+                'image',
+                'name',
+                'email',
+                'createdAt',
+            ])
+            .where('id', '=', userId)
+            .executeTakeFirst()
+
+        if (!row) {
+            return null
+        }
+
+        return {
+            id: row.id,
+            username: row.username ?? null,
+            displayName: row.displayName ?? null,
+            image: row.image ?? null,
+            name: row.name,
+            email: row.email,
+            createdAt: new Date(String(row.createdAt)).toISOString(),
+        }
+    } catch (_e) {
+        return null
     }
 }
 

@@ -1,0 +1,408 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+
+// UI components
+import Container from '@/components/ui/Container.astro'
+import Section from '@/components/ui/Section.astro'
+import Heading from '@/components/ui/Heading.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+
+// Server-side queries
+import {
+  getUserByUsername,
+  getUserStats,
+  getUserDailyActivity,
+} from '@/lib/server/db/queries'
+
+// Params
+const usernameParam = (Astro.params.username || '').toLowerCase()
+
+// If somehow no username on this route, fallback to private profile (which redirects to login if needed)
+if (!usernameParam) {
+  return Astro.redirect('/profile')
+}
+
+const publicUser = await getUserByUsername(usernameParam)
+
+if (!publicUser) {
+  Astro.response.status = 404
+}
+
+// Compute identity safely (no email reveal on public page)
+const userDisplayName = publicUser
+  ? publicUser.displayName ||
+    publicUser.username ||
+    publicUser.name ||
+    'Cetus Player'
+  : 'User Not Found'
+
+// Stats + activity if user exists
+const userId = publicUser?.id
+const userStats = userId ? await getUserStats(userId) : null
+
+// Build contribution data for selected year (UTC) via query param (?year=YYYY)
+const now = new Date()
+const currentYear = now.getUTCFullYear()
+const yearParam = Astro.url.searchParams.get('year')
+const parsedYear = yearParam ? parseInt(yearParam, 10) : currentYear
+const year =
+  Number.isFinite(parsedYear) &&
+  parsedYear >= 1970 &&
+  parsedYear <= currentYear + 10
+    ? parsedYear
+    : currentYear
+
+const rawDaily = userId ? await getUserDailyActivity(userId, year) : []
+const dailyMap = new Map(rawDaily.map(d => [d.date, d.count]))
+const totalActivities = rawDaily.reduce((sum, d) => sum + (d.count || 0), 0)
+
+const firstDay = new Date(Date.UTC(year, 0, 1))
+const lastDay = new Date(Date.UTC(year + 1, 0, 0)) // Dec 31
+
+// Year navigation helpers
+const canGoNext = year < currentYear
+const prevYear = year - 1
+const nextYear = canGoNext ? year + 1 : year
+
+// Start from Sunday on or before Jan 1
+const calendarStart = new Date(firstDay)
+calendarStart.setUTCDate(firstDay.getUTCDate() - firstDay.getUTCDay())
+
+// End on Saturday on or after Dec 31
+const calendarEnd = new Date(lastDay)
+calendarEnd.setUTCDate(lastDay.getUTCDate() + (6 - lastDay.getUTCDay()))
+
+type DayCell = { date: Date; dateStr: string; count: number; month: number }
+const weeks: DayCell[][] = []
+const d = new Date(calendarStart)
+let maxCount = 0
+while (d <= calendarEnd) {
+  const week: DayCell[] = []
+  for (let i = 0; i < 7; i++) {
+    const y = d.getUTCFullYear()
+    const m = d.getUTCMonth()
+    const day = d.getUTCDate()
+    const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const inYear = d >= firstDay && d <= lastDay
+    const count = inYear ? (dailyMap.get(dateStr) ?? 0) : -1 // -1 = padding cell
+    if (count > maxCount) {
+      maxCount = count
+    }
+    week.push({ date: new Date(d), dateStr, count, month: m })
+    d.setUTCDate(d.getUTCDate() + 1)
+  }
+  weeks.push(week)
+}
+
+// Precompute month label per week using first in-year day
+const weekLabelMonth: number[] = weeks.map(week => {
+  const inYearCell =
+    week.find(c => c.date >= firstDay && c.date <= lastDay) ?? week[0]
+  return inYearCell.month
+})
+const showMonthFlags: boolean[] = weekLabelMonth.map(
+  (m, i) => i === 0 || weekLabelMonth[i - 1] !== m
+)
+
+function intensityLevel(count: number): 0 | 1 | 2 | 3 | 4 {
+  if (count <= 0) {
+    return 0
+  }
+  if (count <= 1) {
+    return 1
+  }
+  if (count <= 3) {
+    return 2
+  }
+  if (count <= 6) {
+    return 3
+  }
+  return 4
+}
+
+const monthShort = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
+
+const memberSince = publicUser?.createdAt
+  ? new Date(publicUser.createdAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+  : '—'
+---
+
+<AppLayout
+  title={`@${usernameParam} - Profile - Cetus`}
+  description={`Public profile for @${usernameParam} on Cetus`}
+>
+  <!-- Animated background -->
+  <div class="fixed inset-0 pointer-events-none">
+    <div
+      class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"
+    >
+    </div>
+    <div
+      class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse"
+      style="animation-delay: 1s;"
+    >
+    </div>
+    <div
+      class="absolute inset-0 bg-gradient-radial from-pink-400/15 via-transparent to-transparent animate-pulse"
+      style="animation-delay: 2s;"
+    >
+    </div>
+  </div>
+
+  <main class="relative z-10 min-h-screen">
+    <Section class="py-20">
+      <Container class="max-w-4xl">
+        <!-- Page Title -->
+        <div class="text-center mb-12">
+          <Heading level={1} variant="hero" align="center" class="mb-4">
+            {publicUser ? 'PLAYER PROFILE' : 'USER NOT FOUND'}
+          </Heading>
+          <p class="text-gray-400 text-lg">
+            {
+              publicUser
+                ? 'View player statistics and activity'
+                : 'We could not find this user'
+            }
+          </p>
+        </div>
+
+        <!-- If no user -->
+        {
+          !publicUser && (
+            <Card variant="glass" class="p-8 text-center">
+              <p class="text-gray-300 mb-6">
+                No user exists for username <strong>@{usernameParam}</strong>.
+              </p>
+              <a href="/" class="text-cyan-400 hover:text-cyan-300">
+                Return Home
+              </a>
+            </Card>
+          )
+        }
+
+        {
+          publicUser && (
+            <>
+              {/* User Info Card (read-only) */}
+              <Card variant="glass" class="p-6 md:p-8 mb-8">
+                <div class="flex flex-row items-start">
+                  {/* Avatar */}
+                  <div class="flex-shrink-0 mr-2.5">
+                    <div class="relative">
+                      <div class="w-20 h-20 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-400/25 overflow-hidden">
+                        {publicUser.image ? (
+                          <img
+                            src={publicUser.image}
+                            alt="User avatar"
+                            class="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span class="text-2xl font-bold text-white">
+                            {userDisplayName.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* User Details (no editing controls) */}
+                  <div class="flex-1 min-w-0 text-left">
+                    <div class="flex items-center gap-3 mb-2">
+                      <div class="flex-1">
+                        <div class="flex items-center gap-3">
+                          <h2 class="text-2xl font-orbitron font-bold text-holographic">
+                            {userDisplayName}
+                          </h2>
+                          <Badge variant="success" size="sm">
+                            {' '}
+                            Space Explorer 🚀{' '}
+                          </Badge>
+                        </div>
+                        <div class="mt-1 text-sm text-gray-400">
+                          <span>@{publicUser.username}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-sm text-gray-400 space-y-2 sm:space-y-0">
+                      <div class="flex items-center justify-start space-x-1">
+                        <span>📅</span>
+                        <span>Member since {memberSince}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Activity Graph */}
+              <Card variant="glass" class="p-6 mb-8">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-lg font-orbitron font-bold text-cyan-400">
+                    Activity · <span data-testid="activity-year">{year}</span>
+                    <span class="ml-2 text-sm text-gray-400 font-normal">
+                      {totalActivities} activit
+                      {totalActivities === 1 ? 'y' : 'ies'}
+                    </span>
+                  </h3>
+                  <div class="flex items-center gap-4">
+                    {/* Year controls */}
+                    <div class="flex items-center gap-2 text-xs">
+                      <a
+                        data-testid="year-prev"
+                        href={`/profile/${publicUser.username}?year=${prevYear}`}
+                        class="px-2 py-1 rounded border border-gray-600/50 text-gray-300 hover:text-white hover:border-cyan-400/50 transition-colors"
+                        aria-label="Previous year"
+                      >
+                        ◀ {prevYear}
+                      </a>
+                      <a
+                        data-testid="year-next"
+                        href={`/profile/${publicUser.username}?year=${nextYear}`}
+                        class={`px-2 py-1 rounded border border-gray-600/50 transition-colors ${canGoNext ? 'text-gray-300 hover:text-white hover:border-cyan-400/50' : 'pointer-events-none opacity-40 text-gray-500'}`}
+                        aria-label="Next year"
+                        aria-disabled={!canGoNext}
+                      >
+                        {nextYear} ▶
+                      </a>
+                    </div>
+
+                    {/* Legend */}
+                    <div class="hidden sm:flex items-center gap-2 text-xs text-gray-400">
+                      <span>Less</span>
+                      <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-gray-800/60" />
+                      <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-500/10" />
+                      <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-500/30" />
+                      <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-400/60" />
+                      <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-300" />
+                      <span>More</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex">
+                  {/* Month Labels */}
+                  <div class="sticky left-0 text-xs text-gray-400 hidden md:block">
+                    <div class="h-[0.891rem]" />
+                    <div class="grid grid-rows-7 auto-rows-[0.891rem] gap-[2px]">
+                      <span class="h-[0.891rem]">Sun</span>
+                      <span class="h-[0.891rem]">Mon</span>
+                      <span class="h-[0.891rem]">Tue</span>
+                      <span class="h-[0.891rem]">Wed</span>
+                      <span class="h-[0.891rem]">Thu</span>
+                      <span class="h-[0.891rem]">Fri</span>
+                      <span class="h-[0.891rem]">Sat</span>
+                    </div>
+                  </div>
+
+                  <div class="overflow-x-auto" data-testid="activity-graph">
+                    <div class="flex items-start gap-[2px]">
+                      {weeks.map((week, wi) => {
+                        const labelMonth = weekLabelMonth[wi]
+                        const showMonth = showMonthFlags[wi]
+                        return (
+                          <div
+                            class="flex flex-col items-center w-[0.891rem] shrink-0"
+                            title={showMonth ? monthShort[labelMonth] : ''}
+                          >
+                            <div class="h-[0.891rem] leading-[0.891rem] whitespace-nowrap overflow-visible text-[10px] text-gray-400">
+                              {showMonth ? monthShort[labelMonth] : ''}
+                            </div>
+                            <div class="grid grid-rows-7 auto-rows-[0.891rem] gap-[2px]">
+                              {week.map(day => {
+                                const lvl =
+                                  day.count < 0 ? -1 : intensityLevel(day.count)
+                                const cls =
+                                  lvl === -1
+                                    ? 'opacity-20 bg-transparent'
+                                    : lvl === 0
+                                      ? 'bg-gray-800/60'
+                                      : lvl === 1
+                                        ? 'bg-cyan-500/10'
+                                        : lvl === 2
+                                          ? 'bg-cyan-500/30'
+                                          : lvl === 3
+                                            ? 'bg-cyan-400/60'
+                                            : 'bg-cyan-300'
+                                const tooltip =
+                                  day.count < 0
+                                    ? ''
+                                    : `${day.count} activit${day.count === 1 ? 'y' : 'ies'} on ${day.date.toUTCString().slice(0, 16)}`
+                                return (
+                                  <div
+                                    data-testid="activity-cell"
+                                    class={`w-[0.891rem] h-[0.891rem] rounded-[3px] ${cls}`}
+                                    title={tooltip}
+                                  />
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Quick Stats */}
+              <Card variant="glass" class="p-6 mb-8">
+                <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+                  Quick Stats
+                </h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-white mb-1">
+                      {userStats?.total_score?.toLocaleString() || 0}
+                    </div>
+                    <div class="text-sm text-gray-400">Total Score</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-white mb-1">
+                      {userStats?.total_games_played || 0}
+                    </div>
+                    <div class="text-sm text-gray-400">Games Played</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-white mb-1">
+                      {userStats
+                        ? Math.round(
+                            (userStats.total_score || 0) /
+                              Math.max(1, userStats.total_games_played || 0)
+                          )
+                        : 0}
+                    </div>
+                    <div class="text-sm text-gray-400">Avg Score</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-white mb-1">
+                      {userStats?.streak_days || 0}
+                    </div>
+                    <div class="text-sm text-gray-400">Streak Days</div>
+                  </div>
+                </div>
+              </Card>
+            </>
+          )
+        }
+      </Container>
+    </Section>
+  </main>
+</AppLayout>

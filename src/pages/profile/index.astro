@@ -9,7 +9,11 @@ import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
 
-import { getUserStats, getUserDailyActivity } from '@/lib/server/db/queries'
+import {
+  getUserStats,
+  getUserDailyActivity,
+  getUserIdentityById,
+} from '@/lib/server/db/queries'
 
 // Check if user is authenticated
 const user = Astro.locals.user
@@ -20,7 +24,8 @@ if (!user) {
   return Astro.redirect('/login?redirect=/profile')
 }
 
-// Fetch user stats
+// Fetch user identity and stats
+const identity = await getUserIdentityById(user.id)
 const userStats = await getUserStats(user.id)
 
 // Build contribution data for selected year (UTC) via query param (?year=YYYY)
@@ -117,18 +122,16 @@ const monthShort = [
   'Dec',
 ]
 
-// Get user display identity with new priority
-type MaybeIdentity = { displayName?: string | null; username?: string | null }
-const u = user as typeof user & MaybeIdentity
+// Get user display identity with new priority (prefer DB identity)
 const userDisplayName =
-  u.displayName ||
-  u.username ||
+  identity?.displayName ||
+  identity?.username ||
   user.name ||
   user.email?.split('@')[0] ||
   'Anonymous User'
 const userEmail = user.email || 'No email provided'
-const displayNameInitial = u.displayName || ''
-const usernameInitial = u.username || ''
+const displayNameInitial = identity?.displayName || ''
+const usernameInitial = identity?.username || ''
 
 // Get user's registration date from session or use a default
 const memberSince = session?.createdAt

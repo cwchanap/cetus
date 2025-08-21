@@ -16,6 +16,7 @@ import { getGameLeaderboard } from '@/lib/server/db/queries'
 // Define types
 type LeaderboardEntry = {
   name: string
+  username: string | null
   score: number
   created_at: string
   image: string | null
@@ -185,18 +186,45 @@ const defaultGameId = games[0]?.id || 'tetris'
                                       >
                                         {index + 1}
                                       </div>
-                                      <Avatar
-                                        size="sm"
-                                        variant="cyan-purple"
-                                        src={entry.image || undefined}
-                                        alt={`${entry.name || 'Anonymous'} avatar`}
-                                        fallback={(
-                                          entry.name?.[0] || 'A'
-                                        ).toUpperCase()}
-                                      />
+                                      {entry.username ? (
+                                        <a
+                                          href={`/profile/${entry.username}`}
+                                          aria-label={`View @${entry.username} profile`}
+                                          class="block"
+                                        >
+                                          <Avatar
+                                            size="sm"
+                                            variant="cyan-purple"
+                                            src={entry.image || undefined}
+                                            alt={`${entry.name || 'Anonymous'} avatar`}
+                                            fallback={(
+                                              entry.name?.[0] || 'A'
+                                            ).toUpperCase()}
+                                          />
+                                        </a>
+                                      ) : (
+                                        <Avatar
+                                          size="sm"
+                                          variant="cyan-purple"
+                                          src={entry.image || undefined}
+                                          alt={`${entry.name || 'Anonymous'} avatar`}
+                                          fallback={(
+                                            entry.name?.[0] || 'A'
+                                          ).toUpperCase()}
+                                        />
+                                      )}
                                       <div>
                                         <div class="font-semibold text-white">
-                                          {entry.name || 'Anonymous'}
+                                          {entry.username ? (
+                                            <a
+                                              href={`/profile/${entry.username}`}
+                                              class="hover:text-cyan-300"
+                                            >
+                                              {entry.name || 'Anonymous'}
+                                            </a>
+                                          ) : (
+                                            entry.name || 'Anonymous'
+                                          )}
                                         </div>
                                         <div class="text-sm text-gray-400">
                                           {new Date(
