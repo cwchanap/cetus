@@ -104,7 +104,13 @@ export async function getGameLeaderboard(
             .leftJoin('user', 'user.id', 'game_scores.user_id')
             .select(eb => [
                 eb
-                    .fn<string>('coalesce', ['user.name', 'user.email'])
+                    .fn<string>('coalesce', [
+                        // Prefer new fields, keep legacy fallbacks for safety
+                        'user.displayName',
+                        'user.username',
+                        'user.name',
+                        'user.email',
+                    ])
                     .as('name'),
                 'game_scores.score',
                 'game_scores.created_at',
@@ -132,6 +138,60 @@ export async function getGameLeaderboard(
         }))
     } catch (_e) {
         return []
+    }
+}
+
+/**
+ * Ensure user identity columns (displayName, username) and unique index exist.
+ * Safe and idempotent for SQLite/LibSQL.
+ */
+export async function ensureUserIdentityColumns(): Promise<void> {
+    try {
+        const result = await sql<{
+            name: string
+        }>`PRAGMA table_info("user")`.execute(db)
+        const cols = result.rows?.map(r => r.name) ?? []
+
+        if (!cols.includes('displayName')) {
+            await sql`ALTER TABLE "user" ADD COLUMN displayName TEXT`.execute(
+                db
+            )
+        }
+
+        if (!cols.includes('username')) {
+            await sql`ALTER TABLE "user" ADD COLUMN username TEXT`.execute(db)
+        }
+
+        // Create unique index for username (allows multiple NULLs by SQLite semantics)
+        await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON "user" (username)`.execute(
+            db
+        )
+    } catch (_e) {
+        // swallow to avoid breaking primary flows
+    }
+}
+
+/**
+ * Check if a username is available (optionally excluding a specific user ID).
+ */
+export async function isUsernameAvailable(
+    username: string,
+    excludeUserId?: string
+): Promise<boolean> {
+    try {
+        await ensureUserIdentityColumns()
+        const q = db
+            .selectFrom('user')
+            .select('id')
+            .where('username', '=', username)
+
+        const row = excludeUserId
+            ? await q.where('id', '!=', excludeUserId).executeTakeFirst()
+            : await q.executeTakeFirst()
+
+        return !row
+    } catch (_e) {
+        return false
     }
 }
 
@@ -449,6 +509,8 @@ export async function updateUser(
     updates: UserUpdate
 ): Promise<boolean> {
     try {
+        // Ensure columns exist before attempting to update new fields
+        await ensureUserIdentityColumns()
         await db
             .updateTable('user')
             .set({

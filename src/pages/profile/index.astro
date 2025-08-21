@@ -117,9 +117,18 @@ const monthShort = [
   'Dec',
 ]
 
-// Get user display name
-const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
+// Get user display identity with new priority
+type MaybeIdentity = { displayName?: string | null; username?: string | null }
+const u = user as typeof user & MaybeIdentity
+const userDisplayName =
+  u.displayName ||
+  u.username ||
+  user.name ||
+  user.email?.split('@')[0] ||
+  'Anonymous User'
 const userEmail = user.email || 'No email provided'
+const displayNameInitial = u.displayName || ''
+const usernameInitial = u.username || ''
 
 // Get user's registration date from session or use a default
 const memberSince = session?.createdAt
@@ -252,7 +261,7 @@ const memberSince = session?.createdAt
                         class="text-2xl font-bold text-white"
                         id="avatar-initial"
                       >
-                        {userName.charAt(0).toUpperCase()}
+                        {userDisplayName.charAt(0).toUpperCase()}
                       </span>
                     )
                   }
@@ -291,48 +300,126 @@ const memberSince = session?.createdAt
             <div class="flex-1 min-w-0 text-left">
               <div class="flex items-center gap-3 mb-2">
                 <div class="flex-1">
-                  <!-- Name display/edit form -->
-                  <div id="name-display" class="flex items-center gap-3">
+                  <!-- Display Name display/edit form -->
+                  <div id="displayname-display" class="flex items-center gap-3">
                     <h2
                       class="text-2xl font-orbitron font-bold text-holographic"
+                      id="heading-display-name"
                     >
-                      {userName}
+                      {userDisplayName}
                     </h2>
                     <button
-                      id="edit-name-btn"
+                      id="edit-displayname-btn"
                       class="text-cyan-400 hover:text-cyan-300 transition-colors"
-                      title="Edit name"
+                      title="Edit display name"
                     >
                       ✏️
                     </button>
                   </div>
 
-                  <!-- Name edit form (hidden by default) -->
-                  <div id="name-edit-form" class="hidden">
+                  <!-- Display Name edit form (hidden by default) -->
+                  <div id="displayname-edit-form" class="hidden">
                     <form class="flex items-center gap-2">
                       <input
                         type="text"
-                        id="name-input"
-                        value={userName}
+                        id="displayname-input"
+                        value={displayNameInitial}
                         maxlength="100"
+                        placeholder="Your display name"
                         class="flex-1 px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white font-orbitron font-bold text-xl focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/50"
                       />
                       <Button
                         variant="outline"
                         size="sm"
                         type="submit"
-                        id="save-name-btn"
+                        id="save-displayname-btn"
                       >
                         💾
                       </Button>
                       <button
                         type="button"
-                        id="cancel-edit-btn"
+                        id="clear-displayname-btn"
+                        class="px-2 py-1 text-gray-400 hover:text-gray-300 transition-colors"
+                        title="Clear display name"
+                      >
+                        🧹
+                      </button>
+                      <button
+                        type="button"
+                        id="cancel-displayname-btn"
                         class="px-2 py-1 text-gray-400 hover:text-gray-300 transition-colors"
                       >
                         ❌
                       </button>
                     </form>
+                  </div>
+
+                  <!-- Username display/edit form -->
+                  <div class="mt-1">
+                    <div
+                      id="username-display"
+                      class="flex items-center gap-2 text-sm text-gray-400"
+                    >
+                      <span id="username-text">
+                        {
+                          usernameInitial
+                            ? `@${usernameInitial}`
+                            : 'No username set'
+                        }
+                      </span>
+                      <button
+                        id="edit-username-btn"
+                        class="text-cyan-400 hover:text-cyan-300 transition-colors"
+                        title="Edit username"
+                      >
+                        ✏️
+                      </button>
+                    </div>
+
+                    <div id="username-edit-form" class="hidden">
+                      <form class="flex items-center gap-2">
+                        <div
+                          class="flex items-center bg-gray-800/50 border border-gray-600/50 rounded-lg"
+                        >
+                          <span class="px-2 text-gray-500">@</span>
+                          <input
+                            type="text"
+                            id="username-input"
+                            value={usernameInitial}
+                            maxlength="20"
+                            pattern="[a-z0-9_]{3,20}"
+                            placeholder="username"
+                            class="px-2 py-2 bg-transparent text-white font-mono text-sm focus:outline-none"
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="submit"
+                          id="save-username-btn"
+                        >
+                          💾
+                        </Button>
+                        <button
+                          type="button"
+                          id="clear-username-btn"
+                          class="px-2 py-1 text-gray-400 hover:text-gray-300 transition-colors"
+                          title="Clear username"
+                        >
+                          🧹
+                        </button>
+                        <button
+                          type="button"
+                          id="cancel-username-btn"
+                          class="px-2 py-1 text-gray-400 hover:text-gray-300 transition-colors"
+                        >
+                          ❌
+                        </button>
+                      </form>
+                      <p class="mt-1 text-xs text-gray-400">
+                        3-20 chars. Lowercase letters, numbers, or underscore.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -552,6 +639,14 @@ const memberSince = session?.createdAt
     </Section>
   </main>
 
+  <div
+    id="profile-data"
+    data-server-name={user.name || ''}
+    data-email-prefix={user.email?.split('@')[0] || 'Anonymous User'}
+    class="hidden"
+  >
+  </div>
+
   <script>
     // Add some interactive effects
     document.addEventListener('DOMContentLoaded', () => {
@@ -577,95 +672,218 @@ const memberSince = session?.createdAt
         }
       })
 
-      // Name editing functionality
-      const nameDisplay = document.getElementById('name-display')
-      const nameEditForm = document.getElementById('name-edit-form')
-      const editNameBtn = document.getElementById('edit-name-btn')
-      const cancelEditBtn = document.getElementById('cancel-edit-btn')
-      const nameInput = document.getElementById('name-input')
-      const nameForm = nameEditForm?.querySelector('form')
-      const nameHeading = nameDisplay?.querySelector('h2')
+      // Helpers for identity fallback
+      const dataEl = document.getElementById(
+        'profile-data'
+      ) as HTMLElement | null
+      const serverName = dataEl?.getAttribute('data-server-name') || ''
+      const emailPrefix =
+        dataEl?.getAttribute('data-email-prefix') || 'Anonymous User'
+      function computeDisplayName(
+        currentDisplayName: string,
+        currentUsername: string
+      ) {
+        const dn = (currentDisplayName || '').trim()
+        const un = (currentUsername || '').trim()
+        return dn || un || serverName || emailPrefix || 'Anonymous User'
+      }
 
-      // Enter edit mode
-      editNameBtn?.addEventListener('click', () => {
-        nameDisplay?.classList.add('hidden')
-        nameEditForm?.classList.remove('hidden')
-        nameInput?.focus()
+      // Display Name editing functionality
+      const displayNameDisplay = document.getElementById('displayname-display')
+      const displayNameEditForm = document.getElementById(
+        'displayname-edit-form'
+      )
+      const editDisplayNameBtn = document.getElementById('edit-displayname-btn')
+      const cancelDisplayNameBtn = document.getElementById(
+        'cancel-displayname-btn'
+      )
+      const clearDisplayNameBtn = document.getElementById(
+        'clear-displayname-btn'
+      )
+      const displayNameInput = document.getElementById(
+        'displayname-input'
+      ) as HTMLInputElement | null
+      const displayNameForm = displayNameEditForm?.querySelector('form')
+      const headingDisplayName = document.getElementById('heading-display-name')
+      const saveDisplayNameBtn = document.getElementById('save-displayname-btn')
+      const usernameTextEl = document.getElementById('username-text')
+      const avatarInitialEl = document.getElementById('avatar-initial')
+      const currentAvatarImg = document.getElementById('current-avatar')
+
+      editDisplayNameBtn?.addEventListener('click', () => {
+        displayNameDisplay?.classList.add('hidden')
+        displayNameEditForm?.classList.remove('hidden')
+        displayNameInput?.focus()
       })
 
-      // Cancel editing
-      cancelEditBtn?.addEventListener('click', () => {
-        nameEditForm?.classList.add('hidden')
-        nameDisplay?.classList.remove('hidden')
-        if (nameInput && nameHeading) {
-          ;(nameInput as HTMLInputElement).value =
-            nameHeading.textContent?.trim() || ''
+      cancelDisplayNameBtn?.addEventListener('click', () => {
+        displayNameEditForm?.classList.add('hidden')
+        displayNameDisplay?.classList.remove('hidden')
+        if (displayNameInput) {
+          // Reset to current heading text if available
+          displayNameInput.value = headingDisplayName?.textContent?.trim() || ''
         }
       })
 
-      // Handle form submission
-      nameForm?.addEventListener('submit', async e => {
+      clearDisplayNameBtn?.addEventListener('click', () => {
+        if (displayNameInput) {
+          displayNameInput.value = ''
+        }
+      })
+
+      displayNameForm?.addEventListener('submit', async e => {
         e.preventDefault()
 
-        const newName = (nameInput as HTMLInputElement)?.value?.trim()
-        if (!newName) {
-          alert('Name cannot be empty')
+        const newDisplayName = (displayNameInput?.value ?? '').trim()
+        if (newDisplayName.length > 100) {
+          showMessage('Display name must be 100 characters or less', 'error')
           return
         }
 
-        if (newName.length > 100) {
-          alert('Name must be 100 characters or less')
-          return
-        }
-
-        // Show loading state
-        const saveBtn = document.getElementById('save-name-btn')
-        const originalText = saveBtn?.textContent || '💾'
-
+        const originalText = saveDisplayNameBtn?.textContent || '💾'
         try {
-          if (saveBtn) {
-            saveBtn.textContent = '⏳'
+          if (saveDisplayNameBtn) {
+            saveDisplayNameBtn.textContent = '⏳'
           }
 
+          const body: { displayName: string } = { displayName: newDisplayName }
+          // Allow clearing by sending empty string (API treats '' as null)
           const response = await fetch('/api/user/profile', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ name: newName }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
           })
-
           const result = await response.json()
-
           if (response.ok && result.success) {
-            // Update the display
-            if (nameHeading) {
-              nameHeading.textContent = result.name
+            // Update heading display name and avatar initial
+            const currentUsername = (usernameTextEl?.textContent || '')
+              .replace(/^@/, '')
+              .trim()
+            const finalDisplay = computeDisplayName(
+              newDisplayName,
+              currentUsername
+            )
+            if (headingDisplayName) {
+              headingDisplayName.textContent = finalDisplay
             }
-
-            // Exit edit mode
-            nameEditForm?.classList.add('hidden')
-            nameDisplay?.classList.remove('hidden')
-
-            // Show success message
-            showMessage('Profile updated successfully!', 'success')
+            if (!currentAvatarImg && avatarInitialEl && finalDisplay) {
+              avatarInitialEl.textContent = finalDisplay.charAt(0).toUpperCase()
+            }
+            displayNameEditForm?.classList.add('hidden')
+            displayNameDisplay?.classList.remove('hidden')
+            showMessage('Display name updated!', 'success')
           } else {
-            showMessage(result.error || 'Failed to update profile', 'error')
+            showMessage(
+              result.error || 'Failed to update display name',
+              'error'
+            )
           }
         } catch (_error) {
           showMessage('Network error. Please try again.', 'error')
         } finally {
-          // Reset button
-          if (saveBtn) {
-            saveBtn.textContent = originalText
+          if (saveDisplayNameBtn) {
+            saveDisplayNameBtn.textContent = originalText
           }
         }
       })
 
-      // Handle escape key to cancel editing
-      nameInput?.addEventListener('keydown', e => {
+      displayNameInput?.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
-          cancelEditBtn?.click()
+          cancelDisplayNameBtn?.click()
+        }
+      })
+
+      // Username editing functionality
+      const usernameDisplay = document.getElementById('username-display')
+      const usernameEditForm = document.getElementById('username-edit-form')
+      const editUsernameBtn = document.getElementById('edit-username-btn')
+      const cancelUsernameBtn = document.getElementById('cancel-username-btn')
+      const clearUsernameBtn = document.getElementById('clear-username-btn')
+      const usernameInput = document.getElementById(
+        'username-input'
+      ) as HTMLInputElement | null
+      const usernameForm = usernameEditForm?.querySelector('form')
+      const saveUsernameBtn = document.getElementById('save-username-btn')
+
+      editUsernameBtn?.addEventListener('click', () => {
+        usernameDisplay?.classList.add('hidden')
+        usernameEditForm?.classList.remove('hidden')
+        usernameInput?.focus()
+      })
+
+      cancelUsernameBtn?.addEventListener('click', () => {
+        usernameEditForm?.classList.add('hidden')
+        usernameDisplay?.classList.remove('hidden')
+        if (usernameInput && usernameTextEl) {
+          const current = usernameTextEl.textContent || ''
+          usernameInput.value = current.startsWith('@') ? current.slice(1) : ''
+        }
+      })
+
+      clearUsernameBtn?.addEventListener('click', () => {
+        if (usernameInput) {
+          usernameInput.value = ''
+        }
+      })
+
+      usernameForm?.addEventListener('submit', async e => {
+        e.preventDefault()
+        const raw = (usernameInput?.value || '').trim().toLowerCase()
+        const isClearing = raw.length === 0
+        const re = /^[a-z0-9_]{3,20}$/
+        if (!isClearing && !re.test(raw)) {
+          showMessage(
+            'Username must be 3-20 chars, lowercase letters, numbers or underscore',
+            'error'
+          )
+          return
+        }
+
+        const originalText = saveUsernameBtn?.textContent || '💾'
+        try {
+          if (saveUsernameBtn) {
+            saveUsernameBtn.textContent = '⏳'
+          }
+          const response = await fetch('/api/user/profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: raw }),
+          })
+          const result = await response.json()
+          if (response.ok && result.success) {
+            // Update username text
+            if (usernameTextEl) {
+              usernameTextEl.textContent = isClearing
+                ? 'No username set'
+                : `@${raw}`
+            }
+            // If no displayName set, heading and avatar may rely on username
+            const currentDisplayName = (displayNameInput?.value || '').trim()
+            const finalDisplay = computeDisplayName(currentDisplayName, raw)
+            if (headingDisplayName) {
+              headingDisplayName.textContent = finalDisplay
+            }
+            if (!currentAvatarImg && avatarInitialEl && finalDisplay) {
+              avatarInitialEl.textContent = finalDisplay.charAt(0).toUpperCase()
+            }
+            usernameEditForm?.classList.add('hidden')
+            usernameDisplay?.classList.remove('hidden')
+            showMessage('Username updated!', 'success')
+          } else {
+            showMessage(result.error || 'Failed to update username', 'error')
+          }
+        } catch (_error) {
+          showMessage('Network error. Please try again.', 'error')
+        } finally {
+          if (saveUsernameBtn) {
+            saveUsernameBtn.textContent = originalText
+          }
+        }
+      })
+
+      usernameInput?.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+          cancelUsernameBtn?.click()
         }
       })
     })

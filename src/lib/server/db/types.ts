@@ -7,6 +7,9 @@ export interface UserTable {
     email: string
     emailVerified: number // SQLite uses INTEGER for BOOLEAN
     image: string | null
+    // New identity fields (nullable for backward compatibility)
+    username: string | null
+    displayName: string | null
     createdAt: ColumnType<Date, string | Date, never>
     updatedAt: ColumnType<Date, string | Date, string | Date>
 }
@@ -100,7 +103,15 @@ export interface Database {
 // Type helpers for common operations
 export type NewUser = Omit<UserTable, 'id' | 'createdAt' | 'updatedAt'>
 export type UserUpdate = Partial<
-    Pick<UserTable, 'name' | 'email' | 'emailVerified' | 'image'>
+    Pick<
+        UserTable,
+        | 'name'
+        | 'email'
+        | 'emailVerified'
+        | 'image'
+        | 'displayName'
+        | 'username'
+    >
 >
 
 export type NewGameScore = Omit<GameScoresTable, 'id' | 'created_at'>
