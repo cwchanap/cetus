@@ -1,4 +1,4 @@
-import type { GameType, UserAchievementRecord } from './server/db/types'
+import type { UserAchievementRecord } from './server/db/types'
 import { GameID } from './games'
 
 // Achievement system types
@@ -726,6 +726,62 @@ export const ACHIEVEMENTS: Achievement[] = [
             threshold: 1000,
         },
         rarity: AchievementRarity.EPIC,
+    },
+
+    // Quick Math special in-game achievements
+    {
+        id: 'quick_math_one_plus_one_seen',
+        name: 'Elementary Encounter',
+        description: 'A classic 1 + 1 question appeared during your game',
+        logo: '➕',
+        gameId: GameID.QUICK_MATH,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { seenOnePlusOne?: boolean }) =>
+                Boolean(gameData?.seenOnePlusOne),
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'quick_math_one_plus_one_wrong',
+        name: 'Not This Time…',
+        description: 'You answered 1 + 1 incorrectly',
+        logo: '🙈',
+        gameId: GameID.QUICK_MATH,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { onePlusOneIncorrect?: boolean }) =>
+                Boolean(gameData?.onePlusOneIncorrect),
+        },
+        isHidden: true,
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'quick_math_999_seen',
+        name: 'Edge of Infinity',
+        description: 'A question featured the number 999',
+        logo: '9️⃣',
+        gameId: GameID.QUICK_MATH,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { seenOperand999?: boolean }) =>
+                Boolean(gameData?.seenOperand999),
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'quick_math_zero_answer_wrong',
+        name: 'Zeroed Out',
+        description:
+            'A zero-answer question appeared and you answered it incorrectly',
+        logo: '0️⃣',
+        gameId: GameID.QUICK_MATH,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { zeroAnswerIncorrect?: boolean }) =>
+                Boolean(gameData?.zeroAnswerIncorrect),
+        },
+        rarity: AchievementRarity.RARE,
     },
 
     // Reflex achievements

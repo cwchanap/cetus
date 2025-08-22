@@ -1,5 +1,5 @@
 import { QuickMathGame } from './game'
-import type { GameConfig, GameCallbacks } from './types'
+import type { GameConfig, GameCallbacks, GameStats, GameState } from './types'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 
@@ -7,8 +7,13 @@ let gameInstance: QuickMathGame | null = null
 let gameCallbacks: GameCallbacks | null = null
 
 export async function initQuickMathGame(externalCallbacks?: {
-    onGameOver?: (finalScore: number, stats: any) => void
-}): Promise<any> {
+    onGameOver?: (finalScore: number, stats: GameStats) => void
+}): Promise<void | {
+    restart: () => void | undefined
+    getState: () => GameState | undefined
+    endGame: () => void | undefined
+    callbacks: GameCallbacks
+}> {
     // Game configuration
     const config: GameConfig = {
         gameDuration: 60, // 60 seconds
@@ -24,13 +29,19 @@ export async function initQuickMathGame(externalCallbacks?: {
     const answerInput = document.getElementById(
         'answer-input'
     ) as HTMLInputElement
-    const submitButton = document.getElementById('submit-answer')
-    const startButton = document.getElementById('start-btn')
+    const submitButton = document.getElementById(
+        'submit-answer'
+    ) as HTMLButtonElement
+    const startButton = document.getElementById(
+        'start-btn'
+    ) as HTMLButtonElement
     const gameOverOverlay = document.getElementById('game-over-overlay')
     const finalScoreElement = document.getElementById('final-score')
     const accuracyElement = document.getElementById('accuracy')
     const totalQuestionsElement = document.getElementById('total-questions')
-    const playAgainButton = document.getElementById('play-again-btn')
+    const playAgainButton = document.getElementById(
+        'play-again-btn'
+    ) as HTMLButtonElement
 
     // Session stats elements
     const currentQuestionsElement = document.getElementById('current-questions')
@@ -268,12 +279,14 @@ async function saveScore(score: number): Promise<void> {
                 gameCallbacks.onScoreUpload(true)
             }
         },
-        error => {
+        (_error: string) => {
             // Notify via callback if available
             if (gameCallbacks?.onScoreUpload) {
                 gameCallbacks.onScoreUpload(false)
             }
-        }
+        },
+        // Include achievement flags in gameData for in-game achievements
+        gameInstance?.getAchievementFlags()
     )
 }
 

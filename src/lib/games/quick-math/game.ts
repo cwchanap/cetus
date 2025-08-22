@@ -12,6 +12,18 @@ export class QuickMathGame {
     private callbacks: GameCallbacks
     private gameTimer: number | null = null
     private questionStartTime: number = 0
+    // Achievement tracking flags
+    private achievementFlags: {
+        seenOnePlusOne: boolean
+        onePlusOneIncorrect: boolean
+        seenOperand999: boolean
+        zeroAnswerIncorrect: boolean
+    } = {
+        seenOnePlusOne: false,
+        onePlusOneIncorrect: false,
+        seenOperand999: false,
+        zeroAnswerIncorrect: false,
+    }
 
     constructor(config: GameConfig, callbacks: GameCallbacks) {
         this.config = config
@@ -90,6 +102,14 @@ export class QuickMathGame {
         this.state.gameStartTime = Date.now()
         this.questionStartTime = Date.now()
 
+        // Reset achievement flags
+        this.achievementFlags = {
+            seenOnePlusOne: false,
+            onePlusOneIncorrect: false,
+            seenOperand999: false,
+            zeroAnswerIncorrect: false,
+        }
+
         this.generateNextQuestion()
         this.startGameTimer()
         this.callbacks.onGameStart()
@@ -104,6 +124,20 @@ export class QuickMathGame {
         const isCorrect = numericAnswer === this.state.currentQuestion.answer
 
         this.state.questionsAnswered++
+
+        // Update achievement flags based on current question and answer
+        const q = this.state.currentQuestion
+        if (
+            q.operation === 'addition' &&
+            q.operand1 === 1 &&
+            q.operand2 === 1 &&
+            !isCorrect
+        ) {
+            this.achievementFlags.onePlusOneIncorrect = true
+        }
+        if (q.answer === 0 && !isCorrect) {
+            this.achievementFlags.zeroAnswerIncorrect = true
+        }
 
         if (isCorrect) {
             this.state.correctAnswers++
@@ -121,6 +155,21 @@ export class QuickMathGame {
         this.state.currentQuestion = this.generateRandomQuestion()
         this.state.currentAnswer = ''
         this.questionStartTime = Date.now()
+
+        // Update achievement flags when question appears
+        const q = this.state.currentQuestion
+        if (q) {
+            if (
+                q.operation === 'addition' &&
+                q.operand1 === 1 &&
+                q.operand2 === 1
+            ) {
+                this.achievementFlags.seenOnePlusOne = true
+            }
+            if (q.operand1 === 999 || q.operand2 === 999) {
+                this.achievementFlags.seenOperand999 = true
+            }
+        }
         this.callbacks.onQuestionUpdate(this.state.currentQuestion)
     }
 
@@ -178,5 +227,15 @@ export class QuickMathGame {
 
     public destroy(): void {
         this.stopGameTimer()
+    }
+
+    // Expose achievement flags for score submission
+    public getAchievementFlags(): {
+        seenOnePlusOne: boolean
+        onePlusOneIncorrect: boolean
+        seenOperand999: boolean
+        zeroAnswerIncorrect: boolean
+    } {
+        return { ...this.achievementFlags }
     }
 }
