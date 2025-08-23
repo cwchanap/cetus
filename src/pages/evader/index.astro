@@ -1,0 +1,302 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import GameOverlay from '@/components/GameOverlay.astro'
+import AchievementAward from '@/components/AchievementAward.astro'
+
+// Custom navigation for game pages with breadcrumb
+const gameNavigation = [
+  { href: '/', label: 'Home' },
+  { href: '#', label: 'Evader' },
+]
+---
+
+<AppLayout
+  title="Evader - Cetus Minigames"
+  description="Control your character to collect coins and avoid bombs in 60 seconds"
+  includeFooter={false}
+  navigation={gameNavigation}
+>
+  <!-- Game Breadcrumb -->
+  <div class="px-6 py-4 border-b border-slate-700/50">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center space-x-3">
+        <div class="text-cyan-400 text-sm">🚀 Evader</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-6 py-8">
+    <div class="max-w-6xl mx-auto">
+      <!-- Game Title -->
+      <div class="text-center mb-8">
+        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
+          EVADER
+        </h2>
+        <p class="text-gray-400 text-lg">
+          Move up/down to collect coins (+100) and avoid bombs (-100) in 60
+          seconds!
+        </p>
+      </div>
+
+      <!-- Game Container - Centered -->
+      <div class="flex justify-center mb-12">
+        <!-- Game Board -->
+        <Card variant="glass" class="p-8">
+          <div class="flex flex-col items-center space-y-6">
+            <!-- Game Status -->
+            <div class="flex space-x-4 mb-4">
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Score: <span id="score" class="text-cyan-400">0</span></span
+                >
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Time: <span id="time-remaining" class="text-cyan-400"
+                    >60</span
+                  >s</span
+                >
+              </Badge>
+            </div>
+
+            <!-- Game Canvas Container -->
+            <div class="relative">
+              <div id="game-canvas-container" class="bg-black/30 rounded-lg">
+              </div>
+
+              <!-- Game Status Message -->
+              <div
+                id="game-status"
+                class="absolute inset-0 flex items-center justify-center bg-black/90 rounded-lg"
+              >
+                <div class="text-center">
+                  <div class="text-6xl mb-4">🚀</div>
+                  <div
+                    class="text-xl text-cyan-400 font-orbitron font-bold mb-2"
+                  >
+                    EVADER
+                  </div>
+                  <div class="text-gray-400">
+                    Click the button below to start!
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Game Controls -->
+            <div class="flex space-x-3">
+              <Button id="start-btn" variant="primary">Start Game</Button>
+              <Button id="stop-btn" variant="outline" style="display: none;"
+                >End Game</Button
+              >
+            </div>
+
+            <!-- Current Session Stats - Inline -->
+            <div class="flex space-x-6 text-sm">
+              <div class="text-center">
+                <div class="text-gray-400">Coins</div>
+                <div id="coins-collected" class="text-green-400 font-bold">
+                  0
+                </div>
+              </div>
+              <div class="text-center">
+                <div class="text-gray-400">Bombs Hit</div>
+                <div id="bombs-hit" class="text-red-400 font-bold">0</div>
+              </div>
+            </div>
+
+            <GameOverlay defaultTitle="TIME'S UP!" buttonText="Close">
+              <div class="text-lg text-gray-300">
+                Coins Collected: <span id="final-coins" class="text-green-400"
+                  >0</span
+                >
+              </div>
+              <div class="text-lg text-gray-300">
+                Bombs Hit: <span id="final-bombs" class="text-red-400">0</span>
+              </div>
+            </GameOverlay>
+          </div>
+        </Card>
+      </div>
+
+      <!-- Game Info & Rules - Bottom Section -->
+      <div class="max-w-5xl mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Game Rules -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              GAME RULES
+            </h3>
+            <div class="space-y-3 text-sm text-gray-300">
+              <div class="flex items-center space-x-2">
+                <span class="text-green-400">✓</span>
+                <span>Collect coins for +100 points</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-red-400">✗</span>
+                <span>Avoid bombs (-100 points)</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-cyan-400">⏱</span>
+                <span>60 second time limit</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="text-purple-400">📊</span>
+                <span>2:1 bomb to coin ratio</span>
+              </div>
+            </div>
+          </Card>
+
+          <!-- Scoring System -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              SCORING
+            </h3>
+            <div class="space-y-3 text-sm text-gray-300">
+              <div class="flex justify-between items-center">
+                <span class="text-green-400">Collect Coin:</span>
+                <span class="font-bold">+100 pts</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-red-400">Hit Bomb:</span>
+                <span class="font-bold">-100 pts</span>
+              </div>
+              <div class="border-t border-gray-700 pt-3 mt-3">
+                <div class="text-gray-400 text-xs mb-2">Strategy Tips:</div>
+                <div class="text-xs space-y-1">
+                  <div>• Time your movements</div>
+                  <div>• Watch patterns</div>
+                  <div>• Stay centered</div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <!-- Controls -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              CONTROLS
+            </h3>
+            <div class="space-y-4 text-sm">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Move Up:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs"
+                  >Arrow Up</Badge
+                >
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Move Down:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs"
+                  >Arrow Down</Badge
+                >
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Start Game:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">Button</Badge
+                >
+              </div>
+              <div class="pt-2 border-t border-gray-700">
+                <div class="text-gray-400 text-xs">
+                  💡 Use arrow keys to move your character up and down!
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Evader Game Logic -->
+    <script>
+      import { initializeEvaderGame } from '@/lib/games/evader/init'
+
+      let gameInstance: any = null
+
+      const init = async () => {
+        const gameContainer = document.getElementById('game-canvas-container')!
+        const scoreElement = document.getElementById('score')!
+        const timeElement = document.getElementById('time-remaining')!
+        const coinsElement = document.getElementById('coins-collected')!
+        const bombsElement = document.getElementById('bombs-hit')!
+        const gameStatusElement = document.getElementById('game-status')!
+        const gameOverOverlay = document.getElementById('game-over-overlay')!
+
+        const startBtn = document.getElementById('start-btn')!
+        const stopBtn = document.getElementById('stop-btn')!
+        const playAgainBtn = document.getElementById('play-again-btn')!
+
+        try {
+          gameInstance = await initializeEvaderGame(gameContainer, {
+            onScoreUpdate: (score: number) => {
+              scoreElement.textContent = score.toString()
+            },
+            onTimeUpdate: (timeRemaining: number) => {
+              timeElement.textContent = timeRemaining.toString()
+            },
+            onGameStart: () => {
+              gameStatusElement.style.display = 'none'
+              startBtn.style.display = 'none'
+              stopBtn.style.display = 'inline-flex'
+              gameOverOverlay.classList.add('hidden')
+            },
+            onGameOver: async (_finalScore: number, _stats: any) => {
+              // no-op
+            },
+            onObjectSpawn: (_object: any) => {
+              // optional
+            },
+            onCollision: (_object: any, _points: number) => {
+              const gameState = gameInstance.game.getState()
+              coinsElement.textContent = gameState.coinsCollected.toString()
+              bombsElement.textContent = gameState.bombsHit.toString()
+            },
+          })
+
+          // Button event listeners
+          startBtn.addEventListener('click', () => {
+            console.log('Evader: Start clicked')
+            gameInstance.startGame()
+          })
+
+          stopBtn.addEventListener('click', () => {
+            gameInstance.stopGame()
+          })
+
+          playAgainBtn.addEventListener('click', () => {
+            gameOverOverlay.classList.add('hidden')
+            gameStatusElement.style.display = 'flex'
+
+            // Reset buttons
+            startBtn.style.display = 'inline-flex'
+            stopBtn.style.display = 'none'
+          })
+        } catch (error) {
+          console.error('Failed to initialize Evader game:', error)
+          gameStatusElement.innerHTML = `
+            <div class="text-center">
+              <div class="text-red-400 text-xl mb-2">Failed to Load Game</div>
+              <div class="text-gray-400 text-sm">${error}</div>
+            </div>
+          `
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init)
+      } else {
+        init()
+      }
+
+      // Cleanup on page unload
+      window.addEventListener('beforeunload', () => {
+        if (gameInstance) {
+          gameInstance.cleanup()
+        }
+      })
+    </script>
+  </div>
+  <AchievementAward />
+</AppLayout>

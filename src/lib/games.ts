@@ -9,6 +9,7 @@ export enum GameID {
     REFLEX = 'reflex',
     SUDOKU = 'sudoku',
     PATH_NAVIGATOR = 'path_navigator',
+    EVADER = 'evader',
 }
 
 // Game system types
@@ -130,6 +131,18 @@ export const GAMES: Game[] = [
         estimatedDuration: '1-2 minutes',
         difficulty: 'medium',
         tags: ['precision', 'mouse', 'navigation', 'single-player', 'skill'],
+        isActive: true,
+    },
+    {
+        id: GameID.EVADER,
+        name: 'Evader',
+        description:
+            'Control your character to collect coins and avoid bombs in 60 seconds',
+        category: 'action',
+        maxPlayers: 1,
+        estimatedDuration: '1 minute',
+        difficulty: 'medium',
+        tags: ['reflex', 'avoidance', 'coins', 'single-player', 'speed'],
         isActive: true,
     },
 ]
