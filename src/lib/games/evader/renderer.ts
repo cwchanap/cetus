@@ -48,11 +48,16 @@ export function renderPlayer(
     const { playerGraphic } = rendererState
     playerGraphic.clear()
 
-    // Draw player as a rectangle on the left side
+    // Draw player as a rectangle at current position
     const playerWidth = config.playerSize
     const playerHeight = config.playerSize
     playerGraphic
-        .rect(0, player.y - playerHeight / 2, playerWidth, playerHeight)
+        .rect(
+            player.x - playerWidth / 2,
+            player.y - playerHeight / 2,
+            playerWidth,
+            playerHeight
+        )
         .fill(0x00ff00) // Green for player
         .stroke({ color: 0x00ff00, width: 2 })
 }

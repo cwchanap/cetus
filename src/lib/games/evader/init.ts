@@ -21,7 +21,7 @@ const DEFAULT_CONFIG: GameConfig = {
     playerSize: 40,
     playerSpeed: 300, // pixels per second
     objectSize: 30,
-    spawnInterval: 1, // seconds
+    spawnInterval: 0.5, // seconds (doubled coin density)
     objectSpeed: 200, // pixels per second
     coinToBombRatio: 0.5, // 0.5:1 coins to bombs (2:1 bomb to coin)
     pointsForCoin: 100,
@@ -121,13 +121,23 @@ export async function initializeEvaderGame(
 
         // Setup keyboard controls
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            if (
+                event.key === 'ArrowUp' ||
+                event.key === 'ArrowDown' ||
+                event.key === 'ArrowLeft' ||
+                event.key === 'ArrowRight'
+            ) {
                 game.pressKey(event.key)
             }
         }
 
         const handleKeyUp = (event: KeyboardEvent) => {
-            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            if (
+                event.key === 'ArrowUp' ||
+                event.key === 'ArrowDown' ||
+                event.key === 'ArrowLeft' ||
+                event.key === 'ArrowRight'
+            ) {
                 game.releaseKey(event.key)
             }
         }

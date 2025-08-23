@@ -30,6 +30,7 @@ export class EvaderGame {
             gameStartTime: null,
             objects: [],
             player: {
+                x: this.config.playerSize / 2, // Start at left edge
                 y: this.config.canvasHeight / 2,
                 size: this.config.playerSize,
                 speed: this.config.playerSpeed,
@@ -138,19 +139,36 @@ export class EvaderGame {
 
     private update(deltaTime: number): void {
         // Update player position based on pressed keys
-        let velocity = 0
         if (this.state.isGameActive) {
+            // Vertical movement
+            let verticalVelocity = 0
             if (this.pressedKeys.has('ArrowUp')) {
-                velocity = -this.config.playerSpeed
+                verticalVelocity = -this.config.playerSpeed
             } else if (this.pressedKeys.has('ArrowDown')) {
-                velocity = this.config.playerSpeed
+                verticalVelocity = this.config.playerSpeed
             }
-            this.state.player.y += velocity * deltaTime
+            this.state.player.y += verticalVelocity * deltaTime
             this.state.player.y = Math.max(
                 this.state.player.size / 2,
                 Math.min(
                     this.config.canvasHeight - this.state.player.size / 2,
                     this.state.player.y
+                )
+            )
+
+            // Horizontal movement
+            let horizontalVelocity = 0
+            if (this.pressedKeys.has('ArrowLeft')) {
+                horizontalVelocity = -this.config.playerSpeed
+            } else if (this.pressedKeys.has('ArrowRight')) {
+                horizontalVelocity = this.config.playerSpeed
+            }
+            this.state.player.x += horizontalVelocity * deltaTime
+            this.state.player.x = Math.max(
+                this.state.player.size / 2,
+                Math.min(
+                    this.config.canvasWidth - this.state.player.size / 2,
+                    this.state.player.x
                 )
             )
         }
@@ -167,9 +185,9 @@ export class EvaderGame {
                 return false
             }
 
-            // Check collision with player (player is at x=0, width=player.size)
-            const playerLeft = 0
-            const playerRight = this.config.playerSize
+            // Check collision with player
+            const playerLeft = this.state.player.x - this.state.player.size / 2
+            const playerRight = this.state.player.x + this.state.player.size / 2
             const playerTop = this.state.player.y - this.state.player.size / 2
             const playerBottom =
                 this.state.player.y + this.state.player.size / 2

@@ -36,8 +36,8 @@ const gameNavigation = [
           EVADER
         </h2>
         <p class="text-gray-400 text-lg">
-          Move up/down to collect coins (+100) and avoid bombs (-100) in 60
-          seconds!
+          Move in all directions to collect coins (+100) and avoid bombs (-100)
+          in 60 seconds!
         </p>
       </div>
 
@@ -194,13 +194,25 @@ const gameNavigation = [
                 >
               </div>
               <div class="flex justify-between items-center">
+                <span class="text-gray-400">Move Left:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs"
+                  >Arrow Left</Badge
+                >
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Move Right:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs"
+                  >Arrow Right</Badge
+                >
+              </div>
+              <div class="flex justify-between items-center">
                 <span class="text-gray-400">Start Game:</span>
                 <Badge variant="outline" class="px-2 py-1 text-xs">Button</Badge
                 >
               </div>
               <div class="pt-2 border-t border-gray-700">
                 <div class="text-gray-400 text-xs">
-                  💡 Use arrow keys to move your character up and down!
+                  💡 Use arrow keys to move your character in all directions!
                 </div>
               </div>
             </div>
