@@ -784,6 +784,68 @@ export const ACHIEVEMENTS: Achievement[] = [
         rarity: AchievementRarity.RARE,
     },
 
+    // Evader achievements
+    {
+        id: 'evader_welcome',
+        name: 'First Evasion',
+        description: 'Welcome to Evader! You scored your first points.',
+        logo: '🎮',
+        gameId: GameID.EVADER,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'evader_novice',
+        name: 'Evader Novice',
+        description: 'Score 100 points in Evader',
+        logo: '🔰',
+        gameId: GameID.EVADER,
+        condition: {
+            type: 'score_threshold',
+            threshold: 100,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'evader_apprentice',
+        name: 'Evader Apprentice',
+        description: 'Score 250 points in Evader',
+        logo: '⭐',
+        gameId: GameID.EVADER,
+        condition: {
+            type: 'score_threshold',
+            threshold: 250,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'evader_expert',
+        name: 'Evader Expert',
+        description: 'Score 500 points in Evader',
+        logo: '💫',
+        gameId: GameID.EVADER,
+        condition: {
+            type: 'score_threshold',
+            threshold: 500,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'evader_master',
+        name: 'Evader Master',
+        description: 'Score 1000 points in Evader',
+        logo: '👑',
+        gameId: GameID.EVADER,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1000,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+
     // Reflex achievements
     {
         id: 'reflex_novice',
