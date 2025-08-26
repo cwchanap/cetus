@@ -889,3 +889,116 @@ export async function updateAllUserStreaksForUTC(): Promise<{
 
     return { processed: allUserIds.length, incremented: inc, reset: rst }
 }
+
+/**
+ * Get achievement statistics for all achievements
+ * Returns earned count and percentage for each achievement
+ */
+export async function getAchievementStatistics(): Promise<
+    Array<{
+        achievement_id: string
+        earned_count: number
+        total_players: number
+        percentage: number
+    }>
+> {
+    try {
+        // Get all achievements and their earned counts
+        const achievementStats = await db
+            .selectFrom('user_achievements')
+            .select([
+                'achievement_id',
+                db.fn.count('user_id').distinct().as('earned_count'),
+            ])
+            .groupBy('achievement_id')
+            .execute()
+
+        // Get total players per game (users with at least one score)
+        const gamePlayerCounts = await db
+            .selectFrom('game_scores')
+            .select([
+                'game_id',
+                db.fn.count('user_id').distinct().as('player_count'),
+            ])
+            .groupBy('game_id')
+            .execute()
+
+        // Get total global players (users with at least one score across any game)
+        const globalPlayerCount = await db
+            .selectFrom('game_scores')
+            .select([db.fn.count('user_id').distinct().as('player_count')])
+            .executeTakeFirst()
+
+        // Create a map of game_id to player count
+        const gamePlayerMap = new Map<string, number>()
+        gamePlayerCounts.forEach(row => {
+            gamePlayerMap.set(row.game_id, Number(row.player_count))
+        })
+        const globalPlayers = Number(globalPlayerCount?.player_count || 0)
+
+        // Import achievements to get game associations
+        const { getAllAchievements } = await import('../../achievements')
+        const allAchievements = getAllAchievements()
+
+        // Create a map of achievement_id to achievement for game lookup
+        const achievementMap = new Map(
+            allAchievements.map(achievement => [achievement.id, achievement])
+        )
+
+        // Calculate statistics for each achievement
+        const result = achievementStats.map(stat => {
+            const achievementId = stat.achievement_id
+            const earnedCount = Number(stat.earned_count)
+            const achievement = achievementMap.get(achievementId)
+
+            let totalPlayers = 0
+            if (achievement) {
+                // For global achievements, use global player count
+                if (achievement.gameId === 'global') {
+                    totalPlayers = globalPlayers
+                } else {
+                    // For game-specific achievements, use that game's player count
+                    totalPlayers = gamePlayerMap.get(achievement.gameId) || 0
+                }
+            }
+
+            const percentage =
+                totalPlayers > 0 ? (earnedCount / totalPlayers) * 100 : 0
+
+            return {
+                achievement_id: achievementId,
+                earned_count: earnedCount,
+                total_players: totalPlayers,
+                percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
+            }
+        })
+
+        // Also include achievements that haven't been earned by anyone yet
+        const earnedAchievementIds = new Set(
+            achievementStats.map(stat => stat.achievement_id)
+        )
+        const unearnedAchievements = allAchievements.filter(
+            achievement => !earnedAchievementIds.has(achievement.id)
+        )
+
+        unearnedAchievements.forEach(achievement => {
+            let totalPlayers = 0
+            if (achievement.gameId === 'global') {
+                totalPlayers = globalPlayers
+            } else {
+                totalPlayers = gamePlayerMap.get(achievement.gameId) || 0
+            }
+
+            result.push({
+                achievement_id: achievement.id,
+                earned_count: 0,
+                total_players: totalPlayers,
+                percentage: 0,
+            })
+        })
+
+        return result
+    } catch (_e) {
+        return []
+    }
+}

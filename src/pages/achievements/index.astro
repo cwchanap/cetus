@@ -12,7 +12,10 @@ import Button from '@/components/ui/Button.astro'
 import Select from '@/components/ui/Select.astro'
 import Pagination from '@/components/ui/Pagination.astro'
 
-import { getUserAchievements } from '@/lib/server/db/queries'
+import {
+  getUserAchievements,
+  getAchievementStatistics,
+} from '@/lib/server/db/queries'
 import {
   AchievementRarity,
   getRarityColor,
@@ -44,6 +47,16 @@ const userAchievementRecords = await getUserAchievements(user.id)
 const allAchievements = getAllAchievements()
 const games = getAllGames()
 
+// Get achievement statistics for percentages
+const achievementStats = await getAchievementStatistics()
+const statsMap = new Map(
+  achievementStats.map(stat => [stat.achievement_id, stat])
+)
+
+// Debug: Log achievement stats to console
+console.log('Achievement stats:', achievementStats)
+console.log('Stats map size:', statsMap.size)
+
 // Process achievements data
 const earnedAchievementIds = new Set(
   userAchievementRecords.map(ua => ua.achievement_id)
@@ -56,6 +69,7 @@ const allAchievementDisplayData = allAchievements
     const userAchievement = userAchievementRecords.find(
       ua => ua.achievement_id === achievement.id
     )
+    const stats = statsMap.get(achievement.id)
 
     return {
       ...achievement,
@@ -63,6 +77,9 @@ const allAchievementDisplayData = allAchievements
       earnedAt: userAchievement?.earned_at,
       rarityColor: getRarityColor(achievement.rarity),
       rarityGlow: getRarityGlow(achievement.rarity),
+      percentage: stats?.percentage || 0,
+      earnedCount: stats?.earned_count || 0,
+      totalPlayers: stats?.total_players || 0,
     }
   })
   .sort((a, b) => {
@@ -83,7 +100,11 @@ const allAchievementDisplayData = allAchievements
   })
 
 // Narrowed display type for achievements on this page
-type DisplayAchievement = (typeof allAchievementDisplayData)[number]
+type DisplayAchievement = (typeof allAchievementDisplayData)[number] & {
+  percentage: number
+  earnedCount: number
+  totalPlayers: number
+}
 
 // Apply pagination to the full achievement list
 const paginatedResults = getPaginatedAchievements<DisplayAchievement>(
@@ -348,6 +369,15 @@ const totalAchievementsCount = allAchievements.length
                                         {achievement.gameId.replace('_', ' ')}
                                       </Badge>
                                     )}
+                                    <Badge
+                                      variant="outline"
+                                      size="sm"
+                                      class="w-fit text-cyan-400 border-cyan-400/30"
+                                    >
+                                      {achievement.percentage.toFixed(1)}% of
+                                      players ({achievement.earnedCount}/
+                                      {achievement.totalPlayers})
+                                    </Badge>
                                   </div>
                                 </>
                               )}
