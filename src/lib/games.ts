@@ -185,6 +185,25 @@ export function searchGames(query: string): Game[] {
     )
 }
 
+// Game icon mapping
+const GAME_ICONS: Record<GameID, string> = {
+    [GameID.TETRIS]: '🧱',
+    [GameID.BUBBLE_SHOOTER]: '🫧',
+    [GameID.BEJEWELED]: '💎',
+    [GameID.QUICK_MATH]: '🔢',
+    [GameID.MEMORY_MATRIX]: '🧠',
+    [GameID.WORD_SCRAMBLE]: '🔤',
+    [GameID.REFLEX]: '⚡',
+    [GameID.SUDOKU]: '🔢',
+    [GameID.PATH_NAVIGATOR]: '🧭',
+    [GameID.EVADER]: '🏃',
+}
+
+// Game icon helper function
+export function getGameIcon(gameId: GameID | string): string {
+    return GAME_ICONS[gameId as GameID] || '🎮'
+}
+
 // Game category styling helpers
 export function getCategoryColor(category: Game['category']): string {
     switch (category) {

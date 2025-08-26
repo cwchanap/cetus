@@ -12,22 +12,10 @@ import FeatureCard from '@/components/ui/FeatureCard.astro'
 import GameCard from '@/components/ui/GameCard.astro'
 
 // Games System Import
-import { getAllGames, type Game } from '@/lib/games'
+import { getAllGames, getGameIcon, type Game } from '@/lib/games'
 
 // Check if user is authenticated
 const user = Astro.locals.user
-
-// Game icon and URL mapping
-const gameIcons: Record<string, string> = {
-  tetris: '🔲',
-  bubble_shooter: '🫧',
-  quick_math: '🧮',
-  memory_matrix: '🧠',
-  word_scramble: '📝',
-  reflex: '⚡',
-  sudoku: '🧩',
-  path_navigator: '🎯',
-}
 
 // Convert Games system data to GameCard format
 function convertGameToCardFormat(game: Game) {
@@ -35,19 +23,21 @@ function convertGameToCardFormat(game: Game) {
   const idMapping: Record<string, number> = {
     tetris: 2,
     bubble_shooter: 3,
+    bejeweled: 1,
     quick_math: 5,
     memory_matrix: 4,
     word_scramble: 6,
     reflex: 7,
     sudoku: 8,
     path_navigator: 9,
+    evader: 10,
   }
 
   return {
     id: idMapping[game.id] || 99,
     title: game.name,
     description: game.description,
-    icon: gameIcons[game.id] || '🎮',
+    icon: getGameIcon(game.id),
     duration: game.estimatedDuration || '5-15 min',
     difficulty:
       game.difficulty.charAt(0).toUpperCase() + game.difficulty.slice(1),
