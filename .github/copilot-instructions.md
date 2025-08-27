@@ -2,9 +2,9 @@
 
 This repository contains Cetus, a sci-fi themed single-player minigames platform built with Astro and Tailwind CSS.
 
-## Current Status (January 2025)
+## Current Status (August 2025)
 
-The platform is feature-complete with all 7 core games implemented and fully functional:
+The platform is feature-complete with **10 fully implemented games** spanning puzzle, action, and strategy categories:
 - ✅ **Tetris Challenge** - Classic block-stacking with line clear achievements
 - ✅ **Bubble Shooter** - Color matching with combo scoring
 - ✅ **Memory Matrix** - Grid-based memory matching game
@@ -12,13 +12,16 @@ The platform is feature-complete with all 7 core games implemented and fully fun
 - ✅ **Word Scramble** - Timed word unscrambling game
 - ✅ **Reflex Coin Collection** - Fast-paced reaction testing
 - ✅ **Sudoku** - Logic puzzle with multiple difficulty levels
+- ✅ **Bejeweled** - Match-3 gem swapping with cascading combos
+- ✅ **Path Navigator** - Precision cursor navigation challenge
+- ✅ **Evader** - Character control with coin collection and bomb avoidance
 
-Recent major updates include comprehensive end-to-end testing, enhanced achievement integration, and removal of the previously planned Quick Draw game in favor of completing the core 7-game experience.
+Recent major updates include expansion to 10 games, comprehensive testing with Vitest + Playwright, and a robust achievement system with 4 rarity tiers.
 
 ## Project Context
 
 ### Overview
-Cetus is a futuristic single-player gaming platform featuring 7 complete interactive minigames: Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, and Sudoku. The application features a modern, neon-styled design with gradients, glowing effects, and animated backgrounds, plus a comprehensive achievement system with real-time notifications.
+Cetus is a futuristic single-player gaming platform featuring 10 complete interactive minigames across puzzle, action, and strategy categories: Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, Sudoku, Bejeweled, Path Navigator, and Evader. The application features a modern, neon-styled design with gradients, glowing effects, and animated backgrounds, plus a comprehensive achievement system with real-time notifications.
 
 ### Tech Stack
 - **Framework**: Astro 5.10.1 with TypeScript and SSR via Vercel adapter
@@ -185,8 +188,9 @@ const scores = await db
 ### Critical Development Workflows
 **Local Development Setup**:
 ```bash
-npm run dev              # Astro dev server (localhost:4321)
-npm run db:dev          # Local Turso database (required for auth/scores)
+npm run dev              # Turbo monorepo dev: parallel database + web server
+npm run web:dev          # Astro dev server only (localhost:4325)
+npm run db:dev           # Local Turso database only (required for auth/scores)
 ```
 
 **Game Development Debugging**:
@@ -258,7 +262,7 @@ startBtn.addEventListener('click', () => {
 - Add progress tracking and comprehensive achievement integration
 - Support both score-based and event-based achievements (Tetris line clears, Reflex streaks)
 - Use `/api/scores` endpoint for score submission with automatic achievement checking
-- All 7 core games are fully implemented: Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, Sudoku
+- All 10 core games are fully implemented: Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, Sudoku, Bejeweled, Path Navigator, Evader
 
 **Game Renderer Architecture**:
 - **Memory Matrix**: DOM-based renderer with card grid manipulation
