@@ -49,30 +49,7 @@ function convertGameToCardFormat(game: Game) {
 const systemGames = getAllGames()
 const availableGames = systemGames.map(convertGameToCardFormat)
 
-// Add placeholder games for future development
-const comingSoonGames = [
-  {
-    id: 8,
-    title: 'Color Match',
-    description: 'Match colors in this fast-paced puzzle',
-    icon: '🌈',
-    duration: '3-8 min',
-    difficulty: 'Easy',
-    available: false,
-  },
-  {
-    id: 9,
-    title: 'Number Puzzle',
-    description: 'Solve number sequences and patterns',
-    icon: '🔢',
-    duration: '5-15 min',
-    difficulty: 'Hard',
-    available: false,
-  },
-]
-
-// Combine available games with coming soon games
-const games = [...availableGames, ...comingSoonGames]
+const games = availableGames
 ---
 
 <AppLayout
