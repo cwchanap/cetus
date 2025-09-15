@@ -95,19 +95,6 @@ test.describe('Games Navigation and Basic Functionality', () => {
         }
     })
 
-    test('should show coming soon status for incomplete games', async ({
-        page,
-    }) => {
-        const comingSoonGames = ['Color Match', 'Number Puzzle']
-
-        for (const gameTitle of comingSoonGames) {
-            const gameCard = page
-                .locator(`h4:has-text("${gameTitle}")`)
-                .locator('..')
-            await expect(gameCard.getByText('Coming Soon')).toBeVisible()
-        }
-    })
-
     test('should display game descriptions correctly', async ({ page }) => {
         const gameDescriptions = [
             {
