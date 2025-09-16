@@ -302,10 +302,20 @@ describe('Database Queries', () => {
 
             // Assert
             expect(result).toEqual({
-                games: mockHistory.map(game => ({
-                    ...game,
-                    created_at: game.created_at.toString(),
-                })),
+                games: [
+                    {
+                        game_id: 'tetris',
+                        game_name: 'Tetris Challenge',
+                        score: 1500,
+                        created_at: new Date('2025-07-10T12:00:00Z').toString(),
+                    },
+                    {
+                        game_id: 'bubble_shooter',
+                        game_name: 'Bubble Shooter',
+                        score: 2000,
+                        created_at: new Date('2025-07-10T11:00:00Z').toString(),
+                    },
+                ],
                 total: 23,
                 page: 2,
                 pageSize: 5,
