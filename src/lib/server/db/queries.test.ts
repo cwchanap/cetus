@@ -307,15 +307,13 @@ describe('Database Queries', () => {
                         game_id: 'tetris',
                         game_name: 'Tetris Challenge',
                         score: 1500,
-                        created_at:
-                            'Thu Jul 10 2025 05:00:00 GMT-0700 (Pacific Daylight Time)',
+                        created_at: new Date('2025-07-10T12:00:00Z').toString(),
                     },
                     {
                         game_id: 'bubble_shooter',
                         game_name: 'Bubble Shooter',
                         score: 2000,
-                        created_at:
-                            'Thu Jul 10 2025 04:00:00 GMT-0700 (Pacific Daylight Time)',
+                        created_at: new Date('2025-07-10T11:00:00Z').toString(),
                     },
                 ],
                 total: 23,
