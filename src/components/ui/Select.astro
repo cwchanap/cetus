@@ -243,13 +243,15 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
       }
     }
 
-    private close() {
+    private close(shouldFocusTrigger = false) {
       this.isOpen = false
       this.trigger.setAttribute('aria-expanded', 'false')
       this.dropdown.removeAttribute('data-open')
       this.dropdown.style.transform = 'scale(0.95)'
       this.iconSpan.removeAttribute('data-open')
-      this.trigger.focus()
+      if (shouldFocusTrigger) {
+        this.trigger.focus()
+      }
     }
 
     private applyInitialOption(option: HTMLElement) {
@@ -280,7 +282,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
 
       // If selecting the already-selected value, just close without dispatching
       if (value === this.hiddenInput.value) {
-        this.close()
+        this.close(false)
         return
       }
 
@@ -296,7 +298,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
       // Dispatch change event
       this.hiddenInput.dispatchEvent(new Event('change', { bubbles: true }))
 
-      this.close()
+      this.close(false)
     }
 
     private handleKeyDown(event: KeyboardEvent) {
@@ -307,7 +309,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
           this.toggle()
           break
         case 'Escape':
-          this.close()
+          this.close(true)
           break
         case 'ArrowDown':
           event.preventDefault()
@@ -336,7 +338,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
           this.selectOption(option)
           break
         case 'Escape':
-          this.close()
+          this.close(true)
           break
         case 'ArrowDown':
           event.preventDefault()
@@ -369,7 +371,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
     private handleOutsideClick(event: Event) {
       const target = event.target as HTMLElement
       if (!this.trigger.contains(target) && !this.dropdown.contains(target)) {
-        this.close()
+        this.close(false)
       }
     }
   }
