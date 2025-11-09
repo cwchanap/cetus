@@ -194,8 +194,9 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
     }
 
     private init() {
-      // Ensure dropdown starts with pointer-events none to prevent blocking clicks
+      // Ensure dropdown starts hidden to prevent blocking clicks
       this.dropdown.style.pointerEvents = 'none'
+      this.dropdown.style.display = 'none'
 
       // Set initial value if provided
       if (this.hiddenInput) {
@@ -236,6 +237,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
       this.isOpen = true
       this.trigger.setAttribute('aria-expanded', 'true')
       this.dropdown.setAttribute('data-open', '')
+      this.dropdown.style.display = 'block'
       this.dropdown.style.transform = 'scale(1)'
       this.dropdown.style.pointerEvents = 'auto'
       this.iconSpan.setAttribute('data-open', '')
@@ -253,6 +255,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
       this.dropdown.removeAttribute('data-open')
       this.dropdown.style.transform = 'scale(0.95)'
       this.dropdown.style.pointerEvents = 'none'
+      this.dropdown.style.display = 'none'
       this.iconSpan.removeAttribute('data-open')
       if (shouldFocusTrigger) {
         this.trigger.focus()
