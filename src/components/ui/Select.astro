@@ -306,7 +306,11 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
         case 'Enter':
         case ' ':
           event.preventDefault()
-          this.toggle()
+          if (this.isOpen) {
+            this.close(true)
+          } else {
+            this.open()
+          }
           break
         case 'Escape':
           this.close(true)
