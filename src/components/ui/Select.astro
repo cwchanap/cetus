@@ -245,17 +245,19 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
       this.trigger.setAttribute('aria-expanded', 'true')
       this.iconSpan.setAttribute('data-open', '')
 
-      // Set display:block first to allow element to be in the DOM
+      // Set display:block and ensure starting scale
       this.dropdown.style.display = 'block'
+      this.dropdown.style.transform = 'scale(0.95)' // Ensure starting state
 
-      // Use requestAnimationFrame to ensure display:block is applied before transition starts
+      // Use requestAnimationFrame to ensure display:block is rendered
       requestAnimationFrame(() => {
-        this.dropdown.setAttribute('data-open', '')
-        this.dropdown.style.transform = 'scale(1)'
-        this.dropdown.style.pointerEvents = 'auto'
-
-        // Focus first option after a brief delay to ensure dropdown is visible
+        // Use another requestAnimationFrame to trigger the transition
         requestAnimationFrame(() => {
+          this.dropdown.setAttribute('data-open', '')
+          this.dropdown.style.transform = 'scale(1)'
+          this.dropdown.style.pointerEvents = 'auto'
+
+          // Focus first option after animation starts
           const firstOption = this.options[0]
           if (firstOption) {
             firstOption.focus()
