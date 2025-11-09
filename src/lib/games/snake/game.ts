@@ -244,6 +244,7 @@ export function updateUI(state: GameState): void {
     const scoreElement = document.getElementById('score')
     const timeElement = document.getElementById('time-remaining')
     const lengthElement = document.getElementById('snake-length')
+    const lengthStatsElement = document.getElementById('snake-length-stats')
     const foodsElement = document.getElementById('foods-eaten')
 
     if (scoreElement) {
@@ -255,6 +256,9 @@ export function updateUI(state: GameState): void {
     }
     if (lengthElement) {
         lengthElement.textContent = state.snake.length.toString()
+    }
+    if (lengthStatsElement) {
+        lengthStatsElement.textContent = state.snake.length.toString()
     }
     if (foodsElement) {
         foodsElement.textContent = state.foodsEaten.toString()
