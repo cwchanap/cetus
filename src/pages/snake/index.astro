@@ -1,0 +1,256 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import GameOverlay from '@/components/GameOverlay.astro'
+
+// Custom navigation for game pages with breadcrumb
+const gameNavigation = [
+  { href: '/', label: 'Home' },
+  { href: '#', label: 'Snake' },
+]
+---
+
+<AppLayout
+  title="Snake - Cetus Minigames"
+  description="Classic snake game - eat food to grow longer without hitting walls or yourself"
+  includeFooter={false}
+  navigation={gameNavigation}
+>
+  <!-- Game Breadcrumb -->
+  <div class="px-6 py-4 border-b border-slate-700/50">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center space-x-3">
+        <div class="text-cyan-400 text-sm">🐍 Snake</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-6 py-8">
+    <div class="max-w-6xl mx-auto">
+      <!-- Game Title -->
+      <div class="text-center mb-8">
+        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
+          SNAKE
+        </h2>
+        <p class="text-gray-400 text-lg">
+          Grow your snake by eating food - survive for 60 seconds!
+        </p>
+      </div>
+
+      <!-- Game Container -->
+      <div class="flex flex-col lg:flex-row gap-8 items-start justify-center">
+        <!-- Game Board -->
+        <Card variant="glass" class="p-6 flex-shrink-0">
+          <div class="flex flex-col items-center space-y-4">
+            <!-- Game Status -->
+            <div class="flex space-x-4 mb-4">
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono">Score: <span id="score">0</span></span>
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Time: <span id="time-remaining">60s</span></span
+                >
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Length: <span id="snake-length">3</span></span
+                >
+              </Badge>
+            </div>
+
+            <!-- Snake Game Container -->
+            <div class="relative">
+              <div
+                id="snake-container"
+                class="border-2 border-cyan-400/50 bg-black/50 rounded-lg shadow-glow-cyan"
+                style="width: 500px; height: 500px;"
+              >
+              </div>
+
+              <GameOverlay defaultTitle="GAME OVER" buttonId="restart-btn">
+                <div class="text-lg text-gray-300">
+                  Max Length: <span id="final-length" class="text-cyan-400"
+                    >3</span
+                  >
+                </div>
+                <div class="text-lg text-gray-300">
+                  Foods Eaten: <span id="final-foods" class="text-green-400"
+                    >0</span
+                  >
+                </div>
+                <div class="text-lg text-gray-300">
+                  Time Survived: <span id="final-time" class="text-purple-400"
+                    >0s</span
+                  >
+                </div>
+              </GameOverlay>
+            </div>
+
+            <!-- Game Controls -->
+            <div class="flex space-x-2">
+              <Button id="start-btn" variant="primary" size="sm">Start</Button>
+              <Button
+                id="end-btn"
+                variant="outline"
+                size="sm"
+                style="display: none;">End Game</Button
+              >
+              <Button id="pause-btn" variant="outline" size="sm">Pause</Button>
+              <Button id="reset-btn" variant="outline" size="sm">Reset</Button>
+            </div>
+          </div>
+        </Card>
+
+        <!-- Controls & Stats -->
+        <div class="flex flex-col space-y-6">
+          <!-- Controls Guide -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              CONTROLS
+            </h3>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-400">Move Up:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">↑ / W</Badge>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Move Down:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">↓ / S</Badge>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Move Left:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">← / A</Badge>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Move Right:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">→ / D</Badge>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Pause:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">P</Badge>
+              </div>
+            </div>
+          </Card>
+
+          <!-- Game Info -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              GAME INFO
+            </h3>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-400">Duration:</span>
+                <span class="text-white">60 seconds</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Food Spawn:</span>
+                <span class="text-white">Every 1s</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Points per Food:</span>
+                <span class="text-white">10</span>
+              </div>
+            </div>
+          </Card>
+
+          <!-- Statistics -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              STATISTICS
+            </h3>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-400">Foods Eaten:</span>
+                <span id="foods-eaten" class="text-white">0</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Current Length:</span>
+                <span id="snake-length" class="text-cyan-400">3</span>
+              </div>
+            </div>
+          </Card>
+
+          <!-- How to Play -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              HOW TO PLAY
+            </h3>
+            <ul class="space-y-2 text-sm text-gray-400">
+              <li>• Use arrow keys or WASD to move</li>
+              <li>• Eat food to grow longer</li>
+              <li>• Don't hit walls or yourself</li>
+              <li>• Survive for 60 seconds</li>
+              <li>• Score = snake length × 10</li>
+            </ul>
+          </Card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Snake Game Logic -->
+    <script>
+      import {
+        initSnakeGame,
+        type SnakeGameInstance,
+      } from '@/lib/games/snake/init'
+
+      // Initialize game when page loads
+      document.addEventListener('DOMContentLoaded', async () => {
+        try {
+          const gameInstance: SnakeGameInstance | undefined =
+            await initSnakeGame()
+
+          // Add end game button functionality
+          const startBtn = document.getElementById('start-btn')
+          const endBtn = document.getElementById('end-btn')
+
+          // Show end button when game starts
+          if (startBtn && endBtn) {
+            startBtn.addEventListener('click', () => {
+              startBtn.style.display = 'none'
+              endBtn.style.display = 'inline-flex'
+            })
+
+            // End game button click handler
+            endBtn.addEventListener('click', () => {
+              if (gameInstance && gameInstance.endGame) {
+                gameInstance.endGame()
+              }
+            })
+          }
+
+          // Handle restart button
+          document
+            .getElementById('restart-btn')
+            ?.addEventListener('click', () => {
+              const gameOverOverlay =
+                document.getElementById('game-over-overlay')
+              if (gameOverOverlay) {
+                gameOverOverlay.classList.add('hidden')
+              }
+
+              // Reset buttons
+              const startBtn = document.getElementById('start-btn')
+              const endBtn = document.getElementById('end-btn')
+              if (startBtn) {
+                startBtn.style.display = 'inline-flex'
+              }
+              if (endBtn) {
+                endBtn.style.display = 'none'
+              }
+
+              if (gameInstance && gameInstance.restart) {
+                gameInstance.restart()
+              }
+            })
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to initialize Snake game:', error)
+        }
+      })
+    </script>
+  </div>
+</AppLayout>

@@ -1,0 +1,262 @@
+// Main game controller for Snake
+import type { GameState, GameConstants, SnakeSegment, Direction } from './types'
+import {
+    hexToPixiColor,
+    isOutOfBounds,
+    collidesWithSnake,
+    positionsEqual,
+    generateFoodPosition,
+    getNextPosition,
+    isValidDirectionChange,
+    generateId,
+} from './utils'
+
+export const GAME_CONSTANTS: GameConstants = {
+    GRID_WIDTH: 20,
+    GRID_HEIGHT: 20,
+    CELL_SIZE: 25,
+    GAME_WIDTH: 500,
+    GAME_HEIGHT: 500,
+    GAME_DURATION: 60000, // 60 seconds in milliseconds
+    MOVE_INTERVAL: 150, // Move every 150ms
+    FOOD_SPAWN_INTERVAL: 1000, // Spawn food every 1 second
+    SNAKE_COLOR: hexToPixiColor('#00ff88'),
+    FOOD_COLOR: hexToPixiColor('#ff3366'),
+    GRID_COLOR: hexToPixiColor('#1a1a2e'),
+    BACKGROUND_COLOR: hexToPixiColor('#0f0f1e'),
+}
+
+export function createGameState(): GameState {
+    const initialSnake: SnakeSegment[] = [
+        { x: 10, y: 10, id: generateId() },
+        { x: 9, y: 10, id: generateId() },
+        { x: 8, y: 10, id: generateId() },
+    ]
+
+    return {
+        snake: initialSnake,
+        food: null,
+        direction: 'right',
+        nextDirection: 'right',
+        score: 0,
+        timeRemaining: GAME_CONSTANTS.GAME_DURATION,
+        gameOver: false,
+        gameStarted: false,
+        paused: false,
+        lastFoodSpawnTime: 0,
+        lastMoveTime: 0,
+        gameStartTime: null,
+        foodsEaten: 0,
+        maxLength: initialSnake.length,
+        needsRedraw: true,
+    }
+}
+
+export function spawnFood(state: GameState): void {
+    const position = generateFoodPosition(state.snake, GAME_CONSTANTS)
+    state.food = {
+        ...position,
+        id: generateId(),
+        spawnTime: Date.now(),
+    }
+    state.lastFoodSpawnTime = Date.now()
+    state.needsRedraw = true
+}
+
+export function moveSnake(state: GameState): boolean {
+    // Apply the queued direction
+    state.direction = state.nextDirection
+
+    const head = state.snake[0]
+    const newHead: SnakeSegment = {
+        ...getNextPosition(head, state.direction),
+        id: generateId(),
+    }
+
+    // Check collision with walls
+    if (isOutOfBounds(newHead, GAME_CONSTANTS)) {
+        return false
+    }
+
+    // Check collision with self
+    if (collidesWithSnake(newHead, state.snake)) {
+        return false
+    }
+
+    // Add new head
+    state.snake.unshift(newHead)
+
+    // Check if food is eaten
+    if (state.food && positionsEqual(newHead, state.food)) {
+        // Don't remove tail (snake grows)
+        state.score += 10
+        state.foodsEaten++
+        state.maxLength = Math.max(state.maxLength, state.snake.length)
+        state.food = null
+        state.needsRedraw = true
+    } else {
+        // Remove tail (normal movement)
+        state.snake.pop()
+    }
+
+    state.needsRedraw = true
+    return true
+}
+
+export function changeDirection(
+    state: GameState,
+    newDirection: Direction
+): void {
+    if (isValidDirectionChange(state.direction, newDirection)) {
+        state.nextDirection = newDirection
+    }
+}
+
+export function startGame(state: GameState, gameLoopFn: () => void): void {
+    if (!state.gameStarted) {
+        state.gameStarted = true
+        state.gameStartTime = Date.now()
+        state.lastMoveTime = Date.now()
+        state.lastFoodSpawnTime = Date.now()
+        spawnFood(state)
+        gameLoopFn()
+
+        const startBtn = document.getElementById('start-btn')
+        if (startBtn) {
+            startBtn.textContent = 'Playing...'
+            ;(startBtn as HTMLButtonElement).disabled = true
+        }
+    }
+}
+
+export function togglePause(state: GameState, gameLoopFn: () => void): void {
+    if (!state.gameStarted || state.gameOver) {
+        return
+    }
+
+    state.paused = !state.paused
+    const pauseBtn = document.getElementById('pause-btn')
+    if (pauseBtn) {
+        pauseBtn.textContent = state.paused ? 'Resume' : 'Pause'
+    }
+
+    if (!state.paused) {
+        // Reset timing when resuming
+        state.lastMoveTime = Date.now()
+        state.lastFoodSpawnTime = Date.now()
+        if (state.gameStartTime) {
+            // Adjust game start time to account for pause duration
+            const pauseDuration = Date.now() - state.lastMoveTime
+            state.gameStartTime += pauseDuration
+        }
+        gameLoopFn()
+    }
+}
+
+export function resetGame(state: GameState): void {
+    const newState = createGameState()
+    Object.assign(state, newState)
+
+    const gameOverOverlay = document.getElementById('game-over-overlay')
+    if (gameOverOverlay) {
+        gameOverOverlay.classList.add('hidden')
+    }
+
+    const startBtn = document.getElementById('start-btn')
+    if (startBtn) {
+        startBtn.textContent = 'Start'
+        ;(startBtn as HTMLButtonElement).disabled = false
+    }
+
+    const pauseBtn = document.getElementById('pause-btn')
+    if (pauseBtn) {
+        pauseBtn.textContent = 'Pause'
+    }
+
+    updateUI(state)
+}
+
+export async function endGame(state: GameState): Promise<void> {
+    state.gameOver = true
+    state.gameStarted = false
+
+    const stats = {
+        finalScore: state.score,
+        foodsEaten: state.foodsEaten,
+        maxLength: state.maxLength,
+        gameTime: state.gameStartTime ? Date.now() - state.gameStartTime : 0,
+        averageLength:
+            state.foodsEaten > 0
+                ? state.maxLength / state.foodsEaten
+                : state.snake.length,
+    }
+
+    if (state.onGameOver) {
+        await state.onGameOver(state.score, stats)
+    }
+}
+
+export function gameLoop(state: GameState): void {
+    if (state.gameOver || state.paused || !state.gameStarted) {
+        return
+    }
+
+    const now = Date.now()
+
+    // Update time remaining
+    if (state.gameStartTime) {
+        const elapsed = now - state.gameStartTime
+        state.timeRemaining = Math.max(
+            0,
+            GAME_CONSTANTS.GAME_DURATION - elapsed
+        )
+
+        // Check if time is up
+        if (state.timeRemaining <= 0) {
+            endGame(state)
+            return
+        }
+    }
+
+    // Move snake
+    if (now - state.lastMoveTime > GAME_CONSTANTS.MOVE_INTERVAL) {
+        const moveSuccessful = moveSnake(state)
+        if (!moveSuccessful) {
+            endGame(state)
+            return
+        }
+        state.lastMoveTime = now
+    }
+
+    // Spawn food every second if there's no food
+    if (
+        !state.food &&
+        now - state.lastFoodSpawnTime > GAME_CONSTANTS.FOOD_SPAWN_INTERVAL
+    ) {
+        spawnFood(state)
+    }
+
+    updateUI(state)
+    requestAnimationFrame(() => gameLoop(state))
+}
+
+export function updateUI(state: GameState): void {
+    const scoreElement = document.getElementById('score')
+    const timeElement = document.getElementById('time-remaining')
+    const lengthElement = document.getElementById('snake-length')
+    const foodsElement = document.getElementById('foods-eaten')
+
+    if (scoreElement) {
+        scoreElement.textContent = state.score.toString()
+    }
+    if (timeElement) {
+        const seconds = Math.ceil(state.timeRemaining / 1000)
+        timeElement.textContent = `${seconds}s`
+    }
+    if (lengthElement) {
+        lengthElement.textContent = state.snake.length.toString()
+    }
+    if (foodsElement) {
+        foodsElement.textContent = state.foodsEaten.toString()
+    }
+}

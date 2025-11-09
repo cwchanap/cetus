@@ -10,6 +10,7 @@ export enum GameID {
     SUDOKU = 'sudoku',
     PATH_NAVIGATOR = 'path_navigator',
     EVADER = 'evader',
+    SNAKE = 'snake',
 }
 
 // Game system types
@@ -145,6 +146,18 @@ export const GAMES: Game[] = [
         tags: ['reflex', 'avoidance', 'coins', 'single-player', 'speed'],
         isActive: true,
     },
+    {
+        id: GameID.SNAKE,
+        name: 'Snake',
+        description:
+            'Classic snake game - eat food to grow longer without hitting walls or yourself',
+        category: 'action',
+        maxPlayers: 1,
+        estimatedDuration: '1 minute',
+        difficulty: 'easy',
+        tags: ['classic', 'arcade', 'survival', 'single-player', 'snake'],
+        isActive: true,
+    },
 ]
 
 // Helper functions
@@ -197,6 +210,7 @@ const GAME_ICONS: Record<GameID, string> = {
     [GameID.SUDOKU]: '🔢',
     [GameID.PATH_NAVIGATOR]: '🧭',
     [GameID.EVADER]: '🏃',
+    [GameID.SNAKE]: '🐍',
 }
 
 // Game icon helper function
