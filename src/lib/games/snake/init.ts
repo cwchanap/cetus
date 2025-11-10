@@ -145,7 +145,10 @@ export async function initSnakeGame(): Promise<SnakeGameInstance | undefined> {
                 !enhancedState.paused
             ) {
                 e.preventDefault()
-                return 'You have a game in progress. Are you sure you want to leave?'
+                const message =
+                    'You have a game in progress. Are you sure you want to leave?'
+                e.returnValue = message
+                return message // For older browsers
             }
         })
 
