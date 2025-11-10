@@ -48,8 +48,17 @@ export async function setupPixiJS(
         }
     } catch (error) {
         // Clear the container if we failed to initialize
-        gameContainer.innerHTML =
-            '<div class="text-red-400 text-center p-4">Failed to initialize game renderer. Please check if your browser supports WebGL.</div>'
+        while (gameContainer.firstChild) {
+            gameContainer.removeChild(gameContainer.firstChild)
+        }
+
+        // Create error message element using DOM APIs
+        const errorDiv = document.createElement('div')
+        errorDiv.className = 'text-red-400 text-center p-4'
+        errorDiv.textContent =
+            'Failed to initialize game renderer. Please check if your browser supports WebGL.'
+        gameContainer.appendChild(errorDiv)
+
         throw error
     }
 }
