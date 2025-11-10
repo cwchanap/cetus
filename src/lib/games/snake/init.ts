@@ -12,8 +12,6 @@ import {
     endGame,
 } from './game'
 import { setupPixiJS, drawGrid, draw } from './renderer'
-import { saveGameScore } from '@/lib/services/scoreService'
-import { GameID } from '@/lib/games'
 
 export interface SnakeGameInstance {
     restart: () => void
@@ -81,32 +79,8 @@ export async function initSnakeGame(): Promise<SnakeGameInstance | undefined> {
                 endBtn.style.display = 'none'
             }
 
-            // Submit score
-            await saveGameScore(
-                GameID.SNAKE,
-                finalScore,
-                result => {
-                    // Handle newly earned achievements
-                    if (
-                        result.newAchievements &&
-                        result.newAchievements.length > 0
-                    ) {
-                        // Dispatch an event for achievement notifications
-                        window.dispatchEvent(
-                            new CustomEvent('achievementsEarned', {
-                                detail: {
-                                    achievementIds: result.newAchievements,
-                                },
-                            })
-                        )
-                    }
-                },
-                error => {
-                    // eslint-disable-next-line no-console
-                    console.error('Failed to submit score:', error)
-                },
-                stats
-            )
+            // Note: Score submission is now handled in game.ts endGame()
+            // This callback only handles UI updates
         },
     }
 

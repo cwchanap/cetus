@@ -10,6 +10,8 @@ import {
     isValidDirectionChange,
     generateId,
 } from './utils'
+import { saveGameScore } from '@/lib/services/scoreService'
+import { GameID } from '@/lib/games'
 
 export const GAME_CONSTANTS: GameConstants = {
     GRID_WIDTH: 20,
@@ -192,6 +194,43 @@ export async function endGame(state: GameState): Promise<void> {
             state.foodsEaten > 0
                 ? state.maxLength / state.foodsEaten
                 : state.snake.length,
+    }
+
+    // Submit score to centralized Score Service
+    // Skip submission if user is not logged in (handled by service)
+    try {
+        await saveGameScore(
+            GameID.SNAKE,
+            state.score,
+            result => {
+                // Score submitted successfully, handle achievements
+                if (
+                    result.newAchievements &&
+                    result.newAchievements.length > 0
+                ) {
+                    // Dispatch achievement event for UI notification
+                    if (typeof window !== 'undefined') {
+                        window.dispatchEvent(
+                            new CustomEvent('achievementsEarned', {
+                                detail: {
+                                    achievementIds: result.newAchievements,
+                                },
+                            })
+                        )
+                    }
+                }
+            },
+            error => {
+                // Log submission error without throwing
+                // eslint-disable-next-line no-console
+                console.error('Failed to submit score:', error)
+            },
+            stats
+        )
+    } catch (error) {
+        // Handle any unexpected errors gracefully
+        // eslint-disable-next-line no-console
+        console.error('Error during score submission:', error)
     }
 
     if (state.onGameOver) {
