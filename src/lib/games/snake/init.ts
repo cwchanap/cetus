@@ -74,6 +74,8 @@ export async function initSnakeGame(): Promise<SnakeGameInstance | undefined> {
             const endBtn = document.getElementById('end-btn')
             if (startBtn) {
                 startBtn.style.display = 'inline-flex'
+                ;(startBtn as HTMLButtonElement).disabled = false
+                startBtn.textContent = 'Start'
             }
             if (endBtn) {
                 endBtn.style.display = 'none'
