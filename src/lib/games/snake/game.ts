@@ -141,14 +141,17 @@ export function togglePause(state: GameState, gameLoopFn: () => void): void {
     }
 
     if (!state.paused) {
+        // Calculate pause duration before updating timestamps
+        const pauseDuration = Date.now() - state.lastMoveTime
+
+        // Adjust game start time to account for pause duration
+        if (state.gameStartTime) {
+            state.gameStartTime += pauseDuration
+        }
+
         // Reset timing when resuming
         state.lastMoveTime = Date.now()
         state.lastFoodSpawnTime = Date.now()
-        if (state.gameStartTime) {
-            // Adjust game start time to account for pause duration
-            const pauseDuration = Date.now() - state.lastMoveTime
-            state.gameStartTime += pauseDuration
-        }
         gameLoopFn()
     }
 }
