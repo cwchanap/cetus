@@ -95,7 +95,6 @@ export function moveSnake(state: GameState): boolean {
         state.foodsEaten++
         state.maxLength = Math.max(state.maxLength, state.snake.length)
         state.food = null
-        state.needsRedraw = true
     } else {
         // Remove tail (normal movement)
         state.snake.pop()
