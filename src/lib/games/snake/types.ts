@@ -56,11 +56,3 @@ export interface GameStats {
     gameTime: number
     averageLength: number
 }
-
-export interface GameCallbacks {
-    onScoreUpdate: (score: number) => void
-    onTimeUpdate: (timeRemaining: number) => void
-    onFoodEaten: (food: Food) => void
-    onGameOver: (finalScore: number, stats: GameStats) => void
-    onGameStart: () => void
-}
