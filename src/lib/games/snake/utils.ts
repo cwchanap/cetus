@@ -59,6 +59,22 @@ export function generateFoodPosition(
         attempts++
     } while (collidesWithSnake(position, snake) && attempts < maxAttempts)
 
+    // Edge case: if we couldn't find a valid position after max attempts,
+    // find any free cell (this can happen when the snake is very long)
+    if (collidesWithSnake(position, snake)) {
+        // Scan grid for any free cell
+        for (let y = 0; y < constants.GRID_HEIGHT; y++) {
+            for (let x = 0; x < constants.GRID_WIDTH; x++) {
+                const candidate = { x, y }
+                if (!collidesWithSnake(candidate, snake)) {
+                    return candidate
+                }
+            }
+        }
+        // If grid is completely full (game should end), return position anyway
+        // The game will handle this as game over in the next move
+    }
+
     return position
 }
 
