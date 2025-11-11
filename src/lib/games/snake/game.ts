@@ -56,12 +56,13 @@ export function createGameState(): GameState {
 
 export function spawnFood(state: GameState): void {
     const position = generateFoodPosition(state.snake, GAME_CONSTANTS)
+    const now = Date.now()
     state.food = {
         ...position,
         id: generateId(),
-        spawnTime: Date.now(),
+        spawnTime: now,
     }
-    state.lastFoodSpawnTime = Date.now()
+    state.lastFoodSpawnTime = now
     state.needsRedraw = true
 }
 
