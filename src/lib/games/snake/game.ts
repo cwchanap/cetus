@@ -190,10 +190,6 @@ export async function endGame(state: GameState): Promise<void> {
         foodsEaten: state.foodsEaten,
         maxLength: state.maxLength,
         gameTime: state.gameStartTime ? Date.now() - state.gameStartTime : 0,
-        averageLength:
-            state.foodsEaten > 0
-                ? state.maxLength / state.foodsEaten
-                : state.snake.length,
     }
 
     // Submit score to centralized Score Service

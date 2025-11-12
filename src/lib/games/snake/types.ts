@@ -54,5 +54,4 @@ export interface GameStats {
     foodsEaten: number
     maxLength: number
     gameTime: number
-    averageLength: number
 }
