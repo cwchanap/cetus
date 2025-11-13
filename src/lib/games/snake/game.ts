@@ -168,8 +168,14 @@ export function togglePause(state: GameState, gameLoopFn: () => void): void {
 }
 
 export function resetGame(state: GameState): void {
+    // Cache externally injected callbacks before reset
+    const cachedOnGameOver = state.onGameOver
+
     const newState = createGameState()
     Object.assign(state, newState)
+
+    // Restore cached callbacks so they remain registered after reset
+    state.onGameOver = cachedOnGameOver
 
     const gameOverOverlay = document.getElementById('game-over-overlay')
     if (gameOverOverlay) {
