@@ -81,8 +81,15 @@ export function moveSnake(state: GameState): boolean {
         return false
     }
 
+    // Check if this move would eat food (snake will grow)
+    const willEatFood = state.food && positionsEqual(newHead, state.food)
+
     // Check collision with self
-    if (collidesWithSnake(newHead, state.snake)) {
+    // If not eating food, exclude the tail since it will be removed
+    // If eating food, check against full snake since tail won't be removed
+    const snakeToCheck = willEatFood ? state.snake : state.snake.slice(0, -1) // Exclude tail on normal moves
+
+    if (collidesWithSnake(newHead, snakeToCheck)) {
         return false
     }
 
@@ -90,7 +97,7 @@ export function moveSnake(state: GameState): boolean {
     state.snake.unshift(newHead)
 
     // Check if food is eaten
-    if (state.food && positionsEqual(newHead, state.food)) {
+    if (willEatFood) {
         // Don't remove tail (snake grows)
         state.score += 10
         state.foodsEaten++
