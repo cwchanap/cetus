@@ -109,7 +109,9 @@ export function changeDirection(
     state: GameState,
     newDirection: Direction
 ): void {
-    if (isValidDirectionChange(state.direction, newDirection)) {
+    // Validate against the queued direction (nextDirection) to prevent
+    // 180° reversals when buffering multiple direction changes
+    if (isValidDirectionChange(state.nextDirection, newDirection)) {
         state.nextDirection = newDirection
     }
 }
