@@ -207,46 +207,42 @@ export async function endGame(state: GameState): Promise<void> {
         gameTime: state.gameStartTime ? Date.now() - state.gameStartTime : 0,
     }
 
-    // Submit score to centralized Score Service
-    // Skip submission if user is not logged in (handled by service)
-    try {
-        await saveGameScore(
-            GameID.SNAKE,
-            state.score,
-            result => {
-                // Score submitted successfully, handle achievements
-                if (
-                    result.newAchievements &&
-                    result.newAchievements.length > 0
-                ) {
-                    // Dispatch achievement event for UI notification
-                    if (typeof window !== 'undefined') {
-                        window.dispatchEvent(
-                            new CustomEvent('achievementsEarned', {
-                                detail: {
-                                    achievementIds: result.newAchievements,
-                                },
-                            })
-                        )
-                    }
-                }
-            },
-            error => {
-                // Log submission error without throwing
-                // eslint-disable-next-line no-console
-                console.error('Failed to submit score:', error)
-            },
-            stats
-        )
-    } catch (error) {
-        // Handle any unexpected errors gracefully
-        // eslint-disable-next-line no-console
-        console.error('Error during score submission:', error)
-    }
-
+    // Show game over UI immediately (don't block on network)
     if (state.onGameOver) {
         await state.onGameOver(state.score, stats)
     }
+
+    // Submit score to centralized Score Service in the background
+    // Don't await to avoid blocking UI on slow/offline connections
+    saveGameScore(
+        GameID.SNAKE,
+        state.score,
+        result => {
+            // Score submitted successfully, handle achievements
+            if (result.newAchievements && result.newAchievements.length > 0) {
+                // Dispatch achievement event for UI notification
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(
+                        new CustomEvent('achievementsEarned', {
+                            detail: {
+                                achievementIds: result.newAchievements,
+                            },
+                        })
+                    )
+                }
+            }
+        },
+        error => {
+            // Log submission error without throwing
+            // eslint-disable-next-line no-console
+            console.error('Failed to submit score:', error)
+        },
+        stats
+    ).catch(error => {
+        // Handle any unexpected errors gracefully
+        // eslint-disable-next-line no-console
+        console.error('Error during score submission:', error)
+    })
 }
 
 export function gameLoop(state: GameState): void {
