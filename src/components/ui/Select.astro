@@ -155,6 +155,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
     private isOpen = false
     private selectedValue = ''
     private selectedLabel = ''
+    private closeTimeout: number | null = null
 
     constructor(container: HTMLElement) {
       // Wait for the next tick to ensure all elements are rendered
@@ -194,6 +195,10 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
     }
 
     private init() {
+      // Ensure dropdown starts hidden to prevent blocking clicks
+      this.dropdown.style.pointerEvents = 'none'
+      this.dropdown.style.display = 'none'
+
       // Set initial value if provided
       if (this.hiddenInput) {
         const initialValue = this.hiddenInput.value
@@ -230,26 +235,54 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
     }
 
     private open() {
+      // Clear any pending close timeout
+      if (this.closeTimeout) {
+        clearTimeout(this.closeTimeout)
+        this.closeTimeout = null
+      }
+
       this.isOpen = true
       this.trigger.setAttribute('aria-expanded', 'true')
-      this.dropdown.setAttribute('data-open', '')
-      this.dropdown.style.transform = 'scale(1)'
       this.iconSpan.setAttribute('data-open', '')
 
-      // Focus first option
-      const firstOption = this.options[0]
-      if (firstOption) {
-        firstOption.focus()
-      }
+      // Set display:block and ensure starting scale
+      this.dropdown.style.display = 'block'
+      this.dropdown.style.transform = 'scale(0.95)' // Ensure starting state
+
+      // Use requestAnimationFrame to ensure display:block is rendered
+      requestAnimationFrame(() => {
+        // Use another requestAnimationFrame to trigger the transition
+        requestAnimationFrame(() => {
+          this.dropdown.setAttribute('data-open', '')
+          this.dropdown.style.transform = 'scale(1)'
+          this.dropdown.style.pointerEvents = 'auto'
+
+          // Focus first option after animation starts
+          const firstOption = this.options[0]
+          if (firstOption) {
+            firstOption.focus()
+          }
+        })
+      })
     }
 
-    private close() {
+    private close(shouldFocusTrigger = false) {
       this.isOpen = false
       this.trigger.setAttribute('aria-expanded', 'false')
       this.dropdown.removeAttribute('data-open')
       this.dropdown.style.transform = 'scale(0.95)'
+      this.dropdown.style.pointerEvents = 'none'
       this.iconSpan.removeAttribute('data-open')
-      this.trigger.focus()
+
+      // Delay display:none until after the transition completes (200ms)
+      this.closeTimeout = window.setTimeout(() => {
+        this.dropdown.style.display = 'none'
+        this.closeTimeout = null
+      }, 200)
+
+      if (shouldFocusTrigger) {
+        this.trigger.focus()
+      }
     }
 
     private applyInitialOption(option: HTMLElement) {
@@ -270,7 +303,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
       option.setAttribute('aria-selected', 'true')
     }
 
-    private selectOption(option: HTMLElement) {
+    private selectOption(option: HTMLElement, viaKeyboard = false) {
       const value = option.dataset.value
       const label = option.textContent?.trim() || ''
 
@@ -280,7 +313,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
 
       // If selecting the already-selected value, just close without dispatching
       if (value === this.hiddenInput.value) {
-        this.close()
+        this.close(viaKeyboard)
         return
       }
 
@@ -296,7 +329,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
       // Dispatch change event
       this.hiddenInput.dispatchEvent(new Event('change', { bubbles: true }))
 
-      this.close()
+      this.close(viaKeyboard)
     }
 
     private handleKeyDown(event: KeyboardEvent) {
@@ -304,10 +337,14 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
         case 'Enter':
         case ' ':
           event.preventDefault()
-          this.toggle()
+          if (this.isOpen) {
+            this.close(true)
+          } else {
+            this.open()
+          }
           break
         case 'Escape':
-          this.close()
+          this.close(true)
           break
         case 'ArrowDown':
           event.preventDefault()
@@ -333,10 +370,10 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
         case 'Enter':
         case ' ':
           event.preventDefault()
-          this.selectOption(option)
+          this.selectOption(option, true)
           break
         case 'Escape':
-          this.close()
+          this.close(true)
           break
         case 'ArrowDown':
           event.preventDefault()
@@ -369,7 +406,7 @@ const initialLabel = selectedOption ? selectedOption.label : placeholder
     private handleOutsideClick(event: Event) {
       const target = event.target as HTMLElement
       if (!this.trigger.contains(target) && !this.dropdown.contains(target)) {
-        this.close()
+        this.close(false)
       }
     }
   }

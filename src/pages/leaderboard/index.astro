@@ -291,11 +291,6 @@ const defaultGameId = games[0]?.id || 'tetris'
 
     <script>
       document.addEventListener('DOMContentLoaded', () => {
-        const gameSelector = document.getElementById('game-selector')
-        const gameSelectorDropdown = document.querySelector<HTMLElement>(
-          '[data-select-dropdown]'
-        )
-        const selectedValueDisplay = gameSelector?.querySelector('span')
         const hiddenInput = document.querySelector(
           'input[data-select-input]'
         ) as HTMLInputElement
@@ -303,13 +298,7 @@ const defaultGameId = games[0]?.id || 'tetris'
           '[data-game-leaderboard]'
         )
 
-        if (
-          !gameSelector ||
-          !gameSelectorDropdown ||
-          !selectedValueDisplay ||
-          !hiddenInput ||
-          !leaderboards.length
-        ) {
+        if (!hiddenInput || !leaderboards.length) {
           return
         }
 
@@ -320,51 +309,12 @@ const defaultGameId = games[0]?.id || 'tetris'
           })
         }
 
-        const alignDropdownWidth = () => {
-          const width = gameSelector.getBoundingClientRect().width
-          gameSelectorDropdown.style.width = `${width}px`
-        }
-
-        const resizeObserver = new ResizeObserver(alignDropdownWidth)
-        resizeObserver.observe(gameSelector)
-        alignDropdownWidth()
-
-        const toggleDropdown = (forceClose = false) => {
-          const isOpen = gameSelectorDropdown.hasAttribute('data-open')
-          if (forceClose || isOpen) {
-            gameSelectorDropdown.removeAttribute('data-open')
-          } else {
-            gameSelectorDropdown.setAttribute('data-open', 'true')
-          }
-        }
-
-        gameSelector.addEventListener('click', e => {
-          e.stopPropagation()
-          toggleDropdown()
+        // Listen for changes from the Select component
+        hiddenInput.addEventListener('change', () => {
+          updateLeaderboardVisibility(hiddenInput.value)
         })
 
-        const options = gameSelectorDropdown.querySelectorAll(
-          '[data-select-option]'
-        )
-        options.forEach(option => {
-          option.addEventListener('click', e => {
-            e.stopPropagation()
-            const target = e.currentTarget as HTMLElement
-            const gameId = target.getAttribute('data-value')
-            const gameName = target.textContent?.trim()
-
-            if (gameId && gameName) {
-              selectedValueDisplay.textContent = gameName
-              hiddenInput.value = gameId
-              hiddenInput.dispatchEvent(new Event('change', { bubbles: true }))
-              updateLeaderboardVisibility(gameId)
-            }
-            toggleDropdown(true)
-          })
-        })
-
-        document.addEventListener('click', () => toggleDropdown(true))
-
+        // Set initial visibility
         updateLeaderboardVisibility(hiddenInput.value || 'tetris')
       })
     </script>
