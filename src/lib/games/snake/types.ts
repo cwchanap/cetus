@@ -32,7 +32,7 @@ export interface GameState {
     foodsEaten: number
     maxLength: number
     needsRedraw: boolean
-    onGameOver?: (finalScore: number, stats: GameStats) => void
+    onGameOver?: (finalScore: number, stats: GameStats) => void | Promise<void>
 }
 
 export interface GameConstants {

@@ -227,7 +227,13 @@ export async function endGame(state: GameState): Promise<void> {
 
     // Show game over UI immediately (don't block on network)
     if (state.onGameOver) {
-        await state.onGameOver(state.score, stats)
+        try {
+            await state.onGameOver(state.score, stats)
+        } catch (error) {
+            // Handle callback errors gracefully to prevent unhandled rejections
+            // eslint-disable-next-line no-console
+            console.error('Error in onGameOver callback:', error)
+        }
     }
 
     // Submit score to centralized Score Service in the background
