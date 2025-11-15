@@ -104,7 +104,9 @@ const classes = cn(
       const card = this.createAchievementCard(achievement)
 
       // Clear container and add new card
-      this.container.innerHTML = ''
+      while (this.container.firstChild) {
+        this.container.removeChild(this.container.firstChild)
+      }
       this.container.appendChild(card)
 
       // Show overlay
@@ -139,64 +141,98 @@ const classes = cn(
         w-96 min-h-[480px] flex flex-col
       `
 
-      card.innerHTML = `
-        <!-- Particle Effects -->
-        <div class="absolute inset-0 pointer-events-none">
-          ${this.createParticles(particleColor)}
-        </div>
+      // Particle Effects Container
+      const particlesContainer = document.createElement('div')
+      particlesContainer.className = 'absolute inset-0 pointer-events-none'
+      this.createParticles(particleColor, particlesContainer)
+      card.appendChild(particlesContainer)
 
-        <!-- Achievement Content -->
-        <div class="relative z-10 flex flex-col h-full">
-          <!-- Achievement Icon -->
-          <div class="mb-6 flex-shrink-0">
-            <div class="relative inline-block">
-              <div class="text-8xl mb-3 animate-bounce h-20 flex items-center justify-center">${achievement.icon}</div>
-              <div class="absolute inset-0 ${glowColor} rounded-full blur-xl opacity-50"></div>
-            </div>
-          </div>
+      // Achievement Content Container
+      const contentContainer = document.createElement('div')
+      contentContainer.className = 'relative z-10 flex flex-col h-full'
 
-          <!-- Achievement Info -->
-          <div class="space-y-3 flex-grow flex flex-col">
-            <!-- Achievement Unlocked Text -->
-            <div class="text-cyan-400 font-orbitron font-bold text-base tracking-wider mb-3 flex-shrink-0">
-              🏆 ACHIEVEMENT UNLOCKED!
-            </div>
+      // Achievement Icon Container
+      const iconOuterContainer = document.createElement('div')
+      iconOuterContainer.className = 'mb-6 flex-shrink-0'
 
-            <!-- Achievement Name -->
-            <h3 class="font-orbitron font-bold text-2xl text-white mb-3 flex-shrink-0 min-h-[4rem] flex items-center justify-center px-3 leading-tight">
-              <span class="line-clamp-2 break-words">${achievement.name}</span>
-            </h3>
+      const iconInnerContainer = document.createElement('div')
+      iconInnerContainer.className = 'relative inline-block'
 
-            <!-- Achievement Description -->
-            <div class="flex-grow flex items-center justify-center">
-              <p class="text-gray-300 text-base leading-relaxed line-clamp-4 break-words px-3 max-h-24 overflow-hidden">
-                ${achievement.description}
-              </p>
-            </div>
+      const iconElement = document.createElement('div')
+      iconElement.className = 'text-8xl mb-3 animate-bounce h-20 flex items-center justify-center'
+      iconElement.textContent = achievement.icon
 
-            <!-- Rarity Badge -->
-            <div class="flex justify-center mt-5 flex-shrink-0">
-              <span class="
-                px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide
-                ${this.getRarityBadgeClass(achievement.rarity)}
-                border ${rarityColor} min-w-[100px]
-              ">
-                ${achievement.rarity}
-              </span>
-            </div>
-          </div>
+      const iconGlow = document.createElement('div')
+      iconGlow.className = `absolute inset-0 ${glowColor} rounded-full blur-xl opacity-50`
 
-          <!-- Dismiss Instructions -->
-          <div class="mt-8 text-sm text-gray-400 opacity-75 flex-shrink-0">
-            Click anywhere to continue
-          </div>
-        </div>
+      iconInnerContainer.appendChild(iconElement)
+      iconInnerContainer.appendChild(iconGlow)
+      iconOuterContainer.appendChild(iconInnerContainer)
+      contentContainer.appendChild(iconOuterContainer)
 
-        <!-- Animated Border -->
-        <div class="absolute inset-0 rounded-2xl border-2 border-transparent animate-pulse">
-          <div class="absolute inset-0 rounded-2xl border-2 ${rarityColor} opacity-30"></div>
-        </div>
+      // Achievement Info Container
+      const infoContainer = document.createElement('div')
+      infoContainer.className = 'space-y-3 flex-grow flex flex-col'
+
+      // Achievement Unlocked Text
+      const unlockedText = document.createElement('div')
+      unlockedText.className = 'text-cyan-400 font-orbitron font-bold text-base tracking-wider mb-3 flex-shrink-0'
+      unlockedText.textContent = '🏆 ACHIEVEMENT UNLOCKED!'
+      infoContainer.appendChild(unlockedText)
+
+      // Achievement Name
+      const nameHeading = document.createElement('h3')
+      nameHeading.className = 'font-orbitron font-bold text-2xl text-white mb-3 flex-shrink-0 min-h-[4rem] flex items-center justify-center px-3 leading-tight'
+
+      const nameSpan = document.createElement('span')
+      nameSpan.className = 'line-clamp-2 break-words'
+      nameSpan.textContent = achievement.name
+      nameHeading.appendChild(nameSpan)
+      infoContainer.appendChild(nameHeading)
+
+      // Achievement Description
+      const descriptionContainer = document.createElement('div')
+      descriptionContainer.className = 'flex-grow flex items-center justify-center'
+
+      const descriptionPara = document.createElement('p')
+      descriptionPara.className = 'text-gray-300 text-base leading-relaxed line-clamp-4 break-words px-3 max-h-24 overflow-hidden'
+      descriptionPara.textContent = achievement.description
+      descriptionContainer.appendChild(descriptionPara)
+      infoContainer.appendChild(descriptionContainer)
+
+      // Rarity Badge
+      const badgeContainer = document.createElement('div')
+      badgeContainer.className = 'flex justify-center mt-5 flex-shrink-0'
+
+      const badgeSpan = document.createElement('span')
+      badgeSpan.className = `
+        px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide
+        ${this.getRarityBadgeClass(achievement.rarity)}
+        border ${rarityColor} min-w-[100px]
       `
+      badgeSpan.textContent = achievement.rarity
+      badgeContainer.appendChild(badgeSpan)
+      infoContainer.appendChild(badgeContainer)
+
+      contentContainer.appendChild(infoContainer)
+
+      // Dismiss Instructions
+      const dismissText = document.createElement('div')
+      dismissText.className = 'mt-8 text-sm text-gray-400 opacity-75 flex-shrink-0'
+      dismissText.textContent = 'Click anywhere to continue'
+      contentContainer.appendChild(dismissText)
+
+      card.appendChild(contentContainer)
+
+      // Animated Border
+      const borderOuter = document.createElement('div')
+      borderOuter.className = 'absolute inset-0 rounded-2xl border-2 border-transparent animate-pulse'
+
+      const borderInner = document.createElement('div')
+      borderInner.className = `absolute inset-0 rounded-2xl border-2 ${rarityColor} opacity-30`
+      borderOuter.appendChild(borderInner)
+
+      card.appendChild(borderOuter)
 
       // Add click handler
       card.addEventListener('click', () => {
@@ -261,24 +297,18 @@ const classes = cn(
     /**
      * Create particle effects
      */
-    private createParticles(color: string): string {
-      const particles = []
+    private createParticles(color: string, container: HTMLElement): void {
       for (let i = 0; i < 12; i++) {
-        particles.push(`
-          <div 
-            class="absolute w-1 h-1 rounded-full animate-ping"
-            style="
-              background-color: ${color};
-              left: ${Math.random() * 100}%;
-              top: ${Math.random() * 100}%;
-              animation-delay: ${Math.random() * 2}s;
-              animation-duration: ${1 + Math.random() * 1}s;
-              opacity: ${0.3 + Math.random() * 0.7};
-            "
-          ></div>
-        `)
+        const particle = document.createElement('div')
+        particle.className = 'absolute w-1 h-1 rounded-full animate-ping'
+        particle.style.backgroundColor = color
+        particle.style.left = `${Math.random() * 100}%`
+        particle.style.top = `${Math.random() * 100}%`
+        particle.style.animationDelay = `${Math.random() * 2}s`
+        particle.style.animationDuration = `${1 + Math.random() * 1}s`
+        particle.style.opacity = `${0.3 + Math.random() * 0.7}`
+        container.appendChild(particle)
       }
-      return particles.join('')
     }
 
     /**
