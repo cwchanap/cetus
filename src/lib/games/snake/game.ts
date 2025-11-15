@@ -126,6 +126,9 @@ export function changeDirection(
 
 export function startGame(state: GameState, gameLoopFn: () => void): void {
     if (!state.gameStarted) {
+        // Reset game flags to allow restart after game over
+        state.gameOver = false
+        state.paused = false
         state.gameStarted = true
         state.gameStartTime = Date.now()
         state.lastMoveTime = Date.now()
