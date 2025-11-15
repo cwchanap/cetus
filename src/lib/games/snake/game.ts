@@ -45,6 +45,7 @@ export function createGameState(): GameState {
         gameOver: false,
         gameStarted: false,
         paused: false,
+        pauseStartedAt: null,
         lastFoodSpawnTime: 0,
         lastMoveTime: 0,
         gameStartTime: null,
@@ -151,16 +152,22 @@ export function togglePause(state: GameState, gameLoopFn: () => void): void {
         pauseBtn.textContent = state.paused ? 'Resume' : 'Pause'
     }
 
-    if (!state.paused) {
+    if (state.paused) {
+        // Track when pause started
+        state.pauseStartedAt = Date.now()
+    } else {
         // Calculate pause duration before updating timestamps
-        const pauseDuration = Date.now() - state.lastMoveTime
+        const pauseDuration = state.pauseStartedAt
+            ? Date.now() - state.pauseStartedAt
+            : 0
 
         // Adjust game start time to account for pause duration
         if (state.gameStartTime) {
             state.gameStartTime += pauseDuration
         }
 
-        // Reset timing when resuming
+        // Reset pause tracking and timing when resuming
+        state.pauseStartedAt = null
         state.lastMoveTime = Date.now()
         state.lastFoodSpawnTime = Date.now()
         gameLoopFn()
@@ -205,11 +212,17 @@ export async function endGame(state: GameState): Promise<void> {
     state.gameOver = true
     state.gameStarted = false
 
+    // Calculate actual game time, excluding current pause if paused
+    let gameTime = state.gameStartTime ? Date.now() - state.gameStartTime : 0
+    if (state.paused && state.pauseStartedAt) {
+        gameTime -= Date.now() - state.pauseStartedAt
+    }
+
     const stats = {
         finalScore: state.score,
         foodsEaten: state.foodsEaten,
         maxLength: state.maxLength,
-        gameTime: state.gameStartTime ? Date.now() - state.gameStartTime : 0,
+        gameTime,
     }
 
     // Show game over UI immediately (don't block on network)
