@@ -25,6 +25,7 @@ export interface GameState {
     gameOver: boolean
     gameStarted: boolean
     paused: boolean
+    pauseStartedAt: number | null
     lastFoodSpawnTime: number
     lastMoveTime: number
     gameStartTime: number | null
