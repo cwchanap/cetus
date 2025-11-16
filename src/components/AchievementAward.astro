@@ -108,7 +108,9 @@ const classes = cn(
     </div>
 
     <!-- Animated Border -->
-    <div class="absolute inset-0 rounded-2xl border-2 border-transparent animate-pulse">
+    <div
+      class="absolute inset-0 rounded-2xl border-2 border-transparent animate-pulse"
+    >
       <div
         class="absolute inset-0 rounded-2xl border-2 opacity-30"
         style="border-color: var(--rarity-border);"
@@ -246,7 +248,12 @@ const classes = cn(
       this.isShowing = true
 
       // Show next achievement
-      const achievement = this.queue.shift()!
+      const achievement = this.queue.shift()
+      if (!achievement) {
+        this.isShowing = false
+        return
+      }
+
       await this.showSingleAchievement(achievement)
 
       // Continue with next achievement after delay
@@ -441,7 +448,7 @@ const classes = cn(
     /**
      * Play sound effect (optional)
      */
-    private playSound(soundName: string): void {
+    private playSound(_soundName: string): void {
       // This is optional - you can implement sound effects if desired
       // TODO: Implement sound effects for achievements
     }
