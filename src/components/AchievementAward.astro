@@ -180,12 +180,38 @@ const classes = cn(
     private isShowing = false
 
     constructor() {
-      this.overlay = document.getElementById('achievement-award-overlay')!
-      this.backdrop = document.getElementById('achievement-award-backdrop')!
-      this.container = document.getElementById('achievement-award-container')!
-      this.template = document.getElementById(
-        'achievement-card-template'
-      )! as HTMLTemplateElement
+      // Safe DOM lookups with null checks
+      const overlay = document.getElementById('achievement-award-overlay')
+      if (!overlay || !(overlay instanceof HTMLElement)) {
+        throw new Error(
+          'AchievementAward: achievement-award-overlay element not found'
+        )
+      }
+      this.overlay = overlay
+
+      const backdrop = document.getElementById('achievement-award-backdrop')
+      if (!backdrop || !(backdrop instanceof HTMLElement)) {
+        throw new Error(
+          'AchievementAward: achievement-award-backdrop element not found'
+        )
+      }
+      this.backdrop = backdrop
+
+      const container = document.getElementById('achievement-award-container')
+      if (!container || !(container instanceof HTMLElement)) {
+        throw new Error(
+          'AchievementAward: achievement-award-container element not found'
+        )
+      }
+      this.container = container
+
+      const template = document.getElementById('achievement-card-template')
+      if (!template || !(template instanceof HTMLTemplateElement)) {
+        throw new Error(
+          'AchievementAward: achievement-card-template not found or not a template element'
+        )
+      }
+      this.template = template
 
       // Hide initially
       this.overlay.style.display = 'none'
@@ -266,24 +292,45 @@ const classes = cn(
     private createAchievementCard(achievement: AchievementData): HTMLElement {
       // Clone template
       const clone = this.template.content.cloneNode(true) as DocumentFragment
-      const card = clone.querySelector('[data-card]') as HTMLElement
+
+      // Safe querySelector with null check
+      const card = clone.querySelector('[data-card]')
+      if (!card || !(card instanceof HTMLElement)) {
+        throw new Error(
+          'AchievementAward: [data-card] element not found in template'
+        )
+      }
 
       // Set rarity data attribute (CSS will handle styling)
       card.dataset.rarity = achievement.rarity
 
       // Populate content using textContent (safe, no innerHTML)
-      card.querySelector('[data-icon]')!.textContent = achievement.icon
-      card.querySelector('[data-name]')!.textContent = achievement.name
-      card.querySelector('[data-description]')!.textContent =
-        achievement.description
-      card.querySelector('[data-rarity-badge]')!.textContent = achievement.rarity
+      const iconElement = card.querySelector('[data-icon]')
+      if (iconElement instanceof HTMLElement) {
+        iconElement.textContent = achievement.icon
+      }
+
+      const nameElement = card.querySelector('[data-name]')
+      if (nameElement instanceof HTMLElement) {
+        nameElement.textContent = achievement.name
+      }
+
+      const descriptionElement = card.querySelector('[data-description]')
+      if (descriptionElement instanceof HTMLElement) {
+        descriptionElement.textContent = achievement.description
+      }
+
+      const rarityBadgeElement = card.querySelector('[data-rarity-badge]')
+      if (rarityBadgeElement instanceof HTMLElement) {
+        rarityBadgeElement.textContent = achievement.rarity
+      }
 
       // Create particles
       const particleColor = this.getParticleColor(achievement.rarity)
-      const particlesContainer = card.querySelector(
-        '[data-particles]'
-      ) as HTMLElement
-      this.createParticles(particleColor, particlesContainer)
+      const particlesContainer = card.querySelector('[data-particles]')
+      if (particlesContainer instanceof HTMLElement) {
+        this.createParticles(particleColor, particlesContainer)
+      }
 
       // Add click handler
       card.addEventListener('click', () => {
