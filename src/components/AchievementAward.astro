@@ -31,6 +31,78 @@ const classes = cn(
   </div>
 </div>
 
+<!-- Achievement Card Template -->
+<template id="achievement-card-template">
+  <div
+    data-card
+    class="relative bg-glass-strong rounded-2xl border-2 p-8 text-center shadow-2xl transform transition-all duration-300 hover:scale-105 cursor-pointer w-96 min-h-[480px] flex flex-col"
+  >
+    <!-- Particle Effects Container -->
+    <div data-particles class="absolute inset-0 pointer-events-none"></div>
+
+    <!-- Achievement Content -->
+    <div class="relative z-10 flex flex-col h-full">
+      <!-- Achievement Icon -->
+      <div class="mb-6 flex-shrink-0">
+        <div class="relative inline-block">
+          <div
+            data-icon
+            class="text-8xl mb-3 animate-bounce h-20 flex items-center justify-center"
+          >
+          </div>
+          <div data-icon-glow class="absolute inset-0 rounded-full blur-xl opacity-50">
+          </div>
+        </div>
+      </div>
+
+      <!-- Achievement Info -->
+      <div class="space-y-3 flex-grow flex flex-col">
+        <!-- Achievement Unlocked Text -->
+        <div
+          class="text-cyan-400 font-orbitron font-bold text-base tracking-wider mb-3 flex-shrink-0"
+        >
+          🏆 ACHIEVEMENT UNLOCKED!
+        </div>
+
+        <!-- Achievement Name -->
+        <h3
+          class="font-orbitron font-bold text-2xl text-white mb-3 flex-shrink-0 min-h-[4rem] flex items-center justify-center px-3 leading-tight"
+        >
+          <span data-name class="line-clamp-2 break-words"></span>
+        </h3>
+
+        <!-- Achievement Description -->
+        <div class="flex-grow flex items-center justify-center">
+          <p
+            data-description
+            class="text-gray-300 text-base leading-relaxed line-clamp-4 break-words px-3 max-h-24 overflow-hidden"
+          >
+          </p>
+        </div>
+
+        <!-- Rarity Badge -->
+        <div class="flex justify-center mt-5 flex-shrink-0">
+          <span
+            data-rarity-badge
+            class="px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide border min-w-[100px]"
+          >
+          </span>
+        </div>
+      </div>
+
+      <!-- Dismiss Instructions -->
+      <div class="mt-8 text-sm text-gray-400 opacity-75 flex-shrink-0">
+        Click anywhere to continue
+      </div>
+    </div>
+
+    <!-- Animated Border -->
+    <div class="absolute inset-0 rounded-2xl border-2 border-transparent animate-pulse">
+      <div data-border class="absolute inset-0 rounded-2xl border-2 opacity-30"></div>
+    </div>
+  </div>
+</template>
+
 <script>
   interface AchievementData {
     id: string
@@ -44,6 +116,7 @@ const classes = cn(
     private overlay: HTMLElement
     private backdrop: HTMLElement
     private container: HTMLElement
+    private template: HTMLTemplateElement
     private queue: AchievementData[] = []
     private isShowing = false
 
@@ -51,6 +124,9 @@ const classes = cn(
       this.overlay = document.getElementById('achievement-award-overlay')!
       this.backdrop = document.getElementById('achievement-award-backdrop')!
       this.container = document.getElementById('achievement-award-container')!
+      this.template = document.getElementById(
+        'achievement-card-template'
+      )! as HTMLTemplateElement
 
       // Hide initially
       this.overlay.style.display = 'none'
@@ -126,113 +202,56 @@ const classes = cn(
     }
 
     /**
-     * Create achievement card element
+     * Create achievement card element from template
      */
     private createAchievementCard(achievement: AchievementData): HTMLElement {
       const { rarityColor, rarityGlow, particleColor, glowColor } =
         this.getRarityStyles(achievement.rarity)
 
-      const card = document.createElement('div')
-      card.className = `
-        relative bg-glass-strong rounded-2xl border-2 p-8 text-center
-        shadow-2xl transform transition-all duration-300
-        ${rarityColor} ${rarityGlow}
-        hover:scale-105 cursor-pointer
-        w-96 min-h-[480px] flex flex-col
-      `
+      // Clone template
+      const clone = this.template.content.cloneNode(true) as DocumentFragment
+      const card = clone.querySelector('[data-card]') as HTMLElement
 
-      // Particle Effects Container
-      const particlesContainer = document.createElement('div')
-      particlesContainer.className = 'absolute inset-0 pointer-events-none'
+      // Apply rarity styles to card
+      card.classList.add(...rarityColor.split(' '), ...rarityGlow.split(' '))
+
+      // Populate particles
+      const particlesContainer = clone.querySelector(
+        '[data-particles]'
+      ) as HTMLElement
       this.createParticles(particleColor, particlesContainer)
-      card.appendChild(particlesContainer)
 
-      // Achievement Content Container
-      const contentContainer = document.createElement('div')
-      contentContainer.className = 'relative z-10 flex flex-col h-full'
-
-      // Achievement Icon Container
-      const iconOuterContainer = document.createElement('div')
-      iconOuterContainer.className = 'mb-6 flex-shrink-0'
-
-      const iconInnerContainer = document.createElement('div')
-      iconInnerContainer.className = 'relative inline-block'
-
-      const iconElement = document.createElement('div')
-      iconElement.className = 'text-8xl mb-3 animate-bounce h-20 flex items-center justify-center'
+      // Populate icon
+      const iconElement = clone.querySelector('[data-icon]') as HTMLElement
       iconElement.textContent = achievement.icon
 
-      const iconGlow = document.createElement('div')
-      iconGlow.className = `absolute inset-0 ${glowColor} rounded-full blur-xl opacity-50`
+      // Apply icon glow
+      const iconGlow = clone.querySelector('[data-icon-glow]') as HTMLElement
+      iconGlow.classList.add(...glowColor.split(' '))
 
-      iconInnerContainer.appendChild(iconElement)
-      iconInnerContainer.appendChild(iconGlow)
-      iconOuterContainer.appendChild(iconInnerContainer)
-      contentContainer.appendChild(iconOuterContainer)
+      // Populate name
+      const nameElement = clone.querySelector('[data-name]') as HTMLElement
+      nameElement.textContent = achievement.name
 
-      // Achievement Info Container
-      const infoContainer = document.createElement('div')
-      infoContainer.className = 'space-y-3 flex-grow flex flex-col'
+      // Populate description
+      const descriptionElement = clone.querySelector(
+        '[data-description]'
+      ) as HTMLElement
+      descriptionElement.textContent = achievement.description
 
-      // Achievement Unlocked Text
-      const unlockedText = document.createElement('div')
-      unlockedText.className = 'text-cyan-400 font-orbitron font-bold text-base tracking-wider mb-3 flex-shrink-0'
-      unlockedText.textContent = '🏆 ACHIEVEMENT UNLOCKED!'
-      infoContainer.appendChild(unlockedText)
+      // Populate rarity badge
+      const rarityBadge = clone.querySelector(
+        '[data-rarity-badge]'
+      ) as HTMLElement
+      rarityBadge.textContent = achievement.rarity
+      rarityBadge.classList.add(
+        ...this.getRarityBadgeClass(achievement.rarity).split(' '),
+        ...rarityColor.split(' ')
+      )
 
-      // Achievement Name
-      const nameHeading = document.createElement('h3')
-      nameHeading.className = 'font-orbitron font-bold text-2xl text-white mb-3 flex-shrink-0 min-h-[4rem] flex items-center justify-center px-3 leading-tight'
-
-      const nameSpan = document.createElement('span')
-      nameSpan.className = 'line-clamp-2 break-words'
-      nameSpan.textContent = achievement.name
-      nameHeading.appendChild(nameSpan)
-      infoContainer.appendChild(nameHeading)
-
-      // Achievement Description
-      const descriptionContainer = document.createElement('div')
-      descriptionContainer.className = 'flex-grow flex items-center justify-center'
-
-      const descriptionPara = document.createElement('p')
-      descriptionPara.className = 'text-gray-300 text-base leading-relaxed line-clamp-4 break-words px-3 max-h-24 overflow-hidden'
-      descriptionPara.textContent = achievement.description
-      descriptionContainer.appendChild(descriptionPara)
-      infoContainer.appendChild(descriptionContainer)
-
-      // Rarity Badge
-      const badgeContainer = document.createElement('div')
-      badgeContainer.className = 'flex justify-center mt-5 flex-shrink-0'
-
-      const badgeSpan = document.createElement('span')
-      badgeSpan.className = `
-        px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide
-        ${this.getRarityBadgeClass(achievement.rarity)}
-        border ${rarityColor} min-w-[100px]
-      `
-      badgeSpan.textContent = achievement.rarity
-      badgeContainer.appendChild(badgeSpan)
-      infoContainer.appendChild(badgeContainer)
-
-      contentContainer.appendChild(infoContainer)
-
-      // Dismiss Instructions
-      const dismissText = document.createElement('div')
-      dismissText.className = 'mt-8 text-sm text-gray-400 opacity-75 flex-shrink-0'
-      dismissText.textContent = 'Click anywhere to continue'
-      contentContainer.appendChild(dismissText)
-
-      card.appendChild(contentContainer)
-
-      // Animated Border
-      const borderOuter = document.createElement('div')
-      borderOuter.className = 'absolute inset-0 rounded-2xl border-2 border-transparent animate-pulse'
-
-      const borderInner = document.createElement('div')
-      borderInner.className = `absolute inset-0 rounded-2xl border-2 ${rarityColor} opacity-30`
-      borderOuter.appendChild(borderInner)
-
-      card.appendChild(borderOuter)
+      // Apply border color
+      const border = clone.querySelector('[data-border]') as HTMLElement
+      border.classList.add(...rarityColor.split(' '))
 
       // Add click handler
       card.addEventListener('click', () => {
