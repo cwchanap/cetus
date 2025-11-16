@@ -209,7 +209,7 @@ Comprehensive sci-fi design system:
 ### Test Structure
 - **Unit Tests**: `*.test.ts` files co-located with source code
 - **Integration Tests**: API and database interaction testing
-- **E2E Tests**: Playwright tests in `tests/e2e/` directory
+- **E2E Tests**: Playwright tests in root-level `e2e/` directory
 - **Setup**: Global test setup in `src/test/setup.ts`
 - **Coverage**: V8 coverage reports with HTML output
 - **Environment**: jsdom for DOM testing with Testing Library

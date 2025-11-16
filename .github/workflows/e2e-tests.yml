@@ -47,17 +47,28 @@ jobs:
 
       - name: 🧪 Run E2E Tests
         run: |
-          if [ "${{ github.event.inputs.browser }}" = "all" ]; then
-            if [ "${{ github.event.inputs.headed }}" = "true" ]; then
+          BROWSER="${{ github.event.inputs.browser }}"
+          HEADED="${{ github.event.inputs.headed }}"
+
+          if [ -z "$BROWSER" ]; then
+            BROWSER="chromium"
+          fi
+
+          if [ -z "$HEADED" ]; then
+            HEADED="false"
+          fi
+
+          if [ "$BROWSER" = "all" ]; then
+            if [ "$HEADED" = "true" ]; then
               npm run test:e2e:headed
             else
               npm run test:e2e
             fi
           else
-            if [ "${{ github.event.inputs.headed }}" = "true" ]; then
-              npm run test:e2e:headed -- --project="${{ github.event.inputs.browser }}"
+            if [ "$HEADED" = "true" ]; then
+              npm run test:e2e:headed -- --project="$BROWSER"
             else
-              npm run test:e2e -- --project="${{ github.event.inputs.browser }}"
+              npm run test:e2e -- --project="$BROWSER"
             fi
           fi
 
