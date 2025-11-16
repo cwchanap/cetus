@@ -35,7 +35,15 @@ const classes = cn(
 <template id="achievement-card-template">
   <div
     data-card
-    class="relative bg-glass-strong rounded-2xl border-2 p-8 text-center shadow-2xl transform transition-all duration-300 hover:scale-105 cursor-pointer w-96 min-h-[480px] flex flex-col"
+    class="achievement-card relative bg-glass-strong rounded-2xl border-2 p-8 text-center shadow-2xl transform transition-all duration-300 hover:scale-105 cursor-pointer w-96 min-h-[480px] flex flex-col"
+    style="
+      --rarity-border: var(--rarity-color);
+      --rarity-shadow: var(--rarity-shadow-color);
+      --particle-color: var(--rarity-particle);
+      --glow-color: var(--rarity-glow);
+      border-color: var(--rarity-border);
+      box-shadow: 0 25px 50px -12px var(--rarity-shadow);
+    "
   >
     <!-- Particle Effects Container -->
     <div data-particles class="absolute inset-0 pointer-events-none"></div>
@@ -50,7 +58,10 @@ const classes = cn(
             class="text-8xl mb-3 animate-bounce h-20 flex items-center justify-center"
           >
           </div>
-          <div data-icon-glow class="absolute inset-0 rounded-full blur-xl opacity-50">
+          <div
+            class="absolute inset-0 rounded-full blur-xl opacity-50"
+            style="background-color: var(--glow-color);"
+          >
           </div>
         </div>
       </div>
@@ -84,7 +95,7 @@ const classes = cn(
         <div class="flex justify-center mt-5 flex-shrink-0">
           <span
             data-rarity-badge
-            class="px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide border min-w-[100px]"
+            class="rarity-badge px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide border min-w-[100px]"
           >
           </span>
         </div>
@@ -98,10 +109,58 @@ const classes = cn(
 
     <!-- Animated Border -->
     <div class="absolute inset-0 rounded-2xl border-2 border-transparent animate-pulse">
-      <div data-border class="absolute inset-0 rounded-2xl border-2 opacity-30"></div>
+      <div
+        class="absolute inset-0 rounded-2xl border-2 opacity-30"
+        style="border-color: var(--rarity-border);"
+      >
+      </div>
     </div>
   </div>
 </template>
+
+<style>
+  .achievement-card[data-rarity='legendary'] {
+    --rarity-color: rgb(251 191 36 / 0.5);
+    --rarity-shadow-color: rgb(251 191 36 / 0.25);
+    --rarity-particle: rgb(251 191 36);
+    --rarity-glow: rgb(251 191 36 / 0.2);
+    --rarity-badge-bg: rgb(234 179 8 / 0.2);
+    --rarity-badge-text: rgb(250 204 21);
+  }
+
+  .achievement-card[data-rarity='epic'] {
+    --rarity-color: rgb(168 85 247 / 0.5);
+    --rarity-shadow-color: rgb(168 85 247 / 0.25);
+    --rarity-particle: rgb(168 85 247);
+    --rarity-glow: rgb(168 85 247 / 0.2);
+    --rarity-badge-bg: rgb(168 85 247 / 0.2);
+    --rarity-badge-text: rgb(192 132 252);
+  }
+
+  .achievement-card[data-rarity='rare'] {
+    --rarity-color: rgb(59 130 246 / 0.5);
+    --rarity-shadow-color: rgb(59 130 246 / 0.25);
+    --rarity-particle: rgb(59 130 246);
+    --rarity-glow: rgb(59 130 246 / 0.2);
+    --rarity-badge-bg: rgb(59 130 246 / 0.2);
+    --rarity-badge-text: rgb(96 165 250);
+  }
+
+  .achievement-card[data-rarity='common'] {
+    --rarity-color: rgb(156 163 175 / 0.5);
+    --rarity-shadow-color: rgb(156 163 175 / 0.25);
+    --rarity-particle: rgb(156 163 175);
+    --rarity-glow: rgb(156 163 175 / 0.2);
+    --rarity-badge-bg: rgb(107 114 128 / 0.2);
+    --rarity-badge-text: rgb(156 163 175);
+  }
+
+  .rarity-badge {
+    background-color: var(--rarity-badge-bg);
+    color: var(--rarity-badge-text);
+    border-color: var(--rarity-color);
+  }
+</style>
 
 <script>
   interface AchievementData {
@@ -205,53 +264,26 @@ const classes = cn(
      * Create achievement card element from template
      */
     private createAchievementCard(achievement: AchievementData): HTMLElement {
-      const { rarityColor, rarityGlow, particleColor, glowColor } =
-        this.getRarityStyles(achievement.rarity)
-
       // Clone template
       const clone = this.template.content.cloneNode(true) as DocumentFragment
       const card = clone.querySelector('[data-card]') as HTMLElement
 
-      // Apply rarity styles to card
-      card.classList.add(...rarityColor.split(' '), ...rarityGlow.split(' '))
+      // Set rarity data attribute (CSS will handle styling)
+      card.dataset.rarity = achievement.rarity
 
-      // Populate particles
-      const particlesContainer = clone.querySelector(
+      // Populate content using textContent (safe, no innerHTML)
+      card.querySelector('[data-icon]')!.textContent = achievement.icon
+      card.querySelector('[data-name]')!.textContent = achievement.name
+      card.querySelector('[data-description]')!.textContent =
+        achievement.description
+      card.querySelector('[data-rarity-badge]')!.textContent = achievement.rarity
+
+      // Create particles
+      const particleColor = this.getParticleColor(achievement.rarity)
+      const particlesContainer = card.querySelector(
         '[data-particles]'
       ) as HTMLElement
       this.createParticles(particleColor, particlesContainer)
-
-      // Populate icon
-      const iconElement = clone.querySelector('[data-icon]') as HTMLElement
-      iconElement.textContent = achievement.icon
-
-      // Apply icon glow
-      const iconGlow = clone.querySelector('[data-icon-glow]') as HTMLElement
-      iconGlow.classList.add(...glowColor.split(' '))
-
-      // Populate name
-      const nameElement = clone.querySelector('[data-name]') as HTMLElement
-      nameElement.textContent = achievement.name
-
-      // Populate description
-      const descriptionElement = clone.querySelector(
-        '[data-description]'
-      ) as HTMLElement
-      descriptionElement.textContent = achievement.description
-
-      // Populate rarity badge
-      const rarityBadge = clone.querySelector(
-        '[data-rarity-badge]'
-      ) as HTMLElement
-      rarityBadge.textContent = achievement.rarity
-      rarityBadge.classList.add(
-        ...this.getRarityBadgeClass(achievement.rarity).split(' '),
-        ...rarityColor.split(' ')
-      )
-
-      // Apply border color
-      const border = clone.querySelector('[data-border]') as HTMLElement
-      border.classList.add(...rarityColor.split(' '))
 
       // Add click handler
       card.addEventListener('click', () => {
@@ -262,55 +294,16 @@ const classes = cn(
     }
 
     /**
-     * Get rarity-specific styles
+     * Get particle color for rarity
      */
-    private getRarityStyles(rarity: string) {
-      switch (rarity) {
-        case 'legendary':
-          return {
-            rarityColor: 'border-yellow-400/50',
-            rarityGlow: 'shadow-yellow-400/25',
-            particleColor: 'rgb(251 191 36)',
-            glowColor: 'bg-yellow-400/20',
-          }
-        case 'epic':
-          return {
-            rarityColor: 'border-purple-400/50',
-            rarityGlow: 'shadow-purple-400/25',
-            particleColor: 'rgb(168 85 247)',
-            glowColor: 'bg-purple-400/20',
-          }
-        case 'rare':
-          return {
-            rarityColor: 'border-blue-400/50',
-            rarityGlow: 'shadow-blue-400/25',
-            particleColor: 'rgb(59 130 246)',
-            glowColor: 'bg-blue-400/20',
-          }
-        default: // common
-          return {
-            rarityColor: 'border-gray-400/50',
-            rarityGlow: 'shadow-gray-400/25',
-            particleColor: 'rgb(156 163 175)',
-            glowColor: 'bg-gray-400/20',
-          }
+    private getParticleColor(rarity: string): string {
+      const colors: Record<string, string> = {
+        legendary: 'rgb(251 191 36)',
+        epic: 'rgb(168 85 247)',
+        rare: 'rgb(59 130 246)',
+        common: 'rgb(156 163 175)',
       }
-    }
-
-    /**
-     * Get rarity badge class
-     */
-    private getRarityBadgeClass(rarity: string): string {
-      switch (rarity) {
-        case 'legendary':
-          return 'bg-yellow-500/20 text-yellow-400'
-        case 'epic':
-          return 'bg-purple-500/20 text-purple-400'
-        case 'rare':
-          return 'bg-blue-500/20 text-blue-400'
-        default:
-          return 'bg-gray-500/20 text-gray-400'
-      }
+      return colors[rarity] || colors.common
     }
 
     /**
