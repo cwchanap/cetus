@@ -4,23 +4,32 @@ on:
   workflow_dispatch:
     inputs:
       browser:
-        description: 'Browser to run tests on'
+        description: "Browser to run tests on"
         required: false
-        default: 'chromium'
+        default: "chromium"
         type: choice
         options:
           - chromium
       headed:
-        description: 'Run tests in headed mode'
+        description: "Run tests in headed mode"
         required: false
         default: false
         type: boolean
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   e2e-tests:
     name: 🎭 End-to-End Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      TURSO_DATABASE_URL: libsql://test-db.turso.io
+      TURSO_AUTH_TOKEN: test-token
+      BETTER_AUTH_SECRET: test-secret
+      BETTER_AUTH_URL: http://localhost:4325
 
     steps:
       - name: 📦 Checkout repository
@@ -29,11 +38,28 @@ jobs:
       - name: 🏗️ Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: 📥 Install dependencies
         run: npm ci
+
+      - name: 🛠️ Install Turso CLI
+        run: |
+          curl -sSL tur.so/install | sh
+          echo "$HOME/.turso/bin" >> "$GITHUB_PATH"
+
+      - name: 🧩 Prepare environment
+        run: |
+          cat <<'EOF' > .env
+          TURSO_DATABASE_URL=libsql://test-db.turso.io
+          TURSO_AUTH_TOKEN=test-token
+          BETTER_AUTH_SECRET=test-secret
+          BETTER_AUTH_URL=http://localhost:4325
+          EOF
+
+      - name: 🗄️ Ensure database path
+        run: mkdir -p db
 
       - name: 🎭 Install Playwright Browsers
         run: npx playwright install --with-deps
@@ -43,17 +69,30 @@ jobs:
 
       - name: 🧪 Run E2E Tests
         run: |
-          if [ "${{ github.event.inputs.browser }}" = "all" ]; then
-            if [ "${{ github.event.inputs.headed }}" = "true" ]; then
+          export PATH="$HOME/.turso/bin:$PATH"
+
+          BROWSER="${{ github.event.inputs.browser }}"
+          HEADED="${{ github.event.inputs.headed }}"
+
+          if [ -z "$BROWSER" ]; then
+            BROWSER="chromium"
+          fi
+
+          if [ -z "$HEADED" ]; then
+            HEADED="false"
+          fi
+
+          if [ "$BROWSER" = "all" ]; then
+            if [ "$HEADED" = "true" ]; then
               npm run test:e2e:headed
             else
               npm run test:e2e
             fi
           else
-            if [ "${{ github.event.inputs.headed }}" = "true" ]; then
-              npm run test:e2e:headed -- --project="${{ github.event.inputs.browser }}"
+            if [ "$HEADED" = "true" ]; then
+              npm run test:e2e:headed -- --project="$BROWSER"
             else
-              npm run test:e2e -- --project="${{ github.event.inputs.browser }}"
+              npm run test:e2e -- --project="$BROWSER"
             fi
           fi
 

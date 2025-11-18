@@ -4,18 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cetus is a sci-fi themed party games platform built with Astro and Tailwind CSS. The platform features multiple interactive games including Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, and Sudoku with user authentication, score tracking, achievement system, and a modern neon-styled design.
+Cetus is a sci-fi themed single-player gaming platform built with Astro and Tailwind CSS. The platform features 10 fully implemented interactive games: Tetris Challenge, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, Sudoku, Bejeweled, Path Navigator, and Evader. Features include user authentication, score tracking, comprehensive achievement system with 4 rarity tiers, and a modern neon-styled design with holographic effects and animated backgrounds.
 
 ## Development Commands
 
 ### Core Commands
-- `npm run dev` - Start development server
+- `npm run dev` - Start both database and web server in parallel (database + Astro dev server)
+- `npm run web:dev` - Start Astro dev server only (localhost:4325)
+- `npm run db:dev` - Start local Turso SQLite database server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
 - `npm run astro` - Run Astro CLI commands
 
-### Database
-- `npm run db:dev` - Start local Turso SQLite database server
+### Local Development Setup
+To run the application locally, both the database and web server are required:
+```sh
+npm run dev        # Runs database + web server in parallel (recommended)
+# OR separately:
+npm run db:dev     # Terminal 1: Start database (required for auth/scores)
+npm run web:dev    # Terminal 2: Start web server on localhost:4325
+```
 
 ### Environment Setup
 Required environment variables in `.env`:
@@ -29,11 +37,12 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret # optional
 ```
 
 ### Testing
-- `npm run test` - Run tests with Vitest
-- `npm run test:ui` - Run tests with Vitest UI
+- `npm run test` - Run tests in watch mode (Vitest)
+- `npm run test:ui` - Run tests with Vitest UI (visual dashboard)
 - `npm run test:run` - Run tests once (CI mode)
 - `npm run test:coverage` - Run tests with coverage report
-- `npm run test:watch` - Run tests in watch mode
+- `npm run test:watch` - Alias for `npm run test`
+- `npm run test src/lib/services/scoreService.test.ts` - Run single test file
 
 ### End-to-End Testing
 - `npm run test:e2e` - Run Playwright end-to-end tests
@@ -117,20 +126,62 @@ src/
 - **Type Safety**: Full TypeScript integration with auth state
 
 ### Game Engine Architecture
-Games are modular with consistent patterns:
+Games are modular with consistent patterns following standard structure:
 - **Types**: Game state, config, and entity definitions
 - **Game Logic**: Core game mechanics and state management
-- **Renderer**: PixiJS-based rendering with canvas management
+- **Renderer**: PixiJS-based (canvas games) or DOM-based rendering with container management
 - **Utils**: Shared utilities and helper functions
 - **Init**: Game initialization and setup
 
 Each game follows: `types.ts` → `game.ts` → `renderer.ts` → `utils.ts`
 
-**Game-Specific Notes:**
+**Renderer Architecture**:
+- **DOM-based**: Memory Matrix uses direct DOM manipulation with card grid
+- **PixiJS Canvas**: Tetris, Reflex, Bejeweled, Path Navigator, Evader use canvas rendering
+- **Text-based**: Quick Math doesn't require visual renderer
+
+**Game-Specific Notes**:
 - **Sudoku**: Uses `utils.ts` for validation logic and puzzle generation
 - **Word Scramble**: Includes `words.ts` for word dictionary
 - **Reflex/Memory Matrix**: Have dedicated test files for game logic
-- **Quick Math**: Simpler structure without renderer (text-based)
+- **Quick Math**: Text-based game without canvas
+
+**Critical Astro-TypeScript Integration Pattern**:
+All game HTML structure must be in Astro components - TypeScript only manipulates dynamic content:
+```typescript
+// ✅ CORRECT - Query for existing Astro elements
+private setupDOM(): void {
+  // Astro provides: <div id="game-board" class="..."></div>
+  this.boardElement = document.getElementById('game-board') // Query existing
+  // Only add/remove children, never overwrite parent HTML
+}
+
+private renderBoard(): void {
+  if (!this.boardElement) return
+  // Clear children safely
+  while (this.boardElement.firstChild) {
+    this.boardElement.removeChild(this.boardElement.firstChild)
+  }
+  // Add new children dynamically
+}
+
+// ❌ WRONG - Don't use innerHTML to create structure
+this.container.innerHTML = '<div>content</div>' // Breaks styling
+```
+
+**Game Container Pattern in Astro Pages**:
+- Astro responsibility: All HTML structure, styling, layout, overlays
+- TypeScript responsibility: Only dynamic content (cards, pieces, game objects)
+- No innerHTML needed: Astro provides all necessary DOM structure upfront
+
+**Button State Management Pattern**:
+```javascript
+// Show "End Game" when started, reset to "Start Game" when finished
+startBtn.addEventListener('click', () => {
+  startBtn.style.display = 'none'
+  endBtn.style.display = 'inline-flex'
+})
+```
 
 ### Services Architecture
 - **Achievement Service**: Checks score thresholds and awards achievements automatically
@@ -158,7 +209,7 @@ Comprehensive sci-fi design system:
 ### Test Structure
 - **Unit Tests**: `*.test.ts` files co-located with source code
 - **Integration Tests**: API and database interaction testing
-- **E2E Tests**: Playwright tests in `tests/e2e/` directory
+- **E2E Tests**: Playwright tests in root-level `e2e/` directory
 - **Setup**: Global test setup in `src/test/setup.ts`
 - **Coverage**: V8 coverage reports with HTML output
 - **Environment**: jsdom for DOM testing with Testing Library
@@ -188,11 +239,16 @@ Comprehensive sci-fi design system:
 6. Add proper hover/focus states with accessibility
 
 ### Game Development
-1. Follow modular game architecture pattern
-2. Use PixiJS for canvas-based games
-3. Implement proper state management
-4. Add score tracking with database integration
-5. Ensure mobile compatibility with touch events
+1. Follow modular game architecture pattern with consistent file structure
+2. Use PixiJS for canvas-based games, DOM manipulation for others
+3. Implement proper state management with TypeScript types
+4. Add score tracking with database integration via `/api/scores` endpoint
+5. Ensure mobile compatibility with touch/mouse event handling
+6. Implement proper game state transitions and button state management
+7. Integrate with achievement system for automatic progress tracking
+8. All 10 games are fully implemented - focus on bug fixes and features
+9. Test canvas functionality across devices (mobile/desktop)
+10. Use game debug objects: `window.gameNameGame.getGame()` for debugging
 
 ### Database Operations
 1. Use Kysely for all database queries
@@ -209,8 +265,11 @@ Comprehensive sci-fi design system:
 - **Error Handling**: Consistent error patterns across API routes
 - **Performance**: Optimized with code splitting and lazy loading
 - **Security**: CSRF protection, secure sessions, environment variables
-- **Achievement System**: Code-based achievement definitions with automatic checking
+- **Achievement System**: Code-based achievement definitions with 4 rarity tiers and automatic checking
 - **Score Integration**: All games use centralized score service with achievement notifications
+- **Game Count**: 10 fully implemented games (Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, Sudoku, Bejeweled, Path Navigator, Evader)
+- **DOM vs Canvas**: Understand renderer types - DOM-based (Memory Matrix) vs PixiJS Canvas (most games)
+- **Debug Access**: Games expose debugging via `window.gameNameGame` for development inspection
 
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.

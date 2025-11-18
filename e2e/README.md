@@ -97,7 +97,7 @@ The E2E tests are configured in `playwright.config.ts`:
 npm run test:e2e:debug -- --grep "test name"
 
 # Run specific test file
-npm run test:e2e -- tests/e2e/homepage.spec.ts
+npm run test:e2e -- e2e/homepage.spec.ts
 
 # Run with specific browser
 npm run test:e2e -- --project=chromium
