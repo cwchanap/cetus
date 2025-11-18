@@ -31,6 +31,139 @@ const classes = cn(
   </div>
 </div>
 
+<!-- Achievement Card Template -->
+<template id="achievement-card-template">
+  <div
+    data-card
+    class="achievement-card relative bg-glass-strong rounded-2xl border-2 p-8 text-center shadow-2xl transform transition-all duration-300 hover:scale-105 cursor-pointer w-96 min-h-[480px] flex flex-col"
+    style="
+      --rarity-border: var(--rarity-color);
+      --rarity-shadow: var(--rarity-shadow-color);
+      --particle-color: var(--rarity-particle);
+      --glow-color: var(--rarity-glow);
+      border-color: var(--rarity-border);
+      box-shadow: 0 25px 50px -12px var(--rarity-shadow);
+    "
+  >
+    <!-- Particle Effects Container -->
+    <div data-particles class="absolute inset-0 pointer-events-none"></div>
+
+    <!-- Achievement Content -->
+    <div class="relative z-10 flex flex-col h-full">
+      <!-- Achievement Icon -->
+      <div class="mb-6 flex-shrink-0">
+        <div class="relative inline-block">
+          <div
+            data-icon
+            class="text-8xl mb-3 animate-bounce h-20 flex items-center justify-center"
+          >
+          </div>
+          <div
+            class="absolute inset-0 rounded-full blur-xl opacity-50"
+            style="background-color: var(--glow-color);"
+          >
+          </div>
+        </div>
+      </div>
+
+      <!-- Achievement Info -->
+      <div class="space-y-3 flex-grow flex flex-col">
+        <!-- Achievement Unlocked Text -->
+        <div
+          class="text-cyan-400 font-orbitron font-bold text-base tracking-wider mb-3 flex-shrink-0"
+        >
+          🏆 ACHIEVEMENT UNLOCKED!
+        </div>
+
+        <!-- Achievement Name -->
+        <h3
+          class="font-orbitron font-bold text-2xl text-white mb-3 flex-shrink-0 min-h-[4rem] flex items-center justify-center px-3 leading-tight"
+        >
+          <span data-name class="line-clamp-2 break-words"></span>
+        </h3>
+
+        <!-- Achievement Description -->
+        <div class="flex-grow flex items-center justify-center">
+          <p
+            data-description
+            class="text-gray-300 text-base leading-relaxed line-clamp-4 break-words px-3 max-h-24 overflow-hidden"
+          >
+          </p>
+        </div>
+
+        <!-- Rarity Badge -->
+        <div class="flex justify-center mt-5 flex-shrink-0">
+          <span
+            data-rarity-badge
+            class="rarity-badge px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide border min-w-[100px]"
+          >
+          </span>
+        </div>
+      </div>
+
+      <!-- Dismiss Instructions -->
+      <div class="mt-8 text-sm text-gray-400 opacity-75 flex-shrink-0">
+        Click anywhere to continue
+      </div>
+    </div>
+
+    <!-- Animated Border -->
+    <div
+      class="absolute inset-0 rounded-2xl border-2 border-transparent animate-pulse"
+    >
+      <div
+        class="absolute inset-0 rounded-2xl border-2 opacity-30"
+        style="border-color: var(--rarity-border);"
+      >
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+  .achievement-card[data-rarity='legendary'] {
+    --rarity-color: rgb(251 191 36 / 0.5);
+    --rarity-shadow-color: rgb(251 191 36 / 0.25);
+    --rarity-particle: rgb(251 191 36);
+    --rarity-glow: rgb(251 191 36 / 0.2);
+    --rarity-badge-bg: rgb(234 179 8 / 0.2);
+    --rarity-badge-text: rgb(250 204 21);
+  }
+
+  .achievement-card[data-rarity='epic'] {
+    --rarity-color: rgb(168 85 247 / 0.5);
+    --rarity-shadow-color: rgb(168 85 247 / 0.25);
+    --rarity-particle: rgb(168 85 247);
+    --rarity-glow: rgb(168 85 247 / 0.2);
+    --rarity-badge-bg: rgb(168 85 247 / 0.2);
+    --rarity-badge-text: rgb(192 132 252);
+  }
+
+  .achievement-card[data-rarity='rare'] {
+    --rarity-color: rgb(59 130 246 / 0.5);
+    --rarity-shadow-color: rgb(59 130 246 / 0.25);
+    --rarity-particle: rgb(59 130 246);
+    --rarity-glow: rgb(59 130 246 / 0.2);
+    --rarity-badge-bg: rgb(59 130 246 / 0.2);
+    --rarity-badge-text: rgb(96 165 250);
+  }
+
+  .achievement-card[data-rarity='common'] {
+    --rarity-color: rgb(156 163 175 / 0.5);
+    --rarity-shadow-color: rgb(156 163 175 / 0.25);
+    --rarity-particle: rgb(156 163 175);
+    --rarity-glow: rgb(156 163 175 / 0.2);
+    --rarity-badge-bg: rgb(107 114 128 / 0.2);
+    --rarity-badge-text: rgb(156 163 175);
+  }
+
+  .rarity-badge {
+    background-color: var(--rarity-badge-bg);
+    color: var(--rarity-badge-text);
+    border-color: var(--rarity-color);
+  }
+</style>
+
 <script>
   interface AchievementData {
     id: string
@@ -44,13 +177,43 @@ const classes = cn(
     private overlay: HTMLElement
     private backdrop: HTMLElement
     private container: HTMLElement
+    private template: HTMLTemplateElement
     private queue: AchievementData[] = []
     private isShowing = false
 
     constructor() {
-      this.overlay = document.getElementById('achievement-award-overlay')!
-      this.backdrop = document.getElementById('achievement-award-backdrop')!
-      this.container = document.getElementById('achievement-award-container')!
+      // Safe DOM lookups with null checks
+      const overlay = document.getElementById('achievement-award-overlay')
+      if (!overlay || !(overlay instanceof HTMLElement)) {
+        throw new Error(
+          'AchievementAward: achievement-award-overlay element not found'
+        )
+      }
+      this.overlay = overlay
+
+      const backdrop = document.getElementById('achievement-award-backdrop')
+      if (!backdrop || !(backdrop instanceof HTMLElement)) {
+        throw new Error(
+          'AchievementAward: achievement-award-backdrop element not found'
+        )
+      }
+      this.backdrop = backdrop
+
+      const container = document.getElementById('achievement-award-container')
+      if (!container || !(container instanceof HTMLElement)) {
+        throw new Error(
+          'AchievementAward: achievement-award-container element not found'
+        )
+      }
+      this.container = container
+
+      const template = document.getElementById('achievement-card-template')
+      if (!template || !(template instanceof HTMLTemplateElement)) {
+        throw new Error(
+          'AchievementAward: achievement-card-template not found or not a template element'
+        )
+      }
+      this.template = template
 
       // Hide initially
       this.overlay.style.display = 'none'
@@ -85,7 +248,12 @@ const classes = cn(
       this.isShowing = true
 
       // Show next achievement
-      const achievement = this.queue.shift()!
+      const achievement = this.queue.shift()
+      if (!achievement) {
+        this.isShowing = false
+        return
+      }
+
       await this.showSingleAchievement(achievement)
 
       // Continue with next achievement after delay
@@ -104,7 +272,9 @@ const classes = cn(
       const card = this.createAchievementCard(achievement)
 
       // Clear container and add new card
-      this.container.innerHTML = ''
+      while (this.container.firstChild) {
+        this.container.removeChild(this.container.firstChild)
+      }
       this.container.appendChild(card)
 
       // Show overlay
@@ -124,79 +294,50 @@ const classes = cn(
     }
 
     /**
-     * Create achievement card element
+     * Create achievement card element from template
      */
     private createAchievementCard(achievement: AchievementData): HTMLElement {
-      const { rarityColor, rarityGlow, particleColor, glowColor } =
-        this.getRarityStyles(achievement.rarity)
+      // Clone template
+      const clone = this.template.content.cloneNode(true) as DocumentFragment
 
-      const card = document.createElement('div')
-      card.className = `
-        relative bg-glass-strong rounded-2xl border-2 p-8 text-center
-        shadow-2xl transform transition-all duration-300
-        ${rarityColor} ${rarityGlow}
-        hover:scale-105 cursor-pointer
-        w-96 min-h-[480px] flex flex-col
-      `
+      // Safe querySelector with null check
+      const card = clone.querySelector('[data-card]')
+      if (!card || !(card instanceof HTMLElement)) {
+        throw new Error(
+          'AchievementAward: [data-card] element not found in template'
+        )
+      }
 
-      card.innerHTML = `
-        <!-- Particle Effects -->
-        <div class="absolute inset-0 pointer-events-none">
-          ${this.createParticles(particleColor)}
-        </div>
+      // Set rarity data attribute (CSS will handle styling)
+      card.dataset.rarity = achievement.rarity
 
-        <!-- Achievement Content -->
-        <div class="relative z-10 flex flex-col h-full">
-          <!-- Achievement Icon -->
-          <div class="mb-6 flex-shrink-0">
-            <div class="relative inline-block">
-              <div class="text-8xl mb-3 animate-bounce h-20 flex items-center justify-center">${achievement.icon}</div>
-              <div class="absolute inset-0 ${glowColor} rounded-full blur-xl opacity-50"></div>
-            </div>
-          </div>
+      // Populate content using textContent (safe, no innerHTML)
+      const iconElement = card.querySelector('[data-icon]')
+      if (iconElement instanceof HTMLElement) {
+        iconElement.textContent = achievement.icon
+      }
 
-          <!-- Achievement Info -->
-          <div class="space-y-3 flex-grow flex flex-col">
-            <!-- Achievement Unlocked Text -->
-            <div class="text-cyan-400 font-orbitron font-bold text-base tracking-wider mb-3 flex-shrink-0">
-              🏆 ACHIEVEMENT UNLOCKED!
-            </div>
+      const nameElement = card.querySelector('[data-name]')
+      if (nameElement instanceof HTMLElement) {
+        nameElement.textContent = achievement.name
+      }
 
-            <!-- Achievement Name -->
-            <h3 class="font-orbitron font-bold text-2xl text-white mb-3 flex-shrink-0 min-h-[4rem] flex items-center justify-center px-3 leading-tight">
-              <span class="line-clamp-2 break-words">${achievement.name}</span>
-            </h3>
+      const descriptionElement = card.querySelector('[data-description]')
+      if (descriptionElement instanceof HTMLElement) {
+        descriptionElement.textContent = achievement.description
+      }
 
-            <!-- Achievement Description -->
-            <div class="flex-grow flex items-center justify-center">
-              <p class="text-gray-300 text-base leading-relaxed line-clamp-4 break-words px-3 max-h-24 overflow-hidden">
-                ${achievement.description}
-              </p>
-            </div>
+      const rarityBadgeElement = card.querySelector('[data-rarity-badge]')
+      if (rarityBadgeElement instanceof HTMLElement) {
+        rarityBadgeElement.textContent = achievement.rarity
+      }
 
-            <!-- Rarity Badge -->
-            <div class="flex justify-center mt-5 flex-shrink-0">
-              <span class="
-                px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide
-                ${this.getRarityBadgeClass(achievement.rarity)}
-                border ${rarityColor} min-w-[100px]
-              ">
-                ${achievement.rarity}
-              </span>
-            </div>
-          </div>
-
-          <!-- Dismiss Instructions -->
-          <div class="mt-8 text-sm text-gray-400 opacity-75 flex-shrink-0">
-            Click anywhere to continue
-          </div>
-        </div>
-
-        <!-- Animated Border -->
-        <div class="absolute inset-0 rounded-2xl border-2 border-transparent animate-pulse">
-          <div class="absolute inset-0 rounded-2xl border-2 ${rarityColor} opacity-30"></div>
-        </div>
-      `
+      // Create particles
+      const particleColor = this.getParticleColor(achievement.rarity)
+      const particlesContainer = card.querySelector('[data-particles]')
+      if (particlesContainer instanceof HTMLElement) {
+        this.createParticles(particleColor, particlesContainer)
+      }
 
       // Add click handler
       card.addEventListener('click', () => {
@@ -207,78 +348,33 @@ const classes = cn(
     }
 
     /**
-     * Get rarity-specific styles
+     * Get particle color for rarity
      */
-    private getRarityStyles(rarity: string) {
-      switch (rarity) {
-        case 'legendary':
-          return {
-            rarityColor: 'border-yellow-400/50',
-            rarityGlow: 'shadow-yellow-400/25',
-            particleColor: 'rgb(251 191 36)',
-            glowColor: 'bg-yellow-400/20',
-          }
-        case 'epic':
-          return {
-            rarityColor: 'border-purple-400/50',
-            rarityGlow: 'shadow-purple-400/25',
-            particleColor: 'rgb(168 85 247)',
-            glowColor: 'bg-purple-400/20',
-          }
-        case 'rare':
-          return {
-            rarityColor: 'border-blue-400/50',
-            rarityGlow: 'shadow-blue-400/25',
-            particleColor: 'rgb(59 130 246)',
-            glowColor: 'bg-blue-400/20',
-          }
-        default: // common
-          return {
-            rarityColor: 'border-gray-400/50',
-            rarityGlow: 'shadow-gray-400/25',
-            particleColor: 'rgb(156 163 175)',
-            glowColor: 'bg-gray-400/20',
-          }
+    private getParticleColor(rarity: string): string {
+      const colors: Record<string, string> = {
+        legendary: 'rgb(251 191 36)',
+        epic: 'rgb(168 85 247)',
+        rare: 'rgb(59 130 246)',
+        common: 'rgb(156 163 175)',
       }
-    }
-
-    /**
-     * Get rarity badge class
-     */
-    private getRarityBadgeClass(rarity: string): string {
-      switch (rarity) {
-        case 'legendary':
-          return 'bg-yellow-500/20 text-yellow-400'
-        case 'epic':
-          return 'bg-purple-500/20 text-purple-400'
-        case 'rare':
-          return 'bg-blue-500/20 text-blue-400'
-        default:
-          return 'bg-gray-500/20 text-gray-400'
-      }
+      return colors[rarity] || colors.common
     }
 
     /**
      * Create particle effects
      */
-    private createParticles(color: string): string {
-      const particles = []
+    private createParticles(color: string, container: HTMLElement): void {
       for (let i = 0; i < 12; i++) {
-        particles.push(`
-          <div 
-            class="absolute w-1 h-1 rounded-full animate-ping"
-            style="
-              background-color: ${color};
-              left: ${Math.random() * 100}%;
-              top: ${Math.random() * 100}%;
-              animation-delay: ${Math.random() * 2}s;
-              animation-duration: ${1 + Math.random() * 1}s;
-              opacity: ${0.3 + Math.random() * 0.7};
-            "
-          ></div>
-        `)
+        const particle = document.createElement('div')
+        particle.className = 'absolute w-1 h-1 rounded-full animate-ping'
+        particle.style.backgroundColor = color
+        particle.style.left = `${Math.random() * 100}%`
+        particle.style.top = `${Math.random() * 100}%`
+        particle.style.animationDelay = `${Math.random() * 2}s`
+        particle.style.animationDuration = `${1 + Math.random() * 1}s`
+        particle.style.opacity = `${0.3 + Math.random() * 0.7}`
+        container.appendChild(particle)
       }
-      return particles.join('')
     }
 
     /**
@@ -352,7 +448,7 @@ const classes = cn(
     /**
      * Play sound effect (optional)
      */
-    private playSound(soundName: string): void {
+    private playSound(_soundName: string): void {
       // This is optional - you can implement sound effects if desired
       // TODO: Implement sound effects for achievements
     }
