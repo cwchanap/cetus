@@ -21,7 +21,9 @@ export class QuickMathRenderer extends DOMRenderer {
     private statsElements: {
         questions?: HTMLElement
         correct?: HTMLElement
-        score?: HTMLElement
+        sessionScore?: HTMLElement
+        mainScore?: HTMLElement
+        time?: HTMLElement
     } = {}
 
     constructor(config: QuickMathRendererConfig) {
@@ -48,7 +50,9 @@ export class QuickMathRenderer extends DOMRenderer {
             questions:
                 document.getElementById('current-questions') || undefined,
             correct: document.getElementById('current-correct') || undefined,
-            score: document.getElementById('current-score') || undefined,
+            sessionScore: document.getElementById('current-score') || undefined,
+            mainScore: document.getElementById('score') || undefined,
+            time: document.getElementById('time-remaining') || undefined,
         }
 
         if (!this.questionElement || !this.answerInput || !this.submitButton) {
@@ -115,8 +119,16 @@ export class QuickMathRenderer extends DOMRenderer {
             this.statsElements.correct.textContent =
                 state.correctAnswers.toString()
         }
-        if (this.statsElements.score) {
-            this.statsElements.score.textContent = state.score.toString()
+        if (this.statsElements.sessionScore) {
+            this.statsElements.sessionScore.textContent = state.score.toString()
+        }
+
+        if (this.statsElements.mainScore) {
+            this.statsElements.mainScore.textContent = state.score.toString()
+        }
+
+        if (this.statsElements.time) {
+            this.statsElements.time.textContent = state.timeRemaining.toString()
         }
 
         // Update input state based on game state

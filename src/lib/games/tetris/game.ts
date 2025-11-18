@@ -343,11 +343,17 @@ export function resetGame(
     if (startBtn) {
         startBtn.textContent = 'Start'
         ;(startBtn as HTMLButtonElement).disabled = false
+        startBtn.style.display = 'inline-flex'
     }
 
     const pauseBtn = document.getElementById('pause-btn')
     if (pauseBtn) {
         pauseBtn.textContent = 'Pause'
+    }
+
+    const endBtn = document.getElementById('end-btn')
+    if (endBtn) {
+        endBtn.style.display = 'none'
     }
 }
 
