@@ -191,9 +191,7 @@ function setupQuickMathEvents(
     })
 
     game.on('end', () => {
-        const stats = game.getGameStats()
         renderer.renderGameState(game.getState())
-        renderer.renderStats(stats)
     })
 }
 
