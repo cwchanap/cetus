@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       browser:
-        description: "Browser to run tests on"
+        description: 'Browser to run tests on'
         required: false
-        default: "chromium"
+        default: 'chromium'
         type: choice
         options:
           - chromium
       headed:
-        description: "Run tests in headed mode"
+        description: 'Run tests in headed mode'
         required: false
         default: false
         type: boolean
@@ -38,8 +38,8 @@ jobs:
       - name: 🏗️ Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: '20'
+          cache: 'npm'
 
       - name: 📥 Install dependencies
         run: npm ci
