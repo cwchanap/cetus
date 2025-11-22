@@ -200,14 +200,14 @@ export function searchGames(query: string): Game[] {
 
 // Game icon mapping
 const GAME_ICONS: Record<GameID, string> = {
-    [GameID.TETRIS]: '🧱',
+    [GameID.TETRIS]: '🔲',
     [GameID.BUBBLE_SHOOTER]: '🫧',
     [GameID.BEJEWELED]: '💎',
-    [GameID.QUICK_MATH]: '🔢',
+    [GameID.QUICK_MATH]: '🧮',
     [GameID.MEMORY_MATRIX]: '🧠',
-    [GameID.WORD_SCRAMBLE]: '🔤',
+    [GameID.WORD_SCRAMBLE]: '📝',
     [GameID.REFLEX]: '⚡',
-    [GameID.SUDOKU]: '🔢',
+    [GameID.SUDOKU]: '🧩',
     [GameID.PATH_NAVIGATOR]: '🧭',
     [GameID.EVADER]: '🏃',
     [GameID.SNAKE]: '🐍',
