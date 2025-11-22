@@ -12,7 +12,7 @@ import FeatureCard from '@/components/ui/FeatureCard.astro'
 import GameCard from '@/components/ui/GameCard.astro'
 
 // Games System Import
-import { getAllGames, getGameIcon, type Game } from '@/lib/games'
+import { getAllGames, getGameIcon, type Game, GameID } from '@/lib/games'
 
 // Check if user is authenticated
 const user = Astro.locals.user
@@ -34,14 +34,46 @@ function convertGameToCardFormat(game: Game) {
     snake: 11,
   }
 
+  const difficultyLabels: Partial<Record<GameID, string>> = {
+    [GameID.TETRIS]: 'Medium',
+    [GameID.BUBBLE_SHOOTER]: 'Easy',
+    [GameID.MEMORY_MATRIX]: 'Hard',
+    [GameID.BEJEWELED]: 'Casual',
+    [GameID.QUICK_MATH]: 'Math rush',
+    [GameID.WORD_SCRAMBLE]: 'Word challenge',
+    [GameID.REFLEX]: 'Reflex test',
+    [GameID.SUDOKU]: 'Number puzzle',
+    [GameID.PATH_NAVIGATOR]: 'Precision',
+    [GameID.EVADER]: 'Action',
+    [GameID.SNAKE]: 'Classic',
+  }
+
+  const durationLabels: Partial<Record<GameID, string>> = {
+    [GameID.TETRIS]: '5-15 minutes',
+    [GameID.BUBBLE_SHOOTER]: '10-20 minutes',
+    [GameID.QUICK_MATH]: '1 minute',
+    [GameID.MEMORY_MATRIX]: '3-10 minutes',
+    [GameID.SUDOKU]: '5-20 minutes',
+    [GameID.WORD_SCRAMBLE]: '60 seconds',
+    [GameID.REFLEX]: '60 seconds',
+    [GameID.EVADER]: '60 seconds',
+    [GameID.SNAKE]: 'Endless',
+  }
+
+  const difficulty =
+    difficultyLabels[game.id] ??
+    game.difficulty.charAt(0).toUpperCase() + game.difficulty.slice(1)
+
+  const baseDuration = game.estimatedDuration || '5-15 min'
+  const duration = durationLabels[game.id] ?? baseDuration
+
   return {
     id: idMapping[game.id] || 99,
     title: game.name,
     description: game.description,
     icon: getGameIcon(game.id),
-    duration: game.estimatedDuration || '5-15 min',
-    difficulty:
-      game.difficulty.charAt(0).toUpperCase() + game.difficulty.slice(1),
+    duration,
+    difficulty,
     available: game.isActive,
   }
 }
@@ -129,7 +161,7 @@ const games = availableGames
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         <FeatureCard
-          icon="⚡"
+          icon="🚀"
           title="Instant Play"
           description="No downloads or registration required. Jump into any game instantly from your browser."
           variant="cyan-purple"
