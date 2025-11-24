@@ -61,8 +61,8 @@ test.describe('Games Navigation and Basic Functionality', () => {
         // Check that all games are visible
         for (const game of games) {
             const gameCard = page
-                .locator(`h4:has-text("${game.title}")`)
-                .locator('..')
+                .getByTestId('game-card')
+                .filter({ hasText: game.title })
 
             await expect(
                 page.getByRole('heading', { name: game.title })
@@ -79,8 +79,8 @@ test.describe('Games Navigation and Basic Functionality', () => {
         for (const game of games) {
             // Find the game card and click its "Play Now" link
             const gameCard = page
-                .locator(`h4:has-text("${game.title}")`)
-                .locator('..')
+                .getByTestId('game-card')
+                .filter({ hasText: game.title })
             const playNowLink = gameCard.getByRole('link', { name: 'Play Now' })
 
             await expect(playNowLink).toBeVisible()
@@ -166,8 +166,9 @@ test.describe('Games Navigation and Basic Functionality', () => {
 
     test('should display game icons and emojis correctly', async ({ page }) => {
         for (const game of games) {
-            const gameHeading = page.getByRole('heading', { name: game.title })
-            const gameCard = gameHeading.locator('..')
+            const gameCard = page
+                .getByTestId('game-card')
+                .filter({ hasText: game.title })
 
             // Each game should have its icon/emoji visible
             await expect(gameCard.getByText(game.icon)).toBeVisible()
@@ -185,8 +186,8 @@ test.describe('Games Navigation and Basic Functionality', () => {
     test('should display estimated play times', async ({ page }) => {
         for (const game of games) {
             const gameCard = page
-                .locator(`h4:has-text("${game.title}")`)
-                .locator('..')
+                .getByTestId('game-card')
+                .filter({ hasText: game.title })
 
             await expect(gameCard.getByText(game.duration)).toBeVisible()
         }

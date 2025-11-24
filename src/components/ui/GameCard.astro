@@ -67,7 +67,12 @@ const getGameUrl = (title: string) => {
 }
 ---
 
-<Card variant="sci-fi" class={cn('p-6', classes)} {...props}>
+<Card
+  variant="sci-fi"
+  class={cn('p-6', classes)}
+  data-testid="game-card"
+  {...props}
+>
   <div class="relative z-10">
     <div class="flex items-center justify-between mb-4">
       <span class="text-4xl animate-float">{game.icon}</span>
