@@ -17,49 +17,51 @@ import { getAllGames, getGameIcon, type Game, GameID } from '@/lib/games'
 // Check if user is authenticated
 const user = Astro.locals.user
 
+// Map game IDs to legacy numeric IDs for consistency
+const idMapping: Record<string, number> = {
+  tetris: 2,
+  bubble_shooter: 3,
+  bejeweled: 1,
+  quick_math: 5,
+  memory_matrix: 4,
+  word_scramble: 6,
+  reflex: 7,
+  sudoku: 8,
+  path_navigator: 9,
+  evader: 10,
+  snake: 11,
+}
+
+const difficultyLabels: Partial<Record<GameID, string>> = {
+  [GameID.TETRIS]: 'Medium',
+  [GameID.BUBBLE_SHOOTER]: 'Easy',
+  [GameID.MEMORY_MATRIX]: 'Hard',
+  [GameID.BEJEWELED]: 'Easy',
+  [GameID.QUICK_MATH]: 'Medium',
+  [GameID.WORD_SCRAMBLE]: 'Medium',
+  [GameID.REFLEX]: 'Medium',
+  [GameID.SUDOKU]: 'Medium',
+  [GameID.PATH_NAVIGATOR]: 'Medium',
+  [GameID.EVADER]: 'Medium',
+  [GameID.SNAKE]: 'Classic',
+}
+
+const durationLabels: Partial<Record<GameID, string>> = {
+  [GameID.TETRIS]: '5-15 minutes',
+  [GameID.BUBBLE_SHOOTER]: '10-20 minutes',
+  [GameID.BEJEWELED]: '1-3 minutes',
+  [GameID.QUICK_MATH]: '1 minute',
+  [GameID.MEMORY_MATRIX]: '3-10 minutes',
+  [GameID.SUDOKU]: '5-20 minutes',
+  [GameID.WORD_SCRAMBLE]: '1 minute',
+  [GameID.REFLEX]: '1 minute',
+  [GameID.PATH_NAVIGATOR]: '1-2 minutes',
+  [GameID.EVADER]: '1 minute',
+  [GameID.SNAKE]: 'Endless',
+}
+
 // Convert Games system data to GameCard format
 function convertGameToCardFormat(game: Game) {
-  // Map game IDs to legacy numeric IDs for consistency
-  const idMapping: Record<string, number> = {
-    tetris: 2,
-    bubble_shooter: 3,
-    bejeweled: 1,
-    quick_math: 5,
-    memory_matrix: 4,
-    word_scramble: 6,
-    reflex: 7,
-    sudoku: 8,
-    path_navigator: 9,
-    evader: 10,
-    snake: 11,
-  }
-
-  const difficultyLabels: Partial<Record<GameID, string>> = {
-    [GameID.TETRIS]: 'Medium',
-    [GameID.BUBBLE_SHOOTER]: 'Easy',
-    [GameID.MEMORY_MATRIX]: 'Hard',
-    [GameID.BEJEWELED]: 'Casual',
-    [GameID.QUICK_MATH]: 'Math rush',
-    [GameID.WORD_SCRAMBLE]: 'Word challenge',
-    [GameID.REFLEX]: 'Reflex test',
-    [GameID.SUDOKU]: 'Number puzzle',
-    [GameID.PATH_NAVIGATOR]: 'Precision',
-    [GameID.EVADER]: 'Action',
-    [GameID.SNAKE]: 'Classic',
-  }
-
-  const durationLabels: Partial<Record<GameID, string>> = {
-    [GameID.TETRIS]: '5-15 minutes',
-    [GameID.BUBBLE_SHOOTER]: '10-20 minutes',
-    [GameID.QUICK_MATH]: '1 minute',
-    [GameID.MEMORY_MATRIX]: '3-10 minutes',
-    [GameID.SUDOKU]: '5-20 minutes',
-    [GameID.WORD_SCRAMBLE]: '60 seconds',
-    [GameID.REFLEX]: '60 seconds',
-    [GameID.EVADER]: '60 seconds',
-    [GameID.SNAKE]: 'Endless',
-  }
-
   const difficulty =
     difficultyLabels[game.id] ??
     game.difficulty.charAt(0).toUpperCase() + game.difficulty.slice(1)

@@ -60,12 +60,16 @@ test.describe('Games Navigation and Basic Functionality', () => {
     test('should display all available games on homepage', async ({ page }) => {
         // Check that all games are visible
         for (const game of games) {
+            const gameCard = page
+                .locator(`h4:has-text("${game.title}")`)
+                .locator('..')
+
             await expect(
                 page.getByRole('heading', { name: game.title })
             ).toBeVisible()
-            await expect(page.getByText(game.icon)).toBeVisible()
-            await expect(page.getByText(game.difficulty)).toBeVisible()
-            await expect(page.getByText(game.duration)).toBeVisible()
+            await expect(gameCard.getByText(game.icon)).toBeVisible()
+            await expect(gameCard.getByText(game.difficulty)).toBeVisible()
+            await expect(gameCard.getByText(game.duration)).toBeVisible()
         }
     })
 
@@ -174,13 +178,17 @@ test.describe('Games Navigation and Basic Functionality', () => {
         const difficultyLevels = ['Easy', 'Medium', 'Hard']
 
         for (const difficulty of difficultyLevels) {
-            await expect(page.getByText(difficulty)).toBeVisible()
+            await expect(page.getByText(difficulty).first()).toBeVisible()
         }
     })
 
     test('should display estimated play times', async ({ page }) => {
         for (const game of games) {
-            await expect(page.getByText(game.duration)).toBeVisible()
+            const gameCard = page
+                .locator(`h4:has-text("${game.title}")`)
+                .locator('..')
+
+            await expect(gameCard.getByText(game.duration)).toBeVisible()
         }
     })
 
