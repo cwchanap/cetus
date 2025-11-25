@@ -276,3 +276,10 @@ Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+## Active Technologies
+- TypeScript 5.x with Astro 5.10.1 + PixiJS 8.10.2, Astro, Tailwind CSS 4.1.3 (001-2048-game)
+- LibSQL/SQLite via Turso (existing game_scores table) (001-2048-game)
+
+## Recent Changes
+- 001-2048-game: Added TypeScript 5.x with Astro 5.10.1 + PixiJS 8.10.2, Astro, Tailwind CSS 4.1.3
