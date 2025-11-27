@@ -1,0 +1,261 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import GameOverlay from '@/components/GameOverlay.astro'
+
+// Custom navigation for game pages with breadcrumb
+const gameNavigation = [
+  { href: '/', label: 'Home' },
+  { href: '#', label: '2048' },
+]
+---
+
+<AppLayout
+  title="2048 - Cetus Minigames"
+  description="Slide tiles and combine matching numbers to reach the 2048 tile in this classic puzzle game"
+  includeFooter={false}
+  navigation={gameNavigation}
+>
+  <!-- Game Breadcrumb -->
+  <div class="px-6 py-4 border-b border-slate-700/50">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center space-x-3">
+        <div class="text-cyan-400 text-sm">🎯 2048</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-6 py-8">
+    <div class="max-w-6xl mx-auto">
+      <!-- Game Title -->
+      <div class="text-center mb-8">
+        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
+          2048
+        </h2>
+        <p class="text-gray-400 text-lg">
+          Slide tiles and combine matching numbers to reach 2048
+        </p>
+      </div>
+
+      <!-- Game Container -->
+      <div class="flex flex-col lg:flex-row gap-8 items-start justify-center">
+        <!-- Game Board -->
+        <Card variant="glass" class="p-6 flex-shrink-0">
+          <div class="flex flex-col items-center space-y-4">
+            <!-- Game Status -->
+            <div class="flex space-x-4 mb-4">
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Score: <span id="score-display">0</span></span
+                >
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Best Tile: <span id="max-tile-display">0</span></span
+                >
+              </Badge>
+            </div>
+
+            <!-- 2048 Game Container -->
+            <div class="relative">
+              <div
+                id="game-2048-container"
+                class="border-2 border-cyan-400/50 bg-slate-900/50 rounded-lg shadow-glow-cyan touch-none"
+                style="width: 410px; height: 410px;"
+              >
+              </div>
+
+              <!-- Win Notification -->
+              <div
+                id="win-notification"
+                class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-cyan-500/90 text-white px-6 py-4 rounded-lg shadow-glow-cyan text-center z-50"
+              >
+                <div class="text-2xl font-bold mb-2">🎉 You reached 2048!</div>
+                <div class="text-sm">Keep playing to reach higher scores!</div>
+              </div>
+
+              <GameOverlay
+                titleId="game-over-title"
+                defaultTitle="Game Over"
+                buttonId="restart-btn"
+              >
+                <div class="text-lg text-gray-300">
+                  Max Tile: <span id="final-max-tile" class="text-cyan-400"
+                    >0</span
+                  >
+                </div>
+                <div class="text-lg text-gray-300">
+                  Moves: <span id="final-moves" class="text-green-400">0</span>
+                </div>
+              </GameOverlay>
+            </div>
+
+            <!-- Game Controls -->
+            <div class="flex space-x-2">
+              <Button id="start-btn" variant="primary" size="sm">Start</Button>
+              <Button
+                id="end-btn"
+                variant="outline"
+                size="sm"
+                style="display: none;">End Game</Button
+              >
+              <Button id="reset-btn" variant="outline" size="sm">Reset</Button>
+            </div>
+          </div>
+        </Card>
+
+        <!-- Controls & Info -->
+        <div class="flex flex-col space-y-6">
+          <!-- Controls Guide -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              CONTROLS
+            </h3>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-400">Slide Up:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">↑ / W</Badge>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Slide Down:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">↓ / S</Badge>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Slide Left:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">← / A</Badge>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Slide Right:</span>
+                <Badge variant="outline" class="px-2 py-1 text-xs">→ / D</Badge>
+              </div>
+              <div class="mt-4 pt-4 border-t border-slate-700">
+                <span class="text-gray-400">Mobile:</span>
+                <span class="text-cyan-400 ml-2">Swipe to move</span>
+              </div>
+            </div>
+          </Card>
+
+          <!-- How to Play -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              HOW TO PLAY
+            </h3>
+            <div class="space-y-3 text-sm text-gray-400">
+              <p>
+                Use arrow keys or swipe to slide all tiles in one direction.
+              </p>
+              <p>
+                When two tiles with the same number touch, they merge into one
+                with double the value.
+              </p>
+              <p>
+                Reach the <span class="text-cyan-400 font-bold">2048</span> tile
+                to win!
+              </p>
+              <p class="text-xs text-gray-500">
+                You can continue playing after reaching 2048.
+              </p>
+            </div>
+          </Card>
+
+          <!-- Tile Guide -->
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              TILE PROGRESSION
+            </h3>
+            <div class="flex flex-wrap gap-2 text-xs font-mono">
+              <span class="px-2 py-1 rounded bg-slate-800 text-cyan-400">2</span
+              >
+              <span class="px-2 py-1 rounded bg-slate-700 text-cyan-400">4</span
+              >
+              <span class="px-2 py-1 rounded bg-blue-900 text-white">8</span>
+              <span class="px-2 py-1 rounded bg-purple-900 text-white">16</span>
+              <span class="px-2 py-1 rounded bg-purple-700 text-white">32</span>
+              <span class="px-2 py-1 rounded bg-red-600 text-white">64</span>
+              <span class="px-2 py-1 rounded bg-red-400 text-slate-900"
+                >128</span
+              >
+              <span class="px-2 py-1 rounded bg-yellow-400 text-slate-900"
+                >256</span
+              >
+              <span class="px-2 py-1 rounded bg-green-500 text-slate-900"
+                >512</span
+              >
+              <span class="px-2 py-1 rounded bg-blue-400 text-white">1024</span>
+              <span
+                class="px-2 py-1 rounded bg-cyan-400 text-slate-900 font-bold"
+                >2048</span
+              >
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2048 Game Logic -->
+    <script>
+      import {
+        init2048Game,
+        type Game2048Instance,
+      } from '@/lib/games/2048/init'
+
+      // Initialize game when page loads
+      document.addEventListener('DOMContentLoaded', async () => {
+        try {
+          const gameInstance: Game2048Instance | undefined =
+            await init2048Game()
+
+          if (!gameInstance) {
+            console.error('Failed to initialize 2048 game')
+            return
+          }
+
+          // Get button elements
+          const startBtn = document.getElementById('start-btn')!
+          const endBtn = document.getElementById('end-btn')!
+          const resetBtn = document.getElementById('reset-btn')!
+          const restartBtn = document.getElementById('restart-btn')!
+
+          // Start button click handler
+          startBtn.addEventListener('click', () => {
+            startBtn.style.display = 'none'
+            endBtn.style.display = 'inline-flex'
+            gameInstance.start()
+          })
+
+          // End game button click handler
+          endBtn.addEventListener('click', async () => {
+            await gameInstance.endGame()
+          })
+
+          // Reset button click handler
+          resetBtn.addEventListener('click', () => {
+            gameInstance.restart()
+            startBtn.style.display = 'inline-flex'
+            endBtn.style.display = 'none'
+          })
+
+          // Restart button (in overlay) click handler
+          restartBtn?.addEventListener('click', () => {
+            const gameOverOverlay =
+              document.getElementById('game-over-overlay')!
+            gameOverOverlay.classList.add('hidden')
+
+            // Reset buttons
+            startBtn.style.display = 'inline-flex'
+            endBtn.style.display = 'none'
+
+            gameInstance.restart()
+          })
+
+          // Expose game instance for debugging
+          ;(window as any).game2048 = gameInstance
+        } catch (error) {
+          console.error('Failed to initialize 2048 game:', error)
+        }
+      })
+    </script>
+  </div>
+</AppLayout>

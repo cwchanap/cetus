@@ -963,6 +963,130 @@ export const ACHIEVEMENTS: Achievement[] = [
         },
         rarity: AchievementRarity.RARE,
     },
+
+    // 2048 achievements - Welcome and Score-based
+    {
+        id: '2048_welcome',
+        name: 'First Slide',
+        description: 'Welcome to 2048! You scored your first points.',
+        logo: '🎮',
+        gameId: GameID.GAME_2048,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: '2048_novice',
+        name: '2048 Novice',
+        description: 'Score 500 points in 2048',
+        logo: '🔰',
+        gameId: GameID.GAME_2048,
+        condition: {
+            type: 'score_threshold',
+            threshold: 500,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: '2048_apprentice',
+        name: '2048 Apprentice',
+        description: 'Score 1000 points in 2048',
+        logo: '⭐',
+        gameId: GameID.GAME_2048,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1000,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: '2048_expert',
+        name: '2048 Expert',
+        description: 'Score 2500 points in 2048',
+        logo: '💫',
+        gameId: GameID.GAME_2048,
+        condition: {
+            type: 'score_threshold',
+            threshold: 2500,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: '2048_master',
+        name: '2048 Master',
+        description: 'Score 5000 points in 2048',
+        logo: '👑',
+        gameId: GameID.GAME_2048,
+        condition: {
+            type: 'score_threshold',
+            threshold: 5000,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+
+    // 2048 achievements - Tile milestones
+    {
+        id: '2048_tile_256',
+        name: 'Power of Two',
+        description: 'Create a 256 tile in 2048',
+        logo: '🔢',
+        gameId: GameID.GAME_2048,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { maxTile: number }) => gameData.maxTile >= 256,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: '2048_tile_512',
+        name: 'Halfway There',
+        description: 'Create a 512 tile in 2048',
+        logo: '📈',
+        gameId: GameID.GAME_2048,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { maxTile: number }) => gameData.maxTile >= 512,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: '2048_tile_1024',
+        name: 'Almost There',
+        description: 'Create a 1024 tile in 2048',
+        logo: '🎯',
+        gameId: GameID.GAME_2048,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { maxTile: number }) => gameData.maxTile >= 1024,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: '2048_tile_2048',
+        name: '2048 Champion',
+        description: 'Create a 2048 tile and win the game!',
+        logo: '🏆',
+        gameId: GameID.GAME_2048,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { maxTile: number }) => gameData.maxTile >= 2048,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: '2048_tile_4096',
+        name: 'Beyond 2048',
+        description: 'Create a 4096 tile - a true master!',
+        logo: '🌟',
+        gameId: GameID.GAME_2048,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { maxTile: number }) => gameData.maxTile >= 4096,
+        },
+        rarity: AchievementRarity.LEGENDARY,
+    },
 ]
 
 // Helper functions

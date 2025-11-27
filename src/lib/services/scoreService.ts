@@ -164,6 +164,8 @@ export function formatGameName(gameId: GameType): string {
             return 'Bubble Shooter'
         case 'memory_matrix':
             return 'Memory Matrix'
+        case '2048':
+            return '2048'
         default:
             return gameId.charAt(0).toUpperCase() + gameId.slice(1)
     }

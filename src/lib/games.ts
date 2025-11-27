@@ -11,6 +11,7 @@ export enum GameID {
     PATH_NAVIGATOR = 'path_navigator',
     EVADER = 'evader',
     SNAKE = 'snake',
+    GAME_2048 = '2048',
 }
 
 // Game system types
@@ -158,6 +159,18 @@ export const GAMES: Game[] = [
         tags: ['classic', 'arcade', 'survival', 'single-player', 'snake'],
         isActive: true,
     },
+    {
+        id: GameID.GAME_2048,
+        name: '2048',
+        description:
+            'Slide tiles to combine matching numbers and reach the 2048 tile',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '5-10 minutes',
+        difficulty: 'medium',
+        tags: ['puzzle', 'numbers', 'strategy', 'single-player', 'classic'],
+        isActive: true,
+    },
 ]
 
 // Helper functions
@@ -211,6 +224,7 @@ const GAME_ICONS: Record<GameID, string> = {
     [GameID.PATH_NAVIGATOR]: '🧭',
     [GameID.EVADER]: '🏃',
     [GameID.SNAKE]: '🐍',
+    [GameID.GAME_2048]: '🎯',
 }
 
 // Game icon helper function
