@@ -26,10 +26,10 @@
 
 **Purpose**: Project initialization and game registration
 
-- [ ] T001 Add `GAME_2048 = '2048'` to GameID enum in `src/lib/games.ts`
-- [ ] T002 [P] Add 2048 game metadata to GAMES array in `src/lib/games.ts` (name, description, category: puzzle, difficulty: medium, tags, isActive: true)
-- [ ] T003 [P] Add `'2048'` icon mapping `🎯` to GAME_ICONS in `src/lib/games.ts`
-- [ ] T004 Create game module directory structure at `src/lib/games/2048/`
+- [x] T001 Add `GAME_2048 = '2048'` to GameID enum in `src/lib/games.ts`
+- [x] T002 [P] Add 2048 game metadata to GAMES array in `src/lib/games.ts` (name, description, category: puzzle, difficulty: medium, tags, isActive: true)
+- [x] T003 [P] Add `'2048'` icon mapping `🎯` to GAME_ICONS in `src/lib/games.ts`
+- [x] T004 Create game module directory structure at `src/lib/games/2048/`
 
 ---
 
@@ -41,38 +41,38 @@
 
 ### Types Definition
 
-- [ ] T005 Create `Position` interface (row, col) in `src/lib/games/2048/types.ts`
-- [ ] T006 [P] Create `Tile` interface (id, value, position, mergedFrom?, isNew?) in `src/lib/games/2048/types.ts`
-- [ ] T007 [P] Create `Board` type alias (Tile | null)[][] in `src/lib/games/2048/types.ts`
-- [ ] T008 [P] Create `Direction` type ('up' | 'down' | 'left' | 'right') in `src/lib/games/2048/types.ts`
-- [ ] T009 [P] Create `MoveResult` interface (board, moved, scoreGained, mergeCount, animations) in `src/lib/games/2048/types.ts`
-- [ ] T010 [P] Create `Animation` interface (type, tileId, from?, to, value?) in `src/lib/games/2048/types.ts`
-- [ ] T011 [P] Create `GameState` interface (board, score, gameStarted, gameOver, won, moveCount, maxTile, lastMoveAnimations, tileIdCounter) in `src/lib/games/2048/types.ts`
-- [ ] T012 [P] Create `GameStats` interface (finalScore, maxTile, moveCount, mergeCount, gameWon) in `src/lib/games/2048/types.ts`
-- [ ] T013 [P] Create `GameCallbacks` interface (onScoreChange?, onGameOver?, onWin?, onMove?) in `src/lib/games/2048/types.ts`
-- [ ] T014 Create `GameConstants` interface and export GAME_CONSTANTS (BOARD_SIZE: 4, TILE_SIZE: 90, GAP: 10, etc.) in `src/lib/games/2048/types.ts`
+- [x] T005 Create `Position` interface (row, col) in `src/lib/games/2048/types.ts`
+- [x] T006 [P] Create `Tile` interface (id, value, position, mergedFrom?, isNew?) in `src/lib/games/2048/types.ts`
+- [x] T007 [P] Create `Board` type alias (Tile | null)[][] in `src/lib/games/2048/types.ts`
+- [x] T008 [P] Create `Direction` type ('up' | 'down' | 'left' | 'right') in `src/lib/games/2048/types.ts`
+- [x] T009 [P] Create `MoveResult` interface (board, moved, scoreGained, mergeCount, animations) in `src/lib/games/2048/types.ts`
+- [x] T010 [P] Create `Animation` interface (type, tileId, from?, to, value?) in `src/lib/games/2048/types.ts`
+- [x] T011 [P] Create `GameState` interface (board, score, gameStarted, gameOver, won, moveCount, maxTile, lastMoveAnimations, tileIdCounter) in `src/lib/games/2048/types.ts`
+- [x] T012 [P] Create `GameStats` interface (finalScore, maxTile, moveCount, mergeCount, gameWon) in `src/lib/games/2048/types.ts`
+- [x] T013 [P] Create `GameCallbacks` interface (onScoreChange?, onGameOver?, onWin?, onMove?) in `src/lib/games/2048/types.ts`
+- [x] T014 Create `GameConstants` interface and export GAME_CONSTANTS (BOARD_SIZE: 4, TILE_SIZE: 90, GAP: 10, etc.) in `src/lib/games/2048/types.ts`
 
 ### Core Game Logic
 
-- [ ] T015 Implement `createGameState()` function returning initial empty game state in `src/lib/games/2048/game.ts`
-- [ ] T016 [P] Implement `generateTileId(state)` helper for unique tile IDs in `src/lib/games/2048/utils.ts`
-- [ ] T017 [P] Implement `getEmptyCells(board)` helper returning array of empty Position in `src/lib/games/2048/utils.ts`
-- [ ] T018 [P] Implement `spawnTile(state)` function adding new tile (2 or 4, 90/10 probability) to random empty cell in `src/lib/games/2048/game.ts`
-- [ ] T019 Implement `slideTiles(board, direction)` function sliding all tiles in direction in `src/lib/games/2048/game.ts`
-- [ ] T020 Implement `mergeTiles(board, direction)` function merging adjacent matching tiles (once per move rule) in `src/lib/games/2048/game.ts`
-- [ ] T021 Implement `move(state, direction)` function combining slide, merge, score update, returning MoveResult in `src/lib/games/2048/game.ts`
-- [ ] T022 [P] Implement `canMove(board)` function checking if any valid moves remain in `src/lib/games/2048/utils.ts`
-- [ ] T023 [P] Implement `getMaxTile(board)` function returning highest tile value in `src/lib/games/2048/utils.ts`
-- [ ] T024 Implement `checkGameOver(state)` function detecting game over condition in `src/lib/games/2048/game.ts`
+- [x] T015 Implement `createGameState()` function returning initial empty game state in `src/lib/games/2048/game.ts`
+- [x] T016 [P] Implement `generateTileId(state)` helper for unique tile IDs in `src/lib/games/2048/utils.ts`
+- [x] T017 [P] Implement `getEmptyCells(board)` helper returning array of empty Position in `src/lib/games/2048/utils.ts`
+- [x] T018 [P] Implement `spawnTile(state)` function adding new tile (2 or 4, 90/10 probability) to random empty cell in `src/lib/games/2048/game.ts`
+- [x] T019 Implement `slideTiles(board, direction)` function sliding all tiles in direction in `src/lib/games/2048/game.ts`
+- [x] T020 Implement `mergeTiles(board, direction)` function merging adjacent matching tiles (once per move rule) in `src/lib/games/2048/game.ts`
+- [x] T021 Implement `move(state, direction)` function combining slide, merge, score update, returning MoveResult in `src/lib/games/2048/game.ts`
+- [x] T022 [P] Implement `canMove(board)` function checking if any valid moves remain in `src/lib/games/2048/utils.ts`
+- [x] T023 [P] Implement `getMaxTile(board)` function returning highest tile value in `src/lib/games/2048/utils.ts`
+- [x] T024 Implement `checkGameOver(state)` function detecting game over condition in `src/lib/games/2048/game.ts`
 
 ### Unit Tests for Core Logic
 
-- [ ] T025 Write unit tests for `spawnTile` in `src/lib/games/2048/game.test.ts` (spawn in empty cell, correct probability)
-- [ ] T026 [P] Write unit tests for `slideTiles` in `src/lib/games/2048/game.test.ts` (slide left/right/up/down)
-- [ ] T027 [P] Write unit tests for `mergeTiles` in `src/lib/games/2048/game.test.ts` (merge matching, once-per-move rule)
-- [ ] T028 [P] Write unit tests for `move` in `src/lib/games/2048/game.test.ts` (full move, score calculation)
-- [ ] T029 [P] Write unit tests for `canMove` in `src/lib/games/2048/game.test.ts` (valid moves exist, no moves)
-- [ ] T030 [P] Write unit tests for `checkGameOver` in `src/lib/games/2048/game.test.ts` (game over detection)
+- [x] T025 Write unit tests for `spawnTile` in `src/lib/games/2048/game.test.ts` (spawn in empty cell, correct probability)
+- [x] T026 [P] Write unit tests for `slideTiles` in `src/lib/games/2048/game.test.ts` (slide left/right/up/down)
+- [x] T027 [P] Write unit tests for `mergeTiles` in `src/lib/games/2048/game.test.ts` (merge matching, once-per-move rule)
+- [x] T028 [P] Write unit tests for `move` in `src/lib/games/2048/game.test.ts` (full move, score calculation)
+- [x] T029 [P] Write unit tests for `canMove` in `src/lib/games/2048/game.test.ts` (valid moves exist, no moves)
+- [x] T030 [P] Write unit tests for `checkGameOver` in `src/lib/games/2048/game.test.ts` (game over detection)
 
 **Checkpoint**: Foundation ready - all types defined, core game logic tested, user story implementation can begin
 
@@ -86,24 +86,24 @@
 
 ### Implementation for User Story 1
 
-- [ ] T031 [US1] Implement `startGame(state)` function spawning 2 initial tiles, setting gameStarted=true in `src/lib/games/2048/game.ts`
-- [ ] T032 [US1] Implement `resetGame(state)` function returning to initial state in `src/lib/games/2048/game.ts`
-- [ ] T033 [P] [US1] Implement tile color mapping (getTileColor, getTileTextColor) based on value in `src/lib/games/2048/utils.ts`
-- [ ] T034 [P] [US1] Implement `setupPixiJS(container, constants)` function initializing PixiJS Application in `src/lib/games/2048/renderer.ts`
-- [ ] T035 [US1] Implement `drawBoard(renderer, state)` function rendering 4x4 grid background in `src/lib/games/2048/renderer.ts`
-- [ ] T036 [US1] Implement `drawTiles(renderer, state)` function rendering all tiles with values in `src/lib/games/2048/renderer.ts`
-- [ ] T037 [US1] Implement tile movement animation (animateTileMove) in `src/lib/games/2048/renderer.ts`
-- [ ] T038 [US1] Implement tile merge animation (animateTileMerge) with scale pop effect in `src/lib/games/2048/renderer.ts`
-- [ ] T039 [US1] Implement tile spawn animation (animateTileSpawn) with fade-in in `src/lib/games/2048/renderer.ts`
-- [ ] T040 [US1] Implement `draw(renderer, state, constants)` main render function combining all drawing in `src/lib/games/2048/renderer.ts`
-- [ ] T041 [US1] Create game page HTML structure with game container, score display, controls in `src/pages/2048/index.astro`
-- [ ] T042 [US1] Add keyboard event listener (arrow keys) calling move() in `src/lib/games/2048/init.ts`
-- [ ] T043 [US1] Implement `init2048Game()` function setting up renderer, event listeners, game loop in `src/lib/games/2048/init.ts`
-- [ ] T044 [US1] Add Start Game button handler calling startGame() in `src/pages/2048/index.astro`
-- [ ] T045 [US1] Add End Game button handler (manual end) in `src/pages/2048/index.astro`
-- [ ] T046 [US1] Implement real-time score display update using DOM element in `src/lib/games/2048/init.ts`
-- [ ] T047 [US1] Implement win detection (2048 tile) with notification display in `src/lib/games/2048/game.ts`
-- [ ] T048 [US1] Allow continued play after winning (won=true but gameOver=false) in `src/lib/games/2048/game.ts`
+- [x] T031 [US1] Implement `startGame(state)` function spawning 2 initial tiles, setting gameStarted=true in `src/lib/games/2048/game.ts`
+- [x] T032 [US1] Implement `resetGame(state)` function returning to initial state in `src/lib/games/2048/game.ts`
+- [x] T033 [P] [US1] Implement tile color mapping (getTileColor, getTileTextColor) based on value in `src/lib/games/2048/utils.ts`
+- [x] T034 [P] [US1] Implement `setupPixiJS(container, constants)` function initializing PixiJS Application in `src/lib/games/2048/renderer.ts`
+- [x] T035 [US1] Implement `drawBoard(renderer, state)` function rendering 4x4 grid background in `src/lib/games/2048/renderer.ts`
+- [x] T036 [US1] Implement `drawTiles(renderer, state)` function rendering all tiles with values in `src/lib/games/2048/renderer.ts`
+- [x] T037 [US1] Implement tile movement animation (animateTileMove) in `src/lib/games/2048/renderer.ts`
+- [x] T038 [US1] Implement tile merge animation (animateTileMerge) with scale pop effect in `src/lib/games/2048/renderer.ts`
+- [x] T039 [US1] Implement tile spawn animation (animateTileSpawn) with fade-in in `src/lib/games/2048/renderer.ts`
+- [x] T040 [US1] Implement `draw(renderer, state, constants)` main render function combining all drawing in `src/lib/games/2048/renderer.ts`
+- [x] T041 [US1] Create game page HTML structure with game container, score display, controls in `src/pages/2048/index.astro`
+- [x] T042 [US1] Add keyboard event listener (arrow keys) calling move() in `src/lib/games/2048/init.ts`
+- [x] T043 [US1] Implement `init2048Game()` function setting up renderer, event listeners, game loop in `src/lib/games/2048/init.ts`
+- [x] T044 [US1] Add Start Game button handler calling startGame() in `src/pages/2048/index.astro`
+- [x] T045 [US1] Add End Game button handler (manual end) in `src/pages/2048/index.astro`
+- [x] T046 [US1] Implement real-time score display update using DOM element in `src/lib/games/2048/init.ts`
+- [x] T047 [US1] Implement win detection (2048 tile) with notification display in `src/lib/games/2048/game.ts`
+- [x] T048 [US1] Allow continued play after winning (won=true but gameOver=false) in `src/lib/games/2048/game.ts`
 
 **Checkpoint**: User Story 1 complete - players can play full 2048 gameplay with keyboard controls
 
@@ -117,13 +117,13 @@
 
 ### Implementation for User Story 2
 
-- [ ] T049 [US2] Implement `endGame(state)` function setting gameOver=true, calling onGameOver callback in `src/lib/games/2048/game.ts`
-- [ ] T050 [US2] Add game over check after each move (if !canMove then endGame) in `src/lib/games/2048/game.ts`
-- [ ] T051 [US2] Add GameOverlay component with final score display in `src/pages/2048/index.astro`
-- [ ] T052 [US2] Display final stats in overlay (score, max tile, moves) in `src/pages/2048/index.astro`
-- [ ] T053 [US2] Add Play Again button in overlay calling resetGame() in `src/pages/2048/index.astro`
-- [ ] T054 [US2] Hide/show overlay based on gameOver state in `src/lib/games/2048/init.ts`
-- [ ] T055 [US2] Block input when game is over (keyboard events check gameOver) in `src/lib/games/2048/init.ts`
+- [x] T049 [US2] Implement `endGame(state)` function setting gameOver=true, calling onGameOver callback in `src/lib/games/2048/game.ts`
+- [x] T050 [US2] Add game over check after each move (if !canMove then endGame) in `src/lib/games/2048/game.ts`
+- [x] T051 [US2] Add GameOverlay component with final score display in `src/pages/2048/index.astro`
+- [x] T052 [US2] Display final stats in overlay (score, max tile, moves) in `src/pages/2048/index.astro`
+- [x] T053 [US2] Add Play Again button in overlay calling resetGame() in `src/pages/2048/index.astro`
+- [x] T054 [US2] Hide/show overlay based on gameOver state in `src/lib/games/2048/init.ts`
+- [x] T055 [US2] Block input when game is over (keyboard events check gameOver) in `src/lib/games/2048/init.ts`
 
 **Checkpoint**: User Stories 1 AND 2 complete - full game loop from start to game over with replay
 
@@ -137,12 +137,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T056 [US3] Import saveGameScore from scoreService in `src/lib/games/2048/init.ts`
-- [ ] T057 [US3] Implement onGameOver callback that calls saveGameScore with gameStats in `src/lib/games/2048/init.ts`
-- [ ] T058 [US3] Pass gameData (maxTile, mergeCount, gameWon) to score submission in `src/lib/games/2048/init.ts`
-- [ ] T059 [US3] Handle score submission success (log, optional notification) in `src/lib/games/2048/init.ts`
-- [ ] T060 [US3] Handle score submission error (log error, don't block game) in `src/lib/games/2048/init.ts`
-- [ ] T061 [US3] Add '2048' case to formatGameName() in `src/lib/services/scoreService.ts`
+- [x] T056 [US3] Import saveGameScore from scoreService in `src/lib/games/2048/init.ts`
+- [x] T057 [US3] Implement onGameOver callback that calls saveGameScore with gameStats in `src/lib/games/2048/init.ts`
+- [x] T058 [US3] Pass gameData (maxTile, mergeCount, gameWon) to score submission in `src/lib/games/2048/init.ts`
+- [x] T059 [US3] Handle score submission success (log, optional notification) in `src/lib/games/2048/init.ts`
+- [x] T060 [US3] Handle score submission error (log error, don't block game) in `src/lib/games/2048/init.ts`
+- [x] T061 [US3] Add '2048' case to formatGameName() in `src/lib/services/scoreService.ts`
 
 **Checkpoint**: User Stories 1, 2, AND 3 complete - scores persist for authenticated users
 
@@ -156,18 +156,18 @@
 
 ### Implementation for User Story 4
 
-- [ ] T062 [US4] Add 2048_welcome achievement (First Slide, score >= 1, Common) in `src/lib/achievements.ts`
-- [ ] T063 [P] [US4] Add 2048_novice achievement (Score 500, Common) in `src/lib/achievements.ts`
-- [ ] T064 [P] [US4] Add 2048_apprentice achievement (Score 1000, Common) in `src/lib/achievements.ts`
-- [ ] T065 [P] [US4] Add 2048_expert achievement (Score 2500, Rare) in `src/lib/achievements.ts`
-- [ ] T066 [P] [US4] Add 2048_master achievement (Score 5000, Epic) in `src/lib/achievements.ts`
-- [ ] T067 [P] [US4] Add 2048_tile_256 achievement (Power of Two, maxTile >= 256, Common) in `src/lib/achievements.ts`
-- [ ] T068 [P] [US4] Add 2048_tile_512 achievement (Halfway There, maxTile >= 512, Common) in `src/lib/achievements.ts`
-- [ ] T069 [P] [US4] Add 2048_tile_1024 achievement (Almost There, maxTile >= 1024, Rare) in `src/lib/achievements.ts`
-- [ ] T070 [P] [US4] Add 2048_tile_2048 achievement (2048 Champion, maxTile >= 2048, Epic) in `src/lib/achievements.ts`
-- [ ] T071 [P] [US4] Add 2048_tile_4096 achievement (Beyond 2048, maxTile >= 4096, Legendary) in `src/lib/achievements.ts`
-- [ ] T072 [US4] Dispatch achievementsEarned event when newAchievements returned from score submission in `src/lib/games/2048/init.ts`
-- [ ] T073 [US4] Write unit test for achievement conditions in `src/lib/achievements.test.ts`
+- [x] T062 [US4] Add 2048_welcome achievement (First Slide, score >= 1, Common) in `src/lib/achievements.ts`
+- [x] T063 [P] [US4] Add 2048_novice achievement (Score 500, Common) in `src/lib/achievements.ts`
+- [x] T064 [P] [US4] Add 2048_apprentice achievement (Score 1000, Common) in `src/lib/achievements.ts`
+- [x] T065 [P] [US4] Add 2048_expert achievement (Score 2500, Rare) in `src/lib/achievements.ts`
+- [x] T066 [P] [US4] Add 2048_master achievement (Score 5000, Epic) in `src/lib/achievements.ts`
+- [x] T067 [P] [US4] Add 2048_tile_256 achievement (Power of Two, maxTile >= 256, Common) in `src/lib/achievements.ts`
+- [x] T068 [P] [US4] Add 2048_tile_512 achievement (Halfway There, maxTile >= 512, Common) in `src/lib/achievements.ts`
+- [x] T069 [P] [US4] Add 2048_tile_1024 achievement (Almost There, maxTile >= 1024, Rare) in `src/lib/achievements.ts`
+- [x] T070 [P] [US4] Add 2048_tile_2048 achievement (2048 Champion, maxTile >= 2048, Epic) in `src/lib/achievements.ts`
+- [x] T071 [P] [US4] Add 2048_tile_4096 achievement (Beyond 2048, maxTile >= 4096, Legendary) in `src/lib/achievements.ts`
+- [x] T072 [US4] Dispatch achievementsEarned event when newAchievements returned from score submission in `src/lib/games/2048/init.ts`
+- [x] T073 [US4] Write unit test for achievement conditions in `src/lib/achievements.test.ts`
 
 **Checkpoint**: User Stories 1-4 complete - full gameplay with score persistence and achievements
 
@@ -181,13 +181,13 @@
 
 ### Implementation for User Story 5
 
-- [ ] T074 [US5] Implement touch start handler recording initial position in `src/lib/games/2048/init.ts`
-- [ ] T075 [US5] Implement touch end handler calculating swipe direction in `src/lib/games/2048/init.ts`
-- [ ] T076 [US5] Add swipe threshold constant (30px minimum) in `src/lib/games/2048/types.ts`
-- [ ] T077 [US5] Convert swipe delta to Direction and call move() in `src/lib/games/2048/init.ts`
-- [ ] T078 [US5] Add touch event listeners (touchstart, touchend) to game container in `src/lib/games/2048/init.ts`
-- [ ] T079 [US5] Prevent default touch behavior (scrolling) during swipe in `src/lib/games/2048/init.ts`
-- [ ] T080 [US5] Add input debouncing (block during animation ~200ms) in `src/lib/games/2048/init.ts`
+- [x] T074 [US5] Implement touch start handler recording initial position in `src/lib/games/2048/init.ts`
+- [x] T075 [US5] Implement touch end handler calculating swipe direction in `src/lib/games/2048/init.ts`
+- [x] T076 [US5] Add swipe threshold constant (30px minimum) in `src/lib/games/2048/types.ts`
+- [x] T077 [US5] Convert swipe delta to Direction and call move() in `src/lib/games/2048/init.ts`
+- [x] T078 [US5] Add touch event listeners (touchstart, touchend) to game container in `src/lib/games/2048/init.ts`
+- [x] T079 [US5] Prevent default touch behavior (scrolling) during swipe in `src/lib/games/2048/init.ts`
+- [x] T080 [US5] Add input debouncing (block during animation ~200ms) in `src/lib/games/2048/init.ts`
 
 **Checkpoint**: All user stories complete - desktop and mobile users can play
 
@@ -197,16 +197,16 @@
 
 **Purpose**: Final refinements and validation
 
-- [ ] T081 [P] Add responsive sizing for game container (mobile viewport) in `src/pages/2048/index.astro`
-- [ ] T082 [P] Apply sci-fi theme styling (neon borders, glass-morphism) to game page in `src/pages/2048/index.astro`
-- [ ] T083 [P] Add game instructions/controls help text below game in `src/pages/2048/index.astro`
-- [ ] T084 Run lint check (`npm run lint`) and fix any issues
-- [ ] T085 Run format check (`npm run format`) and fix any issues
-- [ ] T086 Run all unit tests (`npm run test:run`) and verify passing
-- [ ] T087 Create E2E test for basic gameplay flow in `e2e/games/2048.spec.ts`
-- [ ] T088 Run E2E tests (`npm run test:e2e`) and verify passing
-- [ ] T089 Manual testing: verify full game flow on desktop
-- [ ] T090 Manual testing: verify touch controls on mobile device
+- [x] T081 [P] Add responsive sizing for game container (mobile viewport) in `src/pages/2048/index.astro`
+- [x] T082 [P] Apply sci-fi theme styling (neon borders, glass-morphism) to game page in `src/pages/2048/index.astro`
+- [x] T083 [P] Add game instructions/controls help text below game in `src/pages/2048/index.astro`
+- [x] T084 Run lint check (`npm run lint`) and fix any issues
+- [x] T085 Run format check (`npm run format`) and fix any issues
+- [x] T086 Run all unit tests (`npm run test:run`) and verify passing
+- [x] T087 Create E2E test for basic gameplay flow in `e2e/games/2048.spec.ts`
+- [x] T088 Run E2E tests (`npm run test:e2e`) and verify passing
+- [x] T089 Manual testing: verify full game flow on desktop
+- [x] T090 Manual testing: verify touch controls on mobile device
 
 ---
 
