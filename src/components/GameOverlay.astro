@@ -8,6 +8,7 @@ export interface Props {
   buttonId?: string
   buttonText?: string
   defaultTitle?: string
+  showScore?: boolean
 }
 
 const {
@@ -17,6 +18,7 @@ const {
   buttonId = 'play-again-btn',
   buttonText = 'Play Again',
   defaultTitle = 'GAME OVER!',
+  showScore = true,
 } = Astro.props
 ---
 
@@ -35,11 +37,16 @@ const {
 
     <!-- Final Stats -->
     <div class="space-y-4 mb-8">
-      <div class="text-xl">
-        Final Score: <span id={scoreId} class="text-holographic font-bold"
-          >0</span
-        >
-      </div>
+      {
+        showScore && (
+          <div class="text-xl">
+            Final Score:{' '}
+            <span id={scoreId} class="text-holographic font-bold">
+              0
+            </span>
+          </div>
+        )
+      }
 
       <!-- Custom stats slot -->
       <slot />

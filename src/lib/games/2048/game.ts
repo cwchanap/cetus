@@ -179,16 +179,15 @@ export function move(state: GameState, direction: Direction): MoveResult {
         () => Array(GAME_CONSTANTS.BOARD_SIZE).fill(false)
     )
 
-    // Clear isNew and mergedFrom flags from previous move
-    for (const row of rowVector) {
-        for (const col of colVector) {
-            const tile = state.board[row][col]
-            if (tile) {
-                tile.isNew = false
-                tile.mergedFrom = undefined
-            }
-        }
-    }
+    const normalizeTile = (
+        tile: Tile,
+        position: { row: number; col: number }
+    ): Tile => ({
+        ...tile,
+        position: { ...position },
+        isNew: false,
+        mergedFrom: undefined,
+    })
 
     // Process each cell in traversal order
     for (const row of rowVector) {
@@ -218,11 +217,15 @@ export function move(state: GameState, direction: Direction): MoveResult {
                 }
                 const mergedValue = tile.value * 2
 
+                const sourceTile = normalizeTile(tile, originalPosition)
+                const targetTile = normalizeTile(next, mergePosition)
+
                 const mergedTile: Tile = {
                     id: tile.id, // Keep the moving tile's ID
                     value: mergedValue,
-                    position: mergePosition,
-                    mergedFrom: [tile, next],
+                    position: { ...mergePosition },
+                    mergedFrom: [sourceTile, targetTile],
+                    isNew: false,
                 }
 
                 newBoard[mergePosition.row][mergePosition.col] = mergedTile
@@ -247,10 +250,7 @@ export function move(state: GameState, direction: Direction): MoveResult {
                 })
             } else {
                 // Just move tile
-                const newTile: Tile = {
-                    ...tile,
-                    position: farthest,
-                }
+                const newTile = normalizeTile(tile, farthest)
                 newBoard[farthest.row][farthest.col] = newTile
 
                 if (farthest.row !== row || farthest.col !== col) {
