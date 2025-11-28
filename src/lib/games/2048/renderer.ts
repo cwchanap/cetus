@@ -67,8 +67,16 @@ export async function setupPixiJS(
             tileSprites: new Map(),
         }
     } catch (error) {
-        gameContainer.innerHTML =
-            '<div class="text-red-400 text-center p-4">Failed to initialize game renderer. Please check if your browser supports WebGL.</div>'
+        while (gameContainer.firstChild) {
+            gameContainer.removeChild(gameContainer.firstChild)
+        }
+
+        const errorDiv = document.createElement('div')
+        errorDiv.className = 'text-red-400 text-center p-4'
+        errorDiv.textContent =
+            'Failed to initialize game renderer. Please check if your browser supports WebGL.'
+        gameContainer.appendChild(errorDiv)
+
         throw error
     }
 }

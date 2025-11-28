@@ -80,7 +80,12 @@ const gameNavigation = [
                 titleId="game-over-title"
                 defaultTitle="Game Over"
                 buttonId="restart-btn"
+                showScore={false}
               >
+                <div class="text-lg text-gray-300">
+                  Score:
+                  <span id="final-score" class="text-cyan-400">0</span>
+                </div>
                 <div class="text-lg text-gray-300">
                   Max Tile: <span id="final-max-tile" class="text-cyan-400"
                     >0</span

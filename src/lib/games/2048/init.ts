@@ -278,20 +278,17 @@ export async function init2048Game(
             return
         }
 
-        let direction: Direction | null = null
+        const direction: Direction =
+            absX > absY
+                ? deltaX > 0
+                    ? 'right'
+                    : 'left'
+                : deltaY > 0
+                  ? 'down'
+                  : 'up'
 
-        if (absX > absY) {
-            // Horizontal swipe
-            direction = deltaX > 0 ? 'right' : 'left'
-        } else {
-            // Vertical swipe
-            direction = deltaY > 0 ? 'down' : 'up'
-        }
-
-        if (direction) {
-            e.preventDefault()
-            handleMove(direction)
-        }
+        e.preventDefault()
+        handleMove(direction)
     }
 
     function handleTouchMove(e: TouchEvent): void {
