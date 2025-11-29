@@ -123,14 +123,9 @@ test.describe('Authentication System', () => {
             await expect(
                 page.getByRole('link', { name: 'C CETUS' })
             ).toBeVisible()
+            await expect(page.getByRole('link', { name: 'Home' })).toBeVisible()
             await expect(
-                page.getByRole('link', { name: 'Games' })
-            ).toBeVisible()
-            await expect(
-                page.getByRole('link', { name: 'About' })
-            ).toBeVisible()
-            await expect(
-                page.getByRole('link', { name: 'Contact' })
+                page.getByRole('link', { name: 'Leaderboards' })
             ).toBeVisible()
             await expect(
                 page.getByRole('button', { name: 'Login' }).first()
@@ -215,16 +210,12 @@ test.describe('Authentication System', () => {
     test('should validate form fields on signup page', async ({ page }) => {
         await page.goto('/signup')
 
-        // Check that form fields can be filled
+        // Check that form fields can be filled (using IDs for password fields to avoid ambiguity)
         await page
             .getByRole('textbox', { name: 'Email Address' })
             .fill('newuser@example.com')
-        await page
-            .getByRole('textbox', { name: 'Password' })
-            .fill('newpassword123')
-        await page
-            .getByRole('textbox', { name: 'Confirm Password' })
-            .fill('newpassword123')
+        await page.locator('#password').fill('newpassword123')
+        await page.locator('#confirmPassword').fill('newpassword123')
 
         // Check terms checkbox
         await page

@@ -21,15 +21,28 @@ test.describe('Complete Game Session User Journey', () => {
         await expect(page).toHaveURL('/tetris')
         await expect(tetrisPage.gameTitle).toBeVisible()
 
+        // Wait for game canvas to be fully rendered (indicates PixiJS is ready)
+        await page.waitForSelector('#tetris-container canvas', {
+            timeout: 10000,
+        })
+
         // Play Tetris briefly
         await tetrisPage.startGame()
-        await page.waitForTimeout(1000)
+        // Wait for game to start - start button should be hidden, end button visible
+        await expect(tetrisPage.startButton).toBeHidden({ timeout: 5000 })
+        await expect(tetrisPage.endGameButton).toBeVisible({ timeout: 5000 })
+        await page.waitForTimeout(500)
 
         // Test pause/resume functionality
         await tetrisPage.pauseGame()
-        await expect(tetrisPage.pauseButton).toContainText('Resume')
+        // Wait for button text to update after pause (use trim to handle whitespace)
+        await expect(tetrisPage.pauseButton).toContainText('Resume', {
+            timeout: 3000,
+        })
         await tetrisPage.resumeGame()
-        await expect(tetrisPage.pauseButton).toContainText('Pause')
+        await expect(tetrisPage.pauseButton).toContainText('Pause', {
+            timeout: 3000,
+        })
 
         // Reset Tetris game to return to initial state
         await tetrisPage.resetGame()
