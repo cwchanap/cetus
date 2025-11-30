@@ -32,16 +32,27 @@ async function ensureLoggedIn(page: Page): Promise<boolean> {
     }
     await page.click('#signup-form button[type="submit"]')
 
-    // Wait for redirect after signup
+    // Signup redirects to /#games on success - wait for that or any navigation
     try {
-        await page.waitForURL('**/', { timeout: 5000 })
-        await page.goto('/profile')
-        await page.waitForURL('**/profile**', { timeout: 5000 })
-        return true
+        await page.waitForURL('**/#games', { timeout: 5000 })
     } catch {
-        // Signup also failed
-        return false
+        // May have navigated elsewhere or stayed on signup (error)
+        // Continue and try to access profile anyway
     }
+
+    // Navigate to profile and check if we're authenticated
+    await page.goto('/profile')
+    try {
+        await page.waitForURL('**/profile**', { timeout: 5000 })
+        // Verify we're not redirected to login
+        if (!page.url().includes('/login')) {
+            return true
+        }
+    } catch {
+        // Navigation failed
+    }
+
+    return false
 }
 
 test.describe('Profile Activity Graph', () => {
