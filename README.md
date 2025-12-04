@@ -63,6 +63,21 @@ The CI pipeline runs on:
 - Push to `main` or `develop` branches
 - Pull requests to `main` or `develop` branches
 
+### ⚠️ Playwright/Bun Compatibility Note
+
+**Issue**: Playwright E2E tests have compatibility issues with regular Bun due to memory constraints when running the full development server stack.
+
+**Workaround**: E2E tests run under Node.js in CI while the main development workflow uses Bun. This ensures reliable test execution while maintaining Bun's performance benefits for development.
+
+**For local development**:
+- Use `npm run dev` for E2E test development and debugging
+- Use `bun run dev` for regular development (faster builds and hot reload)
+- Use `bun --smol run dev` if you need to run Playwright tests locally with Bun
+
+**References**:
+- [Playwright/Bun compatibility discussion](https://github.com/microsoft/playwright/issues/31106)
+- [Bun memory management issues with complex dev servers](https://github.com/oven-sh/bun/issues/4287)
+
 ### Pre-commit Hooks
 
 Husky is configured to run quality checks before commits:

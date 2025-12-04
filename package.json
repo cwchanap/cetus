@@ -11,6 +11,7 @@
     "db:dev": "turso dev --db-file ./db/db.sqlite",
     "web:dev": "astro dev --port 4325",
     "test": "vitest",
+    "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest --watch",
