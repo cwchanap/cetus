@@ -65,14 +65,14 @@ The CI pipeline runs on:
 
 ### ⚠️ Playwright/Bun Compatibility Note
 
-**Issue**: Playwright E2E tests have compatibility issues with regular Bun due to memory constraints when running the full development server stack.
+**Issue**: Playwright E2E tests may have compatibility issues with regular Bun due to memory constraints when running the full development server stack.
 
-**Workaround**: E2E tests run under Node.js in CI while the main development workflow uses Bun. This ensures reliable test execution while maintaining Bun's performance benefits for development.
+**Workaround**: E2E tests run under Bun in CI with optimized configuration. For local development, use Bun with reduced memory footprint if needed.
 
 **For local development**:
-- Use `npm run dev` for E2E test development and debugging
 - Use `bun run dev` for regular development (faster builds and hot reload)
-- Use `bun --smol run dev` if you need to run Playwright tests locally with Bun
+- Use `bun --smol run dev` if you encounter memory issues with Playwright tests
+- Use `bunx playwright test` for running E2E tests directly
 
 **References**:
 - [Playwright/Bun compatibility discussion](https://github.com/microsoft/playwright/issues/31106)
