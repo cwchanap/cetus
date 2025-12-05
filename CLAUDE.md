@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cetus is a sci-fi themed single-player gaming platform built with Astro and Tailwind CSS. The platform features 10 fully implemented interactive games: Tetris Challenge, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, Sudoku, Bejeweled, Path Navigator, and Evader. Features include user authentication, score tracking, comprehensive achievement system with 4 rarity tiers, and a modern neon-styled design with holographic effects and animated backgrounds.
+Cetus is a sci-fi themed single-player gaming platform built with Astro and Tailwind CSS. The platform features 12 fully implemented interactive games: Tetris Challenge, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, Sudoku, Bejeweled, Path Navigator, Evader, 2048, and Snake. Features include user authentication, score tracking, comprehensive achievement system with 4 rarity tiers, and a modern neon-styled design with holographic effects and animated backgrounds.
 
 ## Development Commands
 
@@ -101,13 +101,20 @@ src/
 │   │   ├── achievementService.ts # Achievement checking and awarding
 │   │   └── scoreService.ts # Centralized score management
 │   └── games/        # Game-specific logic
+│       ├── core/      # Unified game framework (BaseGame, BaseRenderer, etc.)
+│       ├── renderers/ # Renderer factory and implementations
 │       ├── tetris/    # Tetris game implementation
 │       ├── bubble-shooter/ # Bubble shooter implementation
 │       ├── memory-matrix/ # Memory Matrix implementation
 │       ├── quick-math/ # Quick Math implementation
 │       ├── word-scramble/ # Word Scramble implementation
-│       ├── reflex/ # Reflex game implementation
-│       └── sudoku/ # Sudoku puzzle implementation
+│       ├── reflex/    # Reflex game implementation
+│       ├── sudoku/    # Sudoku puzzle implementation
+│       ├── bejeweled/ # Bejeweled match-3 implementation
+│       ├── path-navigator/ # Path Navigator implementation
+│       ├── evader/    # Evader implementation
+│       ├── 2048/      # 2048 sliding puzzle implementation
+│       └── snake/     # Snake classic implementation
 ├── pages/
 │   ├── api/          # API routes (auth, scores)
 │   ├── login/        # Authentication pages
@@ -135,6 +142,15 @@ Games are modular with consistent patterns following standard structure:
 
 Each game follows: `types.ts` → `game.ts` → `renderer.ts` → `utils.ts`
 
+**Core Game Framework** (`src/lib/games/core/`):
+- **BaseGame**: Abstract base class for game logic with state management, scoring, and event emission
+- **BaseRenderer**: Abstract renderer class with lifecycle methods and container management
+- **GameEventEmitter**: Type-safe event system for game events (start, pause, resume, end, score-update, etc.)
+- **GameTimer**: Countdown timer with pause/resume support and time-based callbacks
+- **ScoreManager**: Centralized score tracking with bonus/penalty calculations and multipliers
+- **GameInitializer**: Standardized game initialization with configuration and callback wiring
+- **RendererFactory**: Factory pattern for creating PixiJS or DOM renderers with proper configuration
+
 **Renderer Architecture**:
 - **DOM-based**: Memory Matrix uses direct DOM manipulation with card grid
 - **PixiJS Canvas**: Tetris, Reflex, Bejeweled, Path Navigator, Evader use canvas rendering
@@ -144,7 +160,10 @@ Each game follows: `types.ts` → `game.ts` → `renderer.ts` → `utils.ts`
 - **Sudoku**: Uses `utils.ts` for validation logic and puzzle generation
 - **Word Scramble**: Includes `words.ts` for word dictionary
 - **Reflex/Memory Matrix**: Have dedicated test files for game logic
-- **Quick Math**: Text-based game without canvas
+- **Quick Math**: Text-based game without canvas (also has FrameworkGame.ts implementing BaseGame pattern)
+- **2048**: Tile-based sliding puzzle with merge mechanics
+- **Snake**: Classic snake game with DOM-based grid rendering
+- **Bubble Shooter**: Includes `physics.ts` for collision and projectile calculations
 
 **Critical Astro-TypeScript Integration Pattern**:
 All game HTML structure must be in Astro components - TypeScript only manipulates dynamic content:
@@ -246,9 +265,10 @@ Comprehensive sci-fi design system:
 5. Ensure mobile compatibility with touch/mouse event handling
 6. Implement proper game state transitions and button state management
 7. Integrate with achievement system for automatic progress tracking
-8. All 10 games are fully implemented - focus on bug fixes and features
+8. All 12 games are fully implemented - focus on bug fixes and features
 9. Test canvas functionality across devices (mobile/desktop)
 10. Use game debug objects: `window.gameNameGame.getGame()` for debugging
+11. Consider using Core Game Framework (BaseGame, BaseRenderer) for new games or refactoring
 
 ### Database Operations
 1. Use Kysely for all database queries
@@ -267,9 +287,10 @@ Comprehensive sci-fi design system:
 - **Security**: CSRF protection, secure sessions, environment variables
 - **Achievement System**: Code-based achievement definitions with 4 rarity tiers and automatic checking
 - **Score Integration**: All games use centralized score service with achievement notifications
-- **Game Count**: 10 fully implemented games (Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, Sudoku, Bejeweled, Path Navigator, Evader)
-- **DOM vs Canvas**: Understand renderer types - DOM-based (Memory Matrix) vs PixiJS Canvas (most games)
+- **Game Count**: 12 fully implemented games (Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, Sudoku, Bejeweled, Path Navigator, Evader, 2048, Snake)
+- **DOM vs Canvas**: Understand renderer types - DOM-based (Memory Matrix, Snake) vs PixiJS Canvas (most games)
 - **Debug Access**: Games expose debugging via `window.gameNameGame` for development inspection
+- **Core Framework**: Unified game framework available in `src/lib/games/core/` for consistent game architecture
 
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
@@ -277,9 +298,26 @@ NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
 
-## Active Technologies
-- TypeScript 5.x with Astro 5.10.1 + PixiJS 8.10.2, Astro, Tailwind CSS 4.1.3 (001-2048-game)
-- LibSQL/SQLite via Turso (existing game_scores table) (001-2048-game)
+## Key API Endpoints
+All API routes follow Astro's file-based routing in `src/pages/api/`:
 
-## Recent Changes
-- 001-2048-game: Added TypeScript 5.x with Astro 5.10.1 + PixiJS 8.10.2, Astro, Tailwind CSS 4.1.3
+**Authentication** (`/api/auth/[...all]`):
+- Handled by Better Auth - supports email/password and Google OAuth
+- Session management and user account operations
+
+**Scores** (`/api/scores`):
+- `POST /api/scores` - Submit game score with automatic achievement checking
+- `GET /api/scores/best` - Get user's best scores per game
+- `GET /api/scores/history` - Get user's score history with pagination
+
+**User** (`/api/user`):
+- `GET /api/user/profile` - Get user profile and stats
+- `PUT /api/user/profile` - Update user profile
+- `POST /api/user/avatar` - Upload user avatar
+- `POST /api/user/update-streaks` - Update user login streaks
+
+**Leaderboard** (`/api/leaderboard`):
+- `GET /api/leaderboard?gameId={game}` - Get top scores for a game
+
+**Development** (`/api/dev`):
+- `POST /api/dev/add-test-scores` - Add test data (dev only)
