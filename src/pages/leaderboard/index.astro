@@ -176,13 +176,11 @@ const defaultGameId = games[0]?.id || 'tetris'
                                   const profileUrl = normalizedUsername
                                     ? `/profile/${encodeURIComponent(normalizedUsername)}`
                                     : null
-                                  const baseRowClasses =
+                                  const rowClasses =
                                     'flex items-center justify-between gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 transition-colors'
-                                  const interactiveRowClasses = `${baseRowClasses} group hover:border-cyan-400/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900`
-                                  const staticRowClasses = `${baseRowClasses}`
 
-                                  const rowContent = (
-                                    <>
+                                  return (
+                                    <div class={rowClasses}>
                                       <div class="flex items-center gap-4">
                                         <div
                                           class={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
@@ -205,27 +203,25 @@ const defaultGameId = games[0]?.id || 'tetris'
                                           fallback={(
                                             entry.name?.[0] || 'A'
                                           ).toUpperCase()}
-                                          class={
-                                            profileUrl
-                                              ? 'transition-transform duration-300 group-hover:scale-105'
-                                              : ''
-                                          }
                                         />
                                         <div>
-                                          <div
-                                            class={`font-semibold text-white ${
-                                              profileUrl
-                                                ? 'transition-colors group-hover:text-cyan-300'
-                                                : ''
-                                            }`}
-                                          >
+                                          <div class="font-semibold text-white">
                                             {entry.name || 'Anonymous'}
                                           </div>
-                                          <div class="text-sm text-gray-400">
-                                            {new Date(
-                                              entry.created_at
-                                            ).toLocaleDateString()}
-                                          </div>
+                                          {profileUrl ? (
+                                            <a
+                                              href={profileUrl}
+                                              class="text-sm text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
+                                            >
+                                              @{normalizedUsername}
+                                            </a>
+                                          ) : (
+                                            <div class="text-sm text-gray-400">
+                                              {new Date(
+                                                entry.created_at
+                                              ).toLocaleDateString()}
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                       <div class="text-right">
@@ -239,20 +235,6 @@ const defaultGameId = games[0]?.id || 'tetris'
                                             </div>
                                           )}
                                       </div>
-                                    </>
-                                  )
-
-                                  return profileUrl ? (
-                                    <a
-                                      href={profileUrl}
-                                      aria-label={`View @${normalizedUsername} profile`}
-                                      class={interactiveRowClasses}
-                                    >
-                                      {rowContent}
-                                    </a>
-                                  ) : (
-                                    <div class={staticRowClasses}>
-                                      {rowContent}
                                     </div>
                                   )
                                 })
