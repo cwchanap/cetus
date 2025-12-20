@@ -220,8 +220,10 @@ describe('POST /api/scores', () => {
         const result = await response.json()
 
         // Assert - Zod validates against game ID enum, so invalid IDs are caught during validation
+        // before getGameById is called
         expect(response.status).toBe(400)
         expect(result.error).toBeDefined()
+        expect(getGameById).not.toHaveBeenCalled()
         expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
     })
 
