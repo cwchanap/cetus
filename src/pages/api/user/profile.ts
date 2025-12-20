@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro'
 import { updateUser, isUsernameAvailable } from '@/lib/server/db/queries'
+import type { UserUpdate } from '@/lib/server/db/types'
 
 export const POST: APIRoute = async ({ request, locals }) => {
     // Check if user is authenticated
@@ -137,7 +138,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             )
         }
 
-        const success = await updateUser(user.id, updates as any)
+        const success = await updateUser(user.id, updates as UserUpdate)
         if (!success) {
             return new Response(
                 JSON.stringify({ error: 'Failed to update profile' }),

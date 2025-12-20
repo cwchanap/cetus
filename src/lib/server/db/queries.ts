@@ -39,7 +39,8 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
             ...stats,
             total_games_played: distinctGames.length,
         }
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getUserStats] Database error:', error)
         return null
     }
 }
@@ -79,7 +80,8 @@ export async function upsertUserStats(
         }
 
         return true
-    } catch (_e) {
+    } catch (error) {
+        console.error('[upsertUserStats] Database error:', error)
         return false
     }
 }
@@ -140,7 +142,8 @@ export async function getGameLeaderboard(
             created_at: new Date(row.created_at).toISOString(),
             image: row.image ?? null,
         }))
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getGameLeaderboard] Database error:', error)
         return []
     }
 }
@@ -170,8 +173,9 @@ export async function ensureUserIdentityColumns(): Promise<void> {
         await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON "user" (username)`.execute(
             db
         )
-    } catch (_e) {
-        // swallow to avoid breaking primary flows
+    } catch (error) {
+        // Log but swallow to avoid breaking primary flows
+        console.warn('[ensureUserIdentityColumns] Migration warning:', error)
     }
 }
 
@@ -194,7 +198,8 @@ export async function isUsernameAvailable(
             : await q.executeTakeFirst()
 
         return !row
-    } catch (_e) {
+    } catch (error) {
+        console.error('[isUsernameAvailable] Database error:', error)
         return false
     }
 }
@@ -243,7 +248,8 @@ export async function getUserByUsername(
             email: row.email,
             createdAt: new Date(String(row.createdAt)).toISOString(),
         }
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getUserByUsername] Database error:', error)
         return null
     }
 }
@@ -283,7 +289,8 @@ export async function getUserIdentityById(
             email: row.email,
             createdAt: new Date(String(row.createdAt)).toISOString(),
         }
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getUserIdentityById] Database error:', error)
         return null
     }
 }
@@ -325,7 +332,8 @@ export async function getUserDailyActivity(
             date: r.day,
             count: Number(r.count),
         }))
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getUserDailyActivity] Database error:', error)
         return []
     }
 }
@@ -347,7 +355,8 @@ export async function getUserRecentScores(
             .execute()
 
         return scores
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getUserRecentScores] Database error:', error)
         return []
     }
 }
@@ -370,7 +379,8 @@ export async function getUserBestScore(
             .executeTakeFirst()
 
         return result?.score || null
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getUserBestScore] Database error:', error)
         return null
     }
 }
@@ -403,7 +413,8 @@ export async function saveGameScore(
         })
 
         return true
-    } catch (_e) {
+    } catch (error) {
+        console.error('[saveGameScore] Database error:', error)
         return false
     }
 }
@@ -449,7 +460,8 @@ export async function saveGameScoreWithAchievements(
         const allNewAchievements = [...scoreAchievements, ...inGameAchievements]
 
         return { success: true, newAchievements: allNewAchievements }
-    } catch (_e) {
+    } catch (error) {
+        console.error('[saveGameScoreWithAchievements] Database error:', error)
         return { success: false, newAchievements: [] }
     }
 }
@@ -491,7 +503,8 @@ export async function getUserGameHistory(
             score: row.score,
             created_at: row.created_at.toString(),
         }))
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getUserGameHistory] Database error:', error)
         return []
     }
 }
@@ -560,7 +573,8 @@ export async function getUserGameHistoryPaginated(
             pageSize,
             totalPages,
         }
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getUserGameHistoryPaginated] Database error:', error)
         return {
             games: [],
             total: 0,
@@ -573,26 +587,9 @@ export async function getUserGameHistoryPaginated(
 
 /**
  * Get user's best score for a specific game
+ * @deprecated Use getUserBestScore instead - this is an alias for backward compatibility
  */
-export async function getUserBestScoreByGame(
-    userId: string,
-    gameId: string
-): Promise<number | null> {
-    try {
-        const result = await db
-            .selectFrom('game_scores')
-            .select('score')
-            .where('user_id', '=', userId)
-            .where('game_id', '=', gameId)
-            .orderBy('score', 'desc')
-            .limit(1)
-            .executeTakeFirst()
-
-        return result?.score || null
-    } catch (_e) {
-        return null
-    }
-}
+export const getUserBestScoreByGame = getUserBestScore
 
 /**
  * Update user profile information
@@ -614,7 +611,8 @@ export async function updateUser(
             .execute()
 
         return true
-    } catch (_e) {
+    } catch (error) {
+        console.error('[updateUser] Database error:', error)
         return false
     }
 }
@@ -634,7 +632,8 @@ export async function getUserAchievements(
             .execute()
 
         return userAchievements
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getUserAchievements] Database error:', error)
         return []
     }
 }
@@ -683,7 +682,8 @@ export async function getUserAchievementsPaginated(
             pageSize,
             totalPages,
         }
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getUserAchievementsPaginated] Database error:', error)
         return {
             userAchievements: [],
             total: 0,
@@ -710,7 +710,8 @@ export async function hasUserEarnedAchievement(
             .executeTakeFirst()
 
         return !!result
-    } catch (_e) {
+    } catch (error) {
+        console.error('[hasUserEarnedAchievement] Database error:', error)
         return false
     }
 }
@@ -743,7 +744,8 @@ export async function awardAchievement(
             .execute()
 
         return true
-    } catch (_e) {
+    } catch (error) {
+        console.error('[awardAchievement] Database error:', error)
         return false
     }
 }
@@ -766,7 +768,8 @@ export async function getUserBestScoreForGame(
             .executeTakeFirst()
 
         return result?.score || 0
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getUserBestScoreForGame] Database error:', error)
         return 0
     }
 }
@@ -785,8 +788,9 @@ export async function ensureStreakColumn(): Promise<void> {
                 db
             )
         }
-    } catch (_e) {
-        // swallow to avoid breaking primary flows
+    } catch (error) {
+        // Log but swallow to avoid breaking primary flows
+        console.warn('[ensureStreakColumn] Migration warning:', error)
     }
 }
 
@@ -797,7 +801,8 @@ export async function getAllUserIds(): Promise<string[]> {
     try {
         const rows = await db.selectFrom('user').select('id').execute()
         return rows.map(r => r.id)
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getAllUserIds] Database error:', error)
         return []
     }
 }
@@ -818,7 +823,8 @@ export async function getActiveUserIdsBetween(
             .where('created_at', '<', end)
             .execute()
         return rows.map(r => r.user_id)
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getActiveUserIdsBetween] Database error:', error)
         return []
     }
 }
@@ -832,7 +838,8 @@ export async function incrementUserStreak(userId: string): Promise<boolean> {
         const next = (current?.streak_days ?? 0) + 1
         await upsertUserStats(userId, { streak_days: next })
         return true
-    } catch (_e) {
+    } catch (error) {
+        console.error('[incrementUserStreak] Database error:', error)
         return false
     }
 }
@@ -844,7 +851,8 @@ export async function resetUserStreak(userId: string): Promise<boolean> {
     try {
         await upsertUserStats(userId, { streak_days: 0 })
         return true
-    } catch (_e) {
+    } catch (error) {
+        console.error('[resetUserStreak] Database error:', error)
         return false
     }
 }
@@ -998,7 +1006,8 @@ export async function getAchievementStatistics(): Promise<
         })
 
         return result
-    } catch (_e) {
+    } catch (error) {
+        console.error('[getAchievementStatistics] Database error:', error)
         return []
     }
 }

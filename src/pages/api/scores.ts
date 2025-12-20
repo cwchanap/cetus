@@ -3,6 +3,13 @@ import { saveGameScoreWithAchievements } from '@/lib/server/db/queries'
 import { getGameById, GameID } from '@/lib/games'
 import { auth } from '@/lib/auth'
 import { getAchievementNotifications } from '@/lib/services/achievementService'
+import {
+    jsonResponse,
+    errorResponse,
+    unauthorizedResponse,
+    badRequestResponse,
+} from '@/lib/server/api-utils'
+import { scoreSubmissionSchema, validateBody } from '@/lib/server/validations'
 
 export const POST: APIRoute = async ({ request }) => {
     try {
@@ -11,34 +18,21 @@ export const POST: APIRoute = async ({ request }) => {
         })
 
         if (!session) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-                status: 401,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
+            return unauthorizedResponse()
         }
 
-        const { gameId, score, gameData } = await request.json()
-
-        if (!gameId || typeof score !== 'number') {
-            return new Response(JSON.stringify({ error: 'Invalid data' }), {
-                status: 400,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
+        // Validate request body with Zod
+        const validation = await validateBody(request, scoreSubmissionSchema)
+        if (!validation.success) {
+            return badRequestResponse(validation.error)
         }
+
+        const { gameId, score, gameData } = validation.data
 
         // Verify game exists
         const game = getGameById(gameId as GameID)
         if (!game) {
-            return new Response(JSON.stringify({ error: 'Invalid game ID' }), {
-                status: 400,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
+            return badRequestResponse('Invalid game ID')
         }
 
         const result = await saveGameScoreWithAchievements(
@@ -49,15 +43,7 @@ export const POST: APIRoute = async ({ request }) => {
         )
 
         if (!result.success) {
-            return new Response(
-                JSON.stringify({ error: 'Failed to save score' }),
-                {
-                    status: 500,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                }
-            )
+            return errorResponse('Failed to save score')
         }
 
         // Convert achievement IDs to full achievement data
@@ -65,33 +51,17 @@ export const POST: APIRoute = async ({ request }) => {
             result.newAchievements
         )
 
-        return new Response(
-            JSON.stringify({
-                success: true,
-                newAchievements: achievementNotifications.map(achievement => ({
-                    id: achievement.id,
-                    name: achievement.name,
-                    description: achievement.description,
-                    icon: achievement.logo,
-                    rarity: achievement.rarity,
-                })),
-            }),
-            {
-                status: 200,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        )
-    } catch (error) {
-        return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            {
-                status: 500,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        )
+        return jsonResponse({
+            success: true,
+            newAchievements: achievementNotifications.map(achievement => ({
+                id: achievement.id,
+                name: achievement.name,
+                description: achievement.description,
+                icon: achievement.logo,
+                rarity: achievement.rarity,
+            })),
+        })
+    } catch (_error) {
+        return errorResponse('Internal server error')
     }
 }
