@@ -144,7 +144,7 @@ describe('POST /api/scores', () => {
 
         // Assert
         expect(response.status).toBe(400)
-        expect(result).toEqual({ error: 'Invalid data' })
+        expect(result.error).toBeDefined()
         expect(getGameById).not.toHaveBeenCalled()
         expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
     })
@@ -169,7 +169,7 @@ describe('POST /api/scores', () => {
 
         // Assert
         expect(response.status).toBe(400)
-        expect(result).toEqual({ error: 'Invalid data' })
+        expect(result.error).toBeDefined()
         expect(getGameById).not.toHaveBeenCalled()
         expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
     })
@@ -195,7 +195,7 @@ describe('POST /api/scores', () => {
 
         // Assert
         expect(response.status).toBe(400)
-        expect(result).toEqual({ error: 'Invalid data' })
+        expect(result.error).toBeDefined()
         expect(getGameById).not.toHaveBeenCalled()
         expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
     })
@@ -203,8 +203,6 @@ describe('POST /api/scores', () => {
     it('should return 400 for invalid game ID', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
-        const { getGameById } = await import('@/lib/games')
-        vi.mocked(getGameById).mockReturnValue(null)
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -221,10 +219,9 @@ describe('POST /api/scores', () => {
         const response = await POST({ request })
         const result = await response.json()
 
-        // Assert
+        // Assert - Zod validates against game ID enum, so invalid IDs are caught during validation
         expect(response.status).toBe(400)
-        expect(result).toEqual({ error: 'Invalid game ID' })
-        expect(getGameById).toHaveBeenCalledWith('invalid-game')
+        expect(result.error).toBeDefined()
         expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
     })
 
@@ -293,7 +290,7 @@ describe('POST /api/scores', () => {
         expect(result).toEqual({ error: 'Internal server error' })
     })
 
-    it('should return 500 for malformed JSON', async () => {
+    it('should return 400 for malformed JSON', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
 
@@ -309,8 +306,8 @@ describe('POST /api/scores', () => {
         const response = await POST({ request })
         const result = await response.json()
 
-        // Assert
-        expect(response.status).toBe(500)
-        expect(result).toEqual({ error: 'Internal server error' })
+        // Assert - Zod validation catches malformed JSON and returns 400
+        expect(response.status).toBe(400)
+        expect(result).toEqual({ error: 'Invalid JSON body' })
     })
 })

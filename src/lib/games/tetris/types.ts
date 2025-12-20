@@ -21,6 +21,18 @@ export interface GameStats {
     consecutiveLineClears: number
 }
 
+// Stats passed to onGameOver callback
+export interface TetrisEndGameStats {
+    lines: number
+    level: number
+    pieces: number
+    singles: number
+    doubles: number
+    triples: number
+    tetrises: number
+    consecutiveLineClears: number
+}
+
 export interface GameState {
     board: (number | null)[][]
     currentPiece: Piece | null
@@ -35,7 +47,7 @@ export interface GameState {
     dropTime: number
     dropInterval: number
     needsRedraw: boolean
-    onGameOver?: (finalScore: number, stats: any) => void
+    onGameOver?: (finalScore: number, stats: TetrisEndGameStats) => void
     piecesPlaced?: number
     tetrises?: number
 }

@@ -24,6 +24,14 @@ export interface GridPosition {
     col: number
 }
 
+// Stats passed to onGameOver callback
+export interface BubbleShooterEndGameStats {
+    bubblesPopped: number
+    shotsFired: number
+    accuracy: number
+    largestCombo: number
+}
+
 export interface GameState {
     grid: (Bubble | null)[][]
     shooter: Position
@@ -39,7 +47,7 @@ export interface GameState {
     rowOffset: number
     shotCount: number
     needsRedraw: boolean
-    onGameOver?: (finalScore: number, stats: any) => void
+    onGameOver?: (finalScore: number, stats: BubbleShooterEndGameStats) => void
     bubblesPopped?: number
     shotsFired?: number
     largestCombo?: number

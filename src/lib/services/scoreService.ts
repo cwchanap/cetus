@@ -4,6 +4,7 @@
 
 import type { GameType } from '@/lib/server/db/types'
 import { AchievementRarity } from '@/lib/achievements'
+import type { GameData } from '@/lib/games/shared/types'
 
 export interface ScoreSubmissionResult {
     success: boolean
@@ -20,7 +21,7 @@ export interface ScoreSubmissionResult {
 export interface ScoreData {
     gameId: GameType
     score: number
-    gameData?: any
+    gameData?: GameData | Record<string, unknown>
 }
 
 export interface GameHistoryEntry {
@@ -79,7 +80,7 @@ export async function saveGameScore(
     score: number,
     onSuccess?: (result: ScoreSubmissionResult) => void,
     onError?: (error: string) => void,
-    gameData?: any
+    gameData?: GameData | Record<string, unknown>
 ): Promise<void> {
     if (score <= 0) {
         return

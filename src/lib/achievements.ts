@@ -1,5 +1,14 @@
 import type { UserAchievementRecord } from './server/db/types'
 import { GameID } from './games'
+import type {
+    TetrisGameData,
+    BejeweledGameData,
+    ReflexGameData,
+    QuickMathGameData,
+    Game2048Data,
+    WordScrambleGameData,
+    GameHistoryEntry,
+} from './games/shared/types'
 
 // Achievement system types
 export enum AchievementRarity {
@@ -8,6 +17,17 @@ export enum AchievementRarity {
     EPIC = 'epic',
     LEGENDARY = 'legendary',
 }
+
+// Type for achievement check function - uses union of known game data types
+export type AchievementCheckData =
+    | TetrisGameData
+    | BejeweledGameData
+    | ReflexGameData
+    | QuickMathGameData
+    | Game2048Data
+    | WordScrambleGameData
+    | Record<string, unknown>
+
 export interface Achievement {
     id: string
     name: string
@@ -18,7 +38,7 @@ export interface Achievement {
         type: 'score_threshold' | 'games_played' | 'in_game' | 'custom'
         threshold?: number
         // For in-game achievements, a check function is required
-        check?: (gameData: any, score: number) => boolean
+        check?: (gameData: AchievementCheckData, score: number) => boolean
         customCheck?: string // For future extensibility
     }
     isHidden?: boolean // Hidden until unlocked
@@ -917,7 +937,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         gameId: GameID.REFLEX,
         condition: {
             type: 'in_game',
-            check: (gameData: { gameHistory: any[] }) =>
+            check: (gameData: { gameHistory: GameHistoryEntry[] }) =>
                 checkConsecutiveObjectType(gameData.gameHistory, 'coin', 10),
         },
         rarity: AchievementRarity.COMMON,
@@ -930,7 +950,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         gameId: GameID.REFLEX,
         condition: {
             type: 'in_game',
-            check: (gameData: { gameHistory: any[] }) =>
+            check: (gameData: { gameHistory: GameHistoryEntry[] }) =>
                 checkConsecutiveObjectType(gameData.gameHistory, 'bomb', 10),
         },
         rarity: AchievementRarity.RARE,
@@ -1091,13 +1111,7 @@ export const ACHIEVEMENTS: Achievement[] = [
 
 // Helper functions
 function checkConsecutiveObjectType(
-    gameHistory: Array<{
-        objectId: string
-        type: 'coin' | 'bomb'
-        clicked: boolean
-        timeToClick?: number
-        pointsAwarded: number
-    }>,
+    gameHistory: GameHistoryEntry[],
     targetType: 'coin' | 'bomb',
     requiredCount: number
 ): boolean {

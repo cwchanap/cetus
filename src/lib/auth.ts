@@ -1,6 +1,15 @@
 import { betterAuth } from 'better-auth'
 import { dialect } from './server/db'
 
+// Check if Google OAuth is properly configured
+const googleClientId = import.meta.env.GOOGLE_CLIENT_ID
+const googleClientSecret = import.meta.env.GOOGLE_CLIENT_SECRET
+const isGoogleOAuthConfigured =
+    googleClientId &&
+    googleClientSecret &&
+    googleClientId !== 'placeholder' &&
+    googleClientSecret !== 'placeholder'
+
 export const auth = betterAuth({
     database: {
         dialect,
@@ -10,12 +19,15 @@ export const auth = betterAuth({
         enabled: true,
         requireEmailVerification: false, // Set to true in production
     },
-    socialProviders: {
-        google: {
-            clientId: import.meta.env.GOOGLE_CLIENT_ID || 'placeholder',
-            clientSecret: import.meta.env.GOOGLE_CLIENT_SECRET || 'placeholder',
+    // Only enable Google OAuth if properly configured
+    ...(isGoogleOAuthConfigured && {
+        socialProviders: {
+            google: {
+                clientId: googleClientId,
+                clientSecret: googleClientSecret,
+            },
         },
-    },
+    }),
     session: {
         expiresIn: 60 * 60 * 24 * 7, // 7 days
         updateAge: 60 * 60 * 24, // 1 day

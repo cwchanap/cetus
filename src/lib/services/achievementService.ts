@@ -2,6 +2,7 @@ import {
     ACHIEVEMENTS,
     getAchievementsByGame,
     type Achievement,
+    type AchievementCheckData,
 } from '../achievements'
 import {
     awardAchievement,
@@ -167,12 +168,12 @@ export async function checkSpaceExplorerAchievement(
 }
 
 /**
- * Check and award in-game achievements for Tetris
+ * Check and award in-game achievements for all games
  */
 export async function checkInGameAchievements(
     userId: string,
     gameId: GameType,
-    gameData: any,
+    gameData: AchievementCheckData,
     score: number
 ): Promise<string[]> {
     const newlyEarnedAchievements: string[] = []
@@ -202,39 +203,4 @@ export async function checkInGameAchievements(
     }
 
     return newlyEarnedAchievements
-}
-
-/**
- * Helper function to check for consecutive object types in game history
- */
-function checkConsecutiveObjectType(
-    gameHistory: Array<{
-        objectId: string
-        type: 'coin' | 'bomb'
-        clicked: boolean
-        timeToClick?: number
-        pointsAwarded: number
-    }>,
-    targetType: 'coin' | 'bomb',
-    requiredCount: number
-): boolean {
-    let consecutiveCount = 0
-    let maxConsecutiveCount = 0
-
-    // Only consider clicked objects for streaks
-    const clickedObjects = gameHistory.filter(entry => entry.clicked)
-
-    for (const entry of clickedObjects) {
-        if (entry.type === targetType) {
-            consecutiveCount++
-            maxConsecutiveCount = Math.max(
-                maxConsecutiveCount,
-                consecutiveCount
-            )
-        } else {
-            consecutiveCount = 0
-        }
-    }
-
-    return maxConsecutiveCount >= requiredCount
 }
