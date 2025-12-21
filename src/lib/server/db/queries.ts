@@ -12,6 +12,10 @@ import type {
     UserAchievementRecord,
 } from './types'
 
+function sanitizeError(error: unknown): string {
+    return error instanceof Error ? error.message : String(error)
+}
+
 /**
  * Get user game statistics
  */
@@ -40,7 +44,7 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
             total_games_played: distinctGames.length,
         }
     } catch (error) {
-        console.error('[getUserStats] Database error:', error)
+        console.error('[getUserStats] Database error:', sanitizeError(error))
         return null
     }
 }
@@ -81,7 +85,7 @@ export async function upsertUserStats(
 
         return true
     } catch (error) {
-        console.error('[upsertUserStats] Database error:', error)
+        console.error('[upsertUserStats] Database error:', sanitizeError(error))
         return false
     }
 }
@@ -143,7 +147,10 @@ export async function getGameLeaderboard(
             image: row.image ?? null,
         }))
     } catch (error) {
-        console.error('[getGameLeaderboard] Database error:', error)
+        console.error(
+            '[getGameLeaderboard] Database error:',
+            sanitizeError(error)
+        )
         return []
     }
 }
@@ -199,7 +206,10 @@ export async function isUsernameAvailable(
 
         return !row
     } catch (error) {
-        console.error('[isUsernameAvailable] Database error:', error)
+        console.error(
+            '[isUsernameAvailable] Database error:',
+            sanitizeError(error)
+        )
         return false
     }
 }
@@ -249,7 +259,10 @@ export async function getUserByUsername(
             createdAt: new Date(String(row.createdAt)).toISOString(),
         }
     } catch (error) {
-        console.error('[getUserByUsername] Database error:', error)
+        console.error(
+            '[getUserByUsername] Database error:',
+            sanitizeError(error)
+        )
         return null
     }
 }
@@ -290,7 +303,10 @@ export async function getUserIdentityById(
             createdAt: new Date(String(row.createdAt)).toISOString(),
         }
     } catch (error) {
-        console.error('[getUserIdentityById] Database error:', error)
+        console.error(
+            '[getUserIdentityById] Database error:',
+            sanitizeError(error)
+        )
         return null
     }
 }
@@ -333,7 +349,10 @@ export async function getUserDailyActivity(
             count: Number(r.count),
         }))
     } catch (error) {
-        console.error('[getUserDailyActivity] Database error:', error)
+        console.error(
+            '[getUserDailyActivity] Database error:',
+            sanitizeError(error)
+        )
         return []
     }
 }
@@ -356,7 +375,10 @@ export async function getUserRecentScores(
 
         return scores
     } catch (error) {
-        console.error('[getUserRecentScores] Database error:', error)
+        console.error(
+            '[getUserRecentScores] Database error:',
+            sanitizeError(error)
+        )
         return []
     }
 }
@@ -380,7 +402,10 @@ export async function getUserBestScore(
 
         return result?.score || null
     } catch (error) {
-        console.error('[getUserBestScore] Database error:', error)
+        console.error(
+            '[getUserBestScore] Database error:',
+            sanitizeError(error)
+        )
         return null
     }
 }
@@ -414,7 +439,7 @@ export async function saveGameScore(
 
         return true
     } catch (error) {
-        console.error('[saveGameScore] Database error:', error)
+        console.error('[saveGameScore] Database error:', sanitizeError(error))
         return false
     }
 }
@@ -461,7 +486,10 @@ export async function saveGameScoreWithAchievements(
 
         return { success: true, newAchievements: allNewAchievements }
     } catch (error) {
-        console.error('[saveGameScoreWithAchievements] Database error:', error)
+        console.error(
+            '[saveGameScoreWithAchievements] Database error:',
+            sanitizeError(error)
+        )
         return { success: false, newAchievements: [] }
     }
 }
@@ -504,7 +532,10 @@ export async function getUserGameHistory(
             created_at: row.created_at.toString(),
         }))
     } catch (error) {
-        console.error('[getUserGameHistory] Database error:', error)
+        console.error(
+            '[getUserGameHistory] Database error:',
+            sanitizeError(error)
+        )
         return []
     }
 }
@@ -574,7 +605,10 @@ export async function getUserGameHistoryPaginated(
             totalPages,
         }
     } catch (error) {
-        console.error('[getUserGameHistoryPaginated] Database error:', error)
+        console.error(
+            '[getUserGameHistoryPaginated] Database error:',
+            sanitizeError(error)
+        )
         return {
             games: [],
             total: 0,
@@ -612,7 +646,7 @@ export async function updateUser(
 
         return true
     } catch (error) {
-        console.error('[updateUser] Database error:', error)
+        console.error('[updateUser] Database error:', sanitizeError(error))
         return false
     }
 }
@@ -633,7 +667,10 @@ export async function getUserAchievements(
 
         return userAchievements
     } catch (error) {
-        console.error('[getUserAchievements] Database error:', error)
+        console.error(
+            '[getUserAchievements] Database error:',
+            sanitizeError(error)
+        )
         return []
     }
 }
@@ -683,7 +720,10 @@ export async function getUserAchievementsPaginated(
             totalPages,
         }
     } catch (error) {
-        console.error('[getUserAchievementsPaginated] Database error:', error)
+        console.error(
+            '[getUserAchievementsPaginated] Database error:',
+            sanitizeError(error)
+        )
         return {
             userAchievements: [],
             total: 0,
@@ -711,7 +751,10 @@ export async function hasUserEarnedAchievement(
 
         return !!result
     } catch (error) {
-        console.error('[hasUserEarnedAchievement] Database error:', error)
+        console.error(
+            '[hasUserEarnedAchievement] Database error:',
+            sanitizeError(error)
+        )
         return false
     }
 }
@@ -745,7 +788,10 @@ export async function awardAchievement(
 
         return true
     } catch (error) {
-        console.error('[awardAchievement] Database error:', error)
+        console.error(
+            '[awardAchievement] Database error:',
+            sanitizeError(error)
+        )
         return false
     }
 }
@@ -769,7 +815,10 @@ export async function getUserBestScoreForGame(
 
         return result?.score || 0
     } catch (error) {
-        console.error('[getUserBestScoreForGame] Database error:', error)
+        console.error(
+            '[getUserBestScoreForGame] Database error:',
+            sanitizeError(error)
+        )
         return 0
     }
 }
@@ -802,7 +851,7 @@ export async function getAllUserIds(): Promise<string[]> {
         const rows = await db.selectFrom('user').select('id').execute()
         return rows.map(r => r.id)
     } catch (error) {
-        console.error('[getAllUserIds] Database error:', error)
+        console.error('[getAllUserIds] Database error:', sanitizeError(error))
         return []
     }
 }
@@ -824,7 +873,10 @@ export async function getActiveUserIdsBetween(
             .execute()
         return rows.map(r => r.user_id)
     } catch (error) {
-        console.error('[getActiveUserIdsBetween] Database error:', error)
+        console.error(
+            '[getActiveUserIdsBetween] Database error:',
+            sanitizeError(error)
+        )
         return []
     }
 }
@@ -839,7 +891,10 @@ export async function incrementUserStreak(userId: string): Promise<boolean> {
         await upsertUserStats(userId, { streak_days: next })
         return true
     } catch (error) {
-        console.error('[incrementUserStreak] Database error:', error)
+        console.error(
+            '[incrementUserStreak] Database error:',
+            sanitizeError(error)
+        )
         return false
     }
 }
@@ -852,7 +907,7 @@ export async function resetUserStreak(userId: string): Promise<boolean> {
         await upsertUserStats(userId, { streak_days: 0 })
         return true
     } catch (error) {
-        console.error('[resetUserStreak] Database error:', error)
+        console.error('[resetUserStreak] Database error:', sanitizeError(error))
         return false
     }
 }
@@ -895,7 +950,11 @@ export async function updateAllUserStreaksForUTC(): Promise<{
         }
     }
 
-    return { processed: allUserIds.length, incremented: inc, reset: rst }
+    return {
+        processed: allUserIds.length,
+        incremented: inc,
+        reset: rst,
+    }
 }
 
 /**
@@ -1007,7 +1066,10 @@ export async function getAchievementStatistics(): Promise<
 
         return result
     } catch (error) {
-        console.error('[getAchievementStatistics] Database error:', error)
+        console.error(
+            '[getAchievementStatistics] Database error:',
+            sanitizeError(error)
+        )
         return []
     }
 }

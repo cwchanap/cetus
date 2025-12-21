@@ -28,28 +28,32 @@ export const profileUpdateSchema = z
     .object({
         name: z
             .string()
+            .trim()
             .min(1, 'Name cannot be empty')
             .max(100, 'Name must be 100 characters or less')
-            .transform(s => s.trim())
             .optional(),
-        displayName: z
-            .string()
-            .min(1, 'Display name cannot be empty')
-            .max(100, 'Display name must be 100 characters or less')
-            .transform(s => s.trim())
-            .nullable()
-            .optional(),
-        username: z
-            .string()
-            .min(3, 'Username must be at least 3 characters')
-            .max(20, 'Username must be 20 characters or less')
-            .regex(
-                /^[a-z0-9_]+$/,
-                'Username must contain only lowercase letters, numbers, or underscores'
-            )
-            .transform(s => s.toLowerCase().trim())
-            .nullable()
-            .optional(),
+        displayName: z.preprocess(
+            val => (typeof val === 'string' ? val.trim() : val),
+            z
+                .string()
+                .min(1, 'Display name cannot be empty')
+                .max(100, 'Display name must be 100 characters or less')
+                .nullable()
+                .optional()
+        ),
+        username: z.preprocess(
+            val => (typeof val === 'string' ? val.trim().toLowerCase() : val),
+            z
+                .string()
+                .min(3, 'Username must be at least 3 characters')
+                .max(20, 'Username must be 20 characters or less')
+                .regex(
+                    /^[a-z0-9_]+$/,
+                    'Username must contain only lowercase letters, numbers, or underscores'
+                )
+                .nullable()
+                .optional()
+        ),
     })
     .refine(
         data =>
