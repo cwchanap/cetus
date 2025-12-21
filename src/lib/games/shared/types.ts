@@ -167,5 +167,12 @@ export function hexToPixiColor(hex: string): number {
  * Convert Pixi color number to hex string
  */
 export function pixiColorToHex(color: number): string {
-    return `#${color.toString(16).padStart(6, '0')}`
+    if (typeof color !== 'number' || !Number.isFinite(color)) {
+        throw new TypeError('Color must be a finite number')
+    }
+
+    // Coerce to integer and clamp to valid 24-bit color range
+    const intColor = Math.max(0, Math.min(0xffffff, Math.floor(color)))
+
+    return `#${intColor.toString(16).padStart(6, '0')}`
 }
