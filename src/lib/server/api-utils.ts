@@ -48,5 +48,5 @@ export function notFoundResponse(message: string = 'Not found'): Response {
 export function successResponse<T extends Record<string, unknown>>(
     data?: T
 ): Response {
-    return jsonResponse({ success: true, ...data }, 200)
+    return jsonResponse({ ...data, success: true }, 200)
 }
