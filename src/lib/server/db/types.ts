@@ -80,8 +80,24 @@ export interface UserStatsTable {
     total_score: number
     favorite_game: string | null
     streak_days: number
+    xp: number
+    level: number
+    challenge_streak: number
+    last_challenge_date: string | null
     created_at: ColumnType<Date, never, never> // DEFAULT CURRENT_TIMESTAMP
     updated_at: ColumnType<Date, never, string | Date> // DEFAULT CURRENT_TIMESTAMP
+}
+
+export interface DailyChallengeProgressTable {
+    id: ColumnType<number, never, never>
+    user_id: string
+    challenge_date: string // YYYY-MM-DD (UTC)
+    challenge_id: string // References challenge definition in code
+    current_value: number
+    target_value: number
+    completed_at: ColumnType<Date, string | Date, string | Date> | null
+    xp_awarded: number
+    created_at: ColumnType<Date, never, never>
 }
 
 // Complete database schema interface
@@ -98,6 +114,9 @@ export interface Database {
 
     // Achievement system tables
     user_achievements: UserAchievementsTable
+
+    // Daily challenge system tables
+    daily_challenge_progress: DailyChallengeProgressTable
 }
 
 // Type helpers for common operations
@@ -126,6 +145,10 @@ export type UserStatsUpdate = Partial<{
     total_score: number
     favorite_game: string | null
     streak_days: number
+    xp: number
+    level: number
+    challenge_streak: number
+    last_challenge_date: string | null
 }>
 export type UserStats = Selectable<UserStatsTable>
 
@@ -134,3 +157,10 @@ export type NewUserAchievement = Omit<UserAchievementsTable, 'id' | 'earned_at'>
 export type UserAchievementRecord = Selectable<UserAchievementsTable>
 
 // Note: UserAchievementWithDetails type moved to achievements.ts to avoid circular dependency
+
+// Daily challenge type helpers
+export type NewDailyChallengeProgress = Omit<
+    DailyChallengeProgressTable,
+    'id' | 'created_at'
+>
+export type DailyChallengeProgress = Selectable<DailyChallengeProgressTable>

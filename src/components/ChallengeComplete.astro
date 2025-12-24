@@ -1,0 +1,180 @@
+---
+// ChallengeComplete.astro - Modal for challenge completion notifications
+---
+
+<div id="challenge-complete-overlay" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+  <div class="relative flex items-center justify-center min-h-screen p-4">
+    <div id="challenge-complete-card" class="relative max-w-md w-full">
+      <!-- Card will be populated by JavaScript -->
+    </div>
+  </div>
+</div>
+
+<template id="challenge-card-template">
+  <div
+    class="bg-gradient-to-br from-gray-900/95 to-gray-800/95 rounded-2xl p-8 border border-cyan-500/30 shadow-2xl shadow-cyan-500/20 text-center animate-bounce-in"
+  >
+    <!-- XP Animation -->
+    <div class="mb-4">
+      <div class="text-5xl mb-2" id="challenge-icon"></div>
+      <div class="text-2xl font-bold text-cyan-400" id="xp-earned">+0 XP</div>
+    </div>
+
+    <!-- Challenge Info -->
+    <h3
+      class="text-xl font-orbitron font-bold text-white mb-2"
+      id="challenge-name"
+    >
+      Challenge Complete!
+    </h3>
+    <p class="text-gray-400 mb-6" id="challenge-description"></p>
+
+    <!-- Level Up Badge (hidden by default) -->
+    <div
+      id="level-up-badge"
+      class="hidden mb-4 py-2 px-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full inline-block animate-pulse"
+    >
+      <span class="text-white font-bold"
+        >🎉 LEVEL UP! Level <span id="new-level">1</span></span
+      >
+    </div>
+
+    <!-- Dismiss hint -->
+    <p class="text-gray-500 text-sm">Click anywhere to continue</p>
+  </div>
+</template>
+
+<style>
+  @keyframes bounce-in {
+    0% {
+      transform: scale(0.5);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-bounce-in {
+    animation: bounce-in 0.4s ease-out forwards;
+  }
+</style>
+
+<script>
+  interface ChallengeCompleteData {
+    completedChallenges: Array<{
+      id: string
+      name: string
+      description: string
+      icon: string
+      xpReward: number
+    }>
+    xpEarned: number
+    levelUp: boolean
+    newLevel?: number
+  }
+
+  class ChallengeCompleteManager {
+    private overlay: HTMLElement
+    private card: HTMLElement
+    private template: HTMLTemplateElement
+    private queue: ChallengeCompleteData[] = []
+    private isShowing = false
+
+    constructor() {
+      this.overlay = document.getElementById('challenge-complete-overlay')!
+      this.card = document.getElementById('challenge-complete-card')!
+      this.template = document.getElementById(
+        'challenge-card-template'
+      ) as HTMLTemplateElement
+
+      this.overlay.addEventListener('click', () => this.dismiss())
+    }
+
+    show(data: ChallengeCompleteData): void {
+      this.queue.push(data)
+      if (!this.isShowing) {
+        this.processQueue()
+      }
+    }
+
+    private async processQueue(): Promise<void> {
+      if (this.queue.length === 0) {
+        this.isShowing = false
+        return
+      }
+
+      this.isShowing = true
+      const data = this.queue.shift()!
+
+      // Show first challenge
+      if (data.completedChallenges.length > 0) {
+        const challenge = data.completedChallenges[0]
+        this.renderCard(challenge, data.xpEarned, data.levelUp, data.newLevel)
+        this.overlay.classList.remove('hidden')
+
+        // Auto-dismiss after 5 seconds
+        await new Promise(resolve => setTimeout(resolve, 5000))
+        this.dismiss()
+      }
+    }
+
+    private renderCard(
+      challenge: {
+        name: string
+        description: string
+        icon: string
+        xpReward: number
+      },
+      totalXP: number,
+      levelUp: boolean,
+      newLevel?: number
+    ): void {
+      const content = this.template.content.cloneNode(true) as DocumentFragment
+
+      content.getElementById('challenge-icon')!.textContent = challenge.icon
+      content.getElementById('xp-earned')!.textContent = `+${totalXP} XP`
+      content.getElementById('challenge-name')!.textContent = challenge.name
+      content.getElementById('challenge-description')!.textContent =
+        challenge.description
+
+      if (levelUp && newLevel) {
+        const badge = content.getElementById('level-up-badge')!
+        badge.classList.remove('hidden')
+        content.getElementById('new-level')!.textContent = String(newLevel)
+      }
+
+      this.card.innerHTML = ''
+      this.card.appendChild(content)
+    }
+
+    private dismiss(): void {
+      this.overlay.classList.add('hidden')
+      setTimeout(() => this.processQueue(), 300)
+    }
+  }
+
+  // Initialize and expose globally
+  let manager: ChallengeCompleteManager
+
+  document.addEventListener('DOMContentLoaded', () => {
+    manager = new ChallengeCompleteManager()
+  })
+
+  declare global {
+    interface Window {
+      showChallengeComplete?: (data: ChallengeCompleteData) => void
+    }
+  }
+
+  window.showChallengeComplete = (data: ChallengeCompleteData) => {
+    if (manager) {
+      manager.show(data)
+    }
+  }
+</script>

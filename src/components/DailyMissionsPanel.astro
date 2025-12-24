@@ -1,0 +1,173 @@
+---
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import type { UserChallengeProgress } from '@/lib/challenges'
+
+interface Props {
+  challenges: UserChallengeProgress[]
+  xp: number
+  level: number
+  xpProgress: number
+  xpToNextLevel: number
+  streak: number
+  resetIn: number
+}
+
+const { challenges, xp, level, xpProgress, xpToNextLevel, streak, resetIn } =
+  Astro.props
+
+// Difficulty colors
+const difficultyColors: Record<string, string> = {
+  easy: 'text-green-400',
+  medium: 'text-yellow-400',
+  hard: 'text-red-400',
+}
+---
+
+<Card variant="glass" class="p-6 mb-8">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">🎯</span>
+      <h3 class="text-lg font-orbitron font-bold text-cyan-400">
+        DAILY MISSIONS
+      </h3>
+    </div>
+    <div class="flex items-center gap-3">
+      <Badge variant="outline" size="sm" class="bg-purple-500/20">
+        Level {level}
+      </Badge>
+      <span
+        id="reset-timer"
+        class="text-sm text-gray-400"
+        data-reset-in={resetIn}
+      >
+        Resets in --:--:--
+      </span>
+    </div>
+  </div>
+
+  <!-- XP Progress Bar -->
+  <div class="mb-6">
+    <div class="flex justify-between text-sm mb-2">
+      <span class="text-gray-400">XP Progress</span>
+      <span class="text-cyan-400">{xp} XP</span>
+    </div>
+    <div
+      class="w-full bg-gray-800/50 rounded-full h-2 overflow-hidden border border-gray-700/50"
+    >
+      <div
+        class="h-full bg-gradient-to-r from-cyan-500 to-purple-600 transition-all duration-500"
+        style={`width: ${xpProgress}%`}
+      >
+      </div>
+    </div>
+    <div class="text-xs text-gray-500 mt-1">
+      {xpToNextLevel} XP to Level {level + 1}
+    </div>
+  </div>
+
+  <!-- Challenge List -->
+  <div class="space-y-4">
+    {
+      challenges.map(challenge => {
+        const progress = Math.min(
+          100,
+          (challenge.currentValue / challenge.targetValue) * 100
+        )
+        return (
+          <div
+            class={`p-4 rounded-xl border transition-all ${
+              challenge.completed
+                ? 'bg-green-500/10 border-green-500/30'
+                : 'bg-gray-800/30 border-gray-700/50 hover:border-cyan-500/30'
+            }`}
+          >
+            <div class="flex items-start gap-4">
+              <span class="text-2xl">{challenge.icon}</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-bold text-white">{challenge.name}</span>
+                  <span
+                    class={`text-xs ${difficultyColors[challenge.difficulty]}`}
+                  >
+                    {challenge.difficulty.toUpperCase()}
+                  </span>
+                  {challenge.completed && (
+                    <span class="text-green-400 text-sm">✓</span>
+                  )}
+                </div>
+                <p class="text-sm text-gray-400 mb-2">
+                  {challenge.description}
+                </p>
+
+                {!challenge.completed && (
+                  <div class="flex items-center gap-3">
+                    <div class="flex-1 bg-gray-700/50 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        class="h-full bg-cyan-500 transition-all duration-300"
+                        style={`width: ${progress}%`}
+                      />
+                    </div>
+                    <span class="text-xs text-gray-400">
+                      {challenge.currentValue}/{challenge.targetValue}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div class="text-right">
+                <span
+                  class={`text-sm font-bold ${challenge.completed ? 'text-green-400' : 'text-cyan-400'}`}
+                >
+                  +{challenge.xpReward} XP
+                </span>
+              </div>
+            </div>
+          </div>
+        )
+      })
+    }
+  </div>
+
+  <!-- Streak Display -->
+  {
+    streak > 0 && (
+      <div class="mt-6 pt-4 border-t border-gray-700/50 flex items-center gap-2">
+        <span class="text-orange-400">🔥</span>
+        <span class="text-sm text-gray-400">
+          Challenge Streak:{' '}
+          <span class="text-orange-400 font-bold">{streak} days</span>
+        </span>
+      </div>
+    )
+  }
+</Card>
+
+<script>
+  // Countdown timer
+  const timerEl = document.getElementById('reset-timer')
+  if (timerEl) {
+    let seconds = parseInt(timerEl.dataset.resetIn || '0', 10)
+
+    function updateTimer() {
+      const hours = Math.floor(seconds / 3600)
+      const mins = Math.floor((seconds % 3600) / 60)
+      const secs = seconds % 60
+      if (timerEl) {
+        timerEl.textContent = `Resets in ${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+      }
+
+      if (seconds > 0) {
+        seconds--
+        setTimeout(updateTimer, 1000)
+      } else {
+        if (timerEl) {
+          timerEl.textContent = 'Resetting...'
+        }
+        setTimeout(() => window.location.reload(), 2000)
+      }
+    }
+
+    updateTimer()
+  }
+</script>

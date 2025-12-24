@@ -8,8 +8,14 @@ import Heading from '@/components/ui/Heading.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
+import DailyMissionsPanel from '@/components/DailyMissionsPanel.astro'
 
-import { getUserGameHistoryPaginated } from '@/lib/server/db/queries'
+import {
+  getUserGameHistoryPaginated,
+  getUserXPAndLevel,
+} from '@/lib/server/db/queries'
+import { getUserDailyChallenges } from '@/lib/services/challengeService'
+import { getXPProgress, getSecondsUntilMidnightUTC } from '@/lib/challenges'
 
 // Game icon mapping (consistent with home page)
 const gameIcons: Record<string, string> = {
@@ -25,12 +31,18 @@ const gameIcons: Record<string, string> = {
 
 // Check if user is authenticated
 const user = Astro.locals.user
-const session = Astro.locals.session
+const _session = Astro.locals.session
 
 // Redirect to login if not authenticated
 if (!user) {
   return Astro.redirect('/login?redirect=/dashboard')
 }
+
+// Fetch daily challenges data
+const challenges = await getUserDailyChallenges(user.id)
+const { xp, level, challengeStreak } = await getUserXPAndLevel(user.id)
+const xpProgress = getXPProgress(xp)
+const resetIn = getSecondsUntilMidnightUTC()
 
 // Get pagination parameters from URL
 const url = new URL(Astro.request.url)
@@ -145,6 +157,15 @@ const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
             </Button>
             <Button variant="outline" size="sm">
               <a
+                href="/challenges"
+                class="text-cyan-400 no-underline flex items-center gap-2"
+              >
+                <span>🎯</span>
+                Challenges
+              </a>
+            </Button>
+            <Button variant="outline" size="sm">
+              <a
                 href="/profile"
                 class="text-cyan-400 no-underline flex items-center gap-2"
               >
@@ -154,6 +175,17 @@ const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
             </Button>
           </div>
         </div>
+
+        <!-- Daily Missions Panel -->
+        <DailyMissionsPanel
+          challenges={challenges}
+          xp={xp}
+          level={level}
+          xpProgress={xpProgress.progress}
+          xpToNextLevel={xpProgress.nextLevelXP - xp}
+          streak={challengeStreak}
+          resetIn={resetIn}
+        />
 
         <!-- Game History Section -->
         <Card variant="glass" class="p-6 md:p-8">
