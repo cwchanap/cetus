@@ -31,7 +31,6 @@ const gameIcons: Record<string, string> = {
 
 // Check if user is authenticated
 const user = Astro.locals.user
-const _session = Astro.locals.session
 
 // Redirect to login if not authenticated
 if (!user) {

@@ -71,10 +71,13 @@ const difficultyColors: Record<string, string> = {
   <div class="space-y-4">
     {
       challenges.map(challenge => {
-        const progress = Math.min(
-          100,
-          (challenge.currentValue / challenge.targetValue) * 100
-        )
+        const progress =
+          challenge.targetValue && challenge.targetValue > 0
+            ? Math.min(
+                100,
+                (challenge.currentValue / challenge.targetValue) * 100
+              )
+            : 0
         return (
           <div
             class={`p-4 rounded-xl border transition-all ${
@@ -149,6 +152,39 @@ const difficultyColors: Record<string, string> = {
   if (timerEl) {
     let seconds = parseInt(timerEl.dataset.resetIn || '0', 10)
 
+    const showRefreshPrompt = () => {
+      if (document.getElementById('mission-refresh-toast')) {
+        return
+      }
+      const toast = document.createElement('div')
+      toast.id = 'mission-refresh-toast'
+      toast.className =
+        'fixed bottom-6 right-6 z-50 max-w-sm rounded-xl bg-gray-900/95 border border-cyan-500/30 shadow-2xl shadow-cyan-500/30 p-4 text-white backdrop-blur-md'
+      toast.setAttribute('role', 'alert')
+      toast.innerHTML = `
+        <div class="flex items-start gap-3">
+          <span class="text-xl">🔄</span>
+          <div class="flex-1">
+            <p class="font-semibold">Changes saved — refresh to see updates</p>
+            <p class="text-sm text-gray-300 mt-1">Daily missions have reset. Refresh to load the new set.</p>
+            <div class="mt-3 flex gap-2">
+              <button id="mission-refresh-now" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-white text-sm font-semibold hover:bg-cyan-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">Refresh now</button>
+              <button id="mission-refresh-dismiss" class="px-3 py-1.5 rounded-lg border border-gray-700 text-sm text-gray-200 hover:border-cyan-500/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">Dismiss</button>
+            </div>
+          </div>
+        </div>
+      `
+      const refreshBtn = toast.querySelector<HTMLButtonElement>(
+        '#mission-refresh-now'
+      )
+      const dismissBtn = toast.querySelector<HTMLButtonElement>(
+        '#mission-refresh-dismiss'
+      )
+      refreshBtn?.addEventListener('click', () => window.location.reload())
+      dismissBtn?.addEventListener('click', () => toast.remove())
+      document.body.appendChild(toast)
+    }
+
     function updateTimer() {
       const hours = Math.floor(seconds / 3600)
       const mins = Math.floor((seconds % 3600) / 60)
@@ -162,9 +198,9 @@ const difficultyColors: Record<string, string> = {
         setTimeout(updateTimer, 1000)
       } else {
         if (timerEl) {
-          timerEl.textContent = 'Resetting...'
+          timerEl.textContent = 'Daily missions reset'
         }
-        setTimeout(() => window.location.reload(), 2000)
+        showRefreshPrompt()
       }
     }
 

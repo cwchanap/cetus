@@ -109,6 +109,6 @@ describe('Utility Functions', () => {
     it('should return positive seconds until midnight', () => {
         const seconds = getSecondsUntilMidnightUTC()
         expect(seconds).toBeGreaterThan(0)
-        expect(seconds).toBeLessThanOrEqual(86400) // Max 24 hours
+        expect(seconds).toBeLessThan(86400) // Max 24 hours (exclusive)
     })
 })

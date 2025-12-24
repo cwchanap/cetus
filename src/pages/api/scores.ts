@@ -53,12 +53,41 @@ export const POST: APIRoute = async ({ request }) => {
             result.newAchievements
         )
 
-        // Update challenge progress
-        const challengeResult = await updateChallengeProgress(
-            session.user.id,
-            gameId as GameType,
-            score
-        )
+        // Update challenge progress (best-effort)
+        let challengeResult: {
+            completedChallenges: {
+                id: string
+                name: string
+                description: string
+                icon: string
+                xpReward: number
+            }[]
+            xpEarned: number
+            levelUp: boolean
+            newLevel?: number
+        } = { completedChallenges: [], xpEarned: 0, levelUp: false }
+
+        try {
+            const isValidGameType = Object.values(GameID).includes(
+                gameId as GameType
+            )
+            if (isValidGameType) {
+                challengeResult = await updateChallengeProgress(
+                    session.user.id,
+                    gameId as GameType,
+                    score
+                )
+            } else {
+                // eslint-disable-next-line no-console
+                console.warn(
+                    '[scores API] Skipping challenge update due to incompatible gameId:',
+                    gameId
+                )
+            }
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('[scores API] Challenge update failed:', error)
+        }
 
         return jsonResponse({
             success: true,
