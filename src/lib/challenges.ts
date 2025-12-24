@@ -289,7 +289,17 @@ function selectWeighted<T extends { weight: number }>(
     items: T[],
     seed: number
 ): T {
+    if (items.length === 0) {
+        throw new Error('selectWeighted: items must be a non-empty array')
+    }
+
     const totalWeight = items.reduce((sum, item) => sum + item.weight, 0)
+    if (totalWeight <= 0) {
+        throw new Error(
+            'selectWeighted: total weight must be greater than zero'
+        )
+    }
+
     let random = seededRandom(seed) * totalWeight
 
     for (const item of items) {
