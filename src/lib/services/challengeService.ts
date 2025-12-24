@@ -94,6 +94,13 @@ export async function updateChallengeProgress(
     const completedChallenges: CompletedChallengeInfo[] = []
     let totalXPEarned = 0
 
+    // Fetch all progress records once and cache
+    const progressRecords = await getUserChallengeProgress(userId, today)
+    type ProgressRecord = (typeof progressRecords)[number]
+    const progressMap = new Map<string, ProgressRecord>(
+        progressRecords.map(p => [p.challenge_id, p])
+    )
+
     // Get current game stats for today
     const gamesPlayedToday = await getGamesPlayedCountToday(userId)
     const uniqueGamesToday = await getUniqueGamesPlayedToday(userId)
@@ -109,11 +116,23 @@ export async function updateChallengeProgress(
             challenge.targetValue
         )
 
-        // Get current progress
-        const progressRecords = await getUserChallengeProgress(userId, today)
-        const progress = progressRecords.find(
-            p => p.challenge_id === challenge.id
-        )
+        // Get current progress from cache, create default if newly inserted
+        let progress = progressMap.get(challenge.id)
+        if (!progress) {
+            const defaultProgress: ProgressRecord = {
+                id: 0,
+                user_id: userId,
+                challenge_date: today,
+                challenge_id: challenge.id,
+                current_value: 0,
+                target_value: challenge.targetValue,
+                completed_at: null,
+                xp_awarded: 0,
+                created_at: new Date(),
+            }
+            progressMap.set(challenge.id, defaultProgress)
+            progress = defaultProgress
+        }
 
         // Skip if already completed
         if (progress?.completed_at) {
@@ -151,6 +170,7 @@ export async function updateChallengeProgress(
             challenge.id,
             newValue
         )
+        progress.current_value = newValue
 
         // Check if completed
         if (newValue >= challenge.targetValue && !progress?.completed_at) {
@@ -168,6 +188,7 @@ export async function updateChallengeProgress(
                 xpReward: challenge.xpReward,
             })
             totalXPEarned += challenge.xpReward
+            progress.completed_at = new Date()
         }
     }
 

@@ -1248,16 +1248,73 @@ export async function completeChallengeAndAwardXP(
     xpAmount: number
 ): Promise<boolean> {
     try {
-        await db
-            .updateTable('daily_challenge_progress')
-            .set({
-                completed_at: new Date().toISOString(),
-                xp_awarded: xpAmount,
-            })
-            .where('user_id', '=', userId)
-            .where('challenge_date', '=', challengeDate)
-            .where('challenge_id', '=', challengeId)
-            .execute()
+        await ensureChallengeColumns()
+
+        await db.transaction().execute(async trx => {
+            const progress = await trx
+                .selectFrom('daily_challenge_progress')
+                .select(['xp_awarded'])
+                .where('user_id', '=', userId)
+                .where('challenge_date', '=', challengeDate)
+                .where('challenge_id', '=', challengeId)
+                .executeTakeFirst()
+
+            if (!progress) {
+                throw new Error('Challenge progress not found for user')
+            }
+
+            // Idempotent: if XP already awarded, skip additional updates
+            if (progress.xp_awarded && progress.xp_awarded > 0) {
+                return
+            }
+
+            const completedAt = new Date().toISOString()
+
+            await trx
+                .updateTable('daily_challenge_progress')
+                .set({
+                    completed_at: completedAt,
+                    xp_awarded: xpAmount,
+                })
+                .where('user_id', '=', userId)
+                .where('challenge_date', '=', challengeDate)
+                .where('challenge_id', '=', challengeId)
+                .execute()
+
+            const stats = await trx
+                .selectFrom('user_stats')
+                .select(['xp', 'level'])
+                .where('user_id', '=', userId)
+                .executeTakeFirst()
+
+            if (stats) {
+                await trx
+                    .updateTable('user_stats')
+                    .set({
+                        xp: stats.xp + xpAmount,
+                        level: stats.level,
+                        updated_at: completedAt,
+                    })
+                    .where('user_id', '=', userId)
+                    .execute()
+            } else {
+                await trx
+                    .insertInto('user_stats')
+                    .values({
+                        user_id: userId,
+                        total_games_played: 0,
+                        total_score: 0,
+                        favorite_game: null,
+                        streak_days: 0,
+                        xp: xpAmount,
+                        level: 1,
+                        challenge_streak: 0,
+                        last_challenge_date: null,
+                    })
+                    .execute()
+            }
+        })
+
         return true
     } catch (error) {
         console.error(
@@ -1307,42 +1364,30 @@ export async function updateUserXP(
 ): Promise<boolean> {
     try {
         await ensureChallengeColumns()
-        const current = await getUserXPAndLevel(userId)
+        const now = new Date().toISOString()
 
-        // Check if user_stats exists
-        const existing = await db
-            .selectFrom('user_stats')
-            .select('id')
-            .where('user_id', '=', userId)
-            .executeTakeFirst()
+        await db
+            .insertInto('user_stats')
+            .values({
+                user_id: userId,
+                total_games_played: 0,
+                total_score: 0,
+                favorite_game: null,
+                streak_days: 0,
+                xp: xpToAdd,
+                level: newLevel,
+                challenge_streak: 0,
+                last_challenge_date: null,
+            })
+            .onConflict(oc =>
+                oc.column('user_id').doUpdateSet(() => ({
+                    xp: sql`user_stats.xp + ${xpToAdd}`,
+                    level: newLevel,
+                    updated_at: now,
+                }))
+            )
+            .execute()
 
-        if (existing) {
-            await db
-                .updateTable('user_stats')
-                .set({
-                    xp: current.xp + xpToAdd,
-                    level: newLevel,
-                    updated_at: new Date().toISOString(),
-                })
-                .where('user_id', '=', userId)
-                .execute()
-        } else {
-            // Create new stats record with XP
-            await db
-                .insertInto('user_stats')
-                .values({
-                    user_id: userId,
-                    total_games_played: 0,
-                    total_score: 0,
-                    favorite_game: null,
-                    streak_days: 0,
-                    xp: xpToAdd,
-                    level: newLevel,
-                    challenge_streak: 0,
-                    last_challenge_date: null,
-                })
-                .execute()
-        }
         return true
     } catch (error) {
         console.error('[updateUserXP] Error:', sanitizeError(error))
