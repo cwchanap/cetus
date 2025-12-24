@@ -1,0 +1,190 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+import Container from '@/components/ui/Container.astro'
+import Section from '@/components/ui/Section.astro'
+import Heading from '@/components/ui/Heading.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import Button from '@/components/ui/Button.astro'
+import { getUserDailyChallenges } from '@/lib/services/challengeService'
+import { getUserXPAndLevel } from '@/lib/server/db/queries'
+import { getXPProgress, getSecondsUntilMidnightUTC } from '@/lib/challenges'
+
+const user = Astro.locals.user
+if (!user) {
+  return Astro.redirect('/login?redirect=/challenges')
+}
+
+const challenges = await getUserDailyChallenges(user.id)
+const { xp, level, challengeStreak } = await getUserXPAndLevel(user.id)
+const xpProgress = getXPProgress(xp)
+const resetIn = getSecondsUntilMidnightUTC()
+
+const completedCount = challenges.filter(c => c.completed).length
+const _totalXPToday = challenges
+  .filter(c => c.completed)
+  .reduce((sum, c) => sum + c.xpReward, 0)
+
+// Difficulty colors
+const _difficultyColors: Record<string, string> = {
+  easy: 'text-green-400',
+  medium: 'text-yellow-400',
+  hard: 'text-red-400',
+}
+---
+
+<AppLayout title="Daily Challenges - Cetus Gaming Platform">
+  <Container>
+    <Section>
+      <Heading level={1} variant="hero" class="mb-8">
+        Daily Challenges
+      </Heading>
+
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <Card variant="glass" class="p-4 text-center">
+          <div class="text-3xl font-bold text-cyan-400">{level}</div>
+          <div class="text-sm text-gray-400">Current Level</div>
+        </Card>
+        <Card variant="glass" class="p-4 text-center">
+          <div class="text-3xl font-bold text-purple-400">
+            {xp.toLocaleString()}
+          </div>
+          <div class="text-sm text-gray-400">Total XP</div>
+        </Card>
+        <Card variant="glass" class="p-4 text-center">
+          <div class="text-3xl font-bold text-orange-400">
+            {challengeStreak}
+          </div>
+          <div class="text-sm text-gray-400">Day Streak</div>
+        </Card>
+        <Card variant="glass" class="p-4 text-center">
+          <div class="text-3xl font-bold text-green-400">
+            {completedCount}/{challenges.length}
+          </div>
+          <div class="text-sm text-gray-400">Completed Today</div>
+        </Card>
+      </div>
+
+      <!-- Level Progress -->
+      <Card variant="glass" class="p-6 mb-8">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-orbitron font-bold text-white">
+            Level Progress
+          </h2>
+          <span class="text-cyan-400">Level {level} → {level + 1}</span>
+        </div>
+        <div
+          class="w-full bg-gray-800/50 rounded-full h-4 overflow-hidden border border-gray-700/50"
+        >
+          <div
+            class="h-full bg-gradient-to-r from-cyan-500 to-purple-600 transition-all duration-500"
+            style={`width: ${xpProgress.progress}%`}
+          >
+          </div>
+        </div>
+        <div class="flex justify-between text-sm text-gray-400 mt-2">
+          <span>{xpProgress.currentLevelXP} XP</span>
+          <span>{xpProgress.nextLevelXP} XP</span>
+        </div>
+      </Card>
+
+      <!-- Today's Challenges -->
+      <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-orbitron font-bold text-cyan-400">
+            Today's Missions
+          </h2>
+          <span id="reset-timer" class="text-gray-400" data-reset-in={resetIn}>
+            Resets in --:--:--
+          </span>
+        </div>
+
+        <div class="space-y-4">
+          {
+            challenges.map(challenge => {
+              const progress = Math.min(
+                100,
+                (challenge.currentValue / challenge.targetValue) * 100
+              )
+              return (
+                <Card
+                  variant={challenge.completed ? 'glass' : 'sci-fi'}
+                  class={`p-6 ${challenge.completed ? 'border-green-500/30 bg-green-500/5' : ''}`}
+                >
+                  <div class="flex items-center gap-6">
+                    <span class="text-4xl">{challenge.icon}</span>
+                    <div class="flex-1">
+                      <div class="flex items-center gap-3 mb-2">
+                        <h3 class="font-bold text-white text-lg">
+                          {challenge.name}
+                        </h3>
+                        <Badge
+                          variant={challenge.completed ? 'success' : 'outline'}
+                          size="sm"
+                        >
+                          {challenge.completed
+                            ? 'COMPLETE'
+                            : challenge.difficulty.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <p class="text-gray-400 mb-3">{challenge.description}</p>
+
+                      <div class="flex items-center gap-4">
+                        <div class="flex-1 bg-gray-700/50 rounded-full h-2 overflow-hidden">
+                          <div
+                            class={`h-full transition-all duration-300 ${challenge.completed ? 'bg-green-500' : 'bg-cyan-500'}`}
+                            style={`width: ${progress}%`}
+                          />
+                        </div>
+                        <span class="text-sm text-gray-400 min-w-[60px] text-right">
+                          {challenge.currentValue}/{challenge.targetValue}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <div
+                        class={`text-xl font-bold ${challenge.completed ? 'text-green-400' : 'text-cyan-400'}`}
+                      >
+                        +{challenge.xpReward} XP
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )
+            })
+          }
+        </div>
+      </div>
+
+      <!-- Back to Dashboard -->
+      <div class="text-center">
+        <Button href="/dashboard" variant="outline">
+          ← Back to Dashboard
+        </Button>
+      </div>
+    </Section>
+  </Container>
+</AppLayout>
+
+<script>
+  const timerEl = document.getElementById('reset-timer')
+  if (timerEl) {
+    let seconds = parseInt(timerEl.dataset.resetIn || '0', 10)
+
+    function updateTimer() {
+      const hours = Math.floor(seconds / 3600)
+      const mins = Math.floor((seconds % 3600) / 60)
+      const secs = seconds % 60
+      if (timerEl) {
+        timerEl.textContent = `Resets in ${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+      }
+
+      if (seconds > 0) {
+        seconds--
+        setTimeout(updateTimer, 1000)
+      }
+    }
+    updateTimer()
+  }
+</script>

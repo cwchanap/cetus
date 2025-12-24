@@ -15,6 +15,18 @@ export interface ScoreSubmissionResult {
         icon: string
         rarity: AchievementRarity
     }>
+    challengeUpdates?: {
+        completedChallenges: Array<{
+            id: string
+            name: string
+            description: string
+            icon: string
+            xpReward: number
+        }>
+        xpEarned: number
+        levelUp: boolean
+        newLevel?: number
+    }
     error?: string
 }
 
@@ -98,6 +110,16 @@ export async function saveGameScore(
                     window.showAchievementAward
                 ) {
                     window.showAchievementAward(result.newAchievements)
+                }
+            }
+
+            // Handle completed challenges
+            if (result.challengeUpdates?.completedChallenges?.length) {
+                if (
+                    typeof window !== 'undefined' &&
+                    window.showChallengeComplete
+                ) {
+                    window.showChallengeComplete(result.challengeUpdates)
                 }
             }
 

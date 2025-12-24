@@ -3,6 +3,8 @@ import { saveGameScoreWithAchievements } from '@/lib/server/db/queries'
 import { getGameById, GameID } from '@/lib/games'
 import { auth } from '@/lib/auth'
 import { getAchievementNotifications } from '@/lib/services/achievementService'
+import { updateChallengeProgress } from '@/lib/services/challengeService'
+import type { GameType } from '@/lib/server/db/types'
 import {
     jsonResponse,
     errorResponse,
@@ -51,6 +53,13 @@ export const POST: APIRoute = async ({ request }) => {
             result.newAchievements
         )
 
+        // Update challenge progress
+        const challengeResult = await updateChallengeProgress(
+            session.user.id,
+            gameId as GameType,
+            score
+        )
+
         return jsonResponse({
             success: true,
             newAchievements: achievementNotifications.map(achievement => ({
@@ -60,6 +69,16 @@ export const POST: APIRoute = async ({ request }) => {
                 icon: achievement.logo,
                 rarity: achievement.rarity,
             })),
+            challengeUpdates:
+                challengeResult.completedChallenges.length > 0
+                    ? {
+                          completedChallenges:
+                              challengeResult.completedChallenges,
+                          xpEarned: challengeResult.xpEarned,
+                          levelUp: challengeResult.levelUp,
+                          newLevel: challengeResult.newLevel,
+                      }
+                    : undefined,
         })
     } catch (_error) {
         return errorResponse('Internal server error')

@@ -10,6 +10,7 @@ import type {
     UserStats,
     NewUserAchievement,
     UserAchievementRecord,
+    DailyChallengeProgress,
 } from './types'
 
 function sanitizeError(error: unknown): string {
@@ -78,6 +79,10 @@ export async function upsertUserStats(
                 total_score: updates.total_score || 0,
                 favorite_game: updates.favorite_game || null,
                 streak_days: updates.streak_days || 0,
+                xp: updates.xp || 0,
+                level: updates.level || 1,
+                challenge_streak: updates.challenge_streak || 0,
+                last_challenge_date: updates.last_challenge_date || null,
             }
 
             await db.insertInto('user_stats').values(newStats).execute()
@@ -1071,5 +1076,400 @@ export async function getAchievementStatistics(): Promise<
             sanitizeError(error)
         )
         return []
+    }
+}
+
+/**
+ * Ensure challenge columns exist on user_stats (safe, idempotent)
+ */
+export async function ensureChallengeColumns(): Promise<void> {
+    try {
+        const result = await sql<{
+            name: string
+        }>`PRAGMA table_info(user_stats)`.execute(db)
+        const cols = result.rows?.map(r => r.name) ?? []
+
+        if (!cols.includes('xp')) {
+            await sql`ALTER TABLE user_stats ADD COLUMN xp INTEGER NOT NULL DEFAULT 0`.execute(
+                db
+            )
+        }
+        if (!cols.includes('level')) {
+            await sql`ALTER TABLE user_stats ADD COLUMN level INTEGER NOT NULL DEFAULT 1`.execute(
+                db
+            )
+        }
+        if (!cols.includes('challenge_streak')) {
+            await sql`ALTER TABLE user_stats ADD COLUMN challenge_streak INTEGER NOT NULL DEFAULT 0`.execute(
+                db
+            )
+        }
+        if (!cols.includes('last_challenge_date')) {
+            await sql`ALTER TABLE user_stats ADD COLUMN last_challenge_date TEXT`.execute(
+                db
+            )
+        }
+    } catch (error) {
+        console.warn(
+            '[ensureChallengeColumns] Migration warning:',
+            sanitizeError(error)
+        )
+    }
+}
+
+/**
+ * Ensure daily_challenge_progress table exists (safe, idempotent)
+ */
+export async function ensureDailyChallengeTable(): Promise<void> {
+    try {
+        await sql`
+            CREATE TABLE IF NOT EXISTS daily_challenge_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                challenge_date TEXT NOT NULL,
+                challenge_id TEXT NOT NULL,
+                current_value INTEGER NOT NULL DEFAULT 0,
+                target_value INTEGER NOT NULL,
+                completed_at DATETIME,
+                xp_awarded INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+                UNIQUE(user_id, challenge_date, challenge_id)
+            )
+        `.execute(db)
+
+        await sql`
+            CREATE INDEX IF NOT EXISTS idx_challenge_progress_user_date
+            ON daily_challenge_progress(user_id, challenge_date)
+        `.execute(db)
+    } catch (error) {
+        console.warn(
+            '[ensureDailyChallengeTable] Migration warning:',
+            sanitizeError(error)
+        )
+    }
+}
+
+/**
+ * Get user's challenge progress for a specific date
+ */
+export async function getUserChallengeProgress(
+    userId: string,
+    date: string
+): Promise<DailyChallengeProgress[]> {
+    try {
+        await ensureDailyChallengeTable()
+        return await db
+            .selectFrom('daily_challenge_progress')
+            .selectAll()
+            .where('user_id', '=', userId)
+            .where('challenge_date', '=', date)
+            .execute()
+    } catch (error) {
+        console.error('[getUserChallengeProgress] Error:', sanitizeError(error))
+        return []
+    }
+}
+
+/**
+ * Create or get existing challenge progress record
+ */
+export async function upsertChallengeProgress(
+    userId: string,
+    challengeDate: string,
+    challengeId: string,
+    targetValue: number
+): Promise<boolean> {
+    try {
+        await ensureDailyChallengeTable()
+        const existing = await db
+            .selectFrom('daily_challenge_progress')
+            .selectAll()
+            .where('user_id', '=', userId)
+            .where('challenge_date', '=', challengeDate)
+            .where('challenge_id', '=', challengeId)
+            .executeTakeFirst()
+
+        if (!existing) {
+            await db
+                .insertInto('daily_challenge_progress')
+                .values({
+                    user_id: userId,
+                    challenge_date: challengeDate,
+                    challenge_id: challengeId,
+                    current_value: 0,
+                    target_value: targetValue,
+                    xp_awarded: 0,
+                    completed_at: null,
+                })
+                .execute()
+        }
+        return true
+    } catch (error) {
+        console.error('[upsertChallengeProgress] Error:', sanitizeError(error))
+        return false
+    }
+}
+
+/**
+ * Update challenge progress value
+ */
+export async function updateChallengeProgressValue(
+    userId: string,
+    challengeDate: string,
+    challengeId: string,
+    newValue: number
+): Promise<boolean> {
+    try {
+        await db
+            .updateTable('daily_challenge_progress')
+            .set({ current_value: newValue })
+            .where('user_id', '=', userId)
+            .where('challenge_date', '=', challengeDate)
+            .where('challenge_id', '=', challengeId)
+            .execute()
+        return true
+    } catch (error) {
+        console.error(
+            '[updateChallengeProgressValue] Error:',
+            sanitizeError(error)
+        )
+        return false
+    }
+}
+
+/**
+ * Mark challenge as completed and record XP awarded
+ */
+export async function completeChallengeAndAwardXP(
+    userId: string,
+    challengeDate: string,
+    challengeId: string,
+    xpAmount: number
+): Promise<boolean> {
+    try {
+        await db
+            .updateTable('daily_challenge_progress')
+            .set({
+                completed_at: new Date().toISOString(),
+                xp_awarded: xpAmount,
+            })
+            .where('user_id', '=', userId)
+            .where('challenge_date', '=', challengeDate)
+            .where('challenge_id', '=', challengeId)
+            .execute()
+        return true
+    } catch (error) {
+        console.error(
+            '[completeChallengeAndAwardXP] Error:',
+            sanitizeError(error)
+        )
+        return false
+    }
+}
+
+/**
+ * Get user's XP, level, and challenge streak
+ */
+export async function getUserXPAndLevel(userId: string): Promise<{
+    xp: number
+    level: number
+    challengeStreak: number
+    lastChallengeDate: string | null
+}> {
+    try {
+        await ensureChallengeColumns()
+        const stats = await db
+            .selectFrom('user_stats')
+            .select(['xp', 'level', 'challenge_streak', 'last_challenge_date'])
+            .where('user_id', '=', userId)
+            .executeTakeFirst()
+
+        return {
+            xp: stats?.xp ?? 0,
+            level: stats?.level ?? 1,
+            challengeStreak: stats?.challenge_streak ?? 0,
+            lastChallengeDate: stats?.last_challenge_date ?? null,
+        }
+    } catch (error) {
+        console.error('[getUserXPAndLevel] Error:', sanitizeError(error))
+        return { xp: 0, level: 1, challengeStreak: 0, lastChallengeDate: null }
+    }
+}
+
+/**
+ * Update user's XP and level
+ */
+export async function updateUserXP(
+    userId: string,
+    xpToAdd: number,
+    newLevel: number
+): Promise<boolean> {
+    try {
+        await ensureChallengeColumns()
+        const current = await getUserXPAndLevel(userId)
+
+        // Check if user_stats exists
+        const existing = await db
+            .selectFrom('user_stats')
+            .select('id')
+            .where('user_id', '=', userId)
+            .executeTakeFirst()
+
+        if (existing) {
+            await db
+                .updateTable('user_stats')
+                .set({
+                    xp: current.xp + xpToAdd,
+                    level: newLevel,
+                    updated_at: new Date().toISOString(),
+                })
+                .where('user_id', '=', userId)
+                .execute()
+        } else {
+            // Create new stats record with XP
+            await db
+                .insertInto('user_stats')
+                .values({
+                    user_id: userId,
+                    total_games_played: 0,
+                    total_score: 0,
+                    favorite_game: null,
+                    streak_days: 0,
+                    xp: xpToAdd,
+                    level: newLevel,
+                    challenge_streak: 0,
+                    last_challenge_date: null,
+                })
+                .execute()
+        }
+        return true
+    } catch (error) {
+        console.error('[updateUserXP] Error:', sanitizeError(error))
+        return false
+    }
+}
+
+/**
+ * Get unique games played today by user
+ */
+export async function getUniqueGamesPlayedToday(
+    userId: string
+): Promise<string[]> {
+    try {
+        const today = new Date().toISOString().split('T')[0]
+        const rows = await db
+            .selectFrom('game_scores')
+            .select('game_id')
+            .distinct()
+            .where('user_id', '=', userId)
+            .where(
+                sql<boolean>`strftime('%Y-%m-%d', created_at, 'utc') = ${today}`
+            )
+            .execute()
+        return rows.map(r => r.game_id)
+    } catch (error) {
+        console.error(
+            '[getUniqueGamesPlayedToday] Error:',
+            sanitizeError(error)
+        )
+        return []
+    }
+}
+
+/**
+ * Get total score earned today by user
+ */
+export async function getTotalScoreToday(userId: string): Promise<number> {
+    try {
+        const today = new Date().toISOString().split('T')[0]
+        const result = await db
+            .selectFrom('game_scores')
+            .select(db.fn.sum('score').as('total'))
+            .where('user_id', '=', userId)
+            .where(
+                sql<boolean>`strftime('%Y-%m-%d', created_at, 'utc') = ${today}`
+            )
+            .executeTakeFirst()
+        return Number(result?.total) || 0
+    } catch (error) {
+        console.error('[getTotalScoreToday] Error:', sanitizeError(error))
+        return 0
+    }
+}
+
+/**
+ * Get count of games played today by user
+ */
+export async function getGamesPlayedCountToday(
+    userId: string
+): Promise<number> {
+    try {
+        const today = new Date().toISOString().split('T')[0]
+        const result = await db
+            .selectFrom('game_scores')
+            .select(db.fn.count('id').as('count'))
+            .where('user_id', '=', userId)
+            .where(
+                sql<boolean>`strftime('%Y-%m-%d', created_at, 'utc') = ${today}`
+            )
+            .executeTakeFirst()
+        return Number(result?.count) || 0
+    } catch (error) {
+        console.error('[getGamesPlayedCountToday] Error:', sanitizeError(error))
+        return 0
+    }
+}
+
+/**
+ * Update user's challenge streak
+ */
+export async function updateChallengeStreak(
+    userId: string,
+    increment: boolean,
+    date: string
+): Promise<number> {
+    try {
+        await ensureChallengeColumns()
+        const current = await getUserXPAndLevel(userId)
+        const newStreak = increment ? current.challengeStreak + 1 : 0
+
+        // Check if user_stats exists
+        const existing = await db
+            .selectFrom('user_stats')
+            .select('id')
+            .where('user_id', '=', userId)
+            .executeTakeFirst()
+
+        if (existing) {
+            await db
+                .updateTable('user_stats')
+                .set({
+                    challenge_streak: newStreak,
+                    last_challenge_date: date,
+                    updated_at: new Date().toISOString(),
+                })
+                .where('user_id', '=', userId)
+                .execute()
+        } else {
+            await db
+                .insertInto('user_stats')
+                .values({
+                    user_id: userId,
+                    total_games_played: 0,
+                    total_score: 0,
+                    favorite_game: null,
+                    streak_days: 0,
+                    xp: 0,
+                    level: 1,
+                    challenge_streak: newStreak,
+                    last_challenge_date: date,
+                })
+                .execute()
+        }
+        return newStreak
+    } catch (error) {
+        console.error('[updateChallengeStreak] Error:', sanitizeError(error))
+        return 0
     }
 }
