@@ -32,7 +32,15 @@ export const GET: APIRoute = async ({ request }) => {
             resetIn: getSecondsUntilMidnightUTC(),
             date: getTodayUTC(),
         })
-    } catch (_error) {
+    } catch (error) {
+        const safeMessage =
+            error instanceof Error ? error.message : 'Unknown error occurred'
+        // eslint-disable-next-line no-console
+        console.error('[GET /api/challenges] Failed to fetch challenges', {
+            path: request.url,
+            userId: session?.user?.id,
+            error: safeMessage,
+        })
         return jsonResponse({ error: 'Failed to fetch challenges' }, 500)
     }
 }

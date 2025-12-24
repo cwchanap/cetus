@@ -1182,28 +1182,23 @@ export async function upsertChallengeProgress(
 ): Promise<boolean> {
     try {
         await ensureDailyChallengeTable()
-        const existing = await db
-            .selectFrom('daily_challenge_progress')
-            .selectAll()
-            .where('user_id', '=', userId)
-            .where('challenge_date', '=', challengeDate)
-            .where('challenge_id', '=', challengeId)
-            .executeTakeFirst()
-
-        if (!existing) {
-            await db
-                .insertInto('daily_challenge_progress')
-                .values({
-                    user_id: userId,
-                    challenge_date: challengeDate,
-                    challenge_id: challengeId,
-                    current_value: 0,
-                    target_value: targetValue,
-                    xp_awarded: 0,
-                    completed_at: null,
-                })
-                .execute()
-        }
+        await db
+            .insertInto('daily_challenge_progress')
+            .values({
+                user_id: userId,
+                challenge_date: challengeDate,
+                challenge_id: challengeId,
+                current_value: 0,
+                target_value: targetValue,
+                xp_awarded: 0,
+                completed_at: null,
+            })
+            .onConflict(oc =>
+                oc
+                    .columns(['user_id', 'challenge_date', 'challenge_id'])
+                    .doNothing()
+            )
+            .execute()
         return true
     } catch (error) {
         console.error('[upsertChallengeProgress] Error:', sanitizeError(error))

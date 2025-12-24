@@ -15,10 +15,32 @@ if (!user) {
   return Astro.redirect('/login?redirect=/challenges')
 }
 
-const challenges = await getUserDailyChallenges(user.id)
-const { xp, level, challengeStreak } = await getUserXPAndLevel(user.id)
-const xpProgress = getXPProgress(xp)
-const resetIn = getSecondsUntilMidnightUTC()
+let challenges = [] as Awaited<ReturnType<typeof getUserDailyChallenges>>
+let xp = 0
+let level = 1
+let challengeStreak = 0
+let xpProgress = { progress: 0, currentLevelXP: 0, nextLevelXP: 0 }
+let resetIn = 0
+let loadError: string | null = null
+
+try {
+  challenges = await getUserDailyChallenges(user.id)
+  const xpData = await getUserXPAndLevel(user.id)
+  xp = xpData.xp
+  level = xpData.level
+  challengeStreak = xpData.challengeStreak
+  xpProgress = getXPProgress(xp)
+  resetIn = getSecondsUntilMidnightUTC()
+} catch (error) {
+  loadError = 'Unable to load challenges right now.'
+  const safeMessage =
+    error instanceof Error ? error.message : 'Unknown error occurred'
+  // eslint-disable-next-line no-console
+  console.error('[challenges page] Failed to load data', {
+    userId: user.id,
+    error: safeMessage,
+  })
+}
 
 const completedCount = challenges.filter(c => c.completed).length
 const _totalXPToday = challenges
@@ -36,6 +58,15 @@ const _difficultyColors: Record<string, string> = {
 <AppLayout title="Daily Challenges - Cetus Gaming Platform">
   <Container>
     <Section>
+      {
+        loadError && (
+          <Card variant="glass" class="p-4 mb-4 border-red-500/30 bg-red-500/5">
+            <div class="text-red-300 font-semibold">Note</div>
+            <div class="text-sm text-red-200 mt-1">{loadError}</div>
+          </Card>
+        )
+      }
+
       <Heading level={1} variant="hero" class="mb-8">
         Daily Challenges
       </Heading>
@@ -103,10 +134,13 @@ const _difficultyColors: Record<string, string> = {
         <div class="space-y-4">
           {
             challenges.map(challenge => {
-              const progress = Math.min(
-                100,
-                (challenge.currentValue / challenge.targetValue) * 100
-              )
+              const progress =
+                challenge.targetValue && challenge.targetValue > 0
+                  ? Math.min(
+                      100,
+                      (challenge.currentValue / challenge.targetValue) * 100
+                    )
+                  : 0
               return (
                 <Card
                   variant={challenge.completed ? 'glass' : 'sci-fi'}

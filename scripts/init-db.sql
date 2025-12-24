@@ -48,3 +48,21 @@ CREATE INDEX IF NOT EXISTS idx_user_stats_user_id ON user_stats(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON user_achievements(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_achievements_achievement_id ON user_achievements(achievement_id);
 CREATE INDEX IF NOT EXISTS idx_user_achievements_earned_at ON user_achievements(earned_at);
+
+-- Daily challenge progress table (unique per user/day/challenge)
+CREATE TABLE IF NOT EXISTS daily_challenge_progress (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    challenge_date TEXT NOT NULL, -- YYYY-MM-DD (UTC)
+    challenge_id TEXT NOT NULL, -- References challenge definition in code
+    current_value INTEGER NOT NULL DEFAULT 0,
+    target_value INTEGER NOT NULL,
+    completed_at DATETIME,
+    xp_awarded INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+    UNIQUE(user_id, challenge_date, challenge_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_challenge_progress_user_date
+    ON daily_challenge_progress(user_id, challenge_date);

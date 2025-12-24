@@ -88,6 +88,7 @@ export interface UserStatsTable {
     updated_at: ColumnType<Date, never, string | Date> // DEFAULT CURRENT_TIMESTAMP
 }
 
+// Uniqueness: (user_id, challenge_date, challenge_id) must be unique to avoid duplicate progress rows
 export interface DailyChallengeProgressTable {
     id: ColumnType<number, never, never>
     user_id: string
