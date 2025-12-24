@@ -4,7 +4,6 @@ import { getGameById, GameID } from '@/lib/games'
 import { auth } from '@/lib/auth'
 import { getAchievementNotifications } from '@/lib/services/achievementService'
 import { updateChallengeProgress } from '@/lib/services/challengeService'
-import type { GameType } from '@/lib/server/db/types'
 import {
     jsonResponse,
     errorResponse,
@@ -12,6 +11,9 @@ import {
     badRequestResponse,
 } from '@/lib/server/api-utils'
 import { scoreSubmissionSchema, validateBody } from '@/lib/server/validations'
+
+const isGameId = (id: string): id is GameID =>
+    Object.values(GameID).includes(id as GameID)
 
 export const POST: APIRoute = async ({ request }) => {
     try {
@@ -30,16 +32,20 @@ export const POST: APIRoute = async ({ request }) => {
         }
 
         const { gameId, score, gameData } = validation.data
+        if (!isGameId(gameId)) {
+            return badRequestResponse('Invalid game ID')
+        }
+        const validatedGameId = gameId
 
         // Verify game exists
-        const game = getGameById(gameId as GameID)
+        const game = getGameById(validatedGameId)
         if (!game) {
             return badRequestResponse('Invalid game ID')
         }
 
         const result = await saveGameScoreWithAchievements(
             session.user.id,
-            gameId,
+            validatedGameId,
             score,
             gameData
         )
@@ -68,22 +74,11 @@ export const POST: APIRoute = async ({ request }) => {
         } = { completedChallenges: [], xpEarned: 0, levelUp: false }
 
         try {
-            const isValidGameType = Object.values(GameID).includes(
-                gameId as GameType
+            challengeResult = await updateChallengeProgress(
+                session.user.id,
+                validatedGameId,
+                score
             )
-            if (isValidGameType) {
-                challengeResult = await updateChallengeProgress(
-                    session.user.id,
-                    gameId as GameType,
-                    score
-                )
-            } else {
-                // eslint-disable-next-line no-console
-                console.warn(
-                    '[scores API] Skipping challenge update due to incompatible gameId:',
-                    gameId
-                )
-            }
         } catch (error) {
             // eslint-disable-next-line no-console
             console.error('[scores API] Challenge update failed:', error)
