@@ -200,15 +200,13 @@ export async function updateChallengeProgress(
     if (totalXPEarned > 0) {
         const { xp: currentXP, level: currentLevel } =
             await getUserXPAndLevel(userId)
-        const updatedXP = currentXP + totalXPEarned
-        const calculatedLevel = getLevelFromXP(updatedXP)
+        const calculatedLevel = getLevelFromXP(currentXP)
 
         if (calculatedLevel > currentLevel) {
             levelUp = true
             newLevel = calculatedLevel
+            await updateUserXP(userId, 0, calculatedLevel)
         }
-
-        await updateUserXP(userId, totalXPEarned, calculatedLevel)
     }
 
     // Check if all challenges completed for streak bonus
