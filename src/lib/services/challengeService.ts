@@ -41,7 +41,8 @@ export async function getUserDailyChallenges(
     userId: string
 ): Promise<UserChallengeProgress[]> {
     const today = getTodayUTC()
-    const dailyChallenges = generateDailyChallenges(new Date())
+    const todayDate = new Date(`${today}T00:00:00Z`)
+    const dailyChallenges = generateDailyChallenges(todayDate)
 
     // Initialize progress records for any missing challenges
     for (const challenge of dailyChallenges) {
@@ -247,13 +248,4 @@ async function checkAndUpdateStreak(userId: string): Promise<void> {
             await updateChallengeStreak(userId, true, today)
         }
     }
-}
-
-/**
- * Format challenge notifications for UI
- */
-export function getChallengeNotifications(
-    completedChallenges: CompletedChallengeInfo[]
-): CompletedChallengeInfo[] {
-    return completedChallenges
 }
