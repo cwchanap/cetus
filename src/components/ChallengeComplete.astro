@@ -168,8 +168,15 @@
 
       this.isShowing = true
 
-      for (const challenge of data.completedChallenges) {
-        this.renderCard(challenge, data.xpEarned, data.levelUp, data.newLevel)
+      for (let i = 0; i < data.completedChallenges.length; i++) {
+        const challenge = data.completedChallenges[i]
+        const isLast = i === data.completedChallenges.length - 1
+        this.renderCard(
+          challenge,
+          challenge.xpReward,
+          isLast ? data.levelUp : false,
+          isLast ? data.newLevel : undefined
+        )
         this.showOverlay()
         this.startAutoDismiss()
         await new Promise<void>(resolve => {
@@ -189,14 +196,14 @@
         icon: string
         xpReward: number
       },
-      totalXP: number,
+      xpEarned: number,
       levelUp: boolean,
       newLevel?: number
     ): void {
       const content = this.template.content.cloneNode(true) as DocumentFragment
 
       content.getElementById('challenge-icon')!.textContent = challenge.icon
-      content.getElementById('xp-earned')!.textContent = `+${totalXP} XP`
+      content.getElementById('xp-earned')!.textContent = `+${xpEarned} XP`
       content.getElementById('challenge-name')!.textContent = challenge.name
       content.getElementById('challenge-description')!.textContent =
         challenge.description
