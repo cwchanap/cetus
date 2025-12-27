@@ -58,6 +58,10 @@ export async function upsertUserStats(
     updates: UserStatsUpdate
 ): Promise<boolean> {
     try {
+        // Ensure schema has all required columns before insert/update
+        await ensureStreakColumn()
+        await ensureChallengeColumns()
+
         // Check if stats exist
         const existing = await getUserStats(userId)
 
