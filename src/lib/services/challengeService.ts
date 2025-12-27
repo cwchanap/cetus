@@ -91,7 +91,8 @@ export async function updateChallengeProgress(
     score: number
 ): Promise<ChallengeUpdateResult> {
     const today = getTodayUTC()
-    const dailyChallenges = generateDailyChallenges(new Date())
+    const todayDate = new Date(`${today}T00:00:00Z`)
+    const dailyChallenges = generateDailyChallenges(todayDate)
     const completedChallenges: CompletedChallengeInfo[] = []
     let totalXPEarned = 0
 
@@ -225,8 +226,9 @@ export async function updateChallengeProgress(
  */
 async function checkAndUpdateStreak(userId: string): Promise<void> {
     const today = getTodayUTC()
+    const todayDate = new Date(`${today}T00:00:00Z`)
     const progressRecords = await getUserChallengeProgress(userId, today)
-    const dailyChallenges = generateDailyChallenges(new Date())
+    const dailyChallenges = generateDailyChallenges(todayDate)
 
     // Check if all challenges are completed
     const allCompleted = dailyChallenges.every(challenge => {
