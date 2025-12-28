@@ -8,21 +8,24 @@ Cetus is a sci-fi themed single-player gaming platform built with Astro and Tail
 
 ## Development Commands
 
+### Package Manager
+This project uses **Bun** (`bun@1.3.1`) as the package manager.
+
 ### Core Commands
-- `npm run dev` - Start both database and web server in parallel (database + Astro dev server)
-- `npm run web:dev` - Start Astro dev server only (localhost:4325)
-- `npm run db:dev` - Start local Turso SQLite database server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run astro` - Run Astro CLI commands
+- `bun run dev` - Start both database and web server in parallel (Turbo orchestrates both)
+- `bun run web:dev` - Start Astro dev server only (localhost:4325)
+- `bun run db:dev` - Start local Turso SQLite database server
+- `bun run build` - Build for production
+- `bun run preview` - Preview production build
+- `bun run astro` - Run Astro CLI commands
 
 ### Local Development Setup
 To run the application locally, both the database and web server are required:
 ```sh
-npm run dev        # Runs database + web server in parallel (recommended)
+bun run dev        # Runs database + web server in parallel (recommended)
 # OR separately:
-npm run db:dev     # Terminal 1: Start database (required for auth/scores)
-npm run web:dev    # Terminal 2: Start web server on localhost:4325
+bun run db:dev     # Terminal 1: Start database (required for auth/scores)
+bun run web:dev    # Terminal 2: Start web server on localhost:4325
 ```
 
 ### Environment Setup
@@ -37,25 +40,25 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret # optional
 ```
 
 ### Testing
-- `npm run test` - Run tests in watch mode (Vitest)
-- `npm run test:ui` - Run tests with Vitest UI (visual dashboard)
-- `npm run test:run` - Run tests once (CI mode)
-- `npm run test:coverage` - Run tests with coverage report
-- `npm run test:watch` - Alias for `npm run test`
-- `npm run test src/lib/services/scoreService.test.ts` - Run single test file
+- `bun run test` - Run tests in watch mode (Vitest)
+- `bun run test:ui` - Run tests with Vitest UI (visual dashboard)
+- `bun run test:run` - Run tests once (CI mode)
+- `bun run test:coverage` - Run tests with coverage report
+- `bun run test:watch` - Alias for `bun run test`
+- `bun run test src/lib/services/scoreService.test.ts` - Run single test file
 
 ### End-to-End Testing
-- `npm run test:e2e` - Run Playwright end-to-end tests
-- `npm run test:e2e:ui` - Run Playwright tests with UI mode
-- `npm run test:e2e:headed` - Run Playwright tests in headed mode
-- `npm run test:e2e:debug` - Run Playwright tests in debug mode
-- `npm run test:e2e:report` - Show Playwright test report
+- `bun run test:e2e` - Run Playwright end-to-end tests
+- `bun run test:e2e:ui` - Run Playwright tests with UI mode
+- `bun run test:e2e:headed` - Run Playwright tests in headed mode
+- `bun run test:e2e:debug` - Run Playwright tests in debug mode
+- `bun run test:e2e:report` - Show Playwright test report
 
 ### Code Quality
-- `npm run lint` - Lint codebase with ESLint
-- `npm run lint:fix` - Auto-fix lint issues
-- `npm run format` - Format code with Prettier
-- `npm run format:check` - Check code formatting
+- `bun run lint` - Lint codebase with ESLint
+- `bun run lint:fix` - Auto-fix lint issues
+- `bun run format` - Format code with Prettier
+- `bun run format:check` - Check code formatting
 
 ## Architecture
 

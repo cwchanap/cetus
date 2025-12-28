@@ -256,9 +256,11 @@ export function getXPProgress(xp: number): {
 } {
     const currentLevel = getLevelFromXP(xp)
     const currentLevelXP = LEVEL_THRESHOLDS[currentLevel - 1] || 0
-    const nextLevelXP =
-        LEVEL_THRESHOLDS[currentLevel] ||
-        LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1]
+    // If at or beyond max level, clamp nextLevelXP to current to avoid negative remaining
+    const atMaxLevel = currentLevel >= LEVEL_THRESHOLDS.length
+    const nextLevelXP = atMaxLevel
+        ? currentLevelXP
+        : LEVEL_THRESHOLDS[currentLevel]
     const xpInLevel = xp - currentLevelXP
     const xpNeeded = nextLevelXP - currentLevelXP
     const progress =
