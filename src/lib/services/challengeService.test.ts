@@ -1,5 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GameID } from '../games'
+import * as challenges from '../challenges'
+
+// Mock challenges module
+vi.mock('../challenges', async importOriginal => {
+    const actual = await importOriginal<typeof import('../challenges')>()
+    return {
+        ...actual,
+        generateDailyChallenges: vi.fn().mockReturnValue([
+            {
+                id: 'play_2_games',
+                name: 'Warm Up',
+                description: 'Play 2 games today',
+                icon: '🎮',
+                type: 'play_games',
+                targetValue: 2,
+                xpReward: 30,
+                difficulty: 'easy',
+            },
+            {
+                id: 'score_tetris_100',
+                name: 'Tetris Starter',
+                description: 'Score 100+ points in Tetris',
+                icon: '🔲',
+                type: 'score_target',
+                gameId: 'tetris',
+                targetValue: 100,
+                xpReward: 30,
+                difficulty: 'easy',
+            },
+        ]),
+    }
+})
 
 // Mock database queries
 vi.mock('../server/db/queries', () => ({
@@ -86,6 +118,156 @@ describe('Challenge Service', () => {
                 'user-123'
             )
             expect(queries.getTotalScoreToday).toHaveBeenCalledWith('user-123')
+        })
+
+        it('should reset streak to 1 if last completion was not yesterday', async () => {
+            const today = new Date().toISOString().split('T')[0]
+            const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+                .toISOString()
+                .split('T')[0]
+
+            const mockChallenges = [
+                { id: 'play_2_games', type: 'play_games', targetValue: 2 },
+                {
+                    id: 'score_tetris_100',
+                    type: 'score_target',
+                    targetValue: 100,
+                },
+                {
+                    id: 'total_score_200',
+                    type: 'total_score',
+                    targetValue: 200,
+                },
+            ]
+            vi.mocked(challenges.generateDailyChallenges).mockReturnValue(
+                mockChallenges as any
+            )
+
+            vi.mocked(queries.getUserChallengeProgress).mockResolvedValue([
+                {
+                    id: 1,
+                    user_id: 'user-123',
+                    challenge_date: today,
+                    challenge_id: 'play_2_games',
+                    current_value: 2,
+                    target_value: 2,
+                    completed_at: new Date(),
+                    xp_awarded: 30,
+                    created_at: new Date(),
+                },
+                {
+                    id: 2,
+                    user_id: 'user-123',
+                    challenge_date: today,
+                    challenge_id: 'score_tetris_100',
+                    current_value: 100,
+                    target_value: 100,
+                    completed_at: new Date(),
+                    xp_awarded: 30,
+                    created_at: new Date(),
+                },
+                {
+                    id: 3,
+                    user_id: 'user-123',
+                    challenge_date: today,
+                    challenge_id: 'total_score_200',
+                    current_value: 200,
+                    target_value: 200,
+                    completed_at: new Date(),
+                    xp_awarded: 30,
+                    created_at: new Date(),
+                },
+            ])
+
+            vi.mocked(queries.getUserXPAndLevel).mockResolvedValue({
+                xp: 100,
+                level: 2,
+                challengeStreak: 5,
+                lastChallengeDate: twoDaysAgo,
+            })
+
+            await updateChallengeProgress('user-123', GameID.TETRIS, 500)
+
+            expect(queries.updateChallengeStreak).toHaveBeenCalledWith(
+                'user-123',
+                1,
+                today
+            )
+        })
+
+        it('should increment streak if last completion was yesterday', async () => {
+            const today = new Date().toISOString().split('T')[0]
+            const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+                .toISOString()
+                .split('T')[0]
+
+            const mockChallenges = [
+                { id: 'play_2_games', type: 'play_games', targetValue: 2 },
+                {
+                    id: 'score_tetris_100',
+                    type: 'score_target',
+                    targetValue: 100,
+                },
+                {
+                    id: 'total_score_200',
+                    type: 'total_score',
+                    targetValue: 200,
+                },
+            ]
+            vi.mocked(challenges.generateDailyChallenges).mockReturnValue(
+                mockChallenges as any
+            )
+
+            vi.mocked(queries.getUserChallengeProgress).mockResolvedValue([
+                {
+                    id: 1,
+                    user_id: 'user-123',
+                    challenge_date: today,
+                    challenge_id: 'play_2_games',
+                    current_value: 2,
+                    target_value: 2,
+                    completed_at: new Date(),
+                    xp_awarded: 30,
+                    created_at: new Date(),
+                },
+                {
+                    id: 2,
+                    user_id: 'user-123',
+                    challenge_date: today,
+                    challenge_id: 'score_tetris_100',
+                    current_value: 100,
+                    target_value: 100,
+                    completed_at: new Date(),
+                    xp_awarded: 30,
+                    created_at: new Date(),
+                },
+                {
+                    id: 3,
+                    user_id: 'user-123',
+                    challenge_date: today,
+                    challenge_id: 'total_score_200',
+                    current_value: 200,
+                    target_value: 200,
+                    completed_at: new Date(),
+                    xp_awarded: 30,
+                    created_at: new Date(),
+                },
+            ])
+
+            vi.mocked(queries.getUserXPAndLevel).mockResolvedValue({
+                xp: 100,
+                level: 2,
+                challengeStreak: 5,
+                lastChallengeDate: yesterday,
+            })
+
+            await updateChallengeProgress('user-123', GameID.TETRIS, 500)
+
+            expect(queries.updateChallengeStreak).toHaveBeenCalledWith(
+                'user-123',
+                6,
+                today
+            )
         })
     })
 })

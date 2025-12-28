@@ -242,10 +242,23 @@ async function checkAndUpdateStreak(userId: string): Promise<void> {
     })
 
     if (allCompleted) {
-        const { lastChallengeDate } = await getUserXPAndLevel(userId)
+        const { lastChallengeDate, challengeStreak } =
+            await getUserXPAndLevel(userId)
         // Only update if this is the first time completing all today
         if (lastChallengeDate !== today) {
-            await updateChallengeStreak(userId, true, today)
+            let newStreak = 1
+            if (lastChallengeDate) {
+                const lastDate = new Date(`${lastChallengeDate}T00:00:00Z`)
+                const yesterday = new Date(
+                    todayDate.getTime() - 24 * 60 * 60 * 1000
+                )
+
+                // If last completion was yesterday, increment streak
+                if (lastDate.getTime() === yesterday.getTime()) {
+                    newStreak = challengeStreak + 1
+                }
+            }
+            await updateChallengeStreak(userId, newStreak, today)
         }
     }
 }
