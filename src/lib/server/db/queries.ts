@@ -1341,11 +1341,30 @@ export async function getUserXPAndLevel(userId: string): Promise<{
             .where('user_id', '=', userId)
             .executeTakeFirst()
 
+        let challengeStreak = stats?.challenge_streak ?? 0
+        const lastChallengeDate = stats?.last_challenge_date ?? null
+
+        // If the last challenge was completed before yesterday, the current streak is effectively 0
+        if (lastChallengeDate) {
+            const today = new Date().toISOString().split('T')[0]
+            if (lastChallengeDate !== today) {
+                const todayDate = new Date(`${today}T00:00:00Z`)
+                const yesterdayDate = new Date(
+                    todayDate.getTime() - 24 * 60 * 60 * 1000
+                )
+                const yesterday = yesterdayDate.toISOString().split('T')[0]
+
+                if (lastChallengeDate !== yesterday) {
+                    challengeStreak = 0
+                }
+            }
+        }
+
         return {
             xp: stats?.xp ?? 0,
             level: stats?.level ?? 1,
-            challengeStreak: stats?.challenge_streak ?? 0,
-            lastChallengeDate: stats?.last_challenge_date ?? null,
+            challengeStreak,
+            lastChallengeDate,
         }
     } catch (error) {
         console.error('[getUserXPAndLevel] Error:', sanitizeError(error))
@@ -1470,13 +1489,11 @@ export async function getGamesPlayedCountToday(
  */
 export async function updateChallengeStreak(
     userId: string,
-    increment: boolean,
+    newStreak: number,
     date: string
 ): Promise<number> {
     try {
         await ensureChallengeColumns()
-        const current = await getUserXPAndLevel(userId)
-        const newStreak = increment ? current.challengeStreak + 1 : 0
 
         // Check if user_stats exists
         const existing = await db
