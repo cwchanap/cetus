@@ -227,7 +227,7 @@
       const badge = content.querySelector('#level-up-badge')
       const newLevelEl = content.querySelector('#new-level')
       if (badge) {
-        ;(badge as HTMLElement).classList.remove('hidden')
+        badge.classList.remove('hidden')
       }
       if (newLevelEl) {
         newLevelEl.textContent = String(newLevel)
