@@ -1356,6 +1356,26 @@ export async function getUserXPAndLevel(userId: string): Promise<{
 
                 if (lastChallengeDate !== yesterday) {
                     challengeStreak = 0
+
+                    // Persist the reset to the database if the stored streak was not already 0
+                    if (stats && stats.challenge_streak !== 0) {
+                        try {
+                            await db
+                                .updateTable('user_stats')
+                                .set({
+                                    challenge_streak: 0,
+                                    updated_at: new Date().toISOString(),
+                                })
+                                .where('user_id', '=', userId)
+                                .execute()
+                        } catch (updateError) {
+                            // Log but don't fail the read operation
+                            console.error(
+                                '[getUserXPAndLevel] Failed to persist streak reset:',
+                                sanitizeError(updateError)
+                            )
+                        }
+                    }
                 }
             }
         }

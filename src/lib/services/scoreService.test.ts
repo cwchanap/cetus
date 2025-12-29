@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { GameID } from '../games'
 import {
     submitScore,
     saveGameScore,
@@ -12,22 +13,24 @@ import {
 // Mock fetch globally
 global.fetch = vi.fn()
 
-// Mock window object for AchievementAward tests
+// Mock window object for tests
 const mockWindow = {
     showAchievementAward: vi.fn(),
+    showChallengeComplete: vi.fn(),
 }
 
 describe('Score Service', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        // Reset the mock function
+        // Reset the mock functions
         mockWindow.showAchievementAward = vi.fn()
+        mockWindow.showChallengeComplete = vi.fn()
         // Setup window mock
         global.window = mockWindow as any
     })
 
     describe('submitScore', () => {
-        it('should submit score successfully and return achievements', async () => {
+        it('should submit score successfully and return achievements and challenge updates', async () => {
             const mockResponse = {
                 success: true,
                 newAchievements: [
@@ -38,6 +41,19 @@ describe('Score Service', () => {
                         icon: 'trophy',
                     },
                 ],
+                challengeUpdates: {
+                    completedChallenges: [
+                        {
+                            id: 'play_2_games',
+                            name: 'Warm Up',
+                            description: 'Play 2 games today',
+                            icon: '🎮',
+                            xpReward: 30,
+                        },
+                    ],
+                    xpEarned: 30,
+                    levelUp: false,
+                },
             }
 
             global.fetch = vi.fn().mockResolvedValue({
@@ -45,11 +61,16 @@ describe('Score Service', () => {
                 json: () => Promise.resolve(mockResponse),
             })
 
-            const result = await submitScore({ gameId: 'tetris', score: 1000 })
+            const result = await submitScore({
+                gameId: GameID.TETRIS,
+                score: 1000,
+            })
 
             expect(result.success).toBe(true)
             expect(result.newAchievements).toHaveLength(1)
-            expect(result.newAchievements?.[0].name).toBe('First Score')
+            expect(result.challengeUpdates).toBeDefined()
+            expect(result.challengeUpdates?.completedChallenges).toHaveLength(1)
+            expect(result.challengeUpdates?.xpEarned).toBe(30)
         })
 
         it('should handle 401 unauthorized error', async () => {
@@ -59,7 +80,10 @@ describe('Score Service', () => {
                 text: () => Promise.resolve('Unauthorized'),
             })
 
-            const result = await submitScore({ gameId: 'tetris', score: 1000 })
+            const result = await submitScore({
+                gameId: GameID.TETRIS,
+                score: 1000,
+            })
 
             expect(result.success).toBe(false)
             expect(result.error).toBe('You must be logged in to save scores')
@@ -72,7 +96,10 @@ describe('Score Service', () => {
                 text: () => Promise.resolve('Bad Request'),
             })
 
-            const result = await submitScore({ gameId: 'tetris', score: 1000 })
+            const result = await submitScore({
+                gameId: GameID.TETRIS,
+                score: 1000,
+            })
 
             expect(result.success).toBe(false)
             expect(result.error).toBe('Invalid score data')
@@ -81,7 +108,10 @@ describe('Score Service', () => {
         it('should handle network errors', async () => {
             global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
 
-            const result = await submitScore({ gameId: 'tetris', score: 1000 })
+            const result = await submitScore({
+                gameId: GameID.TETRIS,
+                score: 1000,
+            })
 
             expect(result.success).toBe(false)
             expect(result.error).toBe('Network error occurred')
@@ -93,7 +123,7 @@ describe('Score Service', () => {
             const onSuccess = vi.fn()
             const onError = vi.fn()
 
-            await saveGameScore('tetris', 0, onSuccess, onError)
+            await saveGameScore(GameID.TETRIS, 0, onSuccess, onError)
 
             expect(onSuccess).not.toHaveBeenCalled()
             expect(onError).not.toHaveBeenCalled()
@@ -114,7 +144,7 @@ describe('Score Service', () => {
             const onSuccess = vi.fn()
             const onError = vi.fn()
 
-            await saveGameScore('tetris', 1000, onSuccess, onError)
+            await saveGameScore(GameID.TETRIS, 1000, onSuccess, onError)
 
             expect(onSuccess).toHaveBeenCalledWith({
                 success: true,
@@ -133,7 +163,7 @@ describe('Score Service', () => {
             const onSuccess = vi.fn()
             const onError = vi.fn()
 
-            await saveGameScore('tetris', 1000, onSuccess, onError)
+            await saveGameScore(GameID.TETRIS, 1000, onSuccess, onError)
 
             expect(onSuccess).not.toHaveBeenCalled()
             expect(onError).toHaveBeenCalledWith('Failed to save score')
@@ -180,18 +210,18 @@ describe('Score Service', () => {
                 json: () => Promise.resolve({ bestScore: 1500 }),
             })
 
-            const result = await getUserBestScore('tetris')
+            const result = await getUserBestScore(GameID.TETRIS)
 
             expect(result).toBe(1500)
             expect(global.fetch).toHaveBeenCalledWith(
-                '/api/scores/best?gameId=tetris'
+                `/api/scores/best?gameId=${GameID.TETRIS}`
             )
         })
 
         it('should return null on error', async () => {
             global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
 
-            const result = await getUserBestScore('tetris')
+            const result = await getUserBestScore(GameID.TETRIS)
 
             expect(result).toBeNull()
         })
@@ -199,11 +229,11 @@ describe('Score Service', () => {
 
     describe('formatGameName', () => {
         it('should format game names correctly', () => {
-            expect(formatGameName('tetris')).toBe('Tetris Challenge')
-            expect(formatGameName('quick_math')).toBe('Quick Math')
-            expect(formatGameName('bubble_shooter')).toBe('Bubble Shooter')
-            expect(formatGameName('memory_matrix')).toBe('Memory Matrix')
-            expect(formatGameName('unknown_game')).toBe('Unknown_game')
+            expect(formatGameName(GameID.TETRIS)).toBe('Tetris Challenge')
+            expect(formatGameName(GameID.QUICK_MATH)).toBe('Quick Math')
+            expect(formatGameName(GameID.BUBBLE_SHOOTER)).toBe('Bubble Shooter')
+            expect(formatGameName(GameID.MEMORY_MATRIX)).toBe('Memory Matrix')
+            expect(formatGameName('unknown_game' as any)).toBe('Unknown_game')
         })
     })
 
@@ -244,7 +274,7 @@ describe('Score Service', () => {
 
             const onSuccess = vi.fn()
 
-            await saveGameScore('tetris', 150, onSuccess)
+            await saveGameScore(GameID.TETRIS, 150, onSuccess)
 
             expect(mockWindow.showAchievementAward).toHaveBeenCalledWith(
                 mockResponse.newAchievements
@@ -264,7 +294,7 @@ describe('Score Service', () => {
             })
 
             const onSuccess = vi.fn()
-            await saveGameScore('tetris', 50, onSuccess)
+            await saveGameScore(GameID.TETRIS, 50, onSuccess)
 
             expect(mockWindow.showAchievementAward).not.toHaveBeenCalled()
             expect(onSuccess).toHaveBeenCalledWith(mockResponse)
@@ -297,7 +327,7 @@ describe('Score Service', () => {
             })
 
             const onSuccess = vi.fn()
-            await saveGameScore('tetris', 300, onSuccess)
+            await saveGameScore(GameID.TETRIS, 300, onSuccess)
 
             expect(mockWindow.showAchievementAward).toHaveBeenCalledWith(
                 mockResponse.newAchievements
@@ -331,7 +361,7 @@ describe('Score Service', () => {
 
             // Should not throw error even without showAchievementAward
             await expect(
-                saveGameScore('tetris', 150, onSuccess)
+                saveGameScore(GameID.TETRIS, 150, onSuccess)
             ).resolves.toBeUndefined()
             expect(onSuccess).toHaveBeenCalledWith(mockResponse)
         })
@@ -362,23 +392,28 @@ describe('Score Service', () => {
 
             // Should not throw error even without window
             await expect(
-                saveGameScore('tetris', 150, onSuccess)
+                saveGameScore(GameID.TETRIS, 150, onSuccess)
             ).resolves.toBeUndefined()
             expect(onSuccess).toHaveBeenCalledWith(mockResponse)
         })
 
-        it('should handle different rarity achievements', async () => {
+        it('should call showChallengeComplete when challenges are completed', async () => {
             const mockResponse = {
                 success: true,
-                newAchievements: [
-                    {
-                        id: 'tetris_master',
-                        name: 'Tetris Master',
-                        description: 'Score 1000 points in Tetris',
-                        icon: '👑',
-                        rarity: 'epic',
-                    },
-                ],
+                newAchievements: [],
+                challengeUpdates: {
+                    completedChallenges: [
+                        {
+                            id: 'play_2_games',
+                            name: 'Warm Up',
+                            description: 'Play 2 games today',
+                            icon: '🎮',
+                            xpReward: 30,
+                        },
+                    ],
+                    xpEarned: 30,
+                    levelUp: false,
+                },
             }
 
             global.fetch = vi.fn().mockResolvedValue({
@@ -387,12 +422,13 @@ describe('Score Service', () => {
             })
 
             const onSuccess = vi.fn()
-            await saveGameScore('tetris', 1200, onSuccess)
 
-            expect(mockWindow.showAchievementAward).toHaveBeenCalledWith(
-                mockResponse.newAchievements
+            await saveGameScore(GameID.TETRIS, 150, onSuccess)
+
+            expect(mockWindow.showChallengeComplete).toHaveBeenCalledWith(
+                mockResponse.challengeUpdates
             )
-            expect(mockResponse.newAchievements[0].rarity).toBe('epic')
+            expect(onSuccess).toHaveBeenCalledWith(mockResponse)
         })
     })
 })
