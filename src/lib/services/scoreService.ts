@@ -6,6 +6,32 @@ import type { GameType } from '@/lib/server/db/types'
 import { AchievementRarity } from '@/lib/achievements'
 import type { GameData } from '@/lib/games/shared/types'
 
+declare global {
+    interface Window {
+        showAchievementAward?: (
+            achievements: Array<{
+                id: string
+                name: string
+                description: string
+                icon: string
+                rarity: AchievementRarity
+            }>
+        ) => void
+        showChallengeComplete?: (challengeUpdates: {
+            completedChallenges: Array<{
+                id: string
+                name: string
+                description: string
+                icon: string
+                xpReward: number
+            }>
+            xpEarned: number
+            levelUp: boolean
+            newLevel?: number
+        }) => void
+    }
+}
+
 export interface ScoreSubmissionResult {
     success: boolean
     newAchievements?: Array<{
@@ -59,8 +85,6 @@ export async function submitScore(
         })
 
         if (!response.ok) {
-            const errorText = await response.text()
-
             // Handle specific error cases
             if (response.status === 401) {
                 return {
@@ -78,8 +102,9 @@ export async function submitScore(
         return {
             success: result.success !== false,
             newAchievements: result.newAchievements || [],
+            challengeUpdates: result.challengeUpdates,
         }
-    } catch (error) {
+    } catch (_error) {
         return { success: false, error: 'Network error occurred' }
     }
 }
@@ -127,7 +152,7 @@ export async function saveGameScore(
         } else {
             onError?.(result.error || 'Failed to save score')
         }
-    } catch (error) {
+    } catch (_error) {
         onError?.('Network error occurred')
     }
 }
@@ -147,7 +172,7 @@ export async function getUserGameHistory(
 
         const result = await response.json()
         return result.history || []
-    } catch (error) {
+    } catch (_error) {
         return []
     }
 }
@@ -169,7 +194,7 @@ export async function getUserBestScore(
 
         const result = await response.json()
         return result.bestScore
-    } catch (error) {
+    } catch (_error) {
         return null
     }
 }

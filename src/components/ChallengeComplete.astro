@@ -161,8 +161,11 @@
     }
 
     const data = this.queue[0]
+    const completedChallenges = Array.isArray(data.completedChallenges)
+      ? data.completedChallenges
+      : []
 
-    if (!data.completedChallenges.length) {
+    if (!completedChallenges.length) {
       this.isShowing = false
       this.queue.shift()
       this.processQueue()
@@ -171,9 +174,9 @@
 
     this.isShowing = true
 
-    for (let i = 0; i < data.completedChallenges.length; i++) {
-      const challenge = data.completedChallenges[i]
-      const isLast = i === data.completedChallenges.length - 1
+    for (let i = 0; i < completedChallenges.length; i++) {
+      const challenge = completedChallenges[i]
+      const isLast = i === completedChallenges.length - 1
       this.renderCard(
         challenge,
         challenge.xpReward,
@@ -203,10 +206,10 @@
     }
     const content = this.template.content.cloneNode(true)
 
-    const iconEl = content.getElementById('challenge-icon')
-    const xpEl = content.getElementById('xp-earned')
-    const nameEl = content.getElementById('challenge-name')
-    const descEl = content.getElementById('challenge-description')
+    const iconEl = content.querySelector('#challenge-icon')
+    const xpEl = content.querySelector('#xp-earned')
+    const nameEl = content.querySelector('#challenge-name')
+    const descEl = content.querySelector('#challenge-description')
     if (iconEl) {
       iconEl.textContent = challenge.icon
     }
@@ -221,10 +224,10 @@
     }
 
     if (levelUp && newLevel !== undefined && newLevel !== null) {
-      const badge = content.getElementById('level-up-badge')
-      const newLevelEl = content.getElementById('new-level')
+      const badge = content.querySelector('#level-up-badge')
+      const newLevelEl = content.querySelector('#new-level')
       if (badge) {
-        badge.classList.remove('hidden')
+        ;(badge as HTMLElement).classList.remove('hidden')
       }
       if (newLevelEl) {
         newLevelEl.textContent = String(newLevel)
