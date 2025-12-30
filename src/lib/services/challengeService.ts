@@ -176,21 +176,24 @@ export async function updateChallengeProgress(
 
         // Check if completed
         if (newValue >= challenge.targetValue && !progress?.completed_at) {
-            await completeChallengeAndAwardXP(
+            const success = await completeChallengeAndAwardXP(
                 userId,
                 today,
                 challenge.id,
                 challenge.xpReward
             )
-            completedChallenges.push({
-                id: challenge.id,
-                name: challenge.name,
-                description: challenge.description,
-                icon: challenge.icon,
-                xpReward: challenge.xpReward,
-            })
-            totalXPEarned += challenge.xpReward
-            progress.completed_at = new Date()
+
+            if (success) {
+                completedChallenges.push({
+                    id: challenge.id,
+                    name: challenge.name,
+                    description: challenge.description,
+                    icon: challenge.icon,
+                    xpReward: challenge.xpReward,
+                })
+                totalXPEarned += challenge.xpReward
+                progress.completed_at = new Date()
+            }
         }
     }
 
@@ -204,9 +207,11 @@ export async function updateChallengeProgress(
         const calculatedLevel = getLevelFromXP(currentXP)
 
         if (calculatedLevel > currentLevel) {
-            levelUp = true
-            newLevel = calculatedLevel
-            await updateUserXP(userId, 0, calculatedLevel)
+            const success = await updateUserXP(userId, 0, calculatedLevel)
+            if (success) {
+                levelUp = true
+                newLevel = calculatedLevel
+            }
         }
     }
 
