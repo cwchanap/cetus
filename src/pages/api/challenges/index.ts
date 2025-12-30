@@ -27,7 +27,7 @@ export const GET: APIRoute = async ({ request }) => {
             xp,
             level,
             xpProgress: xpProgress.progress,
-            xpToNextLevel: xpProgress.nextLevelXP - xp,
+            xpToNextLevel: Math.max(0, xpProgress.nextLevelXP - xp),
             streak: challengeStreak,
             resetIn: getSecondsUntilMidnightUTC(),
             date: getTodayUTC(),
