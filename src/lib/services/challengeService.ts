@@ -12,11 +12,11 @@ import {
     updateChallengeProgressValue,
     completeChallengeAndAwardXP,
     getUserXPAndLevel,
-    updateUserXP,
+    updateUserXPAndLevel,
     getUniqueGamesPlayedToday,
     getTotalScoreToday,
     getGamesPlayedCountToday,
-    updateChallengeStreak,
+    atomicCheckAndUpdateStreak,
 } from '../server/db/queries'
 
 export interface ChallengeUpdateResult {
@@ -174,8 +174,9 @@ export async function updateChallengeProgress(
         )
         progress.current_value = newValue
 
-        // Check if completed
-        if (newValue >= challenge.targetValue && !progress?.completed_at) {
+        // Check if completed based solely on the latest value;
+        // completion/XP awarding is enforced atomically in the database.
+        if (newValue >= challenge.targetValue) {
             const success = await completeChallengeAndAwardXP(
                 userId,
                 today,
@@ -202,15 +203,20 @@ export async function updateChallengeProgress(
     let newLevel: number | undefined
 
     if (totalXPEarned > 0) {
-        const { xp: currentXP, level: currentLevel } =
-            await getUserXPAndLevel(userId)
-        const calculatedLevel = getLevelFromXP(currentXP)
+        // currentXP is the XP after all challenge awards in this batch
+        const { xp: currentXP } = await getUserXPAndLevel(userId)
 
-        if (calculatedLevel > currentLevel) {
-            const success = await updateUserXP(userId, 0, calculatedLevel)
+        // Derive levels purely from XP before vs after this batch,
+        // so we don't depend on potentially stale stored level values.
+        const xpBefore = Math.max(0, currentXP - totalXPEarned)
+        const levelBefore = getLevelFromXP(xpBefore)
+        const levelAfter = getLevelFromXP(currentXP)
+
+        if (levelAfter > levelBefore) {
+            const success = await updateUserXPAndLevel(userId, 0, levelAfter)
             if (success) {
                 levelUp = true
-                newLevel = calculatedLevel
+                newLevel = levelAfter
             }
         }
     }
@@ -228,6 +234,9 @@ export async function updateChallengeProgress(
 
 /**
  * Check if all daily challenges are completed and update streak
+ */
+/**
+ * Check if all daily challenges are completed and update streak atomically
  */
 async function checkAndUpdateStreak(userId: string): Promise<void> {
     const today = getTodayUTC()
@@ -247,23 +256,6 @@ async function checkAndUpdateStreak(userId: string): Promise<void> {
     })
 
     if (allCompleted) {
-        const { lastChallengeDate, challengeStreak } =
-            await getUserXPAndLevel(userId)
-        // Only update if this is the first time completing all today
-        if (lastChallengeDate !== today) {
-            let newStreak = 1
-            if (lastChallengeDate) {
-                const lastDate = new Date(`${lastChallengeDate}T00:00:00Z`)
-                const yesterday = new Date(
-                    todayDate.getTime() - 24 * 60 * 60 * 1000
-                )
-
-                // If last completion was yesterday, increment streak
-                if (lastDate.getTime() === yesterday.getTime()) {
-                    newStreak = challengeStreak + 1
-                }
-            }
-            await updateChallengeStreak(userId, newStreak, today)
-        }
+        await atomicCheckAndUpdateStreak(userId, today, true)
     }
 }

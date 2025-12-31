@@ -486,7 +486,7 @@ export async function saveGameScoreWithAchievements(
             inGameAchievements = await checkInGameAchievements(
                 userId,
                 gameId as GameID,
-                gameData,
+                gameData as any,
                 score
             )
         }
@@ -1395,7 +1395,7 @@ export async function getUserXPAndLevel(userId: string): Promise<{
 /**
  * Update user's XP and level
  */
-export async function updateUserXP(
+export async function updateUserXPAndLevel(
     userId: string,
     xpToAdd: number,
     newLevel: number
@@ -1418,17 +1418,17 @@ export async function updateUserXP(
                 last_challenge_date: null,
             })
             .onConflict(oc =>
-                oc.column('user_id').doUpdateSet(() => ({
+                oc.column('user_id').doUpdateSet({
                     xp: sql`user_stats.xp + ${xpToAdd}`,
                     level: newLevel,
                     updated_at: now,
-                }))
+                })
             )
             .execute()
 
         return true
     } catch (error) {
-        console.error('[updateUserXP] Error:', sanitizeError(error))
+        console.error('[updateUserXPAndLevel] Error:', sanitizeError(error))
         return false
     }
 }
@@ -1505,52 +1505,82 @@ export async function getGamesPlayedCountToday(
 }
 
 /**
- * Update user's challenge streak
+ * Atomically check and update daily challenge streak
  */
-export async function updateChallengeStreak(
+export async function atomicCheckAndUpdateStreak(
     userId: string,
-    newStreak: number,
-    date: string
-): Promise<number> {
+    today: string,
+    allChallengesCompleted: boolean
+): Promise<boolean> {
     try {
         await ensureChallengeColumns()
 
-        // Check if user_stats exists
-        const existing = await db
-            .selectFrom('user_stats')
-            .select('id')
-            .where('user_id', '=', userId)
-            .executeTakeFirst()
-
-        if (existing) {
-            await db
-                .updateTable('user_stats')
-                .set({
-                    challenge_streak: newStreak,
-                    last_challenge_date: date,
-                    updated_at: new Date().toISOString(),
-                })
-                .where('user_id', '=', userId)
-                .execute()
-        } else {
-            await db
-                .insertInto('user_stats')
-                .values({
-                    user_id: userId,
-                    total_games_played: 0,
-                    total_score: 0,
-                    favorite_game: null,
-                    streak_days: 0,
-                    xp: 0,
-                    level: 1,
-                    challenge_streak: newStreak,
-                    last_challenge_date: date,
-                })
-                .execute()
+        if (!allChallengesCompleted) {
+            return false
         }
-        return newStreak
+
+        return await db.transaction().execute(async trx => {
+            const stats = await trx
+                .selectFrom('user_stats')
+                .select(['challenge_streak', 'last_challenge_date'])
+                .where('user_id', '=', userId)
+                .forUpdate() // Lock the row for update if supported by the driver
+                .executeTakeFirst()
+
+            if (!stats) {
+                // If no stats, this is the first completion
+                await trx
+                    .insertInto('user_stats')
+                    .values({
+                        user_id: userId,
+                        total_games_played: 0,
+                        total_score: 0,
+                        favorite_game: null,
+                        streak_days: 0,
+                        xp: 0,
+                        level: 1,
+                        challenge_streak: 1,
+                        last_challenge_date: today,
+                    })
+                    .execute()
+                return true
+            }
+
+            // Only update if this is the first time completing all today
+            if (stats.last_challenge_date !== today) {
+                let newStreak = 1
+                if (stats.last_challenge_date) {
+                    const todayDate = new Date(`${today}T00:00:00Z`)
+                    const yesterdayDate = new Date(
+                        todayDate.getTime() - 24 * 60 * 60 * 1000
+                    )
+                    const yesterday = yesterdayDate.toISOString().split('T')[0]
+
+                    // If last completion was yesterday, increment streak
+                    if (stats.last_challenge_date === yesterday) {
+                        newStreak = (stats.challenge_streak ?? 0) + 1
+                    }
+                }
+
+                await trx
+                    .updateTable('user_stats')
+                    .set({
+                        challenge_streak: newStreak,
+                        last_challenge_date: today,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .where('user_id', '=', userId)
+                    .execute()
+                return true
+            }
+
+            return false
+        })
     } catch (error) {
-        console.error('[updateChallengeStreak] Error:', sanitizeError(error))
-        return 0
+        console.error(
+            '[atomicCheckAndUpdateStreak] Error:',
+            sanitizeError(error)
+        )
+        return false
     }
 }
