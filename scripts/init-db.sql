@@ -23,6 +23,11 @@ CREATE TABLE IF NOT EXISTS user_stats (
     total_games_played INTEGER DEFAULT 0,
     total_score INTEGER DEFAULT 0,
     favorite_game TEXT,
+    xp INTEGER DEFAULT 0,
+    level INTEGER DEFAULT 1,
+    challenge_streak INTEGER DEFAULT 0,
+    last_challenge_date TEXT,
+    streak_days INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE

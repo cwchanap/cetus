@@ -43,16 +43,6 @@ try {
 }
 
 const completedCount = challenges.filter(c => c.completed).length
-const _totalXPToday = challenges
-  .filter(c => c.completed)
-  .reduce((sum, c) => sum + c.xpReward, 0)
-
-// Difficulty colors
-const _difficultyColors: Record<string, string> = {
-  easy: 'text-green-400',
-  medium: 'text-yellow-400',
-  hard: 'text-red-400',
-}
 ---
 
 <AppLayout title="Daily Challenges - Cetus Gaming Platform">
@@ -193,8 +183,10 @@ const _difficultyColors: Record<string, string> = {
 
       <!-- Back to Dashboard -->
       <div class="text-center">
-        <Button href="/dashboard" variant="outline">
-          ← Back to Dashboard
+        <Button variant="outline">
+          <a href="/dashboard" class="text-cyan-400 no-underline">
+            ← Back to Dashboard
+          </a>
         </Button>
       </div>
     </Section>
