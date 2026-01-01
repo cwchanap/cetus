@@ -219,7 +219,7 @@ const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
           xp={xp}
           level={level}
           xpProgress={xpProgress.progress}
-          xpToNextLevel={xpProgress.nextLevelXP - xp}
+          xpToNextLevel={Math.max(0, xpProgress.nextLevelXP - xp)}
           streak={challengeStreak}
           resetIn={resetIn}
         />
