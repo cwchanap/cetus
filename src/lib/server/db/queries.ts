@@ -1,6 +1,7 @@
 import { db } from './client'
 import { sql } from 'kysely'
-import type { GameID } from '../../games'
+import type { AchievementCheckData } from '../../achievements'
+import { GameID } from '../../games'
 import type {
     NewGameScore,
     NewUserStats,
@@ -454,6 +455,13 @@ export async function saveGameScore(
 }
 
 /**
+ * Type guard for GameData (AchievementCheckData)
+ */
+function isGameData(obj: unknown): obj is AchievementCheckData {
+    return obj !== null && typeof obj === 'object'
+}
+
+/**
  * Save game score and check for achievements
  */
 export async function saveGameScoreWithAchievements(
@@ -482,11 +490,15 @@ export async function saveGameScoreWithAchievements(
 
         // Check and award in-game achievements if game data is provided
         let inGameAchievements: string[] = []
-        if (gameData) {
+        if (gameData !== undefined) {
+            if (!isGameData(gameData)) {
+                throw new Error('Invalid game data provided')
+            }
+
             inGameAchievements = await checkInGameAchievements(
                 userId,
                 gameId as GameID,
-                gameData as any,
+                gameData,
                 score
             )
         }

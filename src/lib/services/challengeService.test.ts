@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GameID } from '../games'
 import * as challenges from '../challenges'
+import { getTodayUTC } from '../challenges'
 
 // Mock challenges module
 vi.mock('../challenges', async importOriginal => {
@@ -49,7 +50,7 @@ vi.mock('../server/db/queries', () => ({
     getUniqueGamesPlayedToday: vi.fn().mockResolvedValue([]),
     getTotalScoreToday: vi.fn().mockResolvedValue(0),
     getGamesPlayedCountToday: vi.fn().mockResolvedValue(0),
-    updateChallengeStreak: vi.fn().mockResolvedValue(1),
+    atomicCheckAndUpdateStreak: vi.fn().mockResolvedValue(true),
 }))
 
 import {
@@ -121,8 +122,11 @@ describe('Challenge Service', () => {
         })
 
         it('should reset streak to 1 if last completion was not yesterday', async () => {
-            const today = new Date().toISOString().split('T')[0]
-            const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+            const today = getTodayUTC()
+            const todayDate = new Date(`${today}T00:00:00Z`)
+            const twoDaysAgo = new Date(
+                todayDate.getTime() - 2 * 24 * 60 * 60 * 1000
+            )
                 .toISOString()
                 .split('T')[0]
 
@@ -188,16 +192,19 @@ describe('Challenge Service', () => {
 
             await updateChallengeProgress('user-123', GameID.TETRIS, 500)
 
-            expect(queries.updateChallengeStreak).toHaveBeenCalledWith(
+            expect(queries.atomicCheckAndUpdateStreak).toHaveBeenCalledWith(
                 'user-123',
-                1,
-                today
+                today,
+                true
             )
         })
 
         it('should increment streak if last completion was yesterday', async () => {
-            const today = new Date().toISOString().split('T')[0]
-            const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+            const today = getTodayUTC()
+            const todayDate = new Date(`${today}T00:00:00Z`)
+            const yesterday = new Date(
+                todayDate.getTime() - 24 * 60 * 60 * 1000
+            )
                 .toISOString()
                 .split('T')[0]
 
@@ -263,10 +270,10 @@ describe('Challenge Service', () => {
 
             await updateChallengeProgress('user-123', GameID.TETRIS, 500)
 
-            expect(queries.updateChallengeStreak).toHaveBeenCalledWith(
+            expect(queries.atomicCheckAndUpdateStreak).toHaveBeenCalledWith(
                 'user-123',
-                6,
-                today
+                today,
+                true
             )
         })
     })
