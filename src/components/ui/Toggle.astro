@@ -1,0 +1,190 @@
+---
+import { cn } from '@/lib/utils'
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends Omit<HTMLAttributes<'button'>, 'type'> {
+  variant?: 'default' | 'sci-fi'
+  size?: 'default' | 'sm' | 'lg'
+  checked?: boolean
+  disabled?: boolean
+  id?: string
+  name?: string
+  label?: string
+  description?: string
+  class?: string
+}
+
+const {
+  variant = 'sci-fi',
+  size = 'default',
+  checked = false,
+  disabled = false,
+  id,
+  name,
+  label,
+  description,
+  class: className = '',
+  ...props
+} = Astro.props
+
+const toggleVariants = {
+  variant: {
+    default: 'bg-gray-600 data-[checked]:bg-cyan-500',
+    'sci-fi':
+      'bg-gray-800/60 border border-gray-600/50 data-[checked]:bg-gradient-to-r data-[checked]:from-cyan-500 data-[checked]:to-purple-600 data-[checked]:border-cyan-400/50',
+  },
+  size: {
+    default: 'w-11 h-6',
+    sm: 'w-9 h-5',
+    lg: 'w-14 h-7',
+  },
+}
+
+const knobSizes = {
+  default: 'w-5 h-5',
+  sm: 'w-4 h-4',
+  lg: 'w-6 h-6',
+}
+
+const knobTranslate = {
+  default: 'data-[checked]:translate-x-5',
+  sm: 'data-[checked]:translate-x-4',
+  lg: 'data-[checked]:translate-x-7',
+}
+
+const toggleClasses = cn(
+  'relative inline-flex items-center rounded-full transition-all duration-300 cursor-pointer',
+  'focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:ring-offset-2 focus:ring-offset-gray-900',
+  'disabled:opacity-50 disabled:cursor-not-allowed',
+  toggleVariants.variant[variant],
+  toggleVariants.size[size]
+)
+
+const knobClasses = cn(
+  'inline-block rounded-full bg-white shadow-lg transform transition-transform duration-300 ml-0.5',
+  'data-[checked]:shadow-cyan-400/50',
+  knobTranslate[size],
+  knobSizes[size]
+)
+---
+
+<div class={cn('flex items-center justify-between gap-4', className)}>
+  {
+    (label || description) && (
+      <div class="flex-1">
+        {label && (
+          <label
+            for={id}
+            class="text-sm font-medium text-gray-300 block cursor-pointer"
+          >
+            {label}
+          </label>
+        )}
+        {description && (
+          <p class="text-xs text-gray-500 mt-0.5">{description}</p>
+        )}
+      </div>
+    )
+  }
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    data-checked={checked ? '' : undefined}
+    data-toggle
+    class={toggleClasses}
+    disabled={disabled}
+    id={id}
+    {...props}
+  >
+    <span
+      class={knobClasses}
+      data-checked={checked ? '' : undefined}
+      data-toggle-knob></span>
+    <input
+      type="hidden"
+      name={name}
+      value={checked ? 'true' : 'false'}
+      data-toggle-input
+    />
+  </button>
+</div>
+
+<script>
+  class ToggleComponent {
+    private button: HTMLButtonElement
+    private knob: HTMLElement
+    private input: HTMLInputElement
+    private checked: boolean
+
+    constructor(button: HTMLButtonElement) {
+      this.button = button
+      this.knob = button.querySelector('[data-toggle-knob]')!
+      this.input = button.querySelector('[data-toggle-input]')!
+      this.checked = button.getAttribute('aria-checked') === 'true'
+
+      this.button.addEventListener('click', () => this.toggle())
+    }
+
+    private toggle() {
+      if (this.button.disabled) {
+        return
+      }
+
+      this.checked = !this.checked
+      this.updateUI()
+      this.dispatchChange()
+    }
+
+    private updateUI() {
+      this.button.setAttribute('aria-checked', String(this.checked))
+
+      if (this.checked) {
+        this.button.setAttribute('data-checked', '')
+        this.knob.setAttribute('data-checked', '')
+      } else {
+        this.button.removeAttribute('data-checked')
+        this.knob.removeAttribute('data-checked')
+      }
+
+      this.input.value = String(this.checked)
+    }
+
+    private dispatchChange() {
+      this.button.dispatchEvent(
+        new CustomEvent('toggle-change', {
+          bubbles: true,
+          detail: { checked: this.checked },
+        })
+      )
+    }
+
+    public setChecked(checked: boolean) {
+      this.checked = checked
+      this.updateUI()
+    }
+
+    public getChecked(): boolean {
+      return this.checked
+    }
+  }
+
+  // Initialize all toggles
+  function initToggles() {
+    document.querySelectorAll('[data-toggle]').forEach(toggle => {
+      if (!toggle.hasAttribute('data-toggle-initialized')) {
+        const component = new ToggleComponent(toggle as HTMLButtonElement)
+        ;(
+          toggle as HTMLElement & { toggleComponent: ToggleComponent }
+        ).toggleComponent = component
+        toggle.setAttribute('data-toggle-initialized', '')
+      }
+    })
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initToggles)
+  } else {
+    initToggles()
+  }
+</script>

@@ -1,0 +1,474 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+import Container from '@/components/ui/Container.astro'
+import Section from '@/components/ui/Section.astro'
+import Heading from '@/components/ui/Heading.astro'
+import Card from '@/components/ui/Card.astro'
+import Button from '@/components/ui/Button.astro'
+import Toggle from '@/components/ui/Toggle.astro'
+import Slider from '@/components/ui/Slider.astro'
+import { getUserPreferences } from '@/lib/server/db/queries'
+
+// Check authentication
+const user = Astro.locals.user
+if (!user) {
+  return Astro.redirect('/login?redirect=/settings')
+}
+
+// Fetch server-side notification preferences
+const serverPrefs = await getUserPreferences(user.id)
+const emailNotifications = serverPrefs?.email_notifications ?? true
+const pushNotifications = serverPrefs?.push_notifications ?? false
+const challengeReminders = serverPrefs?.challenge_reminders ?? true
+---
+
+<AppLayout
+  title="Settings - Cetus Gaming Platform"
+  description="Manage your preferences and settings on Cetus"
+>
+  <!-- Animated background -->
+  <div class="fixed inset-0 pointer-events-none">
+    <div
+      class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"
+    >
+    </div>
+    <div
+      class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse"
+      style="animation-delay: 1s;"
+    >
+    </div>
+  </div>
+
+  <main class="relative z-10 min-h-screen">
+    <Section class="py-20">
+      <Container class="max-w-3xl">
+        <!-- Page Title -->
+        <div class="text-center mb-12">
+          <Heading level={1} variant="hero" align="center" class="mb-4">
+            SETTINGS
+          </Heading>
+          <p class="text-gray-400 text-lg">Customize your gaming experience</p>
+        </div>
+
+        <!-- Sound Settings -->
+        <Card variant="glass" class="p-6 md:p-8 mb-6">
+          <h3
+            class="text-lg font-orbitron font-bold text-cyan-400 mb-6 flex items-center gap-2"
+          >
+            <span>🔊</span>
+            Sound Settings
+          </h3>
+
+          <div class="space-y-6">
+            <Toggle
+              id="sound-enabled"
+              name="soundEnabled"
+              label="Sound Enabled"
+              description="Enable or disable all game sounds"
+              checked={true}
+              data-pref-type="sound"
+              data-pref-key="soundEnabled"
+            />
+
+            <div id="volume-controls" class="space-y-4">
+              <Slider
+                id="master-volume"
+                name="masterVolume"
+                label="Master Volume"
+                min={0}
+                max={100}
+                step={5}
+                value={70}
+                unit="%"
+                data-pref-type="sound"
+                data-pref-key="masterVolume"
+              />
+
+              <Slider
+                id="sfx-volume"
+                name="sfxVolume"
+                label="Sound Effects"
+                min={0}
+                max={100}
+                step={5}
+                value={80}
+                unit="%"
+                data-pref-type="sound"
+                data-pref-key="sfxVolume"
+              />
+
+              <Slider
+                id="music-volume"
+                name="musicVolume"
+                label="Music"
+                min={0}
+                max={100}
+                step={5}
+                value={60}
+                unit="%"
+                data-pref-type="sound"
+                data-pref-key="musicVolume"
+              />
+            </div>
+          </div>
+        </Card>
+
+        <!-- Display Settings -->
+        <Card variant="glass" class="p-6 md:p-8 mb-6">
+          <h3
+            class="text-lg font-orbitron font-bold text-cyan-400 mb-6 flex items-center gap-2"
+          >
+            <span>🎨</span>
+            Display Settings
+          </h3>
+
+          <div class="space-y-4">
+            <Toggle
+              id="reduced-motion"
+              name="reducedMotion"
+              label="Reduced Motion"
+              description="Minimize animations for better accessibility"
+              data-pref-type="display"
+              data-pref-key="reducedMotion"
+            />
+          </div>
+        </Card>
+
+        <!-- Notification Settings -->
+        <Card variant="glass" class="p-6 md:p-8 mb-6">
+          <h3
+            class="text-lg font-orbitron font-bold text-cyan-400 mb-6 flex items-center gap-2"
+          >
+            <span>🔔</span>
+            Notification Settings
+          </h3>
+
+          <div class="space-y-4">
+            <Toggle
+              id="email-notifications"
+              name="emailNotifications"
+              label="Email Notifications"
+              description="Receive updates and reminders via email"
+              checked={emailNotifications}
+              data-server-pref="email_notifications"
+            />
+
+            <Toggle
+              id="push-notifications"
+              name="pushNotifications"
+              label="Push Notifications"
+              description="Receive browser push notifications"
+              checked={pushNotifications}
+              data-server-pref="push_notifications"
+            />
+
+            <Toggle
+              id="challenge-reminders"
+              name="challengeReminders"
+              label="Daily Challenge Reminders"
+              description="Get reminded about incomplete daily challenges"
+              checked={challengeReminders}
+              data-server-pref="challenge_reminders"
+            />
+          </div>
+        </Card>
+
+        <!-- Account Settings -->
+        <Card variant="glass" class="p-6 md:p-8 mb-6">
+          <h3
+            class="text-lg font-orbitron font-bold text-cyan-400 mb-6 flex items-center gap-2"
+          >
+            <span>👤</span>
+            Account Settings
+          </h3>
+
+          <div class="space-y-4">
+            <a href="/profile" class="block">
+              <Button variant="outline" size="lg" class="w-full justify-center">
+                <span class="flex items-center gap-2">
+                  <span>✏️</span>
+                  Edit Profile
+                </span>
+              </Button>
+            </a>
+
+            <Button
+              variant="destructive"
+              size="lg"
+              class="w-full justify-center"
+              id="delete-account-btn"
+            >
+              <span class="flex items-center gap-2">
+                <span>⚠️</span>
+                Delete Account
+              </span>
+            </Button>
+          </div>
+        </Card>
+
+        <!-- Back to Dashboard -->
+        <div class="text-center">
+          <a href="/dashboard" class="text-cyan-400 hover:underline">
+            ← Back to Dashboard
+          </a>
+        </div>
+      </Container>
+    </Section>
+  </main>
+
+  <!-- Save Status Toast -->
+  <div
+    id="save-status"
+    class="fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium transition-all transform translate-y-20 opacity-0"
+  >
+    Settings saved!
+  </div>
+</AppLayout>
+
+<script>
+  import {
+    getClientPreferences,
+    saveClientPreferences,
+    type ClientPreferences,
+  } from '@/lib/preferences'
+
+  // Initialize on DOM ready
+  document.addEventListener('DOMContentLoaded', () => {
+    const prefs = getClientPreferences()
+
+    // Initialize sound settings from localStorage
+    initializeSoundSettings(prefs)
+
+    // Initialize display settings from localStorage
+    initializeDisplaySettings(prefs)
+
+    // Set up event listeners for client-side preferences
+    setupClientPreferenceListeners()
+
+    // Set up event listeners for server-side preferences
+    setupServerPreferenceListeners()
+
+    // Set up account deletion handler
+    setupAccountDeletion()
+  })
+
+  function initializeSoundSettings(prefs: ClientPreferences) {
+    // Sound enabled toggle
+    const soundToggle = document.getElementById('sound-enabled')
+    if (soundToggle && prefs.sound.soundEnabled) {
+      const button = soundToggle.closest('[data-toggle]') as HTMLButtonElement
+      if (button && button.getAttribute('aria-checked') !== 'true') {
+        button.click()
+      }
+    }
+
+    // Volume sliders - set initial values via the component
+    setSliderValue('master-volume', prefs.sound.masterVolume)
+    setSliderValue('sfx-volume', prefs.sound.sfxVolume)
+    setSliderValue('music-volume', prefs.sound.musicVolume)
+
+    // Update volume controls visibility based on sound enabled
+    updateVolumeControlsVisibility(prefs.sound.soundEnabled)
+  }
+
+  function initializeDisplaySettings(prefs: ClientPreferences) {
+    // Reduced motion toggle
+    const motionToggle = document.getElementById('reduced-motion')
+    if (motionToggle && prefs.display.reducedMotion) {
+      const button = motionToggle.closest('[data-toggle]') as HTMLButtonElement
+      if (button && button.getAttribute('aria-checked') !== 'true') {
+        button.click()
+      }
+    }
+  }
+
+  function setSliderValue(id: string, value: number) {
+    const container = document
+      .getElementById(id)
+      ?.closest('[data-slider-container]') as HTMLElement & {
+      sliderComponent?: { setValueExternal: (v: number) => void }
+    }
+    if (container?.sliderComponent) {
+      container.sliderComponent.setValueExternal(value)
+    }
+  }
+
+  function updateVolumeControlsVisibility(enabled: boolean) {
+    const volumeControls = document.getElementById('volume-controls')
+    if (volumeControls) {
+      volumeControls.style.opacity = enabled ? '1' : '0.5'
+      volumeControls.style.pointerEvents = enabled ? 'auto' : 'none'
+    }
+  }
+
+  function setupClientPreferenceListeners() {
+    // Sound enabled toggle
+    const soundToggleContainer = document
+      .getElementById('sound-enabled')
+      ?.closest('[data-toggle]')
+    if (soundToggleContainer) {
+      soundToggleContainer.addEventListener('toggle-change', (e: Event) => {
+        const detail = (e as CustomEvent).detail
+        const prefs = getClientPreferences()
+        prefs.sound.soundEnabled = detail.checked
+        saveClientPreferences(prefs)
+        updateVolumeControlsVisibility(detail.checked)
+        showSaveStatus()
+      })
+    }
+
+    // Volume sliders
+    ;['master-volume', 'sfx-volume', 'music-volume'].forEach(id => {
+      const container = document
+        .getElementById(id)
+        ?.closest('[data-slider-container]')
+      if (container) {
+        container.addEventListener('slider-change', (e: Event) => {
+          const detail = (e as CustomEvent).detail
+          const key = container
+            .querySelector('[data-pref-key]')
+            ?.getAttribute('data-pref-key') as keyof ClientPreferences['sound']
+
+          if (key) {
+            const prefs = getClientPreferences()
+            ;(prefs.sound as Record<string, number | boolean>)[key] =
+              detail.value
+            saveClientPreferences(prefs)
+            showSaveStatus()
+          }
+        })
+      }
+    })
+
+    // Reduced motion toggle
+    const motionToggleContainer = document
+      .getElementById('reduced-motion')
+      ?.closest('[data-toggle]')
+    if (motionToggleContainer) {
+      motionToggleContainer.addEventListener('toggle-change', (e: Event) => {
+        const detail = (e as CustomEvent).detail
+        const prefs = getClientPreferences()
+        prefs.display.reducedMotion = detail.checked
+        saveClientPreferences(prefs)
+
+        // Apply reduced motion to document
+        if (detail.checked) {
+          document.documentElement.classList.add('reduce-motion')
+        } else {
+          document.documentElement.classList.remove('reduce-motion')
+        }
+
+        showSaveStatus()
+      })
+    }
+  }
+
+  function setupServerPreferenceListeners() {
+    // Find all server preference toggles
+    document.querySelectorAll('[data-server-pref]').forEach(container => {
+      const toggle = container.closest('[data-toggle]')
+      if (!toggle) {
+        return
+      }
+
+      toggle.addEventListener('toggle-change', async (e: Event) => {
+        const detail = (e as CustomEvent).detail
+        const prefKey = container.getAttribute('data-server-pref')
+
+        if (!prefKey) {
+          return
+        }
+
+        try {
+          const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [prefKey]: detail.checked }),
+          })
+
+          const result = await response.json()
+
+          if (response.ok && result.success) {
+            showSaveStatus('Saved!', 'success')
+          } else {
+            showSaveStatus('Failed to save', 'error')
+            // Revert toggle
+            const button = toggle as HTMLButtonElement
+            button.click()
+          }
+        } catch (error) {
+          console.error('Failed to save preference:', error)
+          showSaveStatus('Network error', 'error')
+          // Revert toggle
+          const button = toggle as HTMLButtonElement
+          button.click()
+        }
+      })
+    })
+  }
+
+  function setupAccountDeletion() {
+    const deleteBtn = document.getElementById('delete-account-btn')
+    if (!deleteBtn) {
+      return
+    }
+
+    deleteBtn.addEventListener('click', async () => {
+      const confirmed = confirm(
+        'Are you sure you want to delete your account?\n\nThis action cannot be undone. All your data, scores, and achievements will be permanently deleted.'
+      )
+
+      if (!confirmed) {
+        return
+      }
+
+      const doubleConfirm = confirm(
+        'This is your final warning.\n\nType "DELETE" mentally and click OK if you are absolutely sure.'
+      )
+
+      if (!doubleConfirm) {
+        return
+      }
+
+      alert(
+        'Account deletion is not yet implemented.\n\nPlease contact support to delete your account.'
+      )
+    })
+  }
+
+  function showSaveStatus(
+    message: string = 'Saved!',
+    type: 'success' | 'error' = 'success'
+  ) {
+    const status = document.getElementById('save-status')
+    if (!status) {
+      return
+    }
+
+    status.textContent = message
+    status.className = `fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium transition-all transform ${
+      type === 'error' ? 'bg-red-500' : 'bg-green-500'
+    }`
+
+    // Animate in
+    requestAnimationFrame(() => {
+      status.style.transform = 'translateY(0)'
+      status.style.opacity = '1'
+    })
+
+    // Animate out after delay
+    setTimeout(() => {
+      status.style.transform = 'translateY(20px)'
+      status.style.opacity = '0'
+    }, 2000)
+  }
+</script>
+
+<style>
+  /* Reduced motion styles */
+  :global(.reduce-motion *) {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+</style>

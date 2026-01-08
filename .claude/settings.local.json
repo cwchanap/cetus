@@ -22,7 +22,9 @@
       "mcp__chrome-devtools__press_key",
       "mcp__chrome-devtools__list_console_messages",
       "mcp__chrome-devtools__take_screenshot",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(bun run build:*)",
+      "Bash(bun run test:run:*)"
     ],
     "deny": []
   }

@@ -1,0 +1,320 @@
+---
+import { cn } from '@/lib/utils'
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends Omit<HTMLAttributes<'div'>, 'value'> {
+  variant?: 'default' | 'sci-fi'
+  min?: number
+  max?: number
+  step?: number
+  value?: number
+  disabled?: boolean
+  id?: string
+  name?: string
+  label?: string
+  showValue?: boolean
+  unit?: string
+  class?: string
+}
+
+const {
+  variant = 'sci-fi',
+  min = 0,
+  max = 100,
+  step = 1,
+  value = 50,
+  disabled = false,
+  id,
+  name,
+  label,
+  showValue = true,
+  unit = '',
+  class: className = '',
+  ...props
+} = Astro.props
+
+const percentage = ((value - min) / (max - min)) * 100
+
+const trackClasses = cn(
+  'relative w-full h-2 rounded-full transition-colors cursor-pointer',
+  variant === 'sci-fi'
+    ? 'bg-gray-800/60 border border-gray-600/50'
+    : 'bg-gray-600',
+  disabled && 'opacity-50 cursor-not-allowed'
+)
+
+const fillClasses = cn(
+  'absolute top-0 left-0 h-full rounded-full pointer-events-none transition-all',
+  variant === 'sci-fi'
+    ? 'bg-gradient-to-r from-cyan-500 to-purple-600'
+    : 'bg-cyan-500'
+)
+
+const thumbClasses = cn(
+  'absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-lg cursor-pointer',
+  'transition-all duration-150',
+  'hover:scale-110 hover:shadow-cyan-400/50',
+  'focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:scale-110',
+  disabled && 'cursor-not-allowed opacity-50 hover:scale-100'
+)
+---
+
+<div
+  class={cn('flex flex-col gap-2', className)}
+  data-slider-container
+  {...props}
+>
+  {
+    (label || showValue) && (
+      <div class="flex items-center justify-between">
+        {label && (
+          <label for={id} class="text-sm font-medium text-gray-300">
+            {label}
+          </label>
+        )}
+        {showValue && (
+          <span class="text-sm text-cyan-400 font-mono" data-slider-value>
+            {value}
+            {unit}
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  <div class="relative flex items-center">
+    <div class={trackClasses} data-slider-track>
+      <div class={fillClasses} style={`width: ${percentage}%`} data-slider-fill>
+      </div>
+      <div
+        class={thumbClasses}
+        style={`left: calc(${percentage}% - 10px)`}
+        tabindex={disabled ? -1 : 0}
+        role="slider"
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={value}
+        aria-disabled={disabled}
+        id={id}
+        data-slider-thumb
+      >
+      </div>
+    </div>
+  </div>
+
+  <input type="hidden" name={name} value={value} data-slider-input />
+</div>
+
+<script>
+  class SliderComponent {
+    private container: HTMLElement
+    private track: HTMLElement
+    private fill: HTMLElement
+    private thumb: HTMLElement
+    private input: HTMLInputElement
+    private valueDisplay: HTMLElement | null
+    private min: number
+    private max: number
+    private step: number
+    private value: number
+    private disabled: boolean
+    private unit: string
+    private isDragging = false
+
+    constructor(container: HTMLElement) {
+      this.container = container
+      this.track = container.querySelector('[data-slider-track]')!
+      this.fill = container.querySelector('[data-slider-fill]')!
+      this.thumb = container.querySelector('[data-slider-thumb]')!
+      this.input = container.querySelector('[data-slider-input]')!
+      this.valueDisplay = container.querySelector('[data-slider-value]')
+
+      this.min = Number(this.thumb.getAttribute('aria-valuemin')) || 0
+      this.max = Number(this.thumb.getAttribute('aria-valuemax')) || 100
+      this.value = Number(this.thumb.getAttribute('aria-valuenow')) || 50
+      this.disabled = this.thumb.getAttribute('aria-disabled') === 'true'
+      this.step = 1
+
+      // Extract unit from display if present
+      this.unit = ''
+      if (this.valueDisplay) {
+        const text = this.valueDisplay.textContent || ''
+        const numMatch = text.match(/^(\d+)(.*)$/)
+        if (numMatch) {
+          this.unit = numMatch[2]
+        }
+      }
+
+      if (!this.disabled) {
+        this.attachEvents()
+      }
+    }
+
+    private attachEvents() {
+      // Mouse events
+      this.thumb.addEventListener('mousedown', e => this.handleMouseDown(e))
+      this.track.addEventListener('click', e => this.handleTrackClick(e))
+
+      // Touch events
+      this.thumb.addEventListener('touchstart', e => this.handleTouchStart(e))
+
+      // Keyboard events
+      this.thumb.addEventListener('keydown', e => this.handleKeyDown(e))
+    }
+
+    private handleMouseDown(e: MouseEvent) {
+      e.preventDefault()
+      this.isDragging = true
+      this.thumb.focus()
+
+      const handleMouseMove = (e: MouseEvent) => {
+        if (this.isDragging) {
+          this.updateValueFromMouse(e.clientX)
+        }
+      }
+
+      const handleMouseUp = () => {
+        this.isDragging = false
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
+
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    }
+
+    private handleTouchStart(e: TouchEvent) {
+      e.preventDefault()
+      this.isDragging = true
+
+      const handleTouchMove = (e: TouchEvent) => {
+        if (this.isDragging && e.touches[0]) {
+          this.updateValueFromMouse(e.touches[0].clientX)
+        }
+      }
+
+      const handleTouchEnd = () => {
+        this.isDragging = false
+        document.removeEventListener('touchmove', handleTouchMove)
+        document.removeEventListener('touchend', handleTouchEnd)
+      }
+
+      document.addEventListener('touchmove', handleTouchMove)
+      document.addEventListener('touchend', handleTouchEnd)
+    }
+
+    private handleKeyDown(e: KeyboardEvent) {
+      let newValue = this.value
+
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'ArrowUp':
+          e.preventDefault()
+          newValue = Math.min(this.max, this.value + this.step)
+          break
+        case 'ArrowLeft':
+        case 'ArrowDown':
+          e.preventDefault()
+          newValue = Math.max(this.min, this.value - this.step)
+          break
+        case 'Home':
+          e.preventDefault()
+          newValue = this.min
+          break
+        case 'End':
+          e.preventDefault()
+          newValue = this.max
+          break
+        case 'PageUp':
+          e.preventDefault()
+          newValue = Math.min(this.max, this.value + this.step * 10)
+          break
+        case 'PageDown':
+          e.preventDefault()
+          newValue = Math.max(this.min, this.value - this.step * 10)
+          break
+        default:
+          return
+      }
+
+      this.setValue(newValue)
+    }
+
+    private handleTrackClick(e: MouseEvent) {
+      if (e.target === this.thumb) {
+        return
+      }
+      this.updateValueFromMouse(e.clientX)
+      this.thumb.focus()
+    }
+
+    private updateValueFromMouse(clientX: number) {
+      const rect = this.track.getBoundingClientRect()
+      const x = clientX - rect.left
+      const percentage = Math.max(0, Math.min(1, x / rect.width))
+      const rawValue = this.min + percentage * (this.max - this.min)
+      const steppedValue = Math.round(rawValue / this.step) * this.step
+      this.setValue(Math.max(this.min, Math.min(this.max, steppedValue)))
+    }
+
+    private setValue(newValue: number) {
+      if (newValue === this.value) {
+        return
+      }
+
+      this.value = newValue
+      this.updateUI()
+      this.dispatchChange()
+    }
+
+    private updateUI() {
+      const percentage = ((this.value - this.min) / (this.max - this.min)) * 100
+
+      this.fill.style.width = `${percentage}%`
+      this.thumb.style.left = `calc(${percentage}% - 10px)`
+      this.thumb.setAttribute('aria-valuenow', String(this.value))
+      this.input.value = String(this.value)
+
+      if (this.valueDisplay) {
+        this.valueDisplay.textContent = `${this.value}${this.unit}`
+      }
+    }
+
+    private dispatchChange() {
+      this.container.dispatchEvent(
+        new CustomEvent('slider-change', {
+          bubbles: true,
+          detail: { value: this.value },
+        })
+      )
+    }
+
+    public getValue(): number {
+      return this.value
+    }
+
+    public setValueExternal(value: number) {
+      this.value = Math.max(this.min, Math.min(this.max, value))
+      this.updateUI()
+    }
+  }
+
+  // Initialize all sliders
+  function initSliders() {
+    document.querySelectorAll('[data-slider-container]').forEach(container => {
+      if (!container.hasAttribute('data-slider-initialized')) {
+        const component = new SliderComponent(container as HTMLElement)
+        ;(
+          container as HTMLElement & { sliderComponent: SliderComponent }
+        ).sliderComponent = component
+        container.setAttribute('data-slider-initialized', '')
+      }
+    })
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSliders)
+  } else {
+    initSliders()
+  }
+</script>

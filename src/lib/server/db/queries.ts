@@ -62,6 +62,8 @@ export async function upsertUserStats(
         // Ensure schema has all required columns before insert/update
         await ensureStreakColumn()
         await ensureChallengeColumns()
+        await ensureLoginRewardColumns()
+        await ensurePreferenceColumns()
 
         // Check if stats exist
         const existing = await getUserStats(userId)
@@ -88,6 +90,14 @@ export async function upsertUserStats(
                 level: updates.level || 1,
                 challenge_streak: updates.challenge_streak || 0,
                 last_challenge_date: updates.last_challenge_date || null,
+                // Login rewards defaults
+                login_streak: updates.login_streak || 0,
+                last_login_reward_date: updates.last_login_reward_date || null,
+                total_login_cycles: updates.total_login_cycles || 0,
+                // Notification preferences defaults (1 = enabled)
+                email_notifications: updates.email_notifications ?? 1,
+                push_notifications: updates.push_notifications ?? 0,
+                challenge_reminders: updates.challenge_reminders ?? 1,
             }
 
             await db.insertInto('user_stats').values(newStats).execute()
@@ -1591,6 +1601,301 @@ export async function atomicCheckAndUpdateStreak(
     } catch (error) {
         console.error(
             '[atomicCheckAndUpdateStreak] Error:',
+            sanitizeError(error)
+        )
+        return false
+    }
+}
+
+// ============================================================================
+// LOGIN REWARD FUNCTIONS
+// ============================================================================
+
+/**
+ * Ensure login reward columns exist on user_stats (idempotent migration)
+ */
+export async function ensureLoginRewardColumns(): Promise<void> {
+    try {
+        const result = await sql<{
+            name: string
+        }>`PRAGMA table_info(user_stats)`.execute(db)
+        const cols = result.rows?.map(r => r.name) ?? []
+
+        if (!cols.includes('login_streak')) {
+            await sql`ALTER TABLE user_stats ADD COLUMN login_streak INTEGER NOT NULL DEFAULT 0`.execute(
+                db
+            )
+        }
+        if (!cols.includes('last_login_reward_date')) {
+            await sql`ALTER TABLE user_stats ADD COLUMN last_login_reward_date TEXT`.execute(
+                db
+            )
+        }
+        if (!cols.includes('total_login_cycles')) {
+            await sql`ALTER TABLE user_stats ADD COLUMN total_login_cycles INTEGER NOT NULL DEFAULT 0`.execute(
+                db
+            )
+        }
+    } catch (error) {
+        console.warn('[ensureLoginRewardColumns] Migration warning:', error)
+    }
+}
+
+/**
+ * Get user's login reward status
+ */
+export async function getLoginRewardStatus(userId: string): Promise<{
+    login_streak: number
+    last_login_reward_date: string | null
+    total_login_cycles: number
+} | null> {
+    try {
+        await ensureLoginRewardColumns()
+        const stats = await db
+            .selectFrom('user_stats')
+            .select([
+                'login_streak',
+                'last_login_reward_date',
+                'total_login_cycles',
+            ])
+            .where('user_id', '=', userId)
+            .executeTakeFirst()
+
+        if (!stats) {
+            return null
+        }
+
+        return {
+            login_streak: stats.login_streak ?? 0,
+            last_login_reward_date: stats.last_login_reward_date ?? null,
+            total_login_cycles: stats.total_login_cycles ?? 0,
+        }
+    } catch (error) {
+        console.error(
+            '[getLoginRewardStatus] Database error:',
+            sanitizeError(error)
+        )
+        return null
+    }
+}
+
+/**
+ * Claim daily login reward (atomic operation)
+ * Returns false if already claimed today or on error
+ */
+export async function claimLoginReward(
+    userId: string,
+    today: string,
+    newStreak: number,
+    xpReward: number,
+    cycleCompleted: boolean
+): Promise<{ success: boolean; newXP?: number; newLevel?: number }> {
+    try {
+        await ensureLoginRewardColumns()
+
+        return await db.transaction().execute(async trx => {
+            // Get current stats with lock
+            const stats = await trx
+                .selectFrom('user_stats')
+                .select(['xp', 'level', 'last_login_reward_date'])
+                .where('user_id', '=', userId)
+                .executeTakeFirst()
+
+            // If already claimed today, return false
+            if (stats?.last_login_reward_date === today) {
+                return { success: false }
+            }
+
+            const currentXP = stats?.xp ?? 0
+            const newXP = currentXP + xpReward
+
+            // Import level calculation
+            const { getLevelFromXP } = await import('../../challenges')
+            const newLevel = getLevelFromXP(newXP)
+
+            // Update stats atomically
+            const updateData: Record<string, unknown> = {
+                login_streak: newStreak,
+                last_login_reward_date: today,
+                xp: newXP,
+                level: newLevel,
+                updated_at: new Date().toISOString(),
+            }
+
+            if (cycleCompleted) {
+                // Reset streak to 0 after completing day 7
+                updateData.login_streak = 0
+                // Increment total cycles completed
+                updateData.total_login_cycles = sql`total_login_cycles + 1`
+            }
+
+            // Check if user_stats row exists
+            if (stats) {
+                await trx
+                    .updateTable('user_stats')
+                    .set(updateData)
+                    .where('user_id', '=', userId)
+                    .execute()
+            } else {
+                // Create new stats row
+                await trx
+                    .insertInto('user_stats')
+                    .values({
+                        user_id: userId,
+                        total_games_played: 0,
+                        total_score: 0,
+                        favorite_game: null,
+                        streak_days: 0,
+                        xp: newXP,
+                        level: newLevel,
+                        challenge_streak: 0,
+                        last_challenge_date: null,
+                        login_streak: cycleCompleted ? 0 : newStreak,
+                        last_login_reward_date: today,
+                        total_login_cycles: cycleCompleted ? 1 : 0,
+                        email_notifications: 1,
+                        push_notifications: 0,
+                        challenge_reminders: 1,
+                    })
+                    .execute()
+            }
+
+            return { success: true, newXP, newLevel }
+        })
+    } catch (error) {
+        console.error(
+            '[claimLoginReward] Database error:',
+            sanitizeError(error)
+        )
+        return { success: false }
+    }
+}
+
+// ============================================================================
+// USER PREFERENCES FUNCTIONS
+// ============================================================================
+
+/**
+ * Ensure notification preference columns exist on user_stats (idempotent migration)
+ */
+export async function ensurePreferenceColumns(): Promise<void> {
+    try {
+        const result = await sql<{
+            name: string
+        }>`PRAGMA table_info(user_stats)`.execute(db)
+        const cols = result.rows?.map(r => r.name) ?? []
+
+        if (!cols.includes('email_notifications')) {
+            await sql`ALTER TABLE user_stats ADD COLUMN email_notifications INTEGER NOT NULL DEFAULT 1`.execute(
+                db
+            )
+        }
+        if (!cols.includes('push_notifications')) {
+            await sql`ALTER TABLE user_stats ADD COLUMN push_notifications INTEGER NOT NULL DEFAULT 0`.execute(
+                db
+            )
+        }
+        if (!cols.includes('challenge_reminders')) {
+            await sql`ALTER TABLE user_stats ADD COLUMN challenge_reminders INTEGER NOT NULL DEFAULT 1`.execute(
+                db
+            )
+        }
+    } catch (error) {
+        console.warn('[ensurePreferenceColumns] Migration warning:', error)
+    }
+}
+
+/**
+ * Get user notification preferences
+ */
+export async function getUserPreferences(userId: string): Promise<{
+    email_notifications: boolean
+    push_notifications: boolean
+    challenge_reminders: boolean
+} | null> {
+    try {
+        await ensurePreferenceColumns()
+        const stats = await db
+            .selectFrom('user_stats')
+            .select([
+                'email_notifications',
+                'push_notifications',
+                'challenge_reminders',
+            ])
+            .where('user_id', '=', userId)
+            .executeTakeFirst()
+
+        if (!stats) {
+            // Return defaults if no stats row exists
+            return {
+                email_notifications: true,
+                push_notifications: false,
+                challenge_reminders: true,
+            }
+        }
+
+        return {
+            email_notifications: Boolean(stats.email_notifications),
+            push_notifications: Boolean(stats.push_notifications),
+            challenge_reminders: Boolean(stats.challenge_reminders),
+        }
+    } catch (error) {
+        console.error(
+            '[getUserPreferences] Database error:',
+            sanitizeError(error)
+        )
+        return null
+    }
+}
+
+/**
+ * Update user notification preferences
+ */
+export async function updateUserPreferences(
+    userId: string,
+    preferences: {
+        email_notifications?: boolean
+        push_notifications?: boolean
+        challenge_reminders?: boolean
+    }
+): Promise<boolean> {
+    try {
+        await ensurePreferenceColumns()
+
+        // Ensure user_stats row exists
+        const existing = await getUserStats(userId)
+        if (!existing) {
+            await upsertUserStats(userId, {})
+        }
+
+        const updates: Record<string, unknown> = {
+            updated_at: new Date().toISOString(),
+        }
+
+        if (typeof preferences.email_notifications === 'boolean') {
+            updates.email_notifications = preferences.email_notifications
+                ? 1
+                : 0
+        }
+        if (typeof preferences.push_notifications === 'boolean') {
+            updates.push_notifications = preferences.push_notifications ? 1 : 0
+        }
+        if (typeof preferences.challenge_reminders === 'boolean') {
+            updates.challenge_reminders = preferences.challenge_reminders
+                ? 1
+                : 0
+        }
+
+        await db
+            .updateTable('user_stats')
+            .set(updates)
+            .where('user_id', '=', userId)
+            .execute()
+
+        return true
+    } catch (error) {
+        console.error(
+            '[updateUserPreferences] Database error:',
             sanitizeError(error)
         )
         return false
