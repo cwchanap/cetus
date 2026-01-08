@@ -8,11 +8,13 @@ import Heading from '@/components/ui/Heading.astro'
 import Card from '@/components/ui/Card.astro'
 import Button from '@/components/ui/Button.astro'
 import DailyMissionsPanel from '@/components/DailyMissionsPanel.astro'
+import LoginRewardModal from '@/components/LoginRewardModal.astro'
 
 import {
   getUserGameHistoryPaginated,
   getUserXPAndLevel,
 } from '@/lib/server/db/queries'
+import { getLoginRewardStatusForUser } from '@/lib/services/loginRewardService'
 import { getUserDailyChallenges } from '@/lib/services/challengeService'
 import {
   type UserChallengeProgress,
@@ -69,6 +71,14 @@ try {
   // Keep safe defaults
   xpProgress = getXPProgress(0)
   resetIn = getSecondsUntilMidnightUTC()
+}
+
+// Fetch login reward status
+let loginRewardStatus = null
+try {
+  loginRewardStatus = await getLoginRewardStatusForUser(user.id)
+} catch (error) {
+  console.error('Failed to load login reward status', error)
 }
 
 // Get pagination parameters from URL
@@ -349,4 +359,7 @@ const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
       </Container>
     </Section>
   </main>
+
+  <!-- Login Reward Modal -->
+  <LoginRewardModal status={loginRewardStatus} />
 </AppLayout>

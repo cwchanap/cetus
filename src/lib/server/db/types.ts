@@ -84,6 +84,14 @@ export interface UserStatsTable {
     level: number
     challenge_streak: number
     last_challenge_date: string | null
+    // Login rewards fields
+    login_streak: number // 0-6 (7-day cycle, resets after claiming day 7)
+    last_login_reward_date: string | null // YYYY-MM-DD of last claimed reward
+    total_login_cycles: number // Total completed 7-day cycles
+    // Notification preferences (server-side)
+    email_notifications: number // SQLite boolean: 1=enabled, 0=disabled
+    push_notifications: number
+    challenge_reminders: number
     created_at: ColumnType<Date, never, never> // DEFAULT CURRENT_TIMESTAMP
     updated_at: ColumnType<Date, never, string | Date> // DEFAULT CURRENT_TIMESTAMP
 }
@@ -150,7 +158,22 @@ export type UserStatsUpdate = Partial<{
     level: number
     challenge_streak: number
     last_challenge_date: string | null
+    // Login rewards fields
+    login_streak: number
+    last_login_reward_date: string | null
+    total_login_cycles: number
+    // Notification preferences
+    email_notifications: number
+    push_notifications: number
+    challenge_reminders: number
 }>
+
+// User preferences type helpers
+export interface UserPreferences {
+    email_notifications: boolean
+    push_notifications: boolean
+    challenge_reminders: boolean
+}
 export type UserStats = Selectable<UserStatsTable>
 
 // Achievement type helpers

@@ -66,6 +66,44 @@ export const ACHIEVEMENTS: Achievement[] = [
         rarity: AchievementRarity.COMMON,
     },
 
+    // Login streak achievements
+    {
+        id: 'login_streak_7',
+        name: 'Weekly Warrior',
+        description: 'Complete a 7-day login streak',
+        logo: '🏅',
+        gameId: 'global',
+        condition: {
+            type: 'custom',
+            customCheck: 'login_streak_7',
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'login_streak_30',
+        name: 'Monthly Master',
+        description: 'Complete 30 days of consecutive logins',
+        logo: '🎖️',
+        gameId: 'global',
+        condition: {
+            type: 'custom',
+            customCheck: 'login_streak_30',
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: 'login_streak_100',
+        name: 'Legendary Loyalist',
+        description: 'Complete 100 days of consecutive logins',
+        logo: '👑',
+        gameId: 'global',
+        condition: {
+            type: 'custom',
+            customCheck: 'login_streak_100',
+        },
+        rarity: AchievementRarity.LEGENDARY,
+    },
+
     // Welcome achievements for games
     {
         id: 'tetris_welcome',

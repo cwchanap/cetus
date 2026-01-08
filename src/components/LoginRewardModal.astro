@@ -1,0 +1,477 @@
+---
+// LoginRewardModal.astro - Modal for daily login reward claiming
+import type { LoginRewardStatusResult } from '@/lib/services/loginRewardService'
+import { LOGIN_REWARD_CYCLE } from '@/lib/loginRewards'
+
+interface Props {
+  status?: LoginRewardStatusResult | null
+}
+
+const { status } = Astro.props
+---
+
+<div
+  id="login-reward-overlay"
+  class="fixed inset-0 z-50 hidden"
+  aria-hidden="true"
+>
+  <div
+    class="absolute inset-0 bg-black/80 backdrop-blur-sm"
+    data-overlay-backdrop="true"
+  >
+  </div>
+  <div class="relative flex items-center justify-center min-h-screen p-4">
+    <div
+      id="login-reward-card"
+      class="relative max-w-lg w-full bg-gradient-to-br from-gray-900/95 to-gray-800/95 rounded-2xl p-8 border border-cyan-500/30 shadow-2xl shadow-cyan-500/20 text-center animate-bounce-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="login-reward-title"
+      tabindex="-1"
+    >
+      <!-- Header -->
+      <div class="mb-6">
+        <div class="text-5xl mb-3">🎁</div>
+        <h2
+          id="login-reward-title"
+          class="text-2xl font-orbitron font-bold text-white"
+        >
+          Daily Login Reward
+        </h2>
+        <p class="text-gray-400 mt-2">Welcome back! Claim your reward!</p>
+      </div>
+
+      <!-- 7-day calendar -->
+      <div class="grid grid-cols-7 gap-2 mb-6">
+        {
+          LOGIN_REWARD_CYCLE.map((reward, index) => (
+            <div
+              class="relative flex flex-col items-center p-2 rounded-lg border transition-all"
+              data-reward-day={index}
+            >
+              <span class="text-xs text-gray-500 mb-1">Day {reward.day}</span>
+              <span class="text-lg">{reward.icon}</span>
+              <span class="text-xs text-cyan-400 font-semibold">
+                +{reward.xp}
+              </span>
+            </div>
+          ))
+        }
+      </div>
+
+      <!-- Current reward info -->
+      <div
+        id="current-reward-info"
+        class="mb-6 py-4 px-6 bg-gradient-to-r from-cyan-500/20 to-purple-600/20 rounded-xl border border-cyan-400/30"
+      >
+        <div class="text-3xl mb-2" id="reward-icon">🌟</div>
+        <div
+          class="text-2xl font-bold text-cyan-400"
+          id="reward-xp"
+          aria-live="polite"
+        >
+          +10 XP
+        </div>
+        <p class="text-gray-400 text-sm mt-1" id="reward-description">
+          Day 1 - Welcome back!
+        </p>
+      </div>
+
+      <!-- Streak info -->
+      <div class="flex justify-center gap-6 mb-6 text-sm">
+        <div class="text-center">
+          <div class="text-xl font-bold text-cyan-400" id="streak-count">0</div>
+          <div class="text-gray-500">Day Streak</div>
+        </div>
+        <div class="text-center">
+          <div class="text-xl font-bold text-purple-400" id="cycles-count">
+            0
+          </div>
+          <div class="text-gray-500">Cycles</div>
+        </div>
+        <div class="text-center" id="milestone-info">
+          <div class="text-xl font-bold text-pink-400" id="days-to-milestone">
+            7
+          </div>
+          <div class="text-gray-500">Days to 🏅</div>
+        </div>
+      </div>
+
+      <!-- Level up indicator (hidden by default) -->
+      <div
+        id="level-up-indicator"
+        class="hidden mb-4 py-2 px-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full inline-block animate-pulse"
+      >
+        <span class="text-white font-bold">
+          🎉 LEVEL UP! Level <span id="new-level-display">1</span>
+        </span>
+      </div>
+
+      <!-- Milestone badge earned (hidden by default) -->
+      <div
+        id="milestone-earned"
+        class="hidden mb-4 py-3 px-4 bg-gradient-to-r from-yellow-600/20 to-orange-600/20 rounded-xl border border-yellow-400/30"
+      >
+        <div class="text-2xl mb-1" id="milestone-icon">🏅</div>
+        <div class="text-yellow-400 font-bold" id="milestone-name">
+          Weekly Warrior
+        </div>
+        <div class="text-gray-400 text-sm" id="milestone-description">
+          Achievement unlocked!
+        </div>
+      </div>
+
+      <!-- Claim button -->
+      <div class="mt-6">
+        <button
+          id="claim-reward-btn"
+          class="px-8 py-3 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 text-white font-bold text-lg shadow-lg shadow-cyan-500/40 hover:shadow-cyan-500/60 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          type="button"
+        >
+          Claim Reward
+        </button>
+      </div>
+
+      <!-- Already claimed state (hidden by default) -->
+      <div id="already-claimed" class="hidden mt-6">
+        <div class="text-green-400 font-semibold">✓ Claimed Today</div>
+        <p class="text-gray-500 text-sm mt-1">Come back tomorrow!</p>
+      </div>
+
+      <!-- Close button -->
+      <button
+        id="close-reward-modal"
+        class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+        type="button"
+        aria-label="Close"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+
+      <!-- Dismiss hint -->
+      <p class="text-gray-500 text-xs mt-4">
+        Press Esc or click outside to close
+      </p>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes bounce-in {
+    0% {
+      transform: scale(0.5);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-bounce-in {
+    animation: bounce-in 0.4s ease-out forwards;
+  }
+
+  [data-reward-day] {
+    background: rgba(31, 41, 55, 0.5);
+    border-color: rgba(75, 85, 99, 0.3);
+  }
+
+  [data-reward-day].claimed {
+    background: rgba(34, 211, 238, 0.1);
+    border-color: rgba(34, 211, 238, 0.5);
+  }
+
+  [data-reward-day].current {
+    background: rgba(168, 85, 247, 0.2);
+    border-color: rgba(168, 85, 247, 0.6);
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+  }
+
+  [data-reward-day].claimed .check-mark {
+    display: block;
+  }
+</style>
+
+<script define:vars={{ initialStatus: status }}>
+  class LoginRewardModal {
+    constructor() {
+      this.overlay = document.getElementById('login-reward-overlay')
+      this.card = document.getElementById('login-reward-card')
+      this.claimBtn = document.getElementById('claim-reward-btn')
+      this.closeBtn = document.getElementById('close-reward-modal')
+      this.alreadyClaimedDiv = document.getElementById('already-claimed')
+      this.levelUpIndicator = document.getElementById('level-up-indicator')
+      this.milestoneEarned = document.getElementById('milestone-earned')
+      this.status = null
+      this.isOpen = false
+
+      this.setupEventListeners()
+
+      // Auto-show if there's an initial status and reward is claimable
+      if (initialStatus && initialStatus.canClaim) {
+        // Small delay to allow page to render first
+        setTimeout(() => this.show(initialStatus), 500)
+      }
+    }
+
+    setupEventListeners() {
+      // Claim button
+      if (this.claimBtn) {
+        this.claimBtn.addEventListener('click', () => this.claimReward())
+      }
+
+      // Close button
+      if (this.closeBtn) {
+        this.closeBtn.addEventListener('click', () => this.hide())
+      }
+
+      // Backdrop click
+      if (this.overlay) {
+        this.overlay.addEventListener('click', e => {
+          if (e.target.dataset.overlayBackdrop === 'true') {
+            this.hide()
+          }
+        })
+      }
+
+      // Escape key
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && this.isOpen) {
+          this.hide()
+        }
+      })
+    }
+
+    show(status) {
+      if (!this.overlay) {
+        return
+      }
+
+      this.status = status
+      this.updateUI(status)
+
+      this.overlay.classList.remove('hidden')
+      this.overlay.setAttribute('aria-hidden', 'false')
+      this.isOpen = true
+
+      // Focus the card for accessibility
+      if (this.card) {
+        this.card.focus()
+      }
+    }
+
+    hide() {
+      if (!this.overlay) {
+        return
+      }
+
+      this.overlay.classList.add('hidden')
+      this.overlay.setAttribute('aria-hidden', 'true')
+      this.isOpen = false
+    }
+
+    updateUI(status) {
+      // Update 7-day calendar
+      const dayElements = document.querySelectorAll('[data-reward-day]')
+      dayElements.forEach((el, index) => {
+        el.classList.remove('claimed', 'current')
+
+        // Days already claimed this cycle
+        if (index < status.loginStreak) {
+          el.classList.add('claimed')
+        }
+
+        // Current day (if can claim)
+        if (index === status.loginStreak && status.canClaim) {
+          el.classList.add('current')
+        }
+      })
+
+      // Update current reward info
+      const rewardIcon = document.getElementById('reward-icon')
+      const rewardXP = document.getElementById('reward-xp')
+      const rewardDesc = document.getElementById('reward-description')
+
+      if (rewardIcon) {
+        rewardIcon.textContent = status.todayReward.icon
+      }
+      if (rewardXP) {
+        rewardXP.textContent = `+${status.todayReward.xp} XP`
+      }
+      if (rewardDesc) {
+        rewardDesc.textContent = status.todayReward.description
+      }
+
+      // Update streak info
+      const streakCount = document.getElementById('streak-count')
+      const cyclesCount = document.getElementById('cycles-count')
+      const daysToMilestone = document.getElementById('days-to-milestone')
+
+      if (streakCount) {
+        streakCount.textContent = status.currentCycleDay.toString()
+      }
+      if (cyclesCount) {
+        cyclesCount.textContent = status.totalCycles.toString()
+      }
+      if (daysToMilestone && status.daysUntilMilestone !== null) {
+        daysToMilestone.textContent = status.daysUntilMilestone.toString()
+      }
+
+      // Show/hide claim button vs already claimed
+      if (this.claimBtn && this.alreadyClaimedDiv) {
+        if (status.canClaim) {
+          this.claimBtn.classList.remove('hidden')
+          this.claimBtn.disabled = false
+          this.alreadyClaimedDiv.classList.add('hidden')
+        } else {
+          this.claimBtn.classList.add('hidden')
+          this.alreadyClaimedDiv.classList.remove('hidden')
+        }
+      }
+
+      // Hide level up and milestone indicators initially
+      if (this.levelUpIndicator) {
+        this.levelUpIndicator.classList.add('hidden')
+      }
+      if (this.milestoneEarned) {
+        this.milestoneEarned.classList.add('hidden')
+      }
+    }
+
+    async claimReward() {
+      if (!this.claimBtn) {
+        return
+      }
+
+      // Disable button and show loading
+      this.claimBtn.disabled = true
+      this.claimBtn.textContent = 'Claiming...'
+
+      try {
+        const response = await fetch('/api/login-rewards/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+
+        const result = await response.json()
+
+        if (result.success) {
+          this.showClaimSuccess(result)
+        } else {
+          this.showClaimError(result.error || 'Failed to claim reward')
+        }
+      } catch (error) {
+        console.error('Failed to claim reward:', error)
+        this.showClaimError('Network error. Please try again.')
+      }
+    }
+
+    showClaimSuccess(result) {
+      // Update button to show success
+      if (this.claimBtn) {
+        this.claimBtn.textContent = '✓ Claimed!'
+        this.claimBtn.classList.add('bg-green-500')
+      }
+
+      // Show level up if applicable
+      if (result.leveledUp && this.levelUpIndicator) {
+        const newLevelEl = document.getElementById('new-level-display')
+        if (newLevelEl) {
+          newLevelEl.textContent = result.newLevel.toString()
+        }
+        this.levelUpIndicator.classList.remove('hidden')
+      }
+
+      // Show milestone badge if earned
+      if (result.milestoneBadge && this.milestoneEarned) {
+        const milestoneIcon = document.getElementById('milestone-icon')
+        const milestoneName = document.getElementById('milestone-name')
+        const milestoneDesc = document.getElementById('milestone-description')
+
+        if (milestoneIcon) {
+          milestoneIcon.textContent = result.milestoneBadge.icon
+        }
+        if (milestoneName) {
+          milestoneName.textContent = result.milestoneBadge.name
+        }
+        if (milestoneDesc) {
+          milestoneDesc.textContent = result.milestoneBadge.description
+        }
+
+        this.milestoneEarned.classList.remove('hidden')
+      }
+
+      // Update the UI with new status
+      if (result.updatedStatus) {
+        this.updateUI(result.updatedStatus)
+      }
+
+      // Hide claim button, show already claimed
+      if (this.claimBtn) {
+        this.claimBtn.classList.add('hidden')
+      }
+      if (this.alreadyClaimedDiv) {
+        this.alreadyClaimedDiv.classList.remove('hidden')
+      }
+
+      // Auto-close after 3 seconds
+      setTimeout(() => this.hide(), 3000)
+    }
+
+    showClaimError(message) {
+      if (this.claimBtn) {
+        this.claimBtn.textContent = message
+        this.claimBtn.disabled = false
+
+        // Reset button after 2 seconds
+        setTimeout(() => {
+          this.claimBtn.textContent = 'Claim Reward'
+        }, 2000)
+      }
+    }
+  }
+
+  // Initialize modal
+  let loginRewardModal
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      loginRewardModal = new LoginRewardModal()
+      window.loginRewardModal = loginRewardModal
+    })
+  } else {
+    loginRewardModal = new LoginRewardModal()
+    window.loginRewardModal = loginRewardModal
+  }
+
+  // Expose function to show modal manually
+  window.showLoginRewardModal = async function () {
+    try {
+      const response = await fetch('/api/login-rewards')
+      if (response.ok) {
+        const status = await response.json()
+        if (window.loginRewardModal) {
+          window.loginRewardModal.show(status)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch login reward status:', error)
+    }
+  }
+</script>
