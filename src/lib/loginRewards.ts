@@ -61,14 +61,11 @@ export const MILESTONE_BADGES: MilestoneBadge[] = [
 
 /**
  * Get the reward for a specific day in the cycle (1-7)
+ * Clamps out-of-range values to nearest valid day for resilience
  */
 export function getRewardForDay(day: number): LoginRewardDefinition {
-    if (day < 1 || day > LOGIN_REWARD_CYCLE.length) {
-        throw new RangeError(
-            `Invalid day: ${day}. Day must be between 1 and ${LOGIN_REWARD_CYCLE.length}`
-        )
-    }
-    return LOGIN_REWARD_CYCLE[day - 1]
+    const clampedDay = Math.max(1, Math.min(day, LOGIN_REWARD_CYCLE.length))
+    return LOGIN_REWARD_CYCLE[clampedDay - 1]
 }
 
 /**
