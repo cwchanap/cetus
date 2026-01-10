@@ -272,12 +272,23 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
   }
 
   function initializeDisplaySettings(prefs: ClientPreferences) {
-    // Reduced motion toggle
-    const motionToggle = document.getElementById('reduced-motion')
-    if (motionToggle && prefs.display.reducedMotion) {
-      const button = motionToggle.closest('[data-toggle]') as HTMLButtonElement
-      if (button && button.getAttribute('aria-checked') !== 'true') {
-        button.click()
+    // Apply reduced motion class from stored preferences on load
+    if (prefs.display.reducedMotion) {
+      document.documentElement.classList.add('reduce-motion')
+    } else {
+      document.documentElement.classList.remove('reduce-motion')
+    }
+
+    // Update toggle to match stored preference
+    const motionToggleContainer = document
+      .getElementById('reduced-motion')
+      ?.closest('[data-toggle]')
+    if (motionToggleContainer && motionToggleContainer instanceof HTMLElement) {
+      const toggleInput = motionToggleContainer.querySelector(
+        'input[type="checkbox"]'
+      )
+      if (toggleInput) {
+        toggleInput.checked = prefs.display.reducedMotion
       }
     }
   }

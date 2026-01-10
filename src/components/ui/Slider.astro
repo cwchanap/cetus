@@ -33,7 +33,10 @@ const {
   ...props
 } = Astro.props
 
-const percentage = ((value - min) / (max - min)) * 100
+const percentage =
+  max === min
+    ? 0
+    : Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
 
 const trackClasses = cn(
   'relative w-full h-2 rounded-full transition-colors cursor-pointer',
@@ -94,6 +97,7 @@ const thumbClasses = cn(
         aria-valuemin={min}
         aria-valuemax={max}
         aria-valuenow={value}
+        aria-valuestep={step}
         aria-disabled={disabled}
         id={id}
         data-slider-thumb
@@ -133,7 +137,7 @@ const thumbClasses = cn(
       this.max = Number(this.thumb.getAttribute('aria-valuemax')) || 100
       this.value = Number(this.thumb.getAttribute('aria-valuenow')) || 50
       this.disabled = this.thumb.getAttribute('aria-disabled') === 'true'
-      this.step = 1
+      this.step = Number(this.thumb.getAttribute('aria-valuestep')) || 1
 
       // Extract unit from display if present
       this.unit = ''
@@ -268,7 +272,14 @@ const thumbClasses = cn(
     }
 
     private updateUI() {
-      const percentage = ((this.value - this.min) / (this.max - this.min)) * 100
+      let percentage
+      if (this.max === this.min) {
+        percentage = 0
+      } else {
+        percentage = ((this.value - this.min) / (this.max - this.min)) * 100
+      }
+      // Clamp between 0 and 100
+      percentage = Math.max(0, Math.min(100, percentage))
 
       this.fill.style.width = `${percentage}%`
       this.thumb.style.left = `calc(${percentage}% - 10px)`

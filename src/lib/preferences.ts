@@ -82,6 +82,23 @@ export function getClientPreferences(): ClientPreferences {
 
         const parsed = JSON.parse(stored)
 
+        // Validate structure before spreading
+        const isValid =
+            typeof parsed === 'object' &&
+            parsed !== null &&
+            !Array.isArray(parsed) &&
+            typeof parsed.sound === 'object' &&
+            parsed.sound !== null &&
+            !Array.isArray(parsed.sound) &&
+            typeof parsed.display === 'object' &&
+            parsed.display !== null &&
+            !Array.isArray(parsed.display)
+
+        if (!isValid) {
+            console.warn('Invalid preferences format, using defaults')
+            return DEFAULT_CLIENT_PREFERENCES
+        }
+
         // Merge with defaults to handle new fields
         return {
             sound: {

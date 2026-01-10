@@ -63,23 +63,27 @@ export const MILESTONE_BADGES: MilestoneBadge[] = [
  * Get the reward for a specific day in the cycle (1-7)
  */
 export function getRewardForDay(day: number): LoginRewardDefinition {
-    const index = Math.max(0, Math.min(6, day - 1))
-    return LOGIN_REWARD_CYCLE[index]
+    if (day < 1 || day > LOGIN_REWARD_CYCLE.length) {
+        throw new RangeError(
+            `Invalid day: ${day}. Day must be between 1 and ${LOGIN_REWARD_CYCLE.length}`
+        )
+    }
+    return LOGIN_REWARD_CYCLE[day - 1]
 }
 
 /**
- * Calculate which day in the 7-day cycle based on current streak
- * streak 0 = day 1, streak 1 = day 2, ..., streak 6 = day 7
+ * Calculate which day in the 7-day cycle based on days completed
+ * daysCompleted 0 = day 1, daysCompleted 1 = day 2, ..., daysCompleted 6 = day 7
  */
-export function getCycleDayFromStreak(streak: number): number {
-    return (streak % 7) + 1
+export function getCycleDayFromStreak(daysCompleted: number): number {
+    return (daysCompleted % 7) + 1
 }
 
 /**
  * Check if completing this day completes a 7-day cycle
  */
-export function isCycleComplete(currentStreak: number): boolean {
-    return currentStreak === 6 // Day 7 is the 6th index (0-6)
+export function isCycleComplete(daysCompleted: number): boolean {
+    return daysCompleted === 6 // Day 7 is the 6th index (0-6)
 }
 
 /**
@@ -100,11 +104,11 @@ export function getNextMilestone(
 }
 
 /**
- * Calculate total consecutive days from cycles completed + current streak
+ * Calculate total consecutive days from cycles completed + days completed in current cycle
  */
 export function getTotalConsecutiveDays(
     totalCycles: number,
-    currentStreak: number
+    daysCompleted: number
 ): number {
-    return totalCycles * 7 + currentStreak
+    return totalCycles * 7 + daysCompleted
 }
