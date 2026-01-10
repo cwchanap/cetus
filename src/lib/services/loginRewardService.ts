@@ -137,9 +137,24 @@ export async function claimDailyLoginReward(
         }
     }
 
-    // Calculate new streak (increment by 1, starting from 0)
+    // Calculate yesterday's date (UTC) for consecutive check
+    const yesterday = new Date()
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+    const yesterdayUTC = yesterday.toISOString().split('T')[0]
+
     const currentStreak = currentStatus?.login_streak ?? 0
-    const newStreak = currentStreak + 1
+    const lastClaimDate = currentStatus?.last_login_reward_date ?? null
+
+    // Reset streak if last claim was not yesterday (consecutive days only)
+    let newStreak: number
+    if (lastClaimDate === yesterdayUTC) {
+        // Consecutive day - increment streak
+        newStreak = currentStreak + 1
+    } else {
+        // Missed days - reset to day 1
+        newStreak = 1
+    }
+
     const totalCycles = currentStatus?.total_login_cycles ?? 0
 
     // Get reward for this day
