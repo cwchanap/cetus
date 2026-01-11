@@ -72,7 +72,6 @@ export async function getLoginRewardStatusForUser(
 
     // Get login reward data
     const rewardStatus = await getLoginRewardStatus(userId)
-    const userStats = await getUserStats(userId)
 
     // Default values for new users
     const loginStreak = rewardStatus?.login_streak ?? 0
@@ -85,9 +84,20 @@ export async function getLoginRewardStatusForUser(
 
     // Current day in cycle (for display: 1-7)
     // If already claimed today, show current day; otherwise show next day to claim
-    const currentCycleDay = alreadyClaimed
-        ? getCycleDayFromStreak(loginStreak > 0 ? loginStreak - 1 : 6)
-        : getCycleDayFromStreak(loginStreak)
+    let currentCycleDay: number
+    if (alreadyClaimed) {
+        // Handle potential data inconsistency: already claimed but streak is 0
+        if (loginStreak === 0) {
+            console.warn(
+                `Data inconsistency for user ${userId}: alreadyClaimed=true but loginStreak=0. Assuming prior day streak of 6.`
+            )
+        }
+        // Safely compute prior day streak, defaulting to 6 (day 7) if streak is 0
+        const priorDayStreak = loginStreak > 0 ? loginStreak - 1 : 6
+        currentCycleDay = getCycleDayFromStreak(priorDayStreak)
+    } else {
+        currentCycleDay = getCycleDayFromStreak(loginStreak)
+    }
 
     // Get today's reward (what they can claim or just claimed)
     const todayReward = getRewardForDay(currentCycleDay)
@@ -138,9 +148,12 @@ export async function claimDailyLoginReward(
     }
 
     // Calculate yesterday's date (UTC) for consecutive check
-    const yesterday = new Date()
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
-    const yesterdayUTC = yesterday.toISOString().split('T')[0]
+    // Parse today as UTC to avoid local time issues
+    const todayUTCDate = new Date(`${today}T00:00:00.000Z`)
+    const yesterdayUTCDate = new Date(
+        todayUTCDate.getTime() - 24 * 60 * 60 * 1000
+    )
+    const yesterdayUTC = yesterdayUTCDate.toISOString().split('T')[0]
 
     const currentStreak = currentStatus?.login_streak ?? 0
     const lastClaimDate = currentStatus?.last_login_reward_date ?? null

@@ -1692,13 +1692,15 @@ export async function claimLoginReward(
 ): Promise<{ success: boolean; newXP?: number; newLevel?: number }> {
     try {
         await ensureLoginRewardColumns()
+        await ensureChallengeColumns()
 
         return await db.transaction().execute(async trx => {
-            // Get current stats with lock
+            // Get current stats with row lock to prevent concurrent claims
             const stats = await trx
                 .selectFrom('user_stats')
                 .select(['xp', 'level', 'last_login_reward_date'])
                 .where('user_id', '=', userId)
+                .forUpdate()
                 .executeTakeFirst()
 
             // If already claimed today, return false

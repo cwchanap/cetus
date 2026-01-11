@@ -119,8 +119,23 @@ const knobClasses = cn(
 
     constructor(button: HTMLButtonElement) {
       this.button = button
-      this.knob = button.querySelector('[data-toggle-knob]')!
-      this.input = button.querySelector('[data-toggle-input]')!
+
+      const knob = button.querySelector('[data-toggle-knob]')
+      if (!knob) {
+        throw new Error(
+          'Toggle component: Required element [data-toggle-knob] not found'
+        )
+      }
+      this.knob = knob as HTMLElement
+
+      const input = button.querySelector('[data-toggle-input]')
+      if (!input) {
+        throw new Error(
+          'Toggle component: Required element [data-toggle-input] not found'
+        )
+      }
+      this.input = input as HTMLInputElement
+
       this.checked = button.getAttribute('aria-checked') === 'true'
 
       this.button.addEventListener('click', () => this.toggle())
