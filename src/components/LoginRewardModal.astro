@@ -372,7 +372,7 @@ const { status } = Astro.props
         if (!response.ok) {
           const errorText = await response.text()
           console.error('Claim failed:', response.status, errorText)
-          this.showClaimError(`Claim failed (${response.status}): ${errorText}`)
+          this.showClaimError('Claim failed. Please try again later.')
           return
         }
 

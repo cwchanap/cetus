@@ -71,7 +71,7 @@ const thumbClasses = cn(
     (label || showValue) && (
       <div class="flex items-center justify-between">
         {label && (
-          <label for={id} class="text-sm font-medium text-gray-300">
+          <label id={`${id}-label`} class="text-sm font-medium text-gray-300">
             {label}
           </label>
         )}
@@ -94,13 +94,14 @@ const thumbClasses = cn(
         style={`left: calc(${percentage}% - 10px)`}
         tabindex={disabled ? -1 : 0}
         role="slider"
+        aria-labelledby={`${id}-label`}
         aria-valuemin={min}
         aria-valuemax={max}
         aria-valuenow={value}
-        aria-valuestep={step}
         aria-disabled={disabled}
         id={id}
         data-slider-thumb
+        data-step={step}
       >
       </div>
     </div>
@@ -137,15 +138,16 @@ const thumbClasses = cn(
       this.max = Number(this.thumb.getAttribute('aria-valuemax')) || 100
       this.value = Number(this.thumb.getAttribute('aria-valuenow')) || 50
       this.disabled = this.thumb.getAttribute('aria-disabled') === 'true'
-      this.step = Number(this.thumb.getAttribute('aria-valuestep')) || 1
+      this.step = Number(this.thumb.getAttribute('data-step')) || 1
 
       // Extract unit from display if present
       this.unit = ''
       if (this.valueDisplay) {
         const text = this.valueDisplay.textContent || ''
-        const numMatch = text.match(/^(\d+)(.*)$/)
+        // Match optional sign, decimal numbers, and capture unit as second group
+        const numMatch = text.match(/^([+-]?(?:\d+\.?\d*|\.\d+))(.*)$/)
         if (numMatch) {
-          this.unit = numMatch[2]
+          this.unit = numMatch[2].trim()
         }
       }
 

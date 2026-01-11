@@ -253,12 +253,15 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
   })
 
   function initializeSoundSettings(prefs: ClientPreferences) {
-    // Sound enabled toggle
+    // Sound enabled toggle - always update to match stored preference
     const soundToggle = document.getElementById('sound-enabled')
-    if (soundToggle && prefs.sound.soundEnabled) {
+    if (soundToggle) {
       const button = soundToggle.closest('[data-toggle]') as HTMLButtonElement
-      if (button && button.getAttribute('aria-checked') !== 'true') {
-        button.click()
+      if (button) {
+        const currentChecked = button.getAttribute('aria-checked') === 'true'
+        if (currentChecked !== prefs.sound.soundEnabled) {
+          button.click()
+        }
       }
     }
 
@@ -382,7 +385,15 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
         return
       }
 
+      // Guard flag to prevent handler re-entry during revert
+      let ignoreRevert = false
+
       toggle.addEventListener('toggle-change', async (e: Event) => {
+        // Exit early if we're in a revert operation
+        if (ignoreRevert) {
+          return
+        }
+
         const detail = (e as CustomEvent).detail
         const prefKey = container.getAttribute('data-server-pref')
 
@@ -403,16 +414,20 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
             showSaveStatus('Saved!', 'success')
           } else {
             showSaveStatus('Failed to save', 'error')
-            // Revert toggle
+            // Revert toggle with guard to prevent handler re-entry
+            ignoreRevert = true
             const button = toggle as HTMLButtonElement
             button.click()
+            ignoreRevert = false
           }
         } catch (error) {
           console.error('Failed to save preference:', error)
           showSaveStatus('Network error', 'error')
-          // Revert toggle
+          // Revert toggle with guard to prevent handler re-entry
+          ignoreRevert = true
           const button = toggle as HTMLButtonElement
           button.click()
+          ignoreRevert = false
         }
       })
     })

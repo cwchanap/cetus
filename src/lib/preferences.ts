@@ -82,32 +82,76 @@ export function getClientPreferences(): ClientPreferences {
 
         const parsed = JSON.parse(stored)
 
-        // Validate structure before spreading
+        // Validate structure - allow partial objects, validate section-level type if present
         const isValid =
             typeof parsed === 'object' &&
             parsed !== null &&
             !Array.isArray(parsed) &&
-            typeof parsed.sound === 'object' &&
-            parsed.sound !== null &&
-            !Array.isArray(parsed.sound) &&
-            typeof parsed.display === 'object' &&
-            parsed.display !== null &&
-            !Array.isArray(parsed.display)
+            (parsed.sound === undefined ||
+                (typeof parsed.sound === 'object' &&
+                    parsed.sound !== null &&
+                    !Array.isArray(parsed.sound))) &&
+            (parsed.display === undefined ||
+                (typeof parsed.display === 'object' &&
+                    parsed.display !== null &&
+                    !Array.isArray(parsed.display)))
 
         if (!isValid) {
             console.warn('Invalid preferences format, using defaults')
             return DEFAULT_CLIENT_PREFERENCES
         }
 
-        // Merge with defaults to handle new fields
+        // Get sound section or use defaults
+        const soundData = parsed.sound || {}
+        // Get display section or use defaults
+        const displayData = parsed.display || {}
+
+        // Validate and sanitize sound settings
+        const validateVolume = (val: unknown, defaultVal: number): number => {
+            return typeof val === 'number' && val >= 0 && val <= 100
+                ? val
+                : defaultVal
+        }
+
+        const soundBool = (val: unknown): boolean => {
+            return typeof val === 'boolean'
+                ? val
+                : DEFAULT_CLIENT_PREFERENCES.sound.soundEnabled
+        }
+
+        // Validate and sanitize display settings
+        const displayBool = (val: unknown): boolean => {
+            return typeof val === 'boolean'
+                ? val
+                : DEFAULT_CLIENT_PREFERENCES.display.reducedMotion
+        }
+
+        const displayTheme = (val: unknown): 'dark' | 'light' | 'auto' => {
+            return val === 'dark' || val === 'light' || val === 'auto'
+                ? val
+                : DEFAULT_CLIENT_PREFERENCES.display.theme
+        }
+
+        // Build sanitized preferences with validation
         return {
             sound: {
-                ...DEFAULT_CLIENT_PREFERENCES.sound,
-                ...parsed.sound,
+                masterVolume: validateVolume(
+                    soundData.masterVolume,
+                    DEFAULT_CLIENT_PREFERENCES.sound.masterVolume
+                ),
+                sfxVolume: validateVolume(
+                    soundData.sfxVolume,
+                    DEFAULT_CLIENT_PREFERENCES.sound.sfxVolume
+                ),
+                musicVolume: validateVolume(
+                    soundData.musicVolume,
+                    DEFAULT_CLIENT_PREFERENCES.sound.musicVolume
+                ),
+                soundEnabled: soundBool(soundData.soundEnabled),
             },
             display: {
-                ...DEFAULT_CLIENT_PREFERENCES.display,
-                ...parsed.display,
+                reducedMotion: displayBool(displayData.reducedMotion),
+                theme: displayTheme(displayData.theme),
             },
         }
     } catch (error) {

@@ -25,8 +25,8 @@ export interface MilestoneBadge {
 export const LOGIN_REWARD_CYCLE: LoginRewardDefinition[] = [
     { day: 1, xp: 10, icon: '🌟', description: 'Day 1 - Welcome back!' },
     { day: 2, xp: 20, icon: '⭐', description: 'Day 2 - Keeping momentum!' },
-    { day: 3, xp: 30, icon: '✨', description: 'Day 3 - Half way there!' },
-    { day: 4, xp: 40, icon: '💫', description: 'Day 4 - On a roll!' },
+    { day: 3, xp: 30, icon: '✨', description: 'Day 3 - Building momentum!' },
+    { day: 4, xp: 40, icon: '💫', description: 'Day 4 - Half way there!' },
     { day: 5, xp: 50, icon: '🌠', description: 'Day 5 - Almost there!' },
     { day: 6, xp: 75, icon: '🔥', description: 'Day 6 - One more day!' },
     { day: 7, xp: 100, icon: '👑', description: 'Day 7 - Weekly Champion!' },
@@ -78,9 +78,10 @@ export function getCycleDayFromStreak(daysCompleted: number): number {
 
 /**
  * Check if completing this day completes a 7-day cycle
+ * Returns true for days 6, 13, 20, etc. (every 7th day)
  */
 export function isCycleComplete(daysCompleted: number): boolean {
-    return daysCompleted === 6 // Day 7 is the 6th index (0-6)
+    return (daysCompleted + 1) % 7 === 0 // Every 7th day completes a cycle
 }
 
 /**
