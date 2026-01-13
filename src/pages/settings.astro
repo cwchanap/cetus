@@ -285,14 +285,14 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
     // Update toggle to match stored preference
     const motionToggleContainer = document
       .getElementById('reduced-motion')
-      ?.closest('[data-toggle]')
-    if (motionToggleContainer && motionToggleContainer instanceof HTMLElement) {
-      const toggleInput = motionToggleContainer.querySelector(
-        'input[type="checkbox"]'
+      ?.closest('[data-toggle]') as HTMLElement & {
+      toggleComponent?: { setChecked: (v: boolean) => void }
+    }
+    if (motionToggleContainer?.toggleComponent) {
+      // Use Toggle component's API to properly sync state
+      motionToggleContainer.toggleComponent.setChecked(
+        prefs.display.reducedMotion
       )
-      if (toggleInput) {
-        toggleInput.checked = prefs.display.reducedMotion
-      }
     }
   }
 
@@ -418,7 +418,9 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
             ignoreRevert = true
             const button = toggle as HTMLButtonElement
             button.click()
-            ignoreRevert = false
+            queueMicrotask(() => {
+              ignoreRevert = false
+            })
           }
         } catch (error) {
           console.error('Failed to save preference:', error)
@@ -427,7 +429,9 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
           ignoreRevert = true
           const button = toggle as HTMLButtonElement
           button.click()
-          ignoreRevert = false
+          queueMicrotask(() => {
+            ignoreRevert = false
+          })
         }
       })
     })

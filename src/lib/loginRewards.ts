@@ -62,8 +62,13 @@ export const MILESTONE_BADGES: MilestoneBadge[] = [
 /**
  * Get the reward for a specific day in the cycle (1-7)
  * Clamps out-of-range values to nearest valid day for resilience
+ * Guards against non-finite/NaN input
  */
 export function getRewardForDay(day: number): LoginRewardDefinition {
+    // Guard against non-finite/NaN input
+    if (!Number.isFinite(day) || Number.isNaN(day)) {
+        day = 1
+    }
     const clampedDay = Math.max(1, Math.min(day, LOGIN_REWARD_CYCLE.length))
     return LOGIN_REWARD_CYCLE[clampedDay - 1]
 }
@@ -71,16 +76,23 @@ export function getRewardForDay(day: number): LoginRewardDefinition {
 /**
  * Calculate which day in the 7-day cycle based on days completed
  * daysCompleted 0 = day 1, daysCompleted 1 = day 2, ..., daysCompleted 6 = day 7
+ * Uses positive modulo to handle negative inputs correctly
  */
 export function getCycleDayFromStreak(daysCompleted: number): number {
-    return (daysCompleted % 7) + 1
+    // Normalize to positive modulo, then +1 for 1-7 range
+    const normalized = ((daysCompleted % 7) + 7) % 7
+    return normalized + 1
 }
 
 /**
  * Check if completing this day completes a 7-day cycle
  * Returns true for days 6, 13, 20, etc. (every 7th day)
+ * Rejects negative inputs as they cannot complete a cycle
  */
 export function isCycleComplete(daysCompleted: number): boolean {
+    if (daysCompleted < 0) {
+        return false
+    } // Reject negative inputs
     return (daysCompleted + 1) % 7 === 0 // Every 7th day completes a cycle
 }
 

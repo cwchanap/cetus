@@ -170,12 +170,12 @@ export async function claimDailyLoginReward(
 
     const totalCycles = currentStatus?.total_login_cycles ?? 0
 
-    // Get reward for this day
-    const cycleDay = getCycleDayFromStreak(currentStreak)
+    // Get reward for this day (use newStreak after reset)
+    const cycleDay = getCycleDayFromStreak(newStreak)
     const reward = getRewardForDay(cycleDay)
 
-    // Check if this completes a 7-day cycle
-    const cycleCompleted = isCycleComplete(currentStreak)
+    // Check if this completes a 7-day cycle (use newStreak after reset)
+    const cycleCompleted = isCycleComplete(newStreak)
 
     // Store previous level for level-up detection
     const previousLevel = userStats?.level ?? 1
@@ -219,9 +219,18 @@ export async function claimDailyLoginReward(
         )
 
         if (!alreadyHas) {
-            // Award the milestone badge
-            await awardAchievement(userId, milestone.achievementId)
-            milestoneBadge = milestone
+            // Award the milestone badge with error handling
+            try {
+                await awardAchievement(userId, milestone.achievementId)
+                milestoneBadge = milestone
+            } catch (error) {
+                console.error('Failed to award login streak milestone:', {
+                    userId,
+                    achievementId: milestone.achievementId,
+                    error,
+                })
+                // Don't set milestoneBadge on failure - user can retry
+            }
         }
     }
 
