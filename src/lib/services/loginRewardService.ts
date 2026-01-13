@@ -74,9 +74,30 @@ export async function getLoginRewardStatusForUser(
     const rewardStatus = await getLoginRewardStatus(userId)
 
     // Default values for new users
-    const loginStreak = rewardStatus?.login_streak ?? 0
+    const storedLoginStreak = rewardStatus?.login_streak ?? 0
     const lastClaimDate = rewardStatus?.last_login_reward_date ?? null
     const totalCycles = rewardStatus?.total_login_cycles ?? 0
+
+    // Calculate yesterday's date (UTC) for consecutive check (same logic as claimDailyLoginReward)
+    const todayUTCDate = new Date(`${today}T00:00:00.000Z`)
+    const yesterdayUTCDate = new Date(
+        todayUTCDate.getTime() - 24 * 60 * 60 * 1000
+    )
+    const yesterdayUTC = yesterdayUTCDate.toISOString().split('T')[0]
+
+    // Calculate effective login streak by checking if streak is broken
+    // This ensures UI display matches the actual claim logic
+    let effectiveLoginStreak: number
+    if (lastClaimDate === today) {
+        // Already claimed today - use stored streak directly
+        effectiveLoginStreak = storedLoginStreak
+    } else if (lastClaimDate === yesterdayUTC) {
+        // Consecutive day - streak is still valid
+        effectiveLoginStreak = storedLoginStreak
+    } else {
+        // Missed days - streak has been broken (will reset to 1 on claim)
+        effectiveLoginStreak = 0
+    }
 
     // Calculate current state
     const alreadyClaimed = lastClaimDate === today
@@ -87,25 +108,26 @@ export async function getLoginRewardStatusForUser(
     let currentCycleDay: number
     if (alreadyClaimed) {
         // Handle potential data inconsistency: already claimed but streak is 0
-        if (loginStreak === 0) {
+        if (effectiveLoginStreak === 0) {
             console.warn(
-                `Data inconsistency for user ${userId}: alreadyClaimed=true but loginStreak=0. Assuming prior day streak of 6.`
+                `Data inconsistency for user ${userId}: alreadyClaimed=true but effectiveLoginStreak=0. Assuming prior day streak of 6.`
             )
         }
         // Safely compute prior day streak, defaulting to 6 (day 7) if streak is 0
-        const priorDayStreak = loginStreak > 0 ? loginStreak - 1 : 6
+        const priorDayStreak =
+            effectiveLoginStreak > 0 ? effectiveLoginStreak - 1 : 6
         currentCycleDay = getCycleDayFromStreak(priorDayStreak)
     } else {
-        currentCycleDay = getCycleDayFromStreak(loginStreak)
+        currentCycleDay = getCycleDayFromStreak(effectiveLoginStreak)
     }
 
     // Get today's reward (what they can claim or just claimed)
     const todayReward = getRewardForDay(currentCycleDay)
 
-    // Calculate total consecutive days
+    // Calculate total consecutive days (use stored values for historical data)
     const totalConsecutiveDays = getTotalConsecutiveDays(
         totalCycles,
-        loginStreak
+        storedLoginStreak
     )
 
     // Get next milestone
@@ -115,7 +137,7 @@ export async function getLoginRewardStatusForUser(
         : null
 
     return {
-        loginStreak,
+        loginStreak: effectiveLoginStreak,
         currentCycleDay,
         totalCycles,
         totalConsecutiveDays,
