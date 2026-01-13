@@ -100,7 +100,7 @@ const { status } = Astro.props
       <!-- Level up indicator (hidden by default) -->
       <div
         id="level-up-indicator"
-        class="hidden mb-4 py-2 px-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full inline-block animate-pulse"
+        class="hidden mb-4 py-2 px-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full animate-pulse"
       >
         <span class="text-white font-bold">
           🎉 LEVEL UP! Level <span id="new-level-display">1</span>
@@ -201,10 +201,6 @@ const { status } = Astro.props
     background: rgba(168, 85, 247, 0.2);
     border-color: rgba(168, 85, 247, 0.6);
     box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
-  }
-
-  [data-reward-day].claimed .check-mark {
-    display: block;
   }
 </style>
 
@@ -403,6 +399,7 @@ const { status } = Astro.props
           newLevelEl.textContent = result.newLevel.toString()
         }
         this.levelUpIndicator.classList.remove('hidden')
+        this.levelUpIndicator.classList.add('inline-block')
       }
 
       // Show milestone badge if earned
@@ -424,7 +421,7 @@ const { status } = Astro.props
         this.milestoneEarned.classList.remove('hidden')
       }
 
-      // Update the UI with new status
+      // Update the UI with new status (BEFORE hiding claim button)
       if (result.updatedStatus) {
         this.updateUI(result.updatedStatus)
       }

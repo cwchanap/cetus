@@ -33,6 +33,9 @@ const {
   ...props
 } = Astro.props
 
+// Generate a stable unique ID for accessibility if not provided
+const uniqueId = id || `slider-${Math.random().toString(36).slice(2, 9)}`
+
 const percentage =
   max === min
     ? 0
@@ -71,7 +74,10 @@ const thumbClasses = cn(
     (label || showValue) && (
       <div class="flex items-center justify-between">
         {label && (
-          <label id={`${id}-label`} class="text-sm font-medium text-gray-300">
+          <label
+            id={`${uniqueId}-label`}
+            class="text-sm font-medium text-gray-300"
+          >
             {label}
           </label>
         )}
@@ -94,12 +100,12 @@ const thumbClasses = cn(
         style={`left: calc(${percentage}% - 10px)`}
         tabindex={disabled ? -1 : 0}
         role="slider"
-        aria-labelledby={`${id}-label`}
+        aria-labelledby={`${uniqueId}-label`}
         aria-valuemin={min}
         aria-valuemax={max}
         aria-valuenow={value}
         aria-disabled={disabled}
-        id={id}
+        id={uniqueId}
         data-slider-thumb
         data-step={step}
       >
@@ -259,6 +265,13 @@ const thumbClasses = cn(
       const x = clientX - rect.left
       const percentage = Math.max(0, Math.min(1, x / rect.width))
       const rawValue = this.min + percentage * (this.max - this.min)
+
+      // Guard against division by zero or invalid step
+      if (!this.step || this.step <= 0) {
+        this.setValue(Math.max(this.min, Math.min(this.max, rawValue)))
+        return
+      }
+
       const steppedValue = Math.round(rawValue / this.step) * this.step
       this.setValue(Math.max(this.min, Math.min(this.max, steppedValue)))
     }

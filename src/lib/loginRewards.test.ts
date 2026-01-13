@@ -132,6 +132,12 @@ describe('isCycleComplete', () => {
         expect(isCycleComplete(6)).toBe(true)
         expect(isCycleComplete(7)).toBe(false)
     })
+
+    it('should return false for negative inputs', () => {
+        expect(isCycleComplete(-1)).toBe(false)
+        expect(isCycleComplete(-7)).toBe(false)
+        expect(isCycleComplete(-14)).toBe(false)
+    })
 })
 
 describe('getMilestoneForDays', () => {
