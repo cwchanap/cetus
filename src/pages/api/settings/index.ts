@@ -20,6 +20,21 @@ export const GET: APIRoute = async ({ locals }) => {
     try {
         const preferences = await getUserPreferences(user.id)
 
+        // getUserPreferences returns null only on database errors
+        // (it returns defaults if no row exists)
+        if (!preferences) {
+            console.error(
+                '[GET /api/settings] Failed to fetch preferences from database'
+            )
+            return new Response(
+                JSON.stringify({ error: 'Failed to fetch preferences' }),
+                {
+                    status: 500,
+                    headers: { 'Content-Type': 'application/json' },
+                }
+            )
+        }
+
         return new Response(JSON.stringify(preferences), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -93,6 +108,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
         // Return updated preferences
         const updatedPreferences = await getUserPreferences(user.id)
+
+        // getUserPreferences returns null only on database errors
+        // (it returns defaults if no row exists)
+        if (!updatedPreferences) {
+            console.error(
+                '[POST /api/settings] Failed to read back updated preferences from database'
+            )
+            return new Response(
+                JSON.stringify({
+                    error: 'Failed to retrieve updated preferences',
+                }),
+                {
+                    status: 500,
+                    headers: { 'Content-Type': 'application/json' },
+                }
+            )
+        }
 
         return new Response(
             JSON.stringify({
