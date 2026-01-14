@@ -89,8 +89,15 @@ export async function getLoginRewardStatusForUser(
     // This ensures UI display matches the actual claim logic
     let effectiveLoginStreak: number
     if (lastClaimDate === today) {
-        // Already claimed today - use stored streak directly
-        effectiveLoginStreak = storedLoginStreak
+        // Already claimed today - use stored streak directly,
+        // but handle the day-7 cycle completion case where streak was reset to 0
+        if (storedLoginStreak === 0) {
+            // User completed a 7-day cycle today (streak reset to 0 for next cycle)
+            // Return 7 so UI correctly shows all 7 days as claimed
+            effectiveLoginStreak = 7
+        } else {
+            effectiveLoginStreak = storedLoginStreak
+        }
     } else if (lastClaimDate === yesterdayUTC) {
         // Consecutive day - streak is still valid
         effectiveLoginStreak = storedLoginStreak
@@ -107,13 +114,9 @@ export async function getLoginRewardStatusForUser(
     // If already claimed today, show current day; otherwise show next day to claim
     let currentCycleDay: number
     if (alreadyClaimed) {
-        // Handle potential data inconsistency: already claimed but streak is 0
-        if (effectiveLoginStreak === 0) {
-            console.warn(
-                `Data inconsistency for user ${userId}: alreadyClaimed=true but effectiveLoginStreak=0. Assuming prior day streak of 6.`
-            )
-        }
-        // Safely compute prior day streak, defaulting to 6 (day 7) if streak is 0
+        // Show the day that was just claimed (prior day in the sequence)
+        // effectiveLoginStreak represents days completed, so subtract 1 to get the last claimed day index
+        // But for day-7 completion, effectiveLoginStreak is 7, so we want day 7
         const priorDayStreak =
             effectiveLoginStreak > 0 ? effectiveLoginStreak - 1 : 6
         currentCycleDay = getCycleDayFromStreak(priorDayStreak)

@@ -197,25 +197,21 @@ describe('getLoginRewardStatusForUser - Streak Reset Logic', () => {
     })
 
     describe('edge cases', () => {
-        it('should handle data inconsistency: claimed today but streak is 0', async () => {
-            const consoleWarnSpy = vi
-                .spyOn(console, 'warn')
-                .mockImplementation(() => {})
-
+        it('should handle day-7 cycle completion correctly (streak reset to 0)', async () => {
             vi.mocked(getLoginRewardStatus).mockResolvedValue({
-                login_streak: 0, // Data inconsistency
-                last_login_reward_date: today, // But claimed today
-                total_login_cycles: 0,
+                login_streak: 0, // After completing day 7, streak resets to 0 for next cycle
+                last_login_reward_date: today, // Claimed today
+                total_login_cycles: 1, // Completed 1 full cycle
             })
 
             const status = await getLoginRewardStatusForUser(userId)
 
-            // Should warn about inconsistency
-            expect(consoleWarnSpy).toHaveBeenCalled()
-            // Should show day 7 (prior day streak default to 6)
+            // Should return 7 for UI to correctly show all 7 days as claimed
+            expect(status.loginStreak).toBe(7)
+            // Should show day 7 (the day just claimed)
             expect(status.currentCycleDay).toBe(7)
-
-            consoleWarnSpy.mockRestore()
+            expect(status.alreadyClaimed).toBe(true)
+            expect(status.canClaim).toBe(false)
         })
     })
 })
