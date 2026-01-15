@@ -242,21 +242,21 @@ describe('claimDailyLoginReward - Streak Reset Logic', () => {
             )
             vi.mocked(claimLoginReward).mockResolvedValue({
                 success: true,
-                newXP: 30,
+                newXP: 20,
                 newLevel: 1,
             })
 
             const result = await claimDailyLoginReward(userId)
 
             expect(result.success).toBe(true)
-            expect(result.xpEarned).toBe(30) // Day 3 reward (newStreak=2 => day 3)
+            expect(result.xpEarned).toBe(20) // Day 2 reward (streak 1 claimed, claiming day 2)
 
             // Claim should have been made with streak 2
             expect(claimLoginReward).toHaveBeenCalledWith(
                 userId,
                 today,
                 2, // Streak incremented to 2
-                30, // Day 3 XP
+                20, // Day 2 XP
                 false
             )
         })
@@ -275,21 +275,21 @@ describe('claimDailyLoginReward - Streak Reset Logic', () => {
             )
             vi.mocked(claimLoginReward).mockResolvedValue({
                 success: true,
-                newXP: 20,
+                newXP: 10,
                 newLevel: 1,
             })
 
             const result = await claimDailyLoginReward(userId)
 
             expect(result.success).toBe(true)
-            expect(result.xpEarned).toBe(20) // Day 2 reward (newStreak=1 => day 2)
+            expect(result.xpEarned).toBe(10) // Day 1 reward (streak reset, starting over)
 
             // Claim should have been made with streak 1
             expect(claimLoginReward).toHaveBeenCalledWith(
                 userId,
                 today,
                 1, // Streak reset to 1
-                20, // Day 2 XP
+                10, // Day 1 XP
                 false
             )
         })
@@ -299,21 +299,21 @@ describe('claimDailyLoginReward - Streak Reset Logic', () => {
             vi.mocked(getUserStats).mockResolvedValue(createMockUserStats())
             vi.mocked(claimLoginReward).mockResolvedValue({
                 success: true,
-                newXP: 20,
+                newXP: 10,
                 newLevel: 1,
             })
 
             const result = await claimDailyLoginReward(userId)
 
             expect(result.success).toBe(true)
-            expect(result.xpEarned).toBe(20) // Day 2 reward (newStreak=1 => day 2)
+            expect(result.xpEarned).toBe(10) // Day 1 reward (first claim)
 
             // Claim should have been made with streak 1
             expect(claimLoginReward).toHaveBeenCalledWith(
                 userId,
                 today,
                 1, // First claim, streak set to 1
-                20, // Day 2 XP
+                10, // Day 1 XP
                 false
             )
         })
