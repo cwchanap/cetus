@@ -339,9 +339,9 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
       if (container) {
         container.addEventListener('slider-change', (e: Event) => {
           const detail = (e as CustomEvent).detail
-          const key = container
-            .querySelector('[data-pref-key]')
-            ?.getAttribute('data-pref-key') as keyof ClientPreferences['sound']
+          const key = container.getAttribute(
+            'data-pref-key'
+          ) as keyof ClientPreferences['sound']
 
           if (key) {
             const prefs = getClientPreferences()

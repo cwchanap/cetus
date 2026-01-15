@@ -386,6 +386,11 @@ const { status } = Astro.props
     }
 
     showClaimSuccess(result) {
+      // Update the UI with new status BEFORE showing success indicators
+      if (result.updatedStatus) {
+        this.updateUI(result.updatedStatus)
+      }
+
       // Update button to show success
       if (this.claimBtn) {
         this.claimBtn.textContent = '✓ Claimed!'
@@ -419,11 +424,6 @@ const { status } = Astro.props
         }
 
         this.milestoneEarned.classList.remove('hidden')
-      }
-
-      // Update the UI with new status (BEFORE hiding claim button)
-      if (result.updatedStatus) {
-        this.updateUI(result.updatedStatus)
       }
 
       // Hide claim button, show already claimed

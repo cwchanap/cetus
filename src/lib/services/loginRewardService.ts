@@ -183,6 +183,12 @@ export async function claimDailyLoginReward(
     const currentStreak = currentStatus?.login_streak ?? 0
     const lastClaimDate = currentStatus?.last_login_reward_date ?? null
 
+    // Calculate days completed BEFORE this claim (0-based value for helper functions)
+    const daysCompletedBeforeClaim =
+        lastClaimDate === yesterdayUTC
+            ? currentStreak // Continuing streak
+            : 0 // Resetting streak
+
     // Reset streak if last claim was not yesterday (consecutive days only)
     let newStreak: number
     if (lastClaimDate === yesterdayUTC) {
@@ -195,12 +201,12 @@ export async function claimDailyLoginReward(
 
     const totalCycles = currentStatus?.total_login_cycles ?? 0
 
-    // Get reward for this day (use newStreak after reset)
-    const cycleDay = getCycleDayFromStreak(newStreak)
+    // Get reward for this day (use daysCompletedBeforeClaim for 0-based indexing)
+    const cycleDay = getCycleDayFromStreak(daysCompletedBeforeClaim)
     const reward = getRewardForDay(cycleDay)
 
-    // Check if this completes a 7-day cycle (use newStreak after reset)
-    const cycleCompleted = isCycleComplete(newStreak)
+    // Check if this completes a 7-day cycle (use daysCompletedBeforeClaim for 0-based indexing)
+    const cycleCompleted = isCycleComplete(daysCompletedBeforeClaim)
 
     // Store previous level for level-up detection
     const previousLevel = userStats?.level ?? 1
