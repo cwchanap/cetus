@@ -191,12 +191,14 @@ export async function claimDailyLoginReward(
 
     // Reset streak if last claim was not yesterday (consecutive days only)
     let newStreak: number
+    let streakBroken = false
     if (lastClaimDate === yesterdayUTC) {
         // Consecutive day - increment streak
         newStreak = currentStreak + 1
     } else {
-        // Missed days - reset to day 1
+        // Missed days - reset to day 1 and reset total cycles
         newStreak = 1
+        streakBroken = true
     }
 
     const totalCycles = currentStatus?.total_login_cycles ?? 0
@@ -217,7 +219,8 @@ export async function claimDailyLoginReward(
         today,
         newStreak,
         reward.xp,
-        cycleCompleted
+        cycleCompleted,
+        streakBroken
     )
 
     if (!claimResult.success) {

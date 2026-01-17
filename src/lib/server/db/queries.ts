@@ -1688,7 +1688,8 @@ export async function claimLoginReward(
     today: string,
     newStreak: number,
     xpReward: number,
-    cycleCompleted: boolean
+    cycleCompleted: boolean,
+    streakBroken: boolean = false
 ): Promise<{ success: boolean; newXP?: number; newLevel?: number }> {
     try {
         await ensureLoginRewardColumns()
@@ -1729,6 +1730,9 @@ export async function claimLoginReward(
                 updateData.login_streak = 0
                 // Increment total cycles completed
                 updateData.total_login_cycles = sql`total_login_cycles + 1`
+            } else if (streakBroken) {
+                // Reset total cycles when streak is broken (missed a day)
+                updateData.total_login_cycles = 0
             }
 
             // Check if user_stats row exists
