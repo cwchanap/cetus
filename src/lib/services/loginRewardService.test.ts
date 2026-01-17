@@ -113,7 +113,7 @@ describe('getLoginRewardStatusForUser - Streak Reset Logic', () => {
             expect(status.canClaim).toBe(true)
         })
 
-        it('should reset streak display when last claim was 3+ days ago', async () => {
+        it('should reset streak display when last claim was 2+ days ago', async () => {
             vi.mocked(getLoginRewardStatus).mockResolvedValue({
                 login_streak: 5, // Previously had a long streak
                 last_login_reward_date: '2024-01-01', // 2 days ago
@@ -145,9 +145,9 @@ describe('getLoginRewardStatusForUser - Streak Reset Logic', () => {
 
     describe('UI/backend consistency', () => {
         it('should show day 1 in UI when backend will reset to day 1 on claim', async () => {
-            // Simulate: User claimed on day 2, then missed 2 days
+            // Simulate: User claimed on day 2 (streak 2), then missed 2 days
             vi.mocked(getLoginRewardStatus).mockResolvedValue({
-                login_streak: 2, // Last claim was day 3 (streak 2)
+                login_streak: 2, // Last claim was day 2 (streak 2)
                 last_login_reward_date: twoDaysAgo, // 2 days ago
                 total_login_cycles: 0,
             })
@@ -164,7 +164,7 @@ describe('getLoginRewardStatusForUser - Streak Reset Logic', () => {
         it('should show correct consecutive day in UI when streak is intact', async () => {
             // Simulate: User claimed yesterday, streak is intact
             vi.mocked(getLoginRewardStatus).mockResolvedValue({
-                login_streak: 3, // Last claim was day 4 (streak 3)
+                login_streak: 3, // Last claim was day 3 (streak 3)
                 last_login_reward_date: yesterday, // Yesterday - consecutive
                 total_login_cycles: 0,
             })
@@ -375,21 +375,21 @@ describe('claimDailyLoginReward - Streak Reset Logic', () => {
             )
             vi.mocked(claimLoginReward).mockResolvedValue({
                 success: true,
-                newXP: 50, // Day 5 XP
+                newXP: 50, // Day 4 XP
                 newLevel: 1,
             })
 
             const result = await claimDailyLoginReward(userId)
 
             expect(result.success).toBe(true)
-            expect(result.xpEarned).toBe(50)
+            expect(result.xpEarned).toBe(40)
 
             // Claim should have been made with streak 4 and streakBroken=false
             expect(claimLoginReward).toHaveBeenCalledWith(
                 userId,
                 today,
                 4, // Streak incremented to 4
-                50, // Day 5 XP
+                40, // Day 4 XP
                 false, // cycleCompleted
                 false // streakBroken (no, streak is intact)
             )

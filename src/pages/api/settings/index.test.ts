@@ -202,7 +202,28 @@ describe('Settings API', () => {
             })
         })
 
-        it('should return 500 on unexpected errors', async () => {
+        it('should return 500 on updateUserPreferences failure', async () => {
+            // Mock the update to fail
+            vi.mocked(updateUserPreferences).mockResolvedValue(false)
+            vi.mocked(getUserPreferences).mockResolvedValue({
+                email_notifications: false,
+                push_notifications: true,
+                challenge_reminders: true,
+            })
+
+            const request = createMockRequest(validRequestBody)
+            const context = createMockContext(mockLocals, request)
+
+            const response = await POST(context)
+            const data = await response.json()
+
+            expect(response.status).toBe(500)
+            expect(data.error).toBe('Failed to update preferences')
+        })
+
+        it('should return 500 on getUserPreferences error after update', async () => {
+            // Mock successful update but failed fetch
+            vi.mocked(updateUserPreferences).mockResolvedValue(true)
             vi.mocked(getUserPreferences).mockRejectedValue(
                 new Error('Database connection failed')
             )

@@ -12,6 +12,7 @@ export interface Props extends Omit<HTMLAttributes<'div'>, 'value'> {
   id?: string
   name?: string
   label?: string
+  ariaLabel?: string
   showValue?: boolean
   unit?: string
   class?: string
@@ -27,6 +28,7 @@ const {
   id,
   name,
   label,
+  ariaLabel,
   showValue = true,
   unit = '',
   class: className = '',
@@ -100,7 +102,8 @@ const thumbClasses = cn(
         style={`left: calc(${percentage}% - 10px)`}
         tabindex={disabled ? -1 : 0}
         role="slider"
-        aria-labelledby={`${uniqueId}-label`}
+        aria-labelledby={label ? `${uniqueId}-label` : undefined}
+        aria-label={!label ? ariaLabel || 'Slider' : undefined}
         aria-valuemin={min}
         aria-valuemax={max}
         aria-valuenow={value}
@@ -168,7 +171,11 @@ const thumbClasses = cn(
       this.track.addEventListener('click', e => this.handleTrackClick(e))
 
       // Touch events
-      this.thumb.addEventListener('touchstart', e => this.handleTouchStart(e))
+      this.thumb.addEventListener(
+        'touchstart',
+        e => this.handleTouchStart(e),
+        false
+      )
 
       // Keyboard events
       this.thumb.addEventListener('keydown', e => this.handleKeyDown(e))
@@ -211,7 +218,9 @@ const thumbClasses = cn(
         document.removeEventListener('touchend', handleTouchEnd)
       }
 
-      document.addEventListener('touchmove', handleTouchMove)
+      document.addEventListener('touchmove', handleTouchMove, {
+        passive: false,
+      } as EventListenerOptions)
       document.addEventListener('touchend', handleTouchEnd)
     }
 
