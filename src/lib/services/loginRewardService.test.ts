@@ -257,7 +257,8 @@ describe('claimDailyLoginReward - Streak Reset Logic', () => {
                 today,
                 2, // Streak incremented to 2
                 20, // Day 2 XP
-                false
+                false, // cycleCompleted
+                false // streakBroken (not broken)
             )
         })
 
@@ -290,7 +291,8 @@ describe('claimDailyLoginReward - Streak Reset Logic', () => {
                 today,
                 1, // Streak reset to 1
                 10, // Day 1 XP
-                false
+                false, // cycleCompleted
+                true // streakBroken (yes, streak was broken)
             )
         })
 
@@ -314,7 +316,82 @@ describe('claimDailyLoginReward - Streak Reset Logic', () => {
                 today,
                 1, // First claim, streak set to 1
                 10, // Day 1 XP
-                false
+                false, // cycleCompleted
+                true // streakBroken (no previous claims)
+            )
+        })
+    })
+
+    describe('bug fix: total_login_cycles reset on streak break', () => {
+        it('should reset total_login_cycles when streak is broken after completing a cycle', async () => {
+            // Scenario: User completed 7-day cycle, missed a day, now claiming day 1 of new cycle
+            vi.mocked(getLoginRewardStatus).mockResolvedValue({
+                login_streak: 0, // Streak was reset to 0 after completing cycle
+                last_login_reward_date: twoDaysAgo, // 2 days ago - streak broken
+                total_login_cycles: 1, // Previously completed 1 cycle
+            })
+            vi.mocked(getUserStats).mockResolvedValue(
+                createMockUserStats({
+                    login_streak: 0,
+                    last_login_reward_date: twoDaysAgo,
+                    total_login_cycles: 1,
+                })
+            )
+            vi.mocked(claimLoginReward).mockResolvedValue({
+                success: true,
+                newXP: 10,
+                newLevel: 1,
+            })
+
+            const result = await claimDailyLoginReward(userId)
+
+            expect(result.success).toBe(true)
+            expect(result.xpEarned).toBe(10) // Day 1 reward
+
+            // Claim should have been made with streak 1 and streakBroken=true
+            expect(claimLoginReward).toHaveBeenCalledWith(
+                userId,
+                today,
+                1, // Streak reset to 1
+                10, // Day 1 XP
+                false, // cycleCompleted
+                true // streakBroken (yes, streak was broken)
+            )
+        })
+
+        it('should NOT reset total_login_cycles when streak is NOT broken', async () => {
+            // Scenario: User is in middle of cycle, claiming consecutively
+            vi.mocked(getLoginRewardStatus).mockResolvedValue({
+                login_streak: 3, // In middle of cycle
+                last_login_reward_date: yesterday, // Yesterday - consecutive
+                total_login_cycles: 1, // Previously completed 1 cycle
+            })
+            vi.mocked(getUserStats).mockResolvedValue(
+                createMockUserStats({
+                    login_streak: 3,
+                    last_login_reward_date: yesterday,
+                    total_login_cycles: 1,
+                })
+            )
+            vi.mocked(claimLoginReward).mockResolvedValue({
+                success: true,
+                newXP: 50, // Day 5 XP
+                newLevel: 1,
+            })
+
+            const result = await claimDailyLoginReward(userId)
+
+            expect(result.success).toBe(true)
+            expect(result.xpEarned).toBe(50)
+
+            // Claim should have been made with streak 4 and streakBroken=false
+            expect(claimLoginReward).toHaveBeenCalledWith(
+                userId,
+                today,
+                4, // Streak incremented to 4
+                50, // Day 5 XP
+                false, // cycleCompleted
+                false // streakBroken (no, streak is intact)
             )
         })
     })
