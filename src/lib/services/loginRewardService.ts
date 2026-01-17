@@ -23,7 +23,8 @@ import {
 import { getTodayUTC } from '../challenges'
 
 export interface LoginRewardStatusResult {
-    /** Current position in 7-day cycle (0-6) */
+    /** Current position in 7-day cycle (0-7).
+     *  0 = first day, 1-6 = days 2-7, 7 = transient value when a cycle completes */
     loginStreak: number
     /** Day number to display (1-7) */
     currentCycleDay: number

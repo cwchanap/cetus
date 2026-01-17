@@ -27,6 +27,11 @@ const {
   ...props
 } = Astro.props
 
+// Generate an id if not provided when label is present for accessibility
+const uniqueId =
+  id ||
+  (label ? `toggle-${Math.random().toString(36).slice(2, 11)}` : undefined)
+
 const toggleVariants = {
   variant: {
     default: 'bg-gray-600 data-[checked]:bg-cyan-500',
@@ -74,7 +79,7 @@ const knobClasses = cn(
       <div class="flex-1">
         {label && (
           <label
-            for={id}
+            for={uniqueId}
             class="text-sm font-medium text-gray-300 block cursor-pointer"
           >
             {label}
@@ -86,6 +91,12 @@ const knobClasses = cn(
       </div>
     )
   }
+  <input
+    type="hidden"
+    name={name}
+    value={checked ? 'true' : 'false'}
+    data-toggle-input
+  />
   <button
     type="button"
     role="switch"
@@ -94,19 +105,13 @@ const knobClasses = cn(
     data-toggle
     class={toggleClasses}
     disabled={disabled}
-    id={id}
+    id={uniqueId}
     {...props}
   >
     <span
       class={knobClasses}
       data-checked={checked ? '' : undefined}
       data-toggle-knob></span>
-    <input
-      type="hidden"
-      name={name}
-      value={checked ? 'true' : 'false'}
-      data-toggle-input
-    />
   </button>
 </div>
 
@@ -116,9 +121,16 @@ const knobClasses = cn(
     private knob: HTMLElement
     private input: HTMLInputElement
     private checked: boolean
+    private container: HTMLElement
 
     constructor(button: HTMLButtonElement) {
       this.button = button
+
+      const container = button.parentElement
+      if (!container) {
+        throw new Error('Toggle component: Button has no parent container')
+      }
+      this.container = container
 
       const knob = button.querySelector('[data-toggle-knob]')
       if (!knob) {
@@ -128,7 +140,7 @@ const knobClasses = cn(
       }
       this.knob = knob as HTMLElement
 
-      const input = button.querySelector('[data-toggle-input]')
+      const input = container.querySelector('[data-toggle-input]')
       if (!input) {
         throw new Error(
           'Toggle component: Required element [data-toggle-input] not found'
