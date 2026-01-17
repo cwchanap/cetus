@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { GET, POST } from '@/pages/api/settings/index'
 import type { APIContext } from 'astro'
 
@@ -99,20 +99,6 @@ describe('Settings API', () => {
 
             expect(response.status).toBe(401)
             expect(data.error).toBe('Unauthorized')
-        })
-
-        it('should return 400 if no valid preferences to update', async () => {
-            const invalidRequestBody = JSON.stringify({
-                invalid_field: 'value',
-            })
-            const request = createMockRequest(invalidRequestBody)
-            const context = createMockContext(mockLocals, request)
-
-            const response = await POST(context)
-            const data = await response.json()
-
-            expect(response.status).toBe(400)
-            expect(data.error).toBe('No valid preferences to update')
         })
 
         it('should return 400 if no valid preferences to update', async () => {
