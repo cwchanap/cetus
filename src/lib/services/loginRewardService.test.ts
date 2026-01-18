@@ -191,8 +191,9 @@ describe('getLoginRewardStatusForUser - Streak Reset Logic', () => {
             // UI should show day 1 (new cycle, streak broken)
             expect(status.loginStreak).toBe(0)
             expect(status.currentCycleDay).toBe(1)
-            expect(status.totalCycles).toBe(1)
-            expect(status.totalConsecutiveDays).toBe(7) // Historical: 1 cycle = 7 days
+            // When streak is broken, totalCycles should also be 0 to match claim behavior
+            expect(status.totalCycles).toBe(0)
+            expect(status.totalConsecutiveDays).toBe(0) // Streak broken, starting over
         })
     })
 
