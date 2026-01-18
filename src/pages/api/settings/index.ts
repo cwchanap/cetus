@@ -65,7 +65,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     try {
-        const data = await request.json()
+        // Parse JSON with specific error handling for malformed JSON
+        let data
+        try {
+            data = await request.json()
+        } catch (err) {
+            if (err && err instanceof SyntaxError) {
+                return new Response(
+                    JSON.stringify({ error: 'Bad Request: malformed JSON' }),
+                    {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' },
+                    }
+                )
+            }
+            throw err // Re-throw other errors
+        }
 
         // Validate input - only accept boolean values for notification preferences
         const updates: {

@@ -99,7 +99,7 @@ const thumbClasses = cn(
       </div>
       <div
         class={thumbClasses}
-        style={`left: calc(${percentage}% - 10px)`}
+        style={`left: calc(${percentage}% - 0.625rem)`}
         tabindex={disabled ? -1 : 0}
         role="slider"
         aria-labelledby={label ? `${uniqueId}-label` : undefined}
@@ -122,10 +122,10 @@ const thumbClasses = cn(
 <script>
   class SliderComponent {
     private container: HTMLElement
-    private track: HTMLElement
-    private fill: HTMLElement
-    private thumb: HTMLElement
-    private input: HTMLInputElement
+    private track: HTMLElement | null
+    private fill: HTMLElement | null
+    private thumb: HTMLElement | null
+    private input: HTMLInputElement | null
     private valueDisplay: HTMLElement | null
     private min: number
     private max: number
@@ -137,11 +137,25 @@ const thumbClasses = cn(
 
     constructor(container: HTMLElement) {
       this.container = container
-      this.track = container.querySelector('[data-slider-track]')!
-      this.fill = container.querySelector('[data-slider-fill]')!
-      this.thumb = container.querySelector('[data-slider-thumb]')!
-      this.input = container.querySelector('[data-slider-input]')!
+      this.track = container.querySelector('[data-slider-track]')
+      this.fill = container.querySelector('[data-slider-fill]')
+      this.thumb = container.querySelector('[data-slider-thumb]')
+      this.input = container.querySelector('[data-slider-input]')
       this.valueDisplay = container.querySelector('[data-slider-value]')
+
+      // Validate required elements exist
+      if (!this.track) {
+        throw new Error('Slider element missing: [data-slider-track]')
+      }
+      if (!this.fill) {
+        throw new Error('Slider element missing: [data-slider-fill]')
+      }
+      if (!this.thumb) {
+        throw new Error('Slider element missing: [data-slider-thumb]')
+      }
+      if (!this.input) {
+        throw new Error('Slider element missing: [data-slider-input]')
+      }
 
       this.min = Number(this.thumb.getAttribute('aria-valuemin')) || 0
       this.max = Number(this.thumb.getAttribute('aria-valuemax')) || 100
@@ -166,6 +180,10 @@ const thumbClasses = cn(
     }
 
     private attachEvents() {
+      if (!this.thumb || !this.track) {
+        return
+      }
+
       // Mouse events
       this.thumb.addEventListener('mousedown', e => this.handleMouseDown(e))
       this.track.addEventListener('click', e => this.handleTrackClick(e))
@@ -182,6 +200,9 @@ const thumbClasses = cn(
     }
 
     private handleMouseDown(e: MouseEvent) {
+      if (!this.thumb) {
+        return
+      }
       e.preventDefault()
       this.isDragging = true
       this.thumb.focus()
@@ -203,6 +224,9 @@ const thumbClasses = cn(
     }
 
     private handleTouchStart(e: TouchEvent) {
+      if (!this.thumb) {
+        return
+      }
       e.preventDefault()
       this.isDragging = true
 
@@ -262,6 +286,9 @@ const thumbClasses = cn(
     }
 
     private handleTrackClick(e: MouseEvent) {
+      if (!this.thumb) {
+        return
+      }
       if (e.target === this.thumb) {
         return
       }
@@ -270,6 +297,9 @@ const thumbClasses = cn(
     }
 
     private updateValueFromMouse(clientX: number) {
+      if (!this.track) {
+        return
+      }
       const rect = this.track.getBoundingClientRect()
       const x = clientX - rect.left
       const percentage = Math.max(0, Math.min(1, x / rect.width))
@@ -296,6 +326,10 @@ const thumbClasses = cn(
     }
 
     private updateUI() {
+      if (!this.fill || !this.thumb || !this.input) {
+        return
+      }
+
       let percentage
       if (this.max === this.min) {
         percentage = 0
@@ -306,7 +340,7 @@ const thumbClasses = cn(
       percentage = Math.max(0, Math.min(100, percentage))
 
       this.fill.style.width = `${percentage}%`
-      this.thumb.style.left = `calc(${percentage}% - 10px)`
+      this.thumb.style.left = `calc(${percentage}% - 0.625rem)`
       this.thumb.setAttribute('aria-valuenow', String(this.value))
       this.input.value = String(this.value)
 
