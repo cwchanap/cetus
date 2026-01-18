@@ -128,10 +128,17 @@ export async function getLoginRewardStatusForUser(
     // Get today's reward (what they can claim or just claimed)
     const todayReward = getRewardForDay(currentCycleDay)
 
-    // Calculate total consecutive days (use stored values for historical data)
+    // Calculate total consecutive days
+    // When streak is broken (effectiveLoginStreak = 0 and not claimed today),
+    // use 0 to match what will happen on claim (cycles reset to 0)
+    const effectiveTotalCycles =
+        effectiveLoginStreak === 0 && !alreadyClaimed ? 0 : totalCycles
+    const effectiveDaysCompleted = alreadyClaimed
+        ? storedLoginStreak
+        : effectiveLoginStreak
     const totalConsecutiveDays = getTotalConsecutiveDays(
-        totalCycles,
-        storedLoginStreak
+        effectiveTotalCycles,
+        effectiveDaysCompleted
     )
 
     // Get next milestone
@@ -143,7 +150,7 @@ export async function getLoginRewardStatusForUser(
     return {
         loginStreak: effectiveLoginStreak,
         currentCycleDay,
-        totalCycles,
+        totalCycles: effectiveTotalCycles,
         totalConsecutiveDays,
         todayReward,
         alreadyClaimed,
