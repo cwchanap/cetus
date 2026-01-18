@@ -96,7 +96,7 @@ describe('getLoginRewardStatusForUser - Streak Reset Logic', () => {
     })
 
     describe('when user missed consecutive days (streak reset)', () => {
-        it('should reset streak display when last claim was 2+ days ago', async () => {
+        it('should reset streak display when last claim was 2+ days ago (stored streak=1)', async () => {
             vi.mocked(getLoginRewardStatus).mockResolvedValue({
                 login_streak: 1, // Stored streak from last claim
                 last_login_reward_date: twoDaysAgo, // 2 days ago - missed yesterday
@@ -113,7 +113,7 @@ describe('getLoginRewardStatusForUser - Streak Reset Logic', () => {
             expect(status.canClaim).toBe(true)
         })
 
-        it('should reset streak display when last claim was 2+ days ago', async () => {
+        it('should reset streak display when last claim was 2+ days ago (stored streak>1)', async () => {
             vi.mocked(getLoginRewardStatus).mockResolvedValue({
                 login_streak: 5, // Previously had a long streak
                 last_login_reward_date: '2024-01-01', // 2 days ago
@@ -376,7 +376,7 @@ describe('claimDailyLoginReward - Streak Reset Logic', () => {
             )
             vi.mocked(claimLoginReward).mockResolvedValue({
                 success: true,
-                newXP: 50, // Day 4 XP
+                newXP: 40, // Day 4 XP
                 newLevel: 1,
             })
 

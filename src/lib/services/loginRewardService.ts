@@ -242,7 +242,11 @@ export async function claimDailyLoginReward(
     const leveledUp = newLevel > previousLevel
 
     // Calculate total consecutive days after claim
-    const newTotalCycles = cycleCompleted ? totalCycles + 1 : totalCycles
+    const newTotalCycles = streakBroken
+        ? 0
+        : cycleCompleted
+          ? totalCycles + 1
+          : totalCycles
     const effectiveStreak = cycleCompleted ? 0 : newStreak
     const totalConsecutiveDays = getTotalConsecutiveDays(
         newTotalCycles,

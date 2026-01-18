@@ -1695,6 +1695,9 @@ export async function claimLoginReward(
         await ensureLoginRewardColumns()
         await ensureChallengeColumns()
 
+        // Import level calculation outside transaction
+        const { getLevelFromXP } = await import('../../challenges')
+
         return await db.transaction().execute(async trx => {
             // Get current stats with row lock to prevent concurrent claims
             const stats = await trx
@@ -1712,8 +1715,7 @@ export async function claimLoginReward(
             const currentXP = stats?.xp ?? 0
             const newXP = currentXP + xpReward
 
-            // Import level calculation
-            const { getLevelFromXP } = await import('../../challenges')
+            // Use the pre-imported getLevelFromXP function
             const newLevel = getLevelFromXP(newXP)
 
             // Update stats atomically

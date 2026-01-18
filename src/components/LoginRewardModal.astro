@@ -216,6 +216,8 @@ const { status } = Astro.props
       this.milestoneEarned = document.getElementById('milestone-earned')
       this.status = null
       this.isOpen = false
+      this._isClaiming = false // Re-entrancy guard
+      this.onKeydown = null // Reference to keydown handler for cleanup
 
       this.setupEventListeners()
 
@@ -246,12 +248,13 @@ const { status } = Astro.props
         })
       }
 
-      // Escape key
-      document.addEventListener('keydown', e => {
+      // Escape key - store handler for cleanup
+      this.onKeydown = e => {
         if (e.key === 'Escape' && this.isOpen) {
           this.hide()
         }
-      })
+      }
+      document.addEventListener('keydown', this.onKeydown)
     }
 
     show(status) {
@@ -351,9 +354,12 @@ const { status } = Astro.props
     }
 
     async claimReward() {
-      if (!this.claimBtn) {
+      if (!this.claimBtn || this._isClaiming) {
         return
       }
+
+      // Set re-entrancy guard
+      this._isClaiming = true
 
       // Disable button and show loading
       this.claimBtn.disabled = true
@@ -369,6 +375,7 @@ const { status } = Astro.props
           const errorText = await response.text()
           console.error('Claim failed:', response.status, errorText)
           this.showClaimError('Claim failed. Please try again later.')
+          this._isClaiming = false
           return
         }
 
@@ -382,6 +389,9 @@ const { status } = Astro.props
       } catch (error) {
         console.error('Failed to claim reward:', error)
         this.showClaimError('Network error. Please try again.')
+      } finally {
+        // Always clear the re-entrancy guard
+        this._isClaiming = false
       }
     }
 
@@ -394,7 +404,13 @@ const { status } = Astro.props
       // Update button to show success
       if (this.claimBtn) {
         this.claimBtn.textContent = '✓ Claimed!'
-        this.claimBtn.classList.add('bg-green-500')
+        // Remove gradient classes before adding solid background
+        this.claimBtn.classList.remove(
+          'bg-gradient-to-r',
+          'from-cyan-500',
+          'to-purple-600'
+        )
+        this.claimBtn.classList.add('bg-green-500', 'text-white')
       }
 
       // Show level up if applicable
@@ -447,6 +463,14 @@ const { status } = Astro.props
         setTimeout(() => {
           this.claimBtn.textContent = 'Claim Reward'
         }, 2000)
+      }
+    }
+
+    destroy() {
+      // Cleanup event listeners to prevent memory leaks
+      if (this.onKeydown) {
+        document.removeEventListener('keydown', this.onKeydown)
+        this.onKeydown = null
       }
     }
   }
