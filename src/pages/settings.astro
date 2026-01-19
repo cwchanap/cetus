@@ -221,6 +221,10 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
   <!-- Save Status Toast -->
   <div
     id="save-status"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+    aria-hidden="true"
     class="fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium transition-all transform translate-y-20 opacity-0"
   >
     Settings saved!
@@ -231,6 +235,7 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
   import {
     getClientPreferences,
     saveClientPreferences,
+    updateSoundPreference,
     type ClientPreferences,
   } from '@/lib/preferences'
 
@@ -343,10 +348,7 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
           ) as keyof ClientPreferences['sound']
 
           if (key) {
-            const prefs = getClientPreferences()
-            ;(prefs.sound as Record<string, number | boolean>)[key] =
-              detail.value
-            saveClientPreferences(prefs)
+            updateSoundPreference(key, detail.value as never)
             showSaveStatus()
           }
         })
@@ -407,9 +409,41 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
             body: JSON.stringify({ [prefKey]: detail.checked }),
           })
 
-          const result = await response.json()
+          // Check response.ok before parsing JSON
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error(
+              `Failed to save preference (${response.status}): ${errorText}`
+            )
+            showSaveStatus(`Failed to save (${response.status})`, 'error')
+            // Revert toggle with guard to prevent handler re-entry
+            ignoreRevert = true
+            const button = toggle as HTMLButtonElement
+            button.click()
+            queueMicrotask(() => {
+              ignoreRevert = false
+            })
+            return
+          }
 
-          if (response.ok && result.success) {
+          // Try to parse JSON response
+          let result: { success: boolean }
+          try {
+            result = await response.json()
+          } catch (parseError) {
+            console.error('Failed to parse response JSON:', parseError)
+            showSaveStatus('Invalid response from server', 'error')
+            // Revert toggle with guard to prevent handler re-entry
+            ignoreRevert = true
+            const button = toggle as HTMLButtonElement
+            button.click()
+            queueMicrotask(() => {
+              ignoreRevert = false
+            })
+            return
+          }
+
+          if (result.success) {
             showSaveStatus('Saved!', 'success')
           } else {
             showSaveStatus('Failed to save', 'error')
@@ -446,6 +480,8 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
     }
 
     status.textContent = message
+    status.setAttribute('aria-label', message)
+    status.setAttribute('aria-hidden', 'false')
     status.className = `fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium transition-all transform ${
       type === 'error' ? 'bg-red-500' : 'bg-green-500'
     }`
@@ -460,6 +496,7 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
     setTimeout(() => {
       status.style.transform = 'translateY(20px)'
       status.style.opacity = '0'
+      status.setAttribute('aria-hidden', 'true')
     }, 2000)
   }
 </script>
