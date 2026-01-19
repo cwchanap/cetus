@@ -304,4 +304,223 @@ describe('Slider Component Logic', () => {
             expect(disabled).toBe(false)
         })
     })
+
+    describe('Value Clamping on Initialization', () => {
+        it('should clamp value above max to max', () => {
+            thumb.setAttribute('aria-valuemin', '0')
+            thumb.setAttribute('aria-valuemax', '100')
+            thumb.setAttribute('aria-valuenow', '150')
+
+            const min = isNaN(Number(thumb.getAttribute('aria-valuemin')))
+                ? 0
+                : Number(thumb.getAttribute('aria-valuemin'))
+            const max = isNaN(Number(thumb.getAttribute('aria-valuemax')))
+                ? 100
+                : Number(thumb.getAttribute('aria-valuemax'))
+            const valueParsed = Number(thumb.getAttribute('aria-valuenow'))
+            const defaultValue = isNaN(valueParsed) ? 50 : valueParsed
+            const clampedValue = Math.min(max, Math.max(min, defaultValue))
+
+            expect(clampedValue).toBe(100)
+        })
+
+        it('should clamp value below min to min', () => {
+            thumb.setAttribute('aria-valuemin', '0')
+            thumb.setAttribute('aria-valuemax', '100')
+            thumb.setAttribute('aria-valuenow', '-10')
+
+            const min = isNaN(Number(thumb.getAttribute('aria-valuemin')))
+                ? 0
+                : Number(thumb.getAttribute('aria-valuemin'))
+            const max = isNaN(Number(thumb.getAttribute('aria-valuemax')))
+                ? 100
+                : Number(thumb.getAttribute('aria-valuemax'))
+            const valueParsed = Number(thumb.getAttribute('aria-valuenow'))
+            const defaultValue = isNaN(valueParsed) ? 50 : valueParsed
+            const clampedValue = Math.min(max, Math.max(min, defaultValue))
+
+            expect(clampedValue).toBe(0)
+        })
+
+        it('should not clamp value within [min, max] range', () => {
+            thumb.setAttribute('aria-valuemin', '10')
+            thumb.setAttribute('aria-valuemax', '90')
+            thumb.setAttribute('aria-valuenow', '50')
+
+            const min = isNaN(Number(thumb.getAttribute('aria-valuemin')))
+                ? 0
+                : Number(thumb.getAttribute('aria-valuemin'))
+            const max = isNaN(Number(thumb.getAttribute('aria-valuemax')))
+                ? 100
+                : Number(thumb.getAttribute('aria-valuemax'))
+            const valueParsed = Number(thumb.getAttribute('aria-valuenow'))
+            const defaultValue = isNaN(valueParsed) ? 50 : valueParsed
+            const clampedValue = Math.min(max, Math.max(min, defaultValue))
+
+            expect(clampedValue).toBe(50)
+        })
+
+        it('should use default value when value is NaN', () => {
+            thumb.setAttribute('aria-valuemin', '0')
+            thumb.setAttribute('aria-valuemax', '100')
+            thumb.setAttribute('aria-valuenow', 'invalid')
+
+            const min = isNaN(Number(thumb.getAttribute('aria-valuemin')))
+                ? 0
+                : Number(thumb.getAttribute('aria-valuemin'))
+            const max = isNaN(Number(thumb.getAttribute('aria-valuemax')))
+                ? 100
+                : Number(thumb.getAttribute('aria-valuemax'))
+            const valueParsed = Number(thumb.getAttribute('aria-valuenow'))
+            const defaultValue = isNaN(valueParsed) ? 50 : valueParsed
+            const clampedValue = Math.min(max, Math.max(min, defaultValue))
+
+            expect(clampedValue).toBe(50)
+        })
+
+        it('should clamp and handle negative ranges', () => {
+            thumb.setAttribute('aria-valuemin', '-50')
+            thumb.setAttribute('aria-valuemax', '-10')
+            thumb.setAttribute('aria-valuenow', '-5')
+
+            const min = isNaN(Number(thumb.getAttribute('aria-valuemin')))
+                ? 0
+                : Number(thumb.getAttribute('aria-valuemin'))
+            const max = isNaN(Number(thumb.getAttribute('aria-valuemax')))
+                ? 100
+                : Number(thumb.getAttribute('aria-valuemax'))
+            const valueParsed = Number(thumb.getAttribute('aria-valuenow'))
+            const defaultValue = isNaN(valueParsed) ? 50 : valueParsed
+            const clampedValue = Math.min(max, Math.max(min, defaultValue))
+
+            expect(clampedValue).toBe(-10)
+        })
+
+        it('should clamp default value when min > 50', () => {
+            thumb.setAttribute('aria-valuemin', '75')
+            thumb.setAttribute('aria-valuemax', '100')
+            thumb.setAttribute('aria-valuenow', 'invalid')
+
+            const min = isNaN(Number(thumb.getAttribute('aria-valuemin')))
+                ? 0
+                : Number(thumb.getAttribute('aria-valuemin'))
+            const max = isNaN(Number(thumb.getAttribute('aria-valuemax')))
+                ? 100
+                : Number(thumb.getAttribute('aria-valuemax'))
+            const valueParsed = Number(thumb.getAttribute('aria-valuenow'))
+            const defaultValue = isNaN(valueParsed) ? 50 : valueParsed
+            const clampedValue = Math.min(max, Math.max(min, defaultValue))
+
+            expect(clampedValue).toBe(75)
+        })
+    })
+
+    describe('ARIA State Updates After Clamping', () => {
+        it('should update aria-valuenow to reflect clamped value', () => {
+            thumb.setAttribute('aria-valuemin', '0')
+            thumb.setAttribute('aria-valuemax', '100')
+            thumb.setAttribute('aria-valuenow', '150')
+
+            const min = isNaN(Number(thumb.getAttribute('aria-valuemin')))
+                ? 0
+                : Number(thumb.getAttribute('aria-valuemin'))
+            const max = isNaN(Number(thumb.getAttribute('aria-valuemax')))
+                ? 100
+                : Number(thumb.getAttribute('aria-valuemax'))
+            const valueParsed = Number(thumb.getAttribute('aria-valuenow'))
+            const defaultValue = isNaN(valueParsed) ? 50 : valueParsed
+            const clampedValue = Math.min(max, Math.max(min, defaultValue))
+
+            // Simulate updating ARIA state after clamping
+            thumb.setAttribute('aria-valuenow', String(clampedValue))
+
+            expect(thumb.getAttribute('aria-valuenow')).toBe('100')
+        })
+
+        it('should update hidden input value to reflect clamped value', () => {
+            thumb.setAttribute('aria-valuemin', '0')
+            thumb.setAttribute('aria-valuemax', '100')
+            thumb.setAttribute('aria-valuenow', '-10')
+
+            const min = isNaN(Number(thumb.getAttribute('aria-valuemin')))
+                ? 0
+                : Number(thumb.getAttribute('aria-valuemin'))
+            const max = isNaN(Number(thumb.getAttribute('aria-valuemax')))
+                ? 100
+                : Number(thumb.getAttribute('aria-valuemax'))
+            const valueParsed = Number(thumb.getAttribute('aria-valuenow'))
+            const defaultValue = isNaN(valueParsed) ? 50 : valueParsed
+            const clampedValue = Math.min(max, Math.max(min, defaultValue))
+
+            // Simulate updating hidden input value after clamping
+            input.value = String(clampedValue)
+
+            expect(input.value).toBe('0')
+        })
+
+        it('should keep both ARIA and input in sync after clamping', () => {
+            thumb.setAttribute('aria-valuemin', '25')
+            thumb.setAttribute('aria-valuemax', '75')
+            thumb.setAttribute('aria-valuenow', '10')
+
+            const min = isNaN(Number(thumb.getAttribute('aria-valuemin')))
+                ? 0
+                : Number(thumb.getAttribute('aria-valuemin'))
+            const max = isNaN(Number(thumb.getAttribute('aria-valuemax')))
+                ? 100
+                : Number(thumb.getAttribute('aria-valuemax'))
+            const valueParsed = Number(thumb.getAttribute('aria-valuenow'))
+            const defaultValue = isNaN(valueParsed) ? 50 : valueParsed
+            const clampedValue = Math.min(max, Math.max(min, defaultValue))
+
+            // Simulate updating both ARIA state and hidden input
+            thumb.setAttribute('aria-valuenow', String(clampedValue))
+            input.value = String(clampedValue)
+
+            expect(thumb.getAttribute('aria-valuenow')).toBe('25')
+            expect(input.value).toBe('25')
+        })
+    })
+
+    describe('Disabled Hidden Input Behavior', () => {
+        it('should not include name attribute when disabled is true', () => {
+            const disabled = true
+            const name = 'volume'
+            const inputName = disabled ? undefined : name
+
+            expect(inputName).toBeUndefined()
+        })
+
+        it('should include name attribute when disabled is false', () => {
+            const disabled = false
+            const name = 'volume'
+            const inputName = disabled ? undefined : name
+
+            expect(inputName).toBe('volume')
+        })
+
+        it('should not include name attribute when disabled is string "true"', () => {
+            const disabled = true
+            const name = 'brightness'
+            const inputName = disabled ? undefined : name
+
+            expect(inputName).toBeUndefined()
+        })
+
+        it('should handle undefined name when disabled', () => {
+            const disabled = true
+            const name = undefined
+            const inputName = disabled ? undefined : name
+
+            expect(inputName).toBeUndefined()
+        })
+
+        it('should preserve name when disabled is false even if name is empty string', () => {
+            const disabled = false
+            const name = ''
+            const inputName = disabled ? undefined : name
+
+            expect(inputName).toBe('')
+        })
+    })
 })

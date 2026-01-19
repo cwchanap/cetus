@@ -116,7 +116,12 @@ const thumbClasses = cn(
     </div>
   </div>
 
-  <input type="hidden" name={name} value={value} data-slider-input />
+  <input
+    type="hidden"
+    name={disabled ? undefined : name}
+    value={value}
+    data-slider-input
+  />
 </div>
 
 <script>
@@ -163,10 +168,16 @@ const thumbClasses = cn(
       const maxParsed = Number(this.thumb.getAttribute('aria-valuemax'))
       this.max = isNaN(maxParsed) ? 100 : maxParsed
       const valueParsed = Number(this.thumb.getAttribute('aria-valuenow'))
-      this.value = isNaN(valueParsed) ? 50 : valueParsed
+      const defaultValue = isNaN(valueParsed) ? 50 : valueParsed
+      // Clamp value into the [min, max] range
+      this.value = Math.min(this.max, Math.max(this.min, defaultValue))
       this.disabled = this.thumb.getAttribute('aria-disabled') === 'true'
       const stepParsed = Number(this.thumb.getAttribute('data-step'))
       this.step = isNaN(stepParsed) ? 1 : stepParsed
+
+      // Update ARIA state and hidden input to reflect the clamped value
+      this.thumb.setAttribute('aria-valuenow', String(this.value))
+      this.input.value = String(this.value)
 
       // Extract unit from display if present
       this.unit = ''
