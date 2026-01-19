@@ -197,10 +197,12 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
               size="lg"
               class="w-full justify-center"
               id="delete-account-btn"
+              disabled
+              title="Account deletion not yet available - Please contact support"
             >
               <span class="flex items-center gap-2">
                 <span>⚠️</span>
-                Delete Account
+                Delete Account (Unavailable)
               </span>
             </Button>
           </div>
@@ -247,9 +249,6 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
 
     // Set up event listeners for server-side preferences
     setupServerPreferenceListeners()
-
-    // Set up account deletion handler
-    setupAccountDeletion()
   })
 
   function initializeSoundSettings(prefs: ClientPreferences) {
@@ -434,35 +433,6 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
           })
         }
       })
-    })
-  }
-
-  function setupAccountDeletion() {
-    const deleteBtn = document.getElementById('delete-account-btn')
-    if (!deleteBtn) {
-      return
-    }
-
-    deleteBtn.addEventListener('click', async () => {
-      const confirmed = confirm(
-        'Are you sure you want to delete your account?\n\nThis action cannot be undone. All your data, scores, and achievements will be permanently deleted.'
-      )
-
-      if (!confirmed) {
-        return
-      }
-
-      const doubleConfirm = confirm(
-        'This is your final warning.\n\nType "DELETE" mentally and click OK if you are absolutely sure.'
-      )
-
-      if (!doubleConfirm) {
-        return
-      }
-
-      alert(
-        'Account deletion is not yet implemented.\n\nPlease contact support to delete your account.'
-      )
     })
   }
 
