@@ -157,11 +157,16 @@ const thumbClasses = cn(
         throw new Error('Slider element missing: [data-slider-input]')
       }
 
-      this.min = Number(this.thumb.getAttribute('aria-valuemin')) || 0
-      this.max = Number(this.thumb.getAttribute('aria-valuemax')) || 100
-      this.value = Number(this.thumb.getAttribute('aria-valuenow')) || 50
+      // Parse numeric attributes with proper NaN checks to preserve 0 values
+      const minParsed = Number(this.thumb.getAttribute('aria-valuemin'))
+      this.min = isNaN(minParsed) ? 0 : minParsed
+      const maxParsed = Number(this.thumb.getAttribute('aria-valuemax'))
+      this.max = isNaN(maxParsed) ? 100 : maxParsed
+      const valueParsed = Number(this.thumb.getAttribute('aria-valuenow'))
+      this.value = isNaN(valueParsed) ? 50 : valueParsed
       this.disabled = this.thumb.getAttribute('aria-disabled') === 'true'
-      this.step = Number(this.thumb.getAttribute('data-step')) || 1
+      const stepParsed = Number(this.thumb.getAttribute('data-step'))
+      this.step = isNaN(stepParsed) ? 1 : stepParsed
 
       // Extract unit from display if present
       this.unit = ''
@@ -311,7 +316,9 @@ const thumbClasses = cn(
         return
       }
 
-      const steppedValue = Math.round(rawValue / this.step) * this.step
+      // Round relative to min to preserve step alignment when min !== 0
+      const offset = rawValue - this.min
+      const steppedValue = Math.round(offset / this.step) * this.step + this.min
       this.setValue(Math.max(this.min, Math.min(this.max, steppedValue)))
     }
 
