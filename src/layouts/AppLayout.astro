@@ -21,7 +21,7 @@ const {
 } = Astro.props
 ---
 
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
@@ -29,6 +29,32 @@ const {
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <!-- Theme initialization (prevent Flash of Incorrect Theme) -->
+    <script is:inline>
+      ;(function () {
+        const STORAGE_KEY = 'cetus_preferences'
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY)
+          if (stored) {
+            const prefs = JSON.parse(stored)
+            let theme = prefs?.display?.theme || 'dark'
+            // Handle 'auto' mode
+            if (theme === 'auto') {
+              theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+            }
+            if (theme === 'dark') {
+              document.documentElement.classList.add('dark')
+            }
+          } else {
+            document.documentElement.classList.add('dark') // default to dark
+          }
+        } catch (_e) {
+          document.documentElement.classList.add('dark') // fallback
+        }
+      })()
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -38,7 +64,7 @@ const {
   </head>
 
   <body
-    class="min-h-screen bg-sci-fi-dark text-white overflow-x-hidden scrollbar-sci-fi font-inter"
+    class="min-h-screen bg-sci-fi-dark text-foreground overflow-x-hidden scrollbar-sci-fi font-inter"
     {...props}
   >
     <!-- Animated background -->

@@ -74,20 +74,34 @@ export default {
           textShadow:
             '0 0 5px rgb(168 85 247), 0 0 10px rgb(168 85 247), 0 0 15px rgb(168 85 247)',
         },
-        // Sci-fi backgrounds
+        // Sci-fi backgrounds (theme-aware)
         '.bg-sci-fi-dark': {
           background:
             'linear-gradient(135deg, rgb(15 23 42), rgb(88 28 135), rgb(15 23 42))',
+        },
+        // Light mode sci-fi background
+        ':root:not(.dark) .bg-sci-fi-dark': {
+          background:
+            'linear-gradient(135deg, rgb(241 245 249), rgb(233 213 255), rgb(241 245 249))',
         },
         '.bg-glass': {
           background: 'rgba(255, 255, 255, 0.05)',
           backdropFilter: 'blur(4px)',
           border: '1px solid rgba(255, 255, 255, 0.1)',
         },
+        // Light mode glass backgrounds
+        ':root:not(.dark) .bg-glass': {
+          background: 'rgba(0, 0, 0, 0.03)',
+          border: '1px solid rgba(0, 0, 0, 0.08)',
+        },
         '.bg-glass-strong': {
           background: 'rgba(255, 255, 255, 0.1)',
           backdropFilter: 'blur(8px)',
           border: '1px solid rgba(255, 255, 255, 0.2)',
+        },
+        ':root:not(.dark) .bg-glass-strong': {
+          background: 'rgba(0, 0, 0, 0.05)',
+          border: '1px solid rgba(0, 0, 0, 0.1)',
         },
         // Sci-fi borders and glows
         '.border-neon': {
@@ -119,7 +133,7 @@ export default {
           boxShadow:
             '0 0 20px rgba(168, 85, 247, 0.3), 0 0 40px rgba(168, 85, 247, 0.2), 0 0 60px rgba(168, 85, 247, 0.1)',
         },
-        // Custom scrollbar
+        // Custom scrollbar (dark mode)
         '.scrollbar-sci-fi': {
           scrollbarWidth: 'thin',
           scrollbarColor: 'rgb(34 211 238) rgb(30 41 59)',
@@ -138,6 +152,17 @@ export default {
         '.scrollbar-sci-fi::-webkit-scrollbar-thumb:hover': {
           background:
             'linear-gradient(180deg, rgb(103 232 249), rgb(196 181 253))',
+        },
+        // Light mode scrollbar
+        ':root:not(.dark) .scrollbar-sci-fi': {
+          scrollbarColor: 'rgb(99 102 241) rgb(226 232 240)',
+        },
+        ':root:not(.dark) .scrollbar-sci-fi::-webkit-scrollbar-track': {
+          background: 'rgba(226, 232, 240, 0.8)',
+        },
+        ':root:not(.dark) .scrollbar-sci-fi::-webkit-scrollbar-thumb': {
+          background:
+            'linear-gradient(180deg, rgb(99 102 241), rgb(168 85 247))',
         },
       }
       addUtilities(newUtilities)

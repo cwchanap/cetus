@@ -131,6 +131,16 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
               data-pref-type="display"
               data-pref-key="reducedMotion"
             />
+
+            <Toggle
+              id="dark-mode"
+              name="darkMode"
+              label="Dark Mode"
+              description="Toggle between light and dark themes"
+              checked={true}
+              data-pref-type="display"
+              data-pref-key="theme"
+            />
           </div>
         </Card>
 
@@ -192,6 +202,126 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
               </Button>
             </a>
 
+            <!-- Password Change Section -->
+            <div class="border-t border-gray-700/50 pt-4">
+              <Button
+                variant="outline"
+                size="lg"
+                class="w-full justify-center"
+                id="change-password-btn"
+              >
+                <span class="flex items-center gap-2">
+                  <span>🔑</span>
+                  Change Password
+                </span>
+              </Button>
+
+              <!-- Password Change Form (hidden by default) -->
+              <div id="password-change-form" class="hidden mt-4 space-y-4">
+                <div>
+                  <label
+                    for="current-password"
+                    class="block text-sm font-medium text-gray-300 mb-1"
+                  >
+                    Current Password
+                  </label>
+                  <div class="relative">
+                    <input
+                      type="password"
+                      id="current-password"
+                      class="w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/50 pr-12"
+                      placeholder="Enter current password"
+                      autocomplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                      data-toggle-password="current-password"
+                      aria-label="Toggle password visibility"
+                    >
+                      👁️
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    for="new-password"
+                    class="block text-sm font-medium text-gray-300 mb-1"
+                  >
+                    New Password
+                  </label>
+                  <div class="relative">
+                    <input
+                      type="password"
+                      id="new-password"
+                      class="w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/50 pr-12"
+                      placeholder="Enter new password (min 8 characters)"
+                      autocomplete="new-password"
+                      minlength="8"
+                    />
+                    <button
+                      type="button"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                      data-toggle-password="new-password"
+                      aria-label="Toggle password visibility"
+                    >
+                      👁️
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    for="confirm-password"
+                    class="block text-sm font-medium text-gray-300 mb-1"
+                  >
+                    Confirm New Password
+                  </label>
+                  <div class="relative">
+                    <input
+                      type="password"
+                      id="confirm-password"
+                      class="w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/50 pr-12"
+                      placeholder="Confirm new password"
+                      autocomplete="new-password"
+                      minlength="8"
+                    />
+                    <button
+                      type="button"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                      data-toggle-password="confirm-password"
+                      aria-label="Toggle password visibility"
+                    >
+                      👁️
+                    </button>
+                  </div>
+                </div>
+
+                <div id="password-error" class="hidden text-red-400 text-sm">
+                </div>
+
+                <div class="flex gap-3">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    class="flex-1 justify-center"
+                    id="save-password-btn"
+                  >
+                    Save Password
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    class="justify-center"
+                    id="cancel-password-btn"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             <Button
               variant="destructive"
               size="lg"
@@ -238,6 +368,7 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
     updateSoundPreference,
     type ClientPreferences,
   } from '@/lib/preferences'
+  import { authClient } from '@/lib/auth-client'
 
   // Initialize on DOM ready
   document.addEventListener('DOMContentLoaded', () => {
@@ -254,6 +385,9 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
 
     // Set up event listeners for server-side preferences
     setupServerPreferenceListeners()
+
+    // Set up password change listeners
+    setupPasswordChangeListeners()
   })
 
   function initializeSoundSettings(prefs: ClientPreferences) {
@@ -286,7 +420,7 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
       document.documentElement.classList.remove('reduce-motion')
     }
 
-    // Update toggle to match stored preference
+    // Update reduced motion toggle to match stored preference
     const motionToggleContainer = document
       .getElementById('reduced-motion')
       ?.closest('[data-toggle]') as HTMLElement & {
@@ -298,6 +432,34 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
         prefs.display.reducedMotion
       )
     }
+
+    // Apply theme from stored preferences
+    const resolvedTheme = resolveTheme(prefs.display.theme)
+    document.documentElement.classList.remove('dark', 'light')
+    if (resolvedTheme === 'dark') {
+      document.documentElement.classList.add('dark')
+    }
+
+    // Update dark mode toggle to match stored preference (true = dark mode)
+    const themeToggleContainer = document
+      .getElementById('dark-mode')
+      ?.closest('[data-toggle]') as HTMLElement & {
+      toggleComponent?: { setChecked: (v: boolean) => void }
+    }
+    if (themeToggleContainer?.toggleComponent) {
+      themeToggleContainer.toggleComponent.setChecked(
+        prefs.display.theme === 'dark' || prefs.display.theme === 'auto'
+      )
+    }
+  }
+
+  function resolveTheme(theme: 'dark' | 'light' | 'auto'): 'dark' | 'light' {
+    if (theme === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+    }
+    return theme
   }
 
   function setSliderValue(id: string, value: number) {
@@ -371,6 +533,30 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
           document.documentElement.classList.add('reduce-motion')
         } else {
           document.documentElement.classList.remove('reduce-motion')
+        }
+
+        showSaveStatus()
+      })
+    }
+
+    // Dark mode toggle
+    const themeToggleContainer = document
+      .getElementById('dark-mode')
+      ?.closest('[data-toggle]')
+    if (themeToggleContainer) {
+      themeToggleContainer.addEventListener('toggle-change', (e: Event) => {
+        const detail = (e as CustomEvent).detail
+        const newTheme = detail.checked ? 'dark' : 'light'
+
+        // Update preferences
+        const prefs = getClientPreferences()
+        prefs.display.theme = newTheme
+        saveClientPreferences(prefs)
+
+        // Apply theme immediately
+        document.documentElement.classList.remove('dark', 'light')
+        if (newTheme === 'dark') {
+          document.documentElement.classList.add('dark')
         }
 
         showSaveStatus()
@@ -498,6 +684,166 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
       status.style.opacity = '0'
       status.setAttribute('aria-hidden', 'true')
     }, 2000)
+  }
+
+  function setupPasswordChangeListeners() {
+    const changePasswordBtn = document.getElementById('change-password-btn')
+    const passwordForm = document.getElementById('password-change-form')
+    const cancelPasswordBtn = document.getElementById('cancel-password-btn')
+    const savePasswordBtn = document.getElementById('save-password-btn')
+    const currentPasswordInput = document.getElementById(
+      'current-password'
+    ) as HTMLInputElement
+    const newPasswordInput = document.getElementById(
+      'new-password'
+    ) as HTMLInputElement
+    const confirmPasswordInput = document.getElementById(
+      'confirm-password'
+    ) as HTMLInputElement
+    const passwordError = document.getElementById('password-error')
+
+    // Toggle password visibility buttons
+    document.querySelectorAll('[data-toggle-password]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-toggle-password')
+        if (!targetId) {
+          return
+        }
+        const input = document.getElementById(targetId) as HTMLInputElement
+        if (input) {
+          const isPassword = input.type === 'password'
+          input.type = isPassword ? 'text' : 'password'
+          btn.textContent = isPassword ? '🙈' : '👁️'
+        }
+      })
+    })
+
+    // Show password form
+    changePasswordBtn?.addEventListener('click', () => {
+      passwordForm?.classList.remove('hidden')
+      changePasswordBtn.classList.add('hidden')
+      currentPasswordInput?.focus()
+    })
+
+    // Cancel password change
+    cancelPasswordBtn?.addEventListener('click', () => {
+      hidePasswordForm()
+    })
+
+    // Save password
+    savePasswordBtn?.addEventListener('click', async () => {
+      // Clear previous errors
+      if (passwordError) {
+        passwordError.classList.add('hidden')
+        passwordError.textContent = ''
+      }
+
+      const currentPassword = currentPasswordInput?.value || ''
+      const newPassword = newPasswordInput?.value || ''
+      const confirmPassword = confirmPasswordInput?.value || ''
+
+      // Validation
+      if (!currentPassword) {
+        showPasswordError('Please enter your current password')
+        return
+      }
+
+      if (!newPassword) {
+        showPasswordError('Please enter a new password')
+        return
+      }
+
+      if (newPassword.length < 8) {
+        showPasswordError('New password must be at least 8 characters')
+        return
+      }
+
+      if (newPassword !== confirmPassword) {
+        showPasswordError('New passwords do not match')
+        return
+      }
+
+      // Disable button and show loading
+      if (savePasswordBtn) {
+        savePasswordBtn.setAttribute('disabled', 'true')
+        savePasswordBtn.textContent = '⏳ Saving...'
+      }
+
+      try {
+        const { error } = await authClient.changePassword({
+          currentPassword,
+          newPassword,
+          revokeOtherSessions: false,
+        })
+
+        if (error) {
+          // Handle specific error messages
+          const errorMessage =
+            error.message || 'Failed to change password. Please try again.'
+          if (
+            errorMessage.toLowerCase().includes('incorrect') ||
+            errorMessage.toLowerCase().includes('invalid') ||
+            errorMessage.toLowerCase().includes('wrong')
+          ) {
+            showPasswordError('Current password is incorrect')
+          } else {
+            showPasswordError(errorMessage)
+          }
+          return
+        }
+
+        // Success
+        showSaveStatus('Password changed successfully!', 'success')
+        hidePasswordForm()
+      } catch (err) {
+        console.error('Password change error:', err)
+        showPasswordError('Network error. Please try again.')
+      } finally {
+        // Re-enable button
+        if (savePasswordBtn) {
+          savePasswordBtn.removeAttribute('disabled')
+          savePasswordBtn.textContent = 'Save Password'
+        }
+      }
+    })
+
+    function showPasswordError(message: string) {
+      if (passwordError) {
+        passwordError.textContent = message
+        passwordError.classList.remove('hidden')
+      }
+    }
+
+    function hidePasswordForm() {
+      passwordForm?.classList.add('hidden')
+      changePasswordBtn?.classList.remove('hidden')
+      // Clear inputs
+      if (currentPasswordInput) {
+        currentPasswordInput.value = ''
+      }
+      if (newPasswordInput) {
+        newPasswordInput.value = ''
+      }
+      if (confirmPasswordInput) {
+        confirmPasswordInput.value = ''
+      }
+      // Clear error
+      if (passwordError) {
+        passwordError.classList.add('hidden')
+        passwordError.textContent = ''
+      }
+      // Reset password visibility
+      document.querySelectorAll('[data-toggle-password]').forEach(btn => {
+        const targetId = btn.getAttribute('data-toggle-password')
+        if (targetId) {
+          const input = document.getElementById(targetId) as HTMLInputElement
+          if (input) {
+            input.type = 'password'
+          }
+          btn.textContent = '👁️'
+        }
+      })
+    }
   }
 </script>
 

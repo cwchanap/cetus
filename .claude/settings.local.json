@@ -24,7 +24,8 @@
       "mcp__chrome-devtools__take_screenshot",
       "Bash(git add:*)",
       "Bash(bun run build:*)",
-      "Bash(bun run test:run:*)"
+      "Bash(bun run test:run:*)",
+      "Bash(bun run lint:*)"
     ],
     "deny": []
   }
