@@ -447,9 +447,7 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
       toggleComponent?: { setChecked: (v: boolean) => void }
     }
     if (themeToggleContainer?.toggleComponent) {
-      themeToggleContainer.toggleComponent.setChecked(
-        prefs.display.theme === 'dark' || prefs.display.theme === 'auto'
-      )
+      themeToggleContainer.toggleComponent.setChecked(resolvedTheme === 'dark')
     }
   }
 
