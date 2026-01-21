@@ -164,6 +164,10 @@ export default {
           background:
             'linear-gradient(180deg, rgb(99 102 241), rgb(168 85 247))',
         },
+        ':root:not(.dark) .scrollbar-sci-fi::-webkit-scrollbar-thumb:hover': {
+          background:
+            'linear-gradient(180deg, rgb(129 140 248), rgb(192 132 252))',
+        },
       }
       addUtilities(newUtilities)
     },
