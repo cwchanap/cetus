@@ -8,19 +8,19 @@ const settingsMarkup = readFileSync(settingsPath, 'utf-8')
 describe('Settings password inputs', () => {
     it('uses theme-aware tokens for current password input', () => {
         expect(settingsMarkup).toMatch(
-            /id="current-password"[\s\S]*class="[^"]*bg-background[^"]*text-foreground[^"]*"/
+            /id="current-password"[^>]*class="[^"]*bg-background[^"]*text-foreground[^"]*"/
         )
     })
 
     it('uses theme-aware tokens for new password input', () => {
         expect(settingsMarkup).toMatch(
-            /id="new-password"[\s\S]*class="[^"]*bg-background[^"]*text-foreground[^"]*"/
+            /id="new-password"[^>]*class="[^"]*bg-background[^"]*text-foreground[^"]*"/
         )
     })
 
     it('uses theme-aware tokens for confirm password input', () => {
         expect(settingsMarkup).toMatch(
-            /id="confirm-password"[\s\S]*class="[^"]*bg-background[^"]*text-foreground[^"]*"/
+            /id="confirm-password"[^>]*class="[^"]*bg-background[^"]*text-foreground[^"]*"/
         )
     })
 
