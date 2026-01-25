@@ -64,7 +64,24 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationSettings = {
     challengeReminders: true,
 }
 
-const STORAGE_KEY = 'cetus_preferences'
+export const PREFERENCES_STORAGE_KEY = 'cetus_preferences'
+
+/**
+ * Resolve the effective theme, handling auto mode with system preference.
+ */
+export function resolveTheme(
+    theme: DisplaySettings['theme']
+): 'dark' | 'light' {
+    if (theme === 'auto') {
+        if (typeof window === 'undefined') {
+            return 'dark'
+        }
+        return window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+    }
+    return theme
+}
 
 /**
  * Get client preferences from localStorage
@@ -75,7 +92,7 @@ export function getClientPreferences(): ClientPreferences {
     }
 
     try {
-        const stored = localStorage.getItem(STORAGE_KEY)
+        const stored = localStorage.getItem(PREFERENCES_STORAGE_KEY)
         if (!stored) {
             return DEFAULT_CLIENT_PREFERENCES
         }
@@ -169,7 +186,10 @@ export function saveClientPreferences(preferences: ClientPreferences): void {
     }
 
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
+        localStorage.setItem(
+            PREFERENCES_STORAGE_KEY,
+            JSON.stringify(preferences)
+        )
 
         // Dispatch custom event for other components to react
         window.dispatchEvent(

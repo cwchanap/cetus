@@ -2,12 +2,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
     DEFAULT_CLIENT_PREFERENCES,
     DEFAULT_NOTIFICATION_PREFERENCES,
+    PREFERENCES_STORAGE_KEY,
     getClientPreferences,
     saveClientPreferences,
     updateSoundPreference,
     updateDisplayPreference,
     getEffectiveVolume,
     prefersReducedMotion,
+    resolveTheme,
     type ClientPreferences,
 } from './preferences'
 
@@ -106,7 +108,7 @@ describe('getClientPreferences', () => {
             },
         }
         localStorageMock.setItem(
-            'cetus_preferences',
+            PREFERENCES_STORAGE_KEY,
             JSON.stringify(customPrefs)
         )
 
@@ -121,7 +123,7 @@ describe('getClientPreferences', () => {
             sound: { masterVolume: 30 },
         }
         localStorageMock.setItem(
-            'cetus_preferences',
+            PREFERENCES_STORAGE_KEY,
             JSON.stringify(partialPrefs)
         )
 
@@ -137,7 +139,7 @@ describe('getClientPreferences', () => {
     })
 
     it('should return defaults on JSON parse error', () => {
-        localStorageMock.setItem('cetus_preferences', 'invalid json')
+        localStorageMock.setItem(PREFERENCES_STORAGE_KEY, 'invalid json')
 
         const prefs = getClientPreferences()
         expect(prefs).toEqual(DEFAULT_CLIENT_PREFERENCES)
@@ -167,7 +169,7 @@ describe('saveClientPreferences', () => {
         saveClientPreferences(prefs)
 
         expect(localStorageMock.setItem).toHaveBeenCalledWith(
-            'cetus_preferences',
+            PREFERENCES_STORAGE_KEY,
             JSON.stringify(prefs)
         )
     })
@@ -304,7 +306,7 @@ describe('prefersReducedMotion', () => {
             sound: DEFAULT_CLIENT_PREFERENCES.sound,
             display: { reducedMotion: true, theme: 'dark' },
         }
-        localStorageMock.setItem('cetus_preferences', JSON.stringify(prefs))
+        localStorageMock.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs))
 
         expect(prefersReducedMotion()).toBe(true)
     })
@@ -314,7 +316,7 @@ describe('prefersReducedMotion', () => {
             sound: DEFAULT_CLIENT_PREFERENCES.sound,
             display: { reducedMotion: false, theme: 'dark' },
         }
-        localStorageMock.setItem('cetus_preferences', JSON.stringify(prefs))
+        localStorageMock.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs))
 
         // Mock system prefers reduced motion
         windowMock.matchMedia.mockReturnValueOnce({ matches: true })
@@ -327,10 +329,34 @@ describe('prefersReducedMotion', () => {
             sound: DEFAULT_CLIENT_PREFERENCES.sound,
             display: { reducedMotion: false, theme: 'dark' },
         }
-        localStorageMock.setItem('cetus_preferences', JSON.stringify(prefs))
+        localStorageMock.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs))
 
         windowMock.matchMedia.mockReturnValueOnce({ matches: false })
 
         expect(prefersReducedMotion()).toBe(false)
+    })
+})
+
+describe('resolveTheme', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should return explicit dark theme without checking system', () => {
+        expect(resolveTheme('dark')).toBe('dark')
+        expect(windowMock.matchMedia).not.toHaveBeenCalled()
+    })
+
+    it('should return explicit light theme without checking system', () => {
+        expect(resolveTheme('light')).toBe('light')
+        expect(windowMock.matchMedia).not.toHaveBeenCalled()
+    })
+
+    it('should resolve auto theme based on system preference', () => {
+        windowMock.matchMedia.mockReturnValueOnce({ matches: true })
+        expect(resolveTheme('auto')).toBe('dark')
+
+        windowMock.matchMedia.mockReturnValueOnce({ matches: false })
+        expect(resolveTheme('auto')).toBe('light')
     })
 })
