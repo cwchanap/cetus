@@ -26,7 +26,7 @@ describe('Settings password inputs', () => {
 
     it('uses destructive color for password errors', () => {
         expect(settingsMarkup).toMatch(
-            /id="password-error"[\s\S]*class="[^"]*text-destructive[^"]*"/
+            /id="password-error"[^>]*class="[^"]*text-destructive[^"]*"/
         )
     })
 })
