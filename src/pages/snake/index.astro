@@ -193,62 +193,24 @@ const gameNavigation = [
 
     <!-- Snake Game Logic -->
     <script>
-      import {
-        initSnakeGame,
-        type SnakeGameInstance,
-      } from '@/lib/games/snake/init'
+      import { initSnakeGameFramework } from '@/lib/games/snake/initFramework'
 
       // Initialize game when page loads
       document.addEventListener('DOMContentLoaded', async () => {
         try {
-          const gameInstance: SnakeGameInstance | undefined =
-            await initSnakeGame()
+          const gameResult = await initSnakeGameFramework()
 
-          // Add end game button functionality
-          const startBtn = document.getElementById('start-btn')
-          const endBtn = document.getElementById('end-btn')
-
-          // Show end button when game starts
-          if (startBtn && endBtn) {
-            startBtn.addEventListener('click', () => {
-              startBtn.style.display = 'none'
-              endBtn.style.display = 'inline-flex'
-            })
-
-            // End game button click handler
-            endBtn.addEventListener('click', () => {
-              if (gameInstance && gameInstance.endGame) {
-                gameInstance.endGame()
-              }
-            })
+          if (!gameResult) {
+            // eslint-disable-next-line no-console
+            console.error(
+              'Failed to initialize Snake game: container not found'
+            )
+            return
           }
 
-          // Handle restart button
-          document
-            .getElementById('restart-btn')
-            ?.addEventListener('click', () => {
-              const gameOverOverlay =
-                document.getElementById('game-over-overlay')
-              if (gameOverOverlay) {
-                gameOverOverlay.classList.add('hidden')
-              }
-
-              // Reset buttons
-              const startBtn = document.getElementById('start-btn')
-              const endBtn = document.getElementById('end-btn')
-              if (startBtn) {
-                startBtn.style.display = 'inline-flex'
-                ;(startBtn as HTMLButtonElement).disabled = false
-                startBtn.textContent = 'Start'
-              }
-              if (endBtn) {
-                endBtn.style.display = 'none'
-              }
-
-              if (gameInstance && gameInstance.restart) {
-                gameInstance.restart()
-              }
-            })
+          // Expose for debugging
+          ;(window as Window & { snakeGame?: typeof gameResult }).snakeGame =
+            gameResult
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('Failed to initialize Snake game:', error)

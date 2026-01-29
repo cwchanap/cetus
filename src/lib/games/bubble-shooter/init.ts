@@ -175,6 +175,26 @@ export async function initBubbleShooterGame(callbacks?: {
             ),
         getState: () => enhancedState,
         endGame: () => endGame(enhancedState),
+        cleanup: () => {
+            // Stop game loop by setting flags
+            enhancedState.gameStarted = false
+            enhancedState.gameOver = true
+
+            // Remove canvas event listeners
+            if (renderer.app && renderer.app.canvas) {
+                renderer.app.canvas.removeEventListener('mousemove', e =>
+                    handleMouseMove(e, enhancedState, renderer)
+                )
+                renderer.app.canvas.removeEventListener('click', e =>
+                    handleClick(e, enhancedState, updateCurrentBubbleDisplayFn)
+                )
+            }
+
+            // Destroy PixiJS renderer
+            if (renderer.app) {
+                renderer.app.destroy(true, { children: true, texture: true })
+            }
+        },
     }
 }
 

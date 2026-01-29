@@ -6,6 +6,22 @@ export { GameTimer } from './GameTimer'
 export { ScoreManager } from './ScoreManager'
 export { GameInitializer } from './GameInitializer'
 
+// Error handling exports
+export {
+    GameError,
+    GameInitializationError,
+    RenderError,
+    DOMElementNotFoundError,
+    InvalidGameStateError,
+    InvalidConfigError,
+    GameTimeoutError,
+    GameErrorCodes,
+    isGameError,
+    wrapError,
+    handleGameError,
+} from './errors'
+export type { GameErrorCode } from './errors'
+
 // Renderer exports
 export {
     RendererFactory,

@@ -1,4 +1,10 @@
 // Types for Snake game
+import type {
+    BaseGameState,
+    BaseGameConfig,
+    BaseGameStats,
+} from '@/lib/games/core/types'
+
 export interface Position {
     x: number
     y: number
@@ -15,6 +21,41 @@ export interface Food extends Position {
     spawnTime: number
 }
 
+// Extended state for Snake game (extends BaseGameState)
+export interface SnakeState extends BaseGameState {
+    snake: SnakeSegment[]
+    food: Food | null
+    direction: Direction
+    nextDirection: Direction
+    lastFoodSpawnTime: number
+    lastMoveTime: number
+    foodsEaten: number
+    maxLength: number
+    needsRedraw: boolean
+}
+
+// Extended config for Snake game (extends BaseGameConfig)
+export interface SnakeConfig extends BaseGameConfig {
+    gridWidth: number
+    gridHeight: number
+    cellSize: number
+    gameWidth: number
+    gameHeight: number
+    moveInterval: number // milliseconds between moves
+    foodSpawnInterval: number // milliseconds
+    snakeColor: number
+    foodColor: number
+    gridColor: number
+    backgroundColor: number
+}
+
+// Extended stats for Snake game (extends BaseGameStats)
+export interface SnakeStats extends BaseGameStats {
+    foodsEaten: number
+    maxLength: number
+}
+
+// Legacy types for backwards compatibility during migration
 export interface GameState {
     snake: SnakeSegment[]
     food: Food | null
