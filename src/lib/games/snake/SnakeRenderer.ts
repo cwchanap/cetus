@@ -1,0 +1,195 @@
+// Snake renderer using PixiJS and BaseRenderer framework
+import * as PIXI from 'pixi.js'
+import {
+    PixiJSRenderer,
+    type PixiJSRendererConfig,
+} from '@/lib/games/renderers/PixiJSRenderer'
+import type { SnakeState, SnakeConfig, SnakeSegment, Food } from './types'
+
+export interface SnakeRendererConfig extends PixiJSRendererConfig {
+    gridWidth: number
+    gridHeight: number
+    cellSize: number
+    snakeColor: number
+    foodColor: number
+    gridColor: number
+}
+
+export class SnakeRenderer extends PixiJSRenderer {
+    private snakeConfig: SnakeRendererConfig
+    private gridContainer: PIXI.Container | null = null
+    private gameObjectContainer: PIXI.Container | null = null
+    private graphics: PIXI.Graphics[] = []
+
+    constructor(config: SnakeRendererConfig) {
+        super(config)
+        this.snakeConfig = config
+    }
+
+    async setup(): Promise<void> {
+        await super.setup()
+
+        const app = this.getApp()
+        if (!app) {
+            return
+        }
+
+        // Create containers for organized rendering
+        this.gridContainer = this.createContainer()
+        this.gameObjectContainer = this.createContainer()
+
+        app.stage.addChild(this.gridContainer)
+        app.stage.addChild(this.gameObjectContainer)
+
+        // Draw the static grid
+        this.drawGrid()
+    }
+
+    protected renderGame(state: unknown): void {
+        const snakeState = state as SnakeState
+        if (!snakeState.needsRedraw) {
+            return
+        }
+
+        this.clearGameObjects()
+
+        // Draw snake
+        snakeState.snake.forEach((segment, index) => {
+            this.drawSnakeSegment(segment, index === 0)
+        })
+
+        // Draw food
+        if (snakeState.food) {
+            this.drawFood(snakeState.food)
+        }
+    }
+
+    private drawGrid(): void {
+        if (!this.gridContainer) {
+            return
+        }
+
+        const gridGraphic = this.createGraphics()
+        gridGraphic.alpha = 0.15
+
+        const { gridWidth, gridHeight, cellSize, gridColor } = this.snakeConfig
+        const gameWidth = gridWidth * cellSize
+        const gameHeight = gridHeight * cellSize
+
+        // Vertical lines
+        for (let x = 0; x <= gridWidth; x++) {
+            gridGraphic.moveTo(x * cellSize, 0)
+            gridGraphic.lineTo(x * cellSize, gameHeight)
+        }
+
+        // Horizontal lines
+        for (let y = 0; y <= gridHeight; y++) {
+            gridGraphic.moveTo(0, y * cellSize)
+            gridGraphic.lineTo(gameWidth, y * cellSize)
+        }
+
+        gridGraphic.stroke({ width: 1, color: gridColor })
+        this.gridContainer.addChild(gridGraphic)
+    }
+
+    private drawSnakeSegment(segment: SnakeSegment, isHead: boolean): void {
+        if (!this.gameObjectContainer) {
+            return
+        }
+
+        const graphic = this.createGraphics()
+        const { cellSize, snakeColor } = this.snakeConfig
+        const x = segment.x * cellSize
+        const y = segment.y * cellSize
+        const padding = 2
+
+        // Draw rounded rectangle for segment
+        graphic.roundRect(
+            x + padding,
+            y + padding,
+            cellSize - padding * 2,
+            cellSize - padding * 2,
+            4
+        )
+        graphic.fill(snakeColor)
+
+        // Add glow effect for head
+        if (isHead) {
+            graphic.roundRect(
+                x + padding,
+                y + padding,
+                cellSize - padding * 2,
+                cellSize - padding * 2,
+                4
+            )
+            graphic.stroke({ width: 2, color: 0xffffff, alpha: 0.8 })
+        }
+
+        this.gameObjectContainer.addChild(graphic)
+        this.graphics.push(graphic)
+    }
+
+    private drawFood(food: Food): void {
+        if (!this.gameObjectContainer) {
+            return
+        }
+
+        const graphic = this.createGraphics()
+        const { cellSize, foodColor } = this.snakeConfig
+        const x = food.x * cellSize + cellSize / 2
+        const y = food.y * cellSize + cellSize / 2
+        const radius = cellSize / 2 - 3
+
+        // Draw circle for food
+        graphic.circle(x, y, radius)
+        graphic.fill(foodColor)
+
+        // Add pulse effect
+        graphic.circle(x, y, radius)
+        graphic.stroke({ width: 2, color: 0xffffff, alpha: 0.5 })
+
+        this.gameObjectContainer.addChild(graphic)
+        this.graphics.push(graphic)
+    }
+
+    private clearGameObjects(): void {
+        if (this.gameObjectContainer) {
+            this.gameObjectContainer.removeChildren()
+        }
+
+        // Destroy graphics objects
+        this.graphics.forEach(graphic => graphic.destroy())
+        this.graphics = []
+    }
+
+    cleanup(): void {
+        this.clearGameObjects()
+        if (this.gridContainer) {
+            this.gridContainer.removeChildren()
+            this.gridContainer = null
+        }
+        this.gameObjectContainer = null
+        super.cleanup()
+    }
+}
+
+export function createSnakeRendererConfig(
+    gameConfig: SnakeConfig,
+    container: string
+): SnakeRendererConfig {
+    return {
+        type: 'canvas',
+        container,
+        width: gameConfig.gameWidth,
+        height: gameConfig.gameHeight,
+        responsive: false,
+        backgroundColor: gameConfig.backgroundColor,
+        antialias: true,
+        gridWidth: gameConfig.gridWidth,
+        gridHeight: gameConfig.gridHeight,
+        cellSize: gameConfig.cellSize,
+        snakeColor: gameConfig.snakeColor,
+        foodColor: gameConfig.foodColor,
+        gridColor: gameConfig.gridColor,
+    }
+}

@@ -226,5 +226,15 @@ export async function initTetrisGame(): Promise<
         restart: () => resetGame(enhancedState, updateNextPieceDisplayFn),
         getState: () => enhancedState,
         endGame: () => endGame(enhancedState),
+        cleanup: () => {
+            // Stop game loop by setting flags
+            enhancedState.gameStarted = false
+            enhancedState.gameOver = true
+
+            // Destroy PixiJS renderer
+            if (renderer.app) {
+                renderer.app.destroy(true, { children: true, texture: true })
+            }
+        },
     }
 }
