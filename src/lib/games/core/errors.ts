@@ -152,6 +152,7 @@ export const GameErrorCodes = {
     INVALID_GAME_STATE: 'INVALID_GAME_STATE',
     INVALID_CONFIG: 'INVALID_CONFIG',
     GAME_TIMEOUT: 'GAME_TIMEOUT',
+    UNKNOWN_ERROR: 'UNKNOWN_ERROR',
 } as const
 
 export type GameErrorCode = (typeof GameErrorCodes)[keyof typeof GameErrorCodes]

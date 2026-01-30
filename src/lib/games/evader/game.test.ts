@@ -38,6 +38,7 @@ describe('EvaderGame', () => {
 
     afterEach(() => {
         game.cleanup()
+        vi.unstubAllGlobals()
         vi.useRealTimers()
     })
 
@@ -167,7 +168,7 @@ describe('EvaderGame', () => {
             game.pressKey('ArrowUp')
             game.releaseKey('ArrowUp')
 
-            // No assertion needed - just verify no errors
+            expect(game.getState().isGameActive).toBe(true)
         })
 
         it('should move player with arrow keys', () => {
@@ -230,8 +231,7 @@ describe('EvaderGame', () => {
             game.cleanup()
             vi.advanceTimersByTime(5000)
 
-            // Time won't be updated after cleanup
-            // The game is effectively stopped
+            expect(game.getState().timeRemaining).toBe(timeAtCleanup)
         })
     })
 

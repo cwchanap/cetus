@@ -5,6 +5,8 @@
 -- Note: SQLite doesn't support IF NOT EXISTS for ADD COLUMN, so this will fail if column exists
 -- Run only on new databases or manually check before running
 
+PRAGMA foreign_keys = ON;
+
 -- User profile columns (requires manual check in production)
 -- ALTER TABLE "user" ADD COLUMN displayName TEXT;
 -- ALTER TABLE "user" ADD COLUMN username TEXT;

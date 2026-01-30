@@ -101,6 +101,7 @@ describe('GameTimeoutError', () => {
         expect(error.message).toBe('Operation timed out: loading assets')
         expect(error.code).toBe('GAME_TIMEOUT')
         expect(error.context?.operation).toBe('loading assets')
+        expect(error.recoverable).toBe(true)
     })
 })
 

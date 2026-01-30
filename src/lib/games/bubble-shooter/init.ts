@@ -76,6 +76,21 @@ export async function initBubbleShooterGame(callbacks?: {
         }
     }
 
+    const canvasMouseMoveHandler = (event: MouseEvent) => {
+        handleMouseMove(event, enhancedState, renderer)
+    }
+    const canvasClickHandler = (event: MouseEvent) => {
+        handleClick(event, enhancedState, updateCurrentBubbleDisplayFn)
+    }
+    const keydownHandler = (event: KeyboardEvent) => {
+        if (event.key === 'p' || event.key === 'P') {
+            togglePause(enhancedState, gameLoopFn)
+        }
+    }
+
+    let drawFrameId: number | null = null
+    let drawRunning = true
+
     // Setup event listeners
     function setupEventListeners() {
         const startBtn = document.getElementById('start-btn')
@@ -134,20 +149,15 @@ export async function initBubbleShooterGame(callbacks?: {
 
         // Canvas event listeners
         if (renderer.app && renderer.app.canvas) {
-            renderer.app.canvas.addEventListener('mousemove', e =>
-                handleMouseMove(e, enhancedState, renderer)
+            renderer.app.canvas.addEventListener(
+                'mousemove',
+                canvasMouseMoveHandler
             )
-            renderer.app.canvas.addEventListener('click', e =>
-                handleClick(e, enhancedState, updateCurrentBubbleDisplayFn)
-            )
+            renderer.app.canvas.addEventListener('click', canvasClickHandler)
         }
 
         // Keyboard controls
-        document.addEventListener('keydown', e => {
-            if (e.key === 'p' || e.key === 'P') {
-                togglePause(enhancedState, gameLoopFn)
-            }
-        })
+        document.addEventListener('keydown', keydownHandler)
     }
 
     // Initialize everything
@@ -160,8 +170,11 @@ export async function initBubbleShooterGame(callbacks?: {
 
     // Start continuous draw loop for rendering
     function drawLoop() {
+        if (!drawRunning) {
+            return
+        }
         draw(renderer, enhancedState, GAME_CONSTANTS)
-        requestAnimationFrame(drawLoop)
+        drawFrameId = requestAnimationFrame(drawLoop)
     }
     drawLoop()
 
@@ -179,16 +192,24 @@ export async function initBubbleShooterGame(callbacks?: {
             // Stop game loop by setting flags
             enhancedState.gameStarted = false
             enhancedState.gameOver = true
+            drawRunning = false
+            if (drawFrameId !== null) {
+                cancelAnimationFrame(drawFrameId)
+                drawFrameId = null
+            }
 
             // Remove canvas event listeners
             if (renderer.app && renderer.app.canvas) {
-                renderer.app.canvas.removeEventListener('mousemove', e =>
-                    handleMouseMove(e, enhancedState, renderer)
+                renderer.app.canvas.removeEventListener(
+                    'mousemove',
+                    canvasMouseMoveHandler
                 )
-                renderer.app.canvas.removeEventListener('click', e =>
-                    handleClick(e, enhancedState, updateCurrentBubbleDisplayFn)
+                renderer.app.canvas.removeEventListener(
+                    'click',
+                    canvasClickHandler
                 )
             }
+            document.removeEventListener('keydown', keydownHandler)
 
             // Destroy PixiJS renderer
             if (renderer.app) {

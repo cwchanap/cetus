@@ -133,79 +133,83 @@ export async function initTetrisGame(): Promise<
         }
     }
 
+    const startHandler = () => startGame(enhancedState, gameLoopFn)
+    const pauseHandler = () => togglePause(enhancedState, gameLoopFn)
+    const resetHandler = () =>
+        resetGame(enhancedState, updateNextPieceDisplayFn)
+    const restartHandler = () =>
+        resetGame(enhancedState, updateNextPieceDisplayFn)
+    const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
+        if (
+            enhancedState.gameStarted &&
+            !enhancedState.gameOver &&
+            !enhancedState.paused
+        ) {
+            event.preventDefault()
+            return 'You have a game in progress. Are you sure you want to leave?'
+        }
+    }
+    const keydownHandler = (event: KeyboardEvent) => {
+        if (
+            !enhancedState.gameStarted ||
+            enhancedState.gameOver ||
+            enhancedState.paused
+        ) {
+            return
+        }
+
+        switch (event.key) {
+            case 'ArrowLeft':
+                event.preventDefault()
+                movePiece(enhancedState, -1, 0)
+                break
+            case 'ArrowRight':
+                event.preventDefault()
+                movePiece(enhancedState, 1, 0)
+                break
+            case 'ArrowDown':
+                event.preventDefault()
+                movePiece(enhancedState, 0, 1)
+                break
+            case 'ArrowUp':
+                event.preventDefault()
+                rotatePiece(enhancedState)
+                break
+            case ' ':
+                event.preventDefault()
+                hardDrop(enhancedState)
+                break
+            case 'p':
+            case 'P':
+                event.preventDefault()
+                togglePause(enhancedState, gameLoopFn)
+                break
+        }
+    }
+
+    let drawFrameId: number | null = null
+    let drawRunning = true
+
     // Setup event listeners
     function setupEventListeners() {
         document
             .getElementById('start-btn')
-            ?.addEventListener('click', () =>
-                startGame(enhancedState, gameLoopFn)
-            )
+            ?.addEventListener('click', startHandler)
         document
             .getElementById('pause-btn')
-            ?.addEventListener('click', () =>
-                togglePause(enhancedState, gameLoopFn)
-            )
+            ?.addEventListener('click', pauseHandler)
         document
             .getElementById('reset-btn')
-            ?.addEventListener('click', () =>
-                resetGame(enhancedState, updateNextPieceDisplayFn)
-            )
+            ?.addEventListener('click', resetHandler)
         document
             .getElementById('restart-btn')
-            ?.addEventListener('click', () =>
-                resetGame(enhancedState, updateNextPieceDisplayFn)
-            )
+            ?.addEventListener('click', restartHandler)
 
         // Page unload warning
-        window.addEventListener('beforeunload', e => {
-            if (
-                enhancedState.gameStarted &&
-                !enhancedState.gameOver &&
-                !enhancedState.paused
-            ) {
-                e.preventDefault()
-                return 'You have a game in progress. Are you sure you want to leave?'
-            }
-        })
+        window.addEventListener('beforeunload', beforeUnloadHandler)
 
         // Keyboard controls
-        document.addEventListener('keydown', e => {
-            if (
-                !enhancedState.gameStarted ||
-                enhancedState.gameOver ||
-                enhancedState.paused
-            ) {
-                return
-            }
-
-            switch (e.key) {
-                case 'ArrowLeft':
-                    e.preventDefault()
-                    movePiece(enhancedState, -1, 0)
-                    break
-                case 'ArrowRight':
-                    e.preventDefault()
-                    movePiece(enhancedState, 1, 0)
-                    break
-                case 'ArrowDown':
-                    e.preventDefault()
-                    movePiece(enhancedState, 0, 1)
-                    break
-                case 'ArrowUp':
-                    e.preventDefault()
-                    rotatePiece(enhancedState)
-                    break
-                case ' ':
-                    e.preventDefault()
-                    hardDrop(enhancedState)
-                    break
-                case 'p':
-                case 'P':
-                    e.preventDefault()
-                    togglePause(enhancedState, gameLoopFn)
-                    break
-            }
-        })
+        document.addEventListener('keydown', keydownHandler)
     }
 
     // Initialize everything
@@ -216,8 +220,11 @@ export async function initTetrisGame(): Promise<
 
     // Start continuous draw loop for rendering
     function drawLoop() {
+        if (!drawRunning) {
+            return
+        }
         draw(renderer, enhancedState, GAME_CONSTANTS)
-        requestAnimationFrame(drawLoop)
+        drawFrameId = requestAnimationFrame(drawLoop)
     }
     drawLoop()
 
@@ -230,6 +237,26 @@ export async function initTetrisGame(): Promise<
             // Stop game loop by setting flags
             enhancedState.gameStarted = false
             enhancedState.gameOver = true
+            drawRunning = false
+            if (drawFrameId !== null) {
+                cancelAnimationFrame(drawFrameId)
+                drawFrameId = null
+            }
+
+            document
+                .getElementById('start-btn')
+                ?.removeEventListener('click', startHandler)
+            document
+                .getElementById('pause-btn')
+                ?.removeEventListener('click', pauseHandler)
+            document
+                .getElementById('reset-btn')
+                ?.removeEventListener('click', resetHandler)
+            document
+                .getElementById('restart-btn')
+                ?.removeEventListener('click', restartHandler)
+            window.removeEventListener('beforeunload', beforeUnloadHandler)
+            document.removeEventListener('keydown', keydownHandler)
 
             // Destroy PixiJS renderer
             if (renderer.app) {
