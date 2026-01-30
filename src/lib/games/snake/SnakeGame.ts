@@ -42,7 +42,6 @@ export const DEFAULT_SNAKE_CONFIG: SnakeConfig = {
 }
 
 export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
-    private moveIntervalId: number | null = null
     private gameLoopId: number | null = null
 
     constructor(
@@ -63,10 +62,14 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
     }
 
     createInitialState(): SnakeState {
+        const headX = Math.max(0, Math.floor(this.config.gridWidth / 2))
+        const headY = Math.max(0, Math.floor(this.config.gridHeight / 2))
+        const segment1X = Math.max(0, headX - 1)
+        const segment2X = Math.max(0, headX - 2)
         const initialSnake: SnakeSegment[] = [
-            { x: 10, y: 10, id: generateId() },
-            { x: 9, y: 10, id: generateId() },
-            { x: 8, y: 10, id: generateId() },
+            { x: headX, y: headY, id: generateId() },
+            { x: segment1X, y: headY, id: generateId() },
+            { x: segment2X, y: headY, id: generateId() },
         ]
 
         return {
@@ -208,10 +211,6 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
         if (this.gameLoopId !== null) {
             cancelAnimationFrame(this.gameLoopId)
             this.gameLoopId = null
-        }
-        if (this.moveIntervalId !== null) {
-            clearInterval(this.moveIntervalId)
-            this.moveIntervalId = null
         }
     }
 

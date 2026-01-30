@@ -131,15 +131,15 @@ describe('Sudoku Game', () => {
                 }
             }
 
-            if (givenRow >= 0) {
-                const originalValue = state.grid.cells[givenRow][givenCol].value
-                selectCell(state, givenRow, givenCol)
-                placeNumber(state, 9)
+            expect(givenRow).toBeGreaterThanOrEqual(0)
 
-                expect(state.grid.cells[givenRow][givenCol].value).toBe(
-                    originalValue
-                )
-            }
+            const originalValue = state.grid.cells[givenRow][givenCol].value
+            selectCell(state, givenRow, givenCol)
+            placeNumber(state, 9)
+
+            expect(state.grid.cells[givenRow][givenCol].value).toBe(
+                originalValue
+            )
         })
 
         it('should place number in empty non-given cell', () => {
@@ -159,12 +159,12 @@ describe('Sudoku Game', () => {
                 }
             }
 
-            if (emptyRow >= 0) {
-                selectCell(state, emptyRow, emptyCol)
-                placeNumber(state, 5)
+            expect(emptyRow).toBeGreaterThanOrEqual(0)
 
-                expect(state.grid.cells[emptyRow][emptyCol].value).toBe(5)
-            }
+            selectCell(state, emptyRow, emptyCol)
+            placeNumber(state, 5)
+
+            expect(state.grid.cells[emptyRow][emptyCol].value).toBe(5)
         })
 
         it('should clear selection after placing number', () => {
@@ -184,8 +184,9 @@ describe('Sudoku Game', () => {
 
     describe('clearCell', () => {
         it('should not clear if no cell is selected', () => {
+            const stateBefore = JSON.parse(JSON.stringify(state))
             clearCell(state)
-            // Should not throw
+            expect(state).toEqual(stateBefore)
         })
 
         it('should not clear given cells', () => {

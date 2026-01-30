@@ -173,10 +173,14 @@ export function generateId(): string {
 export function create2DArray<T>(
     rows: number,
     cols: number,
-    initialValue: T
+    initialValue: T | (() => T)
 ): T[][] {
+    const valueFactory =
+        typeof initialValue === 'function'
+            ? (initialValue as () => T)
+            : () => initialValue
     return Array.from({ length: rows }, () =>
-        Array.from({ length: cols }, () => initialValue)
+        Array.from({ length: cols }, () => valueFactory())
     )
 }
 

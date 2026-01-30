@@ -130,9 +130,14 @@ export async function initSnakeGameFramework(
     renderer.render(game.getState())
 
     // Continuous render loop for smooth visuals
+    let renderFrameId: number | null = null
+    let renderRunning = true
     function renderLoop() {
+        if (!renderRunning) {
+            return
+        }
         renderer.render(game.getState())
-        requestAnimationFrame(renderLoop)
+        renderFrameId = requestAnimationFrame(renderLoop)
     }
     renderLoop()
 
@@ -140,6 +145,11 @@ export async function initSnakeGameFramework(
         game,
         renderer,
         cleanup: () => {
+            renderRunning = false
+            if (renderFrameId !== null) {
+                cancelAnimationFrame(renderFrameId)
+                renderFrameId = null
+            }
             renderer.cleanup()
             game.destroy()
         },

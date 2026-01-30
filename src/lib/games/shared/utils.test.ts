@@ -235,6 +235,14 @@ describe('create2DArray', () => {
         expect(arr[0]).toHaveLength(4)
         expect(arr[1][2]).toBe(0)
     })
+
+    it('should create unique objects for each cell when using a factory', () => {
+        const arr = create2DArray(2, 2, () => ({ value: 1 }))
+
+        expect(arr[0][0]).not.toBe(arr[0][1])
+        expect(arr[0][0]).not.toBe(arr[1][0])
+        expect(arr[0][1]).not.toBe(arr[1][1])
+    })
 })
 
 describe('deepClone', () => {

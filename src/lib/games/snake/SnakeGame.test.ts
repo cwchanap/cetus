@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { SnakeGame, DEFAULT_SNAKE_CONFIG } from './SnakeGame'
-import type { SnakeState, SnakeConfig } from './types'
+import type { SnakeConfig } from './types'
 
 describe('SnakeGame', () => {
     let game: SnakeGame
@@ -141,16 +141,24 @@ describe('SnakeGame', () => {
         it('should return correct head position', () => {
             const head = game.getHead()
 
-            expect(head.x).toBe(10)
-            expect(head.y).toBe(10)
+            expect(head.x).toBe(Math.floor(DEFAULT_SNAKE_CONFIG.gridWidth / 2))
+            expect(head.y).toBe(Math.floor(DEFAULT_SNAKE_CONFIG.gridHeight / 2))
         })
 
         it('should have snake segments in correct positions', () => {
             const state = game.getState()
 
-            expect(state.snake[0]).toMatchObject({ x: 10, y: 10 })
-            expect(state.snake[1]).toMatchObject({ x: 9, y: 10 })
-            expect(state.snake[2]).toMatchObject({ x: 8, y: 10 })
+            const expectedX = Math.floor(DEFAULT_SNAKE_CONFIG.gridWidth / 2)
+            const expectedY = Math.floor(DEFAULT_SNAKE_CONFIG.gridHeight / 2)
+            expect(state.snake[0]).toMatchObject({ x: expectedX, y: expectedY })
+            expect(state.snake[1]).toMatchObject({
+                x: Math.max(0, expectedX - 1),
+                y: expectedY,
+            })
+            expect(state.snake[2]).toMatchObject({
+                x: Math.max(0, expectedX - 2),
+                y: expectedY,
+            })
         })
     })
 

@@ -20,6 +20,7 @@ export class SnakeRenderer extends PixiJSRenderer {
     private gridContainer: PIXI.Container | null = null
     private gameObjectContainer: PIXI.Container | null = null
     private graphics: PIXI.Graphics[] = []
+    private gridGraphic: PIXI.Graphics | null = null
 
     constructor(config: SnakeRendererConfig) {
         super(config)
@@ -69,8 +70,8 @@ export class SnakeRenderer extends PixiJSRenderer {
             return
         }
 
-        const gridGraphic = this.createGraphics()
-        gridGraphic.alpha = 0.15
+        this.gridGraphic = this.createGraphics()
+        this.gridGraphic.alpha = 0.15
 
         const { gridWidth, gridHeight, cellSize, gridColor } = this.snakeConfig
         const gameWidth = gridWidth * cellSize
@@ -78,18 +79,18 @@ export class SnakeRenderer extends PixiJSRenderer {
 
         // Vertical lines
         for (let x = 0; x <= gridWidth; x++) {
-            gridGraphic.moveTo(x * cellSize, 0)
-            gridGraphic.lineTo(x * cellSize, gameHeight)
+            this.gridGraphic.moveTo(x * cellSize, 0)
+            this.gridGraphic.lineTo(x * cellSize, gameHeight)
         }
 
         // Horizontal lines
         for (let y = 0; y <= gridHeight; y++) {
-            gridGraphic.moveTo(0, y * cellSize)
-            gridGraphic.lineTo(gameWidth, y * cellSize)
+            this.gridGraphic.moveTo(0, y * cellSize)
+            this.gridGraphic.lineTo(gameWidth, y * cellSize)
         }
 
-        gridGraphic.stroke({ width: 1, color: gridColor })
-        this.gridContainer.addChild(gridGraphic)
+        this.gridGraphic.stroke({ width: 1, color: gridColor })
+        this.gridContainer.addChild(this.gridGraphic)
     }
 
     private drawSnakeSegment(segment: SnakeSegment, isHead: boolean): void {
@@ -164,6 +165,10 @@ export class SnakeRenderer extends PixiJSRenderer {
 
     cleanup(): void {
         this.clearGameObjects()
+        if (this.gridGraphic) {
+            this.gridGraphic.destroy()
+            this.gridGraphic = null
+        }
         if (this.gridContainer) {
             this.gridContainer.removeChildren()
             this.gridContainer = null
