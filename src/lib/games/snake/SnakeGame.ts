@@ -62,6 +62,11 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
     }
 
     createInitialState(): SnakeState {
+        if (this.config.gridWidth < 3 || this.config.gridHeight < 1) {
+            throw new Error(
+                'Snake grid too small for initialization (min width 3).'
+            )
+        }
         const headX = Math.max(0, Math.floor(this.config.gridWidth / 2))
         const headY = Math.max(0, Math.floor(this.config.gridHeight / 2))
         const segment1X = Math.max(0, headX - 1)

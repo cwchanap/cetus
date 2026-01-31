@@ -47,22 +47,40 @@ export class SnakeRenderer extends PixiJSRenderer {
     }
 
     protected renderGame(state: unknown): void {
-        const snakeState = state as SnakeState
-        if (!snakeState.needsRedraw) {
+        if (!this.isSnakeState(state)) {
+            return
+        }
+        if (!state.needsRedraw) {
             return
         }
 
         this.clearGameObjects()
 
         // Draw snake
-        snakeState.snake.forEach((segment, index) => {
+        state.snake.forEach((segment, index) => {
             this.drawSnakeSegment(segment, index === 0)
         })
 
         // Draw food
-        if (snakeState.food) {
-            this.drawFood(snakeState.food)
+        if (state.food) {
+            this.drawFood(state.food)
         }
+    }
+
+    private isSnakeState(state: unknown): state is SnakeState {
+        if (!state || typeof state !== 'object') {
+            return false
+        }
+        const candidate = state as {
+            snake?: SnakeSegment[]
+            needsRedraw?: boolean
+            food?: Food | null
+        }
+        return (
+            Array.isArray(candidate.snake) &&
+            typeof candidate.needsRedraw === 'boolean' &&
+            'food' in candidate
+        )
     }
 
     private drawGrid(): void {

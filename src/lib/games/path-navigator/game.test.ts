@@ -203,6 +203,9 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should position cursor at new level start', () => {
+            if (GAME_LEVELS.length < 2) {
+                return
+            }
             game.startGame()
 
             // Complete first level

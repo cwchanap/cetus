@@ -118,13 +118,13 @@ export async function initSnakeGameFramework(
     })
 
     // Set up button handlers
-    setupButtonHandlers(game)
+    const cleanupButtonHandlers = setupButtonHandlers(game)
 
     // Set up keyboard controls
-    setupKeyboardControls(game)
+    const cleanupKeyboardControls = setupKeyboardControls(game)
 
     // Set up page unload warning
-    setupUnloadWarning(game)
+    const cleanupUnloadWarning = setupUnloadWarning(game)
 
     // Initial render
     renderer.render(game.getState())
@@ -150,6 +150,9 @@ export async function initSnakeGameFramework(
                 cancelAnimationFrame(renderFrameId)
                 renderFrameId = null
             }
+            cleanupButtonHandlers()
+            cleanupKeyboardControls()
+            cleanupUnloadWarning()
             renderer.cleanup()
             game.destroy()
         },
@@ -220,7 +223,7 @@ function showGameOver(finalScore: number, stats: SnakeStats): void {
     }
 }
 
-function setupButtonHandlers(game: SnakeGame): void {
+function setupButtonHandlers(game: SnakeGame): () => void {
     const startBtn = document.getElementById('start-btn')
     const endBtn = document.getElementById('end-btn')
     const pauseBtn = document.getElementById('pause-btn')
@@ -228,46 +231,66 @@ function setupButtonHandlers(game: SnakeGame): void {
     const restartBtn = document.getElementById('restart-btn')
     const playAgainBtn = document.getElementById('play-again-btn')
 
-    startBtn?.addEventListener('click', () => game.start())
-    endBtn?.addEventListener('click', () => game.end())
+    const startHandler = () => game.start()
+    const endHandler = () => game.end()
 
-    pauseBtn?.addEventListener('click', () => {
+    const pauseHandler = () => {
         const state = game.getState()
         if (state.isPaused) {
             game.resume()
-            pauseBtn.textContent = 'Pause'
+            if (pauseBtn) {
+                pauseBtn.textContent = 'Pause'
+            }
         } else {
             game.pause()
-            pauseBtn.textContent = 'Resume'
+            if (pauseBtn) {
+                pauseBtn.textContent = 'Resume'
+            }
         }
-    })
+    }
 
-    resetBtn?.addEventListener('click', () => {
+    const resetHandler = () => {
         game.reset()
         const overlay = document.getElementById('game-over-overlay')
         if (overlay) {
             overlay.classList.add('hidden')
         }
-    })
+    }
 
-    restartBtn?.addEventListener('click', () => {
+    const restartHandler = () => {
         game.reset()
         const overlay = document.getElementById('game-over-overlay')
         if (overlay) {
             overlay.classList.add('hidden')
         }
-    })
+    }
 
-    playAgainBtn?.addEventListener('click', () => {
+    const playAgainHandler = () => {
         game.reset()
         const overlay = document.getElementById('game-over-overlay')
         if (overlay) {
             overlay.classList.add('hidden')
         }
-    })
+    }
+
+    startBtn?.addEventListener('click', startHandler)
+    endBtn?.addEventListener('click', endHandler)
+    pauseBtn?.addEventListener('click', pauseHandler)
+    resetBtn?.addEventListener('click', resetHandler)
+    restartBtn?.addEventListener('click', restartHandler)
+    playAgainBtn?.addEventListener('click', playAgainHandler)
+
+    return () => {
+        startBtn?.removeEventListener('click', startHandler)
+        endBtn?.removeEventListener('click', endHandler)
+        pauseBtn?.removeEventListener('click', pauseHandler)
+        resetBtn?.removeEventListener('click', resetHandler)
+        restartBtn?.removeEventListener('click', restartHandler)
+        playAgainBtn?.removeEventListener('click', playAgainHandler)
+    }
 }
 
-function setupKeyboardControls(game: SnakeGame): void {
+function setupKeyboardControls(game: SnakeGame): () => void {
     const directionMap: Record<string, Direction> = {
         ArrowLeft: 'left',
         a: 'left',
@@ -283,7 +306,7 @@ function setupKeyboardControls(game: SnakeGame): void {
         S: 'down',
     }
 
-    document.addEventListener('keydown', e => {
+    const keydownHandler = (e: KeyboardEvent) => {
         const state = game.getState()
         if (!state.gameStarted || state.isGameOver) {
             return
@@ -312,11 +335,17 @@ function setupKeyboardControls(game: SnakeGame): void {
                 }
             }
         }
-    })
+    }
+
+    document.addEventListener('keydown', keydownHandler)
+
+    return () => {
+        document.removeEventListener('keydown', keydownHandler)
+    }
 }
 
-function setupUnloadWarning(game: SnakeGame): void {
-    window.addEventListener('beforeunload', e => {
+function setupUnloadWarning(game: SnakeGame): () => void {
+    const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
         const state = game.getState()
         if (state.gameStarted && !state.isGameOver && !state.isPaused) {
             e.preventDefault()
@@ -325,5 +354,11 @@ function setupUnloadWarning(game: SnakeGame): void {
             e.returnValue = message
             return message
         }
-    })
+    }
+
+    window.addEventListener('beforeunload', beforeUnloadHandler)
+
+    return () => {
+        window.removeEventListener('beforeunload', beforeUnloadHandler)
+    }
 }
