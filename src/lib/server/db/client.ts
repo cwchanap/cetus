@@ -15,9 +15,7 @@ const dbClient = libsql.createClient({
     url: import.meta.env.TURSO_DATABASE_URL,
     authToken: import.meta.env.TURSO_AUTH_TOKEN,
 })
-dbClient.execute('PRAGMA foreign_keys = ON').catch(error => {
-    console.warn('[db] Failed to enable foreign_keys PRAGMA', error)
-})
+await dbClient.execute('PRAGMA foreign_keys = ON')
 
 export const dialect = new LibsqlDialect({ client: dbClient })
 

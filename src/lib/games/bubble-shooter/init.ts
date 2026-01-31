@@ -168,6 +168,8 @@ export async function initBubbleShooterGame(callbacks?: {
     updateCurrentBubbleDisplayFn()
     updateNextBubbleDisplayFn()
 
+    let cleanupCalled = false
+
     // Start continuous draw loop for rendering
     function drawLoop() {
         if (!drawRunning) {
@@ -189,6 +191,11 @@ export async function initBubbleShooterGame(callbacks?: {
         getState: () => enhancedState,
         endGame: () => endGame(enhancedState),
         cleanup: () => {
+            if (cleanupCalled) {
+                return
+            }
+            cleanupCalled = true
+
             // Stop game loop by setting flags
             enhancedState.gameStarted = false
             enhancedState.gameOver = true
@@ -214,6 +221,7 @@ export async function initBubbleShooterGame(callbacks?: {
             // Destroy PixiJS renderer
             if (renderer.app) {
                 renderer.app.destroy(true, { children: true, texture: true })
+                renderer.app = null
             }
         },
     }
