@@ -111,6 +111,21 @@ export async function upsertUserStats(
 }
 
 /**
+ * Update user's level only (do not modify XP)
+ */
+export async function updateUserLevel(
+    userId: string,
+    newLevel: number
+): Promise<boolean> {
+    try {
+        return await upsertUserStats(userId, { level: newLevel })
+    } catch (error) {
+        console.error('[updateUserLevel] Error:', sanitizeError(error))
+        return false
+    }
+}
+
+/**
  * Get game leaderboard (includes anonymous players)
  */
 export async function getGameLeaderboard(

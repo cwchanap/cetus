@@ -1,19 +1,29 @@
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { Kysely } from 'kysely'
 import { LibsqlDialect, libsql } from '@libsql/kysely-libsql'
 import type { Database } from './types'
 
-// Use Turso for production
-if (!import.meta.env.TURSO_DATABASE_URL) {
+const isCi = Boolean(process.env.CI)
+const fallbackUrl = pathToFileURL(
+    path.resolve(process.cwd(), 'db', 'db.sqlite')
+).toString()
+const dbUrl = isCi ? fallbackUrl : import.meta.env.TURSO_DATABASE_URL
+
+if (!dbUrl) {
     throw new Error('TURSO_DATABASE_URL environment variable is required')
 }
 
-if (!import.meta.env.TURSO_AUTH_TOKEN) {
+const isFileUrl = dbUrl.startsWith('file:')
+const authToken = isFileUrl ? undefined : import.meta.env.TURSO_AUTH_TOKEN
+
+if (!isFileUrl && !authToken) {
     throw new Error('TURSO_AUTH_TOKEN environment variable is required')
 }
 
 const dbClient = libsql.createClient({
-    url: import.meta.env.TURSO_DATABASE_URL,
-    authToken: import.meta.env.TURSO_AUTH_TOKEN,
+    url: dbUrl,
+    ...(authToken ? { authToken } : {}),
 })
 await dbClient.execute('PRAGMA foreign_keys = ON')
 

@@ -12,7 +12,7 @@ import {
     updateChallengeProgressValue,
     completeChallengeAndAwardXP,
     getUserXPAndLevel,
-    updateUserXPAndLevel,
+    updateUserLevel,
     getUniqueGamesPlayedToday,
     getTotalScoreToday,
     getGamesPlayedCountToday,
@@ -213,7 +213,7 @@ export async function updateChallengeProgress(
         const levelAfter = getLevelFromXP(currentXP)
 
         if (levelAfter > levelBefore) {
-            const success = await updateUserXPAndLevel(userId, 0, levelAfter)
+            const success = await updateUserLevel(userId, levelAfter)
             if (success) {
                 levelUp = true
                 newLevel = levelAfter
