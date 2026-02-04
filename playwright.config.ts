@@ -72,6 +72,7 @@ export default defineConfig({
 
     /* Run your local dev server before starting the tests */
     webServer: {
+        // CI uses Astro-only dev server; DB connects via file-based fallback.
         command: process.env.CI ? 'npm run web:dev' : 'npm run dev',
         url: 'http://localhost:4325',
         reuseExistingServer: !process.env.CI,

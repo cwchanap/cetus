@@ -46,7 +46,7 @@ vi.mock('../server/db/queries', () => ({
         challengeStreak: 0,
         lastChallengeDate: null,
     }),
-    updateUserXP: vi.fn().mockResolvedValue(true),
+    updateUserLevel: vi.fn().mockResolvedValue(true),
     getUniqueGamesPlayedToday: vi.fn().mockResolvedValue([]),
     getTotalScoreToday: vi.fn().mockResolvedValue(0),
     getGamesPlayedCountToday: vi.fn().mockResolvedValue(0),
@@ -107,6 +107,37 @@ describe('Challenge Service', () => {
                 10
             )
             expect(Array.isArray(result.completedChallenges)).toBe(true)
+        })
+
+        it('should update level without changing XP on level up', async () => {
+            vi.mocked(challenges.generateDailyChallenges).mockReturnValue([
+                {
+                    id: 'score_tetris_100',
+                    type: 'score_target',
+                    targetValue: 100,
+                    xpReward: 30,
+                },
+            ] as any)
+
+            vi.mocked(queries.getUserChallengeProgress).mockResolvedValue([])
+
+            vi.mocked(queries.getTotalScoreToday).mockResolvedValue(100)
+            vi.mocked(queries.getGamesPlayedCountToday).mockResolvedValue(1)
+            vi.mocked(queries.getUniqueGamesPlayedToday).mockResolvedValue([
+                GameID.TETRIS,
+            ])
+
+            // XP after awarding crosses level 1 -> 2 (threshold 100)
+            vi.mocked(queries.getUserXPAndLevel).mockResolvedValue({
+                xp: 100,
+                level: 1,
+                challengeStreak: 0,
+                lastChallengeDate: null,
+            })
+
+            await updateChallengeProgress('user-123', GameID.TETRIS, 150)
+
+            expect(queries.updateUserLevel).toHaveBeenCalledWith('user-123', 2)
         })
 
         it('should call necessary database functions', async () => {
