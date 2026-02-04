@@ -25,7 +25,8 @@
       "Bash(git add:*)",
       "Bash(bun run build:*)",
       "Bash(bun run test:run:*)",
-      "Bash(bun run lint:*)"
+      "Bash(bun run lint:*)",
+      "Bash(bunx tsc:*)"
     ],
     "deny": []
   }

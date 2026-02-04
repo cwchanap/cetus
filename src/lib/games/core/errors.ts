@@ -1,14 +1,29 @@
 /**
+ * Error codes for quick identification
+ */
+export const GameErrorCodes = {
+    GAME_INIT_ERROR: 'GAME_INIT_ERROR',
+    RENDER_ERROR: 'RENDER_ERROR',
+    DOM_ELEMENT_NOT_FOUND: 'DOM_ELEMENT_NOT_FOUND',
+    INVALID_GAME_STATE: 'INVALID_GAME_STATE',
+    INVALID_CONFIG: 'INVALID_CONFIG',
+    GAME_TIMEOUT: 'GAME_TIMEOUT',
+    UNKNOWN_ERROR: 'UNKNOWN_ERROR',
+} as const
+
+export type GameErrorCode = (typeof GameErrorCodes)[keyof typeof GameErrorCodes]
+
+/**
  * Base error class for all game-related errors
  */
 export class GameError extends Error {
-    public readonly code: string
+    public readonly code: GameErrorCode
     public readonly context?: Record<string, unknown>
     public readonly recoverable: boolean
 
     constructor(
         message: string,
-        code: string,
+        code: GameErrorCode,
         options?: {
             context?: Record<string, unknown>
             recoverable?: boolean
@@ -141,21 +156,6 @@ export class GameTimeoutError extends GameError {
         this.name = 'GameTimeoutError'
     }
 }
-
-/**
- * Error codes for quick identification
- */
-export const GameErrorCodes = {
-    GAME_INIT_ERROR: 'GAME_INIT_ERROR',
-    RENDER_ERROR: 'RENDER_ERROR',
-    DOM_ELEMENT_NOT_FOUND: 'DOM_ELEMENT_NOT_FOUND',
-    INVALID_GAME_STATE: 'INVALID_GAME_STATE',
-    INVALID_CONFIG: 'INVALID_CONFIG',
-    GAME_TIMEOUT: 'GAME_TIMEOUT',
-    UNKNOWN_ERROR: 'UNKNOWN_ERROR',
-} as const
-
-export type GameErrorCode = (typeof GameErrorCodes)[keyof typeof GameErrorCodes]
 
 /**
  * Type guard to check if an error is a GameError
