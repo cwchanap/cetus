@@ -152,8 +152,8 @@ export class ScoreManager extends GameEventEmitter {
                 await saveGameScore(this.config.gameId, this.currentScore)
                 return { success: true }
             }
-        } catch (_error) {
-            // Error is handled by returning success: false
+        } catch (error) {
+            console.error('[ScoreManager] Failed to save score:', error)
             return { success: false }
         }
     }

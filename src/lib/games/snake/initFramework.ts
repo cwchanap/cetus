@@ -3,6 +3,10 @@ import { SnakeGame, DEFAULT_SNAKE_CONFIG } from './SnakeGame'
 import { SnakeRenderer, createSnakeRendererConfig } from './SnakeRenderer'
 import type { SnakeConfig, SnakeStats, Direction } from './types'
 import type { BaseGameCallbacks, BaseGameStats } from '@/lib/games/core/types'
+import {
+    DOMElementNotFoundError,
+    handleGameError,
+} from '@/lib/games/core/errors'
 
 // Achievement notification type
 interface AchievementNotification {
@@ -34,6 +38,10 @@ export async function initSnakeGameFramework(
 ): Promise<SnakeInitResult | undefined> {
     const container = document.getElementById('snake-container')
     if (!container) {
+        handleGameError(
+            new DOMElementNotFoundError('snake-container'),
+            'SnakeGame'
+        )
         return undefined
     }
 

@@ -65,6 +65,9 @@ export class SnakeRenderer extends PixiJSRenderer {
         if (state.food) {
             this.drawFood(state.food)
         }
+
+        // Reset redraw flag after rendering
+        state.needsRedraw = false
     }
 
     private isSnakeState(state: unknown): state is SnakeState {
