@@ -111,8 +111,8 @@ export async function initSnakeGameFramework(
     const game = new SnakeGame(config, enhancedCallbacks)
 
     // Handle achievement notifications
-    game.on('end', event => {
-        const data = event.data as {
+    const onGameEnd = (event: unknown) => {
+        const data = (event as { data: unknown }).data as {
             newAchievements?: AchievementNotification[]
         }
         if (data?.newAchievements && data.newAchievements.length > 0) {
@@ -123,7 +123,8 @@ export async function initSnakeGameFramework(
                 window.showAchievementAward(data.newAchievements)
             }
         }
-    })
+    }
+    game.on('end', onGameEnd)
 
     // Set up button handlers
     const cleanupButtonHandlers = setupButtonHandlers(game)
@@ -144,7 +145,10 @@ export async function initSnakeGameFramework(
         if (!renderRunning) {
             return
         }
-        renderer.render(game.getState())
+        const state = game.getState()
+        renderer.render(state)
+        // Reset redraw flag after rendering
+        state.needsRedraw = false
         renderFrameId = requestAnimationFrame(renderLoop)
     }
     renderLoop()
@@ -161,6 +165,7 @@ export async function initSnakeGameFramework(
             cleanupButtonHandlers()
             cleanupKeyboardControls()
             cleanupUnloadWarning()
+            game.off('end', onGameEnd)
             renderer.cleanup()
             game.destroy()
         },

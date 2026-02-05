@@ -110,12 +110,22 @@ export function pointInCircle(
 }
 
 /**
- * Format time in seconds to MM:SS string
+ * Format time in seconds to M:SS or H:MM:SS string
+ * Handles negative values by prefixing with '-'
  */
 export function formatTime(seconds: number): string {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
+    if (seconds < 0) {
+        return `-${formatTime(Math.abs(seconds))}`
+    }
+
+    const hours = Math.floor(seconds / 3600)
+    const remainingSecs = Math.floor(seconds % 60)
+    const mins = Math.floor((seconds % 3600) / 60)
+
+    if (hours > 0) {
+        return `${hours}:${mins.toString().padStart(2, '0')}:${remainingSecs.toString().padStart(2, '0')}`
+    }
+    return `${mins}:${remainingSecs.toString().padStart(2, '0')}`
 }
 
 /**
@@ -169,6 +179,25 @@ export function generateId(): string {
 
 /**
  * Create a 2D array filled with a value
+ *
+ * @param rows - Number of rows in the array
+ * @param cols - Number of columns in the array
+ * @param initialValue - Value to fill cells with. If this is a function,
+ *   it will be called for each cell to generate unique values.
+ *   Note: If you need to store a function as a cell value, wrap it:
+ *   `create2DArray(rows, cols, () => myFunction)`
+ *
+ * @example
+ * // Fill with same value
+ * create2DArray(3, 3, 0)  // [[0,0,0], [0,0,0], [0,0,0]]
+ *
+ * @example
+ * // Generate unique values per cell
+ * create2DArray(3, 3, () => generateId())  // Each cell gets unique ID
+ *
+ * @example
+ * // Store function as value (must wrap)
+ * create2DArray(2, 2, () => () => console.log('hello'))
  */
 export function create2DArray<T>(
     rows: number,

@@ -4,7 +4,7 @@ import { Kysely } from 'kysely'
 import { LibsqlDialect, libsql } from '@libsql/kysely-libsql'
 import type { Database } from './types'
 
-const isCi = Boolean(process.env.CI)
+const isCi = process.env.CI === 'true' || process.env.CI === '1'
 const fallbackUrl = pathToFileURL(
     path.resolve(process.cwd(), 'db', 'db.sqlite')
 ).toString()
@@ -25,7 +25,14 @@ const dbClient = libsql.createClient({
     url: dbUrl,
     ...(authToken ? { authToken } : {}),
 })
-await dbClient.execute('PRAGMA foreign_keys = ON')
+
+// Enable foreign keys with proper error handling
+try {
+    await dbClient.execute('PRAGMA foreign_keys = ON')
+} catch (error) {
+    console.error('Failed to enable foreign keys:', error)
+    throw error
+}
 
 export const dialect = new LibsqlDialect({ client: dbClient })
 

@@ -202,9 +202,9 @@ export function handleGameError(
 ): { error: GameError; shouldRetry: boolean } {
     const gameError = wrapError(error)
 
-    const logContext = context ? `[${context}]` : ''
+    const logContext = context ? `[${context}] ` : ''
     console.error(
-        `${logContext} ${gameError.name}: ${gameError.message}`,
+        `${logContext}${gameError.name}: ${gameError.message}`,
         gameError.context ?? {}
     )
 

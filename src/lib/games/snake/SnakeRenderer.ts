@@ -32,7 +32,7 @@ export class SnakeRenderer extends PixiJSRenderer {
 
         const app = this.getApp()
         if (!app) {
-            return
+            throw new Error('SnakeRenderer: app not available after setup')
         }
 
         // Create containers for organized rendering
@@ -65,9 +65,6 @@ export class SnakeRenderer extends PixiJSRenderer {
         if (state.food) {
             this.drawFood(state.food)
         }
-
-        // Reset redraw flag after rendering
-        state.needsRedraw = false
     }
 
     private isSnakeState(state: unknown): state is SnakeState {
@@ -191,10 +188,13 @@ export class SnakeRenderer extends PixiJSRenderer {
             this.gridGraphic = null
         }
         if (this.gridContainer) {
-            this.gridContainer.removeChildren()
+            this.gridContainer.destroy({ children: true })
             this.gridContainer = null
         }
-        this.gameObjectContainer = null
+        if (this.gameObjectContainer) {
+            this.gameObjectContainer.destroy({ children: true })
+            this.gameObjectContainer = null
+        }
         super.cleanup()
     }
 }

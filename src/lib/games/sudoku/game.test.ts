@@ -169,16 +169,22 @@ describe('Sudoku Game', () => {
 
         it('should clear selection after placing number', () => {
             // Find an empty non-given cell
+            let foundCell = false
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
                     if (!state.grid.cells[r][c].isGiven) {
                         selectCell(state, r, c)
                         placeNumber(state, 5)
                         expect(state.grid.selectedCell).toBeNull()
-                        return
+                        foundCell = true
+                        break
                     }
                 }
+                if (foundCell) {
+                    break
+                }
             }
+            expect(foundCell).toBe(true)
         })
     })
 
