@@ -197,6 +197,13 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
         return { ...this.config }
     }
 
+    /**
+     * Mark the game as rendered - clears the needsRedraw flag
+     */
+    markRendered(): void {
+        this.state.needsRedraw = false
+    }
+
     // --- Private game logic methods ---
 
     private startGameLoop(): void {

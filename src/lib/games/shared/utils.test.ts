@@ -66,8 +66,8 @@ describe('shuffleArray', () => {
         const original = [...arr]
         shuffleArray(arr)
 
-        // Same elements
-        expect(arr.sort()).toEqual(original.sort())
+        // Same elements (compare sorted copies to avoid mutating original)
+        expect([...arr].sort()).toEqual([...original].sort())
     })
 
     it('should return same array reference', () => {

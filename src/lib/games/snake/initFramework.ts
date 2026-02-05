@@ -147,8 +147,8 @@ export async function initSnakeGameFramework(
         }
         const state = game.getState()
         renderer.render(state)
-        // Reset redraw flag after rendering
-        state.needsRedraw = false
+        // Reset redraw flag after rendering using the proper encapsulation method
+        game.markRendered()
         renderFrameId = requestAnimationFrame(renderLoop)
     }
     renderLoop()
