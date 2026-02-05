@@ -177,6 +177,34 @@ describe('SnakeGame', () => {
             const initialStats = game.getGameStats()
 
             expect(initialStats.maxLength).toBe(3)
+
+            // Get snake head position
+            const head = game.getHead()
+
+            // Place food directly in front of snake's path (moving right)
+            // The snake will eat and grow on the next move
+            const foodX = head.x + 1
+            const foodY = head.y
+
+            // Access internal state through game and manually set food for testing
+            // @ts-expect-error - accessing private state for testing
+            game.state.food = {
+                x: foodX,
+                y: foodY,
+                id: 'test-food',
+                spawnTime: Date.now(),
+            }
+
+            // Advance time to trigger a move
+            vi.advanceTimersByTime(200)
+
+            // Get updated stats - snake should have grown
+            const updatedStats = game.getGameStats()
+            expect(updatedStats.maxLength).toBeGreaterThan(
+                initialStats.maxLength
+            )
+            expect(updatedStats.maxLength).toBe(4)
+            expect(updatedStats.foodsEaten).toBe(1)
         })
     })
 
