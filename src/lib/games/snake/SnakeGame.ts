@@ -62,20 +62,29 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
     }
 
     createInitialState(): SnakeState {
-        if (this.config.gridWidth < 3 || this.config.gridHeight < 1) {
+        if (this.config.gridWidth < 1 || this.config.gridHeight < 1) {
             throw new Error(
-                'Snake grid too small for initialization (min width 3).'
+                'Snake grid too small for initialization (min width/height 1).'
             )
         }
-        const headX = Math.max(0, Math.floor(this.config.gridWidth / 2))
-        const headY = Math.max(0, Math.floor(this.config.gridHeight / 2))
-        const segment1X = Math.max(0, headX - 1)
-        const segment2X = Math.max(0, headX - 2)
-        const initialSnake: SnakeSegment[] = [
-            { x: headX, y: headY, id: generateId() },
-            { x: segment1X, y: headY, id: generateId() },
-            { x: segment2X, y: headY, id: generateId() },
-        ]
+
+        // Adjust initial snake length based on grid width
+        const initialLength = Math.min(3, this.config.gridWidth)
+        const headX = Math.max(
+            initialLength - 1,
+            Math.floor(this.config.gridWidth / 2)
+        )
+        const headY = Math.floor(this.config.gridHeight / 2)
+
+        // Build snake with segments extending left from head
+        const initialSnake: SnakeSegment[] = []
+        for (let i = 0; i < initialLength; i++) {
+            initialSnake.push({
+                x: headX - i,
+                y: headY,
+                id: generateId(),
+            })
+        }
 
         return {
             // BaseGameState fields

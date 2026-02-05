@@ -157,10 +157,16 @@ describe('pointInCircle', () => {
 })
 
 describe('formatTime', () => {
-    it('should format seconds to MM:SS', () => {
+    it('should format seconds to M:SS or H:MM:SS', () => {
         expect(formatTime(65)).toBe('1:05')
         expect(formatTime(0)).toBe('0:00')
-        expect(formatTime(3600)).toBe('60:00')
+        expect(formatTime(3600)).toBe('1:00:00')
+        expect(formatTime(3661)).toBe('1:01:01')
+    })
+
+    it('should handle negative values', () => {
+        expect(formatTime(-65)).toBe('-1:05')
+        expect(formatTime(-1)).toBe('-0:01')
     })
 })
 
