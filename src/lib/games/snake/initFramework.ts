@@ -225,7 +225,7 @@ function showGameOver(finalScore: number, stats: SnakeStats): void {
 
     const finalTimeEl = document.getElementById('final-time')
     if (finalTimeEl) {
-        const seconds = Math.floor((stats.timeElapsed || 0) / 1000)
+        const seconds = Math.floor(stats.timeElapsed || 0)
         finalTimeEl.textContent = `${seconds}s`
     }
 
@@ -264,6 +264,18 @@ function setupButtonHandlers(game: SnakeGame): () => void {
 
     const resetHandler = () => {
         game.reset()
+        const startBtn = document.getElementById(
+            'start-btn'
+        ) as HTMLButtonElement | null
+        const endBtn = document.getElementById(
+            'end-btn'
+        ) as HTMLButtonElement | null
+        if (startBtn) {
+            startBtn.style.display = 'inline-flex'
+        }
+        if (endBtn) {
+            endBtn.style.display = 'none'
+        }
         const overlay = document.getElementById('game-over-overlay')
         if (overlay) {
             overlay.classList.add('hidden')
