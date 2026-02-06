@@ -48,11 +48,26 @@ export async function initSnakeGameFramework(
     const config: SnakeConfig = { ...DEFAULT_SNAKE_CONFIG, ...customConfig }
     const rendererConfig = createSnakeRendererConfig(config, '#snake-container')
 
-    // Initialize renderer
+    // Initialize renderer with error handling
     const renderer = new SnakeRenderer(rendererConfig)
-    await renderer.initialize()
+    try {
+        await renderer.initialize()
+    } catch (error) {
+        console.error('Failed to initialize Snake renderer:', error)
+        // Cleanup partial resources
+        try {
+            const app = renderer.getApp()
+            if (app?.canvas?.parentNode) {
+                app.canvas.parentNode.removeChild(app.canvas)
+            }
+            renderer.cleanup()
+        } catch (cleanupError) {
+            console.error('Error during renderer cleanup:', cleanupError)
+        }
+        throw error
+    }
 
-    // Style the canvas
+    // Style the canvas only after successful initialization
     const app = renderer.getApp()
     if (app) {
         app.canvas.style.border = '2px solid rgba(6, 182, 212, 0.5)'
@@ -64,6 +79,7 @@ export async function initSnakeGameFramework(
         ...customCallbacks,
         onStateChange: state => {
             renderer.render(state)
+            game.markRendered()
             updateUI(state as ReturnType<SnakeGame['getState']>)
             customCallbacks?.onStateChange?.(state)
         },
@@ -138,30 +154,10 @@ export async function initSnakeGameFramework(
     // Initial render
     renderer.render(game.getState())
 
-    // Continuous render loop for smooth visuals
-    let renderFrameId: number | null = null
-    let renderRunning = true
-    function renderLoop() {
-        if (!renderRunning) {
-            return
-        }
-        const state = game.getState()
-        renderer.render(state)
-        // Reset redraw flag after rendering using the proper encapsulation method
-        game.markRendered()
-        renderFrameId = requestAnimationFrame(renderLoop)
-    }
-    renderLoop()
-
     return {
         game,
         renderer,
         cleanup: () => {
-            renderRunning = false
-            if (renderFrameId !== null) {
-                cancelAnimationFrame(renderFrameId)
-                renderFrameId = null
-            }
             cleanupButtonHandlers()
             cleanupKeyboardControls()
             cleanupUnloadWarning()
