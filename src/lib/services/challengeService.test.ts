@@ -62,6 +62,14 @@ import * as queries from '../server/db/queries'
 describe('Challenge Service', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        // Restore default mock implementations after clear
+        vi.mocked(queries.getUserXPAndLevel).mockResolvedValue({
+            xp: 0,
+            level: 1,
+            challengeStreak: 0,
+            lastChallengeDate: null,
+        })
+        vi.mocked(queries.completeChallengeAndAwardXP).mockResolvedValue(true)
     })
 
     describe('getUserDailyChallenges', () => {
@@ -114,6 +122,7 @@ describe('Challenge Service', () => {
                 {
                     id: 'score_tetris_100',
                     type: 'score_target',
+                    gameId: GameID.TETRIS,
                     targetValue: 100,
                     xpReward: 30,
                 },
