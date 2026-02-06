@@ -183,10 +183,8 @@ export class SnakeRenderer extends PixiJSRenderer {
 
     cleanup(): void {
         this.clearGameObjects()
-        if (this.gridGraphic) {
-            this.gridGraphic.destroy()
-            this.gridGraphic = null
-        }
+        // gridGraphic is a child of gridContainer, so it's destroyed with children: true
+        this.gridGraphic = null
         if (this.gridContainer) {
             this.gridContainer.destroy({ children: true })
             this.gridContainer = null
