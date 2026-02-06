@@ -7,10 +7,12 @@
 
 PRAGMA foreign_keys = ON;
 
--- User profile columns (requires manual check in production)
--- ALTER TABLE "user" ADD COLUMN displayName TEXT;
--- ALTER TABLE "user" ADD COLUMN username TEXT;
--- CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON "user" (username);
+-- User profile columns (safe for idempotent migrations)
+-- Note: SQLite doesn't support IF NOT EXISTS for ADD COLUMN
+-- These may fail if columns already exist; ensureUserIdentityColumns() in queries.ts provides runtime safeguard
+ALTER TABLE "user" ADD COLUMN displayName TEXT;
+ALTER TABLE "user" ADD COLUMN username TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON "user" (username);
 
 -- Create user_stats table if it doesn't exist
 CREATE TABLE IF NOT EXISTS "user_stats" (
@@ -40,22 +42,19 @@ CREATE TABLE IF NOT EXISTS "user_stats" (
 
 -- Create game_scores table if it doesn't exist
 CREATE TABLE IF NOT EXISTS "game_scores" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" INTEGER PRIMARY KEY AUTOINCREMENT,
     "user_id" TEXT NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
     "game_id" TEXT NOT NULL,
     "score" INTEGER NOT NULL,
-    "created_at" DATE NOT NULL
+    "created_at" DATE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create user_achievements table if it doesn't exist
 CREATE TABLE IF NOT EXISTS "user_achievements" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" INTEGER PRIMARY KEY AUTOINCREMENT,
     "user_id" TEXT NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
     "achievement_id" TEXT NOT NULL,
-    "progress" INTEGER NOT NULL DEFAULT 0,
-    "unlocked_at" DATE,
-    "created_at" DATE NOT NULL,
-    "updated_at" DATE NOT NULL,
+    "earned_at" DATE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE("user_id", "achievement_id")
 );
 

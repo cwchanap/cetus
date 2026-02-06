@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { Kysely } from 'kysely'
+import { Kysely, sql } from 'kysely'
 import { LibsqlDialect, libsql } from '@libsql/kysely-libsql'
 import type { Database } from './types'
 
@@ -26,18 +26,20 @@ const dbClient = libsql.createClient({
     ...(authToken ? { authToken } : {}),
 })
 
-// Enable foreign keys with proper error handling
+const dialect = new LibsqlDialect({ client: dbClient })
+
+// Create a reusable Turso database client with proper typing
+const db = new Kysely<Database>({ dialect })
+
+// Enable foreign keys using Kysely sql template with proper error handling
 try {
-    await dbClient.execute('PRAGMA foreign_keys = ON')
+    await sql`PRAGMA foreign_keys = ON`.execute(db)
 } catch (error) {
     console.error('Failed to enable foreign keys:', error)
     throw error
 }
 
-export const dialect = new LibsqlDialect({ client: dbClient })
-
-// Create a reusable Turso database client with proper typing
-export const db = new Kysely<Database>({ dialect })
+export { dialect, db }
 
 // Export the client type for type safety
 export type DbClient = typeof db

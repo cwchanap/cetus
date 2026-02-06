@@ -24,6 +24,7 @@ export interface TetrisGameInstance {
     restart: () => void
     getState: () => GameState
     endGame: () => Promise<void>
+    cleanup: () => void
 }
 
 export async function initTetrisGame(): Promise<
@@ -192,6 +193,7 @@ export async function initTetrisGame(): Promise<
 
     let drawFrameId: number | null = null
     let drawRunning = true
+    let cleanupCalled = false
 
     // Setup event listeners
     function setupEventListeners() {
@@ -237,6 +239,12 @@ export async function initTetrisGame(): Promise<
         getState: () => enhancedState,
         endGame: () => endGame(enhancedState),
         cleanup: () => {
+            // Idempotency guard - prevent multiple cleanups
+            if (cleanupCalled) {
+                return
+            }
+            cleanupCalled = true
+
             // Stop game loop by setting flags
             enhancedState.gameStarted = false
             enhancedState.gameOver = true
