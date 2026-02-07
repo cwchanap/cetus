@@ -15,29 +15,37 @@ import {
 
 describe('GameError', () => {
     it('should create error with message and code', () => {
-        const error = new GameError('Test error', 'TEST_CODE')
+        const error = new GameError('Test error', GameErrorCodes.UNKNOWN_ERROR)
 
         expect(error.message).toBe('Test error')
-        expect(error.code).toBe('TEST_CODE')
+        expect(error.code).toBe(GameErrorCodes.UNKNOWN_ERROR)
         expect(error.name).toBe('GameError')
         expect(error.recoverable).toBe(true)
     })
 
     it('should accept context and cause', () => {
         const cause = new Error('Original error')
-        const error = new GameError('Test error', 'TEST_CODE', {
-            context: { key: 'value' },
-            cause,
-        })
+        const error = new GameError(
+            'Test error',
+            GameErrorCodes.UNKNOWN_ERROR,
+            {
+                context: { key: 'value' },
+                cause,
+            }
+        )
 
         expect(error.context).toEqual({ key: 'value' })
         expect(error.cause).toBe(cause)
     })
 
     it('should allow setting recoverable to false', () => {
-        const error = new GameError('Test error', 'TEST_CODE', {
-            recoverable: false,
-        })
+        const error = new GameError(
+            'Test error',
+            GameErrorCodes.UNKNOWN_ERROR,
+            {
+                recoverable: false,
+            }
+        )
 
         expect(error.recoverable).toBe(false)
     })
@@ -107,7 +115,9 @@ describe('GameTimeoutError', () => {
 
 describe('isGameError', () => {
     it('should return true for GameError instances', () => {
-        expect(isGameError(new GameError('test', 'TEST'))).toBe(true)
+        expect(
+            isGameError(new GameError('test', GameErrorCodes.UNKNOWN_ERROR))
+        ).toBe(true)
         expect(isGameError(new GameInitializationError('test'))).toBe(true)
         expect(isGameError(new RenderError('test'))).toBe(true)
     })
@@ -122,7 +132,7 @@ describe('isGameError', () => {
 
 describe('wrapError', () => {
     it('should return GameError as-is', () => {
-        const original = new GameError('test', 'TEST')
+        const original = new GameError('test', GameErrorCodes.UNKNOWN_ERROR)
         const wrapped = wrapError(original)
 
         expect(wrapped).toBe(original)
@@ -156,7 +166,9 @@ describe('handleGameError', () => {
         const consoleSpy = vi
             .spyOn(console, 'error')
             .mockImplementation(() => {})
-        const error = new GameError('test', 'TEST', { recoverable: true })
+        const error = new GameError('test', GameErrorCodes.UNKNOWN_ERROR, {
+            recoverable: true,
+        })
 
         const result = handleGameError(error, 'TestContext')
 

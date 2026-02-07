@@ -90,6 +90,8 @@ export async function initBubbleShooterGame(callbacks?: {
 
     let drawFrameId: number | null = null
     let drawRunning = true
+    const abortController = new AbortController()
+    const { signal } = abortController
 
     // Setup event listeners
     function setupEventListeners() {
@@ -100,64 +102,93 @@ export async function initBubbleShooterGame(callbacks?: {
         const restartBtn = document.getElementById('restart-btn')
         const resumeBtn = document.getElementById('resume-btn')
 
-        startBtn?.addEventListener('click', () => {
-            startGame(enhancedState, gameLoopFn)
-            // Show end button when game starts
-            if (startBtn) {
-                startBtn.style.display = 'none'
-            }
-            if (endBtn) {
-                endBtn.style.display = 'inline-flex'
-            }
-        })
+        startBtn?.addEventListener(
+            'click',
+            () => {
+                startGame(enhancedState, gameLoopFn)
+                // Show end button when game starts
+                if (startBtn) {
+                    startBtn.style.display = 'none'
+                }
+                if (endBtn) {
+                    endBtn.style.display = 'inline-flex'
+                }
+            },
+            { signal }
+        )
 
-        endBtn?.addEventListener('click', () => {
-            endGame(enhancedState)
-        })
+        endBtn?.addEventListener(
+            'click',
+            () => {
+                endGame(enhancedState)
+            },
+            { signal }
+        )
 
-        pauseBtn?.addEventListener('click', () => {
-            togglePause(enhancedState, gameLoopFn)
-        })
+        pauseBtn?.addEventListener(
+            'click',
+            () => {
+                togglePause(enhancedState, gameLoopFn)
+            },
+            { signal }
+        )
 
-        resetBtn?.addEventListener('click', () => {
-            const gameOverOverlay = document.getElementById('game-over-overlay')
-            if (gameOverOverlay) {
-                gameOverOverlay.classList.add('hidden')
-            }
-            resetGame(
-                enhancedState,
-                updateCurrentBubbleDisplayFn,
-                updateNextBubbleDisplayFn
-            )
-        })
+        resetBtn?.addEventListener(
+            'click',
+            () => {
+                const gameOverOverlay =
+                    document.getElementById('game-over-overlay')
+                if (gameOverOverlay) {
+                    gameOverOverlay.classList.add('hidden')
+                }
+                resetGame(
+                    enhancedState,
+                    updateCurrentBubbleDisplayFn,
+                    updateNextBubbleDisplayFn
+                )
+            },
+            { signal }
+        )
 
-        restartBtn?.addEventListener('click', () => {
-            const gameOverOverlay = document.getElementById('game-over-overlay')
-            if (gameOverOverlay) {
-                gameOverOverlay.classList.add('hidden')
-            }
-            resetGame(
-                enhancedState,
-                updateCurrentBubbleDisplayFn,
-                updateNextBubbleDisplayFn
-            )
-        })
+        restartBtn?.addEventListener(
+            'click',
+            () => {
+                const gameOverOverlay =
+                    document.getElementById('game-over-overlay')
+                if (gameOverOverlay) {
+                    gameOverOverlay.classList.add('hidden')
+                }
+                resetGame(
+                    enhancedState,
+                    updateCurrentBubbleDisplayFn,
+                    updateNextBubbleDisplayFn
+                )
+            },
+            { signal }
+        )
 
-        resumeBtn?.addEventListener('click', () => {
-            togglePause(enhancedState, gameLoopFn)
-        })
+        resumeBtn?.addEventListener(
+            'click',
+            () => {
+                togglePause(enhancedState, gameLoopFn)
+            },
+            { signal }
+        )
 
         // Canvas event listeners
         if (renderer.app && renderer.app.canvas) {
             renderer.app.canvas.addEventListener(
                 'mousemove',
-                canvasMouseMoveHandler
+                canvasMouseMoveHandler,
+                { signal }
             )
-            renderer.app.canvas.addEventListener('click', canvasClickHandler)
+            renderer.app.canvas.addEventListener('click', canvasClickHandler, {
+                signal,
+            })
         }
 
         // Keyboard controls
-        document.addEventListener('keydown', keydownHandler)
+        document.addEventListener('keydown', keydownHandler, { signal })
     }
 
     // Initialize everything
@@ -205,18 +236,8 @@ export async function initBubbleShooterGame(callbacks?: {
                 drawFrameId = null
             }
 
-            // Remove canvas event listeners
-            if (renderer.app && renderer.app.canvas) {
-                renderer.app.canvas.removeEventListener(
-                    'mousemove',
-                    canvasMouseMoveHandler
-                )
-                renderer.app.canvas.removeEventListener(
-                    'click',
-                    canvasClickHandler
-                )
-            }
-            document.removeEventListener('keydown', keydownHandler)
+            // Remove all event listeners via AbortController
+            abortController.abort()
 
             // Destroy PixiJS renderer
             if (renderer.app) {
