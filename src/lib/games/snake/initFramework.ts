@@ -53,7 +53,10 @@ export async function initSnakeGameFramework(
     try {
         await renderer.initialize()
     } catch (error) {
-        console.error('Failed to initialize Snake renderer:', error)
+        handleGameError(
+            error instanceof Error ? error : new Error(String(error)),
+            'SnakeGame'
+        )
         // Cleanup partial resources
         try {
             const app = renderer.getApp()
@@ -64,7 +67,7 @@ export async function initSnakeGameFramework(
         } catch (cleanupError) {
             console.error('Error during renderer cleanup:', cleanupError)
         }
-        throw error
+        return undefined
     }
 
     // Style the canvas only after successful initialization
@@ -78,8 +81,6 @@ export async function initSnakeGameFramework(
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
         onStateChange: state => {
-            renderer.render(state)
-            game.markRendered()
             updateUI(state as ReturnType<SnakeGame['getState']>)
             customCallbacks?.onStateChange?.(state)
         },
@@ -151,6 +152,31 @@ export async function initSnakeGameFramework(
     // Set up page unload warning
     const cleanupUnloadWarning = setupUnloadWarning(game)
 
+    // Set up framework-level render loop (single rAF path)
+    let renderLoopId: number | null = null
+    const startRenderLoop = () => {
+        if (renderLoopId !== null) {
+            return
+        }
+        const renderLoop = () => {
+            const state = game.getState()
+            if (state.needsRedraw) {
+                renderer.render(state)
+                game.markRendered()
+            }
+            renderLoopId = requestAnimationFrame(renderLoop)
+        }
+        renderLoopId = requestAnimationFrame(renderLoop)
+    }
+    startRenderLoop()
+
+    const cleanupRenderLoop = () => {
+        if (renderLoopId !== null) {
+            cancelAnimationFrame(renderLoopId)
+            renderLoopId = null
+        }
+    }
+
     // Initial render
     renderer.render(game.getState())
 
@@ -158,6 +184,7 @@ export async function initSnakeGameFramework(
         game,
         renderer,
         cleanup: () => {
+            cleanupRenderLoop()
             cleanupButtonHandlers()
             cleanupKeyboardControls()
             cleanupUnloadWarning()
