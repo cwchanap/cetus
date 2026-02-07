@@ -197,7 +197,6 @@ describe('Sudoku Game', () => {
 
         it('should not clear given cells', () => {
             // Find a given cell
-            let foundGiven = false
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
                     if (state.grid.cells[r][c].isGiven) {
@@ -205,18 +204,16 @@ describe('Sudoku Game', () => {
                         selectCell(state, r, c)
                         clearCell(state)
                         expect(state.grid.cells[r][c].value).toBe(originalValue)
-                        foundGiven = true
                         return
                     }
                 }
             }
             // Ensure a given cell was found and tested
-            expect(foundGiven).toBe(true)
+            expect.fail('No given cell found in puzzle to test')
         })
 
         it('should clear non-given cell value', () => {
             // Find and fill an empty non-given cell
-            let found = false
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
                     if (!state.grid.cells[r][c].isGiven) {
@@ -225,13 +222,12 @@ describe('Sudoku Game', () => {
                         selectCell(state, r, c)
                         clearCell(state)
                         expect(state.grid.cells[r][c].value).toBeNull()
-                        found = true
                         return
                     }
                 }
             }
             // Ensure the test actually exercised the logic
-            expect(found).toBe(true)
+            expect.fail('No non-given cell found in puzzle to test')
         })
     })
 
