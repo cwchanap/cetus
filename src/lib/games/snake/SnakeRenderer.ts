@@ -177,7 +177,9 @@ export class SnakeRenderer extends PixiJSRenderer {
         }
 
         // Destroy graphics objects
-        this.graphics.forEach(graphic => graphic.destroy())
+        this.graphics.forEach(graphic => {
+            graphic.destroy()
+        })
         this.graphics = []
     }
 
