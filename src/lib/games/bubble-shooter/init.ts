@@ -242,7 +242,6 @@ export async function initBubbleShooterGame(callbacks?: {
             // Destroy PixiJS renderer
             if (renderer.app) {
                 renderer.app.destroy(true, { children: true, texture: true })
-                renderer.app = null
             }
         },
     }
