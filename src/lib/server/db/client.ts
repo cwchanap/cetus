@@ -8,8 +8,7 @@ const isCi = process.env.CI === 'true' || process.env.CI === '1'
 const fallbackUrl = pathToFileURL(
     path.resolve(process.cwd(), 'db', 'db.sqlite')
 ).toString()
-const dbUrl =
-    import.meta.env.TURSO_DATABASE_URL || (isCi ? fallbackUrl : undefined)
+const dbUrl = isCi ? fallbackUrl : import.meta.env.TURSO_DATABASE_URL
 
 if (!dbUrl) {
     throw new Error('TURSO_DATABASE_URL environment variable is required')
