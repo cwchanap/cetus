@@ -61,6 +61,9 @@ export async function initBejeweledGame(
     const renderer = new BejeweledRenderer(rendererConfig)
     await renderer.initialize()
 
+    const abortController = new AbortController()
+    const { signal } = abortController
+
     // Enhance callbacks to wire up rendering + UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
@@ -151,27 +154,31 @@ export async function initBejeweledGame(
         'start-btn'
     ) as HTMLButtonElement | null
     if (startBtn) {
-        startBtn.addEventListener('click', () => game.start())
+        startBtn.addEventListener('click', () => game.start(), { signal })
     }
 
     const endBtn = document.getElementById(
         'end-btn'
     ) as HTMLButtonElement | null
     if (endBtn) {
-        endBtn.addEventListener('click', () => game.end())
+        endBtn.addEventListener('click', () => game.end(), { signal })
     }
 
     const playAgainBtn = document.getElementById(
         'play-again-btn'
     ) as HTMLButtonElement | null
     if (playAgainBtn) {
-        playAgainBtn.addEventListener('click', () => {
-            const overlay = document.getElementById('game-over-overlay')
-            if (overlay) {
-                overlay.classList.add('hidden')
-            }
-            game.reset()
-        })
+        playAgainBtn.addEventListener(
+            'click',
+            () => {
+                const overlay = document.getElementById('game-over-overlay')
+                if (overlay) {
+                    overlay.classList.add('hidden')
+                }
+                game.reset()
+            },
+            { signal }
+        )
     }
 
     // Initial render
@@ -181,6 +188,7 @@ export async function initBejeweledGame(
         game,
         renderer,
         cleanup: () => {
+            abortController.abort()
             renderer.cleanup()
             game.destroy()
         },

@@ -4,6 +4,7 @@
 
 import type { GameType } from '@/lib/server/db/types'
 import { AchievementRarity } from '@/lib/achievements'
+import { getGameById, type GameID } from '@/lib/games'
 import type { GameData } from '@/lib/games/shared/types'
 
 declare global {
@@ -203,20 +204,8 @@ export async function getUserBestScore(
  * Format game name for display
  */
 export function formatGameName(gameId: GameType): string {
-    switch (gameId) {
-        case 'tetris':
-            return 'Tetris Challenge'
-        case 'quick_math':
-            return 'Quick Math'
-        case 'bubble_shooter':
-            return 'Bubble Shooter'
-        case 'memory_matrix':
-            return 'Memory Matrix'
-        case '2048':
-            return '2048'
-        default:
-            return gameId.charAt(0).toUpperCase() + gameId.slice(1)
-    }
+    const game = getGameById(gameId as GameID)
+    return game?.name ?? gameId.charAt(0).toUpperCase() + gameId.slice(1)
 }
 
 /**

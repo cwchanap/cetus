@@ -76,10 +76,7 @@ describe('POST /api/user/profile', () => {
 
             expect(response.status).toBe(400)
             const data = await response.json()
-            expect(data).toHaveProperty(
-                'error',
-                'Name must be a non-empty string when provided'
-            )
+            expect(data).toHaveProperty('error', 'Name cannot be empty')
         })
 
         it('should return 400 for name that is too long', async () => {
@@ -176,7 +173,7 @@ describe('POST /api/user/profile', () => {
             )
         })
 
-        it('should return 400 for whitespace-only displayName', async () => {
+        it('should set displayName to null when whitespace-only provided', async () => {
             const request = new Request('http://localhost/api/user/profile', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -188,9 +185,10 @@ describe('POST /api/user/profile', () => {
                 locals: { user: mockUser },
             } as any)
 
-            expect(response.status).toBe(400)
-            const data = await response.json()
-            expect(data).toHaveProperty('error', 'Display name cannot be empty')
+            expect(response.status).toBe(200)
+            expect(updateUser).toHaveBeenCalledWith('user-123', {
+                displayName: null,
+            })
         })
     })
 
@@ -251,7 +249,7 @@ describe('POST /api/user/profile', () => {
             const data = await response.json()
             expect(data).toHaveProperty(
                 'error',
-                'Username must be 3-20 chars, lowercase letters, numbers or underscore'
+                'Username must contain only lowercase letters, numbers, or underscores'
             )
         })
 
@@ -271,7 +269,7 @@ describe('POST /api/user/profile', () => {
             const data = await response.json()
             expect(data).toHaveProperty(
                 'error',
-                'Username must be 3-20 chars, lowercase letters, numbers or underscore'
+                'Username must be at least 3 characters'
             )
         })
 
@@ -291,7 +289,7 @@ describe('POST /api/user/profile', () => {
             const data = await response.json()
             expect(data).toHaveProperty(
                 'error',
-                'Username must be 3-20 chars, lowercase letters, numbers or underscore'
+                'Username must be 20 characters or less'
             )
         })
 
@@ -374,7 +372,10 @@ describe('POST /api/user/profile', () => {
 
             expect(response.status).toBe(400)
             const data = await response.json()
-            expect(data).toHaveProperty('error', 'No valid fields to update')
+            expect(data).toHaveProperty(
+                'error',
+                'At least one field must be provided'
+            )
         })
 
         it('should return 500 when update fails', async () => {
@@ -415,7 +416,7 @@ describe('POST /api/user/profile', () => {
             expect(data).toHaveProperty('error', 'Internal server error')
         })
 
-        it('should return 500 for invalid JSON', async () => {
+        it('should return 400 for invalid JSON', async () => {
             const request = new Request('http://localhost/api/user/profile', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -427,9 +428,9 @@ describe('POST /api/user/profile', () => {
                 locals: { user: mockUser },
             } as any)
 
-            expect(response.status).toBe(500)
+            expect(response.status).toBe(400)
             const data = await response.json()
-            expect(data).toHaveProperty('error', 'Internal server error')
+            expect(data).toHaveProperty('error', 'Invalid JSON body')
         })
     })
 

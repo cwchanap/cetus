@@ -1,59 +1,38 @@
 import type { APIRoute } from 'astro'
 import { updateUser } from '@/lib/server/db/queries'
+import {
+    jsonResponse,
+    unauthorizedResponse,
+    badRequestResponse,
+    errorResponse,
+} from '@/lib/server/api-utils'
 
 export const DELETE: APIRoute = async ({ locals }) => {
-    // Check if user is authenticated
     const user = locals.user
     if (!user) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-        })
+        return unauthorizedResponse()
     }
 
     try {
-        // Remove avatar by setting image to null
         const success = await updateUser(user.id, { image: null })
 
         if (!success) {
-            return new Response(
-                JSON.stringify({ error: 'Failed to remove avatar' }),
-                {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            )
+            return errorResponse('Failed to remove avatar')
         }
 
-        return new Response(
-            JSON.stringify({
-                success: true,
-                message: 'Avatar removed successfully',
-            }),
-            {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        )
+        return jsonResponse({
+            success: true,
+            message: 'Avatar removed successfully',
+        })
     } catch (_error) {
-        return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        )
+        return errorResponse('Internal server error')
     }
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
-    // Check if user is authenticated
     const user = locals.user
     if (!user) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-        })
+        return unauthorizedResponse()
     }
 
     try {
@@ -61,32 +40,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const file = formData.get('avatar') as File
 
         if (!file) {
-            return new Response(JSON.stringify({ error: 'No file provided' }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' },
-            })
+            return badRequestResponse('No file provided')
         }
 
         // Validate file type
         if (!file.type.startsWith('image/')) {
-            return new Response(
-                JSON.stringify({ error: 'File must be an image' }),
-                {
-                    status: 400,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            )
+            return badRequestResponse('File must be an image')
         }
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            return new Response(
-                JSON.stringify({ error: 'File size must be less than 5MB' }),
-                {
-                    status: 400,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            )
+            return badRequestResponse('File size must be less than 5MB')
         }
 
         // Convert file to buffer and create base64 data URL directly
@@ -98,33 +62,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const success = await updateUser(user.id, { image: base64Image })
 
         if (!success) {
-            return new Response(
-                JSON.stringify({ error: 'Failed to update avatar' }),
-                {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            )
+            return errorResponse('Failed to update avatar')
         }
 
-        return new Response(
-            JSON.stringify({
-                success: true,
-                message: 'Avatar updated successfully',
-                avatar: base64Image,
-            }),
-            {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        )
+        return jsonResponse({
+            success: true,
+            message: 'Avatar updated successfully',
+            avatar: base64Image,
+        })
     } catch (_error) {
-        return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        )
+        return errorResponse('Internal server error')
     }
 }

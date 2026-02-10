@@ -282,57 +282,88 @@ export async function initWordScrambleGame(externalCallbacks?: {
     // Initialize game instance
     gameInstance = new WordScrambleGame(GAME_CONFIG, callbacks)
 
+    const abortController = new AbortController()
+    const { signal } = abortController
+
     // Event listeners
     if (startButton) {
-        startButton.addEventListener('click', () => {
-            gameInstance?.startGame()
-        })
+        startButton.addEventListener(
+            'click',
+            () => {
+                gameInstance?.startGame()
+            },
+            { signal }
+        )
     }
 
     if (submitButton) {
-        submitButton.addEventListener('click', () => {
-            if (answerInput && gameInstance?.isGameActive()) {
-                gameInstance.submitAnswer(answerInput.value)
-            }
-        })
+        submitButton.addEventListener(
+            'click',
+            () => {
+                if (answerInput && gameInstance?.isGameActive()) {
+                    gameInstance.submitAnswer(answerInput.value)
+                }
+            },
+            { signal }
+        )
     }
 
     if (skipButton) {
-        skipButton.addEventListener('click', () => {
-            if (gameInstance?.isGameActive()) {
-                gameInstance.skipCurrentChallenge()
-            }
-        })
+        skipButton.addEventListener(
+            'click',
+            () => {
+                if (gameInstance?.isGameActive()) {
+                    gameInstance.skipCurrentChallenge()
+                }
+            },
+            { signal }
+        )
     }
 
     if (playAgainButton) {
-        playAgainButton.addEventListener('click', () => {
-            gameInstance?.startGame()
-        })
+        playAgainButton.addEventListener(
+            'click',
+            () => {
+                gameInstance?.startGame()
+            },
+            { signal }
+        )
     }
 
     // Enter key to submit answer
     if (answerInput) {
-        answerInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter' && gameInstance?.isGameActive()) {
-                gameInstance.submitAnswer(answerInput.value)
-            }
-        })
+        answerInput.addEventListener(
+            'keydown',
+            e => {
+                if (e.key === 'Enter' && gameInstance?.isGameActive()) {
+                    gameInstance.submitAnswer(answerInput.value)
+                }
+            },
+            { signal }
+        )
 
         // Update current answer as user types
-        answerInput.addEventListener('input', e => {
-            if (gameInstance) {
-                gameInstance.updateCurrentAnswer(
-                    (e.target as HTMLInputElement).value
-                )
-            }
-        })
+        answerInput.addEventListener(
+            'input',
+            e => {
+                if (gameInstance) {
+                    gameInstance.updateCurrentAnswer(
+                        (e.target as HTMLInputElement).value
+                    )
+                }
+            },
+            { signal }
+        )
     }
 
     // Cleanup function
-    window.addEventListener('beforeunload', () => {
-        gameInstance?.destroy()
-    })
+    window.addEventListener(
+        'beforeunload',
+        () => {
+            gameInstance?.destroy()
+        },
+        { signal }
+    )
 
     // Return game instance for external control
     return {
@@ -340,5 +371,9 @@ export async function initWordScrambleGame(externalCallbacks?: {
         getState: () => gameInstance?.getState(),
         endGame: () => gameInstance?.endGame(),
         callbacks: callbacks,
+        cleanup: () => {
+            abortController.abort()
+            gameInstance?.destroy()
+        },
     }
 }

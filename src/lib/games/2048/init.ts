@@ -47,6 +47,9 @@ export async function init2048Game(
         return undefined
     }
 
+    const abortController = new AbortController()
+    const { signal } = abortController
+
     // Initialize game state
     let state = createGameState()
     let totalMerges = 0
@@ -350,10 +353,7 @@ export async function init2048Game(
 
     // Destroy and cleanup
     function destroy(): void {
-        document.removeEventListener('keydown', handleKeyDown)
-        gameContainer.removeEventListener('touchstart', handleTouchStart)
-        gameContainer.removeEventListener('touchend', handleTouchEnd)
-        gameContainer.removeEventListener('touchmove', handleTouchMove)
+        abortController.abort()
 
         if (renderer) {
             destroyRenderer(renderer)
@@ -362,15 +362,18 @@ export async function init2048Game(
     }
 
     // Setup event listeners
-    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('keydown', handleKeyDown, { signal })
     gameContainer.addEventListener('touchstart', handleTouchStart, {
         passive: false,
+        signal,
     })
     gameContainer.addEventListener('touchend', handleTouchEnd, {
         passive: false,
+        signal,
     })
     gameContainer.addEventListener('touchmove', handleTouchMove, {
         passive: false,
+        signal,
     })
 
     // Initial draw

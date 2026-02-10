@@ -3,6 +3,12 @@ import {
     getUserPreferences,
     updateUserPreferences,
 } from '@/lib/server/db/queries'
+import {
+    jsonResponse,
+    unauthorizedResponse,
+    badRequestResponse,
+    errorResponse,
+} from '@/lib/server/api-utils'
 
 /**
  * GET /api/settings
@@ -11,10 +17,7 @@ import {
 export const GET: APIRoute = async ({ locals }) => {
     const user = locals.user
     if (!user) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-        })
+        return unauthorizedResponse()
     }
 
     try {
@@ -26,28 +29,13 @@ export const GET: APIRoute = async ({ locals }) => {
             console.error(
                 '[GET /api/settings] Failed to fetch preferences from database'
             )
-            return new Response(
-                JSON.stringify({ error: 'Failed to fetch preferences' }),
-                {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            )
+            return errorResponse('Failed to fetch preferences')
         }
 
-        return new Response(JSON.stringify(preferences), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        })
+        return jsonResponse(preferences)
     } catch (error) {
         console.error('[GET /api/settings] Error:', error)
-        return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        )
+        return errorResponse('Internal server error')
     }
 }
 
@@ -58,10 +46,7 @@ export const GET: APIRoute = async ({ locals }) => {
 export const POST: APIRoute = async ({ request, locals }) => {
     const user = locals.user
     if (!user) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-        })
+        return unauthorizedResponse()
     }
 
     try {
@@ -71,13 +56,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             data = await request.json()
         } catch (err) {
             if (err && err instanceof SyntaxError) {
-                return new Response(
-                    JSON.stringify({ error: 'Bad Request: malformed JSON' }),
-                    {
-                        status: 400,
-                        headers: { 'Content-Type': 'application/json' },
-                    }
-                )
+                return badRequestResponse('Bad Request: malformed JSON')
             }
             throw err // Re-throw other errors
         }
@@ -100,25 +79,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
         }
 
         if (Object.keys(updates).length === 0) {
-            return new Response(
-                JSON.stringify({ error: 'No valid preferences to update' }),
-                {
-                    status: 400,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            )
+            return badRequestResponse('No valid preferences to update')
         }
 
         const success = await updateUserPreferences(user.id, updates)
 
         if (!success) {
-            return new Response(
-                JSON.stringify({ error: 'Failed to update preferences' }),
-                {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            )
+            return errorResponse('Failed to update preferences')
         }
 
         // Return updated preferences
@@ -130,35 +97,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
             console.error(
                 '[POST /api/settings] Failed to read back updated preferences from database'
             )
-            return new Response(
-                JSON.stringify({
-                    error: 'Failed to retrieve updated preferences',
-                }),
-                {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            )
+            return errorResponse('Failed to retrieve updated preferences')
         }
 
-        return new Response(
-            JSON.stringify({
-                success: true,
-                preferences: updatedPreferences,
-            }),
-            {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        )
+        return jsonResponse({
+            success: true,
+            preferences: updatedPreferences,
+        })
     } catch (error) {
         console.error('[POST /api/settings] Error:', error)
-        return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        )
+        return errorResponse('Internal server error')
     }
 }

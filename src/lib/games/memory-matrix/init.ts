@@ -5,10 +5,18 @@ import { GameID } from '@/lib/games'
 
 let game: MemoryMatrixGame | null = null
 let renderer: MemoryMatrixRenderer | null = null
+let abortController: AbortController | null = null
 
 export async function initMemoryMatrixGame(callbacks?: {
     onGameComplete?: (finalScore: number, stats: any) => void
 }): Promise<any> {
+    // Clean up previous instance if any
+    if (abortController) {
+        abortController.abort()
+    }
+    abortController = new AbortController()
+    const { signal } = abortController
+
     // Initialize game and renderer
     game = new MemoryMatrixGame()
     renderer = new MemoryMatrixRenderer('memory-matrix-container')
@@ -40,12 +48,16 @@ export async function initMemoryMatrixGame(callbacks?: {
     })
 
     // Set up game controls
-    setupGameControls()
+    setupGameControls(signal)
 
     // Set up restart listener
-    window.addEventListener('memory-matrix-restart', () => {
-        game?.resetGame()
-    })
+    window.addEventListener(
+        'memory-matrix-restart',
+        () => {
+            game?.resetGame()
+        },
+        { signal }
+    )
 
     // Initial render
     const initialState = game.getGameState()
@@ -58,42 +70,55 @@ export async function initMemoryMatrixGame(callbacks?: {
         getState: () => game?.getGameState(),
         getStats: () => game?.getGameStats(),
         endGame: () => game?.endGameEarly(),
+        cleanup,
     }
 }
 
-function setupGameControls(): void {
+function setupGameControls(signal: AbortSignal): void {
     const startBtn = document.getElementById('start-btn')
     const resetBtn = document.getElementById('reset-btn')
 
     if (startBtn) {
-        startBtn.addEventListener('click', () => {
-            if (game) {
-                const state = game.getGameState()
-                if (!state.gameStarted) {
-                    game.startGame()
-                    startBtn.textContent = 'Game Started'
-                    ;(startBtn as HTMLButtonElement).disabled = true
+        startBtn.addEventListener(
+            'click',
+            () => {
+                if (game) {
+                    const state = game.getGameState()
+                    if (!state.gameStarted) {
+                        game.startGame()
+                        startBtn.textContent = 'Game Started'
+                        ;(startBtn as HTMLButtonElement).disabled = true
+                    }
                 }
-            }
-        })
+            },
+            { signal }
+        )
     }
 
     if (resetBtn) {
-        resetBtn.addEventListener('click', () => {
-            if (game) {
-                game.resetGame()
-                if (startBtn) {
-                    startBtn.textContent = 'Start Game'
-                    ;(startBtn as HTMLButtonElement).disabled = false
+        resetBtn.addEventListener(
+            'click',
+            () => {
+                if (game) {
+                    game.resetGame()
+                    if (startBtn) {
+                        startBtn.textContent = 'Start Game'
+                        ;(startBtn as HTMLButtonElement).disabled = false
+                    }
                 }
-            }
-        })
+            },
+            { signal }
+        )
     }
 
     // Handle page unload
-    window.addEventListener('beforeunload', () => {
-        cleanup()
-    })
+    window.addEventListener(
+        'beforeunload',
+        () => {
+            cleanup()
+        },
+        { signal }
+    )
 }
 
 async function saveScore(score: number): Promise<void> {
@@ -118,6 +143,7 @@ async function saveScore(score: number): Promise<void> {
 }
 
 function cleanup(): void {
+    abortController?.abort()
     game?.destroy()
     renderer?.destroy()
     game = null

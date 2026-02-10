@@ -153,6 +153,9 @@ export async function initQuickMathGame(externalCallbacks?: {
     // Initialize game
     gameInstance = new QuickMathGame(config, callbacks)
 
+    const abortController = new AbortController()
+    const { signal } = abortController
+
     // Set up event listeners
     const handleSubmit = () => {
         if (!gameInstance || !gameInstance.isGameActive()) {
@@ -206,49 +209,65 @@ export async function initQuickMathGame(externalCallbacks?: {
     }
 
     // Event listeners
-    submitButton.addEventListener('click', handleSubmit)
-    startButton.addEventListener('click', handleStart)
-    playAgainButton.addEventListener('click', handlePlayAgain)
+    submitButton.addEventListener('click', handleSubmit, { signal })
+    startButton.addEventListener('click', handleStart, { signal })
+    playAgainButton.addEventListener('click', handlePlayAgain, { signal })
 
     // Handle Enter key for submission
-    answerInput.addEventListener('keypress', e => {
-        if (e.key === 'Enter') {
-            handleSubmit()
-        }
-    })
+    answerInput.addEventListener(
+        'keypress',
+        e => {
+            if (e.key === 'Enter') {
+                handleSubmit()
+            }
+        },
+        { signal }
+    )
 
     // Handle input changes
-    answerInput.addEventListener('input', e => {
-        const target = e.target as HTMLInputElement
-        if (gameInstance) {
-            gameInstance.updateCurrentAnswer(target.value)
-        }
-    })
+    answerInput.addEventListener(
+        'input',
+        e => {
+            const target = e.target as HTMLInputElement
+            if (gameInstance) {
+                gameInstance.updateCurrentAnswer(target.value)
+            }
+        },
+        { signal }
+    )
 
     // Only allow numeric input
-    answerInput.addEventListener('keydown', e => {
-        // Allow backspace, delete, arrow keys, and numeric keys
-        if (
-            !/[0-9]/.test(e.key) &&
-            ![
-                'Backspace',
-                'Delete',
-                'ArrowLeft',
-                'ArrowRight',
-                'Tab',
-                'Enter',
-            ].includes(e.key)
-        ) {
-            e.preventDefault()
-        }
-    })
+    answerInput.addEventListener(
+        'keydown',
+        e => {
+            // Allow backspace, delete, arrow keys, and numeric keys
+            if (
+                !/[0-9]/.test(e.key) &&
+                ![
+                    'Backspace',
+                    'Delete',
+                    'ArrowLeft',
+                    'ArrowRight',
+                    'Tab',
+                    'Enter',
+                ].includes(e.key)
+            ) {
+                e.preventDefault()
+            }
+        },
+        { signal }
+    )
 
     // Cleanup on page unload
-    window.addEventListener('beforeunload', () => {
-        if (gameInstance) {
-            gameInstance.destroy()
-        }
-    })
+    window.addEventListener(
+        'beforeunload',
+        () => {
+            if (gameInstance) {
+                gameInstance.destroy()
+            }
+        },
+        { signal }
+    )
 
     // Return game instance for external control
     return {
@@ -256,6 +275,10 @@ export async function initQuickMathGame(externalCallbacks?: {
         getState: () => gameInstance?.getState(),
         endGame: () => gameInstance?.endGame(),
         callbacks: callbacks,
+        cleanup: () => {
+            abortController.abort()
+            gameInstance?.destroy()
+        },
     }
 }
 

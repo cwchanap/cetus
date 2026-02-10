@@ -1,17 +1,12 @@
 import type { APIRoute } from 'astro'
 import { db } from '@/lib/server/db/client'
 import { GameID } from '@/lib/games'
+import { jsonResponse, errorResponse } from '@/lib/server/api-utils'
 
 export const POST: APIRoute = async () => {
     // Only allow in development
     if (import.meta.env.PROD) {
-        return new Response(
-            JSON.stringify({ error: 'Not available in production' }),
-            {
-                status: 403,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        )
+        return errorResponse('Not available in production', 403)
     }
 
     try {
@@ -66,27 +61,13 @@ export const POST: APIRoute = async () => {
             }
         }
 
-        return new Response(
-            JSON.stringify({
-                success: true,
-                message: `Added ${addedCount} test scores. Visit /leaderboard to see results.`,
-            }),
-            {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        )
+        return jsonResponse({
+            success: true,
+            message: `Added ${addedCount} test scores. Visit /leaderboard to see results.`,
+        })
     } catch (error) {
-        return new Response(
-            JSON.stringify({
-                error: 'Failed to add test scores',
-                details:
-                    error instanceof Error ? error.message : 'Unknown error',
-            }),
-            {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' },
-            }
+        return errorResponse(
+            `Failed to add test scores: ${error instanceof Error ? error.message : 'Unknown error'}`
         )
     }
 }
