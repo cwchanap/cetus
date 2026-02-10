@@ -1,6 +1,11 @@
 import type { APIRoute } from 'astro'
 import { getGameLeaderboard } from '@/lib/server/db/queries'
 import { getAllGames } from '@/lib/games'
+import {
+    jsonResponse,
+    badRequestResponse,
+    errorResponse,
+} from '@/lib/server/api-utils'
 
 export const GET: APIRoute = async ({ url }) => {
     try {
@@ -10,15 +15,7 @@ export const GET: APIRoute = async ({ url }) => {
 
         // Validate limit parameter
         if (isNaN(limit) || limit <= 0 || limit > 100) {
-            return new Response(
-                JSON.stringify({ error: 'Invalid limit parameter' }),
-                {
-                    status: 400,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                }
-            )
+            return badRequestResponse('Invalid limit parameter')
         }
 
         // If no gameId provided, return leaderboards for all games
@@ -34,32 +31,24 @@ export const GET: APIRoute = async ({ url }) => {
                 }>
             > = {}
 
-            for (const game of games) {
-                const leaderboard = await getGameLeaderboard(game.id, limit)
-                leaderboards[game.id] = leaderboard.map((entry, index) => ({
+            const results = await Promise.all(
+                games.map(game => getGameLeaderboard(game.id, limit))
+            )
+            games.forEach((game, i) => {
+                leaderboards[game.id] = results[i].map((entry, index) => ({
                     rank: index + 1,
                     ...entry,
                 }))
-            }
-
-            return new Response(JSON.stringify({ leaderboards }), {
-                status: 200,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
             })
+
+            return jsonResponse({ leaderboards })
         }
 
         // Verify game exists
         const games = getAllGames()
         const game = games.find(g => g.id === gameId)
         if (!game) {
-            return new Response(JSON.stringify({ error: 'Invalid game ID' }), {
-                status: 400,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
+            return badRequestResponse('Invalid game ID')
         }
 
         const leaderboard = await getGameLeaderboard(gameId, limit)
@@ -68,28 +57,12 @@ export const GET: APIRoute = async ({ url }) => {
             ...entry,
         }))
 
-        return new Response(
-            JSON.stringify({
-                gameId,
-                gameName: game.name,
-                leaderboard: leaderboardWithRanks,
-            }),
-            {
-                status: 200,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        )
+        return jsonResponse({
+            gameId,
+            gameName: game.name,
+            leaderboard: leaderboardWithRanks,
+        })
     } catch (_error) {
-        return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            {
-                status: 500,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        )
+        return errorResponse('Internal server error')
     }
 }

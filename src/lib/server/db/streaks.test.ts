@@ -34,11 +34,15 @@ vi.mock('@/lib/server/db/client', () => {
         }),
     })
 
-    const updateTable = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        execute: vi.fn().mockResolvedValue({}),
-    })
+    const makeUpdateChain = () => {
+        const chain: Record<string, any> = {}
+        chain.set = vi.fn().mockReturnValue(chain)
+        chain.where = vi.fn().mockReturnValue(chain)
+        chain.execute = vi.fn().mockResolvedValue({})
+        return chain
+    }
+
+    const updateTable = vi.fn().mockImplementation(() => makeUpdateChain())
 
     const insertInto = vi.fn().mockReturnValue({
         values: vi.fn().mockReturnThis(),
@@ -78,12 +82,7 @@ vi.mock('@/lib/server/db/client', () => {
 
 describe('Streak updates', () => {
     beforeEach(() => {
-        vi.restoreAllMocks()
         vi.clearAllMocks()
-    })
-
-    afterEach(() => {
-        vi.restoreAllMocks()
     })
 
     it('increments streak for users active yesterday and resets others', async () => {

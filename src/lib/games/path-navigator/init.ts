@@ -76,6 +76,9 @@ export async function initializePathNavigatorGame(
 
     const gameConfig = { ...DEFAULT_CONFIG, ...config }
 
+    const abortController = new AbortController()
+    const { signal } = abortController
+
     let renderer: RendererState | null = null
     let game: PathNavigatorGame | null = null
     let animationFrame: number | null = null
@@ -244,7 +247,7 @@ export async function initializePathNavigatorGame(
                 }
 
                 // Enable keyboard controls
-                document.addEventListener('keydown', handleKeyPress)
+                document.addEventListener('keydown', handleKeyPress, { signal })
                 animationFrame = requestAnimationFrame(gameLoop)
 
                 // Call game start callback
@@ -299,8 +302,7 @@ export async function initializePathNavigatorGame(
                     cancelAnimationFrame(animationFrame)
                 }
 
-                // Remove keyboard event listener
-                document.removeEventListener('keydown', handleKeyPress)
+                abortController.abort()
 
                 if (game) {
                     game.cleanup()

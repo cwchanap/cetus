@@ -15,7 +15,11 @@ export const scoreSubmissionSchema = z.object({
     gameId: z.enum(gameIdValues, {
         errorMap: () => ({ message: 'Invalid game ID' }),
     }),
-    score: z.number().int().min(0, 'Score must be a non-negative integer'),
+    score: z
+        .number()
+        .int()
+        .min(0, 'Score must be a non-negative integer')
+        .max(999_999_999, 'Score exceeds maximum allowed value'),
     gameData: z.record(z.unknown()).optional(),
 })
 
@@ -32,17 +36,21 @@ export const profileUpdateSchema = z
             .min(1, 'Name cannot be empty')
             .max(100, 'Name must be 100 characters or less')
             .optional(),
-        displayName: z.preprocess(
-            val => (typeof val === 'string' ? val.trim() : val),
-            z
-                .string()
-                .min(1, 'Display name cannot be empty')
-                .max(100, 'Display name must be 100 characters or less')
-                .nullable()
-                .optional()
-        ),
+        displayName: z.preprocess(val => {
+            if (typeof val === 'string') {
+                const trimmed = val.trim()
+                return trimmed === '' ? null : trimmed
+            }
+            return val
+        }, z.string().min(1, 'Display name cannot be empty').max(100, 'Display name must be 100 characters or less').nullable().optional()),
         username: z.preprocess(
-            val => (typeof val === 'string' ? val.trim().toLowerCase() : val),
+            val => {
+                if (typeof val === 'string') {
+                    const trimmed = val.trim().toLowerCase()
+                    return trimmed === '' ? null : trimmed
+                }
+                return val
+            },
             z
                 .string()
                 .min(3, 'Username must be at least 3 characters')
@@ -110,14 +118,15 @@ export async function validateBody<T>(
     schema: z.ZodSchema<T>
 ): Promise<{ success: true; data: T } | { success: false; error: string }> {
     try {
-        const body = await request.json()
+        const text = await request.text()
+        const body: unknown = JSON.parse(text)
         const result = schema.safeParse(body)
 
         if (!result.success) {
-            const firstError = result.error.errors[0]
+            const firstIssue = result.error.issues?.[0]
             return {
                 success: false,
-                error: firstError?.message || 'Validation failed',
+                error: firstIssue?.message || 'Validation failed',
             }
         }
 

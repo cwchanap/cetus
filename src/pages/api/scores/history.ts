@@ -1,6 +1,12 @@
 import type { APIRoute } from 'astro'
 import { getUserGameHistory } from '@/lib/server/db/queries'
 import { auth } from '@/lib/auth'
+import {
+    jsonResponse,
+    unauthorizedResponse,
+    badRequestResponse,
+    errorResponse,
+} from '@/lib/server/api-utils'
 
 export const GET: APIRoute = async ({ request, url }) => {
     try {
@@ -9,46 +15,20 @@ export const GET: APIRoute = async ({ request, url }) => {
         })
 
         if (!session) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-                status: 401,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
+            return unauthorizedResponse()
         }
 
         const limitParam = url.searchParams.get('limit')
         const limit = limitParam ? parseInt(limitParam, 10) : 10
 
         if (isNaN(limit) || limit <= 0 || limit > 100) {
-            return new Response(
-                JSON.stringify({ error: 'Invalid limit parameter' }),
-                {
-                    status: 400,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                }
-            )
+            return badRequestResponse('Invalid limit parameter')
         }
 
         const history = await getUserGameHistory(session.user.id, limit)
 
-        return new Response(JSON.stringify({ history }), {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        })
-    } catch (error) {
-        return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            {
-                status: 500,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        )
+        return jsonResponse({ history })
+    } catch (_error) {
+        return errorResponse('Internal server error')
     }
 }

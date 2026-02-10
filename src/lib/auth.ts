@@ -33,11 +33,13 @@ export const auth = betterAuth({
         updateAge: 60 * 60 * 24, // 1 day
         cookie: {
             sameSite: 'lax',
-            secure: false,
+            secure: import.meta.env.PROD,
             httpOnly: true,
         },
     },
-    trustedOrigins: ['http://localhost:4325'],
+    trustedOrigins: [
+        import.meta.env.BETTER_AUTH_URL || 'http://localhost:4325',
+    ],
     secret: import.meta.env.BETTER_AUTH_SECRET!,
     baseURL: import.meta.env.BETTER_AUTH_URL || '',
 })

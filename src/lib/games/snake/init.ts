@@ -17,6 +17,7 @@ export interface SnakeGameInstance {
     restart: () => void
     getState: () => GameState
     endGame: () => Promise<void>
+    cleanup: () => void
 }
 
 export async function initSnakeGame(): Promise<SnakeGameInstance | undefined> {
@@ -27,6 +28,8 @@ export async function initSnakeGame(): Promise<SnakeGameInstance | undefined> {
     }
 
     // Initialize game state
+    const abortController = new AbortController()
+    const { signal } = abortController
     const state = createGameState()
     const renderer = await setupPixiJS(gameContainer, GAME_CONSTANTS)
 
@@ -98,74 +101,90 @@ export async function initSnakeGame(): Promise<SnakeGameInstance | undefined> {
     function setupEventListeners() {
         document
             .getElementById('start-btn')
-            ?.addEventListener('click', () =>
-                startGame(enhancedState, gameLoopFn)
+            ?.addEventListener(
+                'click',
+                () => startGame(enhancedState, gameLoopFn),
+                { signal }
             )
         document
             .getElementById('pause-btn')
-            ?.addEventListener('click', () =>
-                togglePause(enhancedState, gameLoopFn)
+            ?.addEventListener(
+                'click',
+                () => togglePause(enhancedState, gameLoopFn),
+                { signal }
             )
         document
             .getElementById('reset-btn')
-            ?.addEventListener('click', () => resetGame(enhancedState))
+            ?.addEventListener('click', () => resetGame(enhancedState), {
+                signal,
+            })
         document
             .getElementById('restart-btn')
-            ?.addEventListener('click', () => resetGame(enhancedState))
+            ?.addEventListener('click', () => resetGame(enhancedState), {
+                signal,
+            })
 
         // Page unload warning
-        window.addEventListener('beforeunload', e => {
-            if (
-                enhancedState.gameStarted &&
-                !enhancedState.gameOver &&
-                !enhancedState.paused
-            ) {
-                e.preventDefault()
-                const message =
-                    'You have a game in progress. Are you sure you want to leave?'
-                e.returnValue = message
-                return message // For older browsers
-            }
-        })
+        window.addEventListener(
+            'beforeunload',
+            e => {
+                if (
+                    enhancedState.gameStarted &&
+                    !enhancedState.gameOver &&
+                    !enhancedState.paused
+                ) {
+                    e.preventDefault()
+                    const message =
+                        'You have a game in progress. Are you sure you want to leave?'
+                    e.returnValue = message
+                    return message // For older browsers
+                }
+            },
+            { signal }
+        )
 
         // Keyboard controls
-        document.addEventListener('keydown', e => {
-            if (!enhancedState.gameStarted || enhancedState.gameOver) {
-                return
-            }
+        document.addEventListener(
+            'keydown',
+            e => {
+                if (!enhancedState.gameStarted || enhancedState.gameOver) {
+                    return
+                }
 
-            switch (e.key) {
-                case 'ArrowLeft':
-                case 'a':
-                case 'A':
-                    e.preventDefault()
-                    changeDirection(enhancedState, 'left')
-                    break
-                case 'ArrowRight':
-                case 'd':
-                case 'D':
-                    e.preventDefault()
-                    changeDirection(enhancedState, 'right')
-                    break
-                case 'ArrowUp':
-                case 'w':
-                case 'W':
-                    e.preventDefault()
-                    changeDirection(enhancedState, 'up')
-                    break
-                case 'ArrowDown':
-                case 's':
-                case 'S':
-                    e.preventDefault()
-                    changeDirection(enhancedState, 'down')
-                    break
-                case 'p':
-                case 'P':
-                    e.preventDefault()
-                    togglePause(enhancedState, gameLoopFn)
-                    break
-            }
-        })
+                switch (e.key) {
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        e.preventDefault()
+                        changeDirection(enhancedState, 'left')
+                        break
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        e.preventDefault()
+                        changeDirection(enhancedState, 'right')
+                        break
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        e.preventDefault()
+                        changeDirection(enhancedState, 'up')
+                        break
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        e.preventDefault()
+                        changeDirection(enhancedState, 'down')
+                        break
+                    case 'p':
+                    case 'P':
+                        e.preventDefault()
+                        togglePause(enhancedState, gameLoopFn)
+                        break
+                }
+            },
+            { signal }
+        )
     }
 
     // Initialize everything
@@ -173,9 +192,15 @@ export async function initSnakeGame(): Promise<SnakeGameInstance | undefined> {
     updateUI(enhancedState)
 
     // Start continuous draw loop for rendering
+    let drawFrameId: number | null = null
+    let drawRunning = true
+
     function drawLoop() {
+        if (!drawRunning) {
+            return
+        }
         draw(renderer, enhancedState, GAME_CONSTANTS)
-        requestAnimationFrame(drawLoop)
+        drawFrameId = requestAnimationFrame(drawLoop)
     }
     drawLoop()
 
@@ -184,5 +209,15 @@ export async function initSnakeGame(): Promise<SnakeGameInstance | undefined> {
         restart: () => resetGame(enhancedState),
         getState: () => enhancedState,
         endGame: () => endGame(enhancedState),
+        cleanup: () => {
+            drawRunning = false
+            if (drawFrameId !== null) {
+                cancelAnimationFrame(drawFrameId)
+            }
+            abortController.abort()
+            if (renderer.app) {
+                renderer.app.destroy(true, { children: true, texture: true })
+            }
+        },
     }
 }

@@ -18,6 +18,44 @@ function sanitizeError(error: unknown): string {
     return error instanceof Error ? error.message : String(error)
 }
 
+// Migration cache to avoid repeated PRAGMA calls
+const _migrationsRun = new Set<string>()
+
+// Lazy-cached dynamic imports to avoid repeated resolution
+let _achievementService:
+    | typeof import('../../services/achievementService')
+    | null = null
+async function getAchievementService() {
+    if (!_achievementService) {
+        _achievementService = await import('../../services/achievementService')
+    }
+    return _achievementService
+}
+
+let _gamesModule: typeof import('../../games') | null = null
+async function getGamesModule() {
+    if (!_gamesModule) {
+        _gamesModule = await import('../../games')
+    }
+    return _gamesModule
+}
+
+let _achievementsModule: typeof import('../../achievements') | null = null
+async function getAchievementsModule() {
+    if (!_achievementsModule) {
+        _achievementsModule = await import('../../achievements')
+    }
+    return _achievementsModule
+}
+
+let _challengesModule: typeof import('../../challenges') | null = null
+async function getChallengesModule() {
+    if (!_challengesModule) {
+        _challengesModule = await import('../../challenges')
+    }
+    return _challengesModule
+}
+
 /**
  * Get user game statistics
  */
@@ -147,11 +185,9 @@ export async function getGameLeaderboard(
             .select(eb => [
                 eb
                     .fn<string>('coalesce', [
-                        // Prefer new fields, keep legacy fallbacks for safety
                         'user.displayName',
                         'user.username',
                         'user.name',
-                        'user.email',
                     ])
                     .as('name'),
                 'user.username',
@@ -195,6 +231,9 @@ export async function getGameLeaderboard(
  * Safe and idempotent for SQLite/LibSQL.
  */
 export async function ensureUserIdentityColumns(): Promise<void> {
+    if (_migrationsRun.has('userIdentity')) {
+        return
+    }
     try {
         const result = await sql<{
             name: string
@@ -215,6 +254,7 @@ export async function ensureUserIdentityColumns(): Promise<void> {
         await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON "user" (username)`.execute(
             db
         )
+        _migrationsRun.add('userIdentity')
     } catch (error) {
         // Log but swallow to avoid breaking primary flows
         console.warn('[ensureUserIdentityColumns] Migration warning:', error)
@@ -502,9 +542,9 @@ export async function saveGameScoreWithAchievements(
             return { success: false, newAchievements: [] }
         }
 
-        // Import achievement service here to avoid circular dependency
+        // Use cached import to avoid circular dependency
         const { checkAndAwardAchievements, checkInGameAchievements } =
-            await import('../../services/achievementService')
+            await getAchievementService()
 
         // Check and award score-based achievements
         const scoreAchievements = await checkAndAwardAchievements(
@@ -567,8 +607,7 @@ export async function getUserGameHistory(
             .limit(limit)
             .execute()
 
-        // Import game definitions to get names
-        const { getGameById } = await import('../../games')
+        const { getGameById } = await getGamesModule()
 
         return results.map(row => ({
             game_id: row.game_id,
@@ -632,8 +671,7 @@ export async function getUserGameHistoryPaginated(
             .offset(offset)
             .execute()
 
-        // Import game definitions to get names
-        const { getGameById } = await import('../../games')
+        const { getGameById } = await getGamesModule()
 
         const games = results.map(row => ({
             game_id: row.game_id,
@@ -844,35 +882,23 @@ export async function awardAchievement(
 
 /**
  * Get user's best score for a specific game (for achievement checking)
+ * Returns 0 instead of null when no score is found.
+ * @deprecated Use getUserBestScore with ?? 0 instead
  */
 export async function getUserBestScoreForGame(
     userId: string,
     gameId: string
 ): Promise<number> {
-    try {
-        const result = await db
-            .selectFrom('game_scores')
-            .select('score')
-            .where('user_id', '=', userId)
-            .where('game_id', '=', gameId)
-            .orderBy('score', 'desc')
-            .limit(1)
-            .executeTakeFirst()
-
-        return result?.score || 0
-    } catch (error) {
-        console.error(
-            '[getUserBestScoreForGame] Database error:',
-            sanitizeError(error)
-        )
-        return 0
-    }
+    return (await getUserBestScore(userId, gameId)) ?? 0
 }
 
 /**
  * Ensure streak_days column exists on user_stats (safe, idempotent)
  */
 export async function ensureStreakColumn(): Promise<void> {
+    if (_migrationsRun.has('streakColumn')) {
+        return
+    }
     try {
         const result = await sql<{
             name: string
@@ -883,6 +909,7 @@ export async function ensureStreakColumn(): Promise<void> {
                 db
             )
         }
+        _migrationsRun.add('streakColumn')
     } catch (error) {
         // Log but swallow to avoid breaking primary flows
         console.warn('[ensureStreakColumn] Migration warning:', error)
@@ -981,25 +1008,37 @@ export async function updateAllUserStreaksForUTC(): Promise<{
     ])
 
     const activeSet = new Set(activeYesterday)
-    let inc = 0
-    let rst = 0
+    const activeUserIds = allUserIds.filter(uid => activeSet.has(uid))
+    const inactiveUserIds = allUserIds.filter(uid => !activeSet.has(uid))
 
-    for (const uid of allUserIds) {
-        if (activeSet.has(uid)) {
-            if (await incrementUserStreak(uid)) {
-                inc++
-            }
-        } else {
-            if (await resetUserStreak(uid)) {
-                rst++
-            }
-        }
+    // Batch increment active users' streaks
+    if (activeUserIds.length > 0) {
+        await db
+            .updateTable('user_stats')
+            .set(eb => ({
+                streak_days: eb('streak_days', '+', 1),
+                updated_at: new Date().toISOString(),
+            }))
+            .where('user_id', 'in', activeUserIds)
+            .execute()
+    }
+
+    // Batch reset inactive users' streaks
+    if (inactiveUserIds.length > 0) {
+        await db
+            .updateTable('user_stats')
+            .set({
+                streak_days: 0,
+                updated_at: new Date().toISOString(),
+            })
+            .where('user_id', 'in', inactiveUserIds)
+            .execute()
     }
 
     return {
         processed: allUserIds.length,
-        incremented: inc,
-        reset: rst,
+        incremented: activeUserIds.length,
+        reset: inactiveUserIds.length,
     }
 }
 
@@ -1049,8 +1088,7 @@ export async function getAchievementStatistics(): Promise<
         })
         const globalPlayers = Number(globalPlayerCount?.player_count || 0)
 
-        // Import achievements to get game associations
-        const { getAllAchievements } = await import('../../achievements')
+        const { getAllAchievements } = await getAchievementsModule()
         const allAchievements = getAllAchievements()
 
         // Create a map of achievement_id to achievement for game lookup
@@ -1124,6 +1162,9 @@ export async function getAchievementStatistics(): Promise<
  * Ensure challenge columns exist on user_stats (safe, idempotent)
  */
 export async function ensureChallengeColumns(): Promise<void> {
+    if (_migrationsRun.has('challengeColumns')) {
+        return
+    }
     try {
         const result = await sql<{
             name: string
@@ -1150,6 +1191,7 @@ export async function ensureChallengeColumns(): Promise<void> {
                 db
             )
         }
+        _migrationsRun.add('challengeColumns')
     } catch (error) {
         console.warn(
             '[ensureChallengeColumns] Migration warning:',
@@ -1162,6 +1204,9 @@ export async function ensureChallengeColumns(): Promise<void> {
  * Ensure daily_challenge_progress table exists (safe, idempotent)
  */
 export async function ensureDailyChallengeTable(): Promise<void> {
+    if (_migrationsRun.has('dailyChallengeTable')) {
+        return
+    }
     try {
         await sql`
             CREATE TABLE IF NOT EXISTS daily_challenge_progress (
@@ -1183,6 +1228,7 @@ export async function ensureDailyChallengeTable(): Promise<void> {
             CREATE INDEX IF NOT EXISTS idx_challenge_progress_user_date
             ON daily_challenge_progress(user_id, challenge_date)
         `.execute(db)
+        _migrationsRun.add('dailyChallengeTable')
     } catch (error) {
         console.warn(
             '[ensureDailyChallengeTable] Migration warning:',
@@ -1561,7 +1607,6 @@ export async function atomicCheckAndUpdateStreak(
                 .selectFrom('user_stats')
                 .select(['challenge_streak', 'last_challenge_date'])
                 .where('user_id', '=', userId)
-                .forUpdate() // Lock the row for update if supported by the driver
                 .executeTakeFirst()
 
             if (!stats) {
@@ -1630,6 +1675,9 @@ export async function atomicCheckAndUpdateStreak(
  * Ensure login reward columns exist on user_stats (idempotent migration)
  */
 export async function ensureLoginRewardColumns(): Promise<void> {
+    if (_migrationsRun.has('loginRewardColumns')) {
+        return
+    }
     try {
         const result = await sql<{
             name: string
@@ -1651,6 +1699,7 @@ export async function ensureLoginRewardColumns(): Promise<void> {
                 db
             )
         }
+        _migrationsRun.add('loginRewardColumns')
     } catch (error) {
         console.warn('[ensureLoginRewardColumns] Migration warning:', error)
     }
@@ -1710,16 +1759,13 @@ export async function claimLoginReward(
         await ensureLoginRewardColumns()
         await ensureChallengeColumns()
 
-        // Import level calculation outside transaction
-        const { getLevelFromXP } = await import('../../challenges')
+        const { getLevelFromXP } = await getChallengesModule()
 
         return await db.transaction().execute(async trx => {
-            // Get current stats with row lock to prevent concurrent claims
             const stats = await trx
                 .selectFrom('user_stats')
                 .select(['xp', 'level', 'last_login_reward_date'])
                 .where('user_id', '=', userId)
-                .forUpdate()
                 .executeTakeFirst()
 
             // If already claimed today, return false
@@ -1802,6 +1848,9 @@ export async function claimLoginReward(
  * Ensure notification preference columns exist on user_stats (idempotent migration)
  */
 export async function ensurePreferenceColumns(): Promise<void> {
+    if (_migrationsRun.has('preferenceColumns')) {
+        return
+    }
     try {
         const result = await sql<{
             name: string
@@ -1823,6 +1872,7 @@ export async function ensurePreferenceColumns(): Promise<void> {
                 db
             )
         }
+        _migrationsRun.add('preferenceColumns')
     } catch (error) {
         console.warn('[ensurePreferenceColumns] Migration warning:', error)
     }

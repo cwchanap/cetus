@@ -111,9 +111,7 @@ export function generateNextPiece(): Piece {
         ]
     return {
         type: randomType,
-        shape: JSON.parse(
-            JSON.stringify(GAME_CONSTANTS.PIECES[randomType].shape)
-        ),
+        shape: structuredClone(GAME_CONSTANTS.PIECES[randomType].shape),
         color: GAME_CONSTANTS.PIECES[randomType].color,
         x: 0,
         y: 0,

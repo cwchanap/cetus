@@ -42,6 +42,8 @@ export async function initTetrisGame(): Promise<
 
     // Initialize game state
     const state = createGameState()
+    const abortController = new AbortController()
+    const { signal } = abortController
     const renderer = await setupPixiJS(gameContainer, GAME_CONSTANTS)
 
     // Enhanced state with score handling
@@ -199,22 +201,22 @@ export async function initTetrisGame(): Promise<
     function setupEventListeners() {
         document
             .getElementById('start-btn')
-            ?.addEventListener('click', startHandler)
+            ?.addEventListener('click', startHandler, { signal })
         document
             .getElementById('pause-btn')
-            ?.addEventListener('click', pauseHandler)
+            ?.addEventListener('click', pauseHandler, { signal })
         document
             .getElementById('reset-btn')
-            ?.addEventListener('click', resetHandler)
+            ?.addEventListener('click', resetHandler, { signal })
         document
             .getElementById('restart-btn')
-            ?.addEventListener('click', restartHandler)
+            ?.addEventListener('click', restartHandler, { signal })
 
         // Page unload warning
-        window.addEventListener('beforeunload', beforeUnloadHandler)
+        window.addEventListener('beforeunload', beforeUnloadHandler, { signal })
 
         // Keyboard controls
-        document.addEventListener('keydown', keydownHandler)
+        document.addEventListener('keydown', keydownHandler, { signal })
     }
 
     // Initialize everything
@@ -254,20 +256,7 @@ export async function initTetrisGame(): Promise<
                 drawFrameId = null
             }
 
-            document
-                .getElementById('start-btn')
-                ?.removeEventListener('click', startHandler)
-            document
-                .getElementById('pause-btn')
-                ?.removeEventListener('click', pauseHandler)
-            document
-                .getElementById('reset-btn')
-                ?.removeEventListener('click', resetHandler)
-            document
-                .getElementById('restart-btn')
-                ?.removeEventListener('click', restartHandler)
-            window.removeEventListener('beforeunload', beforeUnloadHandler)
-            document.removeEventListener('keydown', keydownHandler)
+            abortController.abort()
 
             // Destroy PixiJS renderer
             if (renderer.app) {

@@ -1,5 +1,11 @@
 import type { APIRoute } from 'astro'
 import { claimDailyLoginReward } from '@/lib/services/loginRewardService'
+import {
+    jsonResponse,
+    unauthorizedResponse,
+    badRequestResponse,
+    errorResponse,
+} from '@/lib/server/api-utils'
 
 /**
  * POST /api/login-rewards/claim
@@ -8,40 +14,19 @@ import { claimDailyLoginReward } from '@/lib/services/loginRewardService'
 export const POST: APIRoute = async ({ locals }) => {
     const user = locals.user
     if (!user) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-        })
+        return unauthorizedResponse()
     }
 
     try {
         const result = await claimDailyLoginReward(user.id)
 
         if (!result.success) {
-            return new Response(
-                JSON.stringify({
-                    success: false,
-                    error: result.error || 'Failed to claim reward',
-                }),
-                {
-                    status: 400,
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            )
+            return badRequestResponse(result.error || 'Failed to claim reward')
         }
 
-        return new Response(JSON.stringify(result), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        })
+        return jsonResponse(result)
     } catch (error) {
         console.error('[POST /api/login-rewards/claim] Error:', error)
-        return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' },
-            }
-        )
+        return errorResponse('Internal server error')
     }
 }

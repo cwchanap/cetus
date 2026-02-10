@@ -1,7 +1,16 @@
 import type { APIRoute } from 'astro'
-import { getUserBestScoreByGame } from '@/lib/server/db/queries'
-import { getGameById } from '@/lib/games'
+import { getUserBestScore } from '@/lib/server/db/queries'
+import { getGameById, GameID } from '@/lib/games'
 import { auth } from '@/lib/auth'
+import {
+    jsonResponse,
+    unauthorizedResponse,
+    badRequestResponse,
+    errorResponse,
+} from '@/lib/server/api-utils'
+
+const isGameId = (id: string): id is GameID =>
+    Object.values(GameID).includes(id as GameID)
 
 export const GET: APIRoute = async ({ request, url }) => {
     try {
@@ -10,56 +19,29 @@ export const GET: APIRoute = async ({ request, url }) => {
         })
 
         if (!session) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-                status: 401,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
+            return unauthorizedResponse()
         }
 
         const gameId = url.searchParams.get('gameId')
 
         if (!gameId) {
-            return new Response(
-                JSON.stringify({ error: 'Missing gameId parameter' }),
-                {
-                    status: 400,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                }
-            )
+            return badRequestResponse('Missing gameId parameter')
+        }
+
+        if (!isGameId(gameId)) {
+            return badRequestResponse('Invalid game ID')
         }
 
         // Verify game exists
-        const game = getGameById(gameId as any)
+        const game = getGameById(gameId)
         if (!game) {
-            return new Response(JSON.stringify({ error: 'Invalid game ID' }), {
-                status: 400,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
+            return badRequestResponse('Invalid game ID')
         }
 
-        const bestScore = await getUserBestScoreByGame(session.user.id, gameId)
+        const bestScore = await getUserBestScore(session.user.id, gameId)
 
-        return new Response(JSON.stringify({ bestScore }), {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        })
-    } catch (error) {
-        return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            {
-                status: 500,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        )
+        return jsonResponse({ bestScore })
+    } catch (_error) {
+        return errorResponse('Internal server error')
     }
 }

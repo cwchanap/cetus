@@ -18,6 +18,8 @@ export function initSudokuGame(
     difficulty: 'easy' | 'medium' | 'hard' = 'medium'
 ): () => void {
     // Initialize game state
+    const abortController = new AbortController()
+    const { signal } = abortController
     const state: GameState = initializeGame(difficulty)
 
     // Create game container
@@ -31,7 +33,7 @@ export function initSudokuGame(
     renderGame(gameElement, state)
 
     // Set up event listeners
-    setupEventListeners(gameElement, state)
+    setupEventListeners(gameElement, state, signal)
 
     // Start game loop with proper timing
     let gameLoopId: number | null = null
@@ -64,13 +66,8 @@ export function initSudokuGame(
             cancelAnimationFrame(gameLoopId)
         }
 
-        // Clean up event listeners
-        gameElement.removeEventListener('click', e =>
-            handleClick(e, state, gameElement)
-        )
-        gameElement.removeEventListener('keydown', e =>
-            handleKeydown(e, state, gameElement)
-        )
+        // Clean up all event listeners via AbortController
+        abortController.abort()
 
         // Remove game element
         if (gameElement.parentNode) {
@@ -103,15 +100,25 @@ function updateUI(state: GameState): void {
 /**
  * Sets up event listeners for the game
  */
-function setupEventListeners(gameElement: HTMLElement, state: GameState): void {
+function setupEventListeners(
+    gameElement: HTMLElement,
+    state: GameState,
+    signal: AbortSignal
+): void {
     // Click handler for cell selection
-    gameElement.addEventListener('click', e =>
-        handleClick(e, state, gameElement)
+    gameElement.addEventListener(
+        'click',
+        e => handleClick(e, state, gameElement),
+        {
+            signal,
+        }
     )
 
     // Keyboard support
-    gameElement.addEventListener('keydown', e =>
-        handleKeydown(e, state, gameElement)
+    gameElement.addEventListener(
+        'keydown',
+        e => handleKeydown(e as KeyboardEvent, state, gameElement),
+        { signal }
     )
 
     // Focus the game element to receive keyboard events
@@ -121,11 +128,15 @@ function setupEventListeners(gameElement: HTMLElement, state: GameState): void {
     // Handle pause button
     const pauseBtn = document.getElementById('pause-btn')
     if (pauseBtn) {
-        pauseBtn.addEventListener('click', () => {
-            togglePause(state)
-            pauseBtn.textContent = state.isPaused ? 'Resume' : 'Pause'
-            renderGame(gameElement, state)
-        })
+        pauseBtn.addEventListener(
+            'click',
+            () => {
+                togglePause(state)
+                pauseBtn.textContent = state.isPaused ? 'Resume' : 'Pause'
+                renderGame(gameElement, state)
+            },
+            { signal }
+        )
     }
 }
 

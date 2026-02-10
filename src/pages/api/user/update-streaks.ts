@@ -1,5 +1,10 @@
 import type { APIRoute } from 'astro'
 import { updateAllUserStreaksForUTC } from '@/lib/server/db/queries'
+import {
+    jsonResponse,
+    unauthorizedResponse,
+    errorResponse,
+} from '@/lib/server/api-utils'
 
 export const POST: APIRoute = async ({ request, locals }) => {
     const cronSecret =
@@ -10,40 +15,26 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (cronSecret) {
         const provided = request.headers.get('x-cron-secret')
         if (provided !== cronSecret) {
-            return new Response(JSON.stringify({ error: 'Forbidden' }), {
-                status: 403,
-                headers: { 'Content-Type': 'application/json' },
-            })
+            return errorResponse('Forbidden', 403)
         }
     } else {
         // No secret configured. In production, deny; in dev, allow authenticated users to trigger manually.
         if (import.meta.env.PROD) {
-            return new Response(
-                JSON.stringify({
-                    error: 'Missing CRON_SECRET. Set it on the server to enable this endpoint.',
-                }),
-                { status: 403, headers: { 'Content-Type': 'application/json' } }
+            return errorResponse(
+                'Missing CRON_SECRET. Set it on the server to enable this endpoint.',
+                403
             )
         }
         const user = locals.user
         if (!user) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-                status: 401,
-                headers: { 'Content-Type': 'application/json' },
-            })
+            return unauthorizedResponse()
         }
     }
 
     try {
         const result = await updateAllUserStreaksForUTC()
-        return new Response(JSON.stringify({ success: true, ...result }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        })
+        return jsonResponse({ success: true, ...result })
     } catch (_e) {
-        return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            { status: 500, headers: { 'Content-Type': 'application/json' } }
-        )
+        return errorResponse('Internal server error')
     }
 }
