@@ -39,4 +39,7 @@ test-results/
 .eslintcache
 playwright-report/
 
-.turbo
+.turso
+
+# Claude settings
+.claude/settings.local.json
