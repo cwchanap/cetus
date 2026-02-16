@@ -1008,6 +1008,15 @@ export async function updateAllUserStreaksForUTC(): Promise<{
         getActiveUserIdsBetween(yesterdayUTC, todayUTC),
     ])
 
+    // Guard against empty user list to avoid invalid SQL with WHERE IN ()
+    if (allUserIds.length === 0) {
+        return {
+            processed: 0,
+            incremented: 0,
+            reset: 0,
+        }
+    }
+
     // Query existing user_stats rows to only update users with stats
     const existingStatsRows = await db
         .selectFrom('user_stats')
