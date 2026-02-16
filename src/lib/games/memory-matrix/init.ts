@@ -2,15 +2,56 @@ import { MemoryMatrixGame } from './game'
 import { MemoryMatrixRenderer } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import type { GameState, GameStats } from './types'
 
 let game: MemoryMatrixGame | null = null
 let renderer: MemoryMatrixRenderer | null = null
 let abortController: AbortController | null = null
 
-export async function initMemoryMatrixGame(callbacks?: {
-    onGameComplete?: (finalScore: number, stats: any) => void
-}): Promise<any> {
-    // Clean up previous instance if any
+/**
+ * Interface for the Memory Matrix game instance returned by initMemoryMatrixGame
+ */
+export interface MemoryMatrixGameInstance {
+    restart: () => void
+    getState: () => GameState
+    getStats: () => GameStats
+    endGame: () => void
+    cleanup: () => void
+}
+
+/**
+ * Callback types for initMemoryMatrixGame
+ */
+export interface MemoryMatrixCallbacks {
+    onGameComplete?: (finalScore: number, stats: GameStats) => void
+}
+
+export async function initMemoryMatrixGame(
+    callbacks?: MemoryMatrixCallbacks
+): Promise<MemoryMatrixGameInstance> {
+    // Clean up previous instances to prevent resource leaks
+    if (game && typeof game.destroy === 'function') {
+        try {
+            game.destroy()
+        } catch (e) {
+            console.warn(
+                '[initMemoryMatrixGame] Failed to destroy previous game:',
+                e
+            )
+        }
+    }
+    if (renderer && typeof renderer.destroy === 'function') {
+        try {
+            renderer.destroy()
+        } catch (e) {
+            console.warn(
+                '[initMemoryMatrixGame] Failed to destroy previous renderer:',
+                e
+            )
+        }
+    }
+
+    // Abort previous abort controller before creating new one
     if (abortController) {
         abortController.abort()
     }
@@ -65,11 +106,13 @@ export async function initMemoryMatrixGame(callbacks?: {
     renderer.render(initialState, initialStats)
 
     // Return game instance for external control
+    // Note: game is guaranteed to be non-null here since we just created it
+    const gameInstance = game!
     return {
-        restart: () => game?.resetGame(),
-        getState: () => game?.getGameState(),
-        getStats: () => game?.getGameStats(),
-        endGame: () => game?.endGameEarly(),
+        restart: () => gameInstance.resetGame(),
+        getState: () => gameInstance.getGameState(),
+        getStats: () => gameInstance.getGameStats(),
+        endGame: () => gameInstance.endGameEarly(),
         cleanup,
     }
 }

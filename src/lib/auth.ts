@@ -38,8 +38,9 @@ export const auth = betterAuth({
         },
     },
     trustedOrigins: [
-        import.meta.env.BETTER_AUTH_URL || 'http://localhost:4325',
-    ],
+        import.meta.env.BETTER_AUTH_URL ||
+            (!import.meta.env.PROD ? 'http://localhost:4325' : ''),
+    ].filter(Boolean),
     secret: import.meta.env.BETTER_AUTH_SECRET!,
     baseURL: import.meta.env.BETTER_AUTH_URL || '',
 })
