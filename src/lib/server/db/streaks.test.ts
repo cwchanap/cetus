@@ -21,8 +21,16 @@ vi.mock('@/lib/server/db/client', () => {
     })
 
     const makeUserStatsSelect = () => ({
+        select: vi.fn().mockReturnThis(),
         selectAll: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
+        execute: vi
+            .fn()
+            .mockResolvedValue([
+                { user_id: 'u1' },
+                { user_id: 'u2' },
+                { user_id: 'u3' },
+            ]),
         executeTakeFirst: vi.fn().mockResolvedValue({
             user_id: 'uX',
             total_games_played: 0,
