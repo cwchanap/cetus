@@ -988,6 +988,7 @@ export async function resetUserStreak(userId: string): Promise<boolean> {
 /**
  * Update all users' streaks for 00:00 UTC.
  * If user had activity yesterday (UTC), increment streak; otherwise reset to 0.
+ * Only updates users that have an existing user_stats row.
  */
 export async function updateAllUserStreaksForUTC(): Promise<{
     processed: number
@@ -1007,9 +1008,22 @@ export async function updateAllUserStreaksForUTC(): Promise<{
         getActiveUserIdsBetween(yesterdayUTC, todayUTC),
     ])
 
+    // Query existing user_stats rows to only update users with stats
+    const existingStatsRows = await db
+        .selectFrom('user_stats')
+        .select('user_id')
+        .where('user_id', 'in', allUserIds)
+        .execute()
+    const existingStatsUserIds = new Set(existingStatsRows.map(r => r.user_id))
+
     const activeSet = new Set(activeYesterday)
-    const activeUserIds = allUserIds.filter(uid => activeSet.has(uid))
-    const inactiveUserIds = allUserIds.filter(uid => !activeSet.has(uid))
+    // Only include users that have existing user_stats rows
+    const activeUserIds = allUserIds.filter(
+        uid => activeSet.has(uid) && existingStatsUserIds.has(uid)
+    )
+    const inactiveUserIds = allUserIds.filter(
+        uid => !activeSet.has(uid) && existingStatsUserIds.has(uid)
+    )
 
     // Batch increment active users' streaks
     if (activeUserIds.length > 0) {
