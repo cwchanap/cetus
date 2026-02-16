@@ -37,15 +37,30 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     try {
         const formData = await request.formData()
-        const file = formData.get('avatar') as File
+        const avatarEntry = formData.get('avatar')
 
-        if (!file) {
+        // Validate that avatar entry exists and is a File (not a string)
+        if (!avatarEntry) {
             return badRequestResponse('No file provided')
         }
 
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            return badRequestResponse('File must be an image')
+        if (!(avatarEntry instanceof File)) {
+            return badRequestResponse('Avatar must be a file')
+        }
+
+        const file = avatarEntry
+
+        // Validate file type using allowlist (reject SVG due to XSS risk)
+        const allowedMimeTypes = [
+            'image/png',
+            'image/jpeg',
+            'image/webp',
+            'image/gif',
+        ]
+        if (!allowedMimeTypes.includes(file.type)) {
+            return badRequestResponse(
+                'File must be a valid image (PNG, JPEG, WebP, or GIF)'
+            )
         }
 
         // Validate file size (max 5MB)

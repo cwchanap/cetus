@@ -13,6 +13,7 @@ export async function initQuickMathGame(externalCallbacks?: {
     getState: () => GameState | undefined
     endGame: () => void | undefined
     callbacks: GameCallbacks
+    cleanup: () => void
 }> {
     // Game configuration
     const config: GameConfig = {
