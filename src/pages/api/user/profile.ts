@@ -46,10 +46,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
             updates.username = username
         }
 
-        if (Object.keys(updates).length === 0) {
-            return badRequestResponse('No valid fields to update')
-        }
-
         const success = await updateUser(user.id, updates as UserUpdate)
         if (!success) {
             return errorResponse('Failed to update profile')

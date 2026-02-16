@@ -1050,7 +1050,7 @@ export async function updateAllUserStreaksForUTC(): Promise<{
     }
 
     return {
-        processed: allUserIds.length,
+        processed: activeUserIds.length + inactiveUserIds.length,
         incremented: activeUserIds.length,
         reset: inactiveUserIds.length,
     }

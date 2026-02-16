@@ -21,7 +21,13 @@ export const POST: APIRoute = async ({ locals }) => {
         const result = await claimDailyLoginReward(user.id)
 
         if (!result.success) {
-            return badRequestResponse(result.error || 'Failed to claim reward')
+            return jsonResponse(
+                {
+                    success: false,
+                    error: result.error || 'Failed to claim reward',
+                },
+                400
+            )
         }
 
         return jsonResponse(result)
