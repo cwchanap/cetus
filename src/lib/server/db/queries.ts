@@ -18,6 +18,18 @@ function sanitizeError(error: unknown): string {
     return error instanceof Error ? error.message : String(error)
 }
 
+/**
+ * Chunk an array into smaller batches to avoid SQL parameter limits.
+ * SQLite/LibSQL typically has a limit of ~999 parameters.
+ */
+function chunkArray<T>(arr: T[], chunkSize: number = 100): T[][] {
+    const chunks: T[][] = []
+    for (let i = 0; i < arr.length; i += chunkSize) {
+        chunks.push(arr.slice(i, i + chunkSize))
+    }
+    return chunks
+}
+
 // Migration cache to avoid repeated PRAGMA calls
 const _migrationsRun = new Set<string>()
 
@@ -1017,51 +1029,69 @@ export async function updateAllUserStreaksForUTC(): Promise<{
         }
     }
 
-    // Query existing user_stats rows to only update users with stats
-    const existingStatsRows = await db
-        .selectFrom('user_stats')
-        .select('user_id')
-        .where('user_id', 'in', allUserIds)
-        .execute()
-    const existingStatsUserIds = new Set(existingStatsRows.map(r => r.user_id))
+    // Query existing user_stats rows in chunks to avoid SQL parameter limits
+    // SQLite/LibSQL typically has a limit of ~999 parameters
+    const allUserIdChunks = chunkArray(allUserIds, 100)
+    const existingStatsUserIdsSet = new Set<string>()
+
+    for (const chunk of allUserIdChunks) {
+        const existingStatsRows = await db
+            .selectFrom('user_stats')
+            .select('user_id')
+            .where('user_id', 'in', chunk)
+            .execute()
+        for (const row of existingStatsRows) {
+            existingStatsUserIdsSet.add(row.user_id)
+        }
+    }
 
     const activeSet = new Set(activeYesterday)
     // Only include users that have existing user_stats rows
     const activeUserIds = allUserIds.filter(
-        uid => activeSet.has(uid) && existingStatsUserIds.has(uid)
+        uid => activeSet.has(uid) && existingStatsUserIdsSet.has(uid)
     )
     const inactiveUserIds = allUserIds.filter(
-        uid => !activeSet.has(uid) && existingStatsUserIds.has(uid)
+        uid => !activeSet.has(uid) && existingStatsUserIdsSet.has(uid)
     )
 
-    // Batch increment active users' streaks
+    // Batch increment active users' streaks in chunks
+    let incremented = 0
     if (activeUserIds.length > 0) {
-        await db
-            .updateTable('user_stats')
-            .set(eb => ({
-                streak_days: eb('streak_days', '+', 1),
-                updated_at: new Date().toISOString(),
-            }))
-            .where('user_id', 'in', activeUserIds)
-            .execute()
+        const activeChunks = chunkArray(activeUserIds, 100)
+        for (const chunk of activeChunks) {
+            await db
+                .updateTable('user_stats')
+                .set(eb => ({
+                    streak_days: eb('streak_days', '+', 1),
+                    updated_at: new Date().toISOString(),
+                }))
+                .where('user_id', 'in', chunk)
+                .execute()
+        }
+        incremented = activeUserIds.length
     }
 
-    // Batch reset inactive users' streaks
+    // Batch reset inactive users' streaks in chunks
+    let reset = 0
     if (inactiveUserIds.length > 0) {
-        await db
-            .updateTable('user_stats')
-            .set({
-                streak_days: 0,
-                updated_at: new Date().toISOString(),
-            })
-            .where('user_id', 'in', inactiveUserIds)
-            .execute()
+        const inactiveChunks = chunkArray(inactiveUserIds, 100)
+        for (const chunk of inactiveChunks) {
+            await db
+                .updateTable('user_stats')
+                .set({
+                    streak_days: 0,
+                    updated_at: new Date().toISOString(),
+                })
+                .where('user_id', 'in', chunk)
+                .execute()
+        }
+        reset = inactiveUserIds.length
     }
 
     return {
-        processed: activeUserIds.length + inactiveUserIds.length,
-        incremented: activeUserIds.length,
-        reset: inactiveUserIds.length,
+        processed: incremented + reset,
+        incremented,
+        reset,
     }
 }
 
