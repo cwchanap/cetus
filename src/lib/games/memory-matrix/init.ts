@@ -68,19 +68,23 @@ export async function initMemoryMatrixGame(
     })
 
     game.setGameEndCallback(async (finalScore, stats) => {
-        // Reset button state when game ends
-        const startBtn = document.getElementById('start-btn')
-        if (startBtn) {
-            startBtn.textContent = 'Start Game'
-            ;(startBtn as HTMLButtonElement).disabled = false
-        }
+        try {
+            // Reset button state when game ends
+            const startBtn = document.getElementById('start-btn')
+            if (startBtn) {
+                startBtn.textContent = 'Start Game'
+                ;(startBtn as HTMLButtonElement).disabled = false
+            }
 
-        // Call external callback if provided
-        if (callbacks?.onGameComplete) {
-            callbacks.onGameComplete(finalScore, stats)
-        } else {
-            // Fallback to original behavior
-            await saveScore(finalScore)
+            // Call external callback if provided
+            if (callbacks?.onGameComplete) {
+                await callbacks.onGameComplete(finalScore, stats)
+            } else {
+                // Fallback to original behavior
+                await saveScore(finalScore)
+            }
+        } catch (error) {
+            console.error('[MemoryMatrix] Error in game end callback:', error)
         }
     })
 
@@ -107,12 +111,39 @@ export async function initMemoryMatrixGame(
 
     // Return game instance for external control
     // Note: game is guaranteed to be non-null here since we just created it
-    const gameInstance = game!
     return {
-        restart: () => gameInstance.resetGame(),
-        getState: () => gameInstance.getGameState(),
-        getStats: () => gameInstance.getGameStats(),
-        endGame: () => gameInstance.endGameEarly(),
+        restart: () => {
+            if (!game) {
+                throw new Error(
+                    'Memory Matrix game has been cleaned up. Please reinitialize.'
+                )
+            }
+            return game.resetGame()
+        },
+        getState: () => {
+            if (!game) {
+                throw new Error(
+                    'Memory Matrix game has been cleaned up. Please reinitialize.'
+                )
+            }
+            return game.getGameState()
+        },
+        getStats: () => {
+            if (!game) {
+                throw new Error(
+                    'Memory Matrix game has been cleaned up. Please reinitialize.'
+                )
+            }
+            return game.getGameStats()
+        },
+        endGame: () => {
+            if (!game) {
+                throw new Error(
+                    'Memory Matrix game has been cleaned up. Please reinitialize.'
+                )
+            }
+            return game.endGameEarly()
+        },
         cleanup,
     }
 }

@@ -12,6 +12,7 @@ import {
     getDifficultyColor,
     type Game,
     GAMES,
+    GameID,
 } from './games'
 
 describe('Games System', () => {
@@ -25,9 +26,9 @@ describe('Games System', () => {
 
     describe('getGameById', () => {
         it('should return game by id', () => {
-            const game = getGameById('tetris')
+            const game = getGameById(GameID.TETRIS)
             expect(game).toBeDefined()
-            expect(game?.id).toBe('tetris')
+            expect(game?.id).toBe(GameID.TETRIS)
         })
 
         it('should return undefined for non-existent id', () => {
@@ -71,22 +72,15 @@ describe('Games System', () => {
         })
 
         it('should return active multiplayer games when present', () => {
-            const original = GAMES[0]
-            GAMES[0] = {
-                ...original,
-                maxPlayers: 4,
-                isActive: true,
-            }
+            const testGames: Game[] = GAMES.map((g, i) =>
+                i === 0 ? { ...g, maxPlayers: 4, isActive: true } : g
+            )
 
-            try {
-                const multiplayerGames = getMultiplayerGames()
-                expect(multiplayerGames.length).toBeGreaterThan(0)
-                expect(
-                    multiplayerGames.some(game => game.id === original.id)
-                ).toBe(true)
-            } finally {
-                GAMES[0] = original
-            }
+            const multiplayerGames = getMultiplayerGames(testGames)
+            expect(multiplayerGames.length).toBeGreaterThan(0)
+            expect(multiplayerGames.some(game => game.id === GAMES[0].id)).toBe(
+                true
+            )
         })
     })
 
@@ -147,20 +141,13 @@ describe('Games System', () => {
         })
 
         it('should exclude inactive games from results', () => {
-            const original = GAMES[0]
-            GAMES[0] = {
-                ...original,
-                isActive: false,
-            }
+            const testGames: Game[] = GAMES.map((g, i) =>
+                i === 0 ? { ...g, isActive: false } : g
+            )
+            const searchTerm = GAMES[0].name.toLowerCase()
 
-            try {
-                const results = searchGames('tetris')
-                expect(results.some(game => game.id === original.id)).toBe(
-                    false
-                )
-            } finally {
-                GAMES[0] = original
-            }
+            const results = searchGames(searchTerm, testGames)
+            expect(results.some(game => game.id === GAMES[0].id)).toBe(false)
         })
     })
 

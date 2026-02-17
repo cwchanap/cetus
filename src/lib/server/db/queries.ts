@@ -487,7 +487,7 @@ export async function getUserBestScore(
             .limit(1)
             .executeTakeFirst()
 
-        return result?.score || null
+        return result?.score ?? null
     } catch (error) {
         console.error(
             '[getUserBestScore] Database error:',

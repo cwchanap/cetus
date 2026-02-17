@@ -36,6 +36,24 @@ describe('server validations', () => {
             expect(invalidGame.success).toBe(false)
             expect(invalidScore.success).toBe(false)
         })
+
+        it('rejects score exceeding maximum allowed value', () => {
+            const tooHigh = scoreSubmissionSchema.safeParse({
+                gameId: GameID.TETRIS,
+                score: 1_000_000_000,
+            })
+
+            expect(tooHigh.success).toBe(false)
+        })
+
+        it('accepts score at maximum boundary', () => {
+            const atMax = scoreSubmissionSchema.safeParse({
+                gameId: GameID.TETRIS,
+                score: 999_999_999,
+            })
+
+            expect(atMax.success).toBe(true)
+        })
     })
 
     describe('profileUpdateSchema', () => {

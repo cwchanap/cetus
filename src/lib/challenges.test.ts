@@ -10,6 +10,25 @@ import {
     getSecondsUntilMidnightUTC,
     ChallengeType,
 } from './challenges'
+import { GameID } from './games'
+
+/**
+ * Helper to temporarily replace CHALLENGE_POOL for testing.
+ * Saves the original pool, replaces it with the provided challenges,
+ * executes the callback, and always restores the original pool.
+ */
+function withChallengePool<T>(
+    replacement: typeof CHALLENGE_POOL,
+    fn: () => T
+): T {
+    const original = [...CHALLENGE_POOL]
+    CHALLENGE_POOL.splice(0, CHALLENGE_POOL.length, ...replacement)
+    try {
+        return fn()
+    } finally {
+        CHALLENGE_POOL.splice(0, CHALLENGE_POOL.length, ...original)
+    }
+}
 
 describe('Challenge Definitions', () => {
     it('should have valid challenge pool', () => {
@@ -71,72 +90,61 @@ describe('Daily Challenge Generation', () => {
     })
 
     it('should still generate score challenge when play_games pool is unavailable', () => {
-        const original = [...CHALLENGE_POOL]
-        CHALLENGE_POOL.splice(
-            0,
-            CHALLENGE_POOL.length,
-            ...original.filter(c => c.type !== ChallengeType.PLAY_GAMES)
+        withChallengePool(
+            CHALLENGE_POOL.filter(c => c.type !== ChallengeType.PLAY_GAMES),
+            () => {
+                const challenges = generateDailyChallenges(
+                    new Date('2025-08-22')
+                )
+                expect(
+                    challenges.some(c => c.type === ChallengeType.SCORE_TARGET)
+                ).toBe(true)
+            }
         )
-
-        try {
-            const challenges = generateDailyChallenges(new Date('2025-08-22'))
-            expect(
-                challenges.some(c => c.type === ChallengeType.SCORE_TARGET)
-            ).toBe(true)
-        } finally {
-            CHALLENGE_POOL.splice(0, CHALLENGE_POOL.length, ...original)
-        }
     })
 
     it('should return empty list when challenge pool is empty', () => {
-        const original = [...CHALLENGE_POOL]
-        CHALLENGE_POOL.splice(0, CHALLENGE_POOL.length)
-
-        try {
+        withChallengePool([], () => {
             const challenges = generateDailyChallenges(new Date('2025-09-01'))
             expect(challenges).toEqual([])
-        } finally {
-            CHALLENGE_POOL.splice(0, CHALLENGE_POOL.length, ...original)
-        }
+        })
     })
 
     it('should throw when selectable challenge weights are invalid', () => {
-        const original = [...CHALLENGE_POOL]
-        CHALLENGE_POOL.splice(
-            0,
-            CHALLENGE_POOL.length,
-            {
-                id: 'bad_play_games',
-                name: 'Bad Play',
-                description: 'Invalid weight',
-                icon: '⚠️',
-                type: ChallengeType.PLAY_GAMES,
-                targetValue: 1,
-                xpReward: 10,
-                difficulty: 'easy',
-                weight: 0,
-            },
-            {
-                id: 'score_tetris_100',
-                name: 'Tetris Starter',
-                description: 'Score 100+ points in Tetris',
-                icon: '🔲',
-                type: ChallengeType.SCORE_TARGET,
-                gameId: 'tetris' as any,
-                targetValue: 100,
-                xpReward: 30,
-                difficulty: 'easy',
-                weight: 2,
+        withChallengePool(
+            [
+                {
+                    id: 'bad_play_games',
+                    name: 'Bad Play',
+                    description: 'Invalid weight',
+                    icon: '⚠️',
+                    type: ChallengeType.PLAY_GAMES,
+                    targetValue: 1,
+                    xpReward: 10,
+                    difficulty: 'easy',
+                    weight: 0,
+                },
+                {
+                    id: 'score_tetris_100',
+                    name: 'Tetris Starter',
+                    description: 'Score 100+ points in Tetris',
+                    icon: '🔲',
+                    type: ChallengeType.SCORE_TARGET,
+                    gameId: GameID.TETRIS,
+                    targetValue: 100,
+                    xpReward: 30,
+                    difficulty: 'easy',
+                    weight: 2,
+                },
+            ],
+            () => {
+                expect(() =>
+                    generateDailyChallenges(new Date('2025-10-01'))
+                ).toThrow(
+                    'selectWeighted: total weight must be greater than zero'
+                )
             }
         )
-
-        try {
-            expect(() =>
-                generateDailyChallenges(new Date('2025-10-01'))
-            ).toThrow('selectWeighted: total weight must be greater than zero')
-        } finally {
-            CHALLENGE_POOL.splice(0, CHALLENGE_POOL.length, ...original)
-        }
     })
 })
 

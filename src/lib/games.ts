@@ -174,35 +174,41 @@ export const GAMES: Game[] = [
 ]
 
 // Helper functions
-export function getGameById(id: GameID): Game | undefined {
-    return GAMES.find(game => game.id === id)
+export function getGameById(
+    id: GameID,
+    games: Game[] = GAMES
+): Game | undefined {
+    return games.find(game => game.id === id)
 }
 
-export function getAllGames(): Game[] {
-    return GAMES
+export function getAllGames(games: Game[] = GAMES): Game[] {
+    return games
 }
 
-export function getActiveGames(): Game[] {
-    return GAMES.filter(game => game.isActive)
+export function getActiveGames(games: Game[] = GAMES): Game[] {
+    return games.filter(game => game.isActive)
 }
 
-export function getGamesByCategory(category: Game['category']): Game[] {
-    return GAMES.filter(game => game.category === category && game.isActive)
+export function getGamesByCategory(
+    category: Game['category'],
+    games: Game[] = GAMES
+): Game[] {
+    return games.filter(game => game.category === category && game.isActive)
 }
 
-export function getMultiplayerGames(): Game[] {
-    return GAMES.filter(
+export function getMultiplayerGames(games: Game[] = GAMES): Game[] {
+    return games.filter(
         game => game.maxPlayers && game.maxPlayers > 1 && game.isActive
     )
 }
 
-export function getSinglePlayerGames(): Game[] {
-    return GAMES.filter(game => game.maxPlayers === 1 && game.isActive)
+export function getSinglePlayerGames(games: Game[] = GAMES): Game[] {
+    return games.filter(game => game.maxPlayers === 1 && game.isActive)
 }
 
-export function searchGames(query: string): Game[] {
+export function searchGames(query: string, games: Game[] = GAMES): Game[] {
     const lowerQuery = query.toLowerCase()
-    return GAMES.filter(
+    return games.filter(
         game =>
             game.isActive &&
             (game.name.toLowerCase().includes(lowerQuery) ||
