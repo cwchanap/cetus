@@ -7,6 +7,7 @@ import {
     getMultiplayerGames,
     getSinglePlayerGames,
     searchGames,
+    getGameIcon,
     getCategoryColor,
     getDifficultyColor,
     type Game,
@@ -68,6 +69,25 @@ describe('Games System', () => {
             const multiplayerGames = getMultiplayerGames()
             expect(multiplayerGames.length).toBe(0)
         })
+
+        it('should return active multiplayer games when present', () => {
+            const original = GAMES[0]
+            GAMES[0] = {
+                ...original,
+                maxPlayers: 4,
+                isActive: true,
+            }
+
+            try {
+                const multiplayerGames = getMultiplayerGames()
+                expect(multiplayerGames.length).toBeGreaterThan(0)
+                expect(
+                    multiplayerGames.some(game => game.id === original.id)
+                ).toBe(true)
+            } finally {
+                GAMES[0] = original
+            }
+        })
     })
 
     describe('getSinglePlayerGames', () => {
@@ -124,6 +144,34 @@ describe('Games System', () => {
 
             expect(lowerResults.length).toBe(upperResults.length)
             expect(lowerResults.length).toBe(mixedResults.length)
+        })
+
+        it('should exclude inactive games from results', () => {
+            const original = GAMES[0]
+            GAMES[0] = {
+                ...original,
+                isActive: false,
+            }
+
+            try {
+                const results = searchGames('tetris')
+                expect(results.some(game => game.id === original.id)).toBe(
+                    false
+                )
+            } finally {
+                GAMES[0] = original
+            }
+        })
+    })
+
+    describe('getGameIcon', () => {
+        it('should return mapped icon for known game id', () => {
+            expect(getGameIcon('tetris')).toBe('🔲')
+            expect(getGameIcon('2048')).toBe('🎯')
+        })
+
+        it('should return fallback icon for unknown game id', () => {
+            expect(getGameIcon('unknown-game')).toBe('🎮')
         })
     })
 

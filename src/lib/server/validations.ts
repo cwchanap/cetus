@@ -20,7 +20,7 @@ export const scoreSubmissionSchema = z.object({
         .int()
         .min(0, 'Score must be a non-negative integer')
         .max(999_999_999, 'Score exceeds maximum allowed value'),
-    gameData: z.record(z.unknown()).optional(),
+    gameData: z.record(z.string(), z.unknown()).optional(),
 })
 
 export type ScoreSubmissionInput = z.infer<typeof scoreSubmissionSchema>
@@ -85,7 +85,7 @@ export const leaderboardQuerySchema = z.object({
         .transform(s => parseInt(s, 10))
         .pipe(z.number().int().min(1).max(100))
         .optional()
-        .default('10'),
+        .default(10),
 })
 
 export type LeaderboardQueryInput = z.infer<typeof leaderboardQuerySchema>
@@ -99,13 +99,13 @@ export const paginationQuerySchema = z.object({
         .transform(s => parseInt(s, 10))
         .pipe(z.number().int().min(1))
         .optional()
-        .default('1'),
+        .default(1),
     pageSize: z
         .string()
         .transform(s => parseInt(s, 10))
         .pipe(z.number().int().min(1).max(100))
         .optional()
-        .default('10'),
+        .default(10),
 })
 
 export type PaginationQueryInput = z.infer<typeof paginationQuerySchema>
@@ -147,7 +147,7 @@ export function validateQuery<T>(
     const result = schema.safeParse(params)
 
     if (!result.success) {
-        const firstError = result.error.errors[0]
+        const firstError = result.error.issues?.[0]
         return {
             success: false,
             error: firstError?.message || 'Validation failed',

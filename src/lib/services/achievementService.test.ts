@@ -5,6 +5,7 @@ import {
     getUserGameAchievementProgress,
     getAchievementNotifications,
     checkSpaceExplorerAchievement,
+    checkInGameAchievements,
 } from './achievementService'
 
 // Mock the database queries
@@ -180,6 +181,44 @@ describe('Achievement Service', () => {
             expect(mockAwardAchievement).toHaveBeenCalledTimes(2)
             expect(result).toEqual(['tetris_novice', 'tetris_master'])
         })
+
+        it('should return empty array when query throws', async () => {
+            mockGetAchievementsByGame.mockImplementation(() => {
+                throw new Error('db failure')
+            })
+
+            const result = await checkAndAwardAchievements(
+                'user123',
+                'tetris',
+                150
+            )
+
+            expect(result).toEqual([])
+        })
+
+        it('should skip achievement with missing score threshold', async () => {
+            mockGetAchievementsByGame.mockReturnValue([
+                {
+                    id: 'broken_threshold',
+                    name: 'Broken Threshold',
+                    description: 'Invalid threshold config',
+                    logo: '❌',
+                    gameId: 'tetris',
+                    condition: { type: 'score_threshold' },
+                    rarity: 'common',
+                } as any,
+            ])
+
+            const result = await checkAndAwardAchievements(
+                'user123',
+                'tetris',
+                1000
+            )
+
+            expect(mockHasUserEarnedAchievement).not.toHaveBeenCalled()
+            expect(mockAwardAchievement).not.toHaveBeenCalled()
+            expect(result).toEqual([])
+        })
     })
 
     describe('awardGlobalAchievement', () => {
@@ -219,6 +258,19 @@ describe('Achievement Service', () => {
             const result = await awardGlobalAchievement(
                 'user123',
                 'non_existent'
+            )
+
+            expect(result).toBe(false)
+        })
+
+        it('should return false when database check throws', async () => {
+            mockHasUserEarnedAchievement.mockRejectedValue(
+                new Error('query error')
+            )
+
+            const result = await awardGlobalAchievement(
+                'user123',
+                'space_explorer'
             )
 
             expect(result).toBe(false)
@@ -274,6 +326,44 @@ describe('Achievement Service', () => {
             expect(result[0].progress).toBe(100)
             expect(result[0].earned).toBe(true)
         })
+
+        it('should keep progress 0 for non-score-based achievement conditions', async () => {
+            mockGetAchievementsByGame.mockReturnValue([
+                {
+                    id: 'custom_condition',
+                    name: 'Custom Condition',
+                    description: 'Non-score based',
+                    logo: '🧪',
+                    gameId: 'tetris',
+                    condition: { type: 'in_game', check: () => true },
+                    rarity: 'rare',
+                } as any,
+            ])
+            mockGetUserBestScoreForGame.mockResolvedValue(999)
+            mockHasUserEarnedAchievement.mockResolvedValue(false)
+
+            const result = await getUserGameAchievementProgress(
+                'user123',
+                'tetris'
+            )
+
+            expect(result).toHaveLength(1)
+            expect(result[0].progress).toBe(0)
+            expect(result[0].earned).toBe(false)
+        })
+
+        it('should return empty array when progress fetch throws', async () => {
+            mockGetAchievementsByGame.mockImplementation(() => {
+                throw new Error('fetch error')
+            })
+
+            const result = await getUserGameAchievementProgress(
+                'user123',
+                'tetris'
+            )
+
+            expect(result).toEqual([])
+        })
     })
 
     describe('getAchievementNotifications', () => {
@@ -324,6 +414,117 @@ describe('Achievement Service', () => {
             const result = await checkSpaceExplorerAchievement('user123')
 
             expect(result).toBe(true)
+        })
+    })
+
+    describe('checkInGameAchievements', () => {
+        it('should award in-game achievement when check passes', async () => {
+            const inGameCheck = vi.fn().mockReturnValue(true)
+            mockGetAchievementsByGame.mockReturnValue([
+                {
+                    id: 'tetris_clean_stack',
+                    name: 'Clean Stack',
+                    description: 'Perform a special in-game condition',
+                    logo: '✨',
+                    gameId: 'tetris',
+                    condition: { type: 'in_game', check: inGameCheck },
+                    rarity: 'rare',
+                } as any,
+            ])
+            mockHasUserEarnedAchievement.mockResolvedValue(false)
+            mockAwardAchievement.mockResolvedValue(true)
+
+            const result = await checkInGameAchievements(
+                'user123',
+                'tetris',
+                { linesCleared: 4 } as any,
+                1200
+            )
+
+            expect(inGameCheck).toHaveBeenCalledWith({ linesCleared: 4 }, 1200)
+            expect(mockAwardAchievement).toHaveBeenCalledWith(
+                'user123',
+                'tetris_clean_stack'
+            )
+            expect(result).toEqual(['tetris_clean_stack'])
+        })
+
+        it('should skip in-game achievement when check fails', async () => {
+            const inGameCheck = vi.fn().mockReturnValue(false)
+            mockGetAchievementsByGame.mockReturnValue([
+                {
+                    id: 'tetris_clean_stack',
+                    name: 'Clean Stack',
+                    description: 'Perform a special in-game condition',
+                    logo: '✨',
+                    gameId: 'tetris',
+                    condition: { type: 'in_game', check: inGameCheck },
+                    rarity: 'rare',
+                } as any,
+            ])
+
+            const result = await checkInGameAchievements(
+                'user123',
+                'tetris',
+                { linesCleared: 0 } as any,
+                10
+            )
+
+            expect(mockHasUserEarnedAchievement).not.toHaveBeenCalled()
+            expect(mockAwardAchievement).not.toHaveBeenCalled()
+            expect(result).toEqual([])
+        })
+
+        it('should skip award when already earned', async () => {
+            const inGameCheck = vi.fn().mockReturnValue(true)
+            mockGetAchievementsByGame.mockReturnValue([
+                {
+                    id: 'tetris_clean_stack',
+                    name: 'Clean Stack',
+                    description: 'Perform a special in-game condition',
+                    logo: '✨',
+                    gameId: 'tetris',
+                    condition: { type: 'in_game', check: inGameCheck },
+                    rarity: 'rare',
+                } as any,
+            ])
+            mockHasUserEarnedAchievement.mockResolvedValue(true)
+
+            const result = await checkInGameAchievements(
+                'user123',
+                'tetris',
+                { linesCleared: 4 } as any,
+                1000
+            )
+
+            expect(mockAwardAchievement).not.toHaveBeenCalled()
+            expect(result).toEqual([])
+        })
+
+        it('should not append when award call returns false', async () => {
+            const inGameCheck = vi.fn().mockReturnValue(true)
+            mockGetAchievementsByGame.mockReturnValue([
+                {
+                    id: 'tetris_clean_stack',
+                    name: 'Clean Stack',
+                    description: 'Perform a special in-game condition',
+                    logo: '✨',
+                    gameId: 'tetris',
+                    condition: { type: 'in_game', check: inGameCheck },
+                    rarity: 'rare',
+                } as any,
+            ])
+            mockHasUserEarnedAchievement.mockResolvedValue(false)
+            mockAwardAchievement.mockResolvedValue(false)
+
+            const result = await checkInGameAchievements(
+                'user123',
+                'tetris',
+                { linesCleared: 4 } as any,
+                1000
+            )
+
+            expect(result).toEqual([])
         })
     })
 })

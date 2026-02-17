@@ -80,6 +80,33 @@ describe('POST /api/user/update-streaks', () => {
         expect(updateAllUserStreaksForUTC).toHaveBeenCalledTimes(1)
     })
 
+    it('uses env fallback secret when process env secret is missing', async () => {
+        delete process.env.CRON_SECRET
+        vi.stubEnv('CRON_SECRET', 'env-secret-456')
+
+        const request = new Request(
+            'http://localhost/api/user/update-streaks',
+            {
+                method: 'POST',
+                headers: {
+                    'x-cron-secret': 'env-secret-456',
+                },
+            }
+        )
+
+        const response = await POST({ request, locals: {} } as any)
+
+        expect(response.status).toBe(200)
+        await expect(response.json()).resolves.toEqual({
+            success: true,
+            usersUpdated: 3,
+            streaksReset: 1,
+        })
+        expect(updateAllUserStreaksForUTC).toHaveBeenCalledTimes(1)
+
+        vi.unstubAllEnvs()
+    })
+
     it('returns 401 in development when no secret and no user', async () => {
         delete process.env.CRON_SECRET
         vi.stubEnv('CRON_SECRET', '')
