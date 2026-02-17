@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Buffer } from 'node:buffer'
 import { DELETE, POST } from '@/pages/api/user/avatar'
 import { updateUser } from '@/lib/server/db/queries'
@@ -14,9 +14,15 @@ describe('/api/user/avatar', () => {
         name: 'Test User',
     }
 
+    let originalArrayBufferDescriptor: PropertyDescriptor | undefined
+
     beforeEach(() => {
         vi.clearAllMocks()
         vi.stubGlobal('Buffer', Buffer)
+        originalArrayBufferDescriptor = Object.getOwnPropertyDescriptor(
+            File.prototype,
+            'arrayBuffer'
+        )
         Object.defineProperty(File.prototype, 'arrayBuffer', {
             configurable: true,
             value: async function () {
@@ -24,6 +30,16 @@ describe('/api/user/avatar', () => {
             },
         })
         vi.mocked(updateUser).mockResolvedValue(true)
+    })
+
+    afterEach(() => {
+        if (originalArrayBufferDescriptor) {
+            Object.defineProperty(
+                File.prototype,
+                'arrayBuffer',
+                originalArrayBufferDescriptor
+            )
+        }
     })
 
     describe('DELETE', () => {

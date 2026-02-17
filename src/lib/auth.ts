@@ -1,6 +1,27 @@
 import { betterAuth } from 'better-auth'
 import { dialect } from './server/db'
 
+// Check required environment variables
+const secret = import.meta.env.BETTER_AUTH_SECRET
+if (!secret) {
+    throw new Error(
+        'BETTER_AUTH_SECRET is required. Please set it in your environment variables.'
+    )
+}
+
+// Determine baseURL with proper fallback and validation
+const authUrl = import.meta.env.BETTER_AUTH_URL
+let baseURL: string
+if (authUrl) {
+    baseURL = authUrl
+} else if (!import.meta.env.PROD) {
+    baseURL = 'http://localhost:4325'
+} else {
+    throw new Error(
+        'BETTER_AUTH_URL is required in production. Please set it in your environment variables.'
+    )
+}
+
 // Check if Google OAuth is properly configured
 const googleClientId = import.meta.env.GOOGLE_CLIENT_ID
 const googleClientSecret = import.meta.env.GOOGLE_CLIENT_SECRET
@@ -41,8 +62,8 @@ export const auth = betterAuth({
         import.meta.env.BETTER_AUTH_URL ||
             (!import.meta.env.PROD ? 'http://localhost:4325' : ''),
     ].filter(Boolean),
-    secret: import.meta.env.BETTER_AUTH_SECRET!,
-    baseURL: import.meta.env.BETTER_AUTH_URL || '',
+    secret,
+    baseURL,
 })
 
 export type Session = typeof auth.$Infer.Session

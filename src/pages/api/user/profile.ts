@@ -37,10 +37,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
                 // Check uniqueness (excluding the current user)
                 const available = await isUsernameAvailable(username, user.id)
                 if (!available) {
-                    return jsonResponse(
-                        { error: 'Username is already taken' },
-                        409
-                    )
+                    return errorResponse('Username is already taken', 409)
                 }
             }
             updates.username = username
