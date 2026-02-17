@@ -10,6 +10,14 @@ import {
 } from '@/lib/server/validations'
 import { GameID } from '@/lib/games'
 
+// Shared stub for schemas that intentionally return no issues (empty array)
+const schemaWithoutIssues = {
+    safeParse: () => ({
+        success: false as const,
+        error: { issues: [] },
+    }),
+}
+
 describe('server validations', () => {
     describe('scoreSubmissionSchema', () => {
         it('accepts valid payload', () => {
@@ -53,6 +61,15 @@ describe('server validations', () => {
             })
 
             expect(atMax.success).toBe(true)
+        })
+
+        it('accepts score at minimum boundary', () => {
+            const atMin = scoreSubmissionSchema.safeParse({
+                gameId: GameID.TETRIS,
+                score: 0,
+            })
+
+            expect(atMin.success).toBe(true)
         })
     })
 
@@ -162,7 +179,7 @@ describe('server validations', () => {
 
     describe('validateBody', () => {
         const schema = z.object({
-            name: z.string().min(2, 'Too short'),
+            name: z.string().min(2, { error: 'Too short' }),
         })
 
         it('returns parsed data for valid JSON body', async () => {
@@ -207,13 +224,6 @@ describe('server validations', () => {
                 body: JSON.stringify({ anything: true }),
             })
 
-            const schemaWithoutIssues = {
-                safeParse: () => ({
-                    success: false as const,
-                    error: { issues: [] },
-                }),
-            }
-
             const result = await validateBody(
                 request,
                 schemaWithoutIssues as any
@@ -231,7 +241,7 @@ describe('server validations', () => {
             count: z
                 .string()
                 .transform(v => parseInt(v, 10))
-                .pipe(z.number().int().min(1, 'count must be >= 1')),
+                .pipe(z.number().int().min(1, { error: 'count must be >= 1' })),
         })
 
         it('returns parsed data for valid query', () => {
@@ -255,13 +265,6 @@ describe('server validations', () => {
 
         it('falls back to generic query validation message when issue is missing', () => {
             const url = new URL('http://localhost/test?count=3')
-            const schemaWithoutIssues = {
-                safeParse: () => ({
-                    success: false as const,
-                    error: { issues: [] },
-                }),
-            }
-
             const result = validateQuery(url, schemaWithoutIssues as any)
 
             expect(result).toEqual({
