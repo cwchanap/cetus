@@ -39,6 +39,8 @@ describe('/api/user/avatar', () => {
                 'arrayBuffer',
                 originalArrayBufferDescriptor
             )
+        } else {
+            delete (File.prototype as any).arrayBuffer
         }
     })
 

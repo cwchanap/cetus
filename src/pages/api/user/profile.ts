@@ -22,7 +22,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         }
 
         const { name, displayName, username } = validation.data
-        const updates: Record<string, unknown> = {}
+        const updates: UserUpdate = {}
 
         if (name !== undefined) {
             updates.name = name
@@ -43,7 +43,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             updates.username = username
         }
 
-        const success = await updateUser(user.id, updates as UserUpdate)
+        const success = await updateUser(user.id, updates)
         if (!success) {
             return errorResponse('Failed to update profile')
         }
@@ -52,7 +52,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
             success: true,
             message: 'Profile updated successfully',
         })
-    } catch (_error) {
+    } catch (error) {
+        console.error('[profile] Unexpected error updating profile:', error)
         return errorResponse('Internal server error')
     }
 }

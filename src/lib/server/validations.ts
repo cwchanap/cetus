@@ -18,8 +18,8 @@ export const scoreSubmissionSchema = z.object({
     score: z
         .number()
         .int()
-        .min(0, 'Score must be a non-negative integer')
-        .max(999_999_999, 'Score exceeds maximum allowed value'),
+        .min(0, { error: 'Score must be a non-negative integer' })
+        .max(999_999_999, { error: 'Score exceeds maximum allowed value' }),
     gameData: z.record(z.string(), z.unknown()).optional(),
 })
 
@@ -33,16 +33,26 @@ export const profileUpdateSchema = z
         name: z
             .string()
             .trim()
-            .min(1, 'Name cannot be empty')
-            .max(100, 'Name must be 100 characters or less')
+            .min(1, { error: 'Name cannot be empty' })
+            .max(100, { error: 'Name must be 100 characters or less' })
             .optional(),
-        displayName: z.preprocess(val => {
-            if (typeof val === 'string') {
-                const trimmed = val.trim()
-                return trimmed === '' ? null : trimmed
-            }
-            return val
-        }, z.string().min(1, 'Display name cannot be empty').max(100, 'Display name must be 100 characters or less').nullable().optional()),
+        displayName: z.preprocess(
+            val => {
+                if (typeof val === 'string') {
+                    const trimmed = val.trim()
+                    return trimmed === '' ? null : trimmed
+                }
+                return val
+            },
+            z
+                .string()
+                .min(1, { error: 'Display name cannot be empty' })
+                .max(100, {
+                    error: 'Display name must be 100 characters or less',
+                })
+                .nullable()
+                .optional()
+        ),
         username: z.preprocess(
             val => {
                 if (typeof val === 'string') {
@@ -53,8 +63,8 @@ export const profileUpdateSchema = z
             },
             z
                 .string()
-                .min(3, 'Username must be at least 3 characters')
-                .max(20, 'Username must be 20 characters or less')
+                .min(3, { error: 'Username must be at least 3 characters' })
+                .max(20, { error: 'Username must be 20 characters or less' })
                 .regex(
                     /^[a-z0-9_]+$/,
                     'Username must contain only lowercase letters, numbers, or underscores'

@@ -58,10 +58,7 @@ export const auth = betterAuth({
             httpOnly: true,
         },
     },
-    trustedOrigins: [
-        import.meta.env.BETTER_AUTH_URL ||
-            (!import.meta.env.PROD ? 'http://localhost:4325' : ''),
-    ].filter(Boolean),
+    trustedOrigins: [baseURL],
     secret,
     baseURL,
 })

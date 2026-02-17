@@ -23,7 +23,10 @@ export interface MemoryMatrixGameInstance {
  * Callback types for initMemoryMatrixGame
  */
 export interface MemoryMatrixCallbacks {
-    onGameComplete?: (finalScore: number, stats: GameStats) => void
+    onGameComplete?: (
+        finalScore: number,
+        stats: GameStats
+    ) => void | Promise<void>
 }
 
 export async function initMemoryMatrixGame(
@@ -211,13 +214,14 @@ async function saveScore(score: number): Promise<void> {
             }
         },
         error => {
-            // Score save failed
+            console.error('[MemoryMatrix] Failed to save score:', error)
         }
     )
 }
 
 function cleanup(): void {
     abortController?.abort()
+    abortController = null
     game?.destroy()
     renderer?.destroy()
     game = null

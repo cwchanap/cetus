@@ -23,6 +23,9 @@ function sanitizeError(error: unknown): string {
  * SQLite/LibSQL typically has a limit of ~999 parameters.
  */
 function chunkArray<T>(arr: T[], chunkSize: number = 100): T[][] {
+    if (chunkSize < 1) {
+        throw new Error(`chunkSize must be at least 1, got ${chunkSize}`)
+    }
     const chunks: T[][] = []
     for (let i = 0; i < arr.length; i += chunkSize) {
         chunks.push(arr.slice(i, i + chunkSize))
