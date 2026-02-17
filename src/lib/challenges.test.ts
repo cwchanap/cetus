@@ -8,6 +8,7 @@ import {
     LEVEL_THRESHOLDS,
     getTodayUTC,
     getSecondsUntilMidnightUTC,
+    ChallengeType,
 } from './challenges'
 
 describe('Challenge Definitions', () => {
@@ -62,6 +63,81 @@ describe('Daily Challenge Generation', () => {
         const hasPlayGames = challenges.some(c => c.type === 'play_games')
         expect(hasPlayGames).toBe(true)
     })
+
+    it('should avoid duplicate challenge IDs in a day', () => {
+        const challenges = generateDailyChallenges(new Date('2025-07-10'))
+        const ids = challenges.map(c => c.id)
+        expect(new Set(ids).size).toBe(ids.length)
+    })
+
+    it('should still generate score challenge when play_games pool is unavailable', () => {
+        const original = [...CHALLENGE_POOL]
+        CHALLENGE_POOL.splice(
+            0,
+            CHALLENGE_POOL.length,
+            ...original.filter(c => c.type !== ChallengeType.PLAY_GAMES)
+        )
+
+        try {
+            const challenges = generateDailyChallenges(new Date('2025-08-22'))
+            expect(
+                challenges.some(c => c.type === ChallengeType.SCORE_TARGET)
+            ).toBe(true)
+        } finally {
+            CHALLENGE_POOL.splice(0, CHALLENGE_POOL.length, ...original)
+        }
+    })
+
+    it('should return empty list when challenge pool is empty', () => {
+        const original = [...CHALLENGE_POOL]
+        CHALLENGE_POOL.splice(0, CHALLENGE_POOL.length)
+
+        try {
+            const challenges = generateDailyChallenges(new Date('2025-09-01'))
+            expect(challenges).toEqual([])
+        } finally {
+            CHALLENGE_POOL.splice(0, CHALLENGE_POOL.length, ...original)
+        }
+    })
+
+    it('should throw when selectable challenge weights are invalid', () => {
+        const original = [...CHALLENGE_POOL]
+        CHALLENGE_POOL.splice(
+            0,
+            CHALLENGE_POOL.length,
+            {
+                id: 'bad_play_games',
+                name: 'Bad Play',
+                description: 'Invalid weight',
+                icon: '⚠️',
+                type: ChallengeType.PLAY_GAMES,
+                targetValue: 1,
+                xpReward: 10,
+                difficulty: 'easy',
+                weight: 0,
+            },
+            {
+                id: 'score_tetris_100',
+                name: 'Tetris Starter',
+                description: 'Score 100+ points in Tetris',
+                icon: '🔲',
+                type: ChallengeType.SCORE_TARGET,
+                gameId: 'tetris' as any,
+                targetValue: 100,
+                xpReward: 30,
+                difficulty: 'easy',
+                weight: 2,
+            }
+        )
+
+        try {
+            expect(() =>
+                generateDailyChallenges(new Date('2025-10-01'))
+            ).toThrow('selectWeighted: total weight must be greater than zero')
+        } finally {
+            CHALLENGE_POOL.splice(0, CHALLENGE_POOL.length, ...original)
+        }
+    })
 })
 
 describe('Level System', () => {
@@ -97,6 +173,12 @@ describe('Level System', () => {
     it('should cap progress at 100% for max level', () => {
         const progress = getXPProgress(50000)
         expect(progress.progress).toBeLessThanOrEqual(100)
+    })
+
+    it('should reset level progress at exact new level threshold', () => {
+        const progress = getXPProgress(250)
+        expect(progress.currentLevel).toBe(3)
+        expect(progress.progress).toBe(0)
     })
 })
 

@@ -161,6 +161,161 @@ describe('Challenge Service', () => {
             expect(queries.getTotalScoreToday).toHaveBeenCalledWith('user-123')
         })
 
+        it('should not mark levelUp when updateUserLevel fails', async () => {
+            vi.mocked(challenges.generateDailyChallenges).mockReturnValue([
+                {
+                    id: 'score_tetris_100',
+                    name: 'Tetris Starter',
+                    description: 'Score 100+ points in Tetris',
+                    icon: '🔲',
+                    type: 'score_target',
+                    gameId: GameID.TETRIS,
+                    targetValue: 100,
+                    xpReward: 30,
+                    difficulty: 'easy',
+                },
+            ] as any)
+
+            vi.mocked(queries.getUserChallengeProgress).mockResolvedValue([])
+            vi.mocked(queries.getTotalScoreToday).mockResolvedValue(120)
+            vi.mocked(queries.getGamesPlayedCountToday).mockResolvedValue(1)
+            vi.mocked(queries.getUniqueGamesPlayedToday).mockResolvedValue([
+                GameID.TETRIS,
+            ])
+            vi.mocked(queries.getUserXPAndLevel).mockResolvedValue({
+                xp: 100,
+                level: 1,
+                challengeStreak: 0,
+                lastChallengeDate: null,
+            })
+            vi.mocked(queries.updateUserLevel).mockResolvedValue(false)
+
+            const result = await updateChallengeProgress(
+                'user-123',
+                GameID.TETRIS,
+                150
+            )
+
+            expect(queries.updateUserLevel).toHaveBeenCalledWith('user-123', 2)
+            expect(result.levelUp).toBe(false)
+            expect(result.newLevel).toBeUndefined()
+        })
+
+        it('should not update streak when not all challenges are completed', async () => {
+            vi.mocked(challenges.generateDailyChallenges).mockReturnValue([
+                {
+                    id: 'play_2_games',
+                    name: 'Warm Up',
+                    description: 'Play 2 games today',
+                    icon: '🎮',
+                    type: 'play_games',
+                    targetValue: 2,
+                    xpReward: 30,
+                    difficulty: 'easy',
+                },
+                {
+                    id: 'score_tetris_100',
+                    name: 'Tetris Starter',
+                    description: 'Score 100+ points in Tetris',
+                    icon: '🔲',
+                    type: 'score_target',
+                    gameId: GameID.TETRIS,
+                    targetValue: 100,
+                    xpReward: 30,
+                    difficulty: 'easy',
+                },
+            ] as any)
+
+            const today = getTodayUTC()
+            vi.mocked(queries.getUserChallengeProgress).mockResolvedValue([
+                {
+                    id: 1,
+                    user_id: 'user-123',
+                    challenge_date: today,
+                    challenge_id: 'play_2_games',
+                    current_value: 2,
+                    target_value: 2,
+                    completed_at: new Date(),
+                    xp_awarded: 30,
+                    created_at: new Date(),
+                },
+                {
+                    id: 2,
+                    user_id: 'user-123',
+                    challenge_date: today,
+                    challenge_id: 'score_tetris_100',
+                    current_value: 50,
+                    target_value: 100,
+                    completed_at: null,
+                    xp_awarded: 0,
+                    created_at: new Date(),
+                },
+            ])
+            vi.mocked(queries.getTotalScoreToday).mockResolvedValue(50)
+            vi.mocked(queries.getGamesPlayedCountToday).mockResolvedValue(2)
+            vi.mocked(queries.getUniqueGamesPlayedToday).mockResolvedValue([
+                GameID.TETRIS,
+            ])
+
+            await updateChallengeProgress('user-123', GameID.TETRIS, 50)
+
+            expect(queries.atomicCheckAndUpdateStreak).not.toHaveBeenCalled()
+        })
+
+        it('should process variety and total-score challenge types', async () => {
+            vi.mocked(challenges.generateDailyChallenges).mockReturnValue([
+                {
+                    id: 'variety_3_games',
+                    name: 'Variety Pack',
+                    description: 'Play 3 different game types',
+                    icon: '🎲',
+                    type: 'variety',
+                    targetValue: 3,
+                    xpReward: 50,
+                    difficulty: 'medium',
+                },
+                {
+                    id: 'total_score_500',
+                    name: 'High Scorer',
+                    description: 'Earn 500 total points today',
+                    icon: '🏆',
+                    type: 'total_score',
+                    targetValue: 500,
+                    xpReward: 50,
+                    difficulty: 'medium',
+                },
+            ] as any)
+
+            vi.mocked(queries.getUserChallengeProgress).mockResolvedValue([])
+            vi.mocked(queries.getGamesPlayedCountToday).mockResolvedValue(5)
+            vi.mocked(queries.getUniqueGamesPlayedToday).mockResolvedValue([
+                GameID.TETRIS,
+                GameID.SNAKE,
+                GameID.BEJEWELED,
+            ])
+            vi.mocked(queries.getTotalScoreToday).mockResolvedValue(700)
+
+            const result = await updateChallengeProgress(
+                'user-123',
+                GameID.TETRIS,
+                10
+            )
+
+            expect(queries.updateChallengeProgressValue).toHaveBeenCalledWith(
+                'user-123',
+                expect.any(String),
+                'variety_3_games',
+                3
+            )
+            expect(queries.updateChallengeProgressValue).toHaveBeenCalledWith(
+                'user-123',
+                expect.any(String),
+                'total_score_500',
+                700
+            )
+            expect(result.completedChallenges.length).toBeGreaterThanOrEqual(2)
+        })
+
         it('should reset streak to 1 if last completion was not yesterday', async () => {
             const today = getTodayUTC()
             const todayDate = new Date(`${today}T00:00:00Z`)
