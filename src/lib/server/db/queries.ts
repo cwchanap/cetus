@@ -1054,39 +1054,44 @@ export async function updateAllUserStreaksForUTC(): Promise<{
         uid => !activeSet.has(uid) && existingStatsUserIdsSet.has(uid)
     )
 
-    // Batch increment active users' streaks in chunks
-    let incremented = 0
-    if (activeUserIds.length > 0) {
-        const activeChunks = chunkArray(activeUserIds, 100)
-        for (const chunk of activeChunks) {
-            await db
-                .updateTable('user_stats')
-                .set(eb => ({
-                    streak_days: eb('streak_days', '+', 1),
-                    updated_at: new Date().toISOString(),
-                }))
-                .where('user_id', 'in', chunk)
-                .execute()
+    // Wrap both update operations in a single transaction to ensure atomicity
+    const { incremented, reset } = await db.transaction().execute(async trx => {
+        // Batch increment active users' streaks in chunks
+        let incremented = 0
+        if (activeUserIds.length > 0) {
+            const activeChunks = chunkArray(activeUserIds, 100)
+            for (const chunk of activeChunks) {
+                await trx
+                    .updateTable('user_stats')
+                    .set(eb => ({
+                        streak_days: eb('streak_days', '+', 1),
+                        updated_at: new Date().toISOString(),
+                    }))
+                    .where('user_id', 'in', chunk)
+                    .execute()
+            }
+            incremented = activeUserIds.length
         }
-        incremented = activeUserIds.length
-    }
 
-    // Batch reset inactive users' streaks in chunks
-    let reset = 0
-    if (inactiveUserIds.length > 0) {
-        const inactiveChunks = chunkArray(inactiveUserIds, 100)
-        for (const chunk of inactiveChunks) {
-            await db
-                .updateTable('user_stats')
-                .set({
-                    streak_days: 0,
-                    updated_at: new Date().toISOString(),
-                })
-                .where('user_id', 'in', chunk)
-                .execute()
+        // Batch reset inactive users' streaks in chunks
+        let reset = 0
+        if (inactiveUserIds.length > 0) {
+            const inactiveChunks = chunkArray(inactiveUserIds, 100)
+            for (const chunk of inactiveChunks) {
+                await trx
+                    .updateTable('user_stats')
+                    .set({
+                        streak_days: 0,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .where('user_id', 'in', chunk)
+                    .execute()
+            }
+            reset = inactiveUserIds.length
         }
-        reset = inactiveUserIds.length
-    }
+
+        return { incremented, reset }
+    })
 
     return {
         processed: incremented + reset,
