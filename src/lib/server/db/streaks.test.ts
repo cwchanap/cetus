@@ -74,11 +74,26 @@ vi.mock('@/lib/server/db/client', () => {
         }
     })
 
+    // Mock transaction to execute the callback with a transaction object
+    const transaction = vi.fn().mockReturnValue({
+        execute: vi.fn().mockImplementation(async callback => {
+            // Create a mock transaction object with same methods as db
+            const trx = {
+                selectFrom,
+                updateTable,
+                insertInto,
+            }
+            // Execute the callback with the transaction object
+            return await callback(trx)
+        }),
+    })
+
     return {
         db: {
             selectFrom,
             updateTable,
             insertInto,
+            transaction,
             fn: {
                 count: vi
                     .fn()
