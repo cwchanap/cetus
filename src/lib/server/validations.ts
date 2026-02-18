@@ -13,13 +13,13 @@ const gameIdValues = Object.values(GameID) as [string, ...string[]]
  */
 export const scoreSubmissionSchema = z.object({
     gameId: z.enum(gameIdValues, {
-        error: 'Invalid game ID',
+        message: 'Invalid game ID',
     }),
     score: z
         .number()
         .int()
-        .min(0, { error: 'Score must be a non-negative integer' })
-        .max(999_999_999, { error: 'Score exceeds maximum allowed value' }),
+        .min(0, { message: 'Score must be a non-negative integer' })
+        .max(999_999_999, { message: 'Score exceeds maximum allowed value' }),
     gameData: z.record(z.string(), z.unknown()).optional(),
 })
 
@@ -33,8 +33,8 @@ export const profileUpdateSchema = z
         name: z
             .string()
             .trim()
-            .min(1, { error: 'Name cannot be empty' })
-            .max(100, { error: 'Name must be 100 characters or less' })
+            .min(1, { message: 'Name cannot be empty' })
+            .max(100, { message: 'Name must be 100 characters or less' })
             .optional(),
         displayName: z.preprocess(
             val => {
@@ -46,9 +46,9 @@ export const profileUpdateSchema = z
             },
             z
                 .string()
-                .min(1, { error: 'Display name cannot be empty' })
+                .min(1, { message: 'Display name cannot be empty' })
                 .max(100, {
-                    error: 'Display name must be 100 characters or less',
+                    message: 'Display name must be 100 characters or less',
                 })
                 .nullable()
                 .optional()
@@ -63,10 +63,11 @@ export const profileUpdateSchema = z
             },
             z
                 .string()
-                .min(3, { error: 'Username must be at least 3 characters' })
-                .max(20, { error: 'Username must be 20 characters or less' })
+                .min(3, { message: 'Username must be at least 3 characters' })
+                .max(20, { message: 'Username must be 20 characters or less' })
                 .regex(/^[a-z0-9_]+$/, {
-                    error: 'Username must contain only lowercase letters, numbers, or underscores',
+                    message:
+                        'Username must contain only lowercase letters, numbers, or underscores',
                 })
                 .nullable()
                 .optional()
@@ -87,7 +88,7 @@ export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>
  */
 export const leaderboardQuerySchema = z.object({
     gameId: z.enum(gameIdValues, {
-        error: 'Invalid game ID',
+        message: 'Invalid game ID',
     }),
     limit: z
         .string()
