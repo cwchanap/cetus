@@ -243,5 +243,49 @@ describe('/api/user/avatar', () => {
                 expect.objectContaining({ image: data.avatar })
             )
         })
+
+        it('uses correct mime type in data url for jpeg upload', async () => {
+            const file = new File(['abc'], 'avatar.jpg', { type: 'image/jpeg' })
+            const request = createRequestWithAvatar(file)
+
+            const response = await POST({
+                request,
+                locals: { user: mockUser },
+            } as any)
+
+            expect(response.status).toBe(200)
+            const data = await response.json()
+            expect(data.avatar).toMatch(/^data:image\/jpeg;base64,/)
+        })
+
+        it('uses correct mime type in data url for webp upload', async () => {
+            const file = new File(['abc'], 'avatar.webp', {
+                type: 'image/webp',
+            })
+            const request = createRequestWithAvatar(file)
+
+            const response = await POST({
+                request,
+                locals: { user: mockUser },
+            } as any)
+
+            expect(response.status).toBe(200)
+            const data = await response.json()
+            expect(data.avatar).toMatch(/^data:image\/webp;base64,/)
+        })
+
+        it('uses correct mime type in data url for gif upload', async () => {
+            const file = new File(['abc'], 'avatar.gif', { type: 'image/gif' })
+            const request = createRequestWithAvatar(file)
+
+            const response = await POST({
+                request,
+                locals: { user: mockUser },
+            } as any)
+
+            expect(response.status).toBe(200)
+            const data = await response.json()
+            expect(data.avatar).toMatch(/^data:image\/gif;base64,/)
+        })
     })
 })

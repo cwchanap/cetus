@@ -45,6 +45,27 @@ describe('server validations', () => {
             expect(invalidScore.success).toBe(false)
         })
 
+        it('returns correct error message for invalid game id', () => {
+            const result = scoreSubmissionSchema.safeParse({
+                gameId: 'unknown',
+                score: 10,
+            })
+
+            expect(result.success).toBe(false)
+            if (!result.success) {
+                expect(result.error.issues[0].message).toBe('Invalid game ID')
+            }
+        })
+
+        it('rejects float scores', () => {
+            const result = scoreSubmissionSchema.safeParse({
+                gameId: GameID.TETRIS,
+                score: 99.5,
+            })
+
+            expect(result.success).toBe(false)
+        })
+
         it('rejects score exceeding maximum allowed value', () => {
             const tooHigh = scoreSubmissionSchema.safeParse({
                 gameId: GameID.TETRIS,
@@ -112,6 +133,19 @@ describe('server validations', () => {
 
             expect(empty.success).toBe(false)
             expect(badUsername.success).toBe(false)
+        })
+
+        it('returns correct error message for invalid username characters', () => {
+            const result = profileUpdateSchema.safeParse({
+                username: 'not-valid!user',
+            })
+
+            expect(result.success).toBe(false)
+            if (!result.success) {
+                expect(result.error.issues[0].message).toBe(
+                    'Username must contain only lowercase letters, numbers, or underscores'
+                )
+            }
         })
     })
 
