@@ -5,6 +5,7 @@ import {
     getUserGameHistoryPaginated,
     getUserBestScoreByGame,
     getUserAchievementsPaginated,
+    isUsernameAvailable,
 } from '@/lib/server/db/queries'
 import { db } from '@/lib/server/db/client'
 
@@ -651,6 +652,23 @@ describe('Database Queries', () => {
 
                 vi.clearAllMocks()
             }
+        })
+    })
+
+    describe('isUsernameAvailable', () => {
+        it('throws when the database query fails', async () => {
+            const mockQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi
+                    .fn()
+                    .mockRejectedValue(new Error('db connection failed')),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+            await expect(isUsernameAvailable('testuser')).rejects.toThrow(
+                'db connection failed'
+            )
         })
     })
 })

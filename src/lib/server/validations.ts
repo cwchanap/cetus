@@ -13,7 +13,7 @@ const gameIdValues = Object.values(GameID) as [string, ...string[]]
  */
 export const scoreSubmissionSchema = z.object({
     gameId: z.enum(gameIdValues, {
-        errorMap: () => ({ message: 'Invalid game ID' }),
+        error: 'Invalid game ID',
     }),
     score: z
         .number()
@@ -65,10 +65,9 @@ export const profileUpdateSchema = z
                 .string()
                 .min(3, { error: 'Username must be at least 3 characters' })
                 .max(20, { error: 'Username must be 20 characters or less' })
-                .regex(
-                    /^[a-z0-9_]+$/,
-                    'Username must contain only lowercase letters, numbers, or underscores'
-                )
+                .regex(/^[a-z0-9_]+$/, {
+                    error: 'Username must contain only lowercase letters, numbers, or underscores',
+                })
                 .nullable()
                 .optional()
         ),
@@ -88,7 +87,7 @@ export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>
  */
 export const leaderboardQuerySchema = z.object({
     gameId: z.enum(gameIdValues, {
-        errorMap: () => ({ message: 'Invalid game ID' }),
+        error: 'Invalid game ID',
     }),
     limit: z
         .string()

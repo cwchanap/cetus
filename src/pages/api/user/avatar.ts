@@ -24,7 +24,12 @@ export const DELETE: APIRoute = async ({ locals }) => {
             success: true,
             message: 'Avatar removed successfully',
         })
-    } catch (_error) {
+    } catch (error) {
+        console.error(
+            '[avatar:DELETE] Unexpected error removing avatar for user:',
+            user.id,
+            error
+        )
         return errorResponse('Internal server error')
     }
 }
@@ -71,7 +76,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         // Convert file to buffer and create base64 data URL directly
         // No resizing - use the cropped image as-is from frontend
         const buffer = Buffer.from(await file.arrayBuffer())
-        const base64Image = `data:image/png;base64,${buffer.toString('base64')}`
+        const base64Image = `data:${file.type};base64,${buffer.toString('base64')}`
 
         // Update user profile with the new avatar
         const success = await updateUser(user.id, { image: base64Image })
@@ -85,7 +90,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
             message: 'Avatar updated successfully',
             avatar: base64Image,
         })
-    } catch (_error) {
+    } catch (error) {
+        console.error(
+            '[avatar:POST] Unexpected error uploading avatar for user:',
+            user.id,
+            error
+        )
         return errorResponse('Internal server error')
     }
 }
