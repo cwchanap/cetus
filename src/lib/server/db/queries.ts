@@ -283,17 +283,25 @@ export async function isUsernameAvailable(
     username: string,
     excludeUserId?: string
 ): Promise<boolean> {
-    await ensureUserIdentityColumns()
-    const q = db
-        .selectFrom('user')
-        .select('id')
-        .where('username', '=', username)
+    try {
+        await ensureUserIdentityColumns()
+        const q = db
+            .selectFrom('user')
+            .select('id')
+            .where('username', '=', username)
 
-    const row = excludeUserId
-        ? await q.where('id', '!=', excludeUserId).executeTakeFirst()
-        : await q.executeTakeFirst()
+        const row = excludeUserId
+            ? await q.where('id', '!=', excludeUserId).executeTakeFirst()
+            : await q.executeTakeFirst()
 
-    return !row
+        return !row
+    } catch (error) {
+        console.error(
+            '[isUsernameAvailable] Database error:',
+            sanitizeError(error)
+        )
+        return false
+    }
 }
 
 /**

@@ -3,7 +3,6 @@ import { claimDailyLoginReward } from '@/lib/services/loginRewardService'
 import {
     jsonResponse,
     unauthorizedResponse,
-    badRequestResponse,
     errorResponse,
 } from '@/lib/server/api-utils'
 

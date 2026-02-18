@@ -656,7 +656,79 @@ describe('Database Queries', () => {
     })
 
     describe('isUsernameAvailable', () => {
-        it('throws when the database query fails', async () => {
+        it('returns true when username is not taken', async () => {
+            const mockQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+            const result = await isUsernameAvailable('newuser')
+
+            expect(result).toBe(true)
+            expect(mockQuery.where).toHaveBeenCalledWith(
+                'username',
+                '=',
+                'newuser'
+            )
+        })
+
+        it('returns false when username is already taken', async () => {
+            const mockQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi
+                    .fn()
+                    .mockResolvedValue({ id: 'existing-user-id' }),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+            const result = await isUsernameAvailable('existinguser')
+
+            expect(result).toBe(false)
+        })
+
+        it('excludes specified userId from the check', async () => {
+            const mockQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+            const result = await isUsernameAvailable(
+                'myuser',
+                'current-user-id'
+            )
+
+            expect(result).toBe(true)
+            expect(mockQuery.where).toHaveBeenCalledWith(
+                'id',
+                '!=',
+                'current-user-id'
+            )
+        })
+
+        it('returns false when username exists for different user (with excludeUserId)', async () => {
+            const mockQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi
+                    .fn()
+                    .mockResolvedValue({ id: 'other-user-id' }),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+            const result = await isUsernameAvailable(
+                'existinguser',
+                'current-user-id'
+            )
+
+            expect(result).toBe(false)
+        })
+
+        it('returns false on database error', async () => {
             const mockQuery = {
                 select: vi.fn().mockReturnThis(),
                 where: vi.fn().mockReturnThis(),
@@ -666,9 +738,9 @@ describe('Database Queries', () => {
             }
             vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
 
-            await expect(isUsernameAvailable('testuser')).rejects.toThrow(
-                'db connection failed'
-            )
+            const result = await isUsernameAvailable('testuser')
+
+            expect(result).toBe(false)
         })
     })
 })
