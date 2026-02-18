@@ -222,14 +222,25 @@ async function saveScore(score: number): Promise<void> {
 function cleanup(): void {
     abortController?.abort()
     abortController = null
-    game?.destroy()
-    renderer?.destroy()
+
+    try {
+        game?.destroy()
+    } catch (e) {
+        console.warn('[MemoryMatrix cleanup] Failed to destroy game:', e)
+    }
+
+    try {
+        renderer?.destroy()
+    } catch (e) {
+        console.warn('[MemoryMatrix cleanup] Failed to destroy renderer:', e)
+    }
+
     game = null
     renderer = null
 }
 
-// Export for debugging
-if (typeof window !== 'undefined') {
+// Export for debugging (only in development)
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
     ;(window as Window & typeof globalThis).memoryMatrixGame = {
         getGame: () => game,
         getRenderer: () => renderer,

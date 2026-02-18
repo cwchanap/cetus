@@ -157,10 +157,10 @@ export function validateQuery<T>(
     const result = schema.safeParse(params)
 
     if (!result.success) {
-        const firstError = result.error.issues?.[0]
+        const firstIssue = result.error.issues?.[0]
         return {
             success: false,
-            error: firstError?.message || 'Validation failed',
+            error: firstIssue?.message || 'Validation failed',
         }
     }
 
