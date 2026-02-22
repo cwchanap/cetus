@@ -9,17 +9,14 @@ if (!secret) {
     )
 }
 
-// Determine baseURL with proper fallback and validation
-const authUrl = import.meta.env.BETTER_AUTH_URL
+// Determine baseURL - use env var, fallback to localhost, or empty in production (inferred from request)
 let baseURL: string
-if (authUrl) {
-    baseURL = authUrl
-} else if (!import.meta.env.PROD) {
-    baseURL = 'http://localhost:4325'
+if (import.meta.env.BETTER_AUTH_URL) {
+    baseURL = import.meta.env.BETTER_AUTH_URL
+} else if (import.meta.env.PROD) {
+    baseURL = '' // Better Auth will infer from request headers in production
 } else {
-    throw new Error(
-        'BETTER_AUTH_URL is required in production. Please set it in your environment variables.'
-    )
+    baseURL = 'http://localhost:4325'
 }
 
 // Check if Google OAuth is properly configured
@@ -58,7 +55,7 @@ export const auth = betterAuth({
             httpOnly: true,
         },
     },
-    trustedOrigins: [baseURL],
+    trustedOrigins: baseURL ? [baseURL] : [],
     secret,
     baseURL,
 })
