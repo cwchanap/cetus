@@ -539,4 +539,115 @@ describe('BaseGame default hooks', () => {
         const stats = sm.getStats()
         expect(stats.averagePointsPerAction).toBe(0)
     })
+
+    it('EventEmitter removeAllListeners with specific eventType removes only that type', () => {
+        const emitter = new GameEventEmitter()
+        const handler1 = vi.fn()
+        const handler2 = vi.fn()
+        emitter.on('start', handler1)
+        emitter.on('end', handler2)
+        emitter.removeAllListeners('start')
+        emitter.emit('start')
+        emitter.emit('end')
+        expect(handler1).not.toHaveBeenCalled()
+        expect(handler2).toHaveBeenCalled()
+    })
+
+    it('updateTime emits time-update event and timer forwarding works', () => {
+        vi.useFakeTimers()
+        const timeUpdateHandler = vi.fn()
+        const onTimeUpdate = vi.fn()
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 2,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: false,
+            },
+            { onTimeUpdate }
+        )
+        game.on('time-update', timeUpdateHandler)
+        game.start()
+        vi.advanceTimersByTime(1000)
+        expect(timeUpdateHandler).toHaveBeenCalled()
+        expect(onTimeUpdate).toHaveBeenCalled()
+        game.destroy()
+        vi.useRealTimers()
+    })
+
+    it('handleTimeUp is called when timer expires and ends the game', async () => {
+        vi.useFakeTimers()
+        const onEnd = vi.fn()
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 1,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: false,
+            },
+            { onEnd }
+        )
+        game.start()
+        await vi.runAllTimersAsync()
+        expect(onEnd).toHaveBeenCalled()
+        game.destroy()
+        vi.useRealTimers()
+    })
+
+    it('reset does nothing when game is not resettable', () => {
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: false,
+            },
+            {}
+        )
+        game.start()
+        const scoreBefore = game.getScoreManager().getScore()
+        game.addScore(100, 'test')
+        game.reset() // should do nothing since resettable=false
+        expect(game.getScoreManager().getScore()).toBe(scoreBefore + 100)
+        game.destroy()
+    })
+
+    it('resume does nothing when game is not paused', () => {
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: true,
+                resettable: false,
+            },
+            {}
+        )
+        game.start()
+        // resume without pausing first — hits the !isPaused guard (lines 126-127)
+        expect(() => game.resume()).not.toThrow()
+        expect(game.getState().isPaused).toBe(false)
+        game.destroy()
+    })
+
+    it('end does nothing when game is already ended', async () => {
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: false,
+            },
+            {}
+        )
+        game.start()
+        await game.end()
+        // Second call — hits the !isActive guard (lines 145-146)
+        await expect(game.end()).resolves.not.toThrow()
+        expect(game.getState().isGameOver).toBe(true)
+    })
 })

@@ -394,6 +394,37 @@ describe('onPreferencesChanged', () => {
     })
 })
 
+describe('SSR window === undefined branches', () => {
+    afterEach(() => {
+        vi.stubGlobal('window', windowMock)
+    })
+
+    it('prefersReducedMotion returns false when window is undefined', () => {
+        vi.stubGlobal('window', undefined)
+        expect(prefersReducedMotion()).toBe(false)
+    })
+
+    it('onPreferencesChanged returns noop when window is undefined', () => {
+        vi.stubGlobal('window', undefined)
+        const noop = onPreferencesChanged(vi.fn())
+        expect(typeof noop).toBe('function')
+        expect(() => noop()).not.toThrow()
+    })
+
+    it('getClientPreferences returns defaults when window is undefined', () => {
+        vi.stubGlobal('window', undefined)
+        const prefs = getClientPreferences()
+        expect(prefs).toEqual(DEFAULT_CLIENT_PREFERENCES)
+    })
+
+    it('saveClientPreferences does nothing when window is undefined', () => {
+        vi.stubGlobal('window', undefined)
+        expect(() =>
+            saveClientPreferences(DEFAULT_CLIENT_PREFERENCES)
+        ).not.toThrow()
+    })
+})
+
 describe('saveClientPreferences error handling', () => {
     it('should log error if localStorage.setItem throws', () => {
         const consoleErrorSpy = vi

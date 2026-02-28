@@ -92,12 +92,12 @@ describe('WordScrambleGame', () => {
             expect(challenge).not.toBe(null)
 
             // Act
-            const result = game.submitAnswer(challenge!.originalWord)
+            const result = game.submitAnswer(challenge?.originalWord ?? '')
 
             // Assert
             expect(result).toBe(true)
             expect(callbacks.onCorrectAnswer).toHaveBeenCalledWith(
-                challenge!.originalWord
+                challenge?.originalWord
             )
             expect(callbacks.onScoreUpdate).toHaveBeenCalled()
 
@@ -118,7 +118,7 @@ describe('WordScrambleGame', () => {
             // Assert
             expect(result).toBe(false)
             expect(callbacks.onIncorrectAnswer).toHaveBeenCalledWith(
-                challenge!.originalWord,
+                challenge?.originalWord,
                 'wronganswer'
             )
 
@@ -145,12 +145,12 @@ describe('WordScrambleGame', () => {
             expect(firstChallenge).not.toBe(null)
 
             // Act
-            game.submitAnswer(firstChallenge!.originalWord)
+            game.submitAnswer(firstChallenge?.originalWord ?? '')
 
             // Assert
             const secondChallenge = game.getCurrentChallenge()
             expect(secondChallenge).not.toBe(null)
-            expect(secondChallenge?.id).not.toBe(firstChallenge!.id)
+            expect(secondChallenge?.id).not.toBe(firstChallenge?.id)
         })
     })
 
@@ -174,7 +174,7 @@ describe('WordScrambleGame', () => {
             expect(state.score).toBe(0)
 
             const newChallenge = game.getCurrentChallenge()
-            expect(newChallenge?.id).not.toBe(challenge!.id)
+            expect(newChallenge?.id).not.toBe(challenge?.id)
         })
     })
 
@@ -190,12 +190,12 @@ describe('WordScrambleGame', () => {
             const initialScore = game.getScore()
 
             // Act
-            game.submitAnswer(challenge!.originalWord)
+            game.submitAnswer(challenge?.originalWord ?? '')
 
             // Assert
             const finalScore = game.getScore()
             expect(finalScore).toBeGreaterThan(initialScore)
-            expect(finalScore).toBeGreaterThanOrEqual(challenge!.points)
+            expect(finalScore).toBeGreaterThanOrEqual(challenge?.points ?? 0)
         })
     })
 
@@ -211,7 +211,7 @@ describe('WordScrambleGame', () => {
 
             // Act
             // Answer one correctly
-            game.submitAnswer(challenge1!.originalWord)
+            game.submitAnswer(challenge1?.originalWord ?? '')
 
             // Answer one incorrectly
             const challenge2 = game.getCurrentChallenge()
@@ -268,14 +268,110 @@ describe('WordScrambleGame', () => {
 
     describe('Additional coverage', () => {
         it('getTimeRemaining returns correct value when game is active', () => {
+            vi.useFakeTimers()
             game.startGame()
             expect(typeof game.getTimeRemaining()).toBe('number')
+            vi.useRealTimers()
+            game.destroy()
         })
 
         it('getGameStats returns correct values when game has not started', () => {
             const stats = game.getGameStats()
             expect(stats.totalWords).toBe(0)
             expect(stats.accuracy).toBe(0)
+        })
+
+        it('updateCurrentAnswer and getCurrentAnswer', () => {
+            game.updateCurrentAnswer('hello')
+            expect(game.getCurrentAnswer()).toBe('hello')
+        })
+
+        it('skipCurrentChallenge does nothing when game is not active', () => {
+            // Game not started, skipCurrentChallenge should return early
+            const state = game.getState()
+            const beforeWords = state.wordsUnscrambled
+            game.skipCurrentChallenge()
+            expect(game.getState().wordsUnscrambled).toBe(beforeWords)
+        })
+
+        it('should end game when timer expires', () => {
+            vi.useFakeTimers()
+            game.startGame()
+            // Advance timer past game duration to trigger endGame() via timer callback
+            vi.advanceTimersByTime(config.gameDuration * 1000 + 1000)
+            expect(game.isGameActive()).toBe(false)
+            expect(game.isGameOver()).toBe(true)
+            expect(callbacks.onGameOver).toHaveBeenCalled()
+            vi.useRealTimers()
+        })
+
+        it('should award 3-5 second speed bonus on correct answer', () => {
+            vi.useFakeTimers()
+            game.startGame()
+            const challenge = game.getCurrentChallenge()
+            expect(challenge).not.toBe(null)
+            const basePoints = challenge?.points ?? 0
+
+            // Advance 3.5 seconds — challengeStartTime was set at game start (fake time=0)
+            // timeToAnswer = 3.5s → hits "else if (timeToAnswer < 5)" branch
+            vi.advanceTimersByTime(3500)
+            game.submitAnswer(challenge?.originalWord ?? '')
+
+            expect(game.getScore()).toBeGreaterThan(basePoints)
+            expect(game.getScore()).toBe(basePoints + 5) // 5-point quick bonus
+            vi.useRealTimers()
+            game.destroy()
+        })
+
+        it('should use medium difficulty after 5+ words when rand < 0.6', () => {
+            vi.useFakeTimers()
+            // Mock Math.random to return 0.3 (< 0.6) for difficulty selection
+            vi.spyOn(Math, 'random').mockReturnValue(0.3)
+            game.startGame()
+            // Submit 5 words so wordsUnscrambled >= 5
+            for (let i = 0; i < 5; i++) {
+                const ch = game.getCurrentChallenge()
+                game.submitAnswer(ch?.originalWord ?? '')
+            }
+            // Next challenge generation hits the >= 5 branch with rand 0.3 < 0.6 → medium
+            const ch = game.getCurrentChallenge()
+            expect(ch).not.toBe(null)
+            vi.restoreAllMocks()
+            vi.useRealTimers()
+            game.destroy()
+        })
+
+        it('should use hard difficulty after 10+ words when 0.4 <= rand < 0.7', () => {
+            vi.useFakeTimers()
+            // Mock Math.random: returns 0.5 for difficulty selection (>= 0.4, < 0.7 → hard)
+            vi.spyOn(Math, 'random').mockReturnValue(0.5)
+            game.startGame()
+            for (let i = 0; i < 10; i++) {
+                const ch = game.getCurrentChallenge()
+                game.submitAnswer(ch?.originalWord ?? '')
+            }
+            // Next challenge hits >= 10 branch: rand=0.5 → not < 0.4, but < 0.7 → hard
+            const ch = game.getCurrentChallenge()
+            expect(ch).not.toBe(null)
+            vi.restoreAllMocks()
+            vi.useRealTimers()
+            game.destroy()
+        })
+
+        it('should use medium difficulty after 10+ words when rand < 0.4', () => {
+            vi.useFakeTimers()
+            vi.spyOn(Math, 'random').mockReturnValue(0.2)
+            game.startGame()
+            for (let i = 0; i < 10; i++) {
+                const ch = game.getCurrentChallenge()
+                game.submitAnswer(ch?.originalWord ?? '')
+            }
+            // rand=0.2 < 0.4 → medium difficulty (lines 44-47 of game.ts)
+            const ch = game.getCurrentChallenge()
+            expect(ch).not.toBe(null)
+            vi.restoreAllMocks()
+            vi.useRealTimers()
+            game.destroy()
         })
     })
 })

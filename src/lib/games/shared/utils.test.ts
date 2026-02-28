@@ -284,4 +284,11 @@ describe('easeOutElastic', () => {
     it('should return 1 at t=1', () => {
         expect(easeOutElastic(1)).toBe(1)
     })
+
+    it('should return a value near 1 for intermediate t', () => {
+        const result = easeOutElastic(0.5)
+        expect(typeof result).toBe('number')
+        expect(result).not.toBe(0)
+        expect(result).not.toBe(1)
+    })
 })

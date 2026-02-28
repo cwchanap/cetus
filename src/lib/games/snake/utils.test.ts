@@ -185,6 +185,25 @@ describe('Snake Utils', () => {
                 expect(typeof pos.y).toBe('number')
             }
         })
+
+        it('should use fallback scan when snake fills entire grid', () => {
+            // Fill a 2x2 grid completely with snake segments
+            const tinyConstants = { GRID_WIDTH: 2, GRID_HEIGHT: 2 }
+            const fullSnake = [
+                { x: 0, y: 0, id: 'a' },
+                { x: 1, y: 0, id: 'b' },
+                { x: 0, y: 1, id: 'c' },
+                { x: 1, y: 1, id: 'd' },
+            ]
+            // All random positions collide → fallback scan (lines 66-76) runs
+            // All cells occupied → returns the last random position
+            const pos = generateFoodPosition(
+                fullSnake,
+                tinyConstants as typeof constants
+            )
+            expect(typeof pos.x).toBe('number')
+            expect(typeof pos.y).toBe('number')
+        })
     })
 
     describe('generateId', () => {

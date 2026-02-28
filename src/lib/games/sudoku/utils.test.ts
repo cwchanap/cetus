@@ -165,6 +165,23 @@ describe('Sudoku Utils', () => {
             grid[2][2] = grid[0][0] // duplicate 5 in top-left box
             expect(isComplete(grid)).toBe(false)
         })
+
+        it('should return false when box has duplicates but rows and columns are unique', () => {
+            // Cyclic shift by 1 per row: each row/col has 1-9 once, but boxes have duplicates
+            const grid = [
+                [1, 2, 3, 4, 5, 6, 7, 8, 9],
+                [2, 3, 4, 5, 6, 7, 8, 9, 1],
+                [3, 4, 5, 6, 7, 8, 9, 1, 2],
+                [4, 5, 6, 7, 8, 9, 1, 2, 3],
+                [5, 6, 7, 8, 9, 1, 2, 3, 4],
+                [6, 7, 8, 9, 1, 2, 3, 4, 5],
+                [7, 8, 9, 1, 2, 3, 4, 5, 6],
+                [8, 9, 1, 2, 3, 4, 5, 6, 7],
+                [9, 1, 2, 3, 4, 5, 6, 7, 8],
+            ]
+            // Top-left box: 1,2,3; 2,3,4; 3,4,5 — has duplicates → hits lines 195-196
+            expect(isComplete(grid)).toBe(false)
+        })
     })
 
     describe('findConflicts', () => {

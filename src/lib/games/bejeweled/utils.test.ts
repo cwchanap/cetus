@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
     inBounds,
     isAdjacent,
@@ -11,7 +11,7 @@ import {
     generateInitialGrid,
     randomChoice,
 } from './utils'
-import { JEWEL_TYPES, type JewelType } from './types'
+import { type JewelType } from './types'
 
 describe('Bejeweled Utils', () => {
     describe('randomChoice', () => {
@@ -160,7 +160,32 @@ describe('Bejeweled Utils', () => {
             const redMatch = matches.find(m => m.type === 'red')
             // Should have a merged match with 5 positions (horizontal 3 + vertical 3, minus 1 overlap)
             expect(redMatch).toBeDefined()
-            expect(redMatch!.positions.length).toBeGreaterThanOrEqual(5)
+            expect(redMatch?.positions.length).toBeGreaterThanOrEqual(5)
+        })
+
+        it('should skip matches of different type during merge dedup', () => {
+            // Two horizontal matches of different types in same row, no overlap
+            // When merging: base=red, other=blue → other.type !== base.type → continue (line 151-152)
+            const grid: (JewelType | null)[][] = [
+                ['red', 'red', 'red', 'blue', 'blue', 'blue'],
+            ]
+            const matches = findMatches(grid)
+            expect(matches.length).toBe(2)
+            expect(matches.some(m => m.type === 'red')).toBe(true)
+            expect(matches.some(m => m.type === 'blue')).toBe(true)
+        })
+
+        it('should skip already-merged matches in inner dedup loop', () => {
+            // Creates 3 matches: H-row0, H-row2, V-col0 (all same type)
+            // i=0 merges with V-col0 (used[2]=true)
+            // i=1 (H-row2) inner loop hits j=2 with used[2]=true → inner continue (line 147-148)
+            const grid: (JewelType | null)[][] = [
+                ['red', 'red', 'red'],
+                ['red', null, null],
+                ['red', 'red', 'red'],
+            ]
+            const matches = findMatches(grid)
+            expect(matches.length).toBeGreaterThanOrEqual(1)
         })
     })
 
@@ -308,7 +333,7 @@ describe('Bejeweled Utils', () => {
             // Run several times to check statistical likelihood
             for (let i = 0; i < 5; i++) {
                 const grid = generateInitialGrid(6, 6)
-                const matches = findMatches(grid)
+                const _matches = findMatches(grid)
                 // With 20 attempts per cell and 6 types, matches should be rare
                 // We just verify the function runs without error and returns a valid grid
                 expect(grid.length).toBe(6)
