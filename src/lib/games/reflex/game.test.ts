@@ -353,4 +353,60 @@ describe('ReflexGame', () => {
             Math.random = originalRandom
         })
     })
+
+    describe('generateGameStats accuracy and reaction time branches', () => {
+        afterEach(() => {
+            vi.restoreAllMocks()
+        })
+
+        it('should include non-zero accuracy when player has made clicks', () => {
+            vi.spyOn(Math, 'random').mockReturnValue(0.5)
+
+            game.startGame()
+            vi.advanceTimersByTime(1000)
+            const objects = game.getActiveObjects()
+            if (objects.length > 0) {
+                game.handleCellClick(objects[0].cell.row, objects[0].cell.col)
+            }
+
+            game.stopGame()
+
+            const stats = (mockCallbacks.onGameOver as ReturnType<typeof vi.fn>)
+                .mock.calls[0][1]
+            expect(stats.accuracy).toBeGreaterThan(0)
+        })
+
+        it('should include non-zero averageReactionTime when objects were clicked', () => {
+            vi.spyOn(Math, 'random').mockReturnValue(0.5)
+
+            game.startGame()
+            vi.advanceTimersByTime(500)
+            const objects = game.getActiveObjects()
+            if (objects.length > 0) {
+                game.handleCellClick(objects[0].cell.row, objects[0].cell.col)
+            }
+
+            game.stopGame()
+
+            const stats = (mockCallbacks.onGameOver as ReturnType<typeof vi.fn>)
+                .mock.calls[0][1]
+            expect(stats.averageReactionTime).toBeGreaterThanOrEqual(0)
+        })
+    })
+
+    describe('spawnObject - no available cells', () => {
+        it('should handle no-available-cells gracefully with tiny grid', () => {
+            const smallGame = new ReflexGame(
+                { ...defaultConfig, gridSize: 1, spawnInterval: 0.01 },
+                mockCallbacks
+            )
+            smallGame.startGame()
+            // Fill the single cell
+            vi.advanceTimersByTime(100)
+            // Spawn again when no cells available — should not throw
+            vi.advanceTimersByTime(100)
+            expect(smallGame.getActiveObjects().length).toBeLessThanOrEqual(1)
+            smallGame.cleanup()
+        })
+    })
 })

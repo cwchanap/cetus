@@ -141,3 +141,140 @@ describe('BejeweledGame special achievements logic', () => {
         fake.mockRestore()
     })
 })
+
+describe('BejeweledGame cell selection and state', () => {
+    let game: BejeweledGame
+
+    beforeEach(() => {
+        game = new BejeweledGame(GameID.BEJEWELED, createConfig(), {})
+        game.start()
+    })
+
+    afterEach(() => {
+        game.destroy()
+    })
+
+    it('should select a cell on first click', () => {
+        game.clickCell(0, 0)
+        expect(game.getState().selected).toEqual({ row: 0, col: 0 })
+    })
+
+    it('should deselect when clicking the same cell twice', () => {
+        game.clickCell(1, 1)
+        game.clickCell(1, 1)
+        expect(game.getState().selected).toBeNull()
+    })
+
+    it('should change selection to non-adjacent cell', () => {
+        game.clickCell(0, 0)
+        game.clickCell(4, 4) // not adjacent
+        expect(game.getState().selected).toEqual({ row: 4, col: 4 })
+    })
+
+    it('should not respond to clicks when game is paused', () => {
+        game.pause()
+        game.clickCell(0, 0)
+        expect(game.getState().selected).toBeNull()
+    })
+
+    it('should not respond to clicks when game is not active', () => {
+        const inactiveGame = new BejeweledGame(
+            GameID.BEJEWELED,
+            createConfig(),
+            {}
+        )
+        // Don't start the game
+        inactiveGame.clickCell(0, 0)
+        expect(inactiveGame.getState().selected).toBeNull()
+        inactiveGame.destroy()
+    })
+
+    it('should emit state-change events on selection', () => {
+        const onStateChange = vi.fn()
+        const gameWithCb = new BejeweledGame(GameID.BEJEWELED, createConfig(), {
+            onStateChange,
+        })
+        gameWithCb.start()
+        gameWithCb.clickCell(0, 0)
+        expect(onStateChange).toHaveBeenCalled()
+        gameWithCb.destroy()
+    })
+
+    it('should reset with onGameReset', () => {
+        game.clickCell(1, 1)
+        game.reset()
+        expect(game.getState().selected).toBeNull()
+        expect(game.getState().combo).toBe(0)
+        expect(game.getState().movesMade).toBe(0)
+    })
+
+    it('should return getGameStats with expected fields', () => {
+        const stats = game.getGameStats()
+        expect(stats).toHaveProperty('finalScore')
+        expect(stats).toHaveProperty('movesMade')
+        expect(stats).toHaveProperty('maxCombo')
+        expect(stats).toHaveProperty('largestMatch')
+        expect(stats).toHaveProperty('totalMatches')
+    })
+})
+
+describe('BejeweledGame isStraightRunAtLeast coverage', () => {
+    let game: BejeweledGame
+
+    beforeEach(() => {
+        game = new BejeweledGame(GameID.BEJEWELED, createConfig(), {})
+        game.start()
+    })
+
+    afterEach(() => {
+        game.destroy()
+    })
+
+    it('should detect vertical straight run of 5', async () => {
+        const vertRun: Position[] = [
+            { row: 0, col: 2 },
+            { row: 1, col: 2 },
+            { row: 2, col: 2 },
+            { row: 3, col: 2 },
+            { row: 4, col: 2 },
+        ]
+        const spy = vi
+            .spyOn(utils, 'findMatches')
+            .mockReturnValueOnce([{ type: 'red', positions: vertRun } as any])
+            .mockReturnValueOnce([{ type: 'red', positions: vertRun } as any])
+            .mockReturnValue([])
+
+        game.clickCell(0, 2)
+        game.clickCell(0, 3)
+        await flushMicrotasks()
+        await flushMicrotasks()
+
+        const gameData = (game as any).getGameData()
+        expect(gameData.straightFive).toBe(true)
+        spy.mockRestore()
+    })
+
+    it('should not detect straight five for scattered positions', async () => {
+        const scattered: Position[] = [
+            { row: 0, col: 0 },
+            { row: 2, col: 2 },
+            { row: 4, col: 4 },
+            { row: 1, col: 3 },
+            { row: 3, col: 1 },
+        ]
+        const spy = vi
+            .spyOn(utils, 'findMatches')
+            .mockReturnValueOnce([{ type: 'red', positions: scattered } as any])
+            .mockReturnValueOnce([{ type: 'red', positions: scattered } as any])
+            .mockReturnValue([])
+
+        game.clickCell(0, 0)
+        game.clickCell(0, 1)
+        await flushMicrotasks()
+        await flushMicrotasks()
+
+        const gameData = (game as any).getGameData()
+        expect(gameData.straightFive).toBe(false)
+        spy.mockRestore()
+    })
+})

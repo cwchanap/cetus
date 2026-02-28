@@ -518,4 +518,25 @@ describe('BaseGame default hooks', () => {
         game.addScore(25)
         expect(onScoreUpdate).toHaveBeenCalledWith(25)
     })
+
+    it('GameTimer autoStart should start timer immediately', () => {
+        vi.useFakeTimers()
+        const onTick = vi.fn()
+        const timer = new GameTimer({
+            duration: 10,
+            countDown: true,
+            autoStart: true,
+            onTick,
+        })
+        vi.advanceTimersByTime(1000)
+        expect(onTick).toHaveBeenCalled()
+        timer.stop()
+        vi.useRealTimers()
+    })
+
+    it('ScoreManager getStats returns 0 averagePointsPerAction when no history', () => {
+        const sm = new ScoreManager({ startingScore: 0, minScore: 0 })
+        const stats = sm.getStats()
+        expect(stats.averagePointsPerAction).toBe(0)
+    })
 })
