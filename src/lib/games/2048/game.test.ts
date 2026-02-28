@@ -20,6 +20,11 @@ import {
     getTileTextColor,
     cloneBoard,
     createEmptyBoard,
+    getTileFontSize,
+    getCellPixelPosition,
+    getRandomEmptyPosition,
+    getNewTileValue,
+    generateTileId,
 } from './utils'
 import { type Board, type GameState, type Tile, GAME_CONSTANTS } from './types'
 
@@ -226,6 +231,92 @@ describe('2048 Game Utils', () => {
         it('should return white for medium values', () => {
             expect(getTileTextColor(8)).toBe(0xffffff)
             expect(getTileTextColor(64)).toBe(0xffffff)
+        })
+    })
+
+    describe('getTileFontSize', () => {
+        it('should return 36 for values under 100', () => {
+            expect(getTileFontSize(2)).toBe(36)
+            expect(getTileFontSize(64)).toBe(36)
+        })
+
+        it('should return 30 for values 100-999', () => {
+            expect(getTileFontSize(128)).toBe(30)
+            expect(getTileFontSize(512)).toBe(30)
+        })
+
+        it('should return 24 for values 1000-9999', () => {
+            expect(getTileFontSize(1024)).toBe(24)
+            expect(getTileFontSize(4096)).toBe(24)
+        })
+
+        it('should return 20 for values >= 10000', () => {
+            expect(getTileFontSize(16384)).toBe(20)
+        })
+    })
+
+    describe('getCellPixelPosition', () => {
+        it('should return correct pixel position for (0,0)', () => {
+            const { TILE_SIZE, GAP } = GAME_CONSTANTS
+            const pos = getCellPixelPosition(0, 0)
+            expect(pos.x).toBe(GAP + TILE_SIZE / 2)
+            expect(pos.y).toBe(GAP + TILE_SIZE / 2)
+        })
+
+        it('should increase x for increasing col', () => {
+            const pos0 = getCellPixelPosition(0, 0)
+            const pos1 = getCellPixelPosition(0, 1)
+            expect(pos1.x).toBeGreaterThan(pos0.x)
+        })
+
+        it('should increase y for increasing row', () => {
+            const pos0 = getCellPixelPosition(0, 0)
+            const pos1 = getCellPixelPosition(1, 0)
+            expect(pos1.y).toBeGreaterThan(pos0.y)
+        })
+    })
+
+    describe('getRandomEmptyPosition', () => {
+        it('should return a position from an empty board', () => {
+            const board = createEmptyBoard()
+            const pos = getRandomEmptyPosition(board)
+            expect(pos).not.toBeNull()
+            expect(pos!.row).toBeGreaterThanOrEqual(0)
+            expect(pos!.col).toBeGreaterThanOrEqual(0)
+        })
+
+        it('should return null when board is full', () => {
+            const board = createEmptyBoard()
+            const dummyTile: Tile = {
+                id: 'test',
+                value: 2,
+                position: { row: 0, col: 0 },
+            }
+            for (let r = 0; r < GAME_CONSTANTS.BOARD_SIZE; r++) {
+                for (let c = 0; c < GAME_CONSTANTS.BOARD_SIZE; c++) {
+                    board[r][c] = { ...dummyTile, position: { row: r, col: c } }
+                }
+            }
+            const pos = getRandomEmptyPosition(board)
+            expect(pos).toBeNull()
+        })
+    })
+
+    describe('getNewTileValue', () => {
+        it('should return 2 or 4', () => {
+            for (let i = 0; i < 20; i++) {
+                const value = getNewTileValue()
+                expect([2, 4]).toContain(value)
+            }
+        })
+    })
+
+    describe('generateTileId', () => {
+        it('should generate id with counter', () => {
+            const state = createGameState()
+            state.tileIdCounter = 5
+            const id = generateTileId(state)
+            expect(id).toBe('tile-5')
         })
     })
 })
