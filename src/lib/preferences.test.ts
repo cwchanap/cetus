@@ -10,6 +10,7 @@ import {
     getEffectiveVolume,
     prefersReducedMotion,
     resolveTheme,
+    onPreferencesChanged,
     type ClientPreferences,
 } from './preferences'
 
@@ -358,5 +359,106 @@ describe('resolveTheme', () => {
 
         windowMock.matchMedia.mockReturnValueOnce({ matches: false })
         expect(resolveTheme('auto')).toBe('light')
+    })
+})
+
+describe('onPreferencesChanged', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should add an event listener and call callback when preferences change', () => {
+        const callback = vi.fn()
+        const cleanup = onPreferencesChanged(callback)
+
+        expect(windowMock.addEventListener).toHaveBeenCalledWith(
+            'preferences-updated',
+            expect.any(Function)
+        )
+
+        // Simulate event firing via the registered handler
+        const handler = windowMock.addEventListener.mock.calls.find(
+            (call: unknown[]) => call[0] === 'preferences-updated'
+        )?.[1]
+        if (handler) {
+            handler(
+                new CustomEvent('preferences-updated', {
+                    detail: DEFAULT_CLIENT_PREFERENCES,
+                })
+            )
+        }
+        expect(callback).toHaveBeenCalledWith(DEFAULT_CLIENT_PREFERENCES)
+
+        cleanup()
+        expect(windowMock.removeEventListener).toHaveBeenCalled()
+    })
+})
+
+describe('saveClientPreferences error handling', () => {
+    it('should log error if localStorage.setItem throws', () => {
+        const consoleErrorSpy = vi
+            .spyOn(console, 'error')
+            .mockImplementation(() => {})
+        vi.mocked(localStorageMock.setItem).mockImplementationOnce(() => {
+            throw new Error('storage full')
+        })
+
+        expect(() =>
+            saveClientPreferences(DEFAULT_CLIENT_PREFERENCES)
+        ).not.toThrow()
+        expect(consoleErrorSpy).toHaveBeenCalled()
+
+        consoleErrorSpy.mockRestore()
+    })
+})
+
+describe('getClientPreferences - edge cases', () => {
+    it('should return defaults when stored data has array as sound section', () => {
+        localStorageMock.getItem.mockReturnValueOnce(
+            JSON.stringify({ sound: [1, 2, 3], display: { theme: 'dark' } })
+        )
+        const prefs = getClientPreferences()
+        expect(prefs).toEqual(DEFAULT_CLIENT_PREFERENCES)
+    })
+
+    it('should return defaults when stored data has array as display section', () => {
+        localStorageMock.getItem.mockReturnValueOnce(
+            JSON.stringify({ sound: {}, display: ['a', 'b'] })
+        )
+        const prefs = getClientPreferences()
+        expect(prefs).toEqual(DEFAULT_CLIENT_PREFERENCES)
+    })
+
+    it('should use defaults for invalid volume values', () => {
+        localStorageMock.getItem.mockReturnValueOnce(
+            JSON.stringify({
+                sound: {
+                    masterVolume: -10,
+                    sfxVolume: 999,
+                    musicVolume: 'loud',
+                    soundEnabled: 'yes',
+                },
+                display: { reducedMotion: 'yes', theme: 'ultraviolet' },
+            })
+        )
+        const prefs = getClientPreferences()
+        expect(prefs.sound.masterVolume).toBe(
+            DEFAULT_CLIENT_PREFERENCES.sound.masterVolume
+        )
+        expect(prefs.sound.sfxVolume).toBe(
+            DEFAULT_CLIENT_PREFERENCES.sound.sfxVolume
+        )
+        expect(prefs.sound.musicVolume).toBe(
+            DEFAULT_CLIENT_PREFERENCES.sound.musicVolume
+        )
+        expect(prefs.sound.soundEnabled).toBe(
+            DEFAULT_CLIENT_PREFERENCES.sound.soundEnabled
+        )
+        expect(prefs.display.reducedMotion).toBe(
+            DEFAULT_CLIENT_PREFERENCES.display.reducedMotion
+        )
+        expect(prefs.display.theme).toBe(
+            DEFAULT_CLIENT_PREFERENCES.display.theme
+        )
     })
 })

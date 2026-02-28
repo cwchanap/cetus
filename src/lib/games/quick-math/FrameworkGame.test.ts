@@ -163,4 +163,109 @@ describe('QuickMath Framework Implementation', () => {
         expect(result).toBe(false)
         expect(game.getState().questionsAnswered).toBe(0)
     })
+
+    it('should support subtraction operation', () => {
+        const config = {
+            duration: 60,
+            achievementIntegration: false,
+            pausable: true,
+            resettable: true,
+            pointsPerCorrectAnswer: 10,
+            maxNumber: 20,
+            operations: ['subtraction'] as Array<'addition' | 'subtraction'>,
+        }
+        const subGame = new QuickMathFrameworkGame(
+            GameID.QUICK_MATH,
+            config,
+            {}
+        )
+        subGame.start()
+        const question = subGame.getCurrentQuestion()
+        expect(question).not.toBeNull()
+        expect(question!.operation).toBe('subtraction')
+        // Answer should be non-negative (larger - smaller)
+        expect(question!.answer).toBeGreaterThanOrEqual(0)
+        // Question format should be "a - b"
+        expect(question!.question).toMatch(/^\d+ - \d+$/)
+        subGame.destroy()
+    })
+
+    it('should pause and resume correctly', () => {
+        const pausedConfig = {
+            duration: 60,
+            achievementIntegration: false,
+            pausable: true,
+            resettable: true,
+            pointsPerCorrectAnswer: 10,
+            maxNumber: 10,
+            operations: ['addition'] as Array<'addition' | 'subtraction'>,
+        }
+        const onPause = vi.fn()
+        const onResume = vi.fn()
+        const pauseGame = new QuickMathFrameworkGame(
+            GameID.QUICK_MATH,
+            pausedConfig,
+            { onPause, onResume }
+        )
+        pauseGame.start()
+        pauseGame.pause()
+        expect(pauseGame.getState().isPaused).toBe(true)
+        expect(onPause).toHaveBeenCalled()
+
+        pauseGame.resume()
+        expect(pauseGame.getState().isPaused).toBe(false)
+        expect(onResume).toHaveBeenCalled()
+
+        pauseGame.destroy()
+    })
+
+    it('should call update, render, cleanup without throwing', () => {
+        expect(() => {
+            ;(game as any).update(16)
+            ;(game as any).render()
+            ;(game as any).cleanup()
+        }).not.toThrow()
+    })
+
+    it('should destroy properly', () => {
+        game.start()
+        expect(() => game.destroy()).not.toThrow()
+    })
+
+    it('should return zero stats when no questions answered', () => {
+        const stats = game.getGameStats()
+        expect(stats.accuracy).toBe(0)
+        expect(stats.averageTimePerQuestion).toBe(0)
+        expect(stats.totalQuestions).toBe(0)
+    })
+
+    it('should expose getGameData via score saving', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: [] }),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const achievConfig = {
+            duration: 60,
+            achievementIntegration: true,
+            pausable: false,
+            resettable: true,
+            pointsPerCorrectAnswer: 10,
+            maxNumber: 10,
+            operations: ['addition'] as Array<'addition' | 'subtraction'>,
+        }
+        const achievGame = new QuickMathFrameworkGame(
+            GameID.QUICK_MATH,
+            achievConfig,
+            {}
+        )
+        achievGame.start()
+        await achievGame.end()
+
+        const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+        expect(body).toHaveProperty('gameData')
+
+        vi.unstubAllGlobals()
+    })
 })
