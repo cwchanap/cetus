@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { GameEventEmitter } from '../core/EventEmitter'
 import { GameTimer } from '../core/GameTimer'
 import { ScoreManager } from '../core/ScoreManager'
@@ -8,6 +8,8 @@ import { GameID } from '@/lib/games'
 vi.mock('@/lib/services/scoreService', () => ({
     saveGameScore: vi.fn().mockResolvedValue(undefined),
 }))
+
+import { saveGameScore } from '@/lib/services/scoreService'
 
 describe('Game Framework Core', () => {
     describe('GameEventEmitter', () => {
@@ -200,6 +202,187 @@ describe('Game Framework Core', () => {
             scoreManager.reset()
             expect(scoreManager.getScore()).toBe(0)
             expect(scoreManager.getScoreHistory()).toHaveLength(0)
+        })
+
+        it('should call onScoreUpdate callback on reset', () => {
+            const onScoreUpdate = vi.fn()
+            const sm = new ScoreManager({
+                gameId: GameID.TETRIS,
+                scoringConfig: {
+                    basePoints: 10,
+                    timeBonus: true,
+                    bonusMultiplier: 1,
+                },
+                achievementIntegration: false,
+                onScoreUpdate,
+            })
+            sm.addPoints(50, 'test')
+            sm.reset()
+            expect(onScoreUpdate).toHaveBeenLastCalledWith(0)
+        })
+
+        it('should apply time bonus correctly', () => {
+            scoreManager.applyTimeBonus(10)
+            expect(scoreManager.getScore()).toBe(50) // 10 * 5
+
+            scoreManager.reset()
+            scoreManager.applyTimeBonus(0)
+            expect(scoreManager.getScore()).toBe(0) // no bonus when time is 0
+        })
+
+        it('should save final score without achievement integration', async () => {
+            scoreManager.addPoints(100)
+            const result = await scoreManager.saveFinalScore()
+            expect(result.success).toBe(true)
+            expect(saveGameScore).toHaveBeenCalledWith(GameID.TETRIS, 100)
+        })
+
+        it('should save final score with achievement integration using fetch', async () => {
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+            })
+            vi.stubGlobal('fetch', fetchMock)
+
+            const sm = new ScoreManager({
+                gameId: GameID.TETRIS,
+                scoringConfig: { basePoints: 10, timeBonus: false },
+                achievementIntegration: true,
+            })
+            sm.addPoints(200)
+            const result = await sm.saveFinalScore({ level: 5 })
+
+            expect(result.success).toBe(true)
+            expect(result.newAchievements).toEqual(['first_win'])
+
+            vi.unstubAllGlobals()
+        })
+
+        it('should return success false when fetch returns not ok', async () => {
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: false,
+            })
+            vi.stubGlobal('fetch', fetchMock)
+
+            const sm = new ScoreManager({
+                gameId: GameID.TETRIS,
+                scoringConfig: { basePoints: 10, timeBonus: false },
+                achievementIntegration: true,
+            })
+            const result = await sm.saveFinalScore()
+            expect(result.success).toBe(false)
+
+            vi.unstubAllGlobals()
+        })
+
+        it('should return success false when save throws', async () => {
+            vi.mocked(saveGameScore).mockRejectedValueOnce(
+                new Error('DB error')
+            )
+            const result = await scoreManager.saveFinalScore()
+            expect(result.success).toBe(false)
+        })
+    })
+
+    describe('GameTimer - additional coverage', () => {
+        beforeEach(() => {
+            vi.useFakeTimers()
+        })
+
+        afterEach(() => {
+            vi.useRealTimers()
+        })
+
+        it('should not start if already running', () => {
+            const onTick = vi.fn()
+            const timer = new GameTimer({
+                duration: 10,
+                countDown: true,
+                autoStart: false,
+                onTick,
+            })
+            timer.start()
+            timer.start() // second call should be ignored
+            vi.advanceTimersByTime(1000)
+            // onTick called once means timer didn't restart
+            expect(onTick).toHaveBeenCalledTimes(1)
+        })
+
+        it('should not pause if not running', () => {
+            const timer = new GameTimer({
+                duration: 10,
+                countDown: true,
+                autoStart: false,
+            })
+            // Pause before start — should not throw
+            expect(() => timer.pause()).not.toThrow()
+        })
+
+        it('should not resume if not paused', () => {
+            const timer = new GameTimer({
+                duration: 10,
+                countDown: true,
+                autoStart: false,
+            })
+            timer.start()
+            // Resume when not paused — should not throw
+            expect(() => timer.resume()).not.toThrow()
+        })
+
+        it('should report complete status for count-up timers', () => {
+            const timer = new GameTimer({
+                duration: 10,
+                countDown: false,
+                autoStart: false,
+            })
+            expect(timer.isComplete()).toBe(false)
+        })
+
+        it('should report correct status when not running', () => {
+            const timer = new GameTimer({
+                duration: 10,
+                countDown: true,
+                autoStart: false,
+            })
+            const status = timer.getStatus()
+            expect(status.isRunning).toBe(false)
+            expect(status.isPaused).toBe(false)
+            expect(status.currentTime).toBe(10)
+            expect(status.elapsedTime).toBe(0)
+            expect(status.isComplete).toBe(false)
+        })
+
+        it('should call onComplete when countdown reaches zero', () => {
+            const onComplete = vi.fn()
+            const timer = new GameTimer({
+                duration: 2,
+                countDown: true,
+                autoStart: false,
+                onComplete,
+            })
+            timer.start()
+            vi.advanceTimersByTime(3000)
+            expect(onComplete).toHaveBeenCalled()
+        })
+
+        it('should count up correctly', () => {
+            const timer = new GameTimer({
+                duration: 60,
+                countDown: false,
+                autoStart: false,
+            })
+            timer.start()
+            vi.advanceTimersByTime(5000)
+            expect(timer.getElapsedTime()).toBe(5)
+        })
+
+        it('should return 0 elapsed time when not running', () => {
+            const timer = new GameTimer({
+                duration: 10,
+                countDown: true,
+                autoStart: false,
+            })
+            expect(timer.getElapsedTime()).toBe(0)
         })
     })
 })
