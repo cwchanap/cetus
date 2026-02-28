@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { GameEventEmitter } from '../core/EventEmitter'
 import { GameTimer } from '../core/GameTimer'
 import { ScoreManager } from '../core/ScoreManager'
+import { BaseGame } from './BaseGame'
 import { GameID } from '@/lib/games'
 
 // Mock the scoreService
@@ -384,5 +385,137 @@ describe('Game Framework Core', () => {
             })
             expect(timer.getElapsedTime()).toBe(0)
         })
+    })
+})
+
+// Tests for BaseGame default hook implementations
+describe('BaseGame default hooks', () => {
+    // Minimal concrete subclass that uses base-class hook implementations
+    class MinimalGame extends BaseGame {
+        createInitialState() {
+            return {
+                score: 0,
+                timeRemaining: 60,
+                isActive: false,
+                isPaused: false,
+                isGameOver: false,
+                gameStarted: false,
+            }
+        }
+        update(_dt: number) {}
+        render() {}
+        cleanup() {}
+        getGameStats() {
+            return {
+                finalScore: this.scoreManager.getScore(),
+                timeElapsed: 0,
+                gameCompleted: false,
+            }
+        }
+    }
+
+    it('should cover onGamePause base implementation', async () => {
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: true,
+                resettable: true,
+            },
+            {}
+        )
+        game.start()
+        expect(() => game.pause()).not.toThrow()
+    })
+
+    it('should cover onGameResume base implementation', async () => {
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: true,
+                resettable: true,
+            },
+            {}
+        )
+        game.start()
+        game.pause()
+        expect(() => game.resume()).not.toThrow()
+    })
+
+    it('should cover onGameEnd and getGameData base implementations', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: [] }),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: true,
+            },
+            {}
+        )
+        game.start()
+        await expect(game.end()).resolves.not.toThrow()
+
+        vi.unstubAllGlobals()
+    })
+
+    it('should cover onGameReset base implementation', () => {
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: true,
+            },
+            {}
+        )
+        game.start()
+        expect(() => game.reset()).not.toThrow()
+    })
+
+    it('should expose getScoreManager and addScore/subtractScore', () => {
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: true,
+            },
+            {}
+        )
+        game.start()
+        expect(game.getScoreManager()).toBeDefined()
+        game.addScore(50, 'test')
+        expect(game.getScoreManager().getScore()).toBe(50)
+        game.subtractScore(10, 'penalty')
+        expect(game.getScoreManager().getScore()).toBe(40)
+    })
+
+    it('should forward score-update events from score manager', () => {
+        const onScoreUpdate = vi.fn()
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: true,
+            },
+            { onScoreUpdate }
+        )
+        game.start()
+        game.addScore(25)
+        expect(onScoreUpdate).toHaveBeenCalledWith(25)
     })
 })
