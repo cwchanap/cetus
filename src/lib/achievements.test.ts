@@ -7,8 +7,6 @@ import {
     getRarityColor,
     getRarityGlow,
     getPaginatedAchievements,
-    AchievementRarity,
-    type Achievement,
     ACHIEVEMENTS,
 } from './achievements'
 import { GameID } from './games'

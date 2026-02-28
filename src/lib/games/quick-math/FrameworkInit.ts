@@ -3,7 +3,6 @@ import {
     type QuickMathConfig,
     type QuickMathCallbacks,
     type MathQuestion,
-    type QuickMathStats,
 } from './FrameworkGame'
 import {
     QuickMathRenderer,

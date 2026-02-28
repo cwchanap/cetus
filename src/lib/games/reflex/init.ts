@@ -8,12 +8,7 @@ import {
     getCellFromPosition,
     cleanup,
 } from './renderer'
-import type {
-    GameConfig,
-    GameCallbacks,
-    GameStats,
-    RendererState,
-} from './types'
+import type { GameConfig, GameCallbacks, GameStats } from './types'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 

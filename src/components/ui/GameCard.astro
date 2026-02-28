@@ -14,11 +14,11 @@ export interface Props extends HTMLAttributes<'div'> {
     difficulty: string
     available: boolean
   }
-  user?: any
+  user?: { name?: string; email?: string; image?: string | null }
   class?: string
 }
 
-const { game, user, class: className = '', ...props } = Astro.props
+const { game, user: _user, class: className = '', ...props } = Astro.props
 
 const classes = cn(className)
 

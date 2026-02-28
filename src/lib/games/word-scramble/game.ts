@@ -5,12 +5,7 @@ import type {
     WordChallenge,
     GameStats,
 } from './types'
-import {
-    getRandomWord,
-    scrambleWord,
-    getWordDifficulty,
-    getPointsForWord,
-} from './words'
+import { getRandomWord, scrambleWord, getPointsForWord } from './words'
 
 export class WordScrambleGame {
     private state: GameState

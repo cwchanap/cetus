@@ -187,7 +187,7 @@ import Heading from '@/components/ui/Heading.astro'
               password,
               callbackURL: '/',
             })
-          } catch (error) {
+          } catch (_error) {
             showError('An error occurred during login. Please try again.')
           } finally {
             // Reset button
@@ -209,7 +209,7 @@ import Heading from '@/components/ui/Heading.astro'
               provider: 'google',
               callbackURL: '/?redirect=games',
             })
-          } catch (error) {
+          } catch (_error) {
             showError('Google login failed. Please try again.')
           }
         })
@@ -223,7 +223,7 @@ import Heading from '@/components/ui/Heading.astro'
         }
       }
 
-      function showSuccess(message: string) {
+      function _showSuccess(message: string) {
         if (successMessage) {
           successMessage.textContent = message
           successMessage.classList.remove('hidden')

@@ -199,7 +199,7 @@ const gameNavigation = [
       // Initialize game when page loads
       document.addEventListener('DOMContentLoaded', async () => {
         try {
-          const gameInstance = await initBubbleShooterGame({
+          const _gameInstance = await initBubbleShooterGame({
             onGameOver: async (finalScore: number, stats: any) => {
               // Update final stats in overlay
               document.getElementById('final-score')!.textContent =

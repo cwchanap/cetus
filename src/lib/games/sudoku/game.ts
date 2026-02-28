@@ -4,7 +4,6 @@ import {
     createPuzzle,
     isValidMove,
     isComplete,
-    findConflicts,
 } from './utils'
 
 /**
@@ -20,8 +19,8 @@ export function initializeGame(
     const puzzleGrid = createPuzzle(solvedGrid, difficulty)
 
     // Convert to SudokuCell format
-    const cells = puzzleGrid.map((row, rowIndex) =>
-        row.map((value, colIndex) => ({
+    const cells = puzzleGrid.map((row, _rowIndex) =>
+        row.map((value, _colIndex) => ({
             value: value === 0 ? null : value,
             isGiven: value !== 0,
             isHighlighted: false,

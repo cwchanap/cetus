@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest'
 
 describe('Slider Component Logic', () => {
     let container: HTMLElement
-    let track: HTMLElement
-    let fill: HTMLElement
+    let _track: HTMLElement
+    let _fill: HTMLElement
     let thumb: HTMLElement
     let input: HTMLInputElement
 
@@ -26,8 +26,8 @@ describe('Slider Component Logic', () => {
       </div>
       <input type="hidden" data-slider-input />
     `
-        track = container.querySelector('[data-slider-track]') as HTMLElement
-        fill = container.querySelector('[data-slider-fill]') as HTMLElement
+        _track = container.querySelector('[data-slider-track]') as HTMLElement
+        _fill = container.querySelector('[data-slider-fill]') as HTMLElement
         thumb = container.querySelector('[data-slider-thumb]') as HTMLElement
         input = container.querySelector(
             '[data-slider-input]'

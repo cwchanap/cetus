@@ -1,4 +1,4 @@
-import type { GameState, Card, Position, GameStats } from './types'
+import type { GameState, Position, GameStats } from './types'
 import {
     generateCardPairs,
     createGameBoard,
