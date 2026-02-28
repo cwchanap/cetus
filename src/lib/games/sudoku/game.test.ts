@@ -8,6 +8,7 @@ import {
     togglePause,
     calculateScore,
 } from './game'
+import { createSolvedGrid } from './utils'
 import type { GameState } from './types'
 
 describe('Sudoku Game', () => {
@@ -297,6 +298,39 @@ describe('Sudoku Game', () => {
             calculateScore(state)
             // Should have base difficulty score at minimum
             expect(state.score).toBeGreaterThanOrEqual(150) // Easy difficulty
+        })
+
+        it('should increment solvedRows for complete non-conflicting rows', () => {
+            // Fill row 0 with 1-9, no conflicts — triggers solvedRows++ (lines 213-214)
+            for (let c = 0; c < 9; c++) {
+                state.grid.cells[0][c].value = c + 1
+                state.grid.cells[0][c].isConflicting = false
+            }
+            calculateScore(state)
+            // Score should be > base (at least 1 row bonus applied: 1*1*10 + 150 = 160)
+            expect(state.score).toBeGreaterThan(150)
+        })
+    })
+
+    describe('placeNumber completion', () => {
+        it('should set isComplete when last cell is correctly placed', () => {
+            const solvedGrid = createSolvedGrid()
+
+            // Fill all cells from solved grid, mark all as given except (8,8)
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    state.grid.cells[r][c].value = solvedGrid[r][c]
+                    state.grid.cells[r][c].isGiven = true
+                    state.grid.cells[r][c].isConflicting = false
+                }
+            }
+            state.grid.cells[8][8].value = null
+            state.grid.cells[8][8].isGiven = false
+
+            selectCell(state, 8, 8)
+            placeNumber(state, solvedGrid[8][8])
+
+            expect(state.isComplete).toBe(true)
         })
     })
 })

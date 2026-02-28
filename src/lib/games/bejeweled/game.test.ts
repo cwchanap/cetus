@@ -189,6 +189,11 @@ describe('BejeweledGame cell selection and state', () => {
         inactiveGame.destroy()
     })
 
+    it('update and render are no-ops', () => {
+        expect(() => (game as any).update(0.016)).not.toThrow()
+        expect(() => (game as any).render()).not.toThrow()
+    })
+
     it('should emit state-change events on selection', () => {
         const onStateChange = vi.fn()
         const gameWithCb = new BejeweledGame(GameID.BEJEWELED, createConfig(), {
@@ -275,6 +280,69 @@ describe('BejeweledGame isStraightRunAtLeast coverage', () => {
 
         const gameData = (game as any).getGameData()
         expect(gameData.straightFive).toBe(false)
+        spy.mockRestore()
+    })
+
+    it('should not detect straight five for same-row-non-consecutive and same-col-non-consecutive positions', async () => {
+        // Positions with same row (non-consecutive cols) and same col (non-consecutive rows)
+        // triggers the else { run = 1 } branches in isStraightRunAtLeast
+        const gapped: Position[] = [
+            { row: 0, col: 0 },
+            { row: 0, col: 2 }, // same row, gap at col 1
+            { row: 0, col: 4 }, // same row, gap at col 3
+            { row: 2, col: 0 }, // same col, gap at row 1
+            { row: 4, col: 0 }, // same col, gap at row 3
+        ]
+        const spy = vi
+            .spyOn(utils, 'findMatches')
+            .mockReturnValueOnce([{ type: 'red', positions: gapped } as any])
+            .mockReturnValueOnce([{ type: 'red', positions: gapped } as any])
+            .mockReturnValue([])
+
+        game.clickCell(0, 0)
+        game.clickCell(0, 1)
+        await flushMicrotasks()
+        await flushMicrotasks()
+
+        const gameData = (game as any).getGameData()
+        expect(gameData.straightFive).toBe(false)
+        spy.mockRestore()
+    })
+})
+
+describe('BejeweledGame attemptSwap guard paths', () => {
+    let game: BejeweledGame
+    let animator: TestAnimator
+
+    beforeEach(() => {
+        animator = new TestAnimator()
+        game = new BejeweledGame(GameID.BEJEWELED, createConfig(), {})
+        game.setAnimator(animator)
+        game.start()
+    })
+
+    afterEach(() => {
+        game.destroy()
+    })
+
+    it('should skip attemptSwap when isAnimating is true', async () => {
+        // Set isAnimating=true to trigger the early-return guard (lines 174-176)
+        ;(game as any).state.isAnimating = true
+        game.clickCell(0, 0)
+        game.clickCell(0, 1)
+        await flushMicrotasks()
+        expect(animator.animateSwap).not.toHaveBeenCalled()
+    })
+
+    it('should animate swap back on invalid move (no matches)', async () => {
+        // Mock findMatches to return empty so wouldMatches.length === 0 (lines 191-198)
+        const spy = vi.spyOn(utils, 'findMatches').mockReturnValue([])
+        game.clickCell(0, 0)
+        game.clickCell(0, 1)
+        await flushMicrotasks()
+        await flushMicrotasks()
+        expect(animator.animateSwap).toHaveBeenCalled()
+        expect(animator.animateSwapBack).toHaveBeenCalled()
         spy.mockRestore()
     })
 })

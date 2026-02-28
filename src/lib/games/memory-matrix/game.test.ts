@@ -258,6 +258,30 @@ describe('MemoryMatrixGame', () => {
             expect(updatedState.isProcessing).toBe(false)
             expect(updatedState.flippedCards).toHaveLength(0)
         })
+
+        it('should detect matching cards and increment matchedPairs', () => {
+            // Find two matching cards (same shape) on the board
+            const board = game.getGameState().board
+            const shapeMap = new Map<string, Position[]>()
+            for (let r = 0; r < board.length; r++) {
+                for (let c = 0; c < board[r].length; c++) {
+                    const card = board[r][c]
+                    if (!shapeMap.has(card.shape)) {
+                        shapeMap.set(card.shape, [])
+                    }
+                    shapeMap.get(card.shape)?.push({ row: r, col: c })
+                }
+            }
+            const positions = [...shapeMap.values()][0]
+
+            game.flipCard(positions[0])
+            game.flipCard(positions[1])
+            vi.advanceTimersByTime(CONSTANTS.FLIP_DELAY)
+
+            const state = game.getGameState()
+            expect(state.matchedPairs).toBeGreaterThanOrEqual(1)
+            expect(game.getGameStats().matchesFound).toBeGreaterThanOrEqual(1)
+        })
     })
 
     describe('Game End Conditions', () => {
@@ -275,6 +299,34 @@ describe('MemoryMatrixGame', () => {
                 0,
                 expect.any(Object)
             )
+        })
+
+        it('should win game and apply time bonus when all pairs are matched', () => {
+            // Build map: shape → all board positions with that shape
+            const board = game.getGameState().board
+            const shapeMap = new Map<string, Position[]>()
+            for (let r = 0; r < board.length; r++) {
+                for (let c = 0; c < board[r].length; c++) {
+                    const card = board[r][c]
+                    if (!shapeMap.has(card.shape)) {
+                        shapeMap.set(card.shape, [])
+                    }
+                    shapeMap.get(card.shape)?.push({ row: r, col: c })
+                }
+            }
+            // Flip all cards 2 at a time (any two same-shape cards match)
+            for (const positions of shapeMap.values()) {
+                for (let i = 0; i < positions.length; i += 2) {
+                    game.flipCard(positions[i])
+                    game.flipCard(positions[i + 1])
+                    vi.advanceTimersByTime(CONSTANTS.FLIP_DELAY)
+                }
+            }
+
+            const state = game.getGameState()
+            expect(state.gameWon).toBe(true)
+            expect(state.gameOver).toBe(true)
+            expect(mockGameEndCallback).toHaveBeenCalled()
         })
     })
 

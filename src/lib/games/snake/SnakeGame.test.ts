@@ -360,4 +360,69 @@ describe('SnakeGame', () => {
             expect(gameData).toHaveProperty('timeElapsed')
         })
     })
+
+    describe('collision detection', () => {
+        it('should end game on wall collision', () => {
+            game.start()
+            // Place snake head at the right wall edge going right
+            // @ts-expect-error - accessing private state for testing
+            game.state.snake = [
+                { x: 19, y: 10, id: 'head' },
+                { x: 18, y: 10, id: 'body' },
+            ]
+            // @ts-expect-error - accessing private state for testing
+            game.state.direction = 'right'
+            // @ts-expect-error - accessing private state for testing
+            game.state.nextDirection = 'right'
+            // @ts-expect-error - accessing private state for testing
+            game.state.food = null
+            // @ts-expect-error - accessing private state for testing
+            game.state.lastMoveTime = Date.now() - 200
+
+            vi.advanceTimersByTime(20)
+            expect(game.getState().isGameOver).toBe(true)
+        })
+
+        it('should end game on self collision', () => {
+            game.start()
+            // Construct a snake that will collide with itself on next right move:
+            // head at (5,5), body forms a U-bend making (6,5) occupied
+            // @ts-expect-error - accessing private state for testing
+            game.state.snake = [
+                { x: 5, y: 5, id: 'h' },
+                { x: 5, y: 6, id: 'b1' },
+                { x: 6, y: 6, id: 'b2' },
+                { x: 6, y: 5, id: 'b3' }, // moving right leads here
+                { x: 6, y: 4, id: 'b4' },
+                { x: 5, y: 4, id: 'b5' },
+                { x: 4, y: 4, id: 'tail' },
+            ]
+            // @ts-expect-error - accessing private state for testing
+            game.state.direction = 'right'
+            // @ts-expect-error - accessing private state for testing
+            game.state.nextDirection = 'right'
+            // @ts-expect-error - accessing private state for testing
+            game.state.food = null
+            // @ts-expect-error - accessing private state for testing
+            game.state.lastMoveTime = Date.now() - 200
+
+            vi.advanceTimersByTime(20)
+            expect(game.getState().isGameOver).toBe(true)
+        })
+
+        it('should spawn food when no food present and interval has passed', () => {
+            game.start()
+            // Ensure no food and last spawn time is old
+            // @ts-expect-error - accessing private state for testing
+            game.state.food = null
+            // @ts-expect-error - accessing private state for testing
+            game.state.lastFoodSpawnTime = Date.now() - 2000
+            // @ts-expect-error - accessing private state for testing
+            game.state.lastMoveTime = Date.now() // prevent movement collision
+
+            vi.advanceTimersByTime(20)
+            // Food should have been spawned
+            expect(game.getState().food).not.toBeNull()
+        })
+    })
 })

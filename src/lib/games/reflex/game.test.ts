@@ -409,4 +409,18 @@ describe('ReflexGame', () => {
             smallGame.cleanup()
         })
     })
+
+    describe('timer guard when isGameActive is false', () => {
+        it('should skip timer tick when isGameActive is false', () => {
+            const game = new ReflexGame(defaultConfig, mockCallbacks)
+            game.startGame()
+            const timeBefore = game.getState().timeRemaining
+            // Directly set isGameActive=false without clearing timers
+            ;(game as any).state.isGameActive = false
+            // Advance both timers — callbacks fire but guards return early
+            vi.advanceTimersByTime(2000)
+            expect(game.getState().timeRemaining).toBe(timeBefore)
+            game.cleanup()
+        })
+    })
 })

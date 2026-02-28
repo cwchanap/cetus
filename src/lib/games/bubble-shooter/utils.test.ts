@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
-import { pixiColorToHex, getBubbleX, getBubbleY, getNeighbors } from './utils'
+import {
+    pixiColorToHex,
+    getBubbleX,
+    getBubbleY,
+    getNeighbors,
+    drawBubbleOnCanvas,
+} from './utils'
 import type { GameConstants } from './types'
 
 const constants: GameConstants = {
@@ -119,6 +125,27 @@ describe('Bubble Shooter Utils', () => {
             expect(cornerNeighbors.length).toBeLessThan(
                 interiorNeighbors.length
             )
+        })
+    })
+
+    describe('drawBubbleOnCanvas', () => {
+        it('should draw bubble using canvas context methods', () => {
+            const ctx = {
+                beginPath: vi.fn(),
+                arc: vi.fn(),
+                fill: vi.fn(),
+                stroke: vi.fn(),
+                fillStyle: '',
+                strokeStyle: '',
+                lineWidth: 0,
+            } as unknown as CanvasRenderingContext2D
+
+            drawBubbleOnCanvas(ctx, 100, 100, 20, '#ff0000')
+
+            expect(ctx.beginPath).toHaveBeenCalledTimes(2)
+            expect(ctx.arc).toHaveBeenCalledTimes(2)
+            expect(ctx.fill).toHaveBeenCalledTimes(2)
+            expect(ctx.stroke).toHaveBeenCalledTimes(1)
         })
     })
 })
