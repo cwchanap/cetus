@@ -203,6 +203,42 @@ describe('EvaderGame', () => {
             const state = game.getState()
             expect(state.player.y).toBeGreaterThanOrEqual(config.playerSize / 2)
         })
+
+        it('should move player left with ArrowLeft key', () => {
+            vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
+                setTimeout(cb, 16)
+                return 0
+            })
+
+            game.startGame()
+            // Move right first to get off the left edge, then move left
+            game.pressKey('ArrowRight')
+            vi.advanceTimersByTime(200)
+            game.releaseKey('ArrowRight')
+            const midX = game.getState().player.x
+
+            game.pressKey('ArrowLeft')
+            vi.advanceTimersByTime(100)
+
+            const newX = game.getState().player.x
+            expect(newX).toBeLessThan(midX)
+        })
+
+        it('should move player right with ArrowRight key', () => {
+            vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
+                setTimeout(cb, 16)
+                return 0
+            })
+
+            game.startGame()
+            const initialX = game.getState().player.x
+
+            game.pressKey('ArrowRight')
+            vi.advanceTimersByTime(100)
+
+            const newX = game.getState().player.x
+            expect(newX).toBeGreaterThan(initialX)
+        })
     })
 
     describe('getState', () => {

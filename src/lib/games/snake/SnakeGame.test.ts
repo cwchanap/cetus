@@ -317,4 +317,47 @@ describe('SnakeGame', () => {
             expect(() => game.cleanup()).not.toThrow()
         })
     })
+
+    describe('onStateChange callback', () => {
+        it('should call onStateChange when emitStateChange fires', () => {
+            const onStateChange = vi.fn()
+            const gameWithCb = new SnakeGame(undefined, { onStateChange })
+            gameWithCb.start()
+            // changeDirection triggers moveSnake on update which calls emitStateChange
+            gameWithCb.changeDirection('up')
+            // Advance time to trigger game loop and move
+            vi.advanceTimersByTime(200)
+            expect(onStateChange).toHaveBeenCalled()
+            gameWithCb.destroy()
+        })
+
+        it('should call onStateChange on reset', () => {
+            const onStateChange = vi.fn()
+            const gameWithCb = new SnakeGame(undefined, { onStateChange })
+            gameWithCb.start()
+            onStateChange.mockClear()
+            gameWithCb.reset()
+            expect(onStateChange).toHaveBeenCalled()
+            gameWithCb.destroy()
+        })
+    })
+
+    describe('markRendered', () => {
+        it('should clear needsRedraw flag', () => {
+            game.start()
+            expect(game.getState().needsRedraw).toBe(true)
+            game.markRendered()
+            expect(game.getState().needsRedraw).toBe(false)
+        })
+    })
+
+    describe('getGameData', () => {
+        it('should return game-specific data', () => {
+            game.start()
+            const gameData = (game as any).getGameData()
+            expect(gameData).toHaveProperty('foodsEaten')
+            expect(gameData).toHaveProperty('maxLength')
+            expect(gameData).toHaveProperty('timeElapsed')
+        })
+    })
 })

@@ -168,6 +168,37 @@ describe('Score Service', () => {
             expect(onSuccess).not.toHaveBeenCalled()
             expect(onError).toHaveBeenCalledWith('Failed to save score')
         })
+
+        it('should call onError when network request throws', async () => {
+            global.fetch = vi
+                .fn()
+                .mockRejectedValue(new Error('Network failure'))
+
+            const onSuccess = vi.fn()
+            const onError = vi.fn()
+
+            await saveGameScore(GameID.TETRIS, 1000, onSuccess, onError)
+
+            expect(onSuccess).not.toHaveBeenCalled()
+            expect(onError).toHaveBeenCalledWith('Network error occurred')
+        })
+
+        it('should call onError when onSuccess callback throws', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () =>
+                    Promise.resolve({ success: true, newAchievements: [] }),
+            })
+
+            const onSuccess = vi.fn().mockImplementation(() => {
+                throw new Error('callback error')
+            })
+            const onError = vi.fn()
+
+            await saveGameScore(GameID.TETRIS, 1000, onSuccess, onError)
+
+            expect(onError).toHaveBeenCalledWith('Network error occurred')
+        })
     })
 
     describe('getUserGameHistory', () => {
@@ -430,5 +461,36 @@ describe('Score Service', () => {
             )
             expect(onSuccess).toHaveBeenCalledWith(mockResponse)
         })
+    })
+})
+
+describe('getUserGameHistory - non-ok response', () => {
+    it('should return empty array when response is not ok', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 500,
+        })
+        const result = await getUserGameHistory()
+        expect(result).toEqual([])
+    })
+
+    it('should return empty array when history key is missing', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({}),
+        })
+        const result = await getUserGameHistory()
+        expect(result).toEqual([])
+    })
+})
+
+describe('getUserBestScore - non-ok response', () => {
+    it('should return null when response is not ok', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 404,
+        })
+        const result = await getUserBestScore(GameID.TETRIS)
+        expect(result).toBeNull()
     })
 })

@@ -178,4 +178,38 @@ describe('POST /api/user/update-streaks', () => {
             error: 'Internal server error',
         })
     })
+
+    it('returns 403 in production when no CRON_SECRET is set', async () => {
+        delete process.env.CRON_SECRET
+        vi.stubEnv('PROD', 'true')
+
+        const request = new Request(
+            'http://localhost/api/user/update-streaks',
+            { method: 'POST' }
+        )
+
+        const response = await POST({ request, locals: {} } as any)
+
+        expect(response.status).toBe(403)
+        const body = await response.json()
+        expect(body.error).toContain('CRON_SECRET')
+    })
+
+    it('uses import.meta.env.CRON_SECRET when process.env.CRON_SECRET is unset', async () => {
+        delete process.env.CRON_SECRET
+        vi.stubEnv('CRON_SECRET', 'meta-secret')
+
+        const request = new Request(
+            'http://localhost/api/user/update-streaks',
+            {
+                method: 'POST',
+                headers: { 'x-cron-secret': 'meta-secret' },
+            }
+        )
+
+        const response = await POST({ request, locals: {} } as any)
+
+        expect(response.status).toBe(200)
+        expect(updateAllUserStreaksForUTC).toHaveBeenCalledTimes(1)
+    })
 })

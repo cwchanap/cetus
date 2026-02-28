@@ -100,6 +100,12 @@ describe('getRewardForDay', () => {
         expect(getRewardForDay(8).day).toBe(7)
         expect(getRewardForDay(100).day).toBe(7)
     })
+
+    it('should handle non-finite and NaN input gracefully', () => {
+        expect(getRewardForDay(NaN).day).toBe(1)
+        expect(getRewardForDay(Infinity).day).toBe(1)
+        expect(getRewardForDay(-Infinity).day).toBe(1)
+    })
 })
 
 describe('getCycleDayFromStreak', () => {

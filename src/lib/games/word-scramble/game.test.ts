@@ -265,4 +265,17 @@ describe('WordScrambleGame', () => {
             expect(() => game.destroy()).not.toThrow()
         })
     })
+
+    describe('Additional coverage', () => {
+        it('getTimeRemaining returns correct value when game is active', () => {
+            game.startGame()
+            expect(typeof game.getTimeRemaining()).toBe('number')
+        })
+
+        it('getGameStats returns correct values when game has not started', () => {
+            const stats = game.getGameStats()
+            expect(stats.totalWords).toBe(0)
+            expect(stats.accuracy).toBe(0)
+        })
+    })
 })

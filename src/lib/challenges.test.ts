@@ -202,3 +202,12 @@ describe('Utility Functions', () => {
         expect(seconds).toBeLessThan(86400) // Max 24 hours (exclusive)
     })
 })
+
+describe('selectWeighted fallback path', () => {
+    it('should return empty array when given an empty challenge pool', () => {
+        withChallengePool([], () => {
+            const result = generateDailyChallenges(new Date('2025-06-01'))
+            expect(result).toEqual([])
+        })
+    })
+})

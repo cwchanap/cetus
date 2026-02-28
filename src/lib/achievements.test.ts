@@ -220,3 +220,102 @@ describe('Achievement System', () => {
         })
     })
 })
+
+describe('Achievement in_game condition callbacks', () => {
+    it('reflex_balanced_collector: should return true when coins === bombs > 0', () => {
+        const achievement = getAchievementById('reflex_balanced_collector')
+        expect(achievement).toBeDefined()
+        const check = achievement!.condition.check!
+        expect(check({ coinsCollected: 5, bombsHit: 5 }, 0)).toBe(true)
+    })
+
+    it('reflex_balanced_collector: should return false when coins !== bombs', () => {
+        const achievement = getAchievementById('reflex_balanced_collector')
+        const check = achievement!.condition.check!
+        expect(check({ coinsCollected: 3, bombsHit: 5 }, 0)).toBe(false)
+    })
+
+    it('reflex_balanced_collector: should return false when coins === 0', () => {
+        const achievement = getAchievementById('reflex_balanced_collector')
+        const check = achievement!.condition.check!
+        expect(check({ coinsCollected: 0, bombsHit: 0 }, 0)).toBe(false)
+    })
+
+    it('reflex_coin_streak: should return true for 10 consecutive coins', () => {
+        const achievement = getAchievementById('reflex_coin_streak')
+        expect(achievement).toBeDefined()
+        const check = achievement!.condition.check!
+        const gameHistory = Array.from({ length: 10 }, (_, i) => ({
+            objectId: `c${i}`,
+            type: 'coin' as const,
+            clicked: true,
+            pointsAwarded: 10,
+        }))
+        expect(check({ gameHistory }, 0)).toBe(true)
+    })
+
+    it('reflex_coin_streak: should return false for fewer than 10 consecutive coins', () => {
+        const achievement = getAchievementById('reflex_coin_streak')
+        const check = achievement!.condition.check!
+        const gameHistory = Array.from({ length: 5 }, (_, i) => ({
+            objectId: `c${i}`,
+            type: 'coin' as const,
+            clicked: true,
+            pointsAwarded: 10,
+        }))
+        expect(check({ gameHistory }, 0)).toBe(false)
+    })
+
+    it('reflex_bomb_streak: should return true for 10 consecutive bombs', () => {
+        const achievement = getAchievementById('reflex_bomb_streak')
+        expect(achievement).toBeDefined()
+        const check = achievement!.condition.check!
+        const gameHistory = Array.from({ length: 10 }, (_, i) => ({
+            objectId: `b${i}`,
+            type: 'bomb' as const,
+            clicked: true,
+            pointsAwarded: 0,
+        }))
+        expect(check({ gameHistory }, 0)).toBe(true)
+    })
+
+    it('checkConsecutiveObjectType: should handle interruptions by other type', () => {
+        // 9 coins, then 1 bomb, then 1 coin — streak of 9, not 10
+        const achievement = getAchievementById('reflex_coin_streak')
+        const check = achievement!.condition.check!
+        const gameHistory = [
+            ...Array.from({ length: 9 }, (_, i) => ({
+                objectId: `c${i}`,
+                type: 'coin' as const,
+                clicked: true,
+                pointsAwarded: 10,
+            })),
+            {
+                objectId: 'b0',
+                type: 'bomb' as const,
+                clicked: true,
+                pointsAwarded: 0,
+            },
+            {
+                objectId: 'c9',
+                type: 'coin' as const,
+                clicked: true,
+                pointsAwarded: 10,
+            },
+        ]
+        expect(check({ gameHistory }, 0)).toBe(false)
+    })
+
+    it('checkConsecutiveObjectType: should ignore non-clicked entries', () => {
+        const achievement = getAchievementById('reflex_coin_streak')
+        const check = achievement!.condition.check!
+        // 10 coins but only 5 are clicked
+        const gameHistory = Array.from({ length: 10 }, (_, i) => ({
+            objectId: `c${i}`,
+            type: 'coin' as const,
+            clicked: i < 5,
+            pointsAwarded: 10,
+        }))
+        expect(check({ gameHistory }, 0)).toBe(false)
+    })
+})
