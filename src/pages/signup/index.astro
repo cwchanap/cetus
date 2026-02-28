@@ -240,7 +240,7 @@ import Heading from '@/components/ui/Heading.astro'
                 window.location.href = '/#games'
               }, 1000)
             }
-          } catch (error) {
+          } catch (_error) {
             showError('An error occurred during sign up. Please try again.')
           } finally {
             // Reset button
@@ -262,7 +262,7 @@ import Heading from '@/components/ui/Heading.astro'
               provider: 'google',
               callbackURL: '/',
             })
-          } catch (error) {
+          } catch (_error) {
             showError('Google sign up failed. Please try again.')
           }
         })

@@ -3,7 +3,6 @@ import {
     createGameState,
     initializeGrid,
     generateBubble,
-    generateNextBubble,
     startGame,
     togglePause,
     resetGame,

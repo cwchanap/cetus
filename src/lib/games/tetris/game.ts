@@ -8,7 +8,7 @@ import {
     clearLines,
     drawNextPiece,
 } from './utils'
-import { draw, type RendererState } from './renderer'
+import { draw } from './renderer'
 
 export const GAME_CONSTANTS: GameConstants = {
     BOARD_WIDTH: 10,

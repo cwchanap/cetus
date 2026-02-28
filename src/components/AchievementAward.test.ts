@@ -7,7 +7,7 @@ import { JSDOM } from 'jsdom'
 import { AchievementRarity } from '@/lib/achievements'
 
 // Mock achievement data for testing
-const mockAchievements = [
+const _mockAchievements = [
     {
         id: 'test_common',
         name: 'Test Common Achievement',
@@ -71,10 +71,10 @@ beforeEach(() => {
     // Setup global objects
     global.window = window
     global.document = document
-    global.requestAnimationFrame = vi.fn(cb => {
+    global.requestAnimationFrame = vi.fn(_cb => {
         return 1
     })
-    global.setTimeout = vi.fn((cb, delay) => {
+    global.setTimeout = vi.fn((_cb, _delay) => {
         return 1
     }) as any
     global.clearTimeout = vi.fn()

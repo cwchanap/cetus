@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { updateAllUserStreaksForUTC } from '@/lib/server/db/queries'
 
 // Mock the database client used by queries.ts so internal functions operate without a real DB

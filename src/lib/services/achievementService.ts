@@ -53,7 +53,7 @@ export async function checkAndAwardAchievements(
         }
 
         return newlyEarnedAchievements
-    } catch (error) {
+    } catch (_error) {
         return []
     }
 }
@@ -82,7 +82,7 @@ export async function awardGlobalAchievement(
         }
 
         return await awardAchievement(userId, achievementId)
-    } catch (error) {
+    } catch (_error) {
         return false
     }
 }
@@ -131,7 +131,7 @@ export async function getUserGameAchievementProgress(
         }
 
         return progress
-    } catch (error) {
+    } catch (_error) {
         return []
     }
 }
@@ -148,13 +148,15 @@ export function getAchievementNotifications(achievementIds: string[]): Array<{
 }> {
     return achievementIds
         .map(id => ACHIEVEMENTS.find(a => a.id === id))
-        .filter(Boolean)
+        .filter((achievement): achievement is NonNullable<typeof achievement> =>
+            Boolean(achievement)
+        )
         .map(achievement => ({
-            id: achievement!.id,
-            name: achievement!.name,
-            description: achievement!.description,
-            logo: achievement!.logo,
-            rarity: achievement!.rarity,
+            id: achievement.id,
+            name: achievement.name,
+            description: achievement.description,
+            logo: achievement.logo,
+            rarity: achievement.rarity,
         }))
 }
 

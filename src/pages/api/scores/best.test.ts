@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from '@/pages/api/scores/best'
 import { getUserBestScore } from '@/lib/server/db/queries'
-import { getGameById, GameID } from '@/lib/games'
+import { getGameById } from '@/lib/games'
 import { auth } from '@/lib/auth'
 
 // Mock dependencies

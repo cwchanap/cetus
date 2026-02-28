@@ -278,7 +278,7 @@ const gameNavigation = [
               // Optional: Handle object expiration events (e.g., visual effects, sound)
               console.log(`Object expired: ${object.type}`)
             },
-            onObjectClick: (object: any, points: number) => {
+            onObjectClick: (_object: any, _points: number) => {
               // Update live stats
               const gameState = gameInstance.game.getState()
               coinsElement.textContent = gameState.coinsCollected.toString()

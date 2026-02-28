@@ -1,6 +1,4 @@
 // Simple test to verify Memory Matrix game logic
-import { MemoryMatrixGame } from './game'
-import { CONSTANTS } from './utils'
 
 export function testMemoryMatrixGame(): void {}
 

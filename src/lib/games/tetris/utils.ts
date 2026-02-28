@@ -1,5 +1,5 @@
 // Utility functions for Tetris game
-import type { GameState, Piece, GameConstants } from './types'
+import type { Piece, GameConstants } from './types'
 
 export function hexToPixiColor(hex: string): number {
     return parseInt(hex.replace('#', ''), 16)
@@ -60,7 +60,7 @@ export function checkCollision(
 export function placePiece(
     piece: Piece,
     board: (number | null)[][],
-    constants: GameConstants
+    _constants: GameConstants
 ): void {
     for (let row = 0; row < piece.shape.length; row++) {
         for (let col = 0; col < piece.shape[row].length; col++) {

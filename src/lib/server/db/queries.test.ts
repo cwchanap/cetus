@@ -250,7 +250,7 @@ describe('Database Queries', () => {
         it('should return paginated game history with correct pagination info', async () => {
             // Arrange
             const mockTotalResult = { total: 23 }
-            const mockHistory = [
+            const _mockHistory = [
                 {
                     game_id: 'tetris',
                     game_name: 'Tetris Challenge',

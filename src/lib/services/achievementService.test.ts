@@ -54,7 +54,7 @@ import {
     hasUserEarnedAchievement,
     getUserBestScoreForGame,
 } from '../server/db/queries'
-import { getAchievementsByGame, ACHIEVEMENTS } from '../achievements'
+import { getAchievementsByGame } from '../achievements'
 
 const mockAwardAchievement = vi.mocked(awardAchievement)
 const mockHasUserEarnedAchievement = vi.mocked(hasUserEarnedAchievement)
