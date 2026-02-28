@@ -233,9 +233,6 @@ export async function updateChallengeProgress(
 }
 
 /**
- * Check if all daily challenges are completed and update streak
- */
-/**
  * Check if all daily challenges are completed and update streak atomically
  */
 async function checkAndUpdateStreak(userId: string): Promise<void> {

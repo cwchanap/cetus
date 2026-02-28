@@ -7,7 +7,7 @@ export const authClient = createAuthClient({
         headers: {
             'X-Forwarded-Proto':
                 window?.location?.protocol?.replace(':', '') || 'http',
-            'X-Forwarded-Host': window?.location?.host || 'localhost:4321',
+            'X-Forwarded-Host': window?.location?.host || 'localhost:4325',
         },
     },
 })
