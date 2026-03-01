@@ -301,7 +301,7 @@ describe('Sudoku Game', () => {
         })
 
         it('should increment solvedRows for complete non-conflicting rows', () => {
-            // Fill row 0 with 1-9, no conflicts — triggers solvedRows++ (lines 213-214)
+            // Fill row 0 with 1-9, no conflicts — triggers solvedRows++
             for (let c = 0; c < 9; c++) {
                 state.grid.cells[0][c].value = c + 1
                 state.grid.cells[0][c].isConflicting = false

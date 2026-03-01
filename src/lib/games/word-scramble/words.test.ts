@@ -17,9 +17,15 @@ describe('Word Scramble Words', () => {
         })
 
         it('should have string arrays in each category', () => {
-            WORD_DATABASE.easy.forEach(w => expect(typeof w).toBe('string'))
-            WORD_DATABASE.medium.forEach(w => expect(typeof w).toBe('string'))
-            WORD_DATABASE.hard.forEach(w => expect(typeof w).toBe('string'))
+            for (const word of WORD_DATABASE.easy) {
+                expect(typeof word).toBe('string')
+            }
+            for (const word of WORD_DATABASE.medium) {
+                expect(typeof word).toBe('string')
+            }
+            for (const word of WORD_DATABASE.hard) {
+                expect(typeof word).toBe('string')
+            }
         })
     })
 

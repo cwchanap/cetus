@@ -1,7 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { MemoryMatrixGame } from './game'
 import { CONSTANTS } from './utils'
-import type { Position } from './types'
+import type { Position, Card } from './types'
+
+// Helper function to build a map of shapes to their board positions
+function buildShapeMap(board: Card[][]): Map<string, Position[]> {
+    const shapeMap = new Map<string, Position[]>()
+    for (let r = 0; r < board.length; r++) {
+        for (let c = 0; c < board[r].length; c++) {
+            const card = board[r][c]
+            if (!shapeMap.has(card.shape)) {
+                shapeMap.set(card.shape, [])
+            }
+            shapeMap.get(card.shape)!.push({ row: r, col: c })
+        }
+    }
+    return shapeMap
+}
 
 describe('MemoryMatrixGame', () => {
     let game: MemoryMatrixGame
@@ -262,16 +277,7 @@ describe('MemoryMatrixGame', () => {
         it('should detect matching cards and increment matchedPairs', () => {
             // Find two matching cards (same shape) on the board
             const board = game.getGameState().board
-            const shapeMap = new Map<string, Position[]>()
-            for (let r = 0; r < board.length; r++) {
-                for (let c = 0; c < board[r].length; c++) {
-                    const card = board[r][c]
-                    if (!shapeMap.has(card.shape)) {
-                        shapeMap.set(card.shape, [])
-                    }
-                    shapeMap.get(card.shape)?.push({ row: r, col: c })
-                }
-            }
+            const shapeMap = buildShapeMap(board)
             const positions = [...shapeMap.values()][0]
 
             game.flipCard(positions[0])
@@ -279,8 +285,8 @@ describe('MemoryMatrixGame', () => {
             vi.advanceTimersByTime(CONSTANTS.FLIP_DELAY)
 
             const state = game.getGameState()
-            expect(state.matchedPairs).toBeGreaterThanOrEqual(1)
-            expect(game.getGameStats().matchesFound).toBeGreaterThanOrEqual(1)
+            expect(state.matchedPairs).toBe(1)
+            expect(game.getGameStats().matchesFound).toBe(1)
         })
     })
 
@@ -304,16 +310,11 @@ describe('MemoryMatrixGame', () => {
         it('should win game and apply time bonus when all pairs are matched', () => {
             // Build map: shape → all board positions with that shape
             const board = game.getGameState().board
-            const shapeMap = new Map<string, Position[]>()
-            for (let r = 0; r < board.length; r++) {
-                for (let c = 0; c < board[r].length; c++) {
-                    const card = board[r][c]
-                    if (!shapeMap.has(card.shape)) {
-                        shapeMap.set(card.shape, [])
-                    }
-                    shapeMap.get(card.shape)?.push({ row: r, col: c })
-                }
-            }
+            const shapeMap = buildShapeMap(board)
+            // Get base score before winning
+            const baseScore = game.getGameState().score
+            const timeRemainingBefore = game.getGameState().timeLeft
+
             // Flip all cards 2 at a time (any two same-shape cards match)
             for (const positions of shapeMap.values()) {
                 for (let i = 0; i < positions.length; i += 2) {
@@ -327,6 +328,14 @@ describe('MemoryMatrixGame', () => {
             expect(state.gameWon).toBe(true)
             expect(state.gameOver).toBe(true)
             expect(mockGameEndCallback).toHaveBeenCalled()
+
+            // Verify time bonus was applied: final score should be > baseScore + match points
+            // The callback should receive the final score with time bonus
+            const finalScoreArg = mockGameEndCallback.mock.calls[0][0]
+            const expectedMinScore =
+                baseScore +
+                timeRemainingBefore * CONSTANTS.TIME_BONUS_MULTIPLIER
+            expect(finalScoreArg).toBeGreaterThanOrEqual(expectedMinScore)
         })
     })
 

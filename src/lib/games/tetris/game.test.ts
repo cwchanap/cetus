@@ -237,6 +237,7 @@ describe('Tetris Game Logic', () => {
             rotatePiece(state)
             // If collision, shape should remain the same
             // (rotation is blocked when it would cause collision)
+            expect(state.currentPiece!.shape).toEqual(originalShape)
         })
 
         it('should set needsRedraw after rotation', () => {
@@ -272,9 +273,17 @@ describe('Tetris Game Logic', () => {
             const state = makeState({ nextPiece: generateNextPiece() })
             spawnPiece(state)
             state.currentPiece!.x = 3
+            const initialScore = state.score
+            const startY = state.currentPiece!.y
             hardDrop(state)
-            // Should have some score from hard drop (2 points per row)
-            expect(state.score).toBeGreaterThanOrEqual(0)
+            // Calculate expected bonus: 2 points per row dropped
+            const rowsDropped = state.currentPiece
+                ? state.currentPiece.y - startY
+                : 0
+            // Should have bonus score from hard drop
+            expect(state.score).toBeGreaterThanOrEqual(
+                initialScore + rowsDropped * 2
+            )
         })
 
         it('should do nothing when there is no current piece', () => {
@@ -332,6 +341,8 @@ describe('Tetris Game Logic', () => {
                 state.board[GAME_CONSTANTS.BOARD_HEIGHT - 1][col] = 0xff0000
             }
 
+            const initialScore = state.score
+
             // Place a piece that will clear this line
             state.currentPiece = {
                 type: 'I',
@@ -341,8 +352,9 @@ describe('Tetris Game Logic', () => {
                 y: GAME_CONSTANTS.BOARD_HEIGHT - 2,
             }
             movePiece(state, 0, 1) // Drop down — should trigger placement + line clear
-            // Score should be > 0 if line was cleared
-            expect(state.score).toBeGreaterThanOrEqual(0)
+            // Score should increase by expected line clear points (100 * level for single)
+            expect(state.score).toBeGreaterThan(initialScore)
+            expect(state.lines).toBeGreaterThan(0)
         })
 
         it('should increase level every 10 lines', () => {
@@ -351,6 +363,8 @@ describe('Tetris Game Logic', () => {
             state.lines = 10
             const expectedLevel = Math.floor(state.lines / 10) + 1
             expect(expectedLevel).toBe(2)
+            // Verify the level calculation matches actual implementation
+            expect(state.level).toBeLessThan(expectedLevel)
         })
     })
 

@@ -200,9 +200,11 @@ describe('PathNavigatorGame', () => {
             // Move to a point in the middle of level 2 (not near start/end buffer)
             // This triggers isPointOnBezier -> getBezierPoint for curve segments
             game.updatePlayerPosition(400, 250)
-            // The game might end (out of bounds) or continue — just verify getBezierPoint was reached
+            // Verify the game state after moving on bezier curve
             const state = game.getState()
-            expect(state).toBeDefined()
+            expect(state.currentLevel).toBe(2)
+            expect(state.cursor.x).toBe(400)
+            expect(state.cursor.y).toBe(250)
         })
 
         it('should complete game when all levels are finished', () => {
@@ -278,14 +280,14 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should return GAME_LEVELS.length for levelsCompleted when game is won', () => {
-            // @ts-expect-error - set internal state for testing
-            game.state = {
-                ...game.getState(),
-                isGameWon: true,
-                gameStartTime: Date.now(),
+            // Complete all levels to trigger game won state through public API
+            game.startGame()
+            for (let i = 0; i < GAME_LEVELS.length; i++) {
+                const levelEnd = GAME_LEVELS[i].path.endPoint
+                game.updatePlayerPosition(levelEnd.x, levelEnd.y)
             }
             const stats = game.getStats()
-            expect(stats.levelsCompleted).toBeGreaterThan(0)
+            expect(stats.levelsCompleted).toBe(GAME_LEVELS.length)
             expect(stats.perfectLevels).toBeGreaterThan(0)
         })
 
@@ -324,25 +326,36 @@ describe('PathNavigatorGame', () => {
     describe('isPointOnLine and isPointOnBezier edge cases', () => {
         it('should return false when point projection is before line start (param < 0)', () => {
             game.startGame()
-            // Level 1 segment: x=[50..750], y=300
-            // Moving to x=0 gives param=(0-50)/700 < 0 → isPointOnLine returns false (lines 415-416)
-            // Start buffer is 30: distance({0,300},{50,300})=50 > 30 → not in start buffer
-            game.updatePlayerPosition(0, 300)
+            // Level 1 segment: x=[start.x..end.x], y=start.y
+            // Moving to x=start.x - 100 gives param < 0 → isPointOnLine returns false
+            // Distance > start buffer → not in start buffer
+            const level1Start = GAME_LEVELS[0].path.startPoint
+            game.updatePlayerPosition(level1Start.x - 100, level1Start.y)
             expect(game.getState().isGameOver).toBe(true)
         })
 
-        it('should return true when point is on bezier curve (lines 439-440)', () => {
+        it('should return true when point is on bezier curve', () => {
             game.startGame()
             // Complete level 1 to reach level 2 (which has curve segments)
             const level1End = GAME_LEVELS[0].path.endPoint
             game.updatePlayerPosition(level1End.x, level1End.y)
             expect(game.getState().currentLevel).toBe(2)
 
-            // Bezier midpoint at t=0.5 of level2 segment1:
-            // start={50,150}, control={150,100}, end={300,300}
-            // B(0.5) = 0.25*{50,150} + 0.5*{150,100} + 0.25*{300,300} = {162.5, 162.5}
-            // tolerance = segment.width/2 + cursor.radius = 30 + 8 = 38
-            game.updatePlayerPosition(163, 163)
+            // Level 2 segment 0 is a curve - test at the midpoint of the curve
+            // B(t) = (1-t)²*start + 2*(1-t)*t*control + t²*end
+            // At t=0.5 (midpoint): B(0.5) = 0.25*start + 0.5*control + 0.25*end
+            const level2 = GAME_LEVELS[1]
+            const segment = level2.path.segments[0]
+            expect(segment.type).toBe('curve')
+            const midX =
+                0.25 * segment.start.x +
+                0.5 * segment.controlPoint!.x +
+                0.25 * segment.end.x
+            const midY =
+                0.25 * segment.start.y +
+                0.5 * segment.controlPoint!.y +
+                0.25 * segment.end.y
+            game.updatePlayerPosition(midX, midY)
             // Player is on the bezier path → isGameOver stays false
             expect(game.getState().isGameOver).toBe(false)
         })
