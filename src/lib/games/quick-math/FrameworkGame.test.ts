@@ -265,6 +265,11 @@ describe('QuickMath Framework Implementation', () => {
 
         const body = JSON.parse(fetchMock.mock.calls[0][1].body)
         expect(body).toHaveProperty('gameData')
+        // Verify gameData contains expected fields for QuickMath
+        expect(body.gameData).toHaveProperty('questionsAnswered')
+        expect(body.gameData).toHaveProperty('correctAnswers')
+        expect(body.gameData).toHaveProperty('accuracy')
+        expect(body.gameData).toHaveProperty('averageTimePerQuestion')
 
         vi.unstubAllGlobals()
     })

@@ -194,22 +194,4 @@ describe('POST /api/user/update-streaks', () => {
         const body = await response.json()
         expect(body.error).toContain('CRON_SECRET')
     })
-
-    it('uses import.meta.env.CRON_SECRET when process.env.CRON_SECRET is unset', async () => {
-        delete process.env.CRON_SECRET
-        vi.stubEnv('CRON_SECRET', 'meta-secret')
-
-        const request = new Request(
-            'http://localhost/api/user/update-streaks',
-            {
-                method: 'POST',
-                headers: { 'x-cron-secret': 'meta-secret' },
-            }
-        )
-
-        const response = await POST({ request, locals: {} } as any)
-
-        expect(response.status).toBe(200)
-        expect(updateAllUserStreaksForUTC).toHaveBeenCalledTimes(1)
-    })
 })

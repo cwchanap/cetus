@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
     hexToPixiColor,
     isOutOfBounds,
@@ -177,13 +177,15 @@ describe('Snake Utils', () => {
 
         it('should not place food on snake body', () => {
             const snake = [{ x: 0, y: 0, id: 'a' }]
-            // Run many times to reduce flakiness
-            for (let i = 0; i < 20; i++) {
-                const pos = generateFoodPosition(snake, constants)
-                // Food shouldn't be at (0,0) most of the time (20x20 grid = 400 cells)
-                expect(typeof pos.x).toBe('number')
-                expect(typeof pos.y).toBe('number')
-            }
+            // Mock Math.random to return values that would place food at (0,0)
+            const originalRandom = Math.random
+            Math.random = vi.fn().mockReturnValue(0) // Will try to place at (0,0)
+
+            const pos = generateFoodPosition(snake, constants)
+            // Food should never be at (0,0) since snake is there
+            expect(pos).not.toEqual({ x: 0, y: 0 })
+
+            Math.random = originalRandom
         })
 
         it('should use fallback scan when snake fills entire grid', () => {
@@ -195,14 +197,23 @@ describe('Snake Utils', () => {
                 { x: 0, y: 1, id: 'c' },
                 { x: 1, y: 1, id: 'd' },
             ]
+            // Mock Math.random to return predictable sequence
+            const originalRandom = Math.random
+            Math.random = vi.fn().mockReturnValue(0.75) // Would try (1,1)
+
             // All random positions collide → fallback scan (lines 66-76) runs
             // All cells occupied → returns the last random position
             const pos = generateFoodPosition(
                 fullSnake,
                 tinyConstants as typeof constants
             )
-            expect(typeof pos.x).toBe('number')
-            expect(typeof pos.y).toBe('number')
+            // Should return one of the valid positions
+            expect(pos.x).toBeGreaterThanOrEqual(0)
+            expect(pos.x).toBeLessThan(tinyConstants.GRID_WIDTH)
+            expect(pos.y).toBeGreaterThanOrEqual(0)
+            expect(pos.y).toBeLessThan(tinyConstants.GRID_HEIGHT)
+
+            Math.random = originalRandom
         })
     })
 

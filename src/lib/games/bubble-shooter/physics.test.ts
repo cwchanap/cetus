@@ -196,8 +196,11 @@ describe('Bubble Shooter Physics', () => {
                 grid: [],
                 shotCount: 4,
             })
+            const initialGridLength = state.grid.length
             attachBubble(state, constants)
             expect(state.shotCount).toBe(5)
+            // After 5 shots, a new row should be added to the grid
+            expect(state.grid.length).toBeGreaterThan(initialGridLength)
         })
 
         it('should set needsRedraw after attaching', () => {
@@ -217,6 +220,9 @@ describe('Bubble Shooter Physics', () => {
             const bubbleX1 = getBubbleX(1, 0, constants)
             const bubbleY1 = getBubbleY(0, 0, constants)
 
+            const initialScore = 100
+            const initialBubblesRemaining = 5
+
             const state = makeState({
                 projectile: {
                     x: getBubbleX(2, 0, constants) - 1,
@@ -231,12 +237,14 @@ describe('Bubble Shooter Physics', () => {
                         { color: 0xff0000, x: bubbleX1, y: bubbleY1 },
                     ],
                 ],
-                score: 0,
-                bubblesRemaining: 2,
+                score: initialScore,
+                bubblesRemaining: initialBubblesRemaining,
             })
             attachBubble(state, constants)
-            // Score should be greater than 0 if a match was found
-            expect(state.score).toBeGreaterThanOrEqual(0)
+            // Score should be greater than initial if a match was found
+            expect(state.score).toBeGreaterThan(initialScore)
+            // Bubbles should have been removed from the match
+            expect(state.bubblesRemaining).toBeLessThan(initialBubblesRemaining)
         })
     })
 })

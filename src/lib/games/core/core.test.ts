@@ -463,7 +463,7 @@ describe('BaseGame default hooks', () => {
             {}
         )
         game.start()
-        await expect(game.end()).resolves.not.toThrow()
+        await expect(game.end()).resolves.toBeUndefined()
 
         vi.unstubAllGlobals()
     })
@@ -519,23 +519,32 @@ describe('BaseGame default hooks', () => {
         expect(onScoreUpdate).toHaveBeenCalledWith(25)
     })
 
-    it('GameTimer autoStart should start timer immediately', () => {
-        vi.useFakeTimers()
-        const onTick = vi.fn()
-        const timer = new GameTimer({
-            duration: 10,
-            countDown: true,
-            autoStart: true,
-            onTick,
+    describe('GameTimer', () => {
+        afterEach(() => {
+            vi.useRealTimers()
         })
-        vi.advanceTimersByTime(1000)
-        expect(onTick).toHaveBeenCalled()
-        timer.stop()
-        vi.useRealTimers()
+
+        it('GameTimer autoStart should start timer immediately', () => {
+            vi.useFakeTimers()
+            const onTick = vi.fn()
+            const timer = new GameTimer({
+                duration: 10,
+                countDown: true,
+                autoStart: true,
+                onTick,
+            })
+            vi.advanceTimersByTime(1000)
+            expect(onTick).toHaveBeenCalled()
+            timer.stop()
+        })
     })
 
     it('ScoreManager getStats returns 0 averagePointsPerAction when no history', () => {
-        const sm = new ScoreManager({ startingScore: 0, minScore: 0 })
+        const sm = new ScoreManager({
+            gameId: GameID.TETRIS,
+            scoringConfig: { basePoints: 10, timeBonus: false },
+            achievementIntegration: false,
+        })
         const stats = sm.getStats()
         expect(stats.averagePointsPerAction).toBe(0)
     })
@@ -647,7 +656,7 @@ describe('BaseGame default hooks', () => {
         game.start()
         await game.end()
         // Second call — hits the !isActive guard (lines 145-146)
-        await expect(game.end()).resolves.not.toThrow()
+        await expect(game.end()).resolves.toBeUndefined()
         expect(game.getState().isGameOver).toBe(true)
     })
 })

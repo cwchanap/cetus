@@ -384,6 +384,11 @@ describe('POST /api/scores', () => {
     })
 
     it('should continue and return success even when updateChallengeProgress throws', async () => {
+        // Arrange: mock session and game lookup to avoid flakiness
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        const { getGameById } = await import('@/lib/games')
+        vi.mocked(getGameById).mockReturnValue(mockGame)
+
         vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
             success: true,
             newAchievements: [],

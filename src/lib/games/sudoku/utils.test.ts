@@ -27,7 +27,9 @@ describe('Sudoku Utils', () => {
         it('should produce a 9x9 grid', () => {
             const grid = createSolvedGrid()
             expect(grid.length).toBe(9)
-            grid.forEach(row => expect(row.length).toBe(9))
+            for (const row of grid) {
+                expect(row.length).toBe(9)
+            }
         })
 
         it('should have no zeros in the grid', () => {

@@ -323,6 +323,8 @@ describe('SnakeGame', () => {
             const onStateChange = vi.fn()
             const gameWithCb = new SnakeGame(undefined, { onStateChange })
             gameWithCb.start()
+            // Clear mock since start() may have invoked it
+            onStateChange.mockClear()
             // changeDirection triggers moveSnake on update which calls emitStateChange
             gameWithCb.changeDirection('up')
             // Advance time to trigger game loop and move
@@ -352,23 +354,30 @@ describe('SnakeGame', () => {
     })
 
     describe('getGameData', () => {
-        it('should return game-specific data', () => {
+        it('should return game-specific data with correct initial values', () => {
             game.start()
             const gameData = (game as any).getGameData()
             expect(gameData).toHaveProperty('foodsEaten')
             expect(gameData).toHaveProperty('maxLength')
             expect(gameData).toHaveProperty('timeElapsed')
+            // Assert concrete initial values
+            expect(gameData.foodsEaten).toBe(0)
+            expect(gameData.maxLength).toBeGreaterThanOrEqual(2)
+            expect(typeof gameData.timeElapsed).toBe('number')
+            expect(gameData.timeElapsed).toBeGreaterThanOrEqual(0)
         })
     })
 
     describe('collision detection', () => {
         it('should end game on wall collision', () => {
             game.start()
+            // Get grid width from config instead of hardcoding
+            const gridWidth = game.getConfig().gridWidth
             // Place snake head at the right wall edge going right
             // @ts-expect-error - accessing private state for testing
             game.state.snake = [
-                { x: 19, y: 10, id: 'head' },
-                { x: 18, y: 10, id: 'body' },
+                { x: gridWidth - 1, y: 10, id: 'head' },
+                { x: gridWidth - 2, y: 10, id: 'body' },
             ]
             // @ts-expect-error - accessing private state for testing
             game.state.direction = 'right'

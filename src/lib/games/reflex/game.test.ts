@@ -365,9 +365,9 @@ describe('ReflexGame', () => {
             game.startGame()
             vi.advanceTimersByTime(1000)
             const objects = game.getActiveObjects()
-            if (objects.length > 0) {
-                game.handleCellClick(objects[0].cell.row, objects[0].cell.col)
-            }
+            // Assert objects exist before clicking
+            expect(objects.length).toBeGreaterThan(0)
+            game.handleCellClick(objects[0].cell.row, objects[0].cell.col)
 
             game.stopGame()
 
@@ -380,17 +380,22 @@ describe('ReflexGame', () => {
             vi.spyOn(Math, 'random').mockReturnValue(0.5)
 
             game.startGame()
-            vi.advanceTimersByTime(500)
+            // Advance by at least the spawn interval (1000ms) so an object appears
+            vi.advanceTimersByTime(1000)
             const objects = game.getActiveObjects()
-            if (objects.length > 0) {
-                game.handleCellClick(objects[0].cell.row, objects[0].cell.col)
-            }
+            expect(objects.length).toBeGreaterThan(0)
+
+            // Advance time before clicking to get a non-zero reaction time
+            vi.advanceTimersByTime(100)
+
+            // Click the object
+            game.handleCellClick(objects[0].cell.row, objects[0].cell.col)
 
             game.stopGame()
 
             const stats = (mockCallbacks.onGameOver as ReturnType<typeof vi.fn>)
                 .mock.calls[0][1]
-            expect(stats.averageReactionTime).toBeGreaterThanOrEqual(0)
+            expect(stats.averageReactionTime).toBeGreaterThan(0)
         })
     })
 
@@ -415,8 +420,8 @@ describe('ReflexGame', () => {
             const game = new ReflexGame(defaultConfig, mockCallbacks)
             game.startGame()
             const timeBefore = game.getState().timeRemaining
-            // Directly set isGameActive=false without clearing timers
-            ;(game as any).state.isGameActive = false
+            // Use public API to stop game instead of directly mutating internal state
+            game.stopGame()
             // Advance both timers — callbacks fire but guards return early
             vi.advanceTimersByTime(2000)
             expect(game.getState().timeRemaining).toBe(timeBefore)

@@ -270,7 +270,13 @@ describe('WordScrambleGame', () => {
         it('getTimeRemaining returns correct value when game is active', () => {
             vi.useFakeTimers()
             game.startGame()
-            expect(typeof game.getTimeRemaining()).toBe('number')
+            // Assert initial time remaining equals configured duration
+            const initialTime = game.getTimeRemaining()
+            expect(initialTime).toBe(config.gameDuration)
+            // Advance timers by 5 seconds
+            vi.advanceTimersByTime(5000)
+            // Assert time remaining has decreased by that amount
+            expect(game.getTimeRemaining()).toBe(initialTime - 5)
             vi.useRealTimers()
             game.destroy()
         })
@@ -331,11 +337,13 @@ describe('WordScrambleGame', () => {
             // Submit 5 words so wordsUnscrambled >= 5
             for (let i = 0; i < 5; i++) {
                 const ch = game.getCurrentChallenge()
-                game.submitAnswer(ch?.originalWord ?? '')
+                expect(ch).not.toBe(null)
+                game.submitAnswer(ch!.originalWord)
             }
             // Next challenge generation hits the >= 5 branch with rand 0.3 < 0.6 → medium
             const ch = game.getCurrentChallenge()
             expect(ch).not.toBe(null)
+            expect(ch!.difficulty).toBe('medium')
             vi.restoreAllMocks()
             vi.useRealTimers()
             game.destroy()
@@ -348,11 +356,13 @@ describe('WordScrambleGame', () => {
             game.startGame()
             for (let i = 0; i < 10; i++) {
                 const ch = game.getCurrentChallenge()
-                game.submitAnswer(ch?.originalWord ?? '')
+                expect(ch).not.toBe(null)
+                game.submitAnswer(ch!.originalWord)
             }
             // Next challenge hits >= 10 branch: rand=0.5 → not < 0.4, but < 0.7 → hard
             const ch = game.getCurrentChallenge()
             expect(ch).not.toBe(null)
+            expect(ch!.difficulty).toBe('hard')
             vi.restoreAllMocks()
             vi.useRealTimers()
             game.destroy()
@@ -364,11 +374,13 @@ describe('WordScrambleGame', () => {
             game.startGame()
             for (let i = 0; i < 10; i++) {
                 const ch = game.getCurrentChallenge()
-                game.submitAnswer(ch?.originalWord ?? '')
+                expect(ch).not.toBe(null)
+                game.submitAnswer(ch!.originalWord)
             }
             // rand=0.2 < 0.4 → medium difficulty (lines 44-47 of game.ts)
             const ch = game.getCurrentChallenge()
             expect(ch).not.toBe(null)
+            expect(ch!.difficulty).toBe('medium')
             vi.restoreAllMocks()
             vi.useRealTimers()
             game.destroy()
