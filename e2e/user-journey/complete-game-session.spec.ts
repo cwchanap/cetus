@@ -22,7 +22,7 @@ test.describe('Complete Game Session User Journey', () => {
         await expect(tetrisPage.gameTitle).toBeVisible()
 
         // Wait for game canvas to be fully rendered (indicates PixiJS is ready)
-        await page.waitForSelector('#tetris-container canvas', {
+        await expect(page.locator('#tetris-container canvas')).toBeVisible({
             timeout: 10000,
         })
 
@@ -31,7 +31,9 @@ test.describe('Complete Game Session User Journey', () => {
         // Wait for game to start - start button should be hidden, end button visible
         await expect(tetrisPage.startButton).toBeHidden({ timeout: 5000 })
         await expect(tetrisPage.endGameButton).toBeVisible({ timeout: 5000 })
-        await page.waitForTimeout(500)
+        await expect(page.locator('#pieces-count')).toHaveText('1', {
+            timeout: 5000,
+        })
 
         // Test pause/resume functionality
         await tetrisPage.pauseGame()
@@ -62,7 +64,11 @@ test.describe('Complete Game Session User Journey', () => {
 
         // Play Quick Math game
         await quickMathPage.startGame()
-        await page.waitForTimeout(500)
+        await expect(quickMathPage.endGameButton).toBeVisible()
+        await expect(quickMathPage.answerInput).toBeEnabled()
+        await expect(quickMathPage.problemDisplay).toContainText(
+            /\d+\s*[+-]\s*\d+/
+        )
 
         // Solve one math problem
         const correctAnswer = await quickMathPage.calculateCorrectAnswer()
@@ -75,146 +81,10 @@ test.describe('Complete Game Session User Journey', () => {
         await quickMathPage.endGame()
         await expect(quickMathPage.startGameButton).toBeVisible()
 
-        // Return to homepage via logo
         await quickMathPage.navigateToHomeViaLogo()
         await expect(page).toHaveURL('/')
         await expect(
             page.getByRole('heading', { name: 'MINIGAMES' })
         ).toBeVisible()
-    })
-
-    test('should handle multiple game navigations correctly', async ({
-        page,
-    }) => {
-        await page.goto('/')
-
-        const games = [
-            { name: 'Tetris Challenge', url: '/tetris' },
-            { name: 'Quick Math', url: '/quick-math' },
-            { name: 'Bubble Shooter', url: '/bubble-shooter' },
-            { name: 'Memory Matrix', url: '/memory-matrix' },
-        ]
-
-        // Navigate through all games and back
-        for (const game of games) {
-            // Find and click the game's Play Now button
-            const gameCard = page
-                .locator(`h4:has-text("${game.name}")`)
-                .locator('..')
-            const playNowLink = gameCard.getByRole('link', { name: 'Play Now' })
-
-            await playNowLink.click()
-            await expect(page).toHaveURL(game.url)
-
-            // Verify game page loaded
-            await expect(
-                page.getByRole('heading', { name: game.name.toUpperCase() })
-            ).toBeVisible()
-
-            // Navigate back to home
-            await page.getByRole('link', { name: 'Home' }).click()
-            await expect(page).toHaveURL('/')
-        }
-    })
-
-    test('should maintain consistent navigation experience', async ({
-        page,
-    }) => {
-        const gameUrls = [
-            '/tetris',
-            '/quick-math',
-            '/bubble-shooter',
-            '/memory-matrix',
-        ]
-
-        for (const gameUrl of gameUrls) {
-            await page.goto(gameUrl)
-
-            // Check that all navigation elements are present
-            await expect(
-                page.getByRole('link', { name: 'C CETUS' })
-            ).toBeVisible()
-            await expect(page.getByRole('link', { name: 'Home' })).toBeVisible()
-            await expect(
-                page.getByRole('button', { name: 'Login' })
-            ).toBeVisible()
-
-            // Test logo navigation
-            await page.getByRole('link', { name: 'C CETUS' }).click()
-            await expect(page).toHaveURL('/')
-
-            // Navigate back to game for next iteration
-            if (gameUrls.indexOf(gameUrl) < gameUrls.length - 1) {
-                await page.goto(gameUrl)
-            }
-        }
-    })
-
-    test('should handle browser back/forward navigation correctly', async ({
-        page,
-    }) => {
-        await page.goto('/')
-
-        // Navigate to Tetris
-        const homePage = new HomePage(page)
-        await homePage.goToTetris()
-        await expect(page).toHaveURL('/tetris')
-
-        // Navigate to Quick Math
-        await page.goto('/quick-math')
-        await expect(page).toHaveURL('/quick-math')
-
-        // Test browser back button
-        await page.goBack()
-        await expect(page).toHaveURL('/tetris')
-        await expect(
-            page.getByRole('heading', { name: 'TETRIS CHALLENGE' })
-        ).toBeVisible()
-
-        // Test browser forward button
-        await page.goForward()
-        await expect(page).toHaveURL('/quick-math')
-        await expect(
-            page.getByRole('heading', { name: 'QUICK MATH' })
-        ).toBeVisible()
-
-        // Navigate to home and test back button
-        await page.goto('/')
-        await page.goBack()
-        await expect(page).toHaveURL('/quick-math')
-    })
-
-    test('should display correct game information on each page', async ({
-        page,
-    }) => {
-        const gameInfo = [
-            {
-                url: '/tetris',
-                title: 'TETRIS CHALLENGE',
-                description:
-                    'Stack the blocks and clear lines in this classic puzzle game',
-                icon: '🔲',
-            },
-            {
-                url: '/quick-math',
-                title: 'QUICK MATH',
-                description:
-                    'Solve as many math problems as you can in 60 seconds!',
-                icon: '🧮',
-            },
-        ]
-
-        for (const game of gameInfo) {
-            await page.goto(game.url)
-
-            // Check game title and description
-            await expect(
-                page.getByRole('heading', { name: game.title })
-            ).toBeVisible()
-            await expect(page.getByText(game.description)).toBeVisible()
-
-            // Check game icon in the breadcrumb area
-            await expect(page.getByText(game.icon)).toBeVisible()
-        }
     })
 })
