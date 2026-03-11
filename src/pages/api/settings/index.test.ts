@@ -195,7 +195,7 @@ describe('Settings API', () => {
             expect(data.error).toBe('Bad Request: malformed JSON')
         })
 
-        it('should rethrow non-SyntaxError from JSON parsing', async () => {
+        it('should return 500 when request.json throws a non-SyntaxError', async () => {
             const badRequest = {
                 json: async () => {
                     throw new TypeError('Not a syntax error')
