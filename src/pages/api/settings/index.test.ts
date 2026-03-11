@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, POST } from '@/pages/api/settings/index'
 import type { APIContext } from 'astro'
 
@@ -14,6 +14,10 @@ const { getUserPreferences, updateUserPreferences } = await import(
 
 describe('Settings API', () => {
     const mockUserId = 'test-user-123'
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
 
     const mockLocals = {
         user: { id: mockUserId } as { id: string },

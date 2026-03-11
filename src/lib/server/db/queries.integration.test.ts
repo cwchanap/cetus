@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import { sql } from 'kysely'
+import type { UserStatsUpdate } from '@/lib/server/db/types'
 
 // Set up an in-memory SQLite Kysely instance before any module imports
 vi.mock('@/lib/server/db/client', async () => {
@@ -113,35 +114,59 @@ async function seedUser(
     `.execute(db)
 }
 
-async function seedScore(userId: string, gameId: string, score: number) {
-    await sql`
-        INSERT INTO game_scores (user_id, game_id, score)
-        VALUES (${userId}, ${gameId}, ${score})
-    `.execute(db)
+async function seedScore(
+    userId: string,
+    gameId: string,
+    score: number,
+    createdAt?: string
+) {
+    if (createdAt) {
+        await sql`
+            INSERT INTO game_scores (user_id, game_id, score, created_at)
+            VALUES (${userId}, ${gameId}, ${score}, ${createdAt})
+        `.execute(db)
+    } else {
+        await sql`
+            INSERT INTO game_scores (user_id, game_id, score)
+            VALUES (${userId}, ${gameId}, ${score})
+        `.execute(db)
+    }
 }
 
 async function seedUserStats(
     userId: string,
-    overrides: Record<string, unknown> = {}
+    overrides: Partial<UserStatsUpdate> = {}
 ) {
-    const v = {
-        total_games_played: 0,
-        total_score: 0,
-        streak_days: 0,
-        xp: 0,
-        level: 1,
-        challenge_streak: 0,
-        login_streak: 0,
-        total_login_cycles: 0,
-        ...overrides,
+    const seedValues: Required<
+        Pick<
+            UserStatsUpdate,
+            | 'total_games_played'
+            | 'total_score'
+            | 'streak_days'
+            | 'xp'
+            | 'level'
+            | 'challenge_streak'
+            | 'login_streak'
+            | 'total_login_cycles'
+        >
+    > = {
+        total_games_played: overrides.total_games_played ?? 0,
+        total_score: overrides.total_score ?? 0,
+        streak_days: overrides.streak_days ?? 0,
+        xp: overrides.xp ?? 0,
+        level: overrides.level ?? 1,
+        challenge_streak: overrides.challenge_streak ?? 0,
+        login_streak: overrides.login_streak ?? 0,
+        total_login_cycles: overrides.total_login_cycles ?? 0,
     }
     await sql`
         INSERT INTO user_stats
             (user_id, total_games_played, total_score, streak_days, xp, level,
              challenge_streak, login_streak, total_login_cycles)
-        VALUES (${userId}, ${v.total_games_played}, ${v.total_score},
-                ${v.streak_days}, ${v.xp}, ${v.level}, ${v.challenge_streak},
-                ${v.login_streak}, ${v.total_login_cycles})
+        VALUES (${userId}, ${seedValues.total_games_played}, ${seedValues.total_score},
+                ${seedValues.streak_days}, ${seedValues.xp}, ${seedValues.level},
+                ${seedValues.challenge_streak}, ${seedValues.login_streak},
+                ${seedValues.total_login_cycles})
     `.execute(db)
 }
 
@@ -303,8 +328,13 @@ describe('awardAchievement (integration)', () => {
         const result = await awardAchievement('u1', 'tetris_master')
 
         expect(result).toBe(true)
-        const check = await hasUserEarnedAchievement('u1', 'tetris_master')
-        expect(check).toBe(true)
+        // Assert directly against the table rather than via hasUserEarnedAchievement
+        // to avoid masking shared bugs between the two functions
+        const { rows } = await sql<{ count: number }>`
+            SELECT COUNT(*) AS count FROM user_achievements
+            WHERE user_id = 'u1' AND achievement_id = 'tetris_master'
+        `.execute(db)
+        expect(Number((rows[0] as { count: unknown }).count)).toBe(1)
     })
 
     it('returns true without duplicating when already earned', async () => {
@@ -313,11 +343,12 @@ describe('awardAchievement (integration)', () => {
         const result = await awardAchievement('u1', 'tetris_master')
 
         expect(result).toBe(true)
-        // Still only one row in the table
-        const rows = await getUserAchievements('u1')
-        expect(
-            rows.filter(r => r.achievement_id === 'tetris_master')
-        ).toHaveLength(1)
+        // Count directly — must still be exactly one row
+        const { rows } = await sql<{ count: number }>`
+            SELECT COUNT(*) AS count FROM user_achievements
+            WHERE user_id = 'u1' AND achievement_id = 'tetris_master'
+        `.execute(db)
+        expect(Number((rows[0] as { count: unknown }).count)).toBe(1)
     })
 })
 
