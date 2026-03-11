@@ -6,6 +6,16 @@ import {
     getUserBestScoreByGame,
     getUserAchievementsPaginated,
     isUsernameAvailable,
+    getUserStats,
+    getUserRecentScores,
+    getUserBestScore,
+    getUserBestScoreForGame,
+    hasUserEarnedAchievement,
+    awardAchievement,
+    getUserAchievements,
+    getAllUserIds,
+    getActiveUserIdsBetween,
+    getGameLeaderboard,
 } from '@/lib/server/db/queries'
 import { db } from '@/lib/server/db/client'
 
@@ -742,5 +752,528 @@ describe('Database Queries', () => {
 
             expect(result).toBe(false)
         })
+    })
+})
+
+describe('getUserStats', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should return null when user_stats row is not found', async () => {
+        const mockQuery = {
+            selectAll: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getUserStats('user-123')
+
+        expect(result).toBeNull()
+    })
+
+    it('should return stats with distinct game count when row exists', async () => {
+        const mockStatsRow = {
+            id: 1,
+            user_id: 'user-123',
+            total_games_played: 99, // Will be overridden
+            total_score: 5000,
+            favorite_game: 'tetris',
+            level: 1,
+            xp: 200,
+        }
+        const mockStatsQuery = {
+            selectAll: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockResolvedValue(mockStatsRow),
+        }
+        const mockGamesQuery = {
+            select: vi.fn().mockReturnThis(),
+            distinct: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            execute: vi
+                .fn()
+                .mockResolvedValue([
+                    { game_id: 'tetris' },
+                    { game_id: 'snake' },
+                    { game_id: 'sudoku' },
+                ]),
+        }
+        vi.mocked(db.selectFrom)
+            .mockReturnValueOnce(mockStatsQuery as any)
+            .mockReturnValueOnce(mockGamesQuery as any)
+
+        const result = await getUserStats('user-123')
+
+        expect(result).not.toBeNull()
+        expect(result!.total_games_played).toBe(3) // From distinct games, not stored value
+        expect(result!.total_score).toBe(5000)
+    })
+
+    it('should return null on database error', async () => {
+        vi.mocked(db.selectFrom).mockImplementation(() => {
+            throw new Error('Connection refused')
+        })
+
+        const result = await getUserStats('user-123')
+
+        expect(result).toBeNull()
+    })
+})
+
+describe('getUserRecentScores', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should return recent scores for a user', async () => {
+        const mockScores = [
+            { id: '1', game_id: 'tetris', score: 5000, created_at: new Date() },
+            { id: '2', game_id: 'snake', score: 3000, created_at: new Date() },
+        ]
+        const mockQuery = {
+            selectAll: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            execute: vi.fn().mockResolvedValue(mockScores),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getUserRecentScores('user-123', 5)
+
+        expect(result).toEqual(mockScores)
+        expect(mockQuery.limit).toHaveBeenCalledWith(5)
+        expect(mockQuery.orderBy).toHaveBeenCalledWith('created_at', 'desc')
+    })
+
+    it('should use default limit of 5', async () => {
+        const mockQuery = {
+            selectAll: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            execute: vi.fn().mockResolvedValue([]),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        await getUserRecentScores('user-123')
+
+        expect(mockQuery.limit).toHaveBeenCalledWith(5)
+    })
+
+    it('should return empty array on database error', async () => {
+        const mockQuery = {
+            selectAll: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            execute: vi.fn().mockRejectedValue(new Error('DB error')),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getUserRecentScores('user-123')
+
+        expect(result).toEqual([])
+    })
+})
+
+describe('getUserBestScore', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should return the best score for a user/game pair', async () => {
+        const mockQuery = {
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockResolvedValue({ score: 9500 }),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getUserBestScore('user-123', 'tetris')
+
+        expect(result).toBe(9500)
+    })
+
+    it('should return null when no scores exist', async () => {
+        const mockQuery = {
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getUserBestScore('user-123', 'tetris')
+
+        expect(result).toBeNull()
+    })
+
+    it('should return null on database error', async () => {
+        const mockQuery = {
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockRejectedValue(new Error('DB error')),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getUserBestScore('user-123', 'tetris')
+
+        expect(result).toBeNull()
+    })
+})
+
+describe('getUserBestScoreForGame', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should return score when found', async () => {
+        const mockQuery = {
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockResolvedValue({ score: 7200 }),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getUserBestScoreForGame('user-123', 'snake')
+
+        expect(result).toBe(7200)
+    })
+
+    it('should return 0 when no score found (null -> 0 conversion)', async () => {
+        const mockQuery = {
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getUserBestScoreForGame('user-123', 'snake')
+
+        expect(result).toBe(0)
+    })
+})
+
+describe('hasUserEarnedAchievement', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should return true when achievement exists', async () => {
+        const mockQuery = {
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockResolvedValue({ id: 'ach-1' }),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await hasUserEarnedAchievement(
+            'user-123',
+            'tetris_master'
+        )
+
+        expect(result).toBe(true)
+    })
+
+    it('should return false when achievement does not exist', async () => {
+        const mockQuery = {
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await hasUserEarnedAchievement(
+            'user-123',
+            'tetris_master'
+        )
+
+        expect(result).toBe(false)
+    })
+
+    it('should return false on database error', async () => {
+        const mockQuery = {
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockRejectedValue(new Error('DB error')),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await hasUserEarnedAchievement(
+            'user-123',
+            'tetris_master'
+        )
+
+        expect(result).toBe(false)
+    })
+})
+
+describe('awardAchievement', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should return true if user already has the achievement', async () => {
+        // hasUserEarnedAchievement returns true
+        const mockSelectQuery = {
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockResolvedValue({ id: 'ach-1' }),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockSelectQuery as any)
+
+        const result = await awardAchievement('user-123', 'tetris_master')
+
+        expect(result).toBe(true)
+        expect(db.insertInto).not.toHaveBeenCalled()
+    })
+
+    it('should insert and return true when user does not have achievement', async () => {
+        // hasUserEarnedAchievement returns false
+        const mockSelectQuery = {
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+        }
+        const mockInsertQuery = {
+            values: vi.fn().mockReturnThis(),
+            execute: vi.fn().mockResolvedValue({}),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockSelectQuery as any)
+        vi.mocked(db.insertInto).mockReturnValue(mockInsertQuery as any)
+
+        const result = await awardAchievement('user-123', 'tetris_master')
+
+        expect(result).toBe(true)
+        expect(db.insertInto).toHaveBeenCalledWith('user_achievements')
+        expect(mockInsertQuery.values).toHaveBeenCalledWith(
+            expect.objectContaining({
+                user_id: 'user-123',
+                achievement_id: 'tetris_master',
+            })
+        )
+    })
+
+    it('should return false when insert fails', async () => {
+        // hasUserEarnedAchievement returns false (no achievement)
+        const mockSelectQuery = {
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+        }
+        // insertInto throws
+        const mockInsertQuery = {
+            values: vi.fn().mockReturnThis(),
+            execute: vi.fn().mockRejectedValue(new Error('Insert failed')),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockSelectQuery as any)
+        vi.mocked(db.insertInto).mockReturnValue(mockInsertQuery as any)
+
+        const result = await awardAchievement('user-123', 'tetris_master')
+
+        expect(result).toBe(false)
+    })
+})
+
+describe('getUserAchievements', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should return list of user achievements', async () => {
+        const mockAchievements = [
+            {
+                id: '1',
+                user_id: 'user-123',
+                achievement_id: 'tetris_master',
+                earned_at: new Date(),
+            },
+            {
+                id: '2',
+                user_id: 'user-123',
+                achievement_id: 'snake_expert',
+                earned_at: new Date(),
+            },
+        ]
+        const mockQuery = {
+            selectAll: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            execute: vi.fn().mockResolvedValue(mockAchievements),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getUserAchievements('user-123')
+
+        expect(result).toEqual(mockAchievements)
+        expect(db.selectFrom).toHaveBeenCalledWith('user_achievements')
+    })
+
+    it('should return empty array on database error', async () => {
+        vi.mocked(db.selectFrom).mockImplementation(() => {
+            throw new Error('DB error')
+        })
+
+        const result = await getUserAchievements('user-123')
+
+        expect(result).toEqual([])
+    })
+})
+
+describe('getAllUserIds', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should return array of all user IDs', async () => {
+        const mockQuery = {
+            select: vi.fn().mockReturnThis(),
+            execute: vi
+                .fn()
+                .mockResolvedValue([
+                    { id: 'user-1' },
+                    { id: 'user-2' },
+                    { id: 'user-3' },
+                ]),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getAllUserIds()
+
+        expect(result).toEqual(['user-1', 'user-2', 'user-3'])
+        expect(db.selectFrom).toHaveBeenCalledWith('user')
+    })
+
+    it('should return empty array on database error', async () => {
+        vi.mocked(db.selectFrom).mockImplementation(() => {
+            throw new Error('DB error')
+        })
+
+        const result = await getAllUserIds()
+
+        expect(result).toEqual([])
+    })
+})
+
+describe('getActiveUserIdsBetween', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should return user IDs active between start and end dates', async () => {
+        const start = new Date('2024-01-01')
+        const end = new Date('2024-01-02')
+        const mockQuery = {
+            select: vi.fn().mockReturnThis(),
+            distinct: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            execute: vi
+                .fn()
+                .mockResolvedValue([
+                    { user_id: 'user-1' },
+                    { user_id: 'user-2' },
+                ]),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getActiveUserIdsBetween(start, end)
+
+        expect(result).toEqual(['user-1', 'user-2'])
+        expect(mockQuery.where).toHaveBeenCalledWith('created_at', '>=', start)
+        expect(mockQuery.where).toHaveBeenCalledWith('created_at', '<', end)
+    })
+
+    it('should return empty array on database error', async () => {
+        vi.mocked(db.selectFrom).mockImplementation(() => {
+            throw new Error('DB error')
+        })
+
+        const result = await getActiveUserIdsBetween(
+            new Date('2024-01-01'),
+            new Date('2024-01-02')
+        )
+
+        expect(result).toEqual([])
+    })
+})
+
+describe('getGameLeaderboard', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('should return leaderboard entries with Anonymous name for null users', async () => {
+        const mockRows = [
+            {
+                name: null,
+                username: null,
+                score: 8000,
+                created_at: new Date('2024-01-01'),
+                image: null,
+            },
+            {
+                name: 'Player One',
+                username: 'p1',
+                score: 5000,
+                created_at: new Date('2024-01-02'),
+                image: 'img.png',
+            },
+        ]
+        const mockQuery = {
+            leftJoin: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            execute: vi.fn().mockResolvedValue(mockRows),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        const result = await getGameLeaderboard('tetris', 10)
+
+        expect(result).toHaveLength(2)
+        expect(result[0].name).toBe('Anonymous')
+        expect(result[0].score).toBe(8000)
+        expect(result[1].name).toBe('Player One')
+        expect(result[1].username).toBe('p1')
+        expect(result[1].image).toBe('img.png')
+    })
+
+    it('should use default limit of 10', async () => {
+        const mockQuery = {
+            leftJoin: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockReturnThis(),
+            execute: vi.fn().mockResolvedValue([]),
+        }
+        vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+        await getGameLeaderboard('tetris')
+
+        expect(mockQuery.limit).toHaveBeenCalledWith(10)
+    })
+
+    it('should return empty array on database error', async () => {
+        vi.mocked(db.selectFrom).mockImplementation(() => {
+            throw new Error('DB error')
+        })
+
+        const result = await getGameLeaderboard('tetris')
+
+        expect(result).toEqual([])
     })
 })

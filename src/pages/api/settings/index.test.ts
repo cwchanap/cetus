@@ -176,6 +176,61 @@ describe('Settings API', () => {
             expect(getUserPreferences).toHaveBeenCalledWith(mockUserId)
         })
 
+        it('should return 400 for malformed JSON (SyntaxError)', async () => {
+            const malformedRequest = {
+                json: async () => {
+                    throw new SyntaxError('Unexpected token')
+                },
+            } as Request
+            const context = createMockContext(mockLocals, malformedRequest)
+
+            const response = await POST(context)
+            const data = await response.json()
+
+            expect(response.status).toBe(400)
+            expect(data.error).toBe('Bad Request: malformed JSON')
+        })
+
+        it('should rethrow non-SyntaxError from JSON parsing', async () => {
+            const badRequest = {
+                json: async () => {
+                    throw new TypeError('Not a syntax error')
+                },
+            } as Request
+            const context = createMockContext(mockLocals, badRequest)
+
+            const response = await POST(context)
+            const data = await response.json()
+
+            // Should propagate as a 500 from the outer catch
+            expect(response.status).toBe(500)
+            expect(data.error).toBe('Internal server error')
+        })
+
+        it('should update challenge_reminders when provided', async () => {
+            const updatedPreferences = {
+                email_notifications: true,
+                push_notifications: false,
+                challenge_reminders: false,
+            }
+            vi.mocked(updateUserPreferences).mockResolvedValue(true)
+            vi.mocked(getUserPreferences).mockResolvedValue(updatedPreferences)
+
+            const request = createMockRequest(
+                JSON.stringify({ challenge_reminders: false })
+            )
+            const context = createMockContext(mockLocals, request)
+
+            const response = await POST(context)
+            const data = await response.json()
+
+            expect(response.status).toBe(200)
+            expect(data.success).toBe(true)
+            expect(updateUserPreferences).toHaveBeenCalledWith(mockUserId, {
+                challenge_reminders: false,
+            })
+        })
+
         it('should handle partial updates correctly', async () => {
             const partialRequestBody = JSON.stringify({
                 email_notifications: false,
