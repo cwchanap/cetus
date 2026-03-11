@@ -7,6 +7,8 @@ import {
     getLoginRewardStatus,
     claimLoginReward,
     getUserStats,
+    hasUserEarnedAchievement,
+    awardAchievement,
 } from '../server/db/queries'
 import type { UserStats } from '../server/db/types'
 import { getTodayUTC } from '../challenges'
@@ -21,6 +23,8 @@ vi.mock('../server/db/queries', () => ({
     getLoginRewardStatus: vi.fn(),
     claimLoginReward: vi.fn(),
     getUserStats: vi.fn(),
+    hasUserEarnedAchievement: vi.fn(),
+    awardAchievement: vi.fn(),
 }))
 
 // Helper function to create mock UserStats
@@ -395,5 +399,182 @@ describe('claimDailyLoginReward - Streak Reset Logic', () => {
                 false // streakBroken (no, streak is intact)
             )
         })
+    })
+})
+
+describe('claimDailyLoginReward - milestone badge logic', () => {
+    const userId = 'test-user-123'
+    const today = '2024-01-07'
+    const yesterday = '2024-01-06'
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        vi.mocked(getTodayUTC).mockReturnValue(today)
+    })
+
+    it('should award milestone badge when completing 7 consecutive days', async () => {
+        // Day 7 completion - streak 6 => claiming day 7 => totalDays = 7
+        vi.mocked(getLoginRewardStatus).mockResolvedValue({
+            login_streak: 6, // 6 days done, claiming day 7
+            last_login_reward_date: yesterday,
+            total_login_cycles: 0,
+        })
+        vi.mocked(getUserStats).mockResolvedValue(
+            createMockUserStats({ login_streak: 6 })
+        )
+        vi.mocked(claimLoginReward).mockResolvedValue({
+            success: true,
+            newXP: 100,
+            newLevel: 1,
+        })
+        // Completing day 7 resets the streak (cycleCompleted) => totalConsecutiveDays = 1*7+0 = 7
+        vi.mocked(hasUserEarnedAchievement).mockResolvedValue(false)
+        vi.mocked(awardAchievement).mockResolvedValue(undefined as any)
+        // getLoginRewardStatus will be called again by getLoginRewardStatusForUser
+        // Mock a second call to return the updated state
+        vi.mocked(getLoginRewardStatus)
+            .mockResolvedValueOnce({
+                login_streak: 6,
+                last_login_reward_date: yesterday,
+                total_login_cycles: 0,
+            })
+            .mockResolvedValueOnce({
+                login_streak: 0,
+                last_login_reward_date: today,
+                total_login_cycles: 1,
+            })
+
+        const result = await claimDailyLoginReward(userId)
+
+        expect(result.success).toBe(true)
+        expect(result.milestoneBadge).toBeDefined()
+        expect(result.milestoneBadge?.achievementId).toBe('login_streak_7')
+        expect(hasUserEarnedAchievement).toHaveBeenCalledWith(
+            userId,
+            'login_streak_7'
+        )
+        expect(awardAchievement).toHaveBeenCalledWith(userId, 'login_streak_7')
+    })
+
+    it('should not award milestone badge when user already has it', async () => {
+        vi.mocked(getLoginRewardStatus)
+            .mockResolvedValueOnce({
+                login_streak: 6,
+                last_login_reward_date: yesterday,
+                total_login_cycles: 0,
+            })
+            .mockResolvedValueOnce({
+                login_streak: 0,
+                last_login_reward_date: today,
+                total_login_cycles: 1,
+            })
+        vi.mocked(getUserStats).mockResolvedValue(
+            createMockUserStats({ login_streak: 6 })
+        )
+        vi.mocked(claimLoginReward).mockResolvedValue({
+            success: true,
+            newXP: 100,
+            newLevel: 1,
+        })
+        vi.mocked(hasUserEarnedAchievement).mockResolvedValue(true) // Already has it
+
+        const result = await claimDailyLoginReward(userId)
+
+        expect(result.success).toBe(true)
+        expect(result.milestoneBadge).toBeUndefined()
+        expect(awardAchievement).not.toHaveBeenCalled()
+    })
+
+    it('should not set milestoneBadge when awardAchievement throws', async () => {
+        vi.mocked(getLoginRewardStatus)
+            .mockResolvedValueOnce({
+                login_streak: 6,
+                last_login_reward_date: yesterday,
+                total_login_cycles: 0,
+            })
+            .mockResolvedValueOnce({
+                login_streak: 0,
+                last_login_reward_date: today,
+                total_login_cycles: 1,
+            })
+        vi.mocked(getUserStats).mockResolvedValue(
+            createMockUserStats({ login_streak: 6 })
+        )
+        vi.mocked(claimLoginReward).mockResolvedValue({
+            success: true,
+            newXP: 100,
+            newLevel: 1,
+        })
+        vi.mocked(hasUserEarnedAchievement).mockResolvedValue(false)
+        vi.mocked(awardAchievement).mockRejectedValue(
+            new Error('DB write failed')
+        )
+
+        const result = await claimDailyLoginReward(userId)
+
+        expect(result.success).toBe(true)
+        // milestoneBadge should be undefined since award failed
+        expect(result.milestoneBadge).toBeUndefined()
+    })
+
+    it('should return error when reward already claimed today', async () => {
+        vi.mocked(getLoginRewardStatus).mockResolvedValue({
+            login_streak: 3,
+            last_login_reward_date: today,
+            total_login_cycles: 0,
+        })
+        vi.mocked(getUserStats).mockResolvedValue(createMockUserStats())
+
+        const result = await claimDailyLoginReward(userId)
+
+        expect(result.success).toBe(false)
+        expect(result.error).toBe('Reward already claimed today')
+        expect(claimLoginReward).not.toHaveBeenCalled()
+    })
+
+    it('should return error when claimLoginReward fails', async () => {
+        vi.mocked(getLoginRewardStatus).mockResolvedValue({
+            login_streak: 1,
+            last_login_reward_date: yesterday,
+            total_login_cycles: 0,
+        })
+        vi.mocked(getUserStats).mockResolvedValue(createMockUserStats())
+        vi.mocked(claimLoginReward).mockResolvedValue({
+            success: false,
+        })
+
+        const result = await claimDailyLoginReward(userId)
+
+        expect(result.success).toBe(false)
+        expect(result.error).toBe('Failed to claim reward')
+    })
+
+    it('should detect level up when new level exceeds previous level', async () => {
+        vi.mocked(getLoginRewardStatus)
+            .mockResolvedValueOnce({
+                login_streak: 1,
+                last_login_reward_date: yesterday,
+                total_login_cycles: 0,
+            })
+            .mockResolvedValueOnce({
+                login_streak: 2,
+                last_login_reward_date: today,
+                total_login_cycles: 0,
+            })
+        vi.mocked(getUserStats).mockResolvedValue(
+            createMockUserStats({ level: 2 })
+        )
+        vi.mocked(claimLoginReward).mockResolvedValue({
+            success: true,
+            newXP: 200,
+            newLevel: 3, // Level up from 2 to 3
+        })
+
+        const result = await claimDailyLoginReward(userId)
+
+        expect(result.success).toBe(true)
+        expect(result.leveledUp).toBe(true)
+        expect(result.newLevel).toBe(3)
+        expect(result.previousLevel).toBe(2)
     })
 })
