@@ -417,14 +417,19 @@ describe('getActiveUserIdsBetween (integration)', () => {
         await seedScore('u1', 'tetris', 100)
         await seedScore('u1', 'snake', 200) // same user – should deduplicate
         await seedScore('u2', 'tetris', 300)
+        // u3 score is far in the future (year 3000) – must be excluded by the end boundary.
+        // '3000-01-01 00:00:00' sorts lexicographically after the numeric ms string for
+        // ~year 2056 (e.g. '2718000000000'), so it falls outside [start, end).
+        await seedScore('u3', 'tetris', 400, '3000-01-01 00:00:00')
 
-        // Wide range: epoch → ~year 2056 captures all CURRENT_TIMESTAMP values
+        // Wide range: epoch → ~year 2056 captures current CURRENT_TIMESTAMP values
         const start = new Date(0)
         const end = new Date(Date.now() + 1e12)
         const result = await getActiveUserIdsBetween(start, end)
 
-        expect(result).toHaveLength(2) // u1 and u2 (distinct)
+        expect(result).toHaveLength(2) // u1 and u2 (distinct); u3 excluded
         expect(result).toEqual(expect.arrayContaining(['u1', 'u2']))
+        expect(result).not.toContain('u3')
     })
 })
 
