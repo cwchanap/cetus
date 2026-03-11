@@ -429,7 +429,7 @@ describe('claimDailyLoginReward - milestone badge logic', () => {
         })
         // Completing day 7 resets the streak (cycleCompleted) => totalConsecutiveDays = 1*7+0 = 7
         vi.mocked(hasUserEarnedAchievement).mockResolvedValue(false)
-        vi.mocked(awardAchievement).mockResolvedValue(undefined as any)
+        vi.mocked(awardAchievement).mockResolvedValue(true)
         // getLoginRewardStatus will be called again by getLoginRewardStatusForUser
         // Mock a second call to return the updated state
         vi.mocked(getLoginRewardStatus)
