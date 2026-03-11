@@ -229,6 +229,7 @@ describe('Settings API', () => {
             expect(updateUserPreferences).toHaveBeenCalledWith(mockUserId, {
                 challenge_reminders: false,
             })
+            expect(getUserPreferences).toHaveBeenCalledWith(mockUserId)
         })
 
         it('should handle partial updates correctly', async () => {

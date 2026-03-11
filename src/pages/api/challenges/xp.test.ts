@@ -35,10 +35,11 @@ describe('GET /api/challenges/xp', () => {
             lastChallengeDate: '2024-01-03',
         })
         vi.mocked(getXPProgress).mockReturnValue({
+            currentLevel: 3,
             progress: 20,
             currentLevelXP: 250,
             nextLevelXP: 500,
-        } as any)
+        })
     })
 
     it('should return 401 for unauthenticated requests', async () => {
