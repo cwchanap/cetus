@@ -398,38 +398,43 @@ describe('getAllUserIds (integration)', () => {
 // ─── getActiveUserIdsBetween ──────────────────────────────────────────────────
 
 describe('getActiveUserIdsBetween (integration)', () => {
-    // Note: libsql serializes Date objects as numeric millisecond timestamps.
-    // SQLite TEXT column values (e.g. CURRENT_TIMESTAMP like '2025-03-11 05:00:00')
-    // are compared lexicographically against the string representation of the numeric
-    // value. The wide epoch→future range approach exploits the fact that any ISO/
-    // CURRENT_TIMESTAMP string lies lexicographically between '0' and a large number
-    // string (e.g. '2718000000000' for ~year 2056), so all inserted rows are included.
+    // libsql serializes Date objects as numeric millisecond timestamps.
+    // SQLite then coerces that integer to a TEXT string for comparison against
+    // the TEXT-affinity created_at column (lexicographic comparison).
+    //
+    // Fixed windows used in these tests:
+    //   start = new Date(3e12) → '3000000000000'  (≈ year 2065)
+    //   end   = new Date(5e12) → '5000000000000'  (≈ year 2128)
+    //
+    // Explicit ISO timestamps chosen for deterministic boundary coverage:
+    //   '2024-06-01 00:00:00' → starts with '2', so '2' < '3' → strictly before start
+    //   '4000-01-01 00:00:00' → starts with '4', so '3' < '4' < '5' → inside window
+    //   '9999-01-01 00:00:00' → starts with '9', so '9' > '5' → strictly after end
 
     it('returns empty array when no scores exist', async () => {
-        const start = new Date(0)
-        const end = new Date(Date.now() + 1e12)
+        const start = new Date(3e12)
+        const end = new Date(5e12)
         const result = await getActiveUserIdsBetween(start, end)
         expect(result).toEqual([])
     })
 
-    it('returns distinct user IDs that have scores within the range', async () => {
-        // Scores use CURRENT_TIMESTAMP which sits within the wide epoch→far-future range
-        await seedScore('u1', 'tetris', 100)
-        await seedScore('u1', 'snake', 200) // same user – should deduplicate
-        await seedScore('u2', 'tetris', 300)
-        // u3 score is far in the future (year 3000) – must be excluded by the end boundary.
-        // '3000-01-01 00:00:00' sorts lexicographically after the numeric ms string for
-        // ~year 2056 (e.g. '2718000000000'), so it falls outside [start, end).
-        await seedScore('u3', 'tetris', 400, '3000-01-01 00:00:00')
+    it('includes only in-range users, deduplicates same-user scores, and excludes out-of-range users', async () => {
+        // u_before: score timestamped before the window – must be excluded
+        await seedScore('u_before', 'tetris', 100, '2024-06-01 00:00:00')
+        // u_inside: two scores within the window – must appear exactly once (distinct)
+        await seedScore('u_inside', 'tetris', 200, '4000-01-01 00:00:00')
+        await seedScore('u_inside', 'snake', 300, '4500-06-01 00:00:00')
+        // u_after: score timestamped after the window – must be excluded
+        await seedScore('u_after', 'tetris', 400, '9999-01-01 00:00:00')
 
-        // Wide range: epoch → ~year 2056 captures current CURRENT_TIMESTAMP values
-        const start = new Date(0)
-        const end = new Date(Date.now() + 1e12)
+        const start = new Date(3e12)
+        const end = new Date(5e12)
         const result = await getActiveUserIdsBetween(start, end)
 
-        expect(result).toHaveLength(2) // u1 and u2 (distinct); u3 excluded
-        expect(result).toEqual(expect.arrayContaining(['u1', 'u2']))
-        expect(result).not.toContain('u3')
+        expect(result).toHaveLength(1) // only u_inside; u_before and u_after excluded
+        expect(result).toContain('u_inside')
+        expect(result).not.toContain('u_before')
+        expect(result).not.toContain('u_after')
     })
 })
 
