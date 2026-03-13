@@ -85,6 +85,8 @@ describe('GameInitializer', () => {
 
             expect(game).toBeInstanceOf(TestGame)
             expect(renderer).toBeInstanceOf(TestRenderer)
+
+            initializer.destroy()
         })
 
         it('should return the same instances from getGame and getRenderer', async () => {
@@ -93,6 +95,8 @@ describe('GameInitializer', () => {
 
             expect(initializer.getGame()).toBe(game)
             expect(initializer.getRenderer()).toBe(renderer)
+
+            initializer.destroy()
         })
     })
 
@@ -112,6 +116,7 @@ describe('GameInitializer', () => {
             startBtn.click()
             expect(startSpy).toHaveBeenCalled()
 
+            initializer.destroy()
             document.body.removeChild(startBtn)
             document.body.removeChild(endBtn)
         })
@@ -153,6 +158,7 @@ describe('GameInitializer', () => {
             pauseBtn.click()
             expect(resumeSpy).toHaveBeenCalled()
 
+            initializer.destroy()
             document.body.removeChild(pauseBtn)
         })
 
@@ -169,6 +175,7 @@ describe('GameInitializer', () => {
             resetBtn.click()
             expect(resetSpy).toHaveBeenCalled()
 
+            initializer.destroy()
             document.body.removeChild(resetBtn)
         })
 
@@ -197,6 +204,7 @@ describe('GameInitializer', () => {
             expect(resetSpy).toHaveBeenCalled()
             expect(overlay.classList.contains('hidden')).toBe(true)
 
+            initializer.destroy()
             document.body.removeChild(playAgainBtn)
             document.body.removeChild(startBtn)
             document.body.removeChild(endBtn)
@@ -211,6 +219,7 @@ describe('GameInitializer', () => {
             const { game } = await initializer.initialize()
             game.start()
             expect(onStart).toHaveBeenCalled()
+            initializer.destroy()
         })
 
         it('should call external onEnd callback', async () => {
@@ -229,6 +238,7 @@ describe('GameInitializer', () => {
             game.start()
             game.addScore(50, 'test')
             expect(onScoreUpdate).toHaveBeenCalledWith(50)
+            initializer.destroy()
         })
 
         it('should call external onTimeUpdate callback', async () => {
@@ -250,6 +260,7 @@ describe('GameInitializer', () => {
             game.start()
             game.pause()
             expect(onPause).toHaveBeenCalled()
+            initializer.destroy()
         })
 
         it('should call external onResume callback', async () => {
@@ -260,6 +271,7 @@ describe('GameInitializer', () => {
             game.pause()
             game.resume()
             expect(onResume).toHaveBeenCalled()
+            initializer.destroy()
         })
     })
 
@@ -275,6 +287,7 @@ describe('GameInitializer', () => {
             game.addScore(100, 'test')
             expect(scoreEl.textContent).toBe('100')
 
+            initializer.destroy()
             document.body.removeChild(scoreEl)
         })
 
