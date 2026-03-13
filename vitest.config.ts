@@ -10,6 +10,16 @@ export default defineConfig({
             'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
             'src/test/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
         ],
+        coverage: {
+            provider: 'v8',
+            exclude: [
+                'e2e/**',
+                'node_modules/**',
+                '**/*.config.*',
+                '**/types.ts',
+                '**/index.ts',
+            ],
+        },
         env: {
             TURSO_DATABASE_URL: 'libsql://test-db.turso.io',
             TURSO_AUTH_TOKEN: 'test-token',
