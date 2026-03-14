@@ -17,7 +17,9 @@ describe('POST /api/dev/add-test-scores', () => {
         vi.clearAllMocks()
     })
 
-    afterEach(() => {})
+    afterEach(() => {
+        vi.unstubAllEnvs()
+    })
 
     it('should return 403 in production mode', async () => {
         vi.stubEnv('PROD', true)
