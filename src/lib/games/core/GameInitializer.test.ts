@@ -59,6 +59,7 @@ describe('GameInitializer', () => {
         initializers = []
         document.body.removeChild(container)
         vi.clearAllMocks()
+        vi.unstubAllGlobals()
     })
 
     const makeInitializer = (callbacks = {}) => {
@@ -371,8 +372,6 @@ describe('GameInitializer', () => {
             await game.end()
 
             expect(showAchievementAward).toHaveBeenCalledWith(['first_win'])
-
-            vi.unstubAllGlobals()
         })
     })
 
