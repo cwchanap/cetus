@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { POST } from '@/pages/api/dev/add-test-scores'
 
 // Mock database client
@@ -17,6 +17,8 @@ describe('POST /api/dev/add-test-scores', () => {
         vi.clearAllMocks()
     })
 
+    afterEach(() => {})
+
     it('should return 403 in production mode', async () => {
         vi.stubEnv('PROD', true)
 
@@ -27,8 +29,6 @@ describe('POST /api/dev/add-test-scores', () => {
 
         const response = await POST({ request } as Parameters<typeof POST>[0])
         expect(response.status).toBe(403)
-
-        vi.unstubAllEnvs()
     })
 
     it('should add test scores and return success', async () => {
@@ -50,8 +50,6 @@ describe('POST /api/dev/add-test-scores', () => {
         expect(response.status).toBe(200)
         expect(data.success).toBe(true)
         expect(data.message).toContain('test scores')
-
-        vi.unstubAllEnvs()
     })
 
     it('should continue if user already exists (duplicate user insert)', async () => {
@@ -93,8 +91,6 @@ describe('POST /api/dev/add-test-scores', () => {
 
         expect(response.status).toBe(200)
         expect(data.success).toBe(true)
-
-        vi.unstubAllEnvs()
     })
 
     it('should still return success when all score inserts fail', async () => {
@@ -119,7 +115,5 @@ describe('POST /api/dev/add-test-scores', () => {
         expect(response.status).toBe(200)
         expect(data.success).toBe(true)
         expect(data.message).toContain('0 test scores')
-
-        vi.unstubAllEnvs()
     })
 })
