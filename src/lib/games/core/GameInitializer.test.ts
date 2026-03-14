@@ -3,7 +3,12 @@ import { GameInitializer } from './GameInitializer'
 import { BaseGame } from './BaseGame'
 import { BaseRenderer } from './BaseRenderer'
 import { GameID } from '@/lib/games'
-import type { BaseGameState, BaseGameStats, RendererConfig } from './types'
+import type {
+    BaseGameCallbacks,
+    BaseGameState,
+    BaseGameStats,
+    RendererConfig,
+} from './types'
 
 // Mock the scoreService
 vi.mock('@/lib/services/scoreService', () => ({
@@ -53,16 +58,23 @@ describe('GameInitializer', () => {
     })
 
     afterEach(() => {
+        vi.useRealTimers()
         for (const initializer of initializers) {
-            initializer.destroy()
+            try {
+                initializer.destroy()
+            } catch {
+                // continue cleaning up remaining initializers
+            }
         }
         initializers = []
-        document.body.removeChild(container)
+        if (container.parentNode) {
+            document.body.removeChild(container)
+        }
         vi.clearAllMocks()
         vi.unstubAllGlobals()
     })
 
-    const makeInitializer = (callbacks = {}) => {
+    const makeInitializer = (callbacks: Partial<BaseGameCallbacks> = {}) => {
         const initializer = new GameInitializer<TestGame, TestRenderer>({
             gameId: GameID.TETRIS,
             gameClass: TestGame as unknown as new (
@@ -248,8 +260,6 @@ describe('GameInitializer', () => {
             game.start()
             vi.advanceTimersByTime(1000)
             expect(onTimeUpdate).toHaveBeenCalled()
-            initializer.destroy()
-            vi.useRealTimers()
         })
 
         it('should call external onPause callback', async () => {
@@ -300,8 +310,6 @@ describe('GameInitializer', () => {
             expect(timeEl.textContent).not.toBe('')
 
             document.body.removeChild(timeEl)
-            initializer.destroy()
-            vi.useRealTimers()
         })
 
         it('should show game-over overlay on game end', async () => {
@@ -394,6 +402,34 @@ describe('GameInitializer', () => {
         it('should be safe to call destroy before initialize', () => {
             const initializer = makeInitializer()
             expect(() => initializer.destroy()).not.toThrow()
+        })
+
+        it('should remove button listeners on destroy so re-initialize does not double-fire', async () => {
+            const startBtn = document.createElement('button')
+            startBtn.id = 'start-btn'
+            const endBtn = document.createElement('button')
+            endBtn.id = 'end-btn'
+            document.body.appendChild(startBtn)
+            document.body.appendChild(endBtn)
+
+            const initializer = makeInitializer()
+            const { game: game1 } = await initializer.initialize()
+            const startSpy1 = vi.spyOn(game1, 'start')
+
+            initializer.destroy()
+
+            // Re-initialize — a new game is created and new listeners registered
+            const { game: game2 } = await initializer.initialize()
+            const startSpy2 = vi.spyOn(game2, 'start')
+
+            startBtn.click()
+
+            // The old listener must have been removed; only the new one fires
+            expect(startSpy1).not.toHaveBeenCalled()
+            expect(startSpy2).toHaveBeenCalledTimes(1)
+
+            document.body.removeChild(startBtn)
+            document.body.removeChild(endBtn)
         })
     })
 })

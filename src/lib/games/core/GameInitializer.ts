@@ -35,6 +35,11 @@ export class GameInitializer<
     private game: TGame | null = null
     private renderer: TRenderer | null = null
     private elements: GameElements = {}
+    private eventListeners: Array<{
+        element: HTMLElement
+        event: string
+        handler: EventListener
+    }> = []
 
     constructor(config: GameInitializerConfig<TGame, TRenderer>) {
         this.config = config
@@ -185,6 +190,17 @@ export class GameInitializer<
     }
 
     /**
+     * Register a click listener and track it for removal on destroy
+     */
+    private addClickListener(
+        element: HTMLElement,
+        handler: EventListener
+    ): void {
+        element.addEventListener('click', handler)
+        this.eventListeners.push({ element, event: 'click', handler })
+    }
+
+    /**
      * Set up standard button event handlers
      */
     private setupEventHandlers(): void {
@@ -194,21 +210,21 @@ export class GameInitializer<
 
         // Start button
         if (this.elements.startBtn) {
-            this.elements.startBtn.addEventListener('click', () => {
+            this.addClickListener(this.elements.startBtn, () => {
                 this.game?.start()
             })
         }
 
         // End button
         if (this.elements.endBtn) {
-            this.elements.endBtn.addEventListener('click', () => {
+            this.addClickListener(this.elements.endBtn, () => {
                 this.game?.end()
             })
         }
 
         // Pause button
         if (this.elements.pauseBtn) {
-            this.elements.pauseBtn.addEventListener('click', () => {
+            this.addClickListener(this.elements.pauseBtn, () => {
                 const state = this.game?.getState()
                 if (state?.isPaused) {
                     this.game?.resume()
@@ -220,14 +236,14 @@ export class GameInitializer<
 
         // Reset button
         if (this.elements.resetBtn) {
-            this.elements.resetBtn.addEventListener('click', () => {
+            this.addClickListener(this.elements.resetBtn, () => {
                 this.game?.reset()
             })
         }
 
         // Play again button
         if (this.elements.playAgainBtn) {
-            this.elements.playAgainBtn.addEventListener('click', () => {
+            this.addClickListener(this.elements.playAgainBtn, () => {
                 if (this.elements.gameOverOverlay) {
                     this.elements.gameOverOverlay.classList.add('hidden')
                 }
@@ -281,6 +297,12 @@ export class GameInitializer<
      * Clean up resources
      */
     destroy(): void {
+        // Remove all tracked event listeners to prevent double-registration on re-initialize
+        for (const { element, event, handler } of this.eventListeners) {
+            element.removeEventListener(event, handler)
+        }
+        this.eventListeners = []
+
         if (this.game) {
             this.game.destroy()
             this.game = null
