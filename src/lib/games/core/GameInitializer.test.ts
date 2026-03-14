@@ -44,6 +44,7 @@ class TestRenderer extends BaseRenderer {
 
 describe('GameInitializer', () => {
     let container: HTMLElement
+    let initializers: GameInitializer<TestGame, TestRenderer>[] = []
 
     beforeEach(() => {
         container = document.createElement('div')
@@ -52,12 +53,16 @@ describe('GameInitializer', () => {
     })
 
     afterEach(() => {
+        for (const initializer of initializers) {
+            initializer.destroy()
+        }
+        initializers = []
         document.body.removeChild(container)
         vi.clearAllMocks()
     })
 
-    const makeInitializer = (callbacks = {}) =>
-        new GameInitializer<TestGame, TestRenderer>({
+    const makeInitializer = (callbacks = {}) => {
+        const initializer = new GameInitializer<TestGame, TestRenderer>({
             gameId: GameID.TETRIS,
             gameClass: TestGame as unknown as new (
                 ...args: unknown[]
@@ -77,6 +82,9 @@ describe('GameInitializer', () => {
             } as RendererConfig,
             callbacks,
         })
+        initializers.push(initializer)
+        return initializer
+    }
 
     describe('initialize', () => {
         it('should create game and renderer instances', async () => {
@@ -85,8 +93,6 @@ describe('GameInitializer', () => {
 
             expect(game).toBeInstanceOf(TestGame)
             expect(renderer).toBeInstanceOf(TestRenderer)
-
-            initializer.destroy()
         })
 
         it('should return the same instances from getGame and getRenderer', async () => {
@@ -95,8 +101,6 @@ describe('GameInitializer', () => {
 
             expect(initializer.getGame()).toBe(game)
             expect(initializer.getRenderer()).toBe(renderer)
-
-            initializer.destroy()
         })
     })
 
@@ -116,7 +120,6 @@ describe('GameInitializer', () => {
             startBtn.click()
             expect(startSpy).toHaveBeenCalled()
 
-            initializer.destroy()
             document.body.removeChild(startBtn)
             document.body.removeChild(endBtn)
         })
@@ -158,7 +161,6 @@ describe('GameInitializer', () => {
             pauseBtn.click()
             expect(resumeSpy).toHaveBeenCalled()
 
-            initializer.destroy()
             document.body.removeChild(pauseBtn)
         })
 
@@ -175,7 +177,6 @@ describe('GameInitializer', () => {
             resetBtn.click()
             expect(resetSpy).toHaveBeenCalled()
 
-            initializer.destroy()
             document.body.removeChild(resetBtn)
         })
 
@@ -204,7 +205,6 @@ describe('GameInitializer', () => {
             expect(resetSpy).toHaveBeenCalled()
             expect(overlay.classList.contains('hidden')).toBe(true)
 
-            initializer.destroy()
             document.body.removeChild(playAgainBtn)
             document.body.removeChild(startBtn)
             document.body.removeChild(endBtn)
@@ -219,7 +219,6 @@ describe('GameInitializer', () => {
             const { game } = await initializer.initialize()
             game.start()
             expect(onStart).toHaveBeenCalled()
-            initializer.destroy()
         })
 
         it('should call external onEnd callback', async () => {
@@ -238,7 +237,6 @@ describe('GameInitializer', () => {
             game.start()
             game.addScore(50, 'test')
             expect(onScoreUpdate).toHaveBeenCalledWith(50)
-            initializer.destroy()
         })
 
         it('should call external onTimeUpdate callback', async () => {
@@ -249,7 +247,7 @@ describe('GameInitializer', () => {
             game.start()
             vi.advanceTimersByTime(1000)
             expect(onTimeUpdate).toHaveBeenCalled()
-            game.destroy()
+            initializer.destroy()
             vi.useRealTimers()
         })
 
@@ -260,7 +258,6 @@ describe('GameInitializer', () => {
             game.start()
             game.pause()
             expect(onPause).toHaveBeenCalled()
-            initializer.destroy()
         })
 
         it('should call external onResume callback', async () => {
@@ -271,7 +268,6 @@ describe('GameInitializer', () => {
             game.pause()
             game.resume()
             expect(onResume).toHaveBeenCalled()
-            initializer.destroy()
         })
     })
 
@@ -287,7 +283,6 @@ describe('GameInitializer', () => {
             game.addScore(100, 'test')
             expect(scoreEl.textContent).toBe('100')
 
-            initializer.destroy()
             document.body.removeChild(scoreEl)
         })
 
@@ -304,7 +299,7 @@ describe('GameInitializer', () => {
             expect(timeEl.textContent).not.toBe('')
 
             document.body.removeChild(timeEl)
-            game.destroy()
+            initializer.destroy()
             vi.useRealTimers()
         })
 
@@ -350,7 +345,7 @@ describe('GameInitializer', () => {
             })
             vi.stubGlobal('fetch', fetchMock)
 
-            const initializer = new GameInitializer<TestGame, TestRenderer>({
+            const achInitializer = new GameInitializer<TestGame, TestRenderer>({
                 gameId: GameID.TETRIS,
                 gameClass: TestGame as unknown as new (
                     ...args: unknown[]
@@ -369,8 +364,9 @@ describe('GameInitializer', () => {
                     container: '#game-container',
                 } as RendererConfig,
             })
+            initializers.push(achInitializer)
 
-            const { game } = await initializer.initialize()
+            const { game } = await achInitializer.initialize()
             game.start()
             await game.end()
 

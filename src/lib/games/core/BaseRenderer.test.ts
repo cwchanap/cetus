@@ -125,9 +125,10 @@ describe('BaseRenderer', () => {
 
         it('should call onConfigUpdate when initialized', async () => {
             await renderer.initialize()
-            const spy = vi.spyOn(renderer, 'testOnConfigUpdate')
+
+            const spy = vi.spyOn(renderer as any, 'onConfigUpdate')
             renderer.updateConfig({ width: 800 })
-            // onConfigUpdate is protected so we verify side effects via the spy on the wrapper
+            expect(spy).toHaveBeenCalled()
             expect(renderer.getConfig().width).toBe(800)
         })
 
