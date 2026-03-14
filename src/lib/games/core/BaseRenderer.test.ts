@@ -8,6 +8,7 @@ class TestRenderer extends BaseRenderer {
     renderCalled = false
     resizeCalled = false
     cleanupCalled = false
+    onConfigUpdateCalled = false
     lastRenderState: unknown = null
     lastResizeArgs: { width: number; height: number } | null = null
 
@@ -29,13 +30,13 @@ class TestRenderer extends BaseRenderer {
         this.cleanupCalled = true
     }
 
+    protected override onConfigUpdate(): void {
+        this.onConfigUpdateCalled = true
+    }
+
     // Expose protected methods for testing
     testHandleResize(): void {
         this.handleResize()
-    }
-
-    testOnConfigUpdate(): void {
-        this.onConfigUpdate()
     }
 }
 
@@ -57,6 +58,7 @@ describe('BaseRenderer', () => {
     })
 
     afterEach(() => {
+        renderer.destroy()
         document.body.removeChild(container)
     })
 
@@ -125,10 +127,8 @@ describe('BaseRenderer', () => {
 
         it('should call onConfigUpdate when initialized', async () => {
             await renderer.initialize()
-
-            const spy = vi.spyOn(renderer as any, 'onConfigUpdate')
             renderer.updateConfig({ width: 800 })
-            expect(spy).toHaveBeenCalled()
+            expect(renderer.onConfigUpdateCalled).toBe(true)
             expect(renderer.getConfig().width).toBe(800)
         })
 
