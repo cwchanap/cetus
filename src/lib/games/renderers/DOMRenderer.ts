@@ -142,7 +142,7 @@ export class DOMRenderer extends BaseRenderer {
         selector: string
     ): NodeListOf<T> {
         if (!this.container) {
-            return document.querySelectorAll<T>('')
+            return document.createElement('div').querySelectorAll<T>(selector)
         }
         return this.container.querySelectorAll<T>(selector)
     }

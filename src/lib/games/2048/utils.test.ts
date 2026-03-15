@@ -22,7 +22,9 @@ function makeTile(value: number, row: number, col: number): Tile {
 
 // Helper to create an empty board
 function emptyBoard(): Board {
-    return Array.from({ length: 4 }, () => new Array(4).fill(null))
+    return Array.from({ length: GAME_CONSTANTS.BOARD_SIZE }, () =>
+        new Array(GAME_CONSTANTS.BOARD_SIZE).fill(null)
+    )
 }
 
 describe('generateTileId', () => {
@@ -41,8 +43,8 @@ describe('getEmptyCells', () => {
 
     it('should return no cells for a full board', () => {
         const board = emptyBoard()
-        for (let r = 0; r < 4; r++) {
-            for (let c = 0; c < 4; c++) {
+        for (let r = 0; r < GAME_CONSTANTS.BOARD_SIZE; r++) {
+            for (let c = 0; c < GAME_CONSTANTS.BOARD_SIZE; c++) {
                 board[r][c] = makeTile(2, r, c)
             }
         }
@@ -77,8 +79,8 @@ describe('canMove', () => {
             [4, 2, 4, 2],
         ]
         const board = emptyBoard()
-        for (let r = 0; r < 4; r++) {
-            for (let c = 0; c < 4; c++) {
+        for (let r = 0; r < GAME_CONSTANTS.BOARD_SIZE; r++) {
+            for (let c = 0; c < GAME_CONSTANTS.BOARD_SIZE; c++) {
                 board[r][c] = makeTile(values[r][c], r, c)
             }
         }
@@ -89,8 +91,8 @@ describe('canMove', () => {
         const board = emptyBoard()
         // Fill all cells with distinct values
         let val = 2
-        for (let r = 0; r < 4; r++) {
-            for (let c = 0; c < 4; c++) {
+        for (let r = 0; r < GAME_CONSTANTS.BOARD_SIZE; r++) {
+            for (let c = 0; c < GAME_CONSTANTS.BOARD_SIZE; c++) {
                 board[r][c] = makeTile(val, r, c)
                 val *= 2
             }
@@ -104,8 +106,8 @@ describe('canMove', () => {
     it('should return true when there is a vertical match', () => {
         const board = emptyBoard()
         let val = 2
-        for (let r = 0; r < 4; r++) {
-            for (let c = 0; c < 4; c++) {
+        for (let r = 0; r < GAME_CONSTANTS.BOARD_SIZE; r++) {
+            for (let c = 0; c < GAME_CONSTANTS.BOARD_SIZE; c++) {
                 board[r][c] = makeTile(val, r, c)
                 val *= 2
             }
@@ -230,8 +232,8 @@ describe('createEmptyBoard', () => {
 describe('getRandomEmptyPosition', () => {
     it('should return null for a full board', () => {
         const board = emptyBoard()
-        for (let r = 0; r < 4; r++) {
-            for (let c = 0; c < 4; c++) {
+        for (let r = 0; r < GAME_CONSTANTS.BOARD_SIZE; r++) {
+            for (let c = 0; c < GAME_CONSTANTS.BOARD_SIZE; c++) {
                 board[r][c] = makeTile(2, r, c)
             }
         }
@@ -248,8 +250,8 @@ describe('getRandomEmptyPosition', () => {
 
     it('should return the only empty position when only one is left', () => {
         const board = emptyBoard()
-        for (let r = 0; r < 4; r++) {
-            for (let c = 0; c < 4; c++) {
+        for (let r = 0; r < GAME_CONSTANTS.BOARD_SIZE; r++) {
+            for (let c = 0; c < GAME_CONSTANTS.BOARD_SIZE; c++) {
                 board[r][c] = makeTile(2, r, c)
             }
         }

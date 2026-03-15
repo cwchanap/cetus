@@ -208,7 +208,9 @@ describe('QuickMathRenderer', () => {
             )
 
             freshRenderer.cleanup()
-            statsEls.forEach(el => el.parentNode?.removeChild(el))
+            for (const el of statsEls) {
+                el.parentNode?.removeChild(el)
+            }
         })
 
         it('should disable input and button when game is not active', () => {

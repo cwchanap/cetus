@@ -126,6 +126,9 @@ describe('RendererFactory', () => {
             )
             const config = renderer.getConfig()
             expect(config.responsive).toBe(false)
+            expect((config as { cleanOnRender?: boolean }).cleanOnRender).toBe(
+                false
+            )
         })
     })
 })
