@@ -286,14 +286,13 @@ describe('DOMRenderer', () => {
             expect(found.length).toBe(2)
         })
 
-        it('should query from document when container is null (fallback behavior)', () => {
+        it('should return empty NodeList from findElements when container is null', () => {
             renderer = new TestDOMRenderer({
                 type: 'dom',
                 container: '#dom-test-container',
             })
-            // When container is null the implementation falls back to document.querySelectorAll('')
-            // which throws a SyntaxError with an empty selector. We verify this edge case.
-            expect(() => renderer.findElements('li')).toThrow()
+            const found = renderer.findElements('li')
+            expect(found.length).toBe(0)
         })
     })
 
