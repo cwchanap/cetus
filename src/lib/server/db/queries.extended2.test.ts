@@ -41,7 +41,7 @@ vi.mock('@/lib/challenges', () => ({
 
 describe('Extended Database Queries Part 2', () => {
     beforeEach(() => {
-        vi.resetAllMocks()
+        vi.clearAllMocks()
     })
 
     describe('upsertUserStats', () => {
@@ -107,6 +107,11 @@ describe('Extended Database Queries Part 2', () => {
             vi.mocked(db.selectFrom).mockImplementation(() => {
                 throw new Error('Connection failed')
             })
+            // Also mock insertInto so the insert path (reached when getUserStats returns null)
+            // also fails, ensuring upsertUserStats catches the error and returns false
+            vi.mocked(db.insertInto).mockImplementation(() => {
+                throw new Error('Connection failed')
+            })
 
             const result = await upsertUserStats('user-123', {
                 total_score: 100,
@@ -148,6 +153,11 @@ describe('Extended Database Queries Part 2', () => {
             vi.mocked(db.selectFrom).mockImplementation(() => {
                 throw new Error('DB error')
             })
+            // Also mock insertInto so the upsertUserStats insert path fails too,
+            // ensuring upsertUserStats returns false regardless of which branch runs
+            vi.mocked(db.insertInto).mockImplementation(() => {
+                throw new Error('DB error')
+            })
 
             const result = await updateUserLevel('user-123', 5)
 
@@ -184,8 +194,18 @@ describe('Extended Database Queries Part 2', () => {
         })
 
         it('should return true even when inner db calls fail (errors are handled internally)', async () => {
-            // Both getUserStats and upsertUserStats catch their own errors,
-            // so incrementUserStreak returns true even when db calls fail
+            // getUserStats and upsertUserStats each have their own try/catch,
+            // so errors never propagate to incrementUserStreak's catch — it always returns true
+            vi.mocked(db.selectFrom).mockImplementation(() => {
+                throw new Error('DB selectFrom failure')
+            })
+            vi.mocked(db.insertInto).mockImplementation(() => {
+                throw new Error('DB insertInto failure')
+            })
+            vi.mocked(db.updateTable).mockImplementation(() => {
+                throw new Error('DB updateTable failure')
+            })
+
             const result = await incrementUserStreak('user-123')
 
             expect(result).toBe(true)
@@ -221,7 +241,18 @@ describe('Extended Database Queries Part 2', () => {
         })
 
         it('should return true even when inner db calls fail (errors are handled internally)', async () => {
-            // upsertUserStats catches its own errors, so resetUserStreak returns true
+            // upsertUserStats has its own try/catch, so errors never propagate to
+            // resetUserStreak's catch — it always returns true on internal DB failures
+            vi.mocked(db.selectFrom).mockImplementation(() => {
+                throw new Error('DB selectFrom failure')
+            })
+            vi.mocked(db.insertInto).mockImplementation(() => {
+                throw new Error('DB insertInto failure')
+            })
+            vi.mocked(db.updateTable).mockImplementation(() => {
+                throw new Error('DB updateTable failure')
+            })
+
             const result = await resetUserStreak('user-123')
 
             expect(result).toBe(true)
