@@ -434,4 +434,32 @@ describe('SnakeGame', () => {
             expect(game.getState().food).not.toBeNull()
         })
     })
+
+    describe('startGameLoop guard and loop early-exit', () => {
+        it('should not start a second game loop when one is already running', () => {
+            game.start()
+            const rafSpy = vi.spyOn(window, 'requestAnimationFrame')
+            rafSpy.mockClear()
+            // Call private startGameLoop while gameLoopId is already set
+            // @ts-expect-error - accessing private method for test coverage
+            game.startGameLoop()
+            // RAF should not be called again since guard returns early
+            expect(rafSpy).not.toHaveBeenCalled()
+            rafSpy.mockRestore()
+        })
+
+        it('should set gameLoopId to null and stop loop when game is over', () => {
+            game.start()
+            // Set game over without going through normal end flow (keep RAF scheduled)
+            // @ts-expect-error - accessing private state for test coverage
+            game.state.isGameOver = true
+            // @ts-expect-error - accessing private state for test coverage
+            game.state.isActive = false
+            // Advance timer so RAF fires and hits the early-exit guard (lines 220-222)
+            vi.advanceTimersByTime(20)
+            // gameLoopId should be null after loop exits
+            // @ts-expect-error - accessing private state for test coverage
+            expect(game.gameLoopId).toBeNull()
+        })
+    })
 })

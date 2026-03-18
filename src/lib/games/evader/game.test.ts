@@ -298,5 +298,16 @@ describe('EvaderGame', () => {
             vi.advanceTimersByTime(2000)
             expect(game.getState().timeRemaining).toBe(timeBefore)
         })
+
+        it('should hit early-return guard when state mutated without clearing timers', () => {
+            game.startGame()
+            const timeBefore = game.getState().timeRemaining
+            // Directly set isGameActive to false WITHOUT clearing timers
+            // @ts-expect-error - accessing private state for test coverage
+            game.state.isGameActive = false
+            vi.advanceTimersByTime(2000)
+            // timeRemaining unchanged because guard returned early
+            expect(game.getState().timeRemaining).toBe(timeBefore)
+        })
     })
 })
