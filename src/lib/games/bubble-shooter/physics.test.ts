@@ -213,6 +213,79 @@ describe('Bubble Shooter Physics', () => {
             expect(state.needsRedraw).toBe(true)
         })
 
+        it('should award bonus score when bubblesRemaining reaches zero', () => {
+            // Place 3 red bubbles at row 0, cols 0-2, bubblesRemaining = 3
+            // Attach a 4th red bubble: bubblesRemaining becomes 4, match of 4 removes all,
+            // bubblesRemaining becomes 4 - 4 = 0, triggering 1000 bonus
+            const bubbles: ReturnType<typeof makeState>['grid'][number] = [
+                {
+                    color: 0xff0000,
+                    x: getBubbleX(0, 0, constants),
+                    y: getBubbleY(0, 0, constants),
+                },
+                {
+                    color: 0xff0000,
+                    x: getBubbleX(1, 0, constants),
+                    y: getBubbleY(0, 0, constants),
+                },
+                {
+                    color: 0xff0000,
+                    x: getBubbleX(2, 0, constants),
+                    y: getBubbleY(0, 0, constants),
+                },
+            ]
+
+            const state = makeState({
+                projectile: {
+                    x: getBubbleX(3, 0, constants),
+                    y: getBubbleY(0, 0, constants),
+                    vx: 0,
+                    vy: -5,
+                    color: 0xff0000,
+                },
+                grid: [bubbles],
+                bubblesRemaining: 3,
+                score: 0,
+            })
+
+            attachBubble(state, constants)
+            // All bubbles matched (3+1=4 match) → bubblesRemaining = 3+1-4 = 0
+            // Bonus of 1000 should be added
+            expect(state.bubblesRemaining).toBeLessThanOrEqual(0)
+            expect(state.score).toBeGreaterThanOrEqual(1000)
+        })
+
+        it('should trigger game over when bubble enters danger zone after new row', () => {
+            // dangerZone = SHOOTER_Y - BUBBLE_RADIUS * 5 = 740 - 100 = 640
+            // After addRowAtTop, bubble at row 17 moves to row 18:
+            // getBubbleY(18, 0) = 20 + 18 * 20 * sqrt(3) ≈ 643.5 >= 640
+            const dangerousY = getBubbleY(17, 0, constants) // y at row 17 before shift
+
+            // Build sparse grid: place one bubble at row 17, col 0
+            const grid: GameState['grid'][number] = []
+            for (let r = 0; r < 18; r++) {
+                grid.push([])
+            }
+            grid[17] = [
+                {
+                    color: 0xff0000,
+                    x: getBubbleX(0, 17, constants),
+                    y: dangerousY,
+                },
+            ]
+
+            const state = makeState({
+                projectile: { x: 300, y: 50, vx: 0, vy: -5, color: 0xff0000 },
+                grid,
+                shotCount: 4, // Will become 5, triggering addNewRow
+            })
+
+            attachBubble(state, constants)
+            // After adding new row, bubble at row 17 moves to row 18 (y >= dangerZone)
+            // So game should be over
+            expect(state.gameOver).toBe(true)
+        })
+
         it('should detect matches of 3 or more and update score', () => {
             // Place 2 red bubbles in a row, attach a 3rd red bubble nearby
             const bubbleX0 = getBubbleX(0, 0, constants)

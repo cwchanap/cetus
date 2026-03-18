@@ -427,5 +427,18 @@ describe('ReflexGame', () => {
             expect(game.getState().timeRemaining).toBe(timeBefore)
             game.cleanup()
         })
+
+        it('should hit early-return guard when state mutated without clearing timers', () => {
+            const g = new ReflexGame(defaultConfig, mockCallbacks)
+            g.startGame()
+            const timeBefore = g.getState().timeRemaining
+            // Directly set isGameActive to false WITHOUT clearing timers
+            // @ts-expect-error - accessing private state for test coverage
+            g.state.isGameActive = false
+            vi.advanceTimersByTime(2000)
+            // timeRemaining unchanged because guard returned early
+            expect(g.getState().timeRemaining).toBe(timeBefore)
+            g.cleanup()
+        })
     })
 })

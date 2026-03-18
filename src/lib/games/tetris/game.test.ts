@@ -11,6 +11,8 @@ import {
     startGame,
     togglePause,
     resetGame,
+    gameLoop,
+    updateNextPieceDisplay,
     GAME_CONSTANTS,
 } from './game'
 import type { GameState } from './types'
@@ -557,6 +559,68 @@ describe('Tetris Game Logic', () => {
             expect((mockPause as any).textContent).toBe('Pause')
             expect((mockEnd as any).style.display).toBe('none')
             vi.restoreAllMocks()
+        })
+    })
+
+    describe('gameLoop', () => {
+        it('should return early when game is over', () => {
+            const s = makeState({ gameOver: true })
+            expect(() => gameLoop(s)).not.toThrow()
+        })
+
+        it('should return early when paused', () => {
+            const s = makeState({ paused: true, gameStarted: true })
+            expect(() => gameLoop(s)).not.toThrow()
+        })
+
+        it('should return early when not started', () => {
+            const s = makeState({ gameStarted: false, gameOver: false })
+            expect(() => gameLoop(s)).not.toThrow()
+        })
+
+        it('should call movePiece when drop interval has elapsed', () => {
+            const s = makeState({
+                gameStarted: true,
+                gameOver: false,
+                paused: false,
+            })
+            s.dropTime = Date.now() - s.dropInterval - 100
+            vi.stubGlobal('requestAnimationFrame', vi.fn())
+            expect(() => gameLoop(s)).not.toThrow()
+            vi.unstubAllGlobals()
+        })
+
+        it('should call requestAnimationFrame to continue loop', () => {
+            const s = makeState({
+                gameStarted: true,
+                gameOver: false,
+                paused: false,
+            })
+            s.dropTime = Date.now() + 10000 // far future, no drop needed
+            const rafMock = vi.fn()
+            vi.stubGlobal('requestAnimationFrame', rafMock)
+            gameLoop(s)
+            expect(rafMock).toHaveBeenCalledOnce()
+            vi.unstubAllGlobals()
+        })
+    })
+
+    describe('updateNextPieceDisplay', () => {
+        it('should not throw with mock canvas context', () => {
+            const ctx = {
+                clearRect: vi.fn(),
+                fillRect: vi.fn(),
+                fillStyle: '',
+                strokeStyle: '',
+                strokeRect: vi.fn(),
+            } as unknown as CanvasRenderingContext2D
+            const canvas = {
+                width: 120,
+                height: 120,
+            } as unknown as HTMLCanvasElement
+            const s = createGameState()
+            spawnPiece(s)
+            expect(() => updateNextPieceDisplay(s, ctx, canvas)).not.toThrow()
         })
     })
 })

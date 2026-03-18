@@ -30,6 +30,25 @@ describe('DOMRenderer', () => {
     })
 
     describe('setup', () => {
+        it('should throw when container element not found', async () => {
+            renderer = new TestDOMRenderer({
+                type: 'dom',
+                container: '#non-existent-container-xyz',
+            })
+            await expect(renderer.initialize()).rejects.toThrow('Container')
+        })
+
+        it('should throw in setup() when called directly with null container', async () => {
+            renderer = new TestDOMRenderer({
+                type: 'dom',
+                container: '#dom-test-container',
+            })
+            // Call setup() directly before initialize() — container is null
+            await expect(renderer.setup()).rejects.toThrow(
+                'Container not found'
+            )
+        })
+
         it('should set up without containerClass', async () => {
             renderer = new TestDOMRenderer({
                 type: 'dom',
@@ -401,6 +420,20 @@ describe('DOMRenderer', () => {
                 container: '#dom-test-container',
             })
             expect(() => renderer.updateConfig({ width: 500 })).not.toThrow()
+        })
+
+        it('should early-return in onConfigUpdate when container is null after init', async () => {
+            renderer = new TestDOMRenderer({
+                type: 'dom',
+                container: '#dom-test-container',
+            })
+            await renderer.initialize()
+            // Nullify container while keeping isInitialized=true to trigger guard
+            // @ts-expect-error - accessing protected property for test coverage
+            renderer.container = null
+            expect(() =>
+                renderer.updateConfig({ width: 500, height: 400 })
+            ).not.toThrow()
         })
     })
 
