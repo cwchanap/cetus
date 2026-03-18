@@ -107,6 +107,7 @@ describe('QuickMathGame', () => {
             const inactiveGame = new QuickMathGame(config, callbacks)
             const result = inactiveGame.submitAnswer('5')
             expect(result).toBe(false)
+            inactiveGame.destroy()
         })
 
         it('should return true for correct answer', () => {
@@ -305,6 +306,7 @@ describe('QuickMathGame', () => {
         })
 
         it('should track onePlusOneIncorrect flag when answering 1+1 wrong', () => {
+            expect.assertions(1)
             const addConfig: GameConfig = {
                 gameDuration: 60,
                 operations: ['addition'],
@@ -315,7 +317,7 @@ describe('QuickMathGame', () => {
             addGame.startGame()
 
             const q = addGame.getState().currentQuestion!
-            // Verify it's 1+1=2
+            // With maxNumber=1 and addition-only, the question must be 1+1=2
             if (
                 q.operation === 'addition' &&
                 q.operand1 === 1 &&
@@ -401,6 +403,7 @@ describe('QuickMathGame', () => {
 
     describe('zeroAnswerIncorrect flag', () => {
         it('should track when zero-answer question answered incorrectly', () => {
+            expect.assertions(1)
             // Use subtraction with same operands to get 0 answer
             // Force equal operands: maxNumber=1, subtraction -> 1-1=0
             const subConfig: GameConfig = {

@@ -502,7 +502,7 @@ describe('Extended Database Queries', () => {
             }
             vi.mocked(db.updateTable).mockReturnValue(mockUpdateQuery as any)
 
-            // Pass a non-object (null) as gameData to trigger the isGameData check
+            // Pass null as gameData to trigger the isGameData check (null is explicitly rejected even though typeof null === 'object')
             const result = await saveGameScoreWithAchievements(
                 'user-123',
                 'tetris',
@@ -510,7 +510,7 @@ describe('Extended Database Queries', () => {
                 null
             )
 
-            // null is not a valid game data object (not an object), should fail
+            // null should be rejected by isGameData (null is not a valid game data object)
             expect(result.success).toBe(false)
         })
 
