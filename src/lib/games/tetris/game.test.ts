@@ -326,7 +326,7 @@ describe('Tetris Game Logic', () => {
 
         it('should work without onGameOver callback', async () => {
             const state = makeState({ gameStarted: true })
-            await expect(endGame(state)).resolves.not.toThrow()
+            await expect(endGame(state)).resolves.toBeUndefined()
         })
     })
 

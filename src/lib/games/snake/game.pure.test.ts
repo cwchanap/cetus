@@ -180,37 +180,19 @@ describe('Snake game.ts pure logic', () => {
         })
 
         it('should return false when snake collides with self', () => {
-            // Create a snake that loops back on itself
+            // Head at (5,5) moving right → new head at (6,5)
+            // Body segment at (6,5) → self-collision → returns false
             state.snake = [
-                { x: 5, y: 5, id: '1' },
-                { x: 5, y: 4, id: '2' },
-                { x: 4, y: 4, id: '3' },
-                { x: 4, y: 5, id: '4' },
-                { x: 5, y: 5, id: '5' }, // duplicate of head position
+                { x: 5, y: 5, id: 'h' },
+                { x: 6, y: 5, id: 'b1' }, // occupies position head moves into
+                { x: 7, y: 5, id: 'b2' },
+                { x: 8, y: 5, id: 'tail' },
             ]
             state.direction = 'right'
             state.nextDirection = 'right'
-
-            // Make the snake try to move to position occupied by itself
-            state.snake[0].x = 5
-            state.snake[0].y = 5
-            // add many segments so collision happens
-            for (let i = 0; i < 15; i++) {
-                state.snake.push({ x: 6 + i, y: 5, id: `seg-${i}` })
-            }
-            state.snake.unshift({ x: 5, y: 5, id: 'collision-test' })
-            // Direct self-collision by making head equal to next position
-            state.direction = 'right'
-            state.nextDirection = 'right'
-            state.snake[0] = { x: 5, y: 5, id: 'h' }
-            state.snake[1] = { x: 6, y: 5, id: 'b1' } // next position is body
-            state.snake[2] = { x: 7, y: 5, id: 'b2' }
-            state.snake[3] = { x: 8, y: 5, id: 'b3' }
-            // This won't cause self-collision in normal movement...
-            // Instead, manually test the boundary check
+            state.food = null
             const result = moveSnake(state)
-            // Result depends on where head ends up - just verify it returns boolean
-            expect(typeof result).toBe('boolean')
+            expect(result).toBe(false)
         })
 
         it('should update maxLength when snake grows beyond previous max', () => {
@@ -434,7 +416,7 @@ describe('Snake game.ts pure logic', () => {
             state.onGameOver = vi
                 .fn()
                 .mockRejectedValue(new Error('Callback error'))
-            await expect(endGame(state)).resolves.not.toThrow()
+            await expect(endGame(state)).resolves.toBeUndefined()
         })
 
         it('should calculate gameTime from gameStartTime', async () => {
@@ -471,7 +453,7 @@ describe('Snake game.ts pure logic', () => {
                     return Promise.resolve(undefined)
                 }
             )
-            await expect(endGame(state)).resolves.not.toThrow()
+            await expect(endGame(state)).resolves.toBeUndefined()
         })
     })
 

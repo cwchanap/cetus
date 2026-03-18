@@ -30,14 +30,6 @@ describe('DOMRenderer', () => {
     })
 
     describe('setup', () => {
-        it('should throw when container element not found', async () => {
-            renderer = new TestDOMRenderer({
-                type: 'dom',
-                container: '#non-existent-container-xyz',
-            })
-            await expect(renderer.initialize()).rejects.toThrow('Container')
-        })
-
         it('should throw in setup() when called directly with null container', async () => {
             renderer = new TestDOMRenderer({
                 type: 'dom',

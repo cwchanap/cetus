@@ -619,7 +619,7 @@ describe('Bubble Shooter game.ts pure logic', () => {
 
         it('should not throw without onGameOver (DOM fallback)', async () => {
             state.onGameOver = undefined
-            await expect(endGame(state)).resolves.not.toThrow()
+            await expect(endGame(state)).resolves.toBeUndefined()
         })
 
         it('should update DOM elements when onGameOver is not set', async () => {

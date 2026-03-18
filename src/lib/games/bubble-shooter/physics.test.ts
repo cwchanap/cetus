@@ -262,7 +262,7 @@ describe('Bubble Shooter Physics', () => {
             const dangerousY = getBubbleY(17, 0, constants) // y at row 17 before shift
 
             // Build sparse grid: place one bubble at row 17, col 0
-            const grid: GameState['grid'][number] = []
+            const grid: GameState['grid'] = []
             for (let r = 0; r < 18; r++) {
                 grid.push([])
             }
