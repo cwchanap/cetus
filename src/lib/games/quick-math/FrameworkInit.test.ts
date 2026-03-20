@@ -90,6 +90,7 @@ describe('initQuickMathFramework', () => {
 
     afterEach(() => {
         vi.restoreAllMocks()
+        vi.clearAllTimers()
         vi.useRealTimers()
         document.body.replaceChildren()
     })

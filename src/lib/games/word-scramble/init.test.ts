@@ -58,6 +58,7 @@ describe('initWordScrambleGame', () => {
 
     afterEach(() => {
         vi.restoreAllMocks()
+        vi.clearAllTimers()
         vi.useRealTimers()
         document.body.innerHTML = ''
     })

@@ -47,6 +47,7 @@ describe('initQuickMathGame', () => {
 
     afterEach(() => {
         vi.restoreAllMocks()
+        vi.clearAllTimers()
         vi.useRealTimers()
         document.body.innerHTML = ''
     })
