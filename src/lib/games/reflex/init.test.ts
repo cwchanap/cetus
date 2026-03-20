@@ -199,12 +199,8 @@ describe('initializeReflexGame', () => {
             const callbacks = makeCallbacks()
             const result = await initializeReflexGame(container, callbacks)
             result.startGame()
-            await expect(
-                (async () => {
-                    result.stopGame()
-                    await vi.runAllTimersAsync()
-                })()
-            ).resolves.not.toThrow()
+            result.stopGame()
+            await vi.runAllTimersAsync()
         })
 
         it('should dispatch achievementsEarned when achievements earned', async () => {

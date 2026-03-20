@@ -389,55 +389,71 @@ describe('initWordScrambleGame', () => {
     })
 
     describe('event listeners', () => {
-        it('start button click should start the game', async () => {
+        it('start button click should call onGameStart callback', async () => {
             const instance = await initWordScrambleGame()
-            const startBtn = document.getElementById('start-btn')!
-            const restartSpy = vi.spyOn(instance, 'restart')
-            // We can verify the game reacts to start button click
-            startBtn.click()
-            // Game should have been called (startGame on game instance)
-            expect(document.getElementById('start-btn')).toBeTruthy()
+            const onGameStartSpy = vi.spyOn(instance.callbacks, 'onGameStart')
+            document.getElementById('start-btn')!.click()
+            expect(onGameStartSpy).toHaveBeenCalled()
         })
 
-        it('submit button click should submit answer when game is active', async () => {
+        it('submit button click should trigger onCorrectAnswer or onIncorrectAnswer when game is active', async () => {
             const instance = await initWordScrambleGame()
-            // Start the game first
-            instance.restart?.()
+            instance.restart()
+            const onCorrectSpy = vi.spyOn(instance.callbacks, 'onCorrectAnswer')
+            const onIncorrectSpy = vi.spyOn(
+                instance.callbacks,
+                'onIncorrectAnswer'
+            )
+            const state = instance.getState()
             const answerInput = document.getElementById(
                 'answer-input'
             ) as HTMLInputElement
-            answerInput.value = 'test'
-            const submitBtn = document.getElementById('submit-answer')!
-            submitBtn.click()
-            // Verify no errors thrown
-            expect(answerInput).toBeTruthy()
+            answerInput.value = state?.currentChallenge?.originalWord ?? 'test'
+            document.getElementById('submit-answer')!.click()
+            expect(
+                onCorrectSpy.mock.calls.length +
+                    onIncorrectSpy.mock.calls.length
+            ).toBeGreaterThan(0)
         })
 
-        it('skip button click should not throw', async () => {
+        it('skip button click should trigger onChallengeUpdate when game is active', async () => {
             const instance = await initWordScrambleGame()
-            const skipBtn = document.getElementById('skip-word')!
-            expect(() => skipBtn.click()).not.toThrow()
+            instance.restart()
+            const onChallengeUpdateSpy = vi.spyOn(
+                instance.callbacks,
+                'onChallengeUpdate'
+            )
+            document.getElementById('skip-word')!.click()
+            expect(onChallengeUpdateSpy).toHaveBeenCalled()
         })
 
-        it('play-again button click should call startGame', async () => {
+        it('play-again button click should call onGameStart callback', async () => {
             const instance = await initWordScrambleGame()
-            const playAgainBtn = document.getElementById('play-again-btn')!
-            expect(() => playAgainBtn.click()).not.toThrow()
+            const onGameStartSpy = vi.spyOn(instance.callbacks, 'onGameStart')
+            document.getElementById('play-again-btn')!.click()
+            expect(onGameStartSpy).toHaveBeenCalled()
         })
 
-        it('enter key on answer-input should submit answer', async () => {
+        it('enter key on answer-input should trigger answer callback when game is active', async () => {
             const instance = await initWordScrambleGame()
+            instance.restart()
+            const onCorrectSpy = vi.spyOn(instance.callbacks, 'onCorrectAnswer')
+            const onIncorrectSpy = vi.spyOn(
+                instance.callbacks,
+                'onIncorrectAnswer'
+            )
+            const state = instance.getState()
             const answerInput = document.getElementById(
                 'answer-input'
             ) as HTMLInputElement
-            answerInput.value = 'test'
-            const enterEvent = new KeyboardEvent('keydown', {
-                key: 'Enter',
-                bubbles: true,
-            })
-            answerInput.dispatchEvent(enterEvent)
-            // No error thrown is the expected outcome
-            expect(answerInput).toBeTruthy()
+            answerInput.value = state?.currentChallenge?.originalWord ?? 'test'
+            answerInput.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+            )
+            expect(
+                onCorrectSpy.mock.calls.length +
+                    onIncorrectSpy.mock.calls.length
+            ).toBeGreaterThan(0)
         })
 
         it('input event on answer-input should update current answer', async () => {

@@ -226,9 +226,11 @@ describe('initSudokuGame', () => {
             document.body.appendChild(pauseBtn)
 
             initSudokuGame(container)
+            expect(pauseBtn.textContent).toBe('Pause')
             pauseBtn.click()
-            // After clicking, it should toggle pause text
-            expect(pauseBtn.textContent).toMatch(/Resume|Pause/)
+            expect(pauseBtn.textContent).toBe('Resume')
+            pauseBtn.click()
+            expect(pauseBtn.textContent).toBe('Pause')
         })
     })
 
@@ -242,20 +244,18 @@ describe('initSudokuGame', () => {
             }).not.toThrow()
         })
 
-        it('should update game-time element format as mm:ss', () => {
+        it('should update game-time element to mm:ss format after 2 seconds', () => {
             const timeEl = document.createElement('div')
             timeEl.id = 'game-time'
             document.body.appendChild(timeEl)
 
-            // Use fake timers to advance time by 2 seconds
             vi.useFakeTimers()
             initSudokuGame(container)
             vi.advanceTimersByTime(2000)
-            // Run the next scheduled RAF loop callback
+            // Trigger the RAF callback — game loop reads Date.now() which is now +2000ms
             rafCallbacks[rafCallbacks.length - 1]?.(performance.now())
             vi.useRealTimers()
-            // Just verify the game ran without throwing
-            expect(container.querySelector('.sudoku-game')).not.toBeNull()
+            expect(timeEl.textContent).toMatch(/^\d{2}:\d{2}$/)
         })
 
         it('should update score element in game loop', () => {
@@ -263,22 +263,25 @@ describe('initSudokuGame', () => {
             scoreEl.id = 'score'
             document.body.appendChild(scoreEl)
 
+            vi.useFakeTimers()
             initSudokuGame(container)
-            rafCallbacks[0]?.(Date.now() + 1100)
-            expect(scoreEl.textContent).toBeDefined()
+            vi.advanceTimersByTime(1100)
+            rafCallbacks[rafCallbacks.length - 1]?.(performance.now())
+            vi.useRealTimers()
+            expect(scoreEl.textContent).toMatch(/\d+/)
         })
     })
 
-    describe('showGameOverOverlay', () => {
-        it('should not throw when game over overlay does not exist', () => {
-            // Create a complete state by using a puzzle that resolves to isComplete
-            // Just verify it does not throw when overlay element isn't there
+    describe('game initialization with overlay elements present', () => {
+        it('should initialise successfully without a game-over-overlay in the DOM', () => {
+            // Verifies initSudokuGame does not crash when overlay element is absent
             initSudokuGame(container)
-            // This tests the showGameOverOverlay with no DOM element - no throw expected
             expect(container.querySelector('.sudoku-game')).not.toBeNull()
         })
 
-        it('should update overlay elements when game-over-overlay exists', () => {
+        it('should initialise successfully with all overlay elements present', () => {
+            // Verifies initSudokuGame does not crash when overlay elements are present;
+            // the overlay is not shown at start because the puzzle is not yet complete
             const overlay = document.createElement('div')
             overlay.id = 'game-over-overlay'
             overlay.className = 'hidden'
@@ -298,9 +301,10 @@ describe('initSudokuGame', () => {
             finalDiffEl.id = 'final-difficulty'
             document.body.appendChild(finalDiffEl)
 
-            // Just testing init doesn't crash - overlay isn't shown at start
             initSudokuGame(container)
             expect(container.querySelector('.sudoku-game')).not.toBeNull()
+            // Overlay stays hidden at game start
+            expect(overlay.classList.contains('hidden')).toBe(true)
         })
     })
 })

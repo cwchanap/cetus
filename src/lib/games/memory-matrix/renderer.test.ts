@@ -35,9 +35,8 @@ function makeGameStats(overrides: Partial<GameStats> = {}): GameStats {
     return {
         matchesFound: 0,
         totalAttempts: 0,
+        timeElapsed: 0,
         accuracy: 100,
-        timeBonus: 0,
-        finalScore: 0,
         ...overrides,
     }
 }
