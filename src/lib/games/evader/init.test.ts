@@ -146,11 +146,11 @@ describe('initializeEvaderGame', () => {
             const callbacks = makeCallbacks()
             const result = await initializeEvaderGame(container, callbacks)
             result.startGame()
-            await result.stopGame()
+            result.stopGame()
             await vi.runAllTimersAsync()
-            // handleGameOver is async, let promises resolve
             const finalScore = document.getElementById('final-score')!
-            expect(finalScore).toBeDefined()
+            // Score starts at 0; after stop the element should be set to '0'
+            expect(finalScore.textContent).toBe('0')
         })
 
         it('should show game-over-overlay when game ends', async () => {

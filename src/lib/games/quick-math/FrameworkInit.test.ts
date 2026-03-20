@@ -8,23 +8,78 @@ vi.mock('@/lib/services/scoreService', () => ({
 }))
 
 function setupDOM() {
-    document.body.innerHTML = `
-        <div id="quick-math-container">
-            <div id="question">5 + 3 = ?</div>
-            <input id="answer-input" type="text" />
-            <button id="submit-answer">Submit</button>
-        </div>
-        <button id="start-btn">Start</button>
-        <button id="end-btn" style="display:none">End</button>
-        <button id="play-again-btn">Play Again</button>
-        <div id="game-over-overlay" class="hidden"></div>
-        <span id="final-score">0</span>
-        <span id="current-questions">0</span>
-        <span id="current-correct">0</span>
-        <span id="current-score">0</span>
-        <span id="score">0</span>
-        <span id="time-remaining">60</span>
-    `
+    document.body.replaceChildren()
+
+    const container = document.createElement('div')
+    container.id = 'quick-math-container'
+
+    const question = document.createElement('div')
+    question.id = 'question'
+    question.textContent = '5 + 3 = ?'
+    container.appendChild(question)
+
+    const answerInput = document.createElement('input')
+    answerInput.id = 'answer-input'
+    answerInput.type = 'text'
+    container.appendChild(answerInput)
+
+    const submitBtn = document.createElement('button')
+    submitBtn.id = 'submit-answer'
+    submitBtn.textContent = 'Submit'
+    container.appendChild(submitBtn)
+
+    document.body.appendChild(container)
+
+    const startBtn = document.createElement('button')
+    startBtn.id = 'start-btn'
+    startBtn.textContent = 'Start'
+    document.body.appendChild(startBtn)
+
+    const endBtn = document.createElement('button')
+    endBtn.id = 'end-btn'
+    endBtn.style.display = 'none'
+    endBtn.textContent = 'End'
+    document.body.appendChild(endBtn)
+
+    const playAgainBtn = document.createElement('button')
+    playAgainBtn.id = 'play-again-btn'
+    playAgainBtn.textContent = 'Play Again'
+    document.body.appendChild(playAgainBtn)
+
+    const overlay = document.createElement('div')
+    overlay.id = 'game-over-overlay'
+    overlay.className = 'hidden'
+    document.body.appendChild(overlay)
+
+    const finalScore = document.createElement('span')
+    finalScore.id = 'final-score'
+    finalScore.textContent = '0'
+    document.body.appendChild(finalScore)
+
+    const currentQuestions = document.createElement('span')
+    currentQuestions.id = 'current-questions'
+    currentQuestions.textContent = '0'
+    document.body.appendChild(currentQuestions)
+
+    const currentCorrect = document.createElement('span')
+    currentCorrect.id = 'current-correct'
+    currentCorrect.textContent = '0'
+    document.body.appendChild(currentCorrect)
+
+    const currentScore = document.createElement('span')
+    currentScore.id = 'current-score'
+    currentScore.textContent = '0'
+    document.body.appendChild(currentScore)
+
+    const score = document.createElement('span')
+    score.id = 'score'
+    score.textContent = '0'
+    document.body.appendChild(score)
+
+    const timeRemaining = document.createElement('span')
+    timeRemaining.id = 'time-remaining'
+    timeRemaining.textContent = '60'
+    document.body.appendChild(timeRemaining)
 }
 
 describe('initQuickMathFramework', () => {
@@ -36,7 +91,7 @@ describe('initQuickMathFramework', () => {
     afterEach(() => {
         vi.restoreAllMocks()
         vi.useRealTimers()
-        document.body.innerHTML = ''
+        document.body.replaceChildren()
     })
 
     describe('initialization', () => {
@@ -233,13 +288,15 @@ describe('initQuickMathFramework', () => {
             expect(onStart).toHaveBeenCalled()
         })
 
-        it('should invoke custom onScoreUpdate callback', async () => {
+        it('should invoke custom onScoreUpdate callback when correct answer submitted', async () => {
             const onScoreUpdate = vi.fn()
             const result = await initQuickMathFramework({}, { onScoreUpdate })
             result.game.start()
-            // Submit a correct answer to trigger score update
             const state = result.game.getState()
-            expect(state).toBeDefined()
+            const question = state.currentQuestion
+            expect(question).not.toBeNull()
+            result.game.submitAnswer(String(question!.answer))
+            expect(onScoreUpdate).toHaveBeenCalled()
         })
 
         it('should invoke custom onTimeUpdate callback', async () => {
@@ -250,10 +307,17 @@ describe('initQuickMathFramework', () => {
             expect(onTimeUpdate).toHaveBeenCalled()
         })
 
-        it('should invoke custom onQuestionUpdate callback', async () => {
+        it('should invoke custom onQuestionUpdate callback when game starts', async () => {
             const onQuestionUpdate = vi.fn()
-            await initQuickMathFramework({}, { onQuestionUpdate })
-            // question update fires on start
+            const result = await initQuickMathFramework(
+                {},
+                { onQuestionUpdate }
+            )
+            result.game.start()
+            expect(onQuestionUpdate).toHaveBeenCalledTimes(1)
+            expect(onQuestionUpdate).toHaveBeenCalledWith(
+                expect.objectContaining({ question: expect.any(String) })
+            )
         })
     })
 

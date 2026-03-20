@@ -307,11 +307,14 @@ describe('initQuickMathGame', () => {
     })
 
     describe('event listeners', () => {
-        it('start button click should start the game', async () => {
-            const result = await initQuickMathGame()
-            expect(() =>
-                document.getElementById('start-btn')!.click()
-            ).not.toThrow()
+        it('start button click should put the game in started state', async () => {
+            await initQuickMathGame()
+            const startBtn = document.getElementById(
+                'start-btn'
+            ) as HTMLButtonElement
+            startBtn.click()
+            expect(startBtn.textContent).toBe('Playing...')
+            expect(startBtn.disabled).toBe(true)
         })
 
         it('play-again button click should start game and reset start button', async () => {

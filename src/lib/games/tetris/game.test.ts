@@ -25,6 +25,21 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     return { ...createGameState(), ...overrides }
 }
 
+function fillBoardRows(
+    state: GameState,
+    startRow: number,
+    endRow: number,
+    excludeCol: number
+) {
+    for (let row = startRow; row < endRow; row++) {
+        for (let col = 0; col < GAME_CONSTANTS.BOARD_WIDTH; col++) {
+            if (col !== excludeCol) {
+                state.board[row][col] = 0xff0000
+            }
+        }
+    }
+}
+
 describe('Tetris Game Logic', () => {
     describe('createGameState', () => {
         it('should create state with an empty board', () => {
@@ -611,11 +626,7 @@ describe('Tetris Game Logic', () => {
             spawnPiece(state)
 
             // Fill columns 1-9 in rows 16-19 (leaving column 0 empty)
-            for (let row = 16; row < 20; row++) {
-                for (let col = 1; col < GAME_CONSTANTS.BOARD_WIDTH; col++) {
-                    state.board[row][col] = 0xff0000
-                }
-            }
+            fillBoardRows(state, 16, 20, 0)
 
             // Place a vertical I-piece at column 0 spanning rows 16-19
             state.currentPiece = {
@@ -641,11 +652,7 @@ describe('Tetris Game Logic', () => {
             spawnPiece(state)
 
             // Fill rows 16-19 columns 1-9
-            for (let row = 16; row < 20; row++) {
-                for (let col = 1; col < GAME_CONSTANTS.BOARD_WIDTH; col++) {
-                    state.board[row][col] = 0xff0000
-                }
-            }
+            fillBoardRows(state, 16, 20, 0)
 
             // Vertical I-piece to complete 4 rows, pushing lines from 9 → 13 (crosses 10)
             state.currentPiece = {
@@ -658,6 +665,7 @@ describe('Tetris Game Logic', () => {
 
             movePiece(state, 0, 1)
 
+            expect(state.lines).toBe(13)
             expect(state.level).toBeGreaterThan(1)
         })
 
@@ -666,11 +674,7 @@ describe('Tetris Game Logic', () => {
             spawnPiece(state)
 
             // Fill rows 18-19 columns 1-9
-            for (let row = 18; row < 20; row++) {
-                for (let col = 1; col < GAME_CONSTANTS.BOARD_WIDTH; col++) {
-                    state.board[row][col] = 0xff0000
-                }
-            }
+            fillBoardRows(state, 18, 20, 0)
 
             // Place a 2-tall piece at column 0
             state.currentPiece = {
@@ -690,11 +694,7 @@ describe('Tetris Game Logic', () => {
             spawnPiece(state)
 
             // Fill rows 17-19 columns 1-9
-            for (let row = 17; row < 20; row++) {
-                for (let col = 1; col < GAME_CONSTANTS.BOARD_WIDTH; col++) {
-                    state.board[row][col] = 0xff0000
-                }
-            }
+            fillBoardRows(state, 17, 20, 0)
 
             // Place a 3-tall piece at column 0
             state.currentPiece = {
