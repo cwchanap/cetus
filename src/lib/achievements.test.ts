@@ -319,3 +319,107 @@ describe('Achievement in_game condition callbacks', () => {
         expect(check({ gameHistory }, 0)).toBe(false)
     })
 })
+
+describe('Achievement in_game condition checks', () => {
+    describe('word_secret_dog condition', () => {
+        it('should return true when lastCorrectWord is "dog"', () => {
+            const achievement = getAchievementById('word_secret_dog')
+            const check = achievement!.condition.check!
+            expect(check({ lastCorrectWord: 'dog' }, 0)).toBe(true)
+        })
+
+        it('should return true when lastCorrectWord is uppercase "DOG"', () => {
+            const achievement = getAchievementById('word_secret_dog')
+            const check = achievement!.condition.check!
+            expect(check({ lastCorrectWord: 'DOG' }, 0)).toBe(true)
+        })
+
+        it('should return true when "dog" is in correctWords array', () => {
+            const achievement = getAchievementById('word_secret_dog')
+            const check = achievement!.condition.check!
+            expect(check({ correctWords: ['cat', 'dog', 'bird'] }, 0)).toBe(
+                true
+            )
+        })
+
+        it('should return false when "dog" is not in game data', () => {
+            const achievement = getAchievementById('word_secret_dog')
+            const check = achievement!.condition.check!
+            expect(check({ lastCorrectWord: 'cat', correctWords: [] }, 0)).toBe(
+                false
+            )
+        })
+
+        it('should return false when gameData is empty', () => {
+            const achievement = getAchievementById('word_secret_dog')
+            const check = achievement!.condition.check!
+            expect(check({}, 0)).toBe(false)
+        })
+    })
+
+    describe('quick_math_999_seen condition', () => {
+        it('should return true when seenOperand999 is true', () => {
+            const achievement = getAchievementById('quick_math_999_seen')
+            const check = achievement!.condition.check!
+            expect(check({ seenOperand999: true }, 0)).toBe(true)
+        })
+
+        it('should return false when seenOperand999 is false', () => {
+            const achievement = getAchievementById('quick_math_999_seen')
+            const check = achievement!.condition.check!
+            expect(check({ seenOperand999: false }, 0)).toBe(false)
+        })
+
+        it('should return false when seenOperand999 is undefined', () => {
+            const achievement = getAchievementById('quick_math_999_seen')
+            const check = achievement!.condition.check!
+            expect(check({}, 0)).toBe(false)
+        })
+    })
+
+    describe('quick_math_zero_answer_wrong condition', () => {
+        it('should return true when zeroAnswerIncorrect is true', () => {
+            const achievement = getAchievementById(
+                'quick_math_zero_answer_wrong'
+            )
+            const check = achievement!.condition.check!
+            expect(check({ zeroAnswerIncorrect: true }, 0)).toBe(true)
+        })
+
+        it('should return false when zeroAnswerIncorrect is false', () => {
+            const achievement = getAchievementById(
+                'quick_math_zero_answer_wrong'
+            )
+            const check = achievement!.condition.check!
+            expect(check({ zeroAnswerIncorrect: false }, 0)).toBe(false)
+        })
+
+        it('should return false when zeroAnswerIncorrect is undefined', () => {
+            const achievement = getAchievementById(
+                'quick_math_zero_answer_wrong'
+            )
+            const check = achievement!.condition.check!
+            expect(check({}, 0)).toBe(false)
+        })
+    })
+
+    describe('reflex_perfect_run condition', () => {
+        it('should return true when score > 500 and no bombs hit', () => {
+            const achievement = getAchievementById('reflex_perfect_run')
+            const check = achievement!.condition.check!
+            expect(check({ bombsHit: 0 }, 600)).toBe(true)
+        })
+
+        it('should return false when score <= 500', () => {
+            const achievement = getAchievementById('reflex_perfect_run')
+            const check = achievement!.condition.check!
+            expect(check({ bombsHit: 0 }, 500)).toBe(false)
+        })
+
+        it('should return false when bombs were hit', () => {
+            const achievement = getAchievementById('reflex_perfect_run')
+            const check = achievement!.condition.check!
+            expect(check({ bombsHit: 1 }, 600)).toBe(false)
+        })
+    })
+})
