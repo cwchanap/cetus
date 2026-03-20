@@ -550,6 +550,24 @@ describe('Bubble Shooter game.ts pure logic', () => {
             expect(btn.textContent).toBe('Pause')
             document.body.removeChild(btn)
         })
+
+        it('should hide pause overlay when resuming', () => {
+            const btn = document.createElement('button')
+            btn.id = 'pause-btn'
+            const overlay = document.createElement('div')
+            overlay.id = 'pause-overlay'
+            overlay.classList.add('shown')
+            document.body.appendChild(btn)
+            document.body.appendChild(overlay)
+
+            state.gameStarted = true
+            state.paused = true
+            togglePause(state, vi.fn())
+
+            expect(overlay.classList.contains('hidden')).toBe(true)
+            document.body.removeChild(btn)
+            document.body.removeChild(overlay)
+        })
     })
 
     describe('gameLoop', () => {
@@ -749,6 +767,25 @@ describe('Bubble Shooter game.ts pure logic', () => {
             gameLoop(state, renderer)
             expect(mockUpdateProjectile).toHaveBeenCalled()
             vi.unstubAllGlobals()
+        })
+
+        it('should call endGame when gameOver becomes true after updateProjectile', async () => {
+            const { updateProjectile } = await import('./physics')
+            const mockUpdateProjectile = vi.mocked(updateProjectile)
+            mockUpdateProjectile.mockImplementationOnce(
+                (s: Parameters<typeof mockUpdateProjectile>[0]) => {
+                    s.gameOver = true
+                }
+            )
+
+            state.paused = false
+            state.gameStarted = true
+            state.gameOver = false
+            const renderer = {} as unknown as Parameters<typeof gameLoop>[1]
+
+            gameLoop(state, renderer)
+            // endGame should have been triggered, setting gameStarted = false
+            expect(state.gameStarted).toBe(false)
         })
     })
 })

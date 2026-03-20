@@ -605,6 +605,111 @@ describe('Tetris Game Logic', () => {
         })
     })
 
+    describe('tetris (4-line clear) and level update', () => {
+        it('should increment tetrises stat when 4 lines are cleared at once', () => {
+            const state = makeState({ nextPiece: generateNextPiece() })
+            spawnPiece(state)
+
+            // Fill columns 1-9 in rows 16-19 (leaving column 0 empty)
+            for (let row = 16; row < 20; row++) {
+                for (let col = 1; col < GAME_CONSTANTS.BOARD_WIDTH; col++) {
+                    state.board[row][col] = 0xff0000
+                }
+            }
+
+            // Place a vertical I-piece at column 0 spanning rows 16-19
+            state.currentPiece = {
+                type: 'I',
+                shape: [[1], [1], [1], [1]],
+                color: GAME_CONSTANTS.COLORS.I,
+                x: 0,
+                y: 16,
+            }
+
+            // Move down — piece at y=16 with height 4 hits bottom → locks at y=16
+            movePiece(state, 0, 1)
+
+            expect(state.stats.tetrises).toBe(1)
+        })
+
+        it('should increase level when lines cross a 10-line boundary', () => {
+            const state = makeState({
+                nextPiece: generateNextPiece(),
+                lines: 9,
+                level: 1,
+            })
+            spawnPiece(state)
+
+            // Fill rows 16-19 columns 1-9
+            for (let row = 16; row < 20; row++) {
+                for (let col = 1; col < GAME_CONSTANTS.BOARD_WIDTH; col++) {
+                    state.board[row][col] = 0xff0000
+                }
+            }
+
+            // Vertical I-piece to complete 4 rows, pushing lines from 9 → 13 (crosses 10)
+            state.currentPiece = {
+                type: 'I',
+                shape: [[1], [1], [1], [1]],
+                color: GAME_CONSTANTS.COLORS.I,
+                x: 0,
+                y: 16,
+            }
+
+            movePiece(state, 0, 1)
+
+            expect(state.level).toBeGreaterThan(1)
+        })
+
+        it('should increment doubles stat when 2 lines are cleared at once', () => {
+            const state = makeState({ nextPiece: generateNextPiece() })
+            spawnPiece(state)
+
+            // Fill rows 18-19 columns 1-9
+            for (let row = 18; row < 20; row++) {
+                for (let col = 1; col < GAME_CONSTANTS.BOARD_WIDTH; col++) {
+                    state.board[row][col] = 0xff0000
+                }
+            }
+
+            // Place a 2-tall piece at column 0
+            state.currentPiece = {
+                type: 'I',
+                shape: [[1], [1]],
+                color: GAME_CONSTANTS.COLORS.I,
+                x: 0,
+                y: 18,
+            }
+
+            movePiece(state, 0, 1)
+            expect(state.stats.doubles).toBe(1)
+        })
+
+        it('should increment triples stat when 3 lines are cleared at once', () => {
+            const state = makeState({ nextPiece: generateNextPiece() })
+            spawnPiece(state)
+
+            // Fill rows 17-19 columns 1-9
+            for (let row = 17; row < 20; row++) {
+                for (let col = 1; col < GAME_CONSTANTS.BOARD_WIDTH; col++) {
+                    state.board[row][col] = 0xff0000
+                }
+            }
+
+            // Place a 3-tall piece at column 0
+            state.currentPiece = {
+                type: 'I',
+                shape: [[1], [1], [1]],
+                color: GAME_CONSTANTS.COLORS.I,
+                x: 0,
+                y: 17,
+            }
+
+            movePiece(state, 0, 1)
+            expect(state.stats.triples).toBe(1)
+        })
+    })
+
     describe('updateNextPieceDisplay', () => {
         it('should not throw with mock canvas context', () => {
             const ctx = {

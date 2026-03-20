@@ -698,6 +698,30 @@ describe('2048 Game Logic', () => {
             expect(onWin).toHaveBeenCalled()
         })
 
+        it('should return early without processing when move does not happen', () => {
+            state = startGame(state)
+            // Place a single tile at left edge — moving left doesn't change anything
+            state.board = createEmptyBoard()
+            state.board[0][0] = {
+                id: 'tile-1',
+                value: 2,
+                position: { row: 0, col: 0 },
+            }
+
+            const onScoreChange = vi.fn()
+            const onMove = vi.fn()
+            const result = processMove(state, 'left', 5, {
+                onScoreChange,
+                onMove,
+            })
+
+            // Since the tile can't move left, result.moved is false → early return
+            expect(result.totalMerges).toBe(5) // unchanged
+            expect(result.callbacksToInvoke).toHaveLength(0)
+            expect(onScoreChange).not.toHaveBeenCalled()
+            expect(onMove).not.toHaveBeenCalled()
+        })
+
         it('should trigger onGameOver when no moves left', () => {
             const onGameOver = vi.fn()
 
