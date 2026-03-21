@@ -1,4 +1,6 @@
 // Mock for astro:middleware in test environment
-export function defineMiddleware(handler: (...args: unknown[]) => unknown) {
+export function defineMiddleware<T extends (...args: any[]) => any>(
+    handler: T
+): T {
     return handler
 }

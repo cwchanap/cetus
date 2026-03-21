@@ -454,7 +454,7 @@ describe('initTetrisGame', () => {
             const state = gameInst!.getState() as any
 
             if (typeof state.onGameOver === 'function') {
-                await expect(state.onGameOver(0, {})).resolves.not.toThrow()
+                await expect(state.onGameOver(0, {})).resolves.toBeUndefined()
             }
         })
     })
