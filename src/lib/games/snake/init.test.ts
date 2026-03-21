@@ -381,7 +381,7 @@ describe('initSnakeGame', () => {
                         foodsEaten: 0,
                         gameTime: 0,
                     })
-                ).resolves.not.toThrow()
+                ).resolves.toBeUndefined()
             }
         })
     })
