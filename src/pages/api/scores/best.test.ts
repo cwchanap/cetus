@@ -220,6 +220,7 @@ describe('GET /api/scores/best', () => {
         // Assert
         expect(response.status).toBe(400)
         expect(result).toEqual({ error: 'Invalid game ID' })
+        expect(getGameById).toHaveBeenCalledWith('tetris')
         expect(getUserBestScore).not.toHaveBeenCalled()
     })
 

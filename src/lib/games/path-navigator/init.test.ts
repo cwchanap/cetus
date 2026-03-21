@@ -328,6 +328,7 @@ describe('initializePathNavigatorGame', () => {
             }
 
             expect(document.getElementById('score')!.textContent).toBe('0')
+            expect(onScoreUpdate).toHaveBeenCalled()
         })
 
         it('should call onTimeUpdate with DOM update', async () => {
@@ -345,6 +346,7 @@ describe('initializePathNavigatorGame', () => {
             expect(document.getElementById('time-remaining')!.textContent).toBe(
                 '60'
             )
+            expect(onTimeUpdate).toHaveBeenCalled()
         })
 
         it('should call onLevelChange with DOM update', async () => {

@@ -121,10 +121,9 @@ describe('initBejeweledGame', () => {
             const capturedCallback = vi.mocked(
                 rendererInstance.setCellClickCallback
             ).mock.calls[0]?.[0]
-            if (capturedCallback) {
-                capturedCallback(1, 2)
-                expect(gameInstance.clickCell).toHaveBeenCalledWith(1, 2)
-            }
+            expect(capturedCallback).toBeDefined()
+            capturedCallback!(1, 2)
+            expect(gameInstance.clickCell).toHaveBeenCalledWith(1, 2)
         })
 
         it('should call renderer.render on initial state', async () => {
@@ -332,25 +331,24 @@ describe('initBejeweledGame', () => {
                 .mocked(gameInstance.on)
                 .mock.calls.find(c => c[0] === 'end')
 
-            if (onCall) {
-                const handler = onCall[1] as (...args: unknown[]) => void
-                handler({
-                    type: 'end',
-                    data: {
-                        newAchievements: [
-                            {
-                                id: 'bejeweled_pro',
-                                name: 'Bejeweled Pro',
-                                description: 'Score 500',
-                                icon: '💎',
-                                rarity: 'rare',
-                            },
-                        ],
-                    },
-                    timestamp: Date.now(),
-                })
-                expect(showAchievementAward).toHaveBeenCalled()
-            }
+            expect(onCall).toBeDefined()
+            const handler = onCall![1] as (...args: unknown[]) => void
+            handler({
+                type: 'end',
+                data: {
+                    newAchievements: [
+                        {
+                            id: 'bejeweled_pro',
+                            name: 'Bejeweled Pro',
+                            description: 'Score 500',
+                            icon: '💎',
+                            rarity: 'rare',
+                        },
+                    ],
+                },
+                timestamp: Date.now(),
+            })
+            expect(showAchievementAward).toHaveBeenCalled()
 
             vi.unstubAllGlobals()
         })
@@ -368,15 +366,14 @@ describe('initBejeweledGame', () => {
                 .mocked(gameInstance.on)
                 .mock.calls.find(c => c[0] === 'end')
 
-            if (onCall) {
-                const handler = onCall[1] as (...args: unknown[]) => void
-                handler({
-                    type: 'end',
-                    data: { newAchievements: [] },
-                    timestamp: Date.now(),
-                })
-                expect(showAchievementAward).not.toHaveBeenCalled()
-            }
+            expect(onCall).toBeDefined()
+            const handler = onCall![1] as (...args: unknown[]) => void
+            handler({
+                type: 'end',
+                data: { newAchievements: [] },
+                timestamp: Date.now(),
+            })
+            expect(showAchievementAward).not.toHaveBeenCalled()
 
             vi.unstubAllGlobals()
         })

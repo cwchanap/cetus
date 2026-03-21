@@ -270,7 +270,25 @@ describe('initSnakeGame', () => {
                     new KeyboardEvent('keydown', { key, bubbles: true })
                 )
             }
-            expect(changeDirection).toHaveBeenCalled()
+
+            const expectedDirections = [
+                'left',
+                'right',
+                'up',
+                'down',
+                'left',
+                'right',
+                'up',
+                'down',
+                'left',
+                'right',
+                'up',
+                'down',
+            ]
+            expect(changeDirection.mock.calls.length).toBe(keys.length)
+            expectedDirections.forEach((dir, i) => {
+                expect(changeDirection.mock.calls[i][1]).toBe(dir)
+            })
         })
 
         it('should handle p/P for pause when game is started', async () => {

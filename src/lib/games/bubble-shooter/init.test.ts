@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { initBubbleShooterGame } from './init'
+import { GameID } from '@/lib/games'
 
 // Mock score service
 vi.mock('@/lib/services/scoreService', () => ({
@@ -327,7 +328,7 @@ describe('initBubbleShooterGame', () => {
             if (typeof state.onGameOver === 'function') {
                 await state.onGameOver(150, {})
                 expect(saveGameScore).toHaveBeenCalledWith(
-                    expect.any(String),
+                    GameID.BUBBLE_SHOOTER,
                     150,
                     expect.any(Function),
                     expect.any(Function)
