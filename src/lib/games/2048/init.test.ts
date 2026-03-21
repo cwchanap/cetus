@@ -37,10 +37,12 @@ vi.mock('./game', () => ({
         gameOver: false,
         gameStarted: false,
     })),
-    processMove: vi.fn((state, _dir, totalMerges, _callbacks) => ({
+    processMove: vi.fn((state, _dir, totalMerges, callbacks) => ({
         state: { ...state, score: state.score + 10 },
         totalMerges: totalMerges + 1,
-        callbacksToInvoke: [],
+        callbacksToInvoke: callbacks?.onScoreChange
+            ? [() => callbacks.onScoreChange(state.score + 10)]
+            : [],
     })),
     endGame: vi.fn((state, totalMerges) => ({
         state: { ...state, gameOver: true },
@@ -391,6 +393,12 @@ describe('init2048Game', () => {
             ;(state as any).gameStarted = true
             await gameInst!.endGame()
             await vi.runAllTimersAsync()
+
+            const overlay = document.getElementById('game-over-overlay')!
+            expect(overlay.classList.contains('hidden')).toBe(false)
+            expect(document.getElementById('final-score')!.textContent).toBe(
+                '0'
+            )
         })
 
         it('should dispatch achievementsEarned when achievements earned', async () => {
@@ -419,6 +427,9 @@ describe('init2048Game', () => {
             await gameInst!.endGame()
             await vi.runAllTimersAsync()
 
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'achievementsEarned' })
+            )
             dispatchSpy.mockRestore()
         })
     })
@@ -436,6 +447,8 @@ describe('init2048Game', () => {
                 })
             )
             await vi.runAllTimersAsync()
+
+            expect(onScoreChange).toHaveBeenCalledWith(10)
         })
     })
 })

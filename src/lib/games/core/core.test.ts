@@ -671,11 +671,17 @@ describe('BaseGame default hooks', () => {
             },
             {}
         )
+        const startListener = vi.fn()
+        game.on('start', startListener)
         game.start()
         expect(game.getState().isActive).toBe(true)
-        // Second call — hits the isActive guard (lines 81-82)
+        // Record how many times start was emitted from the first call
+        const countAfterFirstStart = startListener.mock.calls.length
+        expect(countAfterFirstStart).toBeGreaterThan(0)
+        // Second call — hits the isActive guard (lines 81-82) and emits nothing new
         game.start()
         expect(game.getState().isActive).toBe(true)
+        expect(startListener.mock.calls.length).toBe(countAfterFirstStart)
         game.destroy()
     })
 })

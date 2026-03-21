@@ -76,26 +76,75 @@ vi.mock('@/lib/games/core/errors', () => ({
     handleGameError: vi.fn(),
 }))
 
+function createElement<K extends keyof HTMLElementTagNameMap>(
+    tag: K,
+    attrs: Record<string, string> = {}
+): HTMLElementTagNameMap[K] {
+    const el = document.createElement(tag)
+    for (const [key, value] of Object.entries(attrs)) {
+        el.setAttribute(key, value)
+    }
+    return el
+}
+
 function setupDOM() {
-    document.body.innerHTML = `
-        <div id="snake-container"></div>
-        <span id="score">0</span>
-        <span id="time-remaining">60s</span>
-        <span id="snake-length">1</span>
-        <span id="snake-length-stats">1</span>
-        <span id="foods-eaten">0</span>
-        <span id="final-score">0</span>
-        <span id="final-length">1</span>
-        <span id="final-foods">0</span>
-        <span id="final-time">0s</span>
-        <div id="game-over-overlay" class="hidden"></div>
-        <button id="start-btn" style="display:inline-flex">Start</button>
-        <button id="end-btn" style="display:none">End</button>
-        <button id="pause-btn">Pause</button>
-        <button id="reset-btn">Reset</button>
-        <button id="restart-btn">Restart</button>
-        <button id="play-again-btn">Play Again</button>
-    `
+    const container = createElement('div', { id: 'snake-container' })
+    const score = createElement('span', { id: 'score' })
+    score.textContent = '0'
+    const timeRemaining = createElement('span', { id: 'time-remaining' })
+    timeRemaining.textContent = '60s'
+    const snakeLength = createElement('span', { id: 'snake-length' })
+    snakeLength.textContent = '1'
+    const snakeLengthStats = createElement('span', { id: 'snake-length-stats' })
+    snakeLengthStats.textContent = '1'
+    const foodsEaten = createElement('span', { id: 'foods-eaten' })
+    foodsEaten.textContent = '0'
+    const finalScore = createElement('span', { id: 'final-score' })
+    finalScore.textContent = '0'
+    const finalLength = createElement('span', { id: 'final-length' })
+    finalLength.textContent = '1'
+    const finalFoods = createElement('span', { id: 'final-foods' })
+    finalFoods.textContent = '0'
+    const finalTime = createElement('span', { id: 'final-time' })
+    finalTime.textContent = '0s'
+    const overlay = createElement('div', {
+        id: 'game-over-overlay',
+        class: 'hidden',
+    })
+    const startBtn = createElement('button', { id: 'start-btn' })
+    startBtn.style.display = 'inline-flex'
+    startBtn.textContent = 'Start'
+    const endBtn = createElement('button', { id: 'end-btn' })
+    endBtn.style.display = 'none'
+    endBtn.textContent = 'End'
+    const pauseBtn = createElement('button', { id: 'pause-btn' })
+    pauseBtn.textContent = 'Pause'
+    const resetBtn = createElement('button', { id: 'reset-btn' })
+    resetBtn.textContent = 'Reset'
+    const restartBtn = createElement('button', { id: 'restart-btn' })
+    restartBtn.textContent = 'Restart'
+    const playAgainBtn = createElement('button', { id: 'play-again-btn' })
+    playAgainBtn.textContent = 'Play Again'
+
+    document.body.replaceChildren(
+        container,
+        score,
+        timeRemaining,
+        snakeLength,
+        snakeLengthStats,
+        foodsEaten,
+        finalScore,
+        finalLength,
+        finalFoods,
+        finalTime,
+        overlay,
+        startBtn,
+        endBtn,
+        pauseBtn,
+        resetBtn,
+        restartBtn,
+        playAgainBtn
+    )
 }
 
 describe('initSnakeGameFramework', () => {
@@ -124,7 +173,7 @@ describe('initSnakeGameFramework', () => {
         }
         vi.useRealTimers()
         vi.unstubAllGlobals()
-        document.body.innerHTML = ''
+        document.body.replaceChildren()
         rafCallbacks.length = 0
     })
 

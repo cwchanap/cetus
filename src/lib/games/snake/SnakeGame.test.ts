@@ -62,8 +62,10 @@ describe('SnakeGame', () => {
 
         it('update and render should be no-ops', () => {
             // These methods exist for interface compliance but do nothing
-            expect(() => game.update(16)).not.toThrow()
-            expect(() => game.render()).not.toThrow()
+            const stateBefore = JSON.stringify(game.getState())
+            game.update(16)
+            game.render()
+            expect(JSON.stringify(game.getState())).toBe(stateBefore)
         })
 
         it('should use default config values', () => {

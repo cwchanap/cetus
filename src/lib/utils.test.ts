@@ -12,8 +12,8 @@ describe('cn', () => {
     })
 
     it('handles conditional classes', () => {
-        const skip = false
-        expect(cn('base', skip && 'skip', 'end')).toBe('base end')
+        const shouldSkipClass = false
+        expect(cn('base', shouldSkipClass && 'skip', 'end')).toBe('base end')
     })
 })
 

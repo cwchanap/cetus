@@ -17,13 +17,18 @@ vi.mock('astro:middleware', () => ({
 import { onRequest } from './middleware'
 import { auth } from '@/lib/auth'
 
+interface TestContext {
+    request: { headers: Headers }
+    locals: Record<string, unknown>
+}
+
 describe('middleware', () => {
-    function makeContext(overrides: Partial<any> = {}) {
+    function makeContext(overrides: Partial<TestContext> = {}): TestContext {
         return {
             request: {
                 headers: new Headers(),
             },
-            locals: {} as any,
+            locals: {},
             ...overrides,
         }
     }
@@ -101,5 +106,19 @@ describe('middleware', () => {
         const result = await (onRequest as any)(context, next)
 
         expect(result).toBe(mockResponse)
+    })
+
+    it('should propagate errors thrown by getSession', async () => {
+        vi.mocked(auth.api.getSession).mockRejectedValueOnce(
+            new Error('Test error')
+        )
+
+        const context = makeContext()
+        const next = makeNext()
+
+        await expect((onRequest as any)(context, next)).rejects.toThrow(
+            'Test error'
+        )
+        expect(next).not.toHaveBeenCalled()
     })
 })
