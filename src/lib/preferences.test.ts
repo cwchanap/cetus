@@ -423,6 +423,11 @@ describe('SSR window === undefined branches', () => {
             saveClientPreferences(DEFAULT_CLIENT_PREFERENCES)
         ).not.toThrow()
     })
+
+    it('resolveTheme returns dark when theme is auto and window is undefined', () => {
+        vi.stubGlobal('window', undefined)
+        expect(resolveTheme('auto')).toBe('dark')
+    })
 })
 
 describe('saveClientPreferences error handling', () => {

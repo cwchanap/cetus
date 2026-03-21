@@ -48,6 +48,24 @@ describe('SnakeGame', () => {
             customGame.destroy()
         })
 
+        it('should throw when gridWidth is less than 1', () => {
+            expect(() => new SnakeGame({ gridWidth: 0 })).toThrow(
+                'Snake grid too small for initialization (min width/height 1).'
+            )
+        })
+
+        it('should throw when gridHeight is less than 1', () => {
+            expect(() => new SnakeGame({ gridHeight: 0 })).toThrow(
+                'Snake grid too small for initialization (min width/height 1).'
+            )
+        })
+
+        it('update and render should be no-ops', () => {
+            // These methods exist for interface compliance but do nothing
+            expect(() => game.update(16)).not.toThrow()
+            expect(() => game.render()).not.toThrow()
+        })
+
         it('should use default config values', () => {
             const config = game.getConfig()
 

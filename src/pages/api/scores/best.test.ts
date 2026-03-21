@@ -203,6 +203,26 @@ describe('GET /api/scores/best', () => {
         expect(getUserBestScore).toHaveBeenCalledWith('user-123', 'quick_math')
     })
 
+    it('should return 400 when getGameById returns null for valid game ID', async () => {
+        // Arrange
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(getGameById).mockReturnValue(null)
+
+        const url = new URL(
+            'http://localhost:4321/api/scores/best?gameId=tetris'
+        )
+        const request = new Request(url)
+
+        // Act
+        const response = await GET({ request, url })
+        const result = await response.json()
+
+        // Assert
+        expect(response.status).toBe(400)
+        expect(result).toEqual({ error: 'Invalid game ID' })
+        expect(getUserBestScore).not.toHaveBeenCalled()
+    })
+
     it('should return 500 for database errors during game lookup', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
