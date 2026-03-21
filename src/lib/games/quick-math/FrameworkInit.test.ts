@@ -320,6 +320,21 @@ describe('initQuickMathFramework', () => {
                 expect.objectContaining({ question: expect.any(String) })
             )
         })
+
+        it('should invoke custom onAnswerSubmit callback when answer submitted', async () => {
+            const onAnswerSubmit = vi.fn()
+            const result = await initQuickMathFramework({}, { onAnswerSubmit })
+            result.game.start()
+            const state = result.game.getState()
+            const question = state.currentQuestion
+            expect(question).not.toBeNull()
+            result.game.submitAnswer(String(question!.answer))
+            expect(onAnswerSubmit).toHaveBeenCalledWith(
+                true,
+                question,
+                String(question!.answer)
+            )
+        })
     })
 
     describe('submit button in setupQuickMathEvents', () => {

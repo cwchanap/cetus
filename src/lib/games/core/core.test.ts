@@ -659,4 +659,23 @@ describe('BaseGame default hooks', () => {
         await expect(game.end()).resolves.toBeUndefined()
         expect(game.getState().isGameOver).toBe(true)
     })
+
+    it('start does nothing when game is already active', () => {
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: false,
+            },
+            {}
+        )
+        game.start()
+        expect(game.getState().isActive).toBe(true)
+        // Second call — hits the isActive guard (lines 81-82)
+        game.start()
+        expect(game.getState().isActive).toBe(true)
+        game.destroy()
+    })
 })
