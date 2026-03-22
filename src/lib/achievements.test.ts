@@ -422,4 +422,163 @@ describe('Achievement in_game condition checks', () => {
             expect(check({ bombsHit: 1 }, 600)).toBe(false)
         })
     })
+
+    describe('Tetris in_game check functions', () => {
+        it('tetris_double_clear: returns true when doubles > 0', () => {
+            const check = getAchievementById('tetris_double_clear')!.condition
+                .check!
+            expect(check({ doubles: 1 }, 0)).toBe(true)
+            expect(check({ doubles: 0 }, 0)).toBe(false)
+        })
+
+        it('tetris_double_streak: returns true when consecutiveLineClears >= 2', () => {
+            const check = getAchievementById('tetris_double_streak')!.condition
+                .check!
+            expect(check({ consecutiveLineClears: 2 }, 0)).toBe(true)
+            expect(check({ consecutiveLineClears: 3 }, 0)).toBe(true)
+            expect(check({ consecutiveLineClears: 1 }, 0)).toBe(false)
+        })
+
+        it('tetris_combo_streak: returns true when consecutiveLineClears >= 4', () => {
+            const check = getAchievementById('tetris_combo_streak')!.condition
+                .check!
+            expect(check({ consecutiveLineClears: 4 }, 0)).toBe(true)
+            expect(check({ consecutiveLineClears: 5 }, 0)).toBe(true)
+            expect(check({ consecutiveLineClears: 3 }, 0)).toBe(false)
+        })
+
+        it('tetris_quadruple_clear: returns true when tetrises > 0', () => {
+            const check = getAchievementById('tetris_quadruple_clear')!
+                .condition.check!
+            expect(check({ tetrises: 1 }, 0)).toBe(true)
+            expect(check({ tetrises: 0 }, 0)).toBe(false)
+        })
+    })
+
+    describe('Bejeweled in_game check functions', () => {
+        it('bejeweled_combo_artist: returns true when maxCombo >= 3', () => {
+            const check = getAchievementById('bejeweled_combo_artist')!
+                .condition.check!
+            expect(check({ maxCombo: 3 }, 0)).toBe(true)
+            expect(check({ maxCombo: 5 }, 0)).toBe(true)
+            expect(check({ maxCombo: 2 }, 0)).toBe(false)
+        })
+
+        it('bejeweled_big_gem: returns true when largestMatch >= 5', () => {
+            const check =
+                getAchievementById('bejeweled_big_gem')!.condition.check!
+            expect(check({ largestMatch: 5 }, 0)).toBe(true)
+            expect(check({ largestMatch: 6 }, 0)).toBe(true)
+            expect(check({ largestMatch: 4 }, 0)).toBe(false)
+        })
+
+        it('bejeweled_straight_five: returns true when straightFive is true', () => {
+            const check = getAchievementById('bejeweled_straight_five')!
+                .condition.check!
+            expect(check({ straightFive: true }, 0)).toBe(true)
+            expect(check({ straightFive: false }, 0)).toBe(false)
+            expect(check({}, 0)).toBe(false)
+        })
+
+        it('bejeweled_match_maker: returns true when totalMatches >= 20', () => {
+            const check = getAchievementById('bejeweled_match_maker')!.condition
+                .check!
+            expect(check({ totalMatches: 20 }, 0)).toBe(true)
+            expect(check({ totalMatches: 25 }, 0)).toBe(true)
+            expect(check({ totalMatches: 19 }, 0)).toBe(false)
+        })
+    })
+
+    describe('Word Scramble secret word check functions', () => {
+        it('word_secret_supernova: returns true when "supernova" is in words', () => {
+            const check = getAchievementById('word_secret_supernova')!.condition
+                .check!
+            expect(check({ lastCorrectWord: 'supernova' }, 0)).toBe(true)
+            expect(check({ correctWords: ['galaxy', 'supernova'] }, 0)).toBe(
+                true
+            )
+            expect(
+                check({ lastCorrectWord: 'star', correctWords: [] }, 0)
+            ).toBe(false)
+        })
+
+        it('word_secret_supernova: returns true case-insensitively', () => {
+            const check = getAchievementById('word_secret_supernova')!.condition
+                .check!
+            expect(check({ lastCorrectWord: 'SUPERNOVA' }, 0)).toBe(true)
+        })
+
+        it('word_secret_mercury: returns true when "mercury" is in words', () => {
+            const check = getAchievementById('word_secret_mercury')!.condition
+                .check!
+            expect(check({ lastCorrectWord: 'mercury' }, 0)).toBe(true)
+            expect(check({ correctWords: ['venus', 'mercury'] }, 0)).toBe(true)
+            expect(
+                check({ lastCorrectWord: 'mars', correctWords: [] }, 0)
+            ).toBe(false)
+        })
+
+        it('word_secret_mercury: returns true case-insensitively', () => {
+            const check = getAchievementById('word_secret_mercury')!.condition
+                .check!
+            expect(check({ lastCorrectWord: 'MERCURY' }, 0)).toBe(true)
+        })
+
+        it('word_secret_mercury: returns false for empty gameData', () => {
+            const check = getAchievementById('word_secret_mercury')!.condition
+                .check!
+            expect(check({}, 0)).toBe(false)
+        })
+    })
+
+    describe('Quick Math in_game check functions', () => {
+        it('quick_math_one_plus_one_seen: returns true when seenOnePlusOne is true', () => {
+            const check = getAchievementById('quick_math_one_plus_one_seen')!
+                .condition.check!
+            expect(check({ seenOnePlusOne: true }, 0)).toBe(true)
+            expect(check({ seenOnePlusOne: false }, 0)).toBe(false)
+            expect(check({}, 0)).toBe(false)
+        })
+
+        it('quick_math_one_plus_one_wrong: returns true when onePlusOneIncorrect is true', () => {
+            const check = getAchievementById('quick_math_one_plus_one_wrong')!
+                .condition.check!
+            expect(check({ onePlusOneIncorrect: true }, 0)).toBe(true)
+            expect(check({ onePlusOneIncorrect: false }, 0)).toBe(false)
+            expect(check({}, 0)).toBe(false)
+        })
+    })
+
+    describe('2048 in_game check functions', () => {
+        it('2048_tile_256: returns true when maxTile >= 256', () => {
+            const check = getAchievementById('2048_tile_256')!.condition.check!
+            expect(check({ maxTile: 256 }, 0)).toBe(true)
+            expect(check({ maxTile: 512 }, 0)).toBe(true)
+            expect(check({ maxTile: 128 }, 0)).toBe(false)
+        })
+
+        it('2048_tile_512: returns true when maxTile >= 512', () => {
+            const check = getAchievementById('2048_tile_512')!.condition.check!
+            expect(check({ maxTile: 512 }, 0)).toBe(true)
+            expect(check({ maxTile: 256 }, 0)).toBe(false)
+        })
+
+        it('2048_tile_1024: returns true when maxTile >= 1024', () => {
+            const check = getAchievementById('2048_tile_1024')!.condition.check!
+            expect(check({ maxTile: 1024 }, 0)).toBe(true)
+            expect(check({ maxTile: 512 }, 0)).toBe(false)
+        })
+
+        it('2048_tile_2048: returns true when maxTile >= 2048', () => {
+            const check = getAchievementById('2048_tile_2048')!.condition.check!
+            expect(check({ maxTile: 2048 }, 0)).toBe(true)
+            expect(check({ maxTile: 1024 }, 0)).toBe(false)
+        })
+
+        it('2048_tile_4096: returns true when maxTile >= 4096', () => {
+            const check = getAchievementById('2048_tile_4096')!.condition.check!
+            expect(check({ maxTile: 4096 }, 0)).toBe(true)
+            expect(check({ maxTile: 2048 }, 0)).toBe(false)
+        })
+    })
 })
