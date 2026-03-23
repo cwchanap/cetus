@@ -195,7 +195,7 @@ export class PixiJSRenderer extends BaseRenderer {
         }
 
         // Remove event listeners
-        if (this.config.responsive && this.resizeHandler) {
+        if (this.resizeHandler) {
             window.removeEventListener('resize', this.resizeHandler)
             this.resizeHandler = null
         }
