@@ -297,13 +297,12 @@ describe('SnakeRenderer', () => {
             await renderer.initialize()
 
             const appInst = MockApp.mock.results[0].value
-            // The gameObjectContainer is the second container added to stage
-            // After render, gameObjectContainer.removeChildren should be called
             renderer.render(makeSnakeState())
 
-            // The stage itself isn't cleared; gameObjectContainer.removeChildren is called
-            // We verify render doesn't throw and creates graphics
-            expect(true).toBe(true)
+            // gameObjectContainer is the second container added to app.stage
+            // (first is gridContainer, second is gameObjectContainer)
+            const gameObjectContainer = appInst.stage.addChild.mock.calls[1][0]
+            expect(gameObjectContainer.removeChildren).toHaveBeenCalled()
         })
     })
 

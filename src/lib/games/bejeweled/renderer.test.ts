@@ -379,6 +379,11 @@ describe('BejeweledRenderer', () => {
         })
 
         it('should skip null cells during animateClear', async () => {
+            vi.mocked(requestAnimationFrame).mockImplementationOnce(cb => {
+                cb(1001) // t = (1001 - 0) / 1000 >= 1, so animate resolves immediately
+                return 1
+            })
+
             renderer = new BejeweledRenderer({
                 type: 'canvas',
                 container: '#bejeweled-test-container',
@@ -392,16 +397,16 @@ describe('BejeweledRenderer', () => {
                     [null, null, null],
                 ],
             })
-            // All cells are null, nothing to animate
-            renderer.animateClear(
-                [
-                    { row: 0, col: 0 },
-                    { row: 1, col: 1 },
-                ],
-                state
-            )
-            // Should not throw
-            expect(true).toBe(true)
+            // All cells are null — animateClear should still resolve without rejection
+            await expect(
+                renderer.animateClear(
+                    [
+                        { row: 0, col: 0 },
+                        { row: 1, col: 1 },
+                    ],
+                    state
+                )
+            ).resolves.toBeUndefined()
         })
     })
 

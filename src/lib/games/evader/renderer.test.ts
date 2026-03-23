@@ -97,7 +97,10 @@ function makeRendererState(): RendererState {
     const appInstance = new MockApp() as unknown as ReturnType<
         typeof Application
     >
-    const containerInstance = new MockCont() as unknown as ReturnType<
+    const containerStage = new MockCont() as unknown as ReturnType<
+        typeof Container
+    >
+    const containerObjects = new MockCont() as unknown as ReturnType<
         typeof Container
     >
     const graphicsInstance = new MockGfx() as unknown as ReturnType<
@@ -106,9 +109,9 @@ function makeRendererState(): RendererState {
 
     return {
         app: appInstance as unknown as RendererState['app'],
-        stage: containerInstance as unknown as RendererState['stage'],
+        stage: containerStage as unknown as RendererState['stage'],
         objectContainer:
-            containerInstance as unknown as RendererState['objectContainer'],
+            containerObjects as unknown as RendererState['objectContainer'],
         playerGraphic:
             graphicsInstance as unknown as RendererState['playerGraphic'],
         objectGraphics: new Map(),
