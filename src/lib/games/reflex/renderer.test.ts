@@ -171,6 +171,7 @@ describe('reflex/renderer', () => {
 
     afterEach(() => {
         document.body.removeChild(gameContainer)
+        vi.unstubAllGlobals()
     })
 
     describe('setupPixiJS', () => {

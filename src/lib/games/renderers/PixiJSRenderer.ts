@@ -12,6 +12,7 @@ export interface PixiJSRendererConfig extends RendererConfig {
 export class PixiJSRenderer extends BaseRenderer {
     protected app: PIXI.Application | null = null
     protected pixiConfig: PixiJSRendererConfig
+    private resizeHandler: (() => void) | null = null
 
     constructor(config: PixiJSRendererConfig) {
         super(config)
@@ -48,7 +49,8 @@ export class PixiJSRenderer extends BaseRenderer {
 
         // Set up responsive handling
         if (this.config.responsive) {
-            window.addEventListener('resize', () => this.handleResize())
+            this.resizeHandler = () => this.handleResize()
+            window.addEventListener('resize', this.resizeHandler)
             // Initial resize
             this.handleResize()
         }
@@ -193,8 +195,9 @@ export class PixiJSRenderer extends BaseRenderer {
         }
 
         // Remove event listeners
-        if (this.config.responsive) {
-            window.removeEventListener('resize', () => this.handleResize())
+        if (this.config.responsive && this.resizeHandler) {
+            window.removeEventListener('resize', this.resizeHandler)
+            this.resizeHandler = null
         }
     }
 }

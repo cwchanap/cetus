@@ -413,12 +413,15 @@ describe('snake/renderer', () => {
             const MockGfx = vi.mocked(Graphics)
             const segGfx =
                 MockGfx.mock.results[MockGfx.mock.results.length - 1].value
-            // x = 3 * 20 = 60, y = 4 * 20 = 80, with padding=2
+            const cellSize = constants.CELL_SIZE
+            const expectedX = segment.x * cellSize + padding
+            const expectedY = segment.y * cellSize + padding
+            const expectedSize = cellSize - padding * 2
             expect(segGfx.roundRect).toHaveBeenCalledWith(
-                60 + padding,
-                80 + padding,
-                20 - padding * 2,
-                20 - padding * 2,
+                expectedX,
+                expectedY,
+                expectedSize,
+                expectedSize,
                 4
             )
         })
@@ -516,17 +519,30 @@ describe('snake/renderer', () => {
 
         it('should draw food when present', () => {
             const state = makeRendererState({ graphics: [] })
+            const food = makeFood(10, 10)
             const gameState = makeGameState({
                 needsRedraw: true,
-                food: makeFood(10, 10),
+                food,
             })
             const constants = makeConstants()
 
             draw(state, gameState, constants)
 
-            // Food should cause a circle to be drawn
             const MockGfx = vi.mocked(Graphics)
-            expect(MockGfx).toHaveBeenCalled()
+            const cellSize = constants.CELL_SIZE
+            const expectedX = food.x * cellSize + cellSize / 2
+            const expectedY = food.y * cellSize + cellSize / 2
+            const expectedRadius = cellSize / 2 - 3
+            // Find the Graphics instance that had circle called on it — that's the food graphic
+            const foodGfxResult = MockGfx.mock.results.find(
+                r => r.value.circle.mock.calls.length > 0
+            )
+            expect(foodGfxResult).toBeDefined()
+            expect(foodGfxResult!.value.circle).toHaveBeenCalledWith(
+                expectedX,
+                expectedY,
+                expectedRadius
+            )
         })
 
         it('should handle null food gracefully', () => {
