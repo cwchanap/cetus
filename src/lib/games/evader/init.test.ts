@@ -385,7 +385,7 @@ describe('initializeEvaderGame', () => {
             )
             vi.mocked(saveGameScore).mockImplementationOnce(
                 async (_gameId, _score, _onSuccess, onError) => {
-                    onError?.(new Error('network failure'))
+                    onError?.('network failure')
                     return { success: false }
                 }
             )
@@ -401,7 +401,7 @@ describe('initializeEvaderGame', () => {
 
             expect(errorSpy).toHaveBeenCalledWith(
                 'Failed to submit score:',
-                expect.any(Error)
+                expect.any(String)
             )
             errorSpy.mockRestore()
         })
