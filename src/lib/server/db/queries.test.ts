@@ -658,6 +658,13 @@ describe('Database Queries', () => {
 
     describe('updateAllUserStreaksForUTC', () => {
         it('should return zeros when no users exist', async () => {
+            // ensureStreakColumn() inside updateAllUserStreaksForUTC runs a raw
+            // sql PRAGMA query; the mocked db doesn't support it so it throws
+            // internally and logs a warning. Suppress it to keep output clean.
+            const warnSpy = vi
+                .spyOn(console, 'warn')
+                .mockImplementation(() => {})
+
             const mockEmptyQuery = {
                 select: vi.fn().mockReturnThis(),
                 distinct: vi.fn().mockReturnThis(),
@@ -669,6 +676,7 @@ describe('Database Queries', () => {
             const result = await updateAllUserStreaksForUTC()
 
             expect(result).toEqual({ processed: 0, incremented: 0, reset: 0 })
+            warnSpy.mockRestore()
         })
     })
 

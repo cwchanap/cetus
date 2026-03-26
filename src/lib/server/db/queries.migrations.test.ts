@@ -93,7 +93,8 @@ describe('ensureUserIdentityColumns', () => {
     })
 
     it('should create user_username_unique index', async () => {
-        // Index is created during the same migration call above
+        // Ensure migration has run (self-contained: works even when run in isolation)
+        await ensureUserIdentityColumns()
         const indexResult = await sql<{
             name: string
         }>`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='user'`.execute(
@@ -158,6 +159,8 @@ describe('ensureDailyChallengeTable', () => {
     })
 
     it('should create idx_challenge_progress_user_date index', async () => {
+        // Ensure migration has run (self-contained: works even when run in isolation)
+        await ensureDailyChallengeTable()
         const indexResult = await sql<{
             name: string
         }>`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='daily_challenge_progress'`.execute(
