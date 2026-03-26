@@ -365,7 +365,6 @@ describe('PathNavigatorGame', () => {
             // Force a path segment where start === end so lenSq = 0
             const state = (game as any).state
             const level = GAME_LEVELS[state.currentLevel - 1]
-            // Inject a straight segment with identical start and end points
             const originalSegments = level.path.segments
             const zeroLenSegment = {
                 type: 'straight' as const,
@@ -373,13 +372,15 @@ describe('PathNavigatorGame', () => {
                 end: { x: 500, y: 500 }, // same point → lenSq = 0
                 width: 30,
             }
-            level.path.segments = [zeroLenSegment]
-            // Position far from start/end buffers → goes through segment check
-            const result = game.updatePlayerPosition(500, 500)
-            // Restore segments
-            level.path.segments = originalSegments
-            // The segment returns false (lenSq === 0), so overall isOnPath = false (game over)
-            expect(game.getState().isGameOver).toBe(true)
+            try {
+                level.path.segments = [zeroLenSegment]
+                // Position far from start/end buffers → goes through segment check
+                game.updatePlayerPosition(500, 500)
+                // The segment returns false (lenSq === 0), so overall isOnPath = false (game over)
+                expect(game.getState().isGameOver).toBe(true)
+            } finally {
+                level.path.segments = originalSegments
+            }
         })
 
         it('should return false from isPointOnSegment for curve segment without controlPoint', () => {
@@ -395,11 +396,14 @@ describe('PathNavigatorGame', () => {
                 width: 30,
                 // no controlPoint
             }
-            level.path.segments = [badCurveSegment]
-            // Position near the middle → not in start/end buffer, segment returns false
-            game.updatePlayerPosition(350, 300)
-            level.path.segments = originalSegments
-            expect(game.getState().isGameOver).toBe(true)
+            try {
+                level.path.segments = [badCurveSegment]
+                // Position near the middle → not in start/end buffer, segment returns false
+                game.updatePlayerPosition(350, 300)
+                expect(game.getState().isGameOver).toBe(true)
+            } finally {
+                level.path.segments = originalSegments
+            }
         })
     })
 

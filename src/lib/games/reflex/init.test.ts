@@ -347,7 +347,7 @@ describe('initializeReflexGame', () => {
                 spawnInterval: 0.001,
             })
             result.startGame()
-            vi.advanceTimersByTime(100)
+            vi.advanceTimersByTime(500)
 
             vi.mocked(renderObject).mockClear()
 
@@ -356,9 +356,8 @@ describe('initializeReflexGame', () => {
             }
 
             const active = result.game.getActiveObjects()
-            if (active.length > 0) {
-                expect(vi.mocked(renderObject)).toHaveBeenCalled()
-            }
+            expect(active.length).toBeGreaterThan(0)
+            expect(vi.mocked(renderObject)).toHaveBeenCalled()
         })
     })
 
@@ -371,18 +370,17 @@ describe('initializeReflexGame', () => {
                 spawnInterval: 0.001,
             })
             result.startGame()
-            vi.advanceTimersByTime(100)
+            vi.advanceTimersByTime(500)
 
             const objects = result.game.getActiveObjects()
-            if (objects.length > 0) {
-                result.game.handleCellClick(
-                    objects[0].cell.row,
-                    objects[0].cell.col
-                )
-                expect(removeObject).toHaveBeenCalled()
-                expect(showClickEffect).toHaveBeenCalled()
-                expect(onObjectClick).toHaveBeenCalled()
-            }
+            expect(objects.length).toBeGreaterThan(0)
+            result.game.handleCellClick(
+                objects[0].cell.row,
+                objects[0].cell.col
+            )
+            expect(removeObject).toHaveBeenCalled()
+            expect(showClickEffect).toHaveBeenCalled()
+            expect(onObjectClick).toHaveBeenCalled()
         })
     })
 
@@ -393,7 +391,7 @@ describe('initializeReflexGame', () => {
             )
             vi.mocked(saveGameScore).mockImplementationOnce(
                 async (_gameId, _score, _onSuccess, onError) => {
-                    onError?.(new Error('network error'))
+                    onError?.('network error')
                     return { success: false }
                 }
             )
@@ -409,7 +407,7 @@ describe('initializeReflexGame', () => {
 
             expect(errorSpy).toHaveBeenCalledWith(
                 'Failed to submit score:',
-                expect.any(Error)
+                expect.any(String)
             )
             errorSpy.mockRestore()
         })
