@@ -305,6 +305,28 @@ describe('initQuickMathGame', () => {
                 'Score not saved (offline?)'
             )
         })
+
+        it('should invoke onScoreUpload(false) via saveScore error callback', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockImplementationOnce(
+                async (_gameId, _score, _onSuccess, onError) => {
+                    onError?.('network error')
+                    return { success: false }
+                }
+            )
+
+            const result = await initQuickMathGame()
+            const uploadSpy = vi.spyOn(
+                result!.callbacks,
+                'onScoreUpload' as any
+            )
+            // triggers saveScore (no external onGameOver) -> error callback -> onScoreUpload(false)
+            await result!.callbacks.onGameOver(50, makeStats())
+            await vi.runAllTimersAsync()
+            expect(uploadSpy).toHaveBeenCalledWith(false)
+        })
     })
 
     describe('event listeners', () => {
@@ -404,6 +426,133 @@ describe('initQuickMathGame', () => {
             answerInput.value = '7'
             const inputEvent = new Event('input', { bubbles: true })
             expect(() => answerInput.dispatchEvent(inputEvent)).not.toThrow()
+        })
+    })
+
+    describe('handleSubmit with active game', () => {
+        it('should process answer when game is active and answer is non-empty', async () => {
+            const result = await initQuickMathGame()
+            // Start the game to make it active
+            document.getElementById('start-btn')!.click()
+
+            const answerInput = document.getElementById(
+                'answer-input'
+            ) as HTMLInputElement
+            answerInput.value = '42'
+            document.getElementById('submit-answer')!.click()
+
+            // questionsAnswered should be incremented
+            const state = result!.getState()
+            expect(state!.questionsAnswered).toBeGreaterThanOrEqual(1)
+        })
+
+        it('should return early when answer is empty', async () => {
+            await initQuickMathGame()
+            document.getElementById('start-btn')!.click()
+
+            const answerInput = document.getElementById(
+                'answer-input'
+            ) as HTMLInputElement
+            answerInput.value = '   ' // whitespace only → trims to ''
+            expect(() =>
+                document.getElementById('submit-answer')!.click()
+            ).not.toThrow()
+        })
+
+        it('should apply correct border class for correct answer', async () => {
+            const result = await initQuickMathGame()
+            document.getElementById('start-btn')!.click()
+
+            const answerInput = document.getElementById(
+                'answer-input'
+            ) as HTMLInputElement
+            // Get the current question's answer
+            const state = result!.getState()
+            answerInput.value =
+                state!.currentQuestion?.answer?.toString() ?? '0'
+            document.getElementById('submit-answer')!.click()
+
+            // Either correct or incorrect feedback class should be applied
+            const hasClass =
+                answerInput.classList.contains('border-green-400') ||
+                answerInput.classList.contains('border-red-400')
+            expect(hasClass).toBe(true)
+        })
+
+        it('should remove feedback classes after timeout', async () => {
+            await initQuickMathGame()
+            document.getElementById('start-btn')!.click()
+
+            const answerInput = document.getElementById(
+                'answer-input'
+            ) as HTMLInputElement
+            answerInput.value = '99'
+            document.getElementById('submit-answer')!.click()
+
+            vi.advanceTimersByTime(400)
+            expect(answerInput.classList.contains('border-green-400')).toBe(
+                false
+            )
+            expect(answerInput.classList.contains('border-red-400')).toBe(false)
+        })
+    })
+
+    describe('beforeunload handler', () => {
+        it('should destroy gameInstance on beforeunload', async () => {
+            await initQuickMathGame()
+            expect(() =>
+                window.dispatchEvent(new Event('beforeunload'))
+            ).not.toThrow()
+        })
+    })
+
+    describe('achievement notification dispatch', () => {
+        it('should dispatch achievementsEarned event when new achievements returned', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockImplementationOnce(
+                (_id: any, _score: any, successCb: any) => {
+                    successCb({
+                        newAchievements: ['achievement-1', 'achievement-2'],
+                    })
+                    return Promise.resolve({ success: true }) as any
+                }
+            )
+
+            const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+            const result = await initQuickMathGame()
+            await result!.callbacks.onGameOver(100, makeStats())
+
+            const achievementEvents = dispatchSpy.mock.calls.filter(
+                call =>
+                    call[0] instanceof CustomEvent &&
+                    (call[0] as CustomEvent).type === 'achievementsEarned'
+            )
+            expect(achievementEvents.length).toBeGreaterThan(0)
+        })
+
+        it('should not dispatch event when no new achievements', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockImplementationOnce(
+                (_id: any, _score: any, successCb: any) => {
+                    successCb({ newAchievements: [] })
+                    return Promise.resolve({ success: true }) as any
+                }
+            )
+
+            const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+            const result = await initQuickMathGame()
+            await result!.callbacks.onGameOver(100, makeStats())
+
+            const achievementEvents = dispatchSpy.mock.calls.filter(
+                call =>
+                    call[0] instanceof CustomEvent &&
+                    (call[0] as CustomEvent).type === 'achievementsEarned'
+            )
+            expect(achievementEvents.length).toBe(0)
         })
     })
 

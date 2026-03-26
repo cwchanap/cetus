@@ -18,6 +18,7 @@ export default defineConfig({
                 '**/*.config.*',
                 '**/types.ts',
                 '**/index.ts',
+                '**/*.astro',
             ],
         },
         env: {

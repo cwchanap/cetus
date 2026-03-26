@@ -578,3 +578,28 @@ describe('claimDailyLoginReward - milestone badge logic', () => {
         expect(result.previousLevel).toBe(2)
     })
 })
+
+describe('getLoginRewardStatusForUser - daysUntilMilestone null path', () => {
+    const userId = 'test-user-123'
+    const today = '2024-01-03'
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        vi.mocked(getTodayUTC).mockReturnValue(today)
+    })
+
+    it('should set daysUntilMilestone to null when user exceeds all milestones', async () => {
+        // 15 cycles × 7 days = 105 consecutive days → beyond max milestone (100)
+        vi.mocked(getLoginRewardStatus).mockResolvedValue({
+            login_streak: 0, // cycle completed today (streak reset to 0)
+            last_login_reward_date: today,
+            total_login_cycles: 15,
+        })
+
+        const status = await getLoginRewardStatusForUser(userId)
+
+        // totalConsecutiveDays = 15 * 7 + 0 = 105 > 100 (max milestone)
+        expect(status.totalConsecutiveDays).toBe(105)
+        expect(status.daysUntilMilestone).toBeNull()
+    })
+})

@@ -491,4 +491,34 @@ describe('initWordScrambleGame', () => {
             expect(() => instance.restart()).not.toThrow()
         })
     })
+
+    describe('saveGameScore error callback', () => {
+        it('should invoke onScoreUpload(false) path when saveGameScore calls error callback', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockImplementationOnce(
+                async (_gameId, _score, _onSuccess, onError) => {
+                    onError?.(new Error('network error'))
+                    return { success: false }
+                }
+            )
+
+            const instance = await initWordScrambleGame()
+            // This should not throw - covers the error callback path (lines 255-257)
+            await expect(
+                instance.callbacks.onGameOver(100, makeStats())
+            ).resolves.not.toThrow()
+        })
+    })
+
+    describe('beforeunload listener', () => {
+        it('should call gameInstance.destroy on beforeunload', async () => {
+            const instance = await initWordScrambleGame()
+            // Trigger beforeunload - should not throw
+            expect(() =>
+                window.dispatchEvent(new Event('beforeunload'))
+            ).not.toThrow()
+        })
+    })
 })

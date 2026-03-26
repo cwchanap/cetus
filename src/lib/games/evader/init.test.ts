@@ -349,5 +349,102 @@ describe('initializeEvaderGame', () => {
             vi.advanceTimersByTime(100)
             expect(onObjectSpawn).toHaveBeenCalled()
         })
+
+        it('should call onCollision callback when collision occurs', async () => {
+            const onCollision = vi.fn()
+            const callbacks = makeCallbacks({ onCollision })
+            const result = await initializeEvaderGame(container, callbacks)
+            result.startGame()
+
+            // Place a coin object directly at the player's position to force a collision
+            const game = result.game as any
+            const playerX = game.state.player.x
+            const playerY = game.state.player.y
+            game.state.objects.push({
+                id: 'test-collision-obj',
+                type: 'coin',
+                x: playerX,
+                y: playerY,
+                speed: 0,
+                spawnTime: Date.now(),
+            })
+
+            // Run the RAF callback to trigger the game update/collision check
+            if (rafCallbacks.length > 0) {
+                rafCallbacks[rafCallbacks.length - 1](0)
+            }
+
+            expect(onCollision).toHaveBeenCalled()
+        })
+    })
+
+    describe('handleGameOver error callback', () => {
+        it('should log error when saveGameScore error callback is called', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockImplementationOnce(
+                async (_gameId, _score, _onSuccess, onError) => {
+                    onError?.(new Error('network failure'))
+                    return { success: false }
+                }
+            )
+            const errorSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+
+            const callbacks = makeCallbacks()
+            const result = await initializeEvaderGame(container, callbacks)
+            result.startGame()
+            result.stopGame()
+            await vi.runAllTimersAsync()
+
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Failed to submit score:',
+                expect.any(Error)
+            )
+            errorSpy.mockRestore()
+        })
+    })
+
+    describe('keyup with multiple arrow keys', () => {
+        it('should respond to ArrowDown keyup', async () => {
+            const callbacks = makeCallbacks()
+            await initializeEvaderGame(container, callbacks)
+            expect(() =>
+                document.dispatchEvent(
+                    new KeyboardEvent('keyup', {
+                        key: 'ArrowDown',
+                        bubbles: true,
+                    })
+                )
+            ).not.toThrow()
+        })
+
+        it('should respond to ArrowLeft keyup', async () => {
+            const callbacks = makeCallbacks()
+            await initializeEvaderGame(container, callbacks)
+            expect(() =>
+                document.dispatchEvent(
+                    new KeyboardEvent('keyup', {
+                        key: 'ArrowLeft',
+                        bubbles: true,
+                    })
+                )
+            ).not.toThrow()
+        })
+
+        it('should respond to ArrowRight keyup', async () => {
+            const callbacks = makeCallbacks()
+            await initializeEvaderGame(container, callbacks)
+            expect(() =>
+                document.dispatchEvent(
+                    new KeyboardEvent('keyup', {
+                        key: 'ArrowRight',
+                        bubbles: true,
+                    })
+                )
+            ).not.toThrow()
+        })
     })
 })

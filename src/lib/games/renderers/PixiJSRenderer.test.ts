@@ -519,4 +519,47 @@ describe('PixiJSRenderer', () => {
             expect(texture).toBeDefined()
         })
     })
+
+    describe('setup with null container', () => {
+        it('should throw when container is null during setup()', async () => {
+            renderer = new TestPixiJSRenderer({
+                type: 'canvas',
+                container: '#pixi-test-container',
+            })
+            // Manually set container to null to bypass initialize's check
+            ;(renderer as any).container = null
+            await expect(renderer.setup()).rejects.toThrow(
+                'Container not found'
+            )
+        })
+    })
+
+    describe('createSprite', () => {
+        it('should create a Sprite instance', async () => {
+            renderer = new TestPixiJSRenderer({
+                type: 'canvas',
+                container: '#pixi-test-container',
+            })
+            await renderer.initialize()
+            const sprite = renderer.createSprite()
+            expect(sprite).toBeDefined()
+        })
+    })
+
+    describe('onConfigUpdate after cleanup', () => {
+        it('should return early from onConfigUpdate when app is null', async () => {
+            renderer = new TestPixiJSRenderer({
+                type: 'canvas',
+                container: '#pixi-test-container',
+            })
+            await renderer.initialize()
+            // cleanup sets this.app = null, but isInitialized remains true
+            renderer.cleanup()
+            // updateConfig calls onConfigUpdate when isInitialized=true
+            // onConfigUpdate returns early because this.app is null
+            expect(() =>
+                renderer.updateConfig({ width: 800, height: 600 })
+            ).not.toThrow()
+        })
+    })
 })

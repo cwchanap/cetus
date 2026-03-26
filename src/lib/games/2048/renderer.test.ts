@@ -72,6 +72,7 @@ import {
     animateTileMove,
     animateTileMerge,
     animateTileSpawn,
+    playAnimations,
     draw,
     destroyRenderer,
     type RendererState,
@@ -298,6 +299,47 @@ describe('2048/renderer', () => {
             )
             expect(rafMock).toHaveBeenCalled()
         })
+
+        it('should call requestAnimationFrame again when progress < 1 (animation loop)', async () => {
+            // Track call count to performance.now - only count calls INSIDE animate()
+            // startTime gets 0, first animate() call gets 0 (progress=0 < 1), second gets 1000 (progress=1)
+            const nowValues = [0, 0, 0, 1000] // indexed by call order
+            let nowIdx = 0
+            vi.stubGlobal('performance', {
+                now: vi.fn(
+                    () => nowValues[Math.min(nowIdx++, nowValues.length - 1)]
+                ),
+            })
+
+            // RAF executes callback synchronously each time it's called
+            let rafCallCount = 0
+            vi.stubGlobal(
+                'requestAnimationFrame',
+                (cb: FrameRequestCallback) => {
+                    rafCallCount++
+                    cb(0) // pass 0 as timestamp, animate() uses performance.now() internally
+                    return rafCallCount
+                }
+            )
+
+            const state = makeRendererState()
+            const MockCont = vi.mocked(Container)
+            const sprite =
+                new MockCont() as unknown as RendererState['tilesContainer']
+            state.tileSprites.set('tile-1', sprite)
+
+            // duration=100ms; first animate call: elapsed=0, progress=0 → recurse (line 218)
+            // second animate call: elapsed=1000, progress=1 → resolve
+            await animateTileMove(
+                state,
+                'tile-1',
+                { row: 0, col: 0 },
+                { row: 1, col: 0 },
+                100
+            )
+            // RAF should have been called more than once (line 218 executed)
+            expect(rafCallCount).toBeGreaterThan(1)
+        })
     })
 
     describe('animateTileMerge', () => {
@@ -381,6 +423,131 @@ describe('2048/renderer', () => {
             const state = makeRendererState()
             destroyRenderer(state)
             expect(state.app.destroy).toHaveBeenCalled()
+        })
+    })
+
+    describe('playAnimations', () => {
+        beforeEach(() => {
+            vi.stubGlobal(
+                'requestAnimationFrame',
+                vi.fn().mockImplementation(cb => {
+                    cb(performance.now ? performance.now() : 0)
+                    return 1
+                })
+            )
+        })
+
+        it('should resolve with empty animations array', async () => {
+            const state = makeRendererState()
+            const gameState = makeGameState()
+            await expect(
+                playAnimations(state, [], gameState)
+            ).resolves.toBeUndefined()
+        })
+
+        it('should play move animations', async () => {
+            const state = makeRendererState()
+            const MockCont = vi.mocked(Container)
+            const sprite =
+                new MockCont() as unknown as RendererState['tilesContainer']
+            state.tileSprites.set('tile-move', sprite)
+
+            const gameState = makeGameState()
+            const animations: Animation[] = [
+                {
+                    type: 'move',
+                    tileId: 'tile-move',
+                    from: { row: 0, col: 0 },
+                    to: { row: 0, col: 1 },
+                },
+            ]
+
+            await expect(
+                playAnimations(state, animations, gameState)
+            ).resolves.toBeUndefined()
+        })
+
+        it('should play merge animations', async () => {
+            const state = makeRendererState()
+            const MockCont = vi.mocked(Container)
+            const sprite =
+                new MockCont() as unknown as RendererState['tilesContainer']
+            state.tileSprites.set('tile-merge', sprite)
+
+            const gameState = makeGameState()
+            const animations: Animation[] = [
+                {
+                    type: 'merge',
+                    tileId: 'tile-merge',
+                    from: { row: 0, col: 0 },
+                    to: { row: 0, col: 1 },
+                    value: 8,
+                },
+            ]
+
+            await expect(
+                playAnimations(state, animations, gameState)
+            ).resolves.toBeUndefined()
+        })
+
+        it('should play spawn animations', async () => {
+            const state = makeRendererState()
+            const MockCont = vi.mocked(Container)
+            const sprite =
+                new MockCont() as unknown as RendererState['tilesContainer']
+            state.tileSprites.set('tile-spawn', sprite)
+
+            const gameState = makeGameState()
+            const animations: Animation[] = [
+                {
+                    type: 'spawn',
+                    tileId: 'tile-spawn',
+                    from: { row: 0, col: 0 },
+                    to: { row: 1, col: 1 },
+                },
+            ]
+
+            await expect(
+                playAnimations(state, animations, gameState)
+            ).resolves.toBeUndefined()
+        })
+
+        it('should play mixed animation types', async () => {
+            const state = makeRendererState()
+            const MockCont = vi.mocked(Container)
+            for (const id of ['tile-a', 'tile-b', 'tile-c']) {
+                state.tileSprites.set(
+                    id,
+                    new MockCont() as unknown as RendererState['tilesContainer']
+                )
+            }
+
+            const gameState = makeGameState()
+            const animations: Animation[] = [
+                {
+                    type: 'move',
+                    tileId: 'tile-a',
+                    from: { row: 0, col: 0 },
+                    to: { row: 0, col: 1 },
+                },
+                {
+                    type: 'merge',
+                    tileId: 'tile-b',
+                    from: { row: 1, col: 0 },
+                    to: { row: 1, col: 1 },
+                    value: 4,
+                },
+                {
+                    type: 'spawn',
+                    tileId: 'tile-c',
+                    from: { row: 2, col: 0 },
+                    to: { row: 2, col: 0 },
+                },
+            ]
+
+            await expect(
+                playAnimations(state, animations, gameState)
+            ).resolves.toBeUndefined()
         })
     })
 

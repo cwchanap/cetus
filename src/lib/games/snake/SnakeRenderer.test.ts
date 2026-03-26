@@ -355,4 +355,50 @@ describe('SnakeRenderer', () => {
             expect(config.cellSize).toBe(snakeConfig.cellSize)
         })
     })
+
+    describe('renderGame with invalid state', () => {
+        it('should return early when state is null (isSnakeState returns false)', async () => {
+            renderer = new SnakeRenderer(makeSnakeRendererConfig())
+            await renderer.initialize()
+            const MockGfx = vi.mocked(Graphics)
+            const countBefore = MockGfx.mock.results.length
+            renderer.render(null as any)
+            // No new Graphics should be created for invalid state
+            expect(MockGfx.mock.results.length).toBe(countBefore)
+        })
+
+        it('should return early when state is not an object', async () => {
+            renderer = new SnakeRenderer(makeSnakeRendererConfig())
+            await renderer.initialize()
+            const MockGfx = vi.mocked(Graphics)
+            const countBefore = MockGfx.mock.results.length
+            renderer.render('invalid' as any)
+            expect(MockGfx.mock.results.length).toBe(countBefore)
+        })
+    })
+
+    describe('null container guards', () => {
+        it('should not throw in drawGrid when gridContainer is null', async () => {
+            renderer = new SnakeRenderer(makeSnakeRendererConfig())
+            await renderer.initialize()
+            ;(renderer as any).gridContainer = null
+            expect(() => (renderer as any).drawGrid()).not.toThrow()
+        })
+
+        it('should not render snake segments when gameObjectContainer is null', async () => {
+            renderer = new SnakeRenderer(makeSnakeRendererConfig())
+            await renderer.initialize()
+            ;(renderer as any).gameObjectContainer = null
+            // render calls renderGame → clearGameObjects + drawSnakeSegment → guard returns early
+            expect(() => renderer.render(makeSnakeState())).not.toThrow()
+        })
+
+        it('should not render food when gameObjectContainer is null', async () => {
+            renderer = new SnakeRenderer(makeSnakeRendererConfig())
+            await renderer.initialize()
+            ;(renderer as any).gameObjectContainer = null
+            const stateWithFood = makeSnakeState({ food: { x: 3, y: 3 } })
+            expect(() => renderer.render(stateWithFood)).not.toThrow()
+        })
+    })
 })

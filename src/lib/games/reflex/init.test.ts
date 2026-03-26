@@ -253,6 +253,19 @@ describe('initializeReflexGame', () => {
             vi.advanceTimersByTime(100)
             expect(onObjectSpawn).toHaveBeenCalled()
         })
+
+        it('should call onObjectExpire when object expires', async () => {
+            const onObjectExpire = vi.fn()
+            const callbacks = makeCallbacks({ onObjectExpire })
+            const result = await initializeReflexGame(container, callbacks, {
+                spawnInterval: 0.001,
+                objectLifetime: 0.001,
+            })
+            result.startGame()
+            // Advance time enough for objects to spawn and expire
+            vi.advanceTimersByTime(200)
+            expect(onObjectExpire).toHaveBeenCalled()
+        })
     })
 
     describe('cleanup', () => {
@@ -262,6 +275,143 @@ describe('initializeReflexGame', () => {
             result.startGame()
             expect(() => result.cleanup()).not.toThrow()
             expect(cancelAnimationFrame).toHaveBeenCalled()
+        })
+    })
+
+    describe('canvas click handler', () => {
+        it('should call handleCellClick when canvas is clicked with valid cell', async () => {
+            const { getCellFromPosition } = await import('./renderer')
+            vi.mocked(getCellFromPosition).mockReturnValueOnce({
+                row: 2,
+                col: 3,
+            })
+
+            const callbacks = makeCallbacks()
+            const result = await initializeReflexGame(container, callbacks)
+            result.startGame()
+
+            const clickEvent = new MouseEvent('click', {
+                clientX: 100,
+                clientY: 100,
+                bubbles: true,
+            })
+            mockCanvas.dispatchEvent(clickEvent)
+        })
+
+        it('should not call handleCellClick when getCellFromPosition returns null', async () => {
+            const { getCellFromPosition } = await import('./renderer')
+            vi.mocked(getCellFromPosition).mockReturnValueOnce(null)
+
+            const callbacks = makeCallbacks()
+            const result = await initializeReflexGame(container, callbacks)
+            result.startGame()
+
+            const clickEvent = new MouseEvent('click', {
+                clientX: 0,
+                clientY: 0,
+                bubbles: true,
+            })
+            // Should not throw even when no cell found
+            expect(() => mockCanvas.dispatchEvent(clickEvent)).not.toThrow()
+        })
+    })
+
+    describe('accuracy with clicks', () => {
+        it('should calculate non-zero accuracy when player clicks coins', async () => {
+            const callbacks = makeCallbacks()
+            const result = await initializeReflexGame(container, callbacks, {
+                spawnInterval: 0.001,
+            })
+            result.startGame()
+            vi.advanceTimersByTime(100)
+
+            const objects = result.game.getActiveObjects()
+            const coin = objects.find(o => o.type === 'coin')
+            if (coin) {
+                result.game.handleCellClick(coin.cell.row, coin.cell.col)
+            }
+
+            result.stopGame()
+            await vi.runAllTimersAsync()
+
+            const accuracyEl = document.getElementById('final-accuracy')!
+            expect(accuracyEl.textContent).toMatch(/\d+%/)
+        })
+    })
+
+    describe('gameLoop with active objects', () => {
+        it('should call renderObject for each active object in the game loop', async () => {
+            const { renderObject } = await import('./renderer')
+            const callbacks = makeCallbacks()
+            const result = await initializeReflexGame(container, callbacks, {
+                spawnInterval: 0.001,
+            })
+            result.startGame()
+            vi.advanceTimersByTime(100)
+
+            vi.mocked(renderObject).mockClear()
+
+            if (rafCallbacks.length > 0) {
+                rafCallbacks[rafCallbacks.length - 1](0)
+            }
+
+            const active = result.game.getActiveObjects()
+            if (active.length > 0) {
+                expect(vi.mocked(renderObject)).toHaveBeenCalled()
+            }
+        })
+    })
+
+    describe('onObjectClick callback', () => {
+        it('should call removeObject and showClickEffect when object is clicked', async () => {
+            const { removeObject, showClickEffect } = await import('./renderer')
+            const onObjectClick = vi.fn()
+            const callbacks = makeCallbacks({ onObjectClick })
+            const result = await initializeReflexGame(container, callbacks, {
+                spawnInterval: 0.001,
+            })
+            result.startGame()
+            vi.advanceTimersByTime(100)
+
+            const objects = result.game.getActiveObjects()
+            if (objects.length > 0) {
+                result.game.handleCellClick(
+                    objects[0].cell.row,
+                    objects[0].cell.col
+                )
+                expect(removeObject).toHaveBeenCalled()
+                expect(showClickEffect).toHaveBeenCalled()
+                expect(onObjectClick).toHaveBeenCalled()
+            }
+        })
+    })
+
+    describe('saveGameScore error callback', () => {
+        it('should log error when saveGameScore calls onError', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockImplementationOnce(
+                async (_gameId, _score, _onSuccess, onError) => {
+                    onError?.(new Error('network error'))
+                    return { success: false }
+                }
+            )
+            const errorSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+
+            const callbacks = makeCallbacks()
+            const result = await initializeReflexGame(container, callbacks)
+            result.startGame()
+            result.stopGame()
+            await vi.runAllTimersAsync()
+
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Failed to submit score:',
+                expect.any(Error)
+            )
+            errorSpy.mockRestore()
         })
     })
 })

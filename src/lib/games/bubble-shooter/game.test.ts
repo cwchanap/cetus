@@ -6,6 +6,7 @@ import {
     startGame,
     togglePause,
     resetGame,
+    handleMouseMove,
     GAME_CONSTANTS,
 } from './game'
 import type { GameState, Bubble } from './types'
@@ -247,6 +248,94 @@ describe('Bubble Shooter Game', () => {
                 }
                 expect(GAME_CONSTANTS.COLORS).toContain(bubble.color)
             })
+        })
+    })
+
+    describe('handleMouseMove angle clamping', () => {
+        beforeEach(() => {
+            initializeGrid(gameState)
+            startGame(gameState)
+            // Place shooter at center so we can control atan2 output
+            gameState.shooter = { x: 200, y: 400 }
+            gameState.currentBubble = null
+        })
+
+        it('should clamp angle to -PI*0.9 when mouse is far to the left (steep left angle)', () => {
+            // atan2(mouseY - 400, mouseX - 200): need a very negative angle
+            // angle = atan2(deltaY, deltaX). For angle < -PI*0.9 (~-2.83):
+            // e.g. mouse at (100, 400) → deltaX=-100, deltaY=0 → angle = PI ~ +3.14 (positive wrap)
+            // Let's try: mouse at (199, 800) → deltaX=-1, deltaY=400 → angle = atan2(400,-1) ≈ PI/2 + small
+            // Actually to get < -PI*0.9: angle around -2.83 to -PI
+            // atan2(deltaY, deltaX) is very negative when deltaX is small negative and deltaY is large positive
+            // Actually atan2(-1, -100) ≈ -PI + 0.01 ≈ -3.13 which is < -PI*0.9 ≈ -2.83
+            const mockRenderer = {
+                app: {
+                    canvas: {
+                        getBoundingClientRect: () => ({ left: 0, top: 0 }),
+                    },
+                },
+            } as any
+            const mouseEvent = { clientX: 100, clientY: 399 } as MouseEvent
+            // deltaX=100-200=-100, deltaY=399-400=-1 → atan2(-1,-100) ≈ -PI+0.01
+            handleMouseMove(mouseEvent, gameState, mockRenderer)
+            expect(gameState.aimAngle).toBe(-Math.PI * 0.9)
+        })
+
+        it('should not update aimAngle when change is below threshold', () => {
+            gameState.aimAngle = -Math.PI / 2
+            const mockRenderer = {
+                app: {
+                    canvas: {
+                        getBoundingClientRect: () => ({ left: 0, top: 0 }),
+                    },
+                },
+            } as any
+            // Mouse almost directly above shooter → angle ≈ -PI/2, same as current
+            const mouseEvent = { clientX: 200, clientY: 100 } as MouseEvent
+            const prevAngle = gameState.aimAngle
+            handleMouseMove(mouseEvent, gameState, mockRenderer)
+            expect(gameState.aimAngle).toBe(prevAngle)
+        })
+    })
+
+    describe('resetGame with DOM elements', () => {
+        it('should hide overlays and reset buttons when DOM elements present', () => {
+            const overlay = document.createElement('div')
+            overlay.id = 'game-over-overlay'
+            document.body.appendChild(overlay)
+
+            const pauseOverlay = document.createElement('div')
+            pauseOverlay.id = 'pause-overlay'
+            document.body.appendChild(pauseOverlay)
+
+            const startBtn = document.createElement('button')
+            startBtn.id = 'start-btn'
+            startBtn.textContent = 'Playing...'
+            ;(startBtn as HTMLButtonElement).disabled = true
+            document.body.appendChild(startBtn)
+
+            const pauseBtn = document.createElement('button')
+            pauseBtn.id = 'pause-btn'
+            pauseBtn.textContent = 'Resume'
+            document.body.appendChild(pauseBtn)
+
+            startGame(gameState)
+            resetGame(
+                gameState,
+                () => {},
+                () => {}
+            )
+
+            expect(overlay.classList.contains('hidden')).toBe(true)
+            expect(pauseOverlay.classList.contains('hidden')).toBe(true)
+            expect(startBtn.textContent).toBe('Start')
+            expect((startBtn as HTMLButtonElement).disabled).toBe(false)
+            expect(pauseBtn.textContent).toBe('Pause')
+
+            document.body.removeChild(overlay)
+            document.body.removeChild(pauseOverlay)
+            document.body.removeChild(startBtn)
+            document.body.removeChild(pauseBtn)
         })
     })
 
