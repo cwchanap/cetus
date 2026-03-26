@@ -531,6 +531,156 @@ describe('initSnakeGameFramework', () => {
         })
     })
 
+    describe('onGameEnd achievement handler', () => {
+        it('should call showAchievementAward when achievements are present', async () => {
+            const { SnakeGame } = await import('./SnakeGame')
+            const showAchievementAward = vi.fn()
+            vi.stubGlobal('showAchievementAward', showAchievementAward)
+
+            result = await initSnakeGameFramework()
+            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
+
+            // Get the onGameEnd callback registered with game.on('end', handler)
+            const onGameEndCall = vi
+                .mocked(gameMock.on)
+                .mock.calls.find(call => call[0] === 'end')
+            const onGameEnd = onGameEndCall?.[1] as
+                | ((...args: unknown[]) => unknown)
+                | undefined
+
+            if (onGameEnd) {
+                onGameEnd({
+                    data: { newAchievements: [{ id: 'first_blood' }] },
+                })
+                expect(showAchievementAward).toHaveBeenCalledWith([
+                    { id: 'first_blood' },
+                ])
+            }
+
+            vi.unstubAllGlobals()
+        })
+
+        it('should handle onGameEnd with no achievements', async () => {
+            const { SnakeGame } = await import('./SnakeGame')
+            result = await initSnakeGameFramework()
+            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
+
+            const onGameEndCall = vi
+                .mocked(gameMock.on)
+                .mock.calls.find(call => call[0] === 'end')
+            const onGameEnd = onGameEndCall?.[1] as
+                | ((...args: unknown[]) => unknown)
+                | undefined
+
+            if (onGameEnd) {
+                expect(() => onGameEnd({ data: {} })).not.toThrow()
+            }
+        })
+
+        it('should handle onGameEnd with empty achievements array', async () => {
+            const { SnakeGame } = await import('./SnakeGame')
+            result = await initSnakeGameFramework()
+            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
+
+            const onGameEndCall = vi
+                .mocked(gameMock.on)
+                .mock.calls.find(call => call[0] === 'end')
+            const onGameEnd = onGameEndCall?.[1] as
+                | ((...args: unknown[]) => unknown)
+                | undefined
+
+            if (onGameEnd) {
+                expect(() =>
+                    onGameEnd({ data: { newAchievements: [] } })
+                ).not.toThrow()
+            }
+        })
+    })
+
+    describe('beforeunload handler', () => {
+        it('should call preventDefault when game is active', async () => {
+            const { SnakeGame } = await import('./SnakeGame')
+            result = await initSnakeGameFramework()
+            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
+
+            vi.mocked(gameMock.getState).mockReturnValue({
+                ...gameMock.getState(),
+                gameStarted: true,
+                isGameOver: false,
+                isPaused: false,
+            } as any)
+
+            const event = new Event('beforeunload', { cancelable: true })
+            const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
+            window.dispatchEvent(event)
+            expect(preventDefaultSpy).toHaveBeenCalled()
+        })
+
+        it('should not call preventDefault when game is not started', async () => {
+            result = await initSnakeGameFramework()
+
+            const event = new Event('beforeunload', { cancelable: true })
+            const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
+            window.dispatchEvent(event)
+            expect(preventDefaultSpy).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('renderer cleanup with canvas parentNode', () => {
+        it('should remove canvas from parentNode during error cleanup', async () => {
+            const { SnakeRenderer } = await import('./SnakeRenderer')
+            const mockRemoveChild = vi.fn()
+            const mockParentNode = { removeChild: mockRemoveChild }
+            const mockCanvas = { style: {}, parentNode: mockParentNode }
+
+            vi.mocked(SnakeRenderer).mockImplementationOnce(
+                () =>
+                    ({
+                        initialize: vi
+                            .fn()
+                            .mockRejectedValue(new Error('PixiJS failed')),
+                        render: vi.fn(),
+                        cleanup: vi.fn(),
+                        getApp: vi.fn(() => ({ canvas: mockCanvas })),
+                    }) as any
+            )
+
+            const res = await initSnakeGameFramework()
+            expect(res).toBeUndefined()
+            expect(mockRemoveChild).toHaveBeenCalledWith(mockCanvas)
+        })
+
+        it('should handle cleanup error when renderer.cleanup throws', async () => {
+            const { SnakeRenderer } = await import('./SnakeRenderer')
+            const errorSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+            const mockCanvas = { style: {}, parentNode: null }
+
+            vi.mocked(SnakeRenderer).mockImplementationOnce(
+                () =>
+                    ({
+                        initialize: vi
+                            .fn()
+                            .mockRejectedValue(new Error('PixiJS failed')),
+                        render: vi.fn(),
+                        cleanup: vi.fn().mockImplementation(() => {
+                            throw new Error('cleanup error')
+                        }),
+                        getApp: vi.fn(() => ({ canvas: mockCanvas })),
+                    }) as any
+            )
+
+            const res = await initSnakeGameFramework()
+            expect(res).toBeUndefined()
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Error during renderer cleanup:',
+                expect.any(Error)
+            )
+            errorSpy.mockRestore()
+        })
+    })
+
     describe('render loop', () => {
         it('should call renderer.render when needsRedraw is true', async () => {
             const { SnakeGame } = await import('./SnakeGame')

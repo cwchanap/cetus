@@ -1,6 +1,12 @@
 // 2048 Game Unit Tests
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+// Mock utils so we can spy on canMove for game-over tests
+vi.mock('./utils', async importOriginal => {
+    const actual = await importOriginal<typeof import('./utils')>()
+    return { ...actual, canMove: vi.fn(actual.canMove) }
+})
 import {
     createGameState,
     spawnTile,
@@ -758,6 +764,44 @@ describe('2048 Game Logic', () => {
             }
 
             mockRandom.mockRestore()
+        })
+
+        it('should deterministically trigger onGameOver via mocked canMove', async () => {
+            const utils = await import('./utils')
+            const onGameOver = vi.fn()
+
+            state = startGame(state)
+            // Set up a board with ONE possible move (a mergeable pair) so moved=true
+            // After the move+spawn, canMove will be mocked to return false
+            state.board = [
+                [2, 4, 2, 4],
+                [4, 2, 4, 2],
+                [2, 4, 2, 4],
+                [4, null, 2, 4], // 4 at col 0 can slide right to col 1 → moved=true
+            ].map((row, r) =>
+                row.map((val, c) =>
+                    val
+                        ? {
+                              id: `t-${r * 4 + c}`,
+                              value: val,
+                              position: { row: r, col: c },
+                          }
+                        : null
+                )
+            )
+
+            // Force canMove to return false ONCE so checkGameOver returns true
+            vi.mocked(utils.canMove).mockReturnValueOnce(false)
+
+            const result = processMove(state, 'right', 0, { onGameOver })
+
+            // Game over should have been triggered
+            expect(result.state.gameOver).toBe(true)
+            result.callbacksToInvoke.forEach(cb => cb())
+            expect(onGameOver).toHaveBeenCalledWith(
+                expect.any(Number),
+                expect.any(Object)
+            )
         })
     })
 })

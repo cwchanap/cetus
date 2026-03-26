@@ -548,5 +548,137 @@ describe('Snake game.ts pure logic', () => {
             expect(state.food).not.toBeNull()
             vi.unstubAllGlobals()
         })
+
+        it('should call endGame when moveSnake returns false (collision)', async () => {
+            // Force a wall collision
+            state.gameStarted = true
+            state.gameOver = false
+            state.paused = false
+            state.gameStartTime = Date.now() - 100
+            state.snake[0].x = GAME_CONSTANTS.GRID_WIDTH - 1
+            state.direction = 'right'
+            state.nextDirection = 'right'
+            // Set lastMoveTime in the past to trigger move
+            state.lastMoveTime = Date.now() - GAME_CONSTANTS.MOVE_INTERVAL - 100
+            state.lastFoodSpawnTime = Date.now() + 10000
+            vi.stubGlobal('requestAnimationFrame', vi.fn())
+            gameLoop(state)
+            await vi.waitFor(() => {
+                expect(state.gameOver).toBe(true)
+            })
+            vi.unstubAllGlobals()
+        })
+    })
+
+    describe('startGame with DOM elements', () => {
+        it('should update start-btn text and disable it', () => {
+            const startBtn = document.createElement('button')
+            startBtn.id = 'start-btn'
+            document.body.appendChild(startBtn)
+
+            const gameLoopFn = vi.fn()
+            startGame(state, gameLoopFn)
+
+            expect(startBtn.textContent).toBe('Playing...')
+            expect((startBtn as HTMLButtonElement).disabled).toBe(true)
+
+            document.body.removeChild(startBtn)
+        })
+    })
+
+    describe('togglePause with DOM elements', () => {
+        it('should update pause-btn text when pausing', () => {
+            const pauseBtn = document.createElement('button')
+            pauseBtn.id = 'pause-btn'
+            document.body.appendChild(pauseBtn)
+
+            state.gameStarted = true
+            state.paused = false
+            togglePause(state, vi.fn())
+
+            expect(pauseBtn.textContent).toBe('Resume')
+            document.body.removeChild(pauseBtn)
+        })
+
+        it('should resume with pauseStartedAt null (uses 0 duration)', () => {
+            state.gameStarted = true
+            state.paused = true
+            state.pauseStartedAt = null // null → pauseDuration = 0
+            state.gameStartTime = Date.now() - 5000
+            const gameLoopFn = vi.fn()
+            togglePause(state, gameLoopFn)
+            expect(state.paused).toBe(false)
+            expect(gameLoopFn).toHaveBeenCalledOnce()
+        })
+    })
+
+    describe('resetGame with DOM elements', () => {
+        it('should hide game-over-overlay and reset buttons', () => {
+            const overlay = document.createElement('div')
+            overlay.id = 'game-over-overlay'
+            document.body.appendChild(overlay)
+
+            const startBtn = document.createElement('button')
+            startBtn.id = 'start-btn'
+            startBtn.textContent = 'Playing...'
+            ;(startBtn as HTMLButtonElement).disabled = true
+            document.body.appendChild(startBtn)
+
+            const endBtn = document.createElement('button')
+            endBtn.id = 'end-btn'
+            endBtn.style.display = 'inline-flex'
+            document.body.appendChild(endBtn)
+
+            const pauseBtn = document.createElement('button')
+            pauseBtn.id = 'pause-btn'
+            pauseBtn.textContent = 'Resume'
+            document.body.appendChild(pauseBtn)
+
+            resetGame(state)
+
+            expect(overlay.classList.contains('hidden')).toBe(true)
+            expect(startBtn.textContent).toBe('Start')
+            expect((startBtn as HTMLButtonElement).disabled).toBe(false)
+            expect(endBtn.style.display).toBe('none')
+            expect(pauseBtn.textContent).toBe('Pause')
+
+            document.body.removeChild(overlay)
+            document.body.removeChild(startBtn)
+            document.body.removeChild(endBtn)
+            document.body.removeChild(pauseBtn)
+        })
+    })
+
+    describe('endGame paused state', () => {
+        it('should subtract pause duration from gameTime when paused', async () => {
+            const onGameOver = vi.fn().mockResolvedValue(undefined)
+            state.onGameOver = onGameOver
+            state.gameStartTime = Date.now() - 10000
+            state.paused = true
+            state.pauseStartedAt = Date.now() - 2000 // paused 2s ago
+            await endGame(state)
+            const stats = onGameOver.mock.calls[0][1]
+            // gameTime should be ~8s not ~10s (pause subtracted)
+            expect(stats.gameTime).toBeLessThan(9000)
+        })
+    })
+
+    describe('endGame saveGameScore catch', () => {
+        it('should log error when saveGameScore promise itself rejects', async () => {
+            vi.mocked(saveGameScore).mockRejectedValueOnce(
+                new Error('network failure')
+            )
+            const errorSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+            await endGame(state)
+            await vi.waitFor(() => {
+                expect(errorSpy).toHaveBeenCalledWith(
+                    'Error during score submission:',
+                    expect.any(Error)
+                )
+            })
+            errorSpy.mockRestore()
+        })
     })
 })

@@ -457,5 +457,105 @@ describe('initTetrisGame', () => {
                 await expect(state.onGameOver(0, {})).resolves.toBeUndefined()
             }
         })
+
+        it('should dispatch achievementsEarned event when new achievements returned', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockImplementationOnce(
+                (_id: any, _score: any, successCb: any) => {
+                    successCb({
+                        newAchievements: ['achievement-1', 'achievement-2'],
+                    })
+                    return Promise.resolve({ success: true }) as any
+                }
+            )
+
+            gameInst = await initTetrisGame()
+            const state = gameInst!.getState() as any
+            const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+
+            if (typeof state.onGameOver === 'function') {
+                await state.onGameOver(200, {})
+            }
+
+            const achievementEvents = dispatchSpy.mock.calls.filter(
+                call =>
+                    call[0] instanceof CustomEvent &&
+                    (call[0] as CustomEvent).type === 'achievementsEarned'
+            )
+            expect(achievementEvents.length).toBeGreaterThan(0)
+        })
+    })
+
+    describe('beforeUnloadHandler', () => {
+        it('should warn user when game is in progress and unloading', async () => {
+            gameInst = await initTetrisGame()
+            const state = gameInst!.getState() as any
+            state.gameStarted = true
+            state.gameOver = false
+            state.paused = false
+
+            const event = new Event('beforeunload', { cancelable: true })
+            const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
+            window.dispatchEvent(event)
+            expect(preventDefaultSpy).toHaveBeenCalled()
+        })
+
+        it('should not warn when game is not started', async () => {
+            gameInst = await initTetrisGame()
+            // gameStarted is false by default
+
+            const event = new Event('beforeunload', { cancelable: true })
+            const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
+            window.dispatchEvent(event)
+            expect(preventDefaultSpy).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('saveGameScore error callback', () => {
+        it('should log error when saveGameScore error callback is called', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockImplementationOnce(
+                (_id: any, _score: any, _successCb: any, errorCb: any) => {
+                    errorCb(new Error('network failure'))
+                    return Promise.resolve({ success: false }) as any
+                }
+            )
+            const errorSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+
+            gameInst = await initTetrisGame()
+            const state = gameInst!.getState() as any
+            if (typeof state.onGameOver === 'function') {
+                await state.onGameOver(0, {})
+            }
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Failed to submit score:',
+                expect.any(Error)
+            )
+            errorSpy.mockRestore()
+        })
+    })
+
+    describe('gameLoopFn', () => {
+        it('should call gameLoop when invoked with active game state', async () => {
+            const { startGame, gameLoop } = await import('./game')
+            vi.mocked(startGame).mockImplementationOnce((_state, loopFn) => {
+                if (typeof loopFn === 'function') {
+                    ;(_state as any).gameStarted = true
+                    ;(_state as any).gameOver = false
+                    ;(_state as any).paused = false
+                    loopFn()
+                }
+            })
+
+            gameInst = await initTetrisGame()
+            document.getElementById('start-btn')!.click()
+            expect(gameLoop).toHaveBeenCalled()
+        })
     })
 })

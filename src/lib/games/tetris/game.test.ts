@@ -146,6 +146,28 @@ describe('Tetris Game Logic', () => {
             const state = makeState({ nextPiece: null })
             expect(() => spawnPiece(state)).not.toThrow()
         })
+
+        it('should call endGame when spawned piece collides immediately', () => {
+            // I piece: [[1,1,1,1]], spawns at x=3, y=0
+            // Fill board row 0 at columns 3-6 to cause immediate collision
+            const state = makeState({
+                nextPiece: {
+                    type: 'I',
+                    shape: [[1, 1, 1, 1]],
+                    color: 0x00ffff,
+                    x: 0,
+                    y: 0,
+                },
+            })
+            // Fill board at the spawn position (x=3 to x=6, y=0)
+            state.board[0][3] = 0xff0000
+            state.board[0][4] = 0xff0000
+            state.board[0][5] = 0xff0000
+            state.board[0][6] = 0xff0000
+
+            spawnPiece(state)
+            expect(state.gameOver).toBe(true)
+        })
     })
 
     describe('movePiece', () => {

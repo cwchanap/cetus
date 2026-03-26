@@ -451,4 +451,271 @@ describe('init2048Game', () => {
             expect(onScoreChange).toHaveBeenCalledWith(10)
         })
     })
+
+    describe('onGameOver with gameWon', () => {
+        it('should show win title when gameWon is true', async () => {
+            const { endGame } = await import('./game')
+            vi.mocked(endGame).mockReturnValueOnce({
+                state: { gameOver: true } as any,
+                stats: {
+                    finalScore: 2048,
+                    maxTile: 2048,
+                    moveCount: 100,
+                    mergeCount: 50,
+                    gameWon: true,
+                },
+            })
+
+            gameInst = await init2048Game()
+            gameInst!.start()
+            await gameInst!.endGame()
+            await vi.runAllTimersAsync()
+
+            const title = document.getElementById('game-over-title')!
+            expect(title.textContent).toBe('🎉 You Win!')
+        })
+
+        it('should log error when saveGameScore onError is called', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockImplementationOnce(
+                async (_gameId, _score, _onSuccess, onError) => {
+                    onError?.(new Error('network error'))
+                    return { success: false }
+                }
+            )
+            const errorSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+
+            gameInst = await init2048Game()
+            gameInst!.start()
+            await gameInst!.endGame()
+            await vi.runAllTimersAsync()
+
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Failed to submit score:',
+                expect.any(Error)
+            )
+            errorSpy.mockRestore()
+        })
+    })
+
+    describe('onWin callback', () => {
+        it('should show win notification when onWin is triggered', async () => {
+            const { processMove } = await import('./game')
+            vi.mocked(processMove).mockImplementationOnce(
+                (state: any, _dir, totalMerges, callbacks: any) => ({
+                    state: {
+                        ...state,
+                        score: state.score + 2048,
+                        lastMoveAnimations: [],
+                    },
+                    totalMerges: totalMerges + 1,
+                    callbacksToInvoke: [() => callbacks?.onWin?.()],
+                })
+            )
+
+            gameInst = await init2048Game()
+            gameInst!.start()
+
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowRight',
+                    bubbles: true,
+                })
+            )
+            // Advance time slightly but NOT past the 3000ms hide-again timer
+            await vi.advanceTimersByTimeAsync(100)
+
+            const winNotification = document.getElementById('win-notification')!
+            expect(winNotification.classList.contains('hidden')).toBe(false)
+        })
+
+        it('should hide win notification after 3000ms', async () => {
+            const { processMove } = await import('./game')
+            vi.mocked(processMove).mockImplementationOnce(
+                (state: any, _dir, totalMerges, callbacks: any) => ({
+                    state: {
+                        ...state,
+                        score: state.score + 2048,
+                        lastMoveAnimations: [],
+                    },
+                    totalMerges: totalMerges + 1,
+                    callbacksToInvoke: [() => callbacks?.onWin?.()],
+                })
+            )
+
+            gameInst = await init2048Game()
+            gameInst!.start()
+
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowRight',
+                    bubbles: true,
+                })
+            )
+            await vi.advanceTimersByTimeAsync(3001)
+
+            const winNotification = document.getElementById('win-notification')!
+            expect(winNotification.classList.contains('hidden')).toBe(true)
+        })
+    })
+
+    describe('handleMove early return guard', () => {
+        it('should return early when game is not started', async () => {
+            gameInst = await init2048Game()
+            // Do NOT start game - gameStarted is false
+            const { processMove } = await import('./game')
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowRight',
+                    bubbles: true,
+                })
+            )
+            expect(processMove).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('playAnimations path', () => {
+        it('should call playAnimations when lastMoveAnimations is non-empty', async () => {
+            const { processMove } = await import('./game')
+            const { playAnimations } = await import('./renderer')
+            vi.mocked(processMove).mockImplementationOnce(
+                (state: any, _dir, totalMerges) => ({
+                    state: {
+                        ...state,
+                        score: state.score + 10,
+                        lastMoveAnimations: [
+                            { type: 'move', tileId: '1', from: 0, to: 1 },
+                        ],
+                    },
+                    totalMerges: totalMerges + 1,
+                    callbacksToInvoke: [],
+                })
+            )
+
+            gameInst = await init2048Game()
+            gameInst!.start()
+
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowRight',
+                    bubbles: true,
+                })
+            )
+            await vi.runAllTimersAsync()
+
+            expect(playAnimations).toHaveBeenCalled()
+        })
+    })
+
+    describe('touch early returns', () => {
+        it('should return early from touchstart when game is not started', async () => {
+            gameInst = await init2048Game()
+            // Do NOT start game
+            const container = document.getElementById('game-2048-container')!
+            expect(() =>
+                container.dispatchEvent(
+                    new TouchEvent('touchstart', {
+                        touches: [{ clientX: 100, clientY: 100 } as Touch],
+                    })
+                )
+            ).not.toThrow()
+        })
+
+        it('should return early from touchend when game is not started', async () => {
+            gameInst = await init2048Game()
+            // Do NOT start game
+            const container = document.getElementById('game-2048-container')!
+            expect(() =>
+                container.dispatchEvent(
+                    new TouchEvent('touchend', {
+                        changedTouches: [
+                            { clientX: 250, clientY: 100 } as Touch,
+                        ],
+                    })
+                )
+            ).not.toThrow()
+        })
+
+        it('should handle vertical down swipe', async () => {
+            const { processMove } = await import('./game')
+            gameInst = await init2048Game()
+            gameInst!.start()
+
+            const container = document.getElementById('game-2048-container')!
+            container.dispatchEvent(
+                new TouchEvent('touchstart', {
+                    touches: [{ clientX: 100, clientY: 100 } as Touch],
+                })
+            )
+
+            // Vertical down swipe: large deltaY, small deltaX
+            const touchEnd = new TouchEvent('touchend', {
+                changedTouches: [{ clientX: 103, clientY: 250 } as Touch],
+            })
+            container.dispatchEvent(touchEnd)
+            await vi.runAllTimersAsync()
+            expect(processMove).toHaveBeenCalledWith(
+                expect.any(Object),
+                'down',
+                expect.any(Number),
+                expect.any(Object)
+            )
+        })
+
+        it('should handle left swipe', async () => {
+            const { processMove } = await import('./game')
+            gameInst = await init2048Game()
+            gameInst!.start()
+
+            const container = document.getElementById('game-2048-container')!
+            container.dispatchEvent(
+                new TouchEvent('touchstart', {
+                    touches: [{ clientX: 250, clientY: 100 } as Touch],
+                })
+            )
+
+            // Left swipe: large negative deltaX, small deltaY
+            const touchEnd = new TouchEvent('touchend', {
+                changedTouches: [{ clientX: 100, clientY: 103 } as Touch],
+            })
+            container.dispatchEvent(touchEnd)
+            await vi.runAllTimersAsync()
+            expect(processMove).toHaveBeenCalledWith(
+                expect.any(Object),
+                'left',
+                expect.any(Number),
+                expect.any(Object)
+            )
+        })
+
+        it('should handle vertical up swipe', async () => {
+            const { processMove } = await import('./game')
+            gameInst = await init2048Game()
+            gameInst!.start()
+
+            const container = document.getElementById('game-2048-container')!
+            container.dispatchEvent(
+                new TouchEvent('touchstart', {
+                    touches: [{ clientX: 100, clientY: 250 } as Touch],
+                })
+            )
+
+            // Vertical up swipe: large negative deltaY
+            const touchEnd = new TouchEvent('touchend', {
+                changedTouches: [{ clientX: 103, clientY: 100 } as Touch],
+            })
+            container.dispatchEvent(touchEnd)
+            await vi.runAllTimersAsync()
+            expect(processMove).toHaveBeenCalledWith(
+                expect.any(Object),
+                'up',
+                expect.any(Number),
+                expect.any(Object)
+            )
+        })
+    })
 })

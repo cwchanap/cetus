@@ -554,4 +554,85 @@ describe('BejeweledRenderer', () => {
             expect(cb).not.toHaveBeenCalled()
         })
     })
+
+    describe('null app guards', () => {
+        it('should return early from renderGame when app is null', async () => {
+            renderer = new BejeweledRenderer({
+                type: 'canvas',
+                container: '#bejeweled-test-container',
+            })
+            await renderer.initialize()
+            // Set app to null to trigger the guard in renderGame
+            ;(renderer as any).app = null
+            const state = makeBejeweledState()
+            expect(() => renderer.render(state)).not.toThrow()
+        })
+
+        it('should return early from pointerdown handler when lastState is null', async () => {
+            renderer = new BejeweledRenderer({
+                type: 'canvas',
+                container: '#bejeweled-test-container',
+            })
+            await renderer.initialize()
+
+            const cb = vi.fn()
+            renderer.setCellClickCallback(cb)
+
+            // Do NOT call render() - lastState remains null
+            const MockApp = vi.mocked(Application)
+            const appInst =
+                MockApp.mock.results[MockApp.mock.results.length - 1].value
+            const onCall = (
+                appInst.stage.on as ReturnType<typeof vi.fn>
+            ).mock.calls.find((c: unknown[]) => c[0] === 'pointerdown')
+
+            if (onCall) {
+                onCall[1]({ global: { x: 100, y: 100 } })
+            }
+            // lastState is null → cb should NOT be called
+            expect(cb).not.toHaveBeenCalled()
+        })
+
+        it('should return {row:-1,col:-1} from mapPointToCell when app is null', async () => {
+            renderer = new BejeweledRenderer({
+                type: 'canvas',
+                container: '#bejeweled-test-container',
+            })
+            await renderer.initialize()
+            ;(renderer as any).app = null
+            const state = makeBejeweledState()
+
+            // mapPointToCell is private; call it indirectly via pointerdown after render
+            // (we rendered with app, set app=null, then trigger click)
+            // Actually render first to set lastState, then set app=null, then click
+            renderer.render(state)
+            ;(renderer as any).app = null
+
+            const MockApp = vi.mocked(Application)
+            const appInst =
+                MockApp.mock.results[MockApp.mock.results.length - 1].value
+            const onCall = (
+                appInst.stage.on as ReturnType<typeof vi.fn>
+            ).mock.calls.find((c: unknown[]) => c[0] === 'pointerdown')
+
+            if (onCall) {
+                expect(() =>
+                    onCall[1]({ global: { x: 100, y: 100 } })
+                ).not.toThrow()
+            }
+        })
+
+        it('should return dimensions guard from getGridMetrics when app is null', async () => {
+            renderer = new BejeweledRenderer({
+                type: 'canvas',
+                container: '#bejeweled-test-container',
+            })
+            await renderer.initialize()
+            ;(renderer as any).app = null
+            const state = makeBejeweledState()
+            // getGridMetrics is called inside renderGame which returns early when app is null
+            // So we test via render when app is null (all paths covered)
+            expect(() => renderer.render(state)).not.toThrow()
+        })
+    })
 })

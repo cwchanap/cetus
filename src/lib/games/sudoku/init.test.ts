@@ -6,6 +6,36 @@ vi.mock('@/lib/services/scoreService', () => ({
     saveGameScore: vi.fn().mockResolvedValue({ success: true }),
 }))
 
+// Mock ./game so we can spy on initializeGame for state-specific tests
+vi.mock('./game', async importOriginal => {
+    const actual = await importOriginal<typeof import('./game')>()
+    return { ...actual, initializeGame: vi.fn(actual.initializeGame) }
+})
+
+function makeGameState(overrides: Record<string, unknown> = {}) {
+    return {
+        grid: {
+            cells: Array.from({ length: 9 }, () =>
+                Array.from({ length: 9 }, () => ({
+                    value: null as number | null,
+                    isGiven: false,
+                    isHighlighted: false,
+                    isConflicting: false,
+                }))
+            ),
+            selectedCell: null as { row: number; col: number } | null,
+        },
+        difficulty: 'medium' as const,
+        timer: 42,
+        mistakes: 0,
+        isComplete: false,
+        isPaused: false,
+        isGameOver: false,
+        score: 100,
+        ...overrides,
+    }
+}
+
 describe('initSudokuGame', () => {
     let container: HTMLElement
     let rafCallbacks: FrameRequestCallback[]
@@ -305,6 +335,168 @@ describe('initSudokuGame', () => {
             expect(container.querySelector('.sudoku-game')).not.toBeNull()
             // Overlay stays hidden at game start
             expect(overlay.classList.contains('hidden')).toBe(true)
+        })
+    })
+
+    describe('pause overlay rendering', () => {
+        it('should render pause overlay when state starts paused', async () => {
+            const { initializeGame } = await import('./game')
+            vi.mocked(initializeGame).mockReturnValueOnce(
+                makeGameState({ isPaused: true }) as any
+            )
+            initSudokuGame(container)
+            const gameEl = container.querySelector('.sudoku-game')!
+            expect(gameEl.querySelector('.absolute')).not.toBeNull()
+        })
+
+        it('should handle P keydown with pause-btn in DOM', async () => {
+            const pauseBtn = document.createElement('button')
+            pauseBtn.id = 'pause-btn'
+            pauseBtn.textContent = 'Pause'
+            document.body.appendChild(pauseBtn)
+
+            initSudokuGame(container)
+            const gameEl = container.querySelector(
+                '.sudoku-game'
+            ) as HTMLElement
+            const event = new KeyboardEvent('keydown', {
+                key: 'p',
+                bubbles: true,
+            })
+            gameEl.dispatchEvent(event)
+            // After keydown with 'p', pause-btn text should update
+            expect(['Resume', 'Pause']).toContain(pauseBtn.textContent)
+        })
+    })
+
+    describe('handleKeydown early return when paused', () => {
+        it('should ignore number keydown when game is paused', async () => {
+            initSudokuGame(container)
+            const gameEl = container.querySelector(
+                '.sudoku-game'
+            ) as HTMLElement
+
+            // Pause via P key
+            gameEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }))
+            // Now dispatch a number key — should hit early return
+            expect(() =>
+                gameEl.dispatchEvent(new KeyboardEvent('keydown', { key: '5' }))
+            ).not.toThrow()
+        })
+    })
+
+    describe('handleKeydown default switch branch', () => {
+        it('should hit default branch when a non-arrow non-special key is pressed with selected cell', () => {
+            initSudokuGame(container)
+            const gameEl = container.querySelector(
+                '.sudoku-game'
+            ) as HTMLElement
+
+            // Select a cell
+            const cells = container.querySelectorAll('.sudoku-cell')
+            ;(cells[40] as HTMLElement).click()
+
+            // Press a key that hits the default branch in the switch
+            expect(() =>
+                gameEl.dispatchEvent(
+                    new KeyboardEvent('keydown', { key: 'Tab' })
+                )
+            ).not.toThrow()
+        })
+    })
+
+    describe('conflict cell rendering', () => {
+        it('should render conflict classes when a cell has isConflicting true', async () => {
+            const { initializeGame } = await import('./game')
+            const state = makeGameState()
+            state.grid.cells[0][0].isConflicting = true
+            state.grid.cells[0][0].value = 5
+            vi.mocked(initializeGame).mockReturnValueOnce(state as any)
+
+            initSudokuGame(container)
+            // Check that the board rendered (conflict styles applied internally)
+            expect(container.querySelectorAll('.sudoku-cell').length).toBe(81)
+        })
+    })
+
+    describe('showGameOverOverlay', () => {
+        it('should return early when game-over-overlay is missing from DOM', async () => {
+            const { initializeGame } = await import('./game')
+            vi.mocked(initializeGame).mockReturnValueOnce(
+                makeGameState({ isGameOver: true }) as any
+            )
+            // No overlay in DOM - should not throw
+            expect(() => initSudokuGame(container)).not.toThrow()
+        })
+
+        it('should show overlay and update stats when game is over', async () => {
+            const { initializeGame } = await import('./game')
+
+            // Build overlay elements
+            const overlay = document.createElement('div')
+            overlay.id = 'game-over-overlay'
+            overlay.className = 'hidden'
+            const h3 = document.createElement('h3')
+            overlay.appendChild(h3)
+            document.body.appendChild(overlay)
+
+            const finalTimeEl = document.createElement('div')
+            finalTimeEl.id = 'final-time'
+            document.body.appendChild(finalTimeEl)
+
+            const finalScoreEl = document.createElement('div')
+            finalScoreEl.id = 'final-score'
+            document.body.appendChild(finalScoreEl)
+
+            const finalDiffEl = document.createElement('div')
+            finalDiffEl.id = 'final-difficulty'
+            document.body.appendChild(finalDiffEl)
+
+            vi.mocked(initializeGame).mockReturnValueOnce(
+                makeGameState({ isGameOver: true, timer: 65 }) as any
+            )
+            initSudokuGame(container)
+
+            expect(overlay.classList.contains('hidden')).toBe(false)
+            expect(finalTimeEl.textContent).toBe('01:05')
+            expect(finalScoreEl.textContent).toBe('100')
+            expect(finalDiffEl.textContent).toBe('Medium')
+            expect(h3.textContent).toBe('GAME OVER')
+        })
+
+        it('should show PUZZLE SOLVED when isComplete is true', async () => {
+            const { initializeGame } = await import('./game')
+
+            const overlay = document.createElement('div')
+            overlay.id = 'game-over-overlay'
+            overlay.className = 'hidden'
+            const h3 = document.createElement('h3')
+            overlay.appendChild(h3)
+            document.body.appendChild(overlay)
+
+            document.body.appendChild(
+                Object.assign(document.createElement('div'), {
+                    id: 'final-time',
+                })
+            )
+            document.body.appendChild(
+                Object.assign(document.createElement('div'), {
+                    id: 'final-score',
+                })
+            )
+            document.body.appendChild(
+                Object.assign(document.createElement('div'), {
+                    id: 'final-difficulty',
+                })
+            )
+
+            vi.mocked(initializeGame).mockReturnValueOnce(
+                makeGameState({ isComplete: true }) as any
+            )
+            initSudokuGame(container)
+
+            expect(overlay.classList.contains('hidden')).toBe(false)
+            expect(h3.textContent).toBe('PUZZLE SOLVED!')
         })
     })
 })

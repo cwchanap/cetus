@@ -329,4 +329,28 @@ describe('QuickMathRenderer', () => {
             expect(submitBtn.disabled).toBe(true)
         })
     })
+
+    describe('null element guard branches', () => {
+        it('should return early from setupInputEvents/renderQuestion/showAnswerFeedback when elements are null (no initialize)', () => {
+            // Create renderer WITHOUT calling initialize() - fields stay null
+            const r = new QuickMathRenderer(config)
+            // All methods should early-return without throwing
+            expect(() => r.renderQuestion(makeQuestion())).not.toThrow()
+            expect(() => r.showAnswerFeedback(true)).not.toThrow()
+            expect(() => r.showAnswerFeedback(false)).not.toThrow()
+            // render() is a no-op
+            expect(() => r.render()).not.toThrow()
+        })
+
+        it('should handle resetInputStyling null guard via setTimeout callback', () => {
+            vi.useFakeTimers()
+            // showAnswerFeedback queues a setTimeout that calls resetInputStyling
+            renderer.showAnswerFeedback(true)
+            // Null out answerInput so resetInputStyling hits the null guard
+            ;(renderer as any).answerInput = null
+            // Advance time past the 500ms delay - should not throw
+            expect(() => vi.runAllTimers()).not.toThrow()
+            vi.useRealTimers()
+        })
+    })
 })

@@ -6,6 +6,7 @@ import {
     getUserBestScoreByGame,
     getUserAchievementsPaginated,
     isUsernameAvailable,
+    updateAllUserStreaksForUTC,
 } from '@/lib/server/db/queries'
 import { db } from '@/lib/server/db/client'
 
@@ -652,6 +653,22 @@ describe('Database Queries', () => {
 
                 vi.clearAllMocks()
             }
+        })
+    })
+
+    describe('updateAllUserStreaksForUTC', () => {
+        it('should return zeros when no users exist', async () => {
+            const mockEmptyQuery = {
+                select: vi.fn().mockReturnThis(),
+                distinct: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue([]),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockEmptyQuery as any)
+
+            const result = await updateAllUserStreaksForUTC()
+
+            expect(result).toEqual({ processed: 0, incremented: 0, reset: 0 })
         })
     })
 

@@ -319,5 +319,75 @@ describe('Bubble Shooter Physics', () => {
             // Bubbles should have been removed from the match
             expect(state.bubblesRemaining).toBeLessThan(initialBubblesRemaining)
         })
+
+        it('should handle DFS with mixed-color neighbors (color mismatch branch)', () => {
+            // Place 2 red bubbles and 1 blue bubble - DFS from blue hits reds (different color)
+            const grid: GameState['grid'] = [
+                [
+                    {
+                        color: 0xff0000,
+                        x: getBubbleX(0, 0, constants),
+                        y: getBubbleY(0, 0, constants),
+                    },
+                    {
+                        color: 0xff0000,
+                        x: getBubbleX(1, 0, constants),
+                        y: getBubbleY(0, 0, constants),
+                    },
+                ],
+            ]
+            // Projectile is blue, attaches near the two red bubbles
+            const state = makeState({
+                projectile: {
+                    x: getBubbleX(2, 0, constants),
+                    y: getBubbleY(0, 0, constants),
+                    vx: 0,
+                    vy: -5,
+                    color: 0x0000ff, // different color from grid
+                },
+                grid,
+                bubblesRemaining: 2,
+            })
+            attachBubble(state, constants)
+            // No match (only 1 blue), so no bubbles popped - bubblesRemaining includes the new bubble
+            // The blue was added without removing any, so bubblesRemaining increases by 1
+            expect(state.bubblesRemaining).toBe(3)
+        })
+    })
+
+    describe('checkBubbleCollision with sparse grid', () => {
+        it('should skip null/undefined rows in the grid', () => {
+            // Create a sparse grid where row 1 is undefined (null row)
+            const grid: GameState['grid'] = []
+            grid[0] = [{ color: 0xff0000, x: 300, y: 20 }]
+            // Row 1 is intentionally missing (undefined) to test !state.grid[row] branch
+            grid[2] = [{ color: 0xff0000, x: 300, y: 60 }]
+
+            const state = makeState({
+                projectile: { x: 600, y: 600, vx: 0, vy: -5, color: 0xff0000 },
+                grid,
+            })
+            // No collision since projectile is far away; should not throw
+            expect(() => checkBubbleCollision(state, constants)).not.toThrow()
+        })
+    })
+
+    describe('attachBubble with fully filled grid', () => {
+        it('should use fallback position when all grid positions are filled (no empty cells)', () => {
+            // Fill ALL grid cells so findAttachPosition finds no empty position
+            const grid: GameState['grid'] = Array(constants.GRID_HEIGHT)
+                .fill(null)
+                .map((_, row) => {
+                    const cols = constants.GRID_WIDTH - (row % 2)
+                    return Array(cols).fill({ color: 0xff0000, x: 0, y: 0 })
+                })
+            const state = makeState({
+                projectile: { x: 300, y: 400, vx: 0, vy: -5, color: 0x00ff00 },
+                grid,
+            })
+            // attachBubble should not throw; uses fallback position { row: 0, col: ... }
+            expect(() => attachBubble(state, constants)).not.toThrow()
+            expect(state.projectile).toBeNull()
+        })
     })
 })

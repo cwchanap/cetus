@@ -337,6 +337,175 @@ describe('initBubbleShooterGame', () => {
         })
     })
 
+    describe('gameLoopFn', () => {
+        it('should call gameLoop when state is active and startGame triggers gameLoopFn', async () => {
+            const { startGame, gameLoop } = await import('./game')
+            vi.mocked(startGame).mockImplementationOnce(
+                (state: any, loopFn: any) => {
+                    state.gameStarted = true
+                    state.gameOver = false
+                    state.paused = false
+                    if (typeof loopFn === 'function') {
+                        loopFn()
+                    }
+                }
+            )
+            gameInst = await initBubbleShooterGame()
+            document.getElementById('start-btn')!.click()
+            expect(gameLoop).toHaveBeenCalled()
+        })
+
+        it('should not call gameLoop when game is not started', async () => {
+            const { startGame, gameLoop } = await import('./game')
+            vi.mocked(startGame).mockImplementationOnce(
+                (state: any, loopFn: any) => {
+                    state.gameStarted = false
+                    if (typeof loopFn === 'function') {
+                        loopFn()
+                    }
+                }
+            )
+            gameInst = await initBubbleShooterGame()
+            document.getElementById('start-btn')!.click()
+            expect(gameLoop).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('canvas event handlers', () => {
+        it('should invoke handleMouseMove when canvas mousemove fires', async () => {
+            const { setupPixiJS } = await import('./renderer')
+            const { handleMouseMove } = await import('./game')
+
+            const capturedListeners: Record<
+                string,
+                (...args: unknown[]) => unknown
+            > = {}
+            const mockAppCanvas = {
+                addEventListener: vi.fn(
+                    (
+                        event: string,
+                        handler: (...args: unknown[]) => unknown
+                    ) => {
+                        capturedListeners[event] = handler
+                    }
+                ),
+                removeEventListener: vi.fn(),
+            }
+            vi.mocked(setupPixiJS).mockResolvedValueOnce({
+                app: {
+                    canvas: mockAppCanvas as any,
+                    destroy: vi.fn(),
+                } as any,
+                stage: null as any,
+                bubbleContainer: null as any,
+            })
+
+            gameInst = await initBubbleShooterGame()
+
+            const event = new MouseEvent('mousemove')
+            capturedListeners['mousemove']?.(event)
+            expect(handleMouseMove).toHaveBeenCalledWith(
+                event,
+                expect.any(Object),
+                expect.any(Object)
+            )
+        })
+
+        it('should invoke handleClick when canvas click fires', async () => {
+            const { setupPixiJS } = await import('./renderer')
+            const { handleClick } = await import('./game')
+
+            const capturedListeners: Record<
+                string,
+                (...args: unknown[]) => unknown
+            > = {}
+            const mockAppCanvas = {
+                addEventListener: vi.fn(
+                    (
+                        event: string,
+                        handler: (...args: unknown[]) => unknown
+                    ) => {
+                        capturedListeners[event] = handler
+                    }
+                ),
+                removeEventListener: vi.fn(),
+            }
+            vi.mocked(setupPixiJS).mockResolvedValueOnce({
+                app: {
+                    canvas: mockAppCanvas as any,
+                    destroy: vi.fn(),
+                } as any,
+                stage: null as any,
+                bubbleContainer: null as any,
+            })
+
+            gameInst = await initBubbleShooterGame()
+
+            const event = new MouseEvent('click')
+            capturedListeners['click']?.(event)
+            expect(handleClick).toHaveBeenCalledWith(
+                event,
+                expect.any(Object),
+                expect.any(Function)
+            )
+        })
+    })
+
+    describe('saveScore callbacks', () => {
+        it('should dispatch achievementsEarned when saveScore gets new achievements', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockImplementationOnce(
+                async (_gameId, _score, onSuccess) => {
+                    onSuccess?.({ newAchievements: ['bubble_master'] })
+                    return { success: true }
+                }
+            )
+
+            const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+            gameInst = await initBubbleShooterGame()
+            const state = gameInst.getState() as any
+            if (typeof state.onGameOver === 'function') {
+                await state.onGameOver(200, {})
+            }
+
+            const achievementEvents = dispatchSpy.mock.calls.filter(
+                call =>
+                    call[0] instanceof CustomEvent &&
+                    (call[0] as CustomEvent).type === 'achievementsEarned'
+            )
+            expect(achievementEvents.length).toBeGreaterThan(0)
+        })
+
+        it('should log error when saveScore onError is called', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockImplementationOnce(
+                async (_gameId, _score, _onSuccess, onError) => {
+                    onError?.(new Error('save failed'))
+                    return { success: false }
+                }
+            )
+            const errorSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+
+            gameInst = await initBubbleShooterGame()
+            const state = gameInst.getState() as any
+            if (typeof state.onGameOver === 'function') {
+                await state.onGameOver(50, {})
+            }
+
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Failed to submit score:',
+                expect.any(Error)
+            )
+            errorSpy.mockRestore()
+        })
+    })
+
     describe('draw loop', () => {
         it('should call draw via requestAnimationFrame', async () => {
             const { draw } = await import('./game')

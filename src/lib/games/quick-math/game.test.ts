@@ -424,5 +424,28 @@ describe('QuickMathGame', () => {
 
             subGame.destroy()
         })
+
+        it('should set seenOperand999 flag when a question has operand 999', () => {
+            // Force Math.random to produce 999 as operand: floor(0.999 * 999) + 1 = 999
+            const mathRandomSpy = vi
+                .spyOn(Math, 'random')
+                .mockReturnValue(0.999)
+
+            const bigGame = new QuickMathGame(
+                {
+                    gameDuration: 60,
+                    operations: ['addition'],
+                    maxNumber: 999,
+                    pointsPerCorrectAnswer: 10,
+                },
+                callbacks
+            )
+            bigGame.startGame()
+            const flags = bigGame.getAchievementFlags()
+            expect(flags.seenOperand999).toBe(true)
+
+            mathRandomSpy.mockRestore()
+            bigGame.destroy()
+        })
     })
 })

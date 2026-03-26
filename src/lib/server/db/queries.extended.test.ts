@@ -1157,6 +1157,39 @@ describe('Extended Database Queries', () => {
 
             expect(result).toBe(false)
         })
+
+        it('should call upsertUserStats when existing stats are null', async () => {
+            // getUserStats returns null → triggers upsertUserStats path
+            const mockStatsQuery = {
+                selectAll: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                distinct: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue(null),
+                execute: vi.fn().mockResolvedValue([]),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockStatsQuery as any)
+
+            const mockInsertQuery = {
+                values: vi.fn().mockReturnThis(),
+                onConflict: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue({}),
+            }
+            vi.mocked(db.insertInto).mockReturnValue(mockInsertQuery as any)
+
+            const mockUpdateQuery = {
+                set: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue({}),
+            }
+            vi.mocked(db.updateTable).mockReturnValue(mockUpdateQuery as any)
+
+            const result = await updateUserPreferences('user-123', {
+                challenge_reminders: false, // tests the ': 0' false branch
+            })
+
+            expect(result).toBe(true)
+        })
     })
 
     describe('getUserDailyActivity', () => {
@@ -1247,6 +1280,46 @@ describe('Extended Database Queries', () => {
             const result = await getAchievementStatistics()
 
             expect(result).toEqual([])
+        })
+
+        it('should include unearned achievements with earned_count 0', async () => {
+            // Only first_win is earned; global_ace is NOT earned → unearned forEach runs
+            const mockAchievementStats = [
+                { achievement_id: 'first_win', earned_count: 50 },
+            ]
+            const mockGamePlayerCounts = [
+                { game_id: 'tetris', player_count: 100 },
+            ]
+            const mockGlobalCount = { player_count: 200 }
+
+            vi.mocked(db.selectFrom)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    groupBy: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue(mockAchievementStats),
+                } as any)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    groupBy: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue(mockGamePlayerCounts),
+                } as any)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi
+                        .fn()
+                        .mockResolvedValue(mockGlobalCount),
+                } as any)
+
+            const result = await getAchievementStatistics()
+
+            // global_ace was not earned → should appear with earned_count: 0
+            const globalAce = result.find(
+                r => r.achievement_id === 'global_ace'
+            )
+            expect(globalAce).toBeDefined()
+            expect(globalAce!.earned_count).toBe(0)
+            expect(globalAce!.total_players).toBe(200) // global achievement uses globalPlayers
+            expect(globalAce!.percentage).toBe(0)
         })
     })
 })

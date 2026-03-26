@@ -359,5 +359,101 @@ describe('PathNavigatorGame', () => {
             // Player is on the bezier path → isGameOver stays false
             expect(game.getState().isGameOver).toBe(false)
         })
+
+        it('should return false when isPointOnLine called with zero-length segment (lenSq === 0)', () => {
+            game.startGame()
+            // Force a path segment where start === end so lenSq = 0
+            const state = (game as any).state
+            const level = GAME_LEVELS[state.currentLevel - 1]
+            // Inject a straight segment with identical start and end points
+            const originalSegments = level.path.segments
+            const zeroLenSegment = {
+                type: 'straight' as const,
+                start: { x: 500, y: 500 },
+                end: { x: 500, y: 500 }, // same point → lenSq = 0
+                width: 30,
+            }
+            level.path.segments = [zeroLenSegment]
+            // Position far from start/end buffers → goes through segment check
+            const result = game.updatePlayerPosition(500, 500)
+            // Restore segments
+            level.path.segments = originalSegments
+            // The segment returns false (lenSq === 0), so overall isOnPath = false (game over)
+            expect(game.getState().isGameOver).toBe(true)
+        })
+
+        it('should return false from isPointOnSegment for curve segment without controlPoint', () => {
+            game.startGame()
+            const state = (game as any).state
+            const level = GAME_LEVELS[state.currentLevel - 1]
+            const originalSegments = level.path.segments
+            // Curve segment without controlPoint → falls through to return false
+            const badCurveSegment = {
+                type: 'curve' as const,
+                start: { x: 300, y: 300 },
+                end: { x: 400, y: 300 },
+                width: 30,
+                // no controlPoint
+            }
+            level.path.segments = [badCurveSegment]
+            // Position near the middle → not in start/end buffer, segment returns false
+            game.updatePlayerPosition(350, 300)
+            level.path.segments = originalSegments
+            expect(game.getState().isGameOver).toBe(true)
+        })
+    })
+
+    describe('guard return edge cases', () => {
+        it('endGame should return early when game is not active', () => {
+            // game is not started, isGameActive = false
+            game.endGame()
+            expect(game.getState().isGameOver).toBe(false)
+        })
+
+        it('pauseGame should return early when game is not active', () => {
+            game.pauseGame()
+            expect(game.getState().isGameActive).toBe(false)
+        })
+
+        it('pauseGame should return early when game is over', () => {
+            game.startGame()
+            game.endGame() // sets isGameOver = true, isGameActive = false
+            expect(game.getState().isGameOver).toBe(true)
+            const before = game.getState().isGameActive
+            game.pauseGame() // should return early
+            expect(game.getState().isGameActive).toBe(before)
+        })
+
+        it('resumeGame should return early when game is already active', () => {
+            game.startGame()
+            expect(game.getState().isGameActive).toBe(true)
+            game.resumeGame() // already active → return early
+            expect(game.getState().isGameActive).toBe(true)
+        })
+
+        it('resumeGame should return early when game is over', () => {
+            game.startGame()
+            game.endGame() // isGameOver = true
+            game.resumeGame() // isGameOver = true → return early
+            expect(game.getState().isGameActive).toBe(false)
+        })
+
+        it('updatePlayerPosition should return isOnPath:true when game is not active', () => {
+            // game not started → isGameActive = false
+            const result = game.updatePlayerPosition(0, 0)
+            expect(result.isOnPath).toBe(true)
+            expect(result.hasReachedGoal).toBe(false)
+        })
+
+        it('completeLevel should use levelTime=0 when levelStartTime is null', () => {
+            game.startGame()
+            // Null out levelStartTime to trigger fallback path
+            ;(game as any).state.levelStartTime = null
+            // Move to level end to trigger completeLevel
+            const level1End = GAME_LEVELS[0].path.endPoint
+            game.updatePlayerPosition(level1End.x, level1End.y)
+            // Score should be added (basePoints + 0 time bonus from levelTime=0)
+            expect(game.getState().score).toBeGreaterThan(0)
+        })
     })
 })

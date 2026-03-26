@@ -386,6 +386,50 @@ describe('initSnakeGame', () => {
         })
     })
 
+    describe('beforeunload handler', () => {
+        it('should trigger beforeunload warning when game is active', async () => {
+            gameInstance = await initSnakeGame()
+            const state = gameInstance!.getState() as any
+            state.gameStarted = true
+            state.gameOver = false
+            state.paused = false
+
+            const event = new Event('beforeunload', { cancelable: true })
+            const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
+            window.dispatchEvent(event)
+            expect(preventDefaultSpy).toHaveBeenCalled()
+        })
+
+        it('should not trigger beforeunload warning when game is not started', async () => {
+            gameInstance = await initSnakeGame()
+            // gameStarted is false by default
+
+            const event = new Event('beforeunload', { cancelable: true })
+            const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
+            window.dispatchEvent(event)
+            expect(preventDefaultSpy).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('gameLoopFn', () => {
+        it('should call gameLoop when invoked with active game state', async () => {
+            const { startGame, gameLoop } = await import('./game')
+            // Make startGame invoke the gameLoopFn callback
+            vi.mocked(startGame).mockImplementationOnce((_state, loopFn) => {
+                if (typeof loopFn === 'function') {
+                    ;(_state as any).gameStarted = true
+                    ;(_state as any).gameOver = false
+                    ;(_state as any).paused = false
+                    loopFn()
+                }
+            })
+
+            gameInstance = await initSnakeGame()
+            document.getElementById('start-btn')!.click()
+            expect(gameLoop).toHaveBeenCalled()
+        })
+    })
+
     describe('draw loop', () => {
         it('should call draw via requestAnimationFrame', async () => {
             const { draw } = await import('./renderer')

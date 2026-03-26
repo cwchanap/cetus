@@ -361,6 +361,89 @@ describe('initializePathNavigatorGame', () => {
         })
     })
 
+    describe('gameLoop advanced cases', () => {
+        it('should trigger onGameOver when isGameOver is true in gameLoop', async () => {
+            const { PathNavigatorGame } = await import('./game')
+            const onGameOver = vi.fn()
+            gameInstance = await initializePathNavigatorGame({}, { onGameOver })
+
+            const gameMock = vi.mocked(PathNavigatorGame).mock.results[0].value
+            vi.mocked(gameMock.getState).mockReturnValue({
+                score: 99,
+                timeRemaining: 0,
+                isGameActive: false,
+                isGameOver: true,
+                currentLevel: 1,
+                cursor: { x: 200, y: 300 },
+                isOnPath: false,
+                levelsCompleted: 2,
+            } as any)
+
+            gameInstance!.startGame()
+
+            if (rafCallbacks.length > 0) {
+                rafCallbacks[rafCallbacks.length - 1](0)
+            }
+            await vi.runAllTimersAsync()
+            expect(onGameOver).toHaveBeenCalledWith(99, expect.any(Object))
+        })
+
+        it('should reposition player when level changes in gameLoop', async () => {
+            const { PathNavigatorGame } = await import('./game')
+            gameInstance = await initializePathNavigatorGame()
+
+            const gameMock = vi.mocked(PathNavigatorGame).mock.results[0].value
+            vi.mocked(gameMock.setCursorPosition).mockClear()
+
+            // First frame: level changes from 1 to 2
+            vi.mocked(gameMock.getState)
+                .mockReturnValueOnce({
+                    score: 0,
+                    timeRemaining: 60,
+                    isGameActive: true,
+                    isGameOver: false,
+                    currentLevel: 2, // different from initialised previousLevel=1
+                    cursor: { x: 200, y: 300 },
+                    isOnPath: true,
+                    levelsCompleted: 1,
+                } as any)
+                .mockReturnValue({
+                    score: 0,
+                    timeRemaining: 60,
+                    isGameActive: false,
+                    isGameOver: false,
+                    currentLevel: 2,
+                    cursor: { x: 200, y: 300 },
+                    isOnPath: true,
+                    levelsCompleted: 1,
+                } as any)
+
+            gameInstance!.startGame()
+
+            if (rafCallbacks.length > 0) {
+                rafCallbacks[0](0)
+            }
+
+            // setCursorPosition should have been called for level change
+            expect(gameMock.setCursorPosition).toHaveBeenCalled()
+        })
+    })
+
+    describe('saveGameScore error handling', () => {
+        it('should not throw when saveGameScore rejects in handleGameOver', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockRejectedValueOnce(
+                new Error('network error')
+            )
+            gameInstance = await initializePathNavigatorGame()
+            gameInstance!.endGame()
+            // Should not throw despite saveGameScore failing
+            await expect(vi.runAllTimersAsync()).resolves.not.toThrow()
+        })
+    })
+
     describe('handleGameOver', () => {
         it('should update final stats in overlay', async () => {
             const { saveGameScore } = await import(
@@ -401,6 +484,43 @@ describe('initializePathNavigatorGame', () => {
                 undefined,
                 expect.any(Object)
             )
+        })
+    })
+
+    describe('catch block cleanup', () => {
+        it('should run clearRenderer in catch block when renderer was created before error', async () => {
+            const { setupPixiJS, clearRenderer } = await import('./renderer')
+            const { PathNavigatorGame } = await import('./game')
+
+            // setupPixiJS succeeds (sets renderer), but PathNavigatorGame constructor throws
+            vi.mocked(setupPixiJS).mockResolvedValueOnce({
+                app: { destroy: vi.fn() },
+                stage: null,
+            } as any)
+            vi.mocked(PathNavigatorGame).mockImplementationOnce(() => {
+                throw new Error('game init failed')
+            })
+
+            const result = await initializePathNavigatorGame()
+            expect(result).toBeUndefined()
+            expect(clearRenderer).toHaveBeenCalled()
+        })
+    })
+
+    describe('optional callbacks invoked by gameCallbacks', () => {
+        it('should call onLevelChange callback when provided', async () => {
+            const onLevelChange = vi.fn()
+            gameInstance = await initializePathNavigatorGame(
+                {},
+                { onLevelChange }
+            )
+            gameInstance!.startGame()
+
+            if (rafCallbacks.length > 0) {
+                rafCallbacks[0](0)
+            }
+
+            expect(onLevelChange).toHaveBeenCalled()
         })
     })
 })

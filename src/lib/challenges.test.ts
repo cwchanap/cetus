@@ -158,6 +158,11 @@ describe('Level System', () => {
         expect(getLevelFromXP(1000)).toBe(5)
     })
 
+    it('should return level 1 for negative XP', () => {
+        expect(getLevelFromXP(-1)).toBe(1)
+        expect(getLevelFromXP(-100)).toBe(1)
+    })
+
     it('should handle high XP values', () => {
         expect(getLevelFromXP(16000)).toBe(10)
         expect(getLevelFromXP(100000)).toBe(10)
