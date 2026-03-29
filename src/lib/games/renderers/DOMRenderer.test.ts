@@ -453,4 +453,15 @@ describe('DOMRenderer', () => {
             expect(container.classList.contains('added-class')).toBe(false)
         })
     })
+
+    describe('base class renderGame (no-op)', () => {
+        it('should call the base renderGame empty implementation without throwing', async () => {
+            const baseRenderer = new DOMRenderer({
+                type: 'dom',
+                container: '#dom-test-container',
+            })
+            await baseRenderer.initialize()
+            expect(() => baseRenderer.render({})).not.toThrow()
+        })
+    })
 })

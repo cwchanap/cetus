@@ -361,6 +361,26 @@ describe('initSnakeGame', () => {
             }
         })
 
+        it('should fall back to "3" and "0" when maxLength/foodsEaten are undefined (lines 52, 58)', async () => {
+            gameInstance = await initSnakeGame()
+            const state = gameInstance!.getState() as any
+
+            if (typeof state.onGameOver === 'function') {
+                await state.onGameOver(0, {
+                    // maxLength and foodsEaten intentionally omitted (undefined)
+                    gameTime: 1000,
+                })
+                // || '3' branch fires when maxLength?.toString() is undefined
+                expect(
+                    document.getElementById('final-length')!.textContent
+                ).toBe('3')
+                // || '0' branch fires when foodsEaten?.toString() is undefined
+                expect(
+                    document.getElementById('final-foods')!.textContent
+                ).toBe('0')
+            }
+        })
+
         it('should handle missing DOM elements gracefully', async () => {
             // Remove all optional elements
             document.getElementById('final-score')!.remove()

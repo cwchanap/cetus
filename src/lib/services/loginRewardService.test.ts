@@ -579,6 +579,60 @@ describe('claimDailyLoginReward - milestone badge logic', () => {
     })
 })
 
+describe('claimDailyLoginReward - null userStats and missing newLevel branches', () => {
+    const userId = 'test-user-123'
+    const today = '2024-01-03'
+    const yesterday = '2024-01-02'
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        vi.mocked(getTodayUTC).mockReturnValue(today)
+    })
+
+    it('should default previousLevel to 1 when getUserStats returns null (line 222 ?? branch)', async () => {
+        vi.mocked(getLoginRewardStatus).mockResolvedValue({
+            login_streak: 1,
+            last_login_reward_date: yesterday,
+            total_login_cycles: 0,
+        })
+        // userStats is null → userStats?.level is undefined → ?? 1 fires
+        vi.mocked(getUserStats).mockResolvedValue(null)
+        vi.mocked(claimLoginReward).mockResolvedValue({
+            success: true,
+            newXP: 20,
+            newLevel: 1,
+        })
+
+        const result = await claimDailyLoginReward(userId)
+        expect(result.success).toBe(true)
+        // previousLevel defaulted to 1, newLevel = 1 → no level-up
+        expect(result.leveledUp).toBe(false)
+    })
+
+    it('should fall back to previousLevel when claimResult.newLevel is undefined (line 241 ?? branch)', async () => {
+        vi.mocked(getLoginRewardStatus).mockResolvedValue({
+            login_streak: 1,
+            last_login_reward_date: yesterday,
+            total_login_cycles: 0,
+        })
+        vi.mocked(getUserStats).mockResolvedValue(
+            createMockUserStats({ level: 2 })
+        )
+        // Return success but without newLevel field → ?? previousLevel fires
+        vi.mocked(claimLoginReward).mockResolvedValue({
+            success: true,
+            newXP: 20,
+            // newLevel intentionally omitted
+        } as any)
+
+        const result = await claimDailyLoginReward(userId)
+        expect(result.success).toBe(true)
+        // newLevel falls back to previousLevel (2) → no level-up
+        expect(result.leveledUp).toBe(false)
+        expect(result.newLevel).toBe(2)
+    })
+})
+
 describe('getLoginRewardStatusForUser - daysUntilMilestone null path', () => {
     const userId = 'test-user-123'
     const today = '2024-01-03'

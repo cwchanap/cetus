@@ -340,4 +340,19 @@ describe('Bejeweled Utils', () => {
             }
         })
     })
+
+    describe('empty grid edge cases', () => {
+        it('should return empty array from findMatches when grid is empty (line 84 ?? branch)', () => {
+            const matches = findMatches([])
+            expect(matches).toEqual([])
+        })
+
+        it('should handle empty grid in dropJewels without throwing (line 198 ?? branch)', () => {
+            expect(() => dropJewels([])).not.toThrow()
+        })
+
+        it('should handle empty grid in refillGrid without throwing (line 223 ?? branch)', () => {
+            expect(() => refillGrid([])).not.toThrow()
+        })
+    })
 })

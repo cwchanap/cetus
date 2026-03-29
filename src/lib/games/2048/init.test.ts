@@ -291,6 +291,78 @@ describe('init2048Game', () => {
             )
             expect(processMove).not.toHaveBeenCalled()
         })
+
+        it('should not process move when game is over', async () => {
+            const { processMove, startGame } = await import('./game')
+            // Make startGame return a state with gameOver=true
+            vi.mocked(startGame).mockReturnValueOnce({
+                board: Array(4)
+                    .fill(null)
+                    .map(() => Array(4).fill(null)),
+                score: 0,
+                maxTile: 0,
+                gameStarted: true,
+                gameOver: true,
+                lastMoveAnimations: [],
+            })
+            gameInst = await init2048Game()
+            gameInst!.start()
+            vi.mocked(processMove).mockClear()
+
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })
+            )
+            expect(processMove).not.toHaveBeenCalled()
+        })
+
+        it('should not process move while animating (rapid key presses)', async () => {
+            const { processMove } = await import('./game')
+            const { playAnimations } = await import('./renderer')
+
+            // Make processMove return state with non-empty animations so handleMove
+            // actually suspends on `await playAnimations(...)`.
+            vi.mocked(processMove).mockReturnValueOnce({
+                state: {
+                    board: Array(4)
+                        .fill(null)
+                        .map(() => Array(4).fill(null)),
+                    score: 10,
+                    maxTile: 2,
+                    gameStarted: true,
+                    gameOver: false,
+                    // non-empty so the `await playAnimations` branch is taken
+                    lastMoveAnimations: [{ dummy: true }] as any,
+                },
+                totalMerges: 1,
+                callbacksToInvoke: [],
+            })
+
+            // Keep the promise pending so handleMove stays suspended with isAnimating=true
+            let resolveAnimation: () => void
+            const pendingAnimation = new Promise<void>(res => {
+                resolveAnimation = res
+            })
+            vi.mocked(playAnimations).mockReturnValueOnce(pendingAnimation)
+
+            gameInst = await init2048Game()
+            gameInst!.start()
+            vi.mocked(processMove).mockClear()
+
+            // First event: handleMove suspends at await playAnimations, isAnimating=true
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })
+            )
+            expect(vi.mocked(processMove)).toHaveBeenCalledTimes(1)
+
+            // Second event: handleKeyDown finds isAnimating=true → returns early
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })
+            )
+            expect(vi.mocked(processMove)).toHaveBeenCalledTimes(1)
+
+            // Resolve animation to avoid hanging promises
+            resolveAnimation!()
+        })
     })
 
     describe('touch controls', () => {

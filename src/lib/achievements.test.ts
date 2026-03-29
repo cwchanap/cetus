@@ -581,4 +581,49 @@ describe('Achievement in_game condition checks', () => {
             expect(check({ maxTile: 2048 }, 0)).toBe(false)
         })
     })
+
+    describe('word secret achievements with falsy entries in correctWords', () => {
+        it('word_secret_dog: returns true when correctWords contains falsy then matching word', () => {
+            const check =
+                getAchievementById('word_secret_dog')!.condition.check!
+            // null entry exercises the (w || '') branch
+            expect(check({ correctWords: [null as any, 'dog'] }, 0)).toBe(true)
+        })
+
+        it('word_secret_dog: returns false when correctWords contains only falsy values', () => {
+            const check =
+                getAchievementById('word_secret_dog')!.condition.check!
+            expect(
+                check({ correctWords: [null as any, undefined as any] }, 0)
+            ).toBe(false)
+        })
+
+        it('word_secret_supernova: returns true when correctWords contains falsy then matching word', () => {
+            const check = getAchievementById('word_secret_supernova')!.condition
+                .check!
+            expect(check({ correctWords: [null as any, 'supernova'] }, 0)).toBe(
+                true
+            )
+        })
+
+        it('word_secret_supernova: returns false when correctWords contains only falsy values', () => {
+            const check = getAchievementById('word_secret_supernova')!.condition
+                .check!
+            expect(check({ correctWords: [null as any] }, 0)).toBe(false)
+        })
+
+        it('word_secret_mercury: returns true when correctWords contains falsy then matching word', () => {
+            const check = getAchievementById('word_secret_mercury')!.condition
+                .check!
+            expect(check({ correctWords: [null as any, 'mercury'] }, 0)).toBe(
+                true
+            )
+        })
+
+        it('word_secret_mercury: returns false when correctWords contains only falsy values', () => {
+            const check = getAchievementById('word_secret_mercury')!.condition
+                .check!
+            expect(check({ correctWords: [null as any] }, 0)).toBe(false)
+        })
+    })
 })

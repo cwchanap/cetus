@@ -432,4 +432,45 @@ describe('GameInitializer', () => {
             document.body.removeChild(endBtn)
         })
     })
+
+    describe('private guards when game is null', () => {
+        it('setupEventHandlers early-returns when this.game is null (line 208)', () => {
+            const config = {
+                gameId: GameID.TETRIS,
+                gameClass: TestGame,
+                rendererClass: TestRenderer,
+                gameConfig: {
+                    duration: 60,
+                    achievementIntegration: false,
+                    pausable: true,
+                    resettable: true,
+                },
+            }
+            const initializer = new GameInitializer(config)
+            initializers.push(initializer)
+            // game is null before initialize() is called — calling private method directly must not throw
+            expect(() =>
+                (initializer as any).setupEventHandlers()
+            ).not.toThrow()
+        })
+
+        it('setupAchievementHandling early-returns when this.game is null (line 267)', () => {
+            const config = {
+                gameId: GameID.TETRIS,
+                gameClass: TestGame,
+                rendererClass: TestRenderer,
+                gameConfig: {
+                    duration: 60,
+                    achievementIntegration: false,
+                    pausable: true,
+                    resettable: true,
+                },
+            }
+            const initializer = new GameInitializer(config)
+            initializers.push(initializer)
+            expect(() =>
+                (initializer as any).setupAchievementHandling()
+            ).not.toThrow()
+        })
+    })
 })

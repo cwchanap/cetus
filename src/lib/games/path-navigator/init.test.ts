@@ -522,5 +522,15 @@ describe('initializePathNavigatorGame', () => {
 
             expect(onLevelChange).toHaveBeenCalled()
         })
+
+        it('should call onGameStart callback when provided', async () => {
+            const onGameStart = vi.fn()
+            gameInstance = await initializePathNavigatorGame(
+                {},
+                { onGameStart }
+            )
+            gameInstance!.startGame()
+            expect(onGameStart).toHaveBeenCalled()
+        })
     })
 })

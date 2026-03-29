@@ -562,4 +562,15 @@ describe('PixiJSRenderer', () => {
             ).not.toThrow()
         })
     })
+
+    describe('base class renderGame (no-op)', () => {
+        it('should call the base renderGame empty implementation without throwing', async () => {
+            const baseRenderer = new PixiJSRenderer({
+                type: 'canvas',
+                container: '#pixi-test-container',
+            })
+            await baseRenderer.initialize()
+            expect(() => baseRenderer.render({})).not.toThrow()
+        })
+    })
 })

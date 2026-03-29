@@ -94,6 +94,29 @@ describe('Challenge Service', () => {
             expect(challenge).toHaveProperty('difficulty')
             expect(challenge).toHaveProperty('completed')
         })
+
+        it('should return completedAt as a Date when progress has completed_at', async () => {
+            const today = getTodayUTC()
+            const completedAt = new Date('2026-03-28T10:00:00Z')
+            vi.mocked(queries.getUserChallengeProgress).mockResolvedValue([
+                {
+                    id: 1,
+                    user_id: 'user-123',
+                    challenge_date: today,
+                    challenge_id: 'play_2_games',
+                    current_value: 2,
+                    target_value: 2,
+                    completed_at: completedAt,
+                    xp_awarded: 30,
+                    created_at: new Date(),
+                },
+            ])
+
+            const result = await getUserDailyChallenges('user-123')
+            const completed = result.find(c => c.challengeId === 'play_2_games')
+            expect(completed?.completed).toBe(true)
+            expect(completed?.completedAt).toBeInstanceOf(Date)
+        })
     })
 
     describe('updateChallengeProgress', () => {
@@ -469,6 +492,36 @@ describe('Challenge Service', () => {
                 'user-123',
                 today,
                 true
+            )
+        })
+
+        it('should process play_games challenge type and update newValue (lines 155-157)', async () => {
+            vi.mocked(challenges.generateDailyChallenges).mockReturnValue([
+                {
+                    id: 'play_2_games',
+                    name: 'Warm Up',
+                    description: 'Play 2 games today',
+                    icon: '🎮',
+                    type: 'play_games',
+                    targetValue: 2,
+                    xpReward: 30,
+                    difficulty: 'easy',
+                },
+            ] as any)
+
+            vi.mocked(queries.getUserChallengeProgress).mockResolvedValue([])
+            vi.mocked(queries.getGamesPlayedCountToday).mockResolvedValue(1)
+            vi.mocked(queries.getUniqueGamesPlayedToday).mockResolvedValue([])
+            vi.mocked(queries.getTotalScoreToday).mockResolvedValue(0)
+
+            await updateChallengeProgress('user-123', GameID.TETRIS, 0)
+
+            // newValue = gamesPlayedToday (1) is not yet >= targetValue (2), so progress is updated but not completed
+            expect(queries.updateChallengeProgressValue).toHaveBeenCalledWith(
+                'user-123',
+                expect.any(String),
+                'play_2_games',
+                1
             )
         })
     })

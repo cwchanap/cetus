@@ -681,6 +681,78 @@ describe('initSnakeGameFramework', () => {
         })
     })
 
+    describe('custom callbacks passthrough', () => {
+        it('should forward onStateChange to customCallbacks.onStateChange', async () => {
+            const { SnakeGame } = await import('./SnakeGame')
+            const onStateChange = vi.fn()
+            result = await initSnakeGameFramework(undefined, { onStateChange })
+
+            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
+            const state = {
+                snake: [{ x: 1, y: 1 }],
+                foodsEaten: 0,
+                score: 0,
+                timeRemaining: 60,
+                isActive: true,
+                isPaused: false,
+                isGameOver: false,
+                gameStarted: true,
+                direction: 'right',
+                food: [],
+                needsRedraw: false,
+                maxLength: 1,
+            }
+            callbacksArg.onStateChange(state)
+            expect(onStateChange).toHaveBeenCalledWith(state)
+        })
+
+        it('should forward onScoreUpdate to customCallbacks.onScoreUpdate', async () => {
+            const { SnakeGame } = await import('./SnakeGame')
+            const onScoreUpdate = vi.fn()
+            result = await initSnakeGameFramework(undefined, { onScoreUpdate })
+
+            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
+            callbacksArg.onScoreUpdate(42)
+            expect(onScoreUpdate).toHaveBeenCalledWith(42)
+        })
+
+        it('should forward onTimeUpdate to customCallbacks.onTimeUpdate', async () => {
+            const { SnakeGame } = await import('./SnakeGame')
+            const onTimeUpdate = vi.fn()
+            result = await initSnakeGameFramework(undefined, { onTimeUpdate })
+
+            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
+            callbacksArg.onTimeUpdate(30)
+            expect(onTimeUpdate).toHaveBeenCalledWith(30)
+        })
+
+        it('should forward onStart to customCallbacks.onStart', async () => {
+            const { SnakeGame } = await import('./SnakeGame')
+            const onStart = vi.fn()
+            result = await initSnakeGameFramework(undefined, { onStart })
+
+            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
+            callbacksArg.onStart()
+            expect(onStart).toHaveBeenCalled()
+        })
+
+        it('should forward onEnd to customCallbacks.onEnd', async () => {
+            const { SnakeGame } = await import('./SnakeGame')
+            const onEnd = vi.fn()
+            result = await initSnakeGameFramework(undefined, { onEnd })
+
+            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
+            callbacksArg.onEnd(100, {
+                finalScore: 100,
+                timeElapsed: 10,
+                gameCompleted: false,
+                maxLength: 3,
+                foodsEaten: 2,
+            })
+            expect(onEnd).toHaveBeenCalledWith(100, expect.any(Object))
+        })
+    })
+
     describe('render loop', () => {
         it('should call renderer.render when needsRedraw is true', async () => {
             const { SnakeGame } = await import('./SnakeGame')

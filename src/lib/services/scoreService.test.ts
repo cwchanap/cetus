@@ -116,6 +116,21 @@ describe('Score Service', () => {
             expect(result.success).toBe(false)
             expect(result.error).toBe('Network error occurred')
         })
+
+        it('should return empty array when newAchievements is absent from response', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve({ success: true }),
+            })
+
+            const result = await submitScore({
+                gameId: GameID.TETRIS,
+                score: 500,
+            })
+
+            expect(result.success).toBe(true)
+            expect(result.newAchievements).toEqual([])
+        })
     })
 
     describe('saveGameScore', () => {
@@ -166,6 +181,18 @@ describe('Score Service', () => {
             await saveGameScore(GameID.TETRIS, 1000, onSuccess, onError)
 
             expect(onSuccess).not.toHaveBeenCalled()
+            expect(onError).toHaveBeenCalledWith('Failed to save score')
+        })
+
+        it('should use fallback error message when result has no error field', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve({ success: false }),
+            })
+
+            const onError = vi.fn()
+            await saveGameScore(GameID.TETRIS, 1000, undefined, onError)
+
             expect(onError).toHaveBeenCalledWith('Failed to save score')
         })
 

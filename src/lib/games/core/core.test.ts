@@ -124,6 +124,42 @@ describe('Game Framework Core', () => {
             vi.advanceTimersByTime(2000)
             expect(onComplete).toHaveBeenCalled()
         })
+
+        it('should return 0 from getCurrentTime when count-up timer is not running', () => {
+            // Covers the `countDown ? duration : 0` branch for countDown=false
+            const timer = new GameTimer({
+                duration: 10,
+                countDown: false,
+                autoStart: false,
+            })
+            expect(timer.getCurrentTime()).toBe(0)
+        })
+
+        it('should return duration from getCurrentTime when countdown timer is not yet started', () => {
+            const timer = new GameTimer({
+                duration: 15,
+                countDown: true,
+                autoStart: false,
+            })
+            expect(timer.getCurrentTime()).toBe(15)
+        })
+
+        it('should use pausedTime in getElapsedTime when timer is paused', () => {
+            // Covers the `isPaused ? this.pausedTime : Date.now()` branch in getElapsedTime
+            const timer = new GameTimer({
+                duration: 60,
+                countDown: false,
+                autoStart: false,
+            })
+            timer.start()
+            vi.advanceTimersByTime(3000)
+            timer.pause()
+            // While paused, getElapsedTime should still return a consistent value
+            const elapsed1 = timer.getElapsedTime()
+            vi.advanceTimersByTime(5000) // wall-clock advances but timer is paused
+            const elapsed2 = timer.getElapsedTime()
+            expect(elapsed1).toBe(elapsed2) // frozen at pausedTime
+        })
     })
 
     describe('ScoreManager', () => {
