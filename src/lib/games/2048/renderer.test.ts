@@ -187,6 +187,19 @@ describe('2048/renderer', () => {
             expect(gameContainer.innerHTML).toContain('Failed to initialize')
         })
 
+        it('should use resolution 1 when devicePixelRatio is 0 (line 45 || 1 branch)', async () => {
+            vi.stubGlobal('devicePixelRatio', 0)
+            const state = await setupPixiJS(gameContainer)
+            const MockApp = vi.mocked(Application)
+            const appInst = MockApp.mock.results[0].value
+            expect(appInst.init).toHaveBeenCalledWith(
+                expect.objectContaining({ resolution: 1 })
+            )
+            vi.unstubAllGlobals()
+            // Cleanup
+            state.app.destroy()
+        })
+
         it('should remove pre-existing container children when init fails (lines 71-72)', async () => {
             const MockApp = vi.mocked(Application)
             MockApp.mockImplementationOnce(

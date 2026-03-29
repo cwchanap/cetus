@@ -108,6 +108,48 @@ describe('GameInitializer', () => {
             expect(renderer).toBeInstanceOf(TestRenderer)
         })
 
+        it('should use empty object when rendererConfig is undefined (line 57 || {} branch)', async () => {
+            // Renderer that skips container lookup so it works with no rendererConfig
+            class NoContainerRenderer extends BaseRenderer {
+                async setup(): Promise<void> {}
+                async initialize(): Promise<void> {
+                    this.isInitialized = true
+                }
+                render(_state: unknown): void {}
+                resize(_width: number, _height: number): void {}
+                cleanup(): void {}
+            }
+
+            const initializer = new GameInitializer<
+                TestGame,
+                NoContainerRenderer
+            >({
+                gameId: GameID.TETRIS,
+                gameClass: TestGame as unknown as new (
+                    ...args: unknown[]
+                ) => TestGame,
+                rendererClass: NoContainerRenderer as unknown as new (
+                    ...args: unknown[]
+                ) => NoContainerRenderer,
+                gameConfig: {
+                    duration: 60,
+                    achievementIntegration: false,
+                    pausable: true,
+                    resettable: true,
+                },
+                // rendererConfig intentionally omitted to hit the || {} fallback
+            })
+            initializers.push(
+                initializer as unknown as GameInitializer<
+                    TestGame,
+                    TestRenderer
+                >
+            )
+            const { game, renderer } = await initializer.initialize()
+            expect(game).toBeInstanceOf(TestGame)
+            expect(renderer).toBeInstanceOf(NoContainerRenderer)
+        })
+
         it('should return the same instances from getGame and getRenderer', async () => {
             const initializer = makeInitializer()
             const { game, renderer } = await initializer.initialize()

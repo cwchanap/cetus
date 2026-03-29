@@ -288,6 +288,28 @@ describe('MemoryMatrixGame', () => {
             expect(state.matchedPairs).toBe(1)
             expect(game.getGameStats().matchesFound).toBe(1)
         })
+
+        it('should flip cards back when they do not match (lines 148-150)', () => {
+            // Find two cards with DIFFERENT shapes
+            const board = game.getGameState().board
+            const shapeMap = buildShapeMap(board)
+            const allShapes = [...shapeMap.keys()]
+            // Need at least 2 different shapes
+            expect(allShapes.length).toBeGreaterThanOrEqual(2)
+            const pos1 = shapeMap.get(allShapes[0])![0]
+            const pos2 = shapeMap.get(allShapes[1])![0]
+
+            game.flipCard(pos1)
+            game.flipCard(pos2)
+            // Advance time to trigger processMatches
+            vi.advanceTimersByTime(CONSTANTS.FLIP_DELAY)
+
+            const state = game.getGameState()
+            // Cards should be flipped back (not matched)
+            expect(state.matchedPairs).toBe(0)
+            expect(board[pos1.row][pos1.col].isFlipped).toBe(false)
+            expect(board[pos2.row][pos2.col].isFlipped).toBe(false)
+        })
     })
 
     describe('Game End Conditions', () => {
