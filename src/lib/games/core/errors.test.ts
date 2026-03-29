@@ -206,3 +206,32 @@ describe('GameErrorCodes', () => {
         expect(GameErrorCodes.GAME_TIMEOUT).toBe('GAME_TIMEOUT')
     })
 })
+
+describe('Error context spreading (optional chaining branches)', () => {
+    it('DOMElementNotFoundError merges extra context when options.context is provided', () => {
+        const error = new DOMElementNotFoundError('my-el', {
+            context: { extra: 'data' },
+        })
+        expect(error.context?.elementId).toBe('my-el')
+        expect(error.context?.extra).toBe('data')
+    })
+
+    it('GameTimeoutError merges extra context when options.context is provided', () => {
+        const error = new GameTimeoutError('asset-load', {
+            context: { phase: 'init' },
+        })
+        expect(error.context?.operation).toBe('asset-load')
+        expect(error.context?.phase).toBe('init')
+    })
+
+    it('wrapError uses fallbackMessage when Error has empty message', () => {
+        // Covers the `error.message || fallbackMessage` branch
+        const wrapped = wrapError(new Error(''), 'custom fallback')
+        expect(wrapped.message).toBe('custom fallback')
+    })
+
+    it('wrapError uses default fallbackMessage when Error has empty message and no custom fallback', () => {
+        const wrapped = wrapError(new Error(''))
+        expect(wrapped.message).toBe('An unexpected error occurred')
+    })
+})

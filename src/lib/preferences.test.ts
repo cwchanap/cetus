@@ -145,6 +145,34 @@ describe('getClientPreferences', () => {
         const prefs = getClientPreferences()
         expect(prefs).toEqual(DEFAULT_CLIENT_PREFERENCES)
     })
+
+    it('should use defaults for sound when sound section is absent', () => {
+        // Exercises the `parsed.sound || {}` fallback branch (line 122)
+        localStorageMock.setItem(
+            PREFERENCES_STORAGE_KEY,
+            JSON.stringify({ display: { reducedMotion: true, theme: 'dark' } })
+        )
+
+        const prefs = getClientPreferences()
+        expect(prefs.sound.masterVolume).toBe(
+            DEFAULT_CLIENT_PREFERENCES.sound.masterVolume
+        )
+        expect(prefs.display.reducedMotion).toBe(true)
+    })
+
+    it('should use defaults for display when display section is absent', () => {
+        // Exercises the `parsed.display || {}` fallback branch (line 124)
+        localStorageMock.setItem(
+            PREFERENCES_STORAGE_KEY,
+            JSON.stringify({ sound: { masterVolume: 55 } })
+        )
+
+        const prefs = getClientPreferences()
+        expect(prefs.sound.masterVolume).toBe(55)
+        expect(prefs.display.theme).toBe(
+            DEFAULT_CLIENT_PREFERENCES.display.theme
+        )
+    })
 })
 
 describe('saveClientPreferences', () => {
@@ -293,6 +321,28 @@ describe('getEffectiveVolume', () => {
 
         expect(getEffectiveVolume('sfx', prefs)).toBe(0)
         expect(getEffectiveVolume('music', prefs)).toBe(0)
+    })
+
+    it('should use stored preferences when no preferences argument provided', () => {
+        // Exercises the `preferences || getClientPreferences()` branch (line 236)
+        const storedPrefs: ClientPreferences = {
+            sound: {
+                masterVolume: 80,
+                sfxVolume: 50,
+                musicVolume: 60,
+                soundEnabled: true,
+            },
+            display: { reducedMotion: false, theme: 'dark' },
+        }
+        localStorageMock.setItem(
+            PREFERENCES_STORAGE_KEY,
+            JSON.stringify(storedPrefs)
+        )
+
+        // Call without second argument so getClientPreferences() is used
+        const volume = getEffectiveVolume('sfx')
+        // 0.8 * 0.5 = 0.4
+        expect(volume).toBeCloseTo(0.4, 2)
     })
 })
 

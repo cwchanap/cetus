@@ -96,6 +96,22 @@ describe('RendererFactory', () => {
                 })
             )
         })
+
+        it('should fall back to resolution 1 when devicePixelRatio is 0', () => {
+            vi.stubGlobal('devicePixelRatio', 0)
+            RendererFactory.createCanvas('#factory-test-container')
+            expect(PixiJSRenderer).toHaveBeenCalledWith(
+                expect.objectContaining({ resolution: 1 })
+            )
+        })
+
+        it('should fall back to resolution 1 when devicePixelRatio is undefined', () => {
+            vi.stubGlobal('devicePixelRatio', undefined)
+            RendererFactory.createCanvas('#factory-test-container')
+            expect(PixiJSRenderer).toHaveBeenCalledWith(
+                expect.objectContaining({ resolution: 1 })
+            )
+        })
     })
 
     describe('createDOM', () => {

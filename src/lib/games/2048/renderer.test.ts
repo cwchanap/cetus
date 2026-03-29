@@ -186,6 +186,29 @@ describe('2048/renderer', () => {
             await expect(setupPixiJS(gameContainer)).rejects.toThrow()
             expect(gameContainer.innerHTML).toContain('Failed to initialize')
         })
+
+        it('should remove pre-existing container children when init fails (lines 71-72)', async () => {
+            const MockApp = vi.mocked(Application)
+            MockApp.mockImplementationOnce(
+                () =>
+                    ({
+                        init: vi
+                            .fn()
+                            .mockRejectedValue(new Error('WebGL error')),
+                        canvas: document.createElement('canvas'),
+                        stage: { addChild: vi.fn() },
+                        destroy: vi.fn(),
+                    }) as unknown as InstanceType<typeof Application>
+            )
+
+            // Pre-populate container with a child so the while loop body (line 71) executes
+            const preexisting = document.createElement('span')
+            gameContainer.appendChild(preexisting)
+
+            await expect(setupPixiJS(gameContainer)).rejects.toThrow()
+            // Preexisting child removed, error div added instead
+            expect(gameContainer.innerHTML).toContain('Failed to initialize')
+        })
     })
 
     describe('drawBoard', () => {

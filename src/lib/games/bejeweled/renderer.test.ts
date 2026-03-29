@@ -599,13 +599,11 @@ describe('BejeweledRenderer', () => {
                 container: '#bejeweled-test-container',
             })
             await renderer.initialize()
-            ;(renderer as any).app = null
-            const state = makeBejeweledState()
 
-            // mapPointToCell is private; call it indirectly via pointerdown after render
-            // (we rendered with app, set app=null, then trigger click)
-            // Actually render first to set lastState, then set app=null, then click
+            const state = makeBejeweledState()
+            // Render first (app is valid) so lastState is populated
             renderer.render(state)
+            // Now set app to null so mapPointToCell hits the null guard (lines 157-158)
             ;(renderer as any).app = null
 
             const MockApp = vi.mocked(Application)

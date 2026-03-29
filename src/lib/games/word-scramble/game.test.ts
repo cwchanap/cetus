@@ -386,4 +386,29 @@ describe('WordScrambleGame', () => {
             game.destroy()
         })
     })
+
+    describe('getGameStats longestWord / shortestWord reduce branches', () => {
+        beforeEach(() => {
+            game.startGame()
+        })
+
+        it('should cover both ternary branches when 2+ correct words with different lengths', () => {
+            // Use ['elephant', 'cat'] order so:
+            // - longestWord reduce: elephant>'' (true), cat>elephant (FALSE branch `: longest` on line 195)
+            // - shortestWord reduce: elephant<elephant (false), cat<elephant (TRUE branch `? current.word` on line 200)
+            ;(game as any).state.wordHistory = [
+                {
+                    word: 'elephant',
+                    correct: true,
+                    timeToAnswer: 1000,
+                    points: 20,
+                },
+                { word: 'cat', correct: true, timeToAnswer: 1500, points: 10 },
+            ]
+
+            const stats = game.getGameStats()
+            expect(stats.longestWord).toBe('elephant')
+            expect(stats.shortestWord).toBe('cat')
+        })
+    })
 })

@@ -352,5 +352,12 @@ describe('QuickMathRenderer', () => {
             expect(() => vi.runAllTimers()).not.toThrow()
             vi.useRealTimers()
         })
+
+        it('should return early from setupInputEvents when answerInput is null (lines 68-69)', () => {
+            // Access private method via cast to cover the null guard inside setupInputEvents
+            const r = new QuickMathRenderer(config)
+            // answerInput is null (not initialized)
+            expect(() => (r as any).setupInputEvents()).not.toThrow()
+        })
     })
 })

@@ -494,3 +494,44 @@ describe('tetris/renderer', () => {
         })
     })
 })
+
+describe('tetris/renderer setupPixiJS devicePixelRatio fallback', () => {
+    let gameContainer: HTMLElement
+
+    beforeEach(() => {
+        gameContainer = document.createElement('div')
+        document.body.appendChild(gameContainer)
+        vi.clearAllMocks()
+    })
+
+    afterEach(() => {
+        document.body.removeChild(gameContainer)
+        vi.unstubAllGlobals()
+    })
+
+    it('should use resolution 1 when devicePixelRatio is 0 (line 26 || 1 branch)', async () => {
+        vi.stubGlobal('devicePixelRatio', 0)
+        const { Application } = await import('pixi.js')
+        const constants = makeConstants()
+        await setupPixiJS(gameContainer, constants)
+        const MockApp = vi.mocked(Application)
+        const lastApp =
+            MockApp.mock.results[MockApp.mock.results.length - 1].value
+        expect(lastApp.init).toHaveBeenCalledWith(
+            expect.objectContaining({ resolution: 1 })
+        )
+    })
+
+    it('should use resolution 1 when devicePixelRatio is undefined', async () => {
+        vi.stubGlobal('devicePixelRatio', undefined)
+        const { Application } = await import('pixi.js')
+        const constants = makeConstants()
+        await setupPixiJS(gameContainer, constants)
+        const MockApp = vi.mocked(Application)
+        const lastApp =
+            MockApp.mock.results[MockApp.mock.results.length - 1].value
+        expect(lastApp.init).toHaveBeenCalledWith(
+            expect.objectContaining({ resolution: 1 })
+        )
+    })
+})

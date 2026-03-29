@@ -134,6 +134,19 @@ describe('initSudokuGame', () => {
             // Board should still have 81 cells after click
             expect(container.querySelectorAll('.sudoku-cell').length).toBe(81)
         })
+
+        it('should use fallback row/col 0 when dataset.row/col absent (lines 155-156 || branch)', () => {
+            initSudokuGame(container)
+            const gameEl = container.querySelector(
+                '.sudoku-game'
+            ) as HTMLElement
+            // Create a .sudoku-cell element without data-row/data-col attributes
+            const cell = document.createElement('div')
+            cell.className = 'sudoku-cell'
+            gameEl.appendChild(cell)
+            // Click triggers handleGameClick → dataset.row is undefined → || '0' fires
+            expect(() => cell.click()).not.toThrow()
+        })
     })
 
     describe('keyboard handling', () => {

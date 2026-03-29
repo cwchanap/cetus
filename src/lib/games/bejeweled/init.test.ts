@@ -379,6 +379,84 @@ describe('initBejeweledGame', () => {
         })
     })
 
+    describe('custom callbacks forwarding', () => {
+        it('should forward onScoreUpdate to custom callback', async () => {
+            const { BejeweledGame } = await import('./game')
+            const onScoreUpdate = vi.fn()
+            const result = await initBejeweledGame(undefined, { onScoreUpdate })
+            cleanup = result.cleanup
+
+            const callbacksArg = vi.mocked(BejeweledGame).mock
+                .calls[0][2] as any
+            callbacksArg.onScoreUpdate(99)
+            expect(onScoreUpdate).toHaveBeenCalledWith(99)
+        })
+
+        it('should forward onTimeUpdate to custom callback', async () => {
+            const { BejeweledGame } = await import('./game')
+            const onTimeUpdate = vi.fn()
+            const result = await initBejeweledGame(undefined, { onTimeUpdate })
+            cleanup = result.cleanup
+
+            const callbacksArg = vi.mocked(BejeweledGame).mock
+                .calls[0][2] as any
+            callbacksArg.onTimeUpdate(25)
+            expect(onTimeUpdate).toHaveBeenCalledWith(25)
+        })
+
+        it('should forward onStart to custom callback', async () => {
+            const { BejeweledGame } = await import('./game')
+            const onStart = vi.fn()
+            const result = await initBejeweledGame(undefined, { onStart })
+            cleanup = result.cleanup
+
+            const callbacksArg = vi.mocked(BejeweledGame).mock
+                .calls[0][2] as any
+            callbacksArg.onStart()
+            expect(onStart).toHaveBeenCalled()
+        })
+
+        it('should forward onEnd to custom callback', async () => {
+            const { BejeweledGame } = await import('./game')
+            const onEnd = vi.fn()
+            const result = await initBejeweledGame(undefined, { onEnd })
+            cleanup = result.cleanup
+
+            const callbacksArg = vi.mocked(BejeweledGame).mock
+                .calls[0][2] as any
+            callbacksArg.onEnd(200, { moves: 10 })
+            expect(onEnd).toHaveBeenCalledWith(200, { moves: 10 })
+        })
+
+        it('should forward onStateChange to custom callback', async () => {
+            const { BejeweledGame } = await import('./game')
+            const onStateChange = vi.fn()
+            const result = await initBejeweledGame(undefined, { onStateChange })
+            cleanup = result.cleanup
+
+            const callbacksArg = vi.mocked(BejeweledGame).mock
+                .calls[0][2] as any
+            const mockState = { score: 42, grid: [] }
+            callbacksArg.onStateChange(mockState)
+            expect(onStateChange).toHaveBeenCalledWith(mockState)
+        })
+
+        it('should not throw when customCallbacks object lacks specific callbacks', async () => {
+            const { BejeweledGame } = await import('./game')
+            // Pass an empty callbacks object — none of the optional functions are defined
+            const result = await initBejeweledGame(undefined, {})
+            cleanup = result.cleanup
+
+            const callbacksArg = vi.mocked(BejeweledGame).mock
+                .calls[0][2] as any
+            expect(() => callbacksArg.onScoreUpdate(10)).not.toThrow()
+            expect(() => callbacksArg.onTimeUpdate(10)).not.toThrow()
+            expect(() => callbacksArg.onStart()).not.toThrow()
+            expect(() => callbacksArg.onEnd(0, {})).not.toThrow()
+            expect(() => callbacksArg.onStateChange({})).not.toThrow()
+        })
+    })
+
     describe('missing DOM elements', () => {
         it('should handle missing optional DOM elements in callbacks', async () => {
             document.getElementById('score')!.remove()

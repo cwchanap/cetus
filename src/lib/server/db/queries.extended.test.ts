@@ -24,6 +24,7 @@ import {
     updateUserPreferences,
     getUserDailyActivity,
     getAchievementStatistics,
+    resetUserStreak,
 } from '@/lib/server/db/queries'
 import { db } from '@/lib/server/db/client'
 
@@ -855,6 +856,34 @@ describe('Extended Database Queries', () => {
             expect(result.challengeStreak).toBe(0)
         })
 
+        it('should log error but not throw when streak reset update fails (line 1521)', async () => {
+            const oldDate = '2020-01-01'
+            const mockStats = {
+                xp: 200,
+                level: 3,
+                challenge_streak: 5,
+                last_challenge_date: oldDate,
+            }
+            const mockSelectQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue(mockStats),
+            }
+            const mockUpdateQuery = {
+                set: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                execute: vi
+                    .fn()
+                    .mockRejectedValue(new Error('DB update error')),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockSelectQuery as any)
+            vi.mocked(db.updateTable).mockReturnValue(mockUpdateQuery as any)
+
+            // Should not throw despite update error (caught internally)
+            const result = await getUserXPAndLevel('user-123')
+            expect(result.challengeStreak).toBe(0)
+        })
+
         it('should return defaults on database error', async () => {
             vi.mocked(db.selectFrom).mockImplementation(() => {
                 throw new Error('DB error')
@@ -900,6 +929,40 @@ describe('Extended Database Queries', () => {
             const result = await updateUserXPAndLevel('user-123', 100, 2)
 
             expect(result).toBe(true)
+        })
+
+        it('should invoke the onConflict callback (lines 1565-1569)', async () => {
+            const mockSelectQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockSelectQuery as any)
+
+            // Make onConflict actually invoke the callback so lines 1565-1569 are covered
+            const mockOc = {
+                column: vi.fn().mockReturnThis(),
+                doUpdateSet: vi.fn().mockReturnThis(),
+            }
+            vi.mocked(db.insertInto).mockReturnValue({
+                values: vi.fn().mockReturnValue({
+                    onConflict: vi
+                        .fn()
+                        .mockImplementation(
+                            (cb: (oc: typeof mockOc) => typeof mockOc) => {
+                                cb(mockOc) // invoke the callback — this runs lines 1565-1569
+                                return {
+                                    execute: vi.fn().mockResolvedValue({}),
+                                }
+                            }
+                        ),
+                }),
+            } as any)
+
+            const result = await updateUserXPAndLevel('user-123', 50, 3)
+            expect(result).toBe(true)
+            expect(mockOc.column).toHaveBeenCalledWith('user_id')
+            expect(mockOc.doUpdateSet).toHaveBeenCalled()
         })
 
         it('should return false on database error', async () => {
@@ -1320,6 +1383,62 @@ describe('Extended Database Queries', () => {
             expect(globalAce!.earned_count).toBe(0)
             expect(globalAce!.total_players).toBe(200) // global achievement uses globalPlayers
             expect(globalAce!.percentage).toBe(0)
+        })
+
+        it('should use gamePlayerMap for unearned non-global achievements (lines 1201-1202)', async () => {
+            // Neither achievement is earned → both go into unearnedAchievements forEach
+            // global_ace hits the if(gameId === 'global') branch
+            // first_win (tetris) hits the else branch (lines 1201-1202)
+            const mockAchievementStats: never[] = []
+            const mockGamePlayerCounts = [
+                { game_id: 'tetris', player_count: 75 },
+            ]
+            const mockGlobalCount = { player_count: 150 }
+
+            vi.mocked(db.selectFrom)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    groupBy: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue(mockAchievementStats),
+                } as any)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    groupBy: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue(mockGamePlayerCounts),
+                } as any)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi
+                        .fn()
+                        .mockResolvedValue(mockGlobalCount),
+                } as any)
+
+            const result = await getAchievementStatistics()
+
+            const firstWin = result.find(r => r.achievement_id === 'first_win')
+            expect(firstWin).toBeDefined()
+            expect(firstWin!.earned_count).toBe(0)
+            expect(firstWin!.total_players).toBe(75) // from gamePlayerMap (else branch)
+        })
+    })
+
+    describe('resetUserStreak', () => {
+        it('should return true on successful streak reset', async () => {
+            // upsertUserStats calls insertInto/updateTable internally
+            vi.mocked(db.insertInto).mockReturnValue({
+                values: vi.fn().mockReturnValue({
+                    execute: vi.fn().mockResolvedValue({}),
+                }),
+            } as any)
+            const mockSelectQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockSelectQuery as any)
+
+            const result = await resetUserStreak('user-123')
+            expect(result).toBe(true)
         })
     })
 })

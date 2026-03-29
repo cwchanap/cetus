@@ -420,4 +420,34 @@ describe('evader/renderer', () => {
             expect(state.app.destroy).toHaveBeenCalled()
         })
     })
+
+    describe('setupPixiJS devicePixelRatio fallback', () => {
+        afterEach(() => {
+            vi.unstubAllGlobals()
+        })
+
+        it('should use resolution 1 when devicePixelRatio is 0 (line 15 || 1 branch)', async () => {
+            vi.stubGlobal('devicePixelRatio', 0)
+            const config = makeConfig()
+            await setupPixiJS(gameContainer, config)
+            const MockApp = vi.mocked(Application)
+            const lastApp =
+                MockApp.mock.results[MockApp.mock.results.length - 1].value
+            expect(lastApp.init).toHaveBeenCalledWith(
+                expect.objectContaining({ resolution: 1 })
+            )
+        })
+
+        it('should use resolution 1 when devicePixelRatio is undefined', async () => {
+            vi.stubGlobal('devicePixelRatio', undefined)
+            const config = makeConfig()
+            await setupPixiJS(gameContainer, config)
+            const MockApp = vi.mocked(Application)
+            const lastApp =
+                MockApp.mock.results[MockApp.mock.results.length - 1].value
+            expect(lastApp.init).toHaveBeenCalledWith(
+                expect.objectContaining({ resolution: 1 })
+            )
+        })
+    })
 })
