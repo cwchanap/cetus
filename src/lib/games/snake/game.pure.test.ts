@@ -610,6 +610,21 @@ describe('Snake game.ts pure logic', () => {
             expect(state.paused).toBe(false)
             expect(gameLoopFn).toHaveBeenCalledOnce()
         })
+
+        it('should update pause-btn text to Pause when unpausing (line 155 false branch)', () => {
+            const pauseBtn = document.createElement('button')
+            pauseBtn.id = 'pause-btn'
+            pauseBtn.textContent = 'Resume'
+            document.body.appendChild(pauseBtn)
+
+            state.gameStarted = true
+            state.paused = true
+            state.pauseStartedAt = null
+            togglePause(state, vi.fn())
+
+            expect(pauseBtn.textContent).toBe('Pause')
+            document.body.removeChild(pauseBtn)
+        })
     })
 
     describe('resetGame with DOM elements', () => {

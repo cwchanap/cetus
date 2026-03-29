@@ -113,6 +113,21 @@ describe('PixiJSRenderer', () => {
             await expect(renderer.initialize()).rejects.toThrow()
         })
 
+        it('should use resolution 1 when both pixiConfig.resolution and devicePixelRatio are falsy (line 43 || 1 branch)', async () => {
+            vi.stubGlobal('devicePixelRatio', 0)
+            renderer = new TestPixiJSRenderer({
+                type: 'canvas',
+                container: '#pixi-test-container',
+                // resolution omitted → undefined (falsy)
+            })
+            await renderer.initialize()
+            const MockApp = vi.mocked(Application)
+            const appInst = MockApp.mock.results[0].value
+            expect(appInst.init).toHaveBeenCalledWith(
+                expect.objectContaining({ resolution: 1 })
+            )
+        })
+
         it('should call app.init with correct dimensions', async () => {
             renderer = new TestPixiJSRenderer({
                 type: 'canvas',
