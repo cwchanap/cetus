@@ -588,4 +588,94 @@ describe('PixiJSRenderer', () => {
             expect(() => baseRenderer.render({})).not.toThrow()
         })
     })
+
+    describe('resolution config branch', () => {
+        it('should use pixiConfig.resolution when provided (line 43 first || branch)', async () => {
+            renderer = new TestPixiJSRenderer({
+                type: 'canvas',
+                container: '#pixi-test-container',
+                resolution: 2,
+            })
+            await renderer.initialize()
+            const MockApp = vi.mocked(Application)
+            const appInst = MockApp.mock.results[0].value
+            expect(appInst.init).toHaveBeenCalledWith(
+                expect.objectContaining({ resolution: 2 })
+            )
+        })
+    })
+
+    describe('onConfigUpdate width-only branch', () => {
+        it('should not resize when only width is set (line 174 && FALSE branch)', async () => {
+            renderer = new TestPixiJSRenderer({
+                type: 'canvas',
+                container: '#pixi-test-container',
+            })
+            await renderer.initialize()
+            const MockApp = vi.mocked(Application)
+            const appInst = MockApp.mock.results[0].value
+            // width set but no height → config.width && config.height is false → resize not called
+            renderer.updateConfig({ width: 800 })
+            expect(appInst.renderer.resize).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('responsive resize handler invocation', () => {
+        it('should invoke the resizeHandler when a resize event fires (line 52 function body)', async () => {
+            renderer = new TestPixiJSRenderer({
+                type: 'canvas',
+                container: '#pixi-test-container',
+                responsive: true,
+            })
+            await renderer.initialize()
+            const MockApp = vi.mocked(Application)
+            const appInst = MockApp.mock.results[0].value
+            vi.clearAllMocks()
+            // Firing the resize event calls the stored handler → handleResize()
+            window.dispatchEvent(new Event('resize'))
+            // handleResize calls app.renderer.resize so we know the handler ran
+            expect(appInst.renderer.resize).toHaveBeenCalled()
+        })
+    })
+
+    describe('container clientWidth/clientHeight as dimension source', () => {
+        it('should use clientWidth/clientHeight when config has no width/height (line 30-31 middle || branch)', async () => {
+            // Give the container real clientWidth/clientHeight via mock
+            Object.defineProperty(container, 'clientWidth', {
+                get: () => 320,
+                configurable: true,
+            })
+            Object.defineProperty(container, 'clientHeight', {
+                get: () => 240,
+                configurable: true,
+            })
+            renderer = new TestPixiJSRenderer({
+                type: 'canvas',
+                container: '#pixi-test-container',
+                // no width/height → falls back to clientWidth/clientHeight
+            })
+            await renderer.initialize()
+            const MockApp = vi.mocked(Application)
+            const appInst = MockApp.mock.results[0].value
+            expect(appInst.init).toHaveBeenCalledWith(
+                expect.objectContaining({ width: 320, height: 240 })
+            )
+        })
+    })
+
+    describe('cleanup with canvas not in container', () => {
+        it('should not throw when canvas parentNode differs from container (line 185 && FALSE)', async () => {
+            renderer = new TestPixiJSRenderer({
+                type: 'canvas',
+                container: '#pixi-test-container',
+            })
+            await renderer.initialize()
+            // Move canvas to a different element so parentNode !== container
+            const otherDiv = document.createElement('div')
+            document.body.appendChild(otherDiv)
+            otherDiv.appendChild(renderer.getApp()!.canvas)
+            expect(() => renderer.cleanup()).not.toThrow()
+            document.body.removeChild(otherDiv)
+        })
+    })
 })
