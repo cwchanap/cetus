@@ -171,6 +171,30 @@ describe('Extended Database Queries', () => {
             expect(result!.email).toBe('test@example.com')
         })
 
+        it('should map null username and displayName via ?? null (lines 344-345 ?? branches)', async () => {
+            const mockUser = {
+                id: 'user-456',
+                username: null,
+                displayName: null,
+                image: null,
+                name: 'Anonymous',
+                email: 'anon@example.com',
+                createdAt: '2024-01-01T00:00:00.000Z',
+            }
+            const mockQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue(mockUser),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+            const result = await getUserByUsername('anon')
+
+            expect(result).not.toBeNull()
+            expect(result!.username).toBeNull()
+            expect(result!.displayName).toBeNull()
+        })
+
         it('should return null on database error', async () => {
             vi.mocked(db.selectFrom).mockImplementation(() => {
                 throw new Error('DB error')
@@ -218,6 +242,30 @@ describe('Extended Database Queries', () => {
             expect(result).not.toBeNull()
             expect(result!.id).toBe('user-123')
             expect(result!.image).toBe('https://example.com/avatar.png')
+        })
+
+        it('should map null username and image via ?? null (lines 388, 390 ?? branches)', async () => {
+            const mockUser = {
+                id: 'user-789',
+                username: null,
+                displayName: 'Display Only',
+                image: null,
+                name: 'Display Only',
+                email: 'display@example.com',
+                createdAt: '2024-03-01T00:00:00.000Z',
+            }
+            const mockQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue(mockUser),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+            const result = await getUserIdentityById('user-789')
+
+            expect(result).not.toBeNull()
+            expect(result!.username).toBeNull()
+            expect(result!.image).toBeNull()
         })
 
         it('should return null on database error', async () => {

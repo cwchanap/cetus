@@ -152,6 +152,28 @@ describe('Database Queries', () => {
             expect(mockQuery.limit).toHaveBeenCalledWith(10)
         })
 
+        it('should use "Unknown Game" for unrecognized game_id (line 630 || branch)', async () => {
+            const mockScores = [
+                {
+                    game_id: 'not_a_real_game_id',
+                    score: 100,
+                    created_at: new Date('2023-06-01'),
+                },
+            ]
+            const mockQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                orderBy: vi.fn().mockReturnThis(),
+                limit: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue(mockScores),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+            const result = await getUserGameHistory('user-123', 10)
+
+            expect(result[0].game_name).toBe('Unknown Game')
+        })
+
         it('should return empty array on database error', async () => {
             // Arrange
             const mockQuery = {
@@ -419,6 +441,35 @@ describe('Database Queries', () => {
             // Assert
             // First page should have offset 0
             expect(mockResultsQuery.offset).toHaveBeenCalledWith(0)
+        })
+
+        it('should use "Unknown Game" for unrecognized game_id (line 694 || branch)', async () => {
+            const mockCountQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue({ total: 1 }),
+            }
+            const mockResultsQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                orderBy: vi.fn().mockReturnThis(),
+                limit: vi.fn().mockReturnThis(),
+                offset: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue([
+                    {
+                        game_id: 'not_a_real_game_id',
+                        score: 50,
+                        created_at: new Date('2025-01-01'),
+                    },
+                ]),
+            }
+            vi.mocked(db.selectFrom)
+                .mockReturnValueOnce(mockCountQuery as any)
+                .mockReturnValueOnce(mockResultsQuery as any)
+
+            const result = await getUserGameHistoryPaginated('user-123', 1, 5)
+
+            expect(result.games[0].game_name).toBe('Unknown Game')
         })
 
         it('should return error state on database failure', async () => {
