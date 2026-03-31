@@ -571,6 +571,18 @@ describe('init2048Game', () => {
             await vi.runAllTimersAsync()
         })
 
+        it('should call callbacks.onGameOver when provided (line 162 non-null branch)', async () => {
+            // callbacks defined WITH onGameOver → second ?. proceeds → onGameOver is called
+            const onGameOver = vi.fn()
+            gameInst = await init2048Game({ onGameOver })
+            gameInst!.start()
+            const state = gameInst!.getState() as any
+            state.gameStarted = true
+            await gameInst!.endGame()
+            await vi.runAllTimersAsync()
+            expect(onGameOver).toHaveBeenCalled()
+        })
+
         it('should skip callbacks.onWin when callbacks has no onWin (line 173)', async () => {
             // callbacks defined but no onWin → second ?. short-circuits
             const { processMove } = await import('./game')
@@ -594,6 +606,29 @@ describe('init2048Game', () => {
                 )
             ).not.toThrow()
             await vi.runAllTimersAsync()
+        })
+
+        it('should call callbacks.onWin when provided (line 173 non-null branch)', async () => {
+            // callbacks defined WITH onWin → second ?. proceeds → onWin is called
+            const { processMove } = await import('./game')
+            const onWin = vi.fn()
+            vi.mocked(processMove).mockImplementationOnce(
+                (state: any, _dir, totalMerges, cbs: any) => ({
+                    state: { ...state, lastMoveAnimations: [] },
+                    totalMerges: totalMerges + 1,
+                    callbacksToInvoke: [() => cbs?.onWin?.()],
+                })
+            )
+            gameInst = await init2048Game({ onWin })
+            gameInst!.start()
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowRight',
+                    bubbles: true,
+                })
+            )
+            await vi.runAllTimersAsync()
+            expect(onWin).toHaveBeenCalled()
         })
     })
 
