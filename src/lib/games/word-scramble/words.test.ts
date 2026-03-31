@@ -148,5 +148,10 @@ describe('Word Scramble Words', () => {
         it('should return 30 for hard words', () => {
             expect(getPointsForWord('hard')).toBe(30)
         })
+
+        it('should return 10 as default for unknown difficulty (line 256 default branch)', () => {
+            // TypeScript type is 'easy'|'medium'|'hard' but test runtime with unknown value
+            expect(getPointsForWord('unknown' as any)).toBe(10)
+        })
     })
 })
