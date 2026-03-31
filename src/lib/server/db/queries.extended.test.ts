@@ -1107,9 +1107,24 @@ describe('Extended Database Queries', () => {
             expect(result).toBe(7)
         })
 
-        it('should return 0 on error', async () => {
+        it('should return 0 when count is undefined (line 1644 || 0 branch)', async () => {
+            const mockQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi
+                    .fn()
+                    .mockResolvedValue({ count: undefined }),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+            const result = await getGamesPlayedCountToday('user-123')
+
+            expect(result).toBe(0)
+        })
+
+        it('should return 0 on error (with non-Error thrown for sanitizeError String branch)', async () => {
             vi.mocked(db.selectFrom).mockImplementation(() => {
-                throw new Error('DB error')
+                throw 'string error'
             })
 
             const result = await getGamesPlayedCountToday('user-123')
@@ -1151,6 +1166,27 @@ describe('Extended Database Queries', () => {
             expect(result!.login_streak).toBe(3)
             expect(result!.last_login_reward_date).toBe('2024-01-15')
             expect(result!.total_login_cycles).toBe(1)
+        })
+
+        it('should use ?? fallbacks for null streak/date/cycles fields (lines 1794-1796)', async () => {
+            const mockStats = {
+                login_streak: null,
+                last_login_reward_date: null,
+                total_login_cycles: null,
+            }
+            const mockQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue(mockStats),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
+
+            const result = await getLoginRewardStatus('user-123')
+
+            expect(result).not.toBeNull()
+            expect(result!.login_streak).toBe(0)
+            expect(result!.last_login_reward_date).toBeNull()
+            expect(result!.total_login_cycles).toBe(0)
         })
 
         it('should return null on database error', async () => {
@@ -1267,6 +1303,36 @@ describe('Extended Database Queries', () => {
             })
 
             expect(result).toBe(false)
+        })
+
+        it('should set push_notifications to 1 when true (line 2015 truthy branch)', async () => {
+            const mockStatsQuery = {
+                selectAll: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                distinct: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi
+                    .fn()
+                    .mockResolvedValue({ id: 1, user_id: 'user-123' }),
+                execute: vi.fn().mockResolvedValue([]),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockStatsQuery as any)
+
+            const mockUpdateQuery = {
+                set: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue({}),
+            }
+            vi.mocked(db.updateTable).mockReturnValue(mockUpdateQuery as any)
+
+            const result = await updateUserPreferences('user-123', {
+                push_notifications: true,
+            })
+
+            expect(result).toBe(true)
+            expect(mockUpdateQuery.set).toHaveBeenCalledWith(
+                expect.objectContaining({ push_notifications: 1 })
+            )
         })
 
         it('should call upsertUserStats when existing stats are null', async () => {
@@ -1467,6 +1533,109 @@ describe('Extended Database Queries', () => {
             expect(firstWin).toBeDefined()
             expect(firstWin!.earned_count).toBe(0)
             expect(firstWin!.total_players).toBe(75) // from gamePlayerMap (else branch)
+        })
+
+        it('should use || 0 fallback when globalPlayerCount.player_count is 0 (line 1150)', async () => {
+            // globalPlayerCount.player_count = 0 → falsy → || 0 branch taken
+            const mockAchievementStats = [
+                { achievement_id: 'global_ace', earned_count: 0 },
+            ]
+            const mockGamePlayerCounts: never[] = []
+            const mockGlobalCount = { player_count: 0 }
+
+            vi.mocked(db.selectFrom)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    groupBy: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue(mockAchievementStats),
+                } as any)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    groupBy: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue(mockGamePlayerCounts),
+                } as any)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi
+                        .fn()
+                        .mockResolvedValue(mockGlobalCount),
+                } as any)
+
+            const result = await getAchievementStatistics()
+
+            const globalAce = result.find(
+                r => r.achievement_id === 'global_ace'
+            )
+            expect(globalAce).toBeDefined()
+            expect(globalAce!.total_players).toBe(0) // || 0 branch was taken
+            expect(globalAce!.percentage).toBe(0) // totalPlayers=0 → ternary else branch (line 1178)
+        })
+
+        it('should use || 0 when earned achievement gameId not in gamePlayerMap (lines 1173, 1178)', async () => {
+            // first_win is earned but gamePlayerCounts is empty → map.get returns undefined → || 0
+            // totalPlayers=0 → percentage ternary returns 0 (else branch at line 1178)
+            const mockAchievementStats = [
+                { achievement_id: 'first_win', earned_count: 10 },
+            ]
+            const mockGamePlayerCounts: never[] = [] // empty → tetris not in map
+            const mockGlobalCount = { player_count: 100 }
+
+            vi.mocked(db.selectFrom)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    groupBy: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue(mockAchievementStats),
+                } as any)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    groupBy: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue(mockGamePlayerCounts),
+                } as any)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi
+                        .fn()
+                        .mockResolvedValue(mockGlobalCount),
+                } as any)
+
+            const result = await getAchievementStatistics()
+
+            const firstWin = result.find(r => r.achievement_id === 'first_win')
+            expect(firstWin).toBeDefined()
+            expect(firstWin!.total_players).toBe(0) // || 0 was taken (line 1173)
+            expect(firstWin!.percentage).toBe(0) // else branch of ternary (line 1178)
+        })
+
+        it('should use || 0 for unearned achievement gameId not in gamePlayerMap (line 1201)', async () => {
+            // All achievements unearned, gamePlayerCounts empty → first_win (tetris) not in map
+            const mockAchievementStats: never[] = []
+            const mockGamePlayerCounts: never[] = [] // empty → tetris not in map → || 0
+            const mockGlobalCount = { player_count: 50 }
+
+            vi.mocked(db.selectFrom)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    groupBy: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue(mockAchievementStats),
+                } as any)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    groupBy: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue(mockGamePlayerCounts),
+                } as any)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi
+                        .fn()
+                        .mockResolvedValue(mockGlobalCount),
+                } as any)
+
+            const result = await getAchievementStatistics()
+
+            const firstWin = result.find(r => r.achievement_id === 'first_win')
+            expect(firstWin).toBeDefined()
+            expect(firstWin!.total_players).toBe(0) // || 0 was taken (line 1201)
+            expect(firstWin!.earned_count).toBe(0)
         })
     })
 

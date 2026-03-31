@@ -524,5 +524,50 @@ describe('Challenge Service', () => {
                 1
             )
         })
+
+        it('should use ?? 0 fallback when progress.current_value is null (line 145)', async () => {
+            const today = getTodayUTC()
+            vi.mocked(challenges.generateDailyChallenges).mockReturnValue([
+                {
+                    id: 'score_tetris_100',
+                    name: 'Tetris Score',
+                    description: 'Score 100 in Tetris',
+                    icon: '🎯',
+                    type: 'score_target',
+                    gameId: GameID.TETRIS,
+                    targetValue: 100,
+                    xpReward: 30,
+                    difficulty: 'easy',
+                },
+            ] as any)
+
+            // Return progress with current_value: null → triggers ?? 0 at line 145
+            vi.mocked(queries.getUserChallengeProgress).mockResolvedValue([
+                {
+                    id: 1,
+                    user_id: 'user-123',
+                    challenge_date: today,
+                    challenge_id: 'score_tetris_100',
+                    current_value: null as unknown as number,
+                    target_value: 100,
+                    completed_at: null,
+                    xp_awarded: 0,
+                    created_at: new Date(),
+                },
+            ])
+            vi.mocked(queries.getGamesPlayedCountToday).mockResolvedValue(0)
+            vi.mocked(queries.getUniqueGamesPlayedToday).mockResolvedValue([])
+            vi.mocked(queries.getTotalScoreToday).mockResolvedValue(0)
+
+            await updateChallengeProgress('user-123', GameID.TETRIS, 50)
+
+            // newValue = null ?? 0 = 0, then score=50 > 0, so newValue = 50
+            expect(queries.updateChallengeProgressValue).toHaveBeenCalledWith(
+                'user-123',
+                today,
+                'score_tetris_100',
+                50
+            )
+        })
     })
 })
