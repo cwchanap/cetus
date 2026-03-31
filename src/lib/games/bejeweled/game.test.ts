@@ -346,3 +346,31 @@ describe('BejeweledGame attemptSwap guard paths', () => {
         spy.mockRestore()
     })
 })
+
+describe('BejeweledGame ?? JEWEL_TYPES fallback (lines 57, 97, 246)', () => {
+    it('should use JEWEL_TYPES fallback when jewelTypes not provided in config (lines 57, 97)', () => {
+        // Config without jewelTypes → this.config.jewelTypes = undefined → ?? JEWEL_TYPES
+        const configWithoutJewelTypes = {
+            rows: 4,
+            cols: 4,
+            minMatch: 3,
+            pointsPerJewel: 10,
+            duration: 60,
+            achievementIntegration: false,
+            pausable: true,
+            resettable: true,
+        }
+        const game = new BejeweledGame(
+            GameID.BEJEWELED,
+            configWithoutJewelTypes as any,
+            {}
+        )
+        // start() calls resetGame() which calls generateInitialGrid with config.jewelTypes ?? JEWEL_TYPES (line 57)
+        expect(() => game.start()).not.toThrow()
+        const state = game.getState()
+        expect(state.grid.length).toBeGreaterThan(0)
+
+        // reset() also calls generateInitialGrid (line 97)
+        expect(() => game.reset()).not.toThrow()
+    })
+})

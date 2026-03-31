@@ -712,6 +712,53 @@ describe('Extended Database Queries Part 2', () => {
             expect(mockTrx.updateTable).toHaveBeenCalledWith('user_stats')
         })
 
+        it('should use ?? 0 fallback when challenge_streak is null (line 1704)', async () => {
+            // stats.challenge_streak = null → null ?? 0 = 0, so newStreak = 0 + 1 = 1
+            const today = '2024-01-15'
+            const yesterday = '2024-01-14'
+            const mockTrx = {
+                selectFrom: vi.fn().mockReturnValue({
+                    select: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi.fn().mockResolvedValue({
+                        challenge_streak: null, // null → ?? 0 fallback
+                        last_challenge_date: yesterday,
+                    }),
+                }),
+                updateTable: vi.fn().mockReturnValue({
+                    set: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue({}),
+                }),
+                insertInto: vi.fn(),
+            }
+            vi.mocked(db.transaction).mockReturnValue({
+                execute: vi
+                    .fn()
+                    .mockImplementation(
+                        async (
+                            fn: (trx: typeof mockTrx) => Promise<unknown>
+                        ) => {
+                            return fn(mockTrx)
+                        }
+                    ),
+            } as any)
+            const mockSelectQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockSelectQuery as any)
+
+            const result = await atomicCheckAndUpdateStreak(
+                'user-123',
+                today,
+                true
+            )
+            // newStreak = (null ?? 0) + 1 = 1, still succeeds
+            expect(result).toBe(true)
+        })
+
         it('should return false when last_challenge_date equals today (already done)', async () => {
             const today = '2024-01-15'
             const mockTrx = {
@@ -914,6 +961,58 @@ describe('Extended Database Queries Part 2', () => {
             )
 
             expect(result.success).toBe(true)
+        })
+
+        it('should use cycleCompleted=true ternary branches for new user insert (lines 1883, 1885)', async () => {
+            // No existing stats row → insertInto path, cycleCompleted=true
+            // triggers: login_streak: cycleCompleted ? 0 : newStreak → 0
+            // and: total_login_cycles: cycleCompleted ? 1 : 0 → 1
+            const today = '2024-01-22'
+            const mockInsert = {
+                values: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue({}),
+            }
+            const mockTrx = {
+                selectFrom: vi.fn().mockReturnValue({
+                    select: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi.fn().mockResolvedValue(undefined), // no stats row
+                }),
+                updateTable: vi.fn(),
+                insertInto: vi.fn().mockReturnValue(mockInsert),
+            }
+            vi.mocked(db.transaction).mockReturnValue({
+                execute: vi
+                    .fn()
+                    .mockImplementation(
+                        async (
+                            fn: (trx: typeof mockTrx) => Promise<unknown>
+                        ) => {
+                            return fn(mockTrx)
+                        }
+                    ),
+            } as any)
+            const mockSelectQuery = {
+                select: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+            }
+            vi.mocked(db.selectFrom).mockReturnValue(mockSelectQuery as any)
+
+            const result = await claimLoginReward(
+                'user-new',
+                today,
+                7, // newStreak
+                100, // xpReward
+                true // cycleCompleted = true
+            )
+
+            expect(result.success).toBe(true)
+            // Verify the insertInto was called with cycleCompleted=true ternary values
+            expect(mockTrx.insertInto).toHaveBeenCalledWith('user_stats')
+            const insertValues = mockInsert.values.mock.calls[0][0]
+            expect(insertValues.login_streak).toBe(0) // cycleCompleted ? 0 : newStreak → 0
+            expect(insertValues.total_login_cycles).toBe(1) // cycleCompleted ? 1 : 0 → 1
         })
 
         it('should reset total_login_cycles when streakBroken is true', async () => {

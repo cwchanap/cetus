@@ -88,6 +88,57 @@ describe('Database Queries', () => {
             // Assert
             expect(result).toBe(false)
         })
+
+        it('should use currentStats values when getUserStats returns non-null (lines 525-526 left-truthy branch)', async () => {
+            // This test makes getUserStats return non-null stats so that
+            // currentStats?.total_games_played is truthy, covering the left-side branch of ||
+            const mockInsertQuery = {
+                values: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue({}),
+            }
+            vi.mocked(db.insertInto).mockReturnValue(mockInsertQuery as any)
+            vi.mocked(db.updateTable).mockReturnValue({
+                set: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue({}),
+            } as any)
+
+            // First selectFrom: user_stats row for getUserStats
+            const mockUserStats = {
+                id: 1,
+                user_id: 'user-123',
+                total_games_played: 5,
+                total_score: 10000,
+                favorite_game: 'tetris',
+                streak_days: 0,
+                xp: 0,
+                level: 1,
+                created_at: new Date(),
+                updated_at: new Date(),
+            }
+            vi.mocked(db.selectFrom)
+                .mockReturnValueOnce({
+                    selectAll: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi.fn().mockResolvedValue(mockUserStats),
+                } as any)
+                // Second selectFrom: game_scores distinct (returns 2 games → total_games_played=2)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    distinct: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    execute: vi
+                        .fn()
+                        .mockResolvedValue([
+                            { game_id: 'tetris' },
+                            { game_id: 'snake' },
+                        ]),
+                } as any)
+
+            const result = await saveGameScore('user-123', 'tetris', 5000)
+
+            expect(result).toBe(true)
+        })
     })
 
     describe('getUserGameHistory', () => {
