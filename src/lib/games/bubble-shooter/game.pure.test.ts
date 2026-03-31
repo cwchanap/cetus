@@ -635,6 +635,17 @@ describe('Bubble Shooter game.ts pure logic', () => {
             expect(stats.accuracy).toBe(0)
         })
 
+        it('should use || 0 fallback when bubblesPopped is 0 and shotsFired > 0 (line 358)', async () => {
+            const onGameOver = vi.fn().mockResolvedValue(undefined)
+            state.onGameOver = onGameOver
+            ;(state as unknown as Record<string, unknown>).shotsFired = 5
+            ;(state as unknown as Record<string, unknown>).bubblesPopped = 0
+            await endGame(state)
+            const stats = onGameOver.mock.calls[0][1]
+            // 0 || 0 = 0, accuracy = (0 / 5) * 100 = 0
+            expect(stats.accuracy).toBe(0)
+        })
+
         it('should not throw without onGameOver (DOM fallback)', async () => {
             state.onGameOver = undefined
             await expect(endGame(state)).resolves.toBeUndefined()

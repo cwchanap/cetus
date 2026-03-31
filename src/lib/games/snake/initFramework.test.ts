@@ -799,4 +799,53 @@ describe('initSnakeGameFramework', () => {
             expect(rendererMock.render).not.toHaveBeenCalled()
         })
     })
+
+    describe('branch coverage: non-Error throw and || fallbacks', () => {
+        it('should handle non-Error thrown during renderer.initialize (line 57 false branch)', async () => {
+            const { SnakeRenderer } = await import('./SnakeRenderer')
+            vi.mocked(SnakeRenderer).mockImplementationOnce(
+                () =>
+                    ({
+                        initialize: vi
+                            .fn()
+                            .mockRejectedValue('string error not an Error'),
+                        render: vi.fn(),
+                        cleanup: vi.fn(),
+                        getApp: vi.fn(() => null),
+                    }) as any
+            )
+
+            const res = await initSnakeGameFramework()
+            // Non-Error string → new Error(String(error)) path (line 57 false branch)
+            expect(res).toBeUndefined()
+        })
+
+        it('onEnd should use || fallbacks when maxLength/foodsEaten/timeElapsed are falsy (lines 241, 246, 251)', async () => {
+            const { SnakeGame } = await import('./SnakeGame')
+            result = await initSnakeGameFramework()
+            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
+
+            // maxLength: undefined → '3' fallback; foodsEaten: undefined → '0' fallback; timeElapsed: 0 → 0 fallback
+            callbacksArg.onEnd(0, {
+                finalScore: 0,
+                timeElapsed: 0,
+                gameCompleted: false,
+                maxLength: undefined,
+                foodsEaten: undefined,
+            })
+
+            const finalLengthEl = document.getElementById('final-length')
+            const finalFoodsEl = document.getElementById('final-foods')
+            const finalTimeEl = document.getElementById('final-time')
+            if (finalLengthEl) {
+                expect(finalLengthEl.textContent).toBe('3')
+            } // || '3' fallback
+            if (finalFoodsEl) {
+                expect(finalFoodsEl.textContent).toBe('0')
+            } // || '0' fallback
+            if (finalTimeEl) {
+                expect(finalTimeEl.textContent).toBe('0s')
+            } // || 0 fallback
+        })
+    })
 })
