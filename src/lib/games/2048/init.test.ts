@@ -265,6 +265,58 @@ describe('init2048Game', () => {
             )
         })
 
+        it('should handle ArrowDown and ArrowLeft keys', async () => {
+            const { processMove } = await import('./game')
+            gameInst = await init2048Game()
+            gameInst!.start()
+
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowDown',
+                    bubbles: true,
+                })
+            )
+            await vi.runAllTimersAsync()
+            expect(processMove).toHaveBeenCalledWith(
+                expect.any(Object),
+                'down',
+                expect.any(Number),
+                expect.any(Object)
+            )
+
+            vi.mocked(processMove).mockClear()
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowLeft',
+                    bubbles: true,
+                })
+            )
+            await vi.runAllTimersAsync()
+            expect(processMove).toHaveBeenCalledWith(
+                expect.any(Object),
+                'left',
+                expect.any(Number),
+                expect.any(Object)
+            )
+        })
+
+        it('should handle lowercase a key for left direction', async () => {
+            const { processMove } = await import('./game')
+            gameInst = await init2048Game()
+            gameInst!.start()
+
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'a', bubbles: true })
+            )
+            await vi.runAllTimersAsync()
+            expect(processMove).toHaveBeenCalledWith(
+                expect.any(Object),
+                'left',
+                expect.any(Number),
+                expect.any(Object)
+            )
+        })
+
         it('should handle capital W/A/S/D keys', async () => {
             const { processMove } = await import('./game')
             gameInst = await init2048Game()
@@ -503,6 +555,45 @@ describe('init2048Game', () => {
                 expect.objectContaining({ type: 'achievementsEarned' })
             )
             dispatchSpy.mockRestore()
+        })
+    })
+
+    describe('callbacks optional chain branches', () => {
+        it('should skip callbacks.onGameOver when callbacks has no onGameOver (line 162)', async () => {
+            // callbacks defined but no onGameOver → second ?. short-circuits
+            const onScoreChange = vi.fn()
+            gameInst = await init2048Game({ onScoreChange })
+            gameInst!.start()
+            const state = gameInst!.getState() as any
+            state.gameStarted = true
+            // Should not throw even though onGameOver is undefined
+            await expect(gameInst!.endGame()).resolves.not.toThrow()
+            await vi.runAllTimersAsync()
+        })
+
+        it('should skip callbacks.onWin when callbacks has no onWin (line 173)', async () => {
+            // callbacks defined but no onWin → second ?. short-circuits
+            const { processMove } = await import('./game')
+            const onScoreChange = vi.fn()
+            vi.mocked(processMove).mockImplementationOnce(
+                (state: any, _dir, totalMerges, cbs: any) => ({
+                    state: { ...state, lastMoveAnimations: [] },
+                    totalMerges: totalMerges + 1,
+                    callbacksToInvoke: [() => cbs?.onWin?.()],
+                })
+            )
+            gameInst = await init2048Game({ onScoreChange })
+            gameInst!.start()
+            // Should not throw even though onWin is undefined
+            expect(() =>
+                document.dispatchEvent(
+                    new KeyboardEvent('keydown', {
+                        key: 'ArrowRight',
+                        bubbles: true,
+                    })
+                )
+            ).not.toThrow()
+            await vi.runAllTimersAsync()
         })
     })
 
