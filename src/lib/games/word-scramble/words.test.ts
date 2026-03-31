@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
     WORD_DATABASE,
     scrambleWord,
@@ -67,6 +67,16 @@ describe('Word Scramble Words', () => {
             const result = scrambleWord('ab')
             expect(result.length).toBe(2)
             expect(['ab', 'ba']).toContain(result)
+        })
+
+        it('should hit maxAttempts when shuffle keeps returning original (line 192 && right branch)', () => {
+            // Mock Math.random so shuffleArray always produces identity permutation for 'ab'
+            // Fisher-Yates for ['a','b']: i=1, j=Math.floor(0.5*2)=1, swap [1] with [1] → no change
+            vi.spyOn(Math, 'random').mockReturnValue(0.5)
+            const result = scrambleWord('ab')
+            vi.restoreAllMocks()
+            // After 50 attempts all returning 'ab', falls back to returning 'ab'
+            expect(result).toBe('ab')
         })
     })
 
