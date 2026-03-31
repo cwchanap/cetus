@@ -373,4 +373,47 @@ describe('BejeweledGame ?? JEWEL_TYPES fallback (lines 57, 97, 246)', () => {
         // reset() also calls generateInitialGrid (line 97)
         expect(() => game.reset()).not.toThrow()
     })
+
+    it('should use JEWEL_TYPES fallback in refillGrid during cascade (line 246)', async () => {
+        // Config without jewelTypes → this.config.jewelTypes = undefined → ?? JEWEL_TYPES in refillGrid
+        const configWithoutJewelTypes = {
+            rows: 4,
+            cols: 4,
+            minMatch: 3,
+            pointsPerJewel: 10,
+            duration: 60,
+            achievementIntegration: false,
+            pausable: true,
+            resettable: true,
+        }
+        const testAnimator = new TestAnimator()
+        const game = new BejeweledGame(
+            GameID.BEJEWELED,
+            configWithoutJewelTypes as any,
+            {}
+        )
+        game.setAnimator(testAnimator)
+        game.start()
+
+        // Mock findMatches: first call = pre-swap prediction (match found), second = actual cascade match, then empty
+        const match: Position[] = [
+            { row: 0, col: 0 },
+            { row: 0, col: 1 },
+            { row: 0, col: 2 },
+        ]
+        const spy = vi
+            .spyOn(utils, 'findMatches')
+            .mockReturnValueOnce([{ type: 'red', positions: match } as any])
+            .mockReturnValueOnce([{ type: 'red', positions: match } as any])
+            .mockReturnValue([])
+
+        game.clickCell(0, 0)
+        game.clickCell(0, 1)
+        await flushMicrotasks()
+        await flushMicrotasks()
+
+        expect(testAnimator.animateSwap).toHaveBeenCalled()
+        spy.mockRestore()
+        game.destroy()
+    })
 })
