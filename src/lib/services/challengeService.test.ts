@@ -495,7 +495,7 @@ describe('Challenge Service', () => {
             )
         })
 
-        it('should process play_games challenge type and update newValue (lines 155-157)', async () => {
+        it('should update progress without completing when play_games newValue is below targetValue', async () => {
             vi.mocked(challenges.generateDailyChallenges).mockReturnValue([
                 {
                     id: 'play_2_games',
@@ -526,7 +526,7 @@ describe('Challenge Service', () => {
             expect(queries.completeChallengeAndAwardXP).not.toHaveBeenCalled()
         })
 
-        it('should use ?? 0 fallback when progress.current_value is null (line 145)', async () => {
+        it('should use ?? 0 fallback when progress.current_value is null', async () => {
             const today = getTodayUTC()
             vi.mocked(challenges.generateDailyChallenges).mockReturnValue([
                 {
