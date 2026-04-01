@@ -353,7 +353,7 @@ describe('QuickMathRenderer', () => {
             vi.useRealTimers()
         })
 
-        it('should return early from setupInputEvents when answerInput is null (lines 68-69)', () => {
+        it('should return early from setupInputEvents when answerInput is null', () => {
             // Access private method via cast to cover the null guard inside setupInputEvents
             const r = new QuickMathRenderer(config)
             // answerInput is null (not initialized)

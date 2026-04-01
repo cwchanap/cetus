@@ -837,15 +837,12 @@ describe('initSnakeGameFramework', () => {
             const finalLengthEl = document.getElementById('final-length')
             const finalFoodsEl = document.getElementById('final-foods')
             const finalTimeEl = document.getElementById('final-time')
-            if (finalLengthEl) {
-                expect(finalLengthEl.textContent).toBe('3')
-            } // || '3' fallback
-            if (finalFoodsEl) {
-                expect(finalFoodsEl.textContent).toBe('0')
-            } // || '0' fallback
-            if (finalTimeEl) {
-                expect(finalTimeEl.textContent).toBe('0s')
-            } // || 0 fallback
+            expect(finalLengthEl).not.toBeNull()
+            expect(finalLengthEl!.textContent).toBe('3') // || '3' fallback
+            expect(finalFoodsEl).not.toBeNull()
+            expect(finalFoodsEl!.textContent).toBe('0') // || '0' fallback
+            expect(finalTimeEl).not.toBeNull()
+            expect(finalTimeEl!.textContent).toBe('0s') // || 0 fallback
         })
     })
 })

@@ -220,6 +220,7 @@ describe('2048/renderer', () => {
 
             await expect(setupPixiJS(gameContainer)).rejects.toThrow()
             // Preexisting child removed, error div added instead
+            expect(gameContainer.contains(preexisting)).toBe(false)
             expect(gameContainer.innerHTML).toContain('Failed to initialize')
         })
     })

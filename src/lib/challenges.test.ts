@@ -194,7 +194,7 @@ describe('Level System', () => {
         expect(progress.progress).toBe(0)
     })
 
-    it('should use || 0 fallback for level 1 where LEVEL_THRESHOLDS[0] is 0 (line 258)', () => {
+    it('should use || 0 fallback for level 1 where LEVEL_THRESHOLDS[0] is 0', () => {
         // Level 1 → LEVEL_THRESHOLDS[0] = 0, so 0 || 0 = 0 covers the right-side branch
         const progress = getXPProgress(0)
         expect(progress.currentLevel).toBe(1)

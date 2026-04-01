@@ -135,17 +135,15 @@ describe('initSudokuGame', () => {
             expect(container.querySelectorAll('.sudoku-cell').length).toBe(81)
         })
 
-        it('should use fallback row/col 0 when dataset.row/col absent (lines 155-156 || branch)', () => {
+        it('should use fallback row/col 0 when dataset.row/col is absent', () => {
             initSudokuGame(container)
-            const gameEl = container.querySelector(
-                '.sudoku-game'
-            ) as HTMLElement
-            // Create a .sudoku-cell element without data-row/data-col attributes
-            const cell = document.createElement('div')
-            cell.className = 'sudoku-cell'
-            gameEl.appendChild(cell)
+            // Use an existing cell (which already has the click listener) but remove its dataset
+            const cell = container.querySelector('.sudoku-cell') as HTMLElement
+            delete cell.dataset.row
+            delete cell.dataset.col
             // Click triggers handleGameClick → dataset.row is undefined → || '0' fires
             expect(() => cell.click()).not.toThrow()
+            expect(container.querySelectorAll('.sudoku-cell').length).toBe(81)
         })
     })
 
