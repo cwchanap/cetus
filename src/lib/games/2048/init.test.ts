@@ -412,8 +412,9 @@ describe('init2048Game', () => {
             )
             expect(vi.mocked(processMove)).toHaveBeenCalledTimes(1)
 
-            // Resolve animation to avoid hanging promises
+            // Resolve animation and await completion to avoid async work leaking into afterEach
             resolveAnimation!()
+            await pendingAnimation
         })
     })
 
