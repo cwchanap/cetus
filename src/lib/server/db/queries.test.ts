@@ -97,8 +97,9 @@ describe('Database Queries', () => {
                 execute: vi.fn().mockResolvedValue({}),
             }
             vi.mocked(db.insertInto).mockReturnValue(mockInsertQuery as any)
+            const mockUpdateSet = vi.fn().mockReturnThis()
             vi.mocked(db.updateTable).mockReturnValue({
-                set: vi.fn().mockReturnThis(),
+                set: mockUpdateSet,
                 where: vi.fn().mockReturnThis(),
                 execute: vi.fn().mockResolvedValue({}),
             } as any)
@@ -117,12 +118,13 @@ describe('Database Queries', () => {
                 updated_at: new Date(),
             }
             vi.mocked(db.selectFrom)
+                // getUserStats call 1 (in saveGameScore): user_stats row
                 .mockReturnValueOnce({
                     selectAll: vi.fn().mockReturnThis(),
                     where: vi.fn().mockReturnThis(),
                     executeTakeFirst: vi.fn().mockResolvedValue(mockUserStats),
                 } as any)
-                // Second selectFrom: game_scores distinct (returns 2 games → total_games_played=2)
+                // getUserStats call 2 (in saveGameScore): game_scores distinct
                 .mockReturnValueOnce({
                     select: vi.fn().mockReturnThis(),
                     distinct: vi.fn().mockReturnThis(),
@@ -134,10 +136,26 @@ describe('Database Queries', () => {
                             { game_id: 'snake' },
                         ]),
                 } as any)
+                // getUserStats call 3 (in upsertUserStats): returns existing stats to trigger updateTable
+                .mockReturnValueOnce({
+                    selectAll: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi.fn().mockResolvedValue(mockUserStats),
+                } as any)
+                // getUserStats call 4 (in upsertUserStats): game_scores distinct
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    distinct: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue([{ game_id: 'tetris' }]),
+                } as any)
 
             const result = await saveGameScore('user-123', 'tetris', 5000)
 
             expect(result).toBe(true)
+            expect(mockUpdateSet).toHaveBeenCalledWith(
+                expect.objectContaining({ total_score: 15000 })
+            )
         })
     })
 

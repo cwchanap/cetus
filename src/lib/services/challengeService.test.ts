@@ -523,6 +523,7 @@ describe('Challenge Service', () => {
                 'play_2_games',
                 1
             )
+            expect(queries.completeChallengeAndAwardXP).not.toHaveBeenCalled()
         })
 
         it('should use ?? 0 fallback when progress.current_value is null (line 145)', async () => {

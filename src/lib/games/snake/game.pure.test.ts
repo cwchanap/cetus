@@ -611,7 +611,7 @@ describe('Snake game.ts pure logic', () => {
             expect(gameLoopFn).toHaveBeenCalledOnce()
         })
 
-        it('should update pause-btn text to Pause when unpausing (line 155 false branch)', () => {
+        it('should update pause-btn text to Pause when unpausing', () => {
             const pauseBtn = document.createElement('button')
             pauseBtn.id = 'pause-btn'
             pauseBtn.textContent = 'Resume'

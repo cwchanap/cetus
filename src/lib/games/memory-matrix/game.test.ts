@@ -289,7 +289,7 @@ describe('MemoryMatrixGame', () => {
             expect(game.getGameStats().matchesFound).toBe(1)
         })
 
-        it('should flip cards back when they do not match (lines 148-150)', () => {
+        it('should flip cards back when they do not match', () => {
             // Find two cards with DIFFERENT shapes
             const board = game.getGameState().board
             const shapeMap = buildShapeMap(board)
@@ -307,8 +307,8 @@ describe('MemoryMatrixGame', () => {
             const state = game.getGameState()
             // Cards should be flipped back (not matched)
             expect(state.matchedPairs).toBe(0)
-            expect(board[pos1.row][pos1.col].isFlipped).toBe(false)
-            expect(board[pos2.row][pos2.col].isFlipped).toBe(false)
+            expect(state.board[pos1.row][pos1.col].isFlipped).toBe(false)
+            expect(state.board[pos2.row][pos2.col].isFlipped).toBe(false)
         })
     })
 

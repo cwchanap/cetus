@@ -49,7 +49,7 @@ class TestRenderer extends BaseRenderer {
 
 describe('GameInitializer', () => {
     let container: HTMLElement
-    let initializers: GameInitializer<TestGame, TestRenderer>[] = []
+    let initializers: Array<{ destroy: () => void }> = []
 
     beforeEach(() => {
         container = document.createElement('div')
@@ -139,12 +139,7 @@ describe('GameInitializer', () => {
                 },
                 // rendererConfig intentionally omitted to hit the || {} fallback
             })
-            initializers.push(
-                initializer as unknown as GameInitializer<
-                    TestGame,
-                    TestRenderer
-                >
-            )
+            initializers.push(initializer)
             const { game, renderer } = await initializer.initialize()
             expect(game).toBeInstanceOf(TestGame)
             expect(renderer).toBeInstanceOf(NoContainerRenderer)

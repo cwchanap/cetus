@@ -263,6 +263,11 @@ describe('updateDisplayPreference', () => {
 })
 
 describe('getEffectiveVolume', () => {
+    beforeEach(() => {
+        localStorageMock.clear()
+        vi.clearAllMocks()
+    })
+
     it('should calculate effective SFX volume', () => {
         const prefs: ClientPreferences = {
             sound: {

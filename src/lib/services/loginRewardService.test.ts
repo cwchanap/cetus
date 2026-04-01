@@ -606,6 +606,8 @@ describe('claimDailyLoginReward - null userStats and missing newLevel branches',
         const result = await claimDailyLoginReward(userId)
         expect(result.success).toBe(true)
         // previousLevel defaulted to 1, newLevel = 1 → no level-up
+        expect(result.previousLevel).toBe(1)
+        expect(result.newLevel).toBe(1)
         expect(result.leveledUp).toBe(false)
     })
 

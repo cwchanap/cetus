@@ -716,6 +716,7 @@ describe('Extended Database Queries Part 2', () => {
             // stats.challenge_streak = null → null ?? 0 = 0, so newStreak = 0 + 1 = 1
             const today = '2024-01-15'
             const yesterday = '2024-01-14'
+            const mockSet = vi.fn().mockReturnThis()
             const mockTrx = {
                 selectFrom: vi.fn().mockReturnValue({
                     select: vi.fn().mockReturnThis(),
@@ -726,7 +727,7 @@ describe('Extended Database Queries Part 2', () => {
                     }),
                 }),
                 updateTable: vi.fn().mockReturnValue({
-                    set: vi.fn().mockReturnThis(),
+                    set: mockSet,
                     where: vi.fn().mockReturnThis(),
                     execute: vi.fn().mockResolvedValue({}),
                 }),
@@ -757,6 +758,9 @@ describe('Extended Database Queries Part 2', () => {
             )
             // newStreak = (null ?? 0) + 1 = 1, still succeeds
             expect(result).toBe(true)
+            expect(mockSet).toHaveBeenCalledWith(
+                expect.objectContaining({ challenge_streak: 1 })
+            )
         })
 
         it('should return false when last_challenge_date equals today (already done)', async () => {
