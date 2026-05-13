@@ -11,7 +11,7 @@ async function startGameWhenReady(
     startSelector: string = '#start-btn'
 ): Promise<void> {
     await expect(async () => {
-        await page.locator(startSelector).click({ trial: false, force: false })
+        await page.locator(startSelector).click()
         await expect(page.locator(startSelector)).toHaveCSS('display', 'none', {
             timeout: 500,
         })
@@ -82,14 +82,7 @@ test.describe('Reflex Coin Collection', () => {
         await expect(page.locator('#score')).toHaveText('0')
 
         // Reflex uses #stop-btn as its end button instead of #end-btn.
-        await expect(async () => {
-            await page.locator('#start-btn').click()
-            await expect(page.locator('#start-btn')).toHaveCSS(
-                'display',
-                'none',
-                { timeout: 500 }
-            )
-        }).toPass({ timeout: 10000 })
+        await startGameWhenReady(page)
         await expect(page.locator('#stop-btn')).toBeVisible()
 
         // Timer must move off its starting value after start.
@@ -165,14 +158,7 @@ test.describe('Evader', () => {
         await expect(page.locator('#score')).toHaveText('0')
 
         // Evader uses #stop-btn as its end button.
-        await expect(async () => {
-            await page.locator('#start-btn').click()
-            await expect(page.locator('#start-btn')).toHaveCSS(
-                'display',
-                'none',
-                { timeout: 500 }
-            )
-        }).toPass({ timeout: 10000 })
+        await startGameWhenReady(page)
         await expect(page.locator('#stop-btn')).toBeVisible()
 
         await expect(page.locator('#time-remaining')).not.toHaveText('60', {

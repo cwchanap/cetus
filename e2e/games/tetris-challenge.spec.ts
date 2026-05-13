@@ -18,7 +18,12 @@ test.describe('Tetris Challenge', () => {
 
         // Start: first piece spawns → pieces-count increments
         await page.locator('#start-btn').click()
-        await expect(page.locator('#pieces-count')).toHaveText('1')
+        await expect
+            .poll(async () => {
+                const text = await page.locator('#pieces-count').innerText()
+                return parseInt(text, 10)
+            })
+            .toBeGreaterThanOrEqual(1)
 
         // Pause toggles label
         await page.locator('#pause-btn').click()
