@@ -41,13 +41,8 @@ test.describe('Memory Matrix', () => {
         await startGameWhenReady(page)
         await expect(page.locator('#end-btn')).toBeVisible()
 
-        // The grid is populated only after the game starts.
-        await expect(
-            page
-                .locator('#memory-matrix-container')
-                .locator('button, [role="button"], div')
-                .first()
-        ).toBeVisible()
+        // The renderer creates 48 .memory-card elements (6×8 grid) during init.
+        await expect(page.locator('#memory-board .memory-card')).toHaveCount(48)
 
         await page.locator('#end-btn').click()
         await expect(page.locator('#game-over-overlay')).not.toHaveClass(
