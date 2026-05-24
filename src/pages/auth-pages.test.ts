@@ -10,7 +10,11 @@ const signupMarkup = readFileSync(signupPath, 'utf-8')
 
 describe('Auth pages', () => {
     it('keeps the login page Google-only', () => {
+        const googleCtas =
+            loginMarkup.match(/<button[\s\S]*?data-social="google"/g) ?? []
+
         expect(loginMarkup).toContain('data-social="google"')
+        expect(googleCtas).toHaveLength(1)
         expect(loginMarkup).toContain('Continue with Google')
         expect(loginMarkup).toContain("provider: 'google'")
         expect(loginMarkup).toContain("callbackURL: '/?redirect=games'")
@@ -24,7 +28,11 @@ describe('Auth pages', () => {
     })
 
     it('keeps the signup page Google-only', () => {
+        const googleCtas =
+            signupMarkup.match(/<button[\s\S]*?data-social="google"/g) ?? []
+
         expect(signupMarkup).toContain('data-social="google"')
+        expect(googleCtas).toHaveLength(1)
         expect(signupMarkup).toContain('Create account with Google')
         expect(signupMarkup).toContain("provider: 'google'")
         expect(signupMarkup).toContain("callbackURL: '/'")
