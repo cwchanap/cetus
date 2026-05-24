@@ -3,54 +3,14 @@ import { test, expect, type Page } from '@playwright/test'
 async function ensureLoggedIn(page: Page): Promise<boolean> {
     await page.goto('/profile')
 
-    // Check if already on profile (authenticated)
     if (!page.url().includes('/login')) {
         return true
     }
 
-    // Try to login first
-    await page.fill('#email', 'test@test.com')
-    await page.fill('#password', 'testtest')
-    await page.click('#login-form button[type="submit"]')
-
-    // Wait for navigation or error
-    try {
-        await page.waitForURL('**/profile**', { timeout: 5000 })
-        return true
-    } catch {
-        // Login failed, try signup
-    }
-
-    // If login failed, try creating the account
-    await page.goto('/signup')
-    await page.fill('#email', 'test@test.com')
-    await page.fill('#password', 'testtest')
-    await page.fill('#confirmPassword', 'testtest')
-    const terms = page.locator('#terms')
-    if (await terms.isVisible()) {
-        await terms.check()
-    }
-    await page.click('#signup-form button[type="submit"]')
-
-    // Signup redirects to /#games on success - wait for that or any navigation
-    try {
-        await page.waitForURL('**/#games', { timeout: 5000 })
-    } catch {
-        // May have navigated elsewhere or stayed on signup (error)
-        // Continue and try to access profile anyway
-    }
-
-    // Navigate to profile and check if we're authenticated
-    await page.goto('/profile')
-    try {
-        await page.waitForURL('**/profile**', { timeout: 5000 })
-        // Verify we're not redirected to login
-        if (!page.url().includes('/login')) {
-            return true
-        }
-    } catch {
-        // Navigation failed
-    }
+    await expect(page.getByText('PLAYER LOGIN')).toBeVisible()
+    await expect(
+        page.getByRole('button', { name: /continue with google/i })
+    ).toBeVisible()
 
     return false
 }
