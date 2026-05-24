@@ -30,6 +30,8 @@ jobs:
       TURSO_AUTH_TOKEN: test-token
       BETTER_AUTH_SECRET: test-secret
       BETTER_AUTH_URL: http://localhost:4325
+      GOOGLE_CLIENT_ID: dummy-client
+      GOOGLE_CLIENT_SECRET: dummy-secret
 
     steps:
       - name: 📦 Checkout repository
@@ -55,6 +57,8 @@ jobs:
           TURSO_AUTH_TOKEN=test-token
           BETTER_AUTH_SECRET=test-secret
           BETTER_AUTH_URL=http://localhost:4325
+          GOOGLE_CLIENT_ID=dummy-client
+          GOOGLE_CLIENT_SECRET=dummy-secret
           EOF
 
       - name: 🗄️ Ensure database path
