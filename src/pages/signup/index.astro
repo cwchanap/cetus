@@ -82,12 +82,21 @@ import Heading from '@/components/ui/Heading.astro'
             })
 
             if (result.error) {
-              showError('Google sign up failed. Please try again.')
+              console.error(
+                '[auth] Google sign-up failed:',
+                result.error.message
+              )
+              showError(
+                result.error.message ||
+                  'Google sign up failed. Please try again.'
+              )
+              googleBtn.innerHTML = originalText
+              googleBtn.disabled = false
               return
             }
-          } catch (_error) {
+          } catch (error) {
+            console.error('[auth] Google sign-up error:', error)
             showError('Google sign up failed. Please try again.')
-          } finally {
             googleBtn.innerHTML = originalText
             googleBtn.disabled = false
           }
@@ -104,6 +113,8 @@ import Heading from '@/components/ui/Heading.astro'
         if (errorMessage) {
           errorMessage.textContent = message
           errorMessage.classList.remove('hidden')
+        } else {
+          console.error('[auth] Unable to display error:', message)
         }
       }
 

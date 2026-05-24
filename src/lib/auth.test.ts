@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { authClient } from '@/lib/auth-client'
@@ -27,6 +27,124 @@ describe('Auth Source Contract', () => {
     it('configures Google as a social provider', () => {
         expect(authSource).toContain('socialProviders')
         expect(authSource).toContain('google')
+    })
+
+    it('logs error before throwing on missing env vars', () => {
+        expect(authSource).toContain('console.error')
+        expect(authSource).toContain('[auth] FATAL')
+    })
+
+    it('trims whitespace from Google OAuth credentials', () => {
+        expect(authSource).toContain('?.trim()')
+    })
+})
+
+// Mock the DB module before importing auth.ts in behavioral tests
+// Provide a minimal Kysely dialect interface to prevent betterAuth init errors
+vi.mock('@/lib/server/db', () => ({
+    dialect: {
+        createDriver: () => ({
+            init: async () => {},
+            acquireConnection: async () => ({
+                executeQuery: async () => ({ rows: [] }),
+            }),
+            releaseConnection: async () => {},
+            destroy: async () => {},
+        }),
+        createAdapter: () => ({
+            acquireConnection: async () => ({
+                executeQuery: async () => ({ rows: [] }),
+            }),
+        }),
+        createQueryCompiler: () => ({
+            compileQuery: () => ({ query: {}, params: [] }),
+        }),
+    },
+    db: {},
+}))
+
+describe('Auth Behavioral Config', () => {
+    beforeEach(() => {
+        vi.resetModules()
+    })
+
+    it('does not enable emailAndPassword authentication', async () => {
+        const { auth } = await import('@/lib/auth')
+
+        // Better Auth defaults emailAndPassword.enabled to false.
+        // Verify it's not explicitly enabled in our config.
+        const options = (auth as any).options || (auth as any)._options
+        if (options?.emailAndPassword) {
+            expect(options.emailAndPassword.enabled).not.toBe(true)
+        }
+        // If emailAndPassword is absent entirely, that's correct — default is disabled.
+    })
+
+    it('configures Google as the social provider', async () => {
+        const { auth } = await import('@/lib/auth')
+
+        const options = (auth as any).options || (auth as any)._options
+        expect(options?.socialProviders?.google).toBeDefined()
+        expect(options?.socialProviders?.google?.clientId).toBe(
+            'test-google-client-id'
+        )
+    })
+
+    it('configures session with proper defaults', async () => {
+        const { auth } = await import('@/lib/auth')
+
+        const options = (auth as any).options || (auth as any)._options
+        expect(options?.session?.expiresIn).toBe(60 * 60 * 24 * 7) // 7 days
+        expect(options?.session?.updateAge).toBe(60 * 60 * 24) // 1 day
+    })
+})
+
+describe('Auth Env Validation', () => {
+    beforeEach(() => {
+        vi.resetModules()
+    })
+
+    afterEach(() => {
+        vi.unstubAllEnvs()
+    })
+
+    it('throws when BETTER_AUTH_SECRET is missing', async () => {
+        vi.stubEnv('BETTER_AUTH_SECRET', '')
+
+        await expect(import('@/lib/auth')).rejects.toThrow(
+            'BETTER_AUTH_SECRET is required'
+        )
+    })
+
+    it('throws when Google OAuth credentials are missing', async () => {
+        // BETTER_AUTH_SECRET is needed first (auth.ts checks it before Google)
+        vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret')
+        vi.stubEnv('GOOGLE_CLIENT_ID', '')
+        vi.stubEnv('GOOGLE_CLIENT_SECRET', '')
+
+        await expect(import('@/lib/auth')).rejects.toThrow(
+            'Google OAuth is required for Google-only authentication'
+        )
+    })
+
+    it('throws when Google OAuth credentials are placeholders', async () => {
+        vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret')
+        vi.stubEnv('GOOGLE_CLIENT_ID', 'placeholder')
+        vi.stubEnv('GOOGLE_CLIENT_SECRET', 'placeholder')
+
+        await expect(import('@/lib/auth')).rejects.toThrow(
+            'Google OAuth is required for Google-only authentication'
+        )
+    })
+
+    it('throws when Google OAuth credentials are whitespace-only', async () => {
+        vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret')
+        vi.stubEnv('GOOGLE_CLIENT_ID', '   ')
+        vi.stubEnv('GOOGLE_CLIENT_SECRET', '   ')
+
+        await expect(import('@/lib/auth')).rejects.toThrow(
+            'Google OAuth is required for Google-only authentication'
+        )
     })
 })
 
