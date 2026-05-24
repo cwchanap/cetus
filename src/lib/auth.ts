@@ -23,8 +23,8 @@ if (import.meta.env.BETTER_AUTH_URL) {
 const googleClientId = import.meta.env.GOOGLE_CLIENT_ID
 const googleClientSecret = import.meta.env.GOOGLE_CLIENT_SECRET
 const isGoogleOAuthConfigured =
-    googleClientId &&
-    googleClientSecret &&
+    googleClientId?.trim() &&
+    googleClientSecret?.trim() &&
     googleClientId !== 'placeholder' &&
     googleClientSecret !== 'placeholder'
 
