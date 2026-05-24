@@ -22,6 +22,15 @@ test.describe('Authentication System', () => {
         await expect(
             page.getByRole('link', { name: 'Create one with Google' })
         ).toBeVisible()
+
+        await expect(page.locator('input[type="email"]')).toHaveCount(0)
+        await expect(page.locator('input[type="password"]')).toHaveCount(0)
+        await expect(page.locator('#login-form')).toHaveCount(0)
+        await expect(page.getByText('Remember me')).toHaveCount(0)
+        await expect(page.getByText('Forgot password?')).toHaveCount(0)
+        await expect(
+            page.getByRole('button', { name: /login to play/i })
+        ).toHaveCount(0)
     })
 
     test('should display signup page with correct elements', async ({
@@ -45,6 +54,17 @@ test.describe('Authentication System', () => {
         await expect(
             page.getByRole('link', { name: 'Continue with Google' })
         ).toBeVisible()
+
+        await expect(page.locator('input[type="email"]')).toHaveCount(0)
+        await expect(page.locator('input[type="password"]')).toHaveCount(0)
+        await expect(page.locator('#signup-form')).toHaveCount(0)
+        await expect(page.locator('#terms')).toHaveCount(0)
+        await expect(page.locator('#confirmPassword')).toHaveCount(0)
+        await expect(
+            page.getByRole('button', { name: /create account$/i })
+        ).toHaveCount(0)
+        await expect(page.getByText('Terms of Service')).toHaveCount(0)
+        await expect(page.getByText('Privacy Policy')).toHaveCount(0)
     })
 
     test('should navigate between login and signup pages', async ({ page }) => {
