@@ -3,17 +3,25 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { authClient } from '@/lib/auth-client'
 
-const authSource = readFileSync(resolve('src/lib/auth.ts'), 'utf8')
+const googleOnlyCredentialsError =
+    'Google OAuth is required for Google-only authentication. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to real OAuth credentials.'
+const authSource = readFileSync(
+    resolve(process.cwd(), 'src/lib/auth.ts'),
+    'utf8'
+)
 
 describe('Auth Source Contract', () => {
     it('removes password authentication configuration', () => {
         expect(authSource).not.toContain('emailAndPassword')
     })
 
-    it('requires Google OAuth for Google-only authentication', () => {
-        expect(authSource).toContain(
-            'Google OAuth is required for Google-only authentication'
-        )
+    it('requires Google OAuth with the exact Google-only credential error', () => {
+        expect(authSource).toContain(googleOnlyCredentialsError)
+    })
+
+    it('rejects placeholder Google OAuth credentials', () => {
+        expect(authSource).toContain("googleClientId !== 'placeholder'")
+        expect(authSource).toContain("googleClientSecret !== 'placeholder'")
     })
 
     it('configures Google as a social provider', () => {
