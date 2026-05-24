@@ -35,7 +35,7 @@ describe('Auth pages', () => {
         expect(googleCtas).toHaveLength(1)
         expect(signupMarkup).toContain('Create account with Google')
         expect(signupMarkup).toContain("provider: 'google'")
-        expect(signupMarkup).toContain("callbackURL: '/'")
+        expect(signupMarkup).toContain("callbackURL: '/?redirect=games'")
 
         expect(signupMarkup).not.toContain('id="signup-form"')
         expect(signupMarkup).not.toContain('type="email"')

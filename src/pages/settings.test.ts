@@ -9,6 +9,13 @@ const settingsMarkup = readFileSync(
 
 describe('Settings password controls', () => {
     it('does not include password change markup or client behavior', () => {
+        // Positive assertions: verify expected settings UI is present
+        expect(settingsMarkup).toContain('id="delete-account-btn"')
+        expect(settingsMarkup).toContain('id="sound-enabled"')
+        expect(settingsMarkup).toContain('id="master-volume"')
+        expect(settingsMarkup).toContain('id="email-notifications"')
+
+        // Negative assertions: password controls must not be present
         expect(settingsMarkup).not.toContain('id="change-password-btn"')
         expect(settingsMarkup).not.toContain('id="password-change-form"')
         expect(settingsMarkup).not.toContain('id="current-password"')
