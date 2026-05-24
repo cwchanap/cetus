@@ -33,6 +33,7 @@ jobs:
     name: 🧪 Test
     runs-on: ubuntu-latest
     env:
+      BETTER_AUTH_SECRET: dummy-secret-for-testing
       GOOGLE_CLIENT_ID: dummy-client
       GOOGLE_CLIENT_SECRET: dummy-secret
     steps:
@@ -68,6 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint-and-format, test]
     env:
+      BETTER_AUTH_SECRET: dummy-secret-for-build
       GOOGLE_CLIENT_ID: dummy-client
       GOOGLE_CLIENT_SECRET: dummy-secret
     steps:

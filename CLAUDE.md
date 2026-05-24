@@ -35,8 +35,8 @@ TURSO_DATABASE_URL=your_turso_database_url
 TURSO_AUTH_TOKEN=your_turso_auth_token
 BETTER_AUTH_SECRET=your_32_char_secret
 BETTER_AUTH_URL=http://localhost:4325 # for development
-GOOGLE_CLIENT_ID=your_google_client_id # optional
-GOOGLE_CLIENT_SECRET=your_google_client_secret # optional
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
 
 ### Testing

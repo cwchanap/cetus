@@ -4,6 +4,9 @@ import { dialect } from './server/db'
 // Check required environment variables
 const secret = import.meta.env.BETTER_AUTH_SECRET
 if (!secret) {
+    console.error(
+        '[auth] FATAL: BETTER_AUTH_SECRET is required. Please set it in your environment variables.'
+    )
     throw new Error(
         'BETTER_AUTH_SECRET is required. Please set it in your environment variables.'
     )
@@ -29,6 +32,9 @@ const isGoogleOAuthConfigured =
     googleClientSecret !== 'placeholder'
 
 if (!isGoogleOAuthConfigured) {
+    console.error(
+        '[auth] FATAL: Google OAuth is required for Google-only authentication. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to real OAuth credentials.'
+    )
     throw new Error(
         'Google OAuth is required for Google-only authentication. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to real OAuth credentials.'
     )
