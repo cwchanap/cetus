@@ -22,30 +22,29 @@ if (import.meta.env.BETTER_AUTH_URL) {
 // Check if Google OAuth is properly configured
 const googleClientId = import.meta.env.GOOGLE_CLIENT_ID
 const googleClientSecret = import.meta.env.GOOGLE_CLIENT_SECRET
-const isGoogleOAuthConfigured =
-    googleClientId &&
-    googleClientSecret &&
-    googleClientId !== 'placeholder' &&
-    googleClientSecret !== 'placeholder'
+const isGoogleOAuthInvalid =
+    !googleClientId ||
+    !googleClientSecret ||
+    googleClientId === 'placeholder' ||
+    googleClientSecret === 'placeholder'
+
+if (isGoogleOAuthInvalid) {
+    throw new Error(
+        'Google OAuth is required for Google-only authentication. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to real OAuth credentials.'
+    )
+}
 
 export const auth = betterAuth({
     database: {
         dialect,
         type: 'sqlite',
     },
-    emailAndPassword: {
-        enabled: true,
-        requireEmailVerification: false, // Set to true in production
-    },
-    // Only enable Google OAuth if properly configured
-    ...(isGoogleOAuthConfigured && {
-        socialProviders: {
-            google: {
-                clientId: googleClientId,
-                clientSecret: googleClientSecret,
-            },
+    socialProviders: {
+        google: {
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
         },
-    }),
+    },
     session: {
         expiresIn: 60 * 60 * 24 * 7, // 7 days
         updateAge: 60 * 60 * 24, // 1 day

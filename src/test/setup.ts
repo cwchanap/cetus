@@ -5,11 +5,7 @@ import { vi } from 'vitest'
 vi.mock('@/lib/auth-client', () => ({
     authClient: {
         signIn: {
-            email: vi.fn(),
             social: vi.fn(),
-        },
-        signUp: {
-            email: vi.fn(),
         },
         signOut: vi.fn(),
         getSession: vi.fn(),
