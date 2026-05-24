@@ -63,7 +63,7 @@ import Heading from '@/components/ui/Heading.astro'
       const errorMessage = document.getElementById('error-message')
       const googleBtn = document.querySelector(
         '[data-social="google"]'
-      ) as HTMLButtonElement
+      ) as HTMLButtonElement | null
 
       if (googleBtn) {
         googleBtn.addEventListener('click', async () => {
@@ -75,10 +75,15 @@ import Heading from '@/components/ui/Heading.astro'
           googleBtn.disabled = true
 
           try {
-            await authClient.signIn.social({
+            const result = await authClient.signIn.social({
               provider: 'google',
               callbackURL: '/',
             })
+
+            if (result.error) {
+              showError('Google sign up failed. Please try again.')
+              return
+            }
           } catch (_error) {
             showError('Google sign up failed. Please try again.')
           } finally {
