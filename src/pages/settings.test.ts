@@ -2,31 +2,21 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-const settingsPath = resolve(process.cwd(), 'src/pages/settings.astro')
-const settingsMarkup = readFileSync(settingsPath, 'utf-8')
+const settingsMarkup = readFileSync(
+    resolve(process.cwd(), 'src/pages/settings.astro'),
+    'utf-8'
+)
 
-describe('Settings password inputs', () => {
-    it('uses theme-aware tokens for current password input', () => {
-        expect(settingsMarkup).toMatch(
-            /id="current-password"[^>]*class="[^"]*bg-background[^"]*text-foreground[^"]*"/
-        )
-    })
-
-    it('uses theme-aware tokens for new password input', () => {
-        expect(settingsMarkup).toMatch(
-            /id="new-password"[^>]*class="[^"]*bg-background[^"]*text-foreground[^"]*"/
-        )
-    })
-
-    it('uses theme-aware tokens for confirm password input', () => {
-        expect(settingsMarkup).toMatch(
-            /id="confirm-password"[^>]*class="[^"]*bg-background[^"]*text-foreground[^"]*"/
-        )
-    })
-
-    it('uses destructive color for password errors', () => {
-        expect(settingsMarkup).toMatch(
-            /id="password-error"[^>]*class="[^"]*text-destructive[^"]*"/
-        )
+describe('Settings password controls', () => {
+    it('does not include password change markup or client behavior', () => {
+        expect(settingsMarkup).not.toContain('id="change-password-btn"')
+        expect(settingsMarkup).not.toContain('id="password-change-form"')
+        expect(settingsMarkup).not.toContain('id="current-password"')
+        expect(settingsMarkup).not.toContain('id="new-password"')
+        expect(settingsMarkup).not.toContain('id="confirm-password"')
+        expect(settingsMarkup).not.toContain('id="password-error"')
+        expect(settingsMarkup).not.toContain('authClient.changePassword')
+        expect(settingsMarkup).not.toContain('setupPasswordChangeListeners')
+        expect(settingsMarkup).not.toContain('data-toggle-password')
     })
 })
