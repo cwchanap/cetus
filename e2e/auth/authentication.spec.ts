@@ -6,42 +6,21 @@ test.describe('Authentication System', () => {
     }) => {
         await page.goto('/login')
 
-        // Check page title and heading
         await expect(page).toHaveTitle('Login - Cetus Gaming Platform')
         await expect(
             page.getByRole('heading', { name: 'PLAYER LOGIN' })
         ).toBeVisible()
-
-        // Check description
         await expect(
-            page.getByText('Access your gaming account to continue')
+            page.getByText('Access your gaming account with Google')
         ).toBeVisible()
 
-        // Check form elements
+        const googleButton = page.getByRole('button', {
+            name: /continue with google/i,
+        })
+        await expect(googleButton).toHaveCount(1)
+        await expect(googleButton).toBeVisible()
         await expect(
-            page.getByRole('textbox', { name: 'Enter your username or email' })
-        ).toBeVisible()
-        await expect(
-            page.getByRole('textbox', { name: 'Password' })
-        ).toBeVisible()
-        await expect(
-            page.getByRole('checkbox', { name: 'Remember me' })
-        ).toBeVisible()
-
-        // Check buttons
-        await expect(
-            page.getByRole('button', { name: '🚀 Login to Play' })
-        ).toBeVisible()
-        await expect(
-            page.getByRole('button', { name: '🌐 Continue with Google' })
-        ).toBeVisible()
-
-        // Check links
-        await expect(
-            page.getByRole('link', { name: 'Forgot password?' })
-        ).toBeVisible()
-        await expect(
-            page.getByRole('link', { name: 'Sign up here' })
+            page.getByRole('link', { name: 'Create one with Google' })
         ).toBeVisible()
     })
 
@@ -50,46 +29,21 @@ test.describe('Authentication System', () => {
     }) => {
         await page.goto('/signup')
 
-        // Check page title and heading
         await expect(page).toHaveTitle('Sign Up - Cetus Gaming Platform')
         await expect(
             page.getByRole('heading', { name: 'CREATE ACCOUNT' })
         ).toBeVisible()
-
-        // Check description
         await expect(
-            page.getByText('Join the future of gaming on Cetus')
+            page.getByText('Join Cetus with your Google account')
         ).toBeVisible()
 
-        // Check form elements
+        const googleButton = page.getByRole('button', {
+            name: /create account with google/i,
+        })
+        await expect(googleButton).toHaveCount(1)
+        await expect(googleButton).toBeVisible()
         await expect(
-            page.getByRole('textbox', { name: 'Email Address' })
-        ).toBeVisible()
-        await expect(page.locator('#password')).toBeVisible()
-        await expect(page.locator('#confirmPassword')).toBeVisible()
-        await expect(
-            page.getByRole('checkbox', {
-                name: 'I agree to the Terms of Service and Privacy Policy',
-            })
-        ).toBeVisible()
-
-        // Check buttons
-        await expect(
-            page.getByRole('button', { name: '🚀 Create Account' })
-        ).toBeVisible()
-        await expect(
-            page.getByRole('button', { name: '🌐 Sign up with Google' })
-        ).toBeVisible()
-
-        // Check links
-        await expect(
-            page.getByRole('link', { name: 'Terms of Service' })
-        ).toBeVisible()
-        await expect(
-            page.getByRole('link', { name: 'Privacy Policy' })
-        ).toBeVisible()
-        await expect(
-            page.getByRole('link', { name: 'Sign in here' })
+            page.getByRole('link', { name: 'Continue with Google' })
         ).toBeVisible()
     })
 
@@ -97,14 +51,14 @@ test.describe('Authentication System', () => {
         await page.goto('/login')
 
         // Navigate to signup
-        await page.getByRole('link', { name: 'Sign up here' }).click()
+        await page.getByRole('link', { name: 'Create one with Google' }).click()
         await expect(page).toHaveURL('/signup')
         await expect(
             page.getByRole('heading', { name: 'CREATE ACCOUNT' })
         ).toBeVisible()
 
         // Navigate back to login
-        await page.getByRole('link', { name: 'Sign in here' }).click()
+        await page.getByRole('link', { name: 'Continue with Google' }).click()
         await expect(page).toHaveURL('/login')
         await expect(
             page.getByRole('heading', { name: 'PLAYER LOGIN' })
@@ -181,53 +135,6 @@ test.describe('Authentication System', () => {
                 page.getByRole('heading', { name: 'MINIGAMES' })
             ).toBeVisible()
         }
-    })
-
-    test('should validate form fields on login page', async ({ page }) => {
-        await page.goto('/login')
-
-        // Try to submit empty form
-        await page.getByRole('button', { name: '🚀 Login to Play' }).click()
-
-        // Form should not submit (we can verify this by checking we're still on login page)
-        await expect(page).toHaveURL('/login')
-
-        // Check that form fields can be filled
-        await page
-            .getByRole('textbox', { name: 'Enter your username or email' })
-            .fill('test@example.com')
-        await page
-            .getByRole('textbox', { name: 'Password' })
-            .fill('testpassword')
-
-        // Check remember me checkbox
-        await page.getByRole('checkbox', { name: 'Remember me' }).check()
-        await expect(
-            page.getByRole('checkbox', { name: 'Remember me' })
-        ).toBeChecked()
-    })
-
-    test('should validate form fields on signup page', async ({ page }) => {
-        await page.goto('/signup')
-
-        // Check that form fields can be filled (using IDs for password fields to avoid ambiguity)
-        await page
-            .getByRole('textbox', { name: 'Email Address' })
-            .fill('newuser@example.com')
-        await page.locator('#password').fill('newpassword123')
-        await page.locator('#confirmPassword').fill('newpassword123')
-
-        // Check terms checkbox
-        await page
-            .getByRole('checkbox', {
-                name: 'I agree to the Terms of Service and Privacy Policy',
-            })
-            .check()
-        await expect(
-            page.getByRole('checkbox', {
-                name: 'I agree to the Terms of Service and Privacy Policy',
-            })
-        ).toBeChecked()
     })
 
     test('should maintain login state indicator', async ({ page }) => {
