@@ -22,13 +22,13 @@ if (import.meta.env.BETTER_AUTH_URL) {
 // Check if Google OAuth is properly configured
 const googleClientId = import.meta.env.GOOGLE_CLIENT_ID
 const googleClientSecret = import.meta.env.GOOGLE_CLIENT_SECRET
-const isGoogleOAuthInvalid =
-    !googleClientId ||
-    !googleClientSecret ||
-    googleClientId === 'placeholder' ||
-    googleClientSecret === 'placeholder'
+const isGoogleOAuthConfigured =
+    googleClientId &&
+    googleClientSecret &&
+    googleClientId !== 'placeholder' &&
+    googleClientSecret !== 'placeholder'
 
-if (isGoogleOAuthInvalid) {
+if (!isGoogleOAuthConfigured) {
     throw new Error(
         'Google OAuth is required for Google-only authentication. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to real OAuth credentials.'
     )
