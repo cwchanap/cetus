@@ -218,6 +218,8 @@ export async function init2048Game(
                 // Execute callbacks after animations
                 result.callbacksToInvoke.forEach(cb => cb())
             }
+        } catch (err) {
+            console.error('handleMove error', err)
         } finally {
             isAnimating = false
 
