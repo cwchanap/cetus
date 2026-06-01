@@ -84,6 +84,19 @@ const gameNavigation = [
                   </div>
                 </div>
               </div>
+
+              <!-- Error Message (hidden by default) -->
+              <div
+                id="game-error"
+                class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
+              >
+                <div class="text-center">
+                  <div id="game-error-title" class="text-red-400 text-xl mb-2">
+                  </div>
+                  <div id="game-error-message" class="text-gray-400 text-sm">
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Game Controls -->
@@ -279,13 +292,13 @@ const gameNavigation = [
           })
         } catch (error) {
           console.error('Failed to initialize Evader game:', error)
-          gameStatusElement.style.display = 'flex'
-          gameStatusElement.innerHTML = `
-            <div class="text-center">
-              <div class="text-red-400 text-xl mb-2">Failed to Load Game</div>
-              <div class="text-gray-400 text-sm">${error}</div>
-            </div>
-          `
+          const errorContainer = document.getElementById('game-error')!
+          const errorTitle = document.getElementById('game-error-title')!
+          const errorMessage = document.getElementById('game-error-message')!
+          gameStatusElement.style.display = 'none'
+          errorTitle.textContent = 'Failed to Load Game'
+          errorMessage.textContent = String(error)
+          errorContainer.style.display = 'flex'
         }
       }
 

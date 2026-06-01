@@ -831,6 +831,131 @@ describe('init2048Game', () => {
         })
     })
 
+    describe('handleMove error handling', () => {
+        it('should catch and log errors from processMove without unhandled rejection', async () => {
+            const { processMove } = await import('./game')
+            vi.mocked(processMove).mockImplementationOnce(() => {
+                throw new Error('processMove explosion')
+            })
+            const errorSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+
+            gameInst = await init2048Game()
+            gameInst!.start()
+
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowRight',
+                    bubbles: true,
+                })
+            )
+            await vi.runAllTimersAsync()
+
+            expect(errorSpy).toHaveBeenCalledWith(
+                'handleMove error',
+                expect.any(Error)
+            )
+            errorSpy.mockRestore()
+        })
+
+        it('should reset isAnimating after processMove throws so subsequent moves work', async () => {
+            const { processMove } = await import('./game')
+            vi.mocked(processMove)
+                .mockImplementationOnce(() => {
+                    throw new Error('boom')
+                })
+                .mockReturnValueOnce({
+                    state: {
+                        board: Array(4)
+                            .fill(null)
+                            .map(() => Array(4).fill(null)),
+                        score: 10,
+                        maxTile: 2,
+                        gameStarted: true,
+                        gameOver: false,
+                        lastMoveAnimations: [],
+                    },
+                    totalMerges: 1,
+                    callbacksToInvoke: [],
+                })
+
+            const errorSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+
+            gameInst = await init2048Game()
+            gameInst!.start()
+
+            // First move throws
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowRight',
+                    bubbles: true,
+                })
+            )
+            await vi.runAllTimersAsync()
+
+            // Second move should still work (isAnimating was reset)
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowUp',
+                    bubbles: true,
+                })
+            )
+            await vi.runAllTimersAsync()
+
+            expect(processMove).toHaveBeenCalledTimes(2)
+            errorSpy.mockRestore()
+        })
+
+        it('should catch and log errors from playAnimations', async () => {
+            const { processMove } = await import('./game')
+            const { playAnimations } = await import('./renderer')
+
+            vi.mocked(processMove).mockReturnValueOnce({
+                state: {
+                    board: Array(4)
+                        .fill(null)
+                        .map(() => Array(4).fill(null)),
+                    score: 10,
+                    maxTile: 2,
+                    gameStarted: true,
+                    gameOver: false,
+                    lastMoveAnimations: [{ dummy: true }] as any,
+                },
+                totalMerges: 1,
+                callbacksToInvoke: [],
+            })
+            vi.mocked(playAnimations).mockRejectedValueOnce(
+                new Error('animation failed')
+            )
+
+            const errorSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+
+            gameInst = await init2048Game()
+            gameInst!.start()
+
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowRight',
+                    bubbles: true,
+                })
+            )
+            // Flush microtasks to let the rejected playAnimations promise
+            // propagate through handleMove's catch
+            await vi.advanceTimersByTimeAsync(100)
+
+            expect(errorSpy).toHaveBeenCalledWith(
+                'handleMove error',
+                expect.any(Error)
+            )
+            errorSpy.mockRestore()
+        })
+    })
+
     describe('touch early returns', () => {
         it('should return early from touchstart when game is not started', async () => {
             gameInst = await init2048Game()
