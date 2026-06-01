@@ -146,12 +146,9 @@ export async function initializeReflexGame(
         // Setup click handler
         const handleCanvasClick = (event: MouseEvent) => {
             const rect = rendererState.app.canvas.getBoundingClientRect()
-            const x =
-                (event.clientX - rect.left) *
-                (rendererState.app.canvas.width / rect.width)
-            const y =
-                (event.clientY - rect.top) *
-                (rendererState.app.canvas.height / rect.height)
+            const logicalSize = finalConfig.gridSize * finalConfig.cellSize + 40
+            const x = (event.clientX - rect.left) * (logicalSize / rect.width)
+            const y = (event.clientY - rect.top) * (logicalSize / rect.height)
 
             const cellPosition = getCellFromPosition(x, y, finalConfig)
             if (cellPosition) {

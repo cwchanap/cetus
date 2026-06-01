@@ -367,7 +367,7 @@ describe('init2048Game', () => {
             expect(processMove).not.toHaveBeenCalled()
         })
 
-        it('should not process move while animating (rapid key presses)', async () => {
+        it('should queue one move while animating and process it next', async () => {
             const { processMove } = await import('./game')
             const { playAnimations } = await import('./renderer')
 
@@ -406,15 +406,36 @@ describe('init2048Game', () => {
             )
             expect(vi.mocked(processMove)).toHaveBeenCalledTimes(1)
 
-            // Second event: handleKeyDown finds isAnimating=true → returns early
+            // Second event: it should be queued while the first animation is pending.
             document.dispatchEvent(
-                new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowLeft',
+                    bubbles: true,
+                })
             )
             expect(vi.mocked(processMove)).toHaveBeenCalledTimes(1)
 
-            // Resolve animation and await completion to avoid async work leaking into afterEach
+            vi.mocked(processMove).mockReturnValueOnce({
+                state: {
+                    board: Array(4)
+                        .fill(null)
+                        .map(() => Array(4).fill(null)),
+                    score: 20,
+                    maxTile: 4,
+                    gameStarted: true,
+                    gameOver: false,
+                    lastMoveAnimations: [],
+                },
+                totalMerges: 2,
+                callbacksToInvoke: [],
+            })
+
             resolveAnimation!()
             await pendingAnimation
+            await vi.runAllTimersAsync()
+
+            expect(vi.mocked(processMove)).toHaveBeenCalledTimes(2)
+            expect(vi.mocked(processMove).mock.calls[1][1]).toBe('left')
         })
     })
 

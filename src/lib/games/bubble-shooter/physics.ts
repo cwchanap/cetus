@@ -35,7 +35,7 @@ export function updateProjectile(
     // Check collision with grid bubbles or top
     const bubbleCollision = checkBubbleCollision(state, constants)
     if (state.projectile.y <= constants.BUBBLE_RADIUS || bubbleCollision) {
-        attachBubble(state, constants)
+        attachBubble(state, constants, bubbleCollision ?? undefined)
     }
 }
 
@@ -70,13 +70,17 @@ export function checkBubbleCollision(
     return null
 }
 
-export function attachBubble(state: GameState, constants: GameConstants): void {
+export function attachBubble(
+    state: GameState,
+    constants: GameConstants,
+    anchorPosition?: GridPosition
+): void {
     if (!state.projectile) {
         return
     }
 
     // Find the best position to attach the projectile
-    const attachPos = findAttachPosition(state, constants)
+    const attachPos = findAttachPosition(state, constants, anchorPosition)
 
     if (attachPos) {
         state.grid[attachPos.row][attachPos.col] = {
@@ -109,7 +113,44 @@ export function attachBubble(state: GameState, constants: GameConstants): void {
 
 function findAttachPosition(
     state: GameState,
-    constants: GameConstants
+    constants: GameConstants,
+    anchorPosition?: GridPosition
+): GridPosition | null {
+    if (!state.projectile) {
+        return null
+    }
+
+    if (anchorPosition) {
+        const anchoredPosition = findClosestPosition(
+            state,
+            constants,
+            getNeighbors(anchorPosition.row, anchorPosition.col, constants)
+        )
+        if (anchoredPosition) {
+            return anchoredPosition
+        }
+    }
+
+    const candidates: GridPosition[] = []
+    for (let row = 0; row < constants.GRID_HEIGHT; row++) {
+        const cols = constants.GRID_WIDTH - (row % 2)
+        for (let col = 0; col < cols; col++) {
+            candidates.push({ row, col })
+        }
+    }
+
+    return (
+        findClosestPosition(state, constants, candidates) || {
+            row: 0,
+            col: Math.floor((constants.GRID_WIDTH - (0 % 2)) / 2),
+        }
+    )
+}
+
+function findClosestPosition(
+    state: GameState,
+    constants: GameConstants,
+    candidates: GridPosition[]
 ): GridPosition | null {
     if (!state.projectile) {
         return null
@@ -118,42 +159,30 @@ function findAttachPosition(
     let bestPosition: GridPosition | null = null
     let minDistance = Infinity
 
-    // Find the closest valid position
-    for (let row = 0; row < constants.GRID_HEIGHT; row++) {
-        const cols = constants.GRID_WIDTH - (row % 2)
-        for (let col = 0; col < cols; col++) {
-            if (!state.grid[row]) {
-                state.grid[row] = []
-            }
+    for (const { row, col } of candidates) {
+        if (!state.grid[row]) {
+            state.grid[row] = []
+        }
 
-            // Only consider empty positions
-            if (!state.grid[row][col]) {
-                const x = getBubbleX(col, row, constants)
-                const y = getBubbleY(row, state.rowOffset, constants)
-                const distance = Math.sqrt(
-                    Math.pow(state.projectile.x - x, 2) +
-                        Math.pow(state.projectile.y - y, 2)
-                )
+        if (!state.grid[row][col]) {
+            const x = getBubbleX(col, row, constants)
+            const y = getBubbleY(row, state.rowOffset, constants)
+            const distance = Math.sqrt(
+                Math.pow(state.projectile.x - x, 2) +
+                    Math.pow(state.projectile.y - y, 2)
+            )
 
-                // Check if this position is adjacent to existing bubbles or at top edge
-                if (
-                    isValidAttachPosition(state, constants, row, col) &&
-                    distance < minDistance
-                ) {
-                    minDistance = distance
-                    bestPosition = { row, col }
-                }
+            if (
+                isValidAttachPosition(state, constants, row, col) &&
+                distance < minDistance
+            ) {
+                minDistance = distance
+                bestPosition = { row, col }
             }
         }
     }
 
-    // If no valid position found, attach to top center
-    return (
-        bestPosition || {
-            row: 0,
-            col: Math.floor((constants.GRID_WIDTH - (0 % 2)) / 2),
-        }
-    )
+    return bestPosition
 }
 
 function isValidAttachPosition(

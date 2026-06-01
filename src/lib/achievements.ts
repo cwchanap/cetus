@@ -6,6 +6,7 @@ import type {
     ReflexGameData,
     QuickMathGameData,
     Game2048Data,
+    SnakeGameData,
     WordScrambleGameData,
     GameHistoryEntry,
 } from './games/shared/types'
@@ -25,6 +26,7 @@ export type AchievementCheckData =
     | ReflexGameData
     | QuickMathGameData
     | Game2048Data
+    | SnakeGameData
     | WordScrambleGameData
     | Record<string, unknown>
 
@@ -1018,6 +1020,81 @@ export const ACHIEVEMENTS: Achievement[] = [
             check: (gameData: { coinsCollected: number; bombsHit: number }) =>
                 gameData.coinsCollected === gameData.bombsHit &&
                 gameData.coinsCollected > 0,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+
+    // Snake achievements
+    {
+        id: 'snake_welcome',
+        name: 'First Bite',
+        description: 'Welcome to Snake! You ate your first food.',
+        logo: '🎮',
+        gameId: GameID.SNAKE,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'snake_novice',
+        name: 'Snake Novice',
+        description: 'Score 50 points in Snake',
+        logo: '🔰',
+        gameId: GameID.SNAKE,
+        condition: {
+            type: 'score_threshold',
+            threshold: 50,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'snake_apprentice',
+        name: 'Snake Apprentice',
+        description: 'Score 100 points in Snake',
+        logo: '⭐',
+        gameId: GameID.SNAKE,
+        condition: {
+            type: 'score_threshold',
+            threshold: 100,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'snake_expert',
+        name: 'Snake Expert',
+        description: 'Score 200 points in Snake',
+        logo: '💫',
+        gameId: GameID.SNAKE,
+        condition: {
+            type: 'score_threshold',
+            threshold: 200,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'snake_master',
+        name: 'Snake Master',
+        description: 'Score 300 points in Snake',
+        logo: '👑',
+        gameId: GameID.SNAKE,
+        condition: {
+            type: 'score_threshold',
+            threshold: 300,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: 'snake_growth_spurt',
+        name: 'Growth Spurt',
+        description: 'Grow your snake to a length of 10 or more',
+        logo: '📏',
+        gameId: GameID.SNAKE,
+        condition: {
+            type: 'in_game',
+            check: (gameData: { maxLength: number }) =>
+                gameData.maxLength >= 10,
         },
         rarity: AchievementRarity.RARE,
     },

@@ -115,24 +115,30 @@ export async function initializeEvaderGame(
         const game = new EvaderGame(finalConfig, enhancedCallbacks)
 
         // Setup keyboard controls
+        const movementKeys = new Set([
+            'ArrowUp',
+            'ArrowDown',
+            'ArrowLeft',
+            'ArrowRight',
+            'w',
+            'W',
+            'a',
+            'A',
+            's',
+            'S',
+            'd',
+            'D',
+        ])
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (
-                event.key === 'ArrowUp' ||
-                event.key === 'ArrowDown' ||
-                event.key === 'ArrowLeft' ||
-                event.key === 'ArrowRight'
-            ) {
+            if (movementKeys.has(event.key)) {
+                event.preventDefault()
                 game.pressKey(event.key)
             }
         }
 
         const handleKeyUp = (event: KeyboardEvent) => {
-            if (
-                event.key === 'ArrowUp' ||
-                event.key === 'ArrowDown' ||
-                event.key === 'ArrowLeft' ||
-                event.key === 'ArrowRight'
-            ) {
+            if (movementKeys.has(event.key)) {
+                event.preventDefault()
                 game.releaseKey(event.key)
             }
         }

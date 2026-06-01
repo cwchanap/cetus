@@ -51,6 +51,23 @@ describe('Achievement System', () => {
             })
         })
 
+        it('should include score and in-game achievements for Snake', () => {
+            const snakeAchievements = getAchievementsByGame(GameID.SNAKE)
+            expect(snakeAchievements.map(a => a.id)).toEqual(
+                expect.arrayContaining([
+                    'snake_welcome',
+                    'snake_novice',
+                    'snake_apprentice',
+                    'snake_expert',
+                    'snake_master',
+                    'snake_growth_spurt',
+                ])
+            )
+            snakeAchievements.forEach(achievement => {
+                expect(achievement.gameId).toBe(GameID.SNAKE)
+            })
+        })
+
         it('should return empty array for non-existent game', () => {
             const achievements = getAchievementsByGame('non_existent')
             expect(achievements).toHaveLength(0)
@@ -579,6 +596,18 @@ describe('Achievement in_game condition checks', () => {
             const check = getAchievementById('2048_tile_4096')!.condition.check!
             expect(check({ maxTile: 4096 }, 0)).toBe(true)
             expect(check({ maxTile: 2048 }, 0)).toBe(false)
+        })
+    })
+
+    describe('Snake in_game check functions', () => {
+        it('snake_growth_spurt: returns true when maxLength >= 10', () => {
+            const achievement = getAchievementById('snake_growth_spurt')
+            if (!achievement?.condition.check) {
+                throw new Error('snake_growth_spurt check is missing')
+            }
+            const check = achievement.condition.check
+            expect(check({ maxLength: 10 }, 0)).toBe(true)
+            expect(check({ maxLength: 9 }, 0)).toBe(false)
         })
     })
 

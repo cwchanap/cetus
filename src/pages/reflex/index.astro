@@ -69,7 +69,7 @@ const gameNavigation = [
               <!-- Game Status Message -->
               <div
                 id="game-status"
-                class="absolute inset-0 flex items-center justify-center bg-black/90 rounded-lg"
+                class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
               >
                 <div class="text-center">
                   <div class="text-6xl mb-4">⚡</div>
@@ -305,7 +305,7 @@ const gameNavigation = [
 
           playAgainBtn.addEventListener('click', () => {
             gameOverOverlay.classList.add('hidden')
-            gameStatusElement.style.display = 'flex'
+            gameStatusElement.style.display = 'none'
 
             // Reset buttons
             startBtn.style.display = 'inline-flex'
@@ -313,6 +313,7 @@ const gameNavigation = [
           })
         } catch (error) {
           console.error('Failed to initialize Reflex game:', error)
+          gameStatusElement.style.display = 'flex'
           gameStatusElement.innerHTML = `
             <div class="text-center">
               <div class="text-red-400 text-xl mb-2">Failed to Load Game</div>

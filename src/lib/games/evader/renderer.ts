@@ -21,23 +21,67 @@ export async function setupPixiJS(
         app.canvas.style.borderRadius = '12px'
         app.canvas.style.boxShadow = '0 0 30px rgba(6, 182, 212, 0.3)'
 
+        const boardGraphic = new Graphics()
+        app.stage.addChild(boardGraphic)
+
         const objectContainer = new Container()
         app.stage.addChild(objectContainer)
 
         const playerGraphic = new Graphics()
         app.stage.addChild(playerGraphic)
 
-        return {
+        const rendererState = {
             app,
             stage: app.stage,
+            boardGraphic,
             objectContainer,
             playerGraphic,
             objectGraphics: new Map<string, Graphics>(),
         }
+        renderBoard(rendererState, config)
+
+        return rendererState
     } catch (error) {
         gameContainer.innerHTML = ''
         throw new Error(`Failed to initialize PixiJS: ${error}`)
     }
+}
+
+export function renderBoard(
+    rendererState: RendererState,
+    config: GameConfig
+): void {
+    const { boardGraphic } = rendererState
+    boardGraphic.clear()
+
+    boardGraphic.rect(0, 0, config.canvasWidth, config.canvasHeight).fill({
+        color: 0x001122,
+        alpha: 0.45,
+    })
+
+    const gridSize = 40
+    for (let x = 0; x <= config.canvasWidth; x += gridSize) {
+        boardGraphic.moveTo(x, 0).lineTo(x, config.canvasHeight).stroke({
+            color: 0x0ea5e9,
+            width: 1,
+            alpha: 0.12,
+        })
+    }
+    for (let y = 0; y <= config.canvasHeight; y += gridSize) {
+        boardGraphic.moveTo(0, y).lineTo(config.canvasWidth, y).stroke({
+            color: 0x0ea5e9,
+            width: 1,
+            alpha: 0.12,
+        })
+    }
+
+    boardGraphic
+        .rect(1, 1, config.canvasWidth - 2, config.canvasHeight - 2)
+        .stroke({
+            color: 0x06b6d4,
+            width: 2,
+            alpha: 0.35,
+        })
 }
 
 export function renderPlayer(

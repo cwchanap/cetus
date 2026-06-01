@@ -55,6 +55,7 @@ export async function init2048Game(
     let totalMerges = 0
     let renderer: RendererState | null = null
     let isAnimating = false
+    let pendingDirection: Direction | null = null
 
     // Touch handling state
     let touchStartX = 0
@@ -176,39 +177,61 @@ export async function init2048Game(
 
     // Handle move direction
     async function handleMove(direction: Direction): Promise<void> {
-        if (!state.gameStarted || state.gameOver || isAnimating || !renderer) {
+        if (!state.gameStarted || state.gameOver || !renderer) {
+            return
+        }
+
+        if (isAnimating) {
+            pendingDirection = direction
             return
         }
 
         isAnimating = true
 
-        const result = processMove(state, direction, totalMerges, gameCallbacks)
+        try {
+            const result = processMove(
+                state,
+                direction,
+                totalMerges,
+                gameCallbacks
+            )
 
-        if (result.state !== state) {
-            state = result.state
-            totalMerges = result.totalMerges
+            if (result.state !== state) {
+                state = result.state
+                totalMerges = result.totalMerges
 
-            // Update displays
-            updateScoreDisplay(state.score)
-            updateMaxTileDisplay(state.maxTile)
+                // Update displays
+                updateScoreDisplay(state.score)
+                updateMaxTileDisplay(state.maxTile)
 
-            // Play animations
-            if (state.lastMoveAnimations.length > 0) {
-                await playAnimations(renderer, state.lastMoveAnimations, state)
-            } else {
-                draw(renderer, state)
+                // Play animations
+                if (state.lastMoveAnimations.length > 0) {
+                    await playAnimations(
+                        renderer,
+                        state.lastMoveAnimations,
+                        state
+                    )
+                } else {
+                    draw(renderer, state)
+                }
+
+                // Execute callbacks after animations
+                result.callbacksToInvoke.forEach(cb => cb())
             }
+        } finally {
+            isAnimating = false
 
-            // Execute callbacks after animations
-            result.callbacksToInvoke.forEach(cb => cb())
+            const nextDirection = pendingDirection
+            pendingDirection = null
+            if (nextDirection && state.gameStarted && !state.gameOver) {
+                void handleMove(nextDirection)
+            }
         }
-
-        isAnimating = false
     }
 
     // Keyboard event handler
     function handleKeyDown(e: KeyboardEvent): void {
-        if (!state.gameStarted || state.gameOver || isAnimating) {
+        if (!state.gameStarted || state.gameOver) {
             return
         }
 
