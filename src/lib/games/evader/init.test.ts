@@ -447,6 +447,60 @@ describe('initializeEvaderGame', () => {
             ).not.toThrow()
         })
 
+        it('should release movement key on keyup even when modifier is held', async () => {
+            const callbacks = makeCallbacks()
+            const result = await initializeEvaderGame(container, callbacks)
+            result.startGame()
+
+            const game = result.game as any
+
+            // Press ArrowUp
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowUp',
+                    bubbles: true,
+                })
+            )
+            expect(game.pressedKeys.has('up')).toBe(true)
+
+            // Release ArrowUp while Ctrl is held
+            document.dispatchEvent(
+                new KeyboardEvent('keyup', {
+                    key: 'ArrowUp',
+                    bubbles: true,
+                    ctrlKey: true,
+                })
+            )
+            expect(game.pressedKeys.has('up')).toBe(false)
+        })
+
+        it('should release WASD key on keyup even when modifier is held', async () => {
+            const callbacks = makeCallbacks()
+            const result = await initializeEvaderGame(container, callbacks)
+            result.startGame()
+
+            const game = result.game as any
+
+            // Press W
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'w',
+                    bubbles: true,
+                })
+            )
+            expect(game.pressedKeys.has('up')).toBe(true)
+
+            // Release W while Meta is held
+            document.dispatchEvent(
+                new KeyboardEvent('keyup', {
+                    key: 'w',
+                    bubbles: true,
+                    metaKey: true,
+                })
+            )
+            expect(game.pressedKeys.has('up')).toBe(false)
+        })
+
         it('should release keys via keyup even when game is not active', async () => {
             const callbacks = makeCallbacks()
             const result = await initializeEvaderGame(container, callbacks)
