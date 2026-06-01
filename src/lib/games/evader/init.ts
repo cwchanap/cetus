@@ -140,9 +140,6 @@ export async function initializeEvaderGame(
         }
 
         const handleKeyUp = (event: KeyboardEvent) => {
-            if (event.ctrlKey || event.metaKey || event.altKey) {
-                return
-            }
             if (movementKeys.has(event.key)) {
                 event.preventDefault()
                 game.releaseKey(event.key)
