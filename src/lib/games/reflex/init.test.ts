@@ -298,6 +298,46 @@ describe('initializeReflexGame', () => {
             mockCanvas.dispatchEvent(clickEvent)
         })
 
+        it('should pass logical canvas coordinates on high-DPI canvases', async () => {
+            const { getCellFromPosition } = await import('./renderer')
+            vi.mocked(getCellFromPosition).mockReturnValueOnce({
+                row: 2,
+                col: 3,
+            })
+
+            Object.defineProperties(mockCanvas, {
+                width: { value: 1040, configurable: true },
+                height: { value: 1040, configurable: true },
+            })
+            mockCanvas.getBoundingClientRect = vi.fn(
+                () =>
+                    ({
+                        left: 10,
+                        top: 20,
+                        width: 520,
+                        height: 520,
+                    }) as DOMRect
+            )
+
+            const callbacks = makeCallbacks()
+            const result = await initializeReflexGame(container, callbacks)
+            result.startGame()
+
+            mockCanvas.dispatchEvent(
+                new MouseEvent('click', {
+                    clientX: 70,
+                    clientY: 140,
+                    bubbles: true,
+                })
+            )
+
+            expect(getCellFromPosition).toHaveBeenCalledWith(
+                60,
+                120,
+                expect.any(Object)
+            )
+        })
+
         it('should not call handleCellClick when getCellFromPosition returns null', async () => {
             const { getCellFromPosition } = await import('./renderer')
             vi.mocked(getCellFromPosition).mockReturnValueOnce(null)

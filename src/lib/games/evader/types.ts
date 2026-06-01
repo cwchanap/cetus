@@ -67,6 +67,7 @@ export interface GameStats {
 export interface RendererState {
     app: Application
     stage: Container
+    boardGraphic: Graphics
     objectContainer: Container
     playerGraphic: Graphics
     objectGraphics: Map<string, Graphics>

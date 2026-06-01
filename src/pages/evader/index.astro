@@ -70,7 +70,7 @@ const gameNavigation = [
               <!-- Game Status Message -->
               <div
                 id="game-status"
-                class="absolute inset-0 flex items-center justify-center bg-black/90 rounded-lg"
+                class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
               >
                 <div class="text-center">
                   <div class="text-6xl mb-4">🚀</div>
@@ -183,27 +183,19 @@ const gameNavigation = [
             <div class="space-y-4 text-sm">
               <div class="flex justify-between items-center">
                 <span class="text-gray-400">Move Up:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs"
-                  >Arrow Up</Badge
-                >
+                <Badge variant="outline" class="px-2 py-1 text-xs">↑ / W</Badge>
               </div>
               <div class="flex justify-between items-center">
                 <span class="text-gray-400">Move Down:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs"
-                  >Arrow Down</Badge
-                >
+                <Badge variant="outline" class="px-2 py-1 text-xs">↓ / S</Badge>
               </div>
               <div class="flex justify-between items-center">
                 <span class="text-gray-400">Move Left:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs"
-                  >Arrow Left</Badge
-                >
+                <Badge variant="outline" class="px-2 py-1 text-xs">← / A</Badge>
               </div>
               <div class="flex justify-between items-center">
                 <span class="text-gray-400">Move Right:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs"
-                  >Arrow Right</Badge
-                >
+                <Badge variant="outline" class="px-2 py-1 text-xs">→ / D</Badge>
               </div>
               <div class="flex justify-between items-center">
                 <span class="text-gray-400">Start Game:</span>
@@ -212,7 +204,7 @@ const gameNavigation = [
               </div>
               <div class="pt-2 border-t border-gray-700">
                 <div class="text-gray-400 text-xs">
-                  💡 Use arrow keys to move your character in all directions!
+                  💡 Use WASD or arrow keys to move in all directions!
                 </div>
               </div>
             </div>
@@ -279,7 +271,7 @@ const gameNavigation = [
 
           playAgainBtn.addEventListener('click', () => {
             gameOverOverlay.classList.add('hidden')
-            gameStatusElement.style.display = 'flex'
+            gameStatusElement.style.display = 'none'
 
             // Reset buttons
             startBtn.style.display = 'inline-flex'
@@ -287,6 +279,7 @@ const gameNavigation = [
           })
         } catch (error) {
           console.error('Failed to initialize Evader game:', error)
+          gameStatusElement.style.display = 'flex'
           gameStatusElement.innerHTML = `
             <div class="text-center">
               <div class="text-red-400 text-xl mb-2">Failed to Load Game</div>

@@ -239,6 +239,37 @@ describe('EvaderGame', () => {
             const newX = game.getState().player.x
             expect(newX).toBeGreaterThan(initialX)
         })
+
+        it('should move player with WASD keys', () => {
+            vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
+                setTimeout(cb, 16)
+                return 0
+            })
+
+            game.startGame()
+
+            game.pressKey('d')
+            vi.advanceTimersByTime(100)
+            game.releaseKey('d')
+            const afterRight = game.getState().player.x
+            expect(afterRight).toBeGreaterThan(config.playerSize / 2)
+
+            game.pressKey('s')
+            vi.advanceTimersByTime(100)
+            game.releaseKey('s')
+            const afterDown = game.getState().player.y
+            expect(afterDown).toBeGreaterThan(config.canvasHeight / 2)
+
+            game.pressKey('a')
+            vi.advanceTimersByTime(100)
+            game.releaseKey('a')
+            expect(game.getState().player.x).toBeLessThan(afterRight)
+
+            game.pressKey('w')
+            vi.advanceTimersByTime(100)
+            game.releaseKey('w')
+            expect(game.getState().player.y).toBeLessThan(afterDown)
+        })
     })
 
     describe('getState', () => {

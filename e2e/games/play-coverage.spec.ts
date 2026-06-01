@@ -18,13 +18,46 @@ async function startGameWhenReady(
     }).toPass({ timeout: 10000 })
 }
 
+async function expectVisibleGameSurface(
+    page: Page,
+    selector: string
+): Promise<void> {
+    const surface = page.locator(selector).first()
+    await expect(surface).toBeVisible({ timeout: 10000 })
+
+    const box = await surface.boundingBox()
+    expect(box?.width ?? 0).toBeGreaterThan(100)
+    expect(box?.height ?? 0).toBeGreaterThan(100)
+}
+
+async function expectStatusOverlayHidden(page: Page): Promise<void> {
+    await expect(page.locator('#game-status')).toHaveCSS('display', 'none')
+}
+
+async function clickGameSurface(page: Page, selector: string): Promise<void> {
+    const surface = page.locator(selector).first()
+    const box = await surface.boundingBox()
+    expect(box).not.toBeNull()
+    await page.mouse.click(
+        (box?.x ?? 0) + (box?.width ?? 0) / 2,
+        (box?.y ?? 0) + (box?.height ?? 0) / 2
+    )
+}
+
 test.describe('Bubble Shooter', () => {
-    test('starts and shows end-game overlay when ended', async ({ page }) => {
+    test('renders, starts, accepts a shot, and shows end-game overlay', async ({
+        page,
+    }) => {
         await page.goto('/bubble-shooter')
+        await expectVisibleGameSurface(page, '#game-container canvas')
+        await expect(page.locator('#current-bubble')).toBeVisible()
+        await expect(page.locator('#next-bubble')).toBeVisible()
         await expect(page.locator('#score')).toHaveText('0')
 
         await startGameWhenReady(page)
         await expect(page.locator('#end-btn')).toBeVisible()
+
+        await clickGameSurface(page, '#game-container canvas')
 
         await page.locator('#end-btn').click()
         await expect(page.locator('#game-over-overlay')).not.toHaveClass(
@@ -37,6 +70,7 @@ test.describe('Bubble Shooter', () => {
 test.describe('Memory Matrix', () => {
     test('starts and reveals the card grid', async ({ page }) => {
         await page.goto('/memory-matrix')
+        await expect(page.locator('#memory-board')).toBeVisible()
 
         await startGameWhenReady(page)
         await expect(page.locator('#end-btn')).toBeVisible()
@@ -54,10 +88,13 @@ test.describe('Memory Matrix', () => {
 test.describe('Word Scramble', () => {
     test('starts, accepts input, ends', async ({ page }) => {
         await page.goto('/word-scramble')
+        const answerInput = page.locator('#answer-input')
+        await expect(answerInput).toBeDisabled()
         await expect(page.locator('#score')).toHaveText('0')
 
         await startGameWhenReady(page)
         await expect(page.locator('#end-btn')).toBeVisible()
+        await expect(answerInput).toBeEnabled()
 
         // After start the timer should be ticking below the initial 60.
         await expect(page.locator('#time-remaining')).not.toHaveText('60', {
@@ -72,13 +109,19 @@ test.describe('Word Scramble', () => {
 })
 
 test.describe('Reflex Coin Collection', () => {
-    test('starts, ticks the timer, can be stopped', async ({ page }) => {
+    test('renders, starts, accepts canvas input, and can be stopped', async ({
+        page,
+    }) => {
         await page.goto('/reflex')
+        await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+        await expectStatusOverlayHidden(page)
         await expect(page.locator('#score')).toHaveText('0')
 
         // Reflex uses #stop-btn as its end button instead of #end-btn.
         await startGameWhenReady(page)
         await expect(page.locator('#stop-btn')).toBeVisible()
+
+        await clickGameSurface(page, '#game-canvas-container canvas')
 
         // Timer must move off its starting value after start.
         await expect(page.locator('#time-remaining')).not.toHaveText('60', {
@@ -109,6 +152,9 @@ test.describe('Sudoku', () => {
 
         await startGameWhenReady(page)
         await expect(page.locator('#end-btn')).toBeVisible()
+        await expect(
+            page.locator('#sudoku-container .sudoku-cell')
+        ).toHaveCount(81)
 
         await page.locator('#end-btn').click()
         await expect(page.locator('#game-over-overlay')).not.toHaveClass(
@@ -120,6 +166,7 @@ test.describe('Sudoku', () => {
 test.describe('Bejeweled', () => {
     test('starts and shows end-game overlay when ended', async ({ page }) => {
         await page.goto('/bejeweled')
+        await expectVisibleGameSurface(page, '#bejeweled-container canvas')
         await expect(page.locator('#score')).toHaveText('0')
 
         await startGameWhenReady(page)
@@ -135,6 +182,7 @@ test.describe('Bejeweled', () => {
 test.describe('Path Navigator', () => {
     test('starts and shows end-game overlay when ended', async ({ page }) => {
         await page.goto('/path-navigator')
+        await expectVisibleGameSurface(page, '#path-navigator-container canvas')
         await expect(page.locator('#score')).toHaveText('0')
 
         await startGameWhenReady(page)
@@ -148,13 +196,20 @@ test.describe('Path Navigator', () => {
 })
 
 test.describe('Evader', () => {
-    test('starts, ticks the timer, can be stopped', async ({ page }) => {
+    test('renders, starts, accepts WASD input, and can be stopped', async ({
+        page,
+    }) => {
         await page.goto('/evader')
+        await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+        await expectStatusOverlayHidden(page)
         await expect(page.locator('#score')).toHaveText('0')
 
         // Evader uses #stop-btn as its end button.
         await startGameWhenReady(page)
         await expect(page.locator('#stop-btn')).toBeVisible()
+
+        await page.keyboard.press('d')
+        await page.keyboard.press('w')
 
         await expect(page.locator('#time-remaining')).not.toHaveText('60', {
             timeout: 5000,
@@ -170,6 +225,7 @@ test.describe('Evader', () => {
 test.describe('Snake', () => {
     test('starts, accepts arrow input, can be reset', async ({ page }) => {
         await page.goto('/snake')
+        await expectVisibleGameSurface(page, '#snake-container canvas')
         await expect(page.locator('#score')).toHaveText('0')
 
         await startGameWhenReady(page)

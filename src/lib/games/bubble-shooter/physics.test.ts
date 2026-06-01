@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { checkBubbleCollision, updateProjectile, attachBubble } from './physics'
-import { getBubbleX, getBubbleY } from './utils'
+import { getBubbleX, getBubbleY, getNeighbors } from './utils'
 import type { GameState, GameConstants } from './types'
 
 const constants: GameConstants = {
@@ -352,6 +352,54 @@ describe('Bubble Shooter Physics', () => {
             // No match (only 1 blue), so no bubbles popped - bubblesRemaining includes the new bubble
             // The blue was added without removing any, so bubblesRemaining increases by 1
             expect(state.bubblesRemaining).toBe(3)
+        })
+
+        it('should snap collision attachments to a neighbor of the collided bubble', () => {
+            const anchor = { row: 4, col: 4 }
+            const grid: GameState['grid'] = []
+            grid[anchor.row] = []
+            grid[anchor.row][anchor.col] = {
+                color: 0x00ff00,
+                x: getBubbleX(anchor.col, anchor.row, constants),
+                y: getBubbleY(anchor.row, 0, constants),
+            }
+
+            const state = makeState({
+                projectile: {
+                    x: getBubbleX(0, 0, constants),
+                    y: getBubbleY(0, 0, constants),
+                    vx: 0,
+                    vy: -5,
+                    color: 0xff0000,
+                },
+                grid,
+                bubblesRemaining: 1,
+            })
+
+            attachBubble(state, constants, anchor)
+
+            const filledNeighbor = getNeighbors(
+                anchor.row,
+                anchor.col,
+                constants
+            ).find(({ row, col }) => state.grid[row]?.[col]?.color === 0xff0000)
+
+            expect(filledNeighbor).toBeDefined()
+            if (!filledNeighbor) {
+                throw new Error('Expected an attached neighbor bubble')
+            }
+            const attached =
+                state.grid[filledNeighbor.row]?.[filledNeighbor.col]
+            const anchorBubble = state.grid[anchor.row]?.[anchor.col]
+            if (!attached || !anchorBubble) {
+                throw new Error('Expected attached and anchor bubbles')
+            }
+            const distance = Math.hypot(
+                attached.x - anchorBubble.x,
+                attached.y - anchorBubble.y
+            )
+            expect(distance).toBeCloseTo(constants.BUBBLE_RADIUS * 2, 5)
+            expect(state.grid[0]?.[0]).toBeFalsy()
         })
     })
 

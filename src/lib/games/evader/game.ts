@@ -142,9 +142,9 @@ export class EvaderGame {
         if (this.state.isGameActive) {
             // Vertical movement
             let verticalVelocity = 0
-            if (this.pressedKeys.has('ArrowUp')) {
+            if (this.pressedKeys.has('up')) {
                 verticalVelocity = -this.config.playerSpeed
-            } else if (this.pressedKeys.has('ArrowDown')) {
+            } else if (this.pressedKeys.has('down')) {
                 verticalVelocity = this.config.playerSpeed
             }
             this.state.player.y += verticalVelocity * deltaTime
@@ -158,9 +158,9 @@ export class EvaderGame {
 
             // Horizontal movement
             let horizontalVelocity = 0
-            if (this.pressedKeys.has('ArrowLeft')) {
+            if (this.pressedKeys.has('left')) {
                 horizontalVelocity = -this.config.playerSpeed
-            } else if (this.pressedKeys.has('ArrowRight')) {
+            } else if (this.pressedKeys.has('right')) {
                 horizontalVelocity = this.config.playerSpeed
             }
             this.state.player.x += horizontalVelocity * deltaTime
@@ -230,11 +230,17 @@ export class EvaderGame {
     }
 
     public pressKey(key: string): void {
-        this.pressedKeys.add(key)
+        const movementKey = normalizeMovementKey(key)
+        if (movementKey) {
+            this.pressedKeys.add(movementKey)
+        }
     }
 
     public releaseKey(key: string): void {
-        this.pressedKeys.delete(key)
+        const movementKey = normalizeMovementKey(key)
+        if (movementKey) {
+            this.pressedKeys.delete(movementKey)
+        }
     }
 
     private generateGameStats(): GameStats {
@@ -253,5 +259,30 @@ export class EvaderGame {
     public cleanup(): void {
         this.clearTimers()
         this.state.objects = []
+    }
+}
+
+function normalizeMovementKey(
+    key: string
+): 'up' | 'down' | 'left' | 'right' | null {
+    switch (key) {
+        case 'ArrowUp':
+        case 'w':
+        case 'W':
+            return 'up'
+        case 'ArrowDown':
+        case 's':
+        case 'S':
+            return 'down'
+        case 'ArrowLeft':
+        case 'a':
+        case 'A':
+            return 'left'
+        case 'ArrowRight':
+        case 'd':
+        case 'D':
+            return 'right'
+        default:
+            return null
     }
 }
