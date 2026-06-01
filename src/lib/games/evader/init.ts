@@ -130,14 +130,20 @@ export async function initializeEvaderGame(
             'D',
         ])
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (movementKeys.has(event.key)) {
+            if (event.ctrlKey || event.metaKey || event.altKey) {
+                return
+            }
+            if (movementKeys.has(event.key) && game.getState().isGameActive) {
                 event.preventDefault()
                 game.pressKey(event.key)
             }
         }
 
         const handleKeyUp = (event: KeyboardEvent) => {
-            if (movementKeys.has(event.key)) {
+            if (event.ctrlKey || event.metaKey || event.altKey) {
+                return
+            }
+            if (movementKeys.has(event.key) && game.getState().isGameActive) {
                 event.preventDefault()
                 game.releaseKey(event.key)
             }

@@ -328,6 +328,7 @@ export async function init2048Game(
 
     // Start game function
     function start(): void {
+        pendingDirection = null
         state = startGame(state)
         totalMerges = 0
         updateScoreDisplay(state.score)
@@ -346,6 +347,7 @@ export async function init2048Game(
 
     // Restart game function
     function restart(): void {
+        pendingDirection = null
         state = resetGame(state)
         totalMerges = 0
         updateScoreDisplay(0)
@@ -368,6 +370,7 @@ export async function init2048Game(
             return
         }
 
+        pendingDirection = null
         const { state: endedState, stats } = endGame(state, totalMerges)
         state = endedState
 
