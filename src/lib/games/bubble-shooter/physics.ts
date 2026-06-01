@@ -47,6 +47,8 @@ export function checkBubbleCollision(
         return null
     }
 
+    let closest: { row: number; col: number; distance: number } | null = null
+
     for (let row = 0; row < state.grid.length; row++) {
         if (!state.grid[row]) {
             continue
@@ -63,11 +65,14 @@ export function checkBubbleCollision(
             )
 
             if (distance < constants.BUBBLE_RADIUS * 2) {
-                return { row, col }
+                if (!closest || distance < closest.distance) {
+                    closest = { row, col, distance }
+                }
             }
         }
     }
-    return null
+
+    return closest ? { row: closest.row, col: closest.col } : null
 }
 
 export function attachBubble(
