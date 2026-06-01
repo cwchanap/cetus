@@ -88,6 +88,84 @@ describe('Bubble Shooter Physics', () => {
             })
             expect(checkBubbleCollision(state, constants)).toBeNull()
         })
+
+        it('should return the nearest collided bubble when multiple overlap the projectile', () => {
+            // Two bubbles within collision range of the projectile, but at different distances.
+            // The closer one (row 0, col 1) should be returned, not the first in iteration order (row 0, col 0).
+            const farBubble = {
+                color: 0x00ff00,
+                x: getBubbleX(0, 0, constants),
+                y: getBubbleY(0, 0, constants),
+            }
+            const nearBubble = {
+                color: 0x0000ff,
+                x: getBubbleX(1, 0, constants),
+                y: getBubbleY(0, 0, constants),
+            }
+            // Place projectile close to nearBubble but still within range of farBubble
+            const nearDist = constants.BUBBLE_RADIUS * 1.5 // well within range
+            const projectileX = nearBubble.x - nearDist * 0.5 // between the two, biased toward nearBubble
+            const projectileY = nearBubble.y + nearDist * 0.5
+
+            const state = makeState({
+                projectile: {
+                    x: projectileX,
+                    y: projectileY,
+                    vx: 0,
+                    vy: -5,
+                    color: 0xff0000,
+                },
+                grid: [[farBubble, nearBubble]],
+            })
+
+            const result = checkBubbleCollision(state, constants)
+            expect(result).not.toBeNull()
+            // Should return col 1 (nearBubble), not col 0 (farBubble)
+            // Verify by checking distance: returned bubble must be closer
+            if (result) {
+                const farDist = Math.hypot(
+                    projectileX - farBubble.x,
+                    projectileY - farBubble.y
+                )
+                const nearActualDist = Math.hypot(
+                    projectileX - nearBubble.x,
+                    projectileY - nearBubble.y
+                )
+                const returnedBubble = state.grid[result.row][result.col]
+                const returnedDist = Math.hypot(
+                    projectileX - returnedBubble!.x,
+                    projectileY - returnedBubble!.y
+                )
+                expect(returnedDist).toBeLessThanOrEqual(farDist)
+                expect(returnedDist).toBeCloseTo(nearActualDist, 5)
+            }
+        })
+
+        it('should return the only collided bubble when exactly one overlaps', () => {
+            // One bubble in range, one out of range — must return the one in range
+            const inRangeBubble = {
+                color: 0x00ff00,
+                x: getBubbleX(0, 0, constants),
+                y: getBubbleY(0, 0, constants),
+            }
+            const outOfRangeBubble = {
+                color: 0x0000ff,
+                x: getBubbleX(2, 0, constants),
+                y: getBubbleY(0, 0, constants),
+            }
+            const state = makeState({
+                projectile: {
+                    x: inRangeBubble.x + 1,
+                    y: inRangeBubble.y + 1,
+                    vx: 0,
+                    vy: -5,
+                    color: 0xff0000,
+                },
+                grid: [[inRangeBubble, null, outOfRangeBubble]],
+            })
+            const result = checkBubbleCollision(state, constants)
+            expect(result).toEqual({ row: 0, col: 0 })
+        })
     })
 
     describe('updateProjectile', () => {
