@@ -13,7 +13,7 @@ const evaderMarkup = readFileSync(
 
 describe('Game board page markup', () => {
     it('keeps Reflex and Evader default boards visible before start', () => {
-        expect(reflexMarkup).toMatch(/id="game-status"[\s\S]*class="hidden/)
-        expect(evaderMarkup).toMatch(/id="game-status"[\s\S]*class="hidden/)
+        expect(reflexMarkup).toMatch(/id="game-status"[^>]*class="[^"]*hidden/)
+        expect(evaderMarkup).toMatch(/id="game-status"[^>]*class="[^"]*hidden/)
     })
 })
