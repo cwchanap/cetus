@@ -446,5 +446,33 @@ describe('initializeEvaderGame', () => {
                 )
             ).not.toThrow()
         })
+
+        it('should release keys via keyup even when game is not active', async () => {
+            const callbacks = makeCallbacks()
+            const result = await initializeEvaderGame(container, callbacks)
+            result.startGame()
+
+            // Press a key while game is active
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowUp',
+                    bubbles: true,
+                })
+            )
+
+            // Stop the game while key is still held
+            result.stopGame()
+            await vi.runAllTimersAsync()
+
+            // Release the key AFTER game stopped — should not throw
+            expect(() =>
+                document.dispatchEvent(
+                    new KeyboardEvent('keyup', {
+                        key: 'ArrowUp',
+                        bubbles: true,
+                    })
+                )
+            ).not.toThrow()
+        })
     })
 })

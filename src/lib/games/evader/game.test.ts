@@ -319,6 +319,45 @@ describe('EvaderGame', () => {
         })
     })
 
+    describe('pressedKeys cleanup', () => {
+        it('should clear pressedKeys when game stops', () => {
+            game.startGame()
+            game.pressKey('ArrowUp')
+            game.pressKey('ArrowRight')
+            game.stopGame()
+
+            // Start a new game and verify no stuck movement
+            game.startGame()
+            const state = game.getState()
+            // Player should be at initial position (no stuck movement)
+            expect(state.player.x).toBe(config.playerSize / 2)
+            expect(state.player.y).toBe(config.canvasHeight / 2)
+        })
+
+        it('should not carry stuck keys into next game after stop with held keys', () => {
+            vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
+                setTimeout(cb, 16)
+                return 0
+            })
+
+            // First game: start, press a key, then stop while key is held
+            game.startGame()
+            game.pressKey('ArrowRight')
+            vi.advanceTimersByTime(50)
+            game.stopGame()
+
+            // Second game: start without releasing the key
+            game.startGame()
+            const startX = game.getState().player.x
+
+            // Advance time — player should NOT move because no keys are pressed
+            vi.advanceTimersByTime(200)
+            const afterX = game.getState().player.x
+
+            expect(afterX).toBe(startX)
+        })
+    })
+
     describe('timer guard when isGameActive is false', () => {
         it('should skip timer tick when isGameActive is false', () => {
             game.startGame()

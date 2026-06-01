@@ -143,7 +143,7 @@ export async function initializeEvaderGame(
             if (event.ctrlKey || event.metaKey || event.altKey) {
                 return
             }
-            if (movementKeys.has(event.key) && game.getState().isGameActive) {
+            if (movementKeys.has(event.key)) {
                 event.preventDefault()
                 game.releaseKey(event.key)
             }

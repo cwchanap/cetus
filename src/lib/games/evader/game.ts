@@ -63,6 +63,7 @@ export class EvaderGame {
         this.clearTimers()
         this.state.isGameActive = false
         this.state.isGameOver = true
+        this.pressedKeys.clear()
 
         const stats = this.generateGameStats()
         this.callbacks.onGameOver(this.state.score, stats)
