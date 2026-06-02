@@ -13,7 +13,7 @@ export class EvaderGame {
     private gameTimer: number | null = null
     private spawnTimer: number | null = null
     private lastUpdateTime: number = 0
-    private pressedKeys: Set<string> = new Set()
+    private rawHeldKeys: Set<string> = new Set()
 
     constructor(config: GameConfig, callbacks: GameCallbacks) {
         this.config = config
@@ -63,7 +63,7 @@ export class EvaderGame {
         this.clearTimers()
         this.state.isGameActive = false
         this.state.isGameOver = true
-        this.pressedKeys.clear()
+        this.rawHeldKeys.clear()
 
         const stats = this.generateGameStats()
         this.callbacks.onGameOver(this.state.score, stats)
@@ -141,11 +141,12 @@ export class EvaderGame {
     private update(deltaTime: number): void {
         // Update player position based on pressed keys
         if (this.state.isGameActive) {
+            const activeDirs = this.getActiveDirections()
             // Vertical movement
             let verticalVelocity = 0
-            if (this.pressedKeys.has('up')) {
+            if (activeDirs.has('up')) {
                 verticalVelocity = -this.config.playerSpeed
-            } else if (this.pressedKeys.has('down')) {
+            } else if (activeDirs.has('down')) {
                 verticalVelocity = this.config.playerSpeed
             }
             this.state.player.y += verticalVelocity * deltaTime
@@ -159,9 +160,9 @@ export class EvaderGame {
 
             // Horizontal movement
             let horizontalVelocity = 0
-            if (this.pressedKeys.has('left')) {
+            if (activeDirs.has('left')) {
                 horizontalVelocity = -this.config.playerSpeed
-            } else if (this.pressedKeys.has('right')) {
+            } else if (activeDirs.has('right')) {
                 horizontalVelocity = this.config.playerSpeed
             }
             this.state.player.x += horizontalVelocity * deltaTime
@@ -233,15 +234,12 @@ export class EvaderGame {
     public pressKey(key: string): void {
         const movementKey = normalizeMovementKey(key)
         if (movementKey) {
-            this.pressedKeys.add(movementKey)
+            this.rawHeldKeys.add(key)
         }
     }
 
     public releaseKey(key: string): void {
-        const movementKey = normalizeMovementKey(key)
-        if (movementKey) {
-            this.pressedKeys.delete(movementKey)
-        }
+        this.rawHeldKeys.delete(key)
     }
 
     private generateGameStats(): GameStats {
@@ -260,6 +258,23 @@ export class EvaderGame {
     public cleanup(): void {
         this.clearTimers()
         this.state.objects = []
+    }
+
+    /** Derive normalized direction set from currently held raw keys. */
+    private getActiveDirections(): Set<string> {
+        const dirs = new Set<string>()
+        for (const key of this.rawHeldKeys) {
+            const dir = normalizeMovementKey(key)
+            if (dir) {
+                dirs.add(dir)
+            }
+        }
+        return dirs
+    }
+
+    /** Exposed for tests — returns the normalized direction set. */
+    get pressedKeys(): Set<string> {
+        return this.getActiveDirections()
     }
 }
 
