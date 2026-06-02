@@ -380,4 +380,68 @@ describe('EvaderGame', () => {
             expect(game.getState().timeRemaining).toBe(timeBefore)
         })
     })
+
+    describe('alias key overlap', () => {
+        it('should preserve direction when one alias is released while the other is held', () => {
+            vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
+                setTimeout(cb, 16)
+                return 0
+            })
+
+            game.startGame()
+            const initialY = game.getState().player.y
+
+            // Hold both ArrowUp and W (both map to 'up')
+            game.pressKey('ArrowUp')
+            game.pressKey('w')
+
+            // Release only ArrowUp — W is still held, so movement should continue
+            game.releaseKey('ArrowUp')
+            vi.advanceTimersByTime(100)
+
+            const newY = game.getState().player.y
+            expect(newY).toBeLessThan(initialY)
+        })
+
+        it('should stop movement when both aliases are released', () => {
+            vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
+                setTimeout(cb, 16)
+                return 0
+            })
+
+            game.startGame()
+            const initialY = game.getState().player.y
+
+            game.pressKey('ArrowUp')
+            game.pressKey('w')
+            game.releaseKey('ArrowUp')
+            game.releaseKey('w')
+
+            // Both released — no movement
+            vi.advanceTimersByTime(100)
+            const afterReleaseY = game.getState().player.y
+            expect(afterReleaseY).toBe(initialY)
+        })
+
+        it('should work with horizontal aliases too', () => {
+            vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
+                setTimeout(cb, 16)
+                return 0
+            })
+
+            game.startGame()
+            const initialX = game.getState().player.x
+
+            // Hold both ArrowRight and D
+            game.pressKey('ArrowRight')
+            game.pressKey('d')
+
+            // Release ArrowRight — D still held
+            game.releaseKey('ArrowRight')
+            vi.advanceTimersByTime(100)
+
+            const newX = game.getState().player.x
+            expect(newX).toBeGreaterThan(initialX)
+        })
+    })
 })
