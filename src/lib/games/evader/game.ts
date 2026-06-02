@@ -240,6 +240,10 @@ export class EvaderGame {
 
     public releaseKey(key: string): void {
         this.rawHeldKeys.delete(key)
+        // Clear case variants to handle Shift state changes between keydown/keyup.
+        // e.g. press W (Shift held) adds 'W', release w (Shift released) must also remove 'W'.
+        this.rawHeldKeys.delete(key.toUpperCase())
+        this.rawHeldKeys.delete(key.toLowerCase())
     }
 
     private generateGameStats(): GameStats {

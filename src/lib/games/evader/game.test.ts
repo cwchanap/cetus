@@ -381,6 +381,52 @@ describe('EvaderGame', () => {
         })
     })
 
+    describe('case mismatch on release', () => {
+        it('should release direction when Shift changes casing between keydown and keyup', () => {
+            vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
+                setTimeout(cb, 16)
+                return 0
+            })
+
+            game.startGame()
+            const initialY = game.getState().player.y
+
+            // Simulate: user holds Shift, presses W (key reports 'W'),
+            // then releases Shift, then releases W (key reports 'w')
+            game.pressKey('W')
+            vi.advanceTimersByTime(100)
+            const movedY = game.getState().player.y
+            expect(movedY).toBeLessThan(initialY) // Moving up
+
+            // Release with different casing
+            game.releaseKey('w')
+            vi.advanceTimersByTime(100)
+            const afterReleaseY = game.getState().player.y
+            expect(afterReleaseY).toBe(movedY) // Stopped moving
+        })
+
+        it('should release direction when lowercase key is released as uppercase', () => {
+            vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
+                setTimeout(cb, 16)
+                return 0
+            })
+
+            game.startGame()
+            const initialX = game.getState().player.x
+
+            // Press 'd' normally, release as 'D' (e.g. Caps Lock toggled)
+            game.pressKey('d')
+            vi.advanceTimersByTime(100)
+            const movedX = game.getState().player.x
+            expect(movedX).toBeGreaterThan(initialX)
+
+            game.releaseKey('D')
+            vi.advanceTimersByTime(100)
+            const afterReleaseX = game.getState().player.x
+            expect(afterReleaseX).toBe(movedX) // Stopped moving
+        })
+    })
+
     describe('alias key overlap', () => {
         it('should preserve direction when one alias is released while the other is held', () => {
             vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
