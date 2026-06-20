@@ -2,14 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CircuitHackerGame } from './game'
 import type { CircuitHackerCallbacks, CircuitHackerConfig } from './types'
-
-function seededRng(seed: number): () => number {
-    let s = seed >>> 0
-    return () => {
-        s = (s * 1664525 + 1013904223) >>> 0
-        return s / 0xffffffff
-    }
-}
+import { seededRng } from './test-utils'
 
 const config: CircuitHackerConfig = { difficulty: 'easy', cellSize: 48 }
 

@@ -6,7 +6,7 @@ import type {
     Tile,
     TileType,
 } from './types'
-import { getBaseConnectors, rotateConnectors } from './utils'
+import { DELTA, getBaseConnectors, rotateConnectors } from './utils'
 
 export interface GeneratedPuzzle {
     grid: Tile[][]
@@ -16,12 +16,6 @@ export interface GeneratedPuzzle {
 }
 
 const ALL_DIRS: Direction[] = ['N', 'E', 'S', 'W']
-const DELTA: Record<Direction, { dr: number; dc: number }> = {
-    N: { dr: -1, dc: 0 },
-    E: { dr: 0, dc: 1 },
-    S: { dr: 1, dc: 0 },
-    W: { dr: 0, dc: -1 },
-}
 
 function key(pos: GridPosition): string {
     return `${pos.row},${pos.col}`
@@ -145,6 +139,15 @@ export function generatePuzzle(
         corePositions = shuffled.slice(1, 1 + cores)
         attempts++
     } while (attempts < 50 && !hasNonCoreNeighbor(sourcePos!, corePositions!))
+
+    // Guard against the (extremely unlikely) case where no shuffled layout
+    // produced a source with a non-core neighbor. Failing loudly here beats
+    // silently emitting a puzzle with no valid hub, which would be unsolvable.
+    if (!hasNonCoreNeighbor(sourcePos, corePositions)) {
+        throw new Error(
+            'generatePuzzle: could not place a source tile with a non-core neighbor within the retry limit'
+        )
+    }
 
     // Accumulate the directions each cell needs in the solved state.
     const required: Map<string, Set<Direction>> = new Map()

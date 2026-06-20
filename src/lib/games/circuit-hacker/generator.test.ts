@@ -3,15 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { generatePuzzle } from './generator'
 import { DIFFICULTY_CONFIGS, computePoweredCells } from './utils'
 import type { Difficulty, Tile } from './types'
-
-// Deterministic LCG so tests are reproducible
-function seededRng(seed: number): () => number {
-    let s = seed >>> 0
-    return () => {
-        s = (s * 1664525 + 1013904223) >>> 0
-        return s / 0xffffffff
-    }
-}
+import { seededRng } from './test-utils'
 
 const difficulties: Difficulty[] = ['easy', 'medium', 'hard', 'expert']
 
@@ -98,5 +90,20 @@ describe('generatePuzzle', () => {
                 }
             }
         }
+    })
+
+    it('throws when no source with a non-core neighbor can be placed', () => {
+        // A 1x1 grid has no neighbors, so the source invariant can never hold
+        // and the retry loop must give up after its attempt budget.
+        const tinyConfig = {
+            difficulty: 'easy' as Difficulty,
+            rows: 1,
+            cols: 1,
+            cores: 0,
+            blockers: 0,
+            duration: 1,
+            multiplier: 1,
+        }
+        expect(() => generatePuzzle(tinyConfig, seededRng(1))).toThrow()
     })
 })
