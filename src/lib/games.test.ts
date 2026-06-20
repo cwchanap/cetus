@@ -186,3 +186,24 @@ describe('Games System', () => {
         })
     })
 })
+
+describe('Circuit Hacker registration', () => {
+    it('has a GameID and registry entry', () => {
+        expect(GameID.CIRCUIT_HACKER).toBe('circuit_hacker')
+        const game = getGameById(GameID.CIRCUIT_HACKER)
+        expect(game).toBeDefined()
+        expect(game?.name).toBe('Circuit Hacker')
+        expect(game?.category).toBe('puzzle')
+        expect(game?.isActive).toBe(true)
+    })
+
+    it('has an icon', () => {
+        expect(getGameIcon(GameID.CIRCUIT_HACKER)).toBe('🔌')
+    })
+
+    it('is included in the GAMES list exactly once', () => {
+        expect(GAMES.filter(g => g.id === GameID.CIRCUIT_HACKER)).toHaveLength(
+            1
+        )
+    })
+})
