@@ -232,7 +232,7 @@ const GAME_ICONS: Record<GameID, string> = {
     [GameID.EVADER]: '🏃',
     [GameID.SNAKE]: '🐍',
     [GameID.GAME_2048]: '🎯',
-    [GameID.CIRCUIT_HACKER]: '⚡',
+    [GameID.CIRCUIT_HACKER]: '🔌',
 }
 
 // Game icon helper function
