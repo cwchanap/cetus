@@ -7,6 +7,9 @@ import {
     cellsConnect,
     computePoweredCells,
     isSolved,
+    DIFFICULTY_CONFIGS,
+    countRotatableTiles,
+    computeFinalScore,
 } from './utils'
 import type { Tile, GridPosition } from './types'
 
@@ -96,5 +99,59 @@ describe('power flood-fill', () => {
         expect(powered[0][1]).toBe(false)
         expect(powered[0][2]).toBe(false)
         expect(isSolved(grid, source, cores)).toBe(false)
+    })
+})
+
+describe('difficulty configs & scoring', () => {
+    it('defines all four tiers with the agreed constants', () => {
+        expect(DIFFICULTY_CONFIGS.easy).toMatchObject({
+            rows: 5,
+            cols: 5,
+            cores: 1,
+            blockers: 0,
+            duration: 120,
+            multiplier: 1,
+        })
+        expect(DIFFICULTY_CONFIGS.expert).toMatchObject({
+            rows: 11,
+            cols: 11,
+            cores: 3,
+            blockers: 10,
+            duration: 300,
+            multiplier: 5,
+        })
+    })
+
+    it('counts only unlocked tiles as rotatable', () => {
+        const grid: Tile[][] = [
+            [t('source', 0, true), t('straight'), t('blocker', 0, true)],
+            [t('elbow'), t('core', 0, true), t('cross')],
+        ]
+        expect(countRotatableTiles(grid)).toBe(3)
+    })
+
+    it('computes final score with the agreed formula', () => {
+        // base 1000 + time 30*15=450 + rotationBonus max(0, 10*2 - 8)*25 = 300
+        // sum 1750 * multiplier 2 = 3500
+        expect(
+            computeFinalScore({
+                secondsRemaining: 30,
+                rotationsUsed: 8,
+                rotatableTileCount: 10,
+                multiplier: 2,
+            })
+        ).toBe(3500)
+    })
+
+    it('floors rotation bonus at zero when over budget', () => {
+        // base 1000 + 0 time + max(0, 2*2 - 99)*25 = 0 -> 1000 * 1
+        expect(
+            computeFinalScore({
+                secondsRemaining: 0,
+                rotationsUsed: 99,
+                rotatableTileCount: 2,
+                multiplier: 1,
+            })
+        ).toBe(1000)
     })
 })

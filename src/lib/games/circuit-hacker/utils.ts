@@ -1,4 +1,11 @@
-import type { Direction, GridPosition, Tile, TileType } from './types'
+import type {
+    Direction,
+    GridPosition,
+    Tile,
+    TileType,
+    Difficulty,
+    DifficultyConfig,
+} from './types'
 
 const CLOCKWISE: Direction[] = ['N', 'E', 'S', 'W']
 
@@ -103,4 +110,69 @@ export function isSolved(
 ): boolean {
     const powered = computePoweredCells(grid, source)
     return cores.every(core => powered[core.row][core.col])
+}
+
+export const DIFFICULTY_CONFIGS: Record<Difficulty, DifficultyConfig> = {
+    easy: {
+        difficulty: 'easy',
+        rows: 5,
+        cols: 5,
+        cores: 1,
+        blockers: 0,
+        duration: 120,
+        multiplier: 1,
+    },
+    medium: {
+        difficulty: 'medium',
+        rows: 7,
+        cols: 7,
+        cores: 1,
+        blockers: 3,
+        duration: 180,
+        multiplier: 2,
+    },
+    hard: {
+        difficulty: 'hard',
+        rows: 9,
+        cols: 9,
+        cores: 2,
+        blockers: 6,
+        duration: 240,
+        multiplier: 3.5,
+    },
+    expert: {
+        difficulty: 'expert',
+        rows: 11,
+        cols: 11,
+        cores: 3,
+        blockers: 10,
+        duration: 300,
+        multiplier: 5,
+    },
+}
+
+export function countRotatableTiles(grid: Tile[][]): number {
+    let count = 0
+    for (const row of grid) {
+        for (const tile of row) {
+            if (!tile.locked) {
+                count++
+            }
+        }
+    }
+    return count
+}
+
+export function computeFinalScore(params: {
+    secondsRemaining: number
+    rotationsUsed: number
+    rotatableTileCount: number
+    multiplier: number
+}): number {
+    const base = 1000
+    const timeBonus = params.secondsRemaining * 15
+    const rotationBudget = params.rotatableTileCount * 2
+    const rotationBonus =
+        Math.max(0, rotationBudget - params.rotationsUsed) * 25
+    return Math.round((base + timeBonus + rotationBonus) * params.multiplier)
 }
