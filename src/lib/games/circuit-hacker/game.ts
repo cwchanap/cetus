@@ -1,0 +1,203 @@
+// src/lib/games/circuit-hacker/game.ts
+import type {
+    CircuitHackerCallbacks,
+    CircuitHackerConfig,
+    CircuitHackerState,
+    CircuitHackerStats,
+} from './types'
+import {
+    DIFFICULTY_CONFIGS,
+    computePoweredCells,
+    countRotatableTiles,
+    computeFinalScore,
+    isSolved,
+} from './utils'
+import { generatePuzzle, type GeneratedPuzzle } from './generator'
+
+export class CircuitHackerGame {
+    private config: CircuitHackerConfig
+    private callbacks: CircuitHackerCallbacks
+    private rng: () => number
+    private state: CircuitHackerState
+    private puzzle: GeneratedPuzzle
+    private timer: number | null = null
+
+    constructor(
+        config: CircuitHackerConfig,
+        callbacks: CircuitHackerCallbacks,
+        rng: () => number = Math.random
+    ) {
+        this.config = config
+        this.callbacks = callbacks
+        this.rng = rng
+        this.puzzle = this.buildPuzzle()
+        this.state = this.buildInitialState()
+    }
+
+    private buildPuzzle(): GeneratedPuzzle {
+        return generatePuzzle(
+            DIFFICULTY_CONFIGS[this.config.difficulty],
+            this.rng
+        )
+    }
+
+    private buildInitialState(): CircuitHackerState {
+        const tier = DIFFICULTY_CONFIGS[this.config.difficulty]
+        const state: CircuitHackerState = {
+            grid: this.puzzle.grid,
+            sourcePos: this.puzzle.sourcePos,
+            corePositions: this.puzzle.corePositions,
+            rows: tier.rows,
+            cols: tier.cols,
+            score: 0,
+            timeRemaining: tier.duration,
+            rotationsUsed: 0,
+            isGameActive: false,
+            isGameOver: false,
+            solved: false,
+        }
+        this.applyPower(state)
+        return state
+    }
+
+    private applyPower(state: CircuitHackerState): void {
+        const powered = computePoweredCells(state.grid, state.sourcePos)
+        for (let r = 0; r < state.rows; r++) {
+            for (let c = 0; c < state.cols; c++) {
+                state.grid[r][c].powered = powered[r][c]
+            }
+        }
+    }
+
+    startGame(): void {
+        if (this.state.isGameActive) {
+            return
+        }
+        // Fresh puzzle each run at the configured difficulty.
+        this.puzzle = this.buildPuzzle()
+        this.state = this.buildInitialState()
+        this.state.isGameActive = true
+
+        this.callbacks.onGameStart()
+        this.callbacks.onTimeUpdate(this.state.timeRemaining)
+
+        this.timer = window.setInterval(() => {
+            if (!this.state.isGameActive) {
+                return
+            }
+            this.state.timeRemaining--
+            this.callbacks.onTimeUpdate(this.state.timeRemaining)
+            if (this.state.timeRemaining <= 0) {
+                this.fail()
+            }
+        }, 1000)
+    }
+
+    rotateTile(row: number, col: number): void {
+        if (!this.state.isGameActive) {
+            return
+        }
+        if (
+            row < 0 ||
+            row >= this.state.rows ||
+            col < 0 ||
+            col >= this.state.cols
+        ) {
+            return
+        }
+        const tile = this.state.grid[row][col]
+        if (tile.locked) {
+            return
+        }
+
+        tile.orientation = (tile.orientation + 1) % 4
+        this.state.rotationsUsed++
+        this.applyPower(this.state)
+        this.callbacks.onRotation(this.state.rotationsUsed)
+
+        if (
+            isSolved(
+                this.state.grid,
+                this.state.sourcePos,
+                this.state.corePositions
+            )
+        ) {
+            this.solve()
+        }
+    }
+
+    private solve(): void {
+        this.clearTimer()
+        this.state.isGameActive = false
+        this.state.isGameOver = true
+        this.state.solved = true
+        this.state.score = computeFinalScore({
+            secondsRemaining: this.state.timeRemaining,
+            rotationsUsed: this.state.rotationsUsed,
+            rotatableTileCount: countRotatableTiles(this.state.grid),
+            multiplier: DIFFICULTY_CONFIGS[this.config.difficulty].multiplier,
+        })
+        this.callbacks.onSolved(this.state.score, this.getStats())
+    }
+
+    private fail(): void {
+        this.clearTimer()
+        this.state.isGameActive = false
+        this.state.isGameOver = true
+        this.state.solved = false
+        this.state.timeRemaining = Math.max(0, this.state.timeRemaining)
+        this.callbacks.onFail(this.getStats())
+    }
+
+    stopGame(): void {
+        if (!this.state.isGameActive) {
+            return
+        }
+        this.fail()
+    }
+
+    getState(): CircuitHackerState {
+        return this.state
+    }
+
+    getStats(): CircuitHackerStats {
+        return {
+            finalScore: this.state.score,
+            difficulty: this.config.difficulty,
+            secondsRemaining: this.state.timeRemaining,
+            rotationsUsed: this.state.rotationsUsed,
+            solved: this.state.solved,
+        }
+    }
+
+    private clearTimer(): void {
+        if (this.timer !== null) {
+            clearInterval(this.timer)
+            this.timer = null
+        }
+    }
+
+    cleanup(): void {
+        this.clearTimer()
+    }
+
+    /** Test-only helper: rotate every tile into the known solution. */
+    solveForTest(): void {
+        for (let r = 0; r < this.state.rows; r++) {
+            for (let c = 0; c < this.state.cols; c++) {
+                this.state.grid[r][c].orientation =
+                    this.puzzle.solutionOrientations[r][c]
+            }
+        }
+        this.applyPower(this.state)
+        if (
+            isSolved(
+                this.state.grid,
+                this.state.sourcePos,
+                this.state.corePositions
+            )
+        ) {
+            this.solve()
+        }
+    }
+}
