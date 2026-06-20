@@ -121,9 +121,30 @@ export function generatePuzzle(
         }
     }
 
-    const shuffled = shuffle(allCells, rng)
-    const sourcePos = shuffled[0]
-    const corePositions = shuffled.slice(1, 1 + cores)
+    const hasNonCoreNeighbor = (
+        source: GridPosition,
+        coreSet: GridPosition[]
+    ): boolean =>
+        ALL_DIRS.some(d => {
+            const n = {
+                row: source.row + DELTA[d].dr,
+                col: source.col + DELTA[d].dc,
+            }
+            return (
+                inBounds(n, rows, cols) &&
+                !coreSet.some(c => c.row === n.row && c.col === n.col)
+            )
+        })
+
+    let sourcePos: GridPosition
+    let corePositions: GridPosition[]
+    let attempts = 0
+    do {
+        const shuffled = shuffle(allCells, rng)
+        sourcePos = shuffled[0]
+        corePositions = shuffled.slice(1, 1 + cores)
+        attempts++
+    } while (attempts < 50 && !hasNonCoreNeighbor(sourcePos!, corePositions!))
 
     // Accumulate the directions each cell needs in the solved state.
     const required: Map<string, Set<Direction>> = new Map()
