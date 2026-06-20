@@ -12,6 +12,7 @@ export enum GameID {
     EVADER = 'evader',
     SNAKE = 'snake',
     GAME_2048 = '2048',
+    CIRCUIT_HACKER = 'circuit_hacker',
 }
 
 // Game system types
@@ -231,6 +232,7 @@ const GAME_ICONS: Record<GameID, string> = {
     [GameID.EVADER]: '🏃',
     [GameID.SNAKE]: '🐍',
     [GameID.GAME_2048]: '🎯',
+    [GameID.CIRCUIT_HACKER]: '⚡',
 }
 
 // Game icon helper function
