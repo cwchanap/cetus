@@ -1,5 +1,5 @@
 // src/lib/games/circuit-hacker/renderer.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('pixi.js', () => {
     const makeGraphics = () => {
@@ -55,6 +55,10 @@ describe('circuit-hacker renderer', () => {
     beforeEach(() => {
         container = document.createElement('div')
         document.body.appendChild(container)
+    })
+
+    afterEach(() => {
+        container.remove()
     })
 
     it('initializes a PixiJS app sized to the grid', async () => {
