@@ -5,13 +5,22 @@ import {
     getBaseConnectors,
     getConnectors,
     cellsConnect,
+    computePoweredCells,
+    isSolved,
 } from './utils'
-import type { Tile } from './types'
+import type { Tile, GridPosition } from './types'
 
 const tile = (type: Tile['type'], orientation = 0): Tile => ({
     type,
     orientation,
     locked: false,
+    powered: false,
+})
+
+const t = (type: Tile['type'], orientation = 0, locked = false): Tile => ({
+    type,
+    orientation,
+    locked,
     powered: false,
 })
 
@@ -56,5 +65,36 @@ describe('connector math', () => {
         ).toBe(false)
         // blocker never connects
         expect(cellsConnect(tile('cross'), 'E', tile('blocker'))).toBe(false)
+    })
+})
+
+describe('power flood-fill', () => {
+    // 1x3 row: source(→E) — straight(horizontal) — core(←W)
+    // source base 'N' rotated to 'E' = orientation 1
+    // core base 'N' rotated to 'W' = orientation 3
+    const source: GridPosition = { row: 0, col: 0 }
+    const cores: GridPosition[] = [{ row: 0, col: 2 }]
+
+    it('powers a fully connected line', () => {
+        const grid: Tile[][] = [
+            [t('source', 1, true), t('straight', 1), t('core', 3, true)],
+        ]
+        const powered = computePoweredCells(grid, source)
+        expect(powered[0][0]).toBe(true)
+        expect(powered[0][1]).toBe(true)
+        expect(powered[0][2]).toBe(true)
+        expect(isSolved(grid, source, cores)).toBe(true)
+    })
+
+    it('does not power past a broken connection', () => {
+        // middle straight left vertical (orientation 0 -> N,S) breaks the row
+        const grid: Tile[][] = [
+            [t('source', 1, true), t('straight', 0), t('core', 3, true)],
+        ]
+        const powered = computePoweredCells(grid, source)
+        expect(powered[0][0]).toBe(true)
+        expect(powered[0][1]).toBe(false)
+        expect(powered[0][2]).toBe(false)
+        expect(isSolved(grid, source, cores)).toBe(false)
     })
 })
