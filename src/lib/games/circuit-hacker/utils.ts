@@ -63,7 +63,7 @@ export function cellsConnect(from: Tile, dir: Direction, to: Tile): boolean {
     )
 }
 
-const DELTA: Record<Direction, { dr: number; dc: number }> = {
+export const DELTA: Record<Direction, { dr: number; dc: number }> = {
     N: { dr: -1, dc: 0 },
     E: { dr: 0, dc: 1 },
     S: { dr: 1, dc: 0 },
