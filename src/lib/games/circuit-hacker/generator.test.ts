@@ -56,6 +56,33 @@ describe('generatePuzzle', () => {
         }
     })
 
+    it('generates solvable puzzles across many seeds for every difficulty', () => {
+        const lcg = (seed: number) => {
+            let s = seed >>> 0
+            return () => {
+                s = (1664525 * s + 1013904223) >>> 0
+                return s / 0xffffffff
+            }
+        }
+        for (const diff of ['easy', 'medium', 'hard', 'expert'] as const) {
+            const cfg = DIFFICULTY_CONFIGS[diff]
+            for (let seed = 1; seed <= 100; seed++) {
+                const puzzle = generatePuzzle(cfg, lcg(seed))
+                const solved = puzzle.grid.map((row, r) =>
+                    row.map((tile, c) => ({
+                        ...tile,
+                        orientation: puzzle.solutionOrientations[r][c],
+                    }))
+                )
+                const powered = computePoweredCells(solved, puzzle.sourcePos)
+                const allCoresPowered = puzzle.corePositions.every(
+                    cp => powered[cp.row][cp.col]
+                )
+                expect(allCoresPowered, `${diff} seed ${seed}`).toBe(true)
+            }
+        }
+    })
+
     it('marks source, core and blocker tiles as locked', () => {
         const puzzle = generatePuzzle(DIFFICULTY_CONFIGS.hard, seededRng(3))
         for (const row of puzzle.grid) {
