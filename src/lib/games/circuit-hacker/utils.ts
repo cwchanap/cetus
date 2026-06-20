@@ -1,4 +1,4 @@
-import type { Direction, Tile, TileType } from './types'
+import type { Direction, GridPosition, Tile, TileType } from './types'
 
 const CLOCKWISE: Direction[] = ['N', 'E', 'S', 'W']
 
@@ -54,4 +54,53 @@ export function cellsConnect(from: Tile, dir: Direction, to: Tile): boolean {
         getConnectors(from).includes(dir) &&
         getConnectors(to).includes(oppositeDirection(dir))
     )
+}
+
+const DELTA: Record<Direction, { dr: number; dc: number }> = {
+    N: { dr: -1, dc: 0 },
+    E: { dr: 0, dc: 1 },
+    S: { dr: 1, dc: 0 },
+    W: { dr: 0, dc: -1 },
+}
+
+export function computePoweredCells(
+    grid: Tile[][],
+    source: GridPosition
+): boolean[][] {
+    const rows = grid.length
+    const cols = rows > 0 ? grid[0].length : 0
+    const powered: boolean[][] = grid.map(row => row.map(() => false))
+
+    const queue: GridPosition[] = [source]
+    powered[source.row][source.col] = true
+
+    while (queue.length > 0) {
+        const { row, col } = queue.shift() as GridPosition
+        const from = grid[row][col]
+        for (const dir of ['N', 'E', 'S', 'W'] as Direction[]) {
+            const nr = row + DELTA[dir].dr
+            const nc = col + DELTA[dir].dc
+            if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) {
+                continue
+            }
+            if (powered[nr][nc]) {
+                continue
+            }
+            if (cellsConnect(from, dir, grid[nr][nc])) {
+                powered[nr][nc] = true
+                queue.push({ row: nr, col: nc })
+            }
+        }
+    }
+
+    return powered
+}
+
+export function isSolved(
+    grid: Tile[][],
+    source: GridPosition,
+    cores: GridPosition[]
+): boolean {
+    const powered = computePoweredCells(grid, source)
+    return cores.every(core => powered[core.row][core.col])
 }
