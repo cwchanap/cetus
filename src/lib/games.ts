@@ -172,6 +172,18 @@ export const GAMES: Game[] = [
         tags: ['puzzle', 'numbers', 'strategy', 'single-player', 'classic'],
         isActive: true,
     },
+    {
+        id: GameID.CIRCUIT_HACKER,
+        name: 'Circuit Hacker',
+        description:
+            'Rotate circuit tiles to power a path from the source to the core before time runs out',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '2-5 minutes',
+        difficulty: 'medium',
+        tags: ['puzzle', 'logic', 'circuit', 'single-player', 'rotation'],
+        isActive: true,
+    },
 ]
 
 // Helper functions
