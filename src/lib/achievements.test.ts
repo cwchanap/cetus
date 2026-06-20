@@ -656,3 +656,44 @@ describe('Achievement in_game condition checks', () => {
         })
     })
 })
+
+describe('Circuit Hacker achievements', () => {
+    it('registers achievements for circuit hacker', () => {
+        const list = getAchievementsByGame(GameID.CIRCUIT_HACKER)
+        expect(list.map(a => a.id)).toEqual(
+            expect.arrayContaining([
+                'circuit_hacker_welcome',
+                'circuit_hacker_hard',
+                'circuit_hacker_expert',
+                'circuit_hacker_speed',
+            ])
+        )
+    })
+
+    it('awards the hard achievement only for a solved hard run', () => {
+        const hard = ACHIEVEMENTS.find(a => a.id === 'circuit_hacker_hard')!
+        expect(hard.condition.check).toBeDefined()
+        expect(
+            hard.condition.check!(
+                {
+                    difficulty: 'hard',
+                    secondsRemaining: 5,
+                    rotationsUsed: 3,
+                    solved: true,
+                },
+                1000
+            )
+        ).toBe(true)
+        expect(
+            hard.condition.check!(
+                {
+                    difficulty: 'easy',
+                    secondsRemaining: 5,
+                    rotationsUsed: 3,
+                    solved: true,
+                },
+                1000
+            )
+        ).toBe(false)
+    })
+})

@@ -100,6 +100,14 @@ export interface SnakeGameData {
     maxLength: number
 }
 
+// Circuit Hacker-specific game data
+export interface CircuitHackerGameData {
+    difficulty: 'easy' | 'medium' | 'hard' | 'expert'
+    secondsRemaining: number
+    rotationsUsed: number
+    solved: boolean
+}
+
 // Union type for all game data
 export type GameData =
     | TetrisGameData
@@ -114,6 +122,7 @@ export type GameData =
     | EvaderGameData
     | Game2048Data
     | SnakeGameData
+    | CircuitHackerGameData
 
 // Common game stats returned from games
 export interface GameStats {

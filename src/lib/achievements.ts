@@ -8,6 +8,7 @@ import type {
     Game2048Data,
     SnakeGameData,
     WordScrambleGameData,
+    CircuitHackerGameData,
     GameHistoryEntry,
 } from './games/shared/types'
 
@@ -28,6 +29,7 @@ export type AchievementCheckData =
     | Game2048Data
     | SnakeGameData
     | WordScrambleGameData
+    | CircuitHackerGameData
     | Record<string, unknown>
 
 export interface Achievement {
@@ -1221,6 +1223,67 @@ export const ACHIEVEMENTS: Achievement[] = [
             check: (gameData: { maxTile: number }) => gameData.maxTile >= 4096,
         },
         rarity: AchievementRarity.LEGENDARY,
+    },
+
+    // Circuit Hacker achievements
+    {
+        id: 'circuit_hacker_welcome',
+        name: 'First Connection',
+        description:
+            'Welcome to Circuit Hacker! You powered your first circuit.',
+        logo: '🔌',
+        gameId: GameID.CIRCUIT_HACKER,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'circuit_hacker_hard',
+        name: 'Hard Wired',
+        description: 'Solve a Circuit Hacker puzzle on Hard difficulty.',
+        logo: '⚡',
+        gameId: GameID.CIRCUIT_HACKER,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as CircuitHackerGameData
+                return data.difficulty === 'hard' && data.solved === true
+            },
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: 'circuit_hacker_expert',
+        name: 'Master Hacker',
+        description: 'Solve a Circuit Hacker puzzle on Expert difficulty.',
+        logo: '🧠',
+        gameId: GameID.CIRCUIT_HACKER,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as CircuitHackerGameData
+                return data.difficulty === 'expert' && data.solved === true
+            },
+        },
+        rarity: AchievementRarity.LEGENDARY,
+    },
+    {
+        id: 'circuit_hacker_speed',
+        name: 'Quick Hack',
+        description:
+            'Solve a Circuit Hacker puzzle with at least 60 seconds left.',
+        logo: '⏱️',
+        gameId: GameID.CIRCUIT_HACKER,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as CircuitHackerGameData
+                return data.solved === true && data.secondsRemaining >= 60
+            },
+        },
+        rarity: AchievementRarity.RARE,
     },
 ]
 
