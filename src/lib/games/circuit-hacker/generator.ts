@@ -46,9 +46,10 @@ function findPath(
     goal: GridPosition,
     rows: number,
     cols: number,
-    rng: () => number
+    rng: () => number,
+    blocked: Set<string> = new Set()
 ): GridPosition[] | null {
-    const visited = new Set<string>([key(start)])
+    const visited = new Set<string>([key(start), ...blocked])
     const stack: GridPosition[][] = [[start]]
 
     while (stack.length > 0) {
@@ -146,9 +147,37 @@ export function generatePuzzle(
         return 'W'
     }
 
+    const coreKeys = new Set(corePositions.map(key))
+
+    // The source has a single connector, so it emits one trunk to a hub
+    // neighbor; every core path branches off that hub. Paths never route
+    // through the source or another core (those tiles have one connector).
+    const sourceNeighbors = shuffle(
+        ALL_DIRS.map(d => ({
+            row: sourcePos.row + DELTA[d].dr,
+            col: sourcePos.col + DELTA[d].dc,
+        })).filter(n => inBounds(n, rows, cols) && !coreKeys.has(key(n))),
+        rng
+    )
+    const hub = sourceNeighbors[0]
+    const hasHub = hub !== undefined
+
     const pathCells = new Set<string>([key(sourcePos)])
+    if (hasHub) {
+        pathCells.add(key(hub))
+        addDir(sourcePos, dirBetween(sourcePos, hub))
+        addDir(hub, dirBetween(hub, sourcePos))
+    }
+
     for (const core of corePositions) {
-        const path = findPath(sourcePos, core, rows, cols, rng)
+        const blocked = new Set<string>([key(sourcePos)])
+        for (const other of corePositions) {
+            if (key(other) !== key(core)) {
+                blocked.add(key(other))
+            }
+        }
+        const start = hasHub ? hub : sourcePos
+        const path = findPath(start, core, rows, cols, rng, blocked)
         if (!path) {
             continue
         }
