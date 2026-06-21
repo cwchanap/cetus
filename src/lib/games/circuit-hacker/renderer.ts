@@ -44,7 +44,9 @@ export async function setupPixiJS(
 
         return { app, tileGraphic }
     } catch (error) {
-        container.innerHTML = ''
+        while (container.firstChild) {
+            container.removeChild(container.firstChild)
+        }
         throw new Error(`Failed to initialize PixiJS: ${error}`)
     }
 }
