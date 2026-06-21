@@ -56,9 +56,12 @@ describe('generatePuzzle', () => {
                 return s / 0xffffffff
             }
         }
+        // 5000 seeds/difficulty gives >99% chance of catching a bug that
+        // occurs at ~1/1500 frequency (the rate observed before the
+        // findPath/backtracking fix). 100 seeds only gave ~7%.
         for (const diff of ['easy', 'medium', 'hard', 'expert'] as const) {
             const cfg = DIFFICULTY_CONFIGS[diff]
-            for (let seed = 1; seed <= 100; seed++) {
+            for (let seed = 1; seed <= 5000; seed++) {
                 const puzzle = generatePuzzle(cfg, lcg(seed))
                 const solved = puzzle.grid.map((row, r) =>
                     row.map((tile, c) => ({

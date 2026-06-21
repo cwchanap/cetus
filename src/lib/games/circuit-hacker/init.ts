@@ -139,10 +139,13 @@ export async function initializeCircuitHackerGame(
                         }
                     )
                 },
-                onFail: stats => {
+                onFail: (stats, reason) => {
                     render()
                     resetButtons()
-                    showOverlay("TIME'S UP!", stats)
+                    showOverlay(
+                        reason === 'manual' ? 'GAME OVER' : "TIME'S UP!",
+                        stats
+                    )
                     callbacks.onEnd(stats)
                 },
             }

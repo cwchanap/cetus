@@ -187,6 +187,22 @@ const gameNavigation = [
         const difficultySelect = document.getElementById(
           'difficulty-select'
         ) as HTMLSelectElement
+        const errorContainer = document.getElementById('game-error')!
+        const errorTitle = document.getElementById('game-error-title')!
+        const errorMessage = document.getElementById('game-error-message')!
+
+        const showError = (title: string, message: string) => {
+          statusEl.classList.add('hidden')
+          errorTitle.textContent = title
+          errorMessage.textContent = message
+          errorContainer.style.display = 'flex'
+        }
+
+        const resetButtonState = () => {
+          startBtn.style.display = 'inline-flex'
+          stopBtn.style.display = 'none'
+          difficultySelect.disabled = false
+        }
 
         try {
           gameHandle = await initializeCircuitHackerGame(container, {
@@ -210,7 +226,12 @@ const gameNavigation = [
           startBtn.addEventListener('click', async () => {
             difficultySelect.disabled = true
             rotationEl.textContent = '0'
-            await gameHandle!.start(difficultySelect.value as Difficulty)
+            try {
+              await gameHandle!.start(difficultySelect.value as Difficulty)
+            } catch (error) {
+              showError('Failed to Start Game', String(error))
+              resetButtonState()
+            }
           })
 
           stopBtn.addEventListener('click', () => {
@@ -225,13 +246,7 @@ const gameNavigation = [
             difficultySelect.disabled = false
           })
         } catch (error) {
-          const errorContainer = document.getElementById('game-error')!
-          const errorTitle = document.getElementById('game-error-title')!
-          const errorMessage = document.getElementById('game-error-message')!
-          statusEl.classList.add('hidden')
-          errorTitle.textContent = 'Failed to Load Game'
-          errorMessage.textContent = String(error)
-          errorContainer.style.display = 'flex'
+          showError('Failed to Load Game', String(error))
         }
       }
 

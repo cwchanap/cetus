@@ -78,10 +78,13 @@ export interface CircuitHackerState {
     solved: boolean
 }
 
+// Why a run ended in failure: the timer expired or the player stopped early.
+export type FailReason = 'timeout' | 'manual'
+
 export interface CircuitHackerCallbacks {
     onTimeUpdate: (timeRemaining: number) => void
     onRotation: (rotationsUsed: number) => void
     onSolved: (finalScore: number, stats: CircuitHackerStats) => void
-    onFail: (stats: CircuitHackerStats) => void
+    onFail: (stats: CircuitHackerStats, reason: FailReason) => void
     onGameStart: () => void
 }

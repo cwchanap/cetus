@@ -4,6 +4,7 @@ import type {
     CircuitHackerConfig,
     CircuitHackerState,
     CircuitHackerStats,
+    FailReason,
 } from './types'
 import {
     DIFFICULTY_CONFIGS,
@@ -19,7 +20,7 @@ export class CircuitHackerGame {
     private callbacks: CircuitHackerCallbacks
     private rng: () => number
     private state: CircuitHackerState
-    private puzzle: GeneratedPuzzle
+    private puzzle: GeneratedPuzzle | null = null
     private timer: number | null = null
 
     constructor(
@@ -30,8 +31,10 @@ export class CircuitHackerGame {
         this.config = config
         this.callbacks = callbacks
         this.rng = rng
-        this.puzzle = this.buildPuzzle()
-        this.state = this.buildInitialState()
+        // The puzzle is built lazily in startGame(); the constructor only
+        // sets up an empty placeholder state so getState() is safe to call
+        // before a run begins.
+        this.state = this.buildEmptyState()
     }
 
     private buildPuzzle(): GeneratedPuzzle {
@@ -41,12 +44,29 @@ export class CircuitHackerGame {
         )
     }
 
-    private buildInitialState(): CircuitHackerState {
+    private buildEmptyState(): CircuitHackerState {
+        const tier = DIFFICULTY_CONFIGS[this.config.difficulty]
+        return {
+            grid: [],
+            sourcePos: { row: 0, col: 0 },
+            corePositions: [],
+            rows: tier.rows,
+            cols: tier.cols,
+            score: 0,
+            timeRemaining: tier.duration,
+            rotationsUsed: 0,
+            isGameActive: false,
+            isGameOver: false,
+            solved: false,
+        }
+    }
+
+    private buildInitialState(puzzle: GeneratedPuzzle): CircuitHackerState {
         const tier = DIFFICULTY_CONFIGS[this.config.difficulty]
         const state: CircuitHackerState = {
-            grid: this.puzzle.grid,
-            sourcePos: this.puzzle.sourcePos,
-            corePositions: this.puzzle.corePositions,
+            grid: puzzle.grid,
+            sourcePos: puzzle.sourcePos,
+            corePositions: puzzle.corePositions,
             rows: tier.rows,
             cols: tier.cols,
             score: 0,
@@ -75,7 +95,7 @@ export class CircuitHackerGame {
         }
         // Fresh puzzle each run at the configured difficulty.
         this.puzzle = this.buildPuzzle()
-        this.state = this.buildInitialState()
+        this.state = this.buildInitialState(this.puzzle)
         this.state.isGameActive = true
 
         this.callbacks.onGameStart()
@@ -88,7 +108,7 @@ export class CircuitHackerGame {
             this.state.timeRemaining--
             this.callbacks.onTimeUpdate(this.state.timeRemaining)
             if (this.state.timeRemaining <= 0) {
-                this.fail()
+                this.fail('timeout')
             }
         }, 1000)
     }
@@ -140,20 +160,20 @@ export class CircuitHackerGame {
         this.callbacks.onSolved(this.state.score, this.getStats())
     }
 
-    private fail(): void {
+    private fail(reason: FailReason): void {
         this.clearTimer()
         this.state.isGameActive = false
         this.state.isGameOver = true
         this.state.solved = false
         this.state.timeRemaining = Math.max(0, this.state.timeRemaining)
-        this.callbacks.onFail(this.getStats())
+        this.callbacks.onFail(this.getStats(), reason)
     }
 
     stopGame(): void {
         if (!this.state.isGameActive) {
             return
         }
-        this.fail()
+        this.fail('manual')
     }
 
     getState(): CircuitHackerState {
@@ -183,6 +203,9 @@ export class CircuitHackerGame {
 
     /** Test-only helper: rotate every tile into the known solution. */
     solveForTest(): void {
+        if (!this.puzzle) {
+            return
+        }
         for (let r = 0; r < this.state.rows; r++) {
             for (let c = 0; c < this.state.cols; c++) {
                 this.state.grid[r][c].orientation =
