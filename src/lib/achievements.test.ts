@@ -696,4 +696,80 @@ describe('Circuit Hacker achievements', () => {
             )
         ).toBe(false)
     })
+
+    it('awards the expert achievement only for a solved expert run', () => {
+        const expert = ACHIEVEMENTS.find(a => a.id === 'circuit_hacker_expert')!
+        expect(expert.condition.check).toBeDefined()
+        expect(
+            expert.condition.check!(
+                {
+                    difficulty: 'expert',
+                    secondsRemaining: 5,
+                    rotationsUsed: 3,
+                    solved: true,
+                },
+                1000
+            )
+        ).toBe(true)
+        expect(
+            expert.condition.check!(
+                {
+                    difficulty: 'hard',
+                    secondsRemaining: 5,
+                    rotationsUsed: 3,
+                    solved: true,
+                },
+                1000
+            )
+        ).toBe(false)
+        expect(
+            expert.condition.check!(
+                {
+                    difficulty: 'expert',
+                    secondsRemaining: 5,
+                    rotationsUsed: 3,
+                    solved: false,
+                },
+                1000
+            )
+        ).toBe(false)
+    })
+
+    it('awards the speed achievement only when solved with at least 60 seconds left', () => {
+        const speed = ACHIEVEMENTS.find(a => a.id === 'circuit_hacker_speed')!
+        expect(speed.condition.check).toBeDefined()
+        expect(
+            speed.condition.check!(
+                {
+                    difficulty: 'easy',
+                    secondsRemaining: 60,
+                    rotationsUsed: 3,
+                    solved: true,
+                },
+                1000
+            )
+        ).toBe(true)
+        expect(
+            speed.condition.check!(
+                {
+                    difficulty: 'easy',
+                    secondsRemaining: 59,
+                    rotationsUsed: 3,
+                    solved: true,
+                },
+                1000
+            )
+        ).toBe(false)
+        expect(
+            speed.condition.check!(
+                {
+                    difficulty: 'easy',
+                    secondsRemaining: 120,
+                    rotationsUsed: 3,
+                    solved: false,
+                },
+                1000
+            )
+        ).toBe(false)
+    })
 })

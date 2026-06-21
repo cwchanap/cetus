@@ -77,7 +77,9 @@ export async function initializeCircuitHackerGame(
             renderer = null
         }
         pointerHandler = null
-        container.innerHTML = ''
+        while (container.firstChild) {
+            container.removeChild(container.firstChild)
+        }
     }
 
     const render = () => {
