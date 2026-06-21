@@ -141,15 +141,16 @@ function findPath(
 }
 
 // Pick the tile type + orientation whose connectors equal a required dir set.
+// Returns null when no connectors are required (a degenerate layout the caller
+// should retry rather than emit), so defensive failures route through the
+// retry loop instead of bypassing it via a thrown exception.
 function tileForDirections(dirs: Set<Direction>): {
     type: TileType
     orientation: number
-} {
+} | null {
     const required = ALL_DIRS.filter(d => dirs.has(d))
     if (required.length === 0) {
-        throw new Error(
-            'tileForDirections: no connectors required for path cell'
-        )
+        return null
     }
     if (required.length === 1) {
         // Only occurs for the hub in a degenerate cores=0 layout: a stub off
@@ -324,6 +325,12 @@ function tryGenerate(
                 locked = true
             } else if (pathCells.has(k)) {
                 const t = tileForDirections(dirs)
+                if (!t) {
+                    // Degenerate layout (path cell with no required
+                    // connectors). Signal the caller to retry with a fresh
+                    // layout rather than emitting an unsolvable tile.
+                    return null
+                }
                 type = t.type
                 orientation = t.orientation
             } else {
