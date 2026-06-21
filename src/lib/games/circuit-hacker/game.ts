@@ -11,7 +11,6 @@ import {
     computePoweredCells,
     countRotatableTiles,
     computeFinalScore,
-    isSolved,
 } from './utils'
 import { generatePuzzle, type GeneratedPuzzle } from './generator'
 
@@ -89,6 +88,12 @@ export class CircuitHackerGame {
         }
     }
 
+    // After applyPower() has stamped the .powered flags, cores are solved iff
+    // every core cell is powered. Avoids a second flood-fill per rotation.
+    private allCoresPowered(state: CircuitHackerState): boolean {
+        return state.corePositions.every(c => state.grid[c.row][c.col].powered)
+    }
+
     startGame(): void {
         if (this.state.isGameActive) {
             return
@@ -135,13 +140,7 @@ export class CircuitHackerGame {
         this.applyPower(this.state)
         this.callbacks.onRotation(this.state.rotationsUsed)
 
-        if (
-            isSolved(
-                this.state.grid,
-                this.state.sourcePos,
-                this.state.corePositions
-            )
-        ) {
+        if (this.allCoresPowered(this.state)) {
             this.solve()
         }
     }
@@ -213,13 +212,7 @@ export class CircuitHackerGame {
             }
         }
         this.applyPower(this.state)
-        if (
-            isSolved(
-                this.state.grid,
-                this.state.sourcePos,
-                this.state.corePositions
-            )
-        ) {
+        if (this.allCoresPowered(this.state)) {
             this.solve()
         }
     }

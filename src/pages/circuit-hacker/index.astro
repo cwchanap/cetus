@@ -215,6 +215,7 @@ const gameNavigation = [
             onStart: () => {
               statusEl.classList.add('hidden')
               overlay.classList.add('hidden')
+              errorContainer.style.display = 'none'
               startBtn.style.display = 'none'
               stopBtn.style.display = 'inline-flex'
             },
@@ -224,6 +225,7 @@ const gameNavigation = [
           })
 
           startBtn.addEventListener('click', async () => {
+            errorContainer.style.display = 'none'
             difficultySelect.disabled = true
             rotationEl.textContent = '0'
             try {
