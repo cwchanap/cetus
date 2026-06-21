@@ -37,6 +37,7 @@ export async function setupPixiJS(
         app.canvas.style.border = '2px solid rgba(6, 182, 212, 0.3)'
         app.canvas.style.borderRadius = '12px'
         app.canvas.style.boxShadow = '0 0 30px rgba(6, 182, 212, 0.3)'
+        app.canvas.style.touchAction = 'none'
 
         const tileGraphic = new Graphics()
         app.stage.addChild(tileGraphic)
