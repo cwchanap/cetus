@@ -78,7 +78,15 @@ The generator guarantees solvability by construction (no separate solver):
 
 Because a valid solution exists by construction, the puzzle is always solvable.
 Generation retries with a capped attempt count if a step fails (e.g. cannot
-route all cores); on exhausting attempts it falls back to a simpler layout.
+route all cores). A randomized DFS builds winding paths for puzzle variety,
+with a guaranteed-complete BFS fallback so the search never fails spuriously.
+
+On exhausting all attempts the generator throws an `Error` rather than emitting
+a degenerate "simpler layout": the throw is caught by the page's `start()`
+handler, which surfaces a user-friendly error overlay and resets the start
+button. With the BFS fallback in place, exhaustion is astronomically unlikely
+for the shipped difficulty configs (validated by a 20,000-generation
+solvability sweep in the test suite).
 
 Rejected alternative: random fill + a solver to verify solvability. More code
 and can loop on unsolvable boards.
@@ -167,8 +175,11 @@ Astro page; TypeScript only manipulates dynamic content and the canvas.
 
 ## Error Handling
 
-- Puzzle generation retries with a capped attempt count; falls back to a simpler
-  layout if it cannot route all cores.
+- Puzzle generation retries with a capped attempt count; on exhaustion it
+  throws an `Error` (caught by the page's `start()` handler, which shows a
+  user-friendly error overlay and resets the start button) rather than emitting
+  a degenerate layout. A BFS fallback makes exhaustion astronomically unlikely
+  for shipped configs.
 - `saveGameScore` failures and the unauthenticated (401) case are handled
   non-blockingly, matching existing games — the game remains playable and the
   user is informed without an exception.

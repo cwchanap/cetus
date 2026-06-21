@@ -4,7 +4,7 @@ import type {
     CircuitHackerConfig,
     CircuitHackerState,
     CircuitHackerStats,
-    FailReason,
+    RunEndReason,
 } from './types'
 import {
     DIFFICULTY_CONFIGS,
@@ -160,7 +160,7 @@ export class CircuitHackerGame {
         this.callbacks.onSolved(this.state.score, this.getStats())
     }
 
-    private fail(reason: FailReason): void {
+    private fail(reason: RunEndReason): void {
         this.clearTimer()
         this.state.isGameActive = false
         this.state.isGameOver = true
