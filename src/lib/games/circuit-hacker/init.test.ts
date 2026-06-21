@@ -49,6 +49,7 @@ vi.mock('@/lib/services/scoreService', () => ({
 
 import { initializeCircuitHackerGame } from './init'
 import { GameID } from '@/lib/games'
+import { solveGameForTest } from './test-utils'
 
 function setupDom(): HTMLElement {
     document.body.innerHTML = `
@@ -96,9 +97,7 @@ describe('initializeCircuitHackerGame', () => {
         })
         await handle.start('easy')
         // Force a solve via the game's test helper
-        ;(
-            handle.getGame() as unknown as { solveForTest: () => void }
-        ).solveForTest()
+        solveGameForTest(handle.getGame()!)
         await vi.runAllTimersAsync()
         expect(saveGameScore).toHaveBeenCalledTimes(1)
         const [gameId, score, , , gameData] = saveGameScore.mock.calls[0]
@@ -162,6 +161,59 @@ describe('initializeCircuitHackerGame', () => {
         await vi.runAllTimersAsync()
         const titleEl = document.getElementById('game-over-title')
         expect(titleEl?.textContent).toBe("TIME'S UP!")
+        handle.cleanup()
+    })
+
+    it('surfaces score-save failure via onError instead of console.error', async () => {
+        const container = setupDom()
+        const onError = vi.fn()
+        saveGameScore.mockRejectedValueOnce(new Error('network down'))
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation: vi.fn(),
+            onStart: vi.fn(),
+            onEnd: vi.fn(),
+            onError,
+        })
+        await handle.start('easy')
+        solveGameForTest(handle.getGame()!)
+        await vi.runAllTimersAsync()
+        expect(onError).toHaveBeenCalledTimes(1)
+        const [title, message] = onError.mock.calls[0]
+        expect(title).toBe('Score Not Saved')
+        expect(message).toContain('network down')
+        handle.cleanup()
+    })
+
+    it('surfaces score-save error-callback via onError', async () => {
+        const container = setupDom()
+        const onError = vi.fn()
+        // saveGameScore resolves but invokes its error callback (e.g. 401).
+        // The real onError callback receives a string, not an Error.
+        saveGameScore.mockImplementationOnce(
+            async (
+                _gameId: unknown,
+                _score: unknown,
+                _onResult: unknown,
+                onErrorCb: (e: string) => void
+            ) => {
+                onErrorCb('not logged in')
+                return undefined
+            }
+        )
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation: vi.fn(),
+            onStart: vi.fn(),
+            onEnd: vi.fn(),
+            onError,
+        })
+        await handle.start('easy')
+        solveGameForTest(handle.getGame()!)
+        await vi.runAllTimersAsync()
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError.mock.calls[0][0]).toBe('Score Not Saved')
+        expect(onError.mock.calls[0][1]).toContain('not logged in')
         handle.cleanup()
     })
 })

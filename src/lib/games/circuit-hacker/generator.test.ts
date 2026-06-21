@@ -1,8 +1,8 @@
 // src/lib/games/circuit-hacker/generator.test.ts
 import { describe, it, expect } from 'vitest'
-import { generatePuzzle } from './generator'
+import { generatePuzzle, bfsPath, tileForDirections } from './generator'
 import { DIFFICULTY_CONFIGS, computePoweredCells } from './utils'
-import type { Difficulty, Tile } from './types'
+import type { Difficulty, Tile, Direction } from './types'
 import { seededRng } from './test-utils'
 
 const difficulties: Difficulty[] = ['easy', 'medium', 'hard', 'expert']
@@ -110,5 +110,78 @@ describe('generatePuzzle', () => {
             multiplier: 1,
         }
         expect(() => generatePuzzle(tinyConfig, seededRng(1))).toThrow()
+    })
+})
+
+describe('bfsPath fallback', () => {
+    it('finds a path when one exists', () => {
+        const start = { row: 0, col: 0 }
+        const goal = { row: 0, col: 2 }
+        const path = bfsPath(start, goal, 1, 3, new Set())
+        expect(path).not.toBeNull()
+        expect(path![0]).toEqual(start)
+        expect(path![path!.length - 1]).toEqual(goal)
+    })
+
+    it('returns null when the goal is unreachable (blocked)', () => {
+        const start = { row: 0, col: 0 }
+        const goal = { row: 0, col: 2 }
+        // Block the middle cell of a 1x3 row -> goal is unreachable
+        const blocked = new Set(['0,1'])
+        const path = bfsPath(start, goal, 1, 3, blocked)
+        expect(path).toBeNull()
+    })
+
+    it('returns a single-cell path when start === goal', () => {
+        const start = { row: 1, col: 1 }
+        const path = bfsPath(start, start, 3, 3, new Set())
+        expect(path).toEqual([start])
+    })
+
+    it('respects blocked cells as impassable walls', () => {
+        // 2x2 grid where the only path to (1,1) would go through (0,1) or
+        // (1,0), both blocked -> goal unreachable
+        const start = { row: 0, col: 0 }
+        const goal = { row: 1, col: 1 }
+        const blocked = new Set(['0,1', '1,0'])
+        const path = bfsPath(start, goal, 2, 2, blocked)
+        expect(path).toBeNull()
+    })
+})
+
+describe('tileForDirections', () => {
+    it('returns null for an empty direction set (degenerate layout)', () => {
+        expect(tileForDirections(new Set<Direction>())).toBeNull()
+    })
+
+    it('returns a cross for a single direction (hub stub)', () => {
+        const result = tileForDirections(new Set<Direction>(['N']))
+        expect(result).toEqual({ type: 'cross', orientation: 0 })
+    })
+
+    it('returns a straight tile for two opposite directions', () => {
+        const result = tileForDirections(new Set<Direction>(['N', 'S']))
+        expect(result).not.toBeNull()
+        expect(result!.type).toBe('straight')
+    })
+
+    it('returns an elbow tile for two adjacent directions', () => {
+        const result = tileForDirections(new Set<Direction>(['N', 'E']))
+        expect(result).not.toBeNull()
+        expect(result!.type).toBe('elbow')
+    })
+
+    it('returns a t-junction for three directions', () => {
+        const result = tileForDirections(new Set<Direction>(['N', 'E', 'S']))
+        expect(result).not.toBeNull()
+        expect(result!.type).toBe('t-junction')
+    })
+
+    it('returns a cross for all four directions', () => {
+        const result = tileForDirections(
+            new Set<Direction>(['N', 'E', 'S', 'W'])
+        )
+        expect(result).not.toBeNull()
+        expect(result!.type).toBe('cross')
     })
 })

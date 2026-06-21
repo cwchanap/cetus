@@ -2,7 +2,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CircuitHackerGame } from './game'
 import type { CircuitHackerCallbacks, CircuitHackerConfig } from './types'
-import { seededRng } from './test-utils'
+import {
+    seededRng,
+    solveGameForTest,
+    getSolutionOrientationsForTest,
+} from './test-utils'
 
 const config: CircuitHackerConfig = { difficulty: 'easy', cellSize: 48 }
 
@@ -74,13 +78,74 @@ describe('CircuitHackerGame', () => {
         const cb = makeCallbacks()
         const game = new CircuitHackerGame(config, cb, seededRng(1))
         game.startGame()
-        game.solveForTest() // test helper applies solution orientations
+        solveGameForTest(game) // test helper applies solution orientations
         expect(cb.onSolved).toHaveBeenCalledTimes(1)
         const [score, stats] = (cb.onSolved as ReturnType<typeof vi.fn>).mock
             .calls[0]
         expect(score).toBeGreaterThan(0)
         expect(stats.solved).toBe(true)
         expect(game.getState().isGameActive).toBe(false)
+        game.cleanup()
+    })
+
+    it('solves via the real rotateTile() path (C1)', () => {
+        const cb = makeCallbacks()
+        const game = new CircuitHackerGame(config, cb, seededRng(1))
+        game.startGame()
+        const solution = getSolutionOrientationsForTest(game)
+        expect(solution).not.toBeNull()
+        const state = game.getState()
+        // Drive the production win path: rotate each tile until it matches
+        // the recorded solution orientation. Exercises rotateTile -> applyPower
+        // -> allCoresPowered -> solve, the same path a player takes.
+        for (let r = 0; r < state.rows; r++) {
+            for (let c = 0; c < state.cols; c++) {
+                const tile = state.grid[r][c]
+                if (tile.locked) {
+                    continue
+                }
+                const target = solution![r][c]
+                while (tile.orientation !== target) {
+                    game.rotateTile(r, c)
+                }
+            }
+        }
+        expect(cb.onSolved).toHaveBeenCalledTimes(1)
+        const [score, stats] = (cb.onSolved as ReturnType<typeof vi.fn>).mock
+            .calls[0]
+        expect(score).toBeGreaterThan(0)
+        expect(stats.solved).toBe(true)
+        expect(game.getState().solved).toBe(true)
+        expect(game.getState().isGameActive).toBe(false)
+        game.cleanup()
+    })
+
+    it('does not solve on a partial board (C2, hard 2-core)', () => {
+        const hardConfig: CircuitHackerConfig = {
+            difficulty: 'hard',
+            cellSize: 48,
+        }
+        const cb = makeCallbacks()
+        const game = new CircuitHackerGame(hardConfig, cb, seededRng(7))
+        game.startGame()
+        const state = game.getState()
+        expect(state.corePositions.length).toBe(2)
+        // Rotate exactly one rotatable tile once. A single rotation cannot
+        // complete a 2-core hard board, so the game must remain unsolved
+        // and active.
+        let rotated = false
+        for (let r = 0; r < state.rows && !rotated; r++) {
+            for (let c = 0; c < state.cols && !rotated; c++) {
+                if (!state.grid[r][c].locked) {
+                    game.rotateTile(r, c)
+                    rotated = true
+                }
+            }
+        }
+        expect(rotated).toBe(true)
+        expect(cb.onSolved).not.toHaveBeenCalled()
+        expect(game.getState().solved).toBe(false)
+        expect(game.getState().isGameActive).toBe(true)
         game.cleanup()
     })
 

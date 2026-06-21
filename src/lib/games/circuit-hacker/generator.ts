@@ -3,6 +3,7 @@ import type {
     DifficultyConfig,
     Direction,
     GridPosition,
+    Orientation,
     Tile,
     TileType,
 } from './types'
@@ -17,7 +18,7 @@ export interface GeneratedPuzzle {
     grid: Tile[][]
     sourcePos: GridPosition
     corePositions: GridPosition[]
-    solutionOrientations: number[][]
+    solutionOrientations: Orientation[][]
 }
 
 const ALL_DIRS: Direction[] = ['N', 'E', 'S', 'W']
@@ -94,8 +95,10 @@ function dfsPath(
 
 // BFS fallback — guaranteed to find a path if one exists. Used when the
 // randomized DFS spuriously misses one, so the generator never emits an
-// unsolvable puzzle due to a search artifact.
-function bfsPath(
+// unsolvable puzzle due to a search artifact. Exported for direct unit
+// testing of the fallback branch that the randomized DFS-only path may not
+// deterministically exercise.
+export function bfsPath(
     start: GridPosition,
     goal: GridPosition,
     rows: number,
@@ -149,10 +152,11 @@ function findPath(
 // Pick the tile type + orientation whose connectors equal a required dir set.
 // Returns null when no connectors are required (a degenerate layout the caller
 // should retry rather than emit), so defensive failures route through the
-// retry loop instead of bypassing it via a thrown exception.
-function tileForDirections(dirs: Set<Direction>): {
+// retry loop instead of bypassing it via a thrown exception. Exported for
+// direct unit testing of the degenerate (empty dirs) and fallback branches.
+export function tileForDirections(dirs: Set<Direction>): {
     type: TileType
-    orientation: number
+    orientation: Orientation
 } | null {
     const required = ALL_DIRS.filter(d => dirs.has(d))
     if (required.length === 0) {
@@ -167,12 +171,13 @@ function tileForDirections(dirs: Set<Direction>): {
     const candidates: TileType[] = ['straight', 'elbow', 't-junction', 'cross']
     for (const type of candidates) {
         for (let orientation = 0; orientation < 4; orientation++) {
-            const conn = rotateConnectors(getBaseConnectors(type), orientation)
+            const o = orientation as Orientation
+            const conn = rotateConnectors(getBaseConnectors(type), o)
             if (
                 conn.length === required.length &&
                 required.every(d => conn.includes(d))
             ) {
-                return { type, orientation }
+                return { type, orientation: o }
             }
         }
     }
@@ -180,10 +185,11 @@ function tileForDirections(dirs: Set<Direction>): {
     return { type: 'cross', orientation: 0 }
 }
 
-function orientationForSingle(dir: Direction): number {
+function orientationForSingle(dir: Direction): Orientation {
     for (let orientation = 0; orientation < 4; orientation++) {
-        if (rotateConnectors(['N'], orientation)[0] === dir) {
-            return orientation
+        const o = orientation as Orientation
+        if (rotateConnectors(['N'], o)[0] === dir) {
+            return o
         }
     }
     return 0
@@ -310,17 +316,17 @@ function tryGenerate(
 
     // Build the solved grid.
     const grid: Tile[][] = []
-    const solutionOrientations: number[][] = []
+    const solutionOrientations: Orientation[][] = []
     for (let r = 0; r < rows; r++) {
         const gridRow: Tile[] = []
-        const solRow: number[] = []
+        const solRow: Orientation[] = []
         for (let c = 0; c < cols; c++) {
             const pos = { row: r, col: c }
             const k = key(pos)
             const dirs = required.get(k) ?? new Set<Direction>()
 
             let type: TileType
-            let orientation: number
+            let orientation: Orientation
             let locked = false
 
             if (pos.row === sourcePos.row && pos.col === sourcePos.col) {
@@ -350,7 +356,7 @@ function tryGenerate(
                     'cross',
                 ]
                 type = decoys[Math.floor(rng() * decoys.length)]
-                orientation = Math.floor(rng() * 4)
+                orientation = Math.floor(rng() * 4) as Orientation
             }
 
             gridRow.push({ type, orientation, locked, powered: false })
@@ -379,7 +385,7 @@ function tryGenerate(
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             if (!grid[r][c].locked) {
-                grid[r][c].orientation = Math.floor(rng() * 4)
+                grid[r][c].orientation = Math.floor(rng() * 4) as Orientation
             }
         }
     }

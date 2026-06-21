@@ -10,16 +10,20 @@ import {
     countRotatableTiles,
     computeFinalScore,
 } from './utils'
-import type { Tile, GridPosition } from './types'
+import type { Tile, GridPosition, Orientation } from './types'
 
-const tile = (type: Tile['type'], orientation = 0): Tile => ({
+const tile = (type: Tile['type'], orientation: Orientation = 0): Tile => ({
     type,
     orientation,
     locked: false,
     powered: false,
 })
 
-const t = (type: Tile['type'], orientation = 0, locked = false): Tile => ({
+const t = (
+    type: Tile['type'],
+    orientation: Orientation = 0,
+    locked = false
+): Tile => ({
     type,
     orientation,
     locked,
