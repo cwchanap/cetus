@@ -19,6 +19,11 @@ export interface CircuitHackerUICallbacks {
     onRotation: (rotationsUsed: number) => void
     onStart: () => void
     onEnd: (stats: CircuitHackerStats) => void
+    // Surfaces non-fatal failures (e.g. score submission rejected by the
+    // server) to the page so the player is informed rather than seeing a
+    // misleading success overlay. Fatal failures (start/load) still throw
+    // and are caught by the page's try/catch.
+    onError?: (title: string, message: string) => void
 }
 
 export interface CircuitHackerHandle {
@@ -114,32 +119,53 @@ export async function initializeCircuitHackerGame(
                     resetButtons()
                     showOverlay('CIRCUIT POWERED!', stats)
                     callbacks.onEnd(stats)
-                    await saveGameScore(
-                        GameID.CIRCUIT_HACKER,
-                        finalScore,
-                        result => {
-                            if (result.newAchievements?.length) {
-                                window.dispatchEvent(
-                                    new CustomEvent('achievementsEarned', {
-                                        detail: {
-                                            achievementIds:
-                                                result.newAchievements,
-                                        },
-                                    })
-                                )
+                    const surfaceError = (message: string) => {
+                        callbacks.onError?.(
+                            'Score Not Saved',
+                            `Your win was recorded locally but could not be submitted: ${message}`
+                        )
+                    }
+                    try {
+                        await saveGameScore(
+                            GameID.CIRCUIT_HACKER,
+                            finalScore,
+                            result => {
+                                if (result.newAchievements?.length) {
+                                    window.dispatchEvent(
+                                        new CustomEvent('achievementsEarned', {
+                                            detail: {
+                                                achievementIds:
+                                                    result.newAchievements,
+                                            },
+                                        })
+                                    )
+                                }
+                            },
+                            error => {
+                                // Surface to the player via the page's
+                                // error UI rather than only console.error.
+                                // The win itself still stands; only the
+                                // score submission failed.
+                                surfaceError(error)
+                            },
+                            {
+                                difficulty: stats.difficulty,
+                                secondsRemaining: stats.secondsRemaining,
+                                rotationsUsed: stats.rotationsUsed,
+                                solved: stats.solved,
                             }
-                        },
-                        error => {
-                            // eslint-disable-next-line no-console
-                            console.error('Failed to submit score:', error)
-                        },
-                        {
-                            difficulty: stats.difficulty,
-                            secondsRemaining: stats.secondsRemaining,
-                            rotationsUsed: stats.rotationsUsed,
-                            solved: stats.solved,
-                        }
-                    )
+                        )
+                    } catch (error) {
+                        // saveGameScore threw synchronously (e.g. network
+                        // unreachable). Mirror the error-callback path.
+                        const message =
+                            error instanceof Error
+                                ? error.message
+                                : typeof error === 'string'
+                                  ? error
+                                  : 'Unknown error'
+                        surfaceError(message)
+                    }
                 },
                 onFail: (stats, reason) => {
                     render()

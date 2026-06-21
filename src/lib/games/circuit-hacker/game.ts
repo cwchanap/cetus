@@ -4,6 +4,7 @@ import type {
     CircuitHackerConfig,
     CircuitHackerState,
     CircuitHackerStats,
+    Orientation,
     RunEndReason,
 } from './types'
 import {
@@ -135,7 +136,7 @@ export class CircuitHackerGame {
             return
         }
 
-        tile.orientation = (tile.orientation + 1) % 4
+        tile.orientation = ((tile.orientation + 1) % 4) as Orientation
         this.state.rotationsUsed++
         this.applyPower(this.state)
         this.callbacks.onRotation(this.state.rotationsUsed)
@@ -160,8 +161,19 @@ export class CircuitHackerGame {
         // dispatch achievement events) but we intentionally do not await it
         // here. The game loop must not block on network I/O, and the result
         // is handled via callbacks inside onSolved. Matches the codebase
-        // pattern used by other games (evader, tetris, etc.).
-        this.callbacks.onSolved(this.state.score, this.getStats())
+        // pattern used by other games (evader, tetris, etc.). The defensive
+        // .catch() ensures an unhandled rejection can never escape even if
+        // synchronous work is later added before the saveGameScore try block.
+        const result = this.callbacks.onSolved(
+            this.state.score,
+            this.getStats()
+        ) as unknown
+        if (result && typeof (result as Promise<void>).catch === 'function') {
+            void (result as Promise<void>).catch(err => {
+                // eslint-disable-next-line no-console
+                console.error('onSolved callback rejected:', err)
+            })
+        }
     }
 
     private fail(reason: RunEndReason): void {
@@ -180,7 +192,7 @@ export class CircuitHackerGame {
         this.fail('manual')
     }
 
-    getState(): CircuitHackerState {
+    getState(): Readonly<CircuitHackerState> {
         return this.state
     }
 
@@ -203,22 +215,5 @@ export class CircuitHackerGame {
 
     cleanup(): void {
         this.clearTimer()
-    }
-
-    /** Test-only helper: rotate every tile into the known solution. */
-    solveForTest(): void {
-        if (!this.puzzle) {
-            return
-        }
-        for (let r = 0; r < this.state.rows; r++) {
-            for (let c = 0; c < this.state.cols; c++) {
-                this.state.grid[r][c].orientation =
-                    this.puzzle.solutionOrientations[r][c]
-            }
-        }
-        this.applyPower(this.state)
-        if (this.allCoresPowered(this.state)) {
-            this.solve()
-        }
     }
 }

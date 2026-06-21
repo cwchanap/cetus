@@ -102,7 +102,7 @@ export interface SnakeGameData {
 
 // Circuit Hacker-specific game data
 export interface CircuitHackerGameData {
-    difficulty: 'easy' | 'medium' | 'hard' | 'expert'
+    difficulty: import('../circuit-hacker/types').Difficulty
     secondsRemaining: number
     rotationsUsed: number
     solved: boolean

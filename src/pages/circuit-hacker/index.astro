@@ -157,6 +157,11 @@ const gameNavigation = [
                 >
               </div>
               <div class="flex justify-between">
+                <span class="text-gray-400">Rotation bonus:</span><span
+                  >×25 / unused rotation</span
+                >
+              </div>
+              <div class="flex justify-between">
                 <span class="text-gray-400">Harder tier:</span><span
                   >bigger multiplier</span
                 >
@@ -193,9 +198,26 @@ const gameNavigation = [
 
         const showError = (title: string, message: string) => {
           statusEl.classList.add('hidden')
+          overlay.classList.add('hidden')
           errorTitle.textContent = title
           errorMessage.textContent = message
+          errorContainer.classList.remove('hidden')
           errorContainer.style.display = 'flex'
+        }
+
+        const hideError = () => {
+          errorContainer.classList.add('hidden')
+          errorContainer.style.display = 'none'
+        }
+
+        const formatError = (error: unknown): string => {
+          if (error instanceof Error) {
+            return error.message
+          }
+          if (typeof error === 'string') {
+            return error
+          }
+          return 'Unexpected error. Please try again.'
         }
 
         const resetButtonState = () => {
@@ -215,23 +237,26 @@ const gameNavigation = [
             onStart: () => {
               statusEl.classList.add('hidden')
               overlay.classList.add('hidden')
-              errorContainer.style.display = 'none'
+              hideError()
               startBtn.style.display = 'none'
               stopBtn.style.display = 'inline-flex'
             },
             onEnd: () => {
               difficultySelect.disabled = false
             },
+            onError: (title, message) => {
+              showError(title, message)
+            },
           })
 
           startBtn.addEventListener('click', async () => {
-            errorContainer.style.display = 'none'
+            hideError()
             difficultySelect.disabled = true
             rotationEl.textContent = '0'
             try {
               await gameHandle!.start(difficultySelect.value as Difficulty)
             } catch (error) {
-              showError('Failed to Start Game', String(error))
+              showError('Failed to Start Game', formatError(error))
               resetButtonState()
             }
           })
@@ -248,7 +273,7 @@ const gameNavigation = [
             difficultySelect.disabled = false
           })
         } catch (error) {
-          showError('Failed to Load Game', String(error))
+          showError('Failed to Load Game', formatError(error))
         }
       }
 

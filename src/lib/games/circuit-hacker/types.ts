@@ -1,6 +1,10 @@
 // Edge direction of a tile connector
 export type Direction = 'N' | 'E' | 'S' | 'W'
 
+// Number of 90° clockwise rotations from the base orientation. Constraining
+// this to 0..3 makes illegal rotations unrepresentable at zero runtime cost.
+export type Orientation = 0 | 1 | 2 | 3
+
 // Difficulty tiers (chosen up front)
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert'
 
@@ -18,7 +22,7 @@ export type TileType =
 export interface Tile {
     type: TileType
     // number of 90° clockwise rotations from the base orientation (0..3)
-    orientation: number
+    orientation: Orientation
     // locked tiles (source, core, blocker) cannot be rotated by the player
     locked: boolean
     // currently reachable from the source through matching connectors
@@ -86,7 +90,15 @@ export type RunEndReason = 'timeout' | 'manual'
 export interface CircuitHackerCallbacks {
     onTimeUpdate: (timeRemaining: number) => void
     onRotation: (rotationsUsed: number) => void
-    onSolved: (finalScore: number, stats: CircuitHackerStats) => void
+    // onSolved may be async (the page submits the score over the network).
+    // The game loop does not await it; callers are responsible for their
+    // own error handling. The void | Promise<void> return lets the game
+    // attach a defensive .catch() so an unhandled rejection can never
+    // escape the fire-and-forget call site.
+    onSolved: (
+        finalScore: number,
+        stats: CircuitHackerStats
+    ) => void | Promise<void>
     onFail: (stats: CircuitHackerStats, reason: RunEndReason) => void
     onGameStart: () => void
 }
