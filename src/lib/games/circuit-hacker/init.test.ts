@@ -122,4 +122,46 @@ describe('initializeCircuitHackerGame', () => {
         expect(saveGameScore).not.toHaveBeenCalled()
         handle.cleanup()
     })
+
+    it('shows "GAME OVER" overlay and does not submit on manual stop', async () => {
+        const onEnd = vi.fn()
+        const container = setupDom()
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation: vi.fn(),
+            onStart: vi.fn(),
+            onEnd,
+        })
+        await handle.start('easy')
+        handle.stop()
+        await vi.runAllTimersAsync()
+        expect(saveGameScore).not.toHaveBeenCalled()
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        const titleEl = document.getElementById('game-over-title')
+        expect(titleEl?.textContent).toBe('GAME OVER')
+        const overlay = document.getElementById('game-over-overlay')
+        expect(overlay?.classList.contains('hidden')).toBe(false)
+        // Button state reset: start visible, stop hidden
+        const startBtn = document.getElementById('start-btn') as HTMLElement
+        const stopBtn = document.getElementById('stop-btn') as HTMLElement
+        expect(startBtn.style.display).toBe('inline-flex')
+        expect(stopBtn.style.display).toBe('none')
+        handle.cleanup()
+    })
+
+    it('shows "TIME\'S UP!" overlay on timeout failure', async () => {
+        const container = setupDom()
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation: vi.fn(),
+            onStart: vi.fn(),
+            onEnd: vi.fn(),
+        })
+        await handle.start('easy')
+        vi.advanceTimersByTime(121_000)
+        await vi.runAllTimersAsync()
+        const titleEl = document.getElementById('game-over-title')
+        expect(titleEl?.textContent).toBe("TIME'S UP!")
+        handle.cleanup()
+    })
 })
