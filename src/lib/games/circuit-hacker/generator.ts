@@ -16,6 +16,7 @@ export interface GeneratedPuzzle {
 }
 
 const ALL_DIRS: Direction[] = ['N', 'E', 'S', 'W']
+const MAX_GENERATE_ATTEMPTS = 50
 
 function key(pos: GridPosition): string {
     return `${pos.row},${pos.col}`
@@ -34,37 +35,109 @@ function shuffle<T>(arr: T[], rng: () => number): T[] {
     return copy
 }
 
-// Random simple path from start to goal via randomized DFS over a fresh grid.
+// Reconstruct a path from a parent map.
+function reconstructPath(
+    parent: Map<string, GridPosition | null>,
+    goal: GridPosition
+): GridPosition[] {
+    const path: GridPosition[] = []
+    let cur: GridPosition | null = goal
+    while (cur) {
+        path.unshift(cur)
+        cur = parent.get(key(cur)) ?? null
+    }
+    return path
+}
+
+// Randomized DFS path search. Produces winding paths, but the visited-once
+// strategy can spuriously fail when dead-end branches consume cells that a
+// different branch needed. O(rows*cols) with no per-step array copies.
+function dfsPath(
+    start: GridPosition,
+    goal: GridPosition,
+    rows: number,
+    cols: number,
+    rng: () => number,
+    blocked: Set<string>
+): GridPosition[] | null {
+    const visited = new Set<string>([key(start), ...blocked])
+    const parent = new Map<string, GridPosition | null>([[key(start), null]])
+    const stack: GridPosition[] = [start]
+
+    while (stack.length > 0) {
+        const current = stack.pop() as GridPosition
+        if (current.row === goal.row && current.col === goal.col) {
+            return reconstructPath(parent, current)
+        }
+        for (const dir of shuffle(ALL_DIRS, rng)) {
+            const next = {
+                row: current.row + DELTA[dir].dr,
+                col: current.col + DELTA[dir].dc,
+            }
+            const k = key(next)
+            if (!inBounds(next, rows, cols) || visited.has(k)) {
+                continue
+            }
+            visited.add(k)
+            parent.set(k, current)
+            stack.push(next)
+        }
+    }
+    return null
+}
+
+// BFS fallback — guaranteed to find a path if one exists. Used when the
+// randomized DFS spuriously misses one, so the generator never emits an
+// unsolvable puzzle due to a search artifact.
+function bfsPath(
+    start: GridPosition,
+    goal: GridPosition,
+    rows: number,
+    cols: number,
+    blocked: Set<string>
+): GridPosition[] | null {
+    const visited = new Set<string>([key(start), ...blocked])
+    const parent = new Map<string, GridPosition | null>([[key(start), null]])
+    const queue: GridPosition[] = [start]
+
+    while (queue.length > 0) {
+        const current = queue.shift() as GridPosition
+        if (current.row === goal.row && current.col === goal.col) {
+            return reconstructPath(parent, current)
+        }
+        for (const dir of ALL_DIRS) {
+            const next = {
+                row: current.row + DELTA[dir].dr,
+                col: current.col + DELTA[dir].dc,
+            }
+            const k = key(next)
+            if (!inBounds(next, rows, cols) || visited.has(k)) {
+                continue
+            }
+            visited.add(k)
+            parent.set(k, current)
+            queue.push(next)
+        }
+    }
+    return null
+}
+
+// Find a path from start to goal, preferring a winding randomized DFS and
+// falling back to BFS for completeness. Returns null only when the goal is
+// genuinely unreachable with the given blocked set.
 function findPath(
     start: GridPosition,
     goal: GridPosition,
     rows: number,
     cols: number,
     rng: () => number,
-    blocked: Set<string> = new Set()
+    blocked: Set<string>
 ): GridPosition[] | null {
-    const visited = new Set<string>([key(start), ...blocked])
-    const stack: GridPosition[][] = [[start]]
-
-    while (stack.length > 0) {
-        const path = stack.pop() as GridPosition[]
-        const head = path[path.length - 1]
-        if (head.row === goal.row && head.col === goal.col) {
-            return path
-        }
-        for (const dir of shuffle(ALL_DIRS, rng)) {
-            const next = {
-                row: head.row + DELTA[dir].dr,
-                col: head.col + DELTA[dir].dc,
-            }
-            if (!inBounds(next, rows, cols) || visited.has(key(next))) {
-                continue
-            }
-            visited.add(key(next))
-            stack.push([...path, next])
-        }
+    const dfsResult = dfsPath(start, goal, rows, cols, rng, blocked)
+    if (dfsResult) {
+        return dfsResult
     }
-    return null
+    return bfsPath(start, goal, rows, cols, blocked)
 }
 
 // Pick the tile type + orientation whose connectors equal a required dir set.
@@ -73,11 +146,18 @@ function tileForDirections(dirs: Set<Direction>): {
     orientation: number
 } {
     const required = ALL_DIRS.filter(d => dirs.has(d))
-    const candidates: TileType[] =
-        required.length === 1
-            ? [] // handled by source/core elsewhere
-            : ['straight', 'elbow', 't-junction', 'cross']
-
+    if (required.length === 0) {
+        throw new Error(
+            'tileForDirections: no connectors required for path cell'
+        )
+    }
+    if (required.length === 1) {
+        // Only occurs for the hub in a degenerate cores=0 layout: a stub off
+        // the source with no core to reach. A cross covers the one needed
+        // direction; the extra loose ends are harmless on a path cell.
+        return { type: 'cross', orientation: 0 }
+    }
+    const candidates: TileType[] = ['straight', 'elbow', 't-junction', 'cross']
     for (const type of candidates) {
         for (let orientation = 0; orientation < 4; orientation++) {
             const conn = rotateConnectors(getBaseConnectors(type), orientation)
@@ -102,10 +182,26 @@ function orientationForSingle(dir: Direction): number {
     return 0
 }
 
-export function generatePuzzle(
+function dirBetween(a: GridPosition, b: GridPosition): Direction {
+    if (b.row === a.row - 1) {
+        return 'N'
+    }
+    if (b.row === a.row + 1) {
+        return 'S'
+    }
+    if (b.col === a.col + 1) {
+        return 'E'
+    }
+    return 'W'
+}
+
+// One attempt at producing a fully-solvable puzzle. Returns null if any core
+// could not be reached from the hub, so the caller can retry with a fresh
+// layout instead of emitting an unwinnable puzzle.
+function tryGenerate(
     config: DifficultyConfig,
-    rng: () => number = Math.random
-): GeneratedPuzzle {
+    rng: () => number
+): GeneratedPuzzle | null {
     const { rows, cols, cores, blockers } = config
 
     const allCells: GridPosition[] = []
@@ -130,23 +226,21 @@ export function generatePuzzle(
             )
         })
 
-    let sourcePos: GridPosition
-    let corePositions: GridPosition[]
-    let attempts = 0
-    do {
+    // Pick a source with at least one non-core neighbor.
+    let sourcePos: GridPosition | null = null
+    let corePositions: GridPosition[] = []
+    for (let i = 0; i < 50; i++) {
         const shuffled = shuffle(allCells, rng)
-        sourcePos = shuffled[0]
-        corePositions = shuffled.slice(1, 1 + cores)
-        attempts++
-    } while (attempts < 50 && !hasNonCoreNeighbor(sourcePos!, corePositions!))
-
-    // Guard against the (extremely unlikely) case where no shuffled layout
-    // produced a source with a non-core neighbor. Failing loudly here beats
-    // silently emitting a puzzle with no valid hub, which would be unsolvable.
-    if (!hasNonCoreNeighbor(sourcePos, corePositions)) {
-        throw new Error(
-            'generatePuzzle: could not place a source tile with a non-core neighbor within the retry limit'
-        )
+        const candidateSource = shuffled[0]
+        const candidateCores = shuffled.slice(1, 1 + cores)
+        if (hasNonCoreNeighbor(candidateSource, candidateCores)) {
+            sourcePos = candidateSource
+            corePositions = candidateCores
+            break
+        }
+    }
+    if (!sourcePos) {
+        return null
     }
 
     // Accumulate the directions each cell needs in the solved state.
@@ -158,24 +252,14 @@ export function generatePuzzle(
         }
         required.get(k)!.add(dir)
     }
-    const dirBetween = (a: GridPosition, b: GridPosition): Direction => {
-        if (b.row === a.row - 1) {
-            return 'N'
-        }
-        if (b.row === a.row + 1) {
-            return 'S'
-        }
-        if (b.col === a.col + 1) {
-            return 'E'
-        }
-        return 'W'
-    }
 
     const coreKeys = new Set(corePositions.map(key))
 
     // The source has a single connector, so it emits one trunk to a hub
     // neighbor; every core path branches off that hub. Paths never route
     // through the source or another core (those tiles have one connector).
+    // hasNonCoreNeighbor guaranteed sourceNeighbors is non-empty, so the hub
+    // is always defined.
     const sourceNeighbors = shuffle(
         ALL_DIRS.map(d => ({
             row: sourcePos.row + DELTA[d].dr,
@@ -184,14 +268,10 @@ export function generatePuzzle(
         rng
     )
     const hub = sourceNeighbors[0]
-    const hasHub = hub !== undefined
 
-    const pathCells = new Set<string>([key(sourcePos)])
-    if (hasHub) {
-        pathCells.add(key(hub))
-        addDir(sourcePos, dirBetween(sourcePos, hub))
-        addDir(hub, dirBetween(hub, sourcePos))
-    }
+    const pathCells = new Set<string>([key(sourcePos), key(hub)])
+    addDir(sourcePos, dirBetween(sourcePos, hub))
+    addDir(hub, dirBetween(hub, sourcePos))
 
     for (const core of corePositions) {
         const blocked = new Set<string>([key(sourcePos)])
@@ -200,10 +280,12 @@ export function generatePuzzle(
                 blocked.add(key(other))
             }
         }
-        const start = hasHub ? hub : sourcePos
-        const path = findPath(start, core, rows, cols, rng, blocked)
+        const path = findPath(hub, core, rows, cols, rng, blocked)
         if (!path) {
-            continue
+            // This core is genuinely unreachable from the hub with this
+            // layout. Signal the caller to try a fresh layout rather than
+            // emitting an unsolvable puzzle.
+            return null
         }
         for (let i = 0; i < path.length; i++) {
             pathCells.add(key(path[i]))
@@ -288,4 +370,19 @@ export function generatePuzzle(
     }
 
     return { grid, sourcePos, corePositions, solutionOrientations }
+}
+
+export function generatePuzzle(
+    config: DifficultyConfig,
+    rng: () => number = Math.random
+): GeneratedPuzzle {
+    for (let attempt = 0; attempt < MAX_GENERATE_ATTEMPTS; attempt++) {
+        const puzzle = tryGenerate(config, rng)
+        if (puzzle) {
+            return puzzle
+        }
+    }
+    throw new Error(
+        'generatePuzzle: could not generate a solvable puzzle within retry limit'
+    )
 }
