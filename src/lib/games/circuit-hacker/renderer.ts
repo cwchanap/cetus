@@ -38,6 +38,12 @@ export async function setupPixiJS(
         app.canvas.style.borderRadius = '12px'
         app.canvas.style.boxShadow = '0 0 30px rgba(6, 182, 212, 0.3)'
         app.canvas.style.touchAction = 'none'
+        // Responsive scaling: keep the PixiJS resolution at cols*cellSize but
+        // let the browser shrink the displayed canvas to fit narrow viewports.
+        // Pointer math in init.ts uses getBoundingClientRect(), so CSS scaling
+        // stays in sync without coordinate changes.
+        app.canvas.style.maxWidth = '100%'
+        app.canvas.style.height = 'auto'
 
         const tileGraphic = new Graphics()
         app.stage.addChild(tileGraphic)
