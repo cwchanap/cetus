@@ -6,7 +6,12 @@ import type {
     Tile,
     TileType,
 } from './types'
-import { DELTA, getBaseConnectors, rotateConnectors } from './utils'
+import {
+    DELTA,
+    computePoweredCells,
+    getBaseConnectors,
+    rotateConnectors,
+} from './utils'
 
 export interface GeneratedPuzzle {
     grid: Tile[][]
@@ -374,6 +379,16 @@ function tryGenerate(
                 grid[r][c].orientation = Math.floor(rng() * 4)
             }
         }
+    }
+
+    // Defensive re-scramble guard: if the random scramble happened to leave
+    // every core powered, the puzzle would be trivially pre-solved. The
+    // probability is astronomically low (~1/4^rotatableTiles), but returning
+    // null here routes it back through the retry loop for an airtight
+    // guarantee rather than emitting a no-op board.
+    const powered = computePoweredCells(grid, sourcePos)
+    if (corePositions.every(c => powered[c.row][c.col])) {
+        return null
     }
 
     return { grid, sourcePos, corePositions, solutionOrientations }

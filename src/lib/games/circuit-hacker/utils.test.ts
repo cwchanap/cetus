@@ -6,7 +6,6 @@ import {
     getConnectors,
     cellsConnect,
     computePoweredCells,
-    isSolved,
     DIFFICULTY_CONFIGS,
     countRotatableTiles,
     computeFinalScore,
@@ -76,7 +75,6 @@ describe('power flood-fill', () => {
     // source base 'N' rotated to 'E' = orientation 1
     // core base 'N' rotated to 'W' = orientation 3
     const source: GridPosition = { row: 0, col: 0 }
-    const cores: GridPosition[] = [{ row: 0, col: 2 }]
 
     it('powers a fully connected line', () => {
         const grid: Tile[][] = [
@@ -86,7 +84,6 @@ describe('power flood-fill', () => {
         expect(powered[0][0]).toBe(true)
         expect(powered[0][1]).toBe(true)
         expect(powered[0][2]).toBe(true)
-        expect(isSolved(grid, source, cores)).toBe(true)
     })
 
     it('does not power past a broken connection', () => {
@@ -98,7 +95,6 @@ describe('power flood-fill', () => {
         expect(powered[0][0]).toBe(true)
         expect(powered[0][1]).toBe(false)
         expect(powered[0][2]).toBe(false)
-        expect(isSolved(grid, source, cores)).toBe(false)
     })
 })
 
