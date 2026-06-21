@@ -59,6 +59,8 @@ describe('generatePuzzle', () => {
         // 5000 seeds/difficulty gives >99% chance of catching a bug that
         // occurs at ~1/1500 frequency (the rate observed before the
         // findPath/backtracking fix). 100 seeds only gave ~7%.
+        // Explicit 30s timeout: the sweep takes ~6s in isolation but can
+        // exceed the 5s default under the full suite's parallel load.
         for (const diff of ['easy', 'medium', 'hard', 'expert'] as const) {
             const cfg = DIFFICULTY_CONFIGS[diff]
             for (let seed = 1; seed <= 5000; seed++) {
@@ -76,7 +78,7 @@ describe('generatePuzzle', () => {
                 expect(allCoresPowered, `${diff} seed ${seed}`).toBe(true)
             }
         }
-    })
+    }, 30000)
 
     it('marks source, core and blocker tiles as locked', () => {
         const puzzle = generatePuzzle(DIFFICULTY_CONFIGS.hard, seededRng(3))

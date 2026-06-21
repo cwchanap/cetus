@@ -22,6 +22,7 @@ export interface GeneratedPuzzle {
 
 const ALL_DIRS: Direction[] = ['N', 'E', 'S', 'W']
 const MAX_GENERATE_ATTEMPTS = 50
+const MAX_SOURCE_PLACEMENT_ATTEMPTS = 50
 
 function key(pos: GridPosition): string {
     return `${pos.row},${pos.col}`
@@ -235,7 +236,7 @@ function tryGenerate(
     // Pick a source with at least one non-core neighbor.
     let sourcePos: GridPosition | null = null
     let corePositions: GridPosition[] = []
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < MAX_SOURCE_PLACEMENT_ATTEMPTS; i++) {
         const shuffled = shuffle(allCells, rng)
         const candidateSource = shuffled[0]
         const candidateCores = shuffled.slice(1, 1 + cores)
@@ -253,10 +254,12 @@ function tryGenerate(
     const required: Map<string, Set<Direction>> = new Map()
     const addDir = (pos: GridPosition, dir: Direction) => {
         const k = key(pos)
-        if (!required.has(k)) {
-            required.set(k, new Set())
+        let dirs = required.get(k)
+        if (!dirs) {
+            dirs = new Set()
+            required.set(k, dirs)
         }
-        required.get(k)!.add(dir)
+        dirs.add(dir)
     }
 
     const coreKeys = new Set(corePositions.map(key))
