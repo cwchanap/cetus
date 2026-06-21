@@ -251,6 +251,11 @@ const gameNavigation = [
 
           startBtn.addEventListener('click', async () => {
             hideError()
+            // Hide start button before awaiting start() to prevent a
+            // double-click from entering start() twice while setupPixiJS
+            // is still pending. onStart keeps it hidden on success;
+            // resetButtonState() restores it on error.
+            startBtn.style.display = 'none'
             difficultySelect.disabled = true
             rotationEl.textContent = '0'
             try {
