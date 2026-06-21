@@ -84,13 +84,40 @@ describe('CircuitHackerGame', () => {
         game.cleanup()
     })
 
-    it('fails when the timer runs out', () => {
+    it('fails with reason "timeout" when the timer runs out', () => {
         const cb = makeCallbacks()
         const game = new CircuitHackerGame(config, cb, seededRng(1))
         game.startGame()
         vi.advanceTimersByTime(121_000) // past the 120s easy timer
         expect(cb.onFail).toHaveBeenCalledTimes(1)
+        const [stats, reason] = (cb.onFail as ReturnType<typeof vi.fn>).mock
+            .calls[0]
+        expect(reason).toBe('timeout')
+        expect(stats.solved).toBe(false)
         expect(game.getState().isGameOver).toBe(true)
+        game.cleanup()
+    })
+
+    it('fails with reason "manual" when stopGame is called', () => {
+        const cb = makeCallbacks()
+        const game = new CircuitHackerGame(config, cb, seededRng(1))
+        game.startGame()
+        game.stopGame()
+        expect(cb.onFail).toHaveBeenCalledTimes(1)
+        const [stats, reason] = (cb.onFail as ReturnType<typeof vi.fn>).mock
+            .calls[0]
+        expect(reason).toBe('manual')
+        expect(stats.solved).toBe(false)
+        expect(game.getState().isGameActive).toBe(false)
+        expect(game.getState().isGameOver).toBe(true)
+        game.cleanup()
+    })
+
+    it('stopGame is a no-op when no game is active', () => {
+        const cb = makeCallbacks()
+        const game = new CircuitHackerGame(config, cb, seededRng(1))
+        game.stopGame()
+        expect(cb.onFail).not.toHaveBeenCalled()
         game.cleanup()
     })
 })
