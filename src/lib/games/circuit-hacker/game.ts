@@ -156,6 +156,11 @@ export class CircuitHackerGame {
             rotatableTileCount: countRotatableTiles(this.state.grid),
             multiplier: DIFFICULTY_CONFIGS[this.config.difficulty].multiplier,
         })
+        // Fire-and-forget: onSolved is async (it submits the score and may
+        // dispatch achievement events) but we intentionally do not await it
+        // here. The game loop must not block on network I/O, and the result
+        // is handled via callbacks inside onSolved. Matches the codebase
+        // pattern used by other games (evader, tetris, etc.).
         this.callbacks.onSolved(this.state.score, this.getStats())
     }
 

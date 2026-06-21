@@ -103,15 +103,6 @@ export function computePoweredCells(
     return powered
 }
 
-export function isSolved(
-    grid: Tile[][],
-    source: GridPosition,
-    cores: GridPosition[]
-): boolean {
-    const powered = computePoweredCells(grid, source)
-    return cores.every(core => powered[core.row][core.col])
-}
-
 export const DIFFICULTY_CONFIGS: Record<Difficulty, DifficultyConfig> = {
     easy: {
         difficulty: 'easy',
