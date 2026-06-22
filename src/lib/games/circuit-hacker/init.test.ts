@@ -50,6 +50,7 @@ vi.mock('@/lib/services/scoreService', () => ({
 import { initializeCircuitHackerGame } from './init'
 import { GameID } from '@/lib/games'
 import { solveGameForTest } from './test-utils'
+import { screen } from '@testing-library/dom'
 
 function setupDom(): HTMLElement {
     document.body.innerHTML = `
@@ -58,9 +59,9 @@ function setupDom(): HTMLElement {
         <span id="final-time">0</span>
         <span id="final-rotations">0</span>
         <span id="game-over-title"></span>
-        <div id="game-over-overlay" class="hidden"></div>
-        <button id="start-btn"></button>
-        <button id="stop-btn" style="display:none"></button>
+        <div id="game-over-overlay" class="hidden" data-testid="game-over-overlay"></div>
+        <button id="start-btn" data-testid="start-btn"></button>
+        <button id="stop-btn" style="display:none" data-testid="stop-btn"></button>
     `
     return document.getElementById('game-canvas-container') as HTMLElement
 }
@@ -136,15 +137,13 @@ describe('initializeCircuitHackerGame', () => {
         await vi.runAllTimersAsync()
         expect(saveGameScore).not.toHaveBeenCalled()
         expect(onEnd).toHaveBeenCalledTimes(1)
-        const titleEl = document.getElementById('game-over-title')
-        expect(titleEl?.textContent).toBe('GAME OVER')
-        const overlay = document.getElementById('game-over-overlay')
-        expect(overlay?.classList.contains('hidden')).toBe(false)
+        expect(screen.getByText('GAME OVER')).toBeInTheDocument()
+        expect(screen.getByTestId('game-over-overlay')).not.toHaveClass(
+            'hidden'
+        )
         // Button state reset: start visible, stop hidden
-        const startBtn = document.getElementById('start-btn') as HTMLElement
-        const stopBtn = document.getElementById('stop-btn') as HTMLElement
-        expect(startBtn.style.display).toBe('inline-flex')
-        expect(stopBtn.style.display).toBe('none')
+        expect(screen.getByTestId('start-btn')).toBeVisible()
+        expect(screen.getByTestId('stop-btn')).not.toBeVisible()
         handle.cleanup()
     })
 
@@ -159,8 +158,7 @@ describe('initializeCircuitHackerGame', () => {
         await handle.start('easy')
         vi.advanceTimersByTime(121_000)
         await vi.runAllTimersAsync()
-        const titleEl = document.getElementById('game-over-title')
-        expect(titleEl?.textContent).toBe("TIME'S UP!")
+        expect(screen.getByText("TIME'S UP!")).toBeInTheDocument()
         handle.cleanup()
     })
 
