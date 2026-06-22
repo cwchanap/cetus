@@ -2,7 +2,7 @@
 
 import type { CircuitHackerGame } from './game'
 import type { GeneratedPuzzle } from './generator'
-import type { CircuitHackerState } from './types'
+import type { CircuitHackerState, Orientation } from './types'
 
 // Deterministic LCG so tests are reproducible.
 export function seededRng(seed: number): () => number {
@@ -51,7 +51,7 @@ export function solveGameForTest(game: CircuitHackerGame): void {
  */
 export function getSolutionOrientationsForTest(
     game: CircuitHackerGame
-): number[][] | null {
+): Orientation[][] | null {
     const internals = game as unknown as CircuitHackerGameInternals
     return internals.puzzle?.solutionOrientations ?? null
 }
