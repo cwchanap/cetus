@@ -214,4 +214,133 @@ describe('initializeCircuitHackerGame', () => {
         expect(onError.mock.calls[0][1]).toContain('not logged in')
         handle.cleanup()
     })
+
+    it('cleans up the previous game when start is called again', async () => {
+        const container = setupDom()
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation: vi.fn(),
+            onStart: vi.fn(),
+            onEnd: vi.fn(),
+        })
+        await handle.start('easy')
+        const firstGame = handle.getGame()
+        expect(firstGame).not.toBeNull()
+        // Restart with a different difficulty; the previous game must be
+        // cleaned up and a fresh one created.
+        await handle.start('medium')
+        const secondGame = handle.getGame()
+        expect(secondGame).not.toBe(firstGame)
+        expect(secondGame?.getState().rows).toBe(7) // medium is 7x7
+        handle.cleanup()
+    })
+
+    it('rotates a tile when the canvas receives a pointerdown', async () => {
+        const container = setupDom()
+        const onRotation = vi.fn()
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation,
+            onStart: vi.fn(),
+            onEnd: vi.fn(),
+        })
+        await handle.start('easy')
+        const game = handle.getGame()!
+        const state = game.getState()
+        // Find an unlocked tile to target
+        let target: { row: number; col: number } | null = null
+        outer: for (let r = 0; r < state.rows; r++) {
+            for (let c = 0; c < state.cols; c++) {
+                if (!state.grid[r][c].locked) {
+                    target = { row: r, col: c }
+                    break outer
+                }
+            }
+        }
+        expect(target).not.toBeNull()
+        const canvas = container.querySelector('canvas') as HTMLCanvasElement
+        // Mock canvas getBoundingClientRect returns { left: 0, top: 0,
+        // width: 240, height: 240 }. Easy is 5x5 at CELL_SIZE=48 => 240x240,
+        // so scale = 1. Click at the cell's centre.
+        const x = target!.col * 48 + 24
+        const y = target!.row * 48 + 24
+        const before = state.grid[target!.row][target!.col].orientation
+        canvas.dispatchEvent(
+            new MouseEvent('pointerdown', { clientX: x, clientY: y })
+        )
+        expect(game.getState().grid[target!.row][target!.col].orientation).toBe(
+            (before + 1) % 4
+        )
+        expect(onRotation).toHaveBeenCalledWith(1)
+        handle.cleanup()
+    })
+
+    it('dispatches achievementsEarned event when saveGameScore returns new achievements', async () => {
+        const container = setupDom()
+        const achievementSpy = vi.fn()
+        window.addEventListener('achievementsEarned', achievementSpy)
+        saveGameScore.mockImplementationOnce(
+            async (
+                _gameId: unknown,
+                _score: unknown,
+                onResult: (result: { newAchievements?: string[] }) => void
+            ) => {
+                onResult({ newAchievements: ['ach-1', 'ach-2'] })
+                return undefined
+            }
+        )
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation: vi.fn(),
+            onStart: vi.fn(),
+            onEnd: vi.fn(),
+        })
+        await handle.start('easy')
+        solveGameForTest(handle.getGame()!)
+        await vi.runAllTimersAsync()
+        expect(achievementSpy).toHaveBeenCalledTimes(1)
+        const event = achievementSpy.mock.calls[0][0] as CustomEvent
+        expect(event.detail.achievementIds).toEqual(['ach-1', 'ach-2'])
+        window.removeEventListener('achievementsEarned', achievementSpy)
+        handle.cleanup()
+    })
+
+    it('surfaces string errors from saveGameScore rejection via onError', async () => {
+        const container = setupDom()
+        const onError = vi.fn()
+        saveGameScore.mockRejectedValueOnce('string error')
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation: vi.fn(),
+            onStart: vi.fn(),
+            onEnd: vi.fn(),
+            onError,
+        })
+        await handle.start('easy')
+        solveGameForTest(handle.getGame()!)
+        await vi.runAllTimersAsync()
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError.mock.calls[0][1]).toContain('string error')
+        handle.cleanup()
+    })
+
+    it('surfaces unknown error type from saveGameScore rejection via onError', async () => {
+        const container = setupDom()
+        const onError = vi.fn()
+        // Neither Error nor string — triggers the "Unknown error" fallback
+        saveGameScore.mockRejectedValueOnce(42)
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation: vi.fn(),
+            onStart: vi.fn(),
+            onEnd: vi.fn(),
+            onError,
+        })
+        await handle.start('easy')
+        solveGameForTest(handle.getGame()!)
+        await vi.runAllTimersAsync()
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError.mock.calls[0][1]).toContain('Unknown error')
+        handle.cleanup()
+    })
 })

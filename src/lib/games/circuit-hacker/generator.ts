@@ -182,7 +182,9 @@ export function tileForDirections(dirs: Set<Direction>): {
         }
     }
     // Fallback (should not happen for size 2..4): a cross covers any set
+    /* c8 ignore start -- unreachable: cross matches every direction set */
     return { type: 'cross', orientation: 0 }
+    /* c8 ignore end */
 }
 
 function orientationForSingle(dir: Direction): Orientation {
@@ -192,7 +194,10 @@ function orientationForSingle(dir: Direction): Orientation {
             return o
         }
     }
+    /* c8 ignore start -- unreachable: all 4 orientations of 'N' cover all
+       directions */
     return 0
+    /* c8 ignore end */
 }
 
 function dirBetween(a: GridPosition, b: GridPosition): Direction {
@@ -343,7 +348,11 @@ function tryGenerate(
                     // Degenerate layout (path cell with no required
                     // connectors). Signal the caller to retry with a fresh
                     // layout rather than emitting an unsolvable tile.
+                    /* c8 ignore start -- unreachable: path cells always have
+                       2+ directions, so tileForDirections never returns
+                       null for them */
                     return null
+                    /* c8 ignore end */
                 }
                 type = t.type
                 orientation = t.orientation
