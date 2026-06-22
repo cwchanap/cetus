@@ -39,6 +39,7 @@ vi.mock('pixi.js', () => {
     }
 })
 
+import { Application } from 'pixi.js'
 import { setupPixiJS, renderGrid, pointerToCell, cleanup } from './renderer'
 import type { CircuitHackerState, Tile } from './types'
 
@@ -95,5 +96,39 @@ describe('circuit-hacker renderer', () => {
         expect(rs.tileGraphic.clear).toHaveBeenCalled()
         cleanup(rs)
         expect(rs.app.destroy).toHaveBeenCalled()
+    })
+
+    it('throws a wrapped error and cleans the container when PixiJS init fails', async () => {
+        // Append a dummy child to verify the catch block clears the container
+        container.appendChild(document.createElement('div'))
+        vi.mocked(Application).mockImplementationOnce(() => {
+            throw new Error('pixi exploded')
+        })
+        await expect(setupPixiJS(container, 1, 1, 48)).rejects.toThrow(
+            'Failed to initialize PixiJS'
+        )
+        // The catch block removes all children from the container
+        expect(container.children).toHaveLength(0)
+    })
+
+    it('renders a blocker tile without throwing', async () => {
+        const rs = await setupPixiJS(container, 1, 2, 48)
+        const state = {
+            grid: [[tile({ type: 'blocker', locked: true }), tile()]],
+            sourcePos: { row: 0, col: 0 },
+            corePositions: [],
+            rows: 1,
+            cols: 2,
+            score: 0,
+            timeRemaining: 10,
+            rotationsUsed: 0,
+            isGameActive: true,
+            isGameOver: false,
+            solved: false,
+        } as CircuitHackerState
+        expect(() => renderGrid(rs, state, 48)).not.toThrow()
+        // COLOR_BLOCKER = 0x1e293b; the blocker fill call uses it directly
+        expect(rs.tileGraphic.fill).toHaveBeenCalledWith(0x1e293b)
+        cleanup(rs)
     })
 })

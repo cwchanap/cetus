@@ -181,8 +181,12 @@ export async function initializeCircuitHackerGame(
 
         pointerHandler = (event: PointerEvent) => {
             if (!renderer || !game) {
+                /* c8 ignore start -- defensive: listener is removed before
+                   renderer/game are nulled, so this guard is never reached
+                   in normal flow */
                 return
             }
+            /* c8 ignore end */
             const rect = renderer.app.canvas.getBoundingClientRect()
             const scaleX = rect.width / (tier.cols * CELL_SIZE)
             const scaleY = rect.height / (tier.rows * CELL_SIZE)
