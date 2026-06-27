@@ -108,6 +108,15 @@ export interface CircuitHackerGameData {
     solved: boolean
 }
 
+// Satellite Sync-specific game data
+export interface SatelliteSyncGameData {
+    levelsCleared: number
+    maxCombo: number
+    totalLocks: number
+    solved: boolean
+    minTimeRemainingRatio: number
+}
+
 // Union type for all game data
 export type GameData =
     | TetrisGameData
@@ -123,6 +132,7 @@ export type GameData =
     | Game2048Data
     | SnakeGameData
     | CircuitHackerGameData
+    | SatelliteSyncGameData
 
 // Common game stats returned from games
 export interface GameStats {
