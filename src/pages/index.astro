@@ -31,6 +31,7 @@ const idMapping: Record<string, number> = {
   evader: 10,
   snake: 11,
   circuit_hacker: 12,
+  satellite_sync: 14,
   '2048': 13,
 }
 
@@ -48,6 +49,7 @@ const difficultyLabels: Partial<Record<GameID, string>> = {
   [GameID.SNAKE]: 'Easy',
   [GameID.GAME_2048]: 'Medium',
   [GameID.CIRCUIT_HACKER]: 'Medium',
+  [GameID.SATELLITE_SYNC]: 'Medium',
 }
 
 const durationLabels: Partial<Record<GameID, string>> = {
@@ -63,6 +65,7 @@ const durationLabels: Partial<Record<GameID, string>> = {
   [GameID.EVADER]: '1 minute',
   [GameID.GAME_2048]: '5-10 minutes',
   [GameID.CIRCUIT_HACKER]: '2-5 minutes',
+  [GameID.SATELLITE_SYNC]: '6-8 minutes',
 }
 
 // Convert Games system data to GameCard format

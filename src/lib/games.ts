@@ -13,6 +13,7 @@ export enum GameID {
     SNAKE = 'snake',
     GAME_2048 = '2048',
     CIRCUIT_HACKER = 'circuit_hacker',
+    SATELLITE_SYNC = 'satellite_sync',
 }
 
 // Game system types
@@ -184,6 +185,18 @@ export const GAMES: Game[] = [
         tags: ['puzzle', 'logic', 'circuit', 'single-player', 'rotation'],
         isActive: true,
     },
+    {
+        id: GameID.SATELLITE_SYNC,
+        name: 'Satellite Sync',
+        description:
+            'Align orbital satellite beams with their targets before the timer expires',
+        category: 'strategy',
+        maxPlayers: 1,
+        estimatedDuration: '6-8 minutes',
+        difficulty: 'medium',
+        tags: ['satellite', 'sync', 'single-player', 'timing'],
+        isActive: true,
+    },
 ]
 
 // Helper functions
@@ -245,6 +258,7 @@ const GAME_ICONS: Record<GameID, string> = {
     [GameID.SNAKE]: '🐍',
     [GameID.GAME_2048]: '🎯',
     [GameID.CIRCUIT_HACKER]: '🔌',
+    [GameID.SATELLITE_SYNC]: '🛰️',
 }
 
 // Game icon helper function

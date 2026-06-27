@@ -207,3 +207,24 @@ describe('Circuit Hacker registration', () => {
         )
     })
 })
+
+describe('Satellite Sync registration', () => {
+    it('has a GameID and registry entry', () => {
+        expect(GameID.SATELLITE_SYNC).toBe('satellite_sync')
+        const game = getGameById(GameID.SATELLITE_SYNC)
+        expect(game).toBeDefined()
+        expect(game?.name).toBe('Satellite Sync')
+        expect(game?.category).toBe('strategy')
+        expect(game?.isActive).toBe(true)
+    })
+
+    it('has an icon', () => {
+        expect(getGameIcon(GameID.SATELLITE_SYNC)).toBe('🛰️')
+    })
+
+    it('is included in the GAMES list exactly once', () => {
+        expect(GAMES.filter(g => g.id === GameID.SATELLITE_SYNC)).toHaveLength(
+            1
+        )
+    })
+})
