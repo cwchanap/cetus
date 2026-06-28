@@ -67,6 +67,7 @@ export class SatelliteSyncGame {
 
     start(): void {
         this.scoreManager.reset()
+        this.state.score = 0
         this.maxCombo = 0
         this.totalLocks = 0
         this.minTimeRatio = 1

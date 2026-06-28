@@ -8,6 +8,7 @@ import {
     type RendererState,
 } from './renderer'
 import { polarToWorld, bearing } from './geometry'
+import { SATELLITE_SYNC_LEVELS } from './levels'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import type { SatelliteSyncCallbacks } from './types'
@@ -143,8 +144,8 @@ export async function initializeSatelliteSync(
         }
         teardownRenderer()
 
-        const firstLevelRings = 2
-        renderer = await setupScene(container, firstLevelRings)
+        const sceneRings = Math.max(...SATELLITE_SYNC_LEVELS.map(l => l.rings))
+        renderer = await setupScene(container, sceneRings)
 
         game = new SatelliteSyncGame({
             onGameStart: () => {

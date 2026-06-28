@@ -181,6 +181,10 @@ const gameNavigation = [
             onWin: () => {
               resetButtonState()
             },
+            onError: (_title, message) => {
+              statusEl.textContent = message
+              statusEl.classList.remove('hidden')
+            },
           })
 
           startBtn.addEventListener('click', async () => {
