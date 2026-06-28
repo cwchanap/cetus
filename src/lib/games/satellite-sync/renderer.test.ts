@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import { buildLayout, pixelToWorld, pointerToSatellite } from './renderer'
+import { describe, it, expect, vi } from 'vitest'
+import {
+    buildLayout,
+    pixelToWorld,
+    pointerToSatellite,
+    cleanup,
+    type RendererState,
+} from './renderer'
 import { polarToWorld } from './geometry'
 import type { RuntimeSatellite } from './types'
 
@@ -52,5 +58,21 @@ describe('pixelToWorld / pointerToSatellite', () => {
             snapCandidateId: null,
         }
         expect(pointerToSatellite(5, 5, [sat], layout)).toBeNull()
+    })
+})
+
+describe('cleanup', () => {
+    it('destroys the pixi application with children and textures', () => {
+        const destroy = vi.fn()
+        const state = {
+            app: { destroy },
+            scene: {},
+            layout: buildLayout(400, 400, 2),
+        } as unknown as RendererState
+        cleanup(state)
+        expect(destroy).toHaveBeenCalledWith(true, {
+            children: true,
+            texture: true,
+        })
     })
 })

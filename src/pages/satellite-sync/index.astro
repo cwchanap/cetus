@@ -93,6 +93,12 @@ const gameNavigation = [
               >
             </div>
 
+            <div
+              id="game-error"
+              class="hidden text-sm text-amber-400 bg-amber-950/40 border border-amber-700/50 rounded-md px-3 py-2 text-center"
+            >
+            </div>
+
             <GameOverlay
               defaultTitle="MISSION COMPLETE!"
               buttonText="Play Again"
@@ -153,6 +159,7 @@ const gameNavigation = [
       const init = async () => {
         const container = document.getElementById('game-canvas-container')!
         const statusEl = document.getElementById('game-status')!
+        const errorEl = document.getElementById('game-error')!
         const overlay = document.getElementById('game-over-overlay')!
         const startBtn = document.getElementById('start-btn')!
         const endBtn = document.getElementById('end-btn')!
@@ -167,6 +174,7 @@ const gameNavigation = [
           gameHandle = await initializeSatelliteSync(container, {
             onGameStart: () => {
               statusEl.classList.add('hidden')
+              errorEl.classList.add('hidden')
               overlay.classList.add('hidden')
               startBtn.style.display = 'none'
               endBtn.style.display = 'inline-flex'
@@ -182,8 +190,8 @@ const gameNavigation = [
               resetButtonState()
             },
             onError: (_title, message) => {
-              statusEl.textContent = message
-              statusEl.classList.remove('hidden')
+              errorEl.textContent = message
+              errorEl.classList.remove('hidden')
             },
           })
 
@@ -203,6 +211,7 @@ const gameNavigation = [
 
           playAgainBtn.addEventListener('click', () => {
             overlay.classList.add('hidden')
+            errorEl.classList.add('hidden')
             statusEl.classList.remove('hidden')
             resetButtonState()
           })
