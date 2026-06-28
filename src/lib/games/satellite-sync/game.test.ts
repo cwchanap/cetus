@@ -40,6 +40,9 @@ function makeCallbacks(): SatelliteSyncCallbacks & {
 // reachable satellite among the extras). Avoids assuming a fixed
 // satellite->target ordering.
 function solveCurrentLevel(game: SatelliteSyncGame): void {
+    // Flush any pending level entity swap — mirrors the production raf loop,
+    // which calls update() before reading state each frame.
+    game.update(0)
     const targetIds = game.getState().targets.map(t => t.id)
     for (const targetId of targetIds) {
         if (game.getState().targets.find(t => t.id === targetId)!.locked) {
@@ -94,7 +97,8 @@ describe('SatelliteSyncGame', () => {
 
         expect(game.getState().targets[0].locked).toBe(true)
         expect(cbs.calls.lock).toHaveLength(1)
-        expect(cbs.calls.score?.[0]).toBe(100)
+        // start() fires onScoreUpdate(0); the lock's 100 points is the last call.
+        expect(cbs.calls.score?.[cbs.calls.score.length - 1]).toBe(100)
         expect(aim).toBe(true)
         game.cleanup()
     })
@@ -165,6 +169,79 @@ describe('SatelliteSyncGame', () => {
         // Grab it again -> previous target unlocks.
         game.beginAim(s.satellites[0].id)
         expect(game.getState().targets[0].locked).toBe(false)
+        game.cleanup()
+    })
+
+    it('fires onScoreUpdate(0) on start so the DOM score badge resets', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        expect(cbs.calls.score?.[0]).toBe(0)
+        game.cleanup()
+    })
+
+    it('resets the combo when the combo window elapses between locks', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        const state = game.getState()
+        // First lock -> combo 1
+        game.beginAim(state.satellites[0].id)
+        game.aimAtTarget(state.satellites[0].id, state.targets[0].id)
+        game.endAim(state.satellites[0].id)
+        // Advance past the combo window (2500ms) and tick update so the
+        // combo-reset guard fires.
+        vi.advanceTimersByTime(3000)
+        game.update(16)
+        expect(game.getState().combo).toBe(0)
+        // Second lock -> combo resets to 1, not 2
+        game.beginAim(state.satellites[1].id)
+        game.aimAtTarget(state.satellites[1].id, state.targets[1].id)
+        game.endAim(state.satellites[1].id)
+        const lockCalls = cbs.calls.lock as { combo: number }[]
+        expect(lockCalls[lockCalls.length - 1].combo).toBe(1)
+        game.cleanup()
+    })
+
+    it('cancels a stale snap when a moving target drifts out of range', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        // Advance to level 5 (Orbit Drift) which has moving targets.
+        for (let lvl = 0; lvl < 4; lvl++) {
+            solveCurrentLevel(game)
+        }
+        const state = game.getState()
+        const sat = state.satellites[0]
+        const target = state.targets[0]
+        // Aim precisely at the target -> snap candidate recorded.
+        game.beginAim(sat.id)
+        game.aimAtTarget(sat.id, target.id)
+        expect(game.getState().satellites[0].snapCandidateId).toBe(target.id)
+        // Drift the target well past the 8deg snap threshold (18 deg/sec).
+        game.update(2000)
+        // Releasing must NOT lock — the candidate is stale.
+        game.endAim(sat.id)
+        expect(game.getState().targets[0].locked).toBe(false)
+        game.cleanup()
+    })
+
+    it('getState() is pure — repeated calls do not flush pending levels', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        // Clear level 1 -> handleLevelClear sets pendingLevel for level 2.
+        solveCurrentLevel(game)
+        const colorsBefore = game.getState().targets.map(t => t.color)
+        // Repeated getState() calls must return identical entities —
+        // the flush happens only in update(), not as a read side effect.
+        expect(game.getState().targets.map(t => t.color)).toEqual(colorsBefore)
+        // Level 1 targets are all cyan; level 2 introduces magenta/yellow.
+        expect(colorsBefore).toEqual(['cyan', 'cyan', 'cyan'])
+        // update() performs the flush.
+        game.update(0)
+        const colorsAfter = game.getState().targets.map(t => t.color)
+        expect(colorsAfter).toEqual(['cyan', 'magenta', 'yellow'])
         game.cleanup()
     })
 })

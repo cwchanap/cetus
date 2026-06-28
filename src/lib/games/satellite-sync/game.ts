@@ -30,10 +30,8 @@ export class SatelliteSyncGame {
     private maxCombo = 0
     private totalLocks = 0
     private minTimeRatio = 1
-    private levelMinTime = 0
     private lastLockAt = 0
     private pendingLevel: number | null = null
-    private suppressFlush = false
 
     constructor(callbacks: SatelliteSyncCallbacks) {
         this.callbacks = callbacks
@@ -72,6 +70,7 @@ export class SatelliteSyncGame {
         this.totalLocks = 0
         this.minTimeRatio = 1
         this.loadLevel(0)
+        this.callbacks.onScoreUpdate(0)
         this.callbacks.onGameStart()
     }
 
@@ -89,7 +88,6 @@ export class SatelliteSyncGame {
         this.applyLevelMetadata(index)
         this.loadLevelEntities(index)
         this.pendingLevel = null
-        this.suppressFlush = false
     }
 
     private applyLevelMetadata(index: number): void {
@@ -101,7 +99,6 @@ export class SatelliteSyncGame {
         this.state.combo = 0
         this.state.multiplier = 1
         this.state.status = 'playing'
-        this.levelMinTime = level.timeBudget
 
         this.stopTimer()
         this.timer = new GameTimer({
@@ -110,9 +107,6 @@ export class SatelliteSyncGame {
             autoStart: false,
             onTick: t => {
                 this.state.timeRemaining = t
-                if (t < this.levelMinTime) {
-                    this.levelMinTime = t
-                }
                 this.callbacks.onTimeUpdate(t)
             },
             onComplete: () => this.handleTimeout(),
@@ -185,7 +179,6 @@ export class SatelliteSyncGame {
             this.loadLevelEntities(this.pendingLevel)
             this.pendingLevel = null
         }
-        this.suppressFlush = false
         if (this.state.status !== 'playing') {
             return
         }
@@ -254,7 +247,19 @@ export class SatelliteSyncGame {
             return
         }
         if (sat.snapCandidateId) {
-            this.applyLock(sat, sat.snapCandidateId)
+            // Re-validate: a moving target may have drifted out of range
+            // between updateAim() and this commit. Spec: "no stale locks."
+            const candidate = findLockableTarget(
+                this.satWorld(sat),
+                sat.color,
+                sat.aimAngle,
+                this.state.targets,
+                this.state.obstacles,
+                SCORING_CONFIG.snapThresholdDeg
+            )
+            if (candidate) {
+                this.applyLock(sat, candidate.id)
+            }
         }
         sat.snapCandidateId = null
     }
@@ -351,7 +356,6 @@ export class SatelliteSyncGame {
             const next = this.state.levelIndex + 1
             this.applyLevelMetadata(next)
             this.pendingLevel = next
-            this.suppressFlush = true
         }
     }
 
@@ -364,12 +368,6 @@ export class SatelliteSyncGame {
     }
 
     getState(): SatelliteSyncState {
-        if (this.suppressFlush) {
-            this.suppressFlush = false
-        } else if (this.pendingLevel !== null) {
-            this.loadLevelEntities(this.pendingLevel)
-            this.pendingLevel = null
-        }
         return this.state
     }
 

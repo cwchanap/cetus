@@ -166,6 +166,12 @@ export function render(
         scene.circle(sp.x, sp.y, layout.scale * 0.12).fill(beamColor)
     }
 
+    const snapCandidateIds = new Set(
+        state.satellites
+            .map(s => s.snapCandidateId)
+            .filter((id): id is string => id !== null)
+    )
+
     for (const target of state.targets) {
         const tp = worldToPixel(
             polarToWorld(target.ring, target.currentAngle),
@@ -177,6 +183,11 @@ export function render(
             .circle(tp.x, tp.y, r)
             .fill({ color, alpha: target.locked ? 1 : 0.45 })
         scene.circle(tp.x, tp.y, r).stroke({ color, width: 2 })
+        if (snapCandidateIds.has(target.id) && !target.locked) {
+            scene
+                .circle(tp.x, tp.y, r + layout.scale * 0.08)
+                .stroke({ color, width: 2, alpha: 0.9 })
+        }
     }
 }
 

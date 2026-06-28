@@ -24,6 +24,9 @@ export interface SatelliteSyncUICallbacks extends SatelliteSyncCallbacks {
     onError?: (title: string, message: string) => void
 }
 
+const KEYBOARD_STEP_DEG = 3
+const KEYBOARD_KEYS = new Set(['Tab', 'ArrowLeft', 'ArrowRight', 'Enter', ' '])
+
 function setText(id: string, value: string): void {
     const el = document.getElementById(id)
     if (el) {
@@ -47,6 +50,7 @@ export async function initializeSatelliteSync(
     let game: SatelliteSyncGame | null = null
     let renderer: RendererState | null = null
     let draggingSatId: string | null = null
+    let keyboardSelectedId: string | null = null
     let rafId: number | null = null
     let lastFrame = 0
 
@@ -55,6 +59,10 @@ export async function initializeSatelliteSync(
         move: ((e: PointerEvent) => void) | null
         up: ((e: PointerEvent) => void) | null
     } = { down: null, move: null, up: null }
+
+    const keyboardHandlers: {
+        keydown: ((e: KeyboardEvent) => void) | null
+    } = { keydown: null }
 
     const teardownRenderer = (): void => {
         if (rafId !== null) {
@@ -77,9 +85,14 @@ export async function initializeSatelliteSync(
             rendererCleanup(renderer)
             renderer = null
         }
+        if (keyboardHandlers.keydown) {
+            window.removeEventListener('keydown', keyboardHandlers.keydown)
+        }
         pointerHandlers.down = null
         pointerHandlers.move = null
         pointerHandlers.up = null
+        keyboardHandlers.keydown = null
+        keyboardSelectedId = null
         while (container.firstChild) {
             container.removeChild(container.firstChild)
         }
@@ -255,12 +268,60 @@ export async function initializeSatelliteSync(
             draggingSatId = null
         }
 
+        keyboardHandlers.keydown = (event: KeyboardEvent) => {
+            if (!game || game.getState().status !== 'playing') {
+                return
+            }
+            if (draggingSatId || !KEYBOARD_KEYS.has(event.key)) {
+                return
+            }
+            event.preventDefault()
+            const sats = game.getState().satellites
+            if (sats.length === 0) {
+                return
+            }
+            if (event.key === 'Tab') {
+                if (keyboardSelectedId) {
+                    game.endAim(keyboardSelectedId)
+                }
+                const idx = sats.findIndex(s => s.id === keyboardSelectedId)
+                const next = sats[(idx + 1) % sats.length]
+                keyboardSelectedId = next.id
+                game.beginAim(next.id)
+                game.updateAim(next.id, next.aimAngle)
+            } else if (
+                event.key === 'ArrowLeft' ||
+                event.key === 'ArrowRight'
+            ) {
+                if (!keyboardSelectedId) {
+                    return
+                }
+                const sat = sats.find(s => s.id === keyboardSelectedId)
+                if (!sat) {
+                    return
+                }
+                const step =
+                    event.key === 'ArrowLeft'
+                        ? -KEYBOARD_STEP_DEG
+                        : KEYBOARD_STEP_DEG
+                const newAim = (sat.aimAngle + step + 360) % 360
+                game.updateAim(keyboardSelectedId, newAim)
+            } else if (event.key === 'Enter' || event.key === ' ') {
+                if (!keyboardSelectedId) {
+                    return
+                }
+                game.endAim(keyboardSelectedId)
+                keyboardSelectedId = null
+            }
+        }
+
         renderer.app.canvas.addEventListener(
             'pointerdown',
             pointerHandlers.down
         )
         window.addEventListener('pointermove', pointerHandlers.move)
         window.addEventListener('pointerup', pointerHandlers.up)
+        window.addEventListener('keydown', keyboardHandlers.keydown)
 
         game.start()
         setText('level', '1')

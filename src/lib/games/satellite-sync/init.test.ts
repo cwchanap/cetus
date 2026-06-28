@@ -118,4 +118,50 @@ describe('initializeSatelliteSync', () => {
         ).toBe(false)
         handle.cleanup()
     })
+
+    it('surfaces a score-save failure via onError without throwing', async () => {
+        const { saveGameScore } = await import('@/lib/services/scoreService')
+        const container = setupDom()
+        const onError = vi.fn()
+        const handle = await initializeSatelliteSync(container, {
+            onGameStart: vi.fn(),
+            onTimeUpdate: vi.fn(),
+            onScoreUpdate: vi.fn(),
+            onLock: vi.fn(),
+            onLevelClear: vi.fn(),
+            onFail: vi.fn(),
+            onWin: vi.fn(),
+            onError,
+        })
+        vi.mocked(saveGameScore).mockImplementationOnce(
+            (_id, _score, _onSuccess, onErrorCb) => {
+                onErrorCb?.('Network down')
+                return Promise.resolve()
+            }
+        )
+        await handle.start()
+        vi.advanceTimersByTime(61_000)
+        await Promise.resolve()
+        expect(onError).toHaveBeenCalledWith(
+            'Score Not Saved',
+            expect.stringContaining('Network down')
+        )
+        handle.cleanup()
+    })
+
+    it('survives a double start without throwing', async () => {
+        const container = setupDom()
+        const handle = await initializeSatelliteSync(container, {
+            onGameStart: vi.fn(),
+            onTimeUpdate: vi.fn(),
+            onScoreUpdate: vi.fn(),
+            onLock: vi.fn(),
+            onLevelClear: vi.fn(),
+            onFail: vi.fn(),
+            onWin: vi.fn(),
+        })
+        await handle.start()
+        await handle.start()
+        handle.cleanup()
+    })
 })
