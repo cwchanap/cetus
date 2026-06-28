@@ -9,6 +9,7 @@ import type {
     SnakeGameData,
     WordScrambleGameData,
     CircuitHackerGameData,
+    SatelliteSyncGameData,
     GameHistoryEntry,
 } from './games/shared/types'
 
@@ -30,6 +31,7 @@ export type AchievementCheckData =
     | SnakeGameData
     | WordScrambleGameData
     | CircuitHackerGameData
+    | SatelliteSyncGameData
     | Record<string, unknown>
 
 export interface Achievement {
@@ -1284,6 +1286,80 @@ export const ACHIEVEMENTS: Achievement[] = [
             },
         },
         rarity: AchievementRarity.RARE,
+    },
+
+    // Satellite Sync achievements
+    {
+        id: 'satellite_sync_welcome',
+        name: 'First Sync',
+        description: 'Welcome to Satellite Sync! You locked your first beam.',
+        logo: '🛰️',
+        gameId: GameID.SATELLITE_SYNC,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'satellite_sync_combo',
+        name: 'Combo Commander',
+        description: 'Reach a ×3 combo chain in Satellite Sync.',
+        logo: '🔗',
+        gameId: GameID.SATELLITE_SYNC,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as SatelliteSyncGameData
+                return data.maxCombo >= 5
+            },
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'satellite_sync_complete',
+        name: 'Mission Complete',
+        description: 'Clear all 8 Satellite Sync levels.',
+        logo: '🏆',
+        gameId: GameID.SATELLITE_SYNC,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as SatelliteSyncGameData
+                return data.solved === true && data.levelsCleared === 8
+            },
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'satellite_sync_untouchable',
+        name: 'Untouchable',
+        description:
+            'Clear the Satellite Sync mission keeping every level timer above 25%.',
+        logo: '🛡️',
+        gameId: GameID.SATELLITE_SYNC,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as SatelliteSyncGameData
+                return (
+                    data.solved === true && data.minTimeRemainingRatio >= 0.25
+                )
+            },
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: 'satellite_sync_highcommand',
+        name: 'High Command',
+        description: 'Score 15,000 or more in Satellite Sync.',
+        logo: '⭐',
+        gameId: GameID.SATELLITE_SYNC,
+        condition: {
+            type: 'score_threshold',
+            threshold: 15000,
+        },
+        rarity: AchievementRarity.LEGENDARY,
     },
 ]
 
