@@ -180,6 +180,11 @@ export class SatelliteSyncGame {
     }
 
     update(deltaMs: number): void {
+        if (this.pendingLevel !== null) {
+            this.loadLevelEntities(this.pendingLevel)
+            this.pendingLevel = null
+        }
+        this.suppressFlush = false
         if (this.state.status !== 'playing') {
             return
         }
@@ -342,8 +347,9 @@ export class SatelliteSyncGame {
             this.stopTimer()
             this.callbacks.onWin(this.scoreManager.getScore())
         } else {
-            this.applyLevelMetadata(this.state.levelIndex + 1)
-            this.pendingLevel = this.state.levelIndex
+            const next = this.state.levelIndex + 1
+            this.applyLevelMetadata(next)
+            this.pendingLevel = next
             this.suppressFlush = true
         }
     }
