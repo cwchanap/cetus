@@ -32,4 +32,21 @@ describe('isLevelSolvable', () => {
             })
         ).toBe(false)
     })
+
+    it('rejects a level with fewer satellites than targets', () => {
+        expect(
+            isLevelSolvable({
+                id: 99,
+                name: 'too few sats',
+                timeBudget: 30,
+                rings: 1,
+                satellites: [{ ring: 0, angle: 0, color: 'cyan' }],
+                targets: [
+                    { ring: 1, angle: 0, color: 'cyan' },
+                    { ring: 1, angle: 180, color: 'cyan' },
+                ],
+                obstacles: [],
+            })
+        ).toBe(false)
+    })
 })
