@@ -244,4 +244,69 @@ describe('SatelliteSyncGame', () => {
         expect(colorsAfter).toEqual(['cyan', 'magenta', 'yellow'])
         game.cleanup()
     })
+
+    it('stop() halts the timer and sets status to idle', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        expect(game.getState().status).toBe('playing')
+        game.stop()
+        expect(game.getState().status).toBe('idle')
+        // update() is a no-op once stopped.
+        const before = game.getState().timeRemaining
+        game.update(1000)
+        expect(game.getState().timeRemaining).toBe(before)
+        game.cleanup()
+    })
+
+    it('aim methods are no-ops for unknown satellite ids', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        const target = game.getState().targets[0]
+        // None of these should throw or mutate state.
+        game.beginAim('does-not-exist')
+        game.updateAim('does-not-exist', 90)
+        game.endAim('does-not-exist')
+        expect(game.aimAtTarget('does-not-exist', target.id)).toBe(false)
+        expect(
+            game.aimAtTarget(game.getState().satellites[0].id, 'no-target')
+        ).toBe(false)
+        expect(game.getState().targets[0].locked).toBe(false)
+        game.cleanup()
+    })
+
+    it('aim methods are no-ops when the game is not playing', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        // Idle game — beginAim/updateAim/endAim should bail out.
+        game.beginAim('sat-0')
+        game.updateAim('sat-0', 90)
+        game.endAim('sat-0')
+        expect(game.getState().status).toBe('idle')
+        game.cleanup()
+    })
+
+    it('wraps moving target/obstacle angles into [0, 360) on negative drift', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        // Advance to level 8 (Singularity) which has moving targets and
+        // obstacles with direction -1. A large dt drives the modulo result
+        // negative, exercising the += 360 wrap branches.
+        for (let lvl = 0; lvl < 7; lvl++) {
+            solveCurrentLevel(game)
+        }
+        expect(game.getState().levelIndex).toBe(7)
+        game.update(20_000)
+        for (const t of game.getState().targets) {
+            expect(t.currentAngle).toBeGreaterThanOrEqual(0)
+            expect(t.currentAngle).toBeLessThan(360)
+        }
+        for (const o of game.getState().obstacles) {
+            expect(o.currentAngle).toBeGreaterThanOrEqual(0)
+            expect(o.currentAngle).toBeLessThan(360)
+        }
+        game.cleanup()
+    })
 })

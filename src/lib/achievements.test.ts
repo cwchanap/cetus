@@ -773,3 +773,165 @@ describe('Circuit Hacker achievements', () => {
         ).toBe(false)
     })
 })
+
+describe('Satellite Sync achievements', () => {
+    it('registers achievements for satellite sync', () => {
+        const list = getAchievementsByGame(GameID.SATELLITE_SYNC)
+        expect(list.map(a => a.id)).toEqual(
+            expect.arrayContaining([
+                'satellite_sync_welcome',
+                'satellite_sync_combo',
+                'satellite_sync_complete',
+                'satellite_sync_untouchable',
+                'satellite_sync_highcommand',
+            ])
+        )
+    })
+
+    it('satellite_sync_combo: awards when maxCombo >= 5', () => {
+        const check = getAchievementById('satellite_sync_combo')!.condition
+            .check!
+        expect(
+            check(
+                {
+                    maxCombo: 5,
+                    levelsCleared: 0,
+                    totalLocks: 5,
+                    solved: false,
+                    minTimeRemainingRatio: 1,
+                },
+                0
+            )
+        ).toBe(true)
+        expect(
+            check(
+                {
+                    maxCombo: 6,
+                    levelsCleared: 0,
+                    totalLocks: 6,
+                    solved: false,
+                    minTimeRemainingRatio: 1,
+                },
+                0
+            )
+        ).toBe(true)
+        expect(
+            check(
+                {
+                    maxCombo: 4,
+                    levelsCleared: 0,
+                    totalLocks: 4,
+                    solved: false,
+                    minTimeRemainingRatio: 1,
+                },
+                0
+            )
+        ).toBe(false)
+    })
+
+    it('satellite_sync_complete: awards only when solved with all 8 levels cleared', () => {
+        const check = getAchievementById('satellite_sync_complete')!.condition
+            .check!
+        expect(
+            check(
+                {
+                    maxCombo: 0,
+                    levelsCleared: 8,
+                    totalLocks: 24,
+                    solved: true,
+                    minTimeRemainingRatio: 1,
+                },
+                0
+            )
+        ).toBe(true)
+        expect(
+            check(
+                {
+                    maxCombo: 0,
+                    levelsCleared: 7,
+                    totalLocks: 21,
+                    solved: false,
+                    minTimeRemainingRatio: 1,
+                },
+                0
+            )
+        ).toBe(false)
+        expect(
+            check(
+                {
+                    maxCombo: 0,
+                    levelsCleared: 8,
+                    totalLocks: 24,
+                    solved: false,
+                    minTimeRemainingRatio: 1,
+                },
+                0
+            )
+        ).toBe(false)
+        expect(
+            check(
+                {
+                    maxCombo: 0,
+                    levelsCleared: 7,
+                    totalLocks: 21,
+                    solved: true,
+                    minTimeRemainingRatio: 1,
+                },
+                0
+            )
+        ).toBe(false)
+    })
+
+    it('satellite_sync_untouchable: awards when solved and every timer stayed above 25%', () => {
+        const check = getAchievementById('satellite_sync_untouchable')!
+            .condition.check!
+        expect(
+            check(
+                {
+                    maxCombo: 0,
+                    levelsCleared: 8,
+                    totalLocks: 24,
+                    solved: true,
+                    minTimeRemainingRatio: 0.25,
+                },
+                0
+            )
+        ).toBe(true)
+        expect(
+            check(
+                {
+                    maxCombo: 0,
+                    levelsCleared: 8,
+                    totalLocks: 24,
+                    solved: true,
+                    minTimeRemainingRatio: 0.5,
+                },
+                0
+            )
+        ).toBe(true)
+        expect(
+            check(
+                {
+                    maxCombo: 0,
+                    levelsCleared: 8,
+                    totalLocks: 24,
+                    solved: true,
+                    minTimeRemainingRatio: 0.24,
+                },
+                0
+            )
+        ).toBe(false)
+        expect(
+            check(
+                {
+                    maxCombo: 0,
+                    levelsCleared: 8,
+                    totalLocks: 24,
+                    solved: false,
+                    minTimeRemainingRatio: 0.5,
+                },
+                0
+            )
+        ).toBe(false)
+    })
+})
