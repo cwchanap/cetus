@@ -164,4 +164,44 @@ describe('initializeSatelliteSync', () => {
         await handle.start()
         handle.cleanup()
     })
+
+    it('updates the level badge to the next level after a clear', async () => {
+        const container = setupDom()
+        const handle = await initializeSatelliteSync(container, {
+            onGameStart: vi.fn(),
+            onTimeUpdate: vi.fn(),
+            onScoreUpdate: vi.fn(),
+            onLock: vi.fn(),
+            onLevelClear: vi.fn(),
+            onFail: vi.fn(),
+            onWin: vi.fn(),
+        })
+        await handle.start()
+        const game = handle.getGame()!
+        // Greedily clear level 1: for each target, try free satellites
+        // until one locks it.
+        game.update(0)
+        const targetIds = game.getState().targets.map(t => t.id)
+        for (const targetId of targetIds) {
+            if (game.getState().targets.find(t => t.id === targetId)!.locked) {
+                continue
+            }
+            for (const sat of game.getState().satellites) {
+                if (sat.lockedTargetId) {
+                    continue
+                }
+                game.beginAim(sat.id)
+                game.aimAtTarget(sat.id, targetId)
+                game.endAim(sat.id)
+                if (
+                    game.getState().targets.find(t => t.id === targetId)!.locked
+                ) {
+                    break
+                }
+            }
+        }
+        const levelEl = document.getElementById('level')!
+        expect(levelEl.textContent).toBe('2')
+        handle.cleanup()
+    })
 })

@@ -176,7 +176,15 @@ export async function initializeSatelliteSync(
             },
             onLock: info => callbacks.onLock(info),
             onLevelClear: level => {
-                setText('level', level.toString())
+                // `level` is the just-cleared number (1-based). The player has
+                // already advanced past it, so the badge must show the level
+                // they are about to play. Cap at the total level count so the
+                // final clear (which fires onWin and shows the overlay) does
+                // not display a non-existent level number.
+                setText(
+                    'level',
+                    Math.min(level + 1, SATELLITE_SYNC_LEVELS.length).toString()
+                )
                 if (renderer && game) {
                     render(renderer, game.getState())
                 }
@@ -329,6 +337,10 @@ export async function initializeSatelliteSync(
     }
 
     const stop = (): void => {
+        if (rafId !== null) {
+            cancelAnimationFrame(rafId)
+            rafId = null
+        }
         game?.stop()
     }
 
