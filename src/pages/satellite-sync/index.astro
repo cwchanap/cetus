@@ -1,0 +1,228 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import GameOverlay from '@/components/GameOverlay.astro'
+import AchievementAward from '@/components/AchievementAward.astro'
+
+const gameNavigation = [
+  { href: '/', label: 'Home' },
+  { href: '#', label: 'Satellite Sync' },
+]
+---
+
+<AppLayout
+  title="Satellite Sync - Cetus Minigames"
+  description="Align orbital satellite beams with their targets before the timer expires"
+  includeFooter={false}
+  navigation={gameNavigation}
+>
+  <div class="px-6 py-4 border-b border-slate-700/50">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center space-x-3">
+        <div class="text-cyan-400 text-sm">🛰️ Satellite Sync</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-6 py-8">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-8">
+        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
+          SATELLITE SYNC
+        </h2>
+        <p class="text-gray-400 text-lg">
+          Drag each satellite beam onto its matching target to lock on before
+          the timer expires!
+        </p>
+      </div>
+
+      <div class="flex flex-col lg:flex-row gap-8 items-start justify-center">
+        <Card variant="glass" class="p-6 flex-shrink-0 w-full lg:w-auto">
+          <div class="flex flex-col items-center space-y-4">
+            <div class="flex space-x-4 mb-2">
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Level: <span id="level" class="text-cyan-400">1</span></span
+                >
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Time: <span id="time-remaining" class="text-cyan-400"
+                    >--</span
+                  >s</span
+                >
+              </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Score: <span id="score" class="text-cyan-400">0</span></span
+                >
+              </Badge>
+            </div>
+
+            <div class="relative w-full">
+              <div
+                id="game-canvas-container"
+                class="bg-black/30 rounded-lg min-w-[240px] min-h-[240px] w-full"
+              >
+              </div>
+
+              <div
+                id="game-status"
+                class="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg"
+              >
+                <div class="text-center">
+                  <div class="text-6xl mb-4">🛰️</div>
+                  <div
+                    class="text-xl text-cyan-400 font-orbitron font-bold mb-2"
+                  >
+                    SATELLITE SYNC
+                  </div>
+                  <div class="text-gray-400">
+                    Press Start to begin the mission!
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex space-x-3">
+              <Button id="start-btn" variant="primary">Start Game</Button>
+              <Button id="end-btn" variant="outline" style="display: none;"
+                >End Game</Button
+              >
+            </div>
+
+            <GameOverlay
+              defaultTitle="MISSION COMPLETE!"
+              buttonText="Play Again"
+            >
+              <div class="text-lg text-gray-300">
+                Final Score: <span id="final-score" class="text-cyan-400"
+                  >0</span
+                >
+              </div>
+            </GameOverlay>
+          </div>
+        </Card>
+
+        <div class="flex flex-col space-y-6">
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              HOW TO PLAY
+            </h3>
+            <ul class="space-y-2 text-sm text-gray-400">
+              <li>• Drag a satellite to aim its beam</li>
+              <li>• Release near a matching-color target to lock on</li>
+              <li>• Asteroids block the beam — find a clear path</li>
+              <li>• Lock targets quickly to build a combo multiplier</li>
+              <li>• Clear every target before the timer hits zero</li>
+            </ul>
+          </Card>
+
+          <Card variant="glass" class="p-6">
+            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+              SCORING
+            </h3>
+            <div class="space-y-2 text-sm text-gray-300">
+              <div class="flex justify-between">
+                <span class="text-gray-400">Lock:</span><span>100 × combo</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Combo:</span><span
+                  >+0.5 per chain (max ×3)</span
+                >
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Level clear:</span><span
+                  >250 × level</span
+                >
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Time bonus:</span><span
+                  >×10 / sec left</span
+                >
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      import { initializeSatelliteSync } from '@/lib/games/satellite-sync/init'
+
+      let gameHandle: Awaited<
+        ReturnType<typeof initializeSatelliteSync>
+      > | null = null
+
+      const init = async () => {
+        const container = document.getElementById('game-canvas-container')!
+        const statusEl = document.getElementById('game-status')!
+        const overlay = document.getElementById('game-over-overlay')!
+        const startBtn = document.getElementById('start-btn')!
+        const endBtn = document.getElementById('end-btn')!
+        const playAgainBtn = document.getElementById('play-again-btn')!
+
+        const resetButtonState = () => {
+          startBtn.style.display = 'inline-flex'
+          endBtn.style.display = 'none'
+        }
+
+        try {
+          gameHandle = await initializeSatelliteSync(container, {
+            onGameStart: () => {
+              statusEl.classList.add('hidden')
+              overlay.classList.add('hidden')
+              startBtn.style.display = 'none'
+              endBtn.style.display = 'inline-flex'
+            },
+            onTimeUpdate: () => {},
+            onScoreUpdate: () => {},
+            onLock: () => {},
+            onLevelClear: () => {},
+            onFail: () => {
+              resetButtonState()
+            },
+            onWin: () => {
+              resetButtonState()
+            },
+          })
+
+          startBtn.addEventListener('click', async () => {
+            startBtn.style.display = 'none'
+            try {
+              await gameHandle!.start()
+            } catch {
+              resetButtonState()
+            }
+          })
+
+          endBtn.addEventListener('click', () => {
+            gameHandle!.stop()
+            resetButtonState()
+          })
+
+          playAgainBtn.addEventListener('click', () => {
+            overlay.classList.add('hidden')
+            statusEl.classList.remove('hidden')
+            resetButtonState()
+          })
+        } catch {
+          resetButtonState()
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init)
+      } else {
+        init()
+      }
+
+      window.addEventListener('beforeunload', () => {
+        gameHandle?.cleanup()
+      })
+    </script>
+  </div>
+  <AchievementAward />
+</AppLayout>
