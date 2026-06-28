@@ -40,7 +40,10 @@ export function buildLayout(
     return { cx: width / 2, cy: height / 2, scale, rings }
 }
 
-export function worldToPixel(world: WorldPoint, layout: SceneLayout) {
+export function worldToPixel(
+    world: WorldPoint,
+    layout: SceneLayout
+): { x: number; y: number } {
     return {
         x: layout.cx + world.x * layout.scale,
         y: layout.cy + world.y * layout.scale,
