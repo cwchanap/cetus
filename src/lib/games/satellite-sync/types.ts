@@ -95,3 +95,11 @@ export interface SatelliteSyncCallbacks {
     onFail: (levelNumber: number, finalScore: number) => void
     onWin: (finalScore: number) => void
 }
+
+export interface SatelliteSyncGameData {
+    levelsCleared: number
+    maxCombo: number
+    totalLocks: number
+    solved: boolean
+    minTimeRemainingRatio: number
+}
