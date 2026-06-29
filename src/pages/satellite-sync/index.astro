@@ -59,6 +59,11 @@ const gameNavigation = [
                   >Score: <span id="score" class="text-cyan-400">0</span></span
                 >
               </Badge>
+              <Badge variant="outline" class="px-4 py-2">
+                <span class="font-mono"
+                  >Combo: <span id="combo" class="text-cyan-400">×1</span></span
+                >
+              </Badge>
             </div>
 
             <div class="relative w-full">
@@ -164,6 +169,7 @@ const gameNavigation = [
         const startBtn = document.getElementById('start-btn')
         const endBtn = document.getElementById('end-btn')
         const playAgainBtn = document.getElementById('play-again-btn')
+        const comboEl = document.getElementById('combo')
         if (
           !container ||
           !statusEl ||
@@ -171,7 +177,8 @@ const gameNavigation = [
           !overlay ||
           !startBtn ||
           !endBtn ||
-          !playAgainBtn
+          !playAgainBtn ||
+          !comboEl
         ) {
           return
         }
@@ -179,6 +186,10 @@ const gameNavigation = [
         const resetButtonState = () => {
           startBtn.style.display = 'inline-flex'
           endBtn.style.display = 'none'
+        }
+
+        const resetCombo = () => {
+          comboEl.textContent = '×1'
         }
 
         try {
@@ -189,16 +200,23 @@ const gameNavigation = [
               overlay.classList.add('hidden')
               startBtn.style.display = 'none'
               endBtn.style.display = 'inline-flex'
+              resetCombo()
             },
             onTimeUpdate: () => {},
             onScoreUpdate: () => {},
-            onLock: () => {},
-            onLevelClear: () => {},
+            onLock: info => {
+              comboEl.textContent = `×${info.multiplier}`
+            },
+            onLevelClear: () => {
+              resetCombo()
+            },
             onFail: () => {
               resetButtonState()
+              resetCombo()
             },
             onWin: () => {
               resetButtonState()
+              resetCombo()
             },
             onError: (_title, message) => {
               errorEl.textContent = message

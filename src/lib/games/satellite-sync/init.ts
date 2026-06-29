@@ -108,8 +108,9 @@ export async function initializeSatelliteSync(
         const dt = ts - lastFrame
         lastFrame = ts
         game.update(dt)
-        render(renderer, game.getState())
-        if (game.getState().status === 'playing') {
+        const state = game.getState()
+        render(renderer, state)
+        if (state.status === 'playing') {
             rafId = requestAnimationFrame(loop)
         }
     }
@@ -206,18 +207,18 @@ export async function initializeSatelliteSync(
         })
 
         const toPointerSat = (event: PointerEvent): string | null => {
-            if (!renderer) {
+            if (!renderer || !game) {
                 return null
             }
             const rect = renderer.app.canvas.getBoundingClientRect()
-            const scaleX = rect.width / renderer.app.canvas.width
-            const scaleY = rect.height / renderer.app.canvas.height
+            const scaleX = rect.width / renderer.app.screen.width
+            const scaleY = rect.height / renderer.app.screen.height
             const px = (event.clientX - rect.left) / scaleX
             const py = (event.clientY - rect.top) / scaleY
             return pointerToSatellite(
                 px,
                 py,
-                game!.getState().satellites,
+                game.getState().satellites,
                 renderer.layout
             )
         }
@@ -230,8 +231,8 @@ export async function initializeSatelliteSync(
                 return 0
             }
             const rect = renderer.app.canvas.getBoundingClientRect()
-            const scaleX = rect.width / renderer.app.canvas.width
-            const scaleY = rect.height / renderer.app.canvas.height
+            const scaleX = rect.width / renderer.app.screen.width
+            const scaleY = rect.height / renderer.app.screen.height
             const px = (event.clientX - rect.left) / scaleX
             const py = (event.clientY - rect.top) / scaleY
             const sat = game.getState().satellites.find(s => s.id === satId)
