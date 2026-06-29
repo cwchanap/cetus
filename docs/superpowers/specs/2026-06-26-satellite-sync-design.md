@@ -65,8 +65,9 @@ begins aiming; drag rotates the beam (it follows the pointer); near a valid targ
 visually snaps; pointer-up commits/locks (or leaves the beam at the dragged angle if
 no valid target is near). Touch uses the same Pointer Events with `getBoundingClientRect()`
 scaling — the unified mouse/touch pattern used by circuit-hacker. Keyboard is a
-secondary a11y path: Tab cycles satellites, ←/→ rotates the selected beam in small
-steps.
+secondary a11y path: `q` cycles satellites (Tab is intentionally left free for
+browser focus navigation), ←/→ rotates the selected beam in small steps, Enter/Space
+commits the lock.
 
 ## Level Progression
 
@@ -148,7 +149,7 @@ The leaderboard ranks on final score only.
 timer + discrete-level progression, which map poorly onto `BaseGame`'s single-run
 model, while still leveraging the battle-tested timer and score plumbing.
 
-```
+```text
 src/lib/games/satellite-sync/
   types.ts        # State, Config, Level/Satellite/Target/Obstacle defs, BeamColor,
                   #   SatelliteSyncGameData, Callbacks interface
@@ -231,7 +232,8 @@ interface SatelliteSyncCallbacks {
 - **Input** — Pointer Events on `renderer.app.canvas` with `getBoundingClientRect()`
   scaling (mouse + touch unified): pointer-down on/near a satellite selects + begins
   aim, drag rotates the beam, near a valid target it snaps, pointer-up commits/locks.
-  Keyboard (Tab cycle, ←/→ rotate) is a secondary a11y path.
+  Keyboard (`q` cycle, ←/→ rotate, Enter/Space commit) is a secondary a11y path;
+  Tab is left free for browser focus navigation.
 - **Rendering** — functional PixiJS (the circuit-hacker style): a single `app`,
   redrawn per frame from game state. Snap candidates and locked targets glow; moving
   targets/obstacles animate along their rings.

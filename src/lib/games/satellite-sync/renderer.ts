@@ -117,7 +117,7 @@ export async function setupScene(
 }
 
 function beamLength(layout: SceneLayout): number {
-    return ringRadius(Math.max(0, layout.rings - 1)) * 1.25
+    return ringRadius(Math.max(0, layout.rings - 1)) * 1.25 * layout.scale
 }
 
 export function render(

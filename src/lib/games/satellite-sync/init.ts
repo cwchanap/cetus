@@ -25,7 +25,9 @@ export interface SatelliteSyncUICallbacks extends SatelliteSyncCallbacks {
 }
 
 const KEYBOARD_STEP_DEG = 3
-const KEYBOARD_KEYS = new Set(['Tab', 'ArrowLeft', 'ArrowRight', 'Enter', ' '])
+// Tab is intentionally excluded so browser focus navigation stays
+// intact during gameplay. Use 'q' to cycle the selected satellite.
+const KEYBOARD_KEYS = new Set(['q', 'ArrowLeft', 'ArrowRight', 'Enter', ' '])
 
 function setText(id: string, value: string): void {
     const el = document.getElementById(id)
@@ -288,7 +290,7 @@ export async function initializeSatelliteSync(
             if (sats.length === 0) {
                 return
             }
-            if (event.key === 'Tab') {
+            if (event.key === 'q') {
                 if (keyboardSelectedId) {
                     game.endAim(keyboardSelectedId)
                 }

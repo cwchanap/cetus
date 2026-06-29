@@ -32,33 +32,47 @@ function canReach(
 }
 
 function matchingExists(level: SatelliteSyncLevel): boolean {
-    const n = level.targets.length
-    if (level.satellites.length < n) {
+    const numTargets = level.targets.length
+    const numSats = level.satellites.length
+    if (numSats < numTargets) {
         return false
     }
-    const used = new Array(level.satellites.length).fill(false)
-    let matched = 0
-    for (let t = 0; t < n; t++) {
-        let found = -1
-        for (let s = 0; s < level.satellites.length; s++) {
-            if (used[s]) {
+    // Kuhn's algorithm for maximum bipartite matching. matchS[s] is the
+    // target index assigned to satellite s (or -1). For each target we
+    // search for an augmenting path, reassigning earlier targets when
+    // needed so a greedy first-fit cannot reject a solvable level.
+    const matchS = new Array<number>(numSats).fill(-1)
+    const seen = new Array<boolean>(numSats).fill(false)
+
+    const tryAssign = (t: number): boolean => {
+        for (let s = 0; s < numSats; s++) {
+            if (seen[s] || !canReach(level, s, t)) {
                 continue
             }
-            if (canReach(level, s, t)) {
-                found = s
-                break
+            seen[s] = true
+            if (matchS[s] === -1 || tryAssign(matchS[s])) {
+                matchS[s] = t
+                return true
             }
         }
-        if (found === -1) {
-            return false
-        }
-        used[found] = true
-        matched++
+        return false
     }
-    return matched === n
+
+    let matched = 0
+    for (let t = 0; t < numTargets; t++) {
+        seen.fill(false)
+        if (tryAssign(t)) {
+            matched++
+        }
+    }
+    return matched === numTargets
 }
 
-export function isLevelSolvable(level: SatelliteSyncLevel): boolean {
+// Validates the static layout of a level: every target can be matched to
+// a distinct same-color satellite with an unobstructed path. This does
+// NOT account for moving entities or the time budget — it is a static
+// sanity check used by the test suite, not a runtime solvability proof.
+export function hasStaticMatching(level: SatelliteSyncLevel): boolean {
     return matchingExists(level)
 }
 
