@@ -91,6 +91,7 @@ export interface SatelliteSyncCallbacks {
     onTimeUpdate: (seconds: number) => void
     onScoreUpdate: (score: number) => void
     onLock: (info: LockInfo) => void
+    onComboReset: () => void
     onLevelClear: (levelNumber: number) => void
     onFail: (levelNumber: number, finalScore: number) => void
     onWin: (finalScore: number) => void

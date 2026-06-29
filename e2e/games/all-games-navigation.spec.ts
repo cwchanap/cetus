@@ -1,25 +1,16 @@
 import { test, expect } from '@playwright/test'
+import { GAMES, getGameUrl } from '../../src/lib/games'
 
-const GAMES = [
-    { title: 'Tetris Challenge', url: '/tetris' },
-    { title: 'Bubble Shooter', url: '/bubble-shooter' },
-    { title: 'Quick Math', url: '/quick-math' },
-    { title: 'Memory Matrix', url: '/memory-matrix' },
-    { title: 'Word Scramble', url: '/word-scramble' },
-    { title: 'Reflex Coin Collection', url: '/reflex' },
-    { title: 'Sudoku', url: '/sudoku' },
-    { title: 'Bejeweled', url: '/bejeweled' },
-    { title: 'Path Navigator', url: '/path-navigator' },
-    { title: 'Evader', url: '/evader' },
-    { title: '2048', url: '/2048' },
-    { title: 'Snake', url: '/snake' },
-] as const
+const NAV_TARGETS = GAMES.filter(g => g.isActive).map(g => ({
+    title: g.name,
+    url: getGameUrl(g.id),
+}))
 
 test.describe('Game catalog navigation', () => {
     test('every game card on the homepage navigates to its game page', async ({
         page,
     }) => {
-        for (const game of GAMES) {
+        for (const game of NAV_TARGETS) {
             await page.goto('/')
             const card = page
                 .getByTestId('game-card')
@@ -33,7 +24,7 @@ test.describe('Game catalog navigation', () => {
     test('every game page has a working Home link back to the catalog', async ({
         page,
     }) => {
-        for (const game of GAMES) {
+        for (const game of NAV_TARGETS) {
             await page.goto(game.url)
             await page.getByRole('link', { name: 'Home' }).click()
             await expect(page).toHaveURL('/')

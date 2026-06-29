@@ -19,6 +19,9 @@ function makeCallbacks(): SatelliteSyncCallbacks & {
         onLock: (info: { combo: number; multiplier: number }) => {
             calls.lock = (calls.lock ?? []).concat([info])
         },
+        onComboReset: () => {
+            calls.comboReset = (calls.comboReset ?? []).concat([true])
+        },
         onLevelClear: (n: number) => {
             calls.clear = (calls.clear ?? []).concat([n])
         },
@@ -166,9 +169,10 @@ describe('SatelliteSyncGame', () => {
         game.aimAtTarget(s.satellites[0].id, s.targets[0].id)
         game.endAim(s.satellites[0].id)
         expect(game.getState().targets[0].locked).toBe(true)
-        // Grab it again -> previous target unlocks.
+        // Grab it again -> previous target unlocks and combo resets.
         game.beginAim(s.satellites[0].id)
         expect(game.getState().targets[0].locked).toBe(false)
+        expect(cbs.calls.comboReset).toHaveLength(1)
         game.cleanup()
     })
 
@@ -194,6 +198,7 @@ describe('SatelliteSyncGame', () => {
         vi.advanceTimersByTime(3000)
         game.update(16)
         expect(game.getState().combo).toBe(0)
+        expect(cbs.calls.comboReset).toHaveLength(1)
         // Second lock -> combo resets to 1, not 2
         game.beginAim(state.satellites[1].id)
         game.aimAtTarget(state.satellites[1].id, state.targets[1].id)

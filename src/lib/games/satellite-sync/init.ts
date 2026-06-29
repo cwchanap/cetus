@@ -176,14 +176,12 @@ export async function initializeSatelliteSync(
                 callbacks.onScoreUpdate(sc)
             },
             onLock: info => callbacks.onLock(info),
+            onComboReset: () => callbacks.onComboReset(),
             onLevelClear: level => {
                 setText(
                     'level',
                     Math.min(level + 1, SATELLITE_SYNC_LEVELS.length).toString()
                 )
-                if (renderer && game) {
-                    render(renderer, game.getState())
-                }
                 callbacks.onLevelClear(level)
             },
             onFail: (level, finalScore) => {
