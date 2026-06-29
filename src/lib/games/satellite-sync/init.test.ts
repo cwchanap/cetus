@@ -4,6 +4,7 @@ import { initializeSatelliteSync } from './init'
 vi.mock('pixi.js', () => {
     const mockApp = {
         canvas: document.createElement('canvas'),
+        screen: { width: 520, height: 520 },
         init: vi.fn().mockResolvedValue(undefined),
         stage: { addChild: vi.fn() },
         destroy: vi.fn(),
