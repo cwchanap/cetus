@@ -7,6 +7,7 @@ import type { HTMLAttributes } from 'astro/types'
 export interface Props extends HTMLAttributes<'div'> {
   game: {
     id: number
+    gameId: string
     title: string
     description: string
     icon: string
@@ -35,41 +36,8 @@ const getDifficultyVariant = (difficulty: string) => {
   }
 }
 
-const getGameUrl = (title: string) => {
-  switch (title) {
-    case 'Tetris Challenge':
-    case 'Tetris':
-      return '/tetris'
-    case 'Bubble Shooter':
-      return '/bubble-shooter'
-    case 'Bejeweled':
-      return '/bejeweled'
-    case 'Quick Math':
-      return '/quick-math'
-    case '2048':
-      return '/2048'
-    case 'Memory Matrix':
-      return '/memory-matrix'
-    case 'Word Scramble':
-      return '/word-scramble'
-    case 'Reflex Coin Collection':
-      return '/reflex'
-    case 'Sudoku':
-    case 'Sudoku Challenge':
-      return '/sudoku'
-    case 'Path Navigator':
-      return '/path-navigator'
-    case 'Evader':
-      return '/evader'
-    case 'Snake':
-      return '/snake'
-    case 'Circuit Hacker':
-      return '/circuit-hacker'
-    case 'Satellite Sync':
-      return '/satellite-sync'
-    default:
-      return '#'
-  }
+const getGameUrl = (gameId: string) => {
+  return '/' + gameId.replace(/_/g, '-')
 }
 ---
 
@@ -105,7 +73,7 @@ const getGameUrl = (title: string) => {
       {
         game.available ? (
           <a
-            href={getGameUrl(game.title)}
+            href={getGameUrl(game.gameId)}
             class="inline-flex items-center justify-center h-9 rounded-md px-3 bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg shadow-purple-500/25 hover:from-cyan-400 hover:to-purple-500 font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50 text-sm no-underline"
           >
             Play Now

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { initializeSatelliteSync } from './init'
 
 vi.mock('pixi.js', () => {
@@ -57,6 +57,12 @@ function setupDom(): HTMLElement {
 describe('initializeSatelliteSync', () => {
     beforeEach(() => {
         vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+        vi.clearAllTimers()
+        vi.useRealTimers()
+        vi.clearAllMocks()
     })
 
     it('returns a handle with start/stop/cleanup/getGame', async () => {
@@ -211,6 +217,12 @@ describe('initializeSatelliteSync interaction wiring', () => {
         vi.useFakeTimers()
     })
 
+    afterEach(() => {
+        vi.clearAllTimers()
+        vi.useRealTimers()
+        vi.clearAllMocks()
+    })
+
     function baseCallbacks() {
         return {
             onGameStart: vi.fn(),
@@ -335,19 +347,19 @@ describe('initializeSatelliteSync interaction wiring', () => {
         handle.cleanup()
     })
 
-    it('keyboard Tab selects a satellite and arrows adjust the aim', async () => {
+    it('keyboard q selects a satellite and arrows adjust the aim', async () => {
         const container = setupDom()
         const handle = await initializeSatelliteSync(container, baseCallbacks())
         await handle.start()
         prepCanvas(container)
         const game = handle.getGame()!
         game.update(0)
-        // Pre-aim satellite 0 at target 0 so Tab's updateAim re-snaps to it.
+        // Pre-aim satellite 0 at target 0 so q's updateAim re-snaps to it.
         game.aimAtTarget('sat-0', 'target-0')
         expect(game.getState().satellites[0].snapCandidateId).toBe('target-0')
 
-        // Tab selects the first satellite -> beginAim + updateAim (re-snap).
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }))
+        // q selects the first satellite -> beginAim + updateAim (re-snap).
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' }))
         expect(game.getState().satellites[0].snapCandidateId).toBe('target-0')
 
         const aimBefore = game.getState().satellites[0].aimAngle
@@ -372,21 +384,21 @@ describe('initializeSatelliteSync interaction wiring', () => {
         handle.cleanup()
     })
 
-    it('keyboard Tab cycles to the next satellite on repeated presses', async () => {
+    it('keyboard q cycles to the next satellite on repeated presses', async () => {
         const container = setupDom()
         const handle = await initializeSatelliteSync(container, baseCallbacks())
         await handle.start()
         prepCanvas(container)
         const game = handle.getGame()!
         game.update(0)
-        // Pre-aim satellite 0 at target 0 so the second Tab's endAim commits.
+        // Pre-aim satellite 0 at target 0 so the second q's endAim commits.
         game.aimAtTarget('sat-0', 'target-0')
 
-        // First Tab selects satellite 0.
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }))
+        // First q selects satellite 0.
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' }))
         expect(game.getState().satellites[0].snapCandidateId).toBe('target-0')
-        // Second Tab: endAim on satellite 0 (locks target 0), then select next.
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }))
+        // Second q: endAim on satellite 0 (locks target 0), then select next.
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' }))
         expect(game.getState().targets[0].locked).toBe(true)
         expect(game.getState().satellites[0].snapCandidateId).toBeNull()
         handle.cleanup()
@@ -401,7 +413,7 @@ describe('initializeSatelliteSync interaction wiring', () => {
         game.update(0)
         const aimBefore = game.getState().satellites[0].aimAngle
 
-        // No Tab yet — arrows and Enter should bail out without mutating.
+        // No q yet — arrows and Enter should bail out without mutating.
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }))
         window.dispatchEvent(
             new KeyboardEvent('keydown', { key: 'ArrowRight' })
@@ -421,7 +433,7 @@ describe('initializeSatelliteSync interaction wiring', () => {
         handle.stop()
         const aimBefore = handle.getGame()?.getState().satellites[0].aimAngle
         expect(() =>
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }))
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' }))
         ).not.toThrow()
         expect(handle.getGame()?.getState().satellites[0].aimAngle).toBe(
             aimBefore
@@ -443,8 +455,8 @@ describe('initializeSatelliteSync interaction wiring', () => {
             new MouseEvent('pointerdown', { clientX: x, clientY: y })
         )
         const aimBefore = game.getState().satellites[0].aimAngle
-        // While dragging, keyboard Tab must be ignored (no selection change).
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }))
+        // While dragging, keyboard q must be ignored (no selection change).
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' }))
         expect(game.getState().satellites[0].aimAngle).toBe(aimBefore)
         handle.cleanup()
     })

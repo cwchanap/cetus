@@ -5,6 +5,9 @@ import { SATELLITE_SYNC_LEVELS } from './levels'
 import {
     polarToWorld,
     bearing,
+    normalizeAngle,
+    angleDiff,
+    segmentIntersectsCircle,
     findLockableTarget,
     type WorldPoint,
 } from './geometry'
@@ -185,24 +188,18 @@ export class SatelliteSyncGame {
         const dt = deltaMs / 1000
         for (const target of this.state.targets) {
             if (target.moving) {
-                target.currentAngle =
-                    (target.currentAngle +
-                        target.moving.speed * target.moving.direction * dt) %
-                    360
-                if (target.currentAngle < 0) {
-                    target.currentAngle += 360
-                }
+                target.currentAngle = normalizeAngle(
+                    target.currentAngle +
+                        target.moving.speed * target.moving.direction * dt
+                )
             }
         }
         for (const obs of this.state.obstacles) {
             if (obs.moving) {
-                obs.currentAngle =
-                    (obs.currentAngle +
-                        obs.moving.speed * obs.moving.direction * dt) %
-                    360
-                if (obs.currentAngle < 0) {
-                    obs.currentAngle += 360
-                }
+                obs.currentAngle = normalizeAngle(
+                    obs.currentAngle +
+                        obs.moving.speed * obs.moving.direction * dt
+                )
             }
         }
         if (
@@ -247,18 +244,35 @@ export class SatelliteSyncGame {
             return
         }
         if (sat.snapCandidateId) {
-            // Re-validate: a moving target may have drifted out of range
-            // between updateAim() and this commit. Spec: "no stale locks."
-            const candidate = findLockableTarget(
-                this.satWorld(sat),
-                sat.color,
-                sat.aimAngle,
-                this.state.targets,
-                this.state.obstacles,
-                SCORING_CONFIG.snapThresholdDeg
+            // Re-validate the previously previewed candidate by id: a
+            // moving target may have drifted out of range between
+            // updateAim() and this commit. Spec: "no stale locks." Do
+            // not accept a different target just because it is now
+            // closer on the ray — only lock the one the player saw.
+            const target = this.state.targets.find(
+                t => t.id === sat.snapCandidateId
             )
-            if (candidate) {
-                this.applyLock(sat, candidate.id)
+            if (target && !target.locked && target.color === sat.color) {
+                const satWorld = this.satWorld(sat)
+                const targetWorld = polarToWorld(
+                    target.ring,
+                    target.currentAngle
+                )
+                const diff = angleDiff(
+                    bearing(satWorld, targetWorld),
+                    sat.aimAngle
+                )
+                const blocked = this.state.obstacles.some(o =>
+                    segmentIntersectsCircle(
+                        satWorld,
+                        targetWorld,
+                        polarToWorld(o.ring, o.currentAngle),
+                        o.radius
+                    )
+                )
+                if (diff <= SCORING_CONFIG.snapThresholdDeg && !blocked) {
+                    this.applyLock(sat, target.id)
+                }
             }
         }
         sat.snapCandidateId = null
@@ -368,7 +382,18 @@ export class SatelliteSyncGame {
     }
 
     getState(): SatelliteSyncState {
-        return this.state
+        return {
+            ...this.state,
+            satellites: this.state.satellites.map(s => ({ ...s })),
+            targets: this.state.targets.map(t => ({
+                ...t,
+                moving: t.moving ? { ...t.moving } : null,
+            })),
+            obstacles: this.state.obstacles.map(o => ({
+                ...o,
+                moving: o.moving ? { ...o.moving } : null,
+            })),
+        }
     }
 
     getGameData(): SatelliteSyncGameData {

@@ -707,7 +707,7 @@ git commit -m "feat(satellite-sync): add pure scoring module"
 
 **Interfaces:**
 - Consumes: `SatelliteSyncLevel`, `BeamColor` from `./types`; `polarToWorld`, `segmentIntersectsCircle` from `./geometry`.
-- Produces: `SATELLITE_SYNC_LEVELS: SatelliteSyncLevel[]` (8 levels) and `isLevelSolvable(level): boolean`.
+- Produces: `SATELLITE_SYNC_LEVELS: SatelliteSyncLevel[]` (8 levels) and `hasStaticMatching(level): boolean`.
 
 - [ ] **Step 1: Write the failing solvability tests**
 
@@ -715,7 +715,7 @@ Create `src/lib/games/satellite-sync/levels.test.ts`:
 
 ```typescript
 import { describe, it, expect } from 'vitest'
-import { SATELLITE_SYNC_LEVELS, isLevelSolvable } from './levels'
+import { SATELLITE_SYNC_LEVELS, hasStaticMatching } from './levels'
 
 describe('SATELLITE_SYNC_LEVELS', () => {
     it('has exactly 8 levels with sequential ids', () => {
@@ -728,16 +728,16 @@ describe('SATELLITE_SYNC_LEVELS', () => {
     })
 })
 
-describe('isLevelSolvable', () => {
+describe('hasStaticMatching', () => {
     it('marks every shipped level solvable', () => {
         for (const level of SATELLITE_SYNC_LEVELS) {
-            expect(isLevelSolvable(level)).toBe(true)
+            expect(hasStaticMatching(level)).toBe(true)
         }
     })
 
     it('rejects an unsolvable level (missing color)', () => {
         expect(
-            isLevelSolvable({
+            hasStaticMatching({
                 id: 99,
                 name: 'bad',
                 timeBudget: 30,
@@ -795,33 +795,47 @@ function canReach(
 }
 
 function matchingExists(level: SatelliteSyncLevel): boolean {
-    const n = level.targets.length
-    if (level.satellites.length < n) {
+    const numTargets = level.targets.length
+    const numSats = level.satellites.length
+    if (numSats < numTargets) {
         return false
     }
-    const used = new Array(level.satellites.length).fill(false)
-    let matched = 0
-    for (let t = 0; t < n; t++) {
-        let found = -1
-        for (let s = 0; s < level.satellites.length; s++) {
-            if (used[s]) {
+    // Kuhn's algorithm for maximum bipartite matching. matchS[s] is the
+    // target index assigned to satellite s (or -1). For each target we
+    // search for an augmenting path, reassigning earlier targets when
+    // needed so a greedy first-fit cannot reject a solvable level.
+    const matchS = new Array<number>(numSats).fill(-1)
+    const seen = new Array<boolean>(numSats).fill(false)
+
+    const tryAssign = (t: number): boolean => {
+        for (let s = 0; s < numSats; s++) {
+            if (seen[s] || !canReach(level, s, t)) {
                 continue
             }
-            if (canReach(level, s, t)) {
-                found = s
-                break
+            seen[s] = true
+            if (matchS[s] === -1 || tryAssign(matchS[s])) {
+                matchS[s] = t
+                return true
             }
         }
-        if (found === -1) {
-            return false
-        }
-        used[found] = true
-        matched++
+        return false
     }
-    return matched === n
+
+    let matched = 0
+    for (let t = 0; t < numTargets; t++) {
+        seen.fill(false)
+        if (tryAssign(t)) {
+            matched++
+        }
+    }
+    return matched === numTargets
 }
 
-export function isLevelSolvable(level: SatelliteSyncLevel): boolean {
+// Validates the static layout of a level: every target can be matched to
+// a distinct same-color satellite with an unobstructed path. This does
+// NOT account for moving entities or the time budget — it is a static
+// sanity check used by the test suite, not a runtime solvability proof.
+export function hasStaticMatching(level: SatelliteSyncLevel): boolean {
     return matchingExists(level)
 }
 
@@ -1206,6 +1220,9 @@ import { SATELLITE_SYNC_LEVELS } from './levels'
 import {
     polarToWorld,
     bearing,
+    normalizeAngle,
+    angleDiff,
+    segmentIntersectsCircle,
     findLockableTarget,
     type WorldPoint,
 } from './geometry'
@@ -1371,23 +1388,18 @@ export class SatelliteSyncGame {
         const dt = deltaMs / 1000
         for (const target of this.state.targets) {
             if (target.moving) {
-                target.currentAngle =
-                    (target.currentAngle +
-                        target.moving.speed * target.moving.direction * dt) %
-                    360
-                if (target.currentAngle < 0) {
-                    target.currentAngle += 360
-                }
+                target.currentAngle = normalizeAngle(
+                    target.currentAngle +
+                        target.moving.speed * target.moving.direction * dt
+                )
             }
         }
         for (const obs of this.state.obstacles) {
             if (obs.moving) {
-                obs.currentAngle =
-                    (obs.currentAngle + obs.moving.speed * obs.moving.direction * dt) %
-                        360
-                if (obs.currentAngle < 0) {
-                    obs.currentAngle += 360
-                }
+                obs.currentAngle = normalizeAngle(
+                    obs.currentAngle +
+                        obs.moving.speed * obs.moving.direction * dt
+                )
             }
         }
         if (
@@ -1437,7 +1449,36 @@ export class SatelliteSyncGame {
             return
         }
         if (sat.snapCandidateId) {
-            this.applyLock(sat, sat.snapCandidateId)
+            // Re-validate the previously previewed candidate by id: a
+            // moving target may have drifted out of range between
+            // updateAim() and this commit. Spec: "no stale locks." Do
+            // not accept a different target just because it is now
+            // closer on the ray — only lock the one the player saw.
+            const target = this.state.targets.find(
+                t => t.id === sat.snapCandidateId
+            )
+            if (target && !target.locked && target.color === sat.color) {
+                const satWorld = this.satWorld(sat)
+                const targetWorld = polarToWorld(
+                    target.ring,
+                    target.currentAngle
+                )
+                const diff = angleDiff(
+                    bearing(satWorld, targetWorld),
+                    sat.aimAngle
+                )
+                const blocked = this.state.obstacles.some(o =>
+                    segmentIntersectsCircle(
+                        satWorld,
+                        targetWorld,
+                        polarToWorld(o.ring, o.currentAngle),
+                        o.radius
+                    )
+                )
+                if (diff <= SCORING_CONFIG.snapThresholdDeg && !blocked) {
+                    this.applyLock(sat, target.id)
+                }
+            }
         }
         sat.snapCandidateId = null
     }
@@ -1536,7 +1577,18 @@ export class SatelliteSyncGame {
     }
 
     getState(): SatelliteSyncState {
-        return this.state
+        return {
+            ...this.state,
+            satellites: this.state.satellites.map(s => ({ ...s })),
+            targets: this.state.targets.map(t => ({
+                ...t,
+                moving: t.moving ? { ...t.moving } : null,
+            })),
+            obstacles: this.state.obstacles.map(o => ({
+                ...o,
+                moving: o.moving ? { ...o.moving } : null,
+            })),
+        }
     }
 
     getGameData(): SatelliteSyncGameData {
@@ -1763,7 +1815,7 @@ export async function setupScene(
 }
 
 function beamLength(layout: SceneLayout): number {
-    return ringRadius(Math.max(0, layout.rings - 1)) * 1.25
+    return ringRadius(Math.max(0, layout.rings - 1)) * 1.25 * layout.scale
 }
 
 export function render(
@@ -2117,8 +2169,8 @@ export async function initializeSatelliteSync(
         }
         teardownRenderer()
 
-        const firstLevelRings = 2
-        renderer = await setupScene(container, firstLevelRings)
+        const sceneRings = Math.max(...SATELLITE_SYNC_LEVELS.map(l => l.rings))
+        renderer = await setupScene(container, sceneRings)
 
         game = new SatelliteSyncGame({
             onGameStart: () => {
@@ -2416,6 +2468,7 @@ const gameNavigation = [
       const init = async () => {
         const container = document.getElementById('game-canvas-container')!
         const statusEl = document.getElementById('game-status')!
+        const errorEl = document.getElementById('game-error')!
         const overlay = document.getElementById('game-over-overlay')!
         const startBtn = document.getElementById('start-btn')!
         const endBtn = document.getElementById('end-btn')!
@@ -2430,6 +2483,7 @@ const gameNavigation = [
           gameHandle = await initializeSatelliteSync(container, {
             onGameStart: () => {
               statusEl.classList.add('hidden')
+              errorEl.classList.add('hidden')
               overlay.classList.add('hidden')
               startBtn.style.display = 'none'
               endBtn.style.display = 'inline-flex'
@@ -2444,28 +2498,44 @@ const gameNavigation = [
             onWin: () => {
               resetButtonState()
             },
+            onError: (_title, message) => {
+              errorEl.textContent = message
+              errorEl.classList.remove('hidden')
+            },
           })
 
           startBtn.addEventListener('click', async () => {
             startBtn.style.display = 'none'
             try {
               await gameHandle!.start()
-            } catch {
+            } catch (error) {
+              errorEl.textContent =
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to start the game. Please try again.'
+              errorEl.classList.remove('hidden')
               resetButtonState()
             }
           })
 
           endBtn.addEventListener('click', () => {
             gameHandle!.stop()
+            statusEl.classList.remove('hidden')
             resetButtonState()
           })
 
           playAgainBtn.addEventListener('click', () => {
             overlay.classList.add('hidden')
+            errorEl.classList.add('hidden')
             statusEl.classList.remove('hidden')
             resetButtonState()
           })
-        } catch {
+        } catch (error) {
+          errorEl.textContent =
+            error instanceof Error
+              ? error.message
+              : 'Failed to initialize the game. Please refresh the page.'
+          errorEl.classList.remove('hidden')
           resetButtonState()
         }
       }

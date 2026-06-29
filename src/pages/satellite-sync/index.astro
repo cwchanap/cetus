@@ -199,13 +199,19 @@ const gameNavigation = [
             startBtn.style.display = 'none'
             try {
               await gameHandle!.start()
-            } catch {
+            } catch (error) {
+              errorEl.textContent =
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to start the game. Please try again.'
+              errorEl.classList.remove('hidden')
               resetButtonState()
             }
           })
 
           endBtn.addEventListener('click', () => {
             gameHandle!.stop()
+            statusEl.classList.remove('hidden')
             resetButtonState()
           })
 
@@ -215,7 +221,12 @@ const gameNavigation = [
             statusEl.classList.remove('hidden')
             resetButtonState()
           })
-        } catch {
+        } catch (error) {
+          errorEl.textContent =
+            error instanceof Error
+              ? error.message
+              : 'Failed to initialize the game. Please refresh the page.'
+          errorEl.classList.remove('hidden')
           resetButtonState()
         }
       }

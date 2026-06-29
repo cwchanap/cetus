@@ -79,6 +79,7 @@ function convertGameToCardFormat(game: Game) {
 
   return {
     id: idMapping[game.id] || 99,
+    gameId: game.id,
     title: game.name,
     description: game.description,
     icon: getGameIcon(game.id),
