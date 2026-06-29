@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import {
     getAllGames,
     getGameById,
@@ -10,6 +12,7 @@ import {
     getGameIcon,
     getCategoryColor,
     getDifficultyColor,
+    getGameUrl,
     type Game,
     GAMES,
     GameID,
@@ -226,5 +229,23 @@ describe('Satellite Sync registration', () => {
         expect(GAMES.filter(g => g.id === GameID.SATELLITE_SYNC)).toHaveLength(
             1
         )
+    })
+})
+
+describe('getGameUrl route derivation', () => {
+    it('replaces underscores with hyphens and prefixes a slash', () => {
+        expect(getGameUrl('satellite_sync')).toBe('/satellite-sync')
+        expect(getGameUrl('bubble_shooter')).toBe('/bubble-shooter')
+        expect(getGameUrl('tetris')).toBe('/tetris')
+        expect(getGameUrl('2048')).toBe('/2048')
+    })
+
+    it('derives a URL that maps to an existing page route for every game', () => {
+        const pagesDir = resolve(process.cwd(), 'src/pages')
+        for (const game of GAMES) {
+            const url = getGameUrl(game.id)
+            const routeDir = resolve(pagesDir, url.slice(1))
+            expect(existsSync(routeDir)).toBe(true)
+        }
     })
 })

@@ -385,23 +385,31 @@ describe('initializeSatelliteSync interaction wiring', () => {
         handle.cleanup()
     })
 
-    it('keyboard q cycles to the next satellite on repeated presses', async () => {
+    it('keyboard q cycles to the next satellite on repeated presses without committing', async () => {
         const container = setupDom()
         const handle = await initializeSatelliteSync(container, baseCallbacks())
         await handle.start()
         prepCanvas(container)
         const game = handle.getGame()!
         game.update(0)
-        // Pre-aim satellite 0 at target 0 so the second q's endAim commits.
+        // Pre-aim satellite 0 at target 0 so q's updateAim re-snaps to it.
         game.aimAtTarget('sat-0', 'target-0')
 
         // First q selects satellite 0.
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' }))
         expect(game.getState().satellites[0].snapCandidateId).toBe('target-0')
-        // Second q: endAim on satellite 0 (locks target 0), then select next.
+        // Second q cycles to the next satellite. Per the how-to-play spec,
+        // only Enter/Space commit a lock — q must NOT call endAim.
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' }))
-        expect(game.getState().targets[0].locked).toBe(true)
-        expect(game.getState().satellites[0].snapCandidateId).toBeNull()
+        expect(game.getState().targets[0].locked).toBe(false)
+        expect(game.getState().satellites[0].snapCandidateId).toBe('target-0')
+        // Selection moved away from satellite 0: arrow keys now adjust the
+        // next satellite, so satellite 0's aim must not change.
+        const aimBefore = game.getState().satellites[0].aimAngle
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'ArrowRight' })
+        )
+        expect(game.getState().satellites[0].aimAngle).toBe(aimBefore)
         handle.cleanup()
     })
 

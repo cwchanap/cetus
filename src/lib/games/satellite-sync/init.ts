@@ -285,9 +285,6 @@ export async function initializeSatelliteSync(
                 return
             }
             if (event.key === 'q') {
-                if (keyboardSelectedId) {
-                    game.endAim(keyboardSelectedId)
-                }
                 const idx = sats.findIndex(s => s.id === keyboardSelectedId)
                 const next = sats[(idx + 1) % sats.length]
                 keyboardSelectedId = next.id
