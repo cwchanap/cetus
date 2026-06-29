@@ -6,6 +6,7 @@ import {
     cleanup,
     render,
     setupScene,
+    worldToPixel,
     type RendererState,
 } from './renderer'
 import { polarToWorld } from './geometry'
@@ -143,70 +144,102 @@ describe('render', () => {
         }
     }
 
-    it('draws obstacles from the state', () => {
+    it('draws obstacles from the state at their computed position and radius', () => {
         const { scene, chain } = makeScene()
         const layout = buildLayout(400, 400, 3)
-        const state = makeState({
-            obstacles: [
-                {
-                    id: 'obs-0',
-                    ring: 1,
-                    defAngle: 90,
-                    currentAngle: 90,
-                    radius: 0.3,
-                    moving: null,
-                },
-            ],
-        })
+        const obstacle = {
+            id: 'obs-0',
+            ring: 1,
+            defAngle: 90,
+            currentAngle: 90,
+            radius: 0.3,
+            moving: null,
+        }
+        const state = makeState({ obstacles: [obstacle] })
         render(
             { app: {} as never, scene, layout } as unknown as RendererState,
             state
         )
-        // Obstacle body is drawn via scene.circle(...).fill(...) on the chain.
-        expect(scene.circle).toHaveBeenCalled()
+        // The obstacle body must be drawn as a circle at the pixel position
+        // derived from the obstacle's ring/currentAngle, with a radius of
+        // obstacle.radius * layout.scale. Asserting the exact args (not just
+        // "some circle was drawn") fails if the obstacle branch is dropped.
+        const expectedCenter = worldToPixel(
+            polarToWorld(obstacle.ring, obstacle.currentAngle),
+            layout
+        )
+        const expectedRadius = obstacle.radius * layout.scale
+        expect(scene.circle).toHaveBeenCalledWith(
+            expectedCenter.x,
+            expectedCenter.y,
+            expectedRadius
+        )
+        // The obstacle fill is distinct from the ring strokes; confirm a fill
+        // was issued for the obstacle body.
         expect(chain.fill).toHaveBeenCalled()
     })
 
-    it('draws the snap-candidate halo for an unlocked target with a candidate', () => {
-        const { scene, chain } = makeScene()
+    it('draws the snap-candidate halo as exactly one extra circle+stroke over the target body', () => {
         const layout = buildLayout(400, 400, 2)
-        const state = makeState({
-            satellites: [
-                {
-                    id: 'sat-0',
-                    ring: 0,
-                    angle: 0,
-                    color: 'cyan',
-                    aimAngle: 0,
-                    lockedTargetId: null,
-                    snapCandidateId: 'target-0',
-                },
-            ],
-            targets: [
-                {
-                    id: 'target-0',
-                    ring: 1,
-                    defAngle: 0,
-                    currentAngle: 0,
-                    color: 'cyan',
-                    moving: null,
-                    locked: false,
-                    lockedBySatId: null,
-                },
-            ],
+        const baseTarget = {
+            id: 'target-0',
+            ring: 1,
+            defAngle: 0,
+            currentAngle: 0,
+            color: 'cyan',
+            moving: null,
+            locked: false,
+            lockedBySatId: null,
+        }
+        const baseSatellite = {
+            id: 'sat-0',
+            ring: 0,
+            angle: 0,
+            color: 'cyan',
+            aimAngle: 0,
+            lockedTargetId: null,
+        }
+
+        // Baseline: identical scene WITHOUT a snap candidate.
+        const baseline = makeScene()
+        const stateNoHalo = makeState({
+            satellites: [{ ...baseSatellite, snapCandidateId: null }],
+            targets: [baseTarget],
         })
         render(
-            { app: {} as never, scene, layout } as unknown as RendererState,
-            state
+            {
+                app: {} as never,
+                scene: baseline.scene,
+                layout,
+            } as unknown as RendererState,
+            stateNoHalo
         )
-        // The halo is an extra circle+stroke on top of the target body.
-        // Each target draws at least two circles (fill + stroke); the
-        // snap candidate adds a third.
-        const circleCalls = scene.circle.mock.calls.length
-        // 1 body + 1 ring + 1 satellite body + 1 satellite beam origin
-        // + 1 snap halo = >= 5 circle calls.
-        expect(circleCalls).toBeGreaterThanOrEqual(5)
-        expect(chain.stroke).toHaveBeenCalled()
+
+        // Identical state but WITH a snap candidate -> halo draws on top.
+        const withHalo = makeScene()
+        const stateHalo = makeState({
+            satellites: [{ ...baseSatellite, snapCandidateId: 'target-0' }],
+            targets: [baseTarget],
+        })
+        render(
+            {
+                app: {} as never,
+                scene: withHalo.scene,
+                layout,
+            } as unknown as RendererState,
+            stateHalo
+        )
+
+        // Comparing the circle-call count against an identical baseline
+        // (instead of a loose floor) proves the halo adds a measurable
+        // extra draw call and fails if the snap-candidate branch is dropped.
+        const baselineCircles = baseline.scene.circle.mock.calls.length
+        const haloCircles = withHalo.scene.circle.mock.calls.length
+        expect(haloCircles).toBe(baselineCircles + 1)
+        // The halo also emits one additional stroke vs. the baseline.
+        expect(withHalo.chain.stroke.mock.calls.length).toBe(
+            baseline.chain.stroke.mock.calls.length + 1
+        )
     })
 })
 

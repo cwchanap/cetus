@@ -471,6 +471,61 @@ describe('initializeSatelliteSync interaction wiring', () => {
         handle.cleanup()
     })
 
+    it('does not suppress default when no game action will run, but does when one executes', async () => {
+        // Guards accessibility: Enter/Space/arrows must fall through to the
+        // browser (e.g. to activate a focused End Game button) when no
+        // satellite is selected, and only preventDefault once a game action
+        // is actually consumed.
+        const container = setupDom()
+        const handle = await initializeSatelliteSync(container, baseCallbacks())
+        await handle.start()
+        prepCanvas(container)
+        const game = handle.getGame()!
+        game.update(0)
+
+        const unselectedEnter = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            cancelable: true,
+        })
+        const unselectedSpace = new KeyboardEvent('keydown', {
+            key: ' ',
+            cancelable: true,
+        })
+        const unselectedArrow = new KeyboardEvent('keydown', {
+            key: 'ArrowRight',
+            cancelable: true,
+        })
+        window.dispatchEvent(unselectedEnter)
+        window.dispatchEvent(unselectedSpace)
+        window.dispatchEvent(unselectedArrow)
+        expect(unselectedEnter.defaultPrevented).toBe(false)
+        expect(unselectedSpace.defaultPrevented).toBe(false)
+        expect(unselectedArrow.defaultPrevented).toBe(false)
+
+        // q selects a satellite -> action executes -> default IS suppressed.
+        const selectKey = new KeyboardEvent('keydown', {
+            key: 'q',
+            cancelable: true,
+        })
+        window.dispatchEvent(selectKey)
+        expect(selectKey.defaultPrevented).toBe(true)
+
+        // Arrow + Enter now act on the selected satellite -> suppressed.
+        const aimKey = new KeyboardEvent('keydown', {
+            key: 'ArrowRight',
+            cancelable: true,
+        })
+        const commitKey = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            cancelable: true,
+        })
+        window.dispatchEvent(aimKey)
+        expect(aimKey.defaultPrevented).toBe(true)
+        window.dispatchEvent(commitKey)
+        expect(commitKey.defaultPrevented).toBe(true)
+        handle.cleanup()
+    })
+
     it('keydown is ignored when the game is not playing', async () => {
         const container = setupDom()
         const handle = await initializeSatelliteSync(container, baseCallbacks())

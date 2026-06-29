@@ -297,7 +297,10 @@ export class SatelliteSyncGame {
     aimAtTarget(satId: string, targetId: string): boolean {
         const sat = this.findSatellite(satId)
         const target = this.state.targets.find(t => t.id === targetId)
-        if (!sat || !target) {
+        // Mirror the status guard used by beginAim/updateAim/endAim so a
+        // stale snapCandidateId can't produce a false match after the run
+        // ends (won/lost/idle).
+        if (!sat || !target || this.state.status !== 'playing') {
             return false
         }
         const aim = bearing(

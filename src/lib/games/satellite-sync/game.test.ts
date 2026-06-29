@@ -310,6 +310,27 @@ describe('SatelliteSyncGame', () => {
         game.cleanup()
     })
 
+    it('aimAtTarget is a no-op and returns no match after the run is lost', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        const satId = game.getState().satellites[0].id
+        const targetId = game.getState().targets[0].id
+        // Sanity: during play, aiming at the target records a snap candidate.
+        game.beginAim(satId)
+        expect(game.aimAtTarget(satId, targetId)).toBe(true)
+        expect(game.getState().satellites[0].snapCandidateId).toBe(targetId)
+        game.endAim(satId)
+        // Expire the timer -> status 'lost', entities remain present.
+        vi.advanceTimersByTime(61_000)
+        expect(game.getState().status).toBe('lost')
+        const snapBefore = game.getState().satellites[0].snapCandidateId
+        // Must NOT evaluate/commit a match in a non-playing state.
+        expect(game.aimAtTarget(satId, targetId)).toBe(false)
+        expect(game.getState().satellites[0].snapCandidateId).toBe(snapBefore)
+        game.cleanup()
+    })
+
     it('a locked moving target drags the locking satellite beam along with it', () => {
         const cbs = makeCallbacks()
         const game = new SatelliteSyncGame(cbs)
