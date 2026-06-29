@@ -210,6 +210,7 @@ export class SatelliteSyncGame {
         ) {
             this.state.combo = 0
             this.state.multiplier = 1
+            this.callbacks.onComboReset()
         }
     }
 
@@ -345,6 +346,7 @@ export class SatelliteSyncGame {
         sat.lockedTargetId = null
         this.state.combo = 0
         this.state.multiplier = 1
+        this.callbacks.onComboReset()
     }
 
     private handleLevelClear(): void {

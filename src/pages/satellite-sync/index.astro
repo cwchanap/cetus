@@ -207,6 +207,9 @@ const gameNavigation = [
             onLock: info => {
               comboEl.textContent = `×${info.multiplier}`
             },
+            onComboReset: () => {
+              resetCombo()
+            },
             onLevelClear: () => {
               resetCombo()
             },
