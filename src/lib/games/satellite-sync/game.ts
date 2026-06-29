@@ -194,6 +194,21 @@ export class SatelliteSyncGame {
                     target.currentAngle +
                         target.moving.speed * target.moving.direction * dt
                 )
+                // A locked moving target keeps drifting. Re-point the
+                // locking satellite's beam at the target's new bearing so
+                // the visible "locked" beam stays attached to the target
+                // instead of freezing at the lock-time angle.
+                if (target.locked && target.lockedBySatId) {
+                    const sat = this.state.satellites.find(
+                        s => s.id === target.lockedBySatId
+                    )
+                    if (sat) {
+                        sat.aimAngle = bearing(
+                            this.satWorld(sat),
+                            polarToWorld(target.ring, target.currentAngle)
+                        )
+                    }
+                }
             }
         }
         for (const obs of this.state.obstacles) {

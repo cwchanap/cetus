@@ -420,6 +420,37 @@ describe('initializeSatelliteSync interaction wiring', () => {
         handle.cleanup()
     })
 
+    it('keyboard q after a lock skips the locked satellite and does not unlock it', async () => {
+        const container = setupDom()
+        const onComboReset = vi.fn()
+        const cbs = baseCallbacks()
+        cbs.onComboReset = onComboReset
+        const handle = await initializeSatelliteSync(container, cbs)
+        await handle.start()
+        prepCanvas(container)
+        const game = handle.getGame()!
+        game.update(0)
+        // Pre-aim satellite 0 at target 0 so q's updateAim re-snaps to it.
+        game.aimAtTarget('sat-0', 'target-0')
+
+        // q selects satellite 0, Enter commits the lock.
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' }))
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+        expect(game.getState().targets[0].locked).toBe(true)
+        const comboResetsBefore = onComboReset.mock.calls.length
+
+        // q again must NOT re-select the locked satellite 0 (which would
+        // unlock target-0 and reset the combo). It should advance to the
+        // next unlocked satellite so the keyboard player can make progress.
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' }))
+        expect(game.getState().targets[0].locked).toBe(true)
+        expect(game.getState().satellites[0].lockedTargetId).toBe('target-0')
+        expect(onComboReset.mock.calls.length).toBe(comboResetsBefore)
+        // Selection moved past satellite 0.
+        expect(game.getState().satellites[0].snapCandidateId).toBeNull()
+        handle.cleanup()
+    })
+
     it('arrow keys and Enter are no-ops when no satellite is keyboard-selected', async () => {
         const container = setupDom()
         const handle = await initializeSatelliteSync(container, baseCallbacks())

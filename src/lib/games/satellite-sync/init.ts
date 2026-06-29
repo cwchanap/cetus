@@ -283,8 +283,27 @@ export async function initializeSatelliteSync(
                 return
             }
             if (event.key === 'q') {
-                const idx = sats.findIndex(s => s.id === keyboardSelectedId)
-                const next = sats[(idx + 1) % sats.length]
+                // Cycle to the next UNLOCKED satellite. Skipping locked
+                // satellites prevents q from re-selecting a satellite that
+                // already has a locked target — beginAim would unlock it
+                // and reset the combo, so a keyboard player could never
+                // advance past the first lock.
+                const len = sats.length
+                const startIdx = sats.findIndex(
+                    s => s.id === keyboardSelectedId
+                )
+                let nextIdx = -1
+                for (let i = 1; i <= len; i++) {
+                    const candidate = (startIdx + i) % len
+                    if (!sats[candidate].lockedTargetId) {
+                        nextIdx = candidate
+                        break
+                    }
+                }
+                if (nextIdx === -1) {
+                    return
+                }
+                const next = sats[nextIdx]
                 keyboardSelectedId = next.id
                 game.beginAim(next.id)
                 game.updateAim(next.id, next.aimAngle)
