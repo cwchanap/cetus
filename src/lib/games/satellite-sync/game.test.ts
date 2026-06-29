@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { SatelliteSyncGame } from './game'
+import { polarToWorld, bearing } from './geometry'
 import type { SatelliteSyncCallbacks } from './types'
 
 function makeCallbacks(): SatelliteSyncCallbacks & {
@@ -289,6 +290,52 @@ describe('SatelliteSyncGame', () => {
         game.updateAim('sat-0', 90)
         game.endAim('sat-0')
         expect(game.getState().status).toBe('idle')
+        game.cleanup()
+    })
+
+    it('a locked moving target drags the locking satellite beam along with it', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        // Advance to level 5 (Orbit Drift) which has moving targets.
+        for (let lvl = 0; lvl < 4; lvl++) {
+            solveCurrentLevel(game)
+        }
+        game.update(0)
+        const state = game.getState()
+        // Find a moving target and lock it with a matching-color satellite.
+        const target = state.targets.find(t => t.moving)!
+        const sat = state.satellites.find(
+            s => s.color === target.color && !s.lockedTargetId
+        )!
+        game.beginAim(sat.id)
+        game.aimAtTarget(sat.id, target.id)
+        game.endAim(sat.id)
+        expect(
+            game.getState().targets.find(t => t.id === target.id)!.locked
+        ).toBe(true)
+
+        const before = game.getState()
+        const lockedTarget = before.targets.find(t => t.id === target.id)!
+        const lockedSat = before.satellites.find(s => s.id === sat.id)!
+        const aimAtLock = lockedSat.aimAngle
+
+        // Advance the simulation — the moving target drifts.
+        game.update(1000)
+        const after = game.getState()
+        const movedTarget = after.targets.find(t => t.id === target.id)!
+        const movedSat = after.satellites.find(s => s.id === sat.id)!
+
+        // The target actually moved.
+        expect(movedTarget.currentAngle).not.toBe(lockedTarget.currentAngle)
+        // The satellite's aimAngle must track the target's new bearing,
+        // not stay frozen at the lock-time angle.
+        const expectedBearing = bearing(
+            polarToWorld(movedSat.ring, movedSat.angle),
+            polarToWorld(movedTarget.ring, movedTarget.currentAngle)
+        )
+        expect(movedSat.aimAngle).toBeCloseTo(expectedBearing, 5)
+        expect(movedSat.aimAngle).not.toBe(aimAtLock)
         game.cleanup()
     })
 
