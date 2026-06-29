@@ -10,6 +10,7 @@ import {
 } from './renderer'
 import { polarToWorld } from './geometry'
 import type { RuntimeSatellite, SatelliteSyncState } from './types'
+import type { Application } from 'pixi.js'
 
 vi.mock('pixi.js', () => {
     const mockApp = {
@@ -157,7 +158,10 @@ describe('render', () => {
                 },
             ],
         })
-        render({ app: {} as never, scene, layout } as RendererState, state)
+        render(
+            { app: {} as never, scene, layout } as unknown as RendererState,
+            state
+        )
         // Obstacle body is drawn via scene.circle(...).fill(...) on the chain.
         expect(scene.circle).toHaveBeenCalled()
         expect(chain.fill).toHaveBeenCalled()
@@ -191,7 +195,10 @@ describe('render', () => {
                 },
             ],
         })
-        render({ app: {} as never, scene, layout } as RendererState, state)
+        render(
+            { app: {} as never, scene, layout } as unknown as RendererState,
+            state
+        )
         // The halo is an extra circle+stroke on top of the target body.
         // Each target draws at least two circles (fill + stroke); the
         // snap candidate adds a third.
@@ -213,7 +220,7 @@ describe('setupScene error path', () => {
                     canvas: document.createElement('canvas'),
                     stage: { addChild: vi.fn() },
                     destroy: vi.fn(),
-                }) as unknown
+                }) as unknown as Application
         )
         const container = document.createElement('div')
         // Pre-populate so the catch-block cleanup loop has children to remove.

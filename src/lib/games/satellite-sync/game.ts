@@ -46,6 +46,10 @@ export class SatelliteSyncGame {
                 timeBonus: true,
             },
             achievementIntegration: false,
+            onScoreUpdate: score => {
+                this.state.score = score
+                this.callbacks.onScoreUpdate(score)
+            },
         })
         this.state = this.createIdleState()
     }
@@ -68,12 +72,10 @@ export class SatelliteSyncGame {
 
     start(): void {
         this.scoreManager.reset()
-        this.state.score = 0
         this.maxCombo = 0
         this.totalLocks = 0
         this.minTimeRatio = 1
         this.loadLevel(0)
-        this.callbacks.onScoreUpdate(0)
         this.callbacks.onGameStart()
     }
 
@@ -244,11 +246,6 @@ export class SatelliteSyncGame {
             return
         }
         if (sat.snapCandidateId) {
-            // Re-validate the previously previewed candidate by id: a
-            // moving target may have drifted out of range between
-            // updateAim() and this commit. Spec: "no stale locks." Do
-            // not accept a different target just because it is now
-            // closer on the ray — only lock the one the player saw.
             const target = this.state.targets.find(
                 t => t.id === sat.snapCandidateId
             )
@@ -326,8 +323,6 @@ export class SatelliteSyncGame {
 
         const points = lockPoints(this.state.combo)
         this.scoreManager.addPoints(points, 'lock')
-        this.state.score = this.scoreManager.getScore()
-        this.callbacks.onScoreUpdate(this.state.score)
         this.callbacks.onLock({
             combo: this.state.combo,
             multiplier: this.state.multiplier,
@@ -358,8 +353,6 @@ export class SatelliteSyncGame {
         const bonus =
             levelClearBonus(levelNumber) + timeBonus(this.state.timeRemaining)
         this.scoreManager.addPoints(bonus, 'level_clear')
-        this.state.score = this.scoreManager.getScore()
-        this.callbacks.onScoreUpdate(this.state.score)
         this.callbacks.onLevelClear(levelNumber)
 
         if (levelNumber >= SATELLITE_SYNC_LEVELS.length) {

@@ -465,7 +465,10 @@ describe('initializeSatelliteSync interaction wiring', () => {
         const { saveGameScore } = await import('@/lib/services/scoreService')
         vi.mocked(saveGameScore).mockImplementationOnce(
             (_id, _score, onSuccess) => {
-                onSuccess?.({ newAchievements: ['satellite_sync_combo'] })
+                onSuccess?.({
+                    success: true,
+                    newAchievements: ['satellite_sync_combo'] as never,
+                })
                 return Promise.resolve()
             }
         )

@@ -108,14 +108,9 @@ export interface CircuitHackerGameData {
     solved: boolean
 }
 
-// Satellite Sync-specific game data
-export interface SatelliteSyncGameData {
-    levelsCleared: number
-    maxCombo: number
-    totalLocks: number
-    solved: boolean
-    minTimeRemainingRatio: number
-}
+// Satellite Sync-specific game data (canonical definition in satellite-sync/types.ts)
+export type SatelliteSyncGameData =
+    import('../satellite-sync/types').SatelliteSyncGameData
 
 // Union type for all game data
 export type GameData =
