@@ -292,3 +292,7 @@ export function getDifficultyColor(difficulty: Game['difficulty']): string {
             return 'text-gray-400'
     }
 }
+
+export function getGameUrl(gameId: string): string {
+    return '/' + gameId.replace(/_/g, '-')
+}
