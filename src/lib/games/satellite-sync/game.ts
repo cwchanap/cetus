@@ -82,6 +82,9 @@ export class SatelliteSyncGame {
     stop(): void {
         this.stopTimer()
         this.state.status = 'idle'
+        // Drop any level swap queued by a just-completed level clear so a
+        // subsequent update() tick cannot replace the stopped game's entities.
+        this.pendingLevel = null
     }
 
     cleanup(): void {

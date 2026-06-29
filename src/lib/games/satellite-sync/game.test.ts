@@ -265,6 +265,23 @@ describe('SatelliteSyncGame', () => {
         game.cleanup()
     })
 
+    it('stop() after a level clear drops the pending level swap', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        // Clear level 1 -> handleLevelClear queues pendingLevel for level 2.
+        solveCurrentLevel(game)
+        // Stop before the next update() tick applies the swap.
+        game.stop()
+        // Level 1 entities must remain; update() must not swap to level 2.
+        const colorsBefore = game.getState().targets.map(t => t.color)
+        expect(colorsBefore).toEqual(['cyan', 'cyan', 'cyan'])
+        game.update(0)
+        expect(game.getState().targets.map(t => t.color)).toEqual(colorsBefore)
+        expect(game.getState().status).toBe('idle')
+        game.cleanup()
+    })
+
     it('aim methods are no-ops for unknown satellite ids', () => {
         const cbs = makeCallbacks()
         const game = new SatelliteSyncGame(cbs)
