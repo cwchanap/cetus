@@ -157,13 +157,24 @@ const gameNavigation = [
       > | null = null
 
       const init = async () => {
-        const container = document.getElementById('game-canvas-container')!
-        const statusEl = document.getElementById('game-status')!
-        const errorEl = document.getElementById('game-error')!
-        const overlay = document.getElementById('game-over-overlay')!
-        const startBtn = document.getElementById('start-btn')!
-        const endBtn = document.getElementById('end-btn')!
-        const playAgainBtn = document.getElementById('play-again-btn')!
+        const container = document.getElementById('game-canvas-container')
+        const statusEl = document.getElementById('game-status')
+        const errorEl = document.getElementById('game-error')
+        const overlay = document.getElementById('game-over-overlay')
+        const startBtn = document.getElementById('start-btn')
+        const endBtn = document.getElementById('end-btn')
+        const playAgainBtn = document.getElementById('play-again-btn')
+        if (
+          !container ||
+          !statusEl ||
+          !errorEl ||
+          !overlay ||
+          !startBtn ||
+          !endBtn ||
+          !playAgainBtn
+        ) {
+          return
+        }
 
         const resetButtonState = () => {
           startBtn.style.display = 'inline-flex'
@@ -198,7 +209,10 @@ const gameNavigation = [
           startBtn.addEventListener('click', async () => {
             startBtn.style.display = 'none'
             try {
-              await gameHandle!.start()
+              if (!gameHandle) {
+                return
+              }
+              await gameHandle.start()
             } catch (error) {
               errorEl.textContent =
                 error instanceof Error
@@ -210,7 +224,7 @@ const gameNavigation = [
           })
 
           endBtn.addEventListener('click', () => {
-            gameHandle!.stop()
+            gameHandle?.stop()
             statusEl.classList.remove('hidden')
             resetButtonState()
           })

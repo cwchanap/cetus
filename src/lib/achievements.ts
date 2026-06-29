@@ -1304,7 +1304,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     {
         id: 'satellite_sync_combo',
         name: 'Combo Commander',
-        description: 'Reach a ×3 combo chain in Satellite Sync.',
+        description: 'Reach a ×3 combo multiplier in Satellite Sync.',
         logo: '🔗',
         gameId: GameID.SATELLITE_SYNC,
         condition: {

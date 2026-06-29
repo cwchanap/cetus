@@ -37,10 +37,6 @@ function matchingExists(level: SatelliteSyncLevel): boolean {
     if (numSats < numTargets) {
         return false
     }
-    // Kuhn's algorithm for maximum bipartite matching. matchS[s] is the
-    // target index assigned to satellite s (or -1). For each target we
-    // search for an augmenting path, reassigning earlier targets when
-    // needed so a greedy first-fit cannot reject a solvable level.
     const matchS = new Array<number>(numSats).fill(-1)
     const seen = new Array<boolean>(numSats).fill(false)
 
@@ -68,10 +64,6 @@ function matchingExists(level: SatelliteSyncLevel): boolean {
     return matched === numTargets
 }
 
-// Validates the static layout of a level: every target can be matched to
-// a distinct same-color satellite with an unobstructed path. This does
-// NOT account for moving entities or the time budget — it is a static
-// sanity check used by the test suite, not a runtime solvability proof.
 export function hasStaticMatching(level: SatelliteSyncLevel): boolean {
     return matchingExists(level)
 }

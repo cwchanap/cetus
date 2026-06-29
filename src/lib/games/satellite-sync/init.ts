@@ -25,8 +25,6 @@ export interface SatelliteSyncUICallbacks extends SatelliteSyncCallbacks {
 }
 
 const KEYBOARD_STEP_DEG = 3
-// Tab is intentionally excluded so browser focus navigation stays
-// intact during gameplay. Use 'q' to cycle the selected satellite.
 const KEYBOARD_KEYS = new Set(['q', 'ArrowLeft', 'ArrowRight', 'Enter', ' '])
 
 function setText(id: string, value: string): void {
@@ -178,11 +176,6 @@ export async function initializeSatelliteSync(
             },
             onLock: info => callbacks.onLock(info),
             onLevelClear: level => {
-                // `level` is the just-cleared number (1-based). The player has
-                // already advanced past it, so the badge must show the level
-                // they are about to play. Cap at the total level count so the
-                // final clear (which fires onWin and shows the overlay) does
-                // not display a non-existent level number.
                 setText(
                     'level',
                     Math.min(level + 1, SATELLITE_SYNC_LEVELS.length).toString()
