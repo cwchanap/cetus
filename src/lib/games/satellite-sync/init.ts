@@ -277,7 +277,6 @@ export async function initializeSatelliteSync(
             if (draggingSatId || !KEYBOARD_KEYS.has(event.key)) {
                 return
             }
-            event.preventDefault()
             const sats = game.getState().satellites
             if (sats.length === 0) {
                 return
@@ -303,6 +302,10 @@ export async function initializeSatelliteSync(
                 if (nextIdx === -1) {
                     return
                 }
+                // A satellite will be selected — only now suppress native
+                // behavior so we don't block browser shortcuts when no
+                // action is possible.
+                event.preventDefault()
                 const next = sats[nextIdx]
                 keyboardSelectedId = next.id
                 game.beginAim(next.id)
@@ -318,6 +321,8 @@ export async function initializeSatelliteSync(
                 if (!sat) {
                     return
                 }
+                // An aim adjustment will run — suppress default scrolling.
+                event.preventDefault()
                 const step =
                     event.key === 'ArrowLeft'
                         ? -KEYBOARD_STEP_DEG
@@ -328,6 +333,11 @@ export async function initializeSatelliteSync(
                 if (!keyboardSelectedId) {
                     return
                 }
+                // A lock will commit — suppress default button activation
+                // only when we actually consume the key for the game. This
+                // keeps the End Game button reachable by keyboard when no
+                // satellite is selected.
+                event.preventDefault()
                 game.endAim(keyboardSelectedId)
                 keyboardSelectedId = null
             }

@@ -31,23 +31,37 @@ function canReach(
     return pathClear(from, to, level)
 }
 
+// Kuhn's algorithm (augmenting-path DFS) for bipartite matching: each
+// target needs a distinct, reachable, color-matched satellite. Used to
+// author-time-check that every authored level is statically solvable.
 function matchingExists(level: SatelliteSyncLevel): boolean {
     const numTargets = level.targets.length
     const numSats = level.satellites.length
     if (numSats < numTargets) {
         return false
     }
-    const matchS = new Array<number>(numSats).fill(-1)
-    const seen = new Array<boolean>(numSats).fill(false)
+    // satAssignedTarget[s] = index of the target currently matched to
+    // satellite s, or -1 when satellite s is unmatched.
+    const satAssignedTarget = new Array<number>(numSats).fill(-1)
+    // visitedThisSearch[s] tracks satellites already considered during the
+    // current augmenting-path DFS so each satellite is visited at most once
+    // per target search. Reset before searching for every new target.
+    const visitedThisSearch = new Array<boolean>(numSats).fill(false)
 
-    const tryAssign = (t: number): boolean => {
+    // tryAssign(target) is the augmenting-path DFS: it looks for an
+    // unmatched reachable satellite for `target`, or recursively reassigns
+    // the occupant of a reachable matched satellite to free it up.
+    const tryAssign = (target: number): boolean => {
         for (let s = 0; s < numSats; s++) {
-            if (seen[s] || !canReach(level, s, t)) {
+            if (visitedThisSearch[s] || !canReach(level, s, target)) {
                 continue
             }
-            seen[s] = true
-            if (matchS[s] === -1 || tryAssign(matchS[s])) {
-                matchS[s] = t
+            visitedThisSearch[s] = true
+            if (
+                satAssignedTarget[s] === -1 ||
+                tryAssign(satAssignedTarget[s])
+            ) {
+                satAssignedTarget[s] = target
                 return true
             }
         }
@@ -56,7 +70,7 @@ function matchingExists(level: SatelliteSyncLevel): boolean {
 
     let matched = 0
     for (let t = 0; t < numTargets; t++) {
-        seen.fill(false)
+        visitedThisSearch.fill(false)
         if (tryAssign(t)) {
             matched++
         }
