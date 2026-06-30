@@ -439,7 +439,10 @@ describe('initTetrisGame', () => {
                     100,
                     expect.any(Function),
                     expect.any(Function),
-                    expect.any(Object)
+                    expect.any(Object),
+                    expect.objectContaining({
+                        isStale: expect.any(Function),
+                    })
                 )
             }
         })
@@ -485,6 +488,27 @@ describe('initTetrisGame', () => {
                     (call[0] as CustomEvent).type === 'achievementsEarned'
             )
             expect(achievementEvents.length).toBeGreaterThan(0)
+        })
+
+        it('passes an isStale option that flips to true after a new run starts', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
+
+            gameInst = await initTetrisGame()
+            const state = gameInst!.getState() as any
+
+            document.getElementById('start-btn')!.click()
+            await state.onGameOver(200, {})
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts?.isStale).toBeTypeOf('function')
+            expect(opts!.isStale()).toBe(false)
+
+            document.getElementById('start-btn')!.click()
+            expect(opts!.isStale()).toBe(true)
         })
     })
 

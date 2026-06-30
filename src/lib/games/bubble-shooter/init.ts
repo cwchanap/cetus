@@ -18,6 +18,7 @@ import {
 import { setupPixiJS } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 
 export async function initBubbleShooterGame(callbacks?: {
     onGameOver?: (finalScore: number, stats: any) => void
@@ -50,7 +51,8 @@ export async function initBubbleShooterGame(callbacks?: {
                 callbacks.onGameOver(finalScore, stats)
             } else {
                 // Fallback to original behavior
-                await saveScore(finalScore)
+                const runId = runGuard.current()
+                await saveScore(finalScore, () => runGuard.isStale(runId))
             }
         },
     }
@@ -91,6 +93,7 @@ export async function initBubbleShooterGame(callbacks?: {
     let drawFrameId: number | null = null
     let drawRunning = true
     const abortController = new AbortController()
+    const runGuard = createRunGuard()
     const { signal } = abortController
 
     // Setup event listeners
@@ -105,6 +108,7 @@ export async function initBubbleShooterGame(callbacks?: {
         startBtn?.addEventListener(
             'click',
             () => {
+                runGuard.next()
                 startGame(enhancedState, gameLoopFn)
                 // Show end button when game starts
                 if (startBtn) {
@@ -141,6 +145,7 @@ export async function initBubbleShooterGame(callbacks?: {
                 if (gameOverOverlay) {
                     gameOverOverlay.classList.add('hidden')
                 }
+                runGuard.next()
                 resetGame(
                     enhancedState,
                     updateCurrentBubbleDisplayFn,
@@ -158,6 +163,7 @@ export async function initBubbleShooterGame(callbacks?: {
                 if (gameOverOverlay) {
                     gameOverOverlay.classList.add('hidden')
                 }
+                runGuard.next()
                 resetGame(
                     enhancedState,
                     updateCurrentBubbleDisplayFn,
@@ -247,7 +253,10 @@ export async function initBubbleShooterGame(callbacks?: {
     }
 }
 
-async function saveScore(score: number): Promise<void> {
+async function saveScore(
+    score: number,
+    isStale?: () => boolean
+): Promise<void> {
     await saveGameScore(
         GameID.BUBBLE_SHOOTER,
         score,
@@ -264,6 +273,8 @@ async function saveScore(score: number): Promise<void> {
         },
         error => {
             console.error('Failed to submit score:', error)
-        }
+        },
+        undefined,
+        { isStale }
     )
 }
