@@ -493,6 +493,96 @@ describe('Score Service', () => {
             expect(onSuccess).toHaveBeenCalledWith(mockResponse)
         })
     })
+
+    describe('saveGameScore stale-run guard', () => {
+        it('suppresses all callbacks when isStale returns true on success', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () =>
+                    Promise.resolve({
+                        success: true,
+                        newAchievements: [{ id: 'x', name: 'X' }],
+                        challengeUpdates: {
+                            completedChallenges: [{ id: 'c' }],
+                            xpEarned: 10,
+                            levelUp: false,
+                        },
+                    }),
+            })
+
+            const onSuccess = vi.fn()
+            const onError = vi.fn()
+            mockWindow.showAchievementAward = vi.fn()
+            mockWindow.showChallengeComplete = vi.fn()
+
+            await saveGameScore(
+                GameID.TETRIS,
+                100,
+                onSuccess,
+                onError,
+                undefined,
+                { isStale: () => true }
+            )
+
+            expect(onSuccess).not.toHaveBeenCalled()
+            expect(onError).not.toHaveBeenCalled()
+            expect(mockWindow.showAchievementAward).not.toHaveBeenCalled()
+            expect(mockWindow.showChallengeComplete).not.toHaveBeenCalled()
+        })
+
+        it('suppresses onError when isStale returns true on a failed submit', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: false,
+                status: 500,
+                text: () => Promise.resolve('Server Error'),
+            })
+
+            const onError = vi.fn()
+            await saveGameScore(
+                GameID.TETRIS,
+                100,
+                undefined,
+                onError,
+                undefined,
+                { isStale: () => true }
+            )
+
+            expect(onError).not.toHaveBeenCalled()
+        })
+
+        it('behaves normally when isStale returns false', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () =>
+                    Promise.resolve({ success: true, newAchievements: [] }),
+            })
+
+            const onSuccess = vi.fn()
+            await saveGameScore(
+                GameID.TETRIS,
+                100,
+                onSuccess,
+                undefined,
+                undefined,
+                { isStale: () => false }
+            )
+
+            expect(onSuccess).toHaveBeenCalled()
+        })
+
+        it('behaves normally when options is omitted', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () =>
+                    Promise.resolve({ success: true, newAchievements: [] }),
+            })
+
+            const onSuccess = vi.fn()
+            await saveGameScore(GameID.TETRIS, 100, onSuccess)
+
+            expect(onSuccess).toHaveBeenCalled()
+        })
+    })
 })
 
 describe('getUserGameHistory - non-ok response', () => {
