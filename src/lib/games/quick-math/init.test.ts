@@ -287,6 +287,65 @@ describe('initQuickMathGame', () => {
             expect(saveGameScore).toHaveBeenCalled()
         })
 
+        it('passes an isStale option that flips to true after a new run starts', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
+
+            const result = await initQuickMathGame()
+            document.getElementById('start-btn')!.click()
+            await result!.callbacks.onGameOver(100, makeStats())
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts?.isStale).toBeTypeOf('function')
+            expect(opts!.isStale()).toBe(false)
+
+            const startBtn = document.getElementById(
+                'start-btn'
+            ) as HTMLButtonElement
+            startBtn.disabled = false
+            startBtn.click()
+            expect(opts!.isStale()).toBe(true)
+        })
+
+        it('marks the run stale after play-again click', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
+
+            const result = await initQuickMathGame()
+            document.getElementById('start-btn')!.click()
+            await result!.callbacks.onGameOver(100, makeStats())
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts!.isStale()).toBe(false)
+
+            document.getElementById('play-again-btn')!.click()
+            expect(opts!.isStale()).toBe(true)
+        })
+
+        it('marks the run stale after restart()', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
+
+            const result = await initQuickMathGame()
+            document.getElementById('start-btn')!.click()
+            await result!.callbacks.onGameOver(100, makeStats())
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts!.isStale()).toBe(false)
+
+            result!.restart()
+            expect(opts!.isStale()).toBe(true)
+        })
+
         it('onScoreUpload should add status message to game-over overlay', async () => {
             const result = await initQuickMathGame()
             result!.callbacks.onScoreUpload!(true)
@@ -322,7 +381,6 @@ describe('initQuickMathGame', () => {
                 result!.callbacks,
                 'onScoreUpload' as any
             )
-            // triggers saveScore (no external onGameOver) -> error callback -> onScoreUpload(false)
             await result!.callbacks.onGameOver(50, makeStats())
             await vi.runAllTimersAsync()
             expect(uploadSpy).toHaveBeenCalledWith(false)

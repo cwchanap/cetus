@@ -2,11 +2,13 @@ import { MemoryMatrixGame } from './game'
 import { MemoryMatrixRenderer } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 import type { GameState, GameStats } from './types'
 
 let game: MemoryMatrixGame | null = null
 let renderer: MemoryMatrixRenderer | null = null
 let abortController: AbortController | null = null
+const runGuard = createRunGuard()
 
 /**
  * Interface for the Memory Matrix game instance returned by initMemoryMatrixGame
@@ -84,7 +86,8 @@ export async function initMemoryMatrixGame(
                 await callbacks.onGameComplete(finalScore, stats)
             } else {
                 // Fallback to original behavior
-                await saveScore(finalScore)
+                const runId = runGuard.current()
+                await saveScore(finalScore, () => runGuard.isStale(runId))
             }
         } catch (error) {
             console.error('[MemoryMatrix] Error in game end callback:', error)
@@ -102,6 +105,7 @@ export async function initMemoryMatrixGame(
     window.addEventListener(
         'memory-matrix-restart',
         () => {
+            runGuard.next()
             game?.resetGame()
         },
         { signal }
@@ -121,6 +125,7 @@ export async function initMemoryMatrixGame(
                     'Memory Matrix game has been cleaned up. Please reinitialize.'
                 )
             }
+            runGuard.next()
             return game.resetGame()
         },
         getState: () => {
@@ -162,6 +167,7 @@ function setupGameControls(signal: AbortSignal): void {
                 if (game) {
                     const state = game.getGameState()
                     if (!state.gameStarted) {
+                        runGuard.next()
                         game.startGame()
                         startBtn.textContent = 'Game Started'
                         ;(startBtn as HTMLButtonElement).disabled = true
@@ -177,6 +183,7 @@ function setupGameControls(signal: AbortSignal): void {
             'click',
             () => {
                 if (game) {
+                    runGuard.next()
                     game.resetGame()
                     if (startBtn) {
                         startBtn.textContent = 'Start Game'
@@ -198,7 +205,10 @@ function setupGameControls(signal: AbortSignal): void {
     )
 }
 
-async function saveScore(score: number): Promise<void> {
+async function saveScore(
+    score: number,
+    isStale?: () => boolean
+): Promise<void> {
     await saveGameScore(
         GameID.MEMORY_MATRIX,
         score,
@@ -215,7 +225,9 @@ async function saveScore(score: number): Promise<void> {
         },
         error => {
             console.error('[MemoryMatrix] Failed to save score:', error)
-        }
+        },
+        undefined,
+        { isStale }
     )
 }
 
