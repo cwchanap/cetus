@@ -197,6 +197,27 @@ describe('initializeEvaderGame', () => {
             expect(saveGameScore).toHaveBeenCalled()
         })
 
+        it('passes an isStale option that flips to true after a new run starts', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
+
+            const callbacks = makeCallbacks()
+            const result = await initializeEvaderGame(container, callbacks)
+            result.startGame()
+            result.stopGame()
+            await vi.runAllTimersAsync()
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts?.isStale).toBeTypeOf('function')
+            expect(opts!.isStale()).toBe(false)
+
+            result.startGame()
+            expect(opts!.isStale()).toBe(true)
+        })
+
         it('should work without optional DOM elements', async () => {
             document.getElementById('final-score')!.remove()
             document.getElementById('final-coins')!.remove()

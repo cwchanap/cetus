@@ -11,6 +11,7 @@ import {
 import type { GameConfig, GameCallbacks, GameStats } from './types'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 
 const DEFAULT_CONFIG: GameConfig = {
     gameDuration: 60, // 60 seconds
@@ -26,7 +27,8 @@ const DEFAULT_CONFIG: GameConfig = {
 
 async function handleGameOver(
     finalScore: number,
-    stats: GameStats
+    stats: GameStats,
+    isStale?: () => boolean
 ): Promise<void> {
     // Update final stats in overlay
     const finalScoreElement = document.getElementById('final-score')
@@ -89,7 +91,8 @@ async function handleGameOver(
         error => {
             console.error('Failed to submit score:', error)
         },
-        stats // Pass game statistics for achievement checking
+        stats,
+        { isStale }
     )
 }
 
@@ -104,6 +107,7 @@ export async function initializeReflexGame(
     stopGame: () => void
 }> {
     const finalConfig: GameConfig = { ...DEFAULT_CONFIG, ...config }
+    const runGuard = createRunGuard()
 
     try {
         // Setup PixiJS renderer
@@ -113,7 +117,10 @@ export async function initializeReflexGame(
         const enhancedCallbacks: GameCallbacks = {
             ...callbacks,
             onGameOver: async (finalScore: number, stats: GameStats) => {
-                await handleGameOver(finalScore, stats)
+                const runId = runGuard.current()
+                await handleGameOver(finalScore, stats, () =>
+                    runGuard.isStale(runId)
+                )
                 callbacks.onGameOver?.(finalScore, stats)
             },
             onObjectSpawn: object => {
@@ -189,7 +196,10 @@ export async function initializeReflexGame(
         return {
             game,
             cleanup: cleanupFunction,
-            startGame: () => game.startGame(),
+            startGame: () => {
+                runGuard.next()
+                game.startGame()
+            },
             stopGame: () => game.stopGame(),
         }
     } catch (error) {
