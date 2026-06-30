@@ -121,7 +121,8 @@ export class ScoreManager extends GameEventEmitter {
      * Save final score (with achievement integration if enabled)
      */
     async saveFinalScore(
-        gameData?: Record<string, unknown>
+        gameData?: Record<string, unknown>,
+        isStale?: () => boolean
     ): Promise<{ success: boolean; newAchievements?: string[] }> {
         try {
             if (this.config.achievementIntegration) {
@@ -149,7 +150,14 @@ export class ScoreManager extends GameEventEmitter {
                 }
             } else {
                 // Use the simple save method
-                await saveGameScore(this.config.gameId, this.currentScore)
+                await saveGameScore(
+                    this.config.gameId,
+                    this.currentScore,
+                    undefined,
+                    undefined,
+                    undefined,
+                    { isStale }
+                )
                 return { success: true }
             }
         } catch (error) {

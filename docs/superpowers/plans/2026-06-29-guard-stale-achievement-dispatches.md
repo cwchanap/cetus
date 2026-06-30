@@ -59,15 +59,15 @@ describe('createRunGuard', () => {
         expect(g.current()).toBe(1)
     })
 
-    it('independent guards do not share run ids', () => {
+    it('independent guards do not share state', () => {
         const a = createRunGuard()
         const b = createRunGuard()
-        const aRun = a.next()
-        const bRun = b.next()
-        expect(aRun).toBe(1)
-        expect(bRun).toBe(1)
-        expect(a.isStale(bRun)).toBe(true)
-        expect(b.isStale(aRun)).toBe(true)
+        a.next()
+        expect(a.current()).toBe(1)
+        b.next()
+        b.next()
+        expect(b.current()).toBe(2)
+        expect(a.current()).toBe(1)
     })
 })
 ```
