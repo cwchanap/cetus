@@ -1,5 +1,7 @@
 // Core game framework exports
 export { BaseGame } from './BaseGame'
+export { createRunGuard } from './runGuard'
+export type { RunGuard } from './runGuard'
 export { BaseRenderer } from './BaseRenderer'
 export { GameEventEmitter } from './EventEmitter'
 export { GameTimer } from './GameTimer'
