@@ -63,6 +63,10 @@ export interface ScoreData {
     gameData?: GameData | Record<string, unknown>
 }
 
+export interface SaveScoreOptions {
+    isStale?: () => boolean
+}
+
 export interface GameHistoryEntry {
     game_id: string
     game_name: string
@@ -118,7 +122,8 @@ export async function saveGameScore(
     score: number,
     onSuccess?: (result: ScoreSubmissionResult) => void,
     onError?: (error: string) => void,
-    gameData?: GameData | Record<string, unknown>
+    gameData?: GameData | Record<string, unknown>,
+    options?: SaveScoreOptions
 ): Promise<void> {
     if (score <= 0) {
         return
@@ -126,6 +131,10 @@ export async function saveGameScore(
 
     try {
         const result = await submitScore({ gameId, score, gameData })
+
+        if (options?.isStale?.()) {
+            return
+        }
 
         if (result.success) {
             // Handle newly earned achievements
