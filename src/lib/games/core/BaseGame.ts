@@ -1,6 +1,7 @@
 import { GameEventEmitter } from './EventEmitter'
 import { GameTimer } from './GameTimer'
 import { ScoreManager } from './ScoreManager'
+import { createRunGuard } from './runGuard'
 import type {
     BaseGameState,
     BaseGameConfig,
@@ -21,6 +22,7 @@ export abstract class BaseGame<
     protected timer: GameTimer
     protected scoreManager: ScoreManager
     protected gameId: GameID
+    private runGuard = createRunGuard()
 
     constructor(
         gameId: GameID,
@@ -81,6 +83,7 @@ export abstract class BaseGame<
             return
         }
 
+        this.runGuard.next()
         this.state.isActive = true
         this.state.gameStarted = true
         this.state.isGameOver = false
@@ -159,14 +162,18 @@ export abstract class BaseGame<
         const finalScore = this.scoreManager.getScore()
 
         // Save score
+        const runId = this.runGuard.current()
         const saveResult = await this.scoreManager.saveFinalScore(
-            this.getGameData()
+            this.getGameData(),
+            () => this.runGuard.isStale(runId)
         )
 
         this.emit('end', {
             score: finalScore,
             stats: finalStats,
-            newAchievements: saveResult.newAchievements,
+            newAchievements: this.runGuard.isStale(runId)
+                ? undefined
+                : saveResult.newAchievements,
         })
 
         if (this.callbacks.onEnd) {
@@ -184,6 +191,7 @@ export abstract class BaseGame<
             return
         }
 
+        this.runGuard.next()
         this.timer.reset()
         this.scoreManager.reset()
         this.state = this.createInitialState()

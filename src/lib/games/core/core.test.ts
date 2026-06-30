@@ -271,7 +271,14 @@ describe('Game Framework Core', () => {
             scoreManager.addPoints(100)
             const result = await scoreManager.saveFinalScore()
             expect(result.success).toBe(true)
-            expect(saveGameScore).toHaveBeenCalledWith(GameID.TETRIS, 100)
+            expect(saveGameScore).toHaveBeenCalledWith(
+                GameID.TETRIS,
+                100,
+                undefined,
+                undefined,
+                undefined,
+                { isStale: undefined }
+            )
         })
 
         it('should save final score with achievement integration using fetch', async () => {
@@ -719,5 +726,111 @@ describe('BaseGame default hooks', () => {
         expect(game.getState().isActive).toBe(true)
         expect(startListener.mock.calls.length).toBe(countAfterFirstStart)
         game.destroy()
+    })
+})
+
+describe('BaseGame stale-run guard', () => {
+    it('includes newAchievements in end event when the run is not stale', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+        }
+
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: true,
+                pausable: false,
+                resettable: true,
+            },
+            {}
+        )
+        const endEvents: Array<{ data: { newAchievements?: string[] } }> = []
+        game.on('end', e => endEvents.push(e as any))
+
+        game.start()
+        await game.end()
+
+        const structuredEnds = endEvents.filter(
+            e => e.data && 'score' in e.data
+        )
+        expect(structuredEnds).toHaveLength(1)
+        expect(structuredEnds[0].data.newAchievements).toEqual(['first_win'])
+
+        vi.unstubAllGlobals()
+    })
+
+    it('suppresses newAchievements in end event when reset happens during the save', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+        }
+
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: true,
+                pausable: false,
+                resettable: true,
+            },
+            {}
+        )
+        const endEvents: Array<{ data: { newAchievements?: string[] } }> = []
+        game.on('end', e => endEvents.push(e as any))
+
+        game.start()
+        const endPromise = game.end()
+        game.reset()
+        await endPromise
+
+        const structuredEnds = endEvents.filter(
+            e => e.data && 'score' in e.data
+        )
+        expect(structuredEnds).toHaveLength(1)
+        expect(structuredEnds[0].data.newAchievements).toBeUndefined()
+
+        vi.unstubAllGlobals()
     })
 })
