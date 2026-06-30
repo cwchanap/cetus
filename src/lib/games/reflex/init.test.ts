@@ -181,8 +181,6 @@ describe('initializeReflexGame', () => {
             const { saveGameScore } = await import(
                 '@/lib/services/scoreService'
             )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
             const callbacks = makeCallbacks()
             const result = await initializeReflexGame(container, callbacks)
             result.startGame()

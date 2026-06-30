@@ -291,8 +291,6 @@ describe('initQuickMathGame', () => {
             const { saveGameScore } = await import(
                 '@/lib/services/scoreService'
             )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
             const result = await initQuickMathGame()
             document.getElementById('start-btn')!.click()
             await result!.callbacks.onGameOver(100, makeStats())
@@ -314,8 +312,6 @@ describe('initQuickMathGame', () => {
             const { saveGameScore } = await import(
                 '@/lib/services/scoreService'
             )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
             const result = await initQuickMathGame()
             document.getElementById('start-btn')!.click()
             await result!.callbacks.onGameOver(100, makeStats())
@@ -332,8 +328,6 @@ describe('initQuickMathGame', () => {
             const { saveGameScore } = await import(
                 '@/lib/services/scoreService'
             )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
             const result = await initQuickMathGame()
             document.getElementById('start-btn')!.click()
             await result!.callbacks.onGameOver(100, makeStats())

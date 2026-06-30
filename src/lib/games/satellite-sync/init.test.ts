@@ -147,7 +147,7 @@ describe('initializeSatelliteSync', () => {
         await Promise.resolve()
 
         expect(saveGameScore).toHaveBeenCalledTimes(1)
-        const opts = saveGameScore.mock.calls[0][5] as
+        const opts = vi.mocked(saveGameScore).mock.calls[0][5] as
             | { isStale: () => boolean }
             | undefined
         expect(opts?.isStale).toBeTypeOf('function')

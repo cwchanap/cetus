@@ -583,8 +583,6 @@ describe('init2048Game', () => {
             const { saveGameScore } = await import(
                 '@/lib/services/scoreService'
             )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
             gameInst = await init2048Game()
             gameInst!.start()
             await gameInst!.endGame()
@@ -603,8 +601,6 @@ describe('init2048Game', () => {
             const { saveGameScore } = await import(
                 '@/lib/services/scoreService'
             )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
             gameInst = await init2048Game()
             gameInst!.start()
             await gameInst!.endGame()
