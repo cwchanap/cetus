@@ -528,6 +528,7 @@ describe('Score Service', () => {
             expect(onError).not.toHaveBeenCalled()
             expect(mockWindow.showAchievementAward).not.toHaveBeenCalled()
             expect(mockWindow.showChallengeComplete).not.toHaveBeenCalled()
+            expect(global.fetch).toHaveBeenCalledTimes(1)
         })
 
         it('suppresses onError when isStale returns true on a failed submit', async () => {
@@ -548,6 +549,7 @@ describe('Score Service', () => {
             )
 
             expect(onError).not.toHaveBeenCalled()
+            expect(global.fetch).toHaveBeenCalledTimes(1)
         })
 
         it('behaves normally when isStale returns false', async () => {

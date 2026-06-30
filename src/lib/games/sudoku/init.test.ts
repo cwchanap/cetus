@@ -510,4 +510,32 @@ describe('initSudokuGame', () => {
             expect(h3.textContent).toBe('PUZZLE SOLVED!')
         })
     })
+
+    describe('saveGameScore stale-run guard', () => {
+        it('passes an isStale option that flips to true after a new run starts', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            const { initializeGame } = await import('./game')
+
+            const overlay = document.createElement('div')
+            overlay.id = 'game-over-overlay'
+            overlay.className = 'hidden'
+            overlay.appendChild(document.createElement('h3'))
+            document.body.appendChild(overlay)
+
+            vi.mocked(initializeGame).mockReturnValueOnce(
+                makeGameState({ isGameOver: true }) as any
+            )
+            initSudokuGame(container)
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts?.isStale).toBeTypeOf('function')
+            expect(opts!.isStale()).toBe(false)
+
+            initSudokuGame(container)
+            expect(opts!.isStale()).toBe(true)
+        })
+    })
 })
