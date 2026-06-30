@@ -8,6 +8,7 @@ import {
 import type { GameConfig, GameCallbacks, GameStats } from './types'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 
 const DEFAULT_CONFIG: GameConfig = {
     gameDuration: 60,
@@ -25,7 +26,8 @@ const DEFAULT_CONFIG: GameConfig = {
 
 async function handleGameOver(
     finalScore: number,
-    stats: GameStats
+    stats: GameStats,
+    isStale?: () => boolean
 ): Promise<void> {
     // Update final stats in overlay
     const finalScoreElement = document.getElementById('final-score')
@@ -77,7 +79,8 @@ async function handleGameOver(
         error => {
             console.error('Failed to submit score:', error)
         },
-        stats
+        stats,
+        { isStale }
     )
 }
 
@@ -94,6 +97,7 @@ export async function initializeEvaderGame(
     releaseKey: (key: string) => void
 }> {
     const finalConfig: GameConfig = { ...DEFAULT_CONFIG, ...config }
+    const runGuard = createRunGuard()
 
     try {
         const rendererState = await setupPixiJS(gameContainer, finalConfig)
@@ -101,7 +105,10 @@ export async function initializeEvaderGame(
         const enhancedCallbacks: GameCallbacks = {
             ...callbacks,
             onGameOver: async (finalScore: number, stats: GameStats) => {
-                await handleGameOver(finalScore, stats)
+                const runId = runGuard.current()
+                await handleGameOver(finalScore, stats, () =>
+                    runGuard.isStale(runId)
+                )
                 callbacks.onGameOver?.(finalScore, stats)
             },
             onObjectSpawn: object => {
@@ -173,7 +180,10 @@ export async function initializeEvaderGame(
         return {
             game,
             cleanup: cleanupFunction,
-            startGame: () => game.startGame(),
+            startGame: () => {
+                runGuard.next()
+                game.startGame()
+            },
             stopGame: () => game.stopGame(),
             pressKey: (key: string) => game.pressKey(key),
             releaseKey: (key: string) => game.releaseKey(key),
