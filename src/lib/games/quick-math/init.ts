@@ -2,9 +2,11 @@ import { QuickMathGame } from './game'
 import type { GameConfig, GameCallbacks, GameStats, GameState } from './types'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 
 let gameInstance: QuickMathGame | null = null
 let gameCallbacks: GameCallbacks | null = null
+const runGuard = createRunGuard()
 
 export async function initQuickMathGame(externalCallbacks?: {
     onGameOver?: (finalScore: number, stats: GameStats) => void
@@ -104,7 +106,8 @@ export async function initQuickMathGame(externalCallbacks?: {
                 await externalCallbacks.onGameOver(finalScore, stats)
             } else {
                 // Fallback to original behavior
-                saveScore(finalScore)
+                const runId = runGuard.current()
+                saveScore(finalScore, () => runGuard.isStale(runId))
             }
         },
         onGameStart: () => {
@@ -197,12 +200,14 @@ export async function initQuickMathGame(externalCallbacks?: {
 
     const handleStart = () => {
         if (gameInstance) {
+            runGuard.next()
             gameInstance.startGame()
         }
     }
 
     const handlePlayAgain = () => {
         if (gameInstance) {
+            runGuard.next()
             gameInstance.startGame()
             startButton.textContent = 'Start Game'
             startButton.disabled = false
@@ -272,7 +277,10 @@ export async function initQuickMathGame(externalCallbacks?: {
 
     // Return game instance for external control
     return {
-        restart: () => gameInstance?.startGame(),
+        restart: () => {
+            runGuard.next()
+            gameInstance?.startGame()
+        },
         getState: () => gameInstance?.getState(),
         endGame: () => gameInstance?.endGame(),
         callbacks: callbacks,
@@ -283,7 +291,10 @@ export async function initQuickMathGame(externalCallbacks?: {
     }
 }
 
-async function saveScore(score: number): Promise<void> {
+async function saveScore(
+    score: number,
+    isStale?: () => boolean
+): Promise<void> {
     await saveGameScore(
         GameID.QUICK_MATH,
         score,
@@ -310,7 +321,8 @@ async function saveScore(score: number): Promise<void> {
             }
         },
         // Include achievement flags in gameData for in-game achievements
-        gameInstance?.getAchievementFlags()
+        gameInstance?.getAchievementFlags(),
+        { isStale }
     )
 }
 

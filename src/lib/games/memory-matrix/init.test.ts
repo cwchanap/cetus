@@ -288,6 +288,101 @@ describe('initMemoryMatrixGame', () => {
         })
     })
 
+    describe('run guard wiring', () => {
+        it('passes an isStale option that flips to true after restart()', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+
+            const instance = await initMemoryMatrixGame()
+            instance.endGame()
+
+            await vi.waitFor(() => {
+                expect(vi.mocked(saveGameScore)).toHaveBeenCalled()
+            })
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts?.isStale).toBeTypeOf('function')
+            expect(opts!.isStale()).toBe(false)
+
+            instance.restart()
+            expect(opts!.isStale()).toBe(true)
+        })
+
+        it('marks the run stale after reset button click', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+
+            const resetBtn = document.createElement('button')
+            resetBtn.id = 'reset-btn'
+            document.body.appendChild(resetBtn)
+
+            const startBtn = document.createElement('button')
+            startBtn.id = 'start-btn'
+            document.body.appendChild(startBtn)
+
+            const instance = await initMemoryMatrixGame()
+            instance.endGame()
+
+            await vi.waitFor(() => {
+                expect(vi.mocked(saveGameScore)).toHaveBeenCalled()
+            })
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts!.isStale()).toBe(false)
+
+            resetBtn.click()
+            expect(opts!.isStale()).toBe(true)
+        })
+
+        it('marks the run stale after memory-matrix-restart event', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+
+            const instance = await initMemoryMatrixGame()
+            instance.endGame()
+
+            await vi.waitFor(() => {
+                expect(vi.mocked(saveGameScore)).toHaveBeenCalled()
+            })
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts!.isStale()).toBe(false)
+
+            window.dispatchEvent(new CustomEvent('memory-matrix-restart'))
+            expect(opts!.isStale()).toBe(true)
+        })
+
+        it('marks the run stale after start button click', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+
+            const startBtn = document.createElement('button')
+            startBtn.id = 'start-btn'
+            document.body.appendChild(startBtn)
+
+            const instance = await initMemoryMatrixGame()
+            instance.endGame()
+
+            await vi.waitFor(() => {
+                expect(vi.mocked(saveGameScore)).toHaveBeenCalled()
+            })
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts!.isStale()).toBe(false)
+
+            startBtn.click()
+            expect(opts!.isStale()).toBe(true)
+        })
+    })
+
     describe('saveScore achievement dispatch', () => {
         it('should dispatch achievementsEarned when saveGameScore returns achievements', async () => {
             const { saveGameScore } = await import(
