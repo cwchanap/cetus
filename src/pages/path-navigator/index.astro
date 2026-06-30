@@ -235,8 +235,10 @@ const gameNavigation = [
         initializePathNavigatorGame,
         type PathNavigatorGameInstance,
       } from '@/lib/games/path-navigator/init'
+      import { createRunGuard } from '@/lib/games/core'
 
       let gameInstance: PathNavigatorGameInstance | undefined
+      const runGuard = createRunGuard()
 
       document.addEventListener('DOMContentLoaded', async () => {
         try {
@@ -309,12 +311,14 @@ const gameNavigation = [
                     totalTime: stats.totalTime,
                     finalScore: finalScore,
                   }
+                  const runId = runGuard.current()
                   await saveGameScore(
                     'PATH_NAVIGATOR',
                     finalScore,
                     undefined,
                     undefined,
-                    gameData
+                    gameData,
+                    { isStale: () => runGuard.isStale(runId) }
                   )
                 } catch (_e) {
                   // Score saving failed - non-critical
@@ -337,6 +341,7 @@ const gameNavigation = [
           if (startBtn) {
             startBtn.addEventListener('click', () => {
               if (gameInstance && gameInstance.startGame) {
+                runGuard.next()
                 gameInstance.startGame()
                 // Update button visibility
                 startBtn.style.display = 'none'
@@ -372,6 +377,7 @@ const gameNavigation = [
                 gameOverOverlay.classList.add('hidden')
               }
               if (gameInstance && gameInstance.resetGame) {
+                runGuard.next()
                 gameInstance.resetGame()
                 // Reset button visibility
                 if (endBtn) {
