@@ -331,9 +331,34 @@ describe('initBubbleShooterGame', () => {
                     GameID.BUBBLE_SHOOTER,
                     150,
                     expect.any(Function),
-                    expect.any(Function)
+                    expect.any(Function),
+                    undefined,
+                    expect.objectContaining({
+                        isStale: expect.any(Function),
+                    })
                 )
             }
+        })
+
+        it('passes an isStale option that flips to true after a new run starts', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
+
+            gameInst = await initBubbleShooterGame()
+            const state = gameInst.getState() as any
+
+            document.getElementById('start-btn')!.click()
+            await state.onGameOver(200, {})
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts?.isStale).toBeTypeOf('function')
+            expect(opts!.isStale()).toBe(false)
+
+            document.getElementById('start-btn')!.click()
+            expect(opts!.isStale()).toBe(true)
         })
     })
 

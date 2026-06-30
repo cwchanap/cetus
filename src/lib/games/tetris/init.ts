@@ -19,6 +19,7 @@ import {
 import { setupPixiJS } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 
 export interface TetrisGameInstance {
     restart: () => void
@@ -43,6 +44,7 @@ export async function initTetrisGame(): Promise<
     // Initialize game state
     const state = createGameState()
     const abortController = new AbortController()
+    const runGuard = createRunGuard()
     const { signal } = abortController
     const renderer = await setupPixiJS(gameContainer, GAME_CONSTANTS)
 
@@ -95,6 +97,7 @@ export async function initTetrisGame(): Promise<
             }
 
             // Submit score
+            const runId = runGuard.current()
             await saveGameScore(
                 GameID.TETRIS,
                 finalScore,
@@ -117,7 +120,8 @@ export async function initTetrisGame(): Promise<
                 error => {
                     console.error('Failed to submit score:', error)
                 },
-                stats
+                stats,
+                { isStale: () => runGuard.isStale(runId) }
             )
         },
     }
@@ -136,12 +140,19 @@ export async function initTetrisGame(): Promise<
         }
     }
 
-    const startHandler = () => startGame(enhancedState, gameLoopFn)
+    const startHandler = () => {
+        runGuard.next()
+        startGame(enhancedState, gameLoopFn)
+    }
     const pauseHandler = () => togglePause(enhancedState, gameLoopFn)
-    const resetHandler = () =>
+    const resetHandler = () => {
+        runGuard.next()
         resetGame(enhancedState, updateNextPieceDisplayFn)
-    const restartHandler = () =>
+    }
+    const restartHandler = () => {
+        runGuard.next()
         resetGame(enhancedState, updateNextPieceDisplayFn)
+    }
     const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
         if (
             enhancedState.gameStarted &&
