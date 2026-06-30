@@ -12,6 +12,7 @@ import {
 } from './utils'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 
 export const GAME_CONSTANTS: GameConstants = {
     GRID_WIDTH: 20,
@@ -27,6 +28,8 @@ export const GAME_CONSTANTS: GameConstants = {
     GRID_COLOR: hexToPixiColor('#1a1a2e'),
     BACKGROUND_COLOR: hexToPixiColor('#0f0f1e'),
 }
+
+const runGuard = createRunGuard()
 
 export function createGameState(): GameState {
     const initialSnake: SnakeSegment[] = [
@@ -126,6 +129,7 @@ export function changeDirection(
 
 export function startGame(state: GameState, gameLoopFn: () => void): void {
     if (!state.gameStarted) {
+        runGuard.next()
         // Reset game flags to allow restart after game over
         state.gameOver = false
         state.paused = false
@@ -178,6 +182,7 @@ export function togglePause(state: GameState, gameLoopFn: () => void): void {
 }
 
 export function resetGame(state: GameState): void {
+    runGuard.next()
     // Cache externally injected callbacks before reset
     const cachedOnGameOver = state.onGameOver
 
@@ -241,6 +246,7 @@ export async function endGame(state: GameState): Promise<void> {
 
     // Submit score to centralized Score Service in the background
     // Don't await to avoid blocking UI on slow/offline connections
+    const runId = runGuard.current()
     saveGameScore(
         GameID.SNAKE,
         state.score,
@@ -264,7 +270,8 @@ export async function endGame(state: GameState): Promise<void> {
             // eslint-disable-next-line no-console
             console.error('Failed to submit score:', error)
         },
-        stats
+        stats,
+        { isStale: () => runGuard.isStale(runId) }
     ).catch(error => {
         // Handle any unexpected errors gracefully
         // eslint-disable-next-line no-console
