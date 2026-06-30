@@ -704,7 +704,7 @@ describe('Snake game.ts pure logic', () => {
             const optionsArg = vi.mocked(saveGameScore).mock.calls.at(-1)?.[5]
             expect(optionsArg).toBeDefined()
             expect(typeof optionsArg?.isStale).toBe('function')
-            expect(optionsArg?.isStale()).toBe(false)
+            expect(optionsArg?.isStale!()).toBe(false)
         })
 
         it('should mark previous run as stale after resetGame bumps guard', async () => {
@@ -713,10 +713,10 @@ describe('Snake game.ts pure logic', () => {
             const firstCallOptions = vi
                 .mocked(saveGameScore)
                 .mock.calls.at(-1)?.[5]
-            expect(firstCallOptions?.isStale()).toBe(false)
+            expect(firstCallOptions?.isStale!()).toBe(false)
 
             resetGame(state)
-            expect(firstCallOptions?.isStale()).toBe(true)
+            expect(firstCallOptions?.isStale!()).toBe(true)
         })
 
         it('should mark previous run as stale after startGame bumps guard', async () => {
@@ -725,11 +725,11 @@ describe('Snake game.ts pure logic', () => {
             const firstCallOptions = vi
                 .mocked(saveGameScore)
                 .mock.calls.at(-1)?.[5]
-            expect(firstCallOptions?.isStale()).toBe(false)
+            expect(firstCallOptions?.isStale!()).toBe(false)
 
             state.gameStarted = false
             startGame(state, vi.fn())
-            expect(firstCallOptions?.isStale()).toBe(true)
+            expect(firstCallOptions?.isStale!()).toBe(true)
         })
     })
 })

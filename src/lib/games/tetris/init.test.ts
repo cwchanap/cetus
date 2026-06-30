@@ -494,8 +494,6 @@ describe('initTetrisGame', () => {
             const { saveGameScore } = await import(
                 '@/lib/services/scoreService'
             )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
             gameInst = await initTetrisGame()
             const state = gameInst!.getState() as any
 

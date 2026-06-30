@@ -392,8 +392,6 @@ describe('initWordScrambleGame', () => {
             const { saveGameScore } = await import(
                 '@/lib/services/scoreService'
             )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
             const instance = await initWordScrambleGame()
             document.getElementById('start-btn')!.click()
             await instance.callbacks.onGameOver(100, makeStats())
@@ -411,8 +409,6 @@ describe('initWordScrambleGame', () => {
             const { saveGameScore } = await import(
                 '@/lib/services/scoreService'
             )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
             const instance = await initWordScrambleGame()
             document.getElementById('start-btn')!.click()
             await instance.callbacks.onGameOver(100, makeStats())

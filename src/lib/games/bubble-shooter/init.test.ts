@@ -344,8 +344,6 @@ describe('initBubbleShooterGame', () => {
             const { saveGameScore } = await import(
                 '@/lib/services/scoreService'
             )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
             gameInst = await initBubbleShooterGame()
             const state = gameInst.getState() as any
 

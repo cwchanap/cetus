@@ -201,8 +201,6 @@ describe('initializeEvaderGame', () => {
             const { saveGameScore } = await import(
                 '@/lib/services/scoreService'
             )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
             const callbacks = makeCallbacks()
             const result = await initializeEvaderGame(container, callbacks)
             result.startGame()
