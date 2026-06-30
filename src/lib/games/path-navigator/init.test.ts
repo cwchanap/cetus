@@ -482,8 +482,44 @@ describe('initializePathNavigatorGame', () => {
                 expect.any(Number),
                 undefined,
                 undefined,
+                expect.any(Object),
                 expect.any(Object)
             )
+        })
+
+        it('passes an isStale option that flips to true after a new run starts', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            gameInstance = await initializePathNavigatorGame()
+            gameInstance!.startGame()
+            gameInstance!.endGame()
+            await vi.runAllTimersAsync()
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts?.isStale).toBeTypeOf('function')
+            expect(opts!.isStale()).toBe(false)
+
+            gameInstance!.startGame()
+            expect(opts!.isStale()).toBe(true)
+        })
+
+        it('marks the run stale after resetGame()', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            gameInstance = await initializePathNavigatorGame()
+            gameInstance!.startGame()
+            gameInstance!.endGame()
+            await vi.runAllTimersAsync()
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts!.isStale()).toBe(false)
+
+            gameInstance!.resetGame()
+            expect(opts!.isStale()).toBe(true)
         })
     })
 

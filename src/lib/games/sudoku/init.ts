@@ -9,6 +9,9 @@ import {
 import type { GameState } from './types'
 import { GameID } from '@/lib/games'
 import { saveGameScore } from '@/lib/services/scoreService'
+import { createRunGuard } from '@/lib/games/core'
+
+const runGuard = createRunGuard()
 
 /**
  * Initializes and sets up the Sudoku game
@@ -21,6 +24,7 @@ export function initSudokuGame(
     const abortController = new AbortController()
     const { signal } = abortController
     const state: GameState = initializeGame(difficulty)
+    runGuard.next()
 
     // Create game container
     const gameElement = document.createElement('div')
@@ -345,7 +349,10 @@ function showGameOverOverlay(state: GameState): void {
     }
 
     // Save score and check for achievements
-    saveGameScore(GameID.SUDOKU, state.score)
+    const runId = runGuard.current()
+    saveGameScore(GameID.SUDOKU, state.score, undefined, undefined, undefined, {
+        isStale: () => runGuard.isStale(runId),
+    })
 
     // Update final stats
     const finalTimeElement = document.getElementById('final-time')

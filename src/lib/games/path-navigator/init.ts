@@ -15,10 +15,12 @@ import type {
 } from './types'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 
 async function handleGameOver(
     finalScore: number,
-    stats: GameStats
+    stats: GameStats,
+    isStale?: () => boolean
 ): Promise<void> {
     // Update final stats in overlay
     const finalScoreElement = document.getElementById('final-score')
@@ -49,7 +51,8 @@ async function handleGameOver(
             finalScore,
             undefined, // onSuccess callback
             undefined, // onError callback
-            stats // gameData
+            stats, // gameData
+            { isStale }
         )
     } catch (_error) {
         // Score saving failed - this is non-critical
@@ -78,6 +81,7 @@ export async function initializePathNavigatorGame(
 
     const abortController = new AbortController()
     const { signal } = abortController
+    const runGuard = createRunGuard()
 
     let renderer: RendererState | null = null
     let game: PathNavigatorGame | null = null
@@ -122,7 +126,10 @@ export async function initializePathNavigatorGame(
                 callbacks.onGoalReached?.()
             },
             onGameOver: async (finalScore: number, stats: GameStats) => {
-                await handleGameOver(finalScore, stats)
+                const runId = runGuard.current()
+                await handleGameOver(finalScore, stats, () =>
+                    runGuard.isStale(runId)
+                )
                 callbacks.onGameOver?.(finalScore, stats)
             },
             onGameStart: () => {
@@ -223,6 +230,8 @@ export async function initializePathNavigatorGame(
                     return
                 }
 
+                runGuard.next()
+
                 // Start the game first
                 game.startGame()
 
@@ -257,7 +266,10 @@ export async function initializePathNavigatorGame(
                 if (game) {
                     game.endGame()
                     const stats = game.getStats()
-                    handleGameOver(game.getState().score, stats)
+                    const runId = runGuard.current()
+                    handleGameOver(game.getState().score, stats, () =>
+                        runGuard.isStale(runId)
+                    )
                 }
                 if (animationFrame) {
                     cancelAnimationFrame(animationFrame)
@@ -281,6 +293,8 @@ export async function initializePathNavigatorGame(
                 if (!game) {
                     return
                 }
+
+                runGuard.next()
 
                 // Reset game state
                 game.resetGame()
