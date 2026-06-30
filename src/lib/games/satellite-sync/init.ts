@@ -11,6 +11,7 @@ import { polarToWorld, bearing } from './geometry'
 import { SATELLITE_SYNC_LEVELS } from './levels'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 import type { SatelliteSyncCallbacks } from './types'
 
 export interface SatelliteSyncHandle {
@@ -53,6 +54,7 @@ export async function initializeSatelliteSync(
     let keyboardSelectedId: string | null = null
     let rafId: number | null = null
     let lastFrame = 0
+    const runGuard = createRunGuard()
 
     const pointerHandlers: {
         down: ((e: PointerEvent) => void) | null
@@ -119,6 +121,7 @@ export async function initializeSatelliteSync(
         if (!game) {
             return
         }
+        const runId = runGuard.current()
         const surfaceError = (message: string) =>
             callbacks.onError?.(
                 'Score Not Saved',
@@ -143,7 +146,8 @@ export async function initializeSatelliteSync(
                     surfaceError(
                         typeof error === 'string' ? error : 'Unknown error'
                     ),
-                game.getGameData()
+                game.getGameData(),
+                { isStale: () => runGuard.isStale(runId) }
             )
         } catch (error) {
             const message =
@@ -153,6 +157,7 @@ export async function initializeSatelliteSync(
     }
 
     const start = async (): Promise<void> => {
+        runGuard.next()
         if (game) {
             game.cleanup()
         }
