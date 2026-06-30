@@ -23,6 +23,7 @@ import {
 } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 
 export interface Game2048Instance {
     start: () => void
@@ -49,6 +50,7 @@ export async function init2048Game(
 
     const abortController = new AbortController()
     const { signal } = abortController
+    const runGuard = createRunGuard()
 
     // Initialize game state
     let state = createGameState()
@@ -133,6 +135,7 @@ export async function init2048Game(
             }
 
             // Submit score
+            const runId = runGuard.current()
             await saveGameScore(
                 GameID.GAME_2048,
                 finalScore,
@@ -157,7 +160,8 @@ export async function init2048Game(
                     maxTile: stats.maxTile,
                     mergeCount: stats.mergeCount,
                     gameWon: stats.gameWon,
-                }
+                },
+                { isStale: () => runGuard.isStale(runId) }
             )
 
             callbacks?.onGameOver?.(stats)
@@ -328,6 +332,7 @@ export async function init2048Game(
 
     // Start game function
     function start(): void {
+        runGuard.next()
         pendingDirection = null
         state = startGame(state)
         totalMerges = 0
@@ -347,6 +352,7 @@ export async function init2048Game(
 
     // Restart game function
     function restart(): void {
+        runGuard.next()
         pendingDirection = null
         state = resetGame(state)
         totalMerges = 0

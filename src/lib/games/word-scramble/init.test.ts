@@ -387,6 +387,43 @@ describe('initWordScrambleGame', () => {
                 'None'
             )
         })
+
+        it('passes an isStale option that flips to true after a new run starts', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
+
+            const instance = await initWordScrambleGame()
+            document.getElementById('start-btn')!.click()
+            await instance.callbacks.onGameOver(100, makeStats())
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts?.isStale).toBeTypeOf('function')
+            expect(opts!.isStale()).toBe(false)
+
+            document.getElementById('start-btn')!.click()
+            expect(opts!.isStale()).toBe(true)
+        })
+
+        it('marks the run stale after play-again click', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
+
+            const instance = await initWordScrambleGame()
+            document.getElementById('start-btn')!.click()
+            await instance.callbacks.onGameOver(100, makeStats())
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts!.isStale()).toBe(false)
+
+            document.getElementById('play-again-btn')!.click()
+            expect(opts!.isStale()).toBe(true)
+        })
     })
 
     describe('event listeners', () => {
