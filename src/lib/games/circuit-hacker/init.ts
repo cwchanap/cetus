@@ -11,6 +11,7 @@ import { DIFFICULTY_CONFIGS } from './utils'
 import type { Difficulty, CircuitHackerStats } from './types'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 
 export const CELL_SIZE = 48
 
@@ -69,6 +70,7 @@ export async function initializeCircuitHackerGame(
     let game: CircuitHackerGame | null = null
     let renderer: RendererState | null = null
     let pointerHandler: ((event: PointerEvent) => void) | null = null
+    const runGuard = createRunGuard()
 
     const teardownRenderer = () => {
         if (renderer && pointerHandler) {
@@ -94,6 +96,7 @@ export async function initializeCircuitHackerGame(
     }
 
     const start = async (difficulty: Difficulty): Promise<void> => {
+        runGuard.next()
         if (game) {
             game.cleanup()
         }
@@ -125,6 +128,7 @@ export async function initializeCircuitHackerGame(
                             `Your win was recorded locally but could not be submitted: ${message}`
                         )
                     }
+                    const runId = runGuard.current()
                     try {
                         await saveGameScore(
                             GameID.CIRCUIT_HACKER,
@@ -153,7 +157,8 @@ export async function initializeCircuitHackerGame(
                                 secondsRemaining: stats.secondsRemaining,
                                 rotationsUsed: stats.rotationsUsed,
                                 solved: stats.solved,
-                            }
+                            },
+                            { isStale: () => runGuard.isStale(runId) }
                         )
                     } catch (error) {
                         // saveGameScore threw synchronously (e.g. network

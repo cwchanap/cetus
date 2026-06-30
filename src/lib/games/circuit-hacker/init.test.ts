@@ -108,6 +108,30 @@ describe('initializeCircuitHackerGame', () => {
         handle.cleanup()
     })
 
+    it('passes an isStale option that flips to true after a new run starts', async () => {
+        const container = setupDom()
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation: vi.fn(),
+            onStart: vi.fn(),
+            onEnd: vi.fn(),
+        })
+        await handle.start('easy')
+        solveGameForTest(handle.getGame()!)
+        await vi.runAllTimersAsync()
+
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+        const opts = saveGameScore.mock.calls[0][5] as
+            | { isStale: () => boolean }
+            | undefined
+        expect(opts?.isStale).toBeTypeOf('function')
+        expect(opts!.isStale()).toBe(false)
+
+        await handle.start('easy')
+        expect(opts!.isStale()).toBe(true)
+        handle.cleanup()
+    })
+
     it('does not submit a score when the run fails', async () => {
         const container = setupDom()
         const handle = await initializeCircuitHackerGame(container, {

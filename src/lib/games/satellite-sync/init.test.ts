@@ -129,6 +129,35 @@ describe('initializeSatelliteSync', () => {
         handle.cleanup()
     })
 
+    it('passes an isStale option that flips to true after a new run starts', async () => {
+        const { saveGameScore } = await import('@/lib/services/scoreService')
+        const container = setupDom()
+        const handle = await initializeSatelliteSync(container, {
+            onGameStart: vi.fn(),
+            onTimeUpdate: vi.fn(),
+            onScoreUpdate: vi.fn(),
+            onLock: vi.fn(),
+            onComboReset: vi.fn(),
+            onLevelClear: vi.fn(),
+            onFail: vi.fn(),
+            onWin: vi.fn(),
+        })
+        await handle.start()
+        vi.advanceTimersByTime(61_000)
+        await Promise.resolve()
+
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+        const opts = saveGameScore.mock.calls[0][5] as
+            | { isStale: () => boolean }
+            | undefined
+        expect(opts?.isStale).toBeTypeOf('function')
+        expect(opts!.isStale()).toBe(false)
+
+        await handle.start()
+        expect(opts!.isStale()).toBe(true)
+        handle.cleanup()
+    })
+
     it('surfaces a score-save failure via onError without throwing', async () => {
         const { saveGameScore } = await import('@/lib/services/scoreService')
         const container = setupDom()
