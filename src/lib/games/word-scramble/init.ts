@@ -2,6 +2,7 @@ import { WordScrambleGame } from './game'
 import type { GameConfig, GameCallbacks, GameStats } from './types'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
+import { createRunGuard } from '@/lib/games/core'
 
 // Game configuration
 const GAME_CONFIG: GameConfig = {
@@ -55,6 +56,8 @@ export async function initWordScrambleGame(externalCallbacks?: {
     ) {
         return
     }
+
+    const runGuard = createRunGuard()
 
     // Game callbacks
     const callbacks: GameCallbacks = {
@@ -232,6 +235,7 @@ export async function initWordScrambleGame(externalCallbacks?: {
             }
 
             // Submit score and handle achievements
+            const runId = runGuard.current()
             await saveGameScore(
                 GameID.WORD_SCRAMBLE,
                 finalScore,
@@ -265,7 +269,8 @@ export async function initWordScrambleGame(externalCallbacks?: {
                     correctWords: stats.wordsUnscrambled
                         .filter(w => w.correct)
                         .map(w => w.word),
-                }
+                },
+                { isStale: () => runGuard.isStale(runId) }
             )
 
             // Call external callback if provided
@@ -290,6 +295,7 @@ export async function initWordScrambleGame(externalCallbacks?: {
         startButton.addEventListener(
             'click',
             () => {
+                runGuard.next()
                 gameInstance?.startGame()
             },
             { signal }
@@ -324,6 +330,7 @@ export async function initWordScrambleGame(externalCallbacks?: {
         playAgainButton.addEventListener(
             'click',
             () => {
+                runGuard.next()
                 gameInstance?.startGame()
             },
             { signal }

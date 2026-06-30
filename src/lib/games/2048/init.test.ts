@@ -578,6 +578,45 @@ describe('init2048Game', () => {
             )
             dispatchSpy.mockRestore()
         })
+
+        it('passes an isStale option that flips to true after a new run starts', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
+
+            gameInst = await init2048Game()
+            gameInst!.start()
+            await gameInst!.endGame()
+            await vi.runAllTimersAsync()
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts?.isStale).toBeTypeOf('function')
+            expect(opts!.isStale()).toBe(false)
+
+            gameInst!.start()
+            expect(opts!.isStale()).toBe(true)
+        })
+
+        it('marks the run stale after restart()', async () => {
+            const { saveGameScore } = await import(
+                '@/lib/services/scoreService'
+            )
+            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
+
+            gameInst = await init2048Game()
+            gameInst!.start()
+            await gameInst!.endGame()
+            await vi.runAllTimersAsync()
+
+            const call = vi.mocked(saveGameScore).mock.calls[0]
+            const opts = call[5] as { isStale: () => boolean } | undefined
+            expect(opts!.isStale()).toBe(false)
+
+            gameInst!.restart()
+            expect(opts!.isStale()).toBe(true)
+        })
     })
 
     describe('callbacks optional chain branches', () => {
