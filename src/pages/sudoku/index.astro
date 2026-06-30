@@ -191,6 +191,8 @@ const gameNavigation = [
               '@/lib/services/scoreService'
             )
             const { GameID } = await import('@/lib/games')
+            const { createRunGuard } = await import('@/lib/games/core')
+            const runGuard = createRunGuard()
             let currentDifficulty: 'easy' | 'medium' | 'hard' = 'medium'
             let gameCleanup: (() => void) | null = null
 
@@ -210,6 +212,7 @@ const gameNavigation = [
             const initGame = (
               difficulty: 'easy' | 'medium' | 'hard' = 'medium'
             ) => {
+              runGuard.next()
               if (gameCleanup) {
                 gameCleanup()
               }
@@ -332,7 +335,17 @@ const gameNavigation = [
                       )
                       finalScoreElement.textContent = score.toString()
                       // Save score to trigger achievement check
-                      saveGameScore(GameID.SUDOKU, score)
+                      const runId = runGuard.current()
+                      saveGameScore(
+                        GameID.SUDOKU,
+                        score,
+                        undefined,
+                        undefined,
+                        undefined,
+                        {
+                          isStale: () => runGuard.isStale(runId),
+                        }
+                      )
                     }
                   }
 
