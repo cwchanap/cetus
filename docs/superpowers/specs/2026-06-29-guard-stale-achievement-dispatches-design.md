@@ -126,10 +126,19 @@ worse than today.
 
 - `start()` and `reset()` bump the token (`this.runGuard.next()`).
 - `end()` captures `const runId = this.runGuard.current()` **before** the await,
-  then after `await saveFinalScore(...)`, if `this.runGuard.isStale(runId)` it
-  emits the `end` event **without** `newAchievements` (the only field the
-  achievement listeners consume). `score`, `stats`, and `onEnd` are unaffected
-  — only achievement toasts are suppressed for the stale run.
+  then after `await saveFinalScore(...)`, emits the `end` event with
+  `newAchievements` stripped when `this.runGuard.isStale(runId)` (the only
+  field the achievement listeners consume). It then **early-returns**,
+  skipping `callbacks.onEnd` and the `onGameEnd` hook for the stale run.
+
+The early-return is intentional: `onEnd` / `onGameEnd` run *after* the await,
+so they are part of the race window, not before it as an earlier draft of this
+spec claimed. Letting them fire on a stale run would mutate DOM from the
+discarded run (game-over overlay, button-state resets) into the new run that
+started during the await. Suppressing the entire post-await callback chain for
+the stale run is the correct boundary — the synchronous pre-await UI (final
+score text, overlay shown before the save) is untouched, and the new run's own
+`start()` / `reset()` is responsible for re-establishing its UI state.
 
 `ScoreManager.saveFinalScore` forwards the guard to `saveGameScore` so its
 direct `showAchievementAward` / `showChallengeComplete` calls are also
@@ -179,11 +188,16 @@ implementation plan:
 ### What gets guarded vs. not
 
 - **Guarded (suppressed when stale):** achievement toasts, challenge toasts,
-  the `achievementsEarned` event, and `onError` score-error toasts.
-- **Not guarded (still shown):** the game-over overlay, final-score text, and
-  button-state resets — these are synchronous UI for the run that just ended
-  and are shown *before* the await, so they are not part of the race. They are
-  intentionally left alone.
+  the `achievementsEarned` event, `onError` score-error toasts, and — in
+  `BaseGame.end()` only — the post-await `callbacks.onEnd` and `onGameEnd`
+  hook. The `end` event itself is still emitted (with `newAchievements`
+  stripped) so listeners that key off it for non-achievement purposes still
+  observe the run ending; only the achievement payload and the post-await
+  callback chain are suppressed.
+- **Not guarded (still shown):** synchronous pre-await UI for the run that
+  just ended — final-score text and any overlay shown before the save — is
+  untouched. The new run's `start()` / `reset()` is responsible for
+  re-establishing its own UI state.
 
 ## Testing
 
@@ -195,7 +209,11 @@ implementation plan:
   omitted, behavior is unchanged (existing tests stay green).
 - **Unit: `BaseGame` / `core.test.ts`** — after `end()` awaits, if the run was
   reset during the save the emitted `end` event has no `newAchievements`; if
-  not reset, `newAchievements` are present as today.
+  not reset, `newAchievements` are present as today. Additionally, the stale
+  run must skip `callbacks.onEnd` and the `onGameEnd` hook (the post-await
+  callback chain is suppressed, not just the achievement payload), while a
+  non-stale run invokes both. This pins the early-return decision documented
+  above.
 - **Per-game `init.test.ts`** — for one representative legacy game and one
   handle-based game, assert that starting a new run before the prior
   `saveGameScore` resolves suppresses the `achievementsEarned` dispatch (and
