@@ -9,6 +9,8 @@ let game: MemoryMatrixGame | null = null
 let renderer: MemoryMatrixRenderer | null = null
 let abortController: AbortController | null = null
 const runGuard = createRunGuard()
+// Module-scope guard: a second init call invalidates pending callbacks
+// from a prior instance (e.g., view-transition remount without cleanup).
 
 /**
  * Interface for the Memory Matrix game instance returned by initMemoryMatrixGame

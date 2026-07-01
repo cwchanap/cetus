@@ -20,6 +20,10 @@ import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
 
+// Module-scope guard so a second init call invalidates pending callbacks
+// from a prior instance (e.g., view-transition remount without cleanup).
+const runGuard = createRunGuard()
+
 export async function initBubbleShooterGame(callbacks?: {
     onGameOver?: (finalScore: number, stats: any) => void
 }): Promise<any> {
@@ -93,7 +97,7 @@ export async function initBubbleShooterGame(callbacks?: {
     let drawFrameId: number | null = null
     let drawRunning = true
     const abortController = new AbortController()
-    const runGuard = createRunGuard()
+    runGuard.next()
     const { signal } = abortController
 
     // Setup event listeners

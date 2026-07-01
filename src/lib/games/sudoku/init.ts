@@ -12,6 +12,8 @@ import { saveGameScore } from '@/lib/services/scoreService'
 import { createRunGuard } from '@/lib/games/core'
 
 const runGuard = createRunGuard()
+// Module-scope guard: a second init call invalidates pending callbacks
+// from a prior instance (e.g., view-transition remount without cleanup).
 
 /**
  * Initializes and sets up the Sudoku game

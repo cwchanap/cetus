@@ -163,6 +163,9 @@ export async function saveGameScore(
             onError?.(result.error || 'Failed to save score')
         }
     } catch (_error) {
+        if (options?.isStale?.()) {
+            return
+        }
         onError?.('Network error occurred')
     }
 }

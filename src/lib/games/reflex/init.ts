@@ -13,6 +13,10 @@ import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
 
+// Module-scope guard so a second init call invalidates pending callbacks
+// from a prior instance (e.g., view-transition remount without cleanup).
+const runGuard = createRunGuard()
+
 const DEFAULT_CONFIG: GameConfig = {
     gameDuration: 60, // 60 seconds
     gridSize: 12, // 12x12 grid
@@ -107,7 +111,7 @@ export async function initializeReflexGame(
     stopGame: () => void
 }> {
     const finalConfig: GameConfig = { ...DEFAULT_CONFIG, ...config }
-    const runGuard = createRunGuard()
+    runGuard.next()
 
     try {
         // Setup PixiJS renderer
