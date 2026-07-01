@@ -19,6 +19,10 @@ export async function initQuickMathGame(externalCallbacks?: {
     callbacks: GameCallbacks
     cleanup: () => void
 }> {
+    // Invalidate any pending callbacks from a prior instance before doing
+    // anything else (e.g., view-transition remount without cleanup).
+    runGuard.next()
+
     // Game configuration
     const config: GameConfig = {
         gameDuration: 60, // 60 seconds
