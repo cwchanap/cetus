@@ -374,7 +374,10 @@ export async function initWordScrambleGame(externalCallbacks?: {
 
     // Return game instance for external control
     return {
-        restart: () => gameInstance?.startGame(),
+        restart: () => {
+            runGuard.next()
+            gameInstance?.startGame()
+        },
         getState: () => gameInstance?.getState(),
         endGame: () => gameInstance?.endGame(),
         callbacks: callbacks,

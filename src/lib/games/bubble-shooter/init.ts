@@ -219,12 +219,14 @@ export async function initBubbleShooterGame(callbacks?: {
 
     // Return game instance for external control
     return {
-        restart: () =>
+        restart: () => {
+            runGuard.next()
             resetGame(
                 enhancedState,
                 updateCurrentBubbleDisplayFn,
                 updateNextBubbleDisplayFn
-            ),
+            )
+        },
         getState: () => enhancedState,
         endGame: () => endGame(enhancedState),
         cleanup: () => {

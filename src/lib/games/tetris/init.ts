@@ -248,7 +248,10 @@ export async function initTetrisGame(): Promise<
 
     // Return game instance for external control
     return {
-        restart: () => resetGame(enhancedState, updateNextPieceDisplayFn),
+        restart: () => {
+            runGuard.next()
+            resetGame(enhancedState, updateNextPieceDisplayFn)
+        },
         getState: () => enhancedState,
         endGame: () => endGame(enhancedState),
         cleanup: () => {
