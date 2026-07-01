@@ -73,6 +73,21 @@ describe('QuickMathGame', () => {
         })
 
         it('should reset achievement flags on start', () => {
+            const mathRandomSpy = vi.spyOn(Math, 'random')
+
+            // First game: force generation of 1+1 to set seenOnePlusOne flag.
+            // generateRandomQuestion calls Math.random in this order:
+            // operation index, operand1, operand2, then id.
+            mathRandomSpy.mockReturnValueOnce(0) // addition
+            mathRandomSpy.mockReturnValueOnce(0) // operand1 = 1
+            mathRandomSpy.mockReturnValueOnce(0) // operand2 = 1
+            mathRandomSpy.mockReturnValueOnce(0) // id random
+            game.startGame()
+            expect(game.getAchievementFlags().seenOnePlusOne).toBe(true)
+
+            // Restart: use a deterministic value that produces a non-triggering
+            // question (6 + 6) so flags stay false after reset.
+            mathRandomSpy.mockReturnValue(0.5)
             game.startGame()
             const flags = game.getAchievementFlags()
 
@@ -80,6 +95,8 @@ describe('QuickMathGame', () => {
             expect(flags.onePlusOneIncorrect).toBe(false)
             expect(flags.seenOperand999).toBe(false)
             expect(flags.zeroAnswerIncorrect).toBe(false)
+
+            mathRandomSpy.mockRestore()
         })
 
         it('should start countdown timer', () => {
