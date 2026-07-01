@@ -30,6 +30,8 @@ export const GAME_CONSTANTS: GameConstants = {
 }
 
 const runGuard = createRunGuard()
+// Module-scope guard: a second init call invalidates pending callbacks
+// from a prior instance (e.g., view-transition remount without cleanup).
 
 export function createGameState(): GameState {
     const initialSnake: SnakeSegment[] = [

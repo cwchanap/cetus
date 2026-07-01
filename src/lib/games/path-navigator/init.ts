@@ -17,6 +17,10 @@ import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
 
+// Module-scope guard so a second init call invalidates pending callbacks
+// from a prior instance (e.g., view-transition remount without cleanup).
+const runGuard = createRunGuard()
+
 async function handleGameOver(
     finalScore: number,
     stats: GameStats,
@@ -81,7 +85,7 @@ export async function initializePathNavigatorGame(
 
     const abortController = new AbortController()
     const { signal } = abortController
-    const runGuard = createRunGuard()
+    runGuard.next()
 
     let renderer: RendererState | null = null
     let game: PathNavigatorGame | null = null

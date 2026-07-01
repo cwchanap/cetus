@@ -14,6 +14,10 @@ import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
 import type { SatelliteSyncCallbacks } from './types'
 
+// Module-scope guard so a second init call invalidates pending callbacks
+// from a prior instance (e.g., view-transition remount without cleanup).
+const runGuard = createRunGuard()
+
 export interface SatelliteSyncHandle {
     start: () => Promise<void>
     stop: () => void
@@ -54,7 +58,7 @@ export async function initializeSatelliteSync(
     let keyboardSelectedId: string | null = null
     let rafId: number | null = null
     let lastFrame = 0
-    const runGuard = createRunGuard()
+    runGuard.next()
 
     const pointerHandlers: {
         down: ((e: PointerEvent) => void) | null

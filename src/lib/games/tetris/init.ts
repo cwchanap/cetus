@@ -21,6 +21,10 @@ import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
 
+// Module-scope guard so a second init call invalidates pending callbacks
+// from a prior instance (e.g., view-transition remount without cleanup).
+const runGuard = createRunGuard()
+
 export interface TetrisGameInstance {
     restart: () => void
     getState: () => GameState
@@ -44,7 +48,7 @@ export async function initTetrisGame(): Promise<
     // Initialize game state
     const state = createGameState()
     const abortController = new AbortController()
-    const runGuard = createRunGuard()
+    runGuard.next()
     const { signal } = abortController
     const renderer = await setupPixiJS(gameContainer, GAME_CONSTANTS)
 

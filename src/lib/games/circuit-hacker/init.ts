@@ -13,6 +13,10 @@ import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
 
+// Module-scope guard so a second init call invalidates pending callbacks
+// from a prior instance (e.g., view-transition remount without cleanup).
+const runGuard = createRunGuard()
+
 export const CELL_SIZE = 48
 
 export interface CircuitHackerUICallbacks {
@@ -70,7 +74,7 @@ export async function initializeCircuitHackerGame(
     let game: CircuitHackerGame | null = null
     let renderer: RendererState | null = null
     let pointerHandler: ((event: PointerEvent) => void) | null = null
-    const runGuard = createRunGuard()
+    runGuard.next()
 
     const teardownRenderer = () => {
         if (renderer && pointerHandler) {

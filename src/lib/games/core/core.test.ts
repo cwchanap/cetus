@@ -281,6 +281,21 @@ describe('Game Framework Core', () => {
             )
         })
 
+        it('should forward isStale to saveGameScore in the non-integration branch', async () => {
+            scoreManager.addPoints(100)
+            const isStale = () => true
+            const result = await scoreManager.saveFinalScore(undefined, isStale)
+            expect(result.success).toBe(true)
+            expect(saveGameScore).toHaveBeenCalledWith(
+                GameID.TETRIS,
+                100,
+                undefined,
+                undefined,
+                undefined,
+                { isStale }
+            )
+        })
+
         it('should save final score with achievement integration using fetch', async () => {
             const fetchMock = vi.fn().mockResolvedValue({
                 ok: true,
@@ -885,6 +900,63 @@ describe('BaseGame stale-run guard', () => {
         // Pins the spec decision: the entire post-await callback chain is
         // suppressed for a stale run, not just the achievement payload, so
         // DOM-mutating end-of-run side effects do not leak into the new run.
+        expect(onEnd).not.toHaveBeenCalled()
+        expect(onGameEndCalled).toBe(false)
+
+        vi.unstubAllGlobals()
+    })
+
+    it('skips onEnd/onGameEnd when start() races with end() (Play Again path)', async () => {
+        // Logically equivalent to the reset() race above, but asserts the
+        // literal "Play Again" path: start() also advances the run guard,
+        // so a pending end() from the previous run must be suppressed.
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const onEnd = vi.fn()
+        let onGameEndCalled = false
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+            protected onGameEnd(): void {
+                onGameEndCalled = true
+            }
+        }
+
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: true,
+                pausable: false,
+                resettable: true,
+            },
+            { onEnd }
+        )
+
+        game.start()
+        const endPromise = game.end()
+        game.start() // "Play Again" — advances run guard, stale-ifies end()
+        await endPromise
+
         expect(onEnd).not.toHaveBeenCalled()
         expect(onGameEndCalled).toBe(false)
 

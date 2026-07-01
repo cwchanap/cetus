@@ -584,6 +584,76 @@ describe('Score Service', () => {
 
             expect(onSuccess).toHaveBeenCalled()
         })
+
+        it('suppresses onError in the catch path when isStale returns true', async () => {
+            // submitScore catches its own errors, so the outer catch in
+            // saveGameScore is only reachable if a callback throws. We make
+            // showAchievementAward throw to exercise the catch path. The
+            // isStale guard is stateful: returns false in the try block (so
+            // showAchievementAward is reached), then true in the catch block
+            // (modeling a run that goes stale during callback execution).
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () =>
+                    Promise.resolve({
+                        success: true,
+                        newAchievements: [{ id: 'x', name: 'X' }],
+                    }),
+            })
+
+            mockWindow.showAchievementAward = vi.fn(() => {
+                throw new Error('achievement handler blew up')
+            })
+
+            let isStaleCallCount = 0
+            const isStale = () => {
+                isStaleCallCount++
+                // First call (try block): not stale, so we reach the throw.
+                // Second call (catch block): stale, so onError is suppressed.
+                return isStaleCallCount > 1
+            }
+
+            const onError = vi.fn()
+            await saveGameScore(
+                GameID.TETRIS,
+                100,
+                undefined,
+                onError,
+                undefined,
+                { isStale }
+            )
+
+            expect(mockWindow.showAchievementAward).toHaveBeenCalled()
+            expect(isStaleCallCount).toBe(2)
+            expect(onError).not.toHaveBeenCalled()
+        })
+
+        it('calls onError in the catch path when isStale returns false', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () =>
+                    Promise.resolve({
+                        success: true,
+                        newAchievements: [{ id: 'x', name: 'X' }],
+                    }),
+            })
+
+            mockWindow.showAchievementAward = vi.fn(() => {
+                throw new Error('achievement handler blew up')
+            })
+
+            const onError = vi.fn()
+            await saveGameScore(
+                GameID.TETRIS,
+                100,
+                undefined,
+                onError,
+                undefined,
+                { isStale: () => false }
+            )
+
+            expect(onError).toHaveBeenCalledWith('Network error occurred')
+        })
     })
 })
 

@@ -126,7 +126,13 @@ export class ScoreManager extends GameEventEmitter {
     ): Promise<{ success: boolean; newAchievements?: string[] }> {
         try {
             if (this.config.achievementIntegration) {
-                // Use the enhanced save method that checks achievements
+                // Use the enhanced save method that checks achievements.
+                // Note: isStale is intentionally not forwarded here. This branch
+                // always POSTs the score; staleness is guarded by the caller
+                // (BaseGame.end suppresses newAchievements/onEnd/onGameEnd when
+                // stale). The non-integration branch forwards isStale to
+                // saveGameScore because its callbacks (onSuccess/onError) are
+                // the only suppression point.
                 const response = await fetch('/api/scores', {
                     method: 'POST',
                     headers: {

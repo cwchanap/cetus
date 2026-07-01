@@ -7,6 +7,8 @@ import { createRunGuard } from '@/lib/games/core'
 let gameInstance: QuickMathGame | null = null
 let gameCallbacks: GameCallbacks | null = null
 const runGuard = createRunGuard()
+// Module-scope guard: a second init call invalidates pending callbacks
+// from a prior instance (e.g., view-transition remount without cleanup).
 
 export async function initQuickMathGame(externalCallbacks?: {
     onGameOver?: (finalScore: number, stats: GameStats) => void

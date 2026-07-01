@@ -25,6 +25,10 @@ import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
 
+// Module-scope guard so a second init call invalidates pending callbacks
+// from a prior instance (e.g., view-transition remount without cleanup).
+const runGuard = createRunGuard()
+
 export interface Game2048Instance {
     start: () => void
     restart: () => void
@@ -50,7 +54,7 @@ export async function init2048Game(
 
     const abortController = new AbortController()
     const { signal } = abortController
-    const runGuard = createRunGuard()
+    runGuard.next()
 
     // Initialize game state
     let state = createGameState()
