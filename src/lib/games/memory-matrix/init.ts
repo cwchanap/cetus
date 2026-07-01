@@ -34,6 +34,10 @@ export interface MemoryMatrixCallbacks {
 export async function initMemoryMatrixGame(
     callbacks?: MemoryMatrixCallbacks
 ): Promise<MemoryMatrixGameInstance> {
+    // Advance run guard so any pending saveScore callbacks from a previous
+    // MemoryMatrixGame instance are invalidated before the new one is created.
+    runGuard.next()
+
     // Clean up previous instances to prevent resource leaks
     if (game && typeof game.destroy === 'function') {
         try {

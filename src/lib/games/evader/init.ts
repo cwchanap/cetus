@@ -106,10 +106,10 @@ export async function initializeEvaderGame(
             ...callbacks,
             onGameOver: async (finalScore: number, stats: GameStats) => {
                 const runId = runGuard.current()
+                callbacks.onGameOver?.(finalScore, stats)
                 await handleGameOver(finalScore, stats, () =>
                     runGuard.isStale(runId)
                 )
-                callbacks.onGameOver?.(finalScore, stats)
             },
             onObjectSpawn: object => {
                 callbacks.onObjectSpawn?.(object)

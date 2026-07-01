@@ -220,6 +220,10 @@ export async function endGame(state: GameState): Promise<void> {
     state.gameOver = true
     state.gameStarted = false
 
+    // Capture run id before any await so a reset/start during the callback
+    // cannot change which run is being validated for stale score submission.
+    const runId = runGuard.current()
+
     // Calculate actual game time, excluding current pause if paused
     let gameTime = state.gameStartTime ? Date.now() - state.gameStartTime : 0
     if (state.paused && state.pauseStartedAt) {
@@ -246,7 +250,6 @@ export async function endGame(state: GameState): Promise<void> {
 
     // Submit score to centralized Score Service in the background
     // Don't await to avoid blocking UI on slow/offline connections
-    const runId = runGuard.current()
     saveGameScore(
         GameID.SNAKE,
         state.score,

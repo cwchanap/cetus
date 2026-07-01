@@ -176,6 +176,12 @@ export abstract class BaseGame<
                 : saveResult.newAchievements,
         })
 
+        // Suppress end-of-run callbacks for discarded runs so stale score/stat
+        // updates do not leak into a newer run that started during the await.
+        if (this.runGuard.isStale(runId)) {
+            return
+        }
+
         if (this.callbacks.onEnd) {
             this.callbacks.onEnd(finalScore, finalStats)
         }
