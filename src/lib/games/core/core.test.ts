@@ -833,4 +833,113 @@ describe('BaseGame stale-run guard', () => {
 
         vi.unstubAllGlobals()
     })
+
+    it('skips onEnd callback and onGameEnd hook when the run is stale', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const onEnd = vi.fn()
+        let onGameEndCalled = false
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+            protected onGameEnd(): void {
+                onGameEndCalled = true
+            }
+        }
+
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: true,
+                pausable: false,
+                resettable: true,
+            },
+            { onEnd }
+        )
+
+        game.start()
+        const endPromise = game.end()
+        game.reset()
+        await endPromise
+
+        // Pins the spec decision: the entire post-await callback chain is
+        // suppressed for a stale run, not just the achievement payload, so
+        // DOM-mutating end-of-run side effects do not leak into the new run.
+        expect(onEnd).not.toHaveBeenCalled()
+        expect(onGameEndCalled).toBe(false)
+
+        vi.unstubAllGlobals()
+    })
+
+    it('invokes onEnd callback and onGameEnd hook when the run is not stale', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const onEnd = vi.fn()
+        let onGameEndCalled = false
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+            protected onGameEnd(): void {
+                onGameEndCalled = true
+            }
+        }
+
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: true,
+                pausable: false,
+                resettable: true,
+            },
+            { onEnd }
+        )
+
+        game.start()
+        await game.end()
+
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onGameEndCalled).toBe(true)
+
+        vi.unstubAllGlobals()
+    })
 })
