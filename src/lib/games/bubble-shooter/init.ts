@@ -42,6 +42,10 @@ export async function initBubbleShooterGame(callbacks?: {
     const currentBubbleCtx = currentBubbleCanvas.getContext('2d')!
     const nextBubbleCtx = nextBubbleCanvas.getContext('2d')!
 
+    // Invalidate any pending callbacks from a prior instance before the first
+    // await so remounts invalidate prior saves immediately.
+    runGuard.next()
+
     // Initialize game state
     const state = createGameState()
     const renderer = await setupPixiJS(gameContainer, GAME_CONSTANTS)
@@ -97,7 +101,6 @@ export async function initBubbleShooterGame(callbacks?: {
     let drawFrameId: number | null = null
     let drawRunning = true
     const abortController = new AbortController()
-    runGuard.next()
     const { signal } = abortController
 
     // Setup event listeners
