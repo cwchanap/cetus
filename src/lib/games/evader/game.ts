@@ -6,6 +6,7 @@ import type {
     GameStats,
 } from './types'
 import { clamp, rectOverlap, generateId } from '@/lib/games/shared/utils'
+import { rollSpawnType } from '@/lib/games/shared/spawner'
 
 export class EvaderGame {
     private state: GameState
@@ -106,10 +107,7 @@ export class EvaderGame {
     }
 
     private spawnRandomObject(): void {
-        const isCoin =
-            Math.random() <
-            this.config.coinToBombRatio / (this.config.coinToBombRatio + 1)
-        const objectType = isCoin ? 'coin' : 'bomb'
+        const objectType = rollSpawnType(this.config.coinToBombRatio)
 
         const now = Date.now()
         const newObject: GameObject = {
