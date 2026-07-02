@@ -1,4 +1,5 @@
 import { Application, Container, Graphics } from 'pixi.js'
+import { quadraticBezierPoint as getBezierPoint } from '@/lib/games/shared/geometry'
 import type {
     RendererState,
     GameConfig,
@@ -257,19 +258,6 @@ function drawCurvedPath(
     // Draw outline
     graphics.poly(points)
     graphics.stroke({ width: 2, color: 0x00dddd })
-}
-
-function getBezierPoint(
-    t: number,
-    start: Point,
-    control: Point,
-    end: Point
-): Point {
-    const mt = 1 - t
-    return {
-        x: mt * mt * start.x + 2 * mt * t * control.x + t * t * end.x,
-        y: mt * mt * start.y + 2 * mt * t * control.y + t * t * end.y,
-    }
 }
 
 export function renderGoal(
