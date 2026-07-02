@@ -6,6 +6,7 @@ import type {
     GameStats,
 } from './types'
 import { getRandomWord, scrambleWord, getPointsForWord } from './words'
+import { generateId } from '@/lib/games/shared/utils'
 
 export class WordScrambleGame {
     private state: GameState
@@ -59,7 +60,7 @@ export class WordScrambleGame {
         const points = getPointsForWord(difficulty)
 
         return {
-            id: `challenge_${Date.now()}_${Math.random()}`,
+            id: generateId(),
             originalWord: originalWord.toLowerCase(),
             scrambledWord,
             difficulty,

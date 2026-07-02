@@ -1,5 +1,5 @@
 import type { WordDatabase } from './types'
-import { shuffleArrayCopy } from '@/lib/games/shared/utils'
+import { shuffleArrayCopy, randomElement } from '@/lib/games/shared/utils'
 
 // Word database categorized by difficulty
 export const WORD_DATABASE: WordDatabase = {
@@ -197,7 +197,7 @@ export function scrambleWord(word: string): string {
  */
 export function getRandomWord(difficulty: 'easy' | 'medium' | 'hard'): string {
     const words = WORD_DATABASE[difficulty]
-    return words[Math.floor(Math.random() * words.length)]
+    return randomElement(words)!
 }
 
 /**
