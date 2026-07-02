@@ -1,8 +1,9 @@
 import { JEWEL_TYPES, type JewelType, type Match, type Position } from './types'
+import { randomElement, create2DArray } from '@/lib/games/shared/utils'
 
 // Random helpers
 export function randomChoice<T>(arr: ReadonlyArray<T>): T {
-    return arr[Math.floor(Math.random() * arr.length)]
+    return randomElement(arr as T[]) as T
 }
 
 export function inBounds(
@@ -29,8 +30,10 @@ export function generateInitialGrid(
     jewelTypes: JewelType[] = JEWEL_TYPES,
     minMatch = 3
 ): (JewelType | null)[][] {
-    const grid: (JewelType | null)[][] = Array.from({ length: rows }, () =>
-        Array<JewelType | null>(cols).fill(null)
+    const grid: (JewelType | null)[][] = create2DArray<JewelType | null>(
+        rows,
+        cols,
+        null
     )
 
     for (let r = 0; r < rows; r++) {
