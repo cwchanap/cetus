@@ -311,9 +311,11 @@ export function resetGame(
     state: GameState,
     updateNextPieceDisplay: () => void
 ): void {
-    state.board = Array(GAME_CONSTANTS.BOARD_HEIGHT)
-        .fill(null)
-        .map(() => Array(GAME_CONSTANTS.BOARD_WIDTH).fill(null))
+    state.board = create2DArray(
+        GAME_CONSTANTS.BOARD_HEIGHT,
+        GAME_CONSTANTS.BOARD_WIDTH,
+        null
+    )
     state.currentPiece = null
     state.score = 0
     state.level = 1
