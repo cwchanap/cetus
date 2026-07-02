@@ -98,19 +98,82 @@ export function createPuzzle(
             break
     }
 
-    // Remove cells randomly
-    let removed = 0
-    while (removed < cellsToRemove) {
-        const row = Math.floor(Math.random() * 9)
-        const col = Math.floor(Math.random() * 9)
+    // Build a shuffled list of all 81 cell positions so each cell is
+    // considered exactly once.
+    const positions: Array<{ row: number; col: number }> = []
+    for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+            positions.push({ row, col })
+        }
+    }
+    for (let i = positions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[positions[i], positions[j]] = [positions[j], positions[i]]
+    }
 
-        if (puzzle[row][col] !== 0) {
-            puzzle[row][col] = 0
+    // Remove cells while preserving a unique solution. If removing a cell
+    // would create multiple solutions, restore it and try the next cell.
+    let removed = 0
+    for (const { row, col } of positions) {
+        if (removed >= cellsToRemove) {
+            break
+        }
+
+        const backup = puzzle[row][col]
+        if (backup === 0) {
+            continue
+        }
+
+        puzzle[row][col] = 0
+        if (countSolutions(puzzle, 2) !== 1) {
+            puzzle[row][col] = backup
+        } else {
             removed++
         }
     }
 
     return puzzle
+}
+
+/**
+ * Counts the number of solutions a grid has, up to `limit`.
+ * Uses backtracking. Operates on a copy of the grid.
+ */
+export function countSolutions(grid: number[][], limit: number = 2): number {
+    let count = 0
+
+    function solve(g: number[][]): void {
+        if (count >= limit) {
+            return
+        }
+
+        let row = -1
+        let col = -1
+        for (let r = 0; r < 9 && row === -1; r++) {
+            for (let c = 0; c < 9 && row === -1; c++) {
+                if (g[r][c] === 0) {
+                    row = r
+                    col = c
+                }
+            }
+        }
+
+        if (row === -1) {
+            count++
+            return
+        }
+
+        for (let num = 1; num <= 9; num++) {
+            if (isValidMove(g, row, col, num)) {
+                g[row][col] = num
+                solve(g)
+                g[row][col] = 0
+            }
+        }
+    }
+
+    solve(grid.map(row => [...row]))
+    return count
 }
 
 /**

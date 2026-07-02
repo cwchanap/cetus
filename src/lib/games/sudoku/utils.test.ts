@@ -5,6 +5,7 @@ import {
     isValidMove,
     isComplete,
     findConflicts,
+    countSolutions,
 } from './utils'
 
 // Build a valid, complete 9x9 Sudoku grid for testing
@@ -240,5 +241,16 @@ describe('Sudoku Utils', () => {
             const conflicts = findConflicts(grid, 0, 0, 5)
             expect(conflicts).not.toContainEqual({ row: 0, col: 0 })
         })
+    })
+})
+
+describe('Sudoku puzzle uniqueness', () => {
+    it('generated puzzles have a unique solution', () => {
+        for (let i = 0; i < 10; i++) {
+            const solved = createSolvedGrid()
+            const puzzle = createPuzzle(solved, 'medium')
+            const solutionCount = countSolutions(puzzle, 2)
+            expect(solutionCount).toBe(1)
+        }
     })
 })
