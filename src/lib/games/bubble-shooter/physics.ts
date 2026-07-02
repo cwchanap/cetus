@@ -250,6 +250,8 @@ function checkMatches(
     if (matches.length >= 3) {
         removeBubbles(state, matches)
         state.score += matches.length * 10
+        state.bubblesPopped = (state.bubblesPopped || 0) + matches.length
+        state.largestCombo = Math.max(state.largestCombo || 0, matches.length)
         state.bubblesRemaining -= matches.length
         state.needsRedraw = true
     }

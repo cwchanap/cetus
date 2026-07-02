@@ -19,6 +19,7 @@ import { setupPixiJS } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
+import type { GameState } from './types'
 
 // Module-scope guard so a second init call invalidates pending callbacks
 // from a prior instance (e.g., view-transition remount without cleanup).
@@ -60,7 +61,9 @@ export async function initBubbleShooterGame(callbacks?: {
             } else {
                 // Fallback to original behavior
                 const runId = runGuard.current()
-                await saveScore(finalScore, () => runGuard.isStale(runId))
+                await saveScore(finalScore, enhancedState, () =>
+                    runGuard.isStale(runId)
+                )
             }
         },
     }
@@ -264,6 +267,7 @@ export async function initBubbleShooterGame(callbacks?: {
 
 async function saveScore(
     score: number,
+    state: GameState,
     isStale?: () => boolean
 ): Promise<void> {
     await saveGameScore(
@@ -283,7 +287,11 @@ async function saveScore(
         error => {
             console.error('Failed to submit score:', error)
         },
-        undefined,
+        {
+            bubblesPopped: state.bubblesPopped || 0,
+            shotsFired: state.shotsFired || 0,
+            largestCombo: state.largestCombo || 0,
+        },
         { isStale }
     )
 }

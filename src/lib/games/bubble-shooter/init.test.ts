@@ -332,7 +332,11 @@ describe('initBubbleShooterGame', () => {
                     150,
                     expect.any(Function),
                     expect.any(Function),
-                    undefined,
+                    expect.objectContaining({
+                        bubblesPopped: expect.any(Number),
+                        shotsFired: expect.any(Number),
+                        largestCombo: expect.any(Number),
+                    }),
                     expect.objectContaining({
                         isStale: expect.any(Function),
                     })
