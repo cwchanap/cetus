@@ -9,6 +9,11 @@ import {
     drawNextPiece,
 } from './utils'
 import { draw } from './renderer'
+import {
+    create2DArray,
+    randomElement,
+    deepClone,
+} from '@/lib/games/shared/utils'
 
 export const GAME_CONSTANTS: GameConstants = {
     BOARD_WIDTH: 10,
@@ -79,9 +84,11 @@ export const GAME_CONSTANTS: GameConstants = {
 
 export function createGameState(): GameState {
     return {
-        board: Array(GAME_CONSTANTS.BOARD_HEIGHT)
-            .fill(null)
-            .map(() => Array(GAME_CONSTANTS.BOARD_WIDTH).fill(null)),
+        board: create2DArray(
+            GAME_CONSTANTS.BOARD_HEIGHT,
+            GAME_CONSTANTS.BOARD_WIDTH,
+            null
+        ),
         currentPiece: null,
         nextPiece: null,
         score: 0,
@@ -105,13 +112,10 @@ export function createGameState(): GameState {
 }
 
 export function generateNextPiece(): Piece {
-    const randomType =
-        GAME_CONSTANTS.PIECE_TYPES[
-            Math.floor(Math.random() * GAME_CONSTANTS.PIECE_TYPES.length)
-        ]
+    const randomType = randomElement(GAME_CONSTANTS.PIECE_TYPES)!
     return {
         type: randomType,
-        shape: structuredClone(GAME_CONSTANTS.PIECES[randomType].shape),
+        shape: deepClone(GAME_CONSTANTS.PIECES[randomType].shape),
         color: GAME_CONSTANTS.PIECES[randomType].color,
         x: 0,
         y: 0,
