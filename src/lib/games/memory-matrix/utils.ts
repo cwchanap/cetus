@@ -1,4 +1,7 @@
 import type { Card, Position, GameConstants } from './types'
+import { shuffleArrayCopy as shuffleArray } from '@/lib/games/shared/utils'
+
+export { shuffleArray }
 
 // Game constants
 export const CONSTANTS: GameConstants = {
@@ -19,16 +22,6 @@ export const CONSTANTS: GameConstants = {
     ],
     POINTS_PER_MATCH: 100,
     TIME_BONUS_MULTIPLIER: 5,
-}
-
-// Shuffle array utility
-export function shuffleArray<T>(array: T[]): T[] {
-    const shuffled = [...array]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-    return shuffled
 }
 
 // Generate unique card pairs
