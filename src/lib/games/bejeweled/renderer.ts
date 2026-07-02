@@ -3,6 +3,7 @@ import {
     PixiJSRenderer,
     type PixiJSRendererConfig,
 } from '@/lib/games/renderers/PixiJSRenderer'
+import { lerp } from '@/lib/games/shared/utils'
 import {
     JEWEL_COLORS,
     type BejeweledState,
@@ -212,8 +213,8 @@ export class BejeweledRenderer
         this.overlayLayer.addChild(gA, gB)
 
         await this.animate(durationMs, t => {
-            gA.position.set(this.lerp(ax, bx, t), this.lerp(ay, by, t))
-            gB.position.set(this.lerp(bx, ax, t), this.lerp(by, ay, t))
+            gA.position.set(lerp(ax, bx, t), lerp(ay, by, t))
+            gB.position.set(lerp(bx, ax, t), lerp(by, ay, t))
         })
 
         // Cleanup
@@ -360,9 +361,5 @@ export class BejeweledRenderer
             }
             requestAnimationFrame(frame)
         })
-    }
-
-    private lerp(a: number, b: number, t: number): number {
-        return a + (b - a) * t
     }
 }
