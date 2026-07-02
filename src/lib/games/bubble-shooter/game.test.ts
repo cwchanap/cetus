@@ -364,9 +364,9 @@ describe('Bubble Shooter Game', () => {
         })
 
         it('should track additional game statistics', () => {
-            expect(gameState.bubblesPopped).toBeUndefined()
-            expect(gameState.shotsFired).toBeUndefined()
-            expect(gameState.largestCombo).toBeUndefined()
+            expect(gameState.bubblesPopped).toBe(0)
+            expect(gameState.shotsFired).toBe(0)
+            expect(gameState.largestCombo).toBe(0)
 
             // These can be set during gameplay
             gameState.bubblesPopped = 10

@@ -489,6 +489,16 @@ describe('Bubble Shooter game.ts pure logic', () => {
             resetGame(state, vi.fn(), vi.fn())
             expect(state.needsRedraw).toBe(true)
         })
+
+        it('should reset shotsFired, bubblesPopped, and largestCombo to 0', () => {
+            state.shotsFired = 42
+            state.bubblesPopped = 30
+            state.largestCombo = 7
+            resetGame(state, vi.fn(), vi.fn())
+            expect(state.shotsFired).toBe(0)
+            expect(state.bubblesPopped).toBe(0)
+            expect(state.largestCombo).toBe(0)
+        })
     })
 
     describe('togglePause', () => {
