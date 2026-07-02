@@ -21,7 +21,7 @@ const runGuard = createRunGuard()
 export function initSudokuGame(
     container: HTMLElement,
     difficulty: 'easy' | 'medium' | 'hard' = 'medium'
-): { cleanup: () => void; stopGame: () => void } {
+): { cleanup: () => void; stopGame: () => void; getState: () => GameState } {
     // Initialize game state
     const abortController = new AbortController()
     const { signal } = abortController
@@ -88,6 +88,7 @@ export function initSudokuGame(
                 gameLoopId = null
             }
         },
+        getState: () => state,
     }
 }
 
@@ -361,9 +362,21 @@ function showGameOverOverlay(state: GameState): void {
 
     // Save score and check for achievements
     const runId = runGuard.current()
-    saveGameScore(GameID.SUDOKU, state.score, undefined, undefined, undefined, {
-        isStale: () => runGuard.isStale(runId),
-    })
+    saveGameScore(
+        GameID.SUDOKU,
+        state.score,
+        undefined,
+        undefined,
+        {
+            difficulty: state.difficulty,
+            cellsFilled: state.grid.cells.flat().filter(c => c.value !== null)
+                .length,
+            hintsUsed: 0,
+        },
+        {
+            isStale: () => runGuard.isStale(runId),
+        }
+    )
 
     // Update final stats
     const finalTimeElement = document.getElementById('final-time')
