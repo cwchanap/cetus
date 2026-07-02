@@ -1,10 +1,14 @@
 /**
  * Creates a solved 9x9 Sudoku grid using backtracking algorithm
  */
+import {
+    create2DArray,
+    shuffleArray,
+    deepClone,
+} from '@/lib/games/shared/utils'
+
 export function createSolvedGrid(): number[][] {
-    const grid: number[][] = Array(9)
-        .fill(null)
-        .map(() => Array(9).fill(0))
+    const grid: number[][] = create2DArray(9, 9, 0)
 
     function isValid(row: number, col: number, num: number): boolean {
         // Check row
@@ -49,12 +53,7 @@ export function createSolvedGrid(): number[][] {
         }
 
         // Try numbers 1-9
-        const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-        // Shuffle array for randomization
-        for (let i = numbers.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1))
-            ;[numbers[i], numbers[j]] = [numbers[j], numbers[i]]
-        }
+        const numbers = shuffleArray([1, 2, 3, 4, 5, 6, 7, 8, 9])
 
         for (const num of numbers) {
             if (isValid(row, col, num)) {
@@ -81,7 +80,7 @@ export function createPuzzle(
     solvedGrid: number[][],
     difficulty: 'easy' | 'medium' | 'hard'
 ): number[][] {
-    const puzzle = solvedGrid.map(row => [...row])
+    const puzzle = deepClone(solvedGrid)
     let cellsToRemove: number
 
     // Determine how many cells to remove based on difficulty
@@ -106,10 +105,7 @@ export function createPuzzle(
             positions.push({ row, col })
         }
     }
-    for (let i = positions.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[positions[i], positions[j]] = [positions[j], positions[i]]
-    }
+    shuffleArray(positions)
 
     // Remove cells while preserving a unique solution. If removing a cell
     // would create multiple solutions, restore it and try the next cell.
