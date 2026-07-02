@@ -1,45 +1,88 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { initQuickMathGame } from './init'
-import type { GameStats } from './types'
+import { initQuickMathFramework } from './init'
 
 vi.mock('@/lib/services/scoreService', () => ({
-    saveGameScore: vi.fn().mockResolvedValue({ success: true }),
+    saveGameScore: vi
+        .fn()
+        .mockResolvedValue({ success: true, newAchievements: [] }),
 }))
 
 function setupDOM() {
-    document.body.innerHTML = `
-        <span id="score">0</span>
-        <span id="time-remaining">60</span>
-        <div id="question"></div>
-        <input id="answer-input" type="text" />
-        <button id="submit-answer">Submit</button>
-        <button id="start-btn">Start</button>
-        <div id="game-over-overlay" class="hidden">
-            <div class="space-y-4"></div>
-        </div>
-        <span id="final-score">0</span>
-        <span id="accuracy">0%</span>
-        <span id="total-questions">0</span>
-        <button id="play-again-btn">Play Again</button>
-        <span id="current-questions">0</span>
-        <span id="current-correct">0</span>
-        <span id="current-score">0</span>
-    `
+    document.body.replaceChildren()
+
+    const container = document.createElement('div')
+    container.id = 'quick-math-container'
+
+    const question = document.createElement('div')
+    question.id = 'question'
+    question.textContent = '5 + 3 = ?'
+    container.appendChild(question)
+
+    const answerInput = document.createElement('input')
+    answerInput.id = 'answer-input'
+    answerInput.type = 'text'
+    container.appendChild(answerInput)
+
+    const submitBtn = document.createElement('button')
+    submitBtn.id = 'submit-answer'
+    submitBtn.textContent = 'Submit'
+    container.appendChild(submitBtn)
+
+    document.body.appendChild(container)
+
+    const startBtn = document.createElement('button')
+    startBtn.id = 'start-btn'
+    startBtn.textContent = 'Start'
+    document.body.appendChild(startBtn)
+
+    const endBtn = document.createElement('button')
+    endBtn.id = 'end-btn'
+    endBtn.style.display = 'none'
+    endBtn.textContent = 'End'
+    document.body.appendChild(endBtn)
+
+    const playAgainBtn = document.createElement('button')
+    playAgainBtn.id = 'play-again-btn'
+    playAgainBtn.textContent = 'Play Again'
+    document.body.appendChild(playAgainBtn)
+
+    const overlay = document.createElement('div')
+    overlay.id = 'game-over-overlay'
+    overlay.className = 'hidden'
+    document.body.appendChild(overlay)
+
+    const finalScore = document.createElement('span')
+    finalScore.id = 'final-score'
+    finalScore.textContent = '0'
+    document.body.appendChild(finalScore)
+
+    const currentQuestions = document.createElement('span')
+    currentQuestions.id = 'current-questions'
+    currentQuestions.textContent = '0'
+    document.body.appendChild(currentQuestions)
+
+    const currentCorrect = document.createElement('span')
+    currentCorrect.id = 'current-correct'
+    currentCorrect.textContent = '0'
+    document.body.appendChild(currentCorrect)
+
+    const currentScore = document.createElement('span')
+    currentScore.id = 'current-score'
+    currentScore.textContent = '0'
+    document.body.appendChild(currentScore)
+
+    const score = document.createElement('span')
+    score.id = 'score'
+    score.textContent = '0'
+    document.body.appendChild(score)
+
+    const timeRemaining = document.createElement('span')
+    timeRemaining.id = 'time-remaining'
+    timeRemaining.textContent = '60'
+    document.body.appendChild(timeRemaining)
 }
 
-function makeStats(overrides: Partial<GameStats> = {}): GameStats {
-    return {
-        totalQuestions: 10,
-        correctAnswers: 8,
-        incorrectAnswers: 2,
-        accuracy: 80,
-        averageTimePerQuestion: 5,
-        finalScore: 160,
-        ...overrides,
-    }
-}
-
-describe('initQuickMathGame', () => {
+describe('initQuickMathFramework', () => {
     beforeEach(() => {
         setupDOM()
         vi.useFakeTimers()
@@ -49,584 +92,286 @@ describe('initQuickMathGame', () => {
         vi.restoreAllMocks()
         vi.clearAllTimers()
         vi.useRealTimers()
-        document.body.innerHTML = ''
+        document.body.replaceChildren()
     })
 
-    describe('initialization guard checks', () => {
-        it('should return undefined when score element is missing', async () => {
-            document.getElementById('score')!.remove()
-            const result = await initQuickMathGame()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return undefined when time-remaining element is missing', async () => {
-            document.getElementById('time-remaining')!.remove()
-            const result = await initQuickMathGame()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return undefined when question element is missing', async () => {
-            document.getElementById('question')!.remove()
-            const result = await initQuickMathGame()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return undefined when answer-input is missing', async () => {
-            document.getElementById('answer-input')!.remove()
-            const result = await initQuickMathGame()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return undefined when submit-answer is missing', async () => {
-            document.getElementById('submit-answer')!.remove()
-            const result = await initQuickMathGame()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return undefined when start-btn is missing', async () => {
-            document.getElementById('start-btn')!.remove()
-            const result = await initQuickMathGame()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return undefined when game-over-overlay is missing', async () => {
-            document.getElementById('game-over-overlay')!.remove()
-            const result = await initQuickMathGame()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return undefined when final-score is missing', async () => {
-            document.getElementById('final-score')!.remove()
-            const result = await initQuickMathGame()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return undefined when accuracy is missing', async () => {
-            document.getElementById('accuracy')!.remove()
-            const result = await initQuickMathGame()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return undefined when total-questions is missing', async () => {
-            document.getElementById('total-questions')!.remove()
-            const result = await initQuickMathGame()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return undefined when play-again-btn is missing', async () => {
-            document.getElementById('play-again-btn')!.remove()
-            const result = await initQuickMathGame()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return game instance when all required elements are present', async () => {
-            const result = await initQuickMathGame()
+    describe('initialization', () => {
+        it('should return game, renderer, and cleanup', async () => {
+            const result = await initQuickMathFramework()
             expect(result).toBeDefined()
-            expect(typeof result!.restart).toBe('function')
-            expect(typeof result!.getState).toBe('function')
-            expect(typeof result!.endGame).toBe('function')
-            expect(result!.callbacks).toBeDefined()
-            expect(typeof result!.cleanup).toBe('function')
+            expect(result.game).toBeDefined()
+            expect(result.renderer).toBeDefined()
+            expect(typeof result.cleanup).toBe('function')
+        })
+
+        it('should return a QuickMathFrameworkGame instance', async () => {
+            const result = await initQuickMathFramework()
+            expect(result.game).toBeDefined()
+            expect(typeof result.game.start).toBe('function')
+            expect(typeof result.game.end).toBe('function')
+            expect(typeof result.game.reset).toBe('function')
+            expect(typeof result.game.getState).toBe('function')
+        })
+
+        it('should merge custom config', async () => {
+            const result = await initQuickMathFramework({
+                pointsPerCorrectAnswer: 50,
+            })
+            expect(result.game).toBeDefined()
+        })
+
+        it('should call cleanup without errors', async () => {
+            const result = await initQuickMathFramework()
+            expect(() => result.cleanup()).not.toThrow()
+        })
+
+        it('should throw if container element is missing', async () => {
+            document.getElementById('quick-math-container')!.remove()
+            await expect(initQuickMathFramework()).rejects.toThrow()
+        })
+
+        it('should throw if question element is missing', async () => {
+            document.getElementById('question')!.remove()
+            await expect(initQuickMathFramework()).rejects.toThrow()
+        })
+
+        it('should throw if answer-input element is missing', async () => {
+            document.getElementById('answer-input')!.remove()
+            await expect(initQuickMathFramework()).rejects.toThrow()
+        })
+
+        it('should throw if submit-answer element is missing', async () => {
+            document.getElementById('submit-answer')!.remove()
+            await expect(initQuickMathFramework()).rejects.toThrow()
         })
     })
 
-    describe('callbacks', () => {
-        it('onScoreUpdate should update score elements', async () => {
-            const result = await initQuickMathGame()
-            result!.callbacks.onScoreUpdate(42)
-            expect(document.getElementById('score')!.textContent).toBe('42')
-            expect(document.getElementById('current-score')!.textContent).toBe(
-                '42'
-            )
+    describe('setupStandardButtons', () => {
+        it('start button click should call game.start()', async () => {
+            const result = await initQuickMathFramework()
+            const startSpy = vi.spyOn(result.game, 'start')
+            document.getElementById('start-btn')!.click()
+            expect(startSpy).toHaveBeenCalled()
         })
 
-        it('onTimeUpdate should add red class when time <= 10', async () => {
-            const result = await initQuickMathGame()
-            const el = document.getElementById('time-remaining')!
-            result!.callbacks.onTimeUpdate(10)
-            expect(el.textContent).toBe('10')
-            expect(el.classList.contains('text-red-400')).toBe(true)
-            expect(el.classList.contains('text-cyan-400')).toBe(false)
+        it('end button click should call game.end()', async () => {
+            const result = await initQuickMathFramework()
+            const endSpy = vi.spyOn(result.game, 'end')
+            document.getElementById('end-btn')!.click()
+            expect(endSpy).toHaveBeenCalled()
         })
 
-        it('onTimeUpdate should add cyan class when time > 10', async () => {
-            const result = await initQuickMathGame()
-            const el = document.getElementById('time-remaining')!
-            el.classList.add('text-red-400')
-            result!.callbacks.onTimeUpdate(30)
-            expect(el.classList.contains('text-cyan-400')).toBe(true)
-            expect(el.classList.contains('text-red-400')).toBe(false)
+        it('play-again button click should call game.reset()', async () => {
+            const result = await initQuickMathFramework()
+            const resetSpy = vi.spyOn(result.game, 'reset')
+            document.getElementById('play-again-btn')!.click()
+            expect(resetSpy).toHaveBeenCalled()
         })
 
-        it('onQuestionUpdate should set question text and clear input', async () => {
-            const result = await initQuickMathGame()
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            answerInput.value = 'old'
-            result!.callbacks.onQuestionUpdate({
-                id: 'q1',
-                question: '5 + 3 = ?',
-                answer: 8,
-                operation: 'addition',
-                operand1: 5,
-                operand2: 3,
-            })
-            expect(document.getElementById('question')!.textContent).toBe(
-                '5 + 3 = ?'
-            )
-            expect(answerInput.value).toBe('')
+        it('play-again button should hide game-over-overlay', async () => {
+            const overlay = document.getElementById('game-over-overlay')!
+            overlay.classList.remove('hidden')
+            await initQuickMathFramework()
+            document.getElementById('play-again-btn')!.click()
+            expect(overlay.classList.contains('hidden')).toBe(true)
         })
 
-        it('onGameStart should enable controls and reset stats', async () => {
-            const result = await initQuickMathGame()
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            const submitBtn = document.getElementById(
-                'submit-answer'
-            ) as HTMLButtonElement
+        it('play-again should reset button states', async () => {
             const startBtn = document.getElementById(
                 'start-btn'
             ) as HTMLButtonElement
-            const overlay = document.getElementById('game-over-overlay')!
-
-            answerInput.disabled = true
-            submitBtn.disabled = true
-            overlay.classList.remove('hidden')
-            document.getElementById('current-questions')!.textContent = '5'
-            document.getElementById('current-correct')!.textContent = '4'
-            document.getElementById('current-score')!.textContent = '80'
-
-            result!.callbacks.onGameStart()
-
-            expect(answerInput.disabled).toBe(false)
-            expect(submitBtn.disabled).toBe(false)
-            expect(startBtn.textContent).toBe('Playing...')
-            expect(startBtn.disabled).toBe(true)
-            expect(overlay.classList.contains('hidden')).toBe(true)
-            expect(
-                document.getElementById('current-questions')!.textContent
-            ).toBe('0')
-            expect(
-                document.getElementById('current-correct')!.textContent
-            ).toBe('0')
-            expect(document.getElementById('current-score')!.textContent).toBe(
-                '0'
-            )
+            const endBtn = document.getElementById(
+                'end-btn'
+            ) as HTMLButtonElement
+            startBtn.style.display = 'none'
+            endBtn.style.display = 'inline-flex'
+            await initQuickMathFramework()
+            document.getElementById('play-again-btn')!.click()
+            expect(startBtn.style.display).toBe('inline-flex')
+            expect(endBtn.style.display).toBe('none')
         })
 
-        it('onGameOver should disable controls and show overlay', async () => {
-            const { saveGameScore } = await import(
-                '@/lib/services/scoreService'
-            )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
+        it('should work without optional buttons missing', async () => {
+            document.getElementById('start-btn')!.remove()
+            document.getElementById('end-btn')!.remove()
+            document.getElementById('play-again-btn')!.remove()
+            const result = await initQuickMathFramework()
+            expect(result).toBeDefined()
+        })
+    })
 
-            const result = await initQuickMathGame()
-            await result!.callbacks.onGameOver(160, makeStats())
+    describe('onStart callback', () => {
+        it('should hide start-btn and show end-btn when game starts', async () => {
+            const result = await initQuickMathFramework()
+            const startBtn = document.getElementById(
+                'start-btn'
+            ) as HTMLButtonElement
+            const endBtn = document.getElementById(
+                'end-btn'
+            ) as HTMLButtonElement
+            startBtn.style.display = 'inline-flex'
+            endBtn.style.display = 'none'
+            result.game.start()
+            // onStart callback runs
+            expect(startBtn.style.display).toBe('none')
+            expect(endBtn.style.display).toBe('inline-flex')
+        })
+    })
 
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            const submitBtn = document.getElementById(
-                'submit-answer'
+    describe('onEnd callback', () => {
+        it('should show start-btn, hide end-btn, and show game-over-overlay on end', async () => {
+            const result = await initQuickMathFramework()
+            const startBtn = document.getElementById(
+                'start-btn'
+            ) as HTMLButtonElement
+            const endBtn = document.getElementById(
+                'end-btn'
             ) as HTMLButtonElement
             const overlay = document.getElementById('game-over-overlay')!
 
-            expect(answerInput.disabled).toBe(true)
-            expect(submitBtn.disabled).toBe(true)
+            startBtn.style.display = 'none'
+            endBtn.style.display = 'inline-flex'
+            overlay.classList.add('hidden')
+
+            // Start then immediately end
+            result.game.start()
+            await result.game.end()
+
+            expect(startBtn.style.display).toBe('inline-flex')
+            expect(endBtn.style.display).toBe('none')
             expect(overlay.classList.contains('hidden')).toBe(false)
         })
 
-        it('onGameOver should update final stats elements', async () => {
-            const { saveGameScore } = await import(
-                '@/lib/services/scoreService'
-            )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
-            const result = await initQuickMathGame()
-            await result!.callbacks.onGameOver(
-                200,
-                makeStats({ totalQuestions: 15, accuracy: 93.5 })
-            )
-
-            expect(document.getElementById('final-score')!.textContent).toBe(
-                '200'
-            )
-            expect(
-                document.getElementById('total-questions')!.textContent
-            ).toBe('15')
-            expect(document.getElementById('accuracy')!.textContent).toBe(
-                '93.5%'
-            )
+        it('should update final-score element on end', async () => {
+            const result = await initQuickMathFramework()
+            result.game.start()
+            await result.game.end()
+            const finalScore = document.getElementById('final-score')!
+            expect(finalScore.textContent).toBe('0') // no score accumulated
         })
 
-        it('onGameOver should call external callback when provided', async () => {
-            const { saveGameScore } = await import(
-                '@/lib/services/scoreService'
-            )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
-            const externalOnGameOver = vi.fn()
-            const result = await initQuickMathGame({
-                onGameOver: externalOnGameOver,
-            })
-            const stats = makeStats()
-            await result!.callbacks.onGameOver(100, stats)
-            expect(externalOnGameOver).toHaveBeenCalledWith(100, stats)
+        it('should call custom onEnd callback', async () => {
+            const onEnd = vi.fn()
+            const result = await initQuickMathFramework({}, { onEnd })
+            result.game.start()
+            await result.game.end()
+            expect(onEnd).toHaveBeenCalled()
         })
 
-        it('onGameOver should call saveScore when no external callback', async () => {
-            const { saveGameScore } = await import(
-                '@/lib/services/scoreService'
-            )
-            vi.mocked(saveGameScore).mockResolvedValueOnce({ success: true })
-
-            const result = await initQuickMathGame()
-            await result!.callbacks.onGameOver(100, makeStats())
-            expect(saveGameScore).toHaveBeenCalled()
+        it('should work without start/end buttons on end', async () => {
+            document.getElementById('start-btn')!.remove()
+            document.getElementById('end-btn')!.remove()
+            const result = await initQuickMathFramework()
+            result.game.start()
+            await expect(result.game.end()).resolves.not.toThrow()
         })
 
-        it('passes an isStale option that flips to true after a new run starts', async () => {
-            const { saveGameScore } = await import(
-                '@/lib/services/scoreService'
-            )
-            const result = await initQuickMathGame()
-            document.getElementById('start-btn')!.click()
-            await result!.callbacks.onGameOver(100, makeStats())
-
-            const call = vi.mocked(saveGameScore).mock.calls[0]
-            const opts = call[5] as { isStale: () => boolean } | undefined
-            expect(opts?.isStale).toBeTypeOf('function')
-            expect(opts!.isStale()).toBe(false)
-
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            startBtn.disabled = false
-            startBtn.click()
-            expect(opts!.isStale()).toBe(true)
+        it('should work without game-over-overlay on end', async () => {
+            document.getElementById('game-over-overlay')!.remove()
+            const result = await initQuickMathFramework()
+            result.game.start()
+            await expect(result.game.end()).resolves.not.toThrow()
         })
 
-        it('marks the run stale after play-again click', async () => {
-            const { saveGameScore } = await import(
-                '@/lib/services/scoreService'
-            )
-            const result = await initQuickMathGame()
-            document.getElementById('start-btn')!.click()
-            await result!.callbacks.onGameOver(100, makeStats())
-
-            const call = vi.mocked(saveGameScore).mock.calls[0]
-            const opts = call[5] as { isStale: () => boolean } | undefined
-            expect(opts!.isStale()).toBe(false)
-
-            document.getElementById('play-again-btn')!.click()
-            expect(opts!.isStale()).toBe(true)
-        })
-
-        it('marks the run stale after restart()', async () => {
-            const { saveGameScore } = await import(
-                '@/lib/services/scoreService'
-            )
-            const result = await initQuickMathGame()
-            document.getElementById('start-btn')!.click()
-            await result!.callbacks.onGameOver(100, makeStats())
-
-            const call = vi.mocked(saveGameScore).mock.calls[0]
-            const opts = call[5] as { isStale: () => boolean } | undefined
-            expect(opts!.isStale()).toBe(false)
-
-            result!.restart()
-            expect(opts!.isStale()).toBe(true)
-        })
-
-        it('onScoreUpload should add status message to game-over overlay', async () => {
-            const result = await initQuickMathGame()
-            result!.callbacks.onScoreUpload!(true)
-            const spaceDiv = document.querySelector('.space-y-4')!
-            expect(spaceDiv.children.length).toBe(1)
-            expect(spaceDiv.children[0].textContent).toBe('Score saved!')
-            vi.advanceTimersByTime(4000)
-            expect(spaceDiv.children.length).toBe(0)
-        })
-
-        it('onScoreUpload should show failure message for unsuccessful upload', async () => {
-            const result = await initQuickMathGame()
-            result!.callbacks.onScoreUpload!(false)
-            const spaceDiv = document.querySelector('.space-y-4')!
-            expect(spaceDiv.children[0].textContent).toBe(
-                'Score not saved (offline?)'
-            )
-        })
-
-        it('should invoke onScoreUpload(false) via saveScore error callback', async () => {
-            const { saveGameScore } = await import(
-                '@/lib/services/scoreService'
-            )
-            vi.mocked(saveGameScore).mockImplementationOnce(
-                async (_gameId, _score, _onSuccess, onError) => {
-                    onError?.('network error')
-                    return { success: false }
-                }
-            )
-
-            const result = await initQuickMathGame()
-            const uploadSpy = vi.spyOn(
-                result!.callbacks,
-                'onScoreUpload' as any
-            )
-            await result!.callbacks.onGameOver(50, makeStats())
-            await vi.runAllTimersAsync()
-            expect(uploadSpy).toHaveBeenCalledWith(false)
+        it('should work without final-score element on end', async () => {
+            document.getElementById('final-score')!.remove()
+            const result = await initQuickMathFramework()
+            result.game.start()
+            await expect(result.game.end()).resolves.not.toThrow()
         })
     })
 
-    describe('event listeners', () => {
-        it('start button click should put the game in started state', async () => {
-            await initQuickMathGame()
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            startBtn.click()
-            expect(startBtn.textContent).toBe('Playing...')
-            expect(startBtn.disabled).toBe(true)
+    describe('custom callbacks', () => {
+        it('should invoke custom onStart callback', async () => {
+            const onStart = vi.fn()
+            const result = await initQuickMathFramework({}, { onStart })
+            result.game.start()
+            expect(onStart).toHaveBeenCalled()
         })
 
-        it('play-again button click should start game and reset start button', async () => {
-            const result = await initQuickMathGame()
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            startBtn.textContent = 'Playing...'
-            startBtn.disabled = true
-            document.getElementById('play-again-btn')!.click()
-            expect(startBtn.textContent).toBe('Start Game')
-            expect(startBtn.disabled).toBe(false)
+        it('should invoke custom onScoreUpdate callback when correct answer submitted', async () => {
+            const onScoreUpdate = vi.fn()
+            const result = await initQuickMathFramework({}, { onScoreUpdate })
+            result.game.start()
+            const state = result.game.getState()
+            const question = state.currentQuestion
+            expect(question).not.toBeNull()
+            result.game.submitAnswer(String(question!.answer))
+            expect(onScoreUpdate).toHaveBeenCalled()
         })
 
-        it('submit button click should not throw when game inactive', async () => {
-            await initQuickMathGame()
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            answerInput.value = '42'
-            expect(() =>
-                document.getElementById('submit-answer')!.click()
-            ).not.toThrow()
+        it('should invoke custom onTimeUpdate callback', async () => {
+            const onTimeUpdate = vi.fn()
+            const result = await initQuickMathFramework({}, { onTimeUpdate })
+            result.game.start()
+            vi.advanceTimersByTime(1000)
+            expect(onTimeUpdate).toHaveBeenCalled()
         })
 
-        it('enter keypress should trigger submit', async () => {
-            await initQuickMathGame()
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            answerInput.value = '42'
-            const event = new KeyboardEvent('keypress', {
-                key: 'Enter',
-                bubbles: true,
-            })
-            expect(() => answerInput.dispatchEvent(event)).not.toThrow()
+        it('should invoke custom onQuestionUpdate callback when game starts', async () => {
+            const onQuestionUpdate = vi.fn()
+            const result = await initQuickMathFramework(
+                {},
+                { onQuestionUpdate }
+            )
+            result.game.start()
+            expect(onQuestionUpdate).toHaveBeenCalledTimes(1)
+            expect(onQuestionUpdate).toHaveBeenCalledWith(
+                expect.objectContaining({ question: expect.any(String) })
+            )
         })
 
-        it('non-numeric keydown should be prevented', async () => {
-            await initQuickMathGame()
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            const event = new KeyboardEvent('keydown', {
-                key: 'a',
-                bubbles: true,
-                cancelable: true,
-            })
-            answerInput.dispatchEvent(event)
-            expect(event.defaultPrevented).toBe(true)
-        })
-
-        it('backspace keydown should NOT be prevented', async () => {
-            await initQuickMathGame()
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            const event = new KeyboardEvent('keydown', {
-                key: 'Backspace',
-                bubbles: true,
-                cancelable: true,
-            })
-            answerInput.dispatchEvent(event)
-            expect(event.defaultPrevented).toBe(false)
-        })
-
-        it('numeric keydown should NOT be prevented', async () => {
-            await initQuickMathGame()
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            const event = new KeyboardEvent('keydown', {
-                key: '5',
-                bubbles: true,
-                cancelable: true,
-            })
-            answerInput.dispatchEvent(event)
-            expect(event.defaultPrevented).toBe(false)
-        })
-
-        it('input event should update currentAnswer', async () => {
-            await initQuickMathGame()
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            answerInput.value = '7'
-            const inputEvent = new Event('input', { bubbles: true })
-            expect(() => answerInput.dispatchEvent(inputEvent)).not.toThrow()
+        it('should invoke custom onAnswerSubmit callback when answer submitted', async () => {
+            const onAnswerSubmit = vi.fn()
+            const result = await initQuickMathFramework({}, { onAnswerSubmit })
+            result.game.start()
+            const state = result.game.getState()
+            const question = state.currentQuestion
+            expect(question).not.toBeNull()
+            result.game.submitAnswer(String(question!.answer))
+            expect(onAnswerSubmit).toHaveBeenCalledWith(
+                true,
+                question,
+                String(question!.answer)
+            )
         })
     })
 
-    describe('handleSubmit with active game', () => {
-        it('should process answer when game is active and answer is non-empty', async () => {
-            const result = await initQuickMathGame()
-            // Start the game to make it active
-            document.getElementById('start-btn')!.click()
-
+    describe('submit button in setupQuickMathEvents', () => {
+        it('should call game.submitAnswer when submit is clicked with active game', async () => {
+            const result = await initQuickMathFramework()
             const answerInput = document.getElementById(
                 'answer-input'
             ) as HTMLInputElement
-            answerInput.value = '42'
+            result.game.start()
+            answerInput.value = '8'
+            const submitBtn = document.getElementById('submit-answer')!
+            const submitSpy = vi.spyOn(result.game, 'submitAnswer')
+            submitBtn.click()
+            expect(submitSpy).toHaveBeenCalledWith('8')
+        })
+
+        it('should not call game.submitAnswer when input is empty', async () => {
+            const result = await initQuickMathFramework()
+            const answerInput = document.getElementById(
+                'answer-input'
+            ) as HTMLInputElement
+            result.game.start()
+            answerInput.value = ''
+            const submitSpy = vi.spyOn(result.game, 'submitAnswer')
             document.getElementById('submit-answer')!.click()
-
-            // questionsAnswered should be incremented
-            const state = result!.getState()
-            expect(state!.questionsAnswered).toBeGreaterThanOrEqual(1)
+            expect(submitSpy).not.toHaveBeenCalled()
         })
 
-        it('should return early when answer is empty', async () => {
-            await initQuickMathGame()
-            document.getElementById('start-btn')!.click()
-
+        it('should not call game.submitAnswer when game is not active', async () => {
+            const result = await initQuickMathFramework()
             const answerInput = document.getElementById(
                 'answer-input'
             ) as HTMLInputElement
-            answerInput.value = '   ' // whitespace only → trims to ''
-            expect(() =>
-                document.getElementById('submit-answer')!.click()
-            ).not.toThrow()
-        })
-
-        it('should apply correct border class for correct answer', async () => {
-            const result = await initQuickMathGame()
-            document.getElementById('start-btn')!.click()
-
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            // Get the current question's answer
-            const state = result!.getState()
-            answerInput.value =
-                state!.currentQuestion?.answer?.toString() ?? '0'
+            answerInput.value = '8'
+            const submitSpy = vi.spyOn(result.game, 'submitAnswer')
             document.getElementById('submit-answer')!.click()
-
-            // Either correct or incorrect feedback class should be applied
-            const hasClass =
-                answerInput.classList.contains('border-green-400') ||
-                answerInput.classList.contains('border-red-400')
-            expect(hasClass).toBe(true)
-        })
-
-        it('should remove feedback classes after timeout', async () => {
-            await initQuickMathGame()
-            document.getElementById('start-btn')!.click()
-
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            answerInput.value = '99'
-            document.getElementById('submit-answer')!.click()
-
-            vi.advanceTimersByTime(400)
-            expect(answerInput.classList.contains('border-green-400')).toBe(
-                false
-            )
-            expect(answerInput.classList.contains('border-red-400')).toBe(false)
-        })
-    })
-
-    describe('beforeunload handler', () => {
-        it('should destroy gameInstance on beforeunload', async () => {
-            await initQuickMathGame()
-            expect(() =>
-                window.dispatchEvent(new Event('beforeunload'))
-            ).not.toThrow()
-        })
-    })
-
-    describe('achievement notification dispatch', () => {
-        it('should dispatch achievementsEarned event when new achievements returned', async () => {
-            const { saveGameScore } = await import(
-                '@/lib/services/scoreService'
-            )
-            vi.mocked(saveGameScore).mockImplementationOnce(
-                (_id: any, _score: any, successCb: any) => {
-                    successCb({
-                        newAchievements: ['achievement-1', 'achievement-2'],
-                    })
-                    return Promise.resolve({ success: true }) as any
-                }
-            )
-
-            const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
-            const result = await initQuickMathGame()
-            await result!.callbacks.onGameOver(100, makeStats())
-
-            const achievementEvents = dispatchSpy.mock.calls.filter(
-                call =>
-                    call[0] instanceof CustomEvent &&
-                    (call[0] as CustomEvent).type === 'achievementsEarned'
-            )
-            expect(achievementEvents.length).toBeGreaterThan(0)
-        })
-
-        it('should not dispatch event when no new achievements', async () => {
-            const { saveGameScore } = await import(
-                '@/lib/services/scoreService'
-            )
-            vi.mocked(saveGameScore).mockImplementationOnce(
-                (_id: any, _score: any, successCb: any) => {
-                    successCb({ newAchievements: [] })
-                    return Promise.resolve({ success: true }) as any
-                }
-            )
-
-            const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
-            const result = await initQuickMathGame()
-            await result!.callbacks.onGameOver(100, makeStats())
-
-            const achievementEvents = dispatchSpy.mock.calls.filter(
-                call =>
-                    call[0] instanceof CustomEvent &&
-                    (call[0] as CustomEvent).type === 'achievementsEarned'
-            )
-            expect(achievementEvents.length).toBe(0)
-        })
-    })
-
-    describe('returned instance', () => {
-        it('getState should return game state', async () => {
-            const result = await initQuickMathGame()
-            expect(result!.getState()).toBeDefined()
-        })
-
-        it('endGame should not throw', async () => {
-            const result = await initQuickMathGame()
-            expect(() => result!.endGame()).not.toThrow()
-        })
-
-        it('cleanup should abort listeners', async () => {
-            const result = await initQuickMathGame()
-            expect(() => result!.cleanup()).not.toThrow()
-        })
-
-        it('restart should not throw', async () => {
-            const result = await initQuickMathGame()
-            expect(() => result!.restart()).not.toThrow()
+            expect(submitSpy).not.toHaveBeenCalled()
         })
     })
 })

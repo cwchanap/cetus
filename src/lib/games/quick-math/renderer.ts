@@ -1,10 +1,6 @@
 import { DOMRenderer } from '@/lib/games/renderers/DOMRenderer'
 import type { RendererConfig } from '@/lib/games/core/types'
-import type {
-    QuickMathState,
-    QuickMathStats,
-    MathQuestion,
-} from './FrameworkGame'
+import type { QuickMathState, QuickMathStats, MathQuestion } from './game'
 
 export interface QuickMathRendererConfig extends RendererConfig {
     questionContainer: string
