@@ -1,5 +1,9 @@
 // Utility functions for Snake game
 import type { Position, Direction, SnakeSegment, GameConstants } from './types'
+import {
+    nextPosition as sharedNextPosition,
+    isValidTurn,
+} from '@/lib/games/shared/direction'
 
 /**
  * Check if position is out of bounds
@@ -72,45 +76,19 @@ export function generateFoodPosition(
 }
 
 /**
- * Get the next position based on current position and direction
+ * Get the next position based on current position and direction.
+ * Delegates to shared direction module (snake uses x/y, shared uses row/col).
  */
 export function getNextPosition(pos: Position, direction: Direction): Position {
-    const newPos = { ...pos }
-
-    switch (direction) {
-        case 'up':
-            newPos.y -= 1
-            break
-        case 'down':
-            newPos.y += 1
-            break
-        case 'left':
-            newPos.x -= 1
-            break
-        case 'right':
-            newPos.x += 1
-            break
-    }
-
-    return newPos
+    const next = sharedNextPosition({ row: pos.y, col: pos.x }, direction)
+    return { x: next.col, y: next.row }
 }
 
 /**
- * Check if direction change is valid (can't reverse)
+ * Check if direction change is valid (can't reverse).
+ * Delegates to shared direction module.
  */
-export function isValidDirectionChange(
-    currentDirection: Direction,
-    newDirection: Direction
-): boolean {
-    const opposites: Record<Direction, Direction> = {
-        up: 'down',
-        down: 'up',
-        left: 'right',
-        right: 'left',
-    }
-
-    return opposites[currentDirection] !== newDirection
-}
+export const isValidDirectionChange = isValidTurn
 
 /**
  * Generate unique ID
