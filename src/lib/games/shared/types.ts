@@ -96,7 +96,7 @@ export interface Game2048Data {
 
 // Snake-specific game data
 export interface SnakeGameData {
-    applesEaten: number
+    foodsEaten: number
     maxLength: number
 }
 
