@@ -126,7 +126,6 @@ export const WORD_DATABASE: WordDatabase = {
         'journey',
         'knowledge',
         'language',
-        'mountain',
         'notebook',
         'organize',
         'picture',
@@ -163,10 +162,8 @@ export const WORD_DATABASE: WordDatabase = {
         'achievement',
         'spectacular',
         'incredible',
-        'fantastic',
         'marvelous',
         'outstanding',
-        'wonderful',
         'breathtaking',
     ],
 }

@@ -165,3 +165,25 @@ describe('Word Scramble Words', () => {
         })
     })
 })
+
+describe('Word database uniqueness', () => {
+    it('has no duplicate words within each difficulty', () => {
+        for (const difficulty of ['easy', 'medium', 'hard'] as const) {
+            const words = WORD_DATABASE[difficulty]
+            const unique = new Set(words)
+            expect(words.length).toBe(unique.size)
+        }
+    })
+
+    it('has no words shared across difficulties', () => {
+        const easy = new Set(WORD_DATABASE.easy)
+        const medium = new Set(WORD_DATABASE.medium)
+        const hard = new Set(WORD_DATABASE.hard)
+        const easyMedium = [...easy].filter(w => medium.has(w))
+        const easyHard = [...easy].filter(w => hard.has(w))
+        const mediumHard = [...medium].filter(w => hard.has(w))
+        expect(easyMedium).toEqual([])
+        expect(easyHard).toEqual([])
+        expect(mediumHard).toEqual([])
+    })
+})
