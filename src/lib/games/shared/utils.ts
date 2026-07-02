@@ -38,6 +38,14 @@ export function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
+ * Non-mutating variant of shuffleArray — returns a new shuffled array
+ * and leaves the original array untouched.
+ */
+export function shuffleArrayCopy<T>(array: T[]): T[] {
+    return shuffleArray([...array])
+}
+
+/**
  * Clamp a number between min and max
  */
 export function clamp(value: number, min: number, max: number): number {

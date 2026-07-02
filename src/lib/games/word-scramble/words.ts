@@ -1,4 +1,5 @@
 import type { WordDatabase } from './types'
+import { shuffleArrayCopy } from '@/lib/games/shared/utils'
 
 // Word database categorized by difficulty
 export const WORD_DATABASE: WordDatabase = {
@@ -184,23 +185,11 @@ export function scrambleWord(word: string): string {
     // Keep scrambling until we get a different arrangement
     // or hit max attempts to prevent infinite loops
     do {
-        scrambled = shuffleArray([...letters]).join('')
+        scrambled = shuffleArrayCopy(letters).join('')
         attempts++
     } while (scrambled === word.toLowerCase() && attempts < maxAttempts)
 
     return scrambled
-}
-
-/**
- * Fisher-Yates shuffle algorithm
- */
-function shuffleArray<T>(array: T[]): T[] {
-    const shuffled = [...array]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-    return shuffled
 }
 
 /**
