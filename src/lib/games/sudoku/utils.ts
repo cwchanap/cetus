@@ -1,14 +1,11 @@
 /**
  * Creates a solved 9x9 Sudoku grid using backtracking algorithm
  */
-import {
-    create2DArray,
-    shuffleArray,
-    deepClone,
-} from '@/lib/games/shared/utils'
+import { shuffleArray } from '@/lib/games/shared/utils'
+import { createGrid, deepCloneGrid, cloneGrid } from '@/lib/games/shared/grid'
 
 export function createSolvedGrid(): number[][] {
-    const grid: number[][] = create2DArray(9, 9, 0)
+    const grid: number[][] = createGrid(9, 9, 0)
 
     function isValid(row: number, col: number, num: number): boolean {
         // Check row
@@ -80,7 +77,7 @@ export function createPuzzle(
     solvedGrid: number[][],
     difficulty: 'easy' | 'medium' | 'hard'
 ): number[][] {
-    const puzzle = deepClone(solvedGrid)
+    const puzzle = deepCloneGrid(solvedGrid)
     let cellsToRemove: number
 
     // Determine how many cells to remove based on difficulty
@@ -168,7 +165,7 @@ export function countSolutions(grid: number[][], limit: number = 2): number {
         }
     }
 
-    solve(grid.map(row => [...row]))
+    solve(cloneGrid(grid))
     return count
 }
 
