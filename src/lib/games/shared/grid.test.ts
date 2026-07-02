@@ -205,13 +205,11 @@ describe('findRandomFreeCell', () => {
             [1, null],
             [null, 4],
         ]
-        const cell = findRandomFreeCell(grid, 2, 2)
-        expect(cell).not.toBeNull()
-        const free = [
-            { row: 0, col: 1 },
-            { row: 1, col: 0 },
-        ]
-        expect(free).toContainEqual(cell)
+        const result = findRandomFreeCell(grid, 2, 2)
+        expect(result).not.toBeNull()
+        if (result) {
+            expect(grid[result.row][result.col]).toBeNull()
+        }
     })
 
     it('excludes explicitly occupied cells', () => {

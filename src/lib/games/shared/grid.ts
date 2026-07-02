@@ -92,7 +92,10 @@ export function findRandomFreeCell<T>(
     occupied: Array<{ row: number; col: number }> = []
 ): { row: number; col: number } | null {
     const occupiedSet = new Set(occupied.map(p => `${p.row},${p.col}`))
-    const free = findCells(grid, (_v, r, c) => !occupiedSet.has(`${r},${c}`))
+    const free = findCells(
+        grid,
+        (value, r, c) => value === null && !occupiedSet.has(`${r},${c}`)
+    )
     if (free.length === 0) {
         return null
     }

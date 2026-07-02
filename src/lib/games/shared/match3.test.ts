@@ -53,15 +53,12 @@ describe('findMatches', () => {
         expect(findMatches(grid, 5)).toHaveLength(0)
     })
 
-    it('handles a grid containing null cells', () => {
-        const grid: (Cell | null)[][] = [
-            ['a', null, 'a'],
-            ['a', 'b', 'a'],
-        ]
-        const matches = findMatches(grid)
-        expect(matches.filter(m => m.type === 'a').length).toBeLessThanOrEqual(
-            1
-        )
+    it('a null cell breaks an otherwise-3 run', () => {
+        // Without the null this row would be a 5-run of 'a'. The null
+        // splits it into two sub-minMatch runs (length 2 each), and the
+        // trailing 'b' is alone, so no match should be found.
+        const grid: (Cell | null)[][] = [['a', 'a', null, 'a', 'a', 'b']]
+        expect(findMatches(grid)).toHaveLength(0)
     })
 
     it('merges overlapping matches into one (L-shape)', () => {
