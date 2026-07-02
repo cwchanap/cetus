@@ -62,7 +62,7 @@ describe('initSudokuGame', () => {
 
     describe('initialization', () => {
         it('should return a cleanup function', () => {
-            const cleanup = initSudokuGame(container)
+            const { cleanup } = initSudokuGame(container)
             expect(typeof cleanup).toBe('function')
         })
 
@@ -103,17 +103,40 @@ describe('initSudokuGame', () => {
 
     describe('cleanup function', () => {
         it('should call cancelAnimationFrame when cleanup is called', () => {
-            const cleanup = initSudokuGame(container)
+            const { cleanup } = initSudokuGame(container)
             cleanup()
             expect(cancelAnimationFrame).toHaveBeenCalled()
         })
 
         it('should remove the game element from DOM on cleanup', () => {
-            const cleanup = initSudokuGame(container)
+            const { cleanup } = initSudokuGame(container)
             const gameEl = container.querySelector('.sudoku-game')
             expect(gameEl).not.toBeNull()
             cleanup()
             expect(container.querySelector('.sudoku-game')).toBeNull()
+        })
+    })
+
+    describe('stopGame function', () => {
+        it('should expose a stopGame function in the return object', () => {
+            const { stopGame } = initSudokuGame(container)
+            expect(typeof stopGame).toBe('function')
+        })
+
+        it('should call cancelAnimationFrame when stopGame is called', () => {
+            const { stopGame } = initSudokuGame(container)
+            stopGame()
+            expect(cancelAnimationFrame).toHaveBeenCalled()
+        })
+
+        it('should prevent the game loop from rescheduling after stopGame', () => {
+            const { stopGame } = initSudokuGame(container)
+            const callbackCountBefore = rafCallbacks.length
+            stopGame()
+            // Invoke the loop callback that was scheduled at init
+            rafCallbacks[0]?.(performance.now())
+            // No new callback should have been scheduled because isGameOver is set
+            expect(rafCallbacks.length).toBe(callbackCountBefore)
         })
     })
 

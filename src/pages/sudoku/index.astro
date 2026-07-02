@@ -194,7 +194,10 @@ const gameNavigation = [
             const { createRunGuard } = await import('@/lib/games/core')
             const runGuard = createRunGuard()
             let currentDifficulty: 'easy' | 'medium' | 'hard' = 'medium'
-            let gameCleanup: (() => void) | null = null
+            let gameHandle: {
+              cleanup: () => void
+              stopGame: () => void
+            } | null = null
 
             const updateDifficultyButtonsState = (disabled: boolean) => {
               document.querySelectorAll('[id$="-btn"]').forEach(btn => {
@@ -213,10 +216,10 @@ const gameNavigation = [
               difficulty: 'easy' | 'medium' | 'hard' = 'medium'
             ) => {
               runGuard.next()
-              if (gameCleanup) {
-                gameCleanup()
+              if (gameHandle) {
+                gameHandle.cleanup()
               }
-              gameCleanup = initSudokuGame(container, difficulty)
+              gameHandle = initSudokuGame(container, difficulty)
               currentDifficulty = difficulty
 
               // Update difficulty display
@@ -311,6 +314,11 @@ const gameNavigation = [
             document
               .getElementById('end-btn')
               ?.addEventListener('click', () => {
+                // Stop the game loop and timer before saving the score
+                if (gameHandle) {
+                  gameHandle.stopGame()
+                }
+
                 // Trigger game over
                 const gameOverOverlay =
                   document.getElementById('game-over-overlay')
@@ -393,17 +401,17 @@ const gameNavigation = [
                 }
 
                 // Clean up any existing game
-                if (gameCleanup) {
-                  gameCleanup()
-                  gameCleanup = null
+                if (gameHandle) {
+                  gameHandle.cleanup()
+                  gameHandle = null
                 }
                 updateDifficultyButtonsState(false)
               })
 
             // Cleanup on page unload
             window.addEventListener('beforeunload', () => {
-              if (gameCleanup) {
-                gameCleanup()
+              if (gameHandle) {
+                gameHandle.cleanup()
               }
             })
           } catch (error) {

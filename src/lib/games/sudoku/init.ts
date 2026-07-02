@@ -21,7 +21,7 @@ const runGuard = createRunGuard()
 export function initSudokuGame(
     container: HTMLElement,
     difficulty: 'easy' | 'medium' | 'hard' = 'medium'
-): () => void {
+): { cleanup: () => void; stopGame: () => void } {
     // Initialize game state
     const abortController = new AbortController()
     const { signal } = abortController
@@ -65,20 +65,29 @@ export function initSudokuGame(
     // Start the game loop
     gameLoopId = requestAnimationFrame(gameLoop)
 
-    // Return cleanup function
-    return () => {
-        // Cancel game loop
-        if (gameLoopId) {
-            cancelAnimationFrame(gameLoopId)
-        }
+    // Return cleanup and stopGame handles
+    return {
+        cleanup: () => {
+            // Cancel game loop
+            if (gameLoopId) {
+                cancelAnimationFrame(gameLoopId)
+            }
 
-        // Clean up all event listeners via AbortController
-        abortController.abort()
+            // Clean up all event listeners via AbortController
+            abortController.abort()
 
-        // Remove game element
-        if (gameElement.parentNode) {
-            gameElement.parentNode.removeChild(gameElement)
-        }
+            // Remove game element
+            if (gameElement.parentNode) {
+                gameElement.parentNode.removeChild(gameElement)
+            }
+        },
+        stopGame: () => {
+            state.isGameOver = true
+            if (gameLoopId) {
+                cancelAnimationFrame(gameLoopId)
+                gameLoopId = null
+            }
+        },
     }
 }
 
