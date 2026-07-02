@@ -6,7 +6,8 @@ import {
     type Position,
     GAME_CONSTANTS,
 } from './types'
-import { create2DArray, randomElement } from '@/lib/games/shared/utils'
+import { randomElement } from '@/lib/games/shared/utils'
+import { createGrid, findCells, deepCloneGrid } from '@/lib/games/shared/grid'
 
 /**
  * Generate a unique tile ID
@@ -19,15 +20,10 @@ export function generateTileId(state: GameState): string {
  * Get all empty cells on the board
  */
 export function getEmptyCells(board: Board): Position[] {
-    const emptyCells: Position[] = []
-    for (let row = 0; row < GAME_CONSTANTS.BOARD_SIZE; row++) {
-        for (let col = 0; col < GAME_CONSTANTS.BOARD_SIZE; col++) {
-            if (board[row][col] === null) {
-                emptyCells.push({ row, col })
-            }
-        }
-    }
-    return emptyCells
+    return findCells(board, v => v === null).map(({ row, col }) => ({
+        row,
+        col,
+    }))
 }
 
 /**
@@ -144,29 +140,14 @@ export function getTileFontSize(value: number): number {
  * Create a deep copy of the board
  */
 export function cloneBoard(board: Board): Board {
-    return board.map(row =>
-        row.map(tile =>
-            tile
-                ? {
-                      ...tile,
-                      position: { ...tile.position },
-                      mergedFrom: tile.mergedFrom
-                          ? tile.mergedFrom.map(t => ({
-                                ...t,
-                                position: { ...t.position },
-                            }))
-                          : undefined,
-                  }
-                : null
-        )
-    )
+    return deepCloneGrid(board)
 }
 
 /**
  * Create an empty board
  */
 export function createEmptyBoard(): Board {
-    return create2DArray(
+    return createGrid(
         GAME_CONSTANTS.BOARD_SIZE,
         GAME_CONSTANTS.BOARD_SIZE,
         null
