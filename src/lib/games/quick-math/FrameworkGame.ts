@@ -54,6 +54,17 @@ export class QuickMathFrameworkGame extends BaseGame<
     QuickMathStats
 > {
     private questionStartTime: number = 0
+    private achievementFlags: {
+        seenOnePlusOne: boolean
+        onePlusOneIncorrect: boolean
+        seenOperand999: boolean
+        zeroAnswerIncorrect: boolean
+    } = {
+        seenOnePlusOne: false,
+        onePlusOneIncorrect: false,
+        seenOperand999: false,
+        zeroAnswerIncorrect: false,
+    }
 
     constructor(
         gameId: GameID,
@@ -82,6 +93,12 @@ export class QuickMathFrameworkGame extends BaseGame<
     }
 
     protected onGameStart(): void {
+        this.achievementFlags = {
+            seenOnePlusOne: false,
+            onePlusOneIncorrect: false,
+            seenOperand999: false,
+            zeroAnswerIncorrect: false,
+        }
         this.generateNextQuestion()
     }
 
@@ -137,6 +154,17 @@ export class QuickMathFrameworkGame extends BaseGame<
         this.state.currentQuestion = question
         this.questionStartTime = Date.now()
 
+        if (
+            question.operation === 'addition' &&
+            question.operand1 === 1 &&
+            question.operand2 === 1
+        ) {
+            this.achievementFlags.seenOnePlusOne = true
+        }
+        if (question.operand1 === 999 || question.operand2 === 999) {
+            this.achievementFlags.seenOperand999 = true
+        }
+
         // Notify callbacks only
         const callbacks = this.callbacks as QuickMathCallbacks
         if (callbacks.onQuestionUpdate) {
@@ -157,6 +185,19 @@ export class QuickMathFrameworkGame extends BaseGame<
             this.addScore(this.config.pointsPerCorrectAnswer, 'correct_answer')
         } else {
             this.state.incorrectAnswers++
+            const q = this.state.currentQuestion
+            if (q) {
+                if (
+                    q.operation === 'addition' &&
+                    q.operand1 === 1 &&
+                    q.operand2 === 1
+                ) {
+                    this.achievementFlags.onePlusOneIncorrect = true
+                }
+                if (q.answer === 0) {
+                    this.achievementFlags.zeroAnswerIncorrect = true
+                }
+            }
         }
 
         // Notify callbacks only
@@ -209,12 +250,13 @@ export class QuickMathFrameworkGame extends BaseGame<
     }
 
     protected getGameData(): Record<string, unknown> {
-        const stats = this.getGameStats()
         return {
-            questionsAnswered: stats.totalQuestions,
-            correctAnswers: stats.correctAnswers,
-            accuracy: stats.accuracy,
-            averageTimePerQuestion: stats.averageTimePerQuestion,
+            seenOnePlusOne: this.achievementFlags.seenOnePlusOne,
+            onePlusOneIncorrect: this.achievementFlags.onePlusOneIncorrect,
+            seenOperand999: this.achievementFlags.seenOperand999,
+            zeroAnswerIncorrect: this.achievementFlags.zeroAnswerIncorrect,
+            correctAnswers: this.state.correctAnswers,
+            wrongAnswers: this.state.incorrectAnswers,
         }
     }
 
