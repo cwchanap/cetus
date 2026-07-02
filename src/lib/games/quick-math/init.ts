@@ -1,335 +1,242 @@
-import { QuickMathGame } from './game'
-import type { GameConfig, GameCallbacks, GameStats, GameState } from './types'
-import { saveGameScore } from '@/lib/services/scoreService'
+import {
+    QuickMathFrameworkGame,
+    type QuickMathConfig,
+    type QuickMathCallbacks,
+    type MathQuestion,
+} from './game'
+import { QuickMathRenderer, type QuickMathRendererConfig } from './renderer'
 import { GameID } from '@/lib/games'
-import { createRunGuard } from '@/lib/games/core'
+import type { BaseGameCallbacks, BaseGameStats } from '@/lib/games/core/types'
 
-let gameInstance: QuickMathGame | null = null
-let gameCallbacks: GameCallbacks | null = null
-const runGuard = createRunGuard()
-// Module-scope guard: a second init call invalidates pending callbacks
-// from a prior instance (e.g., view-transition remount without cleanup).
+// Default configuration for Quick Math
+const DEFAULT_CONFIG: QuickMathConfig = {
+    duration: 60, // 60 seconds
+    achievementIntegration: true,
+    pausable: false,
+    resettable: true,
+    pointsPerCorrectAnswer: 20,
+    maxNumber: 999,
+    operations: ['addition', 'subtraction'],
+}
 
-export async function initQuickMathGame(externalCallbacks?: {
-    onGameOver?: (finalScore: number, stats: GameStats) => void
-}): Promise<void | {
-    restart: () => void | undefined
-    getState: () => GameState | undefined
-    endGame: () => void | undefined
-    callbacks: GameCallbacks
+// Default renderer configuration
+const DEFAULT_RENDERER_CONFIG: QuickMathRendererConfig = {
+    type: 'dom',
+    container: '#quick-math-container',
+    questionContainer: '#question',
+    answerInput: '#answer-input',
+    submitButton: '#submit-answer',
+}
+
+export interface QuickMathFrameworkCallbacks extends BaseGameCallbacks {
+    onQuestionUpdate?: (question: MathQuestion) => void
+    onAnswerSubmit?: (
+        correct: boolean,
+        question: MathQuestion,
+        answer: string
+    ) => void
+}
+
+export async function initQuickMathFramework(
+    customConfig?: Partial<QuickMathConfig>,
+    customCallbacks?: QuickMathFrameworkCallbacks
+): Promise<{
+    game: QuickMathFrameworkGame
+    renderer: QuickMathRenderer
     cleanup: () => void
 }> {
-    // Invalidate any pending callbacks from a prior instance before doing
-    // anything else (e.g., view-transition remount without cleanup).
-    runGuard.next()
+    // Merge configurations
+    const config: QuickMathConfig = { ...DEFAULT_CONFIG, ...customConfig }
+    const rendererConfig = { ...DEFAULT_RENDERER_CONFIG }
 
-    // Game configuration
-    const config: GameConfig = {
-        gameDuration: 60, // 60 seconds
-        pointsPerCorrectAnswer: 20,
-        maxNumber: 999, // numbers up to 999
-        operations: ['addition', 'subtraction'],
-    }
+    // Create renderer
+    const renderer = new QuickMathRenderer(rendererConfig)
+    await renderer.initialize()
 
-    // Get DOM elements
-    const scoreElement = document.getElementById('score')
-    const timeElement = document.getElementById('time-remaining')
-    const questionElement = document.getElementById('question')
-    const answerInput = document.getElementById(
-        'answer-input'
-    ) as HTMLInputElement
-    const submitButton = document.getElementById(
-        'submit-answer'
-    ) as HTMLButtonElement
-    const startButton = document.getElementById(
-        'start-btn'
-    ) as HTMLButtonElement
-    const gameOverOverlay = document.getElementById('game-over-overlay')
-    const finalScoreElement = document.getElementById('final-score')
-    const accuracyElement = document.getElementById('accuracy')
-    const totalQuestionsElement = document.getElementById('total-questions')
-    const playAgainButton = document.getElementById(
-        'play-again-btn'
-    ) as HTMLButtonElement
-
-    // Session stats elements
-    const currentQuestionsElement = document.getElementById('current-questions')
-    const currentCorrectElement = document.getElementById('current-correct')
-    const currentScoreElement = document.getElementById('current-score')
-
-    if (
-        !scoreElement ||
-        !timeElement ||
-        !questionElement ||
-        !answerInput ||
-        !submitButton ||
-        !startButton ||
-        !gameOverOverlay ||
-        !finalScoreElement ||
-        !accuracyElement ||
-        !totalQuestionsElement ||
-        !playAgainButton
-    ) {
-        return
-    }
-
-    // Game callbacks
-    const callbacks: GameCallbacks = {
+    // Create game with enhanced callbacks
+    const enhancedCallbacks: QuickMathCallbacks = {
+        ...customCallbacks,
+        onQuestionUpdate: (question: MathQuestion) => {
+            renderer.renderQuestion(question)
+            if (customCallbacks?.onQuestionUpdate) {
+                customCallbacks.onQuestionUpdate(question)
+            }
+        },
+        onAnswerSubmit: (
+            correct: boolean,
+            question: MathQuestion,
+            answer: string
+        ) => {
+            if (customCallbacks?.onAnswerSubmit) {
+                customCallbacks.onAnswerSubmit(correct, question, answer)
+            }
+        },
         onScoreUpdate: (score: number) => {
-            scoreElement.textContent = score.toString()
-            if (currentScoreElement) {
-                currentScoreElement.textContent = score.toString()
+            if (customCallbacks?.onScoreUpdate) {
+                customCallbacks.onScoreUpdate(score)
             }
         },
         onTimeUpdate: (timeRemaining: number) => {
-            timeElement.textContent = timeRemaining.toString()
-
-            // Add warning color when time is running out
-            if (timeRemaining <= 10) {
-                timeElement.classList.add('text-red-400')
-                timeElement.classList.remove('text-cyan-400')
-            } else {
-                timeElement.classList.add('text-cyan-400')
-                timeElement.classList.remove('text-red-400')
+            if (customCallbacks?.onTimeUpdate) {
+                customCallbacks.onTimeUpdate(timeRemaining)
             }
         },
-        onQuestionUpdate: question => {
-            questionElement.textContent = question.question
-            answerInput.value = ''
-            answerInput.focus()
-        },
-        onGameOver: async (finalScore, stats) => {
-            finalScoreElement.textContent = finalScore.toString()
-            accuracyElement.textContent = `${stats.accuracy.toFixed(1)}%`
-            totalQuestionsElement.textContent = stats.totalQuestions.toString()
-
-            gameOverOverlay.classList.remove('hidden')
-            answerInput.disabled = true
-            submitButton.disabled = true
-
-            // Call external callback if provided
-            if (externalCallbacks?.onGameOver) {
-                await externalCallbacks.onGameOver(finalScore, stats)
-            } else {
-                // Fallback to original behavior
-                const runId = runGuard.current()
-                saveScore(finalScore, () => runGuard.isStale(runId))
+        onStart: () => {
+            // Update button states
+            const startBtn = document.getElementById(
+                'start-btn'
+            ) as HTMLButtonElement
+            const endBtn = document.getElementById(
+                'end-btn'
+            ) as HTMLButtonElement
+            if (startBtn && endBtn) {
+                startBtn.style.display = 'none'
+                endBtn.style.display = 'inline-flex'
+            }
+            if (customCallbacks?.onStart) {
+                customCallbacks.onStart()
             }
         },
-        onGameStart: () => {
-            gameOverOverlay.classList.add('hidden')
-            answerInput.disabled = false
-            submitButton.disabled = false
-            startButton.textContent = 'Playing...'
-            startButton.disabled = true
+        onEnd: (finalScore: number, stats: BaseGameStats) => {
+            // Cast stats for rendering - the actual stats will be QuickMathStats from the game
+            const gameStats = game.getGameStats()
 
-            // Reset session stats
-            if (currentQuestionsElement) {
-                currentQuestionsElement.textContent = '0'
+            // Update button states
+            const startBtn = document.getElementById(
+                'start-btn'
+            ) as HTMLButtonElement
+            const endBtn = document.getElementById(
+                'end-btn'
+            ) as HTMLButtonElement
+            if (startBtn && endBtn) {
+                startBtn.style.display = 'inline-flex'
+                endBtn.style.display = 'none'
             }
-            if (currentCorrectElement) {
-                currentCorrectElement.textContent = '0'
-            }
-            if (currentScoreElement) {
-                currentScoreElement.textContent = '0'
-            }
-        },
-        onScoreUpload: (success: boolean) => {
-            // Add visual feedback for score upload status
-            const scoreStatus = document.createElement('div')
-            scoreStatus.className = `text-sm mt-2 ${success ? 'text-green-400' : 'text-yellow-400'}`
-            scoreStatus.textContent = success
-                ? 'Score saved!'
-                : 'Score not saved (offline?)'
 
-            // Add the status message to the game over overlay
-            const gameOverContent = gameOverOverlay.querySelector('.space-y-4')
-            if (gameOverContent) {
-                gameOverContent.appendChild(scoreStatus)
+            // Show game over overlay
+            const gameOverOverlay = document.getElementById('game-over-overlay')
+            if (gameOverOverlay) {
+                gameOverOverlay.classList.remove('hidden')
+            }
 
-                // Remove the status message after 3 seconds
-                setTimeout(() => {
-                    if (scoreStatus.parentNode) {
-                        scoreStatus.parentNode.removeChild(scoreStatus)
-                    }
-                }, 3000)
+            // Update final score
+            const finalScoreElement = document.getElementById('final-score')
+            if (finalScoreElement) {
+                finalScoreElement.textContent = finalScore.toString()
+            }
+
+            renderer.renderStats(gameStats)
+
+            if (customCallbacks?.onEnd) {
+                customCallbacks.onEnd(finalScore, stats)
             }
         },
     }
 
-    // Store callbacks for use in other functions
-    gameCallbacks = callbacks
-
-    // Initialize game
-    gameInstance = new QuickMathGame(config, callbacks)
-
-    const abortController = new AbortController()
-    const { signal } = abortController
-
-    // Set up event listeners
-    const handleSubmit = () => {
-        if (!gameInstance || !gameInstance.isGameActive()) {
-            return
-        }
-
-        const answer = answerInput.value.trim()
-        if (answer === '') {
-            return
-        }
-
-        const isCorrect = gameInstance.submitAnswer(answer)
-
-        // Update session stats
-        const state = gameInstance.getState()
-        if (currentQuestionsElement) {
-            currentQuestionsElement.textContent =
-                state.questionsAnswered.toString()
-        }
-        if (currentCorrectElement) {
-            currentCorrectElement.textContent = state.correctAnswers.toString()
-        }
-
-        // Visual feedback
-        if (isCorrect) {
-            answerInput.classList.add('border-green-400')
-            answerInput.classList.remove('border-red-400')
-        } else {
-            answerInput.classList.add('border-red-400')
-            answerInput.classList.remove('border-green-400')
-        }
-
-        // Reset border color after a short delay
-        setTimeout(() => {
-            answerInput.classList.remove('border-green-400', 'border-red-400')
-        }, 300)
-    }
-
-    const handleStart = () => {
-        if (gameInstance) {
-            runGuard.next()
-            gameInstance.startGame()
-        }
-    }
-
-    const handlePlayAgain = () => {
-        if (gameInstance) {
-            runGuard.next()
-            gameInstance.startGame()
-            startButton.textContent = 'Start Game'
-            startButton.disabled = false
-        }
-    }
-
-    // Event listeners
-    submitButton.addEventListener('click', handleSubmit, { signal })
-    startButton.addEventListener('click', handleStart, { signal })
-    playAgainButton.addEventListener('click', handlePlayAgain, { signal })
-
-    // Handle Enter key for submission
-    answerInput.addEventListener(
-        'keypress',
-        e => {
-            if (e.key === 'Enter') {
-                handleSubmit()
-            }
-        },
-        { signal }
-    )
-
-    // Handle input changes
-    answerInput.addEventListener(
-        'input',
-        e => {
-            const target = e.target as HTMLInputElement
-            if (gameInstance) {
-                gameInstance.updateCurrentAnswer(target.value)
-            }
-        },
-        { signal }
-    )
-
-    // Only allow numeric input
-    answerInput.addEventListener(
-        'keydown',
-        e => {
-            // Allow backspace, delete, arrow keys, and numeric keys
-            if (
-                !/[0-9]/.test(e.key) &&
-                ![
-                    'Backspace',
-                    'Delete',
-                    'ArrowLeft',
-                    'ArrowRight',
-                    'Tab',
-                    'Enter',
-                ].includes(e.key)
-            ) {
-                e.preventDefault()
-            }
-        },
-        { signal }
-    )
-
-    // Cleanup on page unload
-    window.addEventListener(
-        'beforeunload',
-        () => {
-            if (gameInstance) {
-                gameInstance.destroy()
-            }
-        },
-        { signal }
-    )
-
-    // Return game instance for external control
-    return {
-        restart: () => {
-            runGuard.next()
-            gameInstance?.startGame()
-        },
-        getState: () => gameInstance?.getState(),
-        endGame: () => gameInstance?.endGame(),
-        callbacks: callbacks,
-        cleanup: () => {
-            abortController.abort()
-            gameInstance?.destroy()
-        },
-    }
-}
-
-async function saveScore(
-    score: number,
-    isStale?: () => boolean
-): Promise<void> {
-    await saveGameScore(
+    // Create game
+    const game = new QuickMathFrameworkGame(
         GameID.QUICK_MATH,
-        score,
-        result => {
-            // Handle newly earned achievements
-            if (result.newAchievements && result.newAchievements.length > 0) {
-                // Dispatch an event for achievement notifications
-                window.dispatchEvent(
-                    new CustomEvent('achievementsEarned', {
-                        detail: { achievementIds: result.newAchievements },
-                    })
-                )
-            }
-
-            // Notify via callback if available
-            if (gameCallbacks?.onScoreUpload) {
-                gameCallbacks.onScoreUpload(true)
-            }
-        },
-        (_error: string) => {
-            // Notify via callback if available
-            if (gameCallbacks?.onScoreUpload) {
-                gameCallbacks.onScoreUpload(false)
-            }
-        },
-        // Include achievement flags in gameData for in-game achievements
-        gameInstance?.getAchievementFlags(),
-        { isStale }
+        config,
+        enhancedCallbacks
     )
+
+    // Set up Quick Math specific event handlers
+    setupQuickMathEvents(game, renderer)
+
+    // Set up standard button handlers
+    setupStandardButtons(game)
+
+    return {
+        game,
+        renderer,
+        cleanup: () => {
+            renderer.cleanup()
+            game.destroy()
+        },
+    }
 }
 
-export { gameInstance }
+function setupQuickMathEvents(
+    game: QuickMathFrameworkGame,
+    renderer: QuickMathRenderer
+): void {
+    // Set up submit button handler
+    const submitButton = renderer.getSubmitButton()
+    if (submitButton) {
+        submitButton.addEventListener('click', () => {
+            const answer = renderer.getAnswerValue()
+            if (answer && game.getState().isActive) {
+                const isCorrect = game.submitAnswer(answer)
+                renderer.showAnswerFeedback(isCorrect)
+                renderer.clearAnswer()
+            }
+        })
+    }
+
+    // Listen to game events for rendering updates
+    game.on('start', () => {
+        renderer.renderGameState(game.getState())
+    })
+
+    game.on('score-update', () => {
+        renderer.renderGameState(game.getState())
+    })
+
+    game.on('time-update', () => {
+        renderer.renderGameState(game.getState())
+    })
+
+    game.on('end', () => {
+        renderer.renderGameState(game.getState())
+    })
+}
+
+function setupStandardButtons(game: QuickMathFrameworkGame): void {
+    // Start button
+    const startBtn = document.getElementById('start-btn') as HTMLButtonElement
+    if (startBtn) {
+        startBtn.addEventListener('click', () => {
+            game.start()
+        })
+    }
+
+    // End button
+    const endBtn = document.getElementById('end-btn') as HTMLButtonElement
+    if (endBtn) {
+        endBtn.addEventListener('click', () => {
+            game.end()
+        })
+    }
+
+    // Play again button
+    const playAgainBtn = document.getElementById(
+        'play-again-btn'
+    ) as HTMLButtonElement
+    if (playAgainBtn) {
+        playAgainBtn.addEventListener('click', () => {
+            // Hide game over overlay
+            const gameOverOverlay = document.getElementById('game-over-overlay')
+            if (gameOverOverlay) {
+                gameOverOverlay.classList.add('hidden')
+            }
+
+            // Reset button states
+            const startBtn = document.getElementById(
+                'start-btn'
+            ) as HTMLButtonElement
+            const endBtn = document.getElementById(
+                'end-btn'
+            ) as HTMLButtonElement
+            if (startBtn && endBtn) {
+                startBtn.style.display = 'inline-flex'
+                endBtn.style.display = 'none'
+            }
+
+            game.reset()
+        })
+    }
+}
+
+// Export for backward compatibility
+export { QuickMathFrameworkGame, QuickMathRenderer }
+export type { QuickMathConfig, QuickMathCallbacks }

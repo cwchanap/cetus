@@ -1,13 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import {
-    QuickMathRenderer,
-    type QuickMathRendererConfig,
-} from './FrameworkRenderer'
-import type {
-    MathQuestion,
-    QuickMathState,
-    QuickMathStats,
-} from './FrameworkGame'
+import { QuickMathRenderer, type QuickMathRendererConfig } from './renderer'
+import type { MathQuestion, QuickMathState, QuickMathStats } from './game'
 
 function makeQuestion(overrides: Partial<MathQuestion> = {}): MathQuestion {
     return {
