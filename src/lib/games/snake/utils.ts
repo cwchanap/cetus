@@ -2,13 +2,6 @@
 import type { Position, Direction, SnakeSegment, GameConstants } from './types'
 
 /**
- * Convert hex color to Pixi color format
- */
-export function hexToPixiColor(hex: string): number {
-    return parseInt(hex.replace('#', '0x'))
-}
-
-/**
  * Check if position is out of bounds
  */
 export function isOutOfBounds(

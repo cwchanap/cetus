@@ -55,27 +55,6 @@ export interface SnakeStats extends BaseGameStats {
     maxLength: number
 }
 
-// Legacy types for backwards compatibility during migration
-export interface GameState {
-    snake: SnakeSegment[]
-    food: Food | null
-    direction: Direction
-    nextDirection: Direction
-    score: number
-    timeRemaining: number
-    gameOver: boolean
-    gameStarted: boolean
-    paused: boolean
-    pauseStartedAt: number | null
-    lastFoodSpawnTime: number
-    lastMoveTime: number
-    gameStartTime: number | null
-    foodsEaten: number
-    maxLength: number
-    needsRedraw: boolean
-    onGameOver?: (finalScore: number, stats: GameStats) => void | Promise<void>
-}
-
 export interface GameConstants {
     GRID_WIDTH: number
     GRID_HEIGHT: number
@@ -89,11 +68,4 @@ export interface GameConstants {
     FOOD_COLOR: number
     GRID_COLOR: number
     BACKGROUND_COLOR: number
-}
-
-export interface GameStats {
-    finalScore: number
-    foodsEaten: number
-    maxLength: number
-    gameTime: number
 }
