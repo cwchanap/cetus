@@ -37,6 +37,9 @@ export function createGameState(): GameState {
         paused: false,
         rowOffset: 0,
         shotCount: 0,
+        shotsFired: 0,
+        bubblesPopped: 0,
+        largestCombo: 0,
         needsRedraw: true,
     }
 }
