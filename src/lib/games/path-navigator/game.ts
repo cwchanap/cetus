@@ -8,7 +8,11 @@ import type {
     GamePath,
     PathSegment,
 } from './types'
-import { distance, pointInCircle } from '@/lib/games/shared/utils'
+import {
+    distance,
+    pointInCircle,
+    quadraticBezierPoint,
+} from '@/lib/games/shared/geometry'
 
 export const DEFAULT_CONFIG: GameConfig = {
     gameDuration: 60, // 60 seconds
@@ -347,28 +351,12 @@ export class PathNavigatorGame {
         const END_BUFFER = 25 // Buffer for end position
 
         // Check if cursor is near start position (always safe)
-        if (
-            pointInCircle(
-                cursorPos.x,
-                cursorPos.y,
-                path.startPoint.x,
-                path.startPoint.y,
-                START_BUFFER
-            )
-        ) {
+        if (pointInCircle(cursorPos, path.startPoint, START_BUFFER)) {
             return { isOnPath: true, hasReachedGoal: false }
         }
 
         // Check if cursor is near end position (goal reached)
-        if (
-            pointInCircle(
-                cursorPos.x,
-                cursorPos.y,
-                path.endPoint.x,
-                path.endPoint.y,
-                END_BUFFER
-            )
-        ) {
+        if (pointInCircle(cursorPos, path.endPoint, END_BUFFER)) {
             return { isOnPath: true, hasReachedGoal: true }
         }
 
@@ -449,28 +437,12 @@ export class PathNavigatorGame {
         const samples = 50
         for (let i = 0; i <= samples; i++) {
             const t = i / samples
-            const bezierPoint = this.getBezierPoint(t, start, control, end)
-            if (
-                distance(point.x, point.y, bezierPoint.x, bezierPoint.y) <=
-                tolerance
-            ) {
+            const bezierPoint = quadraticBezierPoint(t, start, control, end)
+            if (distance(point, bezierPoint) <= tolerance) {
                 return true
             }
         }
         return false
-    }
-
-    private getBezierPoint(
-        t: number,
-        start: Point,
-        control: Point,
-        end: Point
-    ): Point {
-        const mt = 1 - t
-        return {
-            x: mt * mt * start.x + 2 * mt * t * control.x + t * t * end.x,
-            y: mt * mt * start.y + 2 * mt * t * control.y + t * t * end.y,
-        }
     }
 
     private startTimer(): void {
