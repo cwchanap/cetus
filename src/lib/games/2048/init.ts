@@ -162,8 +162,8 @@ export async function init2048Game(
                 },
                 {
                     maxTile: stats.maxTile,
-                    mergeCount: stats.mergeCount,
-                    gameWon: stats.gameWon,
+                    moves: stats.moveCount,
+                    merges: stats.mergeCount,
                 },
                 { isStale: () => runGuard.isStale(runId) }
             )
