@@ -1,9 +1,8 @@
 // Utility functions for the Bubble Shooter game
 import type { GameConstants, GridPosition } from './types'
+import { pixiColorToHex } from '@/lib/games/shared/types'
 
-export function pixiColorToHex(pixiColor: number): string {
-    return '#' + pixiColor.toString(16).padStart(6, '0')
-}
+export { pixiColorToHex }
 
 export function getBubbleX(
     col: number,
