@@ -5,6 +5,7 @@ import type {
     GameObject,
     GameStats,
 } from './types'
+import { clamp, rectOverlap, generateId } from '@/lib/games/shared/utils'
 
 export class EvaderGame {
     private state: GameState
@@ -13,7 +14,6 @@ export class EvaderGame {
     private gameTimer: number | null = null
     private spawnTimer: number | null = null
     private lastUpdateTime: number = 0
-    private objectIdCounter = 0
     private rawHeldKeys: Set<string> = new Set()
 
     constructor(config: GameConfig, callbacks: GameCallbacks) {
@@ -113,7 +113,7 @@ export class EvaderGame {
 
         const now = Date.now()
         const newObject: GameObject = {
-            id: `${objectType}-${now}-${this.objectIdCounter++}`,
+            id: generateId(),
             type: objectType,
             x: this.config.canvasWidth,
             y: Math.random() * this.config.canvasHeight,
@@ -151,12 +151,10 @@ export class EvaderGame {
                 verticalVelocity = this.config.playerSpeed
             }
             this.state.player.y += verticalVelocity * deltaTime
-            this.state.player.y = Math.max(
+            this.state.player.y = clamp(
+                this.state.player.y,
                 this.state.player.size / 2,
-                Math.min(
-                    this.config.canvasHeight - this.state.player.size / 2,
-                    this.state.player.y
-                )
+                this.config.canvasHeight - this.state.player.size / 2
             )
 
             // Horizontal movement
@@ -167,12 +165,10 @@ export class EvaderGame {
                 horizontalVelocity = this.config.playerSpeed
             }
             this.state.player.x += horizontalVelocity * deltaTime
-            this.state.player.x = Math.max(
+            this.state.player.x = clamp(
+                this.state.player.x,
                 this.state.player.size / 2,
-                Math.min(
-                    this.config.canvasWidth - this.state.player.size / 2,
-                    this.state.player.x
-                )
+                this.config.canvasWidth - this.state.player.size / 2
             )
         }
 
@@ -189,23 +185,20 @@ export class EvaderGame {
             }
 
             // Check collision with player
-            const playerLeft = this.state.player.x - this.state.player.size / 2
-            const playerRight = this.state.player.x + this.state.player.size / 2
-            const playerTop = this.state.player.y - this.state.player.size / 2
-            const playerBottom =
-                this.state.player.y + this.state.player.size / 2
+            const playerRect = {
+                x: this.state.player.x - this.state.player.size / 2,
+                y: this.state.player.y - this.state.player.size / 2,
+                width: this.state.player.size,
+                height: this.state.player.size,
+            }
+            const objRect = {
+                x: obj.x - this.config.objectSize / 2,
+                y: obj.y - this.config.objectSize / 2,
+                width: this.config.objectSize,
+                height: this.config.objectSize,
+            }
 
-            const objLeft = obj.x - this.config.objectSize / 2
-            const objRight = obj.x + this.config.objectSize / 2
-            const objTop = obj.y - this.config.objectSize / 2
-            const objBottom = obj.y + this.config.objectSize / 2
-
-            if (
-                objRight > playerLeft &&
-                objLeft < playerRight &&
-                objBottom > playerTop &&
-                objTop < playerBottom
-            ) {
+            if (rectOverlap(playerRect, objRect)) {
                 // Collision
                 let points = 0
                 if (obj.type === 'coin') {
