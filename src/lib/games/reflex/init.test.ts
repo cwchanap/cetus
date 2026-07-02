@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { initializeReflexGame } from './init'
-import type { GameCallbacks } from './types'
+import { initializeReflexGame, handleGameOver } from './init'
+import type { GameCallbacks, GameStats } from './types'
 
 vi.mock('@/lib/services/scoreService', () => ({
     saveGameScore: vi.fn().mockResolvedValue({ success: true }),
@@ -470,5 +470,38 @@ describe('initializeReflexGame', () => {
             )
             errorSpy.mockRestore()
         })
+    })
+})
+
+describe('Reflex accuracy display', () => {
+    beforeEach(() => {
+        setupDOM()
+    })
+
+    afterEach(() => {
+        document.body.innerHTML = ''
+    })
+
+    it('uses stats.accuracy for the display, not coinsCollected/totalClicks', async () => {
+        // Craft stats where correctClicks (7/10=70%) diverges from
+        // coinsCollected (5/10=50%). The overlay must show stats.accuracy.
+        const divergentStats: GameStats = {
+            finalScore: 100,
+            totalClicks: 10,
+            correctClicks: 7,
+            incorrectClicks: 3,
+            accuracy: 70,
+            coinsCollected: 5,
+            bombsHit: 3,
+            missedCoins: 0,
+            averageReactionTime: 0,
+            objectsSpawned: 10,
+            gameHistory: [],
+        }
+
+        await handleGameOver(100, divergentStats)
+
+        const accuracyEl = document.getElementById('final-accuracy')!
+        expect(accuracyEl.textContent).toBe('70%')
     })
 })
