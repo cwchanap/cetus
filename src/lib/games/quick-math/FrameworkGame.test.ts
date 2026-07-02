@@ -265,12 +265,102 @@ describe('QuickMath Framework Implementation', () => {
 
         const body = JSON.parse(fetchMock.mock.calls[0][1].body)
         expect(body).toHaveProperty('gameData')
-        // Verify gameData contains expected fields for QuickMath
-        expect(body.gameData).toHaveProperty('questionsAnswered')
+        // Verify gameData contains the QuickMathGameData contract fields
+        expect(body.gameData).toHaveProperty('seenOnePlusOne')
+        expect(body.gameData).toHaveProperty('onePlusOneIncorrect')
+        expect(body.gameData).toHaveProperty('seenOperand999')
+        expect(body.gameData).toHaveProperty('zeroAnswerIncorrect')
         expect(body.gameData).toHaveProperty('correctAnswers')
-        expect(body.gameData).toHaveProperty('accuracy')
-        expect(body.gameData).toHaveProperty('averageTimePerQuestion')
+        expect(body.gameData).toHaveProperty('wrongAnswers')
 
         vi.unstubAllGlobals()
+    })
+})
+
+describe('QuickMathFrameworkGame achievement flags', () => {
+    const baseConfig: QuickMathConfig = {
+        duration: 60,
+        achievementIntegration: true,
+        pausable: true,
+        resettable: true,
+        pointsPerCorrectAnswer: 20,
+        maxNumber: 999,
+        operations: ['addition'],
+    }
+
+    it('includes all 4 achievement flags in getGameData output', () => {
+        const game = new QuickMathFrameworkGame(GameID.QUICK_MATH, baseConfig)
+        game.start()
+        const data = (game as any).getGameData()
+        expect(data).toHaveProperty('seenOnePlusOne')
+        expect(data).toHaveProperty('onePlusOneIncorrect')
+        expect(data).toHaveProperty('seenOperand999')
+        expect(data).toHaveProperty('zeroAnswerIncorrect')
+        expect(data).toHaveProperty('correctAnswers')
+        expect(data).toHaveProperty('wrongAnswers')
+    })
+
+    it('tracks seenOnePlusOne when a 1+1 question appears', () => {
+        const randomSpy = vi.spyOn(Math, 'random')
+        randomSpy.mockReturnValueOnce(0) // operation index -> addition
+        randomSpy.mockReturnValueOnce(0) // operand1 = floor(0*999)+1 = 1
+        randomSpy.mockReturnValueOnce(0) // operand2 = 1
+
+        const game = new QuickMathFrameworkGame(GameID.QUICK_MATH, baseConfig)
+        game.start()
+        randomSpy.mockRestore()
+
+        const data = (game as any).getGameData()
+        expect(data.seenOnePlusOne).toBe(true)
+        expect(data.seenOperand999).toBe(false)
+    })
+
+    it('tracks seenOperand999 when a question features 999', () => {
+        const randomSpy = vi.spyOn(Math, 'random')
+        randomSpy.mockReturnValueOnce(0) // operation -> addition
+        randomSpy.mockReturnValueOnce(0.999) // operand1 = floor(0.999*999)+1 = 999
+        randomSpy.mockReturnValueOnce(0.5) // operand2 = floor(0.5*999)+1 = 500
+
+        const game = new QuickMathFrameworkGame(GameID.QUICK_MATH, baseConfig)
+        game.start()
+        randomSpy.mockRestore()
+
+        const data = (game as any).getGameData()
+        expect(data.seenOperand999).toBe(true)
+    })
+
+    it('tracks onePlusOneIncorrect when 1+1 is answered wrong', () => {
+        const randomSpy = vi.spyOn(Math, 'random')
+        randomSpy.mockReturnValueOnce(0) // operation
+        randomSpy.mockReturnValueOnce(0) // operand1 = 1
+        randomSpy.mockReturnValueOnce(0) // operand2 = 1
+
+        const game = new QuickMathFrameworkGame(GameID.QUICK_MATH, baseConfig)
+        game.start()
+        randomSpy.mockRestore()
+
+        game.submitAnswer('999') // wrong (correct answer is 2)
+
+        const data = (game as any).getGameData()
+        expect(data.onePlusOneIncorrect).toBe(true)
+    })
+
+    it('tracks zeroAnswerIncorrect when a zero-answer question is answered wrong', () => {
+        const randomSpy = vi.spyOn(Math, 'random')
+        randomSpy.mockReturnValueOnce(0) // operation -> subtraction
+        randomSpy.mockReturnValueOnce(0.0045) // operand1 = floor(0.0045*999)+1 = 5
+        randomSpy.mockReturnValueOnce(0.0045) // operand2 = 5 -> answer = 5 - 5 = 0
+
+        const game = new QuickMathFrameworkGame(GameID.QUICK_MATH, {
+            ...baseConfig,
+            operations: ['subtraction'],
+        })
+        game.start()
+        randomSpy.mockRestore()
+
+        game.submitAnswer('999') // wrong (correct answer is 0)
+
+        const data = (game as any).getGameData()
+        expect(data.zeroAnswerIncorrect).toBe(true)
     })
 })
