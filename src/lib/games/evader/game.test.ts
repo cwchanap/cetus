@@ -427,6 +427,30 @@ describe('EvaderGame', () => {
         })
     })
 
+    describe('object ID uniqueness', () => {
+        afterEach(() => {
+            vi.restoreAllMocks()
+        })
+
+        it('generates unique IDs even when Date.now() returns the same value', () => {
+            const FIXED_TIME = 1_700_000_000_000
+            vi.spyOn(Date, 'now').mockReturnValue(FIXED_TIME)
+
+            game.startGame()
+
+            for (let i = 0; i < 50; i++) {
+                vi.advanceTimersByTime(config.spawnInterval * 1000)
+            }
+
+            const objects = game.getState().objects
+            const ids = objects.map(o => o.id)
+            const uniqueIds = new Set(ids)
+
+            expect(ids.length).toBeGreaterThan(1)
+            expect(uniqueIds.size).toBe(ids.length)
+        })
+    })
+
     describe('alias key overlap', () => {
         it('should preserve direction when one alias is released while the other is held', () => {
             vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {

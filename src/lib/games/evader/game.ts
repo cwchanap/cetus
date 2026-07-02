@@ -13,6 +13,7 @@ export class EvaderGame {
     private gameTimer: number | null = null
     private spawnTimer: number | null = null
     private lastUpdateTime: number = 0
+    private objectIdCounter = 0
     private rawHeldKeys: Set<string> = new Set()
 
     constructor(config: GameConfig, callbacks: GameCallbacks) {
@@ -112,7 +113,7 @@ export class EvaderGame {
 
         const now = Date.now()
         const newObject: GameObject = {
-            id: `${objectType}-${now}`,
+            id: `${objectType}-${now}-${this.objectIdCounter++}`,
             type: objectType,
             x: this.config.canvasWidth,
             y: Math.random() * this.config.canvasHeight,
