@@ -273,6 +273,7 @@ export async function initWordScrambleGame(externalCallbacks?: {
                     correctWords: stats.wordsUnscrambled
                         .filter(w => w.correct)
                         .map(w => w.word),
+                    totalWordsScrambled: stats.totalWords,
                 },
                 { isStale: () => runGuard.isStale(runId) }
             )
