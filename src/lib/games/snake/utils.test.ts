@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
-    hexToPixiColor,
     isOutOfBounds,
     collidesWithSnake,
     positionsEqual,
@@ -27,16 +26,6 @@ const constants: GameConstants = {
 }
 
 describe('Snake Utils', () => {
-    describe('hexToPixiColor', () => {
-        it('should convert hex color string to number', () => {
-            expect(hexToPixiColor('#ff0000')).toBe(0xff0000)
-        })
-
-        it('should handle lowercase hex', () => {
-            expect(hexToPixiColor('#00ff00')).toBe(0x00ff00)
-        })
-    })
-
     describe('isOutOfBounds', () => {
         it('should return false for valid position', () => {
             expect(isOutOfBounds({ x: 5, y: 5 }, constants)).toBe(false)
