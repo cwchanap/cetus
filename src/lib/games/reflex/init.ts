@@ -29,7 +29,7 @@ const DEFAULT_CONFIG: GameConfig = {
     pointsForMissedCoin: -5,
 }
 
-async function handleGameOver(
+export async function handleGameOver(
     finalScore: number,
     stats: GameStats,
     isStale?: () => boolean
@@ -52,11 +52,7 @@ async function handleGameOver(
 
     const finalAccuracyElement = document.getElementById('final-accuracy')
     if (finalAccuracyElement) {
-        const accuracy =
-            stats.totalClicks > 0
-                ? Math.round((stats.coinsCollected / stats.totalClicks) * 100)
-                : 0
-        finalAccuracyElement.textContent = `${accuracy}%`
+        finalAccuracyElement.textContent = `${Math.round(stats.accuracy)}%`
     }
 
     // Show game over overlay
