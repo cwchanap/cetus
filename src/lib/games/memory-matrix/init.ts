@@ -93,7 +93,9 @@ export async function initMemoryMatrixGame(
             } else {
                 // Fallback to original behavior
                 const runId = runGuard.current()
-                await saveScore(finalScore, () => runGuard.isStale(runId))
+                await saveScore(finalScore, stats, () =>
+                    runGuard.isStale(runId)
+                )
             }
         } catch (error) {
             console.error('[MemoryMatrix] Error in game end callback:', error)
@@ -213,6 +215,7 @@ function setupGameControls(signal: AbortSignal): void {
 
 async function saveScore(
     score: number,
+    stats: GameStats,
     isStale?: () => boolean
 ): Promise<void> {
     await saveGameScore(
@@ -232,7 +235,11 @@ async function saveScore(
         error => {
             console.error('[MemoryMatrix] Failed to save score:', error)
         },
-        undefined,
+        {
+            matchesFound: stats.matchesFound,
+            moves: stats.totalAttempts,
+            perfectGame: stats.accuracy === 100,
+        },
         { isStale }
     )
 }
