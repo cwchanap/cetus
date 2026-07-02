@@ -8,7 +8,7 @@ import {
     clearLines,
     drawNextPiece,
 } from './utils'
-import { GAME_CONSTANTS } from './game'
+import { GAME_CONSTANTS } from './TetrisGame'
 import type { Piece } from './types'
 
 describe('Tetris Utils', () => {
