@@ -6,6 +6,7 @@ import {
     type Position,
     GAME_CONSTANTS,
 } from './types'
+import { create2DArray, randomElement } from '@/lib/games/shared/utils'
 
 /**
  * Generate a unique tile ID
@@ -165,11 +166,11 @@ export function cloneBoard(board: Board): Board {
  * Create an empty board
  */
 export function createEmptyBoard(): Board {
-    const board: Board = []
-    for (let row = 0; row < GAME_CONSTANTS.BOARD_SIZE; row++) {
-        board.push(new Array(GAME_CONSTANTS.BOARD_SIZE).fill(null))
-    }
-    return board
+    return create2DArray(
+        GAME_CONSTANTS.BOARD_SIZE,
+        GAME_CONSTANTS.BOARD_SIZE,
+        null
+    )
 }
 
 /**
@@ -180,7 +181,7 @@ export function getRandomEmptyPosition(board: Board): Position | null {
     if (emptyCells.length === 0) {
         return null
     }
-    return emptyCells[Math.floor(Math.random() * emptyCells.length)]
+    return randomElement(emptyCells) ?? null
 }
 
 /**
