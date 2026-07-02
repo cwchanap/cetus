@@ -7,6 +7,7 @@ import type {
     SpawnResult,
     GameStats,
 } from './types'
+import { randomElement, generateId } from '@/lib/games/shared/utils'
 
 export class ReflexGame {
     private state: GameState
@@ -140,8 +141,7 @@ export class ReflexGame {
         }
 
         // Select random cell
-        const randomCell =
-            availableCells[Math.floor(Math.random() * availableCells.length)]
+        const randomCell = randomElement(availableCells)!
 
         // Determine object type based on coin:bomb ratio (2:1)
         const isCoin =
@@ -151,7 +151,7 @@ export class ReflexGame {
 
         const now = Date.now()
         const newObject: GameObject = {
-            id: `${objectType}-${now}-${randomCell.row}-${randomCell.col}`,
+            id: generateId(),
             type: objectType,
             cell: randomCell,
             spawnTime: now,
