@@ -1,5 +1,5 @@
 // Tetris game initialization module
-import type { GameState } from './types'
+import type { GameState, TetrisEndGameStats } from './types'
 import {
     createGameState,
     generateNextPiece,
@@ -55,7 +55,7 @@ export async function initTetrisGame(): Promise<
     // Enhanced state with score handling
     const enhancedState = {
         ...state,
-        onGameOver: async (finalScore: number, stats: any) => {
+        onGameOver: async (finalScore: number, stats: TetrisEndGameStats) => {
             // Update final stats in overlay
             const finalScoreElement = document.getElementById('final-score')
             if (finalScoreElement) {
@@ -124,7 +124,14 @@ export async function initTetrisGame(): Promise<
                 error => {
                     console.error('Failed to submit score:', error)
                 },
-                stats,
+                {
+                    doubles: stats.doubles,
+                    triples: stats.triples,
+                    tetrises: stats.tetrises,
+                    consecutiveLineClears: stats.consecutiveLineClears,
+                    piecesPlaced: stats.pieces,
+                    level: stats.level,
+                },
                 { isStale: () => runGuard.isStale(runId) }
             )
         },
