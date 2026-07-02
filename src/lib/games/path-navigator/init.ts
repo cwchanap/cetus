@@ -55,7 +55,10 @@ async function handleGameOver(
             finalScore,
             undefined, // onSuccess callback
             undefined, // onError callback
-            stats, // gameData
+            {
+                pathsCompleted: stats.levelsCompleted,
+                perfectPaths: stats.perfectLevels,
+            },
             { isStale }
         )
     } catch (_error) {
