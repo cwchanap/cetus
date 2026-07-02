@@ -7,6 +7,7 @@ import {
     renderGoal,
     renderCursor,
 } from './renderer'
+import { clamp } from '@/lib/games/shared/utils'
 import type {
     GameConfig,
     GameCallbacks,
@@ -164,16 +165,16 @@ export async function initializePathNavigatorGame(
             // Handle arrow key movement
             switch (event.key) {
                 case 'ArrowUp':
-                    newY = Math.max(0, currentPos.y - step)
+                    newY = clamp(currentPos.y - step, 0, gameConfig.gameHeight)
                     break
                 case 'ArrowDown':
-                    newY = Math.min(gameConfig.gameHeight, currentPos.y + step)
+                    newY = clamp(currentPos.y + step, 0, gameConfig.gameHeight)
                     break
                 case 'ArrowLeft':
-                    newX = Math.max(0, currentPos.x - step)
+                    newX = clamp(currentPos.x - step, 0, gameConfig.gameWidth)
                     break
                 case 'ArrowRight':
-                    newX = Math.min(gameConfig.gameWidth, currentPos.x + step)
+                    newX = clamp(currentPos.x + step, 0, gameConfig.gameWidth)
                     break
                 default:
                     return
