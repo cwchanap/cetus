@@ -1,7 +1,7 @@
 // Physics and collision detection for Bubble Shooter
 import type { GameState, GameConstants, GridPosition } from './types'
 import { getBubbleX, getBubbleY, getNeighbors } from './utils'
-import { distance } from '@/lib/games/shared/utils'
+import { distance } from '@/lib/games/shared/geometry'
 
 export function updateProjectile(
     state: GameState,
@@ -60,12 +60,7 @@ export function checkBubbleCollision(
                 continue
             }
 
-            const dist = distance(
-                state.projectile.x,
-                state.projectile.y,
-                bubble.x,
-                bubble.y
-            )
+            const dist = distance(state.projectile, bubble)
 
             if (dist < constants.BUBBLE_RADIUS * 2) {
                 if (!closest || dist < closest.distance) {
@@ -175,7 +170,7 @@ function findClosestPosition(
         if (!state.grid[row][col]) {
             const x = getBubbleX(col, row, constants)
             const y = getBubbleY(row, state.rowOffset, constants)
-            const dist = distance(state.projectile.x, state.projectile.y, x, y)
+            const dist = distance(state.projectile, { x, y })
 
             if (
                 isValidAttachPosition(state, constants, row, col) &&
