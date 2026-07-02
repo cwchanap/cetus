@@ -344,12 +344,22 @@ const gameNavigation = [
                       finalScoreElement.textContent = score.toString()
                       // Save score to trigger achievement check
                       const runId = runGuard.current()
+                      const sudokuState = gameHandle.getState()
+                      const cellsFilled = sudokuState.grid.cells
+                        .flat()
+                        .filter(
+                          (c: { value: number | null }) => c.value !== null
+                        ).length
                       saveGameScore(
                         GameID.SUDOKU,
                         score,
                         undefined,
                         undefined,
-                        undefined,
+                        {
+                          difficulty: sudokuState.difficulty,
+                          cellsFilled,
+                          hintsUsed: 0,
+                        },
                         {
                           isStale: () => runGuard.isStale(runId),
                         }
