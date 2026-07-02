@@ -252,6 +252,7 @@ export class EvaderGame {
             finalScore: this.state.score,
             coinsCollected: this.state.coinsCollected,
             bombsHit: this.state.bombsHit,
+            gameTime: this.config.gameDuration - this.state.timeRemaining,
             gameHistory: [...this.state.gameHistory],
         }
     }

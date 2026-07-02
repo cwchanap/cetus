@@ -82,8 +82,8 @@ export interface PathNavigatorGameData {
 
 // Evader-specific game data
 export interface EvaderGameData {
-    obstaclesEvaded: number
-    powerUpsCollected: number
+    coinsCollected: number
+    bombsHit: number
     longestSurvivalTime: number
 }
 
