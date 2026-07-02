@@ -800,3 +800,21 @@ describe('Bubble Shooter game.ts pure logic', () => {
         })
     })
 })
+
+describe('Bubble Shooter stat tracking', () => {
+    it('increments shotsFired on handleClick', () => {
+        const state = createGameState()
+        initializeGrid(state)
+        generateBubble(state)
+        generateNextBubble(state)
+        state.gameStarted = true
+        state.gameOver = false
+        state.paused = false
+        state.projectile = null
+
+        const initialShots = state.shotsFired || 0
+        handleClick({} as MouseEvent, state, () => {})
+
+        expect(state.shotsFired).toBe(initialShots + 1)
+    })
+})

@@ -240,6 +240,7 @@ export function handleClick(
     }
     generateNextBubble(state)
     updateCurrentBubbleDisplayFn()
+    state.shotsFired = (state.shotsFired || 0) + 1
     state.needsRedraw = true
 }
 
