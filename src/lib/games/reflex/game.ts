@@ -8,6 +8,7 @@ import type {
     GameStats,
 } from './types'
 import { randomElement, generateId } from '@/lib/games/shared/utils'
+import { rollSpawnType } from '@/lib/games/shared/spawner'
 
 export class ReflexGame {
     private state: GameState
@@ -143,11 +144,8 @@ export class ReflexGame {
         // Select random cell
         const randomCell = randomElement(availableCells)!
 
-        // Determine object type based on coin:bomb ratio (2:1)
-        const isCoin =
-            Math.random() <
-            this.config.coinToBombRatio / (this.config.coinToBombRatio + 1)
-        const objectType = isCoin ? 'coin' : 'bomb'
+        // Determine object type based on coin:bomb ratio
+        const objectType = rollSpawnType(this.config.coinToBombRatio)
 
         const now = Date.now()
         const newObject: GameObject = {
