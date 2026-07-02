@@ -1,5 +1,6 @@
 import type { Card, Position, GameConstants } from './types'
 import { shuffleArrayCopy as shuffleArray } from '@/lib/games/shared/utils'
+import { inBounds } from '@/lib/games/shared/grid'
 
 export { shuffleArray }
 
@@ -92,12 +93,7 @@ export function formatTime(seconds: number): string {
 
 // Get card at position
 export function getCardAt(board: Card[][], position: Position): Card | null {
-    if (
-        position.row >= 0 &&
-        position.row < board.length &&
-        position.col >= 0 &&
-        position.col < board[0].length
-    ) {
+    if (inBounds(board, position.row, position.col)) {
         return board[position.row][position.col]
     }
     return null
