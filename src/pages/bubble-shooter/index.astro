@@ -194,41 +194,12 @@ const gameNavigation = [
 
     <!-- Bubble Shooter Game Logic -->
     <script>
-      import { initBubbleShooterGame } from '@/lib/games/bubble-shooter/init'
+      import { initBubbleShooterGameFramework } from '@/lib/games/bubble-shooter/initFramework'
 
       // Initialize game when page loads
       document.addEventListener('DOMContentLoaded', async () => {
         try {
-          const _gameInstance = await initBubbleShooterGame({
-            onGameOver: async (finalScore: number, stats: any) => {
-              // Update final stats in overlay
-              document.getElementById('final-score')!.textContent =
-                finalScore.toString()
-              document.getElementById('final-bubbles-popped')!.textContent = (
-                stats.bubblesPopped || 0
-              ).toString()
-              document.getElementById('final-shots')!.textContent = (
-                stats.shotsFired || 0
-              ).toString()
-              document.getElementById('final-accuracy')!.textContent =
-                `${Math.round(stats.accuracy || 0)}%`
-              document.getElementById('final-combo')!.textContent = (
-                stats.largestCombo || 0
-              ).toString()
-
-              // Show game over overlay
-              const gameOverOverlay =
-                document.getElementById('game-over-overlay')!
-              gameOverOverlay.classList.remove('hidden')
-
-              // Reset buttons
-              const startBtn = document.getElementById('start-btn')!
-              const endBtn = document.getElementById('end-btn')!
-              startBtn.style.display = 'inline-flex'
-              endBtn.style.display = 'none'
-            },
-          })
-
+          await initBubbleShooterGameFramework()
           console.log('Bubble Shooter game initialized successfully')
         } catch (error) {
           console.error('Failed to initialize Bubble Shooter game:', error)
