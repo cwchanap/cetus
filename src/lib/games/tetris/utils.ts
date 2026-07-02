@@ -1,13 +1,8 @@
 // Utility functions for Tetris game
 import type { Piece, GameConstants } from './types'
+import { hexToPixiColor, pixiColorToHex } from '@/lib/games/shared/types'
 
-export function hexToPixiColor(hex: string): number {
-    return parseInt(hex.replace('#', ''), 16)
-}
-
-export function pixiColorToHex(color: number): string {
-    return `#${color.toString(16).padStart(6, '0')}`
-}
+export { hexToPixiColor, pixiColorToHex }
 
 export function rotateMatrix(matrix: number[][]): number[][] {
     const rows = matrix.length
