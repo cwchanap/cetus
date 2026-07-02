@@ -83,7 +83,11 @@ async function handleGameOver(
         error => {
             console.error('Failed to submit score:', error)
         },
-        stats,
+        {
+            coinsCollected: stats.coinsCollected,
+            bombsHit: stats.bombsHit,
+            longestSurvivalTime: stats.gameTime || 0,
+        },
         { isStale }
     )
 }

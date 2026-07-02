@@ -58,6 +58,7 @@ export interface GameStats {
     finalScore: number
     coinsCollected: number
     bombsHit: number
+    gameTime: number
     gameHistory: Array<{
         type: 'coin' | 'bomb'
         points: number
