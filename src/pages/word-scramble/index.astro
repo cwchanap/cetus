@@ -240,66 +240,13 @@ const gameNavigation = [
 
   <!-- Word Scramble Game Logic -->
   <script>
-    import { initWordScrambleGame } from '@/lib/games/word-scramble/init'
+    import { initWordScrambleGameFramework } from '@/lib/games/word-scramble/initFramework'
 
-    // Initialize game when page loads
+    // Initialize game when page loads. All button/keyboard wiring is
+    // handled inside the framework initializer.
     document.addEventListener('DOMContentLoaded', async () => {
       try {
-        const gameInstance = await initWordScrambleGame({
-          onGameOver: async (finalScore: number, stats: any) => {
-            // Update final stats in overlay
-            document.getElementById('final-score')!.textContent =
-              finalScore.toString()
-            document.getElementById('total-words')!.textContent = (
-              stats.totalWords || 0
-            ).toString()
-            document.getElementById('accuracy')!.textContent =
-              `${Math.round(stats.accuracy || 0)}%`
-            document.getElementById('longest-word')!.textContent =
-              stats.longestWord || 'None'
-
-            // Show game over overlay
-            const gameOverOverlay =
-              document.getElementById('game-over-overlay')!
-            gameOverOverlay.classList.remove('hidden')
-
-            // Hide the Start button and show only the End Game button
-            const startBtn = document.getElementById('start-btn')!
-            const endBtn = document.getElementById('end-btn')!
-            startBtn.style.display = 'none'
-            endBtn.style.display = 'inline-flex'
-          },
-        })
-
-        // Add end game button functionality
-        const startBtn = document.getElementById('start-btn')!
-        const endBtn = document.getElementById('end-btn')!
-
-        // Show end button when game starts
-        const originalOnGameStart = gameInstance.callbacks?.onGameStart
-        if (gameInstance.callbacks) {
-          gameInstance.callbacks.onGameStart = () => {
-            startBtn.style.display = 'none'
-            endBtn.style.display = 'inline-flex'
-            if (originalOnGameStart) {
-              originalOnGameStart()
-            }
-          }
-        }
-
-        // End game button click handler
-        endBtn.addEventListener('click', () => {
-          if (gameInstance && gameInstance.endGame) {
-            gameInstance.endGame()
-          }
-        })
-
-        // Handle play again button
-        document
-          .getElementById('play-again-btn')
-          ?.addEventListener('click', () => {
-            window.location.reload()
-          })
+        await initWordScrambleGameFramework()
       } catch (error) {
         console.error('Failed to initialize Word Scramble game:', error)
       }
