@@ -223,6 +223,8 @@ export class MemoryMatrixGame extends BaseGame<
                 this.state.timeRemaining * CONSTANTS.TIME_BONUS_MULTIPLIER,
                 'time_bonus'
             )
+            // Repaint the final matched pair before the game-over overlay
+            this.emitStateChange()
             void this.end()
         } else {
             this.emitStateChange()
