@@ -110,7 +110,8 @@ export async function initMemoryMatrixGameFramework(
             showGameOver(
                 finalScore,
                 stats as MemoryMatrixStats,
-                state.timeRemaining
+                state.timeRemaining,
+                state.totalPairs
             )
             customCallbacks?.onEnd?.(finalScore, stats)
         },
@@ -208,7 +209,8 @@ function resetButtonVisibility(): void {
 function showGameOver(
     finalScore: number,
     stats: MemoryMatrixStats,
-    timeRemaining: number
+    timeRemaining: number,
+    totalPairs: number
 ): void {
     swapStartEndButtons(false)
 
@@ -220,7 +222,7 @@ function showGameOver(
     }
 
     setText('final-score', finalScore.toString())
-    setText('final-pairs', `${stats.matchesFound}/24`)
+    setText('final-pairs', `${stats.matchesFound}/${totalPairs}`)
     setText('final-accuracy', `${Math.round(stats.accuracy)}%`)
     setText('final-time', `${timeRemaining}s`)
     setText('final-attempts', stats.totalAttempts.toString())
