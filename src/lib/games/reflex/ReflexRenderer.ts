@@ -53,9 +53,6 @@ export class ReflexRenderer extends PixiJSRenderer {
         if (!this.isReflexState(state)) {
             return
         }
-        if (!state.needsRedraw) {
-            return
-        }
 
         this.renderObjects(state.objects)
     }
