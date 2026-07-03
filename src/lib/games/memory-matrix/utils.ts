@@ -26,8 +26,11 @@ export const CONSTANTS: GameConstants = {
 }
 
 // Generate unique card pairs
-export function generateCardPairs(): Card[] {
-    const totalCards = CONSTANTS.BOARD_ROWS * CONSTANTS.BOARD_COLS
+export function generateCardPairs(
+    rows: number = CONSTANTS.BOARD_ROWS,
+    cols: number = CONSTANTS.BOARD_COLS
+): Card[] {
+    const totalCards = rows * cols
     const totalPairs = totalCards / 2
     const cards: Card[] = []
 
@@ -53,13 +56,17 @@ export function generateCardPairs(): Card[] {
 }
 
 // Create game board from cards
-export function createGameBoard(cards: Card[]): Card[][] {
+export function createGameBoard(
+    cards: Card[],
+    rows: number = CONSTANTS.BOARD_ROWS,
+    cols: number = CONSTANTS.BOARD_COLS
+): Card[][] {
     const board: Card[][] = []
     let cardIndex = 0
 
-    for (let row = 0; row < CONSTANTS.BOARD_ROWS; row++) {
+    for (let row = 0; row < rows; row++) {
         board[row] = []
-        for (let col = 0; col < CONSTANTS.BOARD_COLS; col++) {
+        for (let col = 0; col < cols; col++) {
             const card = cards[cardIndex]
             card.position = { row, col }
             board[row][col] = card

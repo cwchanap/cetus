@@ -211,83 +211,21 @@ const gameNavigation = [
 
     <!-- Memory Matrix Game Logic -->
     <script>
-      import { initMemoryMatrixGame } from '@/lib/games/memory-matrix/init'
+      import { initMemoryMatrixGameFramework } from '@/lib/games/memory-matrix/initFramework'
 
-      // Initialize game when page loads
+      // Initialize game when page loads. All button/card wiring is handled
+      // inside the framework initializer.
       document.addEventListener('DOMContentLoaded', async () => {
         try {
-          const gameInstance = await initMemoryMatrixGame({
-            onGameComplete: async (finalScore: number, stats: any) => {
-              // Set dynamic title based on game outcome
-              const gameOverTitle = document.getElementById('game-over-title')!
-              if (stats.gameWon) {
-                gameOverTitle.textContent = 'VICTORY!'
-                gameOverTitle.className =
-                  'text-4xl font-orbitron font-bold text-green-400 mb-6'
-              } else {
-                gameOverTitle.textContent = "TIME'S UP!"
-                gameOverTitle.className =
-                  'text-4xl font-orbitron font-bold text-cyan-400 mb-6'
-              }
+          const gameInstance = await initMemoryMatrixGameFramework()
 
-              // Update final stats in overlay
-              document.getElementById('final-score')!.textContent =
-                finalScore.toString()
-              document.getElementById('final-pairs')!.textContent =
-                `${stats.pairsFound || 0}/24`
-              document.getElementById('final-accuracy')!.textContent =
-                `${Math.round(stats.accuracy || 0)}%`
-              document.getElementById('final-time')!.textContent =
-                `${stats.timeRemaining || 0}s`
-              document.getElementById('final-attempts')!.textContent = (
-                stats.totalAttempts || 0
-              ).toString()
+          if (!gameInstance) {
+            console.error('Failed to initialize Memory Matrix game')
+            return
+          }
 
-              // Show game over overlay
-              const gameOverOverlay =
-                document.getElementById('game-over-overlay')!
-              gameOverOverlay.classList.remove('hidden')
-
-              // Reset buttons
-              const startBtn = document.getElementById(
-                'start-btn'
-              )! as HTMLButtonElement
-              const endBtn = document.getElementById('end-btn')!
-              startBtn.textContent = 'Start Game'
-              startBtn.disabled = false
-              startBtn.style.display = 'inline-flex'
-              endBtn.style.display = 'none'
-            },
-          })
-
-          // Add end game button functionality
-          const startBtn = document.getElementById('start-btn')!
-          const endBtn = document.getElementById('end-btn')!
-
-          // Show end button when game starts
-          startBtn.addEventListener('click', () => {
-            startBtn.style.display = 'none'
-            endBtn.style.display = 'inline-flex'
-          })
-
-          // End game button click handler
-          endBtn.addEventListener('click', () => {
-            if (gameInstance && gameInstance.endGame) {
-              gameInstance.endGame()
-            }
-          })
-
-          // Handle play again button
-          document
-            .getElementById('play-again-btn')
-            ?.addEventListener('click', () => {
-              const gameOverOverlay =
-                document.getElementById('game-over-overlay')!
-              gameOverOverlay.classList.add('hidden')
-              if (gameInstance && gameInstance.restart) {
-                gameInstance.restart()
-              }
-            })
+          // Expose game instance for debugging
+          ;(window as any).memoryMatrixGame = gameInstance
         } catch (error) {
           console.error('Failed to initialize Memory Matrix game:', error)
         }
