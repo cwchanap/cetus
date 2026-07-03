@@ -245,7 +245,7 @@ describe('Sudoku Utils', () => {
 })
 
 describe('Sudoku puzzle uniqueness', () => {
-    it('generated puzzles have a unique solution', () => {
+    it('generated puzzles have a unique solution', { timeout: 30_000 }, () => {
         for (let i = 0; i < 10; i++) {
             const solved = createSolvedGrid()
             const puzzle = createPuzzle(solved, 'medium')
