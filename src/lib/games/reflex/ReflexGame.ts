@@ -7,6 +7,14 @@ import type { GameObject, Cell, GameHistoryEntry, SpawnResult } from './types'
 import { randomElement, generateId } from '@/lib/games/shared/utils'
 import { rollSpawnType } from '@/lib/games/shared/spawner'
 
+/** Result returned by {@link ReflexGame.handleCellClick}. */
+export interface ClickResult {
+    /** Whether an active object was hit by the click. */
+    hit: boolean
+    /** Points awarded for this click (positive for coins, negative for bombs). */
+    points: number
+}
+
 // Default configuration for the Reflex game
 export const DEFAULT_REFLEX_CONFIG: ReflexConfig = {
     // BaseGameConfig — Reflex is a 60-second countdown game.
@@ -160,11 +168,11 @@ export class ReflexGame extends BaseGame<
     // --- Reflex-specific public API ---
 
     /**
-     * Handle a click on a grid cell. Returns true if an object was clicked.
+     * Result of handling a click on a grid cell.
      */
-    handleCellClick(row: number, col: number): boolean {
+    handleCellClick(row: number, col: number): ClickResult {
         if (!this.state.isActive || this.state.isPaused) {
-            return false
+            return { hit: false, points: 0 }
         }
 
         this.state.totalClicks++
@@ -178,7 +186,7 @@ export class ReflexGame extends BaseGame<
         )
 
         if (!clickedObject) {
-            return false
+            return { hit: false, points: 0 }
         }
 
         clickedObject.clicked = true
@@ -220,7 +228,7 @@ export class ReflexGame extends BaseGame<
         this.state.needsRedraw = true
         this.emitStateChange()
 
-        return true
+        return { hit: true, points: pointsAwarded }
     }
 
     /**

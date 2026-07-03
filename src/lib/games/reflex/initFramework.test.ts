@@ -1,6 +1,6 @@
 // initFramework unit tests for Reflex
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { initReflexGameFramework } from './initFramework'
+import { initReflexGameFramework, showGameOver } from './initFramework'
 import type { ReflexStats } from './frameworkTypes'
 
 // Mock pixi.js for the renderer
@@ -207,7 +207,11 @@ describe('initReflexGameFramework', () => {
 
         it('uses stats.accuracy for the display', async () => {
             const result = await initReflexGameFramework()
+            result!.cleanup()
 
+            // Craft stats where correctClicks/totalClicks (accuracy) diverges
+            // from coinsCollected/totalClicks. The Task 1.5 bug displayed the
+            // latter; the fix must display stats.accuracy.
             const divergentStats: ReflexStats = {
                 finalScore: 100,
                 timeElapsed: 60,
@@ -216,7 +220,7 @@ describe('initReflexGameFramework', () => {
                 correctClicks: 7,
                 incorrectClicks: 3,
                 accuracy: 70,
-                coinsCollected: 5,
+                coinsCollected: 5, // would yield 50% under the buggy formula
                 bombsHit: 3,
                 missedCoins: 0,
                 averageReactionTime: 0,
@@ -224,16 +228,15 @@ describe('initReflexGameFramework', () => {
                 gameHistory: [],
             }
 
-            const onEnd = result!.game.getGameStats()
-            expect(onEnd).toBeDefined()
+            showGameOver(divergentStats.finalScore, divergentStats)
 
-            // Simulate the showGameOver path with divergent stats
-            const stats = divergentStats
-            const el = document.getElementById('final-accuracy')!
-            el.textContent = `${Math.round(stats.accuracy)}%`
-            expect(el.textContent).toBe('70%')
-
-            result!.cleanup()
+            const finalAccuracy = document.getElementById('final-accuracy')!
+            const finalScore = document.getElementById('final-score')!
+            const finalCoins = document.getElementById('final-coins')!
+            expect(finalScore.textContent).toBe('100')
+            expect(finalAccuracy.textContent).toBe('70%')
+            // coinsCollected is shown verbatim, confirming divergence is real
+            expect(finalCoins.textContent).toBe('5')
         })
     })
 
