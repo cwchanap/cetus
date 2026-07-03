@@ -159,7 +159,9 @@ export async function initReflexGameFramework(
         }
         const renderLoop = () => {
             const state = game.getState()
-            if (state.needsRedraw) {
+            // Always render while active so per-frame animations (e.g. the
+            // pulsing effect) stay smooth; skip when paused or over.
+            if (state.isActive && !state.isPaused) {
                 renderer.render(state)
                 game.markRendered()
             }
@@ -254,7 +256,7 @@ function swapStartStopButtons(gameStarted: boolean): void {
     }
 }
 
-function showGameOver(finalScore: number, stats: ReflexStats): void {
+export function showGameOver(finalScore: number, stats: ReflexStats): void {
     swapStartStopButtons(false)
 
     const setText = (id: string, value: string) => {
@@ -290,7 +292,14 @@ function setupButtonHandlers(game: ReflexGame): () => void {
     const stopBtn = document.getElementById('stop-btn')
     const playAgainBtn = document.getElementById('play-again-btn')
 
-    const startHandler = () => game.start()
+    const startHandler = () => {
+        // After a game over, BaseGame.start() only flips flags, so reset
+        // explicitly to clear accumulated score/stats before a new run.
+        if (game.getState().isGameOver) {
+            game.reset()
+        }
+        game.start()
+    }
     const stopHandler = () => game.end()
     const playAgainHandler = () => {
         hideOverlay()
@@ -331,25 +340,16 @@ function setupCanvasControls(
 
         const cellPosition = renderer.getCellFromPosition(x, y)
         if (cellPosition) {
-            const clicked = game.handleCellClick(
+            const result = game.handleCellClick(
                 cellPosition.row,
                 cellPosition.col
             )
 
-            if (clicked) {
-                const objects = game.getActiveObjects()
-                const clickedObj = objects.find(
-                    o =>
-                        o.cell.row === cellPosition.row &&
-                        o.cell.col === cellPosition.col
-                )
-                const isPositive = clickedObj
-                    ? clickedObj.type === 'coin'
-                    : false
+            if (result.hit) {
                 renderer.showClickEffect(
                     cellPosition.row,
                     cellPosition.col,
-                    isPositive
+                    result.points > 0
                 )
             }
         }

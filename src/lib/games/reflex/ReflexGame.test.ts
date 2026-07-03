@@ -237,7 +237,7 @@ describe('ReflexGame', () => {
             const coin = game.getActiveObjects()[0]
             const result = game.handleCellClick(coin.cell.row, coin.cell.col)
 
-            expect(result).toBe(true)
+            expect(result).toEqual({ hit: true, points: 10 })
             expect(game.getState().score).toBe(10)
             expect(game.getState().coinsCollected).toBe(1)
             expect(game.getState().correctClicks).toBe(1)
@@ -251,7 +251,7 @@ describe('ReflexGame', () => {
             const bomb = game.getActiveObjects()[0]
             const result = game.handleCellClick(bomb.cell.row, bomb.cell.col)
 
-            expect(result).toBe(true)
+            expect(result).toEqual({ hit: true, points: -15 })
             // Score clamped to 0 by ScoreManager
             expect(game.getState().score).toBe(0)
             expect(game.getState().bombsHit).toBe(1)
@@ -262,14 +262,14 @@ describe('ReflexGame', () => {
             game.start()
             const result = game.handleCellClick(5, 5)
 
-            expect(result).toBe(false)
+            expect(result).toEqual({ hit: false, points: 0 })
             expect(game.getState().totalClicks).toBe(1)
             expect(game.getState().score).toBe(0)
         })
 
         it('does not handle clicks when game is inactive', () => {
             const result = game.handleCellClick(5, 5)
-            expect(result).toBe(false)
+            expect(result).toEqual({ hit: false, points: 0 })
             expect(game.getState().totalClicks).toBe(0)
         })
     })
