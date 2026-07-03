@@ -1,17 +1,41 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { PathNavigatorGame, DEFAULT_CONFIG, GAME_LEVELS } from './game'
+import {
+    PathNavigatorGame,
+    DEFAULT_PATH_NAVIGATOR_CONFIG,
+    GAME_LEVELS,
+} from './PathNavigatorGame'
+import type { PathNavigatorState } from './types'
+
+// Direct access to internal state for edge-case tests.
+function stateOf(game: PathNavigatorGame): PathNavigatorState {
+    return (game as unknown as { state: PathNavigatorState }).state
+}
 
 describe('PathNavigatorGame', () => {
     let game: PathNavigatorGame
 
     beforeEach(() => {
         vi.useFakeTimers()
+        // Stub rAF and fetch so the framework's render/save paths are no-ops.
+        vi.stubGlobal(
+            'requestAnimationFrame',
+            vi.fn(() => 1)
+        )
+        vi.stubGlobal('cancelAnimationFrame', vi.fn())
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => ({ success: true }),
+            })
+        )
         game = new PathNavigatorGame()
     })
 
     afterEach(() => {
-        game.cleanup()
+        game.destroy()
         vi.useRealTimers()
+        vi.unstubAllGlobals()
     })
 
     describe('initialization', () => {
@@ -20,18 +44,20 @@ describe('PathNavigatorGame', () => {
 
             expect(state.currentLevel).toBe(1)
             expect(state.score).toBe(0)
-            expect(state.timeRemaining).toBe(DEFAULT_CONFIG.gameDuration)
-            expect(state.isGameActive).toBe(false)
+            expect(state.timeRemaining).toBe(
+                DEFAULT_PATH_NAVIGATOR_CONFIG.duration
+            )
+            expect(state.isActive).toBe(false)
             expect(state.isGameOver).toBe(false)
             expect(state.isGameWon).toBe(false)
         })
 
         it('should accept custom config', () => {
-            const customGame = new PathNavigatorGame({ gameDuration: 120 })
+            const customGame = new PathNavigatorGame({ duration: 120 })
             const state = customGame.getState()
 
             expect(state.timeRemaining).toBe(120)
-            customGame.cleanup()
+            customGame.destroy()
         })
 
         it('should position cursor at first level start point', () => {
@@ -51,48 +77,49 @@ describe('PathNavigatorGame', () => {
 
     describe('game lifecycle', () => {
         it('should start the game', () => {
-            game.startGame()
+            game.start()
             const state = game.getState()
 
-            expect(state.isGameActive).toBe(true)
+            expect(state.isActive).toBe(true)
             expect(state.isGameOver).toBe(false)
+            expect(state.gameStarted).toBe(true)
             expect(state.gameStartTime).not.toBeNull()
         })
 
         it('should not start if already active', () => {
-            game.startGame()
+            game.start()
             const firstStartTime = game.getState().gameStartTime
 
-            game.startGame()
+            game.start()
             const secondStartTime = game.getState().gameStartTime
 
             expect(firstStartTime).toBe(secondStartTime)
         })
 
-        it('should end the game', () => {
-            game.startGame()
-            game.endGame()
+        it('should end the game', async () => {
+            game.start()
+            await game.end()
             const state = game.getState()
 
-            expect(state.isGameActive).toBe(false)
+            expect(state.isActive).toBe(false)
             expect(state.isGameOver).toBe(true)
         })
 
         it('should pause and resume the game', () => {
-            game.startGame()
-            game.pauseGame()
-            expect(game.getState().isGameActive).toBe(false)
+            game.start()
+            game.pause()
+            expect(game.getState().isPaused).toBe(true)
 
-            game.resumeGame()
-            expect(game.getState().isGameActive).toBe(true)
+            game.resume()
+            expect(game.getState().isPaused).toBe(false)
         })
 
         it('should reset the game', () => {
-            game.startGame()
-            game.resetGame()
+            game.start()
+            game.reset()
             const state = game.getState()
 
-            expect(state.isGameActive).toBe(false)
+            expect(state.isActive).toBe(false)
             expect(state.score).toBe(0)
             expect(state.currentLevel).toBe(1)
         })
@@ -100,7 +127,7 @@ describe('PathNavigatorGame', () => {
 
     describe('timer', () => {
         it('should decrement time remaining', () => {
-            game.startGame()
+            game.start()
             const initialTime = game.getState().timeRemaining
 
             vi.advanceTimersByTime(1000)
@@ -108,19 +135,21 @@ describe('PathNavigatorGame', () => {
             expect(game.getState().timeRemaining).toBe(initialTime - 1)
         })
 
-        it('should end game when time runs out', () => {
-            game.startGame()
+        it('should end game when time runs out', async () => {
+            game.start()
 
             // Advance time to reach 0, then one more tick to trigger end
-            vi.advanceTimersByTime((DEFAULT_CONFIG.gameDuration + 1) * 1000)
+            await vi.advanceTimersByTimeAsync(
+                (DEFAULT_PATH_NAVIGATOR_CONFIG.duration + 1) * 1000
+            )
 
             expect(game.getState().isGameOver).toBe(true)
         })
 
-        it('should stop timer when game ends', () => {
-            game.startGame()
+        it('should stop timer when game ends', async () => {
+            game.start()
             vi.advanceTimersByTime(5000)
-            game.endGame()
+            await game.end()
 
             const timeAtEnd = game.getState().timeRemaining
             vi.advanceTimersByTime(5000)
@@ -131,7 +160,7 @@ describe('PathNavigatorGame', () => {
 
     describe('player position', () => {
         it('should update cursor position', () => {
-            game.startGame()
+            game.start()
             game.setCursorPosition(100, 200)
             const state = game.getState()
 
@@ -140,7 +169,7 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should detect when player is on path', () => {
-            game.startGame()
+            game.start()
             const startPoint = GAME_LEVELS[0].path.startPoint
             const result = game.updatePlayerPosition(
                 startPoint.x + 10,
@@ -151,7 +180,7 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should detect when player reaches goal', () => {
-            game.startGame()
+            game.start()
             const endPoint = GAME_LEVELS[0].path.endPoint
             const result = game.updatePlayerPosition(endPoint.x, endPoint.y)
 
@@ -159,7 +188,7 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should end game when player goes out of bounds', () => {
-            game.startGame()
+            game.start()
             // Move far off path
             game.updatePlayerPosition(100, 100)
 
@@ -169,7 +198,7 @@ describe('PathNavigatorGame', () => {
 
     describe('level progression', () => {
         it('should advance to next level when goal reached', () => {
-            game.startGame()
+            game.start()
             expect(game.getState().currentLevel).toBe(1)
 
             // Reach goal of first level
@@ -180,7 +209,7 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should add score when completing level', () => {
-            game.startGame()
+            game.start()
             const initialScore = game.getState().score
 
             const endPoint = GAME_LEVELS[0].path.endPoint
@@ -190,7 +219,7 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should check bezier curve segments when on level 2', () => {
-            game.startGame()
+            game.start()
 
             // Complete level 1 to get to level 2 (which has curve segments)
             const endPoint = GAME_LEVELS[0].path.endPoint
@@ -198,9 +227,7 @@ describe('PathNavigatorGame', () => {
             expect(game.getState().currentLevel).toBe(2)
 
             // Move to a point in the middle of level 2 (not near start/end buffer)
-            // This triggers isPointOnBezier -> getBezierPoint for curve segments
             game.updatePlayerPosition(400, 250)
-            // Verify the game state after moving on bezier curve
             const state = game.getState()
             expect(state.currentLevel).toBe(2)
             expect(state.cursor.x).toBe(400)
@@ -208,7 +235,7 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should complete game when all levels are finished', () => {
-            game.startGame()
+            game.start()
 
             // Complete all levels
             for (let i = 0; i < GAME_LEVELS.length; i++) {
@@ -224,7 +251,7 @@ describe('PathNavigatorGame', () => {
             if (GAME_LEVELS.length < 2) {
                 return
             }
-            game.startGame()
+            game.start()
 
             // Complete first level
             const endPoint = GAME_LEVELS[0].path.endPoint
@@ -249,7 +276,7 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should return updated level after progression', () => {
-            game.startGame()
+            game.start()
             const endPoint = GAME_LEVELS[0].path.endPoint
             game.updatePlayerPosition(endPoint.x, endPoint.y)
 
@@ -259,10 +286,10 @@ describe('PathNavigatorGame', () => {
         })
     })
 
-    describe('getStats', () => {
+    describe('getGameStats', () => {
         it('should return game statistics', () => {
-            game.startGame()
-            const stats = game.getStats()
+            game.start()
+            const stats = game.getGameStats()
 
             expect(stats).toHaveProperty('finalScore')
             expect(stats).toHaveProperty('levelsCompleted')
@@ -273,77 +300,88 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should return zero totalTime when game has not started', () => {
-            // gameStartTime is null before startGame — hits the ? 0 branch
-            const stats = game.getStats()
+            const stats = game.getGameStats()
             expect(stats.totalTime).toBe(0)
             expect(stats.levelsCompleted).toBe(0)
         })
 
         it('should return GAME_LEVELS.length for levelsCompleted when game is won', () => {
-            // Complete all levels to trigger game won state through public API
-            game.startGame()
+            game.start()
             for (let i = 0; i < GAME_LEVELS.length; i++) {
                 const levelEnd = GAME_LEVELS[i].path.endPoint
                 game.updatePlayerPosition(levelEnd.x, levelEnd.y)
             }
-            const stats = game.getStats()
+            const stats = game.getGameStats()
             expect(stats.levelsCompleted).toBe(GAME_LEVELS.length)
             expect(stats.perfectLevels).toBeGreaterThan(0)
         })
 
         it('should track levels completed', () => {
-            game.startGame()
+            game.start()
 
             // Complete first level
             const endPoint = GAME_LEVELS[0].path.endPoint
             game.updatePlayerPosition(endPoint.x, endPoint.y)
 
-            const stats = game.getStats()
+            const stats = game.getGameStats()
             expect(stats.levelsCompleted).toBe(1)
         })
 
         it('should count path violations on game over', () => {
-            game.startGame()
+            game.start()
             game.updatePlayerPosition(100, 100) // Off path
 
-            const stats = game.getStats()
+            const stats = game.getGameStats()
             expect(stats.pathViolations).toBe(1)
         })
     })
 
-    describe('cleanup', () => {
-        it('should stop timer on cleanup', () => {
-            game.startGame()
-            game.cleanup()
+    describe('getGameData (achievement data)', () => {
+        it('should preserve pathsCompleted and perfectPaths fields', () => {
+            game.start()
+            for (let i = 0; i < GAME_LEVELS.length; i++) {
+                const levelEnd = GAME_LEVELS[i].path.endPoint
+                game.updatePlayerPosition(levelEnd.x, levelEnd.y)
+            }
+            // Access protected method for verification
+            const data = (
+                game as unknown as {
+                    getGameData: () => Record<string, unknown>
+                }
+            ).getGameData()
+            expect(data).toHaveProperty('pathsCompleted')
+            expect(data).toHaveProperty('perfectPaths')
+            expect(data.pathsCompleted).toBe(GAME_LEVELS.length)
+        })
+    })
 
-            const timeAfterCleanup = game.getState().timeRemaining
+    describe('cleanup', () => {
+        it('should stop timer on destroy', () => {
+            game.start()
+            game.destroy()
+
+            const timeAfterDestroy = game.getState().timeRemaining
             vi.advanceTimersByTime(5000)
 
-            expect(game.getState().timeRemaining).toBe(timeAfterCleanup)
+            expect(game.getState().timeRemaining).toBe(timeAfterDestroy)
         })
     })
 
     describe('isPointOnLine and isPointOnBezier edge cases', () => {
         it('should return false when point projection is before line start (param < 0)', () => {
-            game.startGame()
-            // Level 1 segment: x=[start.x..end.x], y=start.y
-            // Moving to x=start.x - 100 gives param < 0 → isPointOnLine returns false
-            // Distance > start buffer → not in start buffer
+            game.start()
             const level1Start = GAME_LEVELS[0].path.startPoint
             game.updatePlayerPosition(level1Start.x - 100, level1Start.y)
             expect(game.getState().isGameOver).toBe(true)
         })
 
         it('should return true when point is on bezier curve', () => {
-            game.startGame()
+            game.start()
             // Complete level 1 to reach level 2 (which has curve segments)
             const level1End = GAME_LEVELS[0].path.endPoint
             game.updatePlayerPosition(level1End.x, level1End.y)
             expect(game.getState().currentLevel).toBe(2)
 
-            // Level 2 segment 0 is a curve - test at the midpoint of the curve
-            // B(t) = (1-t)²*start + 2*(1-t)*t*control + t²*end
-            // At t=0.5 (midpoint): B(0.5) = 0.25*start + 0.5*control + 0.25*end
             const level2 = GAME_LEVELS[1]
             const segment = level2.path.segments[0]
             expect(segment.type).toBe('curve')
@@ -361,22 +399,18 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should return false when isPointOnLine called with zero-length segment (lenSq === 0)', () => {
-            game.startGame()
-            // Force a path segment where start === end so lenSq = 0
-            const state = (game as any).state
-            const level = GAME_LEVELS[state.currentLevel - 1]
+            game.start()
+            const level = GAME_LEVELS[stateOf(game).currentLevel - 1]
             const originalSegments = level.path.segments
             const zeroLenSegment = {
                 type: 'straight' as const,
                 start: { x: 500, y: 500 },
-                end: { x: 500, y: 500 }, // same point → lenSq = 0
+                end: { x: 500, y: 500 },
                 width: 30,
             }
             try {
                 level.path.segments = [zeroLenSegment]
-                // Position far from start/end buffers → goes through segment check
                 game.updatePlayerPosition(500, 500)
-                // The segment returns false (lenSq === 0), so overall isOnPath = false (game over)
                 expect(game.getState().isGameOver).toBe(true)
             } finally {
                 level.path.segments = originalSegments
@@ -384,21 +418,17 @@ describe('PathNavigatorGame', () => {
         })
 
         it('should return false from isPointOnSegment for curve segment without controlPoint', () => {
-            game.startGame()
-            const state = (game as any).state
-            const level = GAME_LEVELS[state.currentLevel - 1]
+            game.start()
+            const level = GAME_LEVELS[stateOf(game).currentLevel - 1]
             const originalSegments = level.path.segments
-            // Curve segment without controlPoint → falls through to return false
             const badCurveSegment = {
                 type: 'curve' as const,
                 start: { x: 300, y: 300 },
                 end: { x: 400, y: 300 },
                 width: 30,
-                // no controlPoint
             }
             try {
                 level.path.segments = [badCurveSegment]
-                // Position near the middle → not in start/end buffer, segment returns false
                 game.updatePlayerPosition(350, 300)
                 expect(game.getState().isGameOver).toBe(true)
             } finally {
@@ -408,51 +438,51 @@ describe('PathNavigatorGame', () => {
     })
 
     describe('guard return edge cases', () => {
-        it('endGame should return early when game is not active', () => {
-            // game is not started, isGameActive = false
-            game.endGame()
+        it('end should return early when game is not active', async () => {
+            // game is not started, isActive = false
+            await game.end()
             expect(game.getState().isGameOver).toBe(false)
         })
 
-        it('pauseGame should return early when game is not active', () => {
-            game.pauseGame()
-            expect(game.getState().isGameActive).toBe(false)
+        it('pause should return early when game is not active', () => {
+            game.pause()
+            expect(game.getState().isActive).toBe(false)
         })
 
-        it('pauseGame should return early when game is over', () => {
-            game.startGame()
-            game.endGame() // sets isGameOver = true, isGameActive = false
+        it('pause should return early when game is over', async () => {
+            game.start()
+            await game.end() // sets isGameOver = true, isActive = false
             expect(game.getState().isGameOver).toBe(true)
-            const before = game.getState().isGameActive
-            game.pauseGame() // should return early
-            expect(game.getState().isGameActive).toBe(before)
+            const before = game.getState().isPaused
+            game.pause() // should return early
+            expect(game.getState().isPaused).toBe(before)
         })
 
-        it('resumeGame should return early when game is already active', () => {
-            game.startGame()
-            expect(game.getState().isGameActive).toBe(true)
-            game.resumeGame() // already active → return early
-            expect(game.getState().isGameActive).toBe(true)
+        it('resume should return early when game is not paused', () => {
+            game.start()
+            expect(game.getState().isActive).toBe(true)
+            game.resume() // not paused → return early
+            expect(game.getState().isPaused).toBe(false)
         })
 
-        it('resumeGame should return early when game is over', () => {
-            game.startGame()
-            game.endGame() // isGameOver = true
-            game.resumeGame() // isGameOver = true → return early
-            expect(game.getState().isGameActive).toBe(false)
+        it('resume should return early when game is over', async () => {
+            game.start()
+            await game.end()
+            game.resume()
+            expect(game.getState().isActive).toBe(false)
         })
 
         it('updatePlayerPosition should return isOnPath:true when game is not active', () => {
-            // game not started → isGameActive = false
+            // game not started → isActive = false
             const result = game.updatePlayerPosition(0, 0)
             expect(result.isOnPath).toBe(true)
             expect(result.hasReachedGoal).toBe(false)
         })
 
         it('completeLevel should use levelTime=0 when levelStartTime is null', () => {
-            game.startGame()
+            game.start()
             // Null out levelStartTime to trigger fallback path
-            ;(game as any).state.levelStartTime = null
+            stateOf(game).levelStartTime = null
             // Move to level end to trigger completeLevel
             const level1End = GAME_LEVELS[0].path.endPoint
             game.updatePlayerPosition(level1End.x, level1End.y)

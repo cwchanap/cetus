@@ -1,21 +1,31 @@
+// Path Navigator game implementation using BaseGame framework
+import { BaseGame } from '@/lib/games/core/BaseGame'
+import type { BaseGameCallbacks, ScoringConfig } from '@/lib/games/core/types'
+import { GameID } from '@/lib/games'
 import type {
-    GameState,
-    GameConfig,
-    GameLevel,
+    PathNavigatorState,
+    PathNavigatorConfig,
+    PathNavigatorStats,
     Point,
     CollisionResult,
-    GameStats,
+    GameLevel,
     GamePath,
     PathSegment,
 } from './types'
 import {
-    distance,
     pointInCircle,
     quadraticBezierPoint,
+    distance,
 } from '@/lib/games/shared/geometry'
 
-export const DEFAULT_CONFIG: GameConfig = {
-    gameDuration: 60, // 60 seconds
+// Default configuration for Path Navigator game
+export const DEFAULT_PATH_NAVIGATOR_CONFIG: PathNavigatorConfig = {
+    // BaseGameConfig
+    duration: 60, // 60 seconds
+    achievementIntegration: true,
+    pausable: true,
+    resettable: true,
+    // PathNavigatorConfig
     gameWidth: 800,
     gameHeight: 600,
     cursorRadius: 8,
@@ -181,23 +191,42 @@ export const GAME_LEVELS: GameLevel[] = [
     },
 ]
 
-export class PathNavigatorGame {
-    private state: GameState
-    private config: GameConfig
-    private gameTimer: NodeJS.Timeout | null = null
-
-    constructor(config: Partial<GameConfig> = {}) {
-        this.config = { ...DEFAULT_CONFIG, ...config }
-        this.state = this.createInitialState()
+export class PathNavigatorGame extends BaseGame<
+    PathNavigatorState,
+    PathNavigatorConfig,
+    PathNavigatorStats
+> {
+    constructor(
+        config: Partial<PathNavigatorConfig> = {},
+        callbacks: BaseGameCallbacks = {},
+        scoringConfig?: ScoringConfig
+    ) {
+        const fullConfig: PathNavigatorConfig = {
+            ...DEFAULT_PATH_NAVIGATOR_CONFIG,
+            ...config,
+        }
+        super(
+            GameID.PATH_NAVIGATOR,
+            fullConfig,
+            callbacks,
+            scoringConfig ?? {
+                basePoints: 0,
+                timeBonus: false, // Path Navigator computes its own per-level bonuses
+            }
+        )
     }
 
-    private createInitialState(): GameState {
+    createInitialState(): PathNavigatorState {
         return {
-            currentLevel: 1,
+            // BaseGameState fields
             score: 0,
-            timeRemaining: this.config.gameDuration,
-            isGameActive: false,
+            timeRemaining: this.config.duration,
+            isActive: false,
+            isPaused: false,
             isGameOver: false,
+            gameStarted: false,
+            // PathNavigatorState fields
+            currentLevel: 1,
             isGameWon: false,
             gameStartTime: null,
             cursor: {
@@ -214,62 +243,69 @@ export class PathNavigatorGame {
         }
     }
 
-    public startGame(): void {
-        if (this.state.isGameActive) {
-            return
-        }
-
-        this.state.isGameActive = true
-        this.state.isGameOver = false
-        this.state.isGameWon = false
+    protected onGameStart(): void {
         this.state.gameStartTime = Date.now()
         this.state.levelStartTime = Date.now()
-        this.state.timeRemaining = this.config.gameDuration
-        this.state.isBoundaryDetectionEnabled = false // Disable until user reaches start
+        this.state.isBoundaryDetectionEnabled = false
 
         // Position cursor at start of first level
         const startPoint = GAME_LEVELS[0].path.startPoint
         this.state.cursor.x = startPoint.x
         this.state.cursor.y = startPoint.y
-
-        this.startTimer()
     }
 
-    public endGame(): void {
-        if (!this.state.isGameActive) {
-            return
+    protected onGameReset(): void {
+        this.state.gameStartTime = null
+        this.state.levelStartTime = null
+    }
+
+    update(_deltaTime: number): void {
+        // Game logic is driven by player input (updatePlayerPosition)
+    }
+
+    render(): void {
+        // Rendering is handled by the renderer
+    }
+
+    cleanup(): void {
+        // No internal resources to clean up (timer managed by BaseGame)
+    }
+
+    getGameStats(): PathNavigatorStats {
+        const totalTime = this.state.gameStartTime
+            ? (Date.now() - this.state.gameStartTime) / 1000
+            : 0
+
+        return {
+            finalScore: this.state.score,
+            timeElapsed: Math.floor(totalTime),
+            gameCompleted: this.state.isGameOver,
+            levelsCompleted: this.getLevelsCompleted(),
+            totalTime,
+            averageTimePerLevel:
+                this.state.currentLevel > 1
+                    ? totalTime / (this.state.currentLevel - 1)
+                    : 0,
+            pathViolations:
+                this.state.isGameOver && !this.state.isGameWon ? 1 : 0,
+            perfectLevels: this.getPerfectLevels(),
         }
-
-        this.state.isGameActive = false
-        this.state.isGameOver = true
-        this.stopTimer()
     }
 
-    public pauseGame(): void {
-        if (!this.state.isGameActive || this.state.isGameOver) {
-            return
+    protected getGameData(): Record<string, unknown> {
+        return {
+            pathsCompleted: this.getLevelsCompleted(),
+            perfectPaths: this.getPerfectLevels(),
         }
-
-        this.state.isGameActive = false
-        this.stopTimer()
     }
 
-    public resumeGame(): void {
-        if (this.state.isGameActive || this.state.isGameOver) {
-            return
-        }
+    // --- Path Navigator-specific public API (input handlers) ---
 
-        this.state.isGameActive = true
-        this.startTimer()
-    }
-
-    public resetGame(): void {
-        this.stopTimer()
-        this.state = this.createInitialState()
-    }
-
-    public updatePlayerPosition(x: number, y: number): CollisionResult {
-        if (!this.state.isGameActive) {
+    /**
+     * Update the player's cursor position and run collision/progress checks.
+     */
+    updatePlayerPosition(x: number, y: number): CollisionResult {
+        if (!this.state.isActive) {
             return { isOnPath: true, hasReachedGoal: false }
         }
 
@@ -292,7 +328,7 @@ export class PathNavigatorGame {
 
         // Check if player went out of bounds
         if (!collisionResult.isOnPath) {
-            this.endGame()
+            void this.end()
         }
 
         // Check if goal reached
@@ -303,9 +339,38 @@ export class PathNavigatorGame {
         return collisionResult
     }
 
-    public setCursorPosition(x: number, y: number): void {
+    /**
+     * Set the cursor position without running collision checks.
+     */
+    setCursorPosition(x: number, y: number): void {
         this.state.cursor.x = x
         this.state.cursor.y = y
+    }
+
+    /**
+     * Get the current level definition.
+     */
+    getCurrentLevel(): GameLevel {
+        return GAME_LEVELS[this.state.currentLevel - 1]
+    }
+
+    /**
+     * Get the active configuration.
+     */
+    getConfig(): PathNavigatorConfig {
+        return { ...this.config }
+    }
+
+    // --- Internal helpers ---
+
+    private getLevelsCompleted(): number {
+        return this.state.isGameWon
+            ? GAME_LEVELS.length
+            : Math.max(0, this.state.currentLevel - 1)
+    }
+
+    private getPerfectLevels(): number {
+        return this.state.isGameWon ? GAME_LEVELS.length : 0
     }
 
     private completeLevel(): void {
@@ -318,13 +383,14 @@ export class PathNavigatorGame {
             Math.floor((15 - levelTime) * currentLevel.timeBonus)
         )
 
-        // Add score
-        this.state.score += currentLevel.basePoints + timeBonus
+        // Add score through the score manager so it integrates with the UI
+        // and achievement system.
+        this.addScore(currentLevel.basePoints + timeBonus, 'level_complete')
 
         // Check if all levels completed
         if (this.state.currentLevel >= GAME_LEVELS.length) {
             this.state.isGameWon = true
-            this.endGame()
+            void this.end()
             return
         }
 
@@ -444,54 +510,6 @@ export class PathNavigatorGame {
         }
         return false
     }
-
-    private startTimer(): void {
-        this.gameTimer = setInterval(() => {
-            if (this.state.timeRemaining <= 0) {
-                this.endGame()
-                return
-            }
-            this.state.timeRemaining--
-        }, 1000)
-    }
-
-    private stopTimer(): void {
-        if (this.gameTimer) {
-            clearInterval(this.gameTimer)
-            this.gameTimer = null
-        }
-    }
-
-    public getState(): GameState {
-        return { ...this.state }
-    }
-
-    public getCurrentLevel(): GameLevel {
-        return GAME_LEVELS[this.state.currentLevel - 1]
-    }
-
-    public getStats(): GameStats {
-        const totalTime = this.state.gameStartTime
-            ? (Date.now() - this.state.gameStartTime) / 1000
-            : 0
-
-        return {
-            finalScore: this.state.score,
-            levelsCompleted: this.state.isGameWon
-                ? GAME_LEVELS.length
-                : Math.max(0, this.state.currentLevel - 1),
-            totalTime,
-            averageTimePerLevel:
-                this.state.currentLevel > 1
-                    ? totalTime / (this.state.currentLevel - 1)
-                    : 0,
-            pathViolations:
-                this.state.isGameOver && !this.state.isGameWon ? 1 : 0,
-            perfectLevels: this.state.isGameWon ? GAME_LEVELS.length : 0,
-        }
-    }
-
-    public cleanup(): void {
-        this.stopTimer()
-    }
 }
+
+export default PathNavigatorGame

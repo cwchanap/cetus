@@ -1,4 +1,9 @@
-import type { Application, Container, Graphics } from 'pixi.js'
+// Types for the Path Navigator game
+import type {
+    BaseGameState,
+    BaseGameConfig,
+    BaseGameStats,
+} from '@/lib/games/core/types'
 
 export interface Point {
     x: number
@@ -36,12 +41,9 @@ export interface Cursor {
     isVisible: boolean
 }
 
-export interface GameState {
+// Extended state for Path Navigator game (extends BaseGameState)
+export interface PathNavigatorState extends BaseGameState {
     currentLevel: number
-    score: number
-    timeRemaining: number
-    isGameActive: boolean
-    isGameOver: boolean
     isGameWon: boolean
     gameStartTime: number | null
     cursor: Cursor
@@ -52,8 +54,8 @@ export interface GameState {
     isBoundaryDetectionEnabled: boolean // Only enable after user reaches start position
 }
 
-export interface GameConfig {
-    gameDuration: number // 60 seconds total
+// Extended config for Path Navigator game (extends BaseGameConfig)
+export interface PathNavigatorConfig extends BaseGameConfig {
     gameWidth: number
     gameHeight: number
     cursorRadius: number
@@ -64,34 +66,13 @@ export interface GameConfig {
     outOfBoundsColor: number
 }
 
-export interface GameCallbacks {
-    onScoreUpdate: (score: number) => void
-    onTimeUpdate: (timeRemaining: number) => void
-    onLevelChange: (level: number) => void
-    onPathViolation: () => void
-    onGoalReached: () => void
-    onGameOver: (finalScore: number, stats: GameStats) => void
-    onGameStart: () => void
-    onScoreUpload?: (success: boolean) => void
-}
-
-export interface GameStats {
-    finalScore: number
+// Extended stats for Path Navigator game (extends BaseGameStats)
+export interface PathNavigatorStats extends BaseGameStats {
     levelsCompleted: number
     totalTime: number
     averageTimePerLevel: number
     pathViolations: number
     perfectLevels: number // Levels completed without path violations
-}
-
-export interface RendererState {
-    app: Application
-    stage: Container
-    gameContainer: Container
-    pathGraphics: Graphics
-    cursorGraphics: Graphics
-    goalGraphics: Graphics
-    backgroundGraphics: Graphics
 }
 
 export interface CollisionResult {
