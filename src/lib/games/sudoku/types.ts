@@ -10,15 +10,4 @@ export interface SudokuGrid {
     selectedCell: { row: number; col: number } | null
 }
 
-export interface GameState {
-    grid: SudokuGrid
-    difficulty: 'easy' | 'medium' | 'hard'
-    timer: number
-    mistakes: number
-    isComplete: boolean
-    isPaused: boolean
-    isGameOver: boolean
-    score: number
-}
-
 export type GameDifficulty = 'easy' | 'medium' | 'hard'
