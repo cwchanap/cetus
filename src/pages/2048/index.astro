@@ -201,59 +201,18 @@ const gameNavigation = [
 
     <!-- 2048 Game Logic -->
     <script>
-      import {
-        init2048Game,
-        type Game2048Instance,
-      } from '@/lib/games/2048/init'
+      import { init2048GameFramework } from '@/lib/games/2048/initFramework'
 
-      // Initialize game when page loads
+      // Initialize game when page loads. All button/keyboard/touch wiring is
+      // handled inside the framework initializer.
       document.addEventListener('DOMContentLoaded', async () => {
         try {
-          const gameInstance: Game2048Instance | undefined =
-            await init2048Game()
+          const gameInstance = await init2048GameFramework()
 
           if (!gameInstance) {
             console.error('Failed to initialize 2048 game')
             return
           }
-
-          // Get button elements
-          const startBtn = document.getElementById('start-btn')!
-          const endBtn = document.getElementById('end-btn')!
-          const resetBtn = document.getElementById('reset-btn')!
-          const restartBtn = document.getElementById('restart-btn')!
-
-          // Start button click handler
-          startBtn.addEventListener('click', () => {
-            startBtn.style.display = 'none'
-            endBtn.style.display = 'inline-flex'
-            gameInstance.start()
-          })
-
-          // End game button click handler
-          endBtn.addEventListener('click', async () => {
-            await gameInstance.endGame()
-          })
-
-          // Reset button click handler
-          resetBtn.addEventListener('click', () => {
-            gameInstance.restart()
-            startBtn.style.display = 'inline-flex'
-            endBtn.style.display = 'none'
-          })
-
-          // Restart button (in overlay) click handler
-          restartBtn?.addEventListener('click', () => {
-            const gameOverOverlay =
-              document.getElementById('game-over-overlay')!
-            gameOverOverlay.classList.add('hidden')
-
-            // Reset buttons
-            startBtn.style.display = 'inline-flex'
-            endBtn.style.display = 'none'
-
-            gameInstance.restart()
-          })
 
           // Expose game instance for debugging
           ;(window as any).game2048 = gameInstance
