@@ -228,89 +228,22 @@ const gameNavigation = [
 
     <!-- Reflex Game Logic -->
     <script>
-      import { initializeReflexGame } from '@/lib/games/reflex/init'
+      import { initReflexGameFramework } from '@/lib/games/reflex/initFramework'
 
-      let gameInstance: any = null
+      let gameInstance: Awaited<
+        ReturnType<typeof initReflexGameFramework>
+      > | null = null
 
       // Initialize game when page loads
       document.addEventListener('DOMContentLoaded', async () => {
-        const gameContainer = document.getElementById('game-canvas-container')!
-        const scoreElement = document.getElementById('score')!
-        const timeElement = document.getElementById('time-remaining')!
-        const coinsElement = document.getElementById('coins-collected')!
-        const bombsElement = document.getElementById('bombs-hit')!
-        const accuracyElement = document.getElementById('accuracy')!
         const gameStatusElement = document.getElementById('game-status')!
-        const gameOverOverlay = document.getElementById('game-over-overlay')!
-
-        const startBtn = document.getElementById('start-btn')!
-        const stopBtn = document.getElementById('stop-btn')!
-        const playAgainBtn = document.getElementById('play-again-btn')!
 
         try {
-          gameInstance = await initializeReflexGame(gameContainer, {
-            onScoreUpdate: (score: number) => {
-              scoreElement.textContent = score.toString()
-            },
-            onTimeUpdate: (timeRemaining: number) => {
-              timeElement.textContent = timeRemaining.toString()
-            },
-            onGameStart: () => {
-              gameStatusElement.style.display = 'none'
-              startBtn.style.display = 'none'
-              stopBtn.style.display = 'inline-flex'
-              gameOverOverlay.classList.add('hidden')
-            },
-            onGameOver: async (finalScore: number, stats: any) => {
-              // Additional UI updates if needed
-              const avgReactionElement = document.getElementById('avg-reaction')
-              if (avgReactionElement) {
-                avgReactionElement.textContent = `${Math.round(stats.averageReactionTime)}ms`
-              }
-            },
-            onObjectSpawn: (object: any) => {
-              // Optional: Handle object spawn events (e.g., visual effects, sound)
-              console.log(
-                `Object spawned: ${object.type} at (${object.cell.row}, ${object.cell.col})`
-              )
-            },
-            onObjectExpire: (object: any) => {
-              // Optional: Handle object expiration events (e.g., visual effects, sound)
-              console.log(`Object expired: ${object.type}`)
-            },
-            onObjectClick: (_object: any, _points: number) => {
-              // Update live stats
-              const gameState = gameInstance.game.getState()
-              coinsElement.textContent = gameState.coinsCollected.toString()
-              bombsElement.textContent = gameState.bombsHit.toString()
+          gameInstance = await initReflexGameFramework()
 
-              const accuracy =
-                gameState.totalClicks > 0
-                  ? Math.round(
-                      (gameState.correctClicks / gameState.totalClicks) * 100
-                    )
-                  : 0
-              accuracyElement.textContent = `${accuracy}%`
-            },
-          })
-
-          // Button event listeners
-          startBtn.addEventListener('click', () => {
-            gameInstance.startGame()
-          })
-
-          stopBtn.addEventListener('click', () => {
-            gameInstance.stopGame()
-          })
-
-          playAgainBtn.addEventListener('click', () => {
-            gameOverOverlay.classList.add('hidden')
-            gameStatusElement.style.display = 'none'
-
-            // Reset buttons
-            startBtn.style.display = 'inline-flex'
-            stopBtn.style.display = 'none'
-          })
+          if (!gameInstance) {
+            throw new Error('Failed to initialize game framework')
+          }
         } catch (error) {
           console.error('Failed to initialize Reflex game:', error)
           gameStatusElement.style.display = 'flex'
