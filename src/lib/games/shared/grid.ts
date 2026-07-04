@@ -83,20 +83,3 @@ export function isAdjacent(
     const dc = Math.abs(a.col - b.col)
     return (dr === 1 && dc === 0) || (dr === 0 && dc === 1)
 }
-
-/** Find a random free cell on a grid (null = free). */
-export function findRandomFreeCell<T>(
-    grid: Grid<T | null>,
-    occupied: Array<{ row: number; col: number }> = []
-): { row: number; col: number } | null {
-    const occupiedSet = new Set(occupied.map(p => `${p.row},${p.col}`))
-    const free = findCells(
-        grid,
-        (value, r, c) => value === null && !occupiedSet.has(`${r},${c}`)
-    )
-    if (free.length === 0) {
-        return null
-    }
-    const pick = free[Math.floor(Math.random() * free.length)]
-    return { row: pick.row, col: pick.col }
-}

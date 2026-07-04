@@ -86,7 +86,7 @@ async function handleGameOver(
         {
             coinsCollected: stats.coinsCollected,
             bombsHit: stats.bombsHit,
-            longestSurvivalTime: stats.gameTime || 0,
+            survivalTime: stats.gameTime || 0,
         },
         { isStale }
     )

@@ -71,7 +71,6 @@ export interface QuickMathGameData {
 export interface SudokuGameData {
     difficulty: 'easy' | 'medium' | 'hard'
     cellsFilled: number
-    hintsUsed: number
 }
 
 // Path Navigator-specific game data
@@ -84,7 +83,7 @@ export interface PathNavigatorGameData {
 export interface EvaderGameData {
     coinsCollected: number
     bombsHit: number
-    longestSurvivalTime: number
+    survivalTime: number
 }
 
 // 2048-specific game data

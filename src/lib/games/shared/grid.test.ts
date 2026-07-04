@@ -8,7 +8,6 @@ import {
     findCells,
     swapCells,
     isAdjacent,
-    findRandomFreeCell,
 } from './grid'
 
 describe('createGrid', () => {
@@ -182,51 +181,5 @@ describe('isAdjacent', () => {
 
     it('returns false for distant cells', () => {
         expect(isAdjacent({ row: 0, col: 0 }, { row: 0, col: 2 })).toBe(false)
-    })
-})
-
-describe('findRandomFreeCell', () => {
-    it('returns null when every cell is in the occupied set', () => {
-        const grid: (number | null)[][] = [
-            [1, 2],
-            [3, 4],
-        ]
-        const occupied = [
-            { row: 0, col: 0 },
-            { row: 0, col: 1 },
-            { row: 1, col: 0 },
-            { row: 1, col: 1 },
-        ]
-        expect(findRandomFreeCell(grid, occupied)).toBeNull()
-    })
-
-    it('returns a free cell when available', () => {
-        const grid: (number | null)[][] = [
-            [1, null],
-            [null, 4],
-        ]
-        const result = findRandomFreeCell(grid)
-        expect(result).not.toBeNull()
-        if (result) {
-            expect(grid[result.row][result.col]).toBeNull()
-        }
-    })
-
-    it('excludes explicitly occupied cells', () => {
-        const grid: (number | null)[][] = [[null, null]]
-        const occupied = [{ row: 0, col: 0 }]
-        vi.spyOn(Math, 'random').mockReturnValue(0)
-        const cell = findRandomFreeCell(grid, occupied)
-        expect(cell).toEqual({ row: 0, col: 1 })
-        vi.restoreAllMocks()
-    })
-
-    it('returns null when all cells are occupied via occupied list', () => {
-        const grid: (number | null)[][] = [[null, null]]
-        const occupied = [
-            { row: 0, col: 0 },
-            { row: 0, col: 1 },
-        ]
-        expect(findRandomFreeCell(grid, occupied)).toBeNull()
     })
 })

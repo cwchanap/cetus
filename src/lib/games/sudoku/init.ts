@@ -371,7 +371,6 @@ function showGameOverOverlay(state: GameState): void {
             difficulty: state.difficulty,
             cellsFilled: state.grid.cells.flat().filter(c => c.value !== null)
                 .length,
-            hintsUsed: 0,
         },
         {
             isStale: () => runGuard.isStale(runId),
