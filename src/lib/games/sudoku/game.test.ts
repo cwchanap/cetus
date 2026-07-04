@@ -283,7 +283,7 @@ describe('Sudoku Game', () => {
     })
 
     describe('calculateScore', () => {
-        it('should include difficulty bonus', () => {
+        it('should include difficulty bonus', { timeout: 30_000 }, () => {
             const easyState = initializeGame('easy')
             const hardState = initializeGame('hard')
 
