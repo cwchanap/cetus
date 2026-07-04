@@ -61,6 +61,7 @@ describe('QuickMath Framework Implementation', () => {
     it('should handle correct answers', () => {
         game.start()
         const question = game.getCurrentQuestion()
+        expect(question).not.toBeNull()
 
         if (question) {
             const isCorrect = game.submitAnswer(question.answer.toString())
@@ -79,6 +80,7 @@ describe('QuickMath Framework Implementation', () => {
     it('should handle incorrect answers', () => {
         game.start()
         const question = game.getCurrentQuestion()
+        expect(question).not.toBeNull()
 
         if (question) {
             const wrongAnswer = (question.answer + 999).toString()

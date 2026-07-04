@@ -87,8 +87,6 @@ export function isAdjacent(
 /** Find a random free cell on a grid (null = free). */
 export function findRandomFreeCell<T>(
     grid: Grid<T | null>,
-    width: number,
-    height: number,
     occupied: Array<{ row: number; col: number }> = []
 ): { row: number; col: number } | null {
     const occupiedSet = new Set(occupied.map(p => `${p.row},${p.col}`))

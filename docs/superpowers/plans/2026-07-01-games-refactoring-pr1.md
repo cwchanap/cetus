@@ -37,8 +37,8 @@ Fix the 9 active defects before any refactoring. Each task is isolated and indep
 The live `FrameworkGame.getGameData()` drops 4 achievement flags, silently breaking achievements `quick_math_one_plus_one_seen`, `quick_math_one_plus_one_wrong`, `quick_math_999_seen`, `quick_math_zero_answer_wrong` (defined in `src/lib/achievements.ts:797-849`).
 
 **Files:**
-- Modify: `src/lib/games/quick-math/FrameworkGame.ts` (add flag tracking + fix `getGameData`)
-- Test: `src/lib/games/quick-math/FrameworkGame.test.ts`
+- Modify: `src/lib/games/quick-math/game.ts` (add flag tracking + fix `getGameData`)
+- Test: `src/lib/games/quick-math/game.test.ts`
 
 **Interfaces:**
 - Consumes: `QuickMathGameData` from `src/lib/games/shared/types.ts:61-68` (`{ seenOnePlusOne?, onePlusOneIncorrect?, seenOperand999?, zeroAnswerIncorrect?, correctAnswers, wrongAnswers }`)
@@ -46,47 +46,41 @@ The live `FrameworkGame.getGameData()` drops 4 achievement flags, silently break
 
 - [ ] **Step 1: Write failing tests for achievement flag tracking**
 
-Add to `FrameworkGame.test.ts`:
+Add to `game.test.ts`:
 
 ```typescript
 describe('QuickMathFrameworkGame achievement flags', () => {
-    it('tracks seenOnePlusOne when 1+1 question appears', () => {
-        const game = new QuickMathFrameworkGame(GameID.QUICK_MATH, {
-            duration: 60,
-            achievementIntegration: true,
-            pausable: true,
-            resettable: true,
-            pointsPerCorrectAnswer: 20,
-            maxNumber: 999,
-            operations: ['addition'],
-        })
-        game.start()
+    const baseConfig: QuickMathConfig = {
+        duration: 60,
+        achievementIntegration: true,
+        pausable: true,
+        resettable: true,
+        pointsPerCorrectAnswer: 20,
+        maxNumber: 999,
+        operations: ['addition'],
+    }
 
-        // Force-generate a 1+1 question by mocking generateRandomQuestion is not
-        // feasible without injection; instead test via getGameData after submit
-        // by checking the flag is set when currentQuestion is 1+1
-        const state = game.getState()
-        if (
-            state.currentQuestion?.operand1 === 1 &&
-            state.currentQuestion?.operand2 === 1
-        ) {
-            const data = game.getGameData()
-            expect(data.seenOnePlusOne).toBe(true)
-        }
+    it('tracks seenOnePlusOne when a 1+1 question appears', () => {
+        // Deterministic seam: stub Math.random so the first generated
+        // question is guaranteed to be 1 + 1 (addition, operand1=1, operand2=1).
+        const randomSpy = vi.spyOn(Math, 'random')
+        randomSpy.mockReturnValueOnce(0) // operation index -> addition
+        randomSpy.mockReturnValueOnce(0) // operand1 = floor(0*999)+1 = 1
+        randomSpy.mockReturnValueOnce(0) // operand2 = 1
+
+        const game = new QuickMathFrameworkGame(GameID.QUICK_MATH, baseConfig)
+        game.start()
+        randomSpy.mockRestore()
+
+        const data = (game as any).getGameData()
+        expect(data.seenOnePlusOne).toBe(true)
+        expect(data.seenOperand999).toBe(false)
     })
 
     it('includes all 4 achievement flags in getGameData output', () => {
-        const game = new QuickMathFrameworkGame(GameID.QUICK_MATH, {
-            duration: 60,
-            achievementIntegration: true,
-            pausable: true,
-            resettable: true,
-            pointsPerCorrectAnswer: 20,
-            maxNumber: 999,
-            operations: ['addition', 'subtraction'],
-        })
+        const game = new QuickMathFrameworkGame(GameID.QUICK_MATH, baseConfig)
         game.start()
-        const data = game.getGameData()
+        const data = (game as any).getGameData()
         expect(data).toHaveProperty('seenOnePlusOne')
         expect(data).toHaveProperty('onePlusOneIncorrect')
         expect(data).toHaveProperty('seenOperand999')
@@ -99,12 +93,12 @@ describe('QuickMathFrameworkGame achievement flags', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `bun run test src/lib/games/quick-math/FrameworkGame.test.ts`
+Run: `bun run test src/lib/games/quick-math/game.test.ts`
 Expected: FAIL — `getGameData()` output does not contain `seenOnePlusOne` etc.
 
 - [ ] **Step 3: Add achievement flag tracking to FrameworkGame**
 
-In `FrameworkGame.ts`, add private flag fields after `questionStartTime` (line 56):
+In `game.ts`, add private flag fields after `questionStartTime` (line 56):
 
 ```typescript
 private achievementFlags: {
@@ -385,14 +379,26 @@ Add to `game.test.ts`:
 
 ```typescript
 describe('Evader object ID uniqueness', () => {
-    it('generates unique IDs for same-type objects spawned in same ms', () => {
-        const ids = new Set<string>()
-        // Generate many IDs rapidly
-        for (let i = 0; i < 100; i++) {
-            const now = Date.now()
-            ids.add(`coin-${now}-${i}`)
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    it('generates unique IDs even when Date.now() returns the same value', () => {
+        const FIXED_TIME = 1_700_000_000_000
+        vi.spyOn(Date, 'now').mockReturnValue(FIXED_TIME)
+
+        game.startGame()
+
+        for (let i = 0; i < 50; i++) {
+            vi.advanceTimersByTime(config.spawnInterval * 1000)
         }
-        // This documents the expected pattern — the real test checks the game
+
+        const objects = game.getState().objects
+        const ids = objects.map(o => o.id)
+        const uniqueIds = new Set(ids)
+
+        expect(ids.length).toBeGreaterThan(1)
+        expect(uniqueIds.size).toBe(ids.length)
     })
 })
 ```
@@ -702,30 +708,14 @@ git commit -m "fix(evader): align EvaderGameData with actual game mechanics"
 
 ## Task 1.9: Update AGENTS.md game count and documentation
 
-AGENTS.md says "12 games" but there are 14. Circuit Hacker and Satellite Sync are missing. Snake is listed as DOM-based but is actually PixiJS canvas.
+**Status: already complete in the current branch.** AGENTS.md already states "14 fully implemented games", lists Circuit Hacker and Satellite Sync in the Project Overview, Project Structure tree, Game-Specific Notes, Game Count note, and Renderer Architecture (both as PixiJS Canvas). Snake is already classified under "PixiJS Canvas" (not DOM-based). No changes required.
 
 **Files:**
-- Modify: `AGENTS.md`
+- Already updated: `AGENTS.md`
 
-- [ ] **Step 1: Update game count and list**
-
-Change all "12 games" references to "14 games". Add Circuit Hacker and Satellite Sync to:
-- Project Overview bullet list
-- Project Structure tree (`src/lib/games/`)
-- Game-Specific Notes section
-- Game Count note
-- Renderer Architecture (Circuit Hacker = PixiJS, Satellite Sync = PixiJS)
-
-- [ ] **Step 2: Fix Snake renderer classification**
-
-Change "DOM-based (Memory Matrix, Snake)" to "DOM-based (Memory Matrix)" and add Snake to "PixiJS Canvas" list.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add AGENTS.md
-git commit -m "docs: update game count to 14 and fix Snake renderer classification"
-```
+- [x] **Step 1: Update game count and list** — done (14 games, Circuit Hacker + Satellite Sync present).
+- [x] **Step 2: Fix Snake renderer classification** — done (Snake listed under PixiJS Canvas).
+- [x] **Step 3: Commit** — already committed on this branch.
 
 ---
 
@@ -917,9 +907,9 @@ Sends `{ maxTile, mergeCount, gameWon }` but `Game2048Data` expects `{ maxTile, 
 
 **File:** `src/lib/games/snake/SnakeGame.ts:162-169` (getGameData)
 
-Sends `{ foodsEaten, maxLength, timeElapsed }` but `SnakeGameData` expects `{ applesEaten, maxLength }`.
+`SnakeGameData` in `src/lib/games/shared/types.ts:98-101` is already aligned with the implementation and uses the canonical fields `{ foodsEaten, maxLength }` — the game uses "food" not "apples", so `applesEaten` is not part of the contract. `SnakeGame.getGameData` sends `{ foodsEaten, maxLength, timeElapsed }`; the `timeElapsed` field is extra (not in `SnakeGameData`) and can be dropped or added to the interface. Achievement predicates referencing Snake should use `foodsEaten` (not `applesEaten`).
 
-- [ ] **Step 1:** Rename `applesEaten` to `foodsEaten` in `shared/types.ts:98-101` (align type to reality since the game uses "food" not "apples"). Update any achievement predicates.
+- [ ] **Step 1:** Drop the extra `timeElapsed` from the `getGameData` payload (or add it to `SnakeGameData`). Verify any achievement predicates reference `foodsEaten`.
 - [ ] **Step 2:** Run tests. Commit: `"fix(snake): align SnakeGameData field names with implementation"`
 
 ## Task 3.7: Sudoku — Populate SudokuGameData
@@ -1119,17 +1109,18 @@ export function isAdjacent(
 /** Find a random free cell on a grid (null = free). */
 export function findRandomFreeCell<T>(
     grid: Grid<T | null>,
-    width: number,
-    height: number,
     occupied: Array<{ row: number; col: number }> = []
 ): { row: number; col: number } | null {
     const occupiedSet = new Set(occupied.map(p => `${p.row},${p.col}`))
     const free = findCells(
         grid,
-        (_v, r, c) => !occupiedSet.has(`${r},${c}`)
+        (value, r, c) => value === null && !occupiedSet.has(`${r},${c}`)
     )
-    if (free.length === 0) return null
-    return free[Math.floor(Math.random() * free.length)]
+    if (free.length === 0) {
+        return null
+    }
+    const pick = free[Math.floor(Math.random() * free.length)]
+    return { row: pick.row, col: pick.col }
 }
 ```
 

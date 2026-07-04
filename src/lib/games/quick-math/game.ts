@@ -173,7 +173,11 @@ export class QuickMathFrameworkGame extends BaseGame<
     }
 
     public submitAnswer(answer: string): boolean {
-        if (!this.state.isActive || !this.state.currentQuestion) {
+        if (
+            !this.state.isActive ||
+            this.state.isPaused ||
+            !this.state.currentQuestion
+        ) {
             return false
         }
 
