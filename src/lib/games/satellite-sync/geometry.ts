@@ -1,5 +1,15 @@
 import type { BeamColor } from './types'
 
+/**
+ * Satellite Sync geometry helpers.
+ *
+ * NOTE: All angle functions in this module operate in **degrees**
+ * (normalizeAngle maps to [0, 360)). The `shared/geometry.ts` module
+ * exports functions with the same names (normalizeAngle, angleDiff,
+ * segmentIntersectsCircle) but operates in **radians**. Do not mix imports
+ * from both modules in the same file — semantics are incompatible.
+ */
+
 export const RING_RADIUS_BASE = 0.8
 export const RING_RADIUS_STEP = 0.55
 

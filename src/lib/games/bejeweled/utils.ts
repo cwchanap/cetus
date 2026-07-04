@@ -14,7 +14,10 @@ import {
 
 // Random helpers
 export function randomChoice<T>(arr: ReadonlyArray<T>): T {
-    return randomElement(arr as T[]) as T
+    if (arr.length === 0) {
+        throw new Error('randomChoice: array must not be empty')
+    }
+    return randomElement([...arr]) as T
 }
 
 export function inBounds(

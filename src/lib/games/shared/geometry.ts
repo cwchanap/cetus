@@ -1,5 +1,11 @@
 /**
  * Shared geometry and collision primitives for canvas games.
+ *
+ * NOTE: All angle functions in this module operate in **radians**
+ * (normalizeAngle maps to [-PI, PI]). The `satellite-sync/geometry.ts`
+ * module exports functions with the same names (normalizeAngle, angleDiff,
+ * segmentIntersectsCircle) but operates in **degrees**. Do not mix imports
+ * from both modules in the same file — semantics are incompatible.
  */
 
 export interface Point {

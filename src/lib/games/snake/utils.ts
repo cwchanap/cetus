@@ -4,6 +4,9 @@ import {
     nextPosition as sharedNextPosition,
     isValidTurn,
 } from '@/lib/games/shared/direction'
+import { generateId } from '@/lib/games/shared/utils'
+
+export { generateId }
 
 /**
  * Check if position is out of bounds
@@ -89,10 +92,3 @@ export function getNextPosition(pos: Position, direction: Direction): Position {
  * Delegates to shared direction module.
  */
 export const isValidDirectionChange = isValidTurn
-
-/**
- * Generate unique ID
- */
-export function generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
-}
