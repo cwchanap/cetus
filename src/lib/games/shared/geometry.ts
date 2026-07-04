@@ -29,7 +29,13 @@ export function lerp(start: number, end: number, t: number): number {
     return start + (end - start) * clamp(t, 0, 1)
 }
 
-/** Check if a point is inside a rectangle. */
+/**
+ * Check if a point is inside a rectangle.
+ *
+ * Boundary semantics: **inclusive** — a point lying exactly on any edge
+ * or corner of the rect is considered inside (uses `>=` and `<=`).
+ * This differs from {@link rectOverlap}, which is exclusive.
+ */
 export function pointInRect(p: Point, rect: Rect): boolean {
     return (
         p.x >= rect.x &&
@@ -48,7 +54,13 @@ export function pointInCircle(
     return distance(p, center) <= radius
 }
 
-/** Check if two rectangles overlap (AABB). */
+/**
+ * Check if two rectangles overlap (AABB).
+ *
+ * Boundary semantics: **exclusive** — two rects that share only an edge
+ * (touching but not penetrating) are NOT considered overlapping (uses
+ * `<` and `>`). This differs from {@link pointInRect}, which is inclusive.
+ */
 export function rectOverlap(a: Rect, b: Rect): boolean {
     return (
         a.x < b.x + b.width &&
