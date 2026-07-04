@@ -1397,3 +1397,36 @@ After all 5 phases:
 | **Total** | **~40 tasks** | | **1-2 weeks** |
 
 **Next:** PR 2 (BaseGame framework migration, Phase 6) builds on this foundation.
+
+---
+
+## PR 2 Prerequisites / Carry-Forward
+
+Decisions deferred to PR 2. Do not start PR 2 without resolving these.
+
+### Geometry API dedup (blocking)
+
+`shared/utils.ts:51-126` and `shared/geometry.ts:24-77` both export
+`clamp`, `lerp`, `distance`, `rectOverlap`, `pointInRect`, `pointInCircle`
+with **incompatible signatures**:
+
+- `utils.ts` — raw-number signatures (`distance(x1, y1, x2, y2)`)
+- `geometry.ts` — `Point`-object signatures (`distance(a: Point, b: Point)`)
+
+Games currently split inconsistently:
+
+- `evader/game.ts`, `bejeweled/renderer.ts`, `path-navigator/init.ts` → `utils`
+- `bubble-shooter/physics.ts`, `path-navigator/game.ts` → `geometry`
+
+**Action for PR 2:** pick one canonical home and migrate all consumers.
+Decision needed: raw numbers (more current consumers) vs. `Point` objects
+(more idiomatic for canvas games). Remove the duplicates from the loser.
+
+### Plan assumptions invalidated in PR 1
+
+- **Task 6i** assumed Reflex would consume `findRandomFreeCell`. Reflex is
+  not grid-based, and `findRandomFreeCell` was removed as YAGNI (zero game
+  consumers). Drop 6i or rescope it.
+- `weightedPick` was removed from `shared/spawner.ts` as YAGNI (zero game
+  consumers). Any PR 2 task referencing it should use `rollSpawnType` or
+  re-add it only when a concrete consumer exists.
