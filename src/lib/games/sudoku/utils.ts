@@ -130,7 +130,12 @@ export function createPuzzle(
 
 /**
  * Counts the number of solutions a grid has, up to `limit`.
- * Uses backtracking. Operates on a copy of the grid.
+ * Uses backtracking with MRV (Minimum Remaining Values) cell selection:
+ * the empty cell with the fewest valid candidates is filled first, which
+ * drastically prunes the search tree compared to picking the first empty
+ * cell. This matters because `createPuzzle` invokes this once per
+ * cell-removal attempt (~60 times for hard difficulty).
+ * Operates on a copy of the grid.
  */
 export function countSolutions(grid: number[][], limit: number = 2): number {
     let count = 0
@@ -140,27 +145,56 @@ export function countSolutions(grid: number[][], limit: number = 2): number {
             return
         }
 
-        let row = -1
-        let col = -1
-        for (let r = 0; r < 9 && row === -1; r++) {
-            for (let c = 0; c < 9 && row === -1; c++) {
-                if (g[r][c] === 0) {
-                    row = r
-                    col = c
+        // MRV: find the empty cell with the fewest valid candidates.
+        let bestRow = -1
+        let bestCol = -1
+        let bestCandidates: number[] = []
+        let bestCount = 10
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (g[r][c] !== 0) {
+                    continue
                 }
+                const candidates: number[] = []
+                for (let num = 1; num <= 9; num++) {
+                    if (isValidMove(g, r, c, num)) {
+                        candidates.push(num)
+                    }
+                }
+                // Dead end: this empty cell has no valid candidate.
+                if (candidates.length === 0) {
+                    return
+                }
+                if (candidates.length < bestCount) {
+                    bestCount = candidates.length
+                    bestRow = r
+                    bestCol = c
+                    bestCandidates = candidates
+                    // A single-candidate cell is the best possible; stop early.
+                    if (bestCount === 1) {
+                        break
+                    }
+                }
+            }
+            if (bestCount === 1) {
+                break
             }
         }
 
-        if (row === -1) {
+        // No empty cell left → the grid is a complete solution.
+        if (bestRow === -1) {
             count++
             return
         }
 
-        for (let num = 1; num <= 9; num++) {
-            if (isValidMove(g, row, col, num)) {
-                g[row][col] = num
-                solve(g)
-                g[row][col] = 0
+        for (const num of bestCandidates) {
+            g[bestRow][bestCol] = num
+            solve(g)
+            g[bestRow][bestCol] = 0
+            // Early-break: stop trying further candidates once we've
+            // reached the solution limit.
+            if (count >= limit) {
+                return
             }
         }
     }

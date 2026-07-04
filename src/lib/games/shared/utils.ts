@@ -75,6 +75,10 @@ export function distance(
 
 /**
  * Check if two rectangles overlap (AABB collision)
+ *
+ * Boundary semantics: **exclusive** — two rects that share only an edge
+ * are NOT considered overlapping (uses `<` and `>`). This differs from
+ * {@link pointInRect}, which is inclusive.
  */
 export function rectOverlap(
     rect1: { x: number; y: number; width: number; height: number },
@@ -90,6 +94,10 @@ export function rectOverlap(
 
 /**
  * Check if a point is inside a rectangle
+ *
+ * Boundary semantics: **inclusive** — a point lying exactly on any edge
+ * or corner of the rect is considered inside (uses `>=` and `<=`). This
+ * differs from {@link rectOverlap}, which is exclusive.
  */
 export function pointInRect(
     px: number,
