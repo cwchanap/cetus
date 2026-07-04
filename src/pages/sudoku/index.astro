@@ -200,38 +200,6 @@ const gameNavigation = [
           console.error('Failed to initialize Sudoku game:', error)
         }
       })
-
-      import { initSudokuGameFramework } from '@/lib/games/sudoku/initFramework'
-
-      // Initialize game when page loads. All button/keyboard/difficulty wiring
-      // is handled inside the framework initializer.
-      document.addEventListener('DOMContentLoaded', async () => {
-        try {
-          const gameInstance = await initSudokuGameFramework()
-
-          if (!gameInstance) {
-            console.error('Failed to initialize Sudoku game')
-            return
-          }
-
-          // Expose game instance for debugging
-          ;(window as any).sudokuGame = gameInstance
-        } catch (error) {
-          console.error('Failed to initialize Sudoku game:', error)
-        }
-      })
-
-          if (!gameInstance) {
-            console.error('Failed to initialize Sudoku game')
-            return
-          }
-
-          // Expose game instance for debugging
-          ;(window as any).sudokuGame = gameInstance
-        } catch (error) {
-          console.error('Failed to initialize Sudoku game:', error)
-        }
-      })
     </script>
   </div>
 </AppLayout>
