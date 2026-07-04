@@ -1,8 +1,8 @@
 import type { Card, Position, GameConstants } from './types'
-import { shuffleArrayCopy as shuffleArray } from '@/lib/games/shared/utils'
+import { shuffleArrayCopy } from '@/lib/games/shared/utils'
 import { inBounds } from '@/lib/games/shared/grid'
 
-export { shuffleArray }
+export { shuffleArrayCopy }
 
 // Game constants
 export const CONSTANTS: GameConstants = {
@@ -49,7 +49,7 @@ export function generateCardPairs(): Card[] {
         }
     }
 
-    return shuffleArray(cards)
+    return shuffleArrayCopy(cards)
 }
 
 // Create game board from cards

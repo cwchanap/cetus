@@ -197,7 +197,7 @@ describe('findRandomFreeCell', () => {
             { row: 1, col: 0 },
             { row: 1, col: 1 },
         ]
-        expect(findRandomFreeCell(grid, 2, 2, occupied)).toBeNull()
+        expect(findRandomFreeCell(grid, occupied)).toBeNull()
     })
 
     it('returns a free cell when available', () => {
@@ -205,7 +205,7 @@ describe('findRandomFreeCell', () => {
             [1, null],
             [null, 4],
         ]
-        const result = findRandomFreeCell(grid, 2, 2)
+        const result = findRandomFreeCell(grid)
         expect(result).not.toBeNull()
         if (result) {
             expect(grid[result.row][result.col]).toBeNull()
@@ -216,7 +216,7 @@ describe('findRandomFreeCell', () => {
         const grid: (number | null)[][] = [[null, null]]
         const occupied = [{ row: 0, col: 0 }]
         vi.spyOn(Math, 'random').mockReturnValue(0)
-        const cell = findRandomFreeCell(grid, 2, 1, occupied)
+        const cell = findRandomFreeCell(grid, occupied)
         expect(cell).toEqual({ row: 0, col: 1 })
         vi.restoreAllMocks()
     })
@@ -227,6 +227,6 @@ describe('findRandomFreeCell', () => {
             { row: 0, col: 0 },
             { row: 0, col: 1 },
         ]
-        expect(findRandomFreeCell(grid, 2, 1, occupied)).toBeNull()
+        expect(findRandomFreeCell(grid, occupied)).toBeNull()
     })
 })

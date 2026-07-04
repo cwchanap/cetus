@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
-    shuffleArray,
+    shuffleArrayCopy,
     generateCardPairs,
     createGameBoard,
     cardsMatch,
@@ -14,17 +14,17 @@ import {
 import type { Card } from './types'
 
 describe('Memory Matrix Utils', () => {
-    describe('shuffleArray', () => {
+    describe('shuffleArrayCopy', () => {
         it('should return array with same length', () => {
             const original = [1, 2, 3, 4, 5]
-            const shuffled = shuffleArray(original)
+            const shuffled = shuffleArrayCopy(original)
 
             expect(shuffled).toHaveLength(original.length)
         })
 
         it('should contain all original elements', () => {
             const original = [1, 2, 3, 4, 5]
-            const shuffled = shuffleArray(original)
+            const shuffled = shuffleArrayCopy(original)
 
             original.forEach(item => {
                 expect(shuffled).toContain(item)
@@ -34,18 +34,18 @@ describe('Memory Matrix Utils', () => {
         it('should not modify original array', () => {
             const original = [1, 2, 3, 4, 5]
             const originalCopy = [...original]
-            shuffleArray(original)
+            shuffleArrayCopy(original)
 
             expect(original).toEqual(originalCopy)
         })
 
         it('should handle empty array', () => {
-            const result = shuffleArray([])
+            const result = shuffleArrayCopy([])
             expect(result).toEqual([])
         })
 
         it('should handle single element array', () => {
-            const result = shuffleArray([42])
+            const result = shuffleArrayCopy([42])
             expect(result).toEqual([42])
         })
     })
