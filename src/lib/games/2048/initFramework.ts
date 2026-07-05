@@ -318,7 +318,14 @@ function setupButtonHandlers(
     const resetBtn = document.getElementById('reset-btn')
     const restartBtn = document.getElementById('restart-btn')
 
-    const startHandler = () => game.start()
+    const startHandler = () => {
+        // After a game over, BaseGame.start() only flips flags, so reset
+        // explicitly to clear the board/score before a new run.
+        if (game.getState().isGameOver) {
+            game.reset()
+        }
+        game.start()
+    }
 
     const endHandler = () => {
         game.end().catch(err => console.error('Game2048 end failed', err))

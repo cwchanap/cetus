@@ -170,6 +170,18 @@ describe('SudokuGame', () => {
             expect(state.isGameOver).toBe(true)
             expect(state.isActive).toBe(false)
         })
+
+        it('should preserve elapsed time in getGameStats after end()', async () => {
+            game.start()
+            vi.advanceTimersByTime(5000)
+
+            const stats = await game.end().then(() => game.getGameStats())
+
+            // BaseGame.end() stops the timer before getGameStats() runs, so
+            // getElapsedTime() returns 0 when not running. The game must
+            // capture the elapsed time before the timer stops.
+            expect(stats.timeElapsed).toBe(5)
+        })
     })
 
     describe('Cell Selection', () => {

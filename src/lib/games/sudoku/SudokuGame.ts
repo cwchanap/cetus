@@ -34,6 +34,11 @@ export class SudokuGame extends BaseGame<
     SudokuConfig,
     SudokuStats
 > {
+    // Elapsed time captured before BaseGame.end() stops the timer, since
+    // GameTimer.getElapsedTime() returns 0 when the timer is not running.
+    // Without this, getGameStats() reports 00:00 for every ended Sudoku run.
+    private capturedElapsedTime: number | null = null
+
     constructor(
         config: Partial<SudokuConfig> = {},
         callbacks: BaseGameCallbacks = {},
@@ -101,6 +106,7 @@ export class SudokuGame extends BaseGame<
     }
 
     protected onGameReset(): void {
+        this.capturedElapsedTime = null
         this.emitStateChange()
     }
 
@@ -123,7 +129,9 @@ export class SudokuGame extends BaseGame<
             .filter(c => c.value !== null).length
         return {
             finalScore: this.state.score,
-            timeElapsed: Math.floor(timerStatus.elapsedTime || 0),
+            timeElapsed:
+                this.capturedElapsedTime ??
+                Math.floor(timerStatus.elapsedTime || 0),
             gameCompleted: this.state.isComplete,
             difficulty: this.state.difficulty,
             mistakes: this.state.mistakes,
@@ -145,6 +153,17 @@ export class SudokuGame extends BaseGame<
     }
 
     // --- Sudoku-specific public API ---
+
+    /**
+     * End the game, capturing elapsed time before BaseGame.end() stops the
+     * timer (GameTimer.getElapsedTime() returns 0 when not running).
+     */
+    async end(): Promise<void> {
+        if (this.state.isActive) {
+            this.capturedElapsedTime = this.getElapsedTime()
+        }
+        await super.end()
+    }
 
     /**
      * Select a cell at the given position, highlighting related cells.
