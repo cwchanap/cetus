@@ -198,6 +198,56 @@ describe('initSudokuGameFramework', () => {
         })
     })
 
+    describe('start after game over', () => {
+        it('generates a fresh puzzle and resets score before starting', async () => {
+            result = await initSudokuGameFramework()
+            result!.game.start()
+            // Capture the first run's puzzle givens and score a placement
+            const firstState = result!.game.getState()
+            const firstGivens = firstState.grid.cells
+                .map(row =>
+                    row.map(c => (c.isGiven ? c.value : null)).join(',')
+                )
+                .join('|')
+            // Place a number to make the score non-zero
+            const emptyCell = firstState.grid.cells
+                .map(
+                    (row, r) =>
+                        row
+                            .map((c, col) => (c.isGiven ? null : { r, col }))
+                            .filter(Boolean) as { r: number; col: number }[]
+                )
+                .flat()[0]
+            if (emptyCell) {
+                result!.game.selectCell(emptyCell.r, emptyCell.col)
+                result!.game.placeNumber(1)
+            }
+            expect(result!.game.getState().score).toBeGreaterThan(0)
+
+            await result!.endGame()
+            expect(result!.game.getState().isGameOver).toBe(true)
+
+            // Click Start again — should produce a fresh puzzle, not reuse
+            // the ended run's grid/score.
+            document
+                .getElementById('start-btn')!
+                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+            const state = result!.game.getState()
+            expect(state.gameStarted).toBe(true)
+            expect(state.isGameOver).toBe(false)
+            expect(state.score).toBe(0)
+            const newGivens = state.grid.cells
+                .map(row =>
+                    row.map(c => (c.isGiven ? c.value : null)).join(',')
+                )
+                .join('|')
+            // The new puzzle should differ from the ended one (puzzle
+            // generation is randomized, so a fresh puzzle is expected).
+            expect(newGivens).not.toBe(firstGivens)
+        })
+    })
+
     describe('reset button', () => {
         it('resets the game when reset is clicked', async () => {
             result = await initSudokuGameFramework()

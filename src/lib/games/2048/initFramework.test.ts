@@ -385,6 +385,57 @@ describe('init2048GameFramework', () => {
         })
     })
 
+    describe('start after game over', () => {
+        it('resets the board and score before starting a new run', async () => {
+            result = await init2048GameFramework()
+            result!.game.start()
+            // Accumulate score and tiles from the first run
+            const internals = (
+                result!.game as unknown as {
+                    state: {
+                        board: unknown[][]
+                        score: number
+                        moveCount: number
+                    }
+                }
+            ).state
+            internals.board[0][0] = {
+                id: 'a',
+                value: 2,
+                position: { row: 0, col: 0 },
+            }
+            internals.board[0][1] = {
+                id: 'b',
+                value: 2,
+                position: { row: 0, col: 1 },
+            }
+            result!.game.move('left') // merges → score > 0, moveCount > 0
+            const scoreBeforeEnd = result!.game.getState().score
+            expect(scoreBeforeEnd).toBeGreaterThan(0)
+
+            await result!.endGame()
+            expect(result!.game.getState().isGameOver).toBe(true)
+
+            // Click Start again — should produce a fresh board, not reuse
+            // the ended run's board/score.
+            document
+                .getElementById('start-btn')!
+                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+            const state = result!.game.getState()
+            expect(state.gameStarted).toBe(true)
+            expect(state.isGameOver).toBe(false)
+            expect(state.score).toBe(0)
+            expect(state.moveCount).toBe(0)
+            const tiles = state.board
+                .flat()
+                .filter((t): t is { value: number } => t !== null)
+            // A fresh run spawns exactly INITIAL_TILES (2) tiles, not the
+            // accumulated tiles from the previous run.
+            expect(tiles.length).toBe(2)
+        })
+    })
+
     describe('renderer error cleanup', () => {
         it('removes a mounted canvas and cleans up the renderer when initialize fails', async () => {
             const parent = document.createElement('div')

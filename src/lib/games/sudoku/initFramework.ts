@@ -329,7 +329,14 @@ function setupButtonHandlers(
     const mediumBtn = document.getElementById('medium-btn')
     const hardBtn = document.getElementById('hard-btn')
 
-    const startHandler = () => game.start()
+    const startHandler = () => {
+        // After a game over (or solved puzzle), BaseGame.start() only flips
+        // flags, so generate a fresh puzzle before starting a new run.
+        if (game.getState().isGameOver) {
+            game.newGame()
+        }
+        game.start()
+    }
 
     const endHandler = () => {
         void game.end()
