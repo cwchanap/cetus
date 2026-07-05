@@ -2,7 +2,11 @@
 import { ReflexGame, DEFAULT_REFLEX_CONFIG } from './ReflexGame'
 import { ReflexRenderer, createReflexRendererConfig } from './ReflexRenderer'
 import type { ReflexConfig, ReflexStats } from './frameworkTypes'
-import type { BaseGameCallbacks, BaseGameStats } from '@/lib/games/core/types'
+import type {
+    BaseGameCallbacks,
+    BaseGameStats,
+    ChallengeUpdates,
+} from '@/lib/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
@@ -126,6 +130,7 @@ export async function initReflexGameFramework(
     const onGameEnd = (event: unknown) => {
         const data = (event as { data: unknown }).data as {
             newAchievements?: AchievementNotification[]
+            challengeUpdates?: ChallengeUpdates
         }
         if (data?.newAchievements && data.newAchievements.length > 0) {
             if (
@@ -133,6 +138,14 @@ export async function initReflexGameFramework(
                 typeof window.showAchievementAward === 'function'
             ) {
                 window.showAchievementAward(data.newAchievements)
+            }
+        }
+        if (data?.challengeUpdates?.completedChallenges?.length) {
+            if (
+                typeof window !== 'undefined' &&
+                typeof window.showChallengeComplete === 'function'
+            ) {
+                window.showChallengeComplete(data.challengeUpdates)
             }
         }
     }

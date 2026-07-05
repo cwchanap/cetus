@@ -9,7 +9,11 @@ import {
 } from './BubbleShooterRenderer'
 import { drawBubbleOnCanvas, pixiColorToHex } from './utils'
 import type { BubbleShooterConfig, BubbleShooterStats } from './types'
-import type { BaseGameCallbacks, BaseGameStats } from '@/lib/games/core/types'
+import type {
+    BaseGameCallbacks,
+    BaseGameStats,
+    ChallengeUpdates,
+} from '@/lib/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
@@ -217,6 +221,7 @@ export async function initBubbleShooterGameFramework(
     const onGameEnd = (event: unknown) => {
         const data = (event as { data: unknown }).data as {
             newAchievements?: AchievementNotification[]
+            challengeUpdates?: ChallengeUpdates
         }
         if (data?.newAchievements && data.newAchievements.length > 0) {
             if (
@@ -224,6 +229,14 @@ export async function initBubbleShooterGameFramework(
                 typeof window.showAchievementAward === 'function'
             ) {
                 window.showAchievementAward(data.newAchievements)
+            }
+        }
+        if (data?.challengeUpdates?.completedChallenges?.length) {
+            if (
+                typeof window !== 'undefined' &&
+                typeof window.showChallengeComplete === 'function'
+            ) {
+                window.showChallengeComplete(data.challengeUpdates)
             }
         }
     }

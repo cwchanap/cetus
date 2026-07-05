@@ -174,6 +174,9 @@ export abstract class BaseGame<
             newAchievements: this.runGuard.isStale(runId)
                 ? undefined
                 : saveResult.newAchievements,
+            challengeUpdates: this.runGuard.isStale(runId)
+                ? undefined
+                : saveResult.challengeUpdates,
         })
 
         // Suppress end-of-run callbacks for discarded runs so stale score/stat

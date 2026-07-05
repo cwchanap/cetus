@@ -2,7 +2,11 @@
 import { EvaderGame, DEFAULT_EVADER_CONFIG } from './EvaderGame'
 import { EvaderRenderer, createEvaderRendererConfig } from './EvaderRenderer'
 import type { EvaderConfig, EvaderStats } from './frameworkTypes'
-import type { BaseGameCallbacks, BaseGameStats } from '@/lib/games/core/types'
+import type {
+    BaseGameCallbacks,
+    BaseGameStats,
+    ChallengeUpdates,
+} from '@/lib/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
@@ -140,6 +144,7 @@ export async function initEvaderGameFramework(
     const onGameEnd = (event: unknown) => {
         const data = (event as { data: unknown }).data as {
             newAchievements?: AchievementNotification[]
+            challengeUpdates?: ChallengeUpdates
         }
         if (data?.newAchievements && data.newAchievements.length > 0) {
             if (
@@ -147,6 +152,14 @@ export async function initEvaderGameFramework(
                 typeof window.showAchievementAward === 'function'
             ) {
                 window.showAchievementAward(data.newAchievements)
+            }
+        }
+        if (data?.challengeUpdates?.completedChallenges?.length) {
+            if (
+                typeof window !== 'undefined' &&
+                typeof window.showChallengeComplete === 'function'
+            ) {
+                window.showChallengeComplete(data.challengeUpdates)
             }
         }
     }

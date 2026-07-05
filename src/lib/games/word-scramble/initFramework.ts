@@ -7,7 +7,7 @@ import type {
     WordScrambleStats,
     WordScrambleCallbacks,
 } from './frameworkTypes'
-import type { BaseGameStats } from '@/lib/games/core/types'
+import type { BaseGameStats, ChallengeUpdates } from '@/lib/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
@@ -233,6 +233,7 @@ export async function initWordScrambleGameFramework(
     const onGameEnd = (event: unknown) => {
         const data = (event as { data: unknown }).data as {
             newAchievements?: AchievementNotification[]
+            challengeUpdates?: ChallengeUpdates
         }
         if (data?.newAchievements && data.newAchievements.length > 0) {
             if (
@@ -240,6 +241,14 @@ export async function initWordScrambleGameFramework(
                 typeof window.showAchievementAward === 'function'
             ) {
                 window.showAchievementAward(data.newAchievements)
+            }
+        }
+        if (data?.challengeUpdates?.completedChallenges?.length) {
+            if (
+                typeof window !== 'undefined' &&
+                typeof window.showChallengeComplete === 'function'
+            ) {
+                window.showChallengeComplete(data.challengeUpdates)
             }
         }
     }

@@ -1,7 +1,7 @@
 import { GameEventEmitter } from './EventEmitter'
 import { saveGameScore } from '@/lib/services/scoreService'
 import type { GameID } from '@/lib/games'
-import type { ScoringConfig } from './types'
+import type { ScoringConfig, ChallengeUpdates } from './types'
 
 export interface ScoreManagerConfig {
     gameId: GameID
@@ -123,7 +123,11 @@ export class ScoreManager extends GameEventEmitter {
     async saveFinalScore(
         gameData?: Record<string, unknown>,
         isStale?: () => boolean
-    ): Promise<{ success: boolean; newAchievements?: string[] }> {
+    ): Promise<{
+        success: boolean
+        newAchievements?: string[]
+        challengeUpdates?: ChallengeUpdates
+    }> {
         try {
             if (this.config.achievementIntegration) {
                 // Use the enhanced save method that checks achievements.
@@ -150,6 +154,7 @@ export class ScoreManager extends GameEventEmitter {
                     return {
                         success: true,
                         newAchievements: result.newAchievements,
+                        challengeUpdates: result.challengeUpdates,
                     }
                 } else {
                     return { success: false }
