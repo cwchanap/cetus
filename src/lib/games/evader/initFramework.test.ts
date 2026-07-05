@@ -417,4 +417,146 @@ describe('initEvaderGameFramework', () => {
             result!.cleanup()
         })
     })
+
+    describe('renderer error cleanup', () => {
+        it('removes a mounted canvas and cleans up the renderer when initialize fails', async () => {
+            const { Application } = await import('pixi.js')
+            const parent = document.createElement('div')
+            const canvas = document.createElement('canvas')
+            parent.appendChild(canvas)
+            vi.mocked(Application).mockImplementationOnce(() => {
+                return {
+                    init: vi.fn().mockRejectedValue(new Error('WebGL fail')),
+                    canvas,
+                    stage: { addChild: vi.fn() },
+                    destroy: vi.fn(),
+                } as unknown as InstanceType<typeof Application>
+            })
+            const res = await initEvaderGameFramework()
+            expect(res).toBeUndefined()
+            expect(canvas.parentNode).toBeNull()
+        })
+
+        it('swallows errors thrown during renderer cleanup after init failure', async () => {
+            const { Application } = await import('pixi.js')
+            const parent = document.createElement('div')
+            const canvas = document.createElement('canvas')
+            parent.appendChild(canvas)
+            vi.mocked(Application).mockImplementationOnce(() => {
+                return {
+                    init: vi.fn().mockRejectedValue(new Error('WebGL fail')),
+                    canvas,
+                    stage: { addChild: vi.fn() },
+                    destroy: vi.fn().mockImplementation(() => {
+                        throw new Error('cleanup boom')
+                    }),
+                } as unknown as InstanceType<typeof Application>
+            })
+            const consoleSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+            const res = await initEvaderGameFramework()
+            expect(res).toBeUndefined()
+            expect(consoleSpy).toHaveBeenCalled()
+            consoleSpy.mockRestore()
+        })
+    })
+
+    describe('render loop', () => {
+        it('drives physics updates and renders while the game is active', async () => {
+            const rafCallbacks: FrameRequestCallback[] = []
+            vi.stubGlobal(
+                'requestAnimationFrame',
+                (cb: FrameRequestCallback) => {
+                    rafCallbacks.push(cb)
+                    return rafCallbacks.length
+                }
+            )
+            const result = await initEvaderGameFramework()
+            result!.game.start()
+            const renderSpy = vi.spyOn(result!.renderer, 'render')
+            renderSpy.mockClear()
+            // Invoke the captured rAF callback once (one loop tick).
+            rafCallbacks[rafCallbacks.length - 1](0)
+            expect(renderSpy).toHaveBeenCalled()
+            result!.cleanup()
+        })
+
+        it('skips physics updates when the game is paused but still renders', async () => {
+            const rafCallbacks: FrameRequestCallback[] = []
+            vi.stubGlobal(
+                'requestAnimationFrame',
+                (cb: FrameRequestCallback) => {
+                    rafCallbacks.push(cb)
+                    return rafCallbacks.length
+                }
+            )
+            const result = await initEvaderGameFramework()
+            result!.game.start()
+            result!.game.pause()
+            const updateSpy = vi.spyOn(result!.game, 'update')
+            updateSpy.mockClear()
+            rafCallbacks[rafCallbacks.length - 1](0)
+            expect(updateSpy).not.toHaveBeenCalled()
+            result!.cleanup()
+        })
+    })
+
+    describe('button handlers', () => {
+        it('start button resets the game when starting after a game over', async () => {
+            const result = await initEvaderGameFramework()
+            result!.game.start()
+            await result!.game.end()
+            expect(result!.game.getState().isGameOver).toBe(true)
+            const resetSpy = vi.spyOn(result!.game, 'reset')
+            document
+                .getElementById('start-btn')!
+                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+            expect(resetSpy).toHaveBeenCalled()
+            result!.cleanup()
+        })
+
+        it('stop button ends the game', async () => {
+            const result = await initEvaderGameFramework()
+            result!.game.start()
+            const endSpy = vi.spyOn(result!.game, 'end')
+            document
+                .getElementById('stop-btn')!
+                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+            await Promise.resolve()
+            expect(endSpy).toHaveBeenCalled()
+            result!.cleanup()
+        })
+
+        it('play-again button hides the overlay and resets button visibility', async () => {
+            const result = await initEvaderGameFramework()
+            const overlay = document.getElementById('game-over-overlay')!
+            overlay.classList.remove('hidden')
+            document
+                .getElementById('play-again-btn')!
+                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+            expect(overlay.classList.contains('hidden')).toBe(true)
+            const startBtn = document.getElementById('start-btn')!
+            expect(startBtn.style.display).toBe('inline-flex')
+            result!.cleanup()
+        })
+    })
+
+    describe('beforeunload warning', () => {
+        it('calls preventDefault when a game is in progress', async () => {
+            const result = await initEvaderGameFramework()
+            result!.game.start()
+            const event = new Event('beforeunload', { cancelable: true })
+            const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
+            window.dispatchEvent(event)
+            expect(preventDefaultSpy).toHaveBeenCalled()
+            result!.cleanup()
+        })
+
+        it('does not call preventDefault when no game is in progress', async () => {
+            const result = await initEvaderGameFramework()
+            expect(result!.game.getState().isActive).toBe(false)
+            result!.cleanup()
+        })
+    })
 })

@@ -758,4 +758,261 @@ describe('initBubbleShooterGameFramework', () => {
             expect(onEnd).toHaveBeenCalledWith(100, expect.any(Object))
         })
     })
+
+    describe('renderer error cleanup paths', () => {
+        it('removes the canvas and cleans up the renderer when initialize fails with a mounted canvas', async () => {
+            const { BubbleShooterRenderer } = await import(
+                './BubbleShooterRenderer'
+            )
+            const parent = document.createElement('div')
+            const canvas = document.createElement('canvas')
+            parent.appendChild(canvas)
+            vi.mocked(BubbleShooterRenderer).mockImplementationOnce(
+                () =>
+                    ({
+                        initialize: vi
+                            .fn()
+                            .mockRejectedValue(new Error('PixiJS failed')),
+                        render: vi.fn(),
+                        cleanup: vi.fn(),
+                        getApp: vi.fn(() => ({ canvas })),
+                    }) as any
+            )
+            const res = await initBubbleShooterGameFramework()
+            expect(res).toBeUndefined()
+            expect(canvas.parentNode).toBeNull()
+        })
+
+        it('swallows errors thrown during renderer cleanup after init failure', async () => {
+            const { BubbleShooterRenderer } = await import(
+                './BubbleShooterRenderer'
+            )
+            const parent = document.createElement('div')
+            const canvas = document.createElement('canvas')
+            parent.appendChild(canvas)
+            vi.mocked(BubbleShooterRenderer).mockImplementationOnce(
+                () =>
+                    ({
+                        initialize: vi
+                            .fn()
+                            .mockRejectedValue(new Error('PixiJS failed')),
+                        render: vi.fn(),
+                        cleanup: vi.fn().mockImplementation(() => {
+                            throw new Error('cleanup boom')
+                        }),
+                        getApp: vi.fn(() => ({ canvas })),
+                    }) as any
+            )
+            const consoleSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+            const res = await initBubbleShooterGameFramework()
+            expect(res).toBeUndefined()
+            expect(consoleSpy).toHaveBeenCalled()
+            consoleSpy.mockRestore()
+        })
+    })
+
+    describe('bubble preview drawing', () => {
+        it('onStateChange draws the current and next bubble previews when colors are set', async () => {
+            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { drawBubbleOnCanvas } = await import('./utils')
+            result = await initBubbleShooterGameFramework()
+            const callbacksArg = vi.mocked(BubbleShooterGame).mock
+                .calls[0][1] as any
+            vi.mocked(drawBubbleOnCanvas).mockClear()
+            callbacksArg.onStateChange({
+                bubblesRemaining: 5,
+                currentBubble: { x: 300, y: 700, color: 0xff0000 },
+                nextBubble: { color: 0x00ff00 },
+            })
+            expect(drawBubbleOnCanvas).toHaveBeenCalledTimes(2)
+        })
+
+        it('onStateChange does not redraw previews when colors are unchanged', async () => {
+            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { drawBubbleOnCanvas } = await import('./utils')
+            result = await initBubbleShooterGameFramework()
+            const callbacksArg = vi.mocked(BubbleShooterGame).mock
+                .calls[0][1] as any
+            callbacksArg.onStateChange({
+                bubblesRemaining: 5,
+                currentBubble: { x: 300, y: 700, color: 0xff0000 },
+                nextBubble: { color: 0x00ff00 },
+            })
+            vi.mocked(drawBubbleOnCanvas).mockClear()
+            // Same colors as before → previews should NOT redraw.
+            callbacksArg.onStateChange({
+                bubblesRemaining: 4,
+                currentBubble: { x: 300, y: 700, color: 0xff0000 },
+                nextBubble: { color: 0x00ff00 },
+            })
+            expect(drawBubbleOnCanvas).not.toHaveBeenCalled()
+        })
+
+        it('onStateChange skips previews when colors are undefined', async () => {
+            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { drawBubbleOnCanvas } = await import('./utils')
+            result = await initBubbleShooterGameFramework()
+            const callbacksArg = vi.mocked(BubbleShooterGame).mock
+                .calls[0][1] as any
+            vi.mocked(drawBubbleOnCanvas).mockClear()
+            callbacksArg.onStateChange({
+                bubblesRemaining: 0,
+                currentBubble: null,
+                nextBubble: null,
+            })
+            expect(drawBubbleOnCanvas).not.toHaveBeenCalled()
+        })
+
+        it('onStateChange skips previews when the canvas context is unavailable', async () => {
+            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { drawBubbleOnCanvas } = await import('./utils')
+            // Make both preview canvases return null from getContext so the
+            // `!ctx` guard in drawCurrentBubblePreview / drawNextBubblePreview
+            // triggers even when a color is present.
+            const currentCanvas = document.getElementById(
+                'current-bubble'
+            ) as HTMLCanvasElement
+            const nextCanvas = document.getElementById(
+                'next-bubble'
+            ) as HTMLCanvasElement
+            Object.defineProperty(currentCanvas, 'getContext', {
+                value: vi.fn(() => null),
+                writable: true,
+            })
+            Object.defineProperty(nextCanvas, 'getContext', {
+                value: vi.fn(() => null),
+                writable: true,
+            })
+            result = await initBubbleShooterGameFramework()
+            const callbacksArg = vi.mocked(BubbleShooterGame).mock
+                .calls[0][1] as any
+            vi.mocked(drawBubbleOnCanvas).mockClear()
+            callbacksArg.onStateChange({
+                bubblesRemaining: 5,
+                currentBubble: { x: 300, y: 700, color: 0xff0000 },
+                nextBubble: { color: 0x00ff00 },
+            })
+            expect(drawBubbleOnCanvas).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('pause UI synchronization', () => {
+        it('syncPauseUI shows the pause overlay and updates button text when paused', async () => {
+            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            result = await initBubbleShooterGameFramework()
+            const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
+            // Persistently report paused so syncPauseUI takes the paused branch.
+            vi.mocked(gameMock.getState).mockReturnValue({
+                ...gameMock.getState(),
+                isPaused: true,
+            } as any)
+            document.getElementById('resume-btn')!.click()
+            const pauseBtn = document.getElementById('pause-btn')!
+            const pauseOverlay = document.getElementById('pause-overlay')!
+            expect(pauseBtn.textContent).toBe('Resume')
+            expect(pauseOverlay.classList.contains('hidden')).toBe(false)
+        })
+    })
+
+    describe('canvas controls edge cases', () => {
+        it('returns a no-op cleanup when the renderer has no canvas', async () => {
+            const { BubbleShooterRenderer } = await import(
+                './BubbleShooterRenderer'
+            )
+            vi.mocked(BubbleShooterRenderer).mockImplementationOnce(
+                () =>
+                    ({
+                        initialize: vi.fn().mockResolvedValue(undefined),
+                        render: vi.fn(),
+                        cleanup: vi.fn(),
+                        getApp: vi.fn(() => null),
+                    }) as any
+            )
+            const res = await initBubbleShooterGameFramework()
+            expect(res).toBeDefined()
+            // cleanup should not throw even though there is no canvas.
+            expect(() => res!.cleanup()).not.toThrow()
+            res!.cleanup()
+        })
+
+        it('mousemove ignores input when the game is not active', async () => {
+            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterRenderer } = await import(
+                './BubbleShooterRenderer'
+            )
+            result = await initBubbleShooterGameFramework()
+            const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
+            const rendererInstance = vi.mocked(BubbleShooterRenderer).mock
+                .results[0].value
+            const listeners = (
+                rendererInstance as {
+                    _canvasListeners: Record<
+                        string,
+                        ((...a: unknown[]) => void)[]
+                    >
+                }
+            )._canvasListeners
+            vi.mocked(gameMock.getState).mockReturnValue({
+                ...gameMock.getState(),
+                isActive: false,
+            } as any)
+            vi.mocked(gameMock.setAimAngle).mockClear()
+            listeners['mousemove']?.[0]?.(
+                new MouseEvent('mousemove', { clientX: 100, clientY: 100 })
+            )
+            expect(gameMock.setAimAngle).not.toHaveBeenCalled()
+        })
+
+        it('mousemove aims from the shooter when currentBubble is null', async () => {
+            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterRenderer } = await import(
+                './BubbleShooterRenderer'
+            )
+            result = await initBubbleShooterGameFramework()
+            const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
+            const rendererInstance = vi.mocked(BubbleShooterRenderer).mock
+                .results[0].value
+            const listeners = (
+                rendererInstance as {
+                    _canvasListeners: Record<
+                        string,
+                        ((...a: unknown[]) => void)[]
+                    >
+                }
+            )._canvasListeners
+            vi.mocked(gameMock.getState).mockReturnValue({
+                ...gameMock.getState(),
+                isActive: true,
+                isPaused: false,
+                projectile: null,
+                currentBubble: null,
+                shooter: { x: 300, y: 740 },
+            } as any)
+            vi.mocked(gameMock.setAimAngle).mockClear()
+            listeners['mousemove']?.[0]?.(
+                new MouseEvent('mousemove', { clientX: 100, clientY: 100 })
+            )
+            expect(gameMock.setAimAngle).toHaveBeenCalled()
+        })
+    })
+
+    describe('keyboard resume', () => {
+        it('p key resumes when paused', async () => {
+            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            result = await initBubbleShooterGameFramework()
+            const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
+            vi.mocked(gameMock.getState).mockReturnValue({
+                ...gameMock.getState(),
+                isActive: true,
+                isGameOver: false,
+                isPaused: true,
+            } as any)
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'p', bubbles: true })
+            )
+            expect(gameMock.resume).toHaveBeenCalled()
+        })
+    })
 })

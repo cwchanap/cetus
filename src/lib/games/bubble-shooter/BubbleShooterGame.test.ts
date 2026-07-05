@@ -608,4 +608,226 @@ describe('BubbleShooterGame', () => {
             expect(DEFAULT_BUBBLE_SHOOTER_CONFIG.rowAddInterval).toBe(5)
         })
     })
+
+    describe('lifecycle (start/pause/resume/end/reset)', () => {
+        let rafCallbacks: FrameRequestCallback[]
+
+        beforeEach(() => {
+            rafCallbacks = []
+            vi.stubGlobal(
+                'requestAnimationFrame',
+                (cb: FrameRequestCallback) => {
+                    rafCallbacks.push(cb)
+                    return rafCallbacks.length
+                }
+            )
+        })
+
+        it('start initializes the grid, loads bubbles, and starts the game loop', () => {
+            const onStateChange = vi.fn()
+            const game = makeGame()
+            ;(
+                game as unknown as { callbacks: { onStateChange?: unknown } }
+            ).callbacks.onStateChange = onStateChange
+            game.start()
+            const state = game.getState()
+            expect(state.isActive).toBe(true)
+            expect(state.gameStarted).toBe(true)
+            // initializeGrid built rows for initialRows + empty rows up to grid height
+            expect(state.grid.length).toBe(CONSTANTS.GRID_HEIGHT)
+            expect(state.currentBubble).not.toBeNull()
+            expect(state.nextBubble).not.toBeNull()
+            expect(state.needsRedraw).toBe(true)
+            expect(rafCallbacks.length).toBeGreaterThan(0)
+        })
+
+        it('pause stops the game loop and marks paused', () => {
+            const game = makeGame()
+            game.start()
+            game.pause()
+            expect(game.getState().isPaused).toBe(true)
+        })
+
+        it('resume restarts the game loop', () => {
+            const game = makeGame()
+            game.start()
+            game.pause()
+            const before = rafCallbacks.length
+            game.resume()
+            expect(game.getState().isPaused).toBe(false)
+            expect(rafCallbacks.length).toBeGreaterThan(before)
+        })
+
+        it('end stops the loop and marks game over', async () => {
+            const game = makeGame()
+            game.start()
+            await game.end()
+            expect(game.getState().isGameOver).toBe(true)
+            expect(game.getState().isActive).toBe(false)
+        })
+
+        it('reset rebuilds initial state and emits a state change', () => {
+            const onStateChange = vi.fn()
+            const game = makeGame()
+            ;(
+                game as unknown as { callbacks: { onStateChange?: unknown } }
+            ).callbacks.onStateChange = onStateChange
+            game.start()
+            onStateChange.mockClear()
+            game.reset()
+            const state = game.getState()
+            expect(state.isActive).toBe(false)
+            expect(state.isGameOver).toBe(false)
+            expect(state.grid).toEqual([])
+            expect(onStateChange).toHaveBeenCalled()
+        })
+
+        it('the game loop updates the projectile and emits state changes while active', () => {
+            const onStateChange = vi.fn()
+            const game = makeGame()
+            ;(
+                game as unknown as { callbacks: { onStateChange?: unknown } }
+            ).callbacks.onStateChange = onStateChange
+            game.start()
+            // Arm a projectile so updateProjectile does real work.
+            setState(game, {
+                projectile: { x: 100, y: 200, vx: 5, vy: -10, color: 0xff0000 },
+                grid: [],
+            })
+            onStateChange.mockClear()
+            // Invoke the captured rAF callback once (one loop tick).
+            rafCallbacks[rafCallbacks.length - 1](0)
+            expect(stateOf(game).projectile?.x).toBe(105)
+            expect(onStateChange).toHaveBeenCalled()
+        })
+
+        it('the game loop exits without updating when inactive', () => {
+            const game = makeGame()
+            game.start()
+            game.pause()
+            const projectileBefore = stateOf(game).projectile
+            // Capture the loop callback registered by start(), then run it while paused.
+            const loop = rafCallbacks[0]
+            loop(0)
+            expect(stateOf(game).projectile).toEqual(projectileBefore)
+        })
+
+        it('update and render are safe no-ops', () => {
+            const game = makeGame()
+            expect(() => game.update(16)).not.toThrow()
+            expect(() => game.render()).not.toThrow()
+        })
+
+        it('cleanup stops the game loop', () => {
+            const game = makeGame()
+            game.start()
+            expect(() => game.cleanup()).not.toThrow()
+        })
+
+        it('startGameLoop is a no-op when the loop is already running', () => {
+            const game = makeGame()
+            game.start()
+            const before = rafCallbacks.length
+            // Directly invoke the private startGameLoop while gameLoopId is set.
+            const internal = game as unknown as {
+                startGameLoop: () => void
+            }
+            internal.startGameLoop()
+            expect(rafCallbacks.length).toBe(before)
+        })
+    })
+
+    describe('public accessors', () => {
+        it('getConfig returns a copy of the config', () => {
+            const game = makeGame()
+            const cfg = game.getConfig()
+            expect(cfg.bubbleRadius).toBe(CONSTANTS.BUBBLE_RADIUS)
+            expect(cfg.gridWidth).toBe(CONSTANTS.GRID_WIDTH)
+            // Mutating the copy must not affect the game's config.
+            cfg.bubbleRadius = 999
+            expect(game.getConfig().bubbleRadius).toBe(CONSTANTS.BUBBLE_RADIUS)
+        })
+
+        it('markRendered clears the needsRedraw flag', () => {
+            const game = makeGame()
+            setState(game, { needsRedraw: true })
+            game.markRendered()
+            expect(game.getState().needsRedraw).toBe(false)
+        })
+    })
+
+    describe('defensive guards', () => {
+        it('attachBubble returns false when there is no projectile', () => {
+            const game = makeGame()
+            setState(game, { projectile: null })
+            expect(game.attachBubble()).toBe(false)
+        })
+
+        it('findAttachPosition returns null when there is no projectile', () => {
+            const game = makeGame()
+            const constants = game.getConstantsView()
+            const internal = game as unknown as {
+                findAttachPosition: (
+                    c: typeof constants,
+                    a?: unknown
+                ) => unknown
+            }
+            expect(internal.findAttachPosition(constants)).toBeNull()
+        })
+
+        it('findClosestPosition returns null when there is no projectile', () => {
+            const game = makeGame()
+            const constants = game.getConstantsView()
+            const internal = game as unknown as {
+                findClosestPosition: (
+                    c: typeof constants,
+                    candidates: unknown[]
+                ) => unknown
+            }
+            expect(internal.findClosestPosition(constants, [])).toBeNull()
+        })
+
+        it('checkMatches is a no-op when the start cell is empty', () => {
+            const game = makeGame()
+            setState(game, { grid: [[null, null]] })
+            const internal = game as unknown as {
+                checkMatches: (row: number, col: number) => void
+            }
+            expect(() => internal.checkMatches(0, 0)).not.toThrow()
+        })
+
+        it('checkBubbleCollision skips empty rows and null cells', () => {
+            const game = makeGame()
+            const bx = getBubbleX(0, 0, CONSTANTS)
+            const by = getBubbleY(0, 0, CONSTANTS)
+            // Row 0 has a real bubble; row 1 is undefined; row 2 has a null cell.
+            setState(game, {
+                projectile: {
+                    x: bx + 1,
+                    y: by + 1,
+                    vx: 0,
+                    vy: -5,
+                    color: 0xff0000,
+                },
+                grid: [[{ color: 0x00ff00, x: bx, y: by }]],
+            })
+            stateOf(game).grid[2] = [null]
+            expect(game.checkBubbleCollision()).toEqual({ row: 0, col: 0 })
+        })
+
+        it('addRowAtTop handles sparse grids (undefined source rows)', () => {
+            const game = makeGame()
+            const constants = game.getConstantsView()
+            // A sparse grid where most rows are undefined exercises the `: []`
+            // fallback branch in addRowAtTop.
+            setState(game, {
+                grid: [],
+                bubblesRemaining: 0,
+            })
+            const internal = game as unknown as {
+                addRowAtTop: (c: typeof constants) => void
+            }
+            expect(() => internal.addRowAtTop(constants)).not.toThrow()
+        })
+    })
 })
