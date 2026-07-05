@@ -5,7 +5,7 @@ import {
     createGame2048RendererConfig,
 } from './Game2048Renderer'
 import type { Game2048Config, Game2048Stats } from './frameworkTypes'
-import { GAME_CONSTANTS, type Direction } from './types'
+import { type Direction } from './types'
 import type { BaseGameCallbacks, BaseGameStats } from '@/lib/games/core/types'
 import {
     DOMElementNotFoundError,
@@ -190,7 +190,10 @@ export async function init2048GameFramework(
     // Set up controls
     const cleanupButtonHandlers = setupButtonHandlers(game, renderer)
     const cleanupKeyboardControls = setupKeyboardControls(handleMove)
-    const cleanupTouchControls = setupTouchControls(handleMove)
+    const cleanupTouchControls = setupTouchControls(
+        handleMove,
+        config.swipeThreshold
+    )
     const cleanupUnloadWarning = setupUnloadWarning(game)
 
     // Initial render
@@ -318,7 +321,7 @@ function setupButtonHandlers(
     const startHandler = () => game.start()
 
     const endHandler = () => {
-        void game.end()
+        game.end().catch(err => console.error('Game2048 end failed', err))
     }
 
     const resetHandler = () => {
@@ -380,7 +383,8 @@ function setupKeyboardControls(
 }
 
 function setupTouchControls(
-    handleMove: (direction: Direction) => void
+    handleMove: (direction: Direction) => void,
+    swipeThreshold: number
 ): () => void {
     const container = document.getElementById('game-2048-container')
     if (!container) {
@@ -412,10 +416,7 @@ function setupTouchControls(
         const absX = Math.abs(deltaX)
         const absY = Math.abs(deltaY)
 
-        if (
-            absX < GAME_CONSTANTS.SWIPE_THRESHOLD &&
-            absY < GAME_CONSTANTS.SWIPE_THRESHOLD
-        ) {
+        if (absX < swipeThreshold && absY < swipeThreshold) {
             return
         }
 

@@ -144,13 +144,17 @@ export class BubbleShooterGame extends BaseGame<
         const timerStatus = this.getTimerStatus()
         const shotsFired = this.state.shotsFired
         const bubblesPopped = this.state.bubblesPopped
+        // Cap at 100%: a single shot can pop multiple bubbles, so a raw
+        // bubblesPopped/shotsFired ratio would exceed 100%.
+        const rawAccuracy =
+            shotsFired > 0 ? (bubblesPopped / shotsFired) * 100 : 0
         return {
             finalScore: this.state.score,
             timeElapsed: Math.floor(timerStatus.elapsedTime || 0),
             gameCompleted: this.state.isGameOver,
             bubblesPopped,
             shotsFired,
-            accuracy: shotsFired > 0 ? (bubblesPopped / shotsFired) * 100 : 0,
+            accuracy: Math.min(rawAccuracy, 100),
             largestCombo: this.state.largestCombo,
         }
     }
@@ -424,7 +428,12 @@ export class BubbleShooterGame extends BaseGame<
             this.checkMatches(attachPos.row, attachPos.col)
 
             this.state.shotCount++
-            if (this.state.shotCount % this.config.rowAddInterval === 0) {
+            // Skip adding a new row when the board was just cleared by this
+            // shot (all-clear bonus awarded) so the board stays empty.
+            if (
+                this.state.bubblesRemaining > 0 &&
+                this.state.shotCount % this.config.rowAddInterval === 0
+            ) {
                 this.addNewRow(constants)
             }
         }
@@ -433,7 +442,9 @@ export class BubbleShooterGame extends BaseGame<
         this.state.needsRedraw = true
 
         if (this.checkGameOverCondition(constants)) {
-            void this.end()
+            this.end().catch(err =>
+                console.error('BubbleShooter end failed', err)
+            )
             return true
         }
         return false

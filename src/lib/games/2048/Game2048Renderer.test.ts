@@ -15,6 +15,7 @@ vi.mock('pixi.js', () => {
         pivot: makePosition(),
         scale: makeScale(),
         alpha: 1,
+        children: [] as unknown[],
     })
 
     const makeGraphics = () => {

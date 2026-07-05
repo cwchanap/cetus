@@ -69,8 +69,6 @@ export class MemoryMatrixRenderer extends DOMRenderer {
 
         if (card.isFlipped || card.isMatched) {
             cardDiv.textContent = card.shape
-            cardDiv.style.backgroundColor = card.color
-            cardDiv.style.borderColor = card.color
         } else {
             cardDiv.textContent = '?'
         }

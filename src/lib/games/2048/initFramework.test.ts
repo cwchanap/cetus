@@ -15,6 +15,7 @@ vi.mock('pixi.js', () => {
         pivot: makePosition(),
         scale: makeScale(),
         alpha: 1,
+        children: [] as unknown[],
     })
 
     const makeGraphics = () => {
@@ -226,6 +227,11 @@ describe('init2048GameFramework', () => {
         })
 
         it('does not move before the game starts', async () => {
+            // Clean up the beforeEach game so its keydown listener doesn't
+            // intercept the event dispatched against the fresh instance.
+            result.cleanup()
+            result = undefined
+
             const fresh = await init2048GameFramework()
             const moveSpy = vi
                 .spyOn(fresh!.game, 'move')
