@@ -2,7 +2,11 @@
 import { SudokuGame, DEFAULT_SUDOKU_CONFIG } from './SudokuGame'
 import { SudokuRenderer, createSudokuRendererConfig } from './SudokuRenderer'
 import type { SudokuConfig, SudokuStats } from './frameworkTypes'
-import type { BaseGameCallbacks, BaseGameStats } from '@/lib/games/core/types'
+import type {
+    BaseGameCallbacks,
+    BaseGameStats,
+    ChallengeUpdates,
+} from '@/lib/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
@@ -110,6 +114,7 @@ export async function initSudokuGameFramework(
     const onGameEnd = (event: unknown) => {
         const data = (event as { data: unknown }).data as {
             newAchievements?: AchievementNotification[]
+            challengeUpdates?: ChallengeUpdates
         }
         if (data?.newAchievements && data.newAchievements.length > 0) {
             if (
@@ -117,6 +122,14 @@ export async function initSudokuGameFramework(
                 typeof window.showAchievementAward === 'function'
             ) {
                 window.showAchievementAward(data.newAchievements)
+            }
+        }
+        if (data?.challengeUpdates?.completedChallenges?.length) {
+            if (
+                typeof window !== 'undefined' &&
+                typeof window.showChallengeComplete === 'function'
+            ) {
+                window.showChallengeComplete(data.challengeUpdates)
             }
         }
     }

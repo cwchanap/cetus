@@ -1,6 +1,11 @@
 import type { BaseGame } from './BaseGame'
 import type { BaseRenderer } from './BaseRenderer'
-import type { BaseGameCallbacks, BaseGameConfig, ScoringConfig } from './types'
+import type {
+    BaseGameCallbacks,
+    BaseGameConfig,
+    ChallengeUpdates,
+    ScoringConfig,
+} from './types'
 import type { GameID } from '@/lib/games'
 
 export interface GameInitializerConfig<
@@ -269,11 +274,19 @@ export class GameInitializer<
 
         // Listen for game end events to show achievement notifications
         this.game.on('end', event => {
-            const data = event.data as { newAchievements?: string[] }
+            const data = event.data as {
+                newAchievements?: string[]
+                challengeUpdates?: ChallengeUpdates
+            }
             if (data?.newAchievements && data.newAchievements.length > 0) {
                 // Show achievement notifications using global function
                 if (typeof window.showAchievementAward === 'function') {
                     window.showAchievementAward(data.newAchievements)
+                }
+            }
+            if (data?.challengeUpdates?.completedChallenges?.length) {
+                if (typeof window.showChallengeComplete === 'function') {
+                    window.showChallengeComplete(data.challengeUpdates)
                 }
             }
         })

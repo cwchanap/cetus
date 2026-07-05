@@ -2,7 +2,11 @@
 import { SnakeGame, DEFAULT_SNAKE_CONFIG } from './SnakeGame'
 import { SnakeRenderer, createSnakeRendererConfig } from './SnakeRenderer'
 import type { SnakeConfig, SnakeStats, Direction } from './types'
-import type { BaseGameCallbacks, BaseGameStats } from '@/lib/games/core/types'
+import type {
+    BaseGameCallbacks,
+    BaseGameStats,
+    ChallengeUpdates,
+} from '@/lib/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
@@ -131,6 +135,7 @@ export async function initSnakeGameFramework(
     const onGameEnd = (event: unknown) => {
         const data = (event as { data: unknown }).data as {
             newAchievements?: AchievementNotification[]
+            challengeUpdates?: ChallengeUpdates
         }
         if (data?.newAchievements && data.newAchievements.length > 0) {
             if (
@@ -138,6 +143,14 @@ export async function initSnakeGameFramework(
                 typeof window.showAchievementAward === 'function'
             ) {
                 window.showAchievementAward(data.newAchievements)
+            }
+        }
+        if (data?.challengeUpdates?.completedChallenges?.length) {
+            if (
+                typeof window !== 'undefined' &&
+                typeof window.showChallengeComplete === 'function'
+            ) {
+                window.showChallengeComplete(data.challengeUpdates)
             }
         }
     }

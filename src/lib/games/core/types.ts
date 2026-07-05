@@ -39,6 +39,19 @@ export interface BaseGameStats {
     gameCompleted: boolean
 }
 
+export interface ChallengeUpdates {
+    completedChallenges: Array<{
+        id: string
+        name: string
+        description: string
+        icon: string
+        xpReward: number
+    }>
+    xpEarned: number
+    levelUp: boolean
+    newLevel?: number
+}
+
 // Event system types
 export type GameEventType =
     | 'start'

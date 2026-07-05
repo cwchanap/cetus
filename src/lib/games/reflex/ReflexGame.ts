@@ -162,6 +162,7 @@ export class ReflexGame extends BaseGame<
                     ? (this.state.correctClicks / this.state.totalClicks) * 100
                     : 0,
             totalClicks: this.state.totalClicks,
+            gameHistory: [...this.state.gameHistory],
         }
     }
 
