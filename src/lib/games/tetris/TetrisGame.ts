@@ -118,8 +118,6 @@ export class TetrisGame extends BaseGame<
     TetrisConfig,
     TetrisStats
 > {
-    private gameLoopId: number | null = null
-
     constructor(
         config: Partial<TetrisConfig> = {},
         callbacks: BaseGameCallbacks = {},
@@ -174,33 +172,48 @@ export class TetrisGame extends BaseGame<
     }
 
     protected onGameStart(): void {
-        // Spawn the first piece and begin the drop loop
+        // Spawn the first piece; the framework render loop drives update().
         this.state.dropTime = Date.now()
         this.spawnPiece()
-        this.startGameLoop()
     }
 
     protected onGamePause(): void {
-        this.stopGameLoop()
+        // No internal loop to stop — the framework render loop gates update().
     }
 
     protected onGameResume(): void {
         // Reset timing to avoid a sudden drop on resume
         this.state.dropTime = Date.now()
-        this.startGameLoop()
     }
 
     protected onGameEnd(_finalScore: number, _finalStats: TetrisStats): void {
-        this.stopGameLoop()
+        // No internal loop to stop — the framework render loop gates update().
     }
 
     protected onGameReset(): void {
-        this.stopGameLoop()
         this.emitStateChange()
     }
 
     update(_deltaTime: number): void {
-        // Game logic is driven by the internal game loop
+        if (
+            !this.state.isActive ||
+            this.state.isPaused ||
+            this.state.isGameOver
+        ) {
+            return
+        }
+
+        // Drop the active piece at the configured interval
+        const now = Date.now()
+        if (now - this.state.dropTime > this.state.dropInterval) {
+            this.movePiece(0, 1)
+            this.state.dropTime = now
+        }
+
+        // Only emit state changes when something actually changed this frame.
+        if (this.state.needsRedraw) {
+            this.emitStateChange()
+        }
     }
 
     render(): void {
@@ -208,7 +221,7 @@ export class TetrisGame extends BaseGame<
     }
 
     cleanup(): void {
-        this.stopGameLoop()
+        // No internal loop to stop — the framework render loop owns the RAF.
     }
 
     getGameStats(): TetrisStats {
@@ -479,47 +492,6 @@ export class TetrisGame extends BaseGame<
 
     private computeDropInterval(level: number): number {
         return Math.max(50, this.config.baseDropInterval - (level - 1) * 50)
-    }
-
-    private startGameLoop(): void {
-        if (this.gameLoopId !== null) {
-            return
-        }
-
-        const loop = () => {
-            if (
-                !this.state.isActive ||
-                this.state.isPaused ||
-                this.state.isGameOver
-            ) {
-                this.gameLoopId = null
-                return
-            }
-
-            this.gameUpdate()
-            this.gameLoopId = requestAnimationFrame(loop)
-        }
-
-        this.gameLoopId = requestAnimationFrame(loop)
-    }
-
-    private stopGameLoop(): void {
-        if (this.gameLoopId !== null) {
-            cancelAnimationFrame(this.gameLoopId)
-            this.gameLoopId = null
-        }
-    }
-
-    private gameUpdate(): void {
-        const now = Date.now()
-
-        // Drop the active piece at the configured interval
-        if (now - this.state.dropTime > this.state.dropInterval) {
-            this.movePiece(0, 1)
-            this.state.dropTime = now
-        }
-
-        this.emitStateChange()
     }
 
     private emitStateChange(): void {

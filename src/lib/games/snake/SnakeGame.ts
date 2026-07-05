@@ -42,8 +42,6 @@ export const DEFAULT_SNAKE_CONFIG: SnakeConfig = {
 }
 
 export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
-    private gameLoopId: number | null = null
-
     constructor(
         config: Partial<SnakeConfig> = {},
         callbacks: BaseGameCallbacks = {},
@@ -108,15 +106,12 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
     }
 
     protected onGameStart(): void {
-        // Spawn initial food
+        // Spawn initial food; the framework render loop drives update().
         this.spawnFood()
-
-        // Start game loop
-        this.startGameLoop()
     }
 
     protected onGamePause(): void {
-        this.stopGameLoop()
+        // No internal loop to stop — the framework render loop gates update().
     }
 
     protected onGameResume(): void {
@@ -124,20 +119,49 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
         const now = Date.now()
         this.state.lastMoveTime = now
         this.state.lastFoodSpawnTime = now
-        this.startGameLoop()
     }
 
     protected onGameEnd(_finalScore: number, _finalStats: SnakeStats): void {
-        this.stopGameLoop()
+        // No internal loop to stop — the framework render loop gates update().
     }
 
     protected onGameReset(): void {
-        this.stopGameLoop()
         this.emitStateChange()
     }
 
     update(_deltaTime: number): void {
-        // Game logic is driven by the game loop
+        if (
+            !this.state.isActive ||
+            this.state.isPaused ||
+            this.state.isGameOver
+        ) {
+            return
+        }
+
+        const now = Date.now()
+
+        // Move snake at interval
+        if (now - this.state.lastMoveTime > this.config.moveInterval) {
+            const moveSuccessful = this.moveSnake()
+            if (!moveSuccessful) {
+                this.end().catch(err => console.error('Snake end failed', err))
+                return
+            }
+            this.state.lastMoveTime = now
+        }
+
+        // Spawn food if needed
+        if (
+            !this.state.food &&
+            now - this.state.lastFoodSpawnTime > this.config.foodSpawnInterval
+        ) {
+            this.spawnFood()
+        }
+
+        // Only emit state changes when something actually changed this frame.
+        if (this.state.needsRedraw) {
+            this.emitStateChange()
+        }
     }
 
     render(): void {
@@ -145,7 +169,7 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
     }
 
     cleanup(): void {
-        this.stopGameLoop()
+        // No internal loop to stop — the framework render loop owns the RAF.
     }
 
     getGameStats(): SnakeStats {
@@ -205,59 +229,6 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
     }
 
     // --- Private game logic methods ---
-
-    private startGameLoop(): void {
-        if (this.gameLoopId !== null) {
-            return
-        }
-
-        const loop = () => {
-            if (
-                !this.state.isActive ||
-                this.state.isPaused ||
-                this.state.isGameOver
-            ) {
-                this.gameLoopId = null
-                return
-            }
-
-            this.gameUpdate()
-            this.gameLoopId = requestAnimationFrame(loop)
-        }
-
-        this.gameLoopId = requestAnimationFrame(loop)
-    }
-
-    private stopGameLoop(): void {
-        if (this.gameLoopId !== null) {
-            cancelAnimationFrame(this.gameLoopId)
-            this.gameLoopId = null
-        }
-    }
-
-    private gameUpdate(): void {
-        const now = Date.now()
-
-        // Move snake at interval
-        if (now - this.state.lastMoveTime > this.config.moveInterval) {
-            const moveSuccessful = this.moveSnake()
-            if (!moveSuccessful) {
-                this.end().catch(err => console.error('Snake end failed', err))
-                return
-            }
-            this.state.lastMoveTime = now
-        }
-
-        // Spawn food if needed
-        if (
-            !this.state.food &&
-            now - this.state.lastFoodSpawnTime > this.config.foodSpawnInterval
-        ) {
-            this.spawnFood()
-        }
-
-        this.emitStateChange()
-    }
 
     private spawnFood(): void {
         const position = generateFoodPosition(this.state.snake, {

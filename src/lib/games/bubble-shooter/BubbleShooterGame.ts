@@ -48,8 +48,6 @@ export class BubbleShooterGame extends BaseGame<
     BubbleShooterConfig,
     BubbleShooterStats
 > {
-    private gameLoopId: number | null = null
-
     constructor(
         config: Partial<BubbleShooterConfig> = {},
         callbacks: BaseGameCallbacks = {},
@@ -105,31 +103,42 @@ export class BubbleShooterGame extends BaseGame<
         this.initializeGrid()
         this.generateBubble()
         this.generateNextBubble()
-        this.startGameLoop()
     }
 
     protected onGamePause(): void {
-        this.stopGameLoop()
+        // No internal loop to stop — the framework render loop gates update().
     }
 
     protected onGameResume(): void {
-        this.startGameLoop()
+        // No internal loop to restart — the framework render loop gates update().
     }
 
     protected onGameEnd(
         _finalScore: number,
         _finalStats: BubbleShooterStats
     ): void {
-        this.stopGameLoop()
+        // No internal loop to stop — the framework render loop gates update().
     }
 
     protected onGameReset(): void {
-        this.stopGameLoop()
         this.emitStateChange()
     }
 
     update(_deltaTime: number): void {
-        // Game logic is driven by the internal game loop
+        if (
+            !this.state.isActive ||
+            this.state.isPaused ||
+            this.state.isGameOver
+        ) {
+            return
+        }
+
+        this.updateProjectile()
+
+        // Only emit state changes when something actually changed this frame.
+        if (this.state.needsRedraw) {
+            this.emitStateChange()
+        }
     }
 
     render(): void {
@@ -137,7 +146,7 @@ export class BubbleShooterGame extends BaseGame<
     }
 
     cleanup(): void {
-        this.stopGameLoop()
+        // No internal loop to stop — the framework render loop owns the RAF.
     }
 
     getGameStats(): BubbleShooterStats {
@@ -653,40 +662,6 @@ export class BubbleShooterGame extends BaseGame<
     }
 
     // --- Game loop ---
-
-    private startGameLoop(): void {
-        if (this.gameLoopId !== null) {
-            return
-        }
-
-        const loop = () => {
-            if (
-                !this.state.isActive ||
-                this.state.isPaused ||
-                this.state.isGameOver
-            ) {
-                this.gameLoopId = null
-                return
-            }
-
-            this.gameUpdate()
-            this.gameLoopId = requestAnimationFrame(loop)
-        }
-
-        this.gameLoopId = requestAnimationFrame(loop)
-    }
-
-    private stopGameLoop(): void {
-        if (this.gameLoopId !== null) {
-            cancelAnimationFrame(this.gameLoopId)
-            this.gameLoopId = null
-        }
-    }
-
-    private gameUpdate(): void {
-        this.updateProjectile()
-        this.emitStateChange()
-    }
 
     private emitStateChange(): void {
         if (this.callbacks.onStateChange) {

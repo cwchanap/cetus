@@ -154,11 +154,20 @@ export async function initSnakeGameFramework(
 
     // Set up framework-level render loop (single rAF path)
     let renderLoopId: number | null = null
+    let lastFrame = 0
     const startRenderLoop = () => {
         if (renderLoopId !== null) {
             return
         }
         const renderLoop = () => {
+            const now = performance.now()
+            if (lastFrame === 0) {
+                lastFrame = now
+            }
+            const dt = now - lastFrame
+            lastFrame = now
+            // Drive game logic from the single rAF loop (no dual-RAF).
+            game.update(dt)
             const state = game.getState()
             if (state.needsRedraw) {
                 renderer.render(state)

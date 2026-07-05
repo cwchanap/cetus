@@ -38,6 +38,7 @@ vi.mock('./BubbleShooterGame', () => ({
         })),
         setAimAngle: vi.fn(),
         shoot: vi.fn(),
+        update: vi.fn(),
         markRendered: vi.fn(),
         getConfig: vi.fn(() => ({})),
         getConstantsView: vi.fn(() => ({})),
