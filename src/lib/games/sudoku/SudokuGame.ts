@@ -85,7 +85,10 @@ export class SudokuGame extends BaseGame<
     }
 
     protected onGameStart(): void {
-        this.recalculateScore()
+        // Legacy behavior: the difficulty bonus is only awarded once the
+        // player places a number (recalculateScore runs in placeNumber).
+        // Do NOT call recalculateScore here — that would grant the full
+        // difficulty bonus (+150/250/500) at game start.
         this.emitStateChange()
     }
 
@@ -218,7 +221,7 @@ export class SudokuGame extends BaseGame<
             this.state.isComplete = true
             this.state.needsRedraw = true
             this.emitStateChange()
-            void this.end()
+            this.end().catch(err => console.error('Sudoku end failed', err))
             return
         }
 

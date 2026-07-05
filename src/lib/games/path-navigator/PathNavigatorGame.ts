@@ -328,7 +328,9 @@ export class PathNavigatorGame extends BaseGame<
 
         // Check if player went out of bounds
         if (!collisionResult.isOnPath) {
-            void this.end()
+            this.end().catch(err =>
+                console.error('PathNavigator end failed', err)
+            )
         }
 
         // Check if goal reached
@@ -390,7 +392,9 @@ export class PathNavigatorGame extends BaseGame<
         // Check if all levels completed
         if (this.state.currentLevel >= GAME_LEVELS.length) {
             this.state.isGameWon = true
-            void this.end()
+            this.end().catch(err =>
+                console.error('PathNavigator end failed', err)
+            )
             return
         }
 

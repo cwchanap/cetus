@@ -22,6 +22,16 @@ function setBoard(game: Game2048, board: Board): void {
     state.tileIdCounter = 100 // avoid id collisions with spawned tiles
 }
 
+// move() spawns a random tile after sliding/merging. The spawn may land on
+// any empty cell, so assertions that a vacated cell is null are flaky.
+// Use this to assert a cell is either empty or holds a freshly spawned tile.
+function expectEmptyOrSpawned(cell: Tile | null): void {
+    if (cell !== null) {
+        expect([2, 4]).toContain(cell.value)
+        expect(cell.isNew).toBe(true)
+    }
+}
+
 describe('Game2048', () => {
     let game: Game2048
 
@@ -93,6 +103,9 @@ describe('Game2048', () => {
             fresh.destroy()
         })
 
+        // move() spawns a random tile after sliding. The spawn may land on the
+        // now-empty source cell, so we assert the destination holds the moved
+        // tile and the source is either empty or holds a freshly spawned tile.
         it('slides a tile to the left', () => {
             setBoard(game, createEmptyBoard())
             const board = game.getBoard()
@@ -101,7 +114,7 @@ describe('Game2048', () => {
             const result = game.move('left')
             expect(result.moved).toBe(true)
             expect(result.board[0][0]!.value).toBe(2)
-            expect(result.board[0][3]).toBeNull()
+            expectEmptyOrSpawned(result.board[0][3])
         })
 
         it('slides a tile to the right', () => {
@@ -112,7 +125,7 @@ describe('Game2048', () => {
             const result = game.move('right')
             expect(result.moved).toBe(true)
             expect(result.board[0][3]!.value).toBe(2)
-            expect(result.board[0][0]).toBeNull()
+            expectEmptyOrSpawned(result.board[0][0])
         })
 
         it('slides a tile up', () => {
@@ -123,7 +136,7 @@ describe('Game2048', () => {
             const result = game.move('up')
             expect(result.moved).toBe(true)
             expect(result.board[0][0]!.value).toBe(2)
-            expect(result.board[3][0]).toBeNull()
+            expectEmptyOrSpawned(result.board[3][0])
         })
 
         it('slides a tile down', () => {
@@ -134,7 +147,7 @@ describe('Game2048', () => {
             const result = game.move('down')
             expect(result.moved).toBe(true)
             expect(result.board[3][0]!.value).toBe(2)
-            expect(result.board[0][0]).toBeNull()
+            expectEmptyOrSpawned(result.board[0][0])
         })
 
         it('returns moved=false when no tile can move', () => {
@@ -179,7 +192,7 @@ describe('Game2048', () => {
             const result = game.move('left')
             expect(result.moved).toBe(true)
             expect(result.board[0][0]!.value).toBe(4)
-            expect(result.board[0][1]).toBeNull()
+            expectEmptyOrSpawned(result.board[0][1])
             expect(result.scoreGained).toBe(4)
             expect(result.mergeCount).toBe(1)
             expect(game.getState().score).toBe(4)
@@ -196,7 +209,7 @@ describe('Game2048', () => {
             const result = game.move('left')
             expect(result.board[0][0]!.value).toBe(4)
             expect(result.board[0][1]!.value).toBe(2)
-            expect(result.board[0][2]).toBeNull()
+            expectEmptyOrSpawned(result.board[0][2])
             expect(result.mergeCount).toBe(1)
         })
 
@@ -211,8 +224,8 @@ describe('Game2048', () => {
             const result = game.move('left')
             expect(result.board[0][0]!.value).toBe(4)
             expect(result.board[0][1]!.value).toBe(4)
-            expect(result.board[0][2]).toBeNull()
-            expect(result.board[0][3]).toBeNull()
+            expectEmptyOrSpawned(result.board[0][2])
+            expectEmptyOrSpawned(result.board[0][3])
             expect(result.scoreGained).toBe(8)
             expect(result.mergeCount).toBe(2)
             expect(game.getState().score).toBe(8)

@@ -333,7 +333,7 @@ export class TetrisGame extends BaseGame<
             )
         ) {
             this.state.needsRedraw = true
-            void this.end()
+            this.end().catch(err => console.error('Tetris end failed', err))
             return
         }
 

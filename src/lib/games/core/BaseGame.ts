@@ -235,7 +235,9 @@ export abstract class BaseGame<
      * Handle time up event
      */
     protected handleTimeUp(): void {
-        this.end()
+        this.end().catch(err =>
+            console.error('BaseGame handleTimeUp end failed', err)
+        )
     }
 
     /**
