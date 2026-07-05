@@ -553,4 +553,164 @@ describe('EvaderGame', () => {
             expect(DEFAULT_EVADER_CONFIG.pointsForBomb).toBe(-100)
         })
     })
+
+    describe('lifecycle hooks via public API', () => {
+        it('pause triggers onGamePause (stops spawn timer)', () => {
+            game.start()
+            vi.advanceTimersByTime(config.spawnInterval! * 1000)
+            expect(game.getState().objects).toHaveLength(1)
+
+            game.pause()
+            expect(game.getState().isPaused).toBe(true)
+
+            // No new objects spawn while paused
+            vi.advanceTimersByTime(config.spawnInterval! * 5 * 1000)
+            expect(game.getState().objects).toHaveLength(1)
+        })
+
+        it('resume triggers onGameResume (restarts spawn timer)', () => {
+            game.start()
+            vi.advanceTimersByTime(config.spawnInterval! * 1000)
+            const countBeforePause = game.getState().objects.length
+
+            game.pause()
+            game.resume()
+            expect(game.getState().isPaused).toBe(false)
+
+            // Spawning resumes after resume
+            vi.advanceTimersByTime(config.spawnInterval! * 1000)
+            expect(game.getState().objects.length).toBeGreaterThan(
+                countBeforePause
+            )
+        })
+
+        it('onGamePause and onGameResume are invoked via pause/resume', () => {
+            const onPause = vi.spyOn(
+                game as unknown as { onGamePause: () => void },
+                'onGamePause'
+            )
+            const onResume = vi.spyOn(
+                game as unknown as { onGameResume: () => void },
+                'onGameResume'
+            )
+
+            game.start()
+            game.pause()
+            expect(onPause).toHaveBeenCalledTimes(1)
+
+            game.resume()
+            expect(onResume).toHaveBeenCalledTimes(1)
+        })
+    })
+
+    describe('update guard branches', () => {
+        it('update is a no-op when game is not active', () => {
+            const timeBefore = game.getState().timeRemaining
+            const playerBefore = { ...game.getState().player }
+
+            game.update(0.5)
+
+            // Nothing changed
+            expect(game.getState().timeRemaining).toBe(timeBefore)
+            expect(game.getState().player).toEqual(playerBefore)
+        })
+
+        it('update is a no-op when game is paused', () => {
+            game.start()
+            const timeBefore = game.getState().timeRemaining
+            game.pause()
+
+            game.update(0.5)
+
+            expect(game.getState().timeRemaining).toBe(timeBefore)
+        })
+
+        it('update keeps non-colliding, on-screen objects (return true)', () => {
+            game.start()
+            const player = game.getState().player
+            // Place a coin far from the player and on-screen (not off-screen)
+            ;(
+                game as unknown as { state: { objects: GameObject[] } }
+            ).state.objects.push({
+                id: 'safe-coin',
+                type: 'coin',
+                x: 400,
+                y: player.y + 200, // far from player vertically
+                speed: 10, // slow so it stays on screen
+                spawnTime: Date.now(),
+            })
+
+            game.update(0.016)
+
+            const objects = game.getState().objects
+            expect(objects.some(o => o.id === 'safe-coin')).toBe(true)
+        })
+    })
+
+    describe('render', () => {
+        it('render does not throw (rendering handled by renderer)', () => {
+            expect(() => game.render()).not.toThrow()
+        })
+    })
+
+    describe('getConfig', () => {
+        it('returns a copy of the config', () => {
+            const cfg = game.getConfig()
+            expect(cfg.duration).toBe(config.duration)
+            expect(cfg.canvasWidth).toBe(config.canvasWidth)
+            expect(cfg.canvasHeight).toBe(config.canvasHeight)
+            // Mutating the returned copy does not affect the game
+            const original = game.getConfig()
+            cfg.canvasWidth = 9999
+            expect(game.getConfig().canvasWidth).toBe(original.canvasWidth)
+        })
+    })
+
+    describe('startSpawnTimer guard', () => {
+        it('startSpawnTimer is a no-op when timer already running', () => {
+            game.start()
+            const objectsBefore = game.getState().objects.length
+
+            // Call startSpawnTimer again while already running
+            ;(
+                game as unknown as { startSpawnTimer: () => void }
+            ).startSpawnTimer()
+
+            // Advancing time should only spawn from the single timer
+            vi.advanceTimersByTime(config.spawnInterval! * 1000)
+            expect(game.getState().objects.length).toBe(objectsBefore + 1)
+        })
+    })
+
+    describe('pressKey with non-movement key', () => {
+        it('ignores keys that are not movement keys', () => {
+            game.start()
+            const initialX = game.getState().player.x
+            const initialY = game.getState().player.y
+
+            game.pressKey('Space')
+            game.pressKey('x')
+            game.update(0.1)
+
+            // Player should not have moved
+            expect(game.getState().player.x).toBe(initialX)
+            expect(game.getState().player.y).toBe(initialY)
+        })
+    })
+
+    describe('pressedKeys getter', () => {
+        it('returns normalized direction set from held keys', () => {
+            game.start()
+            expect(game.pressedKeys.size).toBe(0)
+
+            game.pressKey('ArrowUp')
+            game.pressKey('d')
+            expect(game.pressedKeys.has('up')).toBe(true)
+            expect(game.pressedKeys.has('right')).toBe(true)
+
+            game.releaseKey('ArrowUp')
+            game.releaseKey('d')
+            expect(game.pressedKeys.size).toBe(0)
+        })
+    })
 })

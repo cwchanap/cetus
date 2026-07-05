@@ -357,4 +357,86 @@ describe('EvaderRenderer', () => {
             renderer.cleanup()
         })
     })
+
+    describe('guard branches', () => {
+        it('throws when app is not available after setup', async () => {
+            const config = makeConfig()
+            const rendererConfig = createEvaderRendererConfig(
+                config,
+                '#game-canvas-container'
+            )
+            const renderer = new EvaderRenderer(rendererConfig)
+            vi.spyOn(
+                renderer as unknown as { getApp: () => unknown },
+                'getApp'
+            ).mockReturnValue(null)
+
+            await expect(renderer.initialize()).rejects.toThrow(
+                'EvaderRenderer: app not available after setup'
+            )
+
+            renderer.cleanup()
+        })
+
+        it('skips render when state is null (isEvaderState false)', async () => {
+            const config = makeConfig()
+            const rendererConfig = createEvaderRendererConfig(
+                config,
+                '#game-canvas-container'
+            )
+            const renderer = new EvaderRenderer(rendererConfig)
+            await renderer.initialize()
+
+            expect(() => renderer.render(null as unknown)).not.toThrow()
+            renderer.cleanup()
+        })
+
+        it('skips render when state is a primitive (isEvaderState false)', async () => {
+            const config = makeConfig()
+            const rendererConfig = createEvaderRendererConfig(
+                config,
+                '#game-canvas-container'
+            )
+            const renderer = new EvaderRenderer(rendererConfig)
+            await renderer.initialize()
+
+            expect(() => renderer.render('not-a-state')).not.toThrow()
+            renderer.cleanup()
+        })
+
+        it('drawBoard is a no-op when boardGraphic is null', () => {
+            const config = makeConfig()
+            const rendererConfig = createEvaderRendererConfig(
+                config,
+                '#game-canvas-container'
+            )
+            const renderer = new EvaderRenderer(rendererConfig)
+
+            // drawBoard before setup — boardGraphic is null
+            expect(() =>
+                (renderer as unknown as { drawBoard: () => void }).drawBoard()
+            ).not.toThrow()
+        })
+
+        it('renderPlayer and renderObjects are no-ops when graphics are null', () => {
+            const config = makeConfig()
+            const rendererConfig = createEvaderRendererConfig(
+                config,
+                '#game-canvas-container'
+            )
+            const renderer = new EvaderRenderer(rendererConfig)
+
+            // renderGame before setup — playerGraphic and objectContainer are null
+            const state = makeEvaderState({
+                objects: [makeObject('coin-1', 'coin')],
+            })
+            expect(() =>
+                (
+                    renderer as unknown as {
+                        renderGame: (state: unknown) => void
+                    }
+                ).renderGame(state)
+            ).not.toThrow()
+        })
+    })
 })

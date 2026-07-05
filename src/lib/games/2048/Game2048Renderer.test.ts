@@ -71,6 +71,7 @@ import type { Game2048State } from './frameworkTypes'
 import type { Animation } from './types'
 import { createEmptyBoard } from './utils'
 import { Application, Graphics } from 'pixi.js'
+import { PixiJSRenderer } from '@/lib/games/renderers/PixiJSRenderer'
 
 function makeConfig() {
     return createGame2048RendererConfig(
@@ -144,6 +145,20 @@ describe('Game2048Renderer', () => {
             const renderer = new Game2048Renderer(makeConfig())
             await expect(renderer.initialize()).rejects.toThrow()
         })
+
+        it('throws when the PixiJS app is not available after setup', async () => {
+            // Make the superclass setup a no-op so `app` is never created,
+            // forcing the post-setup guard to throw.
+            const setupSpy = vi
+                .spyOn(PixiJSRenderer.prototype, 'setup')
+                .mockResolvedValue(undefined)
+            const renderer = new Game2048Renderer(makeConfig())
+            await expect(renderer.initialize()).rejects.toThrow(
+                'app not available after setup'
+            )
+            setupSpy.mockRestore()
+            renderer.destroy()
+        })
     })
 
     describe('render', () => {
@@ -189,6 +204,72 @@ describe('Game2048Renderer', () => {
 
             renderer.render({ notABoard: true } as unknown as Game2048State)
             expect(tilesContainer.addChild).not.toHaveBeenCalled()
+
+            renderer.cleanup()
+        })
+
+        it('ignores null / primitive state', async () => {
+            const renderer = new Game2048Renderer(makeConfig())
+            await renderer.initialize()
+
+            const tilesContainer = (
+                renderer as unknown as {
+                    tilesContainer: { addChild: ReturnType<typeof vi.fn> }
+                }
+            ).tilesContainer
+            tilesContainer.addChild.mockClear()
+
+            renderer.render(null as unknown as Game2048State)
+            renderer.render(42 as unknown as Game2048State)
+            expect(tilesContainer.addChild).not.toHaveBeenCalled()
+
+            renderer.cleanup()
+        })
+
+        it('skips drawing the board when boardContainer is null', async () => {
+            const renderer = new Game2048Renderer(makeConfig())
+            await renderer.initialize()
+
+            const board = createEmptyBoard()
+            board[0][0] = {
+                id: 'tile-x',
+                value: 2,
+                position: { row: 0, col: 0 },
+            }
+
+            const internals = renderer as unknown as {
+                boardContainer: { removeChildren: ReturnType<typeof vi.fn> }
+                tilesContainer: { addChild: ReturnType<typeof vi.fn> }
+            }
+            internals.boardContainer.removeChildren.mockClear()
+            // Null out the board container to hit the drawBoard guard.
+            ;(renderer as unknown as { boardContainer: null }).boardContainer =
+                null
+
+            renderer.render(makeState(board))
+            // drawBoard early-returned, so removeChildren was not called
+            expect(internals.boardContainer).toBeNull()
+            // drawTiles still ran (tilesContainer is intact) and drew the tile
+            expect(internals.tilesContainer.addChild).toHaveBeenCalled()
+
+            renderer.cleanup()
+        })
+
+        it('skips drawing tiles when tilesContainer is null', async () => {
+            const renderer = new Game2048Renderer(makeConfig())
+            await renderer.initialize()
+
+            const internals = renderer as unknown as {
+                tilesContainer: { addChild: ReturnType<typeof vi.fn> }
+            }
+            internals.tilesContainer.addChild.mockClear()
+            // Null out the tiles container to hit the drawTiles guard.
+            ;(renderer as unknown as { tilesContainer: null }).tilesContainer =
+                null
+
+            expect(() => renderer.render(makeState())).not.toThrow()
+            // drawTiles early-returned; addChild never called
+            expect(internals.tilesContainer).toBeNull()
 
             renderer.cleanup()
         })
@@ -270,6 +351,130 @@ describe('Game2048Renderer', () => {
             await expect(
                 renderer.playAnimations([], makeState())
             ).resolves.toBeUndefined()
+            renderer.cleanup()
+        })
+
+        it('resolves move/merge/spawn animations when the sprite is missing', async () => {
+            const renderer = new Game2048Renderer(makeConfig())
+            await renderer.initialize()
+
+            // Empty board => no sprites populated in tileSprites, so every
+            // animation hits its "sprite not found" early-resolve branch.
+            const animations: Animation[] = [
+                {
+                    type: 'move',
+                    tileId: 'ghost-move',
+                    from: { row: 0, col: 0 },
+                    to: { row: 0, col: 1 },
+                },
+                {
+                    type: 'merge',
+                    tileId: 'ghost-merge',
+                    to: { row: 0, col: 1 },
+                    value: 4,
+                },
+                {
+                    type: 'spawn',
+                    tileId: 'ghost-spawn',
+                    to: { row: 0, col: 2 },
+                },
+            ]
+
+            await expect(
+                renderer.playAnimations(animations, makeState())
+            ).resolves.toBeUndefined()
+
+            renderer.cleanup()
+        })
+    })
+
+    describe('playAnimations - intermediate frames', () => {
+        // Drive animation frames synchronously, but with a controllable clock
+        // so the first frame of each animation reports progress < 1 (exercising
+        // the requestAnimationFrame continuation branches).
+        let nowValues: number[]
+        let nowIdx: number
+        beforeEach(() => {
+            vi.stubGlobal(
+                'requestAnimationFrame',
+                (cb: FrameRequestCallback) => {
+                    cb(0)
+                    return 1
+                }
+            )
+            nowValues = []
+            nowIdx = 0
+            vi.stubGlobal('performance', {
+                now: () => {
+                    const v =
+                        nowIdx < nowValues.length
+                            ? nowValues[nowIdx]
+                            : nowValues[nowValues.length - 1]
+                    nowIdx++
+                    return v
+                },
+            })
+        })
+
+        it('runs partial-progress frames for move/merge/spawn', async () => {
+            const renderer = new Game2048Renderer(makeConfig())
+            await renderer.initialize()
+
+            const board = createEmptyBoard()
+            board[0][0] = {
+                id: 't-move',
+                value: 2,
+                position: { row: 0, col: 0 },
+            }
+            board[0][1] = {
+                id: 't-merge',
+                value: 4,
+                position: { row: 0, col: 1 },
+            }
+            board[0][2] = {
+                id: 't-spawn',
+                value: 2,
+                position: { row: 0, col: 2 },
+            }
+
+            const animations: Animation[] = [
+                {
+                    type: 'move',
+                    tileId: 't-move',
+                    from: { row: 0, col: 3 },
+                    to: { row: 0, col: 0 },
+                },
+                {
+                    type: 'merge',
+                    tileId: 't-merge',
+                    to: { row: 0, col: 1 },
+                    value: 4,
+                },
+                {
+                    type: 'spawn',
+                    tileId: 't-spawn',
+                    to: { row: 0, col: 2 },
+                },
+            ]
+
+            // Clock sequence so each animation sees a partial frame (progress
+            // < 1) then a completing frame (progress >= 1). duration is 150ms.
+            nowValues = [
+                0,
+                50,
+                200, // move: start=0, frame1 elapsed=50, frame2 elapsed=200
+                200,
+                250,
+                400, // merge: start=200, frame1 elapsed=50, frame2 elapsed=200
+                400,
+                450,
+                600, // spawn: start=400, frame1 elapsed=50, frame2 elapsed=200
+            ]
+
+            await expect(
+                renderer.playAnimations(animations, makeState(board))
+            ).resolves.toBeUndefined()
+
             renderer.cleanup()
         })
     })

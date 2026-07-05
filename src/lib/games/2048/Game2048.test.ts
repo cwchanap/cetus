@@ -7,9 +7,9 @@ vi.mock('./utils', async importOriginal => {
     return { ...actual, canMove: vi.fn(actual.canMove) }
 })
 
-import { Game2048 } from './Game2048'
+import { Game2048, DEFAULT_GAME2048_CONFIG } from './Game2048'
 import { canMove, createEmptyBoard } from './utils'
-import type { Board, Tile } from './types'
+import type { Board, Tile, Animation } from './types'
 import type { Game2048State } from './frameworkTypes'
 
 function makeTile(id: string, value: number, row: number, col: number): Tile {
@@ -388,6 +388,88 @@ describe('Game2048', () => {
 
             const result = game.move('left')
             expect(result.moved).toBe(false)
+        })
+    })
+
+    describe('lifecycle no-op methods', () => {
+        it('update() is a no-op that does not throw', () => {
+            expect(() => game.update(16)).not.toThrow()
+        })
+
+        it('render() is a no-op that does not throw', () => {
+            expect(() => game.render()).not.toThrow()
+        })
+
+        it('cleanup() is a no-op that does not throw', () => {
+            expect(() => game.cleanup()).not.toThrow()
+        })
+    })
+
+    describe('getConfig', () => {
+        it('returns a copy of the merged config', () => {
+            const custom = new Game2048({ gameWidth: 999 })
+            const cfg = custom.getConfig()
+            expect(cfg.gameWidth).toBe(999)
+            expect(cfg.tileSize).toBe(DEFAULT_GAME2048_CONFIG.tileSize)
+            // Mutating the returned copy must not affect the game
+            cfg.gameWidth = 1
+            expect(custom.getConfig().gameWidth).toBe(999)
+            custom.destroy()
+        })
+    })
+
+    describe('markRendered', () => {
+        it('clears the needsRedraw flag', () => {
+            game.start()
+            expect(game.getState().needsRedraw).toBe(true)
+            game.markRendered()
+            expect(game.getState().needsRedraw).toBe(false)
+        })
+    })
+
+    describe('onStateChange callback', () => {
+        it('invokes the onStateChange callback when state changes', () => {
+            const onStateChange = vi.fn()
+            const g = new Game2048({}, { onStateChange })
+            g.start()
+            expect(onStateChange).toHaveBeenCalled()
+            const emitted = onStateChange.mock.calls[0][0]
+            expect(emitted.gameStarted).toBe(true)
+            g.destroy()
+        })
+    })
+
+    describe('spawnTile on a full board', () => {
+        it('returns the board unchanged with no animation when no empty cell exists', () => {
+            game.start()
+            // Build a completely full board (no empty cells)
+            const full = createEmptyBoard()
+            let id = 0
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 4; c++) {
+                    full[r][c] = makeTile(`f-${id++}`, 2, r, c)
+                }
+            }
+            setBoard(game, full)
+
+            const spawnTile = (
+                game as unknown as {
+                    spawnTile: (
+                        board: Board,
+                        counter: number
+                    ) => {
+                        board: Board
+                        animation: Animation | null
+                        nextCounter: number
+                    }
+                }
+            ).spawnTile.bind(game)
+
+            const result = spawnTile(game.getBoard(), 5)
+            expect(result.animation).toBeNull()
+            expect(result.nextCounter).toBe(5)
+            // Board is unchanged (still full)
+            expect(result.board.flat().every(t => t !== null)).toBe(true)
         })
     })
 })

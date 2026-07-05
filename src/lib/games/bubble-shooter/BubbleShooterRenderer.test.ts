@@ -269,6 +269,112 @@ describe('BubbleShooterRenderer', () => {
         })
     })
 
+    describe('setup error handling', () => {
+        it('throws when app is not available after setup', async () => {
+            const renderer = makeRenderer()
+            vi.spyOn(renderer, 'getApp').mockReturnValue(null)
+            await expect(renderer.initialize()).rejects.toThrow(
+                'app not available after setup'
+            )
+            renderer.cleanup()
+        })
+    })
+
+    describe('renderGame invalid state guards', () => {
+        it('returns early when state is null', async () => {
+            const renderer = makeRenderer()
+            await renderer.initialize()
+            expect(() => renderer.render(null)).not.toThrow()
+            const MockGfx = vi.mocked(Graphics)
+            expect(MockGfx).not.toHaveBeenCalled()
+            renderer.cleanup()
+        })
+
+        it('returns early when state is a non-object', async () => {
+            const renderer = makeRenderer()
+            await renderer.initialize()
+            expect(() => renderer.render('not-a-state')).not.toThrow()
+            const MockGfx = vi.mocked(Graphics)
+            expect(MockGfx).not.toHaveBeenCalled()
+            renderer.cleanup()
+        })
+
+        it('returns early when state is missing required fields', async () => {
+            const renderer = makeRenderer()
+            await renderer.initialize()
+            expect(() => renderer.render({})).not.toThrow()
+            const MockGfx = vi.mocked(Graphics)
+            expect(MockGfx).not.toHaveBeenCalled()
+            renderer.cleanup()
+        })
+
+        it('returns early when grid is not an array', async () => {
+            const renderer = makeRenderer()
+            await renderer.initialize()
+            expect(() =>
+                renderer.render({
+                    grid: 'nope',
+                    needsRedraw: true,
+                    projectile: null,
+                })
+            ).not.toThrow()
+            const MockGfx = vi.mocked(Graphics)
+            expect(MockGfx).not.toHaveBeenCalled()
+            renderer.cleanup()
+        })
+    })
+
+    describe('null container guards', () => {
+        it('skips drawing grid/current bubble/aim line when containers are null', async () => {
+            const renderer = makeRenderer()
+            vi.spyOn(renderer, 'createContainer').mockReturnValue(
+                null as unknown as Container
+            )
+            await renderer.initialize()
+            const grid: BubbleShooterState['grid'] = []
+            grid[0] = [{ color: 0xff0000, x: 20, y: 20 }]
+            expect(() =>
+                renderer.render(
+                    makeState({
+                        grid,
+                        currentBubble: { x: 300, y: 700, color: 0xff0000 },
+                        projectile: null,
+                        isActive: true,
+                        isPaused: false,
+                        isGameOver: false,
+                    })
+                )
+            ).not.toThrow()
+            const MockGfx = vi.mocked(Graphics)
+            expect(MockGfx).not.toHaveBeenCalled()
+            renderer.cleanup()
+        })
+
+        it('skips drawing projectile when uiContainer is null', async () => {
+            const renderer = makeRenderer()
+            vi.spyOn(renderer, 'createContainer').mockReturnValue(
+                null as unknown as Container
+            )
+            await renderer.initialize()
+            expect(() =>
+                renderer.render(
+                    makeState({
+                        projectile: {
+                            x: 150,
+                            y: 250,
+                            vx: 1,
+                            vy: -3,
+                            color: 0x00ff00,
+                        },
+                    })
+                )
+            ).not.toThrow()
+            const MockGfx = vi.mocked(Graphics)
+            expect(MockGfx).not.toHaveBeenCalled()
+            renderer.cleanup()
+        })
+    })
+
     describe('createBubbleShooterRendererConfig', () => {
         it('builds a renderer config from a game config', () => {
             const cfg = createBubbleShooterRendererConfig(

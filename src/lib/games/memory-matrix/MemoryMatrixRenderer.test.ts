@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { MemoryMatrixRenderer } from './MemoryMatrixRenderer'
+import {
+    MemoryMatrixRenderer,
+    createMemoryMatrixRendererConfig,
+} from './MemoryMatrixRenderer'
 import type { MemoryMatrixState } from './frameworkTypes'
 import type { Card } from './types'
 
@@ -296,6 +299,85 @@ describe('MemoryMatrixRenderer', () => {
 
             renderer.destroy()
             expect(boardEl.children.length).toBe(0)
+        })
+    })
+
+    describe('render guards', () => {
+        it('should not render when state is null', async () => {
+            const renderer = await createRenderer()
+            renderer.render(null as unknown)
+            expect(boardEl.children.length).toBe(0)
+            renderer.destroy()
+        })
+
+        it('should not render when state is a non-object primitive', async () => {
+            const renderer = await createRenderer()
+            renderer.render('not-a-state' as unknown)
+            expect(boardEl.children.length).toBe(0)
+            renderer.destroy()
+        })
+
+        it('should not render when state object is missing board/needsRedraw', async () => {
+            const renderer = await createRenderer()
+            renderer.render({ foo: 'bar' } as unknown)
+            expect(boardEl.children.length).toBe(0)
+            renderer.destroy()
+        })
+
+        it('should not render board when boardElement is null', async () => {
+            const renderer = await createRenderer()
+            ;(
+                renderer as unknown as { boardElement: HTMLElement | null }
+            ).boardElement = null
+            renderer.render(makeState())
+            expect(boardEl.children.length).toBe(0)
+            renderer.destroy()
+        })
+    })
+
+    describe('game-time element color tiers', () => {
+        it('should apply yellow class when timeRemaining is between 11 and 30', async () => {
+            const renderer = await createRenderer()
+            const el = document.createElement('div')
+            el.id = 'game-time'
+            document.body.appendChild(el)
+
+            renderer.render(makeState({ timeRemaining: 20 }))
+            expect(el.className).toContain('text-yellow-400')
+            renderer.destroy()
+        })
+
+        it('should apply white class when timeRemaining is above 30', async () => {
+            const renderer = await createRenderer()
+            const el = document.createElement('div')
+            el.id = 'game-time'
+            document.body.appendChild(el)
+
+            renderer.render(makeState({ timeRemaining: 45 }))
+            expect(el.className).toContain('text-white')
+            renderer.destroy()
+        })
+
+        it('should update time-remaining element with seconds', async () => {
+            const renderer = await createRenderer()
+            const el = document.createElement('div')
+            el.id = 'time-remaining'
+            document.body.appendChild(el)
+
+            renderer.render(makeState({ timeRemaining: 37 }))
+            expect(el.textContent).toBe('37s')
+            renderer.destroy()
+        })
+    })
+
+    describe('createMemoryMatrixRendererConfig', () => {
+        it('should return a dom renderer config for the memory board', () => {
+            const config = createMemoryMatrixRendererConfig()
+            expect(config).toEqual({
+                type: 'dom',
+                container: '#memory-board',
+                cleanOnRender: false,
+            })
         })
     })
 })
