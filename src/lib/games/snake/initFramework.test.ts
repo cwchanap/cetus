@@ -32,6 +32,7 @@ vi.mock('./SnakeGame', () => ({
             maxLength: 1,
         })),
         changeDirection: vi.fn(),
+        update: vi.fn(),
         markRendered: vi.fn(),
         getApp: vi.fn(() => null),
     })),

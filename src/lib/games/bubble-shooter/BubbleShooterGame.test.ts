@@ -610,20 +610,11 @@ describe('BubbleShooterGame', () => {
     })
 
     describe('lifecycle (start/pause/resume/end/reset)', () => {
-        let rafCallbacks: FrameRequestCallback[]
-
         beforeEach(() => {
-            rafCallbacks = []
-            vi.stubGlobal(
-                'requestAnimationFrame',
-                (cb: FrameRequestCallback) => {
-                    rafCallbacks.push(cb)
-                    return rafCallbacks.length
-                }
-            )
+            // rAF stubbed globally in the outer beforeEach; no game-internal loop.
         })
 
-        it('start initializes the grid, loads bubbles, and starts the game loop', () => {
+        it('start initializes the grid, loads bubbles, and starts the game', () => {
             const onStateChange = vi.fn()
             const game = makeGame()
             ;(
@@ -638,24 +629,21 @@ describe('BubbleShooterGame', () => {
             expect(state.currentBubble).not.toBeNull()
             expect(state.nextBubble).not.toBeNull()
             expect(state.needsRedraw).toBe(true)
-            expect(rafCallbacks.length).toBeGreaterThan(0)
         })
 
-        it('pause stops the game loop and marks paused', () => {
+        it('pause marks paused', () => {
             const game = makeGame()
             game.start()
             game.pause()
             expect(game.getState().isPaused).toBe(true)
         })
 
-        it('resume restarts the game loop', () => {
+        it('resume unpauses the game', () => {
             const game = makeGame()
             game.start()
             game.pause()
-            const before = rafCallbacks.length
             game.resume()
             expect(game.getState().isPaused).toBe(false)
-            expect(rafCallbacks.length).toBeGreaterThan(before)
         })
 
         it('end stops the loop and marks game over', async () => {
@@ -682,7 +670,7 @@ describe('BubbleShooterGame', () => {
             expect(onStateChange).toHaveBeenCalled()
         })
 
-        it('the game loop updates the projectile and emits state changes while active', () => {
+        it('update advances the projectile and emits state changes while active', () => {
             const onStateChange = vi.fn()
             const game = makeGame()
             ;(
@@ -695,45 +683,31 @@ describe('BubbleShooterGame', () => {
                 grid: [],
             })
             onStateChange.mockClear()
-            // Invoke the captured rAF callback once (one loop tick).
-            rafCallbacks[rafCallbacks.length - 1](0)
+            // Invoke one update tick (the framework render loop calls this).
+            game.update(16)
             expect(stateOf(game).projectile?.x).toBe(105)
             expect(onStateChange).toHaveBeenCalled()
         })
 
-        it('the game loop exits without updating when inactive', () => {
+        it('update does not advance the projectile when paused', () => {
             const game = makeGame()
             game.start()
             game.pause()
             const projectileBefore = stateOf(game).projectile
-            // Capture the loop callback registered by start(), then run it while paused.
-            const loop = rafCallbacks[0]
-            loop(0)
+            game.update(16)
             expect(stateOf(game).projectile).toEqual(projectileBefore)
         })
 
-        it('update and render are safe no-ops', () => {
+        it('update and render are safe no-ops when not active', () => {
             const game = makeGame()
             expect(() => game.update(16)).not.toThrow()
             expect(() => game.render()).not.toThrow()
         })
 
-        it('cleanup stops the game loop', () => {
+        it('cleanup does not throw', () => {
             const game = makeGame()
             game.start()
             expect(() => game.cleanup()).not.toThrow()
-        })
-
-        it('startGameLoop is a no-op when the loop is already running', () => {
-            const game = makeGame()
-            game.start()
-            const before = rafCallbacks.length
-            // Directly invoke the private startGameLoop while gameLoopId is set.
-            const internal = game as unknown as {
-                startGameLoop: () => void
-            }
-            internal.startGameLoop()
-            expect(rafCallbacks.length).toBe(before)
         })
     })
 

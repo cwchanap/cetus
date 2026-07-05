@@ -60,8 +60,8 @@ describe('SnakeGame', () => {
             )
         })
 
-        it('update and render should be no-ops', () => {
-            // These methods exist for interface compliance but do nothing
+        it('update and render are no-ops when not active', () => {
+            // update() guards on isActive; without start() it does nothing.
             const stateBefore = JSON.stringify(game.getState())
             game.update(16)
             game.render()
@@ -215,8 +215,10 @@ describe('SnakeGame', () => {
                 spawnTime: Date.now(),
             }
 
-            // Advance time to trigger a move
-            vi.advanceTimersByTime(200)
+            // Force the move interval to be overdue so update() moves the snake.
+            // @ts-expect-error - accessing private state for testing
+            game.state.lastMoveTime = Date.now() - 200
+            game.update(16)
 
             // Get updated stats - snake should have grown
             const updatedStats = game.getGameStats()
@@ -339,16 +341,18 @@ describe('SnakeGame', () => {
     })
 
     describe('onStateChange callback', () => {
-        it('should call onStateChange when emitStateChange fires', () => {
+        it('should call onStateChange when update moves the snake', () => {
             const onStateChange = vi.fn()
             const gameWithCb = new SnakeGame(undefined, { onStateChange })
             gameWithCb.start()
             // Clear mock since start() may have invoked it
             onStateChange.mockClear()
-            // changeDirection triggers moveSnake on update which calls emitStateChange
+            // changeDirection queues a new direction; update() applies it.
             gameWithCb.changeDirection('up')
-            // Advance time to trigger game loop and move
-            vi.advanceTimersByTime(200)
+            // Force the move interval to be overdue so update() moves the snake.
+            // @ts-expect-error - accessing protected state for testing
+            gameWithCb.state.lastMoveTime = Date.now() - 200
+            gameWithCb.update(16)
             expect(onStateChange).toHaveBeenCalled()
             gameWithCb.destroy()
         })
@@ -408,7 +412,7 @@ describe('SnakeGame', () => {
             // @ts-expect-error - accessing private state for testing
             game.state.lastMoveTime = Date.now() - 200
 
-            vi.advanceTimersByTime(20)
+            game.update(16)
             expect(game.getState().isGameOver).toBe(true)
         })
 
@@ -435,7 +439,7 @@ describe('SnakeGame', () => {
             // @ts-expect-error - accessing private state for testing
             game.state.lastMoveTime = Date.now() - 200
 
-            vi.advanceTimersByTime(20)
+            game.update(16)
             expect(game.getState().isGameOver).toBe(true)
         })
 
@@ -449,46 +453,34 @@ describe('SnakeGame', () => {
             // @ts-expect-error - accessing private state for testing
             game.state.lastMoveTime = Date.now() // prevent movement collision
 
-            vi.advanceTimersByTime(20)
+            game.update(16)
             // Food should have been spawned
             expect(game.getState().food).not.toBeNull()
         })
     })
 
-    describe('startGameLoop guard and loop early-exit', () => {
-        it('should not start a second game loop when one is already running', () => {
+    describe('update guards', () => {
+        it('should not move the snake when paused', () => {
             game.start()
-            const rafSpy = vi.spyOn(window, 'requestAnimationFrame')
-            rafSpy.mockClear()
-            // Call private startGameLoop while gameLoopId is already set
-            // @ts-expect-error - accessing private method for test coverage
-            game.startGameLoop()
-            // RAF should not be called again since guard returns early
-            expect(rafSpy).not.toHaveBeenCalled()
-            rafSpy.mockRestore()
+            game.pause()
+            // @ts-expect-error - accessing private state for testing
+            game.state.lastMoveTime = Date.now() - 200
+            const snakeBefore = JSON.stringify(game.getState().snake)
+            game.update(16)
+            expect(JSON.stringify(game.getState().snake)).toBe(snakeBefore)
         })
 
-        it('should set gameLoopId to null and stop loop when game is over', () => {
-            // Stub RAF to be driven by fake timers so the loop callback fires deterministically
-            window.requestAnimationFrame = (cb: FrameRequestCallback) => {
-                setTimeout(() => cb(0), 16)
-                return 0
-            }
-            try {
-                game.start()
-                // Set game over without going through normal end flow (keep RAF scheduled)
-                // @ts-expect-error - accessing private state for test coverage
-                game.state.isGameOver = true
-                // @ts-expect-error - accessing private state for test coverage
-                game.state.isActive = false
-                // Advance timer so RAF fires and hits the early-exit guard (lines 220-222)
-                vi.advanceTimersByTime(20)
-                // gameLoopId should be null after loop exits
-                // @ts-expect-error - accessing private state for test coverage
-                expect(game.gameLoopId).toBeNull()
-            } finally {
-                vi.unstubAllGlobals()
-            }
+        it('should not move the snake when game is over', () => {
+            game.start()
+            // @ts-expect-error - accessing private state for testing
+            game.state.isGameOver = true
+            // @ts-expect-error - accessing private state for testing
+            game.state.isActive = false
+            // @ts-expect-error - accessing private state for testing
+            game.state.lastMoveTime = Date.now() - 200
+            const snakeBefore = JSON.stringify(game.getState().snake)
+            game.update(16)
+            expect(JSON.stringify(game.getState().snake)).toBe(snakeBefore)
         })
     })
 })

@@ -654,8 +654,7 @@ describe('TetrisGame', () => {
             // Force the drop timer to be overdue
             // @ts-expect-error - accessing protected state for testing
             game.state.dropTime = Date.now() - (game.state.dropInterval + 100)
-            // @ts-expect-error - accessing protected method for testing
-            game.gameUpdate()
+            game.update(16)
             // @ts-expect-error - accessing protected state for testing
             expect(game.state.currentPiece.y).toBe(startY + 1)
         })
@@ -667,14 +666,13 @@ describe('TetrisGame', () => {
             const startY = piece.y
             // @ts-expect-error - accessing protected state for testing
             game.state.dropTime = Date.now() // just reset → not overdue
-            // @ts-expect-error - accessing protected method for testing
-            game.gameUpdate()
+            game.update(16)
             // @ts-expect-error - accessing protected state for testing
             expect(game.state.currentPiece.y).toBe(startY)
         })
     })
 
-    describe('update and render are no-ops', () => {
+    describe('update is a no-op when not active', () => {
         it('should not throw and should not mutate state', () => {
             const before = JSON.stringify(game.getState())
             game.update(16)
