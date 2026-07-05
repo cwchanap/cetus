@@ -231,7 +231,9 @@ export class MemoryMatrixGame extends BaseGame<
             )
             // Repaint the final matched pair before the game-over overlay
             this.emitStateChange()
-            void this.end()
+            this.end().catch(err =>
+                console.error('MemoryMatrix end failed', err)
+            )
         } else {
             this.emitStateChange()
         }

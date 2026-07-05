@@ -117,17 +117,26 @@ describe('SudokuGame', () => {
             expect(state.isActive).toBe(true)
         })
 
-        it('should set difficulty base score on start', () => {
+        it('should start with zero score (difficulty bonus awarded on first placement)', () => {
             game.start()
-            // Easy difficulty base = 150
-            expect(game.getState().score).toBe(150)
+            // Legacy behavior: the difficulty bonus is not granted at start;
+            // it is only awarded once placeNumber triggers recalculateScore.
+            expect(game.getState().score).toBe(0)
         })
 
-        it('should have higher base score for harder difficulty', () => {
+        it('should have higher base score for harder difficulty after first placement', () => {
             const easy = new SudokuGame({ difficulty: 'easy' })
             const hard = new SudokuGame({ difficulty: 'hard' })
             easy.start()
             hard.start()
+            // Place a number to trigger recalculateScore (legacy behavior:
+            // difficulty bonus is only awarded after the first placement)
+            const easyEmpty = findEmptyCell(easy.getState().grid.cells)
+            easy.selectCell(easyEmpty.row, easyEmpty.col)
+            easy.placeNumber(1)
+            const hardEmpty = findEmptyCell(hard.getState().grid.cells)
+            hard.selectCell(hardEmpty.row, hardEmpty.col)
+            hard.placeNumber(1)
             expect(hard.getState().score).toBeGreaterThan(easy.getState().score)
             easy.destroy()
             hard.destroy()

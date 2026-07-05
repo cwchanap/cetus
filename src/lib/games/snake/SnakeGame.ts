@@ -242,7 +242,7 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
         if (now - this.state.lastMoveTime > this.config.moveInterval) {
             const moveSuccessful = this.moveSnake()
             if (!moveSuccessful) {
-                this.end()
+                this.end().catch(err => console.error('Snake end failed', err))
                 return
             }
             this.state.lastMoveTime = now
