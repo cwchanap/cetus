@@ -389,11 +389,11 @@ describe('EvaderGame', () => {
             expect(state.player.y).toBe(config.canvasHeight! / 2)
         })
 
-        it('should not carry stuck keys into next game after stop with held keys', () => {
+        it('should not carry stuck keys into next game after stop with held keys', async () => {
             game.start()
             game.pressKey('ArrowRight')
             game.update(0.05)
-            game.end()
+            await game.end()
 
             // Second game: reset + start without releasing the key
             game.reset()

@@ -170,7 +170,9 @@ export async function initEvaderGameFramework(
         }
         const renderLoop = () => {
             const now = Date.now()
-            const deltaTime = (now - lastUpdateTime) / 1000
+            // Clamp deltaTime to avoid physics spikes after tab throttling
+            // or long pauses (e.g. background tabs rAF at ~1Hz).
+            const deltaTime = Math.min((now - lastUpdateTime) / 1000, 0.1)
             lastUpdateTime = now
 
             const state = game.getState()

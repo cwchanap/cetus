@@ -230,7 +230,7 @@ describe('MemoryMatrixRenderer', () => {
             renderer.destroy()
         })
 
-        it('should set backgroundColor for flipped card', async () => {
+        it('should apply flipped card classes (no inline style override)', async () => {
             const renderer = await createRenderer()
             renderer.render(
                 makeState({
@@ -239,7 +239,9 @@ describe('MemoryMatrixRenderer', () => {
             )
 
             const cardEl = boardEl.querySelector('div') as HTMLElement
-            expect(cardEl?.style.backgroundColor).toBe('rgb(255, 0, 0)')
+            // Styling is driven by Tailwind classes, not inline styles.
+            expect(cardEl?.style.backgroundColor).toBe('')
+            expect(cardEl?.className).toContain('bg-slate-600')
             renderer.destroy()
         })
     })

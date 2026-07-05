@@ -108,6 +108,11 @@ export class Game2048Renderer extends PixiJSRenderer {
             return
         }
 
+        // Destroy previously rendered children to prevent Pixi resource
+        // buildup during long sessions (drawBoard recreates Graphics every render).
+        for (const child of this.boardContainer.children) {
+            child.destroy()
+        }
         this.boardContainer.removeChildren()
 
         const { BOARD_SIZE } = GAME_CONSTANTS
@@ -174,6 +179,11 @@ export class Game2048Renderer extends PixiJSRenderer {
             return
         }
 
+        // Destroy previously rendered tile containers to prevent Pixi
+        // resource buildup (drawTiles recreates sprites every render).
+        for (const child of this.tilesContainer.children) {
+            child.destroy()
+        }
         this.tilesContainer.removeChildren()
         this.tileSprites.clear()
 

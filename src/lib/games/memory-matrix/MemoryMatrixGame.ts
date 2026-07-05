@@ -100,6 +100,12 @@ export class MemoryMatrixGame extends BaseGame<
     }
 
     protected onGameReset(): void {
+        // Cancel any pending match-check so the delayed cardsMatch callback
+        // cannot run against the freshly reset state (stale flippedCards).
+        if (this.matchTimeoutId !== null) {
+            clearTimeout(this.matchTimeoutId)
+            this.matchTimeoutId = null
+        }
         this.emitStateChange()
     }
 

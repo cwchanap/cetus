@@ -367,6 +367,40 @@ describe('MemoryMatrixGame', () => {
 
             expect(clearSpy).toHaveBeenCalled()
         })
+
+        it('should cancel pending match-check when reset() is called during flip delay', () => {
+            // Regression: matchTimeoutId surviving reset could let the
+            // delayed cardsMatch callback run against the new state.
+            game.start()
+            const board = game.getState().board
+            const shapeMap = buildShapeMap(board)
+            const positions = [...shapeMap.values()][0]
+
+            // Flip two matching cards but do NOT advance the flip delay.
+            game.flipCard(positions[0])
+            game.flipCard(positions[1])
+            expect(game.getState().isProcessing).toBe(true)
+
+            // Reset before the timeout fires.
+            game.reset()
+
+            const stateAfterReset = game.getState()
+            expect(stateAfterReset.isProcessing).toBe(false)
+            expect(stateAfterReset.flippedCards).toHaveLength(0)
+            expect(stateAfterReset.matchedPairs).toBe(0)
+            expect(stateAfterReset.score).toBe(0)
+
+            // Advance past FLIP_DELAY — the stale callback must NOT mutate
+            // the reset state.
+            vi.advanceTimersByTime(CONSTANTS.FLIP_DELAY)
+
+            const stateAfterDelay = game.getState()
+            expect(stateAfterDelay.isProcessing).toBe(false)
+            expect(stateAfterDelay.flippedCards).toHaveLength(0)
+            expect(stateAfterDelay.matchedPairs).toBe(0)
+            expect(stateAfterDelay.score).toBe(0)
+            expect(stateAfterDelay.totalAttempts).toBe(0)
+        })
     })
 
     describe('DEFAULT_MEMORY_MATRIX_CONFIG', () => {

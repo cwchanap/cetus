@@ -189,6 +189,9 @@ export class Game2048 extends BaseGame<
         if (spawn.animation) {
             result.animations.push(spawn.animation)
         }
+        // Keep the returned board in sync with the post-spawn state so
+        // callers (renderer/init) see the final board, not the pre-spawn one.
+        result.board = this.state.board
 
         // Update max tile
         this.state.maxTile = getMaxTile(this.state.board)
@@ -207,7 +210,7 @@ export class Game2048 extends BaseGame<
 
         // Check for game over (no moves remaining)
         if (!canMove(this.state.board)) {
-            void this.end()
+            this.end().catch(err => console.error('Game2048 end failed', err))
         }
 
         return result

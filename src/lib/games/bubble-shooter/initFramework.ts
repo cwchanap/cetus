@@ -343,7 +343,9 @@ function setupButtonHandlers(game: BubbleShooterGame): () => void {
     const resumeBtn = document.getElementById('resume-btn')
 
     const startHandler = () => game.start()
-    const endHandler = () => game.end()
+    const endHandler = () => {
+        game.end().catch(err => console.error('BubbleShooter end failed', err))
+    }
 
     const pauseHandler = () => {
         const state = game.getState()

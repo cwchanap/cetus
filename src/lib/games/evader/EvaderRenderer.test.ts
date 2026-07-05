@@ -159,7 +159,7 @@ describe('EvaderRenderer', () => {
             renderer.cleanup()
         })
 
-        it('throws when app not available after setup', async () => {
+        it('render is a no-op when app is unavailable after cleanup', async () => {
             const config = makeConfig()
             const rendererConfig = createEvaderRendererConfig(
                 config,
