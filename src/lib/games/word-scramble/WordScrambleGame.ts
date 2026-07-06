@@ -32,6 +32,11 @@ export class WordScrambleGame extends BaseGame<
     WordScrambleStats
 > {
     private challengeStartTime: number = 0
+    // Elapsed time captured before BaseGame.end() stops the timer, since
+    // GameTimer.getElapsedTime() returns 0 when the timer is not running.
+    // Without this, getGameStats() reports 0 for timeElapsed and
+    // averageTimePerWord for every ended Word Scramble run.
+    private capturedElapsedTime: number | null = null
 
     constructor(
         config: Partial<WordScrambleConfig> = {},
@@ -81,6 +86,7 @@ export class WordScrambleGame extends BaseGame<
         this.state.incorrectAnswers = 0
         this.state.currentAnswer = ''
         this.state.wordHistory = []
+        this.capturedElapsedTime = null
     }
 
     update(_deltaTime: number): void {
@@ -95,8 +101,22 @@ export class WordScrambleGame extends BaseGame<
         // No special resources to clean up
     }
 
+    /**
+     * End the game, capturing elapsed time before BaseGame.end() stops the
+     * timer (GameTimer.getElapsedTime() returns 0 when not running).
+     */
+    async end(): Promise<void> {
+        if (this.state.isActive) {
+            this.capturedElapsedTime = Math.floor(
+                this.getTimerStatus().elapsedTime || 0
+            )
+        }
+        await super.end()
+    }
+
     getGameStats(): WordScrambleStats {
-        const totalTime = this.getTimerStatus().elapsedTime || 0
+        const totalTime =
+            this.capturedElapsedTime ?? this.getTimerStatus().elapsedTime ?? 0
 
         const correctWords = this.state.wordHistory.filter(w => w.correct)
         const longestWord = correctWords.reduce(
