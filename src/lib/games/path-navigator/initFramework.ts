@@ -345,7 +345,9 @@ function setupKeyboardControls(
         event.preventDefault()
 
         game.updatePlayerPosition(newX, newY)
-        updateLevelDisplay(state.currentLevel)
+        // Re-read level after the update: reaching the goal can increment
+        // currentLevel inside updatePlayerPosition -> completeLevel.
+        updateLevelDisplay(game.getState().currentLevel)
     }
 
     document.addEventListener('keydown', keydownHandler)
