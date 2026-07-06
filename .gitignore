@@ -44,3 +44,6 @@ playwright-report/
 # Claude settings
 .claude/settings.local.json
 .turbo
+
+# git worktrees
+.worktrees/
