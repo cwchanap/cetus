@@ -241,3 +241,71 @@ test.describe('Snake', () => {
         await expect(page.locator('#score')).toHaveText('0')
     })
 })
+
+test.describe('Circuit Hacker', () => {
+    test('renders, starts on the chosen difficulty, and can be stopped', async ({
+        page,
+    }) => {
+        await page.goto('/circuit-hacker')
+        // Pre-start: container and status prompt are visible, but no canvas
+        // yet — unlike most games, Circuit Hacker sets PixiJS up inside
+        // start(), not at page load.
+        await expect(page.locator('#game-canvas-container')).toBeVisible()
+        await expect(page.locator('#game-status')).toBeVisible()
+        await expect(page.locator('#rotation-count')).toHaveText('0')
+        await expect(page.locator('#time-remaining')).toHaveText('--')
+
+        // Smaller grid renders faster and exercises the difficulty control.
+        await page.locator('#difficulty-select').selectOption('easy')
+
+        // Circuit Hacker uses #stop-btn as its end button.
+        await startGameWhenReady(page)
+        // Canvas is created during start(); wait for it to appear.
+        await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+        await expectStatusOverlayHidden(page)
+        await expect(page.locator('#stop-btn')).toBeVisible()
+
+        // Timer ticks off the placeholder once the loop is running.
+        await expect(page.locator('#time-remaining')).not.toHaveText('--', {
+            timeout: 5000,
+        })
+
+        // Manual stop fails the run with reason 'manual' and shows the overlay.
+        await page.locator('#stop-btn').click()
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/
+        )
+    })
+})
+
+test.describe('Satellite Sync', () => {
+    test('renders, starts, runs the timer, and can be ended', async ({
+        page,
+    }) => {
+        await page.goto('/satellite-sync')
+        // Pre-start: container and status prompt are visible, but no canvas
+        // yet — Satellite Sync sets PixiJS up inside start(), not at load.
+        await expect(page.locator('#game-canvas-container')).toBeVisible()
+        await expect(page.locator('#game-status')).toBeVisible()
+        await expect(page.locator('#score')).toHaveText('0')
+        await expect(page.locator('#time-remaining')).toHaveText('--')
+
+        await startGameWhenReady(page)
+        // Canvas is created during start(); wait for it to appear.
+        await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+        await expectStatusOverlayHidden(page)
+        await expect(page.locator('#end-btn')).toBeVisible()
+
+        // Timer ticks off the placeholder once the loop is running.
+        await expect(page.locator('#time-remaining')).not.toHaveText('--', {
+            timeout: 5000,
+        })
+
+        // Manual end returns to the pre-start state. Unlike most games,
+        // Satellite Sync only shows the game-over overlay on win/fail, not on
+        // a manual stop — so we assert the start button comes back instead.
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#start-btn')).toBeVisible()
+        await expect(page.locator('#end-btn')).toHaveCSS('display', 'none')
+    })
+})
