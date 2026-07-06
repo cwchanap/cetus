@@ -95,6 +95,11 @@ export async function init2048GameFramework(
     // we only show the win notification once (on the false -> true transition).
     let prevWon = false
 
+    // Animation queue state (declared before callbacks so the onStateChange
+    // closure can guard against rendering during move animations).
+    let isAnimating = false
+    let pendingDirection: Direction | null = null
+
     // Enhanced callbacks with UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
@@ -105,6 +110,12 @@ export async function init2048GameFramework(
                 showWinNotification()
             }
             prevWon = gameState.won
+            // Render for state changes not driven by a move (e.g. the
+            // initial tile spawn on start). Move-driven renders are handled
+            // by handleMove's animation path, so skip while animating.
+            if (!isAnimating) {
+                renderer.render(game.getState())
+            }
             customCallbacks?.onStateChange?.(state)
         },
         onScoreUpdate: score => {
@@ -114,7 +125,6 @@ export async function init2048GameFramework(
         onStart: () => {
             swapStartEndButtons(true)
             hideOverlay()
-            renderer.render(game.getState())
             customCallbacks?.onStart?.()
         },
         onEnd: (finalScore: number, stats: BaseGameStats) => {
@@ -126,10 +136,6 @@ export async function init2048GameFramework(
 
     // Create game instance
     const game = new Game2048(config, enhancedCallbacks)
-
-    // Animation queue state
-    let isAnimating = false
-    let pendingDirection: Direction | null = null
 
     // Handle achievement notifications
     const onGameEnd = (event: unknown) => {
