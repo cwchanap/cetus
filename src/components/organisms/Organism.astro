@@ -1,0 +1,278 @@
+---
+import type { HTMLAttributes } from 'astro/types'
+import type { OrganismIdentity } from '@/lib/organisms'
+
+export interface Props extends HTMLAttributes<'div'> {
+  identity: OrganismIdentity
+  class?: string
+}
+
+const { identity, class: className = '', ...props } = Astro.props
+const { shape, color, orb } = identity
+---
+
+<div
+  class:list={['cetus-org', `cetus-org--${shape}`, className]}
+  data-color={color}
+  data-orb={orb ? 'true' : undefined}
+  {...props}
+>
+  {shape === 'jelly' && <div class="cetus-org__bell" />}
+  {shape === 'orb' && <div class="cetus-org__orb" />}
+  {
+    shape === 'chain' && (
+      <div class="cetus-org__chain">
+        <>
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+        </>
+      </div>
+    )
+  }
+  {
+    shape === 'spiral' && (
+      <svg class="cetus-org__spiral" viewBox="0 0 60 60" aria-hidden="true">
+        <path
+          d="M30 30 m0 0 a12 12 0 1 1 12 12 a20 20 0 1 1 -20 -20 a28 28 0 1 1 28 28"
+          fill="none"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          pathLength={100}
+        />
+      </svg>
+    )
+  }
+  {
+    shape === 'frond' && (
+      <div class="cetus-org__frond">
+        <>
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+        </>
+      </div>
+    )
+  }
+  {
+    shape === 'cluster' && (
+      <div class="cetus-org__cluster">
+        <>
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+        </>
+      </div>
+    )
+  }
+  {
+    shape === 'lattice' && (
+      <div class="cetus-org__lattice">
+        <>
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+        </>
+      </div>
+    )
+  }
+  {orb && <span class="cetus-org__orbit" aria-hidden="true" />}
+</div>
+
+<style>
+  /* Color resolves from the data-color attribute -> CSS custom prop -> glow. */
+  .cetus-org {
+    --org: var(--cetus-accent);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cetus-org[data-color='teal'] {
+    --org: #1fe3c0;
+  }
+  .cetus-org[data-color='amber'] {
+    --org: #f2b33d;
+  }
+  .cetus-org[data-color='magenta'] {
+    --org: #ff3d8a;
+  }
+  .cetus-org[data-color='ice'] {
+    --org: #6fe3ff;
+  }
+  .cetus-org[data-color='green'] {
+    --org: #5dff9f;
+  }
+
+  .cetus-org__bell,
+  .cetus-org__orb {
+    width: 46px;
+    height: 46px;
+    border-radius: 50% 50% 46% 46%;
+    background: radial-gradient(
+      circle at 50% 35%,
+      var(--org),
+      color-mix(in srgb, var(--org) 25%, transparent) 60%,
+      transparent
+    );
+    box-shadow: 0 0 28px color-mix(in srgb, var(--org) 55%, transparent);
+  }
+  .cetus-org__bell {
+    border-radius: 50% 50% 46% 46%;
+  }
+
+  .cetus-org__chain,
+  .cetus-org__cluster,
+  .cetus-org__frond,
+  .cetus-org__lattice {
+    display: flex;
+    gap: 4px;
+  }
+  .cetus-org__chain {
+    flex-direction: column;
+    gap: 5px;
+  }
+  .cetus-org__chain i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--org);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--org) 70%, transparent);
+  }
+  .cetus-org__chain i:first-child {
+    width: 11px;
+    height: 11px;
+  }
+  .cetus-org__chain i:nth-child(2) {
+    width: 9px;
+    height: 9px;
+  }
+
+  .cetus-org__cluster {
+    width: 52px;
+    height: 52px;
+    position: relative;
+  }
+  .cetus-org__cluster i {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--org);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--org) 70%, transparent);
+  }
+  .cetus-org__cluster i:nth-child(1) {
+    top: 20%;
+    left: 40%;
+  }
+  .cetus-org__cluster i:nth-child(2) {
+    top: 40%;
+    left: 20%;
+  }
+  .cetus-org__cluster i:nth-child(3) {
+    top: 40%;
+    left: 60%;
+  }
+  .cetus-org__cluster i:nth-child(4) {
+    top: 60%;
+    left: 40%;
+  }
+  .cetus-org__cluster i:nth-child(5) {
+    top: 25%;
+    left: 65%;
+  }
+  .cetus-org__cluster i:nth-child(6) {
+    top: 65%;
+    left: 25%;
+  }
+  .cetus-org__cluster i:nth-child(7) {
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+  }
+
+  .cetus-org__lattice {
+    width: 52px;
+    height: 52px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .cetus-org__lattice i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--org);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--org) 70%, transparent);
+  }
+
+  .cetus-org__frond {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 3px;
+    height: 48px;
+  }
+  .cetus-org__frond i {
+    width: 2px;
+    background: linear-gradient(var(--org), transparent);
+    border-radius: 2px;
+  }
+  .cetus-org__frond i:nth-child(1) {
+    height: 60%;
+  }
+  .cetus-org__frond i:nth-child(2) {
+    height: 100%;
+  }
+  .cetus-org__frond i:nth-child(3) {
+    height: 80%;
+  }
+  .cetus-org__frond i:nth-child(4) {
+    height: 45%;
+  }
+  .cetus-org__frond i:nth-child(5) {
+    height: 65%;
+  }
+
+  .cetus-org__spiral {
+    width: 56px;
+    height: 56px;
+    stroke: var(--org);
+    filter: drop-shadow(
+      0 0 6px color-mix(in srgb, var(--org) 70%, transparent)
+    );
+  }
+
+  .cetus-org__orbit {
+    position: absolute;
+    inset: -22px;
+    border: 1px dashed color-mix(in srgb, var(--org) 40%, transparent);
+    border-radius: 50%;
+  }
+
+  /* Gentle ambient pulse; disabled under reduced-motion (global rule). */
+  .cetus-org {
+    animation: cetus-drift 8s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cetus-org {
+      animation: none !important;
+    }
+  }
+</style>
