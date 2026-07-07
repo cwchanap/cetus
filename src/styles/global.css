@@ -210,3 +210,74 @@
     transform: none !important;
   }
 }
+
+/* ---------- Abyssal shell retints (homepage only) ----------
+   The homepage reuses Navigation/Footer/Button via AppLayout. These rules
+   retint their hardcoded cyan/purple sci-fi look to the abyssal palette ONLY
+   under .theme-abyssal. Default pages are untouched (the scope class never
+   appears there). New homepage components (Organism, SpecimenCard) use cetus
+   tokens directly. Specificity: .theme-abyssal .foo (0,2,0) beats Tailwind's
+   .foo (0,1,0), so no !important is needed. */
+
+/* Retire the animated holographic wordmark + Orbitron -> static Fraunces ink. */
+.theme-abyssal .text-holographic {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--cetus-ink);
+  animation: none;
+}
+.theme-abyssal .font-orbitron {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 300;
+}
+
+/* Retint the shared gradient -> teal (covers nav logo + primary Button). */
+.theme-abyssal .bg-gradient-to-r {
+  background-image: linear-gradient(
+    to right,
+    var(--cetus-btn-from),
+    var(--cetus-btn-to)
+  );
+}
+
+/* Neon borders + glass surfaces -> abyssal hairline + dark card. */
+.theme-abyssal .border-neon {
+  border-color: color-mix(in srgb, var(--cetus-accent) 50%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--cetus-accent) 25%, transparent);
+}
+.theme-abyssal .bg-glass {
+  background: color-mix(in srgb, var(--cetus-surface) 70%, transparent);
+  border-color: var(--cetus-hairline);
+}
+.theme-abyssal .bg-glass-strong {
+  background: color-mix(in srgb, var(--cetus-surface) 90%, transparent);
+  border-color: var(--cetus-hairline);
+}
+
+/* Cyan glows -> teal (AppLayout's script adds .glow-cyan to .group on hover;
+   SpecimenCard is .group, so this makes specimen hover glow teal). */
+.theme-abyssal .glow-cyan,
+.theme-abyssal .hover-glow-cyan:hover {
+  box-shadow:
+    0 0 20px color-mix(in srgb, var(--cetus-accent) 30%, transparent),
+    0 0 40px color-mix(in srgb, var(--cetus-accent) 20%, transparent);
+}
+
+/* Navigation links -> ink-muted, hover teal.
+   Scoped to header > nav > div > a so the logo <a> and the Button's inner <a>
+   are not affected (they are not direct children of the links wrapper div). */
+.theme-abyssal header nav > div > a {
+  color: var(--cetus-ink-muted);
+}
+.theme-abyssal header nav > div > a:hover {
+  color: var(--cetus-accent);
+}
+
+/* Footer -> abyssal hairline + muted ink. */
+.theme-abyssal footer {
+  border-color: var(--cetus-hairline);
+}
+.theme-abyssal footer p {
+  color: var(--cetus-ink-muted);
+}
