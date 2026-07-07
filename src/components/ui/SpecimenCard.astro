@@ -1,12 +1,11 @@
 ---
-import { cn } from '@/lib/utils'
-import { getGameUrl } from '@/lib/games'
+import { getGameUrl, type Game } from '@/lib/games'
 import { DEPTH_LABELS } from '@/lib/organisms'
 import Organism from '@/components/organisms/Organism.astro'
 import type { HTMLAttributes } from 'astro/types'
 
 export interface Props extends HTMLAttributes<'a'> {
-  game: import('@/lib/games').Game
+  game: Game
   catalogNumber: number
   class?: string
 }

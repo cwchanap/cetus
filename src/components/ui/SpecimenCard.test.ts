@@ -9,7 +9,7 @@ const src = readFileSync(
 
 describe('SpecimenCard (Vessel)', () => {
     it('renders the whole card as a link to the game url', () => {
-        expect(src).toContain('import { getGameUrl }')
+        expect(src).toMatch(/import\s*\{[^}]*getGameUrl/)
         expect(src).toMatch(/href=\{getGameUrl\(game\.id\)\}/)
     })
 
