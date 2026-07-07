@@ -1,0 +1,169 @@
+---
+import { cn } from '@/lib/utils'
+import { getGameUrl } from '@/lib/games'
+import { DEPTH_LABELS } from '@/lib/organisms'
+import Organism from '@/components/organisms/Organism.astro'
+import type { HTMLAttributes } from 'astro/types'
+
+export interface Props extends HTMLAttributes<'a'> {
+  game: import('@/lib/games').Game
+  catalogNumber: number
+  class?: string
+}
+
+const { game, catalogNumber, class: className = '', ...props } = Astro.props
+
+const available = game.isActive
+const depth = game.depth ? DEPTH_LABELS[game.depth] : null
+const difficultyDots =
+  game.difficulty === 'easy' ? 1 : game.difficulty === 'medium' ? 2 : 3
+const n = String(catalogNumber).padStart(2, '0')
+---
+
+<a
+  href={getGameUrl(game.id)}
+  aria-disabled={available ? undefined : 'true'}
+  data-testid="specimen-card"
+  class:list={[
+    'cetus-specimen vessel group relative block rounded-2xl p-5 text-center',
+    !available && 'opacity-50 pointer-events-none',
+    className,
+  ]}
+  {...props}
+>
+  <div class="vessel__lid"></div>
+  <div class="vessel__neck"></div>
+  <div class="vessel__body">
+    {
+      available && game.organism ? (
+        <Organism identity={game.organism} />
+      ) : (
+        <span class="vessel__empty" aria-hidden="true" />
+      )
+    }
+  </div>
+
+  <div class="vessel__meta">
+    <div class="vessel__no">N°·{n}</div>
+    <div class="vessel__name">{game.name}</div>
+    {
+      depth && (
+        <div class="vessel__depth">
+          {depth.reading} · {depth.label.toUpperCase()}
+        </div>
+      )
+    }
+    <div
+      class="difficulty-dots"
+      role="img"
+      aria-label={`difficulty ${game.difficulty}`}
+    >
+      <span class:list={[{ on: difficultyDots >= 1 }]}></span>
+      <span class:list={[{ on: difficultyDots >= 2 }]}></span>
+      <span class:list={[{ on: difficultyDots >= 3 }]}></span>
+    </div>
+  </div>
+</a>
+
+<style>
+  .vessel {
+    text-decoration: none;
+    transition: transform 0.2s ease;
+  }
+  .vessel:hover {
+    transform: translateY(-3px);
+  }
+
+  .vessel__lid {
+    width: 50px;
+    height: 8px;
+    margin: 0 auto;
+    background: linear-gradient(#2a3340, #161c24);
+    border-radius: 3px 3px 1px 1px;
+  }
+  .vessel__neck {
+    width: 78px;
+    height: 10px;
+    margin: 0 auto;
+    border-left: 1px solid var(--cetus-hairline);
+    border-right: 1px solid var(--cetus-hairline);
+  }
+  .vessel__body {
+    width: 118px;
+    height: 138px;
+    margin: 0 auto;
+    border: 1px solid var(--cetus-hairline);
+    border-radius: 18px 18px 26px 26px;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cetus-accent) 6%, transparent),
+      transparent 60%
+    );
+    box-shadow: inset 0 0 30px
+      color-mix(in srgb, var(--cetus-accent) 8%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .vessel:hover .vessel__body {
+    box-shadow:
+      inset 0 0 34px color-mix(in srgb, var(--cetus-accent) 18%, transparent),
+      0 0 24px color-mix(in srgb, var(--cetus-accent) 25%, transparent);
+  }
+  .vessel__empty {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--cetus-hairline);
+  }
+
+  .vessel__meta {
+    margin-top: 0.85rem;
+    color: var(--cetus-ink);
+  }
+  .vessel__no {
+    font:
+      500 9px/1 'JetBrains Mono',
+      monospace;
+    letter-spacing: 0.2em;
+    color: var(--cetus-accent);
+    opacity: 0.7;
+  }
+  .vessel__name {
+    font:
+      400 22px/1.1 'Fraunces',
+      serif;
+    color: var(--cetus-ink);
+    margin: 7px 0 5px;
+  }
+  .vessel__depth {
+    font:
+      500 9px/1 'JetBrains Mono',
+      monospace;
+    letter-spacing: 0.16em;
+    color: var(--cetus-ink-muted);
+  }
+  .difficulty-dots {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    margin-top: 9px;
+  }
+  .difficulty-dots span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--cetus-ink) 20%, transparent);
+  }
+  .difficulty-dots span.on {
+    background: var(--cetus-accent);
+    box-shadow: 0 0 6px var(--cetus-accent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .vessel:hover {
+      transform: none;
+    }
+  }
+</style>
