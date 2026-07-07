@@ -4,11 +4,11 @@
   "version": "0.0.1",
   "packageManager": "bun@1.3.1",
   "scripts": {
-    "dev": "turbo run db:dev web:dev --parallel",
+    "dev": "turbo run db:dev web:dev --parallel --ui tui",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "db:dev": "turso dev --db-file ./db/db.sqlite",
+    "db:dev": "mkdir -p ./db && touch ./db/db.sqlite && turso dev --db-file ./db/db.sqlite",
     "web:dev": "astro dev --port 4325",
     "test": "vitest",
     "test:ui": "vitest --ui",
