@@ -47,3 +47,6 @@ playwright-report/
 
 # git worktrees
 .worktrees/
+
+# brainstorming companion mockups
+.superpowers/
