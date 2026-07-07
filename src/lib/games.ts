@@ -1,3 +1,5 @@
+import type { OrganismIdentity, DepthZone } from './organisms'
+
 // Game ID enum class
 export enum GameID {
     TETRIS = 'tetris',
@@ -27,6 +29,8 @@ export interface Game {
     difficulty: 'easy' | 'medium' | 'hard'
     tags: string[]
     isActive: boolean
+    organism?: OrganismIdentity
+    depth?: DepthZone
 }
 
 // Game definitions for all available games
@@ -198,6 +202,19 @@ export const GAMES: Game[] = [
         isActive: true,
     },
 ]
+
+// Re-export organism types for ergonomic imports. Runtime helpers/values are
+// intentionally NOT re-exported here: a runtime re-export would create a static
+// import dependency on ./organisms, and combined with organisms.ts importing
+// GAMES/GameID from ./games would re-introduce the circular-import hazard
+// documented in ./organisms.ts. Import runtime helpers directly from
+// ./organisms instead.
+export type {
+    OrganismIdentity,
+    OrganismShape,
+    OrganismColor,
+    DepthZone,
+} from './organisms'
 
 // Helper functions
 export function getGameById(

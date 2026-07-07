@@ -17,6 +17,7 @@ import {
     GAMES,
     GameID,
 } from './games'
+import { getDepth, getGamesByDepth, getFeaturedGames } from './organisms'
 
 describe('Games System', () => {
     describe('getAllGames', () => {
@@ -258,5 +259,28 @@ describe('getGameUrl route derivation', () => {
                 existsSync(indexRoute)
             expect(routeExists).toBe(true)
         }
+    })
+})
+
+describe('Game registry organism/depth fields', () => {
+    it('every game has organism + depth populated', () => {
+        for (const g of GAMES) {
+            expect(g.organism).toBeDefined()
+            expect(g.depth).toBeDefined()
+        }
+    })
+
+    it('depth helpers re-exported via games module are consistent', () => {
+        expect(
+            getGamesByDepth('abyssal')
+                .map(g => g.id)
+                .sort()
+        ).toEqual(
+            GAMES.filter(g => g.depth === 'abyssal')
+                .map(g => g.id)
+                .sort()
+        )
+        expect(getFeaturedGames()).toHaveLength(5)
+        expect(getDepth(GameID.MEMORY_MATRIX)).toBe('abyssal')
     })
 })
