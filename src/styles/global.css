@@ -169,6 +169,10 @@
   --cetus-hairline: rgba(234, 246, 255, 0.1);
   --cetus-ink: #eaf6ff;
   --cetus-ink-muted: #8a98a6;
+  /* Bind font-mono to JetBrains Mono under the abyssal scope so the hero
+     kicker + catalog mono labels match SpecimenCard's scoped 'JetBrains Mono'.
+     Default pages keep Tailwind's system mono stack (no regression). */
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   background: var(--cetus-page-bg);
   color: var(--cetus-ink);
 }
@@ -232,7 +236,9 @@
   font-weight: 300;
 }
 
-/* Retint the shared gradient -> teal (covers nav logo + primary Button). */
+/* Retint all homepage gradients -> teal, for abyssal palette cohesion.
+   Applies to every .bg-gradient-to-r under .theme-abyssal (nav logo,
+   primary Button, and any modal/overlay gradients rendered by AppLayout). */
 .theme-abyssal .bg-gradient-to-r {
   background-image: linear-gradient(
     to right,

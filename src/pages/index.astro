@@ -10,7 +10,6 @@ import {
   type DepthZone,
 } from '@/lib/organisms'
 
-const user = Astro.locals.user
 const games = getAllGames()
 const featured = getFeaturedGames(games)
 const zones: DepthZone[] = ['shallow', 'mid', 'abyssal']
@@ -85,6 +84,8 @@ for (const z of zones) {
 
   <!-- CATALOG, DEPTH-ZONED -->
   <section id="catalog" class="relative px-6 py-16">
+    <!-- Legacy deep-link anchor: AppLayout scrolls to #games after ?redirect=games login. -->
+    <div id="games"></div>
     <Container class="max-w-7xl">
       {
         zones.map(zone => {
