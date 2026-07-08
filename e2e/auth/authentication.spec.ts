@@ -151,8 +151,9 @@ test.describe('Authentication System', () => {
             // Navigate home using logo
             await page.getByRole('link', { name: 'C CETUS' }).click()
             await expect(page).toHaveURL('/')
+            // The depth-zoned catalog is the homepage's landing marker.
             await expect(
-                page.getByRole('heading', { name: 'MINIGAMES' })
+                page.getByRole('heading', { name: 'SHALLOW' })
             ).toBeVisible()
         }
     })

@@ -12,9 +12,7 @@ test.describe('Complete Game Session User Journey', () => {
 
         // Start from homepage
         await homePage.goto()
-        await expect(
-            page.getByRole('heading', { name: 'MINIGAMES' })
-        ).toBeVisible()
+        await expect(homePage.catalogSection).toBeVisible()
 
         // Navigate to Tetris game
         await homePage.goToTetris()
@@ -53,9 +51,7 @@ test.describe('Complete Game Session User Journey', () => {
         // Navigate back to homepage
         await tetrisPage.navigateToHome()
         await expect(page).toHaveURL('/')
-        await expect(
-            page.getByRole('heading', { name: 'SELECT YOUR GAME' })
-        ).toBeVisible()
+        await expect(homePage.catalogSection).toBeVisible()
 
         // Navigate to Quick Math game
         await homePage.goToQuickMath()
@@ -83,8 +79,6 @@ test.describe('Complete Game Session User Journey', () => {
 
         await quickMathPage.navigateToHomeViaLogo()
         await expect(page).toHaveURL('/')
-        await expect(
-            page.getByRole('heading', { name: 'MINIGAMES' })
-        ).toBeVisible()
+        await expect(homePage.catalogSection).toBeVisible()
     })
 })
