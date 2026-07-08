@@ -23,7 +23,7 @@ describe('abyssal shell retints (CSS-override approach)', () => {
     })
 
     it('retints navigation links and footer colors under abyssal', () => {
-        expect(css).toMatch(/\.theme-abyssal header nav/)
+        expect(css).toContain('.theme-abyssal .nav-links a')
         expect(css).toContain('.theme-abyssal footer')
     })
 
