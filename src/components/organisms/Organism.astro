@@ -23,13 +23,13 @@ const { shape, color, orb } = identity
     shape === 'chain' && (
       <div class="cetus-org__chain">
         <>
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
         </>
       </div>
     )
@@ -51,11 +51,11 @@ const { shape, color, orb } = identity
     shape === 'frond' && (
       <div class="cetus-org__frond">
         <>
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
         </>
       </div>
     )
@@ -64,13 +64,13 @@ const { shape, color, orb } = identity
     shape === 'cluster' && (
       <div class="cetus-org__cluster">
         <>
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
         </>
       </div>
     )
@@ -79,15 +79,15 @@ const { shape, color, orb } = identity
     shape === 'lattice' && (
       <div class="cetus-org__lattice">
         <>
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
         </>
       </div>
     )
@@ -148,18 +148,18 @@ const { shape, color, orb } = identity
     flex-direction: column;
     gap: 5px;
   }
-  .cetus-org__chain i {
+  .cetus-org__chain span {
     width: 7px;
     height: 7px;
     border-radius: 50%;
     background: var(--org);
     box-shadow: 0 0 10px color-mix(in srgb, var(--org) 70%, transparent);
   }
-  .cetus-org__chain i:first-child {
+  .cetus-org__chain span:first-child {
     width: 11px;
     height: 11px;
   }
-  .cetus-org__chain i:nth-child(2) {
+  .cetus-org__chain span:nth-child(2) {
     width: 9px;
     height: 9px;
   }
@@ -169,7 +169,7 @@ const { shape, color, orb } = identity
     height: 52px;
     position: relative;
   }
-  .cetus-org__cluster i {
+  .cetus-org__cluster span {
     position: absolute;
     width: 8px;
     height: 8px;
@@ -177,31 +177,31 @@ const { shape, color, orb } = identity
     background: var(--org);
     box-shadow: 0 0 8px color-mix(in srgb, var(--org) 70%, transparent);
   }
-  .cetus-org__cluster i:nth-child(1) {
+  .cetus-org__cluster span:nth-child(1) {
     top: 20%;
     left: 40%;
   }
-  .cetus-org__cluster i:nth-child(2) {
+  .cetus-org__cluster span:nth-child(2) {
     top: 40%;
     left: 20%;
   }
-  .cetus-org__cluster i:nth-child(3) {
+  .cetus-org__cluster span:nth-child(3) {
     top: 40%;
     left: 60%;
   }
-  .cetus-org__cluster i:nth-child(4) {
+  .cetus-org__cluster span:nth-child(4) {
     top: 60%;
     left: 40%;
   }
-  .cetus-org__cluster i:nth-child(5) {
+  .cetus-org__cluster span:nth-child(5) {
     top: 25%;
     left: 65%;
   }
-  .cetus-org__cluster i:nth-child(6) {
+  .cetus-org__cluster span:nth-child(6) {
     top: 65%;
     left: 25%;
   }
-  .cetus-org__cluster i:nth-child(7) {
+  .cetus-org__cluster span:nth-child(7) {
     top: 50%;
     left: 50%;
     width: 6px;
@@ -215,7 +215,7 @@ const { shape, color, orb } = identity
     grid-template-columns: repeat(3, 1fr);
     gap: 6px;
   }
-  .cetus-org__lattice i {
+  .cetus-org__lattice span {
     width: 8px;
     height: 8px;
     border-radius: 50%;
@@ -229,24 +229,24 @@ const { shape, color, orb } = identity
     gap: 3px;
     height: 48px;
   }
-  .cetus-org__frond i {
+  .cetus-org__frond span {
     width: 2px;
     background: linear-gradient(var(--org), transparent);
     border-radius: 2px;
   }
-  .cetus-org__frond i:nth-child(1) {
+  .cetus-org__frond span:nth-child(1) {
     height: 60%;
   }
-  .cetus-org__frond i:nth-child(2) {
+  .cetus-org__frond span:nth-child(2) {
     height: 100%;
   }
-  .cetus-org__frond i:nth-child(3) {
+  .cetus-org__frond span:nth-child(3) {
     height: 80%;
   }
-  .cetus-org__frond i:nth-child(4) {
+  .cetus-org__frond span:nth-child(4) {
     height: 45%;
   }
-  .cetus-org__frond i:nth-child(5) {
+  .cetus-org__frond span:nth-child(5) {
     height: 65%;
   }
 
