@@ -8,9 +8,11 @@ const src = readFileSync(
 )
 
 describe('SpecimenCard (Vessel)', () => {
-    it('renders the whole card as a link to the game url', () => {
+    it('renders a link to the game url when available', () => {
         expect(src).toMatch(/import\s*\{[^}]*getGameUrl/)
-        expect(src).toMatch(/href=\{getGameUrl\(game\.id\)\}/)
+        expect(src).toMatch(
+            /href=\{available \? getGameUrl\(game\.id\) : undefined\}/
+        )
     })
 
     it('renders the vessel (lid + neck + body)', () => {
@@ -34,5 +36,13 @@ describe('SpecimenCard (Vessel)', () => {
     it('has no emoji icon and no Play Now pill', () => {
         expect(src).not.toContain('getGameIcon')
         expect(src).not.toContain('Play Now')
+    })
+
+    it('coming-soon state: omits href + marks aria-disabled when unavailable', () => {
+        expect(src).toContain("available ? undefined : 'true'")
+        expect(src).toMatch(/!available && 'opacity-50 pointer-events-none'/)
+        // The empty vessel placeholder renders when the game has no organism
+        // or is unavailable.
+        expect(src).toContain('vessel__empty')
     })
 })
