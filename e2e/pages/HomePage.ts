@@ -9,7 +9,10 @@ export class HomePage {
 
     constructor(page: Page) {
         this.page = page
-        this.navigation = page.locator('nav')
+        // Scope to the shell header nav — the abyssal homepage also renders a
+        // <nav aria-label="Featured games"> around the hero specimen grid, so a
+        // bare `page.locator('nav')` is ambiguous here.
+        this.navigation = page.locator('header nav')
         this.logo = page.getByRole('link', { name: 'C CETUS' })
         // The depth-zoned catalog section (replaces the old "SELECT YOUR GAME"
         // gamesSection locator; #games is a legacy deep-link anchor, #catalog
