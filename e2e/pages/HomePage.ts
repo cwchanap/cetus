@@ -4,14 +4,17 @@ export class HomePage {
     readonly page: Page
     readonly navigation: Locator
     readonly logo: Locator
-    readonly gamesSection: Locator
+    readonly catalogSection: Locator
     readonly loginButton: Locator
 
     constructor(page: Page) {
         this.page = page
         this.navigation = page.locator('nav')
-        this.logo = page.locator('text=CETUS')
-        this.gamesSection = page.locator('text=SELECT YOUR GAME')
+        this.logo = page.getByRole('link', { name: 'C CETUS' })
+        // The depth-zoned catalog section (replaces the old "SELECT YOUR GAME"
+        // gamesSection locator; #games is a legacy deep-link anchor, #catalog
+        // is the actual specimen grid).
+        this.catalogSection = page.locator('#catalog')
         this.loginButton = page.getByRole('button', { name: 'Login' })
     }
 
@@ -19,46 +22,45 @@ export class HomePage {
         await this.page.goto('/')
     }
 
-    async clickGamePlayNow(gameName: string) {
-        const gameCard = this.page
-            .locator(`text="${gameName}"`)
-            .locator('..')
-            .locator('..')
-        const playNowLink = gameCard.locator('text="Play Now"')
-        await playNowLink.click()
+    // A specimen is an <a data-testid="specimen-card"> whose accessible name
+    // embeds the game name (there is no separate "Play Now" link — the whole
+    // vessel is the link). Featured games render twice (hero vitrine + their
+    // depth zone), so always click the first match; both link to the same URL.
+    async clickGameCard(gameName: string) {
+        const card = this.page
+            .getByTestId('specimen-card')
+            .filter({ hasText: gameName })
+            .first()
+        await card.click()
     }
 
     async clickNavLink(linkText: string) {
-        const navLink = this.navigation.locator(`text="${linkText}"`)
+        const navLink = this.navigation.getByRole('link', { name: linkText })
         await navLink.click()
     }
 
-    async clickStartPlaying() {
-        await this.page.getByRole('link', { name: 'Start Playing' }).click()
-    }
-
     async clickLogin() {
-        await this.loginButton.click()
+        await this.loginButton.first().click()
     }
 
     // Game navigation methods
     async goToTetris() {
-        await this.clickGamePlayNow('Tetris Challenge')
+        await this.clickGameCard('Tetris Challenge')
     }
 
     async goToBubbleShooter() {
-        await this.clickGamePlayNow('Bubble Shooter')
+        await this.clickGameCard('Bubble Shooter')
     }
 
     async goToQuickMath() {
-        await this.clickGamePlayNow('Quick Math')
+        await this.clickGameCard('Quick Math')
     }
 
     async goToMemoryMatrix() {
-        await this.clickGamePlayNow('Memory Matrix')
+        await this.clickGameCard('Memory Matrix')
     }
 
     async goToWordScramble() {
-        await this.clickGamePlayNow('Word Scramble')
+        await this.clickGameCard('Word Scramble')
     }
 }
