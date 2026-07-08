@@ -1,4 +1,26 @@
-import type { OrganismIdentity, DepthZone } from './organisms'
+// Organism identity + depth-zone metadata, inlined on each GAMES entry so the
+// registry is self-contained (no module-load side effects). Derived helpers
+// (ORGANISM_BY_GAME, getGamesByDepth, getFeaturedGames, ...) live in
+// ./organisms.ts and import from this module one-directionally.
+export type OrganismShape =
+    | 'jelly'
+    | 'orb'
+    | 'chain'
+    | 'spiral'
+    | 'frond'
+    | 'cluster'
+    | 'lattice'
+
+export type OrganismColor = 'teal' | 'amber' | 'magenta' | 'ice' | 'green'
+
+export type DepthZone = 'shallow' | 'mid' | 'abyssal'
+
+export interface OrganismIdentity {
+    shape: OrganismShape
+    color: OrganismColor
+    /** draw an orbit ring around an orb (Bubble Shooter, Satellite Sync) */
+    orb?: boolean
+}
 
 // Game ID enum class
 export enum GameID {
@@ -45,6 +67,8 @@ export const GAMES: Game[] = [
         difficulty: 'medium',
         tags: ['classic', 'puzzle', 'blocks', 'single-player'],
         isActive: true,
+        organism: { shape: 'lattice', color: 'teal' },
+        depth: 'mid',
     },
     {
         id: GameID.BUBBLE_SHOOTER,
@@ -57,6 +81,8 @@ export const GAMES: Game[] = [
         difficulty: 'easy',
         tags: ['bubbles', 'matching', 'single-player', 'casual'],
         isActive: true,
+        organism: { shape: 'orb', color: 'ice', orb: true },
+        depth: 'mid',
     },
     {
         id: GameID.BEJEWELED,
@@ -68,6 +94,8 @@ export const GAMES: Game[] = [
         difficulty: 'easy',
         tags: ['match-3', 'gems', 'puzzle', 'single-player', 'casual'],
         isActive: true,
+        organism: { shape: 'cluster', color: 'magenta' },
+        depth: 'shallow',
     },
     {
         id: GameID.QUICK_MATH,
@@ -80,6 +108,8 @@ export const GAMES: Game[] = [
         difficulty: 'medium',
         tags: ['math', 'arithmetic', 'speed', 'single-player', 'educational'],
         isActive: true,
+        organism: { shape: 'orb', color: 'amber' },
+        depth: 'shallow',
     },
     {
         id: GameID.MEMORY_MATRIX,
@@ -92,6 +122,8 @@ export const GAMES: Game[] = [
         difficulty: 'hard',
         tags: ['memory', 'matching', 'shapes', 'single-player', 'cognitive'],
         isActive: true,
+        organism: { shape: 'cluster', color: 'magenta' },
+        depth: 'abyssal',
     },
     {
         id: GameID.WORD_SCRAMBLE,
@@ -104,6 +136,8 @@ export const GAMES: Game[] = [
         difficulty: 'medium',
         tags: ['words', 'anagram', 'vocabulary', 'single-player', 'speed'],
         isActive: true,
+        organism: { shape: 'frond', color: 'green' },
+        depth: 'shallow',
     },
     {
         id: GameID.REFLEX,
@@ -116,6 +150,8 @@ export const GAMES: Game[] = [
         difficulty: 'medium',
         tags: ['reflex', 'reaction', 'coins', 'single-player', 'speed'],
         isActive: true,
+        organism: { shape: 'orb', color: 'magenta' },
+        depth: 'shallow',
     },
     {
         id: GameID.SUDOKU,
@@ -128,6 +164,8 @@ export const GAMES: Game[] = [
         difficulty: 'medium',
         tags: ['numbers', 'logic', 'puzzle', 'single-player', 'classic'],
         isActive: true,
+        organism: { shape: 'lattice', color: 'amber' },
+        depth: 'abyssal',
     },
     {
         id: GameID.PATH_NAVIGATOR,
@@ -140,6 +178,8 @@ export const GAMES: Game[] = [
         difficulty: 'medium',
         tags: ['precision', 'mouse', 'navigation', 'single-player', 'skill'],
         isActive: true,
+        organism: { shape: 'spiral', color: 'ice' },
+        depth: 'mid',
     },
     {
         id: GameID.EVADER,
@@ -152,6 +192,8 @@ export const GAMES: Game[] = [
         difficulty: 'medium',
         tags: ['reflex', 'avoidance', 'coins', 'single-player', 'speed'],
         isActive: true,
+        organism: { shape: 'spiral', color: 'teal' },
+        depth: 'shallow',
     },
     {
         id: GameID.SNAKE,
@@ -164,6 +206,8 @@ export const GAMES: Game[] = [
         difficulty: 'easy',
         tags: ['classic', 'arcade', 'survival', 'single-player', 'snake'],
         isActive: true,
+        organism: { shape: 'chain', color: 'green' },
+        depth: 'mid',
     },
     {
         id: GameID.GAME_2048,
@@ -176,6 +220,8 @@ export const GAMES: Game[] = [
         difficulty: 'medium',
         tags: ['puzzle', 'numbers', 'strategy', 'single-player', 'classic'],
         isActive: true,
+        organism: { shape: 'cluster', color: 'amber' },
+        depth: 'mid',
     },
     {
         id: GameID.CIRCUIT_HACKER,
@@ -188,6 +234,8 @@ export const GAMES: Game[] = [
         difficulty: 'medium',
         tags: ['puzzle', 'logic', 'circuit', 'single-player', 'rotation'],
         isActive: true,
+        organism: { shape: 'frond', color: 'ice' },
+        depth: 'mid',
     },
     {
         id: GameID.SATELLITE_SYNC,
@@ -200,21 +248,10 @@ export const GAMES: Game[] = [
         difficulty: 'medium',
         tags: ['satellite', 'sync', 'single-player', 'timing'],
         isActive: true,
+        organism: { shape: 'orb', color: 'teal', orb: true },
+        depth: 'abyssal',
     },
 ]
-
-// Re-export organism types for ergonomic imports. Runtime helpers/values are
-// intentionally NOT re-exported here: a runtime re-export would create a static
-// import dependency on ./organisms, and combined with organisms.ts importing
-// GAMES/GameID from ./games would re-introduce the circular-import hazard
-// documented in ./organisms.ts. Import runtime helpers directly from
-// ./organisms instead.
-export type {
-    OrganismIdentity,
-    OrganismShape,
-    OrganismColor,
-    DepthZone,
-} from './organisms'
 
 // Helper functions
 export function getGameById(
