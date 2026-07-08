@@ -1,86 +1,35 @@
-import { GAMES, GameID, type Game } from './games'
+import {
+    GAMES,
+    GameID,
+    type Game,
+    type OrganismIdentity,
+    type DepthZone,
+} from './games'
 
-export type OrganismShape =
-    | 'jelly'
-    | 'orb'
-    | 'chain'
-    | 'spiral'
-    | 'frond'
-    | 'cluster'
-    | 'lattice'
-
-export type OrganismColor = 'teal' | 'amber' | 'magenta' | 'ice' | 'green'
-
-export type DepthZone = 'shallow' | 'mid' | 'abyssal'
-
-export interface OrganismIdentity {
-    shape: OrganismShape
-    color: OrganismColor
-    /** draw an orbit ring around an orb (Bubble Shooter, Satellite Sync) */
-    orb?: boolean
-}
+// Re-export the organism/depth types so existing consumers (Organism.astro,
+// SpecimenCard, tests) can keep importing them from './organisms'.
+export type {
+    OrganismShape,
+    OrganismColor,
+    OrganismIdentity,
+    DepthZone,
+} from './games'
 
 type GameEntry = { organism: OrganismIdentity; depth: DepthZone }
 
-// Per the approved spec table.
-export const ORGANISM_BY_GAME: Record<GameID, GameEntry> = {
-    [GameID.REFLEX]: {
-        organism: { shape: 'orb', color: 'magenta' },
-        depth: 'shallow',
-    },
-    [GameID.QUICK_MATH]: {
-        organism: { shape: 'orb', color: 'amber' },
-        depth: 'shallow',
-    },
-    [GameID.WORD_SCRAMBLE]: {
-        organism: { shape: 'frond', color: 'green' },
-        depth: 'shallow',
-    },
-    [GameID.BEJEWELED]: {
-        organism: { shape: 'cluster', color: 'magenta' },
-        depth: 'shallow',
-    },
-    [GameID.EVADER]: {
-        organism: { shape: 'spiral', color: 'teal' },
-        depth: 'shallow',
-    },
-    [GameID.SNAKE]: {
-        organism: { shape: 'chain', color: 'green' },
-        depth: 'mid',
-    },
-    [GameID.TETRIS]: {
-        organism: { shape: 'lattice', color: 'teal' },
-        depth: 'mid',
-    },
-    [GameID.GAME_2048]: {
-        organism: { shape: 'cluster', color: 'amber' },
-        depth: 'mid',
-    },
-    [GameID.PATH_NAVIGATOR]: {
-        organism: { shape: 'spiral', color: 'ice' },
-        depth: 'mid',
-    },
-    [GameID.BUBBLE_SHOOTER]: {
-        organism: { shape: 'orb', color: 'ice', orb: true },
-        depth: 'mid',
-    },
-    [GameID.CIRCUIT_HACKER]: {
-        organism: { shape: 'frond', color: 'ice' },
-        depth: 'mid',
-    },
-    [GameID.SUDOKU]: {
-        organism: { shape: 'lattice', color: 'amber' },
-        depth: 'abyssal',
-    },
-    [GameID.SATELLITE_SYNC]: {
-        organism: { shape: 'orb', color: 'teal', orb: true },
-        depth: 'abyssal',
-    },
-    [GameID.MEMORY_MATRIX]: {
-        organism: { shape: 'cluster', color: 'magenta' },
-        depth: 'abyssal',
-    },
-}
+// Derived from the organism/depth fields inlined on each GAMES entry.
+// Inlining the data into GAMES (see ./games.ts) removed the previous
+// module-load mutation of GAMES, which only ran when this module was
+// transitively imported. ORGANISM_BY_GAME is now a pure derivation.
+export const ORGANISM_BY_GAME: Record<GameID, GameEntry> = Object.fromEntries(
+    GAMES.map(g => [
+        g.id,
+        {
+            organism: g.organism as OrganismIdentity,
+            depth: g.depth as DepthZone,
+        },
+    ])
+) as Record<GameID, GameEntry>
 
 export const FEATURED_GAME_IDS: GameID[] = [
     GameID.REFLEX,
@@ -131,20 +80,4 @@ export function getFeaturedGames(games: Game[] = GAMES): Game[] {
     return FEATURED_GAME_IDS.map(id => byId.get(id)).filter((g): g is Game =>
         Boolean(g)
     )
-}
-
-// Attach organism + depth to each registered game. Runs at module load, after
-// both ORGANISM_BY_GAME (above) and GAMES (imported from ./games) are defined.
-// NOTE: This mutation lives here rather than in games.ts because ESM import
-// hoisting (Vite/esbuild) would otherwise cause games.ts to trigger
-// organisms.ts evaluation before the GameID enum / GAMES array are declared,
-// resulting in a "Cannot read properties of undefined" TypeError. Keeping the
-// runtime dependency one-directional (organisms.ts -> games.ts) avoids the
-// cycle entirely; games.ts retains only a type-only import.
-for (const game of GAMES) {
-    const entry = ORGANISM_BY_GAME[game.id]
-    if (entry) {
-        game.organism = entry.organism
-        game.depth = entry.depth
-    }
 }

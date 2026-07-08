@@ -68,7 +68,7 @@ for (const z of zones) {
               <li>
                 <SpecimenCard
                   game={g}
-                  catalogNumber={catalogIndex.get(g.id)!}
+                  catalogNumber={catalogIndex.get(g.id) ?? 0}
                 />
               </li>
             ))
@@ -77,7 +77,9 @@ for (const z of zones) {
       </nav>
 
       <p class="mt-10 font-mono text-xs tracking-[0.2em] text-cetus-ink-muted">
-        <a href="#catalog">browse all fourteen ↓</a>
+        <a href="#catalog" class="inline-block min-h-[24px] py-1">
+          browse all fourteen ↓
+        </a>
       </p>
     </Container>
   </section>
@@ -109,7 +111,7 @@ for (const z of zones) {
                   <li>
                     <SpecimenCard
                       game={g}
-                      catalogNumber={catalogIndex.get(g.id)!}
+                      catalogNumber={catalogIndex.get(g.id) ?? 0}
                     />
                   </li>
                 ))}
@@ -126,7 +128,10 @@ for (const z of zones) {
     <Container class="max-w-4xl text-center">
       <p class="text-sm text-cetus-ink-muted">
         No login — play in one click ·{' '}
-        <a href="/login" class="text-cetus-accent hover:underline">
+        <a
+          href="/login"
+          class="text-cetus-accent underline inline-block min-h-[24px] py-1"
+        >
           sign in to track your depths
         </a>{' '}
         · works on any screen

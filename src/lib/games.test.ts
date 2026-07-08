@@ -270,7 +270,7 @@ describe('Game registry organism/depth fields', () => {
         }
     })
 
-    it('depth helpers re-exported via games module are consistent', () => {
+    it('depth helpers from organisms module are consistent with GAMES', () => {
         expect(
             getGamesByDepth('abyssal')
                 .map(g => g.id)
