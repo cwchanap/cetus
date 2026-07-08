@@ -271,12 +271,14 @@
 }
 
 /* Navigation links -> ink-muted, hover teal.
-   Scoped to header > nav > div > a so the logo <a> and the Button's inner <a>
-   are not affected (they are not direct children of the links wrapper div). */
-.theme-abyssal header nav > div > a {
+   Targets the .nav-links container in Navigation.astro so the logo <a> and
+   the Button's inner <a> (which live outside that container) are not
+   affected. The semantic hook keeps the override resilient to markup
+   changes in the nav wrapper. */
+.theme-abyssal .nav-links a {
   color: var(--cetus-ink-muted);
 }
-.theme-abyssal header nav > div > a:hover {
+.theme-abyssal .nav-links a:hover {
   color: var(--cetus-accent);
 }
 
