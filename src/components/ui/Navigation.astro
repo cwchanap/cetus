@@ -39,7 +39,7 @@ const classes = cn('relative z-[10001] px-6 py-8', className)
       class="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-300"
     >
       <div
-        class="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-400/25"
+        class="w-10 h-10 bg-gradient-to-r from-[var(--cetus-btn-from)] to-[var(--cetus-btn-to)] rounded-lg flex items-center justify-center shadow-lg shadow-black/20"
       >
         <span class="text-xl font-bold text-white">{logo}</span>
       </div>
@@ -52,7 +52,7 @@ const classes = cn('relative z-[10001] px-6 py-8', className)
         navigation.map(item => (
           <a
             href={item.href}
-            class="text-gray-300 hover:text-cyan-400 transition-colors duration-300"
+            class="text-cetus-ink-muted hover:text-cetus-accent transition-colors duration-300"
           >
             {item.label}
           </a>

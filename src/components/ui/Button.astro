@@ -28,13 +28,13 @@ const buttonVariants = {
     destructive:
       'bg-destructive text-destructive-foreground hover:bg-destructive/90',
     outline:
-      'border-2 border-cyan-400 text-cyan-400 bg-transparent hover:bg-cyan-400 hover:text-slate-900',
+      'border-2 border-cetus-accent text-cetus-accent bg-transparent hover:bg-cetus-accent hover:text-[var(--cetus-page-bg)]',
     secondary:
       'bg-gradient-to-r from-slate-700 to-slate-800 text-white border border-slate-600 hover:from-slate-600 hover:to-slate-700',
     ghost: 'hover:bg-accent hover:text-accent-foreground',
     link: 'text-primary underline-offset-4 hover:underline',
     primary:
-      'bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg shadow-purple-500/25 hover:from-cyan-400 hover:to-purple-500',
+      'bg-gradient-to-r from-[var(--cetus-btn-from)] to-[var(--cetus-btn-to)] text-white shadow-lg shadow-black/20 hover:brightness-110',
   },
   size: {
     default: 'h-10 px-4 py-2',

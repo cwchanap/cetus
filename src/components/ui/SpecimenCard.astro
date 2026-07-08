@@ -20,9 +20,8 @@ const n = String(catalogNumber).padStart(2, '0')
 ---
 
 <a
-  href={getGameUrl(game.id)}
+  href={available ? getGameUrl(game.id) : undefined}
   aria-disabled={available ? undefined : 'true'}
-  tabindex={available ? undefined : -1}
   data-testid="specimen-card"
   class:list={[
     'cetus-specimen vessel group relative block rounded-2xl p-5 text-center',
@@ -75,7 +74,7 @@ const n = String(catalogNumber).padStart(2, '0')
   }
   .vessel:focus-visible {
     outline: 2px solid var(--cetus-accent);
-    outline-offset: 3px;
+    outline-offset: 2px;
     transform: translateY(-3px);
   }
   .vessel:focus-visible .vessel__body {

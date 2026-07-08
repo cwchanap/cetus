@@ -14,7 +14,6 @@ import {
 } from './organisms'
 
 const SHAPES: OrganismShape[] = [
-    'jelly',
     'orb',
     'chain',
     'spiral',

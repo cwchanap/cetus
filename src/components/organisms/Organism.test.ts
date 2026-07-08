@@ -12,9 +12,8 @@ describe('Organism renderer', () => {
         expect(src).toMatch(/identity:\s*OrganismIdentity/)
     })
 
-    it('branches on all seven shapes', () => {
+    it('branches on all six shapes', () => {
         for (const shape of [
-            'jelly',
             'orb',
             'chain',
             'spiral',

@@ -216,12 +216,13 @@
 }
 
 /* ---------- Abyssal shell retints (homepage only) ----------
-   The homepage reuses Navigation/Footer/Button via AppLayout. These rules
-   retint their hardcoded cyan/purple sci-fi look to the abyssal palette ONLY
-   under .theme-abyssal. Default pages are untouched (the scope class never
-   appears there). New homepage components (Organism, SpecimenCard) use cetus
-   tokens directly. Specificity: .theme-abyssal .foo (0,2,0) beats Tailwind's
-   .foo (0,1,0), so no !important is needed. */
+   The shell components (Navigation, Footer, Button, Card) now use cetus-*
+   semantic tokens directly, so they retint automatically under .theme-abyssal.
+   These remaining overrides cover the few sci-fi utilities that are NOT token
+   swaps: the holographic wordmark + Orbitron font on the nav title, and the
+   .glow-cyan class that AppLayout's script adds to every .group on hover
+   (including SpecimenCard). Specificity: .theme-abyssal .foo (0,2,0) beats
+   Tailwind's .foo (0,1,0), so no !important is needed. */
 
 /* Retire the animated holographic wordmark + Orbitron -> static Fraunces ink. */
 .theme-abyssal .text-holographic {
@@ -236,31 +237,6 @@
   font-weight: 300;
 }
 
-/* Retint all homepage gradients -> teal, for abyssal palette cohesion.
-   Applies to every .bg-gradient-to-r under .theme-abyssal (nav logo,
-   primary Button, and any modal/overlay gradients rendered by AppLayout). */
-.theme-abyssal .bg-gradient-to-r {
-  background-image: linear-gradient(
-    to right,
-    var(--cetus-btn-from),
-    var(--cetus-btn-to)
-  );
-}
-
-/* Neon borders + glass surfaces -> abyssal hairline + dark card. */
-.theme-abyssal .border-neon {
-  border-color: color-mix(in srgb, var(--cetus-accent) 50%, transparent);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--cetus-accent) 25%, transparent);
-}
-.theme-abyssal .bg-glass {
-  background: color-mix(in srgb, var(--cetus-surface) 70%, transparent);
-  border-color: var(--cetus-hairline);
-}
-.theme-abyssal .bg-glass-strong {
-  background: color-mix(in srgb, var(--cetus-surface) 90%, transparent);
-  border-color: var(--cetus-hairline);
-}
-
 /* Cyan glows -> teal (AppLayout's script adds .glow-cyan to .group on hover;
    SpecimenCard is .group, so this makes specimen hover glow teal). */
 .theme-abyssal .glow-cyan,
@@ -268,24 +244,4 @@
   box-shadow:
     0 0 20px color-mix(in srgb, var(--cetus-accent) 30%, transparent),
     0 0 40px color-mix(in srgb, var(--cetus-accent) 20%, transparent);
-}
-
-/* Navigation links -> ink-muted, hover teal.
-   Targets the .nav-links container in Navigation.astro so the logo <a> and
-   the Button's inner <a> (which live outside that container) are not
-   affected. The semantic hook keeps the override resilient to markup
-   changes in the nav wrapper. */
-.theme-abyssal .nav-links a {
-  color: var(--cetus-ink-muted);
-}
-.theme-abyssal .nav-links a:hover {
-  color: var(--cetus-accent);
-}
-
-/* Footer -> abyssal hairline + muted ink. */
-.theme-abyssal footer {
-  border-color: var(--cetus-hairline);
-}
-.theme-abyssal footer p {
-  color: var(--cetus-ink-muted);
 }
