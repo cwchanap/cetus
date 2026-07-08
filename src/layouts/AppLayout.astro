@@ -23,16 +23,6 @@ const {
   ...props
 } = Astro.props
 
-// Per-theme Google Fonts URL. Add a new entry here when a theme is introduced;
-// the <link> below reads from this map instead of a per-theme branch.
-const THEME_FONTS: Record<NonNullable<Props['theme']>, string> = {
-  default:
-    'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap',
-  abyssal:
-    'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap',
-}
-const fontHref = THEME_FONTS[theme]
-
 const themeInitScript = `
   (function () {
     const STORAGE_KEY = '${PREFERENCES_STORAGE_KEY}'
@@ -76,7 +66,12 @@ const themeInitScript = `
     <script is:inline set:html={themeInitScript} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href={fontHref} rel="stylesheet" />
+    <link
+      href={theme === 'abyssal'
+        ? 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap'
+        : 'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap'}
+      rel="stylesheet"
+    />
   </head>
 
   <body

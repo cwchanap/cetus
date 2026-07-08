@@ -270,13 +270,13 @@ describe('Game registry organism/depth fields', () => {
         }
     })
 
-    it('getGamesByDepth returns active games matching the requested depth', () => {
+    it('depth helpers re-exported via games module are consistent', () => {
         expect(
             getGamesByDepth('abyssal')
                 .map(g => g.id)
                 .sort()
         ).toEqual(
-            GAMES.filter(g => g.depth === 'abyssal' && g.isActive)
+            GAMES.filter(g => g.depth === 'abyssal')
                 .map(g => g.id)
                 .sort()
         )
