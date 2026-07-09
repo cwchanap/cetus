@@ -7,6 +7,7 @@ import type { OrganismIdentity } from '@/lib/organisms'
 type OrganismShape = OrganismIdentity['shape']
 
 const SHAPES: OrganismShape[] = [
+    'jelly',
     'orb',
     'chain',
     'spiral',

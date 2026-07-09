@@ -12,7 +12,7 @@ test.describe('Homepage', () => {
         await expect(homePage.navigation).toBeVisible()
         await expect(homePage.catalogSection).toBeVisible()
 
-        // Hero vitrine wordmark (the only h1 on the page — nav logo is a span).
+        // Hero vitrine wordmark (an h2; the nav brand is the sole h1 site-wide).
         await expect(
             page
                 .locator('#hero-vitrine')
@@ -32,19 +32,19 @@ test.describe('Homepage', () => {
         page,
     }) => {
         // Bug #2 regression guard: the font: shorthand resets font-size to 1em
-        // (~16px). The h1 should render at text-6xl (3.75rem = 60px) or larger.
+        // (~16px). The hero heading should render at text-6xl (3.75rem = 60px) or larger.
         const homePage = new HomePage(page)
         await homePage.goto()
 
-        const h1 = page.locator('#hero-vitrine h1')
-        const fontSize = await h1.evaluate(el =>
+        const hero = page.locator('#hero-vitrine h2')
+        const fontSize = await hero.evaluate(el =>
             parseFloat(getComputedStyle(el).fontSize)
         )
         expect(fontSize).toBeGreaterThan(30) // text-6xl = 60px on desktop
     })
 
     test('homepage has exactly one h1', async ({ page }) => {
-        // Bug #4 regression guard: nav logo was h1, creating a double-h1.
+        // The nav brand is the sole h1; the hero wordmark is an h2.
         const homePage = new HomePage(page)
         await homePage.goto()
 

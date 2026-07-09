@@ -23,9 +23,9 @@ describe('homepage abyssal composition (behavioral)', () => {
         expect(html).toContain('Cetus')
     })
 
-    it('renders the hero h1 with text-6xl class (not overridden by font shorthand)', () => {
+    it('renders the hero heading with text-6xl class (not overridden by font shorthand)', () => {
         // Bug #2 regression guard: the font: shorthand resets font-size to 1em.
-        // The h1 must use individual font properties, not the font: shorthand.
+        // The hero heading must use individual font properties, not the font: shorthand.
         expect(html).toContain('text-6xl')
         expect(html).toContain('md:text-8xl')
         // The style must NOT use the font: shorthand (which resets font-size)
@@ -35,7 +35,7 @@ describe('homepage abyssal composition (behavioral)', () => {
         expect(html).toContain("font-family: 'Fraunces'")
     })
 
-    it('renders exactly one h1 (the hero wordmark)', () => {
+    it('renders exactly one h1 (the nav brand)', () => {
         const h1Matches = html.match(/<h1[\s>]/g)
         expect(h1Matches).toHaveLength(1)
     })

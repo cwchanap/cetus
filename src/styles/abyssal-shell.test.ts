@@ -49,10 +49,11 @@ describe('abyssal shell retints (behavioral)', () => {
         expect(navHtml).not.toMatch(/from-cyan-400/)
     })
 
-    it('Navigation logo is a span, not an h1 (avoids double-h1 on homepage)', () => {
-        // Bug #4 fix: nav logo changed from h1 to span
+    it('Navigation logo is an h1 (the sole h1 site-wide; hero is h2)', () => {
+        // The nav brand is the single h1 on every page. On the homepage the
+        // hero wordmark is an h2, so there is exactly one h1 per page.
         expect(navHtml).toContain('text-holographic')
-        expect(navHtml).not.toMatch(/<h1/)
+        expect(navHtml).toMatch(/<h1/)
     })
 
     it('Footer renders with cetus hairline + ink-muted tokens', () => {
