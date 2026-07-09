@@ -92,8 +92,8 @@
     rgb(88 28 135),
     rgb(15 23 42)
   );
-  --cetus-surface: rgba(255, 255, 255, 0.05);
-  --cetus-hairline: rgba(255, 255, 255, 0.1);
+  --cetus-surface: oklch(0 0 0 / 0.05);
+  --cetus-hairline: oklch(0 0 0 / 0.1);
   --cetus-ink: var(--foreground);
   --cetus-ink-muted: oklch(0.7 0.02 250);
 }
@@ -130,6 +130,10 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+  /* Cetus surface/hairline: white-opacity for dark backgrounds
+     (root uses black-opacity for light mode, matching --border pattern). */
+  --cetus-surface: rgba(255, 255, 255, 0.05);
+  --cetus-hairline: rgba(255, 255, 255, 0.1);
 }
 
 @layer base {

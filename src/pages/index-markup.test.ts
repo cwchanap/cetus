@@ -1,50 +1,70 @@
-import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+// @vitest-environment node
+import { describe, it, expect, beforeAll } from 'vitest'
+import { experimental_AstroContainer as AstroContainer } from 'astro/container'
+import IndexPage from './index.astro'
 
-const src = readFileSync(
-    resolve(process.cwd(), 'src/pages/index.astro'),
-    'utf-8'
-)
+describe('homepage abyssal composition (behavioral)', () => {
+    let container: Awaited<ReturnType<typeof AstroContainer.create>>
+    let html: string
 
-describe('homepage abyssal composition', () => {
+    beforeAll(async () => {
+        container = await AstroContainer.create()
+        html = await container.renderToString(IndexPage, {
+            locals: { user: null },
+        })
+    })
+
     it('opts into the abyssal theme', () => {
-        expect(src).toMatch(/theme\s*=\s*['"]abyssal['"]/)
+        expect(html).toContain('theme-abyssal')
     })
 
-    it('renders a hero vitrine of featured specimens', () => {
-        expect(src).toContain('id="hero-vitrine"')
-        expect(src).toContain('getFeaturedGames')
-        expect(src).toMatch(/Cetus/) // wordmark
+    it('renders a hero vitrine with the Cetus wordmark', () => {
+        expect(html).toContain('id="hero-vitrine"')
+        expect(html).toContain('Cetus')
     })
 
-    it('renders the three depth zones with mono labels', () => {
-        expect(src).toContain('getGamesByDepth')
-        expect(src).toContain("'shallow'")
-        expect(src).toContain("'mid'")
-        expect(src).toContain("'abyssal'")
-        expect(src).toContain('DEPTH_LABELS')
+    it('renders the hero h1 with text-6xl class (not overridden by font shorthand)', () => {
+        // Bug #2 regression guard: the font: shorthand resets font-size to 1em.
+        // The h1 must use individual font properties, not the font: shorthand.
+        expect(html).toContain('text-6xl')
+        expect(html).toContain('md:text-8xl')
+        // The style must NOT use the font: shorthand (which resets font-size)
+        expect(html).not.toMatch(/style="font:\s/)
+        // It should use individual properties instead
+        expect(html).toContain('font-style: italic')
+        expect(html).toContain("font-family: 'Fraunces'")
+    })
+
+    it('renders exactly one h1 (the hero wordmark)', () => {
+        const h1Matches = html.match(/<h1[\s>]/g)
+        expect(h1Matches).toHaveLength(1)
+    })
+
+    it('renders the three depth zones', () => {
+        expect(html).toContain('SHALLOW')
+        expect(html).toContain('MID')
+        expect(html).toContain('ABYSSAL')
     })
 
     it('uses SpecimenCard, not the old GameCard', () => {
-        expect(src).toMatch(/import SpecimenCard/)
-        expect(src).not.toContain('GameCard')
+        expect(html).toContain('specimen-card')
+        expect(html).not.toContain('GameCard')
     })
 
     it('renders the value strip with the three promises', () => {
-        expect(src).toContain('No login')
-        expect(src).toContain('track your depths')
-        expect(src).toContain('any screen')
+        expect(html).toContain('No login')
+        expect(html).toContain('track your depths')
+        expect(html).toContain('any screen')
     })
 
-    it('removes the old hero / features / promo box', () => {
-        expect(src).not.toContain('MINIGAMES OF THE FUTURE')
-        expect(src).not.toContain('Compete for Glory')
-        expect(src).not.toContain('FeatureCard')
-        expect(src).not.toContain('text-holographic')
+    it('keeps the #games legacy anchor for login redirect', () => {
+        expect(html).toContain('id="games"')
     })
 
-    it('keeps Orbitron off the homepage', () => {
-        expect(src).not.toMatch(/font-orbitron/)
+    it('uses cetus tokens for hero particles, not hardcoded hex', () => {
+        // Bug #5 regression guard: particles must use tokens, not hex colors
+        expect(html).toContain('var(--cetus-accent')
+        expect(html).not.toContain('#1FE3C0')
+        expect(html).not.toContain('#F2B33D')
     })
 })

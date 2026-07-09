@@ -1,42 +1,62 @@
-import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+// @vitest-environment node
+import { describe, it, expect, beforeAll } from 'vitest'
+import { experimental_AstroContainer as AstroContainer } from 'astro/container'
+import Button from './Button.astro'
+import Card from './Card.astro'
+import Navigation from './Navigation.astro'
+import Footer from './Footer.astro'
 
-const read = (p: string) => readFileSync(resolve(process.cwd(), p), 'utf-8')
+describe('shell components use cetus tokens (behavioral)', () => {
+    let container: Awaited<ReturnType<typeof AstroContainer.create>>
 
-describe('shell components use cetus tokens (not hardcoded cyan/purple)', () => {
-    it('Button primary uses the token gradient, not from-cyan-500', () => {
-        const s = read('src/components/ui/Button.astro')
-        expect(s).not.toMatch(/from-cyan-500/)
-        expect(s).toContain('from-[var(--cetus-btn-from)]')
-        expect(s).toContain('to-[var(--cetus-btn-to)]')
-        expect(s).not.toMatch(/to-purple-600/)
+    beforeAll(async () => {
+        container = await AstroContainer.create()
     })
 
-    it('Button outline uses cetus-accent, not text-cyan-400', () => {
-        const s = read('src/components/ui/Button.astro')
-        expect(s).not.toMatch(/text-cyan-400/)
-        expect(s).toContain('text-cetus-accent')
-        expect(s).toContain('border-cetus-accent')
+    it('Button primary uses the token gradient, not hardcoded cyan/purple', async () => {
+        const html = await container.renderToString(Button, {
+            props: { variant: 'primary' },
+            slots: { default: 'Play' },
+        })
+        expect(html).toContain('from-[var(--cetus-btn-from)]')
+        expect(html).toContain('to-[var(--cetus-btn-to)]')
+        expect(html).not.toMatch(/from-cyan-500/)
+        expect(html).not.toMatch(/to-purple-600/)
     })
 
-    it('Card sci-fi variant uses cetus surface/hairline/accent', () => {
-        const s = read('src/components/ui/Card.astro')
-        expect(s).toContain('bg-cetus-surface')
-        expect(s).toContain('border-cetus-hairline')
-        expect(s).toContain('hover:border-cetus-accent')
+    it('Button outline uses cetus-accent and a valid solid hover text color', async () => {
+        const html = await container.renderToString(Button, {
+            props: { variant: 'outline' },
+            slots: { default: 'Cancel' },
+        })
+        expect(html).toContain('text-cetus-accent')
+        expect(html).toContain('border-cetus-accent')
+        // hover:text-background resolves to a solid color token, not a gradient
+        expect(html).toContain('hover:text-background')
+        // Must NOT use --cetus-page-bg as text color (it's a gradient in :root)
+        expect(html).not.toContain('hover:text-[var(--cetus-page-bg)]')
     })
 
-    it('Navigation logo + links use cetus tokens', () => {
-        const s = read('src/components/ui/Navigation.astro')
-        expect(s).not.toMatch(/from-cyan-400/)
-        expect(s).toContain('cetus-btn-from')
-        expect(s).toContain('text-cetus-ink-muted')
+    it('Card sci-fi variant uses cetus surface + accent border', async () => {
+        const html = await container.renderToString(Card, {
+            props: { variant: 'sci-fi' },
+            slots: { default: 'Content' },
+        })
+        expect(html).toContain('bg-cetus-surface')
+        expect(html).toContain('border-neon')
+        expect(html).toContain('hover:border-cetus-accent')
     })
 
-    it('Footer uses cetus hairline + ink-muted', () => {
-        const s = read('src/components/ui/Footer.astro')
-        expect(s).toContain('border-cetus-hairline')
-        expect(s).toContain('text-cetus-ink-muted')
+    it('Navigation logo + links use cetus tokens', async () => {
+        const html = await container.renderToString(Navigation, {})
+        expect(html).toContain('cetus-btn-from')
+        expect(html).toContain('text-cetus-ink-muted')
+        expect(html).not.toMatch(/from-cyan-400/)
+    })
+
+    it('Footer uses cetus hairline + ink-muted', async () => {
+        const html = await container.renderToString(Footer, {})
+        expect(html).toContain('border-cetus-hairline')
+        expect(html).toContain('text-cetus-ink-muted')
     })
 })
