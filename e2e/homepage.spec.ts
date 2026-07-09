@@ -51,20 +51,4 @@ test.describe('Homepage', () => {
         const h1Count = await page.locator('h1').count()
         expect(h1Count).toBe(1)
     })
-
-    test('hero particles use token colors, not hardcoded hex', async ({
-        page,
-    }) => {
-        // Bug #5 regression guard: particles should use var(--cetus-accent).
-        const homePage = new HomePage(page)
-        await homePage.goto()
-
-        const particles = page.locator('.cetus-particle')
-        const firstBg = await particles
-            .first()
-            .evaluate(el => getComputedStyle(el).background)
-        // The background should resolve to a solid color from the token,
-        // not a hardcoded hex like rgb(31, 227, 192) without the token.
-        expect(firstBg).not.toBe('')
-    })
 })

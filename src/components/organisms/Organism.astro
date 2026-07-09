@@ -18,7 +18,6 @@ const { shape, color, orb } = identity
   aria-hidden="true"
   {...props}
 >
-  {shape === 'jelly' && <div class="cetus-org__bell" />}
   {shape === 'orb' && <div class="cetus-org__orb" />}
   {
     shape === 'chain' && (
@@ -113,7 +112,6 @@ const { shape, color, orb } = identity
     --org: #5dff9f;
   }
 
-  .cetus-org__bell,
   .cetus-org__orb {
     width: 46px;
     height: 46px;
