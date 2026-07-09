@@ -96,6 +96,20 @@
   --cetus-hairline: oklch(0 0 0 / 0.1);
   --cetus-ink: var(--foreground);
   --cetus-ink-muted: oklch(0.7 0.02 250);
+  /* Wordmark tokens — default = Orbitron + holographic gradient.
+     Abyssal swaps to Fraunces italic + static ink (see .theme-abyssal). */
+  --cetus-display-font: 'Orbitron', monospace;
+  --cetus-display-weight: 700;
+  --cetus-display-style: normal;
+  --cetus-wordmark-bg: linear-gradient(
+    45deg,
+    rgb(34 211 238),
+    rgb(168 85 247),
+    rgb(236 72 153),
+    rgb(34 211 238)
+  );
+  --cetus-wordmark-fill: transparent;
+  --cetus-wordmark-animation: holographic 3s ease-in-out infinite;
 }
 
 .dark {
@@ -173,6 +187,14 @@
   --cetus-hairline: rgba(234, 246, 255, 0.1);
   --cetus-ink: #eaf6ff;
   --cetus-ink-muted: #8a98a6;
+  /* Wordmark: Fraunces italic + static ink (retires .text-holographic /
+     .font-orbitron class overrides — the nav uses .cetus-wordmark). */
+  --cetus-display-font: 'Fraunces', serif;
+  --cetus-display-weight: 300;
+  --cetus-display-style: italic;
+  --cetus-wordmark-bg: none;
+  --cetus-wordmark-fill: var(--cetus-ink);
+  --cetus-wordmark-animation: none;
   /* Bind font-mono to JetBrains Mono under the abyssal scope so the hero
      kicker + catalog mono labels match SpecimenCard's scoped 'JetBrains Mono'.
      Default pages keep Tailwind's system mono stack (no regression). */
@@ -222,23 +244,25 @@
 /* ---------- Abyssal shell retints (homepage only) ----------
    The shell components (Navigation, Footer, Button, Card) now use cetus-*
    semantic tokens directly, so they retint automatically under .theme-abyssal.
-   These remaining overrides cover the few sci-fi utilities that are NOT token
-   swaps: the holographic wordmark + Orbitron font on the nav title, and the
-   .glow-cyan class that AppLayout's script adds to every .group on hover
-   (including SpecimenCard). Specificity: .theme-abyssal .foo (0,2,0) beats
-   Tailwind's .foo (0,1,0), so no !important is needed. */
+   The nav wordmark uses .cetus-wordmark (token-driven, see :root +
+   .theme-abyssal token scopes), so no class override is needed. The remaining
+   override is .glow-cyan, which AppLayout's script adds to every .group on
+   hover (including SpecimenCard). Specificity: .theme-abyssal .foo (0,2,0)
+   beats Tailwind's .foo (0,1,0), so no !important is needed. */
 
-/* Retire the animated holographic wordmark + Orbitron -> static Fraunces ink. */
-.theme-abyssal .text-holographic {
-  background: none;
-  -webkit-text-fill-color: currentColor;
-  color: var(--cetus-ink);
-  animation: none;
-}
-.theme-abyssal .font-orbitron {
-  font-family: 'Fraunces', serif;
-  font-style: italic;
-  font-weight: 300;
+/* Token-driven wordmark: default = Orbitron + holographic gradient,
+   abyssal = Fraunces italic + static ink (via --cetus-wordmark-* tokens). */
+.cetus-wordmark {
+  font-family: var(--cetus-display-font);
+  font-weight: var(--cetus-display-weight);
+  font-style: var(--cetus-display-style);
+  background: var(--cetus-wordmark-bg);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: var(--cetus-wordmark-fill);
+  color: var(--cetus-wordmark-fill);
+  animation: var(--cetus-wordmark-animation);
 }
 
 /* Cyan glows -> teal (AppLayout's script adds .glow-cyan to .group on hover;

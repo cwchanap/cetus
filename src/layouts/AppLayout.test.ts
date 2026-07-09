@@ -13,7 +13,7 @@ describe('AppLayout theme prop (behavioral)', () => {
     it('applies theme-abyssal to the body when theme="abyssal"', async () => {
         const html = await container.renderToString(AppLayout, {
             props: { theme: 'abyssal', title: 'Test' },
-            locals: { user: null },
+            locals: { user: null, session: null },
             slots: { default: '<p>content</p>' },
         })
         expect(html).toContain('theme-abyssal')
@@ -22,7 +22,7 @@ describe('AppLayout theme prop (behavioral)', () => {
     it('does NOT apply theme-abyssal when theme is default', async () => {
         const html = await container.renderToString(AppLayout, {
             props: { theme: 'default', title: 'Test' },
-            locals: { user: null },
+            locals: { user: null, session: null },
             slots: { default: '<p>content</p>' },
         })
         expect(html).not.toContain('theme-abyssal')
@@ -31,7 +31,7 @@ describe('AppLayout theme prop (behavioral)', () => {
     it('loads Fraunces and JetBrains Mono fonts under abyssal theme', async () => {
         const html = await container.renderToString(AppLayout, {
             props: { theme: 'abyssal', title: 'Test' },
-            locals: { user: null },
+            locals: { user: null, session: null },
             slots: { default: '<p>content</p>' },
         })
         expect(html).toContain('Fraunces')
@@ -41,7 +41,7 @@ describe('AppLayout theme prop (behavioral)', () => {
     it('loads Orbitron and Inter fonts under default theme', async () => {
         const html = await container.renderToString(AppLayout, {
             props: { theme: 'default', title: 'Test' },
-            locals: { user: null },
+            locals: { user: null, session: null },
             slots: { default: '<p>content</p>' },
         })
         expect(html).toContain('Orbitron')
@@ -52,7 +52,7 @@ describe('AppLayout theme prop (behavioral)', () => {
     it('hides the sci-fi animated background on abyssal theme', async () => {
         const html = await container.renderToString(AppLayout, {
             props: { theme: 'abyssal', title: 'Test' },
-            locals: { user: null },
+            locals: { user: null, session: null },
             slots: { default: '<p>content</p>' },
         })
         // The sci-fi background (bg-gradient-radial) is conditionally rendered
@@ -65,7 +65,7 @@ describe('AppLayout theme prop (behavioral)', () => {
     it('shows the sci-fi animated background on default theme', async () => {
         const html = await container.renderToString(AppLayout, {
             props: { theme: 'default', title: 'Test' },
-            locals: { user: null },
+            locals: { user: null, session: null },
             slots: { default: '<p>content</p>' },
         })
         expect(html).toContain('bg-gradient-radial')

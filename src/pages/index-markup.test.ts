@@ -10,7 +10,7 @@ describe('homepage abyssal composition (behavioral)', () => {
     beforeAll(async () => {
         container = await AstroContainer.create()
         html = await container.renderToString(IndexPage, {
-            locals: { user: null },
+            locals: { user: null, session: null },
         })
     })
 
