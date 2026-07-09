@@ -24,15 +24,19 @@ describe('shell components use cetus tokens (behavioral)', () => {
         expect(html).not.toMatch(/to-purple-600/)
     })
 
-    it('Button outline uses cetus-accent and a valid solid hover text color', async () => {
+    it('Button outline uses cetus-accent and a dark hover text color', async () => {
         const html = await container.renderToString(Button, {
             props: { variant: 'outline' },
             slots: { default: 'Cancel' },
         })
         expect(html).toContain('text-cetus-accent')
         expect(html).toContain('border-cetus-accent')
-        // hover:text-background resolves to a solid color token, not a gradient
-        expect(html).toContain('hover:text-background')
+        // hover:text-slate-900 is always dark, readable on cyan/teal fill in
+        // all themes (light, dark, abyssal).
+        expect(html).toContain('hover:text-slate-900')
+        // Must NOT use --background as hover text (white in :root = unreadable
+        // on cyan fill in light theme).
+        expect(html).not.toContain('hover:text-background')
         // Must NOT use --cetus-page-bg as text color (it's a gradient in :root)
         expect(html).not.toContain('hover:text-[var(--cetus-page-bg)]')
     })

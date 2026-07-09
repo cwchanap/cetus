@@ -103,11 +103,13 @@ describe('abyssal theme tokens (behavioral)', () => {
         expect(val).not.toMatch(/gradient/)
     })
 
-    it('Bug #1 regression: Button outline does NOT use --cetus-page-bg as hover text color', () => {
-        // --cetus-page-bg is a gradient in :root, which is invalid as a text color.
-        // The rendered Button must use a solid token (text-background) instead.
+    it('Bug #1 regression: Button outline hover text is dark, not gradient or theme-white', () => {
+        // --cetus-page-bg is a gradient in :root, invalid as a text color.
+        // --background is white in :root, unreadable on cyan fill in light theme.
+        // The fix uses hover:text-slate-900 (always dark, readable on cyan/teal).
         expect(buttonHtml).not.toContain('hover:text-[var(--cetus-page-bg)]')
-        expect(buttonHtml).toContain('hover:text-background')
+        expect(buttonHtml).not.toContain('hover:text-background')
+        expect(buttonHtml).toContain('hover:text-slate-900')
     })
 
     it('--cetus-surface and --cetus-hairline in :root use black-opacity (visible on light bg)', () => {
