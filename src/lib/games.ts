@@ -3,7 +3,6 @@
 // (ORGANISM_BY_GAME, getGamesByDepth, getFeaturedGames, ...) live in
 // ./organisms.ts and import from this module one-directionally.
 export type OrganismShape =
-    | 'jelly'
     | 'orb'
     | 'chain'
     | 'spiral'
