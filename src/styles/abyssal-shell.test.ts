@@ -19,14 +19,20 @@ describe('abyssal shell retints (behavioral)', () => {
     beforeAll(async () => {
         container = await AstroContainer.create()
         navHtml = await container.renderToString(Navigation, {
-            locals: { user: null },
+            locals: { user: null, session: null },
         })
         footerHtml = await container.renderToString(Footer, {})
     })
 
-    it('retints the holographic wordmark to static Fraunces ink under abyssal', () => {
-        expect(css).toContain('.theme-abyssal .text-holographic')
-        expect(css).toContain('.theme-abyssal .font-orbitron')
+    it('retints the wordmark to static Fraunces ink via tokens (no class overrides)', () => {
+        // The nav wordmark uses .cetus-wordmark, which is token-driven.
+        // Abyssal swaps the tokens (not the class), so the old
+        // .theme-abyssal .text-holographic / .font-orbitron overrides are gone.
+        expect(css).not.toContain('.theme-abyssal .text-holographic')
+        expect(css).not.toContain('.theme-abyssal .font-orbitron')
+        expect(css).toContain("--cetus-display-font: 'Fraunces', serif")
+        expect(css).toContain('--cetus-wordmark-fill: var(--cetus-ink)')
+        expect(css).toContain('.cetus-wordmark')
     })
 
     it('retints cyan glows to teal under abyssal', () => {
@@ -52,7 +58,7 @@ describe('abyssal shell retints (behavioral)', () => {
     it('Navigation logo is an h1 (the sole h1 site-wide; hero is h2)', () => {
         // The nav brand is the single h1 on every page. On the homepage the
         // hero wordmark is an h2, so there is exactly one h1 per page.
-        expect(navHtml).toContain('text-holographic')
+        expect(navHtml).toContain('cetus-wordmark')
         expect(navHtml).toMatch(/<h1/)
     })
 
