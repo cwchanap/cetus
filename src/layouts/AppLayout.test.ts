@@ -1,33 +1,73 @@
-import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+// @vitest-environment node
+import { describe, it, expect, beforeAll } from 'vitest'
+import { experimental_AstroContainer as AstroContainer } from 'astro/container'
+import AppLayout from './AppLayout.astro'
 
-const src = readFileSync(
-    resolve(process.cwd(), 'src/layouts/AppLayout.astro'),
-    'utf-8'
-)
+describe('AppLayout theme prop (behavioral)', () => {
+    let container: Awaited<ReturnType<typeof AstroContainer.create>>
 
-describe('AppLayout theme prop', () => {
-    it('declares a theme prop with default and abyssal options', () => {
-        expect(src).toMatch(
-            /theme\??:\s*['"]default['"]\s*\|\s*['"]abyssal['"]/
-        )
-        expect(src).toMatch(/theme\s*=\s*['"]default['"]/)
+    beforeAll(async () => {
+        container = await AstroContainer.create()
     })
 
-    it('applies theme-abyssal to the body conditionally', () => {
-        expect(src).toContain('theme-abyssal')
-        expect(src).toMatch(
-            /theme\s*===\s*['"]abyssal['"]|theme\s*==\s*['"]abyssal['"]/
-        )
+    it('applies theme-abyssal to the body when theme="abyssal"', async () => {
+        const html = await container.renderToString(AppLayout, {
+            props: { theme: 'abyssal', title: 'Test' },
+            locals: { user: null },
+            slots: { default: '<p>content</p>' },
+        })
+        expect(html).toContain('theme-abyssal')
     })
 
-    it('loads Fraunces and JetBrains Mono', () => {
-        expect(src).toContain('Fraunces')
-        expect(src).toContain('JetBrains+Mono')
+    it('does NOT apply theme-abyssal when theme is default', async () => {
+        const html = await container.renderToString(AppLayout, {
+            props: { theme: 'default', title: 'Test' },
+            locals: { user: null },
+            slots: { default: '<p>content</p>' },
+        })
+        expect(html).not.toContain('theme-abyssal')
     })
 
-    it('hides the sci-fi animated background and particles on the abyssal theme', () => {
-        expect(src).toMatch(/theme !== ['"]abyssal['"]/)
+    it('loads Fraunces and JetBrains Mono fonts under abyssal theme', async () => {
+        const html = await container.renderToString(AppLayout, {
+            props: { theme: 'abyssal', title: 'Test' },
+            locals: { user: null },
+            slots: { default: '<p>content</p>' },
+        })
+        expect(html).toContain('Fraunces')
+        expect(html).toContain('JetBrains+Mono')
+    })
+
+    it('loads Orbitron and Inter fonts under default theme', async () => {
+        const html = await container.renderToString(AppLayout, {
+            props: { theme: 'default', title: 'Test' },
+            locals: { user: null },
+            slots: { default: '<p>content</p>' },
+        })
+        expect(html).toContain('Orbitron')
+        expect(html).toContain('Inter')
+        expect(html).not.toContain('Fraunces')
+    })
+
+    it('hides the sci-fi animated background on abyssal theme', async () => {
+        const html = await container.renderToString(AppLayout, {
+            props: { theme: 'abyssal', title: 'Test' },
+            locals: { user: null },
+            slots: { default: '<p>content</p>' },
+        })
+        // The sci-fi background (bg-gradient-radial) is conditionally rendered
+        // only when theme !== 'abyssal', so it should be absent.
+        // Note: animate-bounce appears in AchievementAward (always rendered),
+        // so we only check for the sci-fi-specific bg-gradient-radial.
+        expect(html).not.toContain('bg-gradient-radial')
+    })
+
+    it('shows the sci-fi animated background on default theme', async () => {
+        const html = await container.renderToString(AppLayout, {
+            props: { theme: 'default', title: 'Test' },
+            locals: { user: null },
+            slots: { default: '<p>content</p>' },
+        })
+        expect(html).toContain('bg-gradient-radial')
     })
 })

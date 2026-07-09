@@ -1,35 +1,78 @@
-import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+// @vitest-environment node
+import { describe, it, expect, beforeAll } from 'vitest'
+import { experimental_AstroContainer as AstroContainer } from 'astro/container'
+import Organism from './Organism.astro'
+import type { OrganismIdentity } from '@/lib/organisms'
 
-const src = readFileSync(
-    resolve(process.cwd(), 'src/components/organisms/Organism.astro'),
-    'utf-8'
-)
+type OrganismShape = OrganismIdentity['shape']
 
-describe('Organism renderer', () => {
-    it('accepts an OrganismIdentity prop', () => {
-        expect(src).toMatch(/identity:\s*OrganismIdentity/)
+const SHAPES: OrganismShape[] = [
+    'orb',
+    'chain',
+    'spiral',
+    'frond',
+    'cluster',
+    'lattice',
+]
+
+describe('Organism renderer (behavioral)', () => {
+    let container: Awaited<ReturnType<typeof AstroContainer.create>>
+
+    beforeAll(async () => {
+        container = await AstroContainer.create()
     })
 
-    it('branches on all six shapes', () => {
-        for (const shape of [
-            'orb',
-            'chain',
-            'spiral',
-            'frond',
-            'cluster',
-            'lattice',
-        ]) {
-            expect(src).toContain(`'${shape}'`)
+    it('renders a div with the shape class and data-color attribute', async () => {
+        const html = await container.renderToString(Organism, {
+            props: { identity: { shape: 'orb', color: 'teal' } },
+        })
+        expect(html).toContain('cetus-org--orb')
+        expect(html).toMatch(/data-color="teal"/)
+        expect(html).toContain('aria-hidden="true"')
+    })
+
+    it.each(SHAPES)(
+        'renders the %s shape with its specific markup',
+        async shape => {
+            const html = await container.renderToString(Organism, {
+                props: { identity: { shape, color: 'teal' } },
+            })
+            expect(html).toContain(`cetus-org--${shape}`)
         }
+    )
+
+    it('renders the orbit ring when orb flag is true', async () => {
+        const html = await container.renderToString(Organism, {
+            props: { identity: { shape: 'orb', color: 'teal', orb: true } },
+        })
+        expect(html).toContain('cetus-org__orbit')
+        expect(html).toMatch(/data-orb="true"/)
     })
 
-    it('renders color via a data attribute, not color alone', () => {
-        expect(src).toMatch(/data-color/)
+    it('omits the orbit ring when orb flag is false', async () => {
+        const html = await container.renderToString(Organism, {
+            props: { identity: { shape: 'orb', color: 'teal' } },
+        })
+        expect(html).not.toContain('cetus-org__orbit')
+        expect(html).not.toMatch(/data-orb="true"/)
     })
 
-    it('supports the orbit ring variant', () => {
-        expect(src).toContain('orbit')
+    it('renders the SVG spiral path for the spiral shape', async () => {
+        const html = await container.renderToString(Organism, {
+            props: { identity: { shape: 'spiral', color: 'amber' } },
+        })
+        expect(html).toContain('cetus-org__spiral')
+        expect(html).toContain('<svg')
+        expect(html).toContain('<path')
+    })
+
+    it('renders chain segments for the chain shape', async () => {
+        const html = await container.renderToString(Organism, {
+            props: { identity: { shape: 'chain', color: 'magenta' } },
+        })
+        expect(html).toContain('cetus-org__chain')
+        // chain renders 7 <i> segments
+        const matches = html.match(/<i[\s/>]/g)
+        expect(matches).toHaveLength(7)
     })
 })

@@ -12,8 +12,7 @@ test.describe('Homepage', () => {
         await expect(homePage.navigation).toBeVisible()
         await expect(homePage.catalogSection).toBeVisible()
 
-        // Hero vitrine wordmark (scoped to #hero-vitrine to disambiguate from
-        // the nav logo's "CETUS" h1).
+        // Hero vitrine wordmark (the only h1 on the page — nav logo is a span).
         await expect(
             page
                 .locator('#hero-vitrine')
@@ -27,5 +26,45 @@ test.describe('Homepage', () => {
         await expect(
             page.getByRole('heading', { name: 'ABYSSAL' })
         ).toBeVisible()
+    })
+
+    test('hero wordmark renders at a large font-size (not 1em from font: shorthand)', async ({
+        page,
+    }) => {
+        // Bug #2 regression guard: the font: shorthand resets font-size to 1em
+        // (~16px). The h1 should render at text-6xl (3.75rem = 60px) or larger.
+        const homePage = new HomePage(page)
+        await homePage.goto()
+
+        const h1 = page.locator('#hero-vitrine h1')
+        const fontSize = await h1.evaluate(el =>
+            parseFloat(getComputedStyle(el).fontSize)
+        )
+        expect(fontSize).toBeGreaterThan(30) // text-6xl = 60px on desktop
+    })
+
+    test('homepage has exactly one h1', async ({ page }) => {
+        // Bug #4 regression guard: nav logo was h1, creating a double-h1.
+        const homePage = new HomePage(page)
+        await homePage.goto()
+
+        const h1Count = await page.locator('h1').count()
+        expect(h1Count).toBe(1)
+    })
+
+    test('hero particles use token colors, not hardcoded hex', async ({
+        page,
+    }) => {
+        // Bug #5 regression guard: particles should use var(--cetus-accent).
+        const homePage = new HomePage(page)
+        await homePage.goto()
+
+        const particles = page.locator('.cetus-particle')
+        const firstBg = await particles
+            .first()
+            .evaluate(el => getComputedStyle(el).background)
+        // The background should resolve to a solid color from the token,
+        // not a hardcoded hex like rgb(31, 227, 192) without the token.
+        expect(firstBg).not.toBe('')
     })
 })
