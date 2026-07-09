@@ -18,19 +18,18 @@ const { shape, color, orb } = identity
   aria-hidden="true"
   {...props}
 >
+  {shape === 'jelly' && <div class="cetus-org__bell" />}
   {shape === 'orb' && <div class="cetus-org__orb" />}
   {
     shape === 'chain' && (
       <div class="cetus-org__chain">
-        <>
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-        </>
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
       </div>
     )
   }
@@ -50,45 +49,39 @@ const { shape, color, orb } = identity
   {
     shape === 'frond' && (
       <div class="cetus-org__frond">
-        <>
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-        </>
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
       </div>
     )
   }
   {
     shape === 'cluster' && (
       <div class="cetus-org__cluster">
-        <>
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-        </>
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
       </div>
     )
   }
   {
     shape === 'lattice' && (
       <div class="cetus-org__lattice">
-        <>
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-          <i />
-        </>
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
+        <i />
       </div>
     )
   }
@@ -120,6 +113,7 @@ const { shape, color, orb } = identity
     --org: #5dff9f;
   }
 
+  .cetus-org__bell,
   .cetus-org__orb {
     width: 46px;
     height: 46px;

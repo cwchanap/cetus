@@ -33,7 +33,10 @@ const classes = cn('relative z-[10001] px-6 py-8', className)
 ---
 
 <header class={classes} {...props}>
-  <nav class="max-w-7xl mx-auto flex items-center justify-between">
+  <nav
+    aria-label="Primary"
+    class="max-w-7xl mx-auto flex items-center justify-between"
+  >
     <a
       href="/"
       class="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-300"
@@ -43,9 +46,9 @@ const classes = cn('relative z-[10001] px-6 py-8', className)
       >
         <span class="text-xl font-bold text-white">{logo}</span>
       </div>
-      <span class="text-2xl font-orbitron font-bold text-holographic">
+      <h1 class="text-2xl font-orbitron font-bold text-holographic">
         {title}
-      </span>
+      </h1>
     </a>
     <div class="nav-links hidden md:flex items-center space-x-8">
       {
