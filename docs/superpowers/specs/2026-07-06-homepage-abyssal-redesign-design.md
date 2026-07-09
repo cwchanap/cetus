@@ -75,15 +75,14 @@ replaces the animated holographic gradient.
 
 Each of the 14 games is represented by a small CSS-drawn bioluminescent
 organism inside its vessel. To keep this maintainable, organisms come from a
-**taxonomy of seven shapes**, each rendered in a per-game signature color:
+**taxonomy of six shapes**, each rendered in a per-game signature color:
 
-1. **Comb jelly** — bell + trailing veil lines
-2. **Orb** — glowing sphere, optional orbit ring
-3. **Siphonophore** — vertical serpentine chain of dots
-4. **Spiral** — coiled line
-5. **Frond** — branching filaments
-6. **Cluster** — tight constellation of dots
-7. **Lattice** — grid of glowing nodes
+1. **Orb** — glowing sphere, optional orbit ring
+2. **Siphonophore** — vertical serpentine chain of dots
+3. **Spiral** — coiled line
+4. **Frond** — branching filaments
+5. **Cluster** — tight constellation of dots
+6. **Lattice** — grid of glowing nodes
 
 A game's identity = `(shape, color, optional variant)` and lives as data (see
 Implementation). The shape carries the game's *nature* (grid, chain, single

@@ -68,7 +68,7 @@ for (const z of zones) {
               <li>
                 <SpecimenCard
                   game={g}
-                  catalogNumber={catalogIndex.get(g.id) ?? 0}
+                  catalogNumber={catalogIndex.get(g.id)!}
                 />
               </li>
             ))
@@ -111,7 +111,7 @@ for (const z of zones) {
                   <li>
                     <SpecimenCard
                       game={g}
-                      catalogNumber={catalogIndex.get(g.id) ?? 0}
+                      catalogNumber={catalogIndex.get(g.id)!}
                     />
                   </li>
                 ))}
