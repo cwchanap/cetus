@@ -88,7 +88,9 @@ describe('SpecimenCard (behavioral)', () => {
         const html = await container.renderToString(SpecimenCard, {
             props: { game: inactiveGame, catalogNumber: 14 },
         })
-        // aria-disabled="true" is set, href should not point to a game URL
-        expect(html).not.toMatch(/href="\/games\//)
+        // aria-disabled="true" is set, href should be omitted entirely.
+        // getGameUrl('circuit_hacker') -> '/circuit-hacker', so assert that
+        // actual game URL is absent (the prior /games/ check was a tautology).
+        expect(html).not.toMatch(/href="\/circuit-hacker"/)
     })
 })

@@ -12,6 +12,9 @@ const { variant = 'default', class: className = '', ...props } = Astro.props
 const cardVariants = {
   variant: {
     default: 'rounded-lg border bg-card text-card-foreground shadow-sm',
+    // sci-fi/glass use border-neon (not the abyssal --cetus-hairline) because
+    // Card is not rendered on the abyssal homepage — SpecimenCard is. Card
+    // serves the legacy sci-fi surfaces (login/signup) that keep neon walls.
     'sci-fi':
       'group relative bg-cetus-surface border border-neon backdrop-blur-sm rounded-2xl hover:border-cetus-accent/60 transition-all duration-300 transform hover:scale-105 hover-glow-cyan',
     glass: 'bg-cetus-surface/80 rounded-3xl border border-neon backdrop-blur',
