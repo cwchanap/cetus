@@ -62,8 +62,8 @@ describe('abyssal shell retints (behavioral)', () => {
         expect(navHtml).toMatch(/<h1/)
     })
 
-    it('Footer renders with cetus hairline + ink-muted tokens', () => {
+    it('Footer renders with cetus hairline + footer-ink tokens', () => {
         expect(footerHtml).toContain('border-cetus-hairline')
-        expect(footerHtml).toContain('text-cetus-ink-muted')
+        expect(footerHtml).toContain('text-cetus-footer-ink')
     })
 })

@@ -50,6 +50,7 @@ describe('abyssal theme tokens (behavioral)', () => {
         'cetus-hairline',
         'cetus-ink',
         'cetus-ink-muted',
+        'cetus-footer-ink',
     ]
 
     it('defines every cetus token in the default :root scope', () => {
@@ -162,6 +163,7 @@ describe('abyssal theme tokens (behavioral)', () => {
             ['cetus-btn-from', 'oklch(0.715 0.143 215.221)'], // cyan-500
             ['cetus-btn-to', 'oklch(0.558 0.288 302.321)'], // purple-600
             ['cetus-ink-muted', 'oklch(0.872 0.01 258.338)'], // gray-300
+            ['cetus-footer-ink', 'oklch(0.707 0.022 257.328)'], // gray-400
             ['cetus-hairline', 'oklch(0.372 0.028 257.286 / 0.5)'], // slate-700/50
         ]
         for (const [token, expected] of cases) {
