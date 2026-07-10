@@ -40,29 +40,37 @@ for (const z of zones) {
         Array.from({ length: 8 }).map((_, i) => (
           <span
             class="cetus-particle absolute rounded-full"
-            style={`left:${10 + i * 11}%; top:${15 + ((i * 37) % 70)}%; width:3px; height:3px; background:var(--cetus-accent${i % 2 ? '' : '-2'}); animation-delay:${i * 0.8}s;`}
+            style={`left:${10 + i * 11}%; top:${15 + ((i * 37) % 70)}%; width:3px; height:3px; background:var(--cetus-accent${['', '-2', '-3'][i % 3]}); animation-delay:${i * 0.8}s;`}
           />
         ))
       }
     </div>
+    <div class="cetus-grid-horizon" aria-hidden="true"></div>
 
     <Container class="relative max-w-5xl text-center">
       <p class="font-mono text-xs tracking-[0.34em] text-cetus-accent">
-        CETUS · DEEP CATALOG
+        ▸ CETUS · DEEP CATALOG<span class="cetus-cursor" aria-hidden="true"
+          >_</span
+        >
       </p>
-      <h2 class="cetus-wordmark mt-5 text-6xl md:text-8xl leading-[0.95]">
+      <h2
+        class="cetus-wordmark cetus-wordmark--glow mt-5 text-6xl md:text-8xl leading-[0.95]"
+      >
         Cetus
       </h2>
       <p class="mx-auto mt-6 max-w-xl text-cetus-ink-muted">
         A catalog of single-player games, trawled from the deep. No login — play
         in one click.
       </p>
+      <span class="cetus-scanline" aria-hidden="true"></span>
 
       <nav aria-label="Featured games" class="mt-12">
-        <ul class="grid grid-cols-1 gap-6 sm:grid-cols-3 lg:grid-cols-5">
+        <ul
+          class="featured-vitrine flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:pb-0 lg:grid-cols-5"
+        >
           {
             featured.map(g => (
-              <li>
+              <li class="min-w-[78%] snap-center sm:min-w-0">
                 <SpecimenCard
                   game={g}
                   catalogNumber={catalogIndex.get(g.id) ?? 0}
