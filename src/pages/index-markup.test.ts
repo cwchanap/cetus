@@ -69,4 +69,30 @@ describe('homepage abyssal composition (behavioral)', () => {
         expect(normalized).not.toContain('#1fe3c0')
         expect(normalized).not.toContain('#f2b33d')
     })
+
+    it('renders the HUD hero kicker with a blinking cursor', () => {
+        expect(html).toContain('▸ CETUS · DEEP CATALOG')
+        expect(html).toContain('cetus-cursor')
+    })
+
+    it('applies the wordmark glow class to the hero heading', () => {
+        expect(html).toContain('cetus-wordmark--glow')
+    })
+
+    it('renders the hero scan-line and grid horizon', () => {
+        expect(html).toContain('cetus-scanline')
+        expect(html).toContain('cetus-grid-horizon')
+    })
+
+    it('uses the third accent token for some hero particles', () => {
+        expect(html).toContain('var(--cetus-accent-3)')
+    })
+
+    it('renders the featured vitrine as a mobile snap-scroll carousel', () => {
+        // Mobile: flex overflow-x-auto snap; sm+: grid. The featured list must
+        // carry the carousel classes and snap-center children.
+        expect(html).toContain('featured-vitrine')
+        expect(html).toContain('snap-x')
+        expect(html).toContain('snap-center')
+    })
 })
