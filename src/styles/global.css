@@ -41,6 +41,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-cetus-accent: var(--cetus-accent);
   --color-cetus-accent-2: var(--cetus-accent-2);
+  --color-cetus-accent-3: var(--cetus-accent-3);
   --color-cetus-surface: var(--cetus-surface);
   --color-cetus-hairline: var(--cetus-hairline);
   --color-cetus-ink: var(--cetus-ink);
@@ -85,6 +86,9 @@
      non-abyssal pages are byte-identical to before tokenization. */
   --cetus-accent: oklch(0.789 0.154 211.53); /* cyan-400 */
   --cetus-accent-2: oklch(0.627 0.265 303.9); /* purple-500 */
+  --cetus-accent-3: oklch(
+    0.627 0.265 303.9
+  ); /* purple-500 default; abyssal swaps to magenta */
   --cetus-btn-from: oklch(0.715 0.143 215.221); /* cyan-500 */
   --cetus-btn-to: oklch(0.558 0.288 302.321); /* purple-600 */
   --cetus-page-bg: linear-gradient(
@@ -182,8 +186,9 @@
 /* ---------- Abyssal accent scope (homepage only) ---------- */
 /* abyssal accent scope */
 .theme-abyssal {
-  --cetus-accent: #1fe3c0; /* teal */
-  --cetus-accent-2: #f2b33d; /* amber */
+  --cetus-accent: #22f5d0; /* brighter teal (HUD energy) */
+  --cetus-accent-2: #ffc24a; /* brighter amber */
+  --cetus-accent-3: #ff3d8a; /* electric magenta — HUD chrome/hover/sweeps */
   --cetus-btn-from: #1fe3c0; /* teal (tonal button) */
   --cetus-btn-to: #0e9e84; /* deep teal */
   --cetus-page-bg: #04060a; /* abyss */
@@ -214,6 +219,141 @@
   background: var(--cetus-page-bg);
 }
 
+/* ---------- HUD atmosphere (abyssal scanlines) ---------- */
+.theme-abyssal::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.04) 0 1px,
+    transparent 1px 3px
+  );
+  z-index: 1; /* above bg paint, below main content (z-10) and nav (z-10001) */
+}
+
+/* ---------- HUDchrome classes (abyssal) ---------- */
+
+/* Wordmark glow: Fraunces italic keeps its museum form, gains a neon halo. */
+.theme-abyssal .cetus-wordmark--glow {
+  text-shadow:
+    0 0 18px color-mix(in srgb, var(--cetus-accent) 45%, transparent),
+    0 0 40px color-mix(in srgb, var(--cetus-accent) 25%, transparent),
+    0 0 2px color-mix(in srgb, var(--cetus-accent-3) 35%, transparent);
+}
+
+/* Hero perspective grid horizon. */
+.cetus-grid-horizon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 60%;
+  pointer-events: none;
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--cetus-accent) 8%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--cetus-accent) 8%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 44px 44px;
+  transform: perspective(420px) rotateX(62deg);
+  transform-origin: center bottom;
+  -webkit-mask-image: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.7),
+    transparent 75%
+  );
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent 75%);
+  animation: cetus-grid-drift 18s linear infinite;
+}
+@keyframes cetus-grid-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 44px;
+  }
+}
+
+/* Blinking terminal cursor for the hero kicker. */
+.cetus-cursor {
+  display: inline-block;
+  animation: cetus-blink 1.1s steps(2, start) infinite;
+}
+@keyframes cetus-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* One-shot scan-line that sweeps the hero tagline on load. */
+.cetus-scanline {
+  display: block;
+  height: 1px;
+  margin: 14px auto 0;
+  width: min(280px, 60%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--cetus-accent),
+    transparent
+  );
+  opacity: 0;
+  animation: cetus-scan-sweep 2.4s ease-out 0.3s 1 forwards;
+}
+@keyframes cetus-scan-sweep {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+/* Score-strip divider with a traveling magenta sweep. */
+.cetus-strip__line {
+  flex: 1;
+  height: 1px;
+  min-width: 24px;
+  position: relative;
+  overflow: hidden;
+  background: var(--cetus-hairline);
+}
+.cetus-strip__line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--cetus-accent-3),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: cetus-divider-sweep 6s ease-in-out infinite;
+}
+@keyframes cetus-divider-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  55%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 /* ---------- Drift + reduced motion (homepage atmosphere) ---------- */
 @keyframes cetus-drift {
   0% {
@@ -237,12 +377,26 @@
 @media (prefers-reduced-motion: reduce) {
   .cetus-particle,
   .cetus-drift-host,
-  .cetus-specimen {
+  .cetus-specimen,
+  .cetus-grid-horizon,
+  .cetus-cursor,
+  .cetus-scanline,
+  .cetus-strip__line,
+  .cetus-strip__line::after {
     animation: none !important;
     transition: none !important;
   }
   .cetus-specimen:hover {
     transform: none !important;
+  }
+  .cetus-grid-horizon {
+    transform: none !important;
+  }
+  .cetus-cursor {
+    opacity: 1 !important;
+  }
+  .cetus-scanline {
+    opacity: 0 !important;
   }
 }
 

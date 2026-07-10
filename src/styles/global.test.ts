@@ -71,6 +71,42 @@ describe('abyssal theme tokens (behavioral)', () => {
         }
     })
 
+    it('defines --cetus-accent-3 in :root (purple-500 default; shared shell safety)', () => {
+        const val = tokenValue(rootBlock, 'cetus-accent-3')
+        expect(val).toBe('oklch(0.627 0.265 303.9)')
+    })
+
+    it('overrides --cetus-accent-3 to electric magenta under .theme-abyssal', () => {
+        const val = tokenValue(abyssalBlock, 'cetus-accent-3')
+        expect(val).toBe('#ff3d8a')
+    })
+
+    it('brightens abyssal --cetus-accent and --cetus-accent-2', () => {
+        expect(tokenValue(abyssalBlock, 'cetus-accent')).toBe('#22f5d0')
+        expect(tokenValue(abyssalBlock, 'cetus-accent-2')).toBe('#ffc24a')
+    })
+
+    it('maps --cetus-accent-3 into the Tailwind @theme inline block', () => {
+        expect(css).toContain('--color-cetus-accent-3: var(--cetus-accent-3)')
+    })
+
+    it('adds the scanline overlay under .theme-abyssal', () => {
+        expect(css).toMatch(/\.theme-abyssal::after\s*\{/)
+        expect(css).toContain('repeating-linear-gradient')
+    })
+
+    it('covers new HUD animations in the reduced-motion media query', () => {
+        const mqIndex = css.indexOf('@media (prefers-reduced-motion: reduce)')
+        const afterMq = css.slice(mqIndex)
+        const blockMatch = afterMq.match(/\{([\s\S]*)\}/)
+        const block = blockMatch ? blockMatch[1] : ''
+        // New animated selectors must appear inside the reduced-motion block.
+        expect(block).toMatch(/cetus-grid-horizon/)
+        expect(block).toMatch(/cetus-cursor/)
+        expect(block).toMatch(/cetus-strip__line/)
+        expect(block).toMatch(/cetus-scanline/)
+    })
+
     it('maps cetus tokens into the Tailwind @theme inline block', () => {
         expect(css).toContain('--color-cetus-accent: var(--cetus-accent)')
         expect(css).toContain('--color-cetus-surface: var(--cetus-surface)')
