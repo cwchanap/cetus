@@ -65,9 +65,9 @@ describe('shell components use cetus tokens (behavioral)', () => {
         expect(html).not.toMatch(/from-cyan-400/)
     })
 
-    it('Footer uses cetus hairline + ink-muted', async () => {
+    it('Footer uses cetus hairline + footer-ink', async () => {
         const html = await container.renderToString(Footer, {})
         expect(html).toContain('border-cetus-hairline')
-        expect(html).toContain('text-cetus-ink-muted')
+        expect(html).toContain('text-cetus-footer-ink')
     })
 })
