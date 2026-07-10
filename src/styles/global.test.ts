@@ -73,7 +73,7 @@ describe('abyssal theme tokens (behavioral)', () => {
 
     it('defines --cetus-accent-3 in :root (purple-500 default; shared shell safety)', () => {
         const val = tokenValue(rootBlock, 'cetus-accent-3')
-        expect(val).toBe('oklch(0.627 0.265 303.9)')
+        expect(val).toMatch(/oklch\(\s*0\.627\s+0\.265\s+303\.9\s*\)/)
     })
 
     it('overrides --cetus-accent-3 to electric magenta under .theme-abyssal', () => {
