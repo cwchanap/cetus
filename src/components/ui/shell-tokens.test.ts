@@ -22,6 +22,11 @@ describe('shell components use cetus tokens (behavioral)', () => {
         expect(html).toContain('to-[var(--cetus-btn-to)]')
         expect(html).not.toMatch(/from-cyan-500/)
         expect(html).not.toMatch(/to-purple-600/)
+        // Hover restores the gradient shift (cyan-400 -> purple-500 via tokens)
+        expect(html).toContain('hover:from-cetus-accent')
+        expect(html).toContain('hover:to-cetus-accent-2')
+        // Shadow restores the colored glow (purple-500 via token)
+        expect(html).toContain('shadow-cetus-accent-2/25')
     })
 
     it('Button outline uses cetus-accent and a dark hover text color', async () => {
@@ -53,7 +58,9 @@ describe('shell components use cetus tokens (behavioral)', () => {
 
     it('Navigation logo + links use cetus tokens', async () => {
         const html = await container.renderToString(Navigation, {})
-        expect(html).toContain('cetus-btn-from')
+        expect(html).toContain('from-cetus-accent')
+        expect(html).toContain('to-cetus-accent-2')
+        expect(html).toContain('shadow-cetus-accent/25')
         expect(html).toContain('text-cetus-ink-muted')
         expect(html).not.toMatch(/from-cyan-400/)
     })
