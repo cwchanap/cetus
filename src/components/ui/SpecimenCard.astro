@@ -14,9 +14,9 @@ const { game, catalogNumber, class: className = '', ...props } = Astro.props
 
 const available = game.isActive
 const depth = game.depth ? DEPTH_LABELS[game.depth] : null
-const difficultyDots =
-  game.difficulty === 'easy' ? 1 : game.difficulty === 'medium' ? 2 : 3
 const n = String(catalogNumber).padStart(2, '0')
+const difficultyFill =
+  game.difficulty === 'easy' ? 2 : game.difficulty === 'medium' ? 3 : 5
 ---
 
 <a
@@ -30,6 +30,10 @@ const n = String(catalogNumber).padStart(2, '0')
   ]}
   {...props}
 >
+  <span class="hud-bracket hud-bracket--tl" aria-hidden="true"></span>
+  <span class="hud-bracket hud-bracket--tr" aria-hidden="true"></span>
+  <span class="hud-bracket hud-bracket--bl" aria-hidden="true"></span>
+  <span class="hud-bracket hud-bracket--br" aria-hidden="true"></span>
   <div class="vessel__lid"></div>
   <div class="vessel__neck"></div>
   <div class="vessel__body">
@@ -43,7 +47,7 @@ const n = String(catalogNumber).padStart(2, '0')
   </div>
 
   <div class="vessel__meta">
-    <div class="vessel__no">N°·{n}</div>
+    <div class="vessel__no">[ N°·{n} ]</div>
     <div class="vessel__name">{game.name}</div>
     {
       depth && (
@@ -52,15 +56,31 @@ const n = String(catalogNumber).padStart(2, '0')
         </div>
       )
     }
-    <div
-      class="difficulty-dots"
-      role="img"
-      aria-label={`difficulty ${game.difficulty}`}
-    >
-      <span class:list={[{ on: difficultyDots >= 1 }]}></span>
-      <span class:list={[{ on: difficultyDots >= 2 }]}></span>
-      <span class:list={[{ on: difficultyDots >= 3 }]}></span>
-    </div>
+    {
+      available ? (
+        <div
+          class="power-bar"
+          role="img"
+          aria-label={`difficulty ${game.difficulty}`}
+        >
+          <span class:list={[{ on: difficultyFill >= 1 }]} />
+          <span class:list={[{ on: difficultyFill >= 2 }]} />
+          <span class:list={[{ on: difficultyFill >= 3 }]} />
+          <span class:list={[{ on: difficultyFill >= 4 }]} />
+          <span class:list={[{ on: difficultyFill >= 5 }]} />
+          <span class="power-bar__label">DIFF·{difficultyFill}</span>
+        </div>
+      ) : (
+        <div class="power-bar power-bar--soon" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+          <span class="power-bar__label">SOON</span>
+        </div>
+      )
+    }
   </div>
 </a>
 
@@ -109,16 +129,18 @@ const n = String(catalogNumber).padStart(2, '0')
       transparent 60%
     );
     box-shadow: inset 0 0 30px
-      color-mix(in srgb, var(--cetus-accent) 8%, transparent);
+      color-mix(in srgb, var(--cetus-accent) 12%, transparent);
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
   }
-  .vessel:hover .vessel__body {
+  .vessel:hover .vessel__body,
+  .vessel:focus-visible .vessel__body {
     box-shadow:
-      inset 0 0 34px color-mix(in srgb, var(--cetus-accent) 18%, transparent),
-      0 0 24px color-mix(in srgb, var(--cetus-accent) 25%, transparent);
+      inset 0 0 34px color-mix(in srgb, var(--cetus-accent) 20%, transparent),
+      0 0 0 1px var(--cetus-accent-3),
+      0 0 24px color-mix(in srgb, var(--cetus-accent-3) 40%, transparent);
   }
   .vessel__empty {
     width: 30px;
@@ -153,27 +175,86 @@ const n = String(catalogNumber).padStart(2, '0')
     letter-spacing: 0.16em;
     color: var(--cetus-ink-muted);
   }
-  .difficulty-dots {
+  .power-bar {
     display: flex;
-    gap: 4px;
+    align-items: center;
     justify-content: center;
+    gap: 3px;
     margin-top: 9px;
   }
-  .difficulty-dots span {
-    width: 5px;
+  .power-bar span {
+    width: 9px;
     height: 5px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--cetus-ink) 20%, transparent);
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--cetus-ink) 14%, transparent);
   }
-  .difficulty-dots span.on {
-    background: var(--cetus-accent);
-    box-shadow: 0 0 6px var(--cetus-accent);
+  .power-bar span.on {
+    background: var(--cetus-accent-2);
+    box-shadow: 0 0 6px
+      color-mix(in srgb, var(--cetus-accent-2) 70%, transparent);
+  }
+  .power-bar__label {
+    width: auto !important;
+    height: auto !important;
+    background: none !important;
+    box-shadow: none !important;
+    margin-left: 5px;
+    font:
+      500 9px/1 'JetBrains Mono',
+      monospace;
+    letter-spacing: 0.14em;
+    color: var(--cetus-ink-muted);
+  }
+  .power-bar--soon .power-bar__label {
+    color: var(--cetus-accent-3);
+    opacity: 0.8;
+  }
+
+  /* HUD corner brackets (teal default → magenta on hover/focus). */
+  .hud-bracket {
+    position: absolute;
+    width: 13px;
+    height: 13px;
+    border: 1.5px solid var(--cetus-accent);
+    pointer-events: none;
+    transition: border-color 0.2s ease;
+  }
+  .hud-bracket--tl {
+    top: 7px;
+    left: 7px;
+    border-right: 0;
+    border-bottom: 0;
+  }
+  .hud-bracket--tr {
+    top: 7px;
+    right: 7px;
+    border-left: 0;
+    border-bottom: 0;
+  }
+  .hud-bracket--bl {
+    bottom: 7px;
+    left: 7px;
+    border-right: 0;
+    border-top: 0;
+  }
+  .hud-bracket--br {
+    bottom: 7px;
+    right: 7px;
+    border-left: 0;
+    border-top: 0;
+  }
+  .vessel:hover .hud-bracket,
+  .vessel:focus-visible .hud-bracket {
+    border-color: var(--cetus-accent-3);
   }
 
   @media (prefers-reduced-motion: reduce) {
     .vessel:hover,
     .vessel:focus-visible {
       transform: none;
+    }
+    .hud-bracket {
+      transition: none;
     }
   }
 </style>
