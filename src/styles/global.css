@@ -80,12 +80,12 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
-  /* Cetus semantic tokens — default resolves to current cyan/purple so
-     non-abyssal pages are unchanged. */
-  --cetus-accent: oklch(0.78 0.15 200); /* #22D3EE cyan-400 */
-  --cetus-accent-2: oklch(0.62 0.24 300); /* #A855F7 purple-500 */
-  --cetus-btn-from: oklch(0.72 0.16 200); /* #06B6D4 cyan-500 */
-  --cetus-btn-to: oklch(0.52 0.26 300); /* #9333EA purple-600 */
+  /* Cetus semantic tokens — default resolves to exact Tailwind v4 colors so
+     non-abyssal pages are byte-identical to before tokenization. */
+  --cetus-accent: oklch(0.789 0.154 211.53); /* cyan-400 */
+  --cetus-accent-2: oklch(0.627 0.265 303.9); /* purple-500 */
+  --cetus-btn-from: oklch(0.715 0.143 215.221); /* cyan-500 */
+  --cetus-btn-to: oklch(0.558 0.288 302.321); /* purple-600 */
   --cetus-page-bg: linear-gradient(
     135deg,
     rgb(15 23 42),
@@ -95,7 +95,7 @@
   --cetus-surface: oklch(0 0 0 / 0.05);
   --cetus-hairline: oklch(0 0 0 / 0.1);
   --cetus-ink: var(--foreground);
-  --cetus-ink-muted: oklch(0.7 0.02 250);
+  --cetus-ink-muted: oklch(0.872 0.01 258.338); /* gray-300 */
   /* Wordmark tokens — default = Orbitron + holographic gradient.
      Abyssal swaps to Fraunces italic + static ink (see .theme-abyssal). */
   --cetus-display-font: 'Orbitron', monospace;

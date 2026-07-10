@@ -127,4 +127,21 @@ describe('abyssal theme tokens (behavioral)', () => {
         expect(surface).toMatch(/rgba\(255,\s*255,\s*255/)
         expect(hairline).toMatch(/rgba\(255,\s*255,\s*255/)
     })
+
+    // Parity guard: :root token values must equal the exact Tailwind v4 colors
+    // they replace, so non-abyssal pages are byte-identical to before
+    // tokenization. If a token value drifts, this test catches it.
+    it(':root cetus token values match the exact Tailwind v4 colors they replace', () => {
+        const cases: Array<[string, string]> = [
+            ['cetus-accent', 'oklch(0.789 0.154 211.53)'], // cyan-400
+            ['cetus-accent-2', 'oklch(0.627 0.265 303.9)'], // purple-500
+            ['cetus-btn-from', 'oklch(0.715 0.143 215.221)'], // cyan-500
+            ['cetus-btn-to', 'oklch(0.558 0.288 302.321)'], // purple-600
+            ['cetus-ink-muted', 'oklch(0.872 0.01 258.338)'], // gray-300
+        ]
+        for (const [token, expected] of cases) {
+            const val = tokenValue(rootBlock, token)
+            expect(val, `--${token} should equal ${expected}`).toBe(expected)
+        }
+    })
 })
