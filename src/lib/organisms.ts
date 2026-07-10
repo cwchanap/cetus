@@ -25,8 +25,8 @@ export const ORGANISM_BY_GAME: Record<GameID, GameEntry> = Object.fromEntries(
     GAMES.map(g => [
         g.id,
         {
-            organism: g.organism as OrganismIdentity,
-            depth: g.depth as DepthZone,
+            organism: g.organism,
+            depth: g.depth,
         },
     ])
 ) as Record<GameID, GameEntry>

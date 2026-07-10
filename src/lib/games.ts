@@ -50,8 +50,8 @@ export interface Game {
     difficulty: 'easy' | 'medium' | 'hard'
     tags: string[]
     isActive: boolean
-    organism?: OrganismIdentity
-    depth?: DepthZone
+    organism: OrganismIdentity
+    depth: DepthZone
 }
 
 // Game definitions for all available games

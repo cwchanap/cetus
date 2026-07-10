@@ -28,7 +28,7 @@ Copied verbatim from the spec; every task implicitly inherits these.
 ## File Structure
 
 **Create:**
-- `src/components/organisms/Organism.astro` — renders one of 7 bioluminescent shapes from `{ shape, color }`. Pure CSS/SVG, reduced-motion-safe.
+- `src/components/organisms/Organism.astro` — renders one of 6 bioluminescent shapes from `{ shape, color }`. Pure CSS/SVG, reduced-motion-safe.
 - `src/components/ui/SpecimenCard.astro` — the Vessel card (jar + organism + meta); whole card is an `<a>` link.
 - `src/lib/organisms.ts` — organism taxonomy types + per-game organism/depth assignment data + helpers.
 - `src/lib/organisms.test.ts` — data tests.
@@ -56,7 +56,7 @@ Copied verbatim from the spec; every task implicitly inherits these.
 
 **Interfaces:**
 - Produces (from `organisms.ts`):
-  - `type OrganismShape = 'jelly' | 'orb' | 'chain' | 'spiral' | 'frond' | 'cluster' | 'lattice'`
+  - `type OrganismShape = 'orb' | 'chain' | 'spiral' | 'frond' | 'cluster' | 'lattice'`
   - `type OrganismColor = 'teal' | 'amber' | 'magenta' | 'ice' | 'green'`
   - `type DepthZone = 'shallow' | 'mid' | 'abyssal'`
   - `interface OrganismIdentity { shape: OrganismShape; color: OrganismColor; orb?: boolean }` — `orb` adds the orbital ring (used by Bubble Shooter, Satellite Sync).
@@ -67,7 +67,7 @@ Copied verbatim from the spec; every task implicitly inherits these.
   - `const FEATURED_GAME_IDS: GameID[]` — `[REFLEX, BEJEWELED, SNAKE, GAME_2048, TETRIS]`
   - `function getFeaturedGames(games?: Game[]): Game[]`
   - `const DEPTH_LABELS: Record<DepthZone, { label: string; reading: string; note: string }>`
-- `Game` (in `games.ts`) gains optional `organism?: OrganismIdentity` and `depth?: DepthZone`, populated for all 14 games from `ORGANISM_BY_GAME`.
+- `Game` (in `games.ts`) gains required `organism: OrganismIdentity` and `depth: DepthZone`, populated for all 14 games.
 
 - [ ] **Step 1: Write the failing data test**
 
@@ -90,7 +90,6 @@ import {
 } from './organisms'
 
 const SHAPES: OrganismShape[] = [
-    'jelly',
     'orb',
     'chain',
     'spiral',
@@ -202,7 +201,6 @@ Expected: FAIL (`Cannot find module './organisms'`, `g.organism` undefined).
 import { GAMES, GameID, type Game } from './games'
 
 export type OrganismShape =
-    | 'jelly'
     | 'orb'
     | 'chain'
     | 'spiral'
@@ -309,36 +307,23 @@ export interface Game {
     difficulty: 'easy' | 'medium' | 'hard'
     tags: string[]
     isActive: boolean
-    organism?: OrganismIdentity
-    depth?: DepthZone
+    organism: OrganismIdentity
+    depth: DepthZone
 }
 ```
 
-3. After the `GAMES` array is declared, attach organism + depth from the registry. Add immediately after the closing `]` of `GAMES`:
-```ts
-import { ORGANISM_BY_GAME } from './organisms'
-for (const game of GAMES) {
-    const entry = ORGANISM_BY_GAME[game.id]
-    if (entry) {
-        game.organism = entry.organism
-        game.depth = entry.depth
-    }
-}
-```
-
-> **Note:** This is a controlled, single-direction circular import (`organisms.ts` imports `GAMES` from `games.ts`; `games.ts` imports `ORGANISM_BY_GAME` from `organisms.ts`). It is safe because `ORGANISM_BY_GAME` is a plain object literal with no initialization dependency on `GAMES`, and the mutation loop runs at module load after both consts exist. Re-export the helpers from `games.ts` for ergonomic imports:
+3. The organism + depth fields are inlined directly on each `GAMES` entry (see step 2 above), so no post-declaration mutation or circular import is needed. The `ORGANISM_BY_GAME` map and helpers in `organisms.ts` are derived one-directionally from `GAMES`:
 
 ```ts
-export {
-    getOrganism,
-    getDepth,
-    getGamesByDepth,
-    getFeaturedGames,
-    FEATURED_GAME_IDS,
-    DEPTH_LABELS,
-} from './organisms'
-export type { OrganismIdentity, OrganismShape, OrganismColor, DepthZone } from './organisms'
+// organisms.ts — imports from games.ts one-directionally
+import { GAMES, GameID, type Game, type OrganismIdentity, type DepthZone } from './games'
+
+export const ORGANISM_BY_GAME: Record<GameID, GameEntry> = Object.fromEntries(
+    GAMES.map(g => [g.id, { organism: g.organism, depth: g.depth }])
+) as Record<GameID, GameEntry>
 ```
+
+> **Note:** This avoids the circular import that would arise if `games.ts` imported from `organisms.ts`. The registry is one-directional: `organisms.ts` derives `ORGANISM_BY_GAME` from the already-populated `GAMES` array. Consumers import helpers from `organisms.ts` directly.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -443,17 +428,26 @@ Add the token mappings inside the existing `@theme inline { … }` block (after 
 Add the default `:root` values. Inside the existing `:root { … }` block (before its closing `}`), append:
 
 ```css
-  /* Cetus semantic tokens — default resolves to current cyan/purple so
-     non-abyssal pages are unchanged. */
-  --cetus-accent: oklch(0.78 0.15 200);            /* #22D3EE cyan-400 */
-  --cetus-accent-2: oklch(0.62 0.24 300);          /* #A855F7 purple-500 */
-  --cetus-btn-from: oklch(0.72 0.16 200);          /* #06B6D4 cyan-500 */
-  --cetus-btn-to: oklch(0.52 0.26 300);            /* #9333EA purple-600 */
+  /* Cetus semantic tokens — default resolves to exact Tailwind v4 colors so
+     non-abyssal pages are byte-identical to before tokenization. */
+  --cetus-accent: oklch(0.789 0.154 211.53); /* cyan-400 */
+  --cetus-accent-2: oklch(0.627 0.265 303.9); /* purple-500 */
+  --cetus-btn-from: oklch(0.715 0.143 215.221); /* cyan-500 */
+  --cetus-btn-to: oklch(0.558 0.288 302.321); /* purple-600 */
   --cetus-page-bg: linear-gradient(135deg, rgb(15 23 42), rgb(88 28 135), rgb(15 23 42));
-  --cetus-surface: rgba(255, 255, 255, 0.05);
-  --cetus-hairline: rgba(255, 255, 255, 0.1);
+  --cetus-surface: oklch(0 0 0 / 0.05);
+  --cetus-hairline: oklch(0.372 0.028 257.286 / 0.5); /* slate-700/50 */
   --cetus-ink: var(--foreground);
-  --cetus-ink-muted: oklch(0.70 0.02 250);
+  --cetus-ink-muted: oklch(0.872 0.01 258.338); /* gray-300 */
+  --cetus-footer-ink: oklch(0.707 0.022 257.328); /* gray-400 */
+```
+
+Also add mode-specific surface override in the existing `.dark` block:
+
+```css
+  /* Cetus surface: white-opacity for dark backgrounds
+     (root uses black-opacity for light mode, matching --border pattern). */
+  --cetus-surface: rgba(255, 255, 255, 0.05);
 ```
 
 Append the abyssal scope + background override + reduced-motion at the end of the file:
@@ -470,6 +464,16 @@ Append the abyssal scope + background override + reduced-motion at the end of th
   --cetus-hairline: rgba(234, 246, 255, 0.1);
   --cetus-ink: #eaf6ff;
   --cetus-ink-muted: #8a98a6;
+  --cetus-footer-ink: var(--cetus-ink-muted);
+  /* Wordmark: Fraunces italic + static ink. */
+  --cetus-display-font: 'Fraunces', serif;
+  --cetus-display-weight: 300;
+  --cetus-display-style: italic;
+  --cetus-wordmark-bg: none;
+  --cetus-wordmark-fill: var(--cetus-ink);
+  --cetus-wordmark-animation: none;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+
   background: var(--cetus-page-bg);
   color: var(--cetus-ink);
 }
@@ -845,9 +849,8 @@ describe('Organism renderer', () => {
         expect(src).toMatch(/identity:\s*OrganismIdentity/)
     })
 
-    it('branches on all seven shapes', () => {
+    it('branches on all six shapes', () => {
         for (const shape of [
-            'jelly',
             'orb',
             'chain',
             'spiral',
@@ -900,9 +903,6 @@ const { shape, color, orb } = identity
   data-orb={orb ? 'true' : undefined}
   {...props}
 >
-  {shape === 'jelly' && (
-    <div class="cetus-org__bell"></div>
-  )}
   {shape === 'orb' && (
     <div class="cetus-org__orb"></div>
   )}
@@ -955,7 +955,6 @@ const { shape, color, orb } = identity
   .cetus-org[data-color='ice']     { --org: #6fe3ff; }
   .cetus-org[data-color='green']   { --org: #5dff9f; }
 
-  .cetus-org__bell,
   .cetus-org__orb {
     width: 46px;
     height: 46px;
@@ -968,7 +967,6 @@ const { shape, color, orb } = identity
     );
     box-shadow: 0 0 28px color-mix(in srgb, var(--org) 55%, transparent);
   }
-  .cetus-org__bell { border-radius: 50% 50% 46% 46%; }
 
   .cetus-org__chain,
   .cetus-org__cluster,
@@ -1217,6 +1215,15 @@ const n = String(catalogNumber).padStart(2, '0')
     transition: transform 0.2s ease;
   }
   .vessel:hover { transform: translateY(-3px); }
+  .vessel:focus-visible {
+    outline: 2px solid var(--cetus-accent);
+    outline-offset: 2px;
+    transform: translateY(-3px);
+  }
+  .vessel:focus-visible .vessel__body {
+    box-shadow: inset 0 0 34px color-mix(in srgb, var(--cetus-accent) 18%, transparent),
+      0 0 24px color-mix(in srgb, var(--cetus-accent) 25%, transparent);
+  }
 
   .vessel__lid {
     width: 50px;
@@ -1253,8 +1260,8 @@ const n = String(catalogNumber).padStart(2, '0')
 
   .vessel__meta { margin-top: 0.85rem; color: var(--cetus-ink); }
   .vessel__no {
-    font: 500 9px/1 'JetBrains Mono', monospace;
-    letter-spacing: 0.2em;
+    font: 500 14px/1 'JetBrains Mono', monospace;
+    letter-spacing: 0.1em;
     color: var(--cetus-accent);
     opacity: 0.7;
   }
@@ -1264,8 +1271,8 @@ const n = String(catalogNumber).padStart(2, '0')
     margin: 7px 0 5px;
   }
   .vessel__depth {
-    font: 500 9px/1 'JetBrains Mono', monospace;
-    letter-spacing: 0.16em;
+    font: 500 14px/1 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
     color: var(--cetus-ink-muted);
   }
   .difficulty-dots { display: flex; gap: 4px; justify-content: center; margin-top: 9px; }
@@ -1273,7 +1280,12 @@ const n = String(catalogNumber).padStart(2, '0')
   .difficulty-dots span.on { background: var(--cetus-accent); box-shadow: 0 0 6px var(--cetus-accent); }
 
   @media (prefers-reduced-motion: reduce) {
-    .vessel:hover { transform: none; }
+    .vessel:hover,
+    .vessel:focus-visible { transform: none; }
+    .vessel:hover .vessel__body,
+    .vessel:focus-visible .vessel__body {
+      box-shadow: inset 0 0 30px color-mix(in srgb, var(--cetus-accent) 8%, transparent);
+    }
   }
 </style>
 ```

@@ -28,8 +28,6 @@ const inactiveGame: Game = {
     id: GameID.CIRCUIT_HACKER,
     name: 'Circuit Hacker',
     isActive: false,
-    organism: undefined,
-    depth: undefined,
 }
 
 describe('SpecimenCard (behavioral)', () => {
@@ -74,7 +72,7 @@ describe('SpecimenCard (behavioral)', () => {
         expect(html).toContain('aria-label="difficulty medium"')
     })
 
-    it('renders the empty vessel placeholder when game has no organism', async () => {
+    it('renders the empty vessel placeholder when game is inactive', async () => {
         const html = await container.renderToString(SpecimenCard, {
             props: { game: inactiveGame, catalogNumber: 14 },
         })

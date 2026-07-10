@@ -263,14 +263,16 @@ and should be sequenced first in the plan.
 
 - `src/pages/index.astro` — rewritten to the new composition.
 - `src/styles/global.css` — add `.theme-abyssal` token scope.
-- `src/components/ui/GameCard.astro` — new Vessel rendering (gated to abyssal
-  theme, or a new `SpecimenCard.astro` if cleaner).
+- `src/components/ui/SpecimenCard.astro` — new Vessel rendering (the specimen
+  card; replaces the deprecated `GameCard.astro`, which is removed).
 - `src/components/ui/Navigation.astro`, `Footer.astro`, `Button.astro`,
   `Card.astro` — switched to semantic tokens (default values unchanged).
-- New: organism taxonomy renderer (small module under `src/components/organisms/`
-  or `src/lib/organisms.ts`) — pure CSS/SVG shapes, data-driven.
+- New: `src/components/organisms/Organism.astro` — pure CSS/SVG shapes,
+  data-driven organism taxonomy renderer.
+- New: `src/lib/organisms.ts` — organism taxonomy types + per-game
+  organism/depth assignment data + helpers.
 - New: homepage-specific layout or `AppLayout` theme prop.
-- `src/lib/games/` registry — extend the game record with `organism`
+- `src/lib/games.ts` — extend the game record with `organism`
   (`{ shape, color }`) and `depth` (`'shallow' | 'mid' | 'abyssal'`) fields.
 
 ### Fonts

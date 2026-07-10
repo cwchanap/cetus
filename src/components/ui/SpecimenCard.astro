@@ -133,9 +133,9 @@ const n = String(catalogNumber).padStart(2, '0')
   }
   .vessel__no {
     font:
-      500 10px/1 'JetBrains Mono',
+      500 14px/1 'JetBrains Mono',
       monospace;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.1em;
     color: var(--cetus-accent);
     opacity: 0.7;
   }
@@ -148,9 +148,9 @@ const n = String(catalogNumber).padStart(2, '0')
   }
   .vessel__depth {
     font:
-      500 10px/1 'JetBrains Mono',
+      500 14px/1 'JetBrains Mono',
       monospace;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.05em;
     color: var(--cetus-ink-muted);
   }
   .difficulty-dots {
@@ -174,6 +174,11 @@ const n = String(catalogNumber).padStart(2, '0')
     .vessel:hover,
     .vessel:focus-visible {
       transform: none;
+    }
+    .vessel:hover .vessel__body,
+    .vessel:focus-visible .vessel__body {
+      box-shadow: inset 0 0 30px
+        color-mix(in srgb, var(--cetus-accent) 8%, transparent);
     }
   }
 </style>
