@@ -1,8 +1,15 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import SpecimenCard from './SpecimenCard.astro'
 import { GameID, type Game } from '@/lib/games'
+
+const specimenSource = readFileSync(
+    resolve(process.cwd(), 'src/components/ui/SpecimenCard.astro'),
+    'utf-8'
+)
 
 const activeGame: Game = {
     id: GameID.TETRIS,
@@ -92,5 +99,14 @@ describe('SpecimenCard (behavioral)', () => {
         // getGameUrl('circuit_hacker') -> '/circuit-hacker', so assert that
         // actual game URL is absent (the prior /games/ check was a tautology).
         expect(html).not.toMatch(/href="\/circuit-hacker"/)
+    })
+
+    it('defines a visible focus ring via :focus-visible with cetus-accent', () => {
+        // The scoped <style> block in SpecimenCard.astro must include a
+        // :focus-visible rule with an outline using --cetus-accent
+        // (teal in abyssal, cyan-400 default).
+        expect(specimenSource).toMatch(/focus-visible/)
+        expect(specimenSource).toMatch(/outline/)
+        expect(specimenSource).toContain('var(--cetus-accent)')
     })
 })

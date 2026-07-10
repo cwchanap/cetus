@@ -93,7 +93,7 @@
     rgb(15 23 42)
   );
   --cetus-surface: oklch(0 0 0 / 0.05);
-  --cetus-hairline: oklch(0 0 0 / 0.1);
+  --cetus-hairline: oklch(0.372 0.028 257.286 / 0.5); /* slate-700/50 */
   --cetus-ink: var(--foreground);
   --cetus-ink-muted: oklch(0.872 0.01 258.338); /* gray-300 */
   /* Wordmark tokens — default = Orbitron + holographic gradient.
@@ -144,10 +144,12 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
-  /* Cetus surface/hairline: white-opacity for dark backgrounds
-     (root uses black-opacity for light mode, matching --border pattern). */
+  /* Cetus surface: white-opacity for dark backgrounds
+     (root uses black-opacity for light mode, matching --border pattern).
+     --cetus-hairline is not overridden here — it inherits the root
+     slate-700/50 value so the Footer border matches the original
+     border-slate-700/50 on non-abyssal pages. */
   --cetus-surface: rgba(255, 255, 255, 0.05);
-  --cetus-hairline: rgba(255, 255, 255, 0.1);
 }
 
 @layer base {
