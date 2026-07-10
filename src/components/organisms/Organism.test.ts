@@ -31,13 +31,27 @@ describe('Organism renderer (behavioral)', () => {
         expect(html).toContain('aria-hidden="true"')
     })
 
+    const SEGMENT_COUNTS: Record<OrganismShape, number | null> = {
+        orb: null,
+        chain: 7,
+        spiral: null,
+        frond: 5,
+        cluster: 7,
+        lattice: 9,
+    }
+
     it.each(SHAPES)(
         'renders the %s shape with its specific markup',
-        async shape => {
+        async (shape: OrganismShape) => {
             const html = await container.renderToString(Organism, {
                 props: { identity: { shape, color: 'teal' } },
             })
             expect(html).toContain(`cetus-org--${shape}`)
+            const expected = SEGMENT_COUNTS[shape]
+            if (expected !== null) {
+                const matches = html.match(/<i[\s/>]/g)
+                expect(matches).toHaveLength(expected)
+            }
         }
     )
 

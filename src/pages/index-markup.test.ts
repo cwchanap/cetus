@@ -62,9 +62,11 @@ describe('homepage abyssal composition (behavioral)', () => {
     })
 
     it('uses cetus tokens for hero particles, not hardcoded hex', () => {
-        // Bug #5 regression guard: particles must use tokens, not hex colors
+        // Bug #5 regression guard: particles must use tokens, not hex colors.
+        // Match case-insensitively so a lowercase `#1fe3c0` regression is caught.
+        const normalized = html.toLowerCase()
         expect(html).toContain('var(--cetus-accent')
-        expect(html).not.toContain('#1FE3C0')
-        expect(html).not.toContain('#F2B33D')
+        expect(normalized).not.toContain('#1fe3c0')
+        expect(normalized).not.toContain('#f2b33d')
     })
 })
