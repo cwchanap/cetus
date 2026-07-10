@@ -95,4 +95,11 @@ describe('homepage abyssal composition (behavioral)', () => {
         expect(html).toContain('snap-x')
         expect(html).toContain('snap-center')
     })
+
+    it('renders catalog depth zones as score-strips with sweep dividers', () => {
+        expect(html).toContain('cetus-strip__line')
+        // Each zone header keeps its label text as an h2 heading.
+        expect(html).toContain('▸ SHALLOW')
+        expect(html).toContain('▸ ABYSSAL')
+    })
 })
