@@ -20,9 +20,34 @@ const classes = cn(
 ---
 
 <footer class={classes} {...props}>
+  <span class="cetus-footer-edge" aria-hidden="true"></span>
   <div class="max-w-7xl mx-auto text-center">
-    <p class="text-cetus-footer-ink">
+    <p
+      class="font-mono text-[10px] tracking-[0.28em] uppercase text-cetus-footer-ink"
+    >
+      SYSTEM · CETUS NODE · v1.0
+    </p>
+    <p class="text-cetus-footer-ink mt-1">
       {copyright}
     </p>
   </div>
 </footer>
+
+<style>
+  /* Gradient top divider (teal → magenta), mirroring the nav edge. */
+  .cetus-footer-edge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--cetus-accent),
+      var(--cetus-accent-3),
+      transparent
+    );
+    opacity: 0.5;
+  }
+</style>
