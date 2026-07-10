@@ -230,6 +230,7 @@
     rgba(255, 255, 255, 0.04) 0 1px,
     transparent 1px 3px
   );
+  mix-blend-mode: overlay;
   z-index: 1; /* above bg paint, below main content (z-10) and nav (z-10001) */
 }
 
