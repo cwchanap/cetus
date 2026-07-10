@@ -65,9 +65,22 @@ describe('shell components use cetus tokens (behavioral)', () => {
         expect(html).not.toMatch(/from-cyan-400/)
     })
 
+    it('Navigation renders HUD chrome (brackets + gradient edge)', async () => {
+        const html = await container.renderToString(Navigation, {})
+        expect(html).toContain('nav-bracket--tl')
+        expect(html).toContain('nav-bracket--br')
+        expect(html).toContain('cetus-nav-edge')
+    })
+
     it('Footer uses cetus hairline + footer-ink', async () => {
         const html = await container.renderToString(Footer, {})
         expect(html).toContain('border-cetus-hairline')
         expect(html).toContain('text-cetus-footer-ink')
+    })
+
+    it('Footer renders HUD chrome (gradient edge + system label)', async () => {
+        const html = await container.renderToString(Footer, {})
+        expect(html).toContain('cetus-footer-edge')
+        expect(html).toContain('SYSTEM · CETUS NODE')
     })
 })
