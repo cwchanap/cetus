@@ -42,8 +42,12 @@ const classes = cn('relative z-[10001] px-6 py-8', className)
       class="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-300"
     >
       <div
-        class="w-10 h-10 bg-gradient-to-r from-cetus-accent to-cetus-accent-2 rounded-lg flex items-center justify-center shadow-lg shadow-cetus-accent/25"
+        class="nav-logo w-10 h-10 bg-gradient-to-r from-cetus-accent to-cetus-accent-2 rounded-lg flex items-center justify-center shadow-lg shadow-cetus-accent/25"
       >
+        <span class="nav-bracket nav-bracket--tl" aria-hidden="true"></span>
+        <span class="nav-bracket nav-bracket--tr" aria-hidden="true"></span>
+        <span class="nav-bracket nav-bracket--bl" aria-hidden="true"></span>
+        <span class="nav-bracket nav-bracket--br" aria-hidden="true"></span>
         <span class="text-xl font-bold text-white">{logo}</span>
       </div>
       <h1 class="text-2xl cetus-wordmark">
@@ -55,7 +59,7 @@ const classes = cn('relative z-[10001] px-6 py-8', className)
         navigation.map(item => (
           <a
             href={item.href}
-            class="text-cetus-ink-muted hover:text-cetus-accent transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md"
+            class="nav-underline text-cetus-ink-muted hover:text-cetus-accent transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md"
           >
             {item.label}
           </a>
@@ -73,5 +77,88 @@ const classes = cn('relative z-[10001] px-6 py-8', className)
         )
       }
     </div>
+    <span class="cetus-nav-edge" aria-hidden="true"></span>
   </nav>
 </header>
+
+<style>
+  /* Gradient hairline along the bottom of the header (teal → magenta). */
+  .cetus-nav-edge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--cetus-accent),
+      var(--cetus-accent-3),
+      transparent
+    );
+    opacity: 0.5;
+  }
+
+  /* Logo tile corner brackets. */
+  .nav-logo {
+    position: relative;
+  }
+  .nav-bracket {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border: 1.5px solid var(--cetus-accent);
+    pointer-events: none;
+  }
+  .nav-bracket--tl {
+    top: -3px;
+    left: -3px;
+    border-right: 0;
+    border-bottom: 0;
+  }
+  .nav-bracket--tr {
+    top: -3px;
+    right: -3px;
+    border-left: 0;
+    border-bottom: 0;
+  }
+  .nav-bracket--bl {
+    bottom: -3px;
+    left: -3px;
+    border-right: 0;
+    border-top: 0;
+  }
+  .nav-bracket--br {
+    bottom: -3px;
+    right: -3px;
+    border-left: 0;
+    border-top: 0;
+  }
+
+  /* Sweeping underline on nav links. */
+  .nav-underline {
+    position: relative;
+  }
+  .nav-underline::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -4px;
+    height: 1px;
+    width: 100%;
+    background: var(--cetus-accent-3);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.25s ease;
+  }
+  .nav-underline:hover::after,
+  .nav-underline:focus-visible::after {
+    transform: scaleX(1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav-underline::after {
+      transition: none;
+    }
+  }
+</style>
