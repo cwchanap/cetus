@@ -64,14 +64,33 @@ describe('SpecimenCard (behavioral)', () => {
         expect(html).toContain('cetus-org--lattice')
     })
 
-    it('renders catalog number, name, depth reading, and difficulty dots', async () => {
+    it('renders catalog number, name, depth reading, and a difficulty power-bar', async () => {
         const html = await container.renderToString(SpecimenCard, {
             props: { game: activeGame, catalogNumber: 3 },
         })
-        expect(html).toContain('N°·03')
+        expect(html).toContain('[ N°·03 ]')
         expect(html).toContain('Tetris Challenge')
-        expect(html).toContain('difficulty-dots')
+        expect(html).toContain('power-bar')
         expect(html).toContain('aria-label="difficulty medium"')
+        expect(html).toContain('DIFF·3')
+    })
+
+    it('renders four HUD corner brackets and the vessel body', async () => {
+        const html = await container.renderToString(SpecimenCard, {
+            props: { game: activeGame, catalogNumber: 1 },
+        })
+        expect(html).toContain('hud-bracket--tl')
+        expect(html).toContain('hud-bracket--tr')
+        expect(html).toContain('hud-bracket--bl')
+        expect(html).toContain('hud-bracket--br')
+    })
+
+    it('renders SOON state (no DIFF label) for inactive games', async () => {
+        const html = await container.renderToString(SpecimenCard, {
+            props: { game: inactiveGame, catalogNumber: 14 },
+        })
+        expect(html).toContain('SOON')
+        expect(html).not.toContain('DIFF·')
     })
 
     it('renders the empty vessel placeholder when game has no organism', async () => {
