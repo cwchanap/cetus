@@ -89,6 +89,23 @@ describe('abyssal theme tokens (behavioral)', () => {
         expect(css).toContain('@media (prefers-reduced-motion: reduce)')
     })
 
+    it('reduced-motion media query disables animation and transition', () => {
+        const mqIndex = css.indexOf('@media (prefers-reduced-motion: reduce)')
+        expect(mqIndex).toBeGreaterThan(-1)
+        // Extract everything from the media query to the end of the file,
+        // then find the closing brace of the media query block.
+        const afterMq = css.slice(mqIndex)
+        const blockMatch = afterMq.match(/\{([\s\S]*)\}/)
+        expect(blockMatch).not.toBeNull()
+        const block = blockMatch ? blockMatch[1] : ''
+        // The media query must set animation: none and transition: none
+        // on drift/particle/specimen elements, not just exist as a selector.
+        expect(block).toMatch(/animation:\s*none/)
+        expect(block).toMatch(/transition:\s*none/)
+        // Hover transforms must also be disabled.
+        expect(block).toMatch(/transform:\s*none/)
+    })
+
     it('--cetus-page-bg in :root is a gradient (valid for background, NOT for text color)', () => {
         const val = tokenValue(rootBlock, 'cetus-page-bg')
         expect(val).toBeTruthy()
@@ -120,12 +137,19 @@ describe('abyssal theme tokens (behavioral)', () => {
         expect(hairline).not.toMatch(/rgba\(255,\s*255,\s*255/)
     })
 
-    it('--cetus-surface and --cetus-hairline in .dark use white-opacity (visible on dark bg)', () => {
+    it('--cetus-surface in .dark uses white-opacity (visible on dark bg)', () => {
         const darkBlock = extractBlock(css, '.dark')
         const surface = tokenValue(darkBlock, 'cetus-surface')
-        const hairline = tokenValue(darkBlock, 'cetus-hairline')
         expect(surface).toMatch(/rgba\(255,\s*255,\s*255/)
-        expect(hairline).toMatch(/rgba\(255,\s*255,\s*255/)
+    })
+
+    it('--cetus-hairline is NOT overridden in .dark (inherits root slate-700/50)', () => {
+        const darkBlock = extractBlock(css, '.dark')
+        const hairline = tokenValue(darkBlock, 'cetus-hairline')
+        // The original Footer border was border-slate-700/50 — a static class,
+        // same in light and dark. The token should not be overridden in .dark
+        // so it inherits the root value (slate-700/50) for parity.
+        expect(hairline).toBeNull()
     })
 
     // Parity guard: :root token values must equal the exact Tailwind v4 colors
@@ -138,6 +162,7 @@ describe('abyssal theme tokens (behavioral)', () => {
             ['cetus-btn-from', 'oklch(0.715 0.143 215.221)'], // cyan-500
             ['cetus-btn-to', 'oklch(0.558 0.288 302.321)'], // purple-600
             ['cetus-ink-muted', 'oklch(0.872 0.01 258.338)'], // gray-300
+            ['cetus-hairline', 'oklch(0.372 0.028 257.286 / 0.5)'], // slate-700/50
         ]
         for (const [token, expected] of cases) {
             const val = tokenValue(rootBlock, token)

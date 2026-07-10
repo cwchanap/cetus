@@ -23,16 +23,16 @@ describe('homepage abyssal composition (behavioral)', () => {
         expect(html).toContain('Cetus')
     })
 
-    it('renders the hero heading with text-6xl class (not overridden by font shorthand)', () => {
+    it('renders the hero heading with .cetus-wordmark class and text-6xl', () => {
         // Bug #2 regression guard: the font: shorthand resets font-size to 1em.
-        // The hero heading must use individual font properties, not the font: shorthand.
+        // The hero heading uses the token-driven .cetus-wordmark class (which
+        // sets font-family/weight/style via CSS variables) plus Tailwind text
+        // size classes — no inline font: shorthand that could reset font-size.
         expect(html).toContain('text-6xl')
         expect(html).toContain('md:text-8xl')
+        expect(html).toContain('cetus-wordmark')
         // The style must NOT use the font: shorthand (which resets font-size)
         expect(html).not.toMatch(/style="font:\s/)
-        // It should use individual properties instead
-        expect(html).toContain('font-style: italic')
-        expect(html).toContain("font-family: 'Fraunces'")
     })
 
     it('renders exactly one h1 (the nav brand)', () => {

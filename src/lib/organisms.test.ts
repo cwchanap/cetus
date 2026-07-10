@@ -84,4 +84,35 @@ describe('organism registry', () => {
         expect(ORGANISM_BY_GAME[GameID.SATELLITE_SYNC].organism.orb).toBe(true)
         expect(ORGANISM_BY_GAME[GameID.QUICK_MATH].organism.orb).toBeFalsy()
     })
+
+    it('no adjacent specimens in catalog order share the same shape + color', () => {
+        // Catalog order: shallow → mid → abyssal, registry order within each zone.
+        const catalog = [
+            ...getGamesByDepth('shallow'),
+            ...getGamesByDepth('mid'),
+            ...getGamesByDepth('abyssal'),
+        ]
+        for (let i = 1; i < catalog.length; i++) {
+            const prev = catalog[i - 1].organism
+            const curr = catalog[i].organism
+            if (prev && curr) {
+                const sameShape = prev.shape === curr.shape
+                const sameColor = prev.color === curr.color
+                expect(
+                    {
+                        prev: catalog[i - 1].id,
+                        curr: catalog[i].id,
+                        sameShape,
+                        sameColor,
+                    },
+                    `adjacent pair ${catalog[i - 1].id} → ${catalog[i].id} share shape+color`
+                ).not.toEqual({
+                    prev: catalog[i - 1].id,
+                    curr: catalog[i].id,
+                    sameShape: true,
+                    sameColor: true,
+                })
+            }
+        }
+    })
 })
