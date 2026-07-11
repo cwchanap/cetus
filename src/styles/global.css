@@ -238,7 +238,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .cetus-particle,
-  .cetus-drift-host,
   .cetus-specimen {
     animation: none !important;
     transition: none !important;

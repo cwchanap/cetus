@@ -254,13 +254,5 @@ const { shape, color, orb } = identity
     border-radius: 50%;
   }
 
-  /* Gentle ambient pulse; disabled under reduced-motion. */
-  .cetus-org {
-    animation: cetus-drift 8s ease-in-out infinite;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .cetus-org {
-      animation: none !important;
-    }
-  }
+  /* Organisms are static; drift is spec'd for hero particles only. */
 </style>
