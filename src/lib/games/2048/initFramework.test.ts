@@ -81,7 +81,7 @@ function setupDOM(): void {
         <span id="score-display">0</span>
         <span id="max-tile-display">0</span>
         <div id="game-over-overlay" class="hidden"></div>
-        <span id="final-score">0</span>
+        <span id="custom-final-score">0</span>
         <span id="final-max-tile">0</span>
         <span id="final-moves">0</span>
         <h2 id="game-over-title">Game Over</h2>
