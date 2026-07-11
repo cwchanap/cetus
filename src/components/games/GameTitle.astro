@@ -10,10 +10,13 @@ const { title, description, class: className } = Astro.props
 
 <!-- Game Title -->
 <div class={`text-center mb-8 ${className || ''}`}>
-  <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
+  <h2
+    class="text-4xl md:text-5xl cetus-wordmark cetus-wordmark--glow mb-4"
+    style="font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);"
+  >
     {title.toUpperCase()}
   </h2>
-  <p class="text-gray-400 text-lg">
+  <p class="text-cetus-ink-muted text-lg">
     {description}
   </p>
 </div>
