@@ -62,12 +62,26 @@ describe('AppLayout theme prop (behavioral)', () => {
         expect(html).not.toContain('bg-gradient-radial')
     })
 
-    it('shows the sci-fi animated background on default theme', async () => {
+    it('does not render legacy sci-fi background even under default theme', async () => {
+        // The animated-blob/particle blocks were removed entirely (not just
+        // hidden for abyssal), so they are absent regardless of theme.
         const html = await container.renderToString(AppLayout, {
             props: { theme: 'default', title: 'Test' },
             locals: { user: null, session: null },
             slots: { default: '<p>content</p>' },
         })
-        expect(html).toContain('bg-gradient-radial')
+        expect(html).not.toContain('bg-gradient-radial')
+    })
+
+    it('defaults to abyssal theme when no theme prop is passed', async () => {
+        const html = await container.renderToString(AppLayout, {
+            props: { title: 'Test' },
+            locals: { user: null, session: null },
+            slots: { default: '<p>content</p>' },
+        })
+        expect(html).toContain('theme-abyssal')
+        expect(html).not.toContain('bg-gradient-radial')
+        // Note: animate-bounce appears in AchievementAward (always rendered),
+        // so it cannot be asserted absent here — see sibling test above.
     })
 })
