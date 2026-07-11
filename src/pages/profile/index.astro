@@ -192,40 +192,6 @@ const memberSince = session?.createdAt
       background-color: rgba(255, 255, 255, 0.1) !important;
     }
   </style>
-  <!-- Animated background -->
-  <div class="fixed inset-0 pointer-events-none">
-    <div
-      class="absolute inset-0 bg-gradient-radial from-cyan-400/20 via-transparent to-transparent animate-pulse"
-    >
-    </div>
-    <div
-      class="absolute inset-0 bg-gradient-radial from-purple-400/20 via-transparent to-transparent animate-pulse"
-      style="animation-delay: 1s;"
-    >
-    </div>
-    <div
-      class="absolute inset-0 bg-gradient-radial from-pink-400/15 via-transparent to-transparent animate-pulse"
-      style="animation-delay: 2s;"
-    >
-    </div>
-  </div>
-
-  <!-- Floating particles -->
-  <div class="fixed inset-0 pointer-events-none">
-    {
-      Array.from({ length: 20 }).map((_, _i) => (
-        <div
-          class="absolute w-1 h-1 bg-cyan-400 rounded-full opacity-20 animate-bounce"
-          style={`
-              left: ${Math.random() * 100}%;
-              top: ${Math.random() * 100}%;
-              animation-delay: ${Math.random() * 3}s;
-              animation-duration: ${2 + Math.random() * 2}s;
-            `}
-        />
-      ))
-    }
-  </div>
 
   <!-- Profile Content -->
   <main class="relative z-10 min-h-screen">

@@ -40,6 +40,14 @@ describe('abyssal theme tokens (behavioral)', () => {
         })
     })
 
+    it('defines .hud-bracket rules in global scope (not just SpecimenCard)', () => {
+        expect(css).toContain('.hud-bracket {')
+        expect(css).toContain('.hud-bracket--tl {')
+        expect(css).toContain('.hud-bracket--tr {')
+        expect(css).toContain('.hud-bracket--bl {')
+        expect(css).toContain('.hud-bracket--br {')
+    })
+
     const tokens = [
         'cetus-accent',
         'cetus-accent-2',

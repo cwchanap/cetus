@@ -19,7 +19,7 @@ const {
   description = 'The ultimate single-player gaming experience with futuristic minigames.',
   includeFooter = true,
   navigation,
-  theme = 'default',
+  theme = 'abyssal',
   ...props
 } = Astro.props
 
@@ -81,42 +81,6 @@ const themeInitScript = `
     ]}
     {...props}
   >
-    <!-- Animated background -->
-    {
-      theme !== 'abyssal' && (
-        <div class="fixed inset-0 pointer-events-none">
-          <div class="absolute inset-0 bg-gradient-radial from-cyan-400/30 via-transparent to-transparent animate-pulse" />
-          <div
-            class="absolute inset-0 bg-gradient-radial from-purple-400/30 via-transparent to-transparent animate-pulse"
-            style="animation-delay: 1s;"
-          />
-          <div
-            class="absolute inset-0 bg-gradient-radial from-pink-400/20 via-transparent to-transparent animate-pulse"
-            style="animation-delay: 2s;"
-          />
-        </div>
-      )
-    }
-
-    <!-- Floating particles -->
-    {
-      theme !== 'abyssal' && (
-        <div class="fixed inset-0 pointer-events-none">
-          {Array.from({ length: 30 }).map((_, _i) => (
-            <div
-              class="absolute w-1 h-1 bg-cyan-400 rounded-full opacity-30 animate-bounce"
-              style={`
-						left: ${Math.random() * 100}%;
-						top: ${Math.random() * 100}%;
-						animation-delay: ${Math.random() * 3}s;
-						animation-duration: ${2 + Math.random() * 2}s;
-					`}
-            />
-          ))}
-        </div>
-      )
-    }
-
     <!-- Header Navigation -->
     <Navigation navigation={navigation} />
 
@@ -149,14 +113,6 @@ const themeInitScript = `
           element.addEventListener('mouseleave', () => {
             element.classList.remove('glow-cyan')
           })
-        })
-
-        // Add floating animation to particles
-        const particles = document.querySelectorAll('.animate-bounce')
-        particles.forEach((particle, index) => {
-          if (index % 3 === 0) {
-            particle.classList.add('animate-float')
-          }
         })
 
         // Check if user just logged in and should be redirected to games

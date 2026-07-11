@@ -24,7 +24,7 @@ const difficultyFill =
   aria-disabled={available ? undefined : 'true'}
   data-testid="specimen-card"
   class:list={[
-    'cetus-specimen vessel group relative block rounded-2xl p-5 text-center',
+    'cetus-specimen vessel hud-bracket-host group relative block rounded-2xl p-5 text-center',
     !available && 'opacity-50 pointer-events-none',
     className,
   ]}
@@ -210,51 +210,10 @@ const difficultyFill =
     opacity: 0.8;
   }
 
-  /* HUD corner brackets (teal default → magenta on hover/focus). */
-  .hud-bracket {
-    position: absolute;
-    width: 13px;
-    height: 13px;
-    border: 1.5px solid var(--cetus-accent);
-    pointer-events: none;
-    transition: border-color 0.2s ease;
-  }
-  .hud-bracket--tl {
-    top: 7px;
-    left: 7px;
-    border-right: 0;
-    border-bottom: 0;
-  }
-  .hud-bracket--tr {
-    top: 7px;
-    right: 7px;
-    border-left: 0;
-    border-bottom: 0;
-  }
-  .hud-bracket--bl {
-    bottom: 7px;
-    left: 7px;
-    border-right: 0;
-    border-top: 0;
-  }
-  .hud-bracket--br {
-    bottom: 7px;
-    right: 7px;
-    border-left: 0;
-    border-top: 0;
-  }
-  .vessel:hover .hud-bracket,
-  .vessel:focus-visible .hud-bracket {
-    border-color: var(--cetus-accent-3);
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .vessel:hover,
     .vessel:focus-visible {
       transform: none;
-    }
-    .hud-bracket {
-      transition: none;
     }
   }
 </style>

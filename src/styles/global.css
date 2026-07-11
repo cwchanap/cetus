@@ -355,6 +355,45 @@
   }
 }
 
+/* HUD corner brackets (teal default → magenta on hover/focus).
+   Add `hud-bracket-host` to any element that should reveal brackets on hover. */
+.hud-bracket {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--cetus-accent);
+  pointer-events: none;
+  transition: border-color 0.2s ease;
+}
+.hud-bracket--tl {
+  top: 7px;
+  left: 7px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.hud-bracket--tr {
+  top: 7px;
+  right: 7px;
+  border-left: 0;
+  border-bottom: 0;
+}
+.hud-bracket--bl {
+  bottom: 7px;
+  left: 7px;
+  border-right: 0;
+  border-top: 0;
+}
+.hud-bracket--br {
+  bottom: 7px;
+  right: 7px;
+  border-left: 0;
+  border-top: 0;
+}
+.hud-bracket-host:hover .hud-bracket,
+.hud-bracket-host:focus-visible .hud-bracket {
+  border-color: var(--cetus-accent-3);
+}
+
 /* ---------- Drift + reduced motion (homepage atmosphere) ---------- */
 @keyframes cetus-drift {
   0% {
@@ -383,7 +422,8 @@
   .cetus-cursor,
   .cetus-scanline,
   .cetus-strip__line,
-  .cetus-strip__line::after {
+  .cetus-strip__line::after,
+  .hud-bracket {
     animation: none !important;
     transition: none !important;
   }
