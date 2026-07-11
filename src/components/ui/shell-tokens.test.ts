@@ -3,6 +3,8 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import Button from './Button.astro'
 import Card from './Card.astro'
+import Heading from './Heading.astro'
+import Badge from './Badge.astro'
 import Navigation from './Navigation.astro'
 import Footer from './Footer.astro'
 
@@ -46,14 +48,60 @@ describe('shell components use cetus tokens (behavioral)', () => {
         expect(html).not.toContain('hover:text-[var(--cetus-page-bg)]')
     })
 
-    it('Card sci-fi variant uses cetus surface + accent border', async () => {
+    it('Card sci-fi variant uses cetus surface + hairline border', async () => {
         const html = await container.renderToString(Card, {
             props: { variant: 'sci-fi' },
             slots: { default: 'Content' },
         })
         expect(html).toContain('bg-cetus-surface')
-        expect(html).toContain('border-neon')
-        expect(html).toContain('hover:border-cetus-accent')
+        expect(html).toContain('border-cetus-hairline')
+        expect(html).not.toContain('border-neon')
+    })
+
+    it('Heading hero uses Fraunces token font, not Orbitron', async () => {
+        const html = await container.renderToString(Heading, {
+            props: { variant: 'hero' },
+            slots: { default: 'Title' },
+        })
+        expect(html).not.toMatch(/font-orbitron/)
+        expect(html).not.toMatch(/text-holographic/)
+    })
+
+    it('Heading renders a mono kicker when kicker prop is provided', async () => {
+        const html = await container.renderToString(Heading, {
+            props: { variant: 'section', kicker: 'COMMAND' },
+            slots: { default: 'Dashboard' },
+        })
+        expect(html).toContain('▸ COMMAND')
+        expect(html).toMatch(/font-mono/)
+    })
+
+    it('Card glass variant uses cetus tokens, not border-neon', async () => {
+        const html = await container.renderToString(Card, {
+            props: { variant: 'glass' },
+            slots: { default: 'Content' },
+        })
+        expect(html).toContain('bg-cetus-surface')
+        expect(html).toContain('border-cetus-hairline')
+        expect(html).not.toContain('border-neon')
+        expect(html).not.toContain('bg-glass-strong')
+    })
+
+    it('Card brackets prop renders hud-bracket elements', async () => {
+        const html = await container.renderToString(Card, {
+            props: { variant: 'glass', brackets: true },
+            slots: { default: 'Content' },
+        })
+        expect(html).toContain('hud-bracket')
+    })
+
+    it('Badge has font-mono tracking for HUD readout feel', async () => {
+        const html = await container.renderToString(Badge, {
+            props: { variant: 'outline' },
+            slots: { default: 'Score' },
+        })
+        expect(html).toMatch(/font-mono/)
+        expect(html).toMatch(/tracking/)
     })
 
     it('Navigation logo + links use cetus tokens', async () => {

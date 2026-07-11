@@ -29,11 +29,14 @@ const badgeVariants = {
     secondary:
       'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
     destructive:
-      'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80',
-    outline: 'text-foreground',
-    success: 'bg-green-500/20 text-green-400 border border-green-400/30',
-    warning: 'bg-yellow-500/20 text-yellow-400 border border-yellow-400/30',
-    error: 'bg-red-500/20 text-red-400 border border-red-400/30',
+      'bg-cetus-accent-3/10 text-cetus-accent-3 border border-cetus-accent-3/30',
+    outline: 'text-foreground border border-cetus-hairline',
+    success:
+      'bg-cetus-accent/10 text-cetus-accent border border-cetus-accent/30',
+    warning:
+      'bg-cetus-accent-2/10 text-cetus-accent-2 border border-cetus-accent-2/30',
+    error:
+      'bg-cetus-accent-3/10 text-cetus-accent-3 border border-cetus-accent-3/30',
   },
   size: {
     default: 'px-3 py-1 text-xs',
@@ -43,7 +46,7 @@ const badgeVariants = {
 }
 
 const classes = cn(
-  'inline-flex items-center rounded-full font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+  'inline-flex items-center rounded-full font-mono tracking-wide text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
   badgeVariants.variant[variant],
   badgeVariants.size[size],
   className

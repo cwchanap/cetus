@@ -28,11 +28,11 @@ const {
 const selectVariants = {
   variant: {
     default:
-      'bg-gray-800/90 border-gray-600/50 text-white hover:border-cyan-400/50 focus:border-cyan-400',
+      'bg-cetus-surface border-cetus-hairline text-white hover:border-cetus-accent/50 focus:border-cetus-accent',
     glass:
-      'bg-glass border-gray-600/30 text-white hover:border-cyan-400/50 focus:border-cyan-400 backdrop-blur-md',
+      'bg-cetus-surface border border-cetus-hairline text-white hover:border-cetus-accent/50 focus:border-cetus-accent backdrop-blur-md',
     outline:
-      'bg-transparent border-cyan-400/50 text-cyan-400 hover:border-cyan-400 focus:border-cyan-500',
+      'bg-transparent border-cetus-accent/50 text-cetus-accent hover:border-cetus-accent focus:border-cetus-accent',
   },
   size: {
     default: 'h-10 px-3 py-2 text-sm',
@@ -44,7 +44,7 @@ const selectVariants = {
 const defaultClasses =
   'w-full border transition-all duration-200 cursor-pointer focus:outline-none'
 
-const sciFiClasses = 'font-orbitron shadow-lg backdrop-blur-sm'
+const sciFiClasses = 'shadow-lg backdrop-blur-sm'
 
 const selectClasses = cn(
   defaultClasses,
@@ -55,15 +55,15 @@ const selectClasses = cn(
 )
 
 const dropdownClasses = cn(
-  'absolute top-full left-0 right-0 mt-1 z-50 max-h-60 overflow-auto border bg-gray-800/95 border-gray-600/50 backdrop-blur-md shadow-xl shadow-cyan-400/10',
+  'absolute top-full left-0 right-0 mt-1 z-50 max-h-60 overflow-auto border bg-cetus-surface border-cetus-hairline backdrop-blur-md shadow-xl shadow-cetus-accent/10',
   'opacity-0 pointer-events-none transition-all duration-200',
   'data-[open]:opacity-100 data-[open]:pointer-events-auto'
 )
 
 const optionClasses = cn(
   'px-3 py-2 text-sm text-white cursor-pointer transition-colors duration-150',
-  'hover:bg-cyan-400/20 hover:text-cyan-300',
-  'focus:bg-cyan-400/30 focus:text-cyan-200 focus:outline-none'
+  'hover:bg-cetus-accent/20 hover:text-cetus-accent',
+  'focus:bg-cetus-accent/30 focus:text-cetus-accent focus:outline-none'
 )
 
 // Compute initial label on the server to avoid client-side placeholder flicker
