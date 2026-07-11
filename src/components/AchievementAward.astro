@@ -35,7 +35,7 @@ const classes = cn(
 <template id="achievement-card-template">
   <div
     data-card
-    class="achievement-card relative bg-glass-strong rounded-2xl border-2 p-8 text-center shadow-2xl transform transition-all duration-300 hover:scale-105 cursor-pointer w-96 min-h-[480px] flex flex-col"
+    class="achievement-card relative bg-cetus-surface rounded-2xl border border-cetus-hairline p-8 text-center shadow-2xl transform transition-all duration-300 hover:scale-105 cursor-pointer w-96 min-h-[480px] flex flex-col"
     style="
       --rarity-border: var(--rarity-color);
       --rarity-shadow: var(--rarity-shadow-color);
@@ -70,14 +70,15 @@ const classes = cn(
       <div class="space-y-3 flex-grow flex flex-col">
         <!-- Achievement Unlocked Text -->
         <div
-          class="text-cyan-400 font-orbitron font-bold text-base tracking-wider mb-3 flex-shrink-0"
+          class="font-mono text-xs tracking-widest text-cetus-accent uppercase mb-3 flex-shrink-0"
         >
-          🏆 ACHIEVEMENT UNLOCKED!
+          ▸ ACHIEVEMENT UNLOCKED
         </div>
 
         <!-- Achievement Name -->
         <h3
-          class="font-orbitron font-bold text-2xl text-white mb-3 flex-shrink-0 min-h-[4rem] flex items-center justify-center px-3 leading-tight"
+          class="font-bold text-2xl text-white mb-3 flex-shrink-0 min-h-[4rem] flex items-center justify-center px-3 leading-tight"
+          style="font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);"
         >
           <span data-name class="line-clamp-2 break-words"></span>
         </h3>
@@ -122,39 +123,67 @@ const classes = cn(
 
 <style>
   .achievement-card[data-rarity='legendary'] {
-    --rarity-color: rgb(251 191 36 / 0.5);
-    --rarity-shadow-color: rgb(251 191 36 / 0.25);
-    --rarity-particle: rgb(251 191 36);
-    --rarity-glow: rgb(251 191 36 / 0.2);
-    --rarity-badge-bg: rgb(234 179 8 / 0.2);
-    --rarity-badge-text: rgb(250 204 21);
+    --rarity-color: color-mix(in srgb, var(--cetus-accent-2) 50%, transparent);
+    --rarity-shadow-color: color-mix(
+      in srgb,
+      var(--cetus-accent-2) 25%,
+      transparent
+    );
+    --rarity-particle: var(--cetus-accent-2);
+    --rarity-glow: color-mix(in srgb, var(--cetus-accent-2) 20%, transparent);
+    --rarity-badge-bg: color-mix(
+      in srgb,
+      var(--cetus-accent-2) 20%,
+      transparent
+    );
+    --rarity-badge-text: var(--cetus-accent-2);
   }
 
   .achievement-card[data-rarity='epic'] {
-    --rarity-color: rgb(168 85 247 / 0.5);
-    --rarity-shadow-color: rgb(168 85 247 / 0.25);
-    --rarity-particle: rgb(168 85 247);
-    --rarity-glow: rgb(168 85 247 / 0.2);
-    --rarity-badge-bg: rgb(168 85 247 / 0.2);
-    --rarity-badge-text: rgb(192 132 252);
+    --rarity-color: color-mix(in srgb, var(--cetus-accent-3) 50%, transparent);
+    --rarity-shadow-color: color-mix(
+      in srgb,
+      var(--cetus-accent-3) 25%,
+      transparent
+    );
+    --rarity-particle: var(--cetus-accent-3);
+    --rarity-glow: color-mix(in srgb, var(--cetus-accent-3) 20%, transparent);
+    --rarity-badge-bg: color-mix(
+      in srgb,
+      var(--cetus-accent-3) 20%,
+      transparent
+    );
+    --rarity-badge-text: var(--cetus-accent-3);
   }
 
   .achievement-card[data-rarity='rare'] {
-    --rarity-color: rgb(59 130 246 / 0.5);
-    --rarity-shadow-color: rgb(59 130 246 / 0.25);
-    --rarity-particle: rgb(59 130 246);
-    --rarity-glow: rgb(59 130 246 / 0.2);
-    --rarity-badge-bg: rgb(59 130 246 / 0.2);
-    --rarity-badge-text: rgb(96 165 250);
+    --rarity-color: color-mix(in srgb, var(--cetus-accent) 50%, transparent);
+    --rarity-shadow-color: color-mix(
+      in srgb,
+      var(--cetus-accent) 25%,
+      transparent
+    );
+    --rarity-particle: var(--cetus-accent);
+    --rarity-glow: color-mix(in srgb, var(--cetus-accent) 20%, transparent);
+    --rarity-badge-bg: color-mix(in srgb, var(--cetus-accent) 20%, transparent);
+    --rarity-badge-text: var(--cetus-accent);
   }
 
   .achievement-card[data-rarity='common'] {
-    --rarity-color: rgb(156 163 175 / 0.5);
-    --rarity-shadow-color: rgb(156 163 175 / 0.25);
-    --rarity-particle: rgb(156 163 175);
-    --rarity-glow: rgb(156 163 175 / 0.2);
-    --rarity-badge-bg: rgb(107 114 128 / 0.2);
-    --rarity-badge-text: rgb(156 163 175);
+    --rarity-color: color-mix(in srgb, var(--cetus-ink-muted) 50%, transparent);
+    --rarity-shadow-color: color-mix(
+      in srgb,
+      var(--cetus-ink-muted) 25%,
+      transparent
+    );
+    --rarity-particle: var(--cetus-ink-muted);
+    --rarity-glow: color-mix(in srgb, var(--cetus-ink-muted) 20%, transparent);
+    --rarity-badge-bg: color-mix(
+      in srgb,
+      var(--cetus-ink-muted) 20%,
+      transparent
+    );
+    --rarity-badge-text: var(--cetus-ink-muted);
   }
 
   .rarity-badge {
@@ -348,16 +377,18 @@ const classes = cn(
     }
 
     /**
-     * Get particle color for rarity
+     * Get particle color for rarity (resolved from cetus rarity tokens)
      */
     private getParticleColor(rarity: string): string {
-      const colors: Record<string, string> = {
-        legendary: 'rgb(251 191 36)',
-        epic: 'rgb(168 85 247)',
-        rare: 'rgb(59 130 246)',
-        common: 'rgb(156 163 175)',
+      const styles = getComputedStyle(document.documentElement)
+      const tokenMap: Record<string, string> = {
+        legendary: '--cetus-accent-2',
+        epic: '--cetus-accent-3',
+        rare: '--cetus-accent',
+        common: '--cetus-ink-muted',
       }
-      return colors[rarity] || colors.common
+      const token = tokenMap[rarity] || tokenMap.common
+      return styles.getPropertyValue(token).trim() || 'var(--cetus-ink-muted)'
     }
 
     /**
