@@ -199,10 +199,16 @@ const memberSince = session?.createdAt
       <Container class="max-w-4xl">
         <!-- Page Title -->
         <div class="text-center mb-12">
-          <Heading level={1} variant="hero" align="center" class="mb-4">
+          <Heading
+            level={1}
+            variant="hero"
+            align="center"
+            kicker="OPERATOR PROFILE"
+            class="mb-4"
+          >
             USER PROFILE
           </Heading>
-          <p class="text-gray-400 text-lg">
+          <p class="text-cetus-ink-muted text-lg">
             Manage your account and track your achievements
           </p>
         </div>
@@ -215,7 +221,7 @@ const memberSince = session?.createdAt
               <div class="relative group">
                 <div
                   id="avatar-display"
-                  class="w-20 h-20 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-400/25 overflow-hidden"
+                  class="w-20 h-20 bg-cetus-accent/20 rounded-full ring-2 ring-cetus-accent/40 flex items-center justify-center overflow-hidden"
                 >
                   {
                     user.image ? (
@@ -272,14 +278,15 @@ const memberSince = session?.createdAt
                   <!-- Display Name display/edit form -->
                   <div id="displayname-display" class="flex items-center gap-3">
                     <h2
-                      class="text-2xl font-orbitron font-bold text-holographic"
+                      class="text-2xl cetus-wordmark--glow font-bold"
+                      style="font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);"
                       id="heading-display-name"
                     >
                       {userDisplayName}
                     </h2>
                     <button
                       id="edit-displayname-btn"
-                      class="text-cyan-400 hover:text-cyan-300 transition-colors"
+                      class="text-cetus-accent hover:text-cetus-accent/80 transition-colors"
                       title="Edit display name"
                     >
                       ✏️
@@ -295,7 +302,7 @@ const memberSince = session?.createdAt
                         value={displayNameInitial}
                         maxlength="100"
                         placeholder="Your display name"
-                        class="flex-1 px-3 py-2 bg-gray-800/50 border border-gray-600/50 rounded-lg text-white font-orbitron font-bold text-xl focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/50"
+                        class="flex-1 px-3 py-2 bg-cetus-surface border border-cetus-hairline rounded-lg text-cetus-ink text-xl font-semibold focus:outline-none focus:ring-2 focus:ring-cetus-accent/50 focus:border-cetus-accent/50"
                       />
                       <Button
                         variant="outline"
@@ -308,7 +315,7 @@ const memberSince = session?.createdAt
                       <button
                         type="button"
                         id="clear-displayname-btn"
-                        class="px-2 py-1 text-gray-400 hover:text-gray-300 transition-colors"
+                        class="px-2 py-1 text-cetus-ink-muted hover:text-cetus-ink transition-colors"
                         title="Clear display name"
                       >
                         🧹
@@ -316,7 +323,7 @@ const memberSince = session?.createdAt
                       <button
                         type="button"
                         id="cancel-displayname-btn"
-                        class="px-2 py-1 text-gray-400 hover:text-gray-300 transition-colors"
+                        class="px-2 py-1 text-cetus-ink-muted hover:text-cetus-ink transition-colors"
                       >
                         ❌
                       </button>
@@ -327,7 +334,7 @@ const memberSince = session?.createdAt
                   <div class="mt-1">
                     <div
                       id="username-display"
-                      class="flex items-center gap-2 text-sm text-gray-400"
+                      class="flex items-center gap-2 text-sm text-cetus-ink-muted"
                     >
                       <span id="username-text">
                         {
@@ -338,7 +345,7 @@ const memberSince = session?.createdAt
                       </span>
                       <button
                         id="edit-username-btn"
-                        class="text-cyan-400 hover:text-cyan-300 transition-colors"
+                        class="text-cetus-accent hover:text-cetus-accent/80 transition-colors"
                         title="Edit username"
                       >
                         ✏️
@@ -348,9 +355,9 @@ const memberSince = session?.createdAt
                     <div id="username-edit-form" class="hidden">
                       <form class="flex items-center gap-2">
                         <div
-                          class="flex items-center bg-gray-800/50 border border-gray-600/50 rounded-lg"
+                          class="flex items-center bg-cetus-surface border border-cetus-hairline rounded-lg"
                         >
-                          <span class="px-2 text-gray-500">@</span>
+                          <span class="px-2 text-cetus-ink-muted">@</span>
                           <input
                             type="text"
                             id="username-input"
@@ -358,7 +365,7 @@ const memberSince = session?.createdAt
                             maxlength="20"
                             pattern="[a-z0-9_]{3,20}"
                             placeholder="username"
-                            class="px-2 py-2 bg-transparent text-white font-mono text-sm focus:outline-none"
+                            class="px-2 py-2 bg-transparent text-cetus-ink font-mono text-sm focus:outline-none"
                           />
                         </div>
                         <Button
@@ -372,7 +379,7 @@ const memberSince = session?.createdAt
                         <button
                           type="button"
                           id="clear-username-btn"
-                          class="px-2 py-1 text-gray-400 hover:text-gray-300 transition-colors"
+                          class="px-2 py-1 text-cetus-ink-muted hover:text-cetus-ink transition-colors"
                           title="Clear username"
                         >
                           🧹
@@ -380,12 +387,12 @@ const memberSince = session?.createdAt
                         <button
                           type="button"
                           id="cancel-username-btn"
-                          class="px-2 py-1 text-gray-400 hover:text-gray-300 transition-colors"
+                          class="px-2 py-1 text-cetus-ink-muted hover:text-cetus-ink transition-colors"
                         >
                           ❌
                         </button>
                       </form>
-                      <p class="mt-1 text-xs text-gray-400">
+                      <p class="mt-1 text-xs text-cetus-ink-muted">
                         3-20 chars. Lowercase letters, numbers, or underscore.
                       </p>
                     </div>
@@ -395,12 +402,12 @@ const memberSince = session?.createdAt
                 <Badge variant="success" size="sm"> Space Explorer 🚀 </Badge>
               </div>
 
-              <p class="text-gray-300 mb-4">
+              <p class="text-cetus-ink mb-4">
                 {userEmail}
               </p>
 
               <div
-                class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-sm text-gray-400 space-y-2 sm:space-y-0"
+                class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-sm text-cetus-ink-muted space-y-2 sm:space-y-0"
               >
                 <div class="flex items-center justify-start space-x-1">
                   <span>📅</span>
@@ -419,9 +426,9 @@ const memberSince = session?.createdAt
         <!-- Activity Graph -->
         <Card variant="glass" class="p-6 mb-8">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400">
+            <h3 class="text-lg cetus-wordmark--glow font-bold">
               Activity · <span data-testid="activity-year">{year}</span>
-              <span class="ml-2 text-sm text-gray-400 font-normal">
+              <span class="ml-2 text-sm text-cetus-ink-muted font-normal">
                 {totalActivities} activit{totalActivities === 1 ? 'y' : 'ies'}
               </span>
             </h3>
@@ -431,7 +438,7 @@ const memberSince = session?.createdAt
                 <a
                   data-testid="year-prev"
                   href={`/profile?year=${prevYear}`}
-                  class="px-2 py-1 rounded border border-gray-600/50 text-gray-300 hover:text-white hover:border-cyan-400/50 transition-colors"
+                  class="px-2 py-1 rounded border border-cetus-hairline text-cetus-ink hover:text-cetus-accent hover:border-cetus-accent/50 transition-colors"
                   aria-label="Previous year"
                 >
                   ◀ {prevYear}
@@ -439,7 +446,7 @@ const memberSince = session?.createdAt
                 <a
                   data-testid="year-next"
                   href={`/profile?year=${nextYear}`}
-                  class={`px-2 py-1 rounded border border-gray-600/50 transition-colors ${canGoNext ? 'text-gray-300 hover:text-white hover:border-cyan-400/50' : 'pointer-events-none opacity-40 text-gray-500'}`}
+                  class={`px-2 py-1 rounded border border-cetus-hairline transition-colors ${canGoNext ? 'text-cetus-ink hover:text-cetus-accent hover:border-cetus-accent/50' : 'pointer-events-none opacity-40 text-cetus-ink-muted'}`}
                   aria-label="Next year"
                   aria-disabled={!canGoNext}
                 >
@@ -448,22 +455,23 @@ const memberSince = session?.createdAt
               </div>
               <!-- Legend -->
               <div
-                class="hidden sm:flex items-center gap-2 text-xs text-gray-400"
+                class="hidden sm:flex items-center gap-2 text-xs text-cetus-ink-muted"
               >
                 <span>Less</span>
                 <span
-                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-gray-800/60"
+                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cetus-surface"
                 ></span>
                 <span
-                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-500/10"
+                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cetus-accent/10"
                 ></span>
                 <span
-                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-500/30"
+                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cetus-accent/30"
                 ></span>
                 <span
-                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-400/60"
+                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cetus-accent/60"
                 ></span>
-                <span class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cyan-300"
+                <span
+                  class="w-[0.891rem] h-[0.891rem] rounded-sm bg-cetus-accent"
                 ></span>
                 <span>More</span>
               </div>
@@ -471,7 +479,9 @@ const memberSince = session?.createdAt
           </div>
           <div class="flex">
             <!-- Month Labels -->
-            <div class="sticky left-0 text-xs text-gray-400 hidden md:block">
+            <div
+              class="sticky left-0 text-xs text-cetus-ink-muted hidden md:block"
+            >
               <div class="h-[0.891rem]"></div>
               <div class="grid grid-rows-7 auto-rows-[0.891rem] gap-[2px]">
                 <span class="h-[0.891rem]">Sun</span>
@@ -495,7 +505,7 @@ const memberSince = session?.createdAt
                         class="flex flex-col items-center w-[0.891rem] shrink-0"
                         title={showMonth ? monthShort[labelMonth] : ''}
                       >
-                        <div class="h-[0.891rem] leading-[0.891rem] whitespace-nowrap overflow-visible text-[10px] text-gray-400">
+                        <div class="h-[0.891rem] leading-[0.891rem] whitespace-nowrap overflow-visible text-[10px] text-cetus-ink-muted">
                           {showMonth ? monthShort[labelMonth] : ''}
                         </div>
                         <div class="grid grid-rows-7 auto-rows-[0.891rem] gap-[2px]">
@@ -506,14 +516,14 @@ const memberSince = session?.createdAt
                               lvl === -1
                                 ? 'opacity-20 bg-transparent'
                                 : lvl === 0
-                                  ? 'bg-gray-800/60'
+                                  ? 'bg-cetus-surface'
                                   : lvl === 1
-                                    ? 'bg-cyan-500/10'
+                                    ? 'bg-cetus-accent/10'
                                     : lvl === 2
-                                      ? 'bg-cyan-500/30'
+                                      ? 'bg-cetus-accent/30'
                                       : lvl === 3
-                                        ? 'bg-cyan-400/60'
-                                        : 'bg-cyan-300'
+                                        ? 'bg-cetus-accent/60'
+                                        : 'bg-cetus-accent'
 
                             const tooltip =
                               day.count < 0
@@ -540,24 +550,24 @@ const memberSince = session?.createdAt
 
         <!-- Quick Stats -->
         <Card variant="glass" class="p-6 mb-8">
-          <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+          <h3 class="text-lg cetus-wordmark--glow font-bold mb-4">
             Quick Stats
           </h3>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div class="text-center">
-              <div class="text-2xl font-bold text-white mb-1">
+              <div class="text-2xl font-mono font-bold text-cetus-accent mb-1">
                 {userStats?.total_score?.toLocaleString() || 0}
               </div>
-              <div class="text-sm text-gray-400">Total Score</div>
+              <div class="text-sm text-cetus-ink-muted">Total Score</div>
             </div>
             <div class="text-center">
-              <div class="text-2xl font-bold text-white mb-1">
+              <div class="text-2xl font-mono font-bold text-cetus-accent mb-1">
                 {userStats?.total_games_played || 0}
               </div>
-              <div class="text-sm text-gray-400">Games Played</div>
+              <div class="text-sm text-cetus-ink-muted">Games Played</div>
             </div>
             <div class="text-center">
-              <div class="text-2xl font-bold text-white mb-1">
+              <div class="text-2xl font-mono font-bold text-cetus-accent mb-1">
                 {
                   userStats
                     ? Math.round(
@@ -567,27 +577,27 @@ const memberSince = session?.createdAt
                     : 0
                 }
               </div>
-              <div class="text-sm text-gray-400">Avg Score</div>
+              <div class="text-sm text-cetus-ink-muted">Avg Score</div>
             </div>
             <div class="text-center">
-              <div class="text-2xl font-bold text-white mb-1">
+              <div class="text-2xl font-mono font-bold text-cetus-accent mb-1">
                 {userStats?.streak_days || 0}
               </div>
-              <div class="text-sm text-gray-400">Streak Days</div>
+              <div class="text-sm text-cetus-ink-muted">Streak Days</div>
             </div>
           </div>
         </Card>
 
         <!-- Quick Actions -->
         <Card variant="glass" class="p-6 mb-8">
-          <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
+          <h3 class="text-lg cetus-wordmark--glow font-bold mb-4">
             Quick Actions
           </h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Button variant="outline" size="lg" class="justify-center">
               <a
                 href="/dashboard"
-                class="text-cyan-400 no-underline flex items-center"
+                class="text-cetus-accent no-underline flex items-center"
               >
                 <span class="mr-2">📊</span>
                 View Dashboard
@@ -596,7 +606,7 @@ const memberSince = session?.createdAt
             <Button variant="outline" size="lg" class="justify-center">
               <a
                 href="/#games"
-                class="text-cyan-400 no-underline flex items-center"
+                class="text-cetus-accent no-underline flex items-center"
               >
                 <span class="mr-2">🎮</span>
                 Play Games
@@ -1324,10 +1334,11 @@ const memberSince = session?.createdAt
     class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4"
   >
     <div
-      class="bg-gray-900 rounded-lg border border-cyan-400/30 p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+      class="bg-cetus-surface rounded-lg border border-cetus-hairline p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
     >
       <h3
-        class="text-xl font-orbitron font-bold text-holographic mb-4 text-center"
+        class="text-xl cetus-wordmark--glow font-bold mb-4 text-center"
+        style="font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);"
       >
         Crop Your Avatar
       </h3>
@@ -1336,7 +1347,7 @@ const memberSince = session?.createdAt
       <div class="mb-4">
         <div
           id="crop-container"
-          class="w-full h-[500px] bg-gray-800 rounded-lg overflow-hidden"
+          class="w-full h-[500px] bg-cetus-surface rounded-lg overflow-hidden"
         >
           <img id="crop-image" style="display: none;" />
         </div>
@@ -1346,13 +1357,13 @@ const memberSince = session?.createdAt
       <div class="flex gap-3 justify-center">
         <button
           id="crop-cancel-btn"
-          class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors"
+          class="px-4 py-2 bg-cetus-surface border border-cetus-hairline hover:bg-cetus-surface/80 text-cetus-ink rounded-lg transition-colors"
         >
           Cancel
         </button>
         <button
           id="crop-apply-btn"
-          class="px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white rounded-lg transition-all"
+          class="px-4 py-2 bg-cetus-accent hover:bg-cetus-accent/90 text-cetus-surface rounded-lg transition-colors"
         >
           Apply Crop
         </button>
