@@ -6,7 +6,7 @@
 
 ## Problem
 
-The homepage was redesigned with an "Abyssal HUD" aesthetic (museum-meets-arcade: Fraunces + JetBrains Mono fonts, neon teal/amber/magenta accents, HUD brackets, scanlines, dark abyssal background). All 22 other pages still use the legacy Orbitron / animated-blob / cyan-purple aesthetic. The app feels inconsistent — users step from a polished HUD homepage into a dated sci-fi shell.
+The homepage was redesigned with an "Abyssal HUD" aesthetic (museum-meets-arcade: Fraunces + JetBrains Mono fonts, neon teal/amber/magenta accents, HUD brackets, scanlines, dark abyssal background). All 23 other pages (14 games + 9 app pages) still use the legacy Orbitron / animated-blob / cyan-purple aesthetic. The app feels inconsistent — users step from a polished HUD homepage into a dated sci-fi shell.
 
 ## Decision
 
@@ -18,8 +18,8 @@ Extend the Abyssal HUD to the entire app. Make `theme="abyssal"` the default in 
 - L1: AppLayout shell (abyssal default, remove legacy backgrounds)
 - L2: 9 shared UI components (Heading, Card, Badge, Avatar, Select, Toggle, Slider, Pagination, Button)
 - L3: 6 game wrapper components + 14 game page refactors
-- L4: 8 app pages (auth, dashboard, profile x2, leaderboard, achievements, settings, challenges)
-- L5: 5 global overlays/modals (LoginRewardModal, AchievementAward, ChallengeComplete, UserDropdown, DailyMissionsPanel)
+- L4: 9 app pages (auth [login + signup], dashboard, profile x2, leaderboard, achievements, settings, challenges)
+- L5: 3 global overlays (AchievementAward, ChallengeComplete, UserDropdown)
 
 **Out of scope:**
 - Game canvas internals (PixiJS/DOM game logic — only outer chrome changes)
@@ -41,9 +41,10 @@ Each layer unblocks the next. Verification checkpoint (Vitest + Playwright + bro
 ### `AppLayout.astro`
 
 1. Change `theme` prop default from `'default'` to `'abyssal'`.
-2. Swap font `<link>`: Fraunces + JetBrains Mono becomes the default branch. Orbitron moves to the `theme !== 'abyssal'` branch (dead code, but kept for safety).
+2. The font `<link>` ternary (lines 69-74) already handles abyssal vs. non-abyssal fonts correctly. No edit needed — once `theme` defaults to `'abyssal'`, the Fraunces + JetBrains Mono branch loads by default.
 3. Delete the legacy animated-blob background div (lines 84-98) and the 30 floating-particles div (lines 101-118). These are already gated behind `theme !== 'abyssal'`, but since abyssal is now default, they are dead code.
-4. The `themeInitScript` dark-mode logic stays unchanged (toggles `.dark` on `<html>`, orthogonal to abyssal).
+4. Prune dead code in the inline `<script>` (lines 137-173): the particle-float block (lines 155-160, targets `.animate-bounce` elements that L1 step 3 deletes) becomes dead code — remove it. The `.glow-cyan`-on-`.group` hover block (lines 141-152) still works (retinted via `.theme-abyssal .glow-cyan`) — keep it. The `redirect=games` scroll logic (lines 163-172) — keep it.
+5. The `themeInitScript` dark-mode logic stays unchanged (toggles `.dark` on `<html>`, orthogonal to abyssal).
 
 ### Delete Duplicate Background Blocks
 
@@ -56,6 +57,8 @@ Five pages re-declare their own animated radial-gradient background + particles 
 | `pages/profile/[username]/index.astro` | Same pattern |
 | `pages/achievements/index.astro` | Same pattern |
 | `pages/settings.astro` | Own 2-blob background (no particles) |
+
+**Ordering constraint:** The `theme` default flip (step 1) and all five background-block deletions must land in one atomic changeset. If the default flips before the blocks are removed, those pages render the abyssal background AND legacy blobs/particles stacked — visible breakage. Commit them together.
 
 ### Leaderboard Local Style Cleanup
 
@@ -87,6 +90,8 @@ Add optional `kicker` prop (string) that renders a `<p class="font-mono ...">▸
 | `default` | shadcn-style `bg-card text-card-foreground` | Unchanged |
 
 Add optional `brackets` boolean prop that renders 4 `.hud-bracket` corner elements (same pattern as `SpecimenCard`).
+
+**Note:** `Card.astro` currently has a comment (lines 15-20) documenting that `sci-fi`/`glass` keep `border-neon` intentionally for login/signup legacy surfaces. This decision is now superseded — all pages go abyssal, so `border-neon` is replaced by `cetus-hairline` everywhere. Remove the comment.
 
 ### `Badge.astro`
 
@@ -130,7 +135,11 @@ Add optional `brackets` boolean prop that renders 4 `.hud-bracket` corner elemen
 
 ## L3: Game Framework & 14-Page Refactor
 
+**This is the heaviest layer.** All 14 game pages currently import `AppLayout` directly and inline their own chrome — 0 of 14 use the existing `GamePage` wrapper. This layer is 14 real page rewrites + wrapper component edits, not just class swaps. The "tetris first as proof-of-concept" sequence mitigates risk.
+
 ### Wrapper Component Restyle (6 files)
+
+Five wrappers live in `src/components/games/`: `GamePage.astro`, `GameTitle.astro`, `GameBreadcrumb.astro`, `GameStats.astro`, `GameControls.astro`. The sixth, `GameOverlay.astro`, lives in `src/components/` (shared, not game-specific).
 
 **`GamePage.astro`** — explicitly passes `theme="abyssal"` to AppLayout (redundant once default, but self-documenting). Composes all sub-components via named slots as it already does.
 
@@ -191,6 +200,8 @@ The shared component retint (L2) already handles ~60% of the visual change. This
 - Quick-nav buttons: mono labels, `cetus-accent` outline
 - Game history rows: `border-cetus-hairline`, icon tiles `bg-cetus-surface` with teal accent, scores `font-mono text-cetus-accent`
 - Pagination: token retint
+- **`DailyMissionsPanel.astro`** (dashboard-only component): Header `font-orbitron text-cyan-400` → Fraunces + mono kicker. XP bar `from-cyan-500 to-purple-600` → `cetus-accent` fill. Challenge rows `bg-gray-800/30 border-gray-700/50` → `cetus-surface cetus-hairline`. Difficulty colors green/yellow/red → `cetus-accent` / `cetus-accent-2` / `cetus-accent-3`.
+- **`LoginRewardModal.astro`** (dashboard-only component): Card body `from-gray-900/95 to-gray-800/95` → `bg-cetus-surface border-cetus-hairline`. Title `font-orbitron` → Fraunces + mono kicker `▸ DAILY REWARD`. 7-day calendar: claimed days get `cetus-accent` glow, current day gets `cetus-accent-2` (amber) pulse ring. Claim button → `cetus-accent` token.
 
 ### Profile (`index.astro` + `[username]/index.astro`)
 
@@ -236,16 +247,9 @@ The shared component retint (L2) already handles ~60% of the visual change. This
 
 ---
 
-## L5: Global Overlays & Modals
+## L5: Global Overlays
 
-These components are rendered globally by `AppLayout` or `Navigation`.
-
-### `LoginRewardModal.astro`
-
-- Card body: `from-gray-900/95 to-gray-800/95` → `bg-cetus-surface border-cetus-hairline`
-- Title: `font-orbitron` → Fraunces + mono kicker `▸ DAILY REWARD`
-- 7-day calendar: claimed days get `cetus-accent` glow, current day gets `cetus-accent-2` (amber) pulse ring
-- Claim button: `cetus-accent` token
+These components are rendered globally — `AchievementAward` and `ChallengeComplete` by `AppLayout` (lines 132/135), `UserDropdown` by `Navigation`. (DailyMissionsPanel and LoginRewardModal are dashboard-only and have been moved to L4.)
 
 ### `AchievementAward.astro`
 
@@ -269,13 +273,6 @@ These components are rendered globally by `AppLayout` or `Navigation`.
 - Items: `hover:bg-cyan-500/10 hover:text-cyan-400` → `hover:bg-cetus-accent/10 hover:text-cetus-accent`
 - Emoji menu icons (👤 ⚙️ 📊 🏆 🎛️ 🚪): keep as-is. Emojis in interactive affordances (dropdown items, challenge icons) are acceptable; bracket/mono treatment is reserved for page-level HUD chrome.
 
-### `DailyMissionsPanel.astro`
-
-- Header: `font-orbitron text-cyan-400` → Fraunces + mono kicker
-- XP bar: `from-cyan-500 to-purple-600` → `cetus-accent` fill
-- Challenge rows: `bg-gray-800/30 border-gray-700/50` → `cetus-surface cetus-hairline`
-- Difficulty colors: green/yellow/red → `cetus-accent` / `cetus-accent-2` / `cetus-accent-3`
-
 ---
 
 ## Testing Strategy
@@ -296,23 +293,23 @@ These components are rendered globally by `AppLayout` or `Navigation`.
 ### Existing Tests
 
 - Homepage tests (`index-markup.test.ts`, `global.test.ts`, `shell-tokens.test.ts`, `SpecimenCard.test.ts`) must remain green — the homepage is not changing.
-- All 2396 existing tests must pass throughout.
+- All existing tests must remain green throughout. (Baseline the count at implementation start.)
 
 ---
 
 ## Token Reference
 
-All abyssal tokens are already defined in `src/styles/global.css` (from the predecessor homepage redesign):
+All abyssal tokens are already defined in `src/styles/global.css` (from the predecessor homepage redesign). Values below are transcribed verbatim from source — do not edit from this table; always check `global.css` for ground truth.
 
 | Token | `:root` (legacy default) | `.theme-abyssal` |
 |-------|-------------------------|------------------|
 | `--cetus-accent` | `oklch(0.789 0.154 211.53)` (cyan-400) | `#22f5d0` (bright teal) |
-| `--cetus-accent-2` | `oklch(0.834 0.182 78.5)` (amber-400) | `#ffc24a` (bright amber) |
+| `--cetus-accent-2` | `oklch(0.627 0.265 303.9)` (purple-500) | `#ffc24a` (bright amber) |
 | `--cetus-accent-3` | `oklch(0.627 0.265 303.9)` (purple-500) | `#ff3d8a` (magenta) |
-| `--cetus-surface` | `#0f172a` | `#060e1a` |
-| `--cetus-hairline` | `rgba(148, 163, 184, 0.12)` | `rgba(34, 245, 208, 0.12)` |
-| `--cetus-ink` | `#e2e8f0` | `#dbeafe` |
-| `--cetus-ink-muted` | `rgba(226, 232, 240, 0.55)` | `rgba(186, 230, 253, 0.45)` |
+| `--cetus-surface` | `oklch(0 0 0 / 0.05)` (`rgba(255,255,255,0.05)` under `.dark`) | `#06090f` |
+| `--cetus-hairline` | `oklch(0.372 0.028 257.286 / 0.5)` (slate-700/50) | `rgba(234, 246, 255, 0.1)` |
+| `--cetus-ink` | `var(--foreground)` | `#eaf6ff` |
+| `--cetus-ink-muted` | `oklch(0.872 0.01 258.338)` (gray-300) | `#8a98a6` |
 
 Tailwind utilities derived from these tokens: `text-cetus-accent`, `text-cetus-accent-2`, `text-cetus-accent-3`, `bg-cetus-surface`, `border-cetus-hairline`, `text-cetus-ink`, `text-cetus-ink-muted`.
 
