@@ -153,29 +153,28 @@ import Badge from '@/components/ui/Badge.astro'
       Total Time: <span id="total-time" class="text-cetus-accent">0</span>s
     </div>
   </div>
-
-  <!-- Init script -->
-  <script slot="game-script">
-    import { initPathNavigatorGameFramework } from '@/lib/games/path-navigator/initFramework'
-
-    let cleanup: (() => void) | undefined
-
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        const instance = await initPathNavigatorGameFramework()
-        if (instance) {
-          cleanup = instance.cleanup
-        }
-      } catch (error) {
-        console.error('Failed to initialize Path Navigator game:', error)
-      }
-    })
-
-    // Clean up on page unload
-    window.addEventListener('beforeunload', () => {
-      if (cleanup) {
-        cleanup()
-      }
-    })
-  </script>
 </GamePage>
+
+<script>
+  import { initPathNavigatorGameFramework } from '@/lib/games/path-navigator/initFramework'
+
+  let cleanup: (() => void) | undefined
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const instance = await initPathNavigatorGameFramework()
+      if (instance) {
+        cleanup = instance.cleanup
+      }
+    } catch (error) {
+      console.error('Failed to initialize Path Navigator game:', error)
+    }
+  })
+
+  // Clean up on page unload
+  window.addEventListener('beforeunload', () => {
+    if (cleanup) {
+      cleanup()
+    }
+  })
+</script>

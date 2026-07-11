@@ -174,19 +174,18 @@ import Button from '@/components/ui/Button.astro'
       Longest Word: <span id="longest-word" class="text-purple-400">None</span>
     </div>
   </div>
-
-  <!-- Init script -->
-  <script slot="game-script">
-    import { initWordScrambleGameFramework } from '@/lib/games/word-scramble/initFramework'
-
-    // Initialize game when page loads. All button/keyboard wiring is
-    // handled inside the framework initializer.
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        await initWordScrambleGameFramework()
-      } catch (error) {
-        console.error('Failed to initialize Word Scramble game:', error)
-      }
-    })
-  </script>
 </GamePage>
+
+<script>
+  import { initWordScrambleGameFramework } from '@/lib/games/word-scramble/initFramework'
+
+  // Initialize game when page loads. All button/keyboard wiring is
+  // handled inside the framework initializer.
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      await initWordScrambleGameFramework()
+    } catch (error) {
+      console.error('Failed to initialize Word Scramble game:', error)
+    }
+  })
+</script>

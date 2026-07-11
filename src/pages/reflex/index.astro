@@ -177,42 +177,40 @@ import AchievementAward from '@/components/AchievementAward.astro'
   <div slot="bottom-info">
     <AchievementAward />
   </div>
+</GamePage>
 
-  <!-- Init script -->
-  <script slot="game-script">
-    import { initReflexGameFramework } from '@/lib/games/reflex/initFramework'
+<script>
+  import { initReflexGameFramework } from '@/lib/games/reflex/initFramework'
 
-    let gameInstance: Awaited<
-      ReturnType<typeof initReflexGameFramework>
-    > | null = null
+  let gameInstance: Awaited<ReturnType<typeof initReflexGameFramework>> | null =
+    null
 
-    // Initialize game when page loads
-    document.addEventListener('DOMContentLoaded', async () => {
-      const gameStatusElement = document.getElementById('game-status')!
+  // Initialize game when page loads
+  document.addEventListener('DOMContentLoaded', async () => {
+    const gameStatusElement = document.getElementById('game-status')!
 
-      try {
-        gameInstance = await initReflexGameFramework()
+    try {
+      gameInstance = await initReflexGameFramework()
 
-        if (!gameInstance) {
-          throw new Error('Failed to initialize game framework')
-        }
-      } catch (error) {
-        console.error('Failed to initialize Reflex game:', error)
-        gameStatusElement.style.display = 'flex'
-        gameStatusElement.innerHTML = `
+      if (!gameInstance) {
+        throw new Error('Failed to initialize game framework')
+      }
+    } catch (error) {
+      console.error('Failed to initialize Reflex game:', error)
+      gameStatusElement.style.display = 'flex'
+      gameStatusElement.innerHTML = `
             <div class="text-center">
               <div class="text-red-400 text-xl mb-2">Failed to Load Game</div>
               <div class="text-cetus-ink-muted text-sm">${error}</div>
             </div>
           `
-      }
-    })
+    }
+  })
 
-    // Cleanup on page unload
-    window.addEventListener('beforeunload', () => {
-      if (gameInstance) {
-        gameInstance.cleanup()
-      }
-    })
-  </script>
-</GamePage>
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    if (gameInstance) {
+      gameInstance.cleanup()
+    }
+  })
+</script>

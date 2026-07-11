@@ -134,27 +134,26 @@ import Badge from '@/components/ui/Badge.astro'
       Total Attempts: <span id="final-attempts" class="text-yellow-400">0</span>
     </div>
   </div>
-
-  <!-- Init script -->
-  <script slot="game-script">
-    import { initMemoryMatrixGameFramework } from '@/lib/games/memory-matrix/initFramework'
-
-    // Initialize game when page loads. All button/card wiring is handled
-    // inside the framework initializer.
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        const gameInstance = await initMemoryMatrixGameFramework()
-
-        if (!gameInstance) {
-          console.error('Failed to initialize Memory Matrix game')
-          return
-        }
-
-        // Expose game instance for debugging
-        ;(window as any).memoryMatrixGame = gameInstance
-      } catch (error) {
-        console.error('Failed to initialize Memory Matrix game:', error)
-      }
-    })
-  </script>
 </GamePage>
+
+<script>
+  import { initMemoryMatrixGameFramework } from '@/lib/games/memory-matrix/initFramework'
+
+  // Initialize game when page loads. All button/card wiring is handled
+  // inside the framework initializer.
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const gameInstance = await initMemoryMatrixGameFramework()
+
+      if (!gameInstance) {
+        console.error('Failed to initialize Memory Matrix game')
+        return
+      }
+
+      // Expose game instance for debugging
+      ;(window as any).memoryMatrixGame = gameInstance
+    } catch (error) {
+      console.error('Failed to initialize Memory Matrix game:', error)
+    }
+  })
+</script>

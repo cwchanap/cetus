@@ -141,126 +141,125 @@ import AchievementAward from '@/components/AchievementAward.astro'
   <div slot="bottom-info">
     <AchievementAward />
   </div>
+</GamePage>
 
-  <!-- Init script -->
-  <script slot="game-script">
-    import { initializeCircuitHackerGame } from '@/lib/games/circuit-hacker/init'
-    import type { Difficulty } from '@/lib/games/circuit-hacker/types'
+<script>
+  import { initializeCircuitHackerGame } from '@/lib/games/circuit-hacker/init'
+  import type { Difficulty } from '@/lib/games/circuit-hacker/types'
 
-    let gameHandle: Awaited<
-      ReturnType<typeof initializeCircuitHackerGame>
-    > | null = null
+  let gameHandle: Awaited<
+    ReturnType<typeof initializeCircuitHackerGame>
+  > | null = null
 
-    const init = async () => {
-      const container = document.getElementById('game-canvas-container')!
-      const timeEl = document.getElementById('time-remaining')!
-      const rotationEl = document.getElementById('rotation-count')!
-      const statusEl = document.getElementById('game-status')!
-      const overlay = document.getElementById('game-over-overlay')!
-      const startBtn = document.getElementById('start-btn')!
-      const stopBtn = document.getElementById('stop-btn')!
-      const playAgainBtn = document.getElementById('play-again-btn')!
-      const difficultySelect = document.getElementById(
-        'difficulty-select'
-      ) as HTMLSelectElement
-      const errorContainer = document.getElementById('game-error')!
-      const errorTitle = document.getElementById('game-error-title')!
-      const errorMessage = document.getElementById('game-error-message')!
+  const init = async () => {
+    const container = document.getElementById('game-canvas-container')!
+    const timeEl = document.getElementById('time-remaining')!
+    const rotationEl = document.getElementById('rotation-count')!
+    const statusEl = document.getElementById('game-status')!
+    const overlay = document.getElementById('game-over-overlay')!
+    const startBtn = document.getElementById('start-btn')!
+    const stopBtn = document.getElementById('stop-btn')!
+    const playAgainBtn = document.getElementById('play-again-btn')!
+    const difficultySelect = document.getElementById(
+      'difficulty-select'
+    ) as HTMLSelectElement
+    const errorContainer = document.getElementById('game-error')!
+    const errorTitle = document.getElementById('game-error-title')!
+    const errorMessage = document.getElementById('game-error-message')!
 
-      const showError = (title: string, message: string) => {
-        statusEl.classList.add('hidden')
+    const showError = (title: string, message: string) => {
+      statusEl.classList.add('hidden')
+      overlay.classList.add('hidden')
+      errorTitle.textContent = title
+      errorMessage.textContent = message
+      errorContainer.classList.remove('hidden')
+      errorContainer.style.display = 'flex'
+    }
+
+    const hideError = () => {
+      errorContainer.classList.add('hidden')
+      errorContainer.style.display = 'none'
+    }
+
+    const formatError = (error: unknown): string => {
+      if (error instanceof Error) {
+        return error.message
+      }
+      if (typeof error === 'string') {
+        return error
+      }
+      return 'Unexpected error. Please try again.'
+    }
+
+    const resetButtonState = () => {
+      startBtn.style.display = 'inline-flex'
+      stopBtn.style.display = 'none'
+      difficultySelect.disabled = false
+    }
+
+    try {
+      gameHandle = await initializeCircuitHackerGame(container, {
+        onTimeUpdate: (t: number) => {
+          timeEl.textContent = t.toString()
+        },
+        onRotation: (n: number) => {
+          rotationEl.textContent = n.toString()
+        },
+        onStart: () => {
+          statusEl.classList.add('hidden')
+          overlay.classList.add('hidden')
+          hideError()
+          startBtn.style.display = 'none'
+          stopBtn.style.display = 'inline-flex'
+        },
+        onEnd: () => {
+          difficultySelect.disabled = false
+        },
+        onError: (title, message) => {
+          showError(title, message)
+        },
+      })
+
+      startBtn.addEventListener('click', async () => {
+        hideError()
+        // Hide start button before awaiting start() to prevent a
+        // double-click from entering start() twice while setupPixiJS
+        // is still pending. onStart keeps it hidden on success;
+        // resetButtonState() restores it on error.
+        startBtn.style.display = 'none'
+        difficultySelect.disabled = true
+        rotationEl.textContent = '0'
+        try {
+          await gameHandle!.start(difficultySelect.value as Difficulty)
+        } catch (error) {
+          showError('Failed to Start Game', formatError(error))
+          resetButtonState()
+        }
+      })
+
+      stopBtn.addEventListener('click', () => {
+        gameHandle!.stop()
+      })
+
+      playAgainBtn.addEventListener('click', () => {
         overlay.classList.add('hidden')
-        errorTitle.textContent = title
-        errorMessage.textContent = message
-        errorContainer.classList.remove('hidden')
-        errorContainer.style.display = 'flex'
-      }
-
-      const hideError = () => {
-        errorContainer.classList.add('hidden')
-        errorContainer.style.display = 'none'
-      }
-
-      const formatError = (error: unknown): string => {
-        if (error instanceof Error) {
-          return error.message
-        }
-        if (typeof error === 'string') {
-          return error
-        }
-        return 'Unexpected error. Please try again.'
-      }
-
-      const resetButtonState = () => {
+        statusEl.classList.remove('hidden')
         startBtn.style.display = 'inline-flex'
         stopBtn.style.display = 'none'
         difficultySelect.disabled = false
-      }
-
-      try {
-        gameHandle = await initializeCircuitHackerGame(container, {
-          onTimeUpdate: (t: number) => {
-            timeEl.textContent = t.toString()
-          },
-          onRotation: (n: number) => {
-            rotationEl.textContent = n.toString()
-          },
-          onStart: () => {
-            statusEl.classList.add('hidden')
-            overlay.classList.add('hidden')
-            hideError()
-            startBtn.style.display = 'none'
-            stopBtn.style.display = 'inline-flex'
-          },
-          onEnd: () => {
-            difficultySelect.disabled = false
-          },
-          onError: (title, message) => {
-            showError(title, message)
-          },
-        })
-
-        startBtn.addEventListener('click', async () => {
-          hideError()
-          // Hide start button before awaiting start() to prevent a
-          // double-click from entering start() twice while setupPixiJS
-          // is still pending. onStart keeps it hidden on success;
-          // resetButtonState() restores it on error.
-          startBtn.style.display = 'none'
-          difficultySelect.disabled = true
-          rotationEl.textContent = '0'
-          try {
-            await gameHandle!.start(difficultySelect.value as Difficulty)
-          } catch (error) {
-            showError('Failed to Start Game', formatError(error))
-            resetButtonState()
-          }
-        })
-
-        stopBtn.addEventListener('click', () => {
-          gameHandle!.stop()
-        })
-
-        playAgainBtn.addEventListener('click', () => {
-          overlay.classList.add('hidden')
-          statusEl.classList.remove('hidden')
-          startBtn.style.display = 'inline-flex'
-          stopBtn.style.display = 'none'
-          difficultySelect.disabled = false
-        })
-      } catch (error) {
-        showError('Failed to Load Game', formatError(error))
-      }
+      })
+    } catch (error) {
+      showError('Failed to Load Game', formatError(error))
     }
+  }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', init)
-    } else {
-      init()
-    }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init)
+  } else {
+    init()
+  }
 
-    window.addEventListener('beforeunload', () => {
-      gameHandle?.cleanup()
-    })
-  </script>
-</GamePage>
+  window.addEventListener('beforeunload', () => {
+    gameHandle?.cleanup()
+  })
+</script>

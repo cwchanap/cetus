@@ -151,41 +151,40 @@ import Button from '@/components/ui/Button.astro'
       Accuracy: <span id="accuracy" class="text-green-400">0%</span>
     </div>
   </div>
-
-  <!-- Init script -->
-  <script slot="game-script">
-    import { initQuickMathFramework } from '@/lib/games/quick-math/init'
-
-    // Initialize game when page loads
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        const {
-          game: _game,
-          renderer: _renderer,
-          cleanup,
-        } = await initQuickMathFramework(
-          {
-            // Custom config if needed (all defaults are good)
-          },
-          {
-            onEnd: async (_finalScore: number, _stats: unknown) => {
-              // Additional custom handling if needed
-              // Stats are already handled by framework
-            },
-          }
-        )
-
-        // Game is now fully initialized with framework
-        // All button handlers are set up automatically by the framework
-        // The game has proper start(), end(), reset() methods
-
-        // Clean up on page unload
-        window.addEventListener('beforeunload', () => {
-          cleanup()
-        })
-      } catch (_error) {
-        // Failed to initialize game - could show error UI
-      }
-    })
-  </script>
 </GamePage>
+
+<script>
+  import { initQuickMathFramework } from '@/lib/games/quick-math/init'
+
+  // Initialize game when page loads
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const {
+        game: _game,
+        renderer: _renderer,
+        cleanup,
+      } = await initQuickMathFramework(
+        {
+          // Custom config if needed (all defaults are good)
+        },
+        {
+          onEnd: async (_finalScore: number, _stats: unknown) => {
+            // Additional custom handling if needed
+            // Stats are already handled by framework
+          },
+        }
+      )
+
+      // Game is now fully initialized with framework
+      // All button handlers are set up automatically by the framework
+      // The game has proper start(), end(), reset() methods
+
+      // Clean up on page unload
+      window.addEventListener('beforeunload', () => {
+        cleanup()
+      })
+    } catch (_error) {
+      // Failed to initialize game - could show error UI
+    }
+  })
+</script>

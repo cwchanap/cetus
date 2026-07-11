@@ -128,27 +128,26 @@ import Badge from '@/components/ui/Badge.astro'
       Moves: <span id="final-moves" class="text-green-400">0</span>
     </div>
   </div>
-
-  <!-- Init script -->
-  <script slot="game-script">
-    import { init2048GameFramework } from '@/lib/games/2048/initFramework'
-
-    // Initialize game when page loads. All button/keyboard/touch wiring is
-    // handled inside the framework initializer.
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        const gameInstance = await init2048GameFramework()
-
-        if (!gameInstance) {
-          console.error('Failed to initialize 2048 game')
-          return
-        }
-
-        // Expose game instance for debugging
-        ;(window as any).game2048 = gameInstance
-      } catch (error) {
-        console.error('Failed to initialize 2048 game:', error)
-      }
-    })
-  </script>
 </GamePage>
+
+<script>
+  import { init2048GameFramework } from '@/lib/games/2048/initFramework'
+
+  // Initialize game when page loads. All button/keyboard/touch wiring is
+  // handled inside the framework initializer.
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const gameInstance = await init2048GameFramework()
+
+      if (!gameInstance) {
+        console.error('Failed to initialize 2048 game')
+        return
+      }
+
+      // Expose game instance for debugging
+      ;(window as any).game2048 = gameInstance
+    } catch (error) {
+      console.error('Failed to initialize 2048 game:', error)
+    }
+  })
+</script>
