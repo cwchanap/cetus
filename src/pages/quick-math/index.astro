@@ -1,254 +1,191 @@
 ---
-import AppLayout from '@/layouts/AppLayout.astro'
-import Button from '@/components/ui/Button.astro'
+import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
-import GameOverlay from '@/components/GameOverlay.astro'
-
-// Custom navigation for game pages with breadcrumb
-const gameNavigation = [
-  { href: '/', label: 'Home' },
-  { href: '#', label: 'Quick Math' },
-]
+import Button from '@/components/ui/Button.astro'
 ---
 
-<AppLayout
-  title="Quick Math - Cetus Minigames"
-  description="Fast-paced math challenge - solve as many problems as you can in 60 seconds"
-  includeFooter={false}
-  navigation={gameNavigation}
+<GamePage
+  gameId="quick-math"
+  title="Quick Math"
+  description="Solve as many math problems as you can in 60 seconds!"
+  icon="🧮"
+  overlayTitle="TIME'S UP!"
 >
-  <!-- Game Breadcrumb -->
-  <div class="px-6 py-4 border-b border-slate-700/50">
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center space-x-3">
-        <div class="text-cyan-400 text-sm">🧮 Quick Math</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="px-6 py-8">
-    <div class="max-w-6xl mx-auto">
-      <!-- Game Title -->
-      <div class="text-center mb-8">
-        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
-          QUICK MATH
-        </h2>
-        <p class="text-gray-400 text-lg">
-          Solve as many math problems as you can in 60 seconds!
-        </p>
-      </div>
-
-      <!-- Game Container - Centered -->
-      <div class="flex justify-center mb-12">
-        <!-- Game Board -->
-        <Card
-          variant="glass"
-          class="p-8 w-full max-w-lg"
-          id="quick-math-container"
+  <!-- Board: question display + answer input -->
+  <div slot="game-board" id="quick-math-container" class="p-8 w-full max-w-lg">
+    <div class="flex flex-col items-center space-y-6">
+      <!-- Question Display -->
+      <div class="text-center mb-6">
+        <div
+          class="text-6xl font-bold text-white mb-4 min-h-20 flex items-center justify-center cetus-wordmark cetus-wordmark--glow"
+          style="font-family: var(--cetus-display-font);"
         >
-          <div class="flex flex-col items-center space-y-6">
-            <!-- Game Status -->
-            <div class="flex space-x-4 mb-4">
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Score: <span id="score" class="text-cyan-400">0</span></span
-                >
-              </Badge>
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Time: <span id="time-remaining" class="text-cyan-400"
-                    >60</span
-                  >s</span
-                >
-              </Badge>
-            </div>
-
-            <!-- Question Display -->
-            <div class="text-center mb-6">
-              <div
-                class="text-6xl font-orbitron font-bold text-white mb-4 min-h-20 flex items-center justify-center"
-              >
-                <span id="question" class="text-holographic">Ready?</span>
-              </div>
-              <div class="text-lg text-gray-400">What's the answer?</div>
-            </div>
-
-            <!-- Answer Input -->
-            <div class="w-full max-w-xs">
-              <input
-                id="answer-input"
-                type="text"
-                class="w-full px-4 py-3 text-2xl font-mono text-center bg-black/50 border-2 border-cyan-400/50 rounded-lg focus:border-cyan-400 focus:outline-none text-white placeholder-gray-500 disabled:opacity-50"
-                placeholder="Enter answer"
-                disabled
-                autocomplete="off"
-              />
-            </div>
-
-            <!-- Submit Button -->
-            <Button id="submit-answer" variant="primary" size="lg" disabled>
-              Submit Answer
-            </Button>
-
-            <!-- Game Controls -->
-            <div class="flex space-x-3 mt-6">
-              <Button id="start-btn" variant="primary">Start Game</Button>
-              <Button id="end-btn" variant="outline" style="display: none;"
-                >End Game</Button
-              >
-            </div>
-
-            <!-- Current Session Stats - Inline -->
-            <div class="flex space-x-6 text-sm mt-4">
-              <div class="text-center">
-                <div class="text-gray-400">Questions</div>
-                <div id="current-questions" class="text-white font-bold">0</div>
-              </div>
-              <div class="text-center">
-                <div class="text-gray-400">Correct</div>
-                <div id="current-correct" class="text-green-400 font-bold">
-                  0
-                </div>
-              </div>
-              <div class="text-center">
-                <div class="text-gray-400">Score</div>
-                <div id="current-score" class="text-cyan-400 font-bold">0</div>
-              </div>
-            </div>
-
-            <GameOverlay defaultTitle="TIME'S UP!">
-              <div class="text-lg text-gray-300">
-                Questions Answered: <span
-                  id="total-questions"
-                  class="text-cyan-400">0</span
-                >
-              </div>
-              <div class="text-lg text-gray-300">
-                Accuracy: <span id="accuracy" class="text-green-400">0%</span>
-              </div>
-            </GameOverlay>
-          </div>
-        </Card>
+          <span id="question">Ready?</span>
+        </div>
+        <div class="text-lg text-cetus-ink-muted">What's the answer?</div>
       </div>
 
-      <!-- Game Info & Rules - Bottom Section -->
-      <div class="max-w-5xl mx-auto">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <!-- Game Rules -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              GAME RULES
-            </h3>
-            <div class="space-y-3 text-sm text-gray-300">
-              <div class="flex items-center space-x-2">
-                <span class="text-green-400">✓</span>
-                <span>Solve math problems as fast as you can</span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-green-400">✓</span>
-                <span>60 seconds to get the highest score</span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-green-400">✓</span>
-                <span>Each correct answer = 20 points</span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-green-400">✓</span>
-                <span>Numbers range from 1 to 999</span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-green-400">✓</span>
-                <span>Addition and subtraction only</span>
-              </div>
-            </div>
-          </Card>
+      <!-- Answer Input -->
+      <div class="w-full max-w-xs">
+        <input
+          id="answer-input"
+          type="text"
+          class="w-full px-4 py-3 text-2xl font-mono text-center bg-black/50 border-2 border-cetus-hairline rounded-lg focus:border-cetus-accent focus:outline-none text-white placeholder-cetus-ink-muted disabled:opacity-50"
+          placeholder="Enter answer"
+          disabled
+          autocomplete="off"
+        />
+      </div>
 
-          <!-- Tips -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              TIPS
-            </h3>
-            <div class="space-y-3 text-sm text-gray-300">
-              <div class="flex items-start space-x-2">
-                <span class="text-yellow-400 mt-0.5">💡</span>
-                <span>Use mental math techniques for speed</span>
-              </div>
-              <div class="flex items-start space-x-2">
-                <span class="text-yellow-400 mt-0.5">💡</span>
-                <span>Press Enter to submit your answer quickly</span>
-              </div>
-              <div class="flex items-start space-x-2">
-                <span class="text-yellow-400 mt-0.5">💡</span>
-                <span>Don't worry about mistakes - speed matters!</span>
-              </div>
-              <div class="flex items-start space-x-2">
-                <span class="text-yellow-400 mt-0.5">💡</span>
-                <span>All subtraction results are positive</span>
-              </div>
-            </div>
-          </Card>
+      <!-- Submit Button -->
+      <Button id="submit-answer" variant="primary" size="lg" disabled>
+        Submit Answer
+      </Button>
 
-          <!-- Controls -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              CONTROLS
-            </h3>
-            <div class="space-y-4 text-sm">
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Submit Answer:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">Enter</Badge>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Numbers Only:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">0-9</Badge>
-              </div>
-              <div class="pt-2 border-t border-gray-700">
-                <div class="text-gray-400 text-xs">
-                  💡 Type your answer and press Enter for fastest gameplay
-                </div>
-              </div>
-            </div>
-          </Card>
+      <!-- Current Session Stats -->
+      <div class="flex space-x-6 text-sm mt-4">
+        <div class="text-center">
+          <div class="text-cetus-ink-muted">Questions</div>
+          <div id="current-questions" class="text-white font-bold">0</div>
+        </div>
+        <div class="text-center">
+          <div class="text-cetus-ink-muted">Correct</div>
+          <div id="current-correct" class="text-green-400 font-bold">0</div>
+        </div>
+        <div class="text-center">
+          <div class="text-cetus-ink-muted">Score</div>
+          <div id="current-score" class="text-cetus-accent font-bold">0</div>
         </div>
       </div>
     </div>
-
-    <!-- Quick Math Game Logic -->
-    <script>
-      import { initQuickMathFramework } from '@/lib/games/quick-math/init'
-
-      // Initialize game when page loads
-      document.addEventListener('DOMContentLoaded', async () => {
-        try {
-          const {
-            game: _game,
-            renderer: _renderer,
-            cleanup,
-          } = await initQuickMathFramework(
-            {
-              // Custom config if needed (all defaults are good)
-            },
-            {
-              onEnd: async (_finalScore: number, _stats: unknown) => {
-                // Additional custom handling if needed
-                // Stats are already handled by framework
-              },
-            }
-          )
-
-          // Game is now fully initialized with framework
-          // All button handlers are set up automatically by the framework
-          // The game has proper start(), end(), reset() methods
-
-          // Clean up on page unload
-          window.addEventListener('beforeunload', () => {
-            cleanup()
-          })
-        } catch (_error) {
-          // Failed to initialize game - could show error UI
-        }
-      })
-    </script>
   </div>
-</AppLayout>
+
+  <!-- Sidebar info -->
+  <div slot="game-info">
+    <!-- Game Rules -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ GAME RULES
+      </h3>
+      <div class="space-y-3 text-sm text-cetus-ink">
+        <div class="flex items-center space-x-2">
+          <span class="text-green-400">✓</span>
+          <span>Solve math problems as fast as you can</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-green-400">✓</span>
+          <span>60 seconds to get the highest score</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-green-400">✓</span>
+          <span>Each correct answer = 20 points</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-green-400">✓</span>
+          <span>Numbers range from 1 to 999</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-green-400">✓</span>
+          <span>Addition and subtraction only</span>
+        </div>
+      </div>
+    </Card>
+
+    <!-- Tips -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ TIPS
+      </h3>
+      <div class="space-y-3 text-sm text-cetus-ink">
+        <div class="flex items-start space-x-2">
+          <span class="text-yellow-400 mt-0.5">💡</span>
+          <span>Use mental math techniques for speed</span>
+        </div>
+        <div class="flex items-start space-x-2">
+          <span class="text-yellow-400 mt-0.5">💡</span>
+          <span>Press Enter to submit your answer quickly</span>
+        </div>
+        <div class="flex items-start space-x-2">
+          <span class="text-yellow-400 mt-0.5">💡</span>
+          <span>Don't worry about mistakes - speed matters!</span>
+        </div>
+        <div class="flex items-start space-x-2">
+          <span class="text-yellow-400 mt-0.5">💡</span>
+          <span>All subtraction results are positive</span>
+        </div>
+      </div>
+    </Card>
+
+    <!-- Controls -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ CONTROLS
+      </h3>
+      <div class="space-y-4 text-sm">
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Submit Answer:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">Enter</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Numbers Only:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">0-9</Badge>
+        </div>
+        <div class="pt-2 border-t border-cetus-hairline">
+          <div class="text-cetus-ink-muted text-xs">
+            💡 Type your answer and press Enter for fastest gameplay
+          </div>
+        </div>
+      </div>
+    </Card>
+  </div>
+
+  <!-- Custom overlay stats -->
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Questions Answered: <span id="total-questions" class="text-cetus-accent"
+        >0</span
+      >
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Accuracy: <span id="accuracy" class="text-green-400">0%</span>
+    </div>
+  </div>
+
+  <!-- Init script -->
+  <script slot="game-script">
+    import { initQuickMathFramework } from '@/lib/games/quick-math/init'
+
+    // Initialize game when page loads
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const {
+          game: _game,
+          renderer: _renderer,
+          cleanup,
+        } = await initQuickMathFramework(
+          {
+            // Custom config if needed (all defaults are good)
+          },
+          {
+            onEnd: async (_finalScore: number, _stats: unknown) => {
+              // Additional custom handling if needed
+              // Stats are already handled by framework
+            },
+          }
+        )
+
+        // Game is now fully initialized with framework
+        // All button handlers are set up automatically by the framework
+        // The game has proper start(), end(), reset() methods
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+          cleanup()
+        })
+      } catch (_error) {
+        // Failed to initialize game - could show error UI
+      }
+    })
+  </script>
+</GamePage>

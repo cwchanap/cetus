@@ -1,274 +1,226 @@
 ---
-import AppLayout from '@/layouts/AppLayout.astro'
-import Button from '@/components/ui/Button.astro'
+import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
-import GameOverlay from '@/components/GameOverlay.astro'
+import Button from '@/components/ui/Button.astro'
 import AchievementAward from '@/components/AchievementAward.astro'
-
-// Custom navigation for game pages with breadcrumb
-const gameNavigation = [
-  { href: '/', label: 'Home' },
-  { href: '#', label: 'Evader' },
-]
 ---
 
-<AppLayout
-  title="Evader - Cetus Minigames"
-  description="Control your character to collect coins and avoid bombs in 60 seconds"
-  includeFooter={false}
-  navigation={gameNavigation}
+<GamePage
+  gameId="evader"
+  title="Evader"
+  description="Move in all directions to collect coins (+100) and avoid bombs (-100) in 60 seconds!"
+  icon="🚀"
+  overlayTitle="TIME'S UP!"
+  overlayButtonText="Close"
 >
-  <!-- Game Breadcrumb -->
-  <div class="px-6 py-4 border-b border-slate-700/50">
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center space-x-3">
-        <div class="text-cyan-400 text-sm">🚀 Evader</div>
-      </div>
-    </div>
-  </div>
+  <!-- Board: canvas container + game-status + game-error -->
+  <div slot="game-board">
+    <div class="relative">
+      <div id="game-canvas-container" class="bg-black/30 rounded-lg"></div>
 
-  <div class="px-6 py-8">
-    <div class="max-w-6xl mx-auto">
-      <!-- Game Title -->
-      <div class="text-center mb-8">
-        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
-          EVADER
-        </h2>
-        <p class="text-gray-400 text-lg">
-          Move in all directions to collect coins (+100) and avoid bombs (-100)
-          in 60 seconds!
-        </p>
-      </div>
-
-      <!-- Game Container - Centered -->
-      <div class="flex justify-center mb-12">
-        <!-- Game Board -->
-        <Card variant="glass" class="p-8">
-          <div class="flex flex-col items-center space-y-6">
-            <!-- Game Status -->
-            <div class="flex space-x-4 mb-4">
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Score: <span id="score" class="text-cyan-400">0</span></span
-                >
-              </Badge>
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Time: <span id="time-remaining" class="text-cyan-400"
-                    >60</span
-                  >s</span
-                >
-              </Badge>
-            </div>
-
-            <!-- Game Canvas Container -->
-            <div class="relative">
-              <div id="game-canvas-container" class="bg-black/30 rounded-lg">
-              </div>
-
-              <!-- Game Status Message -->
-              <div
-                id="game-status"
-                class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
-              >
-                <div class="text-center">
-                  <div class="text-6xl mb-4">🚀</div>
-                  <div
-                    class="text-xl text-cyan-400 font-orbitron font-bold mb-2"
-                  >
-                    EVADER
-                  </div>
-                  <div class="text-gray-400">
-                    Click the button below to start!
-                  </div>
-                </div>
-              </div>
-
-              <!-- Error Message (hidden by default) -->
-              <div
-                id="game-error"
-                class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
-              >
-                <div class="text-center">
-                  <div id="game-error-title" class="text-red-400 text-xl mb-2">
-                  </div>
-                  <div id="game-error-message" class="text-gray-400 text-sm">
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Game Controls -->
-            <div class="flex space-x-3">
-              <Button id="start-btn" variant="primary">Start Game</Button>
-              <Button id="stop-btn" variant="outline" style="display: none;"
-                >End Game</Button
-              >
-            </div>
-
-            <!-- Current Session Stats - Inline -->
-            <div class="flex space-x-6 text-sm">
-              <div class="text-center">
-                <div class="text-gray-400">Coins</div>
-                <div id="coins-collected" class="text-green-400 font-bold">
-                  0
-                </div>
-              </div>
-              <div class="text-center">
-                <div class="text-gray-400">Bombs Hit</div>
-                <div id="bombs-hit" class="text-red-400 font-bold">0</div>
-              </div>
-            </div>
-
-            <GameOverlay defaultTitle="TIME'S UP!" buttonText="Close">
-              <div class="text-lg text-gray-300">
-                Coins Collected: <span id="final-coins" class="text-green-400"
-                  >0</span
-                >
-              </div>
-              <div class="text-lg text-gray-300">
-                Bombs Hit: <span id="final-bombs" class="text-red-400">0</span>
-              </div>
-            </GameOverlay>
+      <!-- Game Status Message -->
+      <div
+        id="game-status"
+        class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
+      >
+        <div class="text-center">
+          <div class="text-6xl mb-4">🚀</div>
+          <div
+            class="text-xl font-mono font-bold mb-2 cetus-wordmark cetus-wordmark--glow"
+            style="font-family: var(--cetus-display-font);"
+          >
+            EVADER
           </div>
-        </Card>
+          <div class="text-cetus-ink-muted">
+            Click the button below to start!
+          </div>
+        </div>
       </div>
 
-      <!-- Game Info & Rules - Bottom Section -->
-      <div class="max-w-5xl mx-auto">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <!-- Game Rules -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              GAME RULES
-            </h3>
-            <div class="space-y-3 text-sm text-gray-300">
-              <div class="flex items-center space-x-2">
-                <span class="text-green-400">✓</span>
-                <span>Collect coins for +100 points</span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-red-400">✗</span>
-                <span>Avoid bombs (-100 points)</span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-cyan-400">⏱</span>
-                <span>60 second time limit</span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-purple-400">📊</span>
-                <span>2:1 bomb to coin ratio</span>
-              </div>
-            </div>
-          </Card>
-
-          <!-- Scoring System -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              SCORING
-            </h3>
-            <div class="space-y-3 text-sm text-gray-300">
-              <div class="flex justify-between items-center">
-                <span class="text-green-400">Collect Coin:</span>
-                <span class="font-bold">+100 pts</span>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-red-400">Hit Bomb:</span>
-                <span class="font-bold">-100 pts</span>
-              </div>
-              <div class="border-t border-gray-700 pt-3 mt-3">
-                <div class="text-gray-400 text-xs mb-2">Strategy Tips:</div>
-                <div class="text-xs space-y-1">
-                  <div>• Time your movements</div>
-                  <div>• Watch patterns</div>
-                  <div>• Stay centered</div>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <!-- Controls -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              CONTROLS
-            </h3>
-            <div class="space-y-4 text-sm">
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Move Up:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">↑ / W</Badge>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Move Down:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">↓ / S</Badge>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Move Left:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">← / A</Badge>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Move Right:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">→ / D</Badge>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Start Game:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">Button</Badge
-                >
-              </div>
-              <div class="pt-2 border-t border-gray-700">
-                <div class="text-gray-400 text-xs">
-                  💡 Use WASD or arrow keys to move in all directions!
-                </div>
-              </div>
-            </div>
-          </Card>
+      <!-- Error Message (hidden by default) -->
+      <div
+        id="game-error"
+        class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
+      >
+        <div class="text-center">
+          <div id="game-error-title" class="text-red-400 text-xl mb-2"></div>
+          <div id="game-error-message" class="text-cetus-ink-muted text-sm">
+          </div>
         </div>
       </div>
     </div>
-
-    <!-- Evader Game Logic -->
-    <script>
-      import { initEvaderGameFramework } from '@/lib/games/evader/initFramework'
-
-      let gameInstance: Awaited<
-        ReturnType<typeof initEvaderGameFramework>
-      > | null = null
-
-      // Initialize game when page loads
-      const init = async () => {
-        const gameStatusElement = document.getElementById('game-status')!
-
-        try {
-          gameInstance = await initEvaderGameFramework()
-
-          if (!gameInstance) {
-            throw new Error('Failed to initialize game framework')
-          }
-        } catch (error) {
-          console.error('Failed to initialize Evader game:', error)
-          const errorContainer = document.getElementById('game-error')!
-          const errorTitle = document.getElementById('game-error-title')!
-          const errorMessage = document.getElementById('game-error-message')!
-          gameStatusElement.style.display = 'none'
-          errorTitle.textContent = 'Failed to Load Game'
-          errorMessage.textContent = String(error)
-          errorContainer.style.display = 'flex'
-        }
-      }
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init)
-      } else {
-        init()
-      }
-
-      // Cleanup on page unload
-      window.addEventListener('beforeunload', () => {
-        if (gameInstance) {
-          gameInstance.cleanup()
-        }
-      })
-    </script>
   </div>
-  <AchievementAward />
-</AppLayout>
+
+  <!-- Custom controls (uses stop-btn, not end-btn) -->
+  <div slot="controls">
+    <Card variant="glass" class="p-6">
+      <div class="flex flex-col items-center space-y-4">
+        <div class="flex space-x-3">
+          <Button id="start-btn" variant="primary">Start Game</Button>
+          <Button id="stop-btn" variant="outline" style="display: none;"
+            >End Game</Button
+          >
+        </div>
+      </div>
+    </Card>
+  </div>
+
+  <!-- Sidebar info -->
+  <div slot="game-info">
+    <!-- Current Session Stats -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SESSION
+      </h3>
+      <div class="flex justify-center space-x-6 text-sm">
+        <div class="text-center">
+          <div class="text-cetus-ink-muted">Coins</div>
+          <div id="coins-collected" class="text-green-400 font-bold">0</div>
+        </div>
+        <div class="text-center">
+          <div class="text-cetus-ink-muted">Bombs Hit</div>
+          <div id="bombs-hit" class="text-red-400 font-bold">0</div>
+        </div>
+      </div>
+    </Card>
+
+    <!-- Game Rules -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ GAME RULES
+      </h3>
+      <div class="space-y-3 text-sm text-cetus-ink">
+        <div class="flex items-center space-x-2">
+          <span class="text-green-400">✓</span>
+          <span>Collect coins for +100 points</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-red-400">✗</span>
+          <span>Avoid bombs (-100 points)</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-cetus-accent">⏱</span>
+          <span>60 second time limit</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-purple-400">📊</span>
+          <span>2:1 bomb to coin ratio</span>
+        </div>
+      </div>
+    </Card>
+
+    <!-- Scoring System -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SCORING
+      </h3>
+      <div class="space-y-3 text-sm text-cetus-ink">
+        <div class="flex justify-between items-center">
+          <span class="text-green-400">Collect Coin:</span>
+          <span class="font-bold">+100 pts</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-red-400">Hit Bomb:</span>
+          <span class="font-bold">-100 pts</span>
+        </div>
+        <div class="border-t border-cetus-hairline pt-3 mt-3">
+          <div class="text-cetus-ink-muted text-xs mb-2">Strategy Tips:</div>
+          <div class="text-xs space-y-1">
+            <div>• Time your movements</div>
+            <div>• Watch patterns</div>
+            <div>• Stay centered</div>
+          </div>
+        </div>
+      </div>
+    </Card>
+
+    <!-- Controls -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ CONTROLS
+      </h3>
+      <div class="space-y-4 text-sm">
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Move Up:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">↑ / W</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Move Down:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">↓ / S</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Move Left:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">← / A</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Move Right:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">→ / D</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Start Game:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">Button</Badge>
+        </div>
+      </div>
+    </Card>
+  </div>
+
+  <!-- Custom overlay stats -->
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Coins Collected: <span id="final-coins" class="text-green-400">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Bombs Hit: <span id="final-bombs" class="text-red-400">0</span>
+    </div>
+  </div>
+
+  <!-- Achievement notifications -->
+  <div slot="bottom-info">
+    <AchievementAward />
+  </div>
+
+  <!-- Init script -->
+  <script slot="game-script">
+    import { initEvaderGameFramework } from '@/lib/games/evader/initFramework'
+
+    let gameInstance: Awaited<
+      ReturnType<typeof initEvaderGameFramework>
+    > | null = null
+
+    // Initialize game when page loads
+    const init = async () => {
+      const gameStatusElement = document.getElementById('game-status')!
+
+      try {
+        gameInstance = await initEvaderGameFramework()
+
+        if (!gameInstance) {
+          throw new Error('Failed to initialize game framework')
+        }
+      } catch (error) {
+        console.error('Failed to initialize Evader game:', error)
+        const errorContainer = document.getElementById('game-error')!
+        const errorTitle = document.getElementById('game-error-title')!
+        const errorMessage = document.getElementById('game-error-message')!
+        gameStatusElement.style.display = 'none'
+        errorTitle.textContent = 'Failed to Load Game'
+        errorMessage.textContent = String(error)
+        errorContainer.style.display = 'flex'
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init)
+    } else {
+      init()
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (gameInstance) {
+        gameInstance.cleanup()
+      }
+    })
+  </script>
+</GamePage>

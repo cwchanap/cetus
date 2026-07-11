@@ -1,297 +1,266 @@
 ---
-import AppLayout from '@/layouts/AppLayout.astro'
-import Button from '@/components/ui/Button.astro'
+import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
-import GameOverlay from '@/components/GameOverlay.astro'
+import Button from '@/components/ui/Button.astro'
 import AchievementAward from '@/components/AchievementAward.astro'
-
-const gameNavigation = [
-  { href: '/', label: 'Home' },
-  { href: '#', label: 'Circuit Hacker' },
-]
 ---
 
-<AppLayout
-  title="Circuit Hacker - Cetus Minigames"
-  description="Rotate circuit tiles to power a path from the source to the core before time runs out"
-  includeFooter={false}
-  navigation={gameNavigation}
+<GamePage
+  gameId="circuit-hacker"
+  title="Circuit Hacker"
+  description="Rotate the tiles to connect the source to every core before the timer expires!"
+  icon="🔌"
+  overlayTitle="CIRCUIT POWERED!"
+  overlayButtonText="Play Again"
 >
-  <div class="px-6 py-4 border-b border-slate-700/50">
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center space-x-3">
-        <div class="text-cyan-400 text-sm">🔌 Circuit Hacker</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="px-6 py-8">
-    <div class="max-w-6xl mx-auto">
-      <div class="text-center mb-8">
-        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
-          CIRCUIT HACKER
-        </h2>
-        <p class="text-gray-400 text-lg">
-          Rotate the tiles to connect the source to every core before the timer
-          expires!
-        </p>
+  <!-- Board: canvas container + game-status + game-error -->
+  <div slot="game-board">
+    <div class="relative w-full">
+      <div
+        id="game-canvas-container"
+        class="bg-black/30 rounded-lg min-w-[240px] min-h-[240px] w-full"
+      >
       </div>
 
-      <div class="flex flex-col lg:flex-row gap-8 items-start justify-center">
-        <Card variant="glass" class="p-6 flex-shrink-0 w-full lg:w-auto">
-          <div class="flex flex-col items-center space-y-4">
-            <div class="flex space-x-4 mb-2">
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Time: <span id="time-remaining" class="text-cyan-400"
-                    >--</span
-                  >s</span
-                >
-              </Badge>
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Rotations: <span id="rotation-count" class="text-cyan-400"
-                    >0</span
-                  ></span
-                >
-              </Badge>
-            </div>
-
-            <div class="flex items-center space-x-2">
-              <span class="text-gray-400 text-sm">Difficulty:</span>
-              <select
-                id="difficulty-select"
-                class="bg-slate-800 border border-cyan-400/40 rounded-md px-3 py-1 text-sm text-white"
-              >
-                <option value="easy">Easy (5×5)</option>
-                <option value="medium" selected>Medium (7×7)</option>
-                <option value="hard">Hard (9×9)</option>
-                <option value="expert">Expert (11×11)</option>
-              </select>
-            </div>
-
-            <div class="relative w-full">
-              <div
-                id="game-canvas-container"
-                class="bg-black/30 rounded-lg min-w-[240px] min-h-[240px] w-full"
-              >
-              </div>
-
-              <div
-                id="game-status"
-                class="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg"
-              >
-                <div class="text-center">
-                  <div class="text-6xl mb-4">🔌</div>
-                  <div
-                    class="text-xl text-cyan-400 font-orbitron font-bold mb-2"
-                  >
-                    CIRCUIT HACKER
-                  </div>
-                  <div class="text-gray-400">Pick a difficulty and start!</div>
-                </div>
-              </div>
-
-              <div
-                id="game-error"
-                class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
-              >
-                <div class="text-center">
-                  <div id="game-error-title" class="text-red-400 text-xl mb-2">
-                  </div>
-                  <div id="game-error-message" class="text-gray-400 text-sm">
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex space-x-3">
-              <Button id="start-btn" variant="primary">Start Game</Button>
-              <Button id="stop-btn" variant="outline" style="display: none;"
-                >End Game</Button
-              >
-            </div>
-
-            <GameOverlay
-              defaultTitle="CIRCUIT POWERED!"
-              buttonText="Play Again"
-            >
-              <div class="text-lg text-gray-300">
-                Time Left: <span id="final-time" class="text-cyan-400">0s</span>
-              </div>
-              <div class="text-lg text-gray-300">
-                Rotations: <span id="final-rotations" class="text-purple-400"
-                  >0</span
-                >
-              </div>
-            </GameOverlay>
+      <div
+        id="game-status"
+        class="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg"
+      >
+        <div class="text-center">
+          <div class="text-6xl mb-4">🔌</div>
+          <div
+            class="text-xl font-mono font-bold mb-2 cetus-wordmark cetus-wordmark--glow"
+            style="font-family: var(--cetus-display-font);"
+          >
+            CIRCUIT HACKER
           </div>
-        </Card>
+          <div class="text-cetus-ink-muted">Pick a difficulty and start!</div>
+        </div>
+      </div>
 
-        <div class="flex flex-col space-y-6">
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              HOW TO PLAY
-            </h3>
-            <ul class="space-y-2 text-sm text-gray-400">
-              <li>• Tap/click a tile to rotate it 90° clockwise</li>
-              <li>• Connect the source node to every core</li>
-              <li>• Powered wires glow cyan</li>
-              <li>• Solve before the timer runs out</li>
-              <li>• Fewer rotations and more time left = higher score</li>
-            </ul>
-          </Card>
-
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              SCORING
-            </h3>
-            <div class="space-y-2 text-sm text-gray-300">
-              <div class="flex justify-between">
-                <span class="text-gray-400">Base:</span><span>1000</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Time bonus:</span><span
-                  >×15 / sec left</span
-                >
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Rotation bonus:</span><span
-                  >×25 / unused rotation</span
-                >
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Harder tier:</span><span
-                  >bigger multiplier</span
-                >
-              </div>
-            </div>
-          </Card>
+      <div
+        id="game-error"
+        class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
+      >
+        <div class="text-center">
+          <div id="game-error-title" class="text-red-400 text-xl mb-2"></div>
+          <div id="game-error-message" class="text-cetus-ink-muted text-sm">
+          </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <script>
-      import { initializeCircuitHackerGame } from '@/lib/games/circuit-hacker/init'
-      import type { Difficulty } from '@/lib/games/circuit-hacker/types'
+  <!-- Additional stat: rotation count -->
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Rotations: <span id="rotation-count">0</span></span>
+  </Badge>
 
-      let gameHandle: Awaited<
-        ReturnType<typeof initializeCircuitHackerGame>
-      > | null = null
+  <!-- Custom controls (stop-btn + difficulty select) -->
+  <div slot="controls">
+    <Card variant="glass" class="p-6">
+      <div class="flex flex-col items-center space-y-4">
+        <div class="flex items-center space-x-2">
+          <span class="text-cetus-ink-muted text-sm">Difficulty:</span>
+          <select
+            id="difficulty-select"
+            class="bg-slate-800 border border-cetus-hairline rounded-md px-3 py-1 text-sm text-white"
+          >
+            <option value="easy">Easy (5×5)</option>
+            <option value="medium" selected>Medium (7×7)</option>
+            <option value="hard">Hard (9×9)</option>
+            <option value="expert">Expert (11×11)</option>
+          </select>
+        </div>
+        <div class="flex space-x-3">
+          <Button id="start-btn" variant="primary">Start Game</Button>
+          <Button id="stop-btn" variant="outline" style="display: none;"
+            >End Game</Button
+          >
+        </div>
+      </div>
+    </Card>
+  </div>
 
-      const init = async () => {
-        const container = document.getElementById('game-canvas-container')!
-        const timeEl = document.getElementById('time-remaining')!
-        const rotationEl = document.getElementById('rotation-count')!
-        const statusEl = document.getElementById('game-status')!
-        const overlay = document.getElementById('game-over-overlay')!
-        const startBtn = document.getElementById('start-btn')!
-        const stopBtn = document.getElementById('stop-btn')!
-        const playAgainBtn = document.getElementById('play-again-btn')!
-        const difficultySelect = document.getElementById(
-          'difficulty-select'
-        ) as HTMLSelectElement
-        const errorContainer = document.getElementById('game-error')!
-        const errorTitle = document.getElementById('game-error-title')!
-        const errorMessage = document.getElementById('game-error-message')!
+  <!-- Sidebar info -->
+  <div slot="game-info">
+    <!-- How to Play -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ HOW TO PLAY
+      </h3>
+      <ul class="space-y-2 text-sm text-cetus-ink-muted">
+        <li>• Tap/click a tile to rotate it 90° clockwise</li>
+        <li>• Connect the source node to every core</li>
+        <li>• Powered wires glow cyan</li>
+        <li>• Solve before the timer runs out</li>
+        <li>• Fewer rotations and more time left = higher score</li>
+      </ul>
+    </Card>
 
-        const showError = (title: string, message: string) => {
-          statusEl.classList.add('hidden')
+    <!-- Scoring -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SCORING
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink">
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Base:</span><span>1000</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Time bonus:</span><span
+            >×15 / sec left</span
+          >
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Rotation bonus:</span><span
+            >×25 / unused rotation</span
+          >
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Harder tier:</span><span
+            >bigger multiplier</span
+          >
+        </div>
+      </div>
+    </Card>
+  </div>
+
+  <!-- Custom overlay stats -->
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Time Left: <span id="final-time" class="text-cetus-accent">0s</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Rotations: <span id="final-rotations" class="text-purple-400">0</span>
+    </div>
+  </div>
+
+  <!-- Achievement notifications -->
+  <div slot="bottom-info">
+    <AchievementAward />
+  </div>
+
+  <!-- Init script -->
+  <script slot="game-script">
+    import { initializeCircuitHackerGame } from '@/lib/games/circuit-hacker/init'
+    import type { Difficulty } from '@/lib/games/circuit-hacker/types'
+
+    let gameHandle: Awaited<
+      ReturnType<typeof initializeCircuitHackerGame>
+    > | null = null
+
+    const init = async () => {
+      const container = document.getElementById('game-canvas-container')!
+      const timeEl = document.getElementById('time-remaining')!
+      const rotationEl = document.getElementById('rotation-count')!
+      const statusEl = document.getElementById('game-status')!
+      const overlay = document.getElementById('game-over-overlay')!
+      const startBtn = document.getElementById('start-btn')!
+      const stopBtn = document.getElementById('stop-btn')!
+      const playAgainBtn = document.getElementById('play-again-btn')!
+      const difficultySelect = document.getElementById(
+        'difficulty-select'
+      ) as HTMLSelectElement
+      const errorContainer = document.getElementById('game-error')!
+      const errorTitle = document.getElementById('game-error-title')!
+      const errorMessage = document.getElementById('game-error-message')!
+
+      const showError = (title: string, message: string) => {
+        statusEl.classList.add('hidden')
+        overlay.classList.add('hidden')
+        errorTitle.textContent = title
+        errorMessage.textContent = message
+        errorContainer.classList.remove('hidden')
+        errorContainer.style.display = 'flex'
+      }
+
+      const hideError = () => {
+        errorContainer.classList.add('hidden')
+        errorContainer.style.display = 'none'
+      }
+
+      const formatError = (error: unknown): string => {
+        if (error instanceof Error) {
+          return error.message
+        }
+        if (typeof error === 'string') {
+          return error
+        }
+        return 'Unexpected error. Please try again.'
+      }
+
+      const resetButtonState = () => {
+        startBtn.style.display = 'inline-flex'
+        stopBtn.style.display = 'none'
+        difficultySelect.disabled = false
+      }
+
+      try {
+        gameHandle = await initializeCircuitHackerGame(container, {
+          onTimeUpdate: (t: number) => {
+            timeEl.textContent = t.toString()
+          },
+          onRotation: (n: number) => {
+            rotationEl.textContent = n.toString()
+          },
+          onStart: () => {
+            statusEl.classList.add('hidden')
+            overlay.classList.add('hidden')
+            hideError()
+            startBtn.style.display = 'none'
+            stopBtn.style.display = 'inline-flex'
+          },
+          onEnd: () => {
+            difficultySelect.disabled = false
+          },
+          onError: (title, message) => {
+            showError(title, message)
+          },
+        })
+
+        startBtn.addEventListener('click', async () => {
+          hideError()
+          // Hide start button before awaiting start() to prevent a
+          // double-click from entering start() twice while setupPixiJS
+          // is still pending. onStart keeps it hidden on success;
+          // resetButtonState() restores it on error.
+          startBtn.style.display = 'none'
+          difficultySelect.disabled = true
+          rotationEl.textContent = '0'
+          try {
+            await gameHandle!.start(difficultySelect.value as Difficulty)
+          } catch (error) {
+            showError('Failed to Start Game', formatError(error))
+            resetButtonState()
+          }
+        })
+
+        stopBtn.addEventListener('click', () => {
+          gameHandle!.stop()
+        })
+
+        playAgainBtn.addEventListener('click', () => {
           overlay.classList.add('hidden')
-          errorTitle.textContent = title
-          errorMessage.textContent = message
-          errorContainer.classList.remove('hidden')
-          errorContainer.style.display = 'flex'
-        }
-
-        const hideError = () => {
-          errorContainer.classList.add('hidden')
-          errorContainer.style.display = 'none'
-        }
-
-        const formatError = (error: unknown): string => {
-          if (error instanceof Error) {
-            return error.message
-          }
-          if (typeof error === 'string') {
-            return error
-          }
-          return 'Unexpected error. Please try again.'
-        }
-
-        const resetButtonState = () => {
+          statusEl.classList.remove('hidden')
           startBtn.style.display = 'inline-flex'
           stopBtn.style.display = 'none'
           difficultySelect.disabled = false
-        }
-
-        try {
-          gameHandle = await initializeCircuitHackerGame(container, {
-            onTimeUpdate: (t: number) => {
-              timeEl.textContent = t.toString()
-            },
-            onRotation: (n: number) => {
-              rotationEl.textContent = n.toString()
-            },
-            onStart: () => {
-              statusEl.classList.add('hidden')
-              overlay.classList.add('hidden')
-              hideError()
-              startBtn.style.display = 'none'
-              stopBtn.style.display = 'inline-flex'
-            },
-            onEnd: () => {
-              difficultySelect.disabled = false
-            },
-            onError: (title, message) => {
-              showError(title, message)
-            },
-          })
-
-          startBtn.addEventListener('click', async () => {
-            hideError()
-            // Hide start button before awaiting start() to prevent a
-            // double-click from entering start() twice while setupPixiJS
-            // is still pending. onStart keeps it hidden on success;
-            // resetButtonState() restores it on error.
-            startBtn.style.display = 'none'
-            difficultySelect.disabled = true
-            rotationEl.textContent = '0'
-            try {
-              await gameHandle!.start(difficultySelect.value as Difficulty)
-            } catch (error) {
-              showError('Failed to Start Game', formatError(error))
-              resetButtonState()
-            }
-          })
-
-          stopBtn.addEventListener('click', () => {
-            gameHandle!.stop()
-          })
-
-          playAgainBtn.addEventListener('click', () => {
-            overlay.classList.add('hidden')
-            statusEl.classList.remove('hidden')
-            startBtn.style.display = 'inline-flex'
-            stopBtn.style.display = 'none'
-            difficultySelect.disabled = false
-          })
-        } catch (error) {
-          showError('Failed to Load Game', formatError(error))
-        }
+        })
+      } catch (error) {
+        showError('Failed to Load Game', formatError(error))
       }
+    }
 
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init)
-      } else {
-        init()
-      }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init)
+    } else {
+      init()
+    }
 
-      window.addEventListener('beforeunload', () => {
-        gameHandle?.cleanup()
-      })
-    </script>
-  </div>
-  <AchievementAward />
-</AppLayout>
+    window.addEventListener('beforeunload', () => {
+      gameHandle?.cleanup()
+    })
+  </script>
+</GamePage>

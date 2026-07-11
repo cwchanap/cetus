@@ -1,235 +1,160 @@
 ---
-import AppLayout from '@/layouts/AppLayout.astro'
-import Button from '@/components/ui/Button.astro'
+import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
-import GameOverlay from '@/components/GameOverlay.astro'
-
-// Custom navigation for game pages with breadcrumb
-const gameNavigation = [
-  { href: '/', label: 'Home' },
-  { href: '#', label: 'Memory Matrix' },
-]
 ---
 
-<AppLayout
-  title="Memory Matrix - Cetus Minigames"
+<GamePage
+  gameId="memory-matrix"
+  title="Memory Matrix"
   description="Test your memory by matching pairs of shapes in this grid-based puzzle game"
-  includeFooter={false}
-  navigation={gameNavigation}
+  icon="🧠"
 >
-  <!-- Game Breadcrumb -->
-  <div class="px-6 py-4 border-b border-slate-700/50">
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center space-x-3">
-        <div class="text-cyan-400 text-sm">🧠 Memory Matrix</div>
+  <!-- Board mount -->
+  <div slot="game-board">
+    <div
+      id="memory-matrix-container"
+      class="border-2 border-cetus-hairline bg-black/50 rounded-lg"
+      style="width: 640px; height: 480px;"
+    >
+      <div
+        id="memory-board"
+        class="w-full h-full grid grid-cols-8 grid-rows-6 gap-2 p-2"
+      >
       </div>
     </div>
   </div>
 
-  <div class="px-6 py-8">
-    <div class="max-w-6xl mx-auto">
-      <!-- Game Title -->
-      <div class="text-center mb-8">
-        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
-          MEMORY MATRIX
-        </h2>
-        <p class="text-gray-400 text-lg">
-          Test your memory by matching pairs of shapes in this grid-based puzzle
-          game
-        </p>
+  <!-- Additional stat badges (game-score / game-time / pairs use game-specific IDs) -->
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Score: <span id="game-score">0</span></span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Time: <span id="game-time">1:00</span></span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Pairs: <span id="game-pairs">0/24</span></span>
+  </Badge>
+
+  <!-- Sidebar -->
+  <div slot="game-info">
+    <!-- Game Rules -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ HOW TO PLAY
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink-muted">
+        <p>• Click on cards to flip them over</p>
+        <p>• Find matching pairs of shapes</p>
+        <p>• Match all pairs before time runs out</p>
+        <p>• Faster matches = higher score</p>
+        <p>• You have 60 seconds to complete the grid</p>
       </div>
+    </Card>
 
-      <!-- Game Container -->
-      <div class="flex flex-col lg:flex-row gap-8 items-start justify-center">
-        <!-- Game Board -->
-        <Card variant="glass" class="p-6 flex-shrink-0">
-          <div class="flex flex-col items-center space-y-4">
-            <!-- Game Status -->
-            <div class="flex space-x-4 mb-4">
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Score: <span id="game-score">0</span></span
-                >
-              </Badge>
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Time: <span id="game-time">1:00</span></span
-                >
-              </Badge>
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Pairs: <span id="game-pairs">0/24</span></span
-                >
-              </Badge>
-            </div>
-
-            <!-- Memory Matrix Game Container -->
-            <div class="relative">
-              <div
-                id="memory-matrix-container"
-                class="border-2 border-cyan-400/50 bg-black/50 rounded-lg shadow-glow-cyan"
-                style="width: 640px; height: 480px;"
-              >
-                <div
-                  id="memory-board"
-                  class="w-full h-full grid grid-cols-8 grid-rows-6 gap-2 p-2"
-                >
-                </div>
-              </div>
-
-              <!-- Game Over Overlay - Inside relative container for proper positioning -->
-              <GameOverlay titleId="game-over-title">
-                <div class="text-lg text-gray-300">
-                  Pairs Found: <span id="final-pairs" class="text-green-400"
-                    >0/24</span
-                  >
-                </div>
-                <div class="text-lg text-gray-300">
-                  Accuracy: <span id="final-accuracy" class="text-cyan-400"
-                    >0%</span
-                  >
-                </div>
-                <div class="text-lg text-gray-300">
-                  Time Remaining: <span id="final-time" class="text-purple-400"
-                    >0s</span
-                  >
-                </div>
-                <div class="text-lg text-gray-300">
-                  Total Attempts: <span
-                    id="final-attempts"
-                    class="text-yellow-400">0</span
-                  >
-                </div>
-              </GameOverlay>
-            </div>
-
-            <!-- Game Controls -->
-            <div class="flex space-x-2">
-              <Button id="start-btn" variant="primary" size="sm"
-                >Start Game</Button
-              >
-              <Button
-                id="end-btn"
-                variant="outline"
-                size="sm"
-                style="display: none;">End Game</Button
-              >
-              <Button id="reset-btn" variant="outline" size="sm">Reset</Button>
-            </div>
-          </div>
-        </Card>
-
-        <!-- Game Info & Statistics -->
-        <div class="flex flex-col space-y-6">
-          <!-- Game Rules -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              HOW TO PLAY
-            </h3>
-            <div class="space-y-2 text-sm text-gray-400">
-              <p>• Click on cards to flip them over</p>
-              <p>• Find matching pairs of shapes</p>
-              <p>• Match all pairs before time runs out</p>
-              <p>• Faster matches = higher score</p>
-              <p>• You have 60 seconds to complete the grid</p>
-            </div>
-          </Card>
-
-          <!-- Game Statistics -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              STATISTICS
-            </h3>
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="text-gray-400">Accuracy:</span>
-                <span id="game-accuracy" class="text-white">0%</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Pairs Found:</span>
-                <span id="pairs-found" class="text-green-400">0</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Total Attempts:</span>
-                <span id="total-attempts" class="text-white">0</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Time Remaining:</span>
-                <span id="time-remaining" class="text-cyan-400">60s</span>
-              </div>
-            </div>
-          </Card>
-
-          <!-- Scoring System -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              SCORING
-            </h3>
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="text-gray-400">Per Match:</span>
-                <span class="text-green-400">+100 points</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Time Bonus:</span>
-                <span class="text-yellow-400">+5 per second left</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Total Pairs:</span>
-                <span class="text-white">24 pairs</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Maximum Score:</span>
-                <span class="text-cyan-400">2,700 points</span>
-              </div>
-            </div>
-          </Card>
-
-          <!-- Game Shapes Preview -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              SHAPES
-            </h3>
-            <div class="grid grid-cols-4 gap-2">
-              <div class="text-2xl text-center p-2 bg-black/30 rounded">🔵</div>
-              <div class="text-2xl text-center p-2 bg-black/30 rounded">🔺</div>
-              <div class="text-2xl text-center p-2 bg-black/30 rounded">🔶</div>
-              <div class="text-2xl text-center p-2 bg-black/30 rounded">⭐</div>
-              <div class="text-2xl text-center p-2 bg-black/30 rounded">❤️</div>
-              <div class="text-2xl text-center p-2 bg-black/30 rounded">🟢</div>
-              <div class="text-2xl text-center p-2 bg-black/30 rounded">🔴</div>
-              <div class="text-2xl text-center p-2 bg-black/30 rounded">🟡</div>
-            </div>
-            <p class="text-xs text-gray-500 mt-2 text-center">
-              Each shape appears 6 times (3 pairs each)
-            </p>
-          </Card>
+    <!-- Game Statistics -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ STATISTICS
+      </h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Accuracy:</span>
+          <span id="game-accuracy" class="text-white">0%</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Pairs Found:</span>
+          <span id="pairs-found" class="text-green-400">0</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Total Attempts:</span>
+          <span id="total-attempts" class="text-white">0</span>
         </div>
       </div>
-    </div>
+    </Card>
 
-    <!-- Memory Matrix Game Logic -->
-    <script>
-      import { initMemoryMatrixGameFramework } from '@/lib/games/memory-matrix/initFramework'
+    <!-- Scoring System -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SCORING
+      </h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Per Match:</span>
+          <span class="text-green-400">+100 points</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Time Bonus:</span>
+          <span class="text-yellow-400">+5 per second left</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Total Pairs:</span>
+          <span class="text-white">24 pairs</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Maximum Score:</span>
+          <span class="text-cetus-accent">2,700 points</span>
+        </div>
+      </div>
+    </Card>
 
-      // Initialize game when page loads. All button/card wiring is handled
-      // inside the framework initializer.
-      document.addEventListener('DOMContentLoaded', async () => {
-        try {
-          const gameInstance = await initMemoryMatrixGameFramework()
-
-          if (!gameInstance) {
-            console.error('Failed to initialize Memory Matrix game')
-            return
-          }
-
-          // Expose game instance for debugging
-          ;(window as any).memoryMatrixGame = gameInstance
-        } catch (error) {
-          console.error('Failed to initialize Memory Matrix game:', error)
-        }
-      })
-    </script>
+    <!-- Game Shapes Preview -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SHAPES
+      </h3>
+      <div class="grid grid-cols-4 gap-2">
+        <div class="text-2xl text-center p-2 bg-black/30 rounded">🔵</div>
+        <div class="text-2xl text-center p-2 bg-black/30 rounded">🔺</div>
+        <div class="text-2xl text-center p-2 bg-black/30 rounded">🔶</div>
+        <div class="text-2xl text-center p-2 bg-black/30 rounded">⭐</div>
+        <div class="text-2xl text-center p-2 bg-black/30 rounded">❤️</div>
+        <div class="text-2xl text-center p-2 bg-black/30 rounded">🟢</div>
+        <div class="text-2xl text-center p-2 bg-black/30 rounded">🔴</div>
+        <div class="text-2xl text-center p-2 bg-black/30 rounded">🟡</div>
+      </div>
+      <p class="text-xs text-cetus-ink-muted mt-2 text-center">
+        Each shape appears 6 times (3 pairs each)
+      </p>
+    </Card>
   </div>
-</AppLayout>
+
+  <!-- Custom overlay stats -->
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Pairs Found: <span id="final-pairs" class="text-green-400">0/24</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Accuracy: <span id="final-accuracy" class="text-cetus-accent">0%</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Time Remaining: <span id="final-time" class="text-purple-400">0s</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Total Attempts: <span id="final-attempts" class="text-yellow-400">0</span>
+    </div>
+  </div>
+
+  <!-- Init script -->
+  <script slot="game-script">
+    import { initMemoryMatrixGameFramework } from '@/lib/games/memory-matrix/initFramework'
+
+    // Initialize game when page loads. All button/card wiring is handled
+    // inside the framework initializer.
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const gameInstance = await initMemoryMatrixGameFramework()
+
+        if (!gameInstance) {
+          console.error('Failed to initialize Memory Matrix game')
+          return
+        }
+
+        // Expose game instance for debugging
+        ;(window as any).memoryMatrixGame = gameInstance
+      } catch (error) {
+        console.error('Failed to initialize Memory Matrix game:', error)
+      }
+    })
+  </script>
+</GamePage>
