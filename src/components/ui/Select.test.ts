@@ -1,9 +1,18 @@
-import { describe, it, expect } from 'vitest'
+// @vitest-environment node
+import { describe, it, expect, beforeAll } from 'vitest'
+import { experimental_AstroContainer as AstroContainer } from 'astro/container'
+import Select from './Select.astro'
 
 // Since we're testing an Astro component, we'll test the TypeScript logic
 // that can be extracted and the component props interface
 
 describe('Select Component', () => {
+    let container: Awaited<ReturnType<typeof AstroContainer.create>>
+
+    beforeAll(async () => {
+        container = await AstroContainer.create()
+    })
+
     describe('Props Interface', () => {
         it('should accept valid variant options', () => {
             const validVariants = ['default', 'glass', 'outline'] as const
@@ -40,31 +49,72 @@ describe('Select Component', () => {
     })
 
     describe('Class Variants Logic', () => {
-        it('should define correct variant classes', () => {
-            const selectVariants = {
-                variant: {
-                    default:
-                        'bg-gray-800/90 border-gray-600/50 text-white hover:border-cyan-400/50 focus:border-cyan-400',
-                    glass: 'bg-white/5 backdrop-blur-md border-white/20 text-white hover:border-cyan-400/50 focus:border-cyan-400',
-                    outline:
-                        'bg-transparent border-cyan-400/50 text-white hover:border-cyan-400 focus:border-cyan-400',
-                },
-                size: {
-                    default: 'h-10 px-4 py-2 text-sm',
-                    sm: 'h-8 px-3 py-1 text-xs',
-                    lg: 'h-12 px-6 py-3 text-base',
-                },
-            }
+        // Render the actual Select.astro via AstroContainer and assert it
+        // emits cetus-* tokens (not stale legacy colors like bg-gray-800 /
+        // border-cyan-400).
+        const options = [
+            { value: 'option1', label: 'Option 1' },
+            { value: 'option2', label: 'Option 2' },
+        ]
 
-            // Test variant classes
-            expect(selectVariants.variant.default).toContain('bg-gray-800/90')
-            expect(selectVariants.variant.glass).toContain('backdrop-blur-md')
-            expect(selectVariants.variant.outline).toContain('bg-transparent')
+        it('default variant uses cetus surface/hairline/accent tokens', async () => {
+            const html = await container.renderToString(Select, {
+                props: { variant: 'default', options },
+            })
+            expect(html).toContain('bg-cetus-surface')
+            expect(html).toContain('border-cetus-hairline')
+            expect(html).toContain('hover:border-cetus-accent/50')
+            expect(html).toContain('focus:border-cetus-accent')
+            // Must not leak legacy hardcoded colors
+            expect(html).not.toMatch(/bg-gray-800/)
+            expect(html).not.toMatch(/border-cyan-400/)
+        })
 
-            // Test size classes
-            expect(selectVariants.size.default).toContain('h-10')
-            expect(selectVariants.size.sm).toContain('h-8')
-            expect(selectVariants.size.lg).toContain('h-12')
+        it('glass variant uses cetus tokens with backdrop blur', async () => {
+            const html = await container.renderToString(Select, {
+                props: { variant: 'glass', options },
+            })
+            expect(html).toContain('bg-cetus-surface')
+            expect(html).toContain('border-cetus-hairline')
+            expect(html).toContain('backdrop-blur-md')
+            expect(html).toContain('hover:border-cetus-accent/50')
+            // No legacy glass colors
+            expect(html).not.toMatch(/bg-white\/5/)
+            expect(html).not.toMatch(/border-cyan-400/)
+        })
+
+        it('outline variant uses cetus-accent tokens', async () => {
+            const html = await container.renderToString(Select, {
+                props: { variant: 'outline', options },
+            })
+            expect(html).toContain('bg-transparent')
+            expect(html).toContain('border-cetus-accent')
+            expect(html).toContain('text-cetus-accent')
+            expect(html).not.toMatch(/border-cyan-400/)
+        })
+
+        it('dropdown and option list use cetus tokens, no legacy glows', async () => {
+            const html = await container.renderToString(Select, {
+                props: { options },
+            })
+            expect(html).toContain('hover:bg-cetus-accent/20')
+            expect(html).toContain('focus:bg-cetus-accent/30')
+            expect(html).not.toMatch(/shadow-cyan-400/)
+        })
+
+        it('size classes render for default, sm, and lg', async () => {
+            const htmlDefault = await container.renderToString(Select, {
+                props: { size: 'default', options },
+            })
+            expect(htmlDefault).toContain('h-10')
+            const htmlSm = await container.renderToString(Select, {
+                props: { size: 'sm', options },
+            })
+            expect(htmlSm).toContain('h-8')
+            const htmlLg = await container.renderToString(Select, {
+                props: { size: 'lg', options },
+            })
+            expect(htmlLg).toContain('h-12')
         })
     })
 
