@@ -23,7 +23,8 @@ Extend the Abyssal HUD to the entire app. Make `theme="abyssal"` the default in 
 
 **Out of scope:**
 - Game canvas internals (PixiJS/DOM game logic — only outer chrome changes)
-- `main.astro` layout (bare shell, unused by surveyed pages)
+- `main.astro` layout (bare shell, used only by `markdown-page.md` — demo content)
+- `markdown-page.md` (Astro scaffold demo page at `/markdown-page` — 16 lines of `bg-purple-500` Tailwind example. Not a real app page. Out of scope; can be deleted separately if desired.)
 - `tailwind.config.js` legacy plugin (stays for backward compat; pages just stop using legacy classes)
 - The homepage itself (already redesigned in the predecessor spec)
 - `organisms/Organism.astro` (already abyssal-native)
@@ -44,7 +45,7 @@ Each layer unblocks the next. Verification checkpoint (Vitest + Playwright + bro
 2. The font `<link>` ternary (lines 69-74) already handles abyssal vs. non-abyssal fonts correctly. No edit needed — once `theme` defaults to `'abyssal'`, the Fraunces + JetBrains Mono branch loads by default.
 3. Delete the legacy animated-blob background div (lines 84-98) and the 30 floating-particles div (lines 101-118). These are already gated behind `theme !== 'abyssal'`, but since abyssal is now default, they are dead code.
 4. Prune dead code in the inline `<script>` (lines 137-173): the particle-float block (lines 155-160, targets `.animate-bounce` elements that L1 step 3 deletes) becomes dead code — remove it. The `.glow-cyan`-on-`.group` hover block (lines 141-152) still works (retinted via `.theme-abyssal .glow-cyan`) — keep it. The `redirect=games` scroll logic (lines 163-172) — keep it.
-5. The `themeInitScript` dark-mode logic stays unchanged (toggles `.dark` on `<html>`, orthogonal to abyssal).
+5. The `themeInitScript` dark-mode logic stays unchanged (toggles `.dark` on `<html>`, orthogonal to abyssal). However, note that once abyssal is the default with fixed dark token values, the light/dark toggle in Settings becomes vestigial — see L4 Settings decision below.
 
 ### Delete Duplicate Background Blocks
 
@@ -90,6 +91,8 @@ Add optional `kicker` prop (string) that renders a `<p class="font-mono ...">▸
 | `default` | shadcn-style `bg-card text-card-foreground` | Unchanged |
 
 Add optional `brackets` boolean prop that renders 4 `.hud-bracket` corner elements (same pattern as `SpecimenCard`).
+
+**CSS ownership:** The `.hud-bracket` rules currently live in `SpecimenCard.astro`'s scoped `<style>` (lines 214-256). Move them to `global.css` under the `.theme-abyssal` section so any component (Card, SpecimenCard, future HUD containers) inherits them. SpecimenCard's scoped `<style>` drops the bracket rules but keeps its other scoped styles.
 
 **Note:** `Card.astro` currently has a comment (lines 15-20) documenting that `sci-fi`/`glass` keep `border-neon` intentionally for login/signup legacy surfaces. This decision is now superseded — all pages go abyssal, so `border-neon` is replaced by `cetus-hairline` everywhere. Remove the comment.
 
@@ -155,24 +158,84 @@ Five wrappers live in `src/components/games/`: `GamePage.astro`, `GameTitle.astr
 
 ### 14 Game Page Refactor
 
-Each game page currently inlines ~100+ lines of identical markup (breadcrumb, title, two-column flex, sidebar cards, GameOverlay). Refactor to use wrappers:
+Each game page currently inlines ~100+ lines of identical markup (breadcrumb, title, two-column flex, sidebar cards, GameOverlay) and imports `AppLayout` directly — 0 of 14 use the existing `GamePage` wrapper. The refactor consolidates this into `GamePage`, which already renders `GameBreadcrumb`, `GameTitle`, `GameStats`, `GameControls`, and `GameOverlay` internally.
 
+#### Existing GamePage API (verbatim from source)
+
+**Props:** `gameId` (required), `title` (required), `description` (required), `icon` (required), `navigation?`, `includeFooter?`, `class?`
+
+**Slots:** `game-board` (board container), `additional-stats` (extra stat badges inside GameStats), `game-info` (sidebar cards below controls), `bottom-info` (full-width content below the board), `final-stats` (content inside GameOverlay), `game-script` (init `<script>`)
+
+#### Required GamePage enhancements (before refactor)
+
+The existing wrapper handles the common case but two gaps prevent adoption by outlier games:
+
+1. **Controls override** — `GameControls` is rendered internally with hardcoded `start-btn`/`end-btn`/`pause-btn`/`reset-btn`. Games like Circuit Hacker use `stop-btn` instead of `end-btn` and omit pause/reset. **Add an optional `controls` slot to GamePage:** if provided (`Astro.slots.has('controls')`), render the slot instead of the default `<GameControls>`. Standard games get the default; outliers provide custom controls.
+
+2. **Overlay props** — `GameOverlay` accepts `defaultTitle` and `buttonText` props, but `GamePage` doesn't forward them. **Add optional `overlayTitle` and `overlayButtonText` props to GamePage** and pass through to the internal `<GameOverlay>`.
+
+#### Refactored page example (correct API)
+
+```astro
+---
+import GamePage from '@/components/games/GamePage.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+// ... game-specific imports
+---
+<GamePage
+  gameId="tetris"
+  title="Tetris"
+  description="Stack and clear lines in the classic block puzzle."
+  icon="🟦"
+  navigation={[{ href: '/', label: 'Home' }, { href: '/tetris', label: 'Tetris' }]}
+>
+  <!-- Board mount point -->
+  <div slot="game-board" id="game-board"
+       class="border-2 border-cetus-hairline bg-black/50 rounded-lg"
+       style="width:300px;height:600px;">
+  </div>
+
+  <!-- Sidebar: how-to-play card -->
+  <div slot="game-info">
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-cetus-accent mb-3">▸ HOW TO PLAY</h3>
+      <!-- ... -->
+    </Card>
+  </div>
+
+  <!-- Init script -->
+  <script slot="game-script">
+    // import and init game...
+  </script>
+</GamePage>
 ```
-<GamePage title="..." description="..." navigation={[...]}>
-  <GameTitle slot="title" ... />
-  <!-- Game-specific board container -->
-  <div id="game-board" class="...">...</div>
-  <!-- Sidebar -->
-  <GameStats slot="stats" ... />
-  <GameControls slot="controls" ... />
-  <GameOverlay slot="overlay" ... />
+
+**Circuit Hacker example (controls override):**
+
+```astro
+<GamePage gameId="circuit-hacker" title="Circuit Hacker" ... overlayTitle="CIRCUIT POWERED!">
+  <div slot="game-board" id="game-board" ...></div>
+
+  <!-- Custom controls replacing default GameControls -->
+  <div slot="controls" class="flex space-x-3">
+    <Button id="start-btn" variant="primary">Start Game</Button>
+    <Button id="stop-btn" variant="outline" style="display:none;">End Game</Button>
+  </div>
+
+  <!-- Custom overlay stats -->
+  <div slot="final-stats">
+    <div class="text-cetus-ink-muted">Time Left: <span id="final-time" class="font-mono text-cetus-accent">0s</span></div>
+    <div class="text-cetus-ink-muted">Rotations: <span id="final-rotations" class="font-mono text-cetus-accent">0</span></div>
+  </div>
 </GamePage>
 ```
 
 **What stays page-specific per game:**
-- The `<div id="game-board">` mount point with its game-specific inline `width`/`height`
-- The `<script>` init call
-- Game-unique UI elements (e.g., circuit-hacker difficulty `<select>`, sudoku number pad)
+- The `<div slot="game-board">` mount point with its game-specific inline `width`/`height`
+- The `<script slot="game-script">` init call
+- Game-unique UI (circuit-hacker difficulty `<select>`, sudoku number pad) via `game-info` or `bottom-info` slots
+- Games with non-standard controls use the `controls` slot
 
 **Refactor sequence:** tetris first as proof-of-concept, verify, then batch remaining 13.
 
@@ -236,6 +299,7 @@ The shared component retint (L2) already handles ~60% of the visual change. This
 - Section headers: Fraunces with bracket notation `[ SOUND ]`, `[ DISPLAY ]`, etc.
 - Toggles/Sliders: inherit L2 retint
 - Toast: `bg-cetus-accent` success / `bg-cetus-accent-3` error
+- **Retire the Dark Mode toggle:** `.theme-abyssal` unconditionally sets dark background/surface/ink values in `global.css`. Once all components use `cetus-*` tokens, selecting light mode has no visible effect. Remove the toggle from the Display section. Keep the Reduced Motion toggle (that still works — it gates CSS animations). Update `themeInitScript` in AppLayout to stop reading `display.theme` from localStorage and always add `.dark` (or remove the `.dark` logic entirely if no shadcn-default components remain).
 
 ### Challenges
 
