@@ -23,7 +23,7 @@ const { status } = Astro.props
   <div class="relative flex items-center justify-center min-h-screen p-4">
     <div
       id="login-reward-card"
-      class="relative max-w-lg w-full bg-gradient-to-br from-gray-900/95 to-gray-800/95 rounded-2xl p-8 border border-cyan-500/30 shadow-2xl shadow-cyan-500/20 text-center animate-bounce-in"
+      class="relative max-w-lg w-full bg-cetus-surface border border-cetus-hairline rounded-2xl p-8 shadow-2xl shadow-cetus-accent/20 text-center animate-bounce-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="login-reward-title"
@@ -32,13 +32,21 @@ const { status } = Astro.props
       <!-- Header -->
       <div class="mb-6">
         <div class="text-5xl mb-3">🎁</div>
+        <p
+          class="font-mono text-xs tracking-widest text-cetus-ink-muted uppercase mb-2"
+        >
+          ▸ DAILY REWARD
+        </p>
         <h2
           id="login-reward-title"
-          class="text-2xl font-orbitron font-bold text-white"
+          class="text-2xl font-bold text-white"
+          style="font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);"
         >
           Daily Login Reward
         </h2>
-        <p class="text-gray-400 mt-2">Welcome back! Claim your reward!</p>
+        <p class="text-cetus-ink-muted mt-2">
+          Welcome back! Claim your reward!
+        </p>
       </div>
 
       <!-- 7-day calendar -->
@@ -49,9 +57,11 @@ const { status } = Astro.props
               class="relative flex flex-col items-center p-2 rounded-lg border transition-all"
               data-reward-day={index}
             >
-              <span class="text-xs text-gray-500 mb-1">Day {reward.day}</span>
+              <span class="text-xs text-cetus-ink-muted mb-1">
+                Day {reward.day}
+              </span>
               <span class="text-lg">{reward.icon}</span>
-              <span class="text-xs text-cyan-400 font-semibold">
+              <span class="text-xs text-cetus-accent font-semibold">
                 +{reward.xp}
               </span>
             </div>
@@ -62,17 +72,17 @@ const { status } = Astro.props
       <!-- Current reward info -->
       <div
         id="current-reward-info"
-        class="mb-6 py-4 px-6 bg-gradient-to-r from-cyan-500/20 to-purple-600/20 rounded-xl border border-cyan-400/30"
+        class="mb-6 py-4 px-6 bg-cetus-accent/10 rounded-xl border border-cetus-accent/30"
       >
         <div class="text-3xl mb-2" id="reward-icon">🌟</div>
         <div
-          class="text-2xl font-bold text-cyan-400"
+          class="text-2xl font-bold font-mono text-cetus-accent"
           id="reward-xp"
           aria-live="polite"
         >
           +10 XP
         </div>
-        <p class="text-gray-400 text-sm mt-1" id="reward-description">
+        <p class="text-cetus-ink-muted text-sm mt-1" id="reward-description">
           Day 1 - Welcome back!
         </p>
       </div>
@@ -80,27 +90,38 @@ const { status } = Astro.props
       <!-- Streak info -->
       <div class="flex justify-center gap-6 mb-6 text-sm">
         <div class="text-center">
-          <div class="text-xl font-bold text-cyan-400" id="streak-count">0</div>
-          <div class="text-gray-500">Day Streak</div>
-        </div>
-        <div class="text-center">
-          <div class="text-xl font-bold text-purple-400" id="cycles-count">
+          <div
+            class="text-xl font-bold font-mono text-cetus-accent"
+            id="streak-count"
+          >
             0
           </div>
-          <div class="text-gray-500">Cycles</div>
+          <div class="text-cetus-ink-muted">Day Streak</div>
+        </div>
+        <div class="text-center">
+          <div
+            class="text-xl font-bold font-mono text-cetus-accent-3"
+            id="cycles-count"
+          >
+            0
+          </div>
+          <div class="text-cetus-ink-muted">Cycles</div>
         </div>
         <div class="text-center" id="milestone-info">
-          <div class="text-xl font-bold text-pink-400" id="days-to-milestone">
+          <div
+            class="text-xl font-bold font-mono text-cetus-accent-3"
+            id="days-to-milestone"
+          >
             7
           </div>
-          <div class="text-gray-500">Days to 🏅</div>
+          <div class="text-cetus-ink-muted">Days to 🏅</div>
         </div>
       </div>
 
       <!-- Level up indicator (hidden by default) -->
       <div
         id="level-up-indicator"
-        class="hidden mb-4 py-2 px-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full animate-pulse"
+        class="hidden mb-4 py-2 px-4 bg-cetus-accent-3 rounded-full animate-pulse"
       >
         <span class="text-white font-bold">
           🎉 LEVEL UP! Level <span id="new-level-display">1</span>
@@ -110,13 +131,13 @@ const { status } = Astro.props
       <!-- Milestone badge earned (hidden by default) -->
       <div
         id="milestone-earned"
-        class="hidden mb-4 py-3 px-4 bg-gradient-to-r from-yellow-600/20 to-orange-600/20 rounded-xl border border-yellow-400/30"
+        class="hidden mb-4 py-3 px-4 bg-cetus-accent-2/20 rounded-xl border border-cetus-accent-2/30"
       >
         <div class="text-2xl mb-1" id="milestone-icon">🏅</div>
-        <div class="text-yellow-400 font-bold" id="milestone-name">
+        <div class="text-cetus-accent-2 font-bold" id="milestone-name">
           Weekly Warrior
         </div>
-        <div class="text-gray-400 text-sm" id="milestone-description">
+        <div class="text-cetus-ink-muted text-sm" id="milestone-description">
           Achievement unlocked!
         </div>
       </div>
@@ -125,7 +146,7 @@ const { status } = Astro.props
       <div class="mt-6">
         <button
           id="claim-reward-btn"
-          class="px-8 py-3 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 text-white font-bold text-lg shadow-lg shadow-cyan-500/40 hover:shadow-cyan-500/60 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          class="px-8 py-3 rounded-full bg-cetus-accent text-white font-bold text-lg shadow-lg shadow-cetus-accent/40 hover:shadow-cetus-accent/60 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-cetus-surface transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           type="button"
         >
           Claim Reward
@@ -135,13 +156,13 @@ const { status } = Astro.props
       <!-- Already claimed state (hidden by default) -->
       <div id="already-claimed" class="hidden mt-6">
         <div class="text-green-400 font-semibold">✓ Claimed Today</div>
-        <p class="text-gray-500 text-sm mt-1">Come back tomorrow!</p>
+        <p class="text-cetus-ink-muted text-sm mt-1">Come back tomorrow!</p>
       </div>
 
       <!-- Close button -->
       <button
         id="close-reward-modal"
-        class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+        class="absolute top-4 right-4 text-cetus-ink-muted hover:text-white transition-colors"
         type="button"
         aria-label="Close"
       >
@@ -161,7 +182,7 @@ const { status } = Astro.props
       </button>
 
       <!-- Dismiss hint -->
-      <p class="text-gray-500 text-xs mt-4">
+      <p class="text-cetus-ink-muted text-xs mt-4">
         Press Esc or click outside to close
       </p>
     </div>
@@ -188,19 +209,33 @@ const { status } = Astro.props
   }
 
   [data-reward-day] {
-    background: rgba(31, 41, 55, 0.5);
-    border-color: rgba(75, 85, 99, 0.3);
+    background: var(--cetus-surface);
+    border-color: var(--cetus-hairline);
   }
 
   [data-reward-day].claimed {
-    background: rgba(34, 211, 238, 0.1);
-    border-color: rgba(34, 211, 238, 0.5);
+    background: color-mix(in srgb, var(--cetus-accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--cetus-accent) 50%, transparent);
+    box-shadow: 0 0 12px
+      color-mix(in srgb, var(--cetus-accent) 25%, transparent);
+  }
+
+  @keyframes cetus-reward-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 12px
+        color-mix(in srgb, var(--cetus-accent-2) 30%, transparent);
+    }
+    50% {
+      box-shadow: 0 0 22px
+        color-mix(in srgb, var(--cetus-accent-2) 55%, transparent);
+    }
   }
 
   [data-reward-day].current {
-    background: rgba(168, 85, 247, 0.2);
-    border-color: rgba(168, 85, 247, 0.6);
-    box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+    background: color-mix(in srgb, var(--cetus-accent-2) 20%, transparent);
+    border-color: color-mix(in srgb, var(--cetus-accent-2) 60%, transparent);
+    animation: cetus-reward-pulse 1.5s ease-in-out infinite;
   }
 </style>
 
@@ -404,12 +439,8 @@ const { status } = Astro.props
       // Update button to show success
       if (this.claimBtn) {
         this.claimBtn.textContent = '✓ Claimed!'
-        // Remove gradient classes before adding solid background
-        this.claimBtn.classList.remove(
-          'bg-gradient-to-r',
-          'from-cyan-500',
-          'to-purple-600'
-        )
+        // Swap accent background for success background
+        this.claimBtn.classList.remove('bg-cetus-accent')
         this.claimBtn.classList.add('bg-green-500', 'text-white')
       }
 
