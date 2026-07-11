@@ -20,6 +20,9 @@ const serverPrefs = await getUserPreferences(user.id)
 const emailNotifications = serverPrefs?.email_notifications ?? true
 const pushNotifications = serverPrefs?.push_notifications ?? false
 const challengeReminders = serverPrefs?.challenge_reminders ?? true
+
+const frauncesStyle =
+  'font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);'
 ---
 
 <AppLayout
@@ -31,19 +34,27 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
       <Container class="max-w-3xl">
         <!-- Page Title -->
         <div class="text-center mb-12">
-          <Heading level={1} variant="hero" align="center" class="mb-4">
+          <Heading
+            level={1}
+            variant="hero"
+            align="center"
+            kicker="SYSTEM CONFIG"
+            class="mb-4"
+          >
             SETTINGS
           </Heading>
-          <p class="text-gray-400 text-lg">Customize your gaming experience</p>
+          <p class="text-cetus-ink-muted text-lg">
+            Customize your gaming experience
+          </p>
         </div>
 
         <!-- Sound Settings -->
         <Card variant="glass" class="p-6 md:p-8 mb-6">
           <h3
-            class="text-lg font-orbitron font-bold text-cyan-400 mb-6 flex items-center gap-2"
+            class="text-lg font-bold text-cetus-accent mb-6"
+            style={frauncesStyle}
           >
-            <span>🔊</span>
-            Sound Settings
+            [ SOUND ]
           </h3>
 
           <div class="space-y-6">
@@ -103,10 +114,10 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
         <!-- Display Settings -->
         <Card variant="glass" class="p-6 md:p-8 mb-6">
           <h3
-            class="text-lg font-orbitron font-bold text-cyan-400 mb-6 flex items-center gap-2"
+            class="text-lg font-bold text-cetus-accent mb-6"
+            style={frauncesStyle}
           >
-            <span>🎨</span>
-            Display Settings
+            [ DISPLAY ]
           </h3>
 
           <div class="space-y-4">
@@ -118,26 +129,16 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
               data-pref-type="display"
               data-pref-key="reducedMotion"
             />
-
-            <Toggle
-              id="dark-mode"
-              name="darkMode"
-              label="Dark Mode"
-              description="Toggle between light and dark themes"
-              checked={true}
-              data-pref-type="display"
-              data-pref-key="theme"
-            />
           </div>
         </Card>
 
         <!-- Notification Settings -->
         <Card variant="glass" class="p-6 md:p-8 mb-6">
           <h3
-            class="text-lg font-orbitron font-bold text-cyan-400 mb-6 flex items-center gap-2"
+            class="text-lg font-bold text-cetus-accent mb-6"
+            style={frauncesStyle}
           >
-            <span>🔔</span>
-            Notification Settings
+            [ NOTIFICATIONS ]
           </h3>
 
           <div class="space-y-4">
@@ -173,10 +174,10 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
         <!-- Account Settings -->
         <Card variant="glass" class="p-6 md:p-8 mb-6">
           <h3
-            class="text-lg font-orbitron font-bold text-cyan-400 mb-6 flex items-center gap-2"
+            class="text-lg font-bold text-cetus-accent mb-6"
+            style={frauncesStyle}
           >
-            <span>👤</span>
-            Account Settings
+            [ ACCOUNT ]
           </h3>
 
           <div class="space-y-4">
@@ -207,7 +208,7 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
 
         <!-- Back to Dashboard -->
         <div class="text-center">
-          <a href="/dashboard" class="text-cyan-400 hover:underline">
+          <a href="/dashboard" class="text-cetus-accent hover:underline">
             ← Back to Dashboard
           </a>
         </div>
@@ -234,7 +235,6 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
     saveClientPreferences,
     updateSoundPreference,
     type ClientPreferences,
-    resolveTheme,
   } from '@/lib/preferences'
 
   // Initialize on DOM ready
@@ -295,23 +295,6 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
       motionToggleContainer.toggleComponent.setChecked(
         prefs.display.reducedMotion
       )
-    }
-
-    // Apply theme from stored preferences
-    const resolvedTheme = resolveTheme(prefs.display.theme)
-    document.documentElement.classList.remove('dark', 'light')
-    if (resolvedTheme === 'dark') {
-      document.documentElement.classList.add('dark')
-    }
-
-    // Update dark mode toggle to match stored preference (true = dark mode)
-    const themeToggleContainer = document
-      .getElementById('dark-mode')
-      ?.closest('[data-toggle]') as HTMLElement & {
-      toggleComponent?: { setChecked: (v: boolean) => void }
-    }
-    if (themeToggleContainer?.toggleComponent) {
-      themeToggleContainer.toggleComponent.setChecked(resolvedTheme === 'dark')
     }
   }
 
@@ -386,30 +369,6 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
           document.documentElement.classList.add('reduce-motion')
         } else {
           document.documentElement.classList.remove('reduce-motion')
-        }
-
-        showSaveStatus()
-      })
-    }
-
-    // Dark mode toggle
-    const themeToggleContainer = document
-      .getElementById('dark-mode')
-      ?.closest('[data-toggle]')
-    if (themeToggleContainer) {
-      themeToggleContainer.addEventListener('toggle-change', (e: Event) => {
-        const detail = (e as CustomEvent).detail
-        const newTheme = detail.checked ? 'dark' : 'light'
-
-        // Update preferences
-        const prefs = getClientPreferences()
-        prefs.display.theme = newTheme
-        saveClientPreferences(prefs)
-
-        // Apply theme immediately
-        document.documentElement.classList.remove('dark', 'light')
-        if (newTheme === 'dark') {
-          document.documentElement.classList.add('dark')
         }
 
         showSaveStatus()
@@ -522,7 +481,7 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
     status.setAttribute('aria-label', message)
     status.setAttribute('aria-hidden', 'false')
     status.className = `fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium transition-all transform ${
-      type === 'error' ? 'bg-red-500' : 'bg-green-500'
+      type === 'error' ? 'bg-cetus-accent-3' : 'bg-cetus-accent'
     }`
 
     // Animate in

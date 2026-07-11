@@ -4,7 +4,6 @@ import Navigation from '@/components/ui/Navigation.astro'
 import Footer from '@/components/ui/Footer.astro'
 import AchievementAward from '@/components/AchievementAward.astro'
 import ChallengeComplete from '@/components/ChallengeComplete.astro'
-import { PREFERENCES_STORAGE_KEY, resolveTheme } from '@/lib/preferences'
 
 export interface Props {
   title?: string
@@ -25,31 +24,9 @@ const {
 
 const themeInitScript = `
   (function () {
-    const STORAGE_KEY = '${PREFERENCES_STORAGE_KEY}'
-    const resolveTheme = ${resolveTheme.toString()}
     try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const prefs = JSON.parse(stored)
-        const theme = resolveTheme(prefs?.display?.theme || 'dark')
-        if (theme === 'dark') {
-          document.documentElement.classList.add('dark')
-        }
-      } else {
-        document.documentElement.classList.add('dark') // default to dark
-      }
-    } catch (e) {
-      if (
-        typeof console !== 'undefined' &&
-        typeof console.error === 'function'
-      ) {
-        console.error(
-          'Failed to initialize Cetus theme from localStorage:',
-          e
-        )
-      }
-      document.documentElement.classList.add('dark') // fallback
-    }
+      document.documentElement.classList.add('dark')
+    } catch (e) {}
   })()
 `
 ---
