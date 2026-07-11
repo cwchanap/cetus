@@ -21,7 +21,7 @@ describe('Game wrapper restyle', () => {
     })
 
     it('GamePage source has a controls slot override', () => {
-        expect(gamePageSource).toContain("name='controls'")
+        expect(gamePageSource).toContain('name="controls"')
         expect(gamePageSource).toMatch(/Astro\.slots\.has\(['"]controls['"]\)/)
     })
 

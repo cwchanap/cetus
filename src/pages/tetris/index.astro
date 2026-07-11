@@ -1,205 +1,141 @@
 ---
-import AppLayout from '@/layouts/AppLayout.astro'
-import Button from '@/components/ui/Button.astro'
+import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
-import GameOverlay from '@/components/GameOverlay.astro'
-
-// Custom navigation for game pages with breadcrumb
-const gameNavigation = [
-  { href: '/', label: 'Home' },
-  { href: '#', label: 'Tetris Challenge' },
-]
 ---
 
-<AppLayout
-  title="Tetris Challenge - Cetus Minigames"
+<GamePage
+  gameId="tetris"
+  title="Tetris Challenge"
   description="Stack the blocks and clear lines in this classic puzzle game with a futuristic twist"
-  includeFooter={false}
-  navigation={gameNavigation}
+  icon="🔲"
 >
-  <!-- Game Breadcrumb -->
-  <div class="px-6 py-4 border-b border-slate-700/50">
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center space-x-3">
-        <div class="text-cyan-400 text-sm">🔲 Tetris Challenge</div>
-      </div>
+  <!-- Board mount point -->
+  <div slot="game-board">
+    <div
+      id="tetris-container"
+      class="border-2 border-cetus-hairline bg-black/50 rounded-lg"
+      style="width: 300px; height: 600px;"
+    >
     </div>
   </div>
 
-  <div class="px-6 py-8">
-    <div class="max-w-6xl mx-auto">
-      <!-- Game Title -->
-      <div class="text-center mb-8">
-        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
-          TETRIS CHALLENGE
-        </h2>
-        <p class="text-gray-400 text-lg">
-          Stack the blocks and clear lines in this classic puzzle game
-        </p>
-      </div>
+  <!-- Additional stat badges (Level/Lines) rendered inside GameStats -->
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Level: <span id="level">1</span></span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Lines: <span id="lines">0</span></span>
+  </Badge>
 
-      <!-- Game Container -->
-      <div class="flex flex-col lg:flex-row gap-8 items-start justify-center">
-        <!-- Game Board -->
-        <Card variant="glass" class="p-6 flex-shrink-0">
-          <div class="flex flex-col items-center space-y-4">
-            <!-- Game Status -->
-            <div class="flex space-x-4 mb-4">
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono">Score: <span id="score">0</span></span>
-              </Badge>
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono">Level: <span id="level">1</span></span>
-              </Badge>
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono">Lines: <span id="lines">0</span></span>
-              </Badge>
-            </div>
+  <!-- Sidebar: Next Piece, Controls, Statistics -->
+  <div slot="game-info">
+    <!-- Next Piece -->
+    <Card variant="glass" class="p-6">
+      <h3
+        class="font-mono text-sm tracking-wide text-cetus-accent mb-4 text-center"
+      >
+        ▸ NEXT PIECE
+      </h3>
+      <canvas
+        id="next-canvas"
+        width="120"
+        height="120"
+        class="border border-cetus-hairline bg-black/30 rounded-lg mx-auto block"
+      ></canvas>
+    </Card>
 
-            <!-- Tetris Game Container -->
-            <div class="relative">
-              <div
-                id="tetris-container"
-                class="border-2 border-cyan-400/50 bg-black/50 rounded-lg shadow-glow-cyan"
-                style="width: 300px; height: 600px;"
-              >
-              </div>
-
-              <GameOverlay defaultTitle="GAME OVER" buttonId="restart-btn">
-                <div class="text-lg text-gray-300">
-                  Level Reached: <span id="final-level" class="text-cyan-400"
-                    >1</span
-                  >
-                </div>
-                <div class="text-lg text-gray-300">
-                  Lines Cleared: <span id="final-lines" class="text-green-400"
-                    >0</span
-                  >
-                </div>
-                <div class="text-lg text-gray-300">
-                  Pieces Placed: <span id="final-pieces" class="text-purple-400"
-                    >0</span
-                  >
-                </div>
-                <div class="text-lg text-gray-300">
-                  Tetrises: <span id="final-tetrises" class="text-yellow-400"
-                    >0</span
-                  >
-                </div>
-              </GameOverlay>
-            </div>
-
-            <!-- Game Controls -->
-            <div class="flex space-x-2">
-              <Button id="start-btn" variant="primary" size="sm">Start</Button>
-              <Button
-                id="end-btn"
-                variant="outline"
-                size="sm"
-                style="display: none;">End Game</Button
-              >
-              <Button id="pause-btn" variant="outline" size="sm">Pause</Button>
-              <Button id="reset-btn" variant="outline" size="sm">Reset</Button>
-            </div>
-          </div>
-        </Card>
-
-        <!-- Next Piece & Controls -->
-        <div class="flex flex-col space-y-6">
-          <!-- Next Piece -->
-          <Card variant="glass" class="p-6">
-            <h3
-              class="text-lg font-orbitron font-bold text-cyan-400 mb-4 text-center"
-            >
-              NEXT PIECE
-            </h3>
-            <canvas
-              id="next-canvas"
-              width="120"
-              height="120"
-              class="border border-cyan-400/30 bg-black/30 rounded-lg mx-auto block"
-            ></canvas>
-          </Card>
-
-          <!-- Controls Guide -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              CONTROLS
-            </h3>
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="text-gray-400">Move Left:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">←</Badge>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Move Right:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">→</Badge>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Soft Drop:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">↓</Badge>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Hard Drop:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">Space</Badge>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Rotate:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">↑</Badge>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Pause:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">P</Badge>
-              </div>
-            </div>
-          </Card>
-
-          <!-- Statistics -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              STATISTICS
-            </h3>
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="text-gray-400">Pieces:</span>
-                <span id="pieces-count" class="text-white">0</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Singles:</span>
-                <span id="singles-count" class="text-white">0</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Doubles:</span>
-                <span id="doubles-count" class="text-white">0</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Triples:</span>
-                <span id="triples-count" class="text-white">0</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-400">Tetrises:</span>
-                <span id="tetrises-count" class="text-cyan-400">0</span>
-              </div>
-            </div>
-          </Card>
+    <!-- Controls Guide -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ CONTROLS
+      </h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Move Left:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">←</Badge>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Move Right:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">→</Badge>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Soft Drop:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">↓</Badge>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Hard Drop:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">Space</Badge>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Rotate:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">↑</Badge>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Pause:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">P</Badge>
         </div>
       </div>
-    </div>
+    </Card>
 
-    <!-- Tetris Game Logic -->
-    <script>
-      import { initTetrisGameFramework } from '@/lib/games/tetris/initFramework'
-
-      // Initialize game when page loads. All button/keyboard wiring is
-      // handled inside the framework initializer.
-      document.addEventListener('DOMContentLoaded', async () => {
-        try {
-          await initTetrisGameFramework()
-        } catch (error) {
-          console.error('Failed to initialize Tetris game:', error)
-        }
-      })
-    </script>
+    <!-- Statistics -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ STATISTICS
+      </h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Pieces:</span>
+          <span id="pieces-count" class="text-white">0</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Singles:</span>
+          <span id="singles-count" class="text-white">0</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Doubles:</span>
+          <span id="doubles-count" class="text-white">0</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Triples:</span>
+          <span id="triples-count" class="text-white">0</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-cetus-ink-muted">Tetrises:</span>
+          <span id="tetrises-count" class="text-cetus-accent">0</span>
+        </div>
+      </div>
+    </Card>
   </div>
-</AppLayout>
+
+  <!-- Custom overlay stats -->
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Level Reached: <span id="final-level" class="text-cetus-accent">1</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Lines Cleared: <span id="final-lines" class="text-green-400">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Pieces Placed: <span id="final-pieces" class="text-purple-400">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Tetrises: <span id="final-tetrises" class="text-yellow-400">0</span>
+    </div>
+  </div>
+
+  <!-- Init script -->
+  <script slot="game-script">
+    import { initTetrisGameFramework } from '@/lib/games/tetris/initFramework'
+
+    // Initialize game when page loads. All button/keyboard wiring is
+    // handled inside the framework initializer.
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        await initTetrisGameFramework()
+      } catch (error) {
+        console.error('Failed to initialize Tetris game:', error)
+      }
+    })
+  </script>
+</GamePage>
