@@ -43,4 +43,18 @@ describe('Auth pages', () => {
         expect(signupMarkup).not.toContain('authClient.signUp.email')
         expect(signupMarkup).not.toContain('id="terms"')
     })
+
+    it('login page uses cetus tokens, not Orbitron/holographic', () => {
+        expect(loginMarkup).not.toMatch(/font-orbitron/)
+        expect(loginMarkup).not.toMatch(/text-holographic/)
+        expect(loginMarkup).not.toMatch(/from-cyan-500/)
+        expect(loginMarkup).not.toMatch(/to-purple-600/)
+    })
+
+    it('signup page uses cetus tokens, not Orbitron/holographic', () => {
+        expect(signupMarkup).not.toMatch(/font-orbitron/)
+        expect(signupMarkup).not.toMatch(/text-holographic/)
+        expect(signupMarkup).not.toMatch(/from-cyan-500/)
+        expect(signupMarkup).not.toMatch(/to-purple-600/)
+    })
 })
