@@ -1,284 +1,181 @@
 ---
-import AppLayout from '@/layouts/AppLayout.astro'
-import Button from '@/components/ui/Button.astro'
+import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
-import GameOverlay from '@/components/GameOverlay.astro'
-
-// Custom navigation for game pages with breadcrumb
-const gameNavigation = [
-  { href: '/', label: 'Home' },
-  { href: '#', label: 'Path Navigator' },
-]
 ---
 
-<AppLayout
-  title="Path Navigator - Cetus Minigames"
-  description="Guide your cursor through challenging paths to the goal without touching the edges"
-  includeFooter={false}
-  navigation={gameNavigation}
+<GamePage
+  gameId="path-navigator"
+  title="Path Navigator"
+  description="Guide your cursor through 4 challenging paths without touching the edges!"
+  icon="🎯"
+  overlayTitle="GAME OVER"
 >
-  <!-- Game Breadcrumb -->
-  <div class="px-6 py-4 border-b border-slate-700/50">
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center space-x-3">
-        <div class="text-cyan-400 text-sm">🎯 Path Navigator</div>
-      </div>
+  <!-- Board: path-navigator canvas container -->
+  <div slot="game-board">
+    <div
+      id="path-navigator-container"
+      class="relative bg-black/50 rounded-lg"
+      style="width: 800px; height: 600px;"
+    >
     </div>
   </div>
 
-  <div class="px-6 py-8">
-    <div class="max-w-6xl mx-auto">
-      <!-- Game Title -->
-      <div class="text-center mb-8">
-        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
-          PATH NAVIGATOR
-        </h2>
-        <p class="text-gray-400 text-lg">
-          Guide your cursor through 4 challenging paths without touching the
-          edges!
-        </p>
-      </div>
+  <!-- Additional stat: level -->
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Level: <span id="level">1</span></span>
+  </Badge>
 
-      <!-- Game Container - Centered -->
-      <div class="flex flex-col lg:flex-row gap-8 items-start justify-center">
-        <!-- Game Board -->
-        <Card variant="glass" class="p-8">
-          <div class="flex flex-col items-center space-y-6">
-            <!-- Game Status -->
-            <div class="flex space-x-4 mb-4">
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono">Score: <span id="score">0</span></span>
-              </Badge>
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono">Level: <span id="level">1</span></span>
-              </Badge>
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Time: <span id="time-remaining">60</span>s</span
-                >
-              </Badge>
-            </div>
-
-            <!-- Game Canvas Container -->
-            <div
-              id="path-navigator-container"
-              class="relative bg-black/50 rounded-lg shadow-glow-cyan"
-              style="width: 800px; height: 600px;"
-            >
-            </div>
-
-            <!-- Game Controls -->
-            <div class="flex space-x-4">
-              <Button
-                id="start-btn"
-                variant="primary"
-                size="lg"
-                class="bg-gradient-to-r from-cyan-500 to-purple-500"
-              >
-                Start Game
-              </Button>
-              <Button id="end-btn" variant="secondary" size="lg" class="hidden">
-                End Game
-              </Button>
-            </div>
-          </div>
-        </Card>
-
-        <!-- Game Sidebar -->
-        <div class="flex flex-col space-y-6">
-          <!-- Instructions -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              HOW TO PLAY
-            </h3>
-            <div class="space-y-3 text-sm text-gray-300">
-              <div class="flex items-start space-x-2">
-                <span class="text-cyan-400">•</span>
-                <span>Move your mouse to control the cursor</span>
-              </div>
-              <div class="flex items-start space-x-2">
-                <span class="text-cyan-400">•</span>
-                <span>Stay within the cyan path boundaries</span>
-              </div>
-              <div class="flex items-start space-x-2">
-                <span class="text-cyan-400">•</span>
-                <span>Reach the green goal to complete each level</span>
-              </div>
-              <div class="flex items-start space-x-2">
-                <span class="text-cyan-400">•</span>
-                <span>Complete all 4 levels before time runs out</span>
-              </div>
-              <div class="flex items-start space-x-2">
-                <span class="text-red-400">•</span>
-                <span>Game over if you leave the path!</span>
-              </div>
-            </div>
-          </Card>
-
-          <!-- Level Information -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              LEVELS
-            </h3>
-            <div class="space-y-3 text-sm">
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Level 1:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs"
-                  >Easy Path</Badge
-                >
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Level 2:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs"
-                  >Curved Path</Badge
-                >
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Level 3:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs"
-                  >Zigzag Path</Badge
-                >
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Level 4:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs"
-                  >Spiral Path</Badge
-                >
-              </div>
-            </div>
-          </Card>
-
-          <!-- Controls Guide -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              CONTROLS
-            </h3>
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Mouse Movement:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs"
-                  >Navigate</Badge
-                >
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Start Game:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">Button</Badge
-                >
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Time Limit:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs"
-                  >60 seconds</Badge
-                >
-              </div>
-              <div class="pt-2 border-t border-gray-700">
-                <div class="text-gray-400 text-xs">
-                  💡 Move smoothly and avoid sudden movements for better
-                  control!
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <!-- Scoring -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              SCORING
-            </h3>
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Level 1:</span>
-                <span class="text-cyan-400">100 + time bonus</span>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Level 2:</span>
-                <span class="text-cyan-400">200 + time bonus</span>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Level 3:</span>
-                <span class="text-cyan-400">300 + time bonus</span>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Level 4:</span>
-                <span class="text-cyan-400">500 + time bonus</span>
-              </div>
-              <div class="pt-2 border-t border-gray-700">
-                <div class="text-gray-400 text-xs">
-                  Time bonus = (15 - level_time) × level_multiplier
-                </div>
-              </div>
-            </div>
-          </Card>
+  <!-- Sidebar -->
+  <div slot="game-info">
+    <!-- Instructions -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ HOW TO PLAY
+      </h3>
+      <div class="space-y-3 text-sm text-cetus-ink">
+        <div class="flex items-start space-x-2">
+          <span class="text-cetus-accent">•</span>
+          <span>Move your mouse to control the cursor</span>
+        </div>
+        <div class="flex items-start space-x-2">
+          <span class="text-cetus-accent">•</span>
+          <span>Stay within the cyan path boundaries</span>
+        </div>
+        <div class="flex items-start space-x-2">
+          <span class="text-cetus-accent">•</span>
+          <span>Reach the green goal to complete each level</span>
+        </div>
+        <div class="flex items-start space-x-2">
+          <span class="text-cetus-accent">•</span>
+          <span>Complete all 4 levels before time runs out</span>
+        </div>
+        <div class="flex items-start space-x-2">
+          <span class="text-red-400">•</span>
+          <span>Game over if you leave the path!</span>
         </div>
       </div>
-    </div>
+    </Card>
 
-    <!-- Game Over Overlay -->
-    <GameOverlay defaultTitle="GAME OVER" buttonId="play-again-btn">
-      <div class="text-lg text-gray-300">
-        Final Score: <span id="final-score" class="text-cyan-400">0</span>
+    <!-- Level Information -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ LEVELS
+      </h3>
+      <div class="space-y-3 text-sm">
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Level 1:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">Easy Path</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Level 2:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">Curved Path</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Level 3:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">Zigzag Path</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Level 4:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">Spiral Path</Badge>
+        </div>
       </div>
-      <div class="text-lg text-gray-300">
-        Levels Completed: <span id="levels-completed" class="text-cyan-400"
-          >0</span
-        >
+    </Card>
+
+    <!-- Controls Guide -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ CONTROLS
+      </h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Mouse Movement:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">Navigate</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Start Game:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">Button</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Time Limit:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">60 seconds</Badge>
+        </div>
+        <div class="pt-2 border-t border-cetus-hairline">
+          <div class="text-cetus-ink-muted text-xs">
+            💡 Move smoothly and avoid sudden movements for better control!
+          </div>
+        </div>
       </div>
-      <div class="text-lg text-gray-300">
-        Total Time: <span id="total-time" class="text-cyan-400">0</span>s
+    </Card>
+
+    <!-- Scoring -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SCORING
+      </h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Level 1:</span>
+          <span class="text-cetus-accent">100 + time bonus</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Level 2:</span>
+          <span class="text-cetus-accent">200 + time bonus</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Level 3:</span>
+          <span class="text-cetus-accent">300 + time bonus</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Level 4:</span>
+          <span class="text-cetus-accent">500 + time bonus</span>
+        </div>
+        <div class="pt-2 border-t border-cetus-hairline">
+          <div class="text-cetus-ink-muted text-xs">
+            Time bonus = (15 - level_time) × level_multiplier
+          </div>
+        </div>
       </div>
-    </GameOverlay>
-
-    <!-- Path Navigator Game Logic -->
-    <script>
-      import { initPathNavigatorGameFramework } from '@/lib/games/path-navigator/initFramework'
-
-      let cleanup: (() => void) | undefined
-
-      document.addEventListener('DOMContentLoaded', async () => {
-        try {
-          const instance = await initPathNavigatorGameFramework()
-          if (instance) {
-            cleanup = instance.cleanup
-          }
-        } catch (error) {
-          console.error('Failed to initialize Path Navigator game:', error)
-        }
-      })
-
-      // Clean up on page unload
-      window.addEventListener('beforeunload', () => {
-        if (cleanup) {
-          cleanup()
-        }
-      })
-    </script>
+    </Card>
   </div>
-</AppLayout>
 
-<style>
-  .text-holographic {
-    background: linear-gradient(45deg, #00ffff, #ff00ff, #ffff00, #00ffff);
-    background-size: 400% 400%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: gradient 3s ease infinite;
-  }
+  <!-- Custom overlay stats -->
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Final Score: <span id="final-score" class="text-cetus-accent">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Levels Completed: <span id="levels-completed" class="text-cetus-accent"
+        >0</span
+      >
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Total Time: <span id="total-time" class="text-cetus-accent">0</span>s
+    </div>
+  </div>
 
-  @keyframes gradient {
-    0% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-    100% {
-      background-position: 0% 50%;
-    }
-  }
+  <!-- Init script -->
+  <script slot="game-script">
+    import { initPathNavigatorGameFramework } from '@/lib/games/path-navigator/initFramework'
 
-  .shadow-glow-cyan {
-    box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
-  }
-</style>
+    let cleanup: (() => void) | undefined
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const instance = await initPathNavigatorGameFramework()
+        if (instance) {
+          cleanup = instance.cleanup
+        }
+      } catch (error) {
+        console.error('Failed to initialize Path Navigator game:', error)
+      }
+    })
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+      if (cleanup) {
+        cleanup()
+      }
+    })
+  </script>
+</GamePage>

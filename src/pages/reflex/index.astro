@@ -1,268 +1,218 @@
 ---
-import AppLayout from '@/layouts/AppLayout.astro'
-import Button from '@/components/ui/Button.astro'
+import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
-import GameOverlay from '@/components/GameOverlay.astro'
+import Button from '@/components/ui/Button.astro'
 import AchievementAward from '@/components/AchievementAward.astro'
-
-// Custom navigation for game pages with breadcrumb
-const gameNavigation = [
-  { href: '/', label: 'Home' },
-  { href: '#', label: 'Reflex Coin Collection' },
-]
 ---
 
-<AppLayout
-  title="Reflex Coin Collection - Cetus Minigames"
-  description="Test your reflexes by collecting coins and avoiding bombs in this fast-paced grid game"
-  includeFooter={false}
-  navigation={gameNavigation}
+<GamePage
+  gameId="reflex"
+  title="Reflex Coin Collection"
+  description="Click coins to score points, avoid bombs! React fast in 60 seconds!"
+  icon="⚡"
+  overlayTitle="TIME'S UP!"
+  overlayButtonText="Close"
 >
-  <!-- Game Breadcrumb -->
-  <div class="px-6 py-4 border-b border-slate-700/50">
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center space-x-3">
-        <div class="text-cyan-400 text-sm">⚡ Reflex Coin Collection</div>
-      </div>
-    </div>
-  </div>
+  <!-- Board: canvas container + game-status overlay -->
+  <div slot="game-board">
+    <div class="relative">
+      <div id="game-canvas-container" class="bg-black/30 rounded-lg"></div>
 
-  <div class="px-6 py-8">
-    <div class="max-w-6xl mx-auto">
-      <!-- Game Title -->
-      <div class="text-center mb-8">
-        <h2 class="text-5xl font-orbitron font-bold text-holographic mb-4">
-          REFLEX COIN COLLECTION
-        </h2>
-        <p class="text-gray-400 text-lg">
-          Click coins to score points, avoid bombs! React fast in 60 seconds!
-        </p>
-      </div>
-
-      <!-- Game Container - Centered -->
-      <div class="flex justify-center mb-12">
-        <!-- Game Board -->
-        <Card variant="glass" class="p-8">
-          <div class="flex flex-col items-center space-y-6">
-            <!-- Game Status -->
-            <div class="flex space-x-4 mb-4">
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Score: <span id="score" class="text-cyan-400">0</span></span
-                >
-              </Badge>
-              <Badge variant="outline" class="px-4 py-2">
-                <span class="font-mono"
-                  >Time: <span id="time-remaining" class="text-cyan-400"
-                    >60</span
-                  >s</span
-                >
-              </Badge>
-            </div>
-
-            <!-- Game Canvas Container -->
-            <div class="relative">
-              <div id="game-canvas-container" class="bg-black/30 rounded-lg">
-              </div>
-
-              <!-- Game Status Message -->
-              <div
-                id="game-status"
-                class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
-              >
-                <div class="text-center">
-                  <div class="text-6xl mb-4">⚡</div>
-                  <div
-                    class="text-xl text-cyan-400 font-orbitron font-bold mb-2"
-                  >
-                    REFLEX TEST
-                  </div>
-                  <div class="text-gray-400">
-                    Click the button below to start!
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Game Controls -->
-            <div class="flex space-x-3">
-              <Button id="start-btn" variant="primary">Start Game</Button>
-              <Button id="stop-btn" variant="outline" style="display: none;"
-                >End Game</Button
-              >
-            </div>
-
-            <!-- Current Session Stats - Inline -->
-            <div class="flex space-x-6 text-sm">
-              <div class="text-center">
-                <div class="text-gray-400">Coins</div>
-                <div id="coins-collected" class="text-green-400 font-bold">
-                  0
-                </div>
-              </div>
-              <div class="text-center">
-                <div class="text-gray-400">Bombs Hit</div>
-                <div id="bombs-hit" class="text-red-400 font-bold">0</div>
-              </div>
-              <div class="text-center">
-                <div class="text-gray-400">Accuracy</div>
-                <div id="accuracy" class="text-cyan-400 font-bold">0%</div>
-              </div>
-            </div>
-
-            <GameOverlay defaultTitle="TIME'S UP!" buttonText="Close">
-              <div class="text-lg text-gray-300">
-                Coins Collected: <span id="final-coins" class="text-green-400"
-                  >0</span
-                >
-              </div>
-              <div class="text-lg text-gray-300">
-                Bombs Hit: <span id="final-bombs" class="text-red-400">0</span>
-              </div>
-              <div class="text-lg text-gray-300">
-                Accuracy: <span id="final-accuracy" class="text-cyan-400"
-                  >0%</span
-                >
-              </div>
-              <div class="text-lg text-gray-300">
-                Avg Reaction: <span id="avg-reaction" class="text-purple-400"
-                  >0ms</span
-                >
-              </div>
-            </GameOverlay>
+      <!-- Game Status Message -->
+      <div
+        id="game-status"
+        class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
+      >
+        <div class="text-center">
+          <div class="text-6xl mb-4">⚡</div>
+          <div
+            class="text-xl font-mono font-bold mb-2 cetus-wordmark cetus-wordmark--glow"
+            style="font-family: var(--cetus-display-font);"
+          >
+            REFLEX TEST
           </div>
-        </Card>
-      </div>
-
-      <!-- Game Info & Rules - Bottom Section -->
-      <div class="max-w-5xl mx-auto">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <!-- Game Rules -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              GAME RULES
-            </h3>
-            <div class="space-y-3 text-sm text-gray-300">
-              <div class="flex items-center space-x-2">
-                <span class="text-green-400">✓</span>
-                <span>Click gold coins to earn +10 points</span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-red-400">✗</span>
-                <span>Avoid red bombs (-15 points)</span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-yellow-400">⚠</span>
-                <span>Missed coins cost -5 points</span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-cyan-400">⏱</span>
-                <span>Objects appear for 2 seconds</span>
-              </div>
-              <div class="flex items-center space-x-2">
-                <span class="text-purple-400">📊</span>
-                <span>2:1 coin to bomb ratio</span>
-              </div>
-            </div>
-          </Card>
-
-          <!-- Scoring System -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              SCORING
-            </h3>
-            <div class="space-y-3 text-sm text-gray-300">
-              <div class="flex justify-between items-center">
-                <span class="text-green-400">Collect Coin:</span>
-                <span class="font-bold">+10 pts</span>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-red-400">Hit Bomb:</span>
-                <span class="font-bold">-15 pts</span>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-yellow-400">Miss Coin:</span>
-                <span class="font-bold">-5 pts</span>
-              </div>
-              <div class="border-t border-gray-700 pt-3 mt-3">
-                <div class="text-gray-400 text-xs mb-2">Strategy Tips:</div>
-                <div class="text-xs space-y-1">
-                  <div>• Focus on accuracy over speed</div>
-                  <div>• Watch for bomb patterns</div>
-                  <div>• React quickly to maximize score</div>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <!-- Controls -->
-          <Card variant="glass" class="p-6">
-            <h3 class="text-lg font-orbitron font-bold text-cyan-400 mb-4">
-              CONTROLS
-            </h3>
-            <div class="space-y-4 text-sm">
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Click Objects:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">Mouse</Badge>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Start Game:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">Button</Badge
-                >
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-gray-400">Grid Size:</span>
-                <Badge variant="outline" class="px-2 py-1 text-xs">12×12</Badge>
-              </div>
-              <div class="pt-2 border-t border-gray-700">
-                <div class="text-gray-400 text-xs">
-                  💡 Stay focused and react quickly to maximize your score!
-                </div>
-              </div>
-            </div>
-          </Card>
+          <div class="text-cetus-ink-muted">
+            Click the button below to start!
+          </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Reflex Game Logic -->
-    <script>
-      import { initReflexGameFramework } from '@/lib/games/reflex/initFramework'
+  <!-- Custom controls (uses stop-btn, not end-btn) -->
+  <div slot="controls">
+    <Card variant="glass" class="p-6">
+      <div class="flex flex-col items-center space-y-4">
+        <div class="flex space-x-3">
+          <Button id="start-btn" variant="primary">Start Game</Button>
+          <Button id="stop-btn" variant="outline" style="display: none;"
+            >End Game</Button
+          >
+        </div>
+      </div>
+    </Card>
+  </div>
 
-      let gameInstance: Awaited<
-        ReturnType<typeof initReflexGameFramework>
-      > | null = null
+  <!-- Sidebar info -->
+  <div slot="game-info">
+    <!-- Current Session Stats -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SESSION
+      </h3>
+      <div class="flex justify-center space-x-6 text-sm">
+        <div class="text-center">
+          <div class="text-cetus-ink-muted">Coins</div>
+          <div id="coins-collected" class="text-green-400 font-bold">0</div>
+        </div>
+        <div class="text-center">
+          <div class="text-cetus-ink-muted">Bombs Hit</div>
+          <div id="bombs-hit" class="text-red-400 font-bold">0</div>
+        </div>
+        <div class="text-center">
+          <div class="text-cetus-ink-muted">Accuracy</div>
+          <div id="accuracy" class="text-cetus-accent font-bold">0%</div>
+        </div>
+      </div>
+    </Card>
 
-      // Initialize game when page loads
-      document.addEventListener('DOMContentLoaded', async () => {
-        const gameStatusElement = document.getElementById('game-status')!
+    <!-- Game Rules -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ GAME RULES
+      </h3>
+      <div class="space-y-3 text-sm text-cetus-ink">
+        <div class="flex items-center space-x-2">
+          <span class="text-green-400">✓</span>
+          <span>Click gold coins to earn +10 points</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-red-400">✗</span>
+          <span>Avoid red bombs (-15 points)</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-yellow-400">⚠</span>
+          <span>Missed coins cost -5 points</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-cetus-accent">⏱</span>
+          <span>Objects appear for 2 seconds</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-purple-400">📊</span>
+          <span>2:1 coin to bomb ratio</span>
+        </div>
+      </div>
+    </Card>
 
-        try {
-          gameInstance = await initReflexGameFramework()
+    <!-- Scoring System -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SCORING
+      </h3>
+      <div class="space-y-3 text-sm text-cetus-ink">
+        <div class="flex justify-between items-center">
+          <span class="text-green-400">Collect Coin:</span>
+          <span class="font-bold">+10 pts</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-red-400">Hit Bomb:</span>
+          <span class="font-bold">-15 pts</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-yellow-400">Miss Coin:</span>
+          <span class="font-bold">-5 pts</span>
+        </div>
+        <div class="border-t border-cetus-hairline pt-3 mt-3">
+          <div class="text-cetus-ink-muted text-xs mb-2">Strategy Tips:</div>
+          <div class="text-xs space-y-1">
+            <div>• Focus on accuracy over speed</div>
+            <div>• Watch for bomb patterns</div>
+            <div>• React quickly to maximize score</div>
+          </div>
+        </div>
+      </div>
+    </Card>
 
-          if (!gameInstance) {
-            throw new Error('Failed to initialize game framework')
-          }
-        } catch (error) {
-          console.error('Failed to initialize Reflex game:', error)
-          gameStatusElement.style.display = 'flex'
-          gameStatusElement.innerHTML = `
+    <!-- Controls -->
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ CONTROLS
+      </h3>
+      <div class="space-y-4 text-sm">
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Click Objects:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">Mouse</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Start Game:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">Button</Badge>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-cetus-ink-muted">Grid Size:</span>
+          <Badge variant="outline" class="px-2 py-1 text-xs">12×12</Badge>
+        </div>
+      </div>
+    </Card>
+  </div>
+
+  <!-- Custom overlay stats -->
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Coins Collected: <span id="final-coins" class="text-green-400">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Bombs Hit: <span id="final-bombs" class="text-red-400">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Accuracy: <span id="final-accuracy" class="text-cetus-accent">0%</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Avg Reaction: <span id="avg-reaction" class="text-purple-400">0ms</span>
+    </div>
+  </div>
+
+  <!-- Achievement notifications -->
+  <div slot="bottom-info">
+    <AchievementAward />
+  </div>
+
+  <!-- Init script -->
+  <script slot="game-script">
+    import { initReflexGameFramework } from '@/lib/games/reflex/initFramework'
+
+    let gameInstance: Awaited<
+      ReturnType<typeof initReflexGameFramework>
+    > | null = null
+
+    // Initialize game when page loads
+    document.addEventListener('DOMContentLoaded', async () => {
+      const gameStatusElement = document.getElementById('game-status')!
+
+      try {
+        gameInstance = await initReflexGameFramework()
+
+        if (!gameInstance) {
+          throw new Error('Failed to initialize game framework')
+        }
+      } catch (error) {
+        console.error('Failed to initialize Reflex game:', error)
+        gameStatusElement.style.display = 'flex'
+        gameStatusElement.innerHTML = `
             <div class="text-center">
               <div class="text-red-400 text-xl mb-2">Failed to Load Game</div>
-              <div class="text-gray-400 text-sm">${error}</div>
+              <div class="text-cetus-ink-muted text-sm">${error}</div>
             </div>
           `
-        }
-      })
+      }
+    })
 
-      // Cleanup on page unload
-      window.addEventListener('beforeunload', () => {
-        if (gameInstance) {
-          gameInstance.cleanup()
-        }
-      })
-    </script>
-  </div>
-  <AchievementAward />
-</AppLayout>
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (gameInstance) {
+        gameInstance.cleanup()
+      }
+    })
+  </script>
+</GamePage>
