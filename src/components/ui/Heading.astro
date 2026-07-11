@@ -7,6 +7,7 @@ export interface Props
   level?: 1 | 2 | 3 | 4 | 5 | 6
   variant?: 'default' | 'hero' | 'section' | 'subsection'
   align?: 'left' | 'center' | 'right'
+  kicker?: string
   class?: string
 }
 
@@ -14,15 +15,24 @@ const {
   level = 2,
   variant = 'default',
   align = 'left',
+  kicker,
   class: className = '',
   ...props
 } = Astro.props
 
 const headingVariants = {
-  default: 'font-orbitron font-bold text-white',
-  hero: 'font-orbitron font-black text-holographic',
-  section: 'font-orbitron font-bold text-holographic',
-  subsection: 'font-orbitron font-bold text-white',
+  default: 'font-semibold text-white',
+  hero: 'cetus-wordmark--glow',
+  section: 'text-white',
+  subsection: 'font-semibold text-white',
+}
+
+const headingStyles = {
+  default: '',
+  hero: 'font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);',
+  section:
+    'font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);',
+  subsection: '',
 }
 
 const sizeVariants = {
@@ -47,9 +57,18 @@ const classes = cn(
   className
 )
 
+const style = headingStyles[variant]
+
 const Tag = `h${level}` as const
 ---
 
-<Tag class={classes} {...props}>
+{
+  kicker && (
+    <p class="font-mono text-xs tracking-widest text-cetus-ink-muted uppercase mb-2">
+      ▸ {kicker}
+    </p>
+  )
+}
+<Tag class={classes} style={style} {...props}>
   <slot />
 </Tag>

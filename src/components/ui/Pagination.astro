@@ -81,7 +81,7 @@ const showingTo = Math.min(currentPage * pageSize, total)
 
 <div class={cn('flex flex-col gap-4', className)}>
   <!-- Pagination info -->
-  <div class="text-sm text-gray-400 text-center">
+  <div class="text-sm text-cetus-ink-muted text-center">
     Showing {showingFrom} to {showingTo} of {total} achievements
   </div>
 
@@ -113,7 +113,7 @@ const showingTo = Math.min(currentPage * pageSize, total)
         {/* Page numbers */}
         {pageNumbers.map(pageNum =>
           pageNum === '...' ? (
-            <span class="px-2 text-gray-400">...</span>
+            <span class="px-2 text-cetus-ink-muted">...</span>
           ) : (
             <a href={getPageUrl(pageNum)} class="inline-block">
               <Button
@@ -149,7 +149,7 @@ const showingTo = Math.min(currentPage * pageSize, total)
   }
 
   <!-- Page size info (optional) -->
-  <div class="text-xs text-gray-500 text-center">
+  <div class="text-xs text-cetus-ink-muted text-center">
     Page {currentPage} of {totalPages}
   </div>
 </div>
