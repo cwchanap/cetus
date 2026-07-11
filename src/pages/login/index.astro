@@ -14,23 +14,28 @@ import Heading from '@/components/ui/Heading.astro'
   <Section>
     <Container class="max-w-md">
       <div class="text-center mb-8">
-        <Heading level={2} variant="section" align="center" class="mb-4">
+        <Heading
+          level={2}
+          variant="section"
+          align="center"
+          kicker="AUTH · LOGIN"
+          class="mb-4"
+        >
           PLAYER LOGIN
         </Heading>
-        <p class="text-gray-400 text-lg">
+        <p class="text-cetus-ink-muted text-lg">
           Access your gaming account with Google
         </p>
       </div>
 
-      <Card variant="glass" class="p-8">
+      <Card variant="glass" brackets class="p-8">
         <div class="space-y-3">
           <button
             type="button"
             data-social="google"
-            class="w-full inline-flex items-center justify-center h-11 rounded-md px-8 bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg shadow-purple-500/25 hover:from-cyan-400 hover:to-purple-500 font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50 text-sm"
+            class="w-full inline-flex items-center justify-center h-11 rounded-md px-8 bg-cetus-accent text-cetus-surface font-bold transition-all duration-300 hover:bg-cetus-accent/90 focus:outline-none focus:ring-2 focus:ring-cetus-accent focus:ring-opacity-50 text-sm"
           >
             <span class="flex items-center justify-center">
-              <span class="mr-2">🌐</span>
               Continue with Google
             </span>
           </button>
@@ -38,18 +43,18 @@ import Heading from '@/components/ui/Heading.astro'
           <div
             id="error-message"
             role="alert"
-            class="hidden p-4 bg-red-500/20 border border-red-400/30 rounded-lg text-red-400 text-sm"
+            class="hidden p-4 bg-cetus-accent-3/10 border border-cetus-accent-3/30 rounded-lg text-cetus-accent-3 text-sm"
           >
           </div>
         </div>
 
         <!-- Sign Up Link -->
-        <div class="text-center mt-6 pt-6 border-t border-slate-600">
-          <p class="text-gray-400">
+        <div class="text-center mt-6 pt-6 border-t border-cetus-hairline">
+          <p class="text-cetus-ink-muted">
             Don't have an account?
             <a
               href="/signup"
-              class="text-cyan-400 hover:text-cyan-300 transition-colors duration-300 font-medium"
+              class="text-cetus-accent hover:text-cetus-accent/80 transition-colors duration-300 font-medium"
             >
               Create one with Google
             </a>
