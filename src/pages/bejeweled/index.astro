@@ -35,28 +35,26 @@ import Card from '@/components/ui/Card.astro'
       </div>
     </Card>
   </div>
-
-  <!-- Init script -->
-  <script slot="game-script">
-    import {
-      initBejeweledGame,
-      type BejeweledInitResult,
-    } from '@/lib/games/bejeweled/init'
-
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        const _result: BejeweledInitResult | undefined =
-          await initBejeweledGame()
-
-        // Wire restart button (overlay) just in case
-        document
-          .getElementById('play-again-btn')
-          ?.addEventListener('click', () => {
-            // Overlay handled in init, game.reset() is called there
-          })
-      } catch (error) {
-        console.error('Failed to initialize Bejeweled game:', error)
-      }
-    })
-  </script>
 </GamePage>
+
+<script>
+  import {
+    initBejeweledGame,
+    type BejeweledInitResult,
+  } from '@/lib/games/bejeweled/init'
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const _result: BejeweledInitResult | undefined = await initBejeweledGame()
+
+      // Wire restart button (overlay) just in case
+      document
+        .getElementById('play-again-btn')
+        ?.addEventListener('click', () => {
+          // Overlay handled in init, game.reset() is called there
+        })
+    } catch (error) {
+      console.error('Failed to initialize Bejeweled game:', error)
+    }
+  })
+</script>

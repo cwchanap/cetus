@@ -123,19 +123,18 @@ import Badge from '@/components/ui/Badge.astro'
       Tetrises: <span id="final-tetrises" class="text-yellow-400">0</span>
     </div>
   </div>
-
-  <!-- Init script -->
-  <script slot="game-script">
-    import { initTetrisGameFramework } from '@/lib/games/tetris/initFramework'
-
-    // Initialize game when page loads. All button/keyboard wiring is
-    // handled inside the framework initializer.
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        await initTetrisGameFramework()
-      } catch (error) {
-        console.error('Failed to initialize Tetris game:', error)
-      }
-    })
-  </script>
 </GamePage>
+
+<script>
+  import { initTetrisGameFramework } from '@/lib/games/tetris/initFramework'
+
+  // Initialize game when page loads. All button/keyboard wiring is
+  // handled inside the framework initializer.
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      await initTetrisGameFramework()
+    } catch (error) {
+      console.error('Failed to initialize Tetris game:', error)
+    }
+  })
+</script>

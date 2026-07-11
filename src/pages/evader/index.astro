@@ -179,48 +179,46 @@ import AchievementAward from '@/components/AchievementAward.astro'
   <div slot="bottom-info">
     <AchievementAward />
   </div>
-
-  <!-- Init script -->
-  <script slot="game-script">
-    import { initEvaderGameFramework } from '@/lib/games/evader/initFramework'
-
-    let gameInstance: Awaited<
-      ReturnType<typeof initEvaderGameFramework>
-    > | null = null
-
-    // Initialize game when page loads
-    const init = async () => {
-      const gameStatusElement = document.getElementById('game-status')!
-
-      try {
-        gameInstance = await initEvaderGameFramework()
-
-        if (!gameInstance) {
-          throw new Error('Failed to initialize game framework')
-        }
-      } catch (error) {
-        console.error('Failed to initialize Evader game:', error)
-        const errorContainer = document.getElementById('game-error')!
-        const errorTitle = document.getElementById('game-error-title')!
-        const errorMessage = document.getElementById('game-error-message')!
-        gameStatusElement.style.display = 'none'
-        errorTitle.textContent = 'Failed to Load Game'
-        errorMessage.textContent = String(error)
-        errorContainer.style.display = 'flex'
-      }
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', init)
-    } else {
-      init()
-    }
-
-    // Cleanup on page unload
-    window.addEventListener('beforeunload', () => {
-      if (gameInstance) {
-        gameInstance.cleanup()
-      }
-    })
-  </script>
 </GamePage>
+
+<script>
+  import { initEvaderGameFramework } from '@/lib/games/evader/initFramework'
+
+  let gameInstance: Awaited<ReturnType<typeof initEvaderGameFramework>> | null =
+    null
+
+  // Initialize game when page loads
+  const init = async () => {
+    const gameStatusElement = document.getElementById('game-status')!
+
+    try {
+      gameInstance = await initEvaderGameFramework()
+
+      if (!gameInstance) {
+        throw new Error('Failed to initialize game framework')
+      }
+    } catch (error) {
+      console.error('Failed to initialize Evader game:', error)
+      const errorContainer = document.getElementById('game-error')!
+      const errorTitle = document.getElementById('game-error-title')!
+      const errorMessage = document.getElementById('game-error-message')!
+      gameStatusElement.style.display = 'none'
+      errorTitle.textContent = 'Failed to Load Game'
+      errorMessage.textContent = String(error)
+      errorContainer.style.display = 'flex'
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init)
+  } else {
+    init()
+  }
+
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    if (gameInstance) {
+      gameInstance.cleanup()
+    }
+  })
+</script>

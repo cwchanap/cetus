@@ -132,19 +132,18 @@ import Button from '@/components/ui/Button.astro'
       Largest Combo: <span id="final-combo" class="text-yellow-400">0</span>
     </div>
   </div>
-
-  <!-- Init script -->
-  <script slot="game-script">
-    import { initBubbleShooterGameFramework } from '@/lib/games/bubble-shooter/initFramework'
-
-    // Initialize game when page loads
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        await initBubbleShooterGameFramework()
-        console.log('Bubble Shooter game initialized successfully')
-      } catch (error) {
-        console.error('Failed to initialize Bubble Shooter game:', error)
-      }
-    })
-  </script>
 </GamePage>
+
+<script>
+  import { initBubbleShooterGameFramework } from '@/lib/games/bubble-shooter/initFramework'
+
+  // Initialize game when page loads
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      await initBubbleShooterGameFramework()
+      console.log('Bubble Shooter game initialized successfully')
+    } catch (error) {
+      console.error('Failed to initialize Bubble Shooter game:', error)
+    }
+  })
+</script>

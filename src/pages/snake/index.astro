@@ -121,31 +121,30 @@ import Badge from '@/components/ui/Badge.astro'
       Time Survived: <span id="final-time" class="text-purple-400">0s</span>
     </div>
   </div>
-
-  <!-- Init script -->
-  <script slot="game-script">
-    import { initSnakeGameFramework } from '@/lib/games/snake/initFramework'
-
-    // Initialize game when page loads
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        const gameResult = await initSnakeGameFramework()
-
-        if (!gameResult) {
-          // eslint-disable-next-line no-console
-          console.error(
-            'Failed to initialize Snake game: initialization returned no game instance'
-          )
-          return
-        }
-
-        // Expose for debugging
-        ;(window as Window & { snakeGame?: typeof gameResult }).snakeGame =
-          gameResult
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to initialize Snake game:', error)
-      }
-    })
-  </script>
 </GamePage>
+
+<script>
+  import { initSnakeGameFramework } from '@/lib/games/snake/initFramework'
+
+  // Initialize game when page loads
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const gameResult = await initSnakeGameFramework()
+
+      if (!gameResult) {
+        // eslint-disable-next-line no-console
+        console.error(
+          'Failed to initialize Snake game: initialization returned no game instance'
+        )
+        return
+      }
+
+      // Expose for debugging
+      ;(window as Window & { snakeGame?: typeof gameResult }).snakeGame =
+        gameResult
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to initialize Snake game:', error)
+    }
+  })
+</script>
