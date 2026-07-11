@@ -307,7 +307,7 @@ function showGameOver(finalScore: number, stats: Game2048Stats): void {
         }
     }
 
-    setText('final-score', finalScore.toString())
+    setText('custom-final-score', finalScore.toString())
     setText('final-max-tile', stats.maxTile.toString())
     setText('final-moves', stats.moveCount.toString())
 

@@ -253,7 +253,7 @@ test.describe('Circuit Hacker', () => {
         await expect(page.locator('#game-canvas-container')).toBeVisible()
         await expect(page.locator('#game-status')).toBeVisible()
         await expect(page.locator('#rotation-count')).toHaveText('0')
-        await expect(page.locator('#time-remaining')).toHaveText('--')
+        await expect(page.locator('#time-remaining')).toHaveText('60')
 
         // Smaller grid renders faster and exercises the difficulty control.
         await page.locator('#difficulty-select').selectOption('easy')
@@ -265,8 +265,8 @@ test.describe('Circuit Hacker', () => {
         await expectStatusOverlayHidden(page)
         await expect(page.locator('#stop-btn')).toBeVisible()
 
-        // Timer ticks off the placeholder once the loop is running.
-        await expect(page.locator('#time-remaining')).not.toHaveText('--', {
+        // Timer ticks off the initial value once the loop is running.
+        await expect(page.locator('#time-remaining')).not.toHaveText('60', {
             timeout: 5000,
         })
 
@@ -288,7 +288,7 @@ test.describe('Satellite Sync', () => {
         await expect(page.locator('#game-canvas-container')).toBeVisible()
         await expect(page.locator('#game-status')).toBeVisible()
         await expect(page.locator('#score')).toHaveText('0')
-        await expect(page.locator('#time-remaining')).toHaveText('--')
+        await expect(page.locator('#time-remaining')).toHaveText('60')
 
         await startGameWhenReady(page)
         // Canvas is created during start(); wait for it to appear.
@@ -296,8 +296,8 @@ test.describe('Satellite Sync', () => {
         await expectStatusOverlayHidden(page)
         await expect(page.locator('#end-btn')).toBeVisible()
 
-        // Timer ticks off the placeholder once the loop is running.
-        await expect(page.locator('#time-remaining')).not.toHaveText('--', {
+        // Timer ticks off the initial value once the loop is running.
+        await expect(page.locator('#time-remaining')).not.toHaveText('60', {
             timeout: 5000,
         })
 
