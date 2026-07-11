@@ -44,15 +44,15 @@ const gameIcons: { [key: string]: string } = {
   path_navigator: '🎮',
 }
 
-// Category color utility
+// Category color utility — text-color tokens so the abyssal theme can retint.
 const getCategoryColor = (category: string) => {
   const colors: { [key: string]: string } = {
-    puzzle: 'from-purple-500 to-pink-500',
-    action: 'from-red-500 to-orange-500',
-    strategy: 'from-green-500 to-teal-500',
-    trivia: 'from-blue-500 to-cyan-500',
+    puzzle: 'text-cetus-accent-3',
+    action: 'text-cetus-accent-2',
+    strategy: 'text-cetus-accent',
+    trivia: 'text-cetus-accent',
   }
-  return colors[category] || 'from-gray-500 to-gray-600'
+  return colors[category] || 'text-cetus-ink-muted'
 }
 
 // Create tabs data
@@ -73,18 +73,20 @@ const defaultGameId = games[0]?.id || 'tetris'
         {/* Page Title */}
         <div class="mb-12">
           <div
-            class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full mb-6"
+            class="inline-flex items-center justify-center w-16 h-16 bg-cetus-accent/20 rounded-full mb-6"
           >
             <span class="text-2xl">🏆</span>
           </div>
           <Heading
             level={1}
+            variant="hero"
             align="center"
+            kicker="RANKINGS"
             class="text-4xl md:text-5xl font-bold mb-4"
           >
-            <span class="holographic-text">Leaderboards</span>
+            Leaderboards
           </Heading>
-          <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+          <p class="text-xl text-cetus-ink-muted max-w-2xl mx-auto">
             Compete for the top scores across all games. See who's dominating
             the leaderboard!
           </p>
@@ -94,7 +96,7 @@ const defaultGameId = games[0]?.id || 'tetris'
           <div class="relative">
             {/* Background effects */}
             <div
-              class="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400/5 to-transparent rounded-xl pointer-events-none"
+              class="absolute inset-0 bg-gradient-to-b from-transparent via-cetus-accent/5 to-transparent rounded-xl pointer-events-none"
             >
             </div>
 
@@ -137,10 +139,8 @@ const defaultGameId = games[0]?.id || 'tetris'
                           <div>
                             {/* Game Header */}
                             <div class="flex items-center gap-6 mb-8">
-                              <div
-                                class={`w-16 h-16 bg-gradient-to-r ${categoryColor} rounded-xl flex items-center justify-center`}
-                              >
-                                <span class="text-white font-bold text-2xl">
+                              <div class="w-16 h-16 bg-cetus-surface border border-cetus-hairline rounded-xl flex items-center justify-center">
+                                <span class={`text-2xl ${categoryColor}`}>
                                   {gameIcons[game.id] || '🎮'}
                                 </span>
                               </div>
@@ -150,15 +150,15 @@ const defaultGameId = games[0]?.id || 'tetris'
                                 </h3>
                                 <div class="flex items-center gap-4 text-sm">
                                   <span
-                                    class={`px-2 py-1 rounded-full bg-gradient-to-r ${categoryColor} text-white`}
+                                    class={`px-2 py-1 rounded-full bg-cetus-surface border border-cetus-hairline ${categoryColor}`}
                                   >
                                     {game.category}
                                   </span>
-                                  <span class="text-gray-400">
+                                  <span class="text-cetus-ink-muted">
                                     {leaderboard.length} entries
                                   </span>
                                   {gameHighestScore > 0 && (
-                                    <span class="text-cyan-400 font-bold">
+                                    <span class="font-mono text-cetus-accent font-bold">
                                       {gameHighestScore.toLocaleString()}{' '}
                                       highest score
                                     </span>
@@ -177,20 +177,20 @@ const defaultGameId = games[0]?.id || 'tetris'
                                     ? `/profile/${encodeURIComponent(normalizedUsername)}`
                                     : null
                                   const rowClasses =
-                                    'flex items-center justify-between gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 transition-colors'
+                                    'flex items-center justify-between gap-4 p-4 bg-cetus-surface rounded-lg border border-cetus-hairline transition-colors'
 
                                   return (
                                     <div class={rowClasses}>
                                       <div class="flex items-center gap-4">
                                         <div
-                                          class={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                          class={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-mono font-bold ${
                                             index === 0
                                               ? 'bg-yellow-500 text-black'
                                               : index === 1
                                                 ? 'bg-gray-400 text-black'
                                                 : index === 2
                                                   ? 'bg-orange-600 text-white'
-                                                  : 'bg-gray-700 text-white'
+                                                  : 'bg-cetus-surface border border-cetus-hairline text-white'
                                           }`}
                                         >
                                           {index + 1}
@@ -208,7 +208,7 @@ const defaultGameId = games[0]?.id || 'tetris'
                                           {profileUrl ? (
                                             <a
                                               href={profileUrl}
-                                              class="font-semibold text-white no-underline hover:underline transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-1 focus:ring-offset-gray-900 rounded"
+                                              class="font-semibold text-white no-underline hover:underline transition-colors focus:outline-none focus:ring-2 focus:ring-cetus-accent focus:ring-offset-1 focus:ring-offset-gray-900 rounded"
                                               aria-label={`Profile of ${normalizedUsername}`}
                                             >
                                               {entry.name || normalizedUsername}
@@ -218,7 +218,7 @@ const defaultGameId = games[0]?.id || 'tetris'
                                               {entry.name || 'Anonymous'}
                                             </div>
                                           )}
-                                          <div class="text-sm text-gray-400">
+                                          <div class="text-sm text-cetus-ink-muted">
                                             {new Date(
                                               entry.created_at
                                             ).toLocaleDateString()}
@@ -226,12 +226,12 @@ const defaultGameId = games[0]?.id || 'tetris'
                                         </div>
                                       </div>
                                       <div class="text-right">
-                                        <div class="text-xl font-bold text-cyan-400">
+                                        <div class="text-xl font-bold font-mono text-cetus-accent">
                                           {entry.score.toLocaleString()}
                                         </div>
                                         {entry.achievements &&
                                           entry.achievements.length > 0 && (
-                                            <div class="text-sm text-yellow-400">
+                                            <div class="text-sm text-cetus-accent-2">
                                               {entry.achievements.join(', ')}
                                             </div>
                                           )}
@@ -241,18 +241,18 @@ const defaultGameId = games[0]?.id || 'tetris'
                                 })
                               ) : (
                                 <div class="text-center py-12">
-                                  <div class="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-full flex items-center justify-center">
+                                  <div class="w-16 h-16 mx-auto mb-4 bg-cetus-surface border border-cetus-hairline rounded-full flex items-center justify-center">
                                     <span class="text-2xl">🎯</span>
                                   </div>
-                                  <p class="text-gray-400 mb-4">
+                                  <p class="text-cetus-ink-muted mb-4">
                                     No scores yet!
                                   </p>
-                                  <p class="text-sm text-gray-500 mb-6">
+                                  <p class="text-sm text-cetus-ink-muted mb-6">
                                     Be the first to play and set a record.
                                   </p>
                                   <a
                                     href={`/${game.id}`}
-                                    class="inline-flex items-center px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+                                    class="inline-flex items-center px-4 py-2 bg-cetus-accent hover:bg-cetus-accent/90 text-white rounded-lg transition-colors"
                                   >
                                     Play {game.name} 🎮
                                   </a>

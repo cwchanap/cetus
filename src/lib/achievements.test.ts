@@ -86,24 +86,24 @@ describe('Achievement System', () => {
 
     describe('Rarity Styling Helpers', () => {
         it('should return correct colors for rarities', () => {
-            expect(getRarityColor('common')).toContain('gray-400')
-            expect(getRarityColor('rare')).toContain('blue-400')
-            expect(getRarityColor('epic')).toContain('purple-400')
-            expect(getRarityColor('legendary')).toContain('yellow-400')
+            expect(getRarityColor('common')).toContain('cetus-ink-muted')
+            expect(getRarityColor('rare')).toContain('text-cetus-accent ')
+            expect(getRarityColor('epic')).toContain('cetus-accent-3')
+            expect(getRarityColor('legendary')).toContain('cetus-accent-2')
         })
 
         it('should return correct glow effects for rarities', () => {
-            expect(getRarityGlow('common')).toContain('gray-400/25')
-            expect(getRarityGlow('rare')).toContain('blue-400/25')
-            expect(getRarityGlow('epic')).toContain('purple-400/25')
-            expect(getRarityGlow('legendary')).toContain('yellow-400/25')
+            expect(getRarityGlow('common')).toContain('cetus-ink-muted')
+            expect(getRarityGlow('rare')).toContain('shadow-cetus-accent/25')
+            expect(getRarityGlow('epic')).toContain('cetus-accent-3')
+            expect(getRarityGlow('legendary')).toContain('cetus-accent-2')
         })
 
         it('should handle invalid rarity gracefully', () => {
             // @ts-expect-error Testing invalid input
-            expect(getRarityColor('invalid')).toContain('gray-400')
+            expect(getRarityColor('invalid')).toContain('cetus-ink-muted')
             // @ts-expect-error Testing invalid input
-            expect(getRarityGlow('invalid')).toContain('gray-400/25')
+            expect(getRarityGlow('invalid')).toContain('cetus-ink-muted')
         })
     })
 
