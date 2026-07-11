@@ -15,7 +15,7 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
   <!-- Dropdown trigger button -->
   <button
     id="user-menu-button"
-    class="inline-flex items-center justify-center h-11 rounded-md px-4 bg-gradient-to-r from-cyan-500/20 to-purple-600/20 border border-cyan-400/30 text-cyan-400 hover:from-cyan-500/30 hover:to-purple-600/30 hover:border-cyan-400/50 font-medium transition-all duration-300 text-sm backdrop-blur-sm"
+    class="inline-flex items-center justify-center h-11 rounded-md px-4 bg-cetus-surface/50 border border-cetus-hairline text-cetus-accent hover:border-cetus-accent/50 hover:text-cetus-accent font-medium transition-all duration-300 text-sm backdrop-blur-sm"
     aria-expanded="false"
     aria-haspopup="true"
   >
@@ -41,12 +41,12 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
   <!-- Dropdown menu -->
   <div
     id="user-menu"
-    class="absolute right-0 mt-2 w-56 rounded-lg bg-slate-900/95 backdrop-blur-md border border-cyan-400/30 shadow-lg shadow-cyan-500/25 z-[9999] opacity-0 scale-95 pointer-events-none transition-all duration-200 origin-top-right"
+    class="absolute right-0 mt-2 w-56 rounded-lg bg-cetus-surface backdrop-blur-md border border-cetus-hairline shadow-lg shadow-cetus-accent/10 z-[9999] opacity-0 scale-95 pointer-events-none transition-all duration-200 origin-top-right"
   >
     <div class="py-2">
       <!-- User info section -->
       <div class="px-4 py-3 border-b border-slate-700/50">
-        <p class="text-sm text-cyan-400 font-medium">{userName}</p>
+        <p class="text-sm text-cetus-accent font-medium">{userName}</p>
         <p class="text-xs text-gray-400 truncate">{user.email}</p>
       </div>
 
@@ -54,7 +54,7 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
       <div class="py-1">
         <a
           href="/profile"
-          class="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors duration-200"
+          class="block px-4 py-2 text-sm text-gray-300 hover:bg-cetus-accent/10 hover:text-cetus-accent transition-colors duration-200"
         >
           <span class="flex items-center">
             <span class="mr-3">⚙️</span>
@@ -64,7 +64,7 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
 
         <a
           href="/dashboard"
-          class="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors duration-200"
+          class="block px-4 py-2 text-sm text-gray-300 hover:bg-cetus-accent/10 hover:text-cetus-accent transition-colors duration-200"
         >
           <span class="flex items-center">
             <span class="mr-3">📊</span>
@@ -74,7 +74,7 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
 
         <a
           href="/achievements"
-          class="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors duration-200"
+          class="block px-4 py-2 text-sm text-gray-300 hover:bg-cetus-accent/10 hover:text-cetus-accent transition-colors duration-200"
         >
           <span class="flex items-center">
             <span class="mr-3">🏆</span>
@@ -84,7 +84,7 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
 
         <a
           href="/settings"
-          class="block px-4 py-2 text-sm text-gray-300 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors duration-200"
+          class="block px-4 py-2 text-sm text-gray-300 hover:bg-cetus-accent/10 hover:text-cetus-accent transition-colors duration-200"
         >
           <span class="flex items-center">
             <span class="mr-3">🎛️</span>
