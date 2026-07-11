@@ -13,6 +13,8 @@ interface Props {
   icon: string
   navigation?: Array<{ href: string; label: string }>
   includeFooter?: boolean
+  overlayTitle?: string
+  overlayButtonText?: string
   class?: string
 }
 
@@ -26,6 +28,8 @@ const {
     { href: '#', label: title },
   ],
   includeFooter = false,
+  overlayTitle = 'Game Over',
+  overlayButtonText = 'Play Again',
   class: className,
 } = Astro.props
 ---
@@ -59,7 +63,13 @@ const {
           </GameStats>
 
           <!-- Game Controls -->
-          <GameControls gameId={gameId} />
+          {
+            Astro.slots.has('controls') ? (
+              <slot name="controls" />
+            ) : (
+              <GameControls gameId={gameId} />
+            )
+          }
 
           <!-- Game Information -->
           <slot name="game-info" />
@@ -71,7 +81,7 @@ const {
     </div>
 
     <!-- Game Over Overlay -->
-    <GameOverlay>
+    <GameOverlay defaultTitle={overlayTitle} buttonText={overlayButtonText}>
       <slot name="final-stats" />
     </GameOverlay>
   </div>

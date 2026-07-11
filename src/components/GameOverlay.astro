@@ -30,7 +30,8 @@ const {
   <div class="text-center p-8">
     <h3
       id={titleId}
-      class="text-4xl font-orbitron font-bold text-cyan-400 mb-6"
+      class="text-3xl cetus-wordmark cetus-wordmark--glow mb-6"
+      style="font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);"
     >
       {defaultTitle}
     </h3>
@@ -41,7 +42,7 @@ const {
         showScore && (
           <div class="text-xl">
             Final Score:{' '}
-            <span id={scoreId} class="text-holographic font-bold">
+            <span id={scoreId} class="font-mono text-2xl text-cetus-accent">
               0
             </span>
           </div>
