@@ -1435,33 +1435,38 @@ export function getPaginatedAchievements<T extends Achievement>(
     }
 }
 
-// Rarity styling helpers
+// Rarity styling helpers — mapped to cetus semantic tokens so the abyssal
+// theme can retint them without per-page overrides.
+//   common    → cetus-ink-muted
+//   rare      → cetus-accent
+//   epic      → cetus-accent-3
+//   legendary → cetus-accent-2
 export function getRarityColor(rarity: Achievement['rarity']): string {
     switch (rarity) {
         case AchievementRarity.COMMON:
-            return 'text-gray-400 border-gray-400/30'
+            return 'text-cetus-ink-muted border-cetus-hairline'
         case AchievementRarity.RARE:
-            return 'text-blue-400 border-blue-400/30'
+            return 'text-cetus-accent border-cetus-accent/30'
         case AchievementRarity.EPIC:
-            return 'text-purple-400 border-purple-400/30'
+            return 'text-cetus-accent-3 border-cetus-accent-3/30'
         case AchievementRarity.LEGENDARY:
-            return 'text-yellow-400 border-yellow-400/30'
+            return 'text-cetus-accent-2 border-cetus-accent-2/30'
         default:
-            return 'text-gray-400 border-gray-400/30'
+            return 'text-cetus-ink-muted border-cetus-hairline'
     }
 }
 
 export function getRarityGlow(rarity: Achievement['rarity']): string {
     switch (rarity) {
         case AchievementRarity.COMMON:
-            return 'shadow-gray-400/25'
+            return 'shadow-cetus-ink-muted/25'
         case AchievementRarity.RARE:
-            return 'shadow-blue-400/25'
+            return 'shadow-cetus-accent/25'
         case AchievementRarity.EPIC:
-            return 'shadow-purple-400/25'
+            return 'shadow-cetus-accent-3/25'
         case AchievementRarity.LEGENDARY:
-            return 'shadow-yellow-400/25'
+            return 'shadow-cetus-accent-2/25'
         default:
-            return 'shadow-gray-400/25'
+            return 'shadow-cetus-ink-muted/25'
     }
 }

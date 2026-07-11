@@ -43,6 +43,9 @@ try {
 }
 
 const completedCount = challenges.filter(c => c.completed).length
+
+const frauncesStyle =
+  'font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);'
 ---
 
 <AppLayout title="Daily Challenges - Cetus Gaming Platform">
@@ -57,66 +60,74 @@ const completedCount = challenges.filter(c => c.completed).length
         )
       }
 
-      <Heading level={1} variant="hero" class="mb-8">
+      <Heading level={1} variant="hero" kicker="DAILY MISSIONS" class="mb-8">
         Daily Challenges
       </Heading>
 
       <!-- Stats Cards -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <Card variant="glass" class="p-4 text-center">
-          <div class="text-3xl font-bold text-cyan-400">{level}</div>
-          <div class="text-sm text-gray-400">Current Level</div>
+          <div class="text-3xl font-bold font-mono text-cetus-accent">
+            {level}
+          </div>
+          <div class="text-sm text-cetus-ink-muted">Current Level</div>
         </Card>
         <Card variant="glass" class="p-4 text-center">
-          <div class="text-3xl font-bold text-purple-400">
+          <div class="text-3xl font-bold font-mono text-cetus-accent-3">
             {xp.toLocaleString()}
           </div>
-          <div class="text-sm text-gray-400">Total XP</div>
+          <div class="text-sm text-cetus-ink-muted">Total XP</div>
         </Card>
         <Card variant="glass" class="p-4 text-center">
-          <div class="text-3xl font-bold text-orange-400">
+          <div class="text-3xl font-bold font-mono text-cetus-accent-2">
             {challengeStreak}
           </div>
-          <div class="text-sm text-gray-400">Day Streak</div>
+          <div class="text-sm text-cetus-ink-muted">Day Streak</div>
         </Card>
         <Card variant="glass" class="p-4 text-center">
-          <div class="text-3xl font-bold text-green-400">
+          <div class="text-3xl font-bold font-mono text-cetus-accent">
             {completedCount}/{challenges.length}
           </div>
-          <div class="text-sm text-gray-400">Completed Today</div>
+          <div class="text-sm text-cetus-ink-muted">Completed Today</div>
         </Card>
       </div>
 
       <!-- Level Progress -->
       <Card variant="glass" class="p-6 mb-8">
         <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-orbitron font-bold text-white">
+          <h2 class="text-lg font-bold text-white" style={frauncesStyle}>
             Level Progress
           </h2>
-          <span class="text-cyan-400">Level {level} → {level + 1}</span>
+          <span class="font-mono text-cetus-accent">
+            Level {level} → {level + 1}
+          </span>
         </div>
         <div
-          class="w-full bg-gray-800/50 rounded-full h-4 overflow-hidden border border-gray-700/50"
+          class="w-full bg-cetus-surface rounded-full h-4 overflow-hidden border border-cetus-hairline"
         >
           <div
-            class="h-full bg-gradient-to-r from-cyan-500 to-purple-600 transition-all duration-500"
+            class="h-full bg-cetus-accent transition-all duration-500"
             style={`width: ${xpProgress.progress}%`}
           >
           </div>
         </div>
-        <div class="flex justify-between text-sm text-gray-400 mt-2">
-          <span>{xpProgress.currentLevelXP} XP</span>
-          <span>{xpProgress.nextLevelXP} XP</span>
+        <div class="flex justify-between text-sm text-cetus-ink-muted mt-2">
+          <span class="font-mono">{xpProgress.currentLevelXP} XP</span>
+          <span class="font-mono">{xpProgress.nextLevelXP} XP</span>
         </div>
       </Card>
 
       <!-- Today's Challenges -->
       <div class="mb-8">
         <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-orbitron font-bold text-cyan-400">
+          <h2 class="text-xl font-bold text-cetus-accent" style={frauncesStyle}>
             Today's Missions
           </h2>
-          <span id="reset-timer" class="text-gray-400" data-reset-in={resetIn}>
+          <span
+            id="reset-timer"
+            class="text-cetus-ink-muted"
+            data-reset-in={resetIn}
+          >
             Resets in --:--:--
           </span>
         </div>
@@ -134,7 +145,7 @@ const completedCount = challenges.filter(c => c.completed).length
               return (
                 <Card
                   variant={challenge.completed ? 'glass' : 'sci-fi'}
-                  class={`p-6 ${challenge.completed ? 'border-green-500/30 bg-green-500/5' : ''}`}
+                  class={`p-6 ${challenge.completed ? 'border-cetus-accent/30 bg-cetus-accent/5' : ''}`}
                 >
                   <div class="flex items-center gap-6">
                     <span class="text-4xl">{challenge.icon}</span>
@@ -152,23 +163,25 @@ const completedCount = challenges.filter(c => c.completed).length
                             : challenge.difficulty.toUpperCase()}
                         </Badge>
                       </div>
-                      <p class="text-gray-400 mb-3">{challenge.description}</p>
+                      <p class="text-cetus-ink-muted mb-3">
+                        {challenge.description}
+                      </p>
 
                       <div class="flex items-center gap-4">
-                        <div class="flex-1 bg-gray-700/50 rounded-full h-2 overflow-hidden">
+                        <div class="flex-1 bg-cetus-surface rounded-full h-2 overflow-hidden">
                           <div
-                            class={`h-full transition-all duration-300 ${challenge.completed ? 'bg-green-500' : 'bg-cyan-500'}`}
+                            class={`h-full transition-all duration-300 ${challenge.completed ? 'bg-cetus-accent' : 'bg-cetus-accent'}`}
                             style={`width: ${progress}%`}
                           />
                         </div>
-                        <span class="text-sm text-gray-400 min-w-[60px] text-right">
+                        <span class="text-sm font-mono text-cetus-ink-muted min-w-[60px] text-right">
                           {challenge.currentValue}/{challenge.targetValue}
                         </span>
                       </div>
                     </div>
                     <div class="text-right">
                       <div
-                        class={`text-xl font-bold ${challenge.completed ? 'text-green-400' : 'text-cyan-400'}`}
+                        class={`text-xl font-bold font-mono ${challenge.completed ? 'text-cetus-accent' : 'text-cetus-accent'}`}
                       >
                         +{challenge.xpReward} XP
                       </div>
@@ -184,7 +197,7 @@ const completedCount = challenges.filter(c => c.completed).length
       <!-- Back to Dashboard -->
       <div class="text-center">
         <Button variant="outline">
-          <a href="/dashboard" class="text-cyan-400 no-underline">
+          <a href="/dashboard" class="text-cetus-accent no-underline">
             ← Back to Dashboard
           </a>
         </Button>
