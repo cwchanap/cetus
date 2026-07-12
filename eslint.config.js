@@ -15,6 +15,7 @@ export default tseslint.config(
       'node_modules/',
       '.astro/',
       '.vercel/',
+      '.worktrees/',
       'coverage/',
       'db/',
       'public/',

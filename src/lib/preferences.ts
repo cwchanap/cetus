@@ -67,23 +67,6 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationSettings = {
 export const PREFERENCES_STORAGE_KEY = 'cetus_preferences'
 
 /**
- * Resolve the effective theme, handling auto mode with system preference.
- */
-export function resolveTheme(
-    theme: DisplaySettings['theme']
-): 'dark' | 'light' {
-    if (theme === 'auto') {
-        if (typeof window === 'undefined') {
-            return 'dark'
-        }
-        return window.matchMedia('(prefers-color-scheme: dark)').matches
-            ? 'dark'
-            : 'light'
-    }
-    return theme
-}
-
-/**
  * Get client preferences from localStorage
  */
 export function getClientPreferences(): ClientPreferences {
