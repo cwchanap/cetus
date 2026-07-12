@@ -11,6 +11,7 @@ import Button from '@/components/ui/Button.astro'
   description="Fill the grid so each row, column, and 3x3 box contains digits 1-9"
   icon="🔢"
   overlayButtonId="restart-btn"
+  showTime={false}
 >
   <!-- Board: sudoku grid -->
   <div slot="game-board">
@@ -98,13 +99,10 @@ import Button from '@/components/ui/Button.astro'
     </Card>
   </div>
 
-  <!-- Custom overlay stats -->
+  <!-- Custom overlay stats (Final Score is rendered by GameOverlay itself) -->
   <div slot="final-stats">
     <div class="text-lg text-cetus-ink">
       Time Played: <span id="final-time" class="text-cetus-accent">00:00</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Final Score: <span id="final-score" class="text-cetus-accent">0</span>
     </div>
     <div class="text-lg text-cetus-ink">
       Difficulty: <span id="final-difficulty" class="text-cetus-accent-3"

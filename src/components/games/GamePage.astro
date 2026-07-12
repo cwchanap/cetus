@@ -17,6 +17,8 @@ interface Props {
   overlayTitle?: string
   overlayButtonText?: string
   overlayButtonId?: string
+  showScore?: boolean
+  showTime?: boolean
   class?: string
 }
 
@@ -33,6 +35,8 @@ const {
   overlayTitle = 'Game Over',
   overlayButtonText = 'Play Again',
   overlayButtonId,
+  showScore = true,
+  showTime = true,
   class: className,
 } = Astro.props
 ---
@@ -61,7 +65,7 @@ const {
         <!-- Game Sidebar -->
         <div class="flex flex-col space-y-6">
           <!-- Game Stats -->
-          <GameStats gameId={gameId}>
+          <GameStats gameId={gameId} showScore={showScore} showTime={showTime}>
             <slot name="additional-stats" />
           </GameStats>
 
@@ -88,6 +92,7 @@ const {
       defaultTitle={overlayTitle}
       buttonText={overlayButtonText}
       buttonId={overlayButtonId}
+      showScore={showScore}
     >
       <slot name="final-stats" />
     </GameOverlay>
