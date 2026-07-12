@@ -16,6 +16,7 @@ interface Props {
   includeFooter?: boolean
   overlayTitle?: string
   overlayButtonText?: string
+  overlayButtonId?: string
   class?: string
 }
 
@@ -31,6 +32,7 @@ const {
   includeFooter = false,
   overlayTitle = 'Game Over',
   overlayButtonText = 'Play Again',
+  overlayButtonId,
   class: className,
 } = Astro.props
 ---
@@ -82,7 +84,11 @@ const {
     </div>
 
     <!-- Game Over Overlay -->
-    <GameOverlay defaultTitle={overlayTitle} buttonText={overlayButtonText}>
+    <GameOverlay
+      defaultTitle={overlayTitle}
+      buttonText={overlayButtonText}
+      buttonId={overlayButtonId}
+    >
       <slot name="final-stats" />
     </GameOverlay>
   </div>
