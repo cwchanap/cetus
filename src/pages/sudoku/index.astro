@@ -128,7 +128,11 @@ import Button from '@/components/ui/Button.astro'
       }
 
       // Expose game instance for debugging
-      ;(window as any).sudokuGame = gameInstance
+      ;(
+        window as Window & {
+          sudokuGame?: typeof gameInstance
+        }
+      ).sudokuGame = gameInstance
     } catch (error) {
       console.error('Failed to initialize Sudoku game:', error)
     }

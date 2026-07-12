@@ -5,6 +5,7 @@ import GameTitle from './GameTitle.astro'
 import GameControls from './GameControls.astro'
 import GameStats from './GameStats.astro'
 import GameOverlay from '@/components/GameOverlay.astro'
+import { cn } from '@/lib/utils'
 
 interface Props {
   gameId: string
@@ -43,7 +44,7 @@ const {
   <!-- Game Breadcrumb -->
   <GameBreadcrumb icon={icon} title={title} />
 
-  <div class={`px-6 py-8 ${className || ''}`}>
+  <div class={cn('px-6 py-8', className)}>
     <div class="max-w-6xl mx-auto">
       <!-- Game Title -->
       <GameTitle title={title} description={description} />

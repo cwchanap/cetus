@@ -183,8 +183,24 @@ import Button from '@/components/ui/Button.astro'
       window.addEventListener('beforeunload', () => {
         cleanup()
       })
-    } catch (_error) {
-      // Failed to initialize game - could show error UI
+    } catch (error) {
+      console.error('Failed to initialize Quick Math game:', error)
+      const questionEl = document.getElementById('question')
+      if (questionEl) {
+        questionEl.textContent = 'Failed to load game'
+      }
+      const inputEl = document.getElementById(
+        'answer-input'
+      ) as HTMLInputElement | null
+      if (inputEl) {
+        inputEl.placeholder = 'Game unavailable'
+      }
+      const submitBtn = document.getElementById(
+        'submit-answer'
+      ) as HTMLButtonElement | null
+      if (submitBtn) {
+        submitBtn.disabled = true
+      }
     }
   })
 </script>

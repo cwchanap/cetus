@@ -22,21 +22,22 @@ const {
   ...props
 } = Astro.props
 
+const destructiveStyle =
+  'bg-cetus-accent-3/10 text-cetus-accent-3 border border-cetus-accent-3/30'
+
 const badgeVariants = {
   variant: {
     default:
       'border-transparent bg-primary text-primary-foreground hover:bg-primary/80',
     secondary:
       'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
-    destructive:
-      'bg-cetus-accent-3/10 text-cetus-accent-3 border border-cetus-accent-3/30',
+    destructive: destructiveStyle,
     outline: 'text-foreground border border-cetus-hairline',
     success:
       'bg-cetus-accent/10 text-cetus-accent border border-cetus-accent/30',
     warning:
       'bg-cetus-accent-2/10 text-cetus-accent-2 border border-cetus-accent-2/30',
-    error:
-      'bg-cetus-accent-3/10 text-cetus-accent-3 border border-cetus-accent-3/30',
+    error: destructiveStyle,
   },
   size: {
     default: 'px-3 py-1 text-xs',
