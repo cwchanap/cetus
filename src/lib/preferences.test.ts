@@ -9,7 +9,6 @@ import {
     updateDisplayPreference,
     getEffectiveVolume,
     prefersReducedMotion,
-    resolveTheme,
     onPreferencesChanged,
     type ClientPreferences,
 } from './preferences'
@@ -393,30 +392,6 @@ describe('prefersReducedMotion', () => {
     })
 })
 
-describe('resolveTheme', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-    })
-
-    it('should return explicit dark theme without checking system', () => {
-        expect(resolveTheme('dark')).toBe('dark')
-        expect(windowMock.matchMedia).not.toHaveBeenCalled()
-    })
-
-    it('should return explicit light theme without checking system', () => {
-        expect(resolveTheme('light')).toBe('light')
-        expect(windowMock.matchMedia).not.toHaveBeenCalled()
-    })
-
-    it('should resolve auto theme based on system preference', () => {
-        windowMock.matchMedia.mockReturnValueOnce({ matches: true })
-        expect(resolveTheme('auto')).toBe('dark')
-
-        windowMock.matchMedia.mockReturnValueOnce({ matches: false })
-        expect(resolveTheme('auto')).toBe('light')
-    })
-})
-
 describe('onPreferencesChanged', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -477,11 +452,6 @@ describe('SSR window === undefined branches', () => {
         expect(() =>
             saveClientPreferences(DEFAULT_CLIENT_PREFERENCES)
         ).not.toThrow()
-    })
-
-    it('resolveTheme returns dark when theme is auto and window is undefined', () => {
-        vi.stubGlobal('window', undefined)
-        expect(resolveTheme('auto')).toBe('dark')
     })
 })
 

@@ -3,7 +3,6 @@ import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
-import AchievementAward from '@/components/AchievementAward.astro'
 ---
 
 <GamePage
@@ -135,11 +134,6 @@ import AchievementAward from '@/components/AchievementAward.astro'
     <div class="text-lg text-cetus-ink">
       Rotations: <span id="final-rotations" class="text-cetus-accent-3">0</span>
     </div>
-  </div>
-
-  <!-- Achievement notifications -->
-  <div slot="bottom-info">
-    <AchievementAward />
   </div>
 </GamePage>
 
