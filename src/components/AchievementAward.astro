@@ -391,7 +391,7 @@ const classes = cn(
      * Get particle color for rarity (resolved from cetus rarity tokens)
      */
     private getParticleColor(rarity: string): string {
-      const styles = getComputedStyle(document.documentElement)
+      const styles = getComputedStyle(document.body)
       const tokenMap: Record<string, string> = {
         legendary: '--cetus-accent-2',
         epic: '--cetus-accent-3',

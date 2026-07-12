@@ -237,6 +237,12 @@ const { status } = Astro.props
     border-color: color-mix(in srgb, var(--cetus-accent-2) 60%, transparent);
     animation: cetus-reward-pulse 1.5s ease-in-out infinite;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-reward-day].current {
+      animation: none;
+    }
+  }
 </style>
 
 <script define:vars={{ initialStatus: status }}>
