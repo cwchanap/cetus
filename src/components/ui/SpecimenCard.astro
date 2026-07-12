@@ -2,6 +2,7 @@
 import { getGameUrl, type Game } from '@/lib/games'
 import { DEPTH_LABELS } from '@/lib/organisms'
 import Organism from '@/components/organisms/Organism.astro'
+import { cn } from '@/lib/utils'
 import type { HTMLAttributes } from 'astro/types'
 
 export interface Props extends HTMLAttributes<'a'> {
@@ -23,11 +24,11 @@ const difficultyFill =
   href={available ? getGameUrl(game.id) : undefined}
   aria-disabled={available ? undefined : 'true'}
   data-testid="specimen-card"
-  class:list={[
+  class={cn(
     'cetus-specimen vessel hud-bracket-host group relative block rounded-2xl p-5 text-center',
     !available && 'opacity-50 pointer-events-none',
-    className,
-  ]}
+    className
+  )}
   {...props}
 >
   <span class="hud-bracket hud-bracket--tl" aria-hidden="true"></span>
@@ -63,11 +64,11 @@ const difficultyFill =
           role="img"
           aria-label={`difficulty ${game.difficulty}`}
         >
-          <span class:list={[{ on: difficultyFill >= 1 }]} />
-          <span class:list={[{ on: difficultyFill >= 2 }]} />
-          <span class:list={[{ on: difficultyFill >= 3 }]} />
-          <span class:list={[{ on: difficultyFill >= 4 }]} />
-          <span class:list={[{ on: difficultyFill >= 5 }]} />
+          <span class={cn({ on: difficultyFill >= 1 })} />
+          <span class={cn({ on: difficultyFill >= 2 })} />
+          <span class={cn({ on: difficultyFill >= 3 })} />
+          <span class={cn({ on: difficultyFill >= 4 })} />
+          <span class={cn({ on: difficultyFill >= 5 })} />
           <span class="power-bar__label">DIFF·{difficultyFill}</span>
         </div>
       ) : (

@@ -37,6 +37,20 @@ import AchievementAward from '@/components/AchievementAward.astro'
           </div>
         </div>
       </div>
+
+      <!-- Pre-rendered error state (safe textContent updates) -->
+      <div
+        id="game-error"
+        class="hidden absolute inset-0 items-center justify-center bg-black/70 rounded-lg"
+      >
+        <div class="text-center">
+          <div class="text-cetus-accent-3 text-xl mb-2">
+            Failed to Load Game
+          </div>
+          <div id="game-error-message" class="text-cetus-ink-muted text-sm">
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -64,11 +78,11 @@ import AchievementAward from '@/components/AchievementAward.astro'
       <div class="flex justify-center space-x-6 text-sm">
         <div class="text-center">
           <div class="text-cetus-ink-muted">Coins</div>
-          <div id="coins-collected" class="text-green-400 font-bold">0</div>
+          <div id="coins-collected" class="text-cetus-accent font-bold">0</div>
         </div>
         <div class="text-center">
           <div class="text-cetus-ink-muted">Bombs Hit</div>
-          <div id="bombs-hit" class="text-red-400 font-bold">0</div>
+          <div id="bombs-hit" class="text-cetus-accent-3 font-bold">0</div>
         </div>
         <div class="text-center">
           <div class="text-cetus-ink-muted">Accuracy</div>
@@ -84,15 +98,15 @@ import AchievementAward from '@/components/AchievementAward.astro'
       </h3>
       <div class="space-y-3 text-sm text-cetus-ink">
         <div class="flex items-center space-x-2">
-          <span class="text-green-400">✓</span>
+          <span class="text-cetus-accent">✓</span>
           <span>Click gold coins to earn +10 points</span>
         </div>
         <div class="flex items-center space-x-2">
-          <span class="text-red-400">✗</span>
+          <span class="text-cetus-accent-3">✗</span>
           <span>Avoid red bombs (-15 points)</span>
         </div>
         <div class="flex items-center space-x-2">
-          <span class="text-yellow-400">⚠</span>
+          <span class="text-cetus-accent-2">⚠</span>
           <span>Missed coins cost -5 points</span>
         </div>
         <div class="flex items-center space-x-2">
@@ -100,7 +114,7 @@ import AchievementAward from '@/components/AchievementAward.astro'
           <span>Objects appear for 2 seconds</span>
         </div>
         <div class="flex items-center space-x-2">
-          <span class="text-purple-400">📊</span>
+          <span class="text-cetus-accent-3">📊</span>
           <span>2:1 coin to bomb ratio</span>
         </div>
       </div>
@@ -113,15 +127,15 @@ import AchievementAward from '@/components/AchievementAward.astro'
       </h3>
       <div class="space-y-3 text-sm text-cetus-ink">
         <div class="flex justify-between items-center">
-          <span class="text-green-400">Collect Coin:</span>
+          <span class="text-cetus-accent">Collect Coin:</span>
           <span class="font-bold">+10 pts</span>
         </div>
         <div class="flex justify-between items-center">
-          <span class="text-red-400">Hit Bomb:</span>
+          <span class="text-cetus-accent-3">Hit Bomb:</span>
           <span class="font-bold">-15 pts</span>
         </div>
         <div class="flex justify-between items-center">
-          <span class="text-yellow-400">Miss Coin:</span>
+          <span class="text-cetus-accent-2">Miss Coin:</span>
           <span class="font-bold">-5 pts</span>
         </div>
         <div class="border-t border-cetus-hairline pt-3 mt-3">
@@ -160,16 +174,18 @@ import AchievementAward from '@/components/AchievementAward.astro'
   <!-- Custom overlay stats -->
   <div slot="final-stats">
     <div class="text-lg text-cetus-ink">
-      Coins Collected: <span id="final-coins" class="text-green-400">0</span>
+      Coins Collected: <span id="final-coins" class="text-cetus-accent">0</span>
     </div>
     <div class="text-lg text-cetus-ink">
-      Bombs Hit: <span id="final-bombs" class="text-red-400">0</span>
+      Bombs Hit: <span id="final-bombs" class="text-cetus-accent-3">0</span>
     </div>
     <div class="text-lg text-cetus-ink">
       Accuracy: <span id="final-accuracy" class="text-cetus-accent">0%</span>
     </div>
     <div class="text-lg text-cetus-ink">
-      Avg Reaction: <span id="avg-reaction" class="text-purple-400">0ms</span>
+      Avg Reaction: <span id="avg-reaction" class="text-cetus-accent-3"
+        >0ms</span
+      >
     </div>
   </div>
 
@@ -187,8 +203,6 @@ import AchievementAward from '@/components/AchievementAward.astro'
 
   // Initialize game when page loads
   document.addEventListener('DOMContentLoaded', async () => {
-    const gameStatusElement = document.getElementById('game-status')!
-
     try {
       gameInstance = await initReflexGameFramework()
 
@@ -197,13 +211,14 @@ import AchievementAward from '@/components/AchievementAward.astro'
       }
     } catch (error) {
       console.error('Failed to initialize Reflex game:', error)
-      gameStatusElement.style.display = 'flex'
-      gameStatusElement.innerHTML = `
-            <div class="text-center">
-              <div class="text-red-400 text-xl mb-2">Failed to Load Game</div>
-              <div class="text-cetus-ink-muted text-sm">${error}</div>
-            </div>
-          `
+      const errorContainer = document.getElementById('game-error')
+      const errorMessage = document.getElementById('game-error-message')
+      if (errorMessage) {
+        errorMessage.textContent = String(error)
+      }
+      if (errorContainer) {
+        errorContainer.style.display = 'flex'
+      }
     }
   })
 

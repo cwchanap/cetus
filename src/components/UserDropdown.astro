@@ -9,6 +9,9 @@ interface Props {
 
 const { user } = Astro.props
 const userName = user.name || user.email?.split('@')[0] || 'User'
+
+const menuItemClass =
+  'block px-4 py-2 text-sm text-cetus-ink hover:bg-cetus-accent/10 hover:text-cetus-accent transition-colors duration-200'
 ---
 
 <div class="relative z-[10000]" id="user-dropdown">
@@ -52,40 +55,28 @@ const userName = user.name || user.email?.split('@')[0] || 'User'
 
       <!-- Menu items -->
       <div class="py-1">
-        <a
-          href="/profile"
-          class="block px-4 py-2 text-sm text-cetus-ink hover:bg-cetus-accent/10 hover:text-cetus-accent transition-colors duration-200"
-        >
+        <a href="/profile" class={menuItemClass}>
           <span class="flex items-center">
             <span class="mr-3">⚙️</span>
             Profile Settings
           </span>
         </a>
 
-        <a
-          href="/dashboard"
-          class="block px-4 py-2 text-sm text-cetus-ink hover:bg-cetus-accent/10 hover:text-cetus-accent transition-colors duration-200"
-        >
+        <a href="/dashboard" class={menuItemClass}>
           <span class="flex items-center">
             <span class="mr-3">📊</span>
             Dashboard
           </span>
         </a>
 
-        <a
-          href="/achievements"
-          class="block px-4 py-2 text-sm text-cetus-ink hover:bg-cetus-accent/10 hover:text-cetus-accent transition-colors duration-200"
-        >
+        <a href="/achievements" class={menuItemClass}>
           <span class="flex items-center">
             <span class="mr-3">🏆</span>
             Achievements
           </span>
         </a>
 
-        <a
-          href="/settings"
-          class="block px-4 py-2 text-sm text-cetus-ink hover:bg-cetus-accent/10 hover:text-cetus-accent transition-colors duration-200"
-        >
+        <a href="/settings" class={menuItemClass}>
           <span class="flex items-center">
             <span class="mr-3">🎛️</span>
             Settings

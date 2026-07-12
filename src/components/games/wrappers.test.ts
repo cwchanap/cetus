@@ -3,7 +3,6 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import _GamePage from './GamePage.astro'
 import GameTitle from './GameTitle.astro'
 import GameBreadcrumb from './GameBreadcrumb.astro'
 import GameOverlay from '@/components/GameOverlay.astro'
@@ -52,6 +51,8 @@ describe('Game wrapper restyle', () => {
         const html = await container.renderToString(GameOverlay, {
             slots: { default: 'Score: 100' },
         })
+        expect(html).toMatch(/cetus-wordmark/)
+        expect(html).toMatch(/font-mono/)
         expect(html).not.toMatch(/font-orbitron/)
         expect(html).not.toMatch(/text-cyan-400/)
     })

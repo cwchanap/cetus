@@ -18,6 +18,28 @@ function extractBlock(source: string, selector: string): string {
     return match ? match[1] : ''
 }
 
+/** Extract the body of a CSS block using balanced-brace matching,
+ *  starting from the first '{' at or after startIndex. Correctly
+ *  handles nested braces (e.g. @media blocks containing selector blocks). */
+function extractBalancedBlock(source: string, startIndex: number): string {
+    const braceStart = source.indexOf('{', startIndex)
+    if (braceStart === -1) {
+        return ''
+    }
+    let depth = 0
+    for (let i = braceStart; i < source.length; i++) {
+        if (source[i] === '{') {
+            depth++
+        } else if (source[i] === '}') {
+            depth--
+            if (depth === 0) {
+                return source.slice(braceStart + 1, i)
+            }
+        }
+    }
+    return ''
+}
+
 /** Extract a token value from a CSS block. */
 function tokenValue(block: string, token: string): string | null {
     const re = new RegExp(`--${token}:\\s*([^;]+);`)
@@ -105,9 +127,7 @@ describe('abyssal theme tokens (behavioral)', () => {
 
     it('covers new HUD animations in the reduced-motion media query', () => {
         const mqIndex = css.indexOf('@media (prefers-reduced-motion: reduce)')
-        const afterMq = css.slice(mqIndex)
-        const blockMatch = afterMq.match(/\{([\s\S]*)\}/)
-        const block = blockMatch ? blockMatch[1] : ''
+        const block = extractBalancedBlock(css, mqIndex)
         // New animated selectors must appear inside the reduced-motion block.
         expect(block).toMatch(/cetus-grid-horizon/)
         expect(block).toMatch(/cetus-cursor/)

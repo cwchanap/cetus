@@ -35,7 +35,10 @@ const classes = cn(
 <template id="achievement-card-template">
   <div
     data-card
-    class="achievement-card relative bg-cetus-surface rounded-2xl border border-cetus-hairline p-8 text-center shadow-2xl transform transition-all duration-300 hover:scale-105 cursor-pointer w-96 min-h-[480px] flex flex-col"
+    tabindex="0"
+    role="button"
+    aria-label="Dismiss achievement"
+    class="achievement-card relative bg-cetus-surface rounded-2xl border border-cetus-hairline p-8 text-center shadow-2xl transform transition-all duration-300 hover:scale-105 cursor-pointer w-96 min-h-[480px] flex flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent"
     style="
       --rarity-border: var(--rarity-color);
       --rarity-shadow: var(--rarity-shadow-color);
@@ -371,6 +374,14 @@ const classes = cn(
       // Add click handler
       card.addEventListener('click', () => {
         this.dismissCurrent()
+      })
+
+      // Add keyboard handler (Enter/Space trigger same dismissal as click)
+      card.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          this.dismissCurrent()
+        }
       })
 
       return card

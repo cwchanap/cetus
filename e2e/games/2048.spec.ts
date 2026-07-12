@@ -32,7 +32,7 @@ test.describe('2048', () => {
         await expect(page.locator('#game-over-overlay')).not.toHaveClass(
             /hidden/
         )
-        await expect(page.locator('#final-score')).toBeVisible()
+        await expect(page.locator('#custom-final-score')).toBeVisible()
         await expect(page.locator('#restart-btn')).toBeVisible()
 
         // Restart from overlay returns to initial state

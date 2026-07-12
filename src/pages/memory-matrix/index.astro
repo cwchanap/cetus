@@ -151,7 +151,11 @@ import Badge from '@/components/ui/Badge.astro'
       }
 
       // Expose game instance for debugging
-      ;(window as any).memoryMatrixGame = gameInstance
+      ;(
+        window as Window & {
+          memoryMatrixGame?: typeof gameInstance
+        }
+      ).memoryMatrixGame = gameInstance
     } catch (error) {
       console.error('Failed to initialize Memory Matrix game:', error)
     }
