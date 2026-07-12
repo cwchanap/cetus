@@ -133,7 +133,16 @@ import Badge from '@/components/ui/Badge.astro'
   // handled inside the framework initializer.
   document.addEventListener('DOMContentLoaded', async () => {
     try {
-      await initTetrisGameFramework()
+      const gameResult = await initTetrisGameFramework()
+
+      if (!gameResult) {
+        console.error('Failed to initialize Tetris game')
+        return
+      }
+
+      // Expose game instance for debugging
+      ;(window as Window & { tetrisGame?: typeof gameResult }).tetrisGame =
+        gameResult
     } catch (error) {
       console.error('Failed to initialize Tetris game:', error)
     }
