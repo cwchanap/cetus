@@ -159,7 +159,7 @@ import Badge from '@/components/ui/Badge.astro'
 
   let cleanup: (() => void) | undefined
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  const init = async () => {
     try {
       const instance = await initPathNavigatorGameFramework()
       if (instance) {
@@ -168,7 +168,16 @@ import Badge from '@/components/ui/Badge.astro'
     } catch (error) {
       console.error('Failed to initialize Path Navigator game:', error)
     }
-  })
+  }
+
+  if (
+    document.readyState === 'interactive' ||
+    document.readyState === 'complete'
+  ) {
+    void init()
+  } else {
+    document.addEventListener('DOMContentLoaded', () => void init())
+  }
 
   // Clean up on page unload
   window.addEventListener('beforeunload', () => {
