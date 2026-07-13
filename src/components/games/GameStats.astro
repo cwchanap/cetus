@@ -6,6 +6,7 @@ interface Props {
   gameId: string
   showScore?: boolean
   showTime?: boolean
+  initialTime?: number
   class?: string
 }
 
@@ -13,6 +14,7 @@ const {
   gameId: _gameId,
   showScore = true,
   showTime = true,
+  initialTime = 60,
   class: className,
 } = Astro.props
 ---
@@ -39,7 +41,7 @@ const {
             <span class="font-mono">
               Time:{' '}
               <span id="time-remaining" class="font-mono text-cetus-accent">
-                60
+                {initialTime}
               </span>
               s
             </span>

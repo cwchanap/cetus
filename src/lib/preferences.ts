@@ -19,7 +19,6 @@ export interface SoundSettings {
  */
 export interface DisplaySettings {
     reducedMotion: boolean
-    theme: 'dark' | 'light' | 'auto'
 }
 
 /**
@@ -51,7 +50,6 @@ export const DEFAULT_CLIENT_PREFERENCES: ClientPreferences = {
     },
     display: {
         reducedMotion: false,
-        theme: 'dark',
     },
 }
 
@@ -126,12 +124,6 @@ export function getClientPreferences(): ClientPreferences {
                 : DEFAULT_CLIENT_PREFERENCES.display.reducedMotion
         }
 
-        const displayTheme = (val: unknown): 'dark' | 'light' | 'auto' => {
-            return val === 'dark' || val === 'light' || val === 'auto'
-                ? val
-                : DEFAULT_CLIENT_PREFERENCES.display.theme
-        }
-
         // Build sanitized preferences with validation
         return {
             sound: {
@@ -151,7 +143,6 @@ export function getClientPreferences(): ClientPreferences {
             },
             display: {
                 reducedMotion: displayBool(displayData.reducedMotion),
-                theme: displayTheme(displayData.theme),
             },
         }
     } catch (error) {

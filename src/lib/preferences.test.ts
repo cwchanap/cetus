@@ -52,7 +52,6 @@ describe('Default Preferences', () => {
         expect(DEFAULT_CLIENT_PREFERENCES.sound.musicVolume).toBe(60)
         expect(DEFAULT_CLIENT_PREFERENCES.sound.soundEnabled).toBe(true)
         expect(DEFAULT_CLIENT_PREFERENCES.display.reducedMotion).toBe(false)
-        expect(DEFAULT_CLIENT_PREFERENCES.display.theme).toBe('dark')
     })
 
     it('should have valid default notification preferences', () => {
@@ -104,7 +103,6 @@ describe('getClientPreferences', () => {
             },
             display: {
                 reducedMotion: true,
-                theme: 'dark',
             },
         }
         localStorageMock.setItem(
@@ -149,7 +147,7 @@ describe('getClientPreferences', () => {
         // Exercises the `parsed.sound || {}` fallback branch (line 122)
         localStorageMock.setItem(
             PREFERENCES_STORAGE_KEY,
-            JSON.stringify({ display: { reducedMotion: true, theme: 'dark' } })
+            JSON.stringify({ display: { reducedMotion: true } })
         )
 
         const prefs = getClientPreferences()
@@ -168,8 +166,8 @@ describe('getClientPreferences', () => {
 
         const prefs = getClientPreferences()
         expect(prefs.sound.masterVolume).toBe(55)
-        expect(prefs.display.theme).toBe(
-            DEFAULT_CLIENT_PREFERENCES.display.theme
+        expect(prefs.display.reducedMotion).toBe(
+            DEFAULT_CLIENT_PREFERENCES.display.reducedMotion
         )
     })
 })
@@ -190,7 +188,6 @@ describe('saveClientPreferences', () => {
             },
             display: {
                 reducedMotion: false,
-                theme: 'dark',
             },
         }
 
@@ -250,15 +247,6 @@ describe('updateDisplayPreference', () => {
         ) as ClientPreferences
         expect(saved.display.reducedMotion).toBe(true)
     })
-
-    it('should update theme', () => {
-        updateDisplayPreference('theme', 'light')
-
-        const saved = JSON.parse(
-            localStorageMock.setItem.mock.calls[0][1]
-        ) as ClientPreferences
-        expect(saved.display.theme).toBe('light')
-    })
 })
 
 describe('getEffectiveVolume', () => {
@@ -275,7 +263,7 @@ describe('getEffectiveVolume', () => {
                 musicVolume: 60,
                 soundEnabled: true,
             },
-            display: { reducedMotion: false, theme: 'dark' },
+            display: { reducedMotion: false },
         }
 
         // 0.5 * 0.8 = 0.4
@@ -290,7 +278,7 @@ describe('getEffectiveVolume', () => {
                 musicVolume: 50, // 0.5
                 soundEnabled: true,
             },
-            display: { reducedMotion: false, theme: 'dark' },
+            display: { reducedMotion: false },
         }
 
         // 1.0 * 0.5 = 0.5
@@ -305,7 +293,7 @@ describe('getEffectiveVolume', () => {
                 musicVolume: 100,
                 soundEnabled: false,
             },
-            display: { reducedMotion: false, theme: 'dark' },
+            display: { reducedMotion: false },
         }
 
         expect(getEffectiveVolume('sfx', prefs)).toBe(0)
@@ -320,7 +308,7 @@ describe('getEffectiveVolume', () => {
                 musicVolume: 100,
                 soundEnabled: true,
             },
-            display: { reducedMotion: false, theme: 'dark' },
+            display: { reducedMotion: false },
         }
 
         expect(getEffectiveVolume('sfx', prefs)).toBe(0)
@@ -336,7 +324,7 @@ describe('getEffectiveVolume', () => {
                 musicVolume: 60,
                 soundEnabled: true,
             },
-            display: { reducedMotion: false, theme: 'dark' },
+            display: { reducedMotion: false },
         }
         localStorageMock.setItem(
             PREFERENCES_STORAGE_KEY,
@@ -359,7 +347,7 @@ describe('prefersReducedMotion', () => {
     it('should return true when user preference is set', () => {
         const prefs: ClientPreferences = {
             sound: DEFAULT_CLIENT_PREFERENCES.sound,
-            display: { reducedMotion: true, theme: 'dark' },
+            display: { reducedMotion: true },
         }
         localStorageMock.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs))
 
@@ -369,7 +357,7 @@ describe('prefersReducedMotion', () => {
     it('should check system preference when user preference is false', () => {
         const prefs: ClientPreferences = {
             sound: DEFAULT_CLIENT_PREFERENCES.sound,
-            display: { reducedMotion: false, theme: 'dark' },
+            display: { reducedMotion: false },
         }
         localStorageMock.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs))
 
@@ -382,7 +370,7 @@ describe('prefersReducedMotion', () => {
     it('should return false when neither user nor system prefers reduced motion', () => {
         const prefs: ClientPreferences = {
             sound: DEFAULT_CLIENT_PREFERENCES.sound,
-            display: { reducedMotion: false, theme: 'dark' },
+            display: { reducedMotion: false },
         }
         localStorageMock.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs))
 
@@ -476,7 +464,10 @@ describe('saveClientPreferences error handling', () => {
 describe('getClientPreferences - edge cases', () => {
     it('should return defaults when stored data has array as sound section', () => {
         localStorageMock.getItem.mockReturnValueOnce(
-            JSON.stringify({ sound: [1, 2, 3], display: { theme: 'dark' } })
+            JSON.stringify({
+                sound: [1, 2, 3],
+                display: { reducedMotion: true },
+            })
         )
         const prefs = getClientPreferences()
         expect(prefs).toEqual(DEFAULT_CLIENT_PREFERENCES)
@@ -499,7 +490,7 @@ describe('getClientPreferences - edge cases', () => {
                     musicVolume: 'loud',
                     soundEnabled: 'yes',
                 },
-                display: { reducedMotion: 'yes', theme: 'ultraviolet' },
+                display: { reducedMotion: 'yes' },
             })
         )
         const prefs = getClientPreferences()
@@ -517,9 +508,6 @@ describe('getClientPreferences - edge cases', () => {
         )
         expect(prefs.display.reducedMotion).toBe(
             DEFAULT_CLIENT_PREFERENCES.display.reducedMotion
-        )
-        expect(prefs.display.theme).toBe(
-            DEFAULT_CLIENT_PREFERENCES.display.theme
         )
     })
 })
