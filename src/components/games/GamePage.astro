@@ -1,4 +1,9 @@
 ---
+// NOTE: There is intentionally no `game-script` slot in this component.
+// Astro does not bundle/hoist <script> tags placed inside named slots —
+// the script is dropped during SSR slot rendering. Game init <script>s
+// must live at the page root (outside GamePage), not in a slot.
+// See commit 6c7f470 (L3b) for the bug this prevented.
 import AppLayout from '@/layouts/AppLayout.astro'
 import GameBreadcrumb from './GameBreadcrumb.astro'
 import GameTitle from './GameTitle.astro'
@@ -19,6 +24,7 @@ interface Props {
   overlayButtonId?: string
   showScore?: boolean
   showTime?: boolean
+  initialTime?: number
   class?: string
 }
 
@@ -37,6 +43,7 @@ const {
   overlayButtonId,
   showScore = true,
   showTime = true,
+  initialTime = 60,
   class: className,
 } = Astro.props
 ---
@@ -65,7 +72,12 @@ const {
         <!-- Game Sidebar -->
         <div class="flex flex-col space-y-6">
           <!-- Game Stats -->
-          <GameStats gameId={gameId} showScore={showScore} showTime={showTime}>
+          <GameStats
+            gameId={gameId}
+            showScore={showScore}
+            showTime={showTime}
+            initialTime={initialTime}
+          >
             <slot name="additional-stats" />
           </GameStats>
 
