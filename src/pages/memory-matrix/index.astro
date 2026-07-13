@@ -10,6 +10,7 @@ import Badge from '@/components/ui/Badge.astro'
   description="Test your memory by matching pairs of shapes in this grid-based puzzle game"
   icon="🧠"
   showScore={false}
+  showPause={false}
 >
   <!-- Board mount -->
   <div slot="game-board">
@@ -122,6 +123,9 @@ import Badge from '@/components/ui/Badge.astro'
 
   <!-- Custom overlay stats -->
   <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Final Score: <span id="final-score" class="text-cetus-accent">0</span>
+    </div>
     <div class="text-lg text-cetus-ink">
       Pairs Found: <span id="final-pairs" class="text-cetus-accent">0/24</span>
     </div>
