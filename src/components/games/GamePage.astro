@@ -24,6 +24,9 @@ interface Props {
   overlayButtonId?: string
   showScore?: boolean
   showTime?: boolean
+  showPause?: boolean
+  showReset?: boolean
+  showEnd?: boolean
   initialTime?: number
   class?: string
 }
@@ -43,6 +46,9 @@ const {
   overlayButtonId,
   showScore = true,
   showTime = true,
+  showPause = true,
+  showReset = true,
+  showEnd = true,
   initialTime = 60,
   class: className,
 } = Astro.props
@@ -86,7 +92,12 @@ const {
             Astro.slots.has('controls') ? (
               <slot name="controls" />
             ) : (
-              <GameControls gameId={gameId} />
+              <GameControls
+                gameId={gameId}
+                showPause={showPause}
+                showReset={showReset}
+                showEnd={showEnd}
+              />
             )
           }
 
