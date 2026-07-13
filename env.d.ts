@@ -22,9 +22,5 @@ interface ImportMeta {
 }
 
 interface Window {
-    memoryMatrixGame?: {
-        getGame: () => MemoryMatrixGame | null
-        getRenderer: () => MemoryMatrixRenderer | null
-        cleanup: () => void
-    }
+    memoryMatrixGame?: import('@/lib/games/memory-matrix/initFramework').MemoryMatrixInitResult
 }
