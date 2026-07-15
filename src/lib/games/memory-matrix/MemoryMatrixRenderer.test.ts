@@ -192,6 +192,84 @@ describe('MemoryMatrixRenderer', () => {
         })
     })
 
+    describe('keyboard accessibility', () => {
+        it('should make interactive cards focusable with role and aria-label', async () => {
+            const renderer = await createRenderer()
+            renderer.render(makeState({ board: [[makeCard()]] }))
+
+            const cardEl = boardEl.querySelector('div') as HTMLElement
+            expect(cardEl.getAttribute('tabindex')).toBe('0')
+            expect(cardEl.getAttribute('role')).toBe('button')
+            expect(cardEl.getAttribute('aria-label')).toContain('face down')
+            renderer.destroy()
+        })
+
+        it('should not make flipped cards focusable', async () => {
+            const renderer = await createRenderer()
+            renderer.render(
+                makeState({ board: [[makeCard({ isFlipped: true })]] })
+            )
+
+            const cardEl = boardEl.querySelector('div') as HTMLElement
+            expect(cardEl.getAttribute('tabindex')).toBeNull()
+            expect(cardEl.getAttribute('role')).toBeNull()
+            renderer.destroy()
+        })
+
+        it('should not make matched cards focusable', async () => {
+            const renderer = await createRenderer()
+            renderer.render(
+                makeState({ board: [[makeCard({ isMatched: true })]] })
+            )
+
+            const cardEl = boardEl.querySelector('div') as HTMLElement
+            expect(cardEl.getAttribute('tabindex')).toBeNull()
+            renderer.destroy()
+        })
+
+        it('should invoke callback on Enter key', async () => {
+            const renderer = await createRenderer()
+            const callback = vi.fn()
+            renderer.setCardClickCallback(callback)
+            renderer.render(makeState({ board: [[makeCard()]] }))
+
+            const cardEl = boardEl.querySelector('div') as HTMLElement
+            cardEl.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+            )
+            expect(callback).toHaveBeenCalled()
+            renderer.destroy()
+        })
+
+        it('should invoke callback on Space key', async () => {
+            const renderer = await createRenderer()
+            const callback = vi.fn()
+            renderer.setCardClickCallback(callback)
+            renderer.render(makeState({ board: [[makeCard()]] }))
+
+            const cardEl = boardEl.querySelector('div') as HTMLElement
+            cardEl.dispatchEvent(
+                new KeyboardEvent('keydown', { key: ' ', bubbles: true })
+            )
+            expect(callback).toHaveBeenCalled()
+            renderer.destroy()
+        })
+
+        it('should not invoke callback on other keys', async () => {
+            const renderer = await createRenderer()
+            const callback = vi.fn()
+            renderer.setCardClickCallback(callback)
+            renderer.render(makeState({ board: [[makeCard()]] }))
+
+            const cardEl = boardEl.querySelector('div') as HTMLElement
+            cardEl.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Tab', bubbles: true })
+            )
+            expect(callback).not.toHaveBeenCalled()
+            renderer.destroy()
+        })
+    })
+
     describe('card CSS classes', () => {
         it('should apply matched card classes (green)', async () => {
             const renderer = await createRenderer()

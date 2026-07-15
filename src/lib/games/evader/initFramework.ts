@@ -168,6 +168,9 @@ export async function initEvaderGameFramework(
     // Set up keyboard controls
     const cleanupKeyboard = setupKeyboardControls(game)
 
+    // Set up touch / pointer D-pad controls
+    const cleanupTouchControls = setupTouchControls(game)
+
     // Set up button handlers
     const cleanupButtonHandlers = setupButtonHandlers(game)
 
@@ -217,6 +220,7 @@ export async function initEvaderGameFramework(
         cleanup: () => {
             cleanupRenderLoop()
             cleanupKeyboard()
+            cleanupTouchControls()
             cleanupButtonHandlers()
             cleanupUnloadWarning()
             game.off('end', onGameEnd)
@@ -363,6 +367,58 @@ function setupKeyboardControls(game: EvaderGame): () => void {
     return () => {
         document.removeEventListener('keydown', handleKeyDown)
         document.removeEventListener('keyup', handleKeyUp)
+    }
+}
+
+function setupTouchControls(game: EvaderGame): () => void {
+    const dpad = document.getElementById('dpad')
+    if (!dpad) {
+        return () => {}
+    }
+
+    const buttons = Array.from(
+        dpad.querySelectorAll<HTMLButtonElement>('button[data-key]')
+    )
+
+    const cleanups: (() => void)[] = []
+
+    for (const button of buttons) {
+        const key = button.dataset.key
+        if (!key || !MOVEMENT_KEYS.has(key)) {
+            continue
+        }
+
+        const press = (e: PointerEvent) => {
+            e.preventDefault()
+            button.classList.add('active')
+            game.pressKey(key)
+        }
+
+        const release = (e: PointerEvent) => {
+            e.preventDefault()
+            button.classList.remove('active')
+            game.releaseKey(key)
+        }
+
+        // pointerdown starts movement; pointerup / pointerleave / pointercancel
+        // end it so the player stops if the finger slides off the button.
+        button.addEventListener('pointerdown', press)
+        button.addEventListener('pointerup', release)
+        button.addEventListener('pointerleave', release)
+        button.addEventListener('pointercancel', release)
+
+        cleanups.push(() => {
+            button.removeEventListener('pointerdown', press)
+            button.removeEventListener('pointerup', release)
+            button.removeEventListener('pointerleave', release)
+            button.removeEventListener('pointercancel', release)
+        })
+    }
+
+    return () => {
+        for (const cleanup of cleanups) {
+            cleanup()
+        }
     }
 }
 

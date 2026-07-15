@@ -471,15 +471,19 @@ function setupCanvasControls(
         return () => {}
     }
 
-    const mouseMoveHandler = (e: MouseEvent) => {
+    // Prevent the browser from intercepting touch gestures (scroll, zoom)
+    // so pointer events reach our aim/shoot handlers on touch devices.
+    canvas.style.touchAction = 'none'
+
+    const pointerMoveHandler = (e: PointerEvent) => {
         const state = game.getState()
         if (!state.isActive || state.isPaused || state.projectile) {
             return
         }
 
         const rect = canvas.getBoundingClientRect()
-        const mouseX = e.clientX - rect.left
-        const mouseY = e.clientY - rect.top
+        const pointerX = e.clientX - rect.left
+        const pointerY = e.clientY - rect.top
 
         const aimFromY = state.currentBubble
             ? state.currentBubble.y
@@ -488,20 +492,23 @@ function setupCanvasControls(
             ? state.currentBubble.x
             : state.shooter.x
 
-        const angle = Math.atan2(mouseY - aimFromY, mouseX - aimFromX)
+        const angle = Math.atan2(pointerY - aimFromY, pointerX - aimFromX)
         game.setAimAngle(angle)
     }
 
-    const clickHandler = () => {
+    const pointerDownHandler = (e: PointerEvent) => {
+        // Update aim on press so a tap shoots toward the touch point, not the
+        // last pointermove position (which may not have fired on touch).
+        pointerMoveHandler(e)
         game.shoot()
     }
 
-    canvas.addEventListener('mousemove', mouseMoveHandler)
-    canvas.addEventListener('click', clickHandler)
+    canvas.addEventListener('pointermove', pointerMoveHandler)
+    canvas.addEventListener('pointerdown', pointerDownHandler)
 
     return () => {
-        canvas.removeEventListener('mousemove', mouseMoveHandler)
-        canvas.removeEventListener('click', clickHandler)
+        canvas.removeEventListener('pointermove', pointerMoveHandler)
+        canvas.removeEventListener('pointerdown', pointerDownHandler)
     }
 }
 

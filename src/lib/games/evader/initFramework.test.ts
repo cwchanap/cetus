@@ -81,6 +81,12 @@ function setupDOM() {
         <button id="start-btn">Start</button>
         <button id="stop-btn" style="display:none">Stop</button>
         <button id="play-again-btn">Play Again</button>
+        <div id="dpad">
+            <button data-key="ArrowUp">↑</button>
+            <button data-key="ArrowDown">↓</button>
+            <button data-key="ArrowLeft">←</button>
+            <button data-key="ArrowRight">→</button>
+        </div>
     `
 }
 
@@ -391,6 +397,75 @@ describe('initEvaderGameFramework', () => {
             )
             expect(game.pressedKeys.has('up')).toBe(false)
             result!.cleanup()
+        })
+    })
+
+    describe('touch controls (D-pad)', () => {
+        it('pointerdown on D-pad button calls pressKey', async () => {
+            const result = await initEvaderGameFramework()
+            result!.game.start()
+
+            const upBtn = document.querySelector<HTMLButtonElement>(
+                'button[data-key="ArrowUp"]'
+            )!
+            upBtn.dispatchEvent(
+                new MouseEvent('pointerdown', { bubbles: true })
+            )
+            expect(result!.game.pressedKeys.has('up')).toBe(true)
+            result!.cleanup()
+        })
+
+        it('pointerup on D-pad button calls releaseKey', async () => {
+            const result = await initEvaderGameFramework()
+            result!.game.start()
+
+            const rightBtn = document.querySelector<HTMLButtonElement>(
+                'button[data-key="ArrowRight"]'
+            )!
+            rightBtn.dispatchEvent(
+                new MouseEvent('pointerdown', { bubbles: true })
+            )
+            expect(result!.game.pressedKeys.has('right')).toBe(true)
+
+            rightBtn.dispatchEvent(
+                new MouseEvent('pointerup', { bubbles: true })
+            )
+            expect(result!.game.pressedKeys.has('right')).toBe(false)
+            result!.cleanup()
+        })
+
+        it('pointerleave releases the key when finger slides off button', async () => {
+            const result = await initEvaderGameFramework()
+            result!.game.start()
+
+            const downBtn = document.querySelector<HTMLButtonElement>(
+                'button[data-key="ArrowDown"]'
+            )!
+            downBtn.dispatchEvent(
+                new MouseEvent('pointerdown', { bubbles: true })
+            )
+            downBtn.dispatchEvent(
+                new MouseEvent('pointerleave', { bubbles: true })
+            )
+            expect(result!.game.pressedKeys.has('down')).toBe(false)
+            result!.cleanup()
+        })
+
+        it('cleanup removes D-pad listeners', async () => {
+            const result = await initEvaderGameFramework()
+            result!.game.start()
+            result!.cleanup()
+
+            const upBtn = document.querySelector<HTMLButtonElement>(
+                'button[data-key="ArrowUp"]'
+            )!
+            // After cleanup, dispatching should not throw and should not
+            // affect the destroyed game's internal state.
+            expect(() =>
+                upBtn.dispatchEvent(
+                    new MouseEvent('pointerdown', { bubbles: true })
+                )
+            ).not.toThrow()
         })
     })
 

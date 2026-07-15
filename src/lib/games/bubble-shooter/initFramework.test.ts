@@ -435,7 +435,7 @@ describe('initBubbleShooterGameFramework', () => {
     })
 
     describe('canvas aim/shoot handlers', () => {
-        it('mousemove calls game.setAimAngle when active', async () => {
+        it('pointermove calls game.setAimAngle when active', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
             const { BubbleShooterRenderer } = await import(
                 './BubbleShooterRenderer'
@@ -462,13 +462,13 @@ describe('initBubbleShooterGameFramework', () => {
                 shooter: { x: 300, y: 740 },
             } as any)
 
-            listeners['mousemove']?.[0]?.(
-                new MouseEvent('mousemove', { clientX: 100, clientY: 100 })
+            listeners['pointermove']?.[0]?.(
+                new MouseEvent('pointermove', { clientX: 100, clientY: 100 })
             )
             expect(gameMock.setAimAngle).toHaveBeenCalled()
         })
 
-        it('click calls game.shoot', async () => {
+        it('pointerdown calls game.shoot', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
             const { BubbleShooterRenderer } = await import(
                 './BubbleShooterRenderer'
@@ -486,7 +486,7 @@ describe('initBubbleShooterGameFramework', () => {
                 }
             )._canvasListeners
 
-            listeners['click']?.[0]?.(new MouseEvent('click'))
+            listeners['pointerdown']?.[0]?.(new MouseEvent('pointerdown'))
             expect(gameMock.shoot).toHaveBeenCalled()
         })
     })
@@ -938,7 +938,7 @@ describe('initBubbleShooterGameFramework', () => {
             res!.cleanup()
         })
 
-        it('mousemove ignores input when the game is not active', async () => {
+        it('pointermove ignores input when the game is not active', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
             const { BubbleShooterRenderer } = await import(
                 './BubbleShooterRenderer'
@@ -960,13 +960,13 @@ describe('initBubbleShooterGameFramework', () => {
                 isActive: false,
             } as any)
             vi.mocked(gameMock.setAimAngle).mockClear()
-            listeners['mousemove']?.[0]?.(
-                new MouseEvent('mousemove', { clientX: 100, clientY: 100 })
+            listeners['pointermove']?.[0]?.(
+                new MouseEvent('pointermove', { clientX: 100, clientY: 100 })
             )
             expect(gameMock.setAimAngle).not.toHaveBeenCalled()
         })
 
-        it('mousemove aims from the shooter when currentBubble is null', async () => {
+        it('pointermove aims from the shooter when currentBubble is null', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
             const { BubbleShooterRenderer } = await import(
                 './BubbleShooterRenderer'
@@ -992,8 +992,8 @@ describe('initBubbleShooterGameFramework', () => {
                 shooter: { x: 300, y: 740 },
             } as any)
             vi.mocked(gameMock.setAimAngle).mockClear()
-            listeners['mousemove']?.[0]?.(
-                new MouseEvent('mousemove', { clientX: 100, clientY: 100 })
+            listeners['pointermove']?.[0]?.(
+                new MouseEvent('pointermove', { clientX: 100, clientY: 100 })
             )
             expect(gameMock.setAimAngle).toHaveBeenCalled()
         })

@@ -61,6 +61,50 @@ import Button from '@/components/ui/Button.astro'
             >End Game</Button
           >
         </div>
+
+        <!-- Touch / pointer D-pad for mobile devices -->
+        <div
+          id="dpad"
+          class="grid grid-cols-3 gap-2 select-none"
+          style="grid-template-areas: '. up .' 'left . right' '. down .';"
+        >
+          <button
+            type="button"
+            data-key="ArrowUp"
+            aria-label="Move up"
+            class="dpad-btn"
+            style="grid-area: up;"
+          >
+            &#8593;
+          </button>
+          <button
+            type="button"
+            data-key="ArrowLeft"
+            aria-label="Move left"
+            class="dpad-btn"
+            style="grid-area: left;"
+          >
+            &#8592;
+          </button>
+          <button
+            type="button"
+            data-key="ArrowRight"
+            aria-label="Move right"
+            class="dpad-btn"
+            style="grid-area: right;"
+          >
+            &#8594;
+          </button>
+          <button
+            type="button"
+            data-key="ArrowDown"
+            aria-label="Move down"
+            class="dpad-btn"
+            style="grid-area: down;"
+          >
+            &#8595;
+          </button>
+        </div>
       </div>
     </Card>
   </div>
@@ -174,6 +218,37 @@ import Button from '@/components/ui/Button.astro'
     </div>
   </div>
 </GamePage>
+
+<style>
+  .dpad-btn {
+    width: 3.5rem;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    line-height: 1;
+    border-radius: 0.75rem;
+    border: 2px solid rgba(6, 182, 212, 0.5);
+    background: rgba(6, 182, 212, 0.08);
+    color: #67e8f9;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    transition:
+      background 0.1s,
+      border-color 0.1s,
+      box-shadow 0.1s;
+  }
+
+  .dpad-btn:active,
+  .dpad-btn.active {
+    background: rgba(6, 182, 212, 0.35);
+    border-color: #22d3ee;
+    box-shadow: 0 0 18px rgba(6, 182, 212, 0.55);
+  }
+</style>
 
 <script>
   import { initEvaderGameFramework } from '@/lib/games/evader/initFramework'

@@ -175,7 +175,7 @@ describe('EvaderRenderer', () => {
     })
 
     describe('render', () => {
-        it('renders the player at its position', async () => {
+        it('renders the player at its position using FillGradient', async () => {
             const config = makeConfig({ playerSize: 30 })
             const rendererConfig = createEvaderRendererConfig(
                 config,
@@ -190,8 +190,7 @@ describe('EvaderRenderer', () => {
 
             renderer.render(state)
 
-            // No throw means render succeeded
-            expect(true).toBe(true)
+            expect(vi.mocked(FillGradient)).toHaveBeenCalled()
             renderer.cleanup()
         })
 
