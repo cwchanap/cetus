@@ -74,8 +74,24 @@ export class MemoryMatrixRenderer extends DOMRenderer {
         }
 
         if (!card.isMatched && !card.isFlipped) {
-            cardDiv.addEventListener('click', () => {
+            cardDiv.setAttribute('tabindex', '0')
+            cardDiv.setAttribute('role', 'button')
+            cardDiv.setAttribute(
+                'aria-label',
+                `Card row ${row + 1}, column ${col + 1}, face down`
+            )
+
+            const activate = () => {
                 this.onCardClick?.(row, col)
+            }
+
+            cardDiv.addEventListener('click', activate)
+
+            cardDiv.addEventListener('keydown', (e: KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    activate()
+                }
             })
         }
 
@@ -88,7 +104,7 @@ export class MemoryMatrixRenderer extends DOMRenderer {
         } else if (card.isFlipped) {
             return 'text-white border-cyan-400 shadow-glow-cyan bg-slate-600'
         } else {
-            return 'bg-slate-700 border-slate-500 hover:border-cyan-400 hover:shadow-glow-cyan text-slate-400 hover:bg-slate-600'
+            return 'bg-slate-700 border-slate-500 hover:border-cyan-400 hover:shadow-glow-cyan text-slate-400 hover:bg-slate-600 focus-visible:outline-none focus-visible:border-cyan-400 focus-visible:shadow-glow-cyan'
         }
     }
 

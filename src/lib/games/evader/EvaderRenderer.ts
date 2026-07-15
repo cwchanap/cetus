@@ -114,6 +114,17 @@ export class EvaderRenderer extends PixiJSRenderer {
 
         const playerWidth = this.evaderConfig.playerSize
         const playerHeight = this.evaderConfig.playerSize
+
+        const playerGradient = new PIXI.FillGradient(
+            player.x,
+            player.y - playerHeight / 2,
+            player.x,
+            player.y + playerHeight / 2
+        )
+        playerGradient.addColorStop(0, 0x6bffae)
+        playerGradient.addColorStop(0.5, 0x00ff66)
+        playerGradient.addColorStop(1, 0x00cc44)
+
         this.playerGraphic
             .rect(
                 player.x - playerWidth / 2,
@@ -121,8 +132,8 @@ export class EvaderRenderer extends PixiJSRenderer {
                 playerWidth,
                 playerHeight
             )
-            .fill(0x00ff00) // Green for player
-            .stroke({ color: 0x00ff00, width: 2 })
+            .fill(playerGradient)
+            .stroke({ color: 0x00ff66, width: 2 })
     }
 
     private renderObjects(objects: GameObject[]): void {
