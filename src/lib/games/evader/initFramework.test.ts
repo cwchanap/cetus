@@ -401,6 +401,10 @@ describe('initEvaderGameFramework', () => {
     })
 
     describe('touch controls (D-pad)', () => {
+        // jsdom lacks full PointerEvent support, so pointer events are
+        // synthesized as MouseEvent with the pointer event name. The handlers
+        // registered in setupTouchControls listen for 'pointerdown' etc. and
+        // jsdom dispatches MouseEvent to those listeners by event name.
         it('pointerdown on D-pad button calls pressKey', async () => {
             const result = await initEvaderGameFramework()
             result!.game.start()
@@ -454,18 +458,19 @@ describe('initEvaderGameFramework', () => {
         it('cleanup removes D-pad listeners', async () => {
             const result = await initEvaderGameFramework()
             result!.game.start()
+            const pressSpy = vi.spyOn(result!.game, 'pressKey')
             result!.cleanup()
 
             const upBtn = document.querySelector<HTMLButtonElement>(
                 'button[data-key="ArrowUp"]'
             )!
-            // After cleanup, dispatching should not throw and should not
-            // affect the destroyed game's internal state.
-            expect(() =>
-                upBtn.dispatchEvent(
-                    new MouseEvent('pointerdown', { bubbles: true })
-                )
-            ).not.toThrow()
+            // jsdom lacks full PointerEvent support, so we synthesize a
+            // MouseEvent with the pointer event name. After cleanup, the
+            // listener must be removed — pressKey should not be called.
+            upBtn.dispatchEvent(
+                new MouseEvent('pointerdown', { bubbles: true })
+            )
+            expect(pressSpy).not.toHaveBeenCalled()
         })
     })
 
