@@ -490,6 +490,25 @@ describe('initEvaderGameFramework', () => {
             )
             expect(pressSpy).not.toHaveBeenCalled()
         })
+
+        it('does not register a stuck key when pressed before the game starts', async () => {
+            // The D-pad press handler gates on game.getState().isActive so a
+            // press before start doesn't leave a stuck key in pressedKeys.
+            // This is the touch equivalent of the keyboard isActive gate.
+            const result = await initEvaderGameFramework()
+            // Deliberately do NOT call game.start() — game is inactive.
+            expect(result!.game.getState().isActive).toBe(false)
+
+            const leftBtn = document.querySelector<HTMLButtonElement>(
+                'button[data-key="ArrowLeft"]'
+            )!
+            leftBtn.dispatchEvent(
+                new MouseEvent('pointerdown', { bubbles: true })
+            )
+
+            expect(result!.game.pressedKeys.has('left')).toBe(false)
+            result!.cleanup()
+        })
     })
 
     describe('achievement notifications', () => {

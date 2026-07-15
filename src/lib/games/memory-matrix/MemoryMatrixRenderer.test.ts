@@ -212,7 +212,9 @@ describe('MemoryMatrixRenderer', () => {
 
             const cardEl = boardEl.querySelector('div') as HTMLElement
             expect(cardEl.getAttribute('tabindex')).toBeNull()
-            expect(cardEl.getAttribute('role')).toBeNull()
+            // Flipped cards are non-interactive; role="img" lets the
+            // aria-label announce state without making them focusable.
+            expect(cardEl.getAttribute('role')).toBe('img')
             renderer.destroy()
         })
 

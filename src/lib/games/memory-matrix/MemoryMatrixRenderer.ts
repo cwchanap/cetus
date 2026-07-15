@@ -70,6 +70,9 @@ export class MemoryMatrixRenderer extends DOMRenderer {
         if (card.isFlipped || card.isMatched) {
             cardDiv.textContent = card.shape
             const status = card.isMatched ? 'matched' : 'face up'
+            // role="img" gives the aria-label a role context so screen
+            // readers reliably announce the face-up/matched card state.
+            cardDiv.setAttribute('role', 'img')
             cardDiv.setAttribute(
                 'aria-label',
                 `Card row ${row + 1}, column ${col + 1}, ${status}, ${card.shape}`
