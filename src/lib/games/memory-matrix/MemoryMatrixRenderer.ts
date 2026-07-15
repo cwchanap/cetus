@@ -69,6 +69,11 @@ export class MemoryMatrixRenderer extends DOMRenderer {
 
         if (card.isFlipped || card.isMatched) {
             cardDiv.textContent = card.shape
+            const status = card.isMatched ? 'matched' : 'face up'
+            cardDiv.setAttribute(
+                'aria-label',
+                `Card row ${row + 1}, column ${col + 1}, ${status}, ${card.shape}`
+            )
         } else {
             cardDiv.textContent = '?'
         }
@@ -88,6 +93,9 @@ export class MemoryMatrixRenderer extends DOMRenderer {
             cardDiv.addEventListener('click', activate)
 
             cardDiv.addEventListener('keydown', (e: KeyboardEvent) => {
+                if (e.ctrlKey || e.metaKey || e.altKey) {
+                    return
+                }
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
                     activate()

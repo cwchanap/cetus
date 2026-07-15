@@ -391,6 +391,15 @@ function setupTouchControls(game: EvaderGame): () => void {
         const press = (e: PointerEvent) => {
             e.preventDefault()
             button.classList.add('active')
+            // Touch pointers receive implicit pointer capture on pointerdown,
+            // which suppresses pointerleave while the finger is down — so
+            // "slide off button to release" silently fails on real devices.
+            // Release the capture so pointerleave fires normally on touch.
+            try {
+                button.releasePointerCapture(e.pointerId)
+            } catch {
+                // No-op: pointer not captured (mouse) or pointerId unavailable.
+            }
             // Match the keyboard handler's isActive gate so a press before
             // the game starts doesn't leave a stuck key in rawHeldKeys.
             if (game.getState().isActive) {
