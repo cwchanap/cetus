@@ -455,6 +455,24 @@ describe('initEvaderGameFramework', () => {
             result!.cleanup()
         })
 
+        it('releases implicit pointer capture on pointerdown so pointerleave fires on touch', async () => {
+            const result = await initEvaderGameFramework()
+            result!.game.start()
+
+            const upBtn = document.querySelector<HTMLButtonElement>(
+                'button[data-key="ArrowUp"]'
+            )!
+            const releaseSpy = vi.fn()
+            upBtn.releasePointerCapture = releaseSpy
+
+            const event = new MouseEvent('pointerdown', { bubbles: true })
+            Object.defineProperty(event, 'pointerId', { value: 7 })
+
+            upBtn.dispatchEvent(event)
+            expect(releaseSpy).toHaveBeenCalledWith(7)
+            result!.cleanup()
+        })
+
         it('cleanup removes D-pad listeners', async () => {
             const result = await initEvaderGameFramework()
             result!.game.start()

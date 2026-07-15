@@ -268,6 +268,52 @@ describe('MemoryMatrixRenderer', () => {
             expect(callback).not.toHaveBeenCalled()
             renderer.destroy()
         })
+
+        it('should not invoke callback when modifier keys are held', async () => {
+            const renderer = await createRenderer()
+            const callback = vi.fn()
+            renderer.setCardClickCallback(callback)
+            renderer.render(makeState({ board: [[makeCard()]] }))
+
+            const cardEl = boardEl.querySelector('div') as HTMLElement
+            cardEl.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'Enter',
+                    bubbles: true,
+                    ctrlKey: true,
+                })
+            )
+            expect(callback).not.toHaveBeenCalled()
+            renderer.destroy()
+        })
+
+        it('should set aria-label with face up status for flipped cards', async () => {
+            const renderer = await createRenderer()
+            renderer.render(
+                makeState({
+                    board: [[makeCard({ isFlipped: true, shape: '⭐' })]],
+                })
+            )
+
+            const cardEl = boardEl.querySelector('div') as HTMLElement
+            expect(cardEl.getAttribute('aria-label')).toContain('face up')
+            expect(cardEl.getAttribute('aria-label')).toContain('⭐')
+            renderer.destroy()
+        })
+
+        it('should set aria-label with matched status for matched cards', async () => {
+            const renderer = await createRenderer()
+            renderer.render(
+                makeState({
+                    board: [[makeCard({ isMatched: true, shape: '🔴' })]],
+                })
+            )
+
+            const cardEl = boardEl.querySelector('div') as HTMLElement
+            expect(cardEl.getAttribute('aria-label')).toContain('matched')
+            expect(cardEl.getAttribute('aria-label')).toContain('🔴')
+            renderer.destroy()
+        })
     })
 
     describe('card CSS classes', () => {
