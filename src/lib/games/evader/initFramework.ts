@@ -391,7 +391,11 @@ function setupTouchControls(game: EvaderGame): () => void {
         const press = (e: PointerEvent) => {
             e.preventDefault()
             button.classList.add('active')
-            game.pressKey(key)
+            // Match the keyboard handler's isActive gate so a press before
+            // the game starts doesn't leave a stuck key in rawHeldKeys.
+            if (game.getState().isActive) {
+                game.pressKey(key)
+            }
         }
 
         const release = (e: PointerEvent) => {
