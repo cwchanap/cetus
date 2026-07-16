@@ -1007,7 +1007,7 @@ describe('initBubbleShooterGameFramework', () => {
                 isActive: true,
                 isPaused: false,
                 projectile: null,
-                currentBubble: { x: 300, y: 700, color: 0xff0000 },
+                currentBubble: null,
                 shooter: { x: 300, y: 740 },
             })
             vi.mocked(gameMock.setAimAngle).mockClear()
