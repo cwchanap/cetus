@@ -513,12 +513,19 @@ describe('initEvaderGameFramework', () => {
 
     describe('achievement notifications', () => {
         it('dispatches achievements via window.showAchievementAward when earned', async () => {
+            const achievement = {
+                id: 'evader_pro',
+                name: 'Evader Pro',
+                description: 'Score 1000 in Evader',
+                icon: '🏆',
+                rarity: 'rare' as const,
+            }
             vi.stubGlobal(
                 'fetch',
                 vi.fn().mockResolvedValue({
                     ok: true,
                     json: async () => ({
-                        newAchievements: ['evader_pro'],
+                        newAchievements: [achievement],
                     }),
                 })
             )
@@ -529,7 +536,15 @@ describe('initEvaderGameFramework', () => {
             result!.game.start()
             await result!.game.end()
 
-            expect(showSpy).toHaveBeenCalled()
+            expect(showSpy).toHaveBeenCalledWith([
+                expect.objectContaining({
+                    id: 'evader_pro',
+                    name: 'Evader Pro',
+                    description: 'Score 1000 in Evader',
+                    icon: '🏆',
+                    rarity: 'rare',
+                }),
+            ])
             delete window.showAchievementAward
             result!.cleanup()
         })

@@ -204,28 +204,30 @@ describe('MemoryMatrixRenderer', () => {
             renderer.destroy()
         })
 
-        it('should not make flipped cards focusable', async () => {
+        it('should make flipped cards programmatically focusable but not tab-focusable', async () => {
             const renderer = await createRenderer()
             renderer.render(
                 makeState({ board: [[makeCard({ isFlipped: true })]] })
             )
 
             const cardEl = boardEl.querySelector('div') as HTMLElement
-            expect(cardEl.getAttribute('tabindex')).toBeNull()
+            // tabindex="-1" keeps flipped cards out of tab order but allows
+            // programmatic focus restoration after a re-render.
+            expect(cardEl.getAttribute('tabindex')).toBe('-1')
             // Flipped cards are non-interactive; role="img" lets the
             // aria-label announce state without making them focusable.
             expect(cardEl.getAttribute('role')).toBe('img')
             renderer.destroy()
         })
 
-        it('should not make matched cards focusable', async () => {
+        it('should make matched cards programmatically focusable but not tab-focusable', async () => {
             const renderer = await createRenderer()
             renderer.render(
                 makeState({ board: [[makeCard({ isMatched: true })]] })
             )
 
             const cardEl = boardEl.querySelector('div') as HTMLElement
-            expect(cardEl.getAttribute('tabindex')).toBeNull()
+            expect(cardEl.getAttribute('tabindex')).toBe('-1')
             renderer.destroy()
         })
 
@@ -362,6 +364,32 @@ describe('MemoryMatrixRenderer', () => {
             renderer.render(state)
             // body retains focus; no crash
             expect(boardEl.children.length).toBe(4)
+            renderer.destroy()
+        })
+
+        it('should restore focus to a card that flips between renders', async () => {
+            const renderer = await createRenderer()
+            const callback = vi.fn()
+            renderer.setCardClickCallback(callback)
+
+            const card = makeCard({ id: 'c-0-0', isFlipped: false })
+            const state = makeState({ board: [[card]] })
+            renderer.render(state)
+
+            // Focus the face-down card (tabindex="0")
+            const cardEl = boardEl.querySelector('div') as HTMLElement
+            cardEl.focus()
+            expect(document.activeElement).toBe(cardEl)
+
+            // Simulate the card flipping after keyboard activation
+            card.isFlipped = true
+            renderer.render(state)
+
+            // Focus should be restored to the now-flipped card (tabindex="-1"),
+            // not dropped to <body>
+            const flippedCardEl = boardEl.querySelector('div') as HTMLElement
+            expect(flippedCardEl.getAttribute('tabindex')).toBe('-1')
+            expect(document.activeElement).toBe(flippedCardEl)
             renderer.destroy()
         })
     })
