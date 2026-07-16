@@ -128,7 +128,7 @@ describe('Achievement System', () => {
 
     describe('Pagination', () => {
         // Mock achievement data for testing
-        const mockAchievements = [
+        const mockAchievements: Achievement[] = [
             {
                 id: 'test_1',
                 name: 'Test Achievement 1',
@@ -136,7 +136,7 @@ describe('Achievement System', () => {
                 logo: '🏆',
                 rarity: AchievementRarity.COMMON,
                 gameId: 'global',
-                scoreThreshold: 100,
+                condition: { type: 'score_threshold', threshold: 100 },
             },
             {
                 id: 'test_2',
@@ -145,7 +145,7 @@ describe('Achievement System', () => {
                 logo: '🥇',
                 rarity: AchievementRarity.RARE,
                 gameId: GameID.TETRIS,
-                scoreThreshold: 200,
+                condition: { type: 'score_threshold', threshold: 200 },
             },
             {
                 id: 'test_3',
@@ -154,7 +154,7 @@ describe('Achievement System', () => {
                 logo: '🥈',
                 rarity: AchievementRarity.EPIC,
                 gameId: GameID.TETRIS,
-                scoreThreshold: 300,
+                condition: { type: 'score_threshold', threshold: 300 },
             },
             {
                 id: 'test_4',
@@ -163,7 +163,7 @@ describe('Achievement System', () => {
                 logo: '🥉',
                 rarity: AchievementRarity.LEGENDARY,
                 gameId: GameID.BUBBLE_SHOOTER,
-                scoreThreshold: 400,
+                condition: { type: 'score_threshold', threshold: 400 },
             },
             {
                 id: 'test_5',
@@ -172,9 +172,9 @@ describe('Achievement System', () => {
                 logo: '🎖️',
                 rarity: AchievementRarity.COMMON,
                 gameId: 'global',
-                scoreThreshold: 500,
+                condition: { type: 'score_threshold', threshold: 500 },
             },
-        ] as unknown as Achievement[]
+        ]
 
         it('should return first page with default page size', () => {
             const result = getPaginatedAchievements(mockAchievements)
@@ -252,7 +252,7 @@ describe('Achievement System', () => {
             expect(result.achievements[0]).toHaveProperty('logo')
             expect(result.achievements[0]).toHaveProperty('rarity')
             expect(result.achievements[0]).toHaveProperty('gameId')
-            expect(result.achievements[0]).toHaveProperty('scoreThreshold')
+            expect(result.achievements[0]).toHaveProperty('condition')
         })
     })
 })

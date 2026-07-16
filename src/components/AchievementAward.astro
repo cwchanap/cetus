@@ -199,17 +199,12 @@ const classes = cn(
 <script>
   import type { AchievementNotification } from '@/lib/achievements'
 
-  // Alias to the canonical notification shape so the global
-  // `window.showAchievementAward` signature (declared in scoreService.ts)
-  // stays consistent across the app.
-  type AchievementData = AchievementNotification
-
   class AchievementAward {
     private overlay: HTMLElement
     private backdrop: HTMLElement
     private container: HTMLElement
     private template: HTMLTemplateElement
-    private queue: AchievementData[] = []
+    private queue: AchievementNotification[] = []
     private isShowing = false
 
     constructor() {
@@ -253,7 +248,9 @@ const classes = cn(
     /**
      * Show achievement awards for newly earned achievements
      */
-    async showAchievements(achievements: AchievementData[]): Promise<void> {
+    async showAchievements(
+      achievements: AchievementNotification[]
+    ): Promise<void> {
       if (!achievements || achievements.length === 0) {
         return
       }
@@ -297,7 +294,7 @@ const classes = cn(
      * Show a single achievement
      */
     private async showSingleAchievement(
-      achievement: AchievementData
+      achievement: AchievementNotification
     ): Promise<void> {
       // Create achievement card
       const card = this.createAchievementCard(achievement)
@@ -327,7 +324,9 @@ const classes = cn(
     /**
      * Create achievement card element from template
      */
-    private createAchievementCard(achievement: AchievementData): HTMLElement {
+    private createAchievementCard(
+      achievement: AchievementNotification
+    ): HTMLElement {
       // Clone template
       const clone = this.template.content.cloneNode(true) as DocumentFragment
 
@@ -504,7 +503,9 @@ const classes = cn(
   })
 
   // Global function to show achievements
-  window.showAchievementAward = function (achievements: AchievementData[]) {
+  window.showAchievementAward = function (
+    achievements: AchievementNotification[]
+  ) {
     if (achievementAward) {
       achievementAward.showAchievements(achievements)
     }

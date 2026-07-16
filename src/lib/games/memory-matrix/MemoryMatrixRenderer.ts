@@ -43,6 +43,25 @@ export class MemoryMatrixRenderer extends DOMRenderer {
         if (!boardElement) {
             return
         }
+
+        // Capture the row/col of the focused card before rebuilding so
+        // focus can be restored after. Without this, keyboard activation
+        // (Enter/Space) triggers a re-render that removes the focused
+        // element from the DOM, dropping focus to <body>.
+        const active = document.activeElement as HTMLElement | null
+        let focusRow: number | null = null
+        let focusCol: number | null = null
+        if (active && boardElement.contains(active)) {
+            focusRow = Number(active.getAttribute('data-row'))
+            focusCol = Number(active.getAttribute('data-col'))
+            if (Number.isNaN(focusRow)) {
+                focusRow = null
+            }
+            if (Number.isNaN(focusCol)) {
+                focusCol = null
+            }
+        }
+
         while (boardElement.firstChild) {
             boardElement.removeChild(boardElement.firstChild)
         }
@@ -53,6 +72,13 @@ export class MemoryMatrixRenderer extends DOMRenderer {
                 )
             })
         })
+
+        if (focusRow !== null && focusCol !== null) {
+            const cardToFocus = boardElement.querySelector<HTMLElement>(
+                `[data-row="${focusRow}"][data-col="${focusCol}"]`
+            )
+            cardToFocus?.focus()
+        }
     }
 
     private createCardElement(
@@ -61,6 +87,8 @@ export class MemoryMatrixRenderer extends DOMRenderer {
         col: number
     ): HTMLElement {
         const cardDiv = document.createElement('div')
+        cardDiv.setAttribute('data-row', String(row))
+        cardDiv.setAttribute('data-col', String(col))
         cardDiv.className = `
             memory-card aspect-square flex items-center justify-center text-2xl font-bold rounded-lg cursor-pointer
             transition-all duration-300 border-2 select-none

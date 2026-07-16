@@ -318,6 +318,54 @@ describe('MemoryMatrixRenderer', () => {
         })
     })
 
+    describe('focus restoration on re-render', () => {
+        it('should restore focus to the card at the same position after rebuild', async () => {
+            const renderer = await createRenderer()
+            const callback = vi.fn()
+            renderer.setCardClickCallback(callback)
+            const state = makeState({
+                board: [
+                    [makeCard({ id: 'c-0-0' }), makeCard({ id: 'c-0-1' })],
+                    [makeCard({ id: 'c-1-0' }), makeCard({ id: 'c-1-1' })],
+                ],
+            })
+            renderer.render(state)
+
+            // Focus the card at row 1, col 1 (last child)
+            const cards = boardEl.querySelectorAll('div')
+            const targetCard = cards[3] as HTMLElement
+            targetCard.focus()
+            expect(document.activeElement).toBe(targetCard)
+
+            // Simulate a re-render after activation (e.g. card flip)
+            renderer.render(state)
+
+            // Focus should be restored to the card at the same position,
+            // not dropped to <body>
+            const refocusedCard = boardEl.querySelectorAll(
+                'div'
+            )[3] as HTMLElement
+            expect(document.activeElement).toBe(refocusedCard)
+            renderer.destroy()
+        })
+
+        it('should not restore focus when no card was focused', async () => {
+            const renderer = await createRenderer()
+            const state = makeState()
+            renderer.render(state)
+
+            // No card is focused before re-render
+            expect(document.activeElement).not.toBe(
+                boardEl.querySelector('div')
+            )
+
+            renderer.render(state)
+            // body retains focus; no crash
+            expect(boardEl.children.length).toBe(4)
+            renderer.destroy()
+        })
+    })
+
     describe('card CSS classes', () => {
         it('should apply matched card classes (green)', async () => {
             const renderer = await createRenderer()
