@@ -224,6 +224,13 @@ import Button from '@/components/ui/Button.astro'
 </GamePage>
 
 <style>
+  /* Hide the touch D-pad on devices with a fine pointer (desktop/mouse). */
+  @media (hover: hover) and (pointer: fine) {
+    #dpad {
+      display: none;
+    }
+  }
+
   .dpad-btn {
     width: 3.5rem;
     height: 3.5rem;

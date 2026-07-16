@@ -468,7 +468,7 @@ describe('initBubbleShooterGameFramework', () => {
             expect(gameMock.setAimAngle).toHaveBeenCalled()
         })
 
-        it('pointerdown calls game.shoot', async () => {
+        it('pointerdown aims before shooting', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
             const { BubbleShooterRenderer } = await import(
                 './BubbleShooterRenderer'
@@ -486,7 +486,25 @@ describe('initBubbleShooterGameFramework', () => {
                 }
             )._canvasListeners
 
-            listeners['pointerdown']?.[0]?.(new MouseEvent('pointerdown'))
+            // The pointerdown handler must update aim before shooting so a
+            // tap shoots toward the touch point, not the last pointermove
+            // position. Gate on active state so setAimAngle is reached.
+            vi.mocked(gameMock.getState).mockReturnValue({
+                ...gameMock.getState(),
+                isActive: true,
+                isPaused: false,
+                projectile: null,
+                currentBubble: { x: 300, y: 700, color: 0xff0000 },
+                shooter: { x: 300, y: 740 },
+            } as any)
+            vi.mocked(gameMock.setAimAngle).mockClear()
+            vi.mocked(gameMock.shoot).mockClear()
+
+            listeners['pointerdown']?.[0]?.(
+                new MouseEvent('pointerdown', { clientX: 100, clientY: 100 })
+            )
+
+            expect(gameMock.setAimAngle).toHaveBeenCalledBefore(gameMock.shoot)
             expect(gameMock.shoot).toHaveBeenCalled()
         })
     })
