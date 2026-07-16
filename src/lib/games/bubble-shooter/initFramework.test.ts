@@ -1001,14 +1001,15 @@ describe('initBubbleShooterGameFramework', () => {
                     >
                 }
             )._canvasListeners
+            const baseState = gameMock.getState()
             vi.mocked(gameMock.getState).mockReturnValue({
-                ...gameMock.getState(),
+                ...baseState,
                 isActive: true,
                 isPaused: false,
                 projectile: null,
-                currentBubble: null,
+                currentBubble: { x: 300, y: 700, color: 0xff0000 },
                 shooter: { x: 300, y: 740 },
-            } as any)
+            })
             vi.mocked(gameMock.setAimAngle).mockClear()
             listeners['pointermove']?.[0]?.(
                 new MouseEvent('pointermove', { clientX: 100, clientY: 100 })

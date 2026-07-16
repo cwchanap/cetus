@@ -26,16 +26,7 @@ interface Window {
     showAchievementAward?: (
         achievements: import('@/lib/achievements').AchievementNotification[]
     ) => void
-    showChallengeComplete?: (challengeUpdates: {
-        completedChallenges: Array<{
-            id: string
-            name: string
-            description: string
-            icon: string
-            xpReward: number
-        }>
-        xpEarned: number
-        levelUp: boolean
-        newLevel?: number
-    }) => void
+    showChallengeComplete?: (
+        challengeUpdates: import('@/lib/games/core/types').ChallengeUpdates
+    ) => void
 }

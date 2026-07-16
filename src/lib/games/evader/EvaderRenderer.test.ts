@@ -56,7 +56,12 @@ vi.mock('pixi.js', () => {
         Application: vi.fn(makeApp),
         Container: vi.fn(makeContainer),
         Graphics: vi.fn(makeGraphics),
-        FillGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+        FillGradient: vi.fn(() => ({
+            addColorStop: vi.fn(),
+            destroy: vi.fn(),
+            start: { x: 0, y: 0 },
+            end: { x: 0, y: 0 },
+        })),
         Text: vi.fn(() => ({
             text: '',
             destroy: vi.fn(),
@@ -190,7 +195,41 @@ describe('EvaderRenderer', () => {
 
             renderer.render(state)
 
-            expect(vi.mocked(FillGradient)).toHaveBeenCalled()
+            // Local-space vertical gradient; rect is positioned at player.x/y
+            expect(vi.mocked(FillGradient)).toHaveBeenCalledWith(0, 0, 0, 1)
+            const gradientInstance = vi.mocked(FillGradient).mock.results[0]
+                ?.value as {
+                addColorStop: ReturnType<typeof vi.fn>
+            }
+            expect(gradientInstance.addColorStop).toHaveBeenCalledTimes(3)
+            expect(gradientInstance.addColorStop).toHaveBeenNthCalledWith(
+                1,
+                0,
+                0x6bffae
+            )
+            expect(gradientInstance.addColorStop).toHaveBeenNthCalledWith(
+                2,
+                0.5,
+                0x00ff66
+            )
+            expect(gradientInstance.addColorStop).toHaveBeenNthCalledWith(
+                3,
+                1,
+                0x00cc44
+            )
+
+            // Player rect is drawn at the configured position/size
+            const rectCalls = vi.mocked(Graphics).mock.results.flatMap(r => {
+                const g = r.value as { rect: ReturnType<typeof vi.fn> }
+                return g.rect?.mock?.calls ?? []
+            })
+            expect(rectCalls).toContainEqual([
+                100 - 30 / 2,
+                200 - 30 / 2,
+                30,
+                30,
+            ])
+
             renderer.cleanup()
         })
 

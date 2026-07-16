@@ -1,7 +1,12 @@
 // initFramework unit tests for Evader
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { screen, fireEvent } from '@testing-library/dom'
 import { initEvaderGameFramework, showGameOver } from './initFramework'
 import type { EvaderStats } from './frameworkTypes'
+import {
+    AchievementRarity,
+    type AchievementNotification,
+} from '@/lib/achievements'
 
 // Mock pixi.js for the renderer
 vi.mock('pixi.js', () => {
@@ -56,7 +61,12 @@ vi.mock('pixi.js', () => {
         Application: vi.fn(makeApp),
         Container: vi.fn(makeContainer),
         Graphics: vi.fn(makeGraphics),
-        FillGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+        FillGradient: vi.fn(() => ({
+            addColorStop: vi.fn(),
+            destroy: vi.fn(),
+            start: { x: 0, y: 0 },
+            end: { x: 0, y: 0 },
+        })),
         Text: vi.fn(() => ({
             text: '',
             destroy: vi.fn(),
@@ -82,10 +92,10 @@ function setupDOM() {
         <button id="stop-btn" style="display:none">Stop</button>
         <button id="play-again-btn">Play Again</button>
         <div id="dpad">
-            <button data-key="ArrowUp">↑</button>
-            <button data-key="ArrowDown">↓</button>
-            <button data-key="ArrowLeft">←</button>
-            <button data-key="ArrowRight">→</button>
+            <button data-key="ArrowUp" aria-label="Move up">↑</button>
+            <button data-key="ArrowDown" aria-label="Move down">↓</button>
+            <button data-key="ArrowLeft" aria-label="Move left">←</button>
+            <button data-key="ArrowRight" aria-label="Move right">→</button>
         </div>
     `
 }
@@ -409,12 +419,8 @@ describe('initEvaderGameFramework', () => {
             const result = await initEvaderGameFramework()
             result!.game.start()
 
-            const upBtn = document.querySelector<HTMLButtonElement>(
-                'button[data-key="ArrowUp"]'
-            )!
-            upBtn.dispatchEvent(
-                new MouseEvent('pointerdown', { bubbles: true })
-            )
+            const upBtn = screen.getByRole('button', { name: 'Move up' })
+            fireEvent.pointerDown(upBtn)
             expect(result!.game.pressedKeys.has('up')).toBe(true)
             result!.cleanup()
         })
@@ -423,17 +429,11 @@ describe('initEvaderGameFramework', () => {
             const result = await initEvaderGameFramework()
             result!.game.start()
 
-            const rightBtn = document.querySelector<HTMLButtonElement>(
-                'button[data-key="ArrowRight"]'
-            )!
-            rightBtn.dispatchEvent(
-                new MouseEvent('pointerdown', { bubbles: true })
-            )
+            const rightBtn = screen.getByRole('button', { name: 'Move right' })
+            fireEvent.pointerDown(rightBtn)
             expect(result!.game.pressedKeys.has('right')).toBe(true)
 
-            rightBtn.dispatchEvent(
-                new MouseEvent('pointerup', { bubbles: true })
-            )
+            fireEvent.pointerUp(rightBtn)
             expect(result!.game.pressedKeys.has('right')).toBe(false)
             result!.cleanup()
         })
@@ -442,15 +442,9 @@ describe('initEvaderGameFramework', () => {
             const result = await initEvaderGameFramework()
             result!.game.start()
 
-            const downBtn = document.querySelector<HTMLButtonElement>(
-                'button[data-key="ArrowDown"]'
-            )!
-            downBtn.dispatchEvent(
-                new MouseEvent('pointerdown', { bubbles: true })
-            )
-            downBtn.dispatchEvent(
-                new MouseEvent('pointerleave', { bubbles: true })
-            )
+            const downBtn = screen.getByRole('button', { name: 'Move down' })
+            fireEvent.pointerDown(downBtn)
+            fireEvent.pointerLeave(downBtn)
             expect(result!.game.pressedKeys.has('down')).toBe(false)
             result!.cleanup()
         })
@@ -459,12 +453,11 @@ describe('initEvaderGameFramework', () => {
             const result = await initEvaderGameFramework()
             result!.game.start()
 
-            const upBtn = document.querySelector<HTMLButtonElement>(
-                'button[data-key="ArrowUp"]'
-            )!
+            const upBtn = screen.getByRole('button', { name: 'Move up' })
             const releaseSpy = vi.fn()
             upBtn.releasePointerCapture = releaseSpy
 
+            // Custom event needed so pointerId can be configured explicitly.
             const event = new MouseEvent('pointerdown', { bubbles: true })
             Object.defineProperty(event, 'pointerId', { value: 7 })
 
@@ -479,15 +472,8 @@ describe('initEvaderGameFramework', () => {
             const pressSpy = vi.spyOn(result!.game, 'pressKey')
             result!.cleanup()
 
-            const upBtn = document.querySelector<HTMLButtonElement>(
-                'button[data-key="ArrowUp"]'
-            )!
-            // jsdom lacks full PointerEvent support, so we synthesize a
-            // MouseEvent with the pointer event name. After cleanup, the
-            // listener must be removed — pressKey should not be called.
-            upBtn.dispatchEvent(
-                new MouseEvent('pointerdown', { bubbles: true })
-            )
+            const upBtn = screen.getByRole('button', { name: 'Move up' })
+            fireEvent.pointerDown(upBtn)
             expect(pressSpy).not.toHaveBeenCalled()
         })
 
@@ -499,12 +485,8 @@ describe('initEvaderGameFramework', () => {
             // Deliberately do NOT call game.start() — game is inactive.
             expect(result!.game.getState().isActive).toBe(false)
 
-            const leftBtn = document.querySelector<HTMLButtonElement>(
-                'button[data-key="ArrowLeft"]'
-            )!
-            leftBtn.dispatchEvent(
-                new MouseEvent('pointerdown', { bubbles: true })
-            )
+            const leftBtn = screen.getByRole('button', { name: 'Move left' })
+            fireEvent.pointerDown(leftBtn)
 
             expect(result!.game.pressedKeys.has('left')).toBe(false)
             result!.cleanup()
@@ -513,12 +495,12 @@ describe('initEvaderGameFramework', () => {
 
     describe('achievement notifications', () => {
         it('dispatches achievements via window.showAchievementAward when earned', async () => {
-            const achievement = {
+            const achievement: AchievementNotification = {
                 id: 'evader_pro',
                 name: 'Evader Pro',
                 description: 'Score 1000 in Evader',
                 icon: '🏆',
-                rarity: 'rare' as const,
+                rarity: AchievementRarity.RARE,
             }
             vi.stubGlobal(
                 'fetch',
