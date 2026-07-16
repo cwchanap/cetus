@@ -8,7 +8,10 @@ import vercel from '@astrojs/vercel'
 export default defineConfig({
   output: 'server',
   vite: {
-    plugins: [tailwindcss()],
+    // @tailwindcss/vite's Plugin type comes from a different vite instance
+    // than astro's, causing a structurally-identical type mismatch under
+    // `// @ts-check`. Cast through a variable to satisfy the checker.
+    plugins: [/** @type {any} */ (tailwindcss())],
   },
 
   adapter: vercel(),

@@ -185,7 +185,7 @@ describe('Settings API', () => {
                 json: async () => {
                     throw new SyntaxError('Unexpected token')
                 },
-            } as Request
+            } as unknown as Request
             const context = createMockContext(mockLocals, malformedRequest)
 
             const response = await POST(context)
@@ -200,7 +200,7 @@ describe('Settings API', () => {
                 json: async () => {
                     throw new TypeError('Not a syntax error')
                 },
-            } as Request
+            } as unknown as Request
             const context = createMockContext(mockLocals, badRequest)
 
             const response = await POST(context)

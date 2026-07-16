@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from '@/pages/api/scores/best'
 import { getUserBestScore } from '@/lib/server/db/queries'
-import { getGameById } from '@/lib/games'
+import { getGameById, GameID, type Game } from '@/lib/games'
 import { auth } from '@/lib/auth'
 
 // Mock dependencies
@@ -43,15 +43,27 @@ describe('GET /api/scores/best', () => {
     }
 
     const mockSession = {
+        session: {
+            id: 'session-123',
+            userId: 'user-123',
+            expiresAt: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            token: 'session-token-123',
+            ipAddress: null,
+            userAgent: null,
+        },
         user: mockUser,
-        id: 'session-123',
     }
 
-    const mockGame = {
-        id: 'tetris',
+    const mockGame: Game = {
+        id: GameID.TETRIS,
         name: 'Tetris Challenge',
         description: 'Classic block-stacking puzzle game',
-        created_at: new Date(),
+        category: 'puzzle',
+        difficulty: 'medium',
+        tags: [],
+        isActive: true,
     }
 
     beforeEach(() => {
@@ -60,7 +72,7 @@ describe('GET /api/scores/best', () => {
 
     it('should return best score for authenticated user and valid game', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(getUserBestScore).mockResolvedValue(15000)
@@ -71,7 +83,7 @@ describe('GET /api/scores/best', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -83,7 +95,7 @@ describe('GET /api/scores/best', () => {
 
     it('should return null when user has no scores for the game', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(getUserBestScore).mockResolvedValue(null)
@@ -94,7 +106,7 @@ describe('GET /api/scores/best', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -114,7 +126,7 @@ describe('GET /api/scores/best', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -126,13 +138,13 @@ describe('GET /api/scores/best', () => {
 
     it('should return 400 for missing gameId parameter', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const url = new URL('http://localhost:4321/api/scores/best')
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -144,13 +156,13 @@ describe('GET /api/scores/best', () => {
 
     it('should return 400 for empty gameId parameter', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const url = new URL('http://localhost:4321/api/scores/best?gameId=')
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -162,7 +174,7 @@ describe('GET /api/scores/best', () => {
 
     it('should return 400 for invalid game ID', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const url = new URL(
             'http://localhost:4321/api/scores/best?gameId=invalid-game'
@@ -170,7 +182,7 @@ describe('GET /api/scores/best', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -182,7 +194,7 @@ describe('GET /api/scores/best', () => {
 
     it('should handle different valid game IDs', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(getUserBestScore).mockResolvedValue(8000)
@@ -193,7 +205,7 @@ describe('GET /api/scores/best', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -205,8 +217,8 @@ describe('GET /api/scores/best', () => {
 
     it('should return 400 when getGameById returns null for valid game ID', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
-        vi.mocked(getGameById).mockReturnValue(null)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
+        vi.mocked(getGameById).mockReturnValue(undefined as any)
 
         const url = new URL(
             'http://localhost:4321/api/scores/best?gameId=tetris'
@@ -214,7 +226,7 @@ describe('GET /api/scores/best', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -226,7 +238,7 @@ describe('GET /api/scores/best', () => {
 
     it('should return 500 for database errors during game lookup', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockImplementation(() => {
             throw new Error('Database error')
@@ -238,7 +250,7 @@ describe('GET /api/scores/best', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -248,7 +260,7 @@ describe('GET /api/scores/best', () => {
 
     it('should return 500 for database errors during score lookup', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(getUserBestScore).mockRejectedValue(
@@ -261,7 +273,7 @@ describe('GET /api/scores/best', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -281,7 +293,7 @@ describe('GET /api/scores/best', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -297,10 +309,10 @@ describe('GET /api/scores/best', () => {
         for (let i = 0; i < gameIds.length; i++) {
             vi.clearAllMocks()
 
-            vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+            vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
             vi.mocked(getGameById).mockReturnValue({
                 ...mockGame,
-                id: gameIds[i],
+                id: gameIds[i] as GameID,
             })
             vi.mocked(getUserBestScore).mockResolvedValue(expectedScores[i])
 
@@ -310,7 +322,7 @@ describe('GET /api/scores/best', () => {
             const request = new Request(url)
 
             // Act
-            const response = await GET({ request, url })
+            const response = await GET({ request, url } as any)
             const result = await response.json()
 
             // Assert
@@ -326,7 +338,7 @@ describe('GET /api/scores/best', () => {
 
     it('should handle zero scores correctly', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(getUserBestScore).mockResolvedValue(0)
@@ -337,7 +349,7 @@ describe('GET /api/scores/best', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert

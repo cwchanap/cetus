@@ -104,264 +104,277 @@
 </style>
 
 <script>
-  /**
-   * @typedef {Object} ChallengeCompleteData
-   * @property {Array<{id:string,name:string,description:string,icon:string,xpReward:number}>} completedChallenges
-   * @property {number} xpEarned
-   * @property {boolean} levelUp
-   * @property {number | undefined} [newLevel]
-   */
-
-  /** @type {ChallengeCompleteData[]} */
-  const pendingCalls = []
-
-  function ChallengeCompleteManager() {
-    /** @type {HTMLElement|null} */
-    this.overlay = document.getElementById('challenge-complete-overlay')
-    /** @type {HTMLElement|null} */
-    this.card = document.getElementById('challenge-complete-card')
-    /** @type {HTMLTemplateElement|null} */
-    this.template = document.getElementById('challenge-card-template')
-    /** @type {ChallengeCompleteData[]} */
-    this.queue = []
-    this.isShowing = false
-    /** @type {HTMLElement|null} */
-    this.previouslyFocused = null
-    /** @type {number|null} */
-    this.autoDismissTimer = null
-    /** @type {(() => void)|undefined} */
-    this.resolveDismiss = undefined
-    this.keydownHandler = event => this.handleKeydown(event)
-
-    if (this.overlay) {
-      this.overlay.addEventListener('click', event => {
-        const target = /** @type {HTMLElement} */ (event.target)
-        const isBackdrop =
-          target === this.overlay ||
-          (target &&
-            target.dataset &&
-            target.dataset.overlayBackdrop === 'true')
-        if (isBackdrop) {
-          this.dismiss()
-        }
-      })
-    }
+  interface ChallengeCompleteChallenge {
+    id: string
+    name: string
+    description: string
+    icon: string
+    xpReward: number
   }
 
-  ChallengeCompleteManager.prototype.show = function (data) {
-    this.queue.push(data)
-    if (!this.isShowing) {
-      this.processQueue()
-    }
+  interface ChallengeCompleteData {
+    completedChallenges: ChallengeCompleteChallenge[]
+    xpEarned: number
+    levelUp: boolean
+    newLevel?: number
   }
 
-  ChallengeCompleteManager.prototype.processQueue = async function () {
-    if (this.queue.length === 0) {
+  const pendingCalls: ChallengeCompleteData[] = []
+
+  class ChallengeCompleteManager {
+    overlay: HTMLElement | null
+    card: HTMLElement | null
+    template: HTMLTemplateElement | null
+    queue: ChallengeCompleteData[]
+    isShowing: boolean
+    previouslyFocused: HTMLElement | null
+    autoDismissTimer: number | null
+    resolveDismiss: (() => void) | undefined
+    keydownHandler: (event: KeyboardEvent) => void
+
+    constructor() {
+      this.overlay = document.getElementById('challenge-complete-overlay')
+      this.card = document.getElementById('challenge-complete-card')
+      this.template = document.getElementById(
+        'challenge-card-template'
+      ) as HTMLTemplateElement | null
+      this.queue = []
       this.isShowing = false
-      return
+      this.previouslyFocused = null
+      this.autoDismissTimer = null
+      this.resolveDismiss = undefined
+      this.keydownHandler = event => this.handleKeydown(event)
+
+      if (this.overlay) {
+        this.overlay.addEventListener('click', event => {
+          const target = event.target as HTMLElement
+          const isBackdrop =
+            target === this.overlay ||
+            (target &&
+              target.dataset &&
+              target.dataset.overlayBackdrop === 'true')
+          if (isBackdrop) {
+            this.dismiss()
+          }
+        })
+      }
     }
 
-    const data = this.queue[0]
-    const completedChallenges = Array.isArray(data.completedChallenges)
-      ? data.completedChallenges
-      : []
+    show(data: ChallengeCompleteData): void {
+      this.queue.push(data)
+      if (!this.isShowing) {
+        this.processQueue()
+      }
+    }
 
-    if (!completedChallenges.length) {
+    async processQueue(): Promise<void> {
+      if (this.queue.length === 0) {
+        this.isShowing = false
+        return
+      }
+
+      const data = this.queue[0]
+      const completedChallenges = Array.isArray(data.completedChallenges)
+        ? data.completedChallenges
+        : []
+
+      if (!completedChallenges.length) {
+        this.isShowing = false
+        this.queue.shift()
+        this.processQueue()
+        return
+      }
+
+      this.isShowing = true
+
+      for (let i = 0; i < completedChallenges.length; i++) {
+        const challenge = completedChallenges[i]
+        const isLast = i === completedChallenges.length - 1
+        this.renderCard(
+          challenge,
+          challenge.xpReward,
+          isLast ? data.levelUp : false,
+          isLast ? data.newLevel : undefined
+        )
+        this.showOverlay()
+        this.startAutoDismiss()
+        await new Promise<void>(resolve => {
+          this.resolveDismiss = resolve
+        })
+      }
+
       this.isShowing = false
       this.queue.shift()
       this.processQueue()
-      return
     }
 
-    this.isShowing = true
+    renderCard(
+      challenge: ChallengeCompleteChallenge,
+      xpEarned: number,
+      levelUp: boolean,
+      newLevel: number | undefined
+    ): void {
+      if (!this.template || !this.card) {
+        return
+      }
+      const content = this.template.content.cloneNode(true) as DocumentFragment
 
-    for (let i = 0; i < completedChallenges.length; i++) {
-      const challenge = completedChallenges[i]
-      const isLast = i === completedChallenges.length - 1
-      this.renderCard(
-        challenge,
-        challenge.xpReward,
-        isLast ? data.levelUp : false,
-        isLast ? data.newLevel : undefined
-      )
-      this.showOverlay()
-      this.startAutoDismiss()
-      await new Promise(resolve => {
-        this.resolveDismiss = resolve
+      const iconEl = content.querySelector('#challenge-icon')
+      const xpEl = content.querySelector('#xp-earned')
+      const nameEl = content.querySelector('#challenge-name')
+      const descEl = content.querySelector('#challenge-description')
+      if (iconEl) {
+        iconEl.textContent = challenge.icon
+      }
+      if (xpEl) {
+        xpEl.textContent = `+${xpEarned} XP`
+      }
+      if (nameEl) {
+        nameEl.textContent = challenge.name
+      }
+      if (descEl) {
+        descEl.textContent = challenge.description
+      }
+
+      if (levelUp && newLevel !== undefined && newLevel !== null) {
+        const badge = content.querySelector('#level-up-badge')
+        const newLevelEl = content.querySelector('#new-level')
+        if (badge) {
+          badge.classList.remove('hidden')
+        }
+        if (newLevelEl) {
+          newLevelEl.textContent = String(newLevel)
+        }
+      }
+
+      this.card.innerHTML = ''
+      this.card.appendChild(content)
+
+      const continueButton = this.card.querySelector('#challenge-continue')
+      if (continueButton) {
+        continueButton.addEventListener('click', () => this.dismiss())
+      }
+    }
+
+    showOverlay(): void {
+      if (!this.overlay) {
+        return
+      }
+      this.previouslyFocused = document.activeElement as HTMLElement | null
+      this.overlay.classList.remove('hidden')
+      this.overlay.setAttribute('aria-hidden', 'false')
+      document.addEventListener('keydown', this.keydownHandler)
+      this.setInitialFocus()
+    }
+
+    dismiss(): void {
+      if (!this.overlay) {
+        return
+      }
+      this.clearAutoDismiss()
+      this.overlay.classList.add('hidden')
+      this.overlay.setAttribute('aria-hidden', 'true')
+      document.removeEventListener('keydown', this.keydownHandler)
+      this.restoreFocus()
+      const resolver = this.resolveDismiss
+      this.resolveDismiss = undefined
+      if (resolver) {
+        resolver()
+      }
+    }
+
+    setInitialFocus(): void {
+      requestAnimationFrame(() => {
+        const continueButton = this.card?.querySelector('#challenge-continue')
+        const target = (continueButton || this.card) as HTMLElement | null
+        if (target && typeof target.focus === 'function') {
+          target.focus()
+        }
       })
     }
 
-    this.isShowing = false
-    this.queue.shift()
-    this.processQueue()
-  }
-
-  ChallengeCompleteManager.prototype.renderCard = function (
-    challenge,
-    xpEarned,
-    levelUp,
-    newLevel
-  ) {
-    if (!this.template || !this.card) {
-      return
-    }
-    const content = this.template.content.cloneNode(true)
-
-    const iconEl = content.querySelector('#challenge-icon')
-    const xpEl = content.querySelector('#xp-earned')
-    const nameEl = content.querySelector('#challenge-name')
-    const descEl = content.querySelector('#challenge-description')
-    if (iconEl) {
-      iconEl.textContent = challenge.icon
-    }
-    if (xpEl) {
-      xpEl.textContent = `+${xpEarned} XP`
-    }
-    if (nameEl) {
-      nameEl.textContent = challenge.name
-    }
-    if (descEl) {
-      descEl.textContent = challenge.description
-    }
-
-    if (levelUp && newLevel !== undefined && newLevel !== null) {
-      const badge = content.querySelector('#level-up-badge')
-      const newLevelEl = content.querySelector('#new-level')
-      if (badge) {
-        badge.classList.remove('hidden')
+    getFocusableElements(): Element[] {
+      if (!this.card) {
+        return []
       }
-      if (newLevelEl) {
-        newLevelEl.textContent = String(newLevel)
+      const selectors =
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      return Array.from(this.card.querySelectorAll(selectors)).filter(el => {
+        return (
+          el &&
+          !(el as HTMLElement).hasAttribute('disabled') &&
+          (el as HTMLElement).getAttribute('aria-hidden') !== 'true' &&
+          (el as HTMLElement).offsetParent !== null
+        )
+      })
+    }
+
+    handleKeydown(event: KeyboardEvent): void {
+      if (!this.isShowing) {
+        return
       }
-    }
-
-    this.card.innerHTML = ''
-    this.card.appendChild(content)
-
-    const continueButton = this.card.querySelector('#challenge-continue')
-    if (continueButton) {
-      continueButton.addEventListener('click', () => this.dismiss())
-    }
-  }
-
-  ChallengeCompleteManager.prototype.showOverlay = function () {
-    if (!this.overlay) {
-      return
-    }
-    this.previouslyFocused = document.activeElement
-    this.overlay.classList.remove('hidden')
-    this.overlay.setAttribute('aria-hidden', 'false')
-    document.addEventListener('keydown', this.keydownHandler)
-    this.setInitialFocus()
-  }
-
-  ChallengeCompleteManager.prototype.dismiss = function () {
-    if (!this.overlay) {
-      return
-    }
-    this.clearAutoDismiss()
-    this.overlay.classList.add('hidden')
-    this.overlay.setAttribute('aria-hidden', 'true')
-    document.removeEventListener('keydown', this.keydownHandler)
-    this.restoreFocus()
-    const resolver = this.resolveDismiss
-    this.resolveDismiss = undefined
-    if (resolver) {
-      resolver()
-    }
-  }
-
-  ChallengeCompleteManager.prototype.setInitialFocus = function () {
-    requestAnimationFrame(() => {
-      const continueButton = this.card?.querySelector('#challenge-continue')
-      const target = continueButton || this.card
-      if (target && typeof target.focus === 'function') {
-        target.focus()
-      }
-    })
-  }
-
-  ChallengeCompleteManager.prototype.getFocusableElements = function () {
-    if (!this.card) {
-      return []
-    }
-    const selectors =
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    return Array.from(this.card.querySelectorAll(selectors)).filter(el => {
-      return (
-        el &&
-        !el.hasAttribute('disabled') &&
-        el.getAttribute('aria-hidden') !== 'true' &&
-        el.offsetParent !== null
-      )
-    })
-  }
-
-  ChallengeCompleteManager.prototype.handleKeydown = function (event) {
-    if (!this.isShowing) {
-      return
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      this.dismiss()
-      return
-    }
-
-    if (event.key !== 'Tab') {
-      return
-    }
-
-    const focusable = this.getFocusableElements()
-    if (focusable.length === 0) {
-      event.preventDefault()
-      this.card?.focus()
-      return
-    }
-
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    const active = document.activeElement
-
-    if (event.shiftKey) {
-      if (active === first || !this.card?.contains(active)) {
+      if (event.key === 'Escape') {
         event.preventDefault()
-        if (last) {
-          last.focus()
+        this.dismiss()
+        return
+      }
+
+      if (event.key !== 'Tab') {
+        return
+      }
+
+      const focusable = this.getFocusableElements()
+      if (focusable.length === 0) {
+        event.preventDefault()
+        this.card?.focus()
+        return
+      }
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const active = document.activeElement
+
+      if (event.shiftKey) {
+        if (active === first || !this.card?.contains(active)) {
+          event.preventDefault()
+          if (last) {
+            ;(last as HTMLElement).focus()
+          }
+        }
+      } else if (active === last || !this.card?.contains(active)) {
+        event.preventDefault()
+        if (first) {
+          ;(first as HTMLElement).focus()
         }
       }
-    } else if (active === last || !this.card?.contains(active)) {
-      event.preventDefault()
-      if (first) {
-        first.focus()
+    }
+
+    restoreFocus(): void {
+      if (
+        this.previouslyFocused &&
+        document.contains(this.previouslyFocused) &&
+        typeof this.previouslyFocused.focus === 'function'
+      ) {
+        this.previouslyFocused.focus()
       }
+      this.previouslyFocused = null
     }
-  }
 
-  ChallengeCompleteManager.prototype.restoreFocus = function () {
-    if (
-      this.previouslyFocused &&
-      document.contains(this.previouslyFocused) &&
-      typeof this.previouslyFocused.focus === 'function'
-    ) {
-      this.previouslyFocused.focus()
+    startAutoDismiss(): void {
+      this.clearAutoDismiss()
+      this.autoDismissTimer = window.setTimeout(() => this.dismiss(), 5000)
     }
-    this.previouslyFocused = null
-  }
 
-  ChallengeCompleteManager.prototype.startAutoDismiss = function () {
-    this.clearAutoDismiss()
-    this.autoDismissTimer = window.setTimeout(() => this.dismiss(), 5000)
-  }
-
-  ChallengeCompleteManager.prototype.clearAutoDismiss = function () {
-    if (this.autoDismissTimer !== null) {
-      window.clearTimeout(this.autoDismissTimer)
-      this.autoDismissTimer = null
+    clearAutoDismiss(): void {
+      if (this.autoDismissTimer !== null) {
+        window.clearTimeout(this.autoDismissTimer)
+        this.autoDismissTimer = null
+      }
     }
   }
 
   // Initialize and expose globally
-  let manager = null
+  let manager: ChallengeCompleteManager | null = null
 
   document.addEventListener('DOMContentLoaded', () => {
     manager = new ChallengeCompleteManager()
@@ -373,7 +386,7 @@
     }
   })
 
-  window.showChallengeComplete = data => {
+  window.showChallengeComplete = (data: ChallengeCompleteData) => {
     if (manager) {
       manager.show(data)
       return

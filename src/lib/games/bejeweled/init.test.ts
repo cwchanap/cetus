@@ -329,7 +329,7 @@ describe('initBejeweledGame', () => {
             const gameInstance = vi.mocked(BejeweledGame).mock.results[0].value
             const onCall = vi
                 .mocked(gameInstance.on)
-                .mock.calls.find(c => c[0] === 'end')
+                .mock.calls.find((c: any[]) => c[0] === 'end')
 
             expect(onCall).toBeDefined()
             const handler = onCall![1] as (...args: unknown[]) => void
@@ -364,7 +364,7 @@ describe('initBejeweledGame', () => {
             const gameInstance = vi.mocked(BejeweledGame).mock.results[0].value
             const onCall = vi
                 .mocked(gameInstance.on)
-                .mock.calls.find(c => c[0] === 'end')
+                .mock.calls.find((c: any[]) => c[0] === 'end')
 
             expect(onCall).toBeDefined()
             const handler = onCall![1] as (...args: unknown[]) => void

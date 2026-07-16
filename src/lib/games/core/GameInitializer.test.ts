@@ -92,7 +92,7 @@ describe('GameInitializer', () => {
             rendererConfig: {
                 type: 'dom',
                 container: '#game-container',
-            } as RendererConfig,
+            } as unknown as Record<string, unknown>,
             callbacks,
         })
         initializers.push(initializer)
@@ -408,7 +408,7 @@ describe('GameInitializer', () => {
                 rendererConfig: {
                     type: 'dom',
                     container: '#game-container',
-                } as RendererConfig,
+                } as unknown as Record<string, unknown>,
             })
             initializers.push(achInitializer)
 
@@ -474,8 +474,12 @@ describe('GameInitializer', () => {
         it('setupEventHandlers early-returns when this.game is null (line 208)', () => {
             const config = {
                 gameId: GameID.TETRIS,
-                gameClass: TestGame,
-                rendererClass: TestRenderer,
+                gameClass: TestGame as unknown as new (
+                    ...args: unknown[]
+                ) => TestGame,
+                rendererClass: TestRenderer as unknown as new (
+                    ...args: unknown[]
+                ) => TestRenderer,
                 gameConfig: {
                     duration: 60,
                     achievementIntegration: false,
@@ -494,8 +498,12 @@ describe('GameInitializer', () => {
         it('setupAchievementHandling early-returns when this.game is null (line 267)', () => {
             const config = {
                 gameId: GameID.TETRIS,
-                gameClass: TestGame,
-                rendererClass: TestRenderer,
+                gameClass: TestGame as unknown as new (
+                    ...args: unknown[]
+                ) => TestGame,
+                rendererClass: TestRenderer as unknown as new (
+                    ...args: unknown[]
+                ) => TestRenderer,
                 gameConfig: {
                     duration: 60,
                     achievementIntegration: false,

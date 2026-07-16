@@ -2,7 +2,10 @@ import { defineConfig } from 'vitest/config'
 import { getViteConfig } from 'astro/config'
 import { resolve } from 'path'
 
+// getViteConfig returns an Astro UserConfig whose type doesn't include the
+// vitest `test` key, so cast the whole result to satisfy vitest's defineConfig.
 export default defineConfig(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getViteConfig({
         test: {
             environment: 'jsdom',
@@ -41,5 +44,6 @@ export default defineConfig(
                 ),
             },
         },
-    })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any) as any
 )

@@ -64,7 +64,7 @@ vi.mock('pixi.js', () => {
 })
 
 import { init2048GameFramework } from './initFramework'
-import type { Direction } from './types'
+import type { Direction, Tile } from './types'
 import { Application } from 'pixi.js'
 
 const NO_MOVE_RESULT = {
@@ -229,7 +229,7 @@ describe('init2048GameFramework', () => {
         it('does not move before the game starts', async () => {
             // Clean up the beforeEach game so its keydown listener doesn't
             // intercept the event dispatched against the fresh instance.
-            result.cleanup()
+            result!.cleanup()
             result = undefined
 
             const fresh = await init2048GameFramework()
@@ -429,7 +429,7 @@ describe('init2048GameFramework', () => {
             expect(state.moveCount).toBe(0)
             const tiles = state.board
                 .flat()
-                .filter((t): t is { value: number } => t !== null)
+                .filter((t): t is Tile => t !== null)
             // A fresh run spawns exactly INITIAL_TILES (2) tiles, not the
             // accumulated tiles from the previous run.
             expect(tiles.length).toBe(2)
@@ -622,7 +622,14 @@ describe('init2048GameFramework', () => {
             moveSpy.mockReturnValueOnce({
                 ...NO_MOVE_RESULT,
                 moved: true,
-                animations: [{ type: 'move', tileId: 'x', from: {}, to: {} }],
+                animations: [
+                    {
+                        type: 'move',
+                        tileId: 'x',
+                        from: { row: 0, col: 0 },
+                        to: { row: 0, col: 0 },
+                    },
+                ],
             })
             document.dispatchEvent(
                 new KeyboardEvent('keydown', {

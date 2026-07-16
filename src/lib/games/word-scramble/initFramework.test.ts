@@ -259,7 +259,7 @@ describe('initWordScrambleGameFramework', () => {
         it('onTimeUpdate should add red class when time <= 10', async () => {
             const instance = await initWordScrambleGameFramework()
             document.getElementById('start-btn')!.click()
-            instance.game['updateTime'](10)
+            instance!.game['updateTime'](10)
 
             const el = document.getElementById('time-remaining')!
             expect(el.classList.contains('text-red-400')).toBe(true)
@@ -269,8 +269,7 @@ describe('initWordScrambleGameFramework', () => {
         it('onChallengeUpdate should color easy words green', async () => {
             const instance = await initWordScrambleGameFramework()
             document.getElementById('start-btn')!.click()
-
-            instance.game['callbacks'].onChallengeUpdate?.({
+            ;(instance!.game['callbacks'] as any).onChallengeUpdate?.({
                 id: 'c1',
                 originalWord: 'cat',
                 scrambledWord: 'tac',
@@ -285,7 +284,7 @@ describe('initWordScrambleGameFramework', () => {
             const instance = await initWordScrambleGameFramework()
             document.getElementById('start-btn')!.click()
 
-            await instance.endGame()
+            await instance!.endGame()
 
             const answerInput = document.getElementById(
                 'answer-input'
@@ -302,7 +301,7 @@ describe('initWordScrambleGameFramework', () => {
             const instance = await initWordScrambleGameFramework()
             document.getElementById('start-btn')!.click()
 
-            const game = instance.game
+            const game = instance!.game
             ;(game as any).state.wordHistory = [
                 {
                     word: 'keyboard',
@@ -316,7 +315,7 @@ describe('initWordScrambleGameFramework', () => {
             ;(game as any).state.correctAnswers = 1
             ;(game as any).state.incorrectAnswers = 0
 
-            await instance.endGame()
+            await instance!.endGame()
 
             expect(document.getElementById('final-score')!.textContent).toBe(
                 game.getState().score.toString()
@@ -336,15 +335,15 @@ describe('initWordScrambleGameFramework', () => {
                 'answer-input'
             ) as HTMLInputElement
             answerInput.value =
-                instance.getState().currentChallenge!.originalWord
+                instance!.getState().currentChallenge!.originalWord
             document.getElementById('submit-answer')!.click()
-            expect(instance.getState().wordsUnscrambled).toBe(1)
+            expect(instance!.getState().wordsUnscrambled).toBe(1)
 
-            instance.restart()
+            instance!.restart()
 
-            expect(instance.getState().wordsUnscrambled).toBe(0)
-            expect(instance.getState().score).toBe(0)
-            expect(instance.getState().isActive).toBe(true)
+            expect(instance!.getState().wordsUnscrambled).toBe(0)
+            expect(instance!.getState().score).toBe(0)
+            expect(instance!.getState().isActive).toBe(true)
         })
 
         it('cleanup should not throw', async () => {
@@ -359,14 +358,14 @@ describe('initWordScrambleGameFramework', () => {
                 'answer-input'
             ) as HTMLInputElement
             answerInput.value =
-                instance.getState().currentChallenge!.originalWord
+                instance!.getState().currentChallenge!.originalWord
             document.getElementById('submit-answer')!.click()
-            expect(instance.getState().wordsUnscrambled).toBe(1)
+            expect(instance!.getState().wordsUnscrambled).toBe(1)
 
             document.getElementById('play-again-btn')!.click()
 
-            expect(instance.getState().wordsUnscrambled).toBe(0)
-            expect(instance.getState().isActive).toBe(true)
+            expect(instance!.getState().wordsUnscrambled).toBe(0)
+            expect(instance!.getState().isActive).toBe(true)
         })
 
         it('should call showAchievementAward when achievements are earned', async () => {

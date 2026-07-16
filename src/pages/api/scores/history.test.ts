@@ -24,8 +24,17 @@ describe('GET /api/scores/history', () => {
     }
 
     const mockSession = {
+        session: {
+            id: 'session-123',
+            userId: 'user-123',
+            expiresAt: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            token: 'session-token-123',
+            ipAddress: null,
+            userAgent: null,
+        },
         user: mockUser,
-        id: 'session-123',
     }
 
     const mockGameHistory = [
@@ -49,14 +58,14 @@ describe('GET /api/scores/history', () => {
 
     it('should return game history for authenticated user', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         vi.mocked(getUserGameHistory).mockResolvedValue(mockGameHistory)
 
         const url = new URL('http://localhost:4321/api/scores/history')
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -67,7 +76,7 @@ describe('GET /api/scores/history', () => {
 
     it('should return game history with custom limit', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         vi.mocked(getUserGameHistory).mockResolvedValue(
             mockGameHistory.slice(0, 5)
         )
@@ -76,7 +85,7 @@ describe('GET /api/scores/history', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -93,7 +102,7 @@ describe('GET /api/scores/history', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -104,13 +113,13 @@ describe('GET /api/scores/history', () => {
 
     it('should return 400 for invalid limit parameter (negative)', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const url = new URL('http://localhost:4321/api/scores/history?limit=-1')
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -121,13 +130,13 @@ describe('GET /api/scores/history', () => {
 
     it('should return 400 for invalid limit parameter (zero)', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const url = new URL('http://localhost:4321/api/scores/history?limit=0')
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -138,7 +147,7 @@ describe('GET /api/scores/history', () => {
 
     it('should return 400 for invalid limit parameter (too large)', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const url = new URL(
             'http://localhost:4321/api/scores/history?limit=101'
@@ -146,7 +155,7 @@ describe('GET /api/scores/history', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -157,7 +166,7 @@ describe('GET /api/scores/history', () => {
 
     it('should return 400 for invalid limit parameter (non-numeric)', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const url = new URL(
             'http://localhost:4321/api/scores/history?limit=abc'
@@ -165,7 +174,7 @@ describe('GET /api/scores/history', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -176,14 +185,14 @@ describe('GET /api/scores/history', () => {
 
     it('should use default limit when not specified', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         vi.mocked(getUserGameHistory).mockResolvedValue(mockGameHistory)
 
         const url = new URL('http://localhost:4321/api/scores/history')
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -194,14 +203,14 @@ describe('GET /api/scores/history', () => {
 
     it('should return empty array when no history exists', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         vi.mocked(getUserGameHistory).mockResolvedValue([])
 
         const url = new URL('http://localhost:4321/api/scores/history')
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -212,7 +221,7 @@ describe('GET /api/scores/history', () => {
 
     it('should return 500 for database errors', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         vi.mocked(getUserGameHistory).mockRejectedValue(
             new Error('Database error')
         )
@@ -221,7 +230,7 @@ describe('GET /api/scores/history', () => {
         const request = new Request(url)
 
         // Act
-        const response = await GET({ request, url })
+        const response = await GET({ request, url } as any)
         const result = await response.json()
 
         // Assert
@@ -231,7 +240,7 @@ describe('GET /api/scores/history', () => {
 
     it('should handle edge case limits correctly', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         vi.mocked(getUserGameHistory).mockResolvedValue([])
 
         const testCases = [
@@ -249,7 +258,7 @@ describe('GET /api/scores/history', () => {
             const request = new Request(url)
 
             // Act
-            const response = await GET({ request, url })
+            const response = await GET({ request, url } as any)
 
             // Assert
             expect(response.status).toBe(200)

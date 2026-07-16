@@ -1391,7 +1391,10 @@ export async function completeChallengeAndAwardXP(
     xpAmount: number
 ): Promise<boolean> {
     try {
+        await ensureStreakColumn()
         await ensureChallengeColumns()
+        await ensureLoginRewardColumns()
+        await ensurePreferenceColumns()
 
         await db.transaction().execute(async trx => {
             const progress = await trx
@@ -1453,6 +1456,12 @@ export async function completeChallengeAndAwardXP(
                         level: 1,
                         challenge_streak: 0,
                         last_challenge_date: null,
+                        login_streak: 0,
+                        last_login_reward_date: null,
+                        total_login_cycles: 0,
+                        email_notifications: 1,
+                        push_notifications: 0,
+                        challenge_reminders: 1,
                     })
                     .execute()
             }
@@ -1545,7 +1554,10 @@ export async function updateUserXPAndLevel(
     newLevel: number
 ): Promise<boolean> {
     try {
+        await ensureStreakColumn()
         await ensureChallengeColumns()
+        await ensureLoginRewardColumns()
+        await ensurePreferenceColumns()
         const now = new Date().toISOString()
 
         await db
@@ -1560,6 +1572,12 @@ export async function updateUserXPAndLevel(
                 level: newLevel,
                 challenge_streak: 0,
                 last_challenge_date: null,
+                login_streak: 0,
+                last_login_reward_date: null,
+                total_login_cycles: 0,
+                email_notifications: 1,
+                push_notifications: 0,
+                challenge_reminders: 1,
             })
             .onConflict(oc =>
                 oc.column('user_id').doUpdateSet({
@@ -1657,7 +1675,10 @@ export async function atomicCheckAndUpdateStreak(
     allChallengesCompleted: boolean
 ): Promise<boolean> {
     try {
+        await ensureStreakColumn()
         await ensureChallengeColumns()
+        await ensureLoginRewardColumns()
+        await ensurePreferenceColumns()
 
         if (!allChallengesCompleted) {
             return false
@@ -1684,6 +1705,12 @@ export async function atomicCheckAndUpdateStreak(
                         level: 1,
                         challenge_streak: 1,
                         last_challenge_date: today,
+                        login_streak: 0,
+                        last_login_reward_date: null,
+                        total_login_cycles: 0,
+                        email_notifications: 1,
+                        push_notifications: 0,
+                        challenge_reminders: 1,
                     })
                     .execute()
                 return true
@@ -1817,8 +1844,10 @@ export async function claimLoginReward(
     streakBroken: boolean = false
 ): Promise<{ success: boolean; newXP?: number; newLevel?: number }> {
     try {
+        await ensureStreakColumn()
         await ensureLoginRewardColumns()
         await ensureChallengeColumns()
+        await ensurePreferenceColumns()
 
         const { getLevelFromXP } = await getChallengesModule()
 

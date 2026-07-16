@@ -544,7 +544,7 @@ describe('initSnakeGameFramework', () => {
             // Get the onGameEnd callback registered with game.on('end', handler)
             const onGameEndCall = vi
                 .mocked(gameMock.on)
-                .mock.calls.find(call => call[0] === 'end')
+                .mock.calls.find((call: any[]) => call[0] === 'end')
             const onGameEnd = onGameEndCall?.[1] as
                 | ((...args: unknown[]) => unknown)
                 | undefined
@@ -568,7 +568,7 @@ describe('initSnakeGameFramework', () => {
 
             const onGameEndCall = vi
                 .mocked(gameMock.on)
-                .mock.calls.find(call => call[0] === 'end')
+                .mock.calls.find((call: any[]) => call[0] === 'end')
             const onGameEnd = onGameEndCall?.[1] as
                 | ((...args: unknown[]) => unknown)
                 | undefined
@@ -585,7 +585,7 @@ describe('initSnakeGameFramework', () => {
 
             const onGameEndCall = vi
                 .mocked(gameMock.on)
-                .mock.calls.find(call => call[0] === 'end')
+                .mock.calls.find((call: any[]) => call[0] === 'end')
             const onGameEnd = onGameEndCall?.[1] as
                 | ((...args: unknown[]) => unknown)
                 | undefined
