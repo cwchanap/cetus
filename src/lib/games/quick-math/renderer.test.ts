@@ -4,11 +4,12 @@ import type { MathQuestion, QuickMathState, QuickMathStats } from './game'
 
 function makeQuestion(overrides: Partial<MathQuestion> = {}): MathQuestion {
     return {
+        id: 'q1',
         question: '3 + 4',
         answer: 7,
         operation: 'addition',
-        num1: 3,
-        num2: 4,
+        operand1: 3,
+        operand2: 4,
         ...overrides,
     }
 }
@@ -23,8 +24,9 @@ function makeState(overrides: Partial<QuickMathState> = {}): QuickMathState {
         gameStarted: true,
         questionsAnswered: 0,
         correctAnswers: 0,
+        incorrectAnswers: 0,
+        currentAnswer: '',
         currentQuestion: null,
-        streak: 0,
         ...overrides,
     }
 }
@@ -281,10 +283,9 @@ describe('QuickMathRenderer', () => {
                 gameCompleted: true,
                 totalQuestions: 10,
                 correctAnswers: 8,
+                incorrectAnswers: 2,
                 accuracy: 80,
-                averageResponseTime: 3,
-                streak: 5,
-                longestStreak: 5,
+                averageTimePerQuestion: 3,
             }
             renderer.renderStats(stats)
             expect(totalEl.textContent).toBe('10')
@@ -298,10 +299,9 @@ describe('QuickMathRenderer', () => {
                 gameCompleted: false,
                 totalQuestions: 0,
                 correctAnswers: 0,
+                incorrectAnswers: 0,
                 accuracy: 0,
-                averageResponseTime: 0,
-                streak: 0,
-                longestStreak: 0,
+                averageTimePerQuestion: 0,
             }
             expect(() => renderer.renderStats(stats)).not.toThrow()
         })

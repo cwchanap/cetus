@@ -21,7 +21,9 @@ export class EvaderRenderer extends PixiJSRenderer {
     private objectGraphics: Map<string, PIXI.Graphics> = new Map()
     private playerGradient: PIXI.FillGradient | null = null
     private coinGradient: PIXI.FillGradient | null = null
+    private coinGradientRadius = NaN
     private bombGradient: PIXI.FillGradient | null = null
+    private bombGradientRadius = NaN
 
     constructor(config: EvaderRendererConfig) {
         super(config)
@@ -121,21 +123,26 @@ export class EvaderRenderer extends PixiJSRenderer {
     }
 
     private getCoinGradient(radius: number): PIXI.FillGradient {
-        if (!this.coinGradient) {
+        // Rebuild when radius changes so the gradient always matches the
+        // circle geometry (objectSize is constant today, but this guards
+        // against a future dynamic radius).
+        if (!this.coinGradient || this.coinGradientRadius !== radius) {
             this.coinGradient = new PIXI.FillGradient(0, -radius, 0, radius)
             this.coinGradient.addColorStop(0, 0xffd700)
             this.coinGradient.addColorStop(0.5, 0xffed4e)
             this.coinGradient.addColorStop(1, 0xffa500)
+            this.coinGradientRadius = radius
         }
         return this.coinGradient
     }
 
     private getBombGradient(radius: number): PIXI.FillGradient {
-        if (!this.bombGradient) {
+        if (!this.bombGradient || this.bombGradientRadius !== radius) {
             this.bombGradient = new PIXI.FillGradient(0, -radius, 0, radius)
             this.bombGradient.addColorStop(0, 0xff4444)
             this.bombGradient.addColorStop(0.5, 0xff0000)
             this.bombGradient.addColorStop(1, 0xcc0000)
+            this.bombGradientRadius = radius
         }
         return this.bombGradient
     }

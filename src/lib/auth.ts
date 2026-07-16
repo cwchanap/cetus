@@ -47,18 +47,21 @@ export const auth = betterAuth({
     },
     socialProviders: {
         google: {
-            clientId: googleClientId,
-            clientSecret: googleClientSecret,
+            clientId: googleClientId as string,
+            clientSecret: googleClientSecret as string,
         },
     },
     session: {
         expiresIn: 60 * 60 * 24 * 7, // 7 days
         updateAge: 60 * 60 * 24, // 1 day
+        // `cookie` is accepted by Better Auth at runtime but absent from the
+        // generated session-options type; cast to satisfy the type checker.
         cookie: {
             sameSite: 'lax',
             secure: import.meta.env.PROD,
             httpOnly: true,
-        },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any,
     },
     trustedOrigins: baseURL ? [baseURL] : [],
     secret,

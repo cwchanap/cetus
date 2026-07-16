@@ -130,9 +130,8 @@ describe('TetrisGame', () => {
     describe('piece generation', () => {
         it('should generate pieces with valid types over many calls', () => {
             const types = new Set<string>()
-            // @ts-expect-error - accessing protected method for testing
             for (let i = 0; i < 100; i++) {
-                types.add(game.generateNextPiece().type)
+                types.add((game as any).generateNextPiece().type)
             }
             expect(types.size).toBeGreaterThanOrEqual(3)
         })
@@ -650,25 +649,25 @@ describe('TetrisGame', () => {
             game.start()
             // @ts-expect-error - accessing protected state for testing
             const piece = game.state.currentPiece
-            const startY = piece.y
+            const startY = piece!.y
             // Force the drop timer to be overdue
             // @ts-expect-error - accessing protected state for testing
             game.state.dropTime = Date.now() - (game.state.dropInterval + 100)
             game.update(16)
             // @ts-expect-error - accessing protected state for testing
-            expect(game.state.currentPiece.y).toBe(startY + 1)
+            expect(game.state.currentPiece!.y).toBe(startY + 1)
         })
 
         it('should not drop the piece before the interval elapses', () => {
             game.start()
             // @ts-expect-error - accessing protected state for testing
             const piece = game.state.currentPiece
-            const startY = piece.y
+            const startY = piece!.y
             // @ts-expect-error - accessing protected state for testing
             game.state.dropTime = Date.now() // just reset → not overdue
             game.update(16)
             // @ts-expect-error - accessing protected state for testing
-            expect(game.state.currentPiece.y).toBe(startY)
+            expect(game.state.currentPiece!.y).toBe(startY)
         })
     })
 

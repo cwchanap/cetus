@@ -43,8 +43,12 @@ export interface Achievement {
     condition: {
         type: 'score_threshold' | 'games_played' | 'in_game' | 'custom'
         threshold?: number
-        // For in-game achievements, a check function is required
-        check?: (gameData: AchievementCheckData, score: number) => boolean
+        // For in-game achievements, a check function is required.
+        // Declared as a method (not a function-property) so the parameter is
+        // checked bivariantly; individual achievements narrow `gameData` to
+        // their game-specific shape, which is sound at the call site where the
+        // real game data is passed in.
+        check?(gameData: AchievementCheckData, score: number): boolean
         customCheck?: string // For future extensibility
     }
     isHidden?: boolean // Hidden until unlocked

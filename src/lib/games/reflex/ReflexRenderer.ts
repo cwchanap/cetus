@@ -11,6 +11,7 @@ export interface ReflexRendererConfig extends PixiJSRendererConfig {
     gridSize: number
     cellSize: number
     gridLineColor: number
+    objectLifetime: number
 }
 
 const PADDING = 20
@@ -358,5 +359,6 @@ export function createReflexRendererConfig(
         gridSize: gameConfig.gridSize,
         cellSize: gameConfig.cellSize,
         gridLineColor: gameConfig.gridLineColor,
+        objectLifetime: gameConfig.objectLifetime,
     }
 }

@@ -10,7 +10,11 @@ import {
     type RendererState,
 } from './renderer'
 import { polarToWorld } from './geometry'
-import type { RuntimeSatellite, SatelliteSyncState } from './types'
+import type {
+    RuntimeSatellite,
+    RuntimeTarget,
+    SatelliteSyncState,
+} from './types'
 import type { Application } from 'pixi.js'
 
 vi.mock('pixi.js', () => {
@@ -181,7 +185,7 @@ describe('render', () => {
 
     it('draws the snap-candidate halo as exactly one extra circle+stroke over the target body', () => {
         const layout = buildLayout(400, 400, 2)
-        const baseTarget = {
+        const baseTarget: RuntimeTarget = {
             id: 'target-0',
             ring: 1,
             defAngle: 0,
@@ -191,13 +195,14 @@ describe('render', () => {
             locked: false,
             lockedBySatId: null,
         }
-        const baseSatellite = {
+        const baseSatellite: RuntimeSatellite = {
             id: 'sat-0',
             ring: 0,
             angle: 0,
             color: 'cyan',
             aimAngle: 0,
             lockedTargetId: null,
+            snapCandidateId: null,
         }
 
         // Baseline: identical scene WITHOUT a snap candidate.

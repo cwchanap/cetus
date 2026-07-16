@@ -173,7 +173,7 @@ describe('Google-only Auth Integration', () => {
             provider: 'google',
             callbackURL: '/',
         })
-        expect(result.data?.user).toEqual(googleUser)
+        expect((result.data as any)?.user).toEqual(googleUser)
     })
 
     it('handles Google OAuth registration for a new user', async () => {
@@ -199,8 +199,8 @@ describe('Google-only Auth Integration', () => {
             provider: 'google',
             callbackURL: '/profile',
         })
-        expect(result.data?.isNewUser).toBe(true)
-        expect(result.data?.user).toEqual(newGoogleUser)
+        expect((result.data as any)?.isNewUser).toBe(true)
+        expect((result.data as any)?.user).toEqual(newGoogleUser)
     })
 
     it('handles Google OAuth errors', async () => {

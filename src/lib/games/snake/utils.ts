@@ -8,12 +8,17 @@ import { generateId } from '@/lib/games/shared/utils'
 
 export { generateId }
 
+// Only the grid dimensions are needed by the bound/food helpers; accepting
+// this narrower shape lets callers pass a partial constants object while full
+// GameConstants remains assignable.
+type GridDimensions = Pick<GameConstants, 'GRID_WIDTH' | 'GRID_HEIGHT'>
+
 /**
  * Check if position is out of bounds
  */
 export function isOutOfBounds(
     pos: Position,
-    constants: GameConstants
+    constants: GridDimensions
 ): boolean {
     return (
         pos.x < 0 ||
@@ -45,7 +50,7 @@ export function positionsEqual(pos1: Position, pos2: Position): boolean {
  */
 export function generateFoodPosition(
     snake: SnakeSegment[],
-    constants: GameConstants
+    constants: GridDimensions
 ): Position {
     let position: Position
     let attempts = 0

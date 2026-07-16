@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/pages/api/scores'
 import { saveGameScoreWithAchievements } from '@/lib/server/db/queries'
-import { getGameById } from '@/lib/games'
+import { getGameById, GameID, type Game } from '@/lib/games'
 import { AchievementRarity } from '@/lib/achievements'
 import { auth } from '@/lib/auth'
 import { updateChallengeProgress } from '@/lib/services/challengeService'
@@ -12,7 +12,7 @@ vi.mock('@/lib/server/db/queries', () => ({
 }))
 
 vi.mock('@/lib/games', async importOriginal => {
-    const actual = await importOriginal()
+    const actual = (await importOriginal()) as Record<string, unknown>
     return {
         ...actual,
         getGameById: vi.fn(),
@@ -43,15 +43,27 @@ describe('POST /api/scores', () => {
     }
 
     const mockSession = {
+        session: {
+            id: 'session-123',
+            userId: 'user-123',
+            expiresAt: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            token: 'session-token-123',
+            ipAddress: null,
+            userAgent: null,
+        },
         user: mockUser,
-        id: 'session-123',
     }
 
-    const mockGame = {
-        id: 'tetris',
+    const mockGame: Game = {
+        id: GameID.TETRIS,
         name: 'Tetris Challenge',
         description: 'Classic block-stacking puzzle game',
-        created_at: new Date(),
+        category: 'puzzle',
+        difficulty: 'medium',
+        tags: [],
+        isActive: true,
     }
 
     beforeEach(() => {
@@ -60,7 +72,7 @@ describe('POST /api/scores', () => {
 
     it('should successfully save a score for authenticated user', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
@@ -80,7 +92,7 @@ describe('POST /api/scores', () => {
         })
 
         // Act
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         // Assert
@@ -123,7 +135,7 @@ describe('POST /api/scores', () => {
         })
 
         // Act
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         // Assert
@@ -135,7 +147,7 @@ describe('POST /api/scores', () => {
 
     it('should return 400 for missing gameId', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -148,7 +160,7 @@ describe('POST /api/scores', () => {
         })
 
         // Act
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         // Assert
@@ -160,7 +172,7 @@ describe('POST /api/scores', () => {
 
     it('should return 400 for missing score', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -173,7 +185,7 @@ describe('POST /api/scores', () => {
         })
 
         // Act
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         // Assert
@@ -185,7 +197,7 @@ describe('POST /api/scores', () => {
 
     it('should return 400 for invalid score type', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -199,7 +211,7 @@ describe('POST /api/scores', () => {
         })
 
         // Act
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         // Assert
@@ -211,7 +223,7 @@ describe('POST /api/scores', () => {
 
     it('should return 400 for invalid game ID', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -225,7 +237,7 @@ describe('POST /api/scores', () => {
         })
 
         // Act
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         // Assert - Zod validates against game ID enum, so invalid IDs are caught during validation
@@ -238,7 +250,7 @@ describe('POST /api/scores', () => {
 
     it('should return 500 when save fails', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
@@ -258,7 +270,7 @@ describe('POST /api/scores', () => {
         })
 
         // Act
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         // Assert
@@ -275,7 +287,7 @@ describe('POST /api/scores', () => {
 
     it('should return 500 for database errors', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockImplementation(() => {
             throw new Error('Database error')
@@ -293,7 +305,7 @@ describe('POST /api/scores', () => {
         })
 
         // Act
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         // Assert
@@ -303,7 +315,7 @@ describe('POST /api/scores', () => {
 
     it('should return 400 for malformed JSON', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -314,7 +326,7 @@ describe('POST /api/scores', () => {
         })
 
         // Act
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         // Assert - Zod validation catches malformed JSON and returns 400
@@ -324,9 +336,9 @@ describe('POST /api/scores', () => {
 
     it('should return 400 when getGameById returns null', async () => {
         // Arrange: pass a valid GameID enum value but mock getGameById to return null
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
-        vi.mocked(getGameById).mockReturnValue(null)
+        vi.mocked(getGameById).mockReturnValue(undefined as any)
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',
@@ -334,7 +346,7 @@ describe('POST /api/scores', () => {
             body: JSON.stringify({ gameId: 'tetris', score: 1000 }),
         })
 
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         expect(response.status).toBe(400)
@@ -344,7 +356,7 @@ describe('POST /api/scores', () => {
 
     it('should include challengeUpdates when challenges are completed', async () => {
         // Arrange
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
@@ -372,7 +384,7 @@ describe('POST /api/scores', () => {
             body: JSON.stringify({ gameId: 'tetris', score: 9999 }),
         })
 
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         expect(response.status).toBe(200)
@@ -385,7 +397,7 @@ describe('POST /api/scores', () => {
 
     it('should continue and return success even when updateChallengeProgress throws', async () => {
         // Arrange: mock session and game lookup to avoid flakiness
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession)
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
 
@@ -403,7 +415,7 @@ describe('POST /api/scores', () => {
             body: JSON.stringify({ gameId: 'tetris', score: 500 }),
         })
 
-        const response = await POST({ request })
+        const response = await POST({ request } as any)
         const result = await response.json()
 
         expect(response.status).toBe(200)

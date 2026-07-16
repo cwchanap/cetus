@@ -638,7 +638,7 @@ describe('initBubbleShooterGameFramework', () => {
 
             const onGameEndCall = vi
                 .mocked(gameMock.on)
-                .mock.calls.find(call => call[0] === 'end')
+                .mock.calls.find((call: any[]) => call[0] === 'end')
             const onGameEnd = onGameEndCall?.[1] as
                 | ((...args: unknown[]) => unknown)
                 | undefined
@@ -660,7 +660,7 @@ describe('initBubbleShooterGameFramework', () => {
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             const onGameEndCall = vi
                 .mocked(gameMock.on)
-                .mock.calls.find(call => call[0] === 'end')
+                .mock.calls.find((call: any[]) => call[0] === 'end')
             const onGameEnd = onGameEndCall?.[1] as
                 | ((...args: unknown[]) => unknown)
                 | undefined

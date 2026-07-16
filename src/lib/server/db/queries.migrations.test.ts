@@ -12,7 +12,7 @@ vi.mock('@/lib/server/db/client', async () => {
     const { LibsqlDialect } = await import('@libsql/kysely-libsql')
     const { createClient } = await import('@libsql/client')
 
-    const client = createClient({ url: 'file::memory:?cache=shared' })
+    const client = createClient({ url: 'file::memory:?cache=shared' }) as any
     const dialect = new LibsqlDialect({ client })
     const db = new Kysely({ dialect })
 

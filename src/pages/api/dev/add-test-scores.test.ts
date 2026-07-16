@@ -74,11 +74,11 @@ describe('POST /api/dev/add-test-scores', () => {
         vi.mocked(db.insertInto).mockImplementation(() => {
             callCount++
             if (callCount === 1) {
-                return { values: mockValuesUser } as ReturnType<
+                return { values: mockValuesUser } as unknown as ReturnType<
                     typeof db.insertInto
                 >
             }
-            return { values: mockValuesScores } as ReturnType<
+            return { values: mockValuesScores } as unknown as ReturnType<
                 typeof db.insertInto
             >
         })
