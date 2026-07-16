@@ -7,6 +7,7 @@ import {
     checkSpaceExplorerAchievement,
     checkInGameAchievements,
 } from './achievementService'
+import { GameID } from '@/lib/games'
 
 // Mock the database queries
 vi.mock('../server/db/queries', () => ({
@@ -47,6 +48,12 @@ vi.mock('../achievements', () => ({
             rarity: 'common',
         },
     ],
+    AchievementRarity: {
+        COMMON: 'common',
+        RARE: 'rare',
+        EPIC: 'epic',
+        LEGENDARY: 'legendary',
+    },
 }))
 
 import {
@@ -54,7 +61,7 @@ import {
     hasUserEarnedAchievement,
     getUserBestScoreForGame,
 } from '../server/db/queries'
-import { getAchievementsByGame } from '../achievements'
+import { getAchievementsByGame, AchievementRarity } from '../achievements'
 
 const mockAwardAchievement = vi.mocked(awardAchievement)
 const mockHasUserEarnedAchievement = vi.mocked(hasUserEarnedAchievement)
@@ -75,9 +82,9 @@ describe('Achievement Service', () => {
                     name: 'Tetris Novice',
                     description: 'Score 100 points in Tetris',
                     logo: '🔰',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'score_threshold', threshold: 100 },
-                    rarity: 'common',
+                    rarity: AchievementRarity.COMMON,
                 },
             ])
             mockHasUserEarnedAchievement.mockResolvedValue(false)
@@ -85,11 +92,13 @@ describe('Achievement Service', () => {
 
             const result = await checkAndAwardAchievements(
                 'user123',
-                'tetris',
+                GameID.TETRIS,
                 150
             )
 
-            expect(mockGetAchievementsByGame).toHaveBeenCalledWith('tetris')
+            expect(mockGetAchievementsByGame).toHaveBeenCalledWith(
+                GameID.TETRIS
+            )
             expect(mockHasUserEarnedAchievement).toHaveBeenCalledWith(
                 'user123',
                 'tetris_novice'
@@ -108,16 +117,16 @@ describe('Achievement Service', () => {
                     name: 'Tetris Novice',
                     description: 'Score 100 points in Tetris',
                     logo: '🔰',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'score_threshold', threshold: 100 },
-                    rarity: 'common',
+                    rarity: AchievementRarity.COMMON,
                 },
             ])
             mockHasUserEarnedAchievement.mockResolvedValue(true) // Already earned
 
             const result = await checkAndAwardAchievements(
                 'user123',
-                'tetris',
+                GameID.TETRIS,
                 150
             )
 
@@ -132,15 +141,15 @@ describe('Achievement Service', () => {
                     name: 'Tetris Novice',
                     description: 'Score 100 points in Tetris',
                     logo: '🔰',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'score_threshold', threshold: 100 },
-                    rarity: 'common',
+                    rarity: AchievementRarity.COMMON,
                 },
             ])
 
             const result = await checkAndAwardAchievements(
                 'user123',
-                'tetris',
+                GameID.TETRIS,
                 50
             ) // Below threshold
 
@@ -155,18 +164,18 @@ describe('Achievement Service', () => {
                     name: 'Tetris Novice',
                     description: 'Score 100 points in Tetris',
                     logo: '🔰',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'score_threshold', threshold: 100 },
-                    rarity: 'common',
+                    rarity: AchievementRarity.COMMON,
                 },
                 {
                     id: 'tetris_master',
                     name: 'Tetris Master',
                     description: 'Score 1000 points in Tetris',
                     logo: '👑',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'score_threshold', threshold: 1000 },
-                    rarity: 'epic',
+                    rarity: AchievementRarity.EPIC,
                 },
             ])
             mockHasUserEarnedAchievement.mockResolvedValue(false)
@@ -174,7 +183,7 @@ describe('Achievement Service', () => {
 
             const result = await checkAndAwardAchievements(
                 'user123',
-                'tetris',
+                GameID.TETRIS,
                 1200
             )
 
@@ -189,7 +198,7 @@ describe('Achievement Service', () => {
 
             const result = await checkAndAwardAchievements(
                 'user123',
-                'tetris',
+                GameID.TETRIS,
                 150
             )
 
@@ -203,15 +212,15 @@ describe('Achievement Service', () => {
                     name: 'Broken Threshold',
                     description: 'Invalid threshold config',
                     logo: '❌',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'score_threshold' },
-                    rarity: 'common',
+                    rarity: AchievementRarity.COMMON,
                 } as any,
             ])
 
             const result = await checkAndAwardAchievements(
                 'user123',
-                'tetris',
+                GameID.TETRIS,
                 1000
             )
 
@@ -285,9 +294,9 @@ describe('Achievement Service', () => {
                     name: 'Tetris Novice',
                     description: 'Score 100 points in Tetris',
                     logo: '🔰',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'score_threshold', threshold: 100 },
-                    rarity: 'common',
+                    rarity: AchievementRarity.COMMON,
                 },
             ])
             mockGetUserBestScoreForGame.mockResolvedValue(50) // 50% progress
@@ -295,7 +304,7 @@ describe('Achievement Service', () => {
 
             const result = await getUserGameAchievementProgress(
                 'user123',
-                'tetris'
+                GameID.TETRIS
             )
 
             expect(result).toHaveLength(1)
@@ -310,9 +319,9 @@ describe('Achievement Service', () => {
                     name: 'Tetris Novice',
                     description: 'Score 100 points in Tetris',
                     logo: '🔰',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'score_threshold', threshold: 100 },
-                    rarity: 'common',
+                    rarity: AchievementRarity.COMMON,
                 },
             ])
             mockGetUserBestScoreForGame.mockResolvedValue(200) // 200% but should cap at 100%
@@ -320,7 +329,7 @@ describe('Achievement Service', () => {
 
             const result = await getUserGameAchievementProgress(
                 'user123',
-                'tetris'
+                GameID.TETRIS
             )
 
             expect(result[0].progress).toBe(100)
@@ -334,9 +343,9 @@ describe('Achievement Service', () => {
                     name: 'Custom Condition',
                     description: 'Non-score based',
                     logo: '🧪',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'in_game', check: () => true },
-                    rarity: 'rare',
+                    rarity: AchievementRarity.RARE,
                 } as any,
             ])
             mockGetUserBestScoreForGame.mockResolvedValue(999)
@@ -344,7 +353,7 @@ describe('Achievement Service', () => {
 
             const result = await getUserGameAchievementProgress(
                 'user123',
-                'tetris'
+                GameID.TETRIS
             )
 
             expect(result).toHaveLength(1)
@@ -359,7 +368,7 @@ describe('Achievement Service', () => {
 
             const result = await getUserGameAchievementProgress(
                 'user123',
-                'tetris'
+                GameID.TETRIS
             )
 
             expect(result).toEqual([])
@@ -426,9 +435,9 @@ describe('Achievement Service', () => {
                     name: 'Clean Stack',
                     description: 'Perform a special in-game condition',
                     logo: '✨',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'in_game', check: inGameCheck },
-                    rarity: 'rare',
+                    rarity: AchievementRarity.RARE,
                 } as any,
             ])
             mockHasUserEarnedAchievement.mockResolvedValue(false)
@@ -436,7 +445,7 @@ describe('Achievement Service', () => {
 
             const result = await checkInGameAchievements(
                 'user123',
-                'tetris',
+                GameID.TETRIS,
                 { linesCleared: 4 } as any,
                 1200
             )
@@ -457,15 +466,15 @@ describe('Achievement Service', () => {
                     name: 'Clean Stack',
                     description: 'Perform a special in-game condition',
                     logo: '✨',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'in_game', check: inGameCheck },
-                    rarity: 'rare',
+                    rarity: AchievementRarity.RARE,
                 } as any,
             ])
 
             const result = await checkInGameAchievements(
                 'user123',
-                'tetris',
+                GameID.TETRIS,
                 { linesCleared: 0 } as any,
                 10
             )
@@ -483,16 +492,16 @@ describe('Achievement Service', () => {
                     name: 'Clean Stack',
                     description: 'Perform a special in-game condition',
                     logo: '✨',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'in_game', check: inGameCheck },
-                    rarity: 'rare',
+                    rarity: AchievementRarity.RARE,
                 } as any,
             ])
             mockHasUserEarnedAchievement.mockResolvedValue(true)
 
             const result = await checkInGameAchievements(
                 'user123',
-                'tetris',
+                GameID.TETRIS,
                 { linesCleared: 4 } as any,
                 1000
             )
@@ -509,9 +518,9 @@ describe('Achievement Service', () => {
                     name: 'Clean Stack',
                     description: 'Perform a special in-game condition',
                     logo: '✨',
-                    gameId: 'tetris',
+                    gameId: GameID.TETRIS,
                     condition: { type: 'in_game', check: inGameCheck },
-                    rarity: 'rare',
+                    rarity: AchievementRarity.RARE,
                 } as any,
             ])
             mockHasUserEarnedAchievement.mockResolvedValue(false)
@@ -519,7 +528,7 @@ describe('Achievement Service', () => {
 
             const result = await checkInGameAchievements(
                 'user123',
-                'tetris',
+                GameID.TETRIS,
                 { linesCleared: 4 } as any,
                 1000
             )

@@ -13,20 +13,7 @@ import {
     handleGameError,
 } from '@/lib/games/core/errors'
 
-// Achievement notification type
-interface AchievementNotification {
-    id: string
-    name: string
-    description: string
-    icon: string
-    rarity: 'common' | 'rare' | 'epic' | 'legendary'
-}
-
-declare global {
-    interface Window {
-        showAchievementAward?: (achievements: AchievementNotification[]) => void
-    }
-}
+import { type AchievementNotification } from '@/lib/achievements'
 
 export interface TetrisInitResult {
     game: TetrisGame

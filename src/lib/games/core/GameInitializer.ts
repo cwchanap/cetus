@@ -7,6 +7,7 @@ import type {
     ScoringConfig,
 } from './types'
 import type { GameID } from '@/lib/games'
+import type { AchievementNotification } from '@/lib/achievements'
 
 export interface GameInitializerConfig<
     TGame extends BaseGame,
@@ -275,7 +276,7 @@ export class GameInitializer<
         // Listen for game end events to show achievement notifications
         this.game.on('end', event => {
             const data = event.data as {
-                newAchievements?: string[]
+                newAchievements?: AchievementNotification[]
                 challengeUpdates?: ChallengeUpdates
             }
             if (data?.newAchievements && data.newAchievements.length > 0) {
@@ -328,12 +329,5 @@ export class GameInitializer<
 
         // Clear element references
         this.elements = {}
-    }
-}
-
-// Type augmentation for global achievement function
-declare global {
-    interface Window {
-        showAchievementAward?: (achievements: string[]) => void
     }
 }

@@ -51,6 +51,17 @@ export interface Achievement {
     rarity: AchievementRarity
 }
 
+// Shape of an achievement notification payload dispatched to the global
+// `window.showAchievementAward` handler (see scoreService.ts). Shared by all
+// game init frameworks so the global Window augmentation stays consistent.
+export interface AchievementNotification {
+    id: string
+    name: string
+    description: string
+    icon: string
+    rarity: AchievementRarity
+}
+
 // Combined type for user achievements with details
 export type UserAchievementWithDetails = UserAchievementRecord & {
     achievement: Achievement
