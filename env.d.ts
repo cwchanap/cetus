@@ -23,4 +23,19 @@ interface ImportMeta {
 
 interface Window {
     memoryMatrixGame?: import('@/lib/games/memory-matrix/initFramework').MemoryMatrixInitResult
+    showAchievementAward?: (
+        achievements: import('@/lib/achievements').AchievementNotification[]
+    ) => void
+    showChallengeComplete?: (challengeUpdates: {
+        completedChallenges: Array<{
+            id: string
+            name: string
+            description: string
+            icon: string
+            xpReward: number
+        }>
+        xpEarned: number
+        levelUp: boolean
+        newLevel?: number
+    }) => void
 }

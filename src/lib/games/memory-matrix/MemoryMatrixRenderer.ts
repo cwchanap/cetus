@@ -52,13 +52,17 @@ export class MemoryMatrixRenderer extends DOMRenderer {
         let focusRow: number | null = null
         let focusCol: number | null = null
         if (active && boardElement.contains(active)) {
-            focusRow = Number(active.getAttribute('data-row'))
-            focusCol = Number(active.getAttribute('data-col'))
-            if (Number.isNaN(focusRow)) {
-                focusRow = null
-            }
-            if (Number.isNaN(focusCol)) {
-                focusCol = null
+            const rowAttr = active.getAttribute('data-row')
+            const colAttr = active.getAttribute('data-col')
+            if (rowAttr !== null && colAttr !== null) {
+                focusRow = Number(rowAttr)
+                focusCol = Number(colAttr)
+                if (Number.isNaN(focusRow)) {
+                    focusRow = null
+                }
+                if (Number.isNaN(focusCol)) {
+                    focusCol = null
+                }
             }
         }
 
@@ -105,6 +109,10 @@ export class MemoryMatrixRenderer extends DOMRenderer {
                 'aria-label',
                 `Card row ${row + 1}, column ${col + 1}, ${status}, ${card.shape}`
             )
+            // tabindex="-1" keeps face-up cards out of tab order but allows
+            // programmatic focus restoration after a re-render so keyboard
+            // activation doesn't drop focus to <body>.
+            cardDiv.setAttribute('tabindex', '-1')
         } else {
             cardDiv.textContent = '?'
         }

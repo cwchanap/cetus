@@ -7,24 +7,6 @@ import { type AchievementNotification } from '@/lib/achievements'
 import { getGameById, type GameID } from '@/lib/games'
 import type { GameData } from '@/lib/games/shared/types'
 
-declare global {
-    interface Window {
-        showAchievementAward?: (achievements: AchievementNotification[]) => void
-        showChallengeComplete?: (challengeUpdates: {
-            completedChallenges: Array<{
-                id: string
-                name: string
-                description: string
-                icon: string
-                xpReward: number
-            }>
-            xpEarned: number
-            levelUp: boolean
-            newLevel?: number
-        }) => void
-    }
-}
-
 export interface ScoreSubmissionResult {
     success: boolean
     newAchievements?: AchievementNotification[]

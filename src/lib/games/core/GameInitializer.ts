@@ -281,12 +281,18 @@ export class GameInitializer<
             }
             if (data?.newAchievements && data.newAchievements.length > 0) {
                 // Show achievement notifications using global function
-                if (typeof window.showAchievementAward === 'function') {
+                if (
+                    typeof window !== 'undefined' &&
+                    typeof window.showAchievementAward === 'function'
+                ) {
                     window.showAchievementAward(data.newAchievements)
                 }
             }
             if (data?.challengeUpdates?.completedChallenges?.length) {
-                if (typeof window.showChallengeComplete === 'function') {
+                if (
+                    typeof window !== 'undefined' &&
+                    typeof window.showChallengeComplete === 'function'
+                ) {
                     window.showChallengeComplete(data.challengeUpdates)
                 }
             }
