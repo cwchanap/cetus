@@ -36,20 +36,7 @@ export interface BejeweledInitResult {
     cleanup: () => void
 }
 
-// Minimal shape returned by /api/scores newAchievements payload
-interface AchievementNotification {
-    id: string
-    name: string
-    description: string
-    icon: string
-    rarity: 'common' | 'rare' | 'epic' | 'legendary'
-}
-
-declare global {
-    interface Window {
-        showAchievementAward?: (achievements: AchievementNotification[]) => void
-    }
-}
+import { type AchievementNotification } from '@/lib/achievements'
 
 export async function initBejeweledGame(
     customConfig?: Partial<BejeweledConfig>,

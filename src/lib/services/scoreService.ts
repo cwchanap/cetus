@@ -3,21 +3,13 @@
  */
 
 import type { GameType } from '@/lib/server/db/types'
-import { AchievementRarity } from '@/lib/achievements'
+import { type AchievementNotification } from '@/lib/achievements'
 import { getGameById, type GameID } from '@/lib/games'
 import type { GameData } from '@/lib/games/shared/types'
 
 declare global {
     interface Window {
-        showAchievementAward?: (
-            achievements: Array<{
-                id: string
-                name: string
-                description: string
-                icon: string
-                rarity: AchievementRarity
-            }>
-        ) => void
+        showAchievementAward?: (achievements: AchievementNotification[]) => void
         showChallengeComplete?: (challengeUpdates: {
             completedChallenges: Array<{
                 id: string
@@ -35,13 +27,7 @@ declare global {
 
 export interface ScoreSubmissionResult {
     success: boolean
-    newAchievements?: Array<{
-        id: string
-        name: string
-        description: string
-        icon: string
-        rarity: AchievementRarity
-    }>
+    newAchievements?: AchievementNotification[]
     challengeUpdates?: {
         completedChallenges: Array<{
             id: string

@@ -197,13 +197,12 @@ const classes = cn(
 </style>
 
 <script>
-  interface AchievementData {
-    id: string
-    name: string
-    description: string
-    icon: string
-    rarity: 'common' | 'rare' | 'epic' | 'legendary'
-  }
+  import type { AchievementNotification } from '@/lib/achievements'
+
+  // Alias to the canonical notification shape so the global
+  // `window.showAchievementAward` signature (declared in scoreService.ts)
+  // stays consistent across the app.
+  type AchievementData = AchievementNotification
 
   class AchievementAward {
     private overlay: HTMLElement
@@ -508,13 +507,6 @@ const classes = cn(
   window.showAchievementAward = function (achievements: AchievementData[]) {
     if (achievementAward) {
       achievementAward.showAchievements(achievements)
-    }
-  }
-
-  // Add to global scope for TypeScript
-  declare global {
-    interface Window {
-      showAchievementAward: (achievements: AchievementData[]) => void
     }
   }
 </script>

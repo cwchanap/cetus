@@ -8,6 +8,8 @@ import {
     getRarityGlow,
     getPaginatedAchievements,
     ACHIEVEMENTS,
+    AchievementRarity,
+    type Achievement,
 } from './achievements'
 import { GameID } from './games'
 
@@ -69,6 +71,7 @@ describe('Achievement System', () => {
         })
 
         it('should return empty array for non-existent game', () => {
+            // @ts-expect-error Testing invalid input
             const achievements = getAchievementsByGame('non_existent')
             expect(achievements).toHaveLength(0)
         })
@@ -86,17 +89,33 @@ describe('Achievement System', () => {
 
     describe('Rarity Styling Helpers', () => {
         it('should return correct colors for rarities', () => {
-            expect(getRarityColor('common')).toContain('cetus-ink-muted')
-            expect(getRarityColor('rare')).toContain('text-cetus-accent ')
-            expect(getRarityColor('epic')).toContain('cetus-accent-3')
-            expect(getRarityColor('legendary')).toContain('cetus-accent-2')
+            expect(getRarityColor(AchievementRarity.COMMON)).toContain(
+                'cetus-ink-muted'
+            )
+            expect(getRarityColor(AchievementRarity.RARE)).toContain(
+                'text-cetus-accent '
+            )
+            expect(getRarityColor(AchievementRarity.EPIC)).toContain(
+                'cetus-accent-3'
+            )
+            expect(getRarityColor(AchievementRarity.LEGENDARY)).toContain(
+                'cetus-accent-2'
+            )
         })
 
         it('should return correct glow effects for rarities', () => {
-            expect(getRarityGlow('common')).toContain('cetus-ink-muted')
-            expect(getRarityGlow('rare')).toContain('shadow-cetus-accent/25')
-            expect(getRarityGlow('epic')).toContain('cetus-accent-3')
-            expect(getRarityGlow('legendary')).toContain('cetus-accent-2')
+            expect(getRarityGlow(AchievementRarity.COMMON)).toContain(
+                'cetus-ink-muted'
+            )
+            expect(getRarityGlow(AchievementRarity.RARE)).toContain(
+                'shadow-cetus-accent/25'
+            )
+            expect(getRarityGlow(AchievementRarity.EPIC)).toContain(
+                'cetus-accent-3'
+            )
+            expect(getRarityGlow(AchievementRarity.LEGENDARY)).toContain(
+                'cetus-accent-2'
+            )
         })
 
         it('should handle invalid rarity gracefully', () => {
@@ -115,7 +134,7 @@ describe('Achievement System', () => {
                 name: 'Test Achievement 1',
                 description: 'First test achievement',
                 logo: '🏆',
-                rarity: 'common',
+                rarity: AchievementRarity.COMMON,
                 gameId: 'global',
                 scoreThreshold: 100,
             },
@@ -124,8 +143,8 @@ describe('Achievement System', () => {
                 name: 'Test Achievement 2',
                 description: 'Second test achievement',
                 logo: '🥇',
-                rarity: 'rare',
-                gameId: 'tetris',
+                rarity: AchievementRarity.RARE,
+                gameId: GameID.TETRIS,
                 scoreThreshold: 200,
             },
             {
@@ -133,8 +152,8 @@ describe('Achievement System', () => {
                 name: 'Test Achievement 3',
                 description: 'Third test achievement',
                 logo: '🥈',
-                rarity: 'epic',
-                gameId: 'tetris',
+                rarity: AchievementRarity.EPIC,
+                gameId: GameID.TETRIS,
                 scoreThreshold: 300,
             },
             {
@@ -142,8 +161,8 @@ describe('Achievement System', () => {
                 name: 'Test Achievement 4',
                 description: 'Fourth test achievement',
                 logo: '🥉',
-                rarity: 'legendary',
-                gameId: 'bubble_shooter',
+                rarity: AchievementRarity.LEGENDARY,
+                gameId: GameID.BUBBLE_SHOOTER,
                 scoreThreshold: 400,
             },
             {
@@ -151,11 +170,11 @@ describe('Achievement System', () => {
                 name: 'Test Achievement 5',
                 description: 'Fifth test achievement',
                 logo: '🎖️',
-                rarity: 'common',
+                rarity: AchievementRarity.COMMON,
                 gameId: 'global',
                 scoreThreshold: 500,
             },
-        ]
+        ] as unknown as Achievement[]
 
         it('should return first page with default page size', () => {
             const result = getPaginatedAchievements(mockAchievements)

@@ -445,9 +445,16 @@ describe('MemoryMatrixRenderer', () => {
             renderer.destroy()
         })
 
-        it('should not render when state object is missing board/needsRedraw', async () => {
+        it('should not render when state object is missing board', async () => {
             const renderer = await createRenderer()
-            renderer.render({ foo: 'bar' } as unknown)
+            renderer.render({ needsRedraw: true } as unknown)
+            expect(boardEl.children.length).toBe(0)
+            renderer.destroy()
+        })
+
+        it('should not render when state object is missing needsRedraw', async () => {
+            const renderer = await createRenderer()
+            renderer.render({ board: [] } as unknown)
             expect(boardEl.children.length).toBe(0)
             renderer.destroy()
         })
