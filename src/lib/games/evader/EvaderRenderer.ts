@@ -19,6 +19,9 @@ export class EvaderRenderer extends PixiJSRenderer {
     private objectContainer: PIXI.Container | null = null
     private playerGraphic: PIXI.Graphics | null = null
     private objectGraphics: Map<string, PIXI.Graphics> = new Map()
+    private playerGradient: PIXI.FillGradient | null = null
+    private coinGradient: PIXI.FillGradient | null = null
+    private bombGradient: PIXI.FillGradient | null = null
 
     constructor(config: EvaderRendererConfig) {
         super(config)
@@ -105,6 +108,38 @@ export class EvaderRenderer extends PixiJSRenderer {
         })
     }
 
+    private getPlayerGradient(): PIXI.FillGradient {
+        if (!this.playerGradient) {
+            // Local-space vertical gradient (0→1) fills the player rect
+            // regardless of world position, so geometry never needs updating.
+            this.playerGradient = new PIXI.FillGradient(0, 0, 0, 1)
+            this.playerGradient.addColorStop(0, 0x6bffae)
+            this.playerGradient.addColorStop(0.5, 0x00ff66)
+            this.playerGradient.addColorStop(1, 0x00cc44)
+        }
+        return this.playerGradient
+    }
+
+    private getCoinGradient(radius: number): PIXI.FillGradient {
+        if (!this.coinGradient) {
+            this.coinGradient = new PIXI.FillGradient(0, -radius, 0, radius)
+            this.coinGradient.addColorStop(0, 0xffd700)
+            this.coinGradient.addColorStop(0.5, 0xffed4e)
+            this.coinGradient.addColorStop(1, 0xffa500)
+        }
+        return this.coinGradient
+    }
+
+    private getBombGradient(radius: number): PIXI.FillGradient {
+        if (!this.bombGradient) {
+            this.bombGradient = new PIXI.FillGradient(0, -radius, 0, radius)
+            this.bombGradient.addColorStop(0, 0xff4444)
+            this.bombGradient.addColorStop(0.5, 0xff0000)
+            this.bombGradient.addColorStop(1, 0xcc0000)
+        }
+        return this.bombGradient
+    }
+
     private renderPlayer(player: Player): void {
         if (!this.playerGraphic) {
             return
@@ -115,16 +150,6 @@ export class EvaderRenderer extends PixiJSRenderer {
         const playerWidth = this.evaderConfig.playerSize
         const playerHeight = this.evaderConfig.playerSize
 
-        const playerGradient = new PIXI.FillGradient(
-            player.x,
-            player.y - playerHeight / 2,
-            player.x,
-            player.y + playerHeight / 2
-        )
-        playerGradient.addColorStop(0, 0x6bffae)
-        playerGradient.addColorStop(0.5, 0x00ff66)
-        playerGradient.addColorStop(1, 0x00cc44)
-
         this.playerGraphic
             .rect(
                 player.x - playerWidth / 2,
@@ -132,7 +157,7 @@ export class EvaderRenderer extends PixiJSRenderer {
                 playerWidth,
                 playerHeight
             )
-            .fill(playerGradient)
+            .fill(this.getPlayerGradient())
             .stroke({ color: 0x00ff66, width: 2 })
     }
 
@@ -165,35 +190,21 @@ export class EvaderRenderer extends PixiJSRenderer {
             objectGraphic.y = obj.y
 
             if (obj.type === 'coin') {
-                const coinGradient = new PIXI.FillGradient(
-                    0,
-                    -radius,
-                    0,
-                    radius
-                )
-                coinGradient.addColorStop(0, 0xffd700)
-                coinGradient.addColorStop(0.5, 0xffed4e)
-                coinGradient.addColorStop(1, 0xffa500)
-
-                objectGraphic.circle(0, 0, radius).fill(coinGradient).stroke({
-                    color: 0xffd700,
-                    width: 2,
-                })
+                objectGraphic
+                    .circle(0, 0, radius)
+                    .fill(this.getCoinGradient(radius))
+                    .stroke({
+                        color: 0xffd700,
+                        width: 2,
+                    })
             } else {
-                const bombGradient = new PIXI.FillGradient(
-                    0,
-                    -radius,
-                    0,
-                    radius
-                )
-                bombGradient.addColorStop(0, 0xff4444)
-                bombGradient.addColorStop(0.5, 0xff0000)
-                bombGradient.addColorStop(1, 0xcc0000)
-
-                objectGraphic.circle(0, 0, radius).fill(bombGradient).stroke({
-                    color: 0xff0000,
-                    width: 2,
-                })
+                objectGraphic
+                    .circle(0, 0, radius)
+                    .fill(this.getBombGradient(radius))
+                    .stroke({
+                        color: 0xff0000,
+                        width: 2,
+                    })
             }
         }
     }
@@ -201,6 +212,13 @@ export class EvaderRenderer extends PixiJSRenderer {
     cleanup(): void {
         this.objectGraphics.forEach(graphic => graphic.destroy())
         this.objectGraphics.clear()
+
+        this.playerGradient?.destroy()
+        this.playerGradient = null
+        this.coinGradient?.destroy()
+        this.coinGradient = null
+        this.bombGradient?.destroy()
+        this.bombGradient = null
 
         if (this.boardGraphic) {
             this.boardGraphic.destroy()

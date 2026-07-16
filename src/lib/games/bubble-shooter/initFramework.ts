@@ -484,6 +484,11 @@ function setupCanvasControls(
     }
 
     const pointerDownHandler = (e: PointerEvent) => {
+        // Ignore non-primary presses (right/middle click) so only the main
+        // button / touch / pen tip can aim and shoot.
+        if (e.button !== 0) {
+            return
+        }
         // Update aim on press so a tap shoots toward the touch point, not the
         // last pointermove position (which may not have fired on touch).
         pointerMoveHandler(e)

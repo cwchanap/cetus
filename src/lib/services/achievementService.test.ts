@@ -61,7 +61,11 @@ import {
     hasUserEarnedAchievement,
     getUserBestScoreForGame,
 } from '../server/db/queries'
-import { getAchievementsByGame, AchievementRarity } from '../achievements'
+import {
+    getAchievementsByGame,
+    AchievementRarity,
+    type Achievement,
+} from '../achievements'
 
 const mockAwardAchievement = vi.mocked(awardAchievement)
 const mockHasUserEarnedAchievement = vi.mocked(hasUserEarnedAchievement)
@@ -215,7 +219,7 @@ describe('Achievement Service', () => {
                     gameId: GameID.TETRIS,
                     condition: { type: 'score_threshold' },
                     rarity: AchievementRarity.COMMON,
-                } as any,
+                } satisfies Achievement,
             ])
 
             const result = await checkAndAwardAchievements(
@@ -346,7 +350,7 @@ describe('Achievement Service', () => {
                     gameId: GameID.TETRIS,
                     condition: { type: 'in_game', check: () => true },
                     rarity: AchievementRarity.RARE,
-                } as any,
+                } satisfies Achievement,
             ])
             mockGetUserBestScoreForGame.mockResolvedValue(999)
             mockHasUserEarnedAchievement.mockResolvedValue(false)
@@ -438,7 +442,7 @@ describe('Achievement Service', () => {
                     gameId: GameID.TETRIS,
                     condition: { type: 'in_game', check: inGameCheck },
                     rarity: AchievementRarity.RARE,
-                } as any,
+                } satisfies Achievement,
             ])
             mockHasUserEarnedAchievement.mockResolvedValue(false)
             mockAwardAchievement.mockResolvedValue(true)
@@ -446,7 +450,7 @@ describe('Achievement Service', () => {
             const result = await checkInGameAchievements(
                 'user123',
                 GameID.TETRIS,
-                { linesCleared: 4 } as any,
+                { linesCleared: 4 },
                 1200
             )
 
@@ -469,13 +473,13 @@ describe('Achievement Service', () => {
                     gameId: GameID.TETRIS,
                     condition: { type: 'in_game', check: inGameCheck },
                     rarity: AchievementRarity.RARE,
-                } as any,
+                } satisfies Achievement,
             ])
 
             const result = await checkInGameAchievements(
                 'user123',
                 GameID.TETRIS,
-                { linesCleared: 0 } as any,
+                { linesCleared: 0 },
                 10
             )
 
@@ -495,14 +499,14 @@ describe('Achievement Service', () => {
                     gameId: GameID.TETRIS,
                     condition: { type: 'in_game', check: inGameCheck },
                     rarity: AchievementRarity.RARE,
-                } as any,
+                } satisfies Achievement,
             ])
             mockHasUserEarnedAchievement.mockResolvedValue(true)
 
             const result = await checkInGameAchievements(
                 'user123',
                 GameID.TETRIS,
-                { linesCleared: 4 } as any,
+                { linesCleared: 4 },
                 1000
             )
 
@@ -521,7 +525,7 @@ describe('Achievement Service', () => {
                     gameId: GameID.TETRIS,
                     condition: { type: 'in_game', check: inGameCheck },
                     rarity: AchievementRarity.RARE,
-                } as any,
+                } satisfies Achievement,
             ])
             mockHasUserEarnedAchievement.mockResolvedValue(false)
             mockAwardAchievement.mockResolvedValue(false)
@@ -529,7 +533,7 @@ describe('Achievement Service', () => {
             const result = await checkInGameAchievements(
                 'user123',
                 GameID.TETRIS,
-                { linesCleared: 4 } as any,
+                { linesCleared: 4 },
                 1000
             )
 

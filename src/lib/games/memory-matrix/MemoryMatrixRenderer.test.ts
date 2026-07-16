@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { within, fireEvent } from '@testing-library/dom'
 import {
     MemoryMatrixRenderer,
     createMemoryMatrixRendererConfig,
@@ -197,10 +198,11 @@ describe('MemoryMatrixRenderer', () => {
             const renderer = await createRenderer()
             renderer.render(makeState({ board: [[makeCard()]] }))
 
-            const cardEl = boardEl.querySelector('div') as HTMLElement
-            expect(cardEl.getAttribute('tabindex')).toBe('0')
-            expect(cardEl.getAttribute('role')).toBe('button')
-            expect(cardEl.getAttribute('aria-label')).toContain('face down')
+            const cardEl = within(boardEl).getByRole('button', {
+                name: /face down/i,
+            })
+            expect(cardEl).toHaveAttribute('tabindex', '0')
+            expect(cardEl.getAttribute('aria-label')).toMatch(/face down/i)
             renderer.destroy()
         })
 
@@ -210,13 +212,12 @@ describe('MemoryMatrixRenderer', () => {
                 makeState({ board: [[makeCard({ isFlipped: true })]] })
             )
 
-            const cardEl = boardEl.querySelector('div') as HTMLElement
+            const cardEl = within(boardEl).getByRole('img', {
+                name: /face up/i,
+            })
             // tabindex="-1" keeps flipped cards out of tab order but allows
             // programmatic focus restoration after a re-render.
-            expect(cardEl.getAttribute('tabindex')).toBe('-1')
-            // Flipped cards are non-interactive; role="img" lets the
-            // aria-label announce state without making them focusable.
-            expect(cardEl.getAttribute('role')).toBe('img')
+            expect(cardEl).toHaveAttribute('tabindex', '-1')
             renderer.destroy()
         })
 
@@ -226,8 +227,10 @@ describe('MemoryMatrixRenderer', () => {
                 makeState({ board: [[makeCard({ isMatched: true })]] })
             )
 
-            const cardEl = boardEl.querySelector('div') as HTMLElement
-            expect(cardEl.getAttribute('tabindex')).toBe('-1')
+            const cardEl = within(boardEl).getByRole('img', {
+                name: /matched/i,
+            })
+            expect(cardEl).toHaveAttribute('tabindex', '-1')
             renderer.destroy()
         })
 
@@ -237,10 +240,10 @@ describe('MemoryMatrixRenderer', () => {
             renderer.setCardClickCallback(callback)
             renderer.render(makeState({ board: [[makeCard()]] }))
 
-            const cardEl = boardEl.querySelector('div') as HTMLElement
-            cardEl.dispatchEvent(
-                new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
-            )
+            const cardEl = within(boardEl).getByRole('button', {
+                name: /face down/i,
+            })
+            fireEvent.keyDown(cardEl, { key: 'Enter' })
             expect(callback).toHaveBeenCalled()
             renderer.destroy()
         })
@@ -251,10 +254,10 @@ describe('MemoryMatrixRenderer', () => {
             renderer.setCardClickCallback(callback)
             renderer.render(makeState({ board: [[makeCard()]] }))
 
-            const cardEl = boardEl.querySelector('div') as HTMLElement
-            cardEl.dispatchEvent(
-                new KeyboardEvent('keydown', { key: ' ', bubbles: true })
-            )
+            const cardEl = within(boardEl).getByRole('button', {
+                name: /face down/i,
+            })
+            fireEvent.keyDown(cardEl, { key: ' ' })
             expect(callback).toHaveBeenCalled()
             renderer.destroy()
         })
@@ -265,10 +268,10 @@ describe('MemoryMatrixRenderer', () => {
             renderer.setCardClickCallback(callback)
             renderer.render(makeState({ board: [[makeCard()]] }))
 
-            const cardEl = boardEl.querySelector('div') as HTMLElement
-            cardEl.dispatchEvent(
-                new KeyboardEvent('keydown', { key: 'Tab', bubbles: true })
-            )
+            const cardEl = within(boardEl).getByRole('button', {
+                name: /face down/i,
+            })
+            fireEvent.keyDown(cardEl, { key: 'Tab' })
             expect(callback).not.toHaveBeenCalled()
             renderer.destroy()
         })
@@ -279,14 +282,10 @@ describe('MemoryMatrixRenderer', () => {
             renderer.setCardClickCallback(callback)
             renderer.render(makeState({ board: [[makeCard()]] }))
 
-            const cardEl = boardEl.querySelector('div') as HTMLElement
-            cardEl.dispatchEvent(
-                new KeyboardEvent('keydown', {
-                    key: 'Enter',
-                    bubbles: true,
-                    ctrlKey: true,
-                })
-            )
+            const cardEl = within(boardEl).getByRole('button', {
+                name: /face down/i,
+            })
+            fireEvent.keyDown(cardEl, { key: 'Enter', ctrlKey: true })
             expect(callback).not.toHaveBeenCalled()
             renderer.destroy()
         })
@@ -299,9 +298,10 @@ describe('MemoryMatrixRenderer', () => {
                 })
             )
 
-            const cardEl = boardEl.querySelector('div') as HTMLElement
-            expect(cardEl.getAttribute('aria-label')).toContain('face up')
-            expect(cardEl.getAttribute('aria-label')).toContain('⭐')
+            const cardEl = within(boardEl).getByRole('img', {
+                name: /face up.*⭐/i,
+            })
+            expect(cardEl).toBeInTheDocument()
             renderer.destroy()
         })
 
@@ -313,9 +313,10 @@ describe('MemoryMatrixRenderer', () => {
                 })
             )
 
-            const cardEl = boardEl.querySelector('div') as HTMLElement
-            expect(cardEl.getAttribute('aria-label')).toContain('matched')
-            expect(cardEl.getAttribute('aria-label')).toContain('🔴')
+            const cardEl = within(boardEl).getByRole('img', {
+                name: /matched.*🔴/i,
+            })
+            expect(cardEl).toBeInTheDocument()
             renderer.destroy()
         })
     })
@@ -333,9 +334,9 @@ describe('MemoryMatrixRenderer', () => {
             })
             renderer.render(state)
 
-            // Focus the card at row 1, col 1 (last child)
-            const cards = boardEl.querySelectorAll('div')
-            const targetCard = cards[3] as HTMLElement
+            // Focus the card at row 2, col 2 (last of four face-down cards)
+            const cards = within(boardEl).getAllByRole('button')
+            const targetCard = cards[3]
             targetCard.focus()
             expect(document.activeElement).toBe(targetCard)
 
@@ -344,9 +345,7 @@ describe('MemoryMatrixRenderer', () => {
 
             // Focus should be restored to the card at the same position,
             // not dropped to <body>
-            const refocusedCard = boardEl.querySelectorAll(
-                'div'
-            )[3] as HTMLElement
+            const refocusedCard = within(boardEl).getAllByRole('button')[3]
             expect(document.activeElement).toBe(refocusedCard)
             renderer.destroy()
         })
@@ -357,13 +356,20 @@ describe('MemoryMatrixRenderer', () => {
             renderer.render(state)
 
             // No card is focused before re-render
-            expect(document.activeElement).not.toBe(
-                boardEl.querySelector('div')
-            )
+            expect(
+                within(boardEl)
+                    .getAllByRole('button')
+                    .some(card => card === document.activeElement)
+            ).toBe(false)
 
             renderer.render(state)
-            // body retains focus; no crash
+            // Focus stays outside the board; structure is intact
             expect(boardEl.children.length).toBe(4)
+            expect(
+                within(boardEl)
+                    .getAllByRole('button')
+                    .some(card => card === document.activeElement)
+            ).toBe(false)
             renderer.destroy()
         })
 
@@ -377,7 +383,9 @@ describe('MemoryMatrixRenderer', () => {
             renderer.render(state)
 
             // Focus the face-down card (tabindex="0")
-            const cardEl = boardEl.querySelector('div') as HTMLElement
+            const cardEl = within(boardEl).getByRole('button', {
+                name: /face down/i,
+            })
             cardEl.focus()
             expect(document.activeElement).toBe(cardEl)
 
@@ -387,8 +395,10 @@ describe('MemoryMatrixRenderer', () => {
 
             // Focus should be restored to the now-flipped card (tabindex="-1"),
             // not dropped to <body>
-            const flippedCardEl = boardEl.querySelector('div') as HTMLElement
-            expect(flippedCardEl.getAttribute('tabindex')).toBe('-1')
+            const flippedCardEl = within(boardEl).getByRole('img', {
+                name: /face up/i,
+            })
+            expect(flippedCardEl).toHaveAttribute('tabindex', '-1')
             expect(document.activeElement).toBe(flippedCardEl)
             renderer.destroy()
         })
