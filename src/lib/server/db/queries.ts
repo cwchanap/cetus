@@ -1047,7 +1047,10 @@ export async function updateAllUserStreaksForUTC(): Promise<{
     incremented: number
     reset: number
 }> {
-    await ensureStreakColumn()
+    // Route through the shared migration guard so concurrent callers
+    // (e.g. a challenge request hitting this alongside another path)
+    // serialize on the same promise instead of racing on the DDL.
+    await ensureUserStatsSchema()
 
     const now = new Date()
     const todayUTC = new Date(
@@ -1531,7 +1534,7 @@ export async function getUserXPAndLevel(userId: string): Promise<{
     lastChallengeDate: string | null
 }> {
     try {
-        await ensureChallengeColumns()
+        await ensureUserStatsSchema()
         const stats = await db
             .selectFrom('user_stats')
             .select(['xp', 'level', 'challenge_streak', 'last_challenge_date'])
@@ -1739,26 +1742,37 @@ export async function atomicCheckAndUpdateStreak(
                 .executeTakeFirst()
 
             if (!stats) {
-                // If no stats, this is the first completion
-                await trx
-                    .insertInto('user_stats')
-                    .values({
-                        user_id: userId,
-                        total_games_played: 0,
-                        total_score: 0,
-                        favorite_game: null,
-                        streak_days: 0,
-                        xp: 0,
-                        level: 1,
-                        challenge_streak: 1,
-                        last_challenge_date: today,
+                // If no stats, this is the first completion. Only include
+                // login reward / preference columns if their migrations
+                // succeeded; ensureUserStatsSchema() swallows transient
+                // migration errors by design, so those columns may be
+                // absent — referencing them here would fail the insert,
+                // roll back the transaction, and silently drop the streak
+                // update.
+                const insertValues = {
+                    user_id: userId,
+                    total_games_played: 0,
+                    total_score: 0,
+                    favorite_game: null,
+                    streak_days: 0,
+                    xp: 0,
+                    level: 1,
+                    challenge_streak: 1,
+                    last_challenge_date: today,
+                    ...(_migrationsRun.has('loginRewardColumns') && {
                         login_streak: 0,
                         last_login_reward_date: null,
                         total_login_cycles: 0,
+                    }),
+                    ...(_migrationsRun.has('preferenceColumns') && {
                         email_notifications: 1,
                         push_notifications: 0,
                         challenge_reminders: 1,
-                    })
+                    }),
+                } as NewUserStats
+                await trx
+                    .insertInto('user_stats')
+                    .values(insertValues)
                     .execute()
                 return true
             }
@@ -1849,7 +1863,7 @@ export async function getLoginRewardStatus(userId: string): Promise<{
     total_login_cycles: number
 } | null> {
     try {
-        await ensureLoginRewardColumns()
+        await ensureUserStatsSchema()
         const stats = await db
             .selectFrom('user_stats')
             .select([
@@ -2021,7 +2035,7 @@ export async function getUserPreferences(userId: string): Promise<{
     challenge_reminders: boolean
 } | null> {
     try {
-        await ensurePreferenceColumns()
+        await ensureUserStatsSchema()
         const stats = await db
             .selectFrom('user_stats')
             .select([
@@ -2067,7 +2081,7 @@ export async function updateUserPreferences(
     }
 ): Promise<boolean> {
     try {
-        await ensurePreferenceColumns()
+        await ensureUserStatsSchema()
 
         // Ensure user_stats row exists
         const existing = await getUserStats(userId)
