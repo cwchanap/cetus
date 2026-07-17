@@ -197,8 +197,11 @@ const menuItemClass =
           // session is actually gone; otherwise surface the failure instead
           // of silently indicating success.
           try {
-            const { data: session } = await authClient.getSession()
-            if (!session) {
+            const { data: session, error } = await authClient.getSession()
+            // Only reload if we positively confirmed the session is gone.
+            // A null `data` with an `error` means the check itself failed
+            // (e.g. 5xx / network error), not that the session was destroyed.
+            if (!session && !error) {
               window.location.reload()
               return
             }

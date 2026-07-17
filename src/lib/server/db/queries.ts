@@ -1478,25 +1478,35 @@ export async function completeChallengeAndAwardXP(
                     .where('user_id', '=', userId)
                     .execute()
             } else {
-                await trx
-                    .insertInto('user_stats')
-                    .values({
-                        user_id: userId,
-                        total_games_played: 0,
-                        total_score: 0,
-                        favorite_game: null,
-                        streak_days: 0,
-                        xp: xpAmount,
-                        level: 1,
-                        challenge_streak: 0,
-                        last_challenge_date: null,
+                // Only include login reward / preference columns if their
+                // migrations succeeded. ensureUserStatsSchema() swallows
+                // transient migration errors by design, so those columns
+                // may be absent — referencing them here would fail the
+                // insert and roll back the challenge XP award.
+                const insertValues = {
+                    user_id: userId,
+                    total_games_played: 0,
+                    total_score: 0,
+                    favorite_game: null,
+                    streak_days: 0,
+                    xp: xpAmount,
+                    level: 1,
+                    challenge_streak: 0,
+                    last_challenge_date: null,
+                    ...(_migrationsRun.has('loginRewardColumns') && {
                         login_streak: 0,
                         last_login_reward_date: null,
                         total_login_cycles: 0,
+                    }),
+                    ...(_migrationsRun.has('preferenceColumns') && {
                         email_notifications: 1,
                         push_notifications: 0,
                         challenge_reminders: 1,
-                    })
+                    }),
+                } as NewUserStats
+                await trx
+                    .insertInto('user_stats')
+                    .values(insertValues)
                     .execute()
             }
         })
@@ -1591,25 +1601,34 @@ export async function updateUserXPAndLevel(
         await ensureUserStatsSchema()
         const now = new Date().toISOString()
 
-        await db
-            .insertInto('user_stats')
-            .values({
-                user_id: userId,
-                total_games_played: 0,
-                total_score: 0,
-                favorite_game: null,
-                streak_days: 0,
-                xp: xpToAdd,
-                level: newLevel,
-                challenge_streak: 0,
-                last_challenge_date: null,
+        // Only include login reward / preference columns if their migrations
+        // succeeded; ensureUserStatsSchema() swallows transient migration
+        // errors, so those columns may be absent.
+        const insertValues = {
+            user_id: userId,
+            total_games_played: 0,
+            total_score: 0,
+            favorite_game: null,
+            streak_days: 0,
+            xp: xpToAdd,
+            level: newLevel,
+            challenge_streak: 0,
+            last_challenge_date: null,
+            ...(_migrationsRun.has('loginRewardColumns') && {
                 login_streak: 0,
                 last_login_reward_date: null,
                 total_login_cycles: 0,
+            }),
+            ...(_migrationsRun.has('preferenceColumns') && {
                 email_notifications: 1,
                 push_notifications: 0,
                 challenge_reminders: 1,
-            })
+            }),
+        } as NewUserStats
+
+        await db
+            .insertInto('user_stats')
+            .values(insertValues)
             .onConflict(oc =>
                 oc.column('user_id').doUpdateSet({
                     xp: sql`user_stats.xp + ${xpToAdd}`,
