@@ -54,6 +54,19 @@ export function ensureUserStatsSchema(): Promise<void> {
             await ensureChallengeColumns()
             await ensureLoginRewardColumns()
             await ensurePreferenceColumns()
+            // Each helper swallows its own errors by design (so a transient DB
+            // hiccup doesn't break the primary request flow) and only records
+            // success in `_migrationsRun`. If any helper failed, it did NOT add
+            // its key, so reset the shared promise to let the next caller retry
+            // instead of caching the failed run for the process lifetime.
+            const allSucceeded =
+                _migrationsRun.has('streakColumn') &&
+                _migrationsRun.has('challengeColumns') &&
+                _migrationsRun.has('loginRewardColumns') &&
+                _migrationsRun.has('preferenceColumns')
+            if (!allSucceeded) {
+                _userStatsSchemaPromise = null
+            }
         })().catch(err => {
             // Allow the next caller to retry; surface for observability.
             _userStatsSchemaPromise = null
