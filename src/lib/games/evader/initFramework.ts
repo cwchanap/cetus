@@ -337,14 +337,14 @@ function setupKeyboardControls(game: EvaderGame): () => void {
         }
         if (MOVEMENT_KEYS.has(event.key) && game.getState().isActive) {
             event.preventDefault()
-            game.pressKey(event.key)
+            game.pressKey(event.key, 'keyboard')
         }
     }
 
     const handleKeyUp = (event: KeyboardEvent) => {
         if (MOVEMENT_KEYS.has(event.key)) {
             event.preventDefault()
-            game.releaseKey(event.key)
+            game.releaseKey(event.key, 'keyboard')
         }
     }
 
@@ -390,14 +390,14 @@ function setupTouchControls(game: EvaderGame): () => void {
             // Match the keyboard handler's isActive gate so a press before
             // the game starts doesn't leave a stuck key in rawHeldKeys.
             if (game.getState().isActive) {
-                game.pressKey(key)
+                game.pressKey(key, 'touch')
             }
         }
 
         const release = (e: PointerEvent) => {
             e.preventDefault()
             button.classList.remove('active')
-            game.releaseKey(key)
+            game.releaseKey(key, 'touch')
         }
 
         // pointerdown starts movement; pointerup / pointerleave / pointercancel

@@ -528,6 +528,53 @@ describe('EvaderGame', () => {
         })
     })
 
+    describe('keyboard and touch source overlap', () => {
+        it('should preserve movement when touch releases a key still held by keyboard', () => {
+            game.start()
+            const initialY = game.getState().player.y
+
+            // Keyboard holds ArrowUp, then D-pad presses the same ArrowUp
+            game.pressKey('ArrowUp', 'keyboard')
+            game.pressKey('ArrowUp', 'touch')
+
+            // D-pad releases — keyboard ArrowUp is still physically held
+            game.releaseKey('ArrowUp', 'touch')
+            game.update(0.1)
+
+            const newY = game.getState().player.y
+            expect(newY).toBeLessThan(initialY)
+        })
+
+        it('should preserve movement when keyboard releases a key still held by touch', () => {
+            game.start()
+            const initialY = game.getState().player.y
+
+            game.pressKey('ArrowUp', 'touch')
+            game.pressKey('ArrowUp', 'keyboard')
+
+            // Keyboard releases — D-pad ArrowUp is still pressed
+            game.releaseKey('ArrowUp', 'keyboard')
+            game.update(0.1)
+
+            const newY = game.getState().player.y
+            expect(newY).toBeLessThan(initialY)
+        })
+
+        it('should stop movement only when both sources release', () => {
+            game.start()
+            const initialY = game.getState().player.y
+
+            game.pressKey('ArrowUp', 'keyboard')
+            game.pressKey('ArrowUp', 'touch')
+            game.releaseKey('ArrowUp', 'touch')
+            game.releaseKey('ArrowUp', 'keyboard')
+
+            game.update(0.1)
+            const afterReleaseY = game.getState().player.y
+            expect(afterReleaseY).toBe(initialY)
+        })
+    })
+
     describe('getGameData contract', () => {
         it('returns EvaderGameData shape with longestSurvivalTime', () => {
             const data = (

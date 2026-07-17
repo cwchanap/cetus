@@ -7,6 +7,10 @@ import type { GameObject, GameHistoryEntry } from './types'
 import { clamp, rectOverlap, generateId } from '@/lib/games/shared/utils'
 import { rollSpawnType } from '@/lib/games/shared/spawner'
 
+/** Input source for pressKey/releaseKey. Keyboard and touch are tracked
+ * independently so releasing one source doesn't drop a key held by the other. */
+export type InputSource = 'keyboard' | 'touch'
+
 // Default configuration for the Evader game
 export const DEFAULT_EVADER_CONFIG: EvaderConfig = {
     // BaseGameConfig — Evader is a 60-second countdown game.
@@ -34,7 +38,11 @@ export class EvaderGame extends BaseGame<
     EvaderStats
 > {
     private spawnTimerId: number | null = null
-    private rawHeldKeys: Set<string> = new Set()
+    // Track keyboard and touch inputs separately so releasing one source
+    // (e.g. the D-pad) doesn't drop a key still physically held by the other
+    // (e.g. the keyboard). Both feed getActiveDirections() via union.
+    private keyboardHeldKeys: Set<string> = new Set()
+    private touchHeldKeys: Set<string> = new Set()
 
     constructor(
         config: Partial<EvaderConfig> = {},
@@ -80,7 +88,7 @@ export class EvaderGame extends BaseGame<
     }
 
     protected onGameStart(): void {
-        this.rawHeldKeys.clear()
+        this.clearHeldKeys()
         this.startSpawnTimer()
         this.emitStateChange()
     }
@@ -95,12 +103,12 @@ export class EvaderGame extends BaseGame<
 
     protected onGameEnd(_finalScore: number, _finalStats: EvaderStats): void {
         this.stopSpawnTimer()
-        this.rawHeldKeys.clear()
+        this.clearHeldKeys()
     }
 
     protected onGameReset(): void {
         this.stopSpawnTimer()
-        this.rawHeldKeys.clear()
+        this.clearHeldKeys()
         this.emitStateChange()
     }
 
@@ -256,19 +264,25 @@ export class EvaderGame extends BaseGame<
         this.emitStateChange()
     }
 
-    pressKey(key: string): void {
+    pressKey(key: string, source: InputSource = 'keyboard'): void {
         const movementKey = normalizeMovementKey(key)
-        if (movementKey) {
-            this.rawHeldKeys.add(key)
+        if (!movementKey) {
+            return
         }
+        this.heldKeysFor(source).add(key)
     }
 
-    releaseKey(key: string): void {
-        this.rawHeldKeys.delete(key)
-        // Clear case variants to handle Shift state changes between keydown/keyup.
-        // e.g. press W (Shift held) adds 'W', release w (Shift released) must also remove 'W'.
-        this.rawHeldKeys.delete(key.toUpperCase())
-        this.rawHeldKeys.delete(key.toLowerCase())
+    releaseKey(key: string, source: InputSource = 'keyboard'): void {
+        const held = this.heldKeysFor(source)
+        held.delete(key)
+        if (source === 'keyboard') {
+            // Clear case variants to handle Shift state changes between
+            // keydown/keyup. e.g. press W (Shift held) adds 'W', release w
+            // (Shift released) must also remove 'W'. Touch sources use fixed
+            // data-key strings and don't need this.
+            held.delete(key.toUpperCase())
+            held.delete(key.toLowerCase())
+        }
     }
 
     getConfig(): EvaderConfig {
@@ -278,13 +292,28 @@ export class EvaderGame extends BaseGame<
     /** Derive normalized direction set from currently held raw keys. */
     private getActiveDirections(): Set<string> {
         const dirs = new Set<string>()
-        for (const key of this.rawHeldKeys) {
+        for (const key of this.keyboardHeldKeys) {
+            const dir = normalizeMovementKey(key)
+            if (dir) {
+                dirs.add(dir)
+            }
+        }
+        for (const key of this.touchHeldKeys) {
             const dir = normalizeMovementKey(key)
             if (dir) {
                 dirs.add(dir)
             }
         }
         return dirs
+    }
+
+    private heldKeysFor(source: InputSource): Set<string> {
+        return source === 'touch' ? this.touchHeldKeys : this.keyboardHeldKeys
+    }
+
+    private clearHeldKeys(): void {
+        this.keyboardHeldKeys.clear()
+        this.touchHeldKeys.clear()
     }
 
     /** Exposed for tests — returns the normalized direction set. */
