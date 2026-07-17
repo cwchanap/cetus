@@ -36,6 +36,33 @@ function chunkArray<T>(arr: T[], chunkSize: number = 100): T[][] {
 // Migration cache to avoid repeated PRAGMA calls
 const _migrationsRun = new Set<string>()
 
+// Shared, single-flight promise for the lazy user_stats schema migrations.
+// Concurrent callers (e.g. parallel SSR requests) all await the same promise so
+// the migration DDL runs at most once per process lifecycle instead of racing.
+let _userStatsSchemaPromise: Promise<void> | null = null
+
+/**
+ * Run every lazy user_stats column migration exactly once, serialized through a
+ * shared promise so concurrent callers cannot race on the DDL. Individual
+ * migrations remain defensive (they log+swallow on failure, by design, so a
+ * transient DB hiccup doesn't break the primary request flow).
+ */
+export function ensureUserStatsSchema(): Promise<void> {
+    if (!_userStatsSchemaPromise) {
+        _userStatsSchemaPromise = (async () => {
+            await ensureStreakColumn()
+            await ensureChallengeColumns()
+            await ensureLoginRewardColumns()
+            await ensurePreferenceColumns()
+        })().catch(err => {
+            // Allow the next caller to retry; surface for observability.
+            _userStatsSchemaPromise = null
+            console.warn('[ensureUserStatsSchema] migration error:', err)
+        })
+    }
+    return _userStatsSchemaPromise
+}
+
 // Lazy-cached dynamic imports to avoid repeated resolution
 let _achievementService:
     | typeof import('../../services/achievementService')
@@ -113,10 +140,7 @@ export async function upsertUserStats(
 ): Promise<boolean> {
     try {
         // Ensure schema has all required columns before insert/update
-        await ensureStreakColumn()
-        await ensureChallengeColumns()
-        await ensureLoginRewardColumns()
-        await ensurePreferenceColumns()
+        await ensureUserStatsSchema()
 
         // Check if stats exist
         const existing = await getUserStats(userId)
@@ -1391,10 +1415,7 @@ export async function completeChallengeAndAwardXP(
     xpAmount: number
 ): Promise<boolean> {
     try {
-        await ensureStreakColumn()
-        await ensureChallengeColumns()
-        await ensureLoginRewardColumns()
-        await ensurePreferenceColumns()
+        await ensureUserStatsSchema()
 
         await db.transaction().execute(async trx => {
             const progress = await trx
@@ -1554,10 +1575,7 @@ export async function updateUserXPAndLevel(
     newLevel: number
 ): Promise<boolean> {
     try {
-        await ensureStreakColumn()
-        await ensureChallengeColumns()
-        await ensureLoginRewardColumns()
-        await ensurePreferenceColumns()
+        await ensureUserStatsSchema()
         const now = new Date().toISOString()
 
         await db
@@ -1675,10 +1693,7 @@ export async function atomicCheckAndUpdateStreak(
     allChallengesCompleted: boolean
 ): Promise<boolean> {
     try {
-        await ensureStreakColumn()
-        await ensureChallengeColumns()
-        await ensureLoginRewardColumns()
-        await ensurePreferenceColumns()
+        await ensureUserStatsSchema()
 
         if (!allChallengesCompleted) {
             return false
@@ -1844,10 +1859,7 @@ export async function claimLoginReward(
     streakBroken: boolean = false
 ): Promise<{ success: boolean; newXP?: number; newLevel?: number }> {
     try {
-        await ensureStreakColumn()
-        await ensureLoginRewardColumns()
-        await ensureChallengeColumns()
-        await ensurePreferenceColumns()
+        await ensureUserStatsSchema()
 
         const { getLevelFromXP } = await getChallengesModule()
 

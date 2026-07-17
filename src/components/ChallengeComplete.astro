@@ -147,13 +147,11 @@
 
       if (this.overlay) {
         this.overlay.addEventListener('click', event => {
-          const target = event.target as HTMLElement
-          const isBackdrop =
-            target === this.overlay ||
-            (target &&
-              target.dataset &&
-              target.dataset.overlayBackdrop === 'true')
-          if (isBackdrop) {
+          const target = event.target as Node
+          // Dismiss whenever the click lands outside the card (overlay,
+          // backdrop, or the centering wrapper). Clicks inside the card are
+          // preserved.
+          if (this.card && !this.card.contains(target)) {
             this.dismiss()
           }
         })

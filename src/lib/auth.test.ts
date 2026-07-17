@@ -149,6 +149,23 @@ describe('Auth Env Validation', () => {
 })
 
 describe('Google-only Auth Integration', () => {
+    // The better-auth client's typed `data` payload for social sign-in omits the
+    // `user`/`isNewUser` fields the mock supplies, so assert against this typed
+    // view of the response instead of an `any` cast.
+    type SocialSignInData = {
+        user?: {
+            id: string
+            email: string
+            name?: string
+            emailVerified?: boolean
+        }
+        isNewUser?: boolean
+    }
+    const socialData = (
+        result: Awaited<ReturnType<typeof authClient.signIn.social>>
+    ): SocialSignInData | undefined =>
+        result.data as SocialSignInData | undefined
+
     beforeEach(() => {
         vi.clearAllMocks()
     })
@@ -173,7 +190,7 @@ describe('Google-only Auth Integration', () => {
             provider: 'google',
             callbackURL: '/',
         })
-        expect((result.data as any)?.user).toEqual(googleUser)
+        expect(socialData(result)?.user).toEqual(googleUser)
     })
 
     it('handles Google OAuth registration for a new user', async () => {
@@ -199,8 +216,8 @@ describe('Google-only Auth Integration', () => {
             provider: 'google',
             callbackURL: '/profile',
         })
-        expect((result.data as any)?.isNewUser).toBe(true)
-        expect((result.data as any)?.user).toEqual(newGoogleUser)
+        expect(socialData(result)?.isNewUser).toBe(true)
+        expect(socialData(result)?.user).toEqual(newGoogleUser)
     })
 
     it('handles Google OAuth errors', async () => {

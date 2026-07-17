@@ -9,10 +9,9 @@ import { sql } from 'kysely'
 // Set up in-memory SQLite WITHOUT the migration columns so migrations actually run
 vi.mock('@/lib/server/db/client', async () => {
     const { Kysely } = await import('kysely')
-    const { LibsqlDialect } = await import('@libsql/kysely-libsql')
-    const { createClient } = await import('@libsql/client')
+    const { LibsqlDialect, libsql } = await import('@libsql/kysely-libsql')
 
-    const client = createClient({ url: 'file::memory:?cache=shared' }) as any
+    const client = libsql.createClient({ url: 'file::memory:?cache=shared' })
     const dialect = new LibsqlDialect({ client })
     const db = new Kysely({ dialect })
 

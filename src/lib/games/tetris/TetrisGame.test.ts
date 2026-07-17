@@ -129,9 +129,11 @@ describe('TetrisGame', () => {
 
     describe('piece generation', () => {
         it('should generate pieces with valid types over many calls', () => {
+            type PieceGeneratingTetris = { generateNextPiece: () => Piece }
+            const pieceGenerator = game as unknown as PieceGeneratingTetris
             const types = new Set<string>()
             for (let i = 0; i < 100; i++) {
-                types.add((game as any).generateNextPiece().type)
+                types.add(pieceGenerator.generateNextPiece().type)
             }
             expect(types.size).toBeGreaterThanOrEqual(3)
         })
