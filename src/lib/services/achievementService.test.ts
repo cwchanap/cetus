@@ -13,7 +13,7 @@ import { GameID } from '@/lib/games'
 vi.mock('../server/db/queries', () => ({
     awardAchievement: vi.fn(),
     hasUserEarnedAchievement: vi.fn(),
-    getUserBestScoreForGame: vi.fn(),
+    getUserBestScore: vi.fn(),
 }))
 
 // Mock the achievements
@@ -59,7 +59,7 @@ vi.mock('../achievements', () => ({
 import {
     awardAchievement,
     hasUserEarnedAchievement,
-    getUserBestScoreForGame,
+    getUserBestScore,
 } from '../server/db/queries'
 import {
     getAchievementsByGame,
@@ -69,7 +69,7 @@ import {
 
 const mockAwardAchievement = vi.mocked(awardAchievement)
 const mockHasUserEarnedAchievement = vi.mocked(hasUserEarnedAchievement)
-const mockGetUserBestScoreForGame = vi.mocked(getUserBestScoreForGame)
+const mockGetUserBestScore = vi.mocked(getUserBestScore)
 const mockGetAchievementsByGame = vi.mocked(getAchievementsByGame)
 
 describe('Achievement Service', () => {
@@ -303,7 +303,7 @@ describe('Achievement Service', () => {
                     rarity: AchievementRarity.COMMON,
                 },
             ])
-            mockGetUserBestScoreForGame.mockResolvedValue(50) // 50% progress
+            mockGetUserBestScore.mockResolvedValue(50) // 50% progress
             mockHasUserEarnedAchievement.mockResolvedValue(false)
 
             const result = await getUserGameAchievementProgress(
@@ -328,7 +328,7 @@ describe('Achievement Service', () => {
                     rarity: AchievementRarity.COMMON,
                 },
             ])
-            mockGetUserBestScoreForGame.mockResolvedValue(200) // 200% but should cap at 100%
+            mockGetUserBestScore.mockResolvedValue(200) // 200% but should cap at 100%
             mockHasUserEarnedAchievement.mockResolvedValue(true)
 
             const result = await getUserGameAchievementProgress(
@@ -352,7 +352,7 @@ describe('Achievement Service', () => {
                     rarity: AchievementRarity.RARE,
                 } satisfies Achievement,
             ])
-            mockGetUserBestScoreForGame.mockResolvedValue(999)
+            mockGetUserBestScore.mockResolvedValue(999)
             mockHasUserEarnedAchievement.mockResolvedValue(false)
 
             const result = await getUserGameAchievementProgress(

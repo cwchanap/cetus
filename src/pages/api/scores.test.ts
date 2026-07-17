@@ -338,7 +338,7 @@ describe('POST /api/scores', () => {
         // Arrange: pass a valid GameID enum value but mock getGameById to return null
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
-        vi.mocked(getGameById).mockReturnValue(undefined as any)
+        vi.mocked(getGameById).mockReturnValue(undefined)
 
         const request = new Request('http://localhost:4321/api/scores', {
             method: 'POST',

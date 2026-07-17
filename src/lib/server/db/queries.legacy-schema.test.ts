@@ -14,6 +14,11 @@ import { describe, it, expect, beforeAll, vi } from 'vitest'
 import { sql } from 'kysely'
 
 // Real in-memory SQLite so the schema mismatch is actually exercised.
+// NOTE: This relies on vitest's per-file module isolation. The shared cache
+// URL (`cache=shared`) only shares state within a single module instance; each
+// test file gets its own fresh in-memory DB because vitest isolates modules
+// per file. Do not merge this into a shared setup file or enable
+// `isolate: false` without re-evaluating, or tests will leak schema state.
 vi.mock('@/lib/server/db/client', async () => {
     const { Kysely } = await import('kysely')
     const { LibsqlDialect, libsql } = await import('@libsql/kysely-libsql')
