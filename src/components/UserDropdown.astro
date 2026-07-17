@@ -163,8 +163,11 @@ const menuItemClass =
 
         // If clicking on a link (Profile or Dashboard), close the dropdown after a short delay
         // to allow the navigation to complete
-        const target = event.target as HTMLElement | null
-        if (target && (target.tagName === 'A' || target.closest('a'))) {
+        const target = event.target
+        if (
+          target instanceof Element &&
+          (target.tagName === 'A' || !!target.closest('a'))
+        ) {
           setTimeout(closeDropdown, 100)
         }
       })
@@ -189,17 +192,21 @@ const menuItemClass =
           await authClient.signOut()
           window.location.reload()
         } catch (error) {
-          // Check if this is just a JSON parsing error but logout was successful
-          if (
-            error instanceof Error &&
-            error.message &&
-            error.message.includes('JSON')
-          ) {
-            // Logout probably succeeded, just reload the page
-            window.location.reload()
-            return
+          // signOut can throw spuriously (e.g. response-parsing errors) even
+          // when the session was destroyed. Reload ONLY after confirming the
+          // session is actually gone; otherwise surface the failure instead
+          // of silently indicating success.
+          try {
+            const { data: session } = await authClient.getSession()
+            if (!session) {
+              window.location.reload()
+              return
+            }
+          } catch {
+            // session check also failed — fall through to reset button state
           }
 
+          console.error('[logout] signOut failed:', error)
           // Reset button state on actual error
           logoutBtn.innerHTML = `
             <span class="flex items-center">

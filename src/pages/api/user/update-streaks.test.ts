@@ -181,7 +181,7 @@ describe('POST /api/user/update-streaks', () => {
 
     it('returns 403 in production when no CRON_SECRET is set', async () => {
         delete process.env.CRON_SECRET
-        vi.stubEnv('PROD', 'true' as any)
+        vi.stubEnv('PROD', true)
 
         const request = new Request(
             'http://localhost/api/user/update-streaks',

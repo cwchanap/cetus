@@ -92,7 +92,7 @@ describe('GameInitializer', () => {
             rendererConfig: {
                 type: 'dom',
                 container: '#game-container',
-            } as unknown as Record<string, unknown>,
+            },
             callbacks,
         })
         initializers.push(initializer)

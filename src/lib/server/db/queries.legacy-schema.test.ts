@@ -16,10 +16,9 @@ import { sql } from 'kysely'
 // Real in-memory SQLite so the schema mismatch is actually exercised.
 vi.mock('@/lib/server/db/client', async () => {
     const { Kysely } = await import('kysely')
-    const { LibsqlDialect } = await import('@libsql/kysely-libsql')
-    const { createClient } = await import('@libsql/client')
+    const { LibsqlDialect, libsql } = await import('@libsql/kysely-libsql')
 
-    const client = createClient({ url: 'file::memory:?cache=shared' }) as any
+    const client = libsql.createClient({ url: 'file::memory:?cache=shared' })
     const dialect = new LibsqlDialect({ client })
     const db = new Kysely({ dialect })
 

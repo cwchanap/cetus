@@ -63,10 +63,7 @@ describe('SudokuGame', () => {
         it('should initialize with correct default state', () => {
             const state = game.getState()
             expect(state.score).toBe(0)
-            expect(
-                (state as any).timer !== undefined ||
-                    state.timeRemaining !== undefined
-            ).toBe(true)
+            expect(state.timeRemaining).toBeDefined()
             expect(state.isGameOver).toBe(false)
             expect(state.gameStarted).toBe(false)
             expect(state.isActive).toBe(false)
