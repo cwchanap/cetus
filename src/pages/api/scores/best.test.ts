@@ -218,7 +218,7 @@ describe('GET /api/scores/best', () => {
     it('should return 400 when getGameById returns null for valid game ID', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        vi.mocked(getGameById).mockReturnValue(undefined as any)
+        vi.mocked(getGameById).mockReturnValue(undefined)
 
         const url = new URL(
             'http://localhost:4321/api/scores/best?gameId=tetris'

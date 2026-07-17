@@ -7,7 +7,7 @@ import {
 import {
     awardAchievement,
     hasUserEarnedAchievement,
-    getUserBestScoreForGame,
+    getUserBestScore,
 } from '../server/db/queries'
 import type { GameType } from '../server/db/types'
 
@@ -102,7 +102,7 @@ export async function getUserGameAchievementProgress(
 > {
     try {
         const gameAchievements = getAchievementsByGame(gameId)
-        const userBestScore = await getUserBestScoreForGame(userId, gameId)
+        const userBestScore = (await getUserBestScore(userId, gameId)) ?? 0
 
         const progress = []
 
