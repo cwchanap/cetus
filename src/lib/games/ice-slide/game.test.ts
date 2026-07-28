@@ -62,6 +62,19 @@ describe('IceSlideGame', () => {
         game.destroy()
     })
 
+    it('timer ticks are ignored after stop', () => {
+        vi.useFakeTimers()
+        const onTimeUpdate = vi.fn()
+        const game = new IceSlideGame({ onTimeUpdate })
+        game.start()
+        game.stop()
+        onTimeUpdate.mockClear()
+        vi.advanceTimersByTime(3000)
+        expect(onTimeUpdate).not.toHaveBeenCalled()
+        expect(game.getState().elapsedSeconds).toBe(0)
+        game.destroy()
+    })
+
     it('exposes gameData shape for score submission', () => {
         const game = new IceSlideGame()
         game.start()
