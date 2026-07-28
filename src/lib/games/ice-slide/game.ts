@@ -11,7 +11,6 @@ import { levelScore, timeBonus } from './scoring'
 
 export class IceSlideGame {
     private state: IceSlideState
-    private baseGrid: ReturnType<typeof parseGrid> = []
     private elapsedTimer: ReturnType<typeof setInterval> | null = null
     private callbacks: Partial<IceSlideCallbacks>
 
@@ -89,7 +88,6 @@ export class IceSlideGame {
         // Drop crystals gathered on this attempt so reset/hazard cannot farm.
         this.state.crystalsCollected -= this.state.levelCrystalsCollected
         this.loadLevel(this.state.levelIndex, { preserveRun: true })
-        this.callbacks.onHazard?.()
     }
 
     move(direction: Direction): void {
@@ -177,8 +175,7 @@ export class IceSlideGame {
         options: { preserveRun?: boolean } = {}
     ): void {
         const level = getLevel(index)
-        this.baseGrid = parseGrid(level)
-        const grid = cloneGrid(this.baseGrid)
+        const grid = cloneGrid(parseGrid(level))
         const start = findStart(grid)
         // Start tile behaves as ice after spawn.
         grid[start.row][start.col] = 'ice'

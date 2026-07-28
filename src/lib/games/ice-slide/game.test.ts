@@ -35,7 +35,8 @@ describe('IceSlideGame', () => {
     })
 
     it('resetLevel restores player to start without wiping run score', () => {
-        const game = new IceSlideGame()
+        const onHazard = vi.fn()
+        const game = new IceSlideGame({ onHazard })
         game.start()
         game.move('S') // clear level 1
         const scoreAfter = game.getState().score
@@ -45,6 +46,7 @@ describe('IceSlideGame', () => {
         game.move('S')
         expect(game.getState().levelMoves).toBeGreaterThan(0)
         game.resetLevel()
+        expect(onHazard).not.toHaveBeenCalled()
         expect(game.getState().player).toEqual(game.getState().start)
         expect(game.getState().levelMoves).toBe(0)
         expect(game.getState().score).toBe(scoreAfter)
