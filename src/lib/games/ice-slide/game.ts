@@ -86,6 +86,8 @@ export class IceSlideGame {
         if (this.state.status !== 'playing') {
             return
         }
+        // Drop crystals gathered on this attempt so reset/hazard cannot farm.
+        this.state.crystalsCollected -= this.state.levelCrystalsCollected
         this.loadLevel(this.state.levelIndex, { preserveRun: true })
         this.callbacks.onHazard?.()
     }
@@ -108,6 +110,7 @@ export class IceSlideGame {
         this.state.lastSlidePath = outcome.path.map(p => ({ ...p }))
 
         if (outcome.kind === 'hazard') {
+            this.state.crystalsCollected -= this.state.levelCrystalsCollected
             this.loadLevel(this.state.levelIndex, { preserveRun: true })
             this.callbacks.onMove?.({
                 moves: this.state.moves,

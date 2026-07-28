@@ -208,6 +208,9 @@ describe('initializeIceSlide', () => {
 
         expect(saveGameScore).toHaveBeenCalled()
         expect(handler).toHaveBeenCalled()
+        expect(handler.mock.calls[0][0].detail).toEqual({
+            achievementIds: [{ id: 'ice_slide_welcome' }],
+        })
         window.removeEventListener('achievementsEarned', handler)
         handle.cleanup()
     })
@@ -250,14 +253,22 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
-    it('ignores non-direction keyboard keys', async () => {
+    it('ignores direction keys after the run ends', async () => {
         const container = mountDom()
         const handle = await initializeIceSlide(container, baseCallbacks())
         await handle.start()
-        window.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
-        )
-        expect(handle.getGame()?.getState().levelIndex).toBe(0)
+        handle.getGame()?.move('S')
+        handle.stop()
+
+        const event = new KeyboardEvent('keydown', {
+            key: 'ArrowDown',
+            bubbles: true,
+            cancelable: true,
+        })
+        const prevented = !window.dispatchEvent(event)
+        // Handler must not call preventDefault once status is idle.
+        expect(prevented).toBe(false)
+        expect(event.defaultPrevented).toBe(false)
         handle.cleanup()
     })
 
