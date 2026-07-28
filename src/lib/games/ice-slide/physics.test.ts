@@ -6,7 +6,7 @@ import {
     parseGrid,
     slide,
 } from './physics'
-import { ICE_SLIDE_LEVELS } from './levels'
+import { getLevel, ICE_SLIDE_LEVELS } from './levels'
 import { DIRECTION_DELTA } from './types'
 import {
     crystalBonus,
@@ -29,6 +29,38 @@ describe('ice-slide physics', () => {
         expect(findStart(grid)).toEqual({ row: 1, col: 1 })
     })
 
+    it('rejects empty, jagged, and unknown glyphs', () => {
+        expect(() =>
+            parseGrid({ id: 1, name: 't', parMoves: 1, rows: [] })
+        ).toThrow(/no rows/)
+        expect(() =>
+            parseGrid({
+                id: 2,
+                name: 't',
+                parMoves: 1,
+                rows: ['###', '##'],
+            })
+        ).toThrow(/length/)
+        expect(() =>
+            parseGrid({
+                id: 3,
+                name: 't',
+                parMoves: 1,
+                rows: ['###', '#X#', '###'],
+            })
+        ).toThrow(/unknown glyph/)
+    })
+
+    it('throws when start is missing', () => {
+        const grid = parseGrid({
+            id: 99,
+            name: 't',
+            parMoves: 1,
+            rows: ['###', '#.#', '###'],
+        })
+        expect(() => findStart(grid)).toThrow(/missing a start/)
+    })
+
     it('slides until a wall and stops before it', () => {
         const grid = parseGrid({
             id: 99,
@@ -43,6 +75,35 @@ describe('ice-slide physics', () => {
         if (outcome.kind === 'moved') {
             expect(outcome.end).toEqual({ row: 1, col: 3 })
             expect(outcome.reachedGoal).toBe(false)
+        }
+    })
+
+    it('stops at the board edge when there is no wall border', () => {
+        const grid: ReturnType<typeof parseGrid> = [
+            ['ice', 'ice', 'ice'],
+            ['ice', 'ice', 'ice'],
+            ['ice', 'ice', 'ice'],
+        ]
+        const outcome = slide(grid, { row: 1, col: 0 }, DIRECTION_DELTA.E)
+        expect(outcome.kind).toBe('moved')
+        if (outcome.kind === 'moved') {
+            expect(outcome.end).toEqual({ row: 1, col: 2 })
+        }
+    })
+
+    it('stops before a rock', () => {
+        const grid = parseGrid({
+            id: 99,
+            name: 't',
+            parMoves: 1,
+            rows: ['#####', '#S.O#', '#####'],
+        })
+        const start = findStart(grid)
+        grid[start.row][start.col] = 'ice'
+        const outcome = slide(grid, start, DIRECTION_DELTA.E)
+        expect(outcome.kind).toBe('moved')
+        if (outcome.kind === 'moved') {
+            expect(outcome.end).toEqual({ row: 1, col: 2 })
         }
     })
 
@@ -160,7 +221,10 @@ describe('ice-slide levels', () => {
         const dirs = ['N', 'E', 'S', 'W'] as const
 
         while (queue.length) {
-            const cur = queue.shift()!
+            const cur = queue.shift()
+            if (!cur) {
+                break
+            }
             for (const d of dirs) {
                 const g = cloneGrid(cur.grid)
                 const outcome = slide(
@@ -210,5 +274,10 @@ describe('ice-slide levels', () => {
             expect(min, `level ${level.id} solvable`).not.toBeNull()
             expect(min, `level ${level.id} par`).toBe(level.parMoves)
         }
+    })
+
+    it('getLevel throws out of range', () => {
+        expect(() => getLevel(-1)).toThrow(/out of range/)
+        expect(() => getLevel(ICE_SLIDE_LEVELS.length)).toThrow(/out of range/)
     })
 })

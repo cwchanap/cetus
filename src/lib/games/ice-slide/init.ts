@@ -139,7 +139,8 @@ export async function initializeIceSlide(
             return
         }
         const gameData = game.getGameData()
-        const isStale = runGuard.isStale
+        const runId = runGuard.current()
+        const isStale = () => runGuard.isStale(runId)
         saveGameScore(
             GameID.ICE_SLIDE,
             finalScore,
