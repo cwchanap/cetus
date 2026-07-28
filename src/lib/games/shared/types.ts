@@ -111,6 +111,9 @@ export interface CircuitHackerGameData {
 export type SatelliteSyncGameData =
     import('../satellite-sync/types').SatelliteSyncGameData
 
+// Ice Slide-specific game data (canonical definition in ice-slide/types.ts)
+export type IceSlideGameData = import('../ice-slide/types').IceSlideGameData
+
 // Union type for all game data
 export type GameData =
     | TetrisGameData
@@ -127,6 +130,7 @@ export type GameData =
     | SnakeGameData
     | CircuitHackerGameData
     | SatelliteSyncGameData
+    | IceSlideGameData
 
 // Common game stats returned from games
 export interface GameStats {

@@ -10,6 +10,7 @@ import type {
     WordScrambleGameData,
     CircuitHackerGameData,
     SatelliteSyncGameData,
+    IceSlideGameData,
     GameHistoryEntry,
 } from './games/shared/types'
 
@@ -32,6 +33,7 @@ export type AchievementCheckData =
     | WordScrambleGameData
     | CircuitHackerGameData
     | SatelliteSyncGameData
+    | IceSlideGameData
     | Record<string, unknown>
 
 export interface Achievement {
@@ -1374,6 +1376,77 @@ export const ACHIEVEMENTS: Achievement[] = [
         condition: {
             type: 'score_threshold',
             threshold: 15000,
+        },
+        rarity: AchievementRarity.LEGENDARY,
+    },
+
+    // Ice Slide achievements
+    {
+        id: 'ice_slide_welcome',
+        name: 'First Slide Out',
+        description: 'Welcome to Ice Slide! You scored your first points.',
+        logo: '🧊',
+        gameId: GameID.ICE_SLIDE,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'ice_slide_efficient',
+        name: 'Efficient Glide',
+        description: 'Clear 3 Ice Slide levels at or under par moves.',
+        logo: '⛸️',
+        gameId: GameID.ICE_SLIDE,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as IceSlideGameData
+                return data.perfectLevels >= 3
+            },
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'ice_slide_crystals',
+        name: 'Crystal Collector',
+        description: 'Collect 4 crystals in Ice Slide.',
+        logo: '💎',
+        gameId: GameID.ICE_SLIDE,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as IceSlideGameData
+                return data.crystalsCollected >= 4
+            },
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'ice_slide_complete',
+        name: 'Absolute Zero',
+        description: 'Clear all 8 Ice Slide levels.',
+        logo: '❄️',
+        gameId: GameID.ICE_SLIDE,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as IceSlideGameData
+                return data.solved === true && data.levelsCleared === 8
+            },
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: 'ice_slide_legend',
+        name: 'Ice Legend',
+        description: 'Score 8,000 or more in Ice Slide.',
+        logo: '🏆',
+        gameId: GameID.ICE_SLIDE,
+        condition: {
+            type: 'score_threshold',
+            threshold: 8000,
         },
         rarity: AchievementRarity.LEGENDARY,
     },

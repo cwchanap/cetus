@@ -37,6 +37,7 @@ export enum GameID {
     GAME_2048 = '2048',
     CIRCUIT_HACKER = 'circuit_hacker',
     SATELLITE_SYNC = 'satellite_sync',
+    ICE_SLIDE = 'ice_slide',
 }
 
 // Game system types
@@ -250,6 +251,20 @@ export const GAMES: Game[] = [
         organism: { shape: 'orb', color: 'teal', orb: true },
         depth: 'abyssal',
     },
+    {
+        id: GameID.ICE_SLIDE,
+        name: 'Ice Slide',
+        description:
+            'Slide across slippery ice until you hit a wall — reach the goal in the fewest moves',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '2-6 minutes',
+        difficulty: 'medium',
+        tags: ['ice', 'slide', 'puzzle', 'single-player', 'grid'],
+        isActive: true,
+        organism: { shape: 'lattice', color: 'ice' },
+        depth: 'mid',
+    },
 ]
 
 // Helper functions
@@ -312,6 +327,7 @@ const GAME_ICONS: Record<GameID, string> = {
     [GameID.GAME_2048]: '🎯',
     [GameID.CIRCUIT_HACKER]: '🔌',
     [GameID.SATELLITE_SYNC]: '🛰️',
+    [GameID.ICE_SLIDE]: '🧊',
 }
 
 // Game icon helper function

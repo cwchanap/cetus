@@ -30,6 +30,7 @@ const games = [
     'snake',
     'circuit-hacker',
     'satellite-sync',
+    'ice-slide',
 ]
 
 describe('Game board page markup', () => {

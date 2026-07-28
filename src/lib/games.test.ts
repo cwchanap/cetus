@@ -233,6 +233,26 @@ describe('Satellite Sync registration', () => {
     })
 })
 
+describe('Ice Slide registration', () => {
+    it('has a GameID and registry entry', () => {
+        expect(GameID.ICE_SLIDE).toBe('ice_slide')
+        const game = getGameById(GameID.ICE_SLIDE)
+        expect(game).toBeDefined()
+        expect(game?.name).toBe('Ice Slide')
+        expect(game?.category).toBe('puzzle')
+        expect(game?.isActive).toBe(true)
+        expect(game?.estimatedDuration).toBe('2-6 minutes')
+    })
+
+    it('has an icon', () => {
+        expect(getGameIcon(GameID.ICE_SLIDE)).toBe('🧊')
+    })
+
+    it('is included in the GAMES list exactly once', () => {
+        expect(GAMES.filter(g => g.id === GameID.ICE_SLIDE)).toHaveLength(1)
+    })
+})
+
 describe('getGameUrl route derivation', () => {
     it('replaces underscores with hyphens and prefixes a slash', () => {
         expect(getGameUrl('satellite_sync')).toBe('/satellite-sync')

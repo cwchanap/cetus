@@ -954,3 +954,79 @@ describe('Satellite Sync achievements', () => {
         ).toBe(false)
     })
 })
+
+describe('Ice Slide achievements', () => {
+    it('registers achievements for ice slide', () => {
+        const list = getAchievementsByGame(GameID.ICE_SLIDE)
+        expect(list.map(a => a.id)).toEqual(
+            expect.arrayContaining([
+                'ice_slide_welcome',
+                'ice_slide_efficient',
+                'ice_slide_crystals',
+                'ice_slide_complete',
+                'ice_slide_legend',
+            ])
+        )
+    })
+
+    it('ice_slide_efficient: awards when perfectLevels >= 3', () => {
+        const check = getAchievementById('ice_slide_efficient')!.condition
+            .check!
+        expect(
+            check(
+                {
+                    levelsCleared: 3,
+                    totalMoves: 10,
+                    crystalsCollected: 0,
+                    elapsedSeconds: 30,
+                    solved: false,
+                    perfectLevels: 3,
+                },
+                0
+            )
+        ).toBe(true)
+        expect(
+            check(
+                {
+                    levelsCleared: 3,
+                    totalMoves: 20,
+                    crystalsCollected: 0,
+                    elapsedSeconds: 30,
+                    solved: false,
+                    perfectLevels: 2,
+                },
+                0
+            )
+        ).toBe(false)
+    })
+
+    it('ice_slide_complete: awards when all 8 levels cleared', () => {
+        const check = getAchievementById('ice_slide_complete')!.condition.check!
+        expect(
+            check(
+                {
+                    levelsCleared: 8,
+                    totalMoves: 40,
+                    crystalsCollected: 4,
+                    elapsedSeconds: 200,
+                    solved: true,
+                    perfectLevels: 4,
+                },
+                0
+            )
+        ).toBe(true)
+        expect(
+            check(
+                {
+                    levelsCleared: 7,
+                    totalMoves: 40,
+                    crystalsCollected: 4,
+                    elapsedSeconds: 200,
+                    solved: false,
+                    perfectLevels: 4,
+                },
+                0
+            )
+        ).toBe(false)
+    })
+})
