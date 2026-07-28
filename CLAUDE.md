@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cetus is a sci-fi themed single-player gaming platform built with Astro and Tailwind CSS. The platform features 14 fully implemented interactive games: Tetris Challenge, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, Sudoku, Bejeweled, Path Navigator, Evader, 2048, Snake, Circuit Hacker, and Satellite Sync. Features include user authentication, score tracking, comprehensive achievement system with 4 rarity tiers, and a modern neon-styled design with holographic effects and animated backgrounds.
+Cetus is a sci-fi themed single-player gaming platform built with Astro and Tailwind CSS. The platform features 15 fully implemented interactive games: Tetris Challenge, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, Sudoku, Bejeweled, Path Navigator, Evader, 2048, Snake, Circuit Hacker, Satellite Sync, and Ice Slide. Features include user authentication, score tracking, comprehensive achievement system with 4 rarity tiers, and a modern neon-styled design with holographic effects and animated backgrounds.
 
 ## Development Commands
 
@@ -294,7 +294,7 @@ Comprehensive sci-fi design system:
 - **Security**: CSRF protection, secure sessions, environment variables
 - **Achievement System**: Code-based achievement definitions with 4 rarity tiers and automatic checking
 - **Score Integration**: All games use centralized score service with achievement notifications
-- **Game Count**: 14 fully implemented games (Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, Sudoku, Bejeweled, Path Navigator, Evader, 2048, Snake, Circuit Hacker, Satellite Sync)
+- **Game Count**: 15 fully implemented games (Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, Sudoku, Bejeweled, Path Navigator, Evader, 2048, Snake, Circuit Hacker, Satellite Sync, Ice Slide)
 - **DOM vs Canvas**: Understand renderer types - DOM-based (Memory Matrix) vs PixiJS Canvas (most games)
 - **Debug Access**: Games expose debugging via `window.gameNameGame` for development inspection
 - **Framework Patterns**: 12 of 14 games use `BaseGame` (framework-native). Circuit Hacker and Satellite Sync intentionally use a handle-based pattern (`createRunGuard` + manual `saveGameScore`) suited to their multi-phase/custom-state-machine game loops — this is a blessed pattern, not a migration debt.

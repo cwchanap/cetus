@@ -309,3 +309,31 @@ test.describe('Satellite Sync', () => {
         await expect(page.locator('#end-btn')).toHaveCSS('display', 'none')
     })
 })
+
+test.describe('Ice Slide', () => {
+    test('renders, starts, accepts a move, and can be ended', async ({
+        page,
+    }) => {
+        await page.goto('/ice-slide')
+        await expect(page.locator('#game-canvas-container')).toBeVisible()
+        await expect(page.locator('#game-status')).toBeVisible()
+        await expect(page.locator('#score')).toHaveText('0')
+        await expect(page.locator('#moves')).toHaveText('0')
+
+        await startGameWhenReady(page)
+        await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+        await expectStatusOverlayHidden(page)
+        await expect(page.locator('#end-btn')).toBeVisible()
+
+        // ArrowDown clears First Frost in one slide.
+        await page.keyboard.press('ArrowDown')
+        await expect(page.locator('#level')).toHaveText('2', { timeout: 5000 })
+        await expect(page.locator('#score')).not.toHaveText('0')
+
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/
+        )
+        await expect(page.locator('#start-btn')).toBeVisible()
+    })
+})
