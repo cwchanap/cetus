@@ -84,8 +84,9 @@ gesture on the canvas (Pointer Events + delta threshold). Both use the same
 Pure functions in `scoring.ts`:
 
 - **Level clear base:** `200 × levelNumber`
-- **Move efficiency:** `max(0, (parMoves − movesUsed) × 25)` where `parMoves` is
-  authored per level
+- **Move efficiency:** `max(0, (parMoves − movesUsed + 1) × 25)` when
+  `movesUsed ≤ parMoves` (at-par earns one step; authored `parMoves` is the
+  BFS minimum)
 - **Crystal bonus:** `50 × crystalsCollected` (this level)
 - **Time bonus on mission complete:** `max(0, (360 − elapsedSeconds) × 5)`
   (rewards finishing under ~6 minutes)

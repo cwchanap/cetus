@@ -11,10 +11,12 @@ export function levelClearPoints(levelNumber: number): number {
 }
 
 export function moveBonus(parMoves: number, movesUsed: number): number {
-    return Math.max(
-        0,
-        (parMoves - movesUsed) * SCORING_CONFIG.moveBonusPerUnderPar
-    )
+    // Award for at-or-under par. Authored parMoves is the BFS minimum, so
+    // an exact-par clear still earns one step of bonus.
+    if (movesUsed > parMoves) {
+        return 0
+    }
+    return (parMoves - movesUsed + 1) * SCORING_CONFIG.moveBonusPerUnderPar
 }
 
 export function crystalBonus(crystalsCollected: number): number {

@@ -178,7 +178,10 @@ describe('ice-slide physics', () => {
 describe('ice-slide scoring', () => {
     it('computes level clear, move, crystal, and time bonuses', () => {
         expect(levelClearPoints(3)).toBe(600)
-        expect(moveBonus(5, 3)).toBe(50)
+        // At-par earns one step; one under earns two steps.
+        expect(moveBonus(5, 5)).toBe(25)
+        expect(moveBonus(5, 4)).toBe(50)
+        expect(moveBonus(5, 3)).toBe(75)
         expect(moveBonus(3, 5)).toBe(0)
         expect(crystalBonus(2)).toBe(100)
         expect(timeBonus(60)).toBe(1500)
@@ -187,10 +190,10 @@ describe('ice-slide scoring', () => {
             levelScore({
                 levelNumber: 2,
                 parMoves: 4,
-                movesUsed: 2,
+                movesUsed: 4,
                 crystalsCollected: 1,
             })
-        ).toBe(400 + 50 + 50)
+        ).toBe(400 + 25 + 50)
     })
 })
 
@@ -273,6 +276,100 @@ describe('ice-slide levels', () => {
             const min = minMoves(level)
             expect(min, `level ${level.id} solvable`).not.toBeNull()
             expect(min, `level ${level.id} par`).toBe(level.parMoves)
+        }
+    })
+
+    it('makes every authored crystal collectable on a reachable slide', () => {
+        for (const level of ICE_SLIDE_LEVELS) {
+            const base = parseGrid(level)
+            const start = findStart(base)
+            const crystalKeys: string[] = []
+            for (let r = 0; r < base.length; r++) {
+                for (let c = 0; c < base[r].length; c++) {
+                    if (base[r][c] === 'crystal') {
+                        crystalKeys.push(`${r},${c}`)
+                    }
+                }
+            }
+            if (crystalKeys.length === 0) {
+                continue
+            }
+
+            type Node = {
+                r: number
+                c: number
+                grid: ReturnType<typeof cloneGrid>
+                collected: Set<string>
+            }
+            const queue: Node[] = [
+                {
+                    r: start.row,
+                    c: start.col,
+                    grid: cloneGrid(base),
+                    collected: new Set(),
+                },
+            ]
+            queue[0].grid[start.row][start.col] = 'ice'
+            const seen = new Set([`${start.row},${start.col},`])
+            const collectable = new Set<string>()
+            const dirs = ['N', 'E', 'S', 'W'] as const
+
+            while (queue.length) {
+                const cur = queue.shift()
+                if (!cur) {
+                    break
+                }
+                for (const d of dirs) {
+                    const g = cloneGrid(cur.grid)
+                    const before = new Set<string>()
+                    for (let r = 0; r < g.length; r++) {
+                        for (let c = 0; c < g[r].length; c++) {
+                            if (g[r][c] === 'crystal') {
+                                before.add(`${r},${c}`)
+                            }
+                        }
+                    }
+                    const outcome = slide(
+                        g,
+                        { row: cur.r, col: cur.c },
+                        DIRECTION_DELTA[d]
+                    )
+                    if (outcome.kind === 'noop' || outcome.kind === 'hazard') {
+                        continue
+                    }
+                    const collected = new Set(cur.collected)
+                    if (outcome.kind === 'moved' && outcome.crystals > 0) {
+                        for (const key of before) {
+                            const [rr, cc] = key.split(',').map(Number)
+                            if (g[rr][cc] !== 'crystal') {
+                                collected.add(key)
+                                collectable.add(key)
+                            }
+                        }
+                    }
+                    const mask = [...collected].sort().join('|')
+                    const nk = `${outcome.end.row},${outcome.end.col},${mask}`
+                    if (seen.has(nk)) {
+                        continue
+                    }
+                    seen.add(nk)
+                    if (!outcome.reachedGoal) {
+                        queue.push({
+                            r: outcome.end.row,
+                            c: outcome.end.col,
+                            grid: g,
+                            collected,
+                        })
+                    }
+                }
+            }
+
+            for (const key of crystalKeys) {
+                expect(
+                    collectable.has(key),
+                    `level ${level.id} crystal ${key} reachable`
+                ).toBe(true)
+            }
         }
     })
 

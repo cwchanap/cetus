@@ -151,7 +151,9 @@ export async function initializeIceSlide(
                 if (result.newAchievements?.length) {
                     window.dispatchEvent(
                         new CustomEvent('achievementsEarned', {
-                            detail: result.newAchievements,
+                            detail: {
+                                achievementIds: result.newAchievements,
+                            },
                         })
                     )
                 }
@@ -182,6 +184,10 @@ export async function initializeIceSlide(
             if (!pointerStart || !game) {
                 return
             }
+            if (game.getState().status !== 'playing') {
+                pointerStart = null
+                return
+            }
             const dx = event.clientX - pointerStart.x
             const dy = event.clientY - pointerStart.y
             pointerStart = null
@@ -199,7 +205,7 @@ export async function initializeIceSlide(
         renderer.app.canvas.addEventListener('pointerup', pointerHandlers.up)
 
         keyboardHandler.keydown = (event: KeyboardEvent) => {
-            if (!game) {
+            if (!game || game.getState().status !== 'playing') {
                 return
             }
             const direction = keyToDirection(event.key)

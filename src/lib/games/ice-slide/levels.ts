@@ -4,7 +4,9 @@ import type { IceSlideLevel } from './types'
  * Authored Ice Slide levels. Glyphs: # wall, . ice, S start, G goal,
  * O rock, H hazard, C crystal.
  *
- * Each level is BFS-validated; parMoves matches the minimum move count.
+ * Each level is BFS-validated for solvability and crystal reachability.
+ * `parMoves` is the minimum solution length; scoring still awards an
+ * at-par move bonus (see `moveBonus`).
  */
 export const ICE_SLIDE_LEVELS: IceSlideLevel[] = [
     {
@@ -53,12 +55,13 @@ export const ICE_SLIDE_LEVELS: IceSlideLevel[] = [
         parMoves: 6,
         rows: [
             '########',
-            '#S.....#',
-            '###.#C.#',
+            '#S#....#',
             '#......#',
-            '#.C.#.##',
-            '#......#',
-            '##.#..G#',
+            '#.C....#',
+            '##..#.##',
+            '#.....C#',
+            '#.#....#',
+            '#.....G#',
             '########',
         ],
     },
@@ -96,16 +99,16 @@ export const ICE_SLIDE_LEVELS: IceSlideLevel[] = [
     {
         id: 8,
         name: 'Absolute Zero',
-        parMoves: 9,
+        parMoves: 6,
         rows: [
             '#########',
-            '#S....#.#',
-            '#.#.....#',
-            '#...H#C.#',
-            '##.#...##',
-            '#.C#O...#',
-            '#.....#.#',
-            '##G.....#',
+            '#S#.....#',
+            '#...#.#.#',
+            '#.C.....#',
+            '##..H..##',
+            '#.....C.#',
+            '#.#.O.#.#',
+            '#......G#',
             '#########',
         ],
     },
