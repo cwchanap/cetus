@@ -1,0 +1,15 @@
+---
+description: Cursor Cloud dev environment setup and non-obvious startup caveats for the Cetus platform
+alwaysApply: true
+---
+
+# Cursor Cloud specific instructions
+
+- **Tooling on PATH**: `bun` and the `turso` CLI are installed by the startup update script (to `~/.bun/bin` and `~/.turso`) and added to `~/.bashrc`. Interactive/login shells (e.g. tmux `bash -l`) pick them up automatically. In a non-login shell you may need `export PATH="$HOME/.bun/bin:$HOME/.turso:$PATH"`.
+- **`.env` is required to boot**: `src/lib/auth.ts` throws at startup unless `BETTER_AUTH_SECRET` is set AND `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are non-empty and not `placeholder`. A local `.env` with dummy dev values is enough to boot the server and play games. The `.env` is gitignored and NOT created by the update script — create it if missing. Required keys: `TURSO_DATABASE_URL=http://127.0.0.1:8080`, `TURSO_AUTH_TOKEN=<any-non-empty>`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:4325`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+- **Auth is Google-only**: Login cannot be completed without REAL Google OAuth credentials. Games are playable without logging in; scores/achievements only persist when authenticated. Dummy OAuth values only let the server boot, not sign in.
+- **Local DB**: `bun run db:dev` (or `bun run dev`) runs `turso dev --db-file ./db/db.sqlite`, an HTTP libSQL server on `http://127.0.0.1:8080`. Because the URL is not a `file:` URL, `TURSO_AUTH_TOKEN` must be set to any non-empty value (the local server ignores it).
+- **Fresh DB schema**: A brand-new `./db/db.sqlite` has no tables. Load base + game tables with `turso db shell http://127.0.0.1:8080 < better-auth_migrations/2025-07-04T06-35-06.738Z.sql` then `... < better-auth_migrations/2025-07-06-schema-consolidation.sql`. Some columns/tables (`user_stats` extra columns, `daily_challenge_progress`) are applied lazily at runtime by `src/lib/server/db/queries.ts`.
+- **Running services**: DB and web are separate persistent processes. Prefer running them in separate tmux sessions (`bun run db:dev` and `bun run web:dev`) rather than `bun run dev` (Turbo TUI) when you need to scrape logs. Web dev server is at `http://localhost:4325`.
+- **Verifying without a browser**: `curl -s "http://localhost:4325/api/leaderboard?gameId=snake"` exercises the full web→DB path and returns JSON when everything is wired up.
+- Standard lint/test/build/run commands are documented in `CLAUDE.md` under "Development Commands"; use `bun run <script>`.
