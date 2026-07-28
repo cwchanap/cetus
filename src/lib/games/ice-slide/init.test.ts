@@ -132,6 +132,42 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
+    it('exposes the handle on window.iceSlideGame for debugging', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+        const debugWindow = window as Window & {
+            iceSlideGame?: typeof handle
+        }
+        expect(debugWindow.iceSlideGame).toBe(handle)
+        expect(debugWindow.iceSlideGame?.getGame()).toBeNull()
+        await handle.start()
+        expect(debugWindow.iceSlideGame?.getGame()?.getState().status).toBe(
+            'playing'
+        )
+        handle.cleanup()
+        expect(debugWindow.iceSlideGame).toBeUndefined()
+    })
+
+    it('forwards afterMove failures to onError', async () => {
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+        await handle.start()
+
+        vi.mocked(setupPixiJS).mockRejectedValueOnce(new Error('resize failed'))
+        // Force a board-size change path: clear L1 (5x5) into L2 (6x6).
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })
+        )
+        await vi.waitFor(() => {
+            expect(callbacks.onError).toHaveBeenCalledWith(
+                'Ice Slide Error',
+                'resize failed'
+            )
+        })
+        handle.cleanup()
+    })
+
     it('resetLevel is exposed on the handle', async () => {
         const container = mountDom()
         const handle = await initializeIceSlide(container, baseCallbacks())
@@ -278,8 +314,17 @@ describe('initializeIceSlide', () => {
         await handle.start()
         const callsAfterStart = vi.mocked(setupPixiJS).mock.calls.length
         handle.resetLevel()
-        // resetLevel does not go through afterMove/ensureRenderer; drive a
-        // same-size move path via keyboard noop then real move on same board.
+        // No-op then real same-level move both go through afterMove/ensureRenderer.
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })
+        )
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })
+        )
+        await vi.waitFor(() => {
+            expect(handle.getGame()?.getState().levelMoves).toBe(1)
+        })
+        expect(handle.getGame()?.getState().levelIndex).toBe(0)
         expect(vi.mocked(setupPixiJS).mock.calls.length).toBe(callsAfterStart)
         handle.cleanup()
     })
@@ -375,7 +420,12 @@ describe('initializeIceSlide', () => {
         expect(document.getElementById('game-over-title')?.textContent).toBe(
             'MISSION COMPLETE!'
         )
-        expect(saveGameScore).toHaveBeenCalled()
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+        handle.stop()
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+        expect(document.getElementById('game-over-title')?.textContent).toBe(
+            'MISSION COMPLETE!'
+        )
         handle.cleanup()
     })
 })

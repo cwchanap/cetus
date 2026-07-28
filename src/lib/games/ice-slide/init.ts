@@ -194,7 +194,12 @@ export async function initializeIceSlide(
             const direction = swipeToDirection(dx, dy)
             if (direction) {
                 game.move(direction)
-                void afterMove()
+                void afterMove().catch(error => {
+                    callbacks.onError?.(
+                        'Ice Slide Error',
+                        error instanceof Error ? error.message : String(error)
+                    )
+                })
             }
         }
 
@@ -214,7 +219,12 @@ export async function initializeIceSlide(
             }
             event.preventDefault()
             game.move(direction)
-            void afterMove()
+            void afterMove().catch(error => {
+                callbacks.onError?.(
+                    'Ice Slide Error',
+                    error instanceof Error ? error.message : String(error)
+                )
+            })
         }
         window.addEventListener('keydown', keyboardHandler.keydown)
     }
@@ -245,7 +255,7 @@ export async function initializeIceSlide(
         syncHud()
     }
 
-    return {
+    const handle: IceSlideHandle = {
         start: async () => {
             runGuard.next()
             teardownRenderer()
@@ -295,10 +305,11 @@ export async function initializeIceSlide(
             if (!game) {
                 return
             }
-            const score = game.getState().score
+            const { status, score } = game.getState()
+            const shouldSubmit = status === 'playing' && score > 0
             game.stop()
             resetButtons()
-            if (score > 0) {
+            if (shouldSubmit) {
                 showOverlay('RUN ENDED', score)
                 submitScore(score)
             }
@@ -315,8 +326,18 @@ export async function initializeIceSlide(
             game?.destroy()
             game = null
             teardownRenderer()
+            const debugWindow = window as Window & {
+                iceSlideGame?: IceSlideHandle
+            }
+            if (debugWindow.iceSlideGame === handle) {
+                delete debugWindow.iceSlideGame
+            }
         },
 
         getGame: () => game,
     }
+
+    ;(window as Window & { iceSlideGame?: IceSlideHandle }).iceSlideGame =
+        handle
+    return handle
 }

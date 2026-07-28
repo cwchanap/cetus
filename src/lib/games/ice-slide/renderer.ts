@@ -27,8 +27,9 @@ export async function setupPixiJS(
     cols: number,
     cellSize: number
 ): Promise<RendererState> {
+    let app: Application | undefined
     try {
-        const app = new Application()
+        app = new Application()
         await app.init({
             width: cols * cellSize,
             height: rows * cellSize,
@@ -51,6 +52,7 @@ export async function setupPixiJS(
 
         return { app, gridGraphic, cellSize }
     } catch (error) {
+        app?.destroy()
         while (container.firstChild) {
             container.removeChild(container.firstChild)
         }

@@ -113,6 +113,23 @@ describe('ice-slide renderer', () => {
         expect(container.children).toHaveLength(0)
     })
 
+    it('destroys the Application when app.init rejects', async () => {
+        const failingApp = {
+            init: vi.fn().mockRejectedValue(new Error('init failed')),
+            canvas: document.createElement('canvas'),
+            stage: { addChild: vi.fn() },
+            destroy: vi.fn(),
+        }
+        vi.mocked(Application).mockImplementationOnce(
+            () => failingApp as unknown as Application
+        )
+        await expect(setupPixiJS(container, 1, 1, 48)).rejects.toThrow(
+            'Failed to initialize PixiJS'
+        )
+        expect(failingApp.destroy).toHaveBeenCalled()
+        expect(container.children).toHaveLength(0)
+    })
+
     it('renders every cell type, slide trail, and player without throwing', async () => {
         const rs = await setupPixiJS(container, 2, 7, 48)
         const grid: CellType[][] = [
