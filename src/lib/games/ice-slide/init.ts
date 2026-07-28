@@ -112,6 +112,17 @@ export async function initializeIceSlide(
         }
     }
 
+    const failRun = (error: unknown): void => {
+        game?.destroy()
+        game = null
+        teardownRenderer()
+        resetButtons()
+        callbacks.onError?.(
+            'Ice Slide Error',
+            error instanceof Error ? error.message : String(error)
+        )
+    }
+
     const render = (): void => {
         if (renderer && game) {
             renderGrid(renderer, game.getState())
@@ -194,12 +205,7 @@ export async function initializeIceSlide(
             const direction = swipeToDirection(dx, dy)
             if (direction) {
                 game.move(direction)
-                void afterMove().catch(error => {
-                    callbacks.onError?.(
-                        'Ice Slide Error',
-                        error instanceof Error ? error.message : String(error)
-                    )
-                })
+                void afterMove().catch(failRun)
             }
         }
 
@@ -219,12 +225,7 @@ export async function initializeIceSlide(
             }
             event.preventDefault()
             game.move(direction)
-            void afterMove().catch(error => {
-                callbacks.onError?.(
-                    'Ice Slide Error',
-                    error instanceof Error ? error.message : String(error)
-                )
-            })
+            void afterMove().catch(failRun)
         }
         window.addEventListener('keydown', keyboardHandler.keydown)
     }
@@ -296,9 +297,14 @@ export async function initializeIceSlide(
 
             game.start()
             const state = game.getState()
-            await ensureRenderer(state.rows, state.cols)
-            render()
-            syncHud()
+            try {
+                await ensureRenderer(state.rows, state.cols)
+                render()
+                syncHud()
+            } catch (error) {
+                failRun(error)
+                throw error
+            }
         },
 
         stop: () => {
