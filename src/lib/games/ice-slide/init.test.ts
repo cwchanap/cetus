@@ -148,7 +148,7 @@ describe('initializeIceSlide', () => {
         expect(debugWindow.iceSlideGame).toBeUndefined()
     })
 
-    it('forwards afterMove failures to onError', async () => {
+    it('forwards afterMove failures to onError and ends the run', async () => {
         const callbacks = baseCallbacks()
         const container = mountDom()
         const handle = await initializeIceSlide(container, callbacks)
@@ -165,6 +165,29 @@ describe('initializeIceSlide', () => {
                 'resize failed'
             )
         })
+        expect(handle.getGame()).toBeNull()
+        expect(document.getElementById('start-btn')?.style.display).toBe(
+            'inline-flex'
+        )
+        expect(document.getElementById('end-btn')?.style.display).toBe('none')
+        handle.cleanup()
+    })
+
+    it('recovers when initial renderer setup fails', async () => {
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+
+        vi.mocked(setupPixiJS).mockRejectedValueOnce(new Error('boot failed'))
+        await expect(handle.start()).rejects.toThrow('boot failed')
+        expect(callbacks.onError).toHaveBeenCalledWith(
+            'Ice Slide Error',
+            'boot failed'
+        )
+        expect(handle.getGame()).toBeNull()
+        expect(document.getElementById('start-btn')?.style.display).toBe(
+            'inline-flex'
+        )
         handle.cleanup()
     })
 
