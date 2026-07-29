@@ -37,9 +37,12 @@ describe('IceSlideGame crystal farming via hazard', () => {
         expect(game.getState().crystalsCollected).toBe(0)
         expect(game.getState().levelCrystalsCollected).toBe(0)
         expect(game.getState().player).toEqual(game.getState().start)
+        expect(game.getState().levelMoves).toBe(2)
+        expect(game.getState().moves).toBe(2)
 
         game.move('E')
         expect(game.getState().crystalsCollected).toBe(1)
+        expect(game.getState().levelMoves).toBe(3)
         game.destroy()
     })
 })

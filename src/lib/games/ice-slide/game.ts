@@ -109,7 +109,10 @@ export class IceSlideGame {
 
         if (outcome.kind === 'hazard') {
             this.state.crystalsCollected -= this.state.levelCrystalsCollected
-            this.loadLevel(this.state.levelIndex, { preserveRun: true })
+            this.loadLevel(this.state.levelIndex, {
+                preserveRun: true,
+                preserveLevelMoves: true,
+            })
             this.callbacks.onMove?.({
                 moves: this.state.moves,
                 levelMoves: this.state.levelMoves,
@@ -172,7 +175,10 @@ export class IceSlideGame {
 
     private loadLevel(
         index: number,
-        options: { preserveRun?: boolean } = {}
+        options: {
+            preserveRun?: boolean
+            preserveLevelMoves?: boolean
+        } = {}
     ): void {
         const level = getLevel(index)
         const grid = cloneGrid(parseGrid(level))
@@ -201,7 +207,7 @@ export class IceSlideGame {
             player: { ...start },
             start: { ...start },
             moves: preserved?.moves ?? 0,
-            levelMoves: 0,
+            levelMoves: options.preserveLevelMoves ? this.state.levelMoves : 0,
             crystalsCollected: preserved?.crystalsCollected ?? 0,
             levelCrystalsCollected: 0,
             score: preserved?.score ?? 0,
