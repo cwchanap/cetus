@@ -6,7 +6,7 @@ vi.mock('./levels', () => {
             id: 1,
             name: 'Hazard Lane',
             parMoves: 1,
-            rows: ['#####', '#S.H#', '#####'],
+            rows: ['#####', '#S.H#', '#G..#', '#####'],
         },
     ]
     return {
@@ -35,7 +35,22 @@ describe('IceSlideGame hazard branch (mocked levels)', () => {
         expect(onMove).toHaveBeenCalled()
         expect(game.getState().player).toEqual(game.getState().start)
         expect(game.getState().moves).toBe(1)
-        expect(game.getState().levelMoves).toBe(0)
+        // Hazard keeps the failed move; only manual Reset zeroes levelMoves.
+        expect(game.getState().levelMoves).toBe(1)
+        game.destroy()
+    })
+
+    it('does not award perfectLevels after a hazard then at-par solve', () => {
+        const game = new IceSlideGame()
+        game.start()
+
+        game.move('E') // hazard; levelMoves retained at 1
+        expect(game.getState().levelMoves).toBe(1)
+
+        game.move('S')
+        game.move('E') // clear in 2 post-hazard moves → total levelMoves 3 > par 1
+        expect(game.getState().levelsCleared).toBe(1)
+        expect(game.getState().perfectLevels).toBe(0)
         game.destroy()
     })
 
