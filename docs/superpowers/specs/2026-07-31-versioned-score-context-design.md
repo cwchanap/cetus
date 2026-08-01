@@ -37,6 +37,7 @@ The current implementation has these relevant properties:
 - Database behavior is tested both through mocked Kysely chains and real in-memory LibSQL integration tests.
 - The current score schema already requires `gameData` to be an object through Zod's record schema, but it does not impose a serialized-byte limit.
 - Repository search finds two non-test schema creation surfaces for `game_scores`: `scripts/init-db.sql` and `better-auth_migrations/2025-07-06-schema-consolidation.sql`. Other matches are historical documentation or test fixtures.
+- The current branch has no Ice Slide runtime producer for `elapsedSeconds` or `totalMoves`; HPA-487 owns the first producer and must follow the units pinned by this contract.
 
 The change must preserve those contracts unless this design explicitly changes them.
 
@@ -95,7 +96,8 @@ Therefore, repository inspection cannot prove that every valid legacy request is
 | Tie-break projection | `elapsedSeconds` and `totalMoves` are the v1 allowlisted metrics; other game metrics remain in stored JSON. |
 | Daily admission | Ice Slide-specific solved/run/version checks belong to HPA-488. |
 | Invalid context | Reject with `400`; never silently downgrade to an unscoped score. |
-| Missing schema | Legacy operations continue where possible; contextual operations fail explicitly with `500`. |
+| Write failures | The single write path returns a discriminated result so context capability failures remain distinguishable from generic database failures. |
+| Missing schema | Legacy operations continue where safely confirmed; contextual operations fail explicitly with `500`. |
 
 ## 6. Alternatives Considered
 
@@ -201,9 +203,18 @@ export interface ScoreData {
     gameData?: GameData | Record<string, unknown>
     context?: ScoreSubmissionContext
 }
+
+export type ScoreSubmissionPublicErrorCode =
+    | 'SCORE_CONTEXT_UNAVAILABLE'
+
+export interface ScoreSubmissionResult {
+    success: boolean
+    code?: ScoreSubmissionPublicErrorCode
+    // existing notification/update/error fields remain
+}
 ```
 
-`submitScore(scoreData)` remains the canonical object-based transport call.
+`submitScore(scoreData)` remains the canonical object-based transport call. On non-2xx responses it parses the JSON body, copies only recognized public codes into `ScoreSubmissionResult.code`, and leaves `code` absent for transport failures or unrecognized server errors.
 
 The existing client `saveGameScore(gameId, score, onSuccess, onError, gameData, options)` helper must not gain another positional argument. Extend its existing options bag instead:
 
@@ -218,7 +229,7 @@ The helper forwards `options.context` through `ScoreData`. Existing callers that
 
 ### 8.2 Single server write path
 
-Keep one database score-write function and one side-effect pipeline:
+Keep one database score-write function and one side-effect pipeline, but do not preserve the current boolean return because it cannot carry the required capability failure:
 
 ```ts
 export interface PersistedScoreContext {
@@ -228,21 +239,39 @@ export interface PersistedScoreContext {
     gameDataJson: string | null
 }
 
+export type SaveGameScoreFailureCode =
+    | 'SCORE_CONTEXT_UNAVAILABLE'
+    | 'SCORE_WRITE_FAILED'
+
+export type SaveGameScoreResult =
+    | { success: true }
+    | { success: false; code: SaveGameScoreFailureCode }
+
 export async function saveGameScore(
     userId: string,
     gameId: string,
     score: number,
     context?: PersistedScoreContext
-): Promise<boolean>
+): Promise<SaveGameScoreResult>
+
+export type SaveGameScoreWithAchievementsResult =
+    | { success: true; newAchievements: string[] }
+    | {
+          success: false
+          newAchievements: []
+          code: SaveGameScoreFailureCode
+      }
 ```
 
 Requirements:
 
 - The optional structured argument controls only additional inserted columns.
 - A contextual call checks complete schema capability before insertion.
+- Missing contextual capability returns `{ success: false, code: 'SCORE_CONTEXT_UNAVAILABLE' }`.
+- Other insert/stat-update failures return `{ success: false, code: 'SCORE_WRITE_FAILED' }`; the function must not catch every failure and collapse it to bare `false`.
 - Legacy calls insert the original columns and do not require the contextual schema.
 - Both paths continue through the same existing `getUserStats()` / `upsertUserStats()` update block.
-- `saveGameScoreWithAchievements()` delegates exactly once to this function, then executes the same score-threshold and in-game achievement checks.
+- `saveGameScoreWithAchievements()` delegates exactly once to this function, preserves its failure code, and runs achievement checks only after a successful write.
 - Do not create a second contextual insert function with duplicated statistics or favorite-game behavior.
 - Serialization and validation happen before entering the write function; it receives normalized values only.
 
@@ -274,11 +303,13 @@ A contextual high score may award an existing score-threshold achievement even t
 
 | Field | Validation |
 |---|---|
-| `mode` | Required in context; 1–32 characters; `[a-z][a-z0-9_-]*` |
-| `competitionKey` | Optional; 1–128 characters; letters, digits, `:`, `.`, `_`, and `-` |
+| `mode` | Required in context; 1–32 characters; fully anchored `^[a-z][a-z0-9_-]*$` |
+| `competitionKey` | Optional; 1–128 characters; fully anchored `^[A-Za-z0-9:._-]+$` |
 | `rulesetVersion` | Required integer; `1..2_147_483_647` |
 | `context` | Strict optional object; omitted is valid and `null` is rejected |
 | `gameData` | Preserve current record/object validation; arrays and primitives remain rejected |
+| contextual `gameData.elapsedSeconds` | When present, a non-negative integer count of whole elapsed seconds, computed as `Math.floor(totalElapsedMilliseconds / 1000)` |
+| contextual `gameData.totalMoves` | When present, a non-negative integer move count |
 | serialized contextual `gameData` | At most 16 KiB measured as UTF-8 bytes |
 
 The competition-key charset covers the canonical parent format:
@@ -291,7 +322,7 @@ No `/` or `#` character is required by the approved Daily key contract.
 
 The byte-size check runs only when `context` is present and `gameData` will be persisted. It must measure `TextEncoder().encode(serialized).byteLength` or an equivalent server-safe UTF-8 byte count, not JavaScript string length.
 
-Malformed request JSON, `context: null`, invalid context, oversized contextual data, and unknown context fields return `400` before inserting a score or updating statistics. A contextual validation failure is never retried as a legacy submission.
+Malformed request JSON, `context: null`, invalid context, a fractional/negative allowlisted tie-break value, oversized contextual data, and unknown context fields return `400` before inserting a score or updating statistics. A contextual validation failure is never retried as a legacy submission. The query layer still normalizes malformed historical or externally written tie-break values to `NULL`.
 
 ## 9. Runtime Schema Compatibility
 
@@ -313,10 +344,10 @@ export interface GameScoresContextCapabilities {
 2. Add each missing nullable column independently with `ALTER TABLE`.
 3. Re-inspect or update known capabilities after each successful addition.
 4. Create the scoped index only after all four columns exist.
-5. Cache concurrent callers behind one process-local promise.
+5. Cache concurrent callers behind one process-local promise and retain the last confirmed capability snapshot; reads must not execute `PRAGMA` on every request.
 6. Record success only for capabilities that actually exist.
 7. Reset the shared promise when any required column migration is incomplete so a later request retries.
-8. If only index creation fails, retain column capabilities but leave the guard retryable until `scopedIndex=true`; do not permanently cache a performance-only failure.
+8. If only index creation fails, retain complete column capabilities and allow contextual reads/writes. Retry index creation lazily with process-local exponential backoff rather than on every request: start at one minute and cap the delay at one hour. A process restart may reset the backoff.
 
 No path rebuilds or rewrites `game_scores`, and existing rows remain valid with `NULL` context.
 
@@ -326,13 +357,12 @@ No path rebuilds or rewrites `game_scores`, and existing rows remain valid with 
 - Scoped reads require all four columns. Missing capability or a scoped query failure returns `500` with public code `SCOPED_LEADERBOARD_UNAVAILABLE`, not an empty leaderboard or unscoped fallback.
 - Public codes distinguish unavailable behavior from a legitimate empty result without exposing whether the internal cause was migration or query execution.
 - Legacy inserts use the original column set and remain available when context migration is incomplete.
-- Default unscoped reads apply every available isolation predicate:
-  - when both scope columns exist: `mode IS NULL AND competition_key IS NULL`;
-  - when only one exists after a partial migration: filter on the available column;
-  - when neither exists on a legacy schema: all existing rows are treated as unscoped.
+- Confirmed complete schema: default unscoped reads require both `mode IS NULL` and `competition_key IS NULL`.
+- Confirmed legacy/incomplete schema: default unscoped reads use the legacy no-predicate query. The supported write path cannot create contextual rows until all four columns exist, so partial-column permutations do not need distinct read predicates.
+- Unknown capability caused by a failed probe is **not** treated as confirmed legacy. Use the last cached confirmed snapshot when available; otherwise preserve each query's existing defensive failure result (`[]` for leaderboard reads, `null` for personal best) instead of failing open with an unfiltered query that could mix scoped rows after a process restart.
 - An index failure affects performance only. Contextual reads and writes remain valid when the four columns exist.
 
-This fallback is deliberately asymmetric: legacy behavior degrades gracefully, while requested contextual behavior never loses scope silently.
+This fallback is deliberately asymmetric: confirmed legacy schemas degrade gracefully, while unknown or requested contextual behavior never loses scope silently.
 
 ## 10. Query Semantics
 
@@ -375,7 +405,7 @@ interface ScopedLeaderboardRow {
     created_at: string
     mode: string
     competitionKey: string | null
-    rulesetVersion: number | null
+    rulesetVersion: number
     elapsedSeconds: number | null
     totalMoves: number | null
 }
@@ -383,7 +413,7 @@ interface ScopedLeaderboardRow {
 export type ScopedLeaderboardEntry = Omit<ScopedLeaderboardRow, 'userId'>
 ```
 
-The query filters by exact `game_id` and `mode`; when `competitionKey` is supplied it also requires an exact `competition_key` match. A mode-only query intentionally spans competition keys and ruleset eras. Mode-only SQL must not add an implicit `ruleset_version` predicate.
+The query filters by exact `game_id`, `mode`, and `ruleset_version IS NOT NULL`; when `competitionKey` is supplied it also requires an exact `competition_key` match. The non-null check enforces the contextual-row invariant but does not select a particular ruleset version. A mode-only query intentionally spans competition keys and ruleset eras and must not add an equality predicate on `ruleset_version`. Mode-only output is a reusable diagnostic/aggregate view, not an official cross-era competition; no current UI consumes it.
 
 Use parameterized staged CTEs and `ROW_NUMBER() OVER (PARTITION BY user_id ...)`. Apply `limit` only after selecting one row per user.
 
@@ -398,7 +428,7 @@ The shared query recognizes only these allowlisted JSON keys in v1:
 
 Unknown current or future game-specific metrics remain inside `game_data_json` and are not projected, filtered, or sorted until a later approved extension updates the allowlist and query contract.
 
-Each recognized value is accepted only when it is a non-negative JSON integer. Missing, malformed, negative, non-integer, or otherwise invalid values become `NULL`.
+Each recognized value is accepted only when it is a non-negative JSON integer. HPA-487 must emit `elapsedSeconds` as whole seconds using `Math.floor(totalElapsedMilliseconds / 1000)` and `totalMoves` as an integer count. The submission validator rejects fractional or negative allowlisted values with `400`; the query treats missing, malformed historical, or externally written invalid values as `NULL`.
 
 A public `NULL` means **not available to this shared projection**. It may mean the game does not use that metric, the contextual submission omitted it, or the stored value was invalid. Consumers must use `gameId`/`mode` knowledge before labeling a null as “no time” or “no moves.”
 
@@ -448,8 +478,10 @@ Public history and activity endpoints remain shape-identical. Implementations mu
 - The contextual byte limit does not apply when `context` is omitted.
 - Contextual validation errors return `400` and insert nothing.
 - Missing contextual schema capability returns `500` with `{ error, code: 'SCORE_CONTEXT_UNAVAILABLE' }`.
+- `saveGameScore()` and `saveGameScoreWithAchievements()` preserve the discriminated failure code instead of collapsing it to `false`.
 - The success response shape remains unchanged.
 - Both submission forms use the single write path and identical aggregate-stat, favorite-game, achievement, and challenge sequencing.
+- `submitScore()` reads a JSON error body for non-2xx responses, propagates recognized public `code` values through `ScoreSubmissionResult.code`, and distinguishes them from transport/network failures.
 
 ### 11.2 `GET /api/leaderboard`
 
@@ -477,7 +509,7 @@ The legacy query may retain its defensive empty-array behavior for compatibility
 
 - Invalid context or oversized contextual data fails before database mutation.
 - Legacy game-data objects are not subject to the new contextual byte cap.
-- Contextual migration failure is logged and surfaced; no unscoped substitute is written.
+- Contextual migration failure is logged and surfaced through the discriminated save result; no unscoped substitute is written.
 - A partial schema never causes a query to reference a missing column.
 - Malformed persisted JSON becomes missing tie-break data rather than a query failure.
 - Public error codes identify an unavailable capability without exposing serialized game data, raw user IDs, SQL details, or secrets.
@@ -495,6 +527,7 @@ Use mocked query tests for call boundaries and real in-memory LibSQL tests for s
 - A legacy object larger than 16 KiB remains accepted by the score schema.
 - Contextual payload with and without game data is valid.
 - Mode, competition-key, and ruleset-version boundaries are covered.
+- The fully anchored mode and competition-key regexes reject valid substrings with invalid prefixes/suffixes (for example `Ice Slide!daily`).
 - The canonical Ice Slide key passes the competition-key regex; `/` and `#` are rejected.
 - Unknown context fields are rejected.
 - Arrays and primitives remain rejected as game data.
@@ -506,13 +539,14 @@ Use mocked query tests for call boundaries and real in-memory LibSQL tests for s
 
 - Fresh initialization through each non-test schema surface contains all four columns and the index.
 - A legacy four-column table gains all columns without rewriting existing rows.
-- Unscoped fallback covers the four meaningful scope-column states.
+- Confirmed complete schema uses both unscoped predicates; confirmed legacy/incomplete schema uses the legacy no-predicate query.
 - Representative states missing `ruleset_version` or `game_data_json` fail contextual operations and complete on retry.
 - Repeated calls are idempotent.
 - Concurrent calls share one migration execution.
 - Failed column addition retries.
-- Failed index creation leaves columns usable and retries later.
-- Legacy operations continue during incomplete migration.
+- Failed index creation leaves columns usable and retries only after the configured backoff; repeated hot-path requests inside the delay do not reattempt DDL.
+- A failed capability probe with no cached state returns existing defensive read results rather than executing an unfiltered query.
+- Legacy operations continue during confirmed incomplete migration.
 - Contextual operations fail rather than downgrade.
 
 ### 13.3 Real LibSQL query and side-effect tests
@@ -526,13 +560,14 @@ Use mocked query tests for call boundaries and real in-memory LibSQL tests for s
 - Every personal-best function and alias excludes scoped rows.
 - History, activity, aggregate statistics, favorite-game updates, and daily-challenge sources include scoped rows.
 - Mode and competition-key isolation are exact.
-- Mode-only queries do not add `ruleset_version` predicates.
-- `ruleset_version` round-trips as metadata and is required on contextual rows.
+- Mode-only queries do not add `ruleset_version` equality predicates.
+- `ruleset_version` round-trips as non-null metadata on every scoped result; malformed scoped rows with a null version are excluded.
 - Each user appears at most once in scoped output.
 - Better retries replace worse retries in output while all attempts remain stored.
 - Every tie-break level is independently covered.
 - Index presence is not treated as proof of complete ranking order.
 - Valid allowlisted values sort before null/invalid values.
+- Fractional contextual `elapsedSeconds` and `totalMoves` are rejected at submission; fractional historical/external fixtures normalize to `NULL`.
 - Unknown JSON metrics remain unprojected.
 - Malformed JSON does not abort the query.
 - `limit` is applied after partitioning, including a fixture with at least 100 users and multiple attempts per user.
@@ -548,7 +583,8 @@ Use mocked query tests for call boundaries and real in-memory LibSQL tests for s
 - Scoped entries retain `created_at` and omit `userId`.
 - Scoped null tie-break fields remain nullable and are not assigned game-independent labels by the backend.
 - Contextual validation failures return `400`.
-- Missing score-context capability returns `500` with `SCORE_CONTEXT_UNAVAILABLE`.
+- Missing score-context capability survives both server result layers and returns `500` with `SCORE_CONTEXT_UNAVAILABLE`.
+- The client parses and exposes `SCORE_CONTEXT_UNAVAILABLE`; a network failure has no server error code.
 - Scoped leaderboard failure returns `500` with `SCOPED_LEADERBOARD_UNAVAILABLE`, never empty `200`.
 - Existing side-effect calls still occur after successful legacy and contextual submissions.
 - Public history endpoints do not leak context columns after `GameScore` widens.
@@ -575,7 +611,7 @@ focused unit, API, migration, legacy-schema, and LibSQL integration tests
 
 Implementation constraints:
 
-- Extend the existing `saveGameScore()` database write contract with one optional structured context argument.
+- Extend the existing `saveGameScore()` database write contract with one optional structured context argument and a discriminated result; do not retain `Promise<boolean>`.
 - Keep `saveGameScoreWithAchievements()` as the single achievement pipeline.
 - Extend `ScoreData` and the existing client options bag; do not add a seventh positional argument to client `saveGameScore()`.
 - Public queries and endpoints use explicit DTO mapping; no internal `GameScore` pass-through.
@@ -586,7 +622,7 @@ Implementation constraints:
 
 1. Update both schema creation surfaces, Kysely types, the capability guard, and focused migration/bootstrap tests.
 2. Add strict omit-only request context and contextual game-data storage bounds without tightening legacy validation.
-3. Extend the single score-write function and client options bag while preserving all existing side effects.
+3. Extend the single score-write function with a discriminated result, preserve the code through `saveGameScoreWithAchievements()`, and propagate recognized server codes through the client options/object path.
 4. Isolate default leaderboard and personal-best queries to unscoped rows.
 5. Add the scoped best-per-user query, v1 metric allowlist, internal/public DTO boundary, and deterministic tie-break tests.
 6. Replace leaderboard manual parsing with one schema and stable scoped error categories.
@@ -603,7 +639,7 @@ Implementation constraints:
 - `context: null` is rejected.
 - A contextual submission round-trips mode, optional key, required ruleset version, and optional game data.
 - Invalid context or oversized contextual data returns `400` and inserts nothing.
-- Contextual schema failure returns explicit `500` without downgrade.
+- Contextual schema failure remains distinguishable through the database result, achievement wrapper, route response, and client `ScoreSubmissionResult.code`; it returns explicit `500` without downgrade.
 - One score-write function serves legacy and contextual inserts and preserves all existing side effects.
 - Scoped submissions still award existing score-threshold and in-game achievements; only best-score-derived progress is unscoped.
 - Default leaderboards and personal bests exclude scoped rows.
@@ -611,12 +647,15 @@ Implementation constraints:
 - History, activity, aggregate statistics, favorite-game updates, and current daily challenges include scoped rows.
 - Public history/activity DTOs remain shape-identical and never expose context columns or stored JSON.
 - Scoped public output preserves `created_at` and never exposes raw `user_id`.
-- `ruleset_version` is required metadata and never an implicit mode-only predicate or tie-break.
+- `ruleset_version` is non-null required metadata in scoped output and never an equality predicate for mode-only ranking or a tie-break.
+- HPA-487 emits integer whole-second `elapsedSeconds` and integer `totalMoves`; fractional submitted values are rejected, while malformed historical values normalize to null.
 - Only allowlisted v1 tie-break metrics are projected; unknown metrics remain stored-only.
 - The index is used for filtering where possible, while window SQL defines complete ranking.
 - All documented tie-breaks are deterministic and covered against real LibSQL.
 - Missing or malformed tie-break JSON cannot crash the query.
-- Scoped unavailable errors are distinguishable from legitimate empty results.
+- Scoped unavailable errors are distinguishable from legitimate empty results and recognized server codes are propagated by the client.
+- Index retry uses bounded backoff and cannot execute performance-only DDL on every contextual request.
+- Unknown capability state never fails open into an unfiltered legacy read.
 - The leaderboard route enforces all parameter combinations through one schema.
 - HPA-487 and HPA-488 can consume these primitives without adding Ice Slide rules to the shared database layer.
 
@@ -627,19 +666,22 @@ Implementation constraints:
 - Scoped rows count as platform plays, aggregate-stat/favorite-game updates, and daily-challenge activity.
 - Context is explicit, omit-only, and separate from game data.
 - Legacy transient game data does not receive the contextual 16 KiB storage bound.
-- One score-write function handles legacy and contextual persistence.
+- One score-write function handles legacy and contextual persistence and returns a discriminated failure result; booleans are insufficient for the public capability contract.
 - Contextual data is never silently discarded or downgraded.
 - Unscoped ranking remains raw-attempt; scoped ranking is best-per-user.
-- Mode-only ranking intentionally spans keys and ruleset eras and must not add a ruleset predicate.
-- `ruleset_version` is required audit/display metadata so rows are inspectable without parsing keys.
+- Mode-only ranking remains an approved reusable diagnostic/aggregate primitive, intentionally spans keys and ruleset eras, is not an official competition, and must not add a ruleset equality predicate.
+- `ruleset_version` is required non-null audit/display metadata so rows are inspectable without parsing keys.
 - The exact-key index assists filtering but does not define the complete ranking order.
+- `elapsedSeconds` is a non-negative integer count of floored whole seconds and `totalMoves` is a non-negative integer count; HPA-487 must produce those units.
 - `elapsedSeconds` and `totalMoves` are an Ice-Slide-first v1 projection allowlist; unknown metrics stay in JSON.
 - Null tie-break values mean unavailable/not-applicable to the shared projection, not a universal gameplay statement.
 - JSON tie-breaks are staged, guarded, nullable, and sorted after valid values.
 - Public scoped output preserves `created_at` and strips raw user IDs.
 - Public history/activity DTOs never pass through internal context or JSON fields.
 - Client context extends `ScoreData` and `SaveScoreOptions`, not the positional helper signature.
-- Scoped capability failures return stable public unavailable codes with HTTP 500.
+- Scoped capability failures return stable public unavailable codes with HTTP 500, preserve the code through server result unions, and propagate recognized codes to the client.
+- Performance-only index creation retries with bounded exponential backoff.
+- Confirmed legacy/incomplete schema may use the legacy query; unknown capability without cache fails closed to existing defensive results.
 - The leaderboard route uses one schema for all-games, single-game, and scoped forms.
 - The canonical parent key format fits the approved competition-key charset.
 - The two non-test schema creation surfaces are updated together.
@@ -649,12 +691,12 @@ Implementation constraints:
 
 - **Placeholder scan:** no TBD, TODO, unresolved field bound, or invented volume target remains.
 - **Achievement semantics:** awarding and best-score-derived progress are explicitly separated.
-- **Write-path consistency:** one insert function and one side-effect pipeline serve both submission forms.
+- **Write-path consistency:** one insert function and one side-effect pipeline serve both submission forms, and discriminated failures survive every server/client layer.
 - **Legacy compatibility:** contextual persistence limits do not change legacy transient input.
-- **Migration safety:** contextual operations require complete capability; legacy behavior never references unavailable columns; index failure remains retryable.
+- **Migration safety:** contextual operations require complete capability; confirmed legacy schemas use the legacy query; unknown capability fails closed; performance-only index retry is backoff-bounded.
 - **Determinism:** per-user selection and final ordering use the same complete sequence, including row ID.
 - **API surface:** raw-attempt and best-per-user contracts are explicit; public DTOs retain casing and exclude raw IDs/JSON.
 - **Version semantics:** exact keys isolate versions; `ruleset_version` is required metadata rather than a hidden predicate.
-- **Metric extensibility:** the v1 allowlist is explicit and null semantics are documented.
+- **Metric extensibility:** the v1 allowlist and producer units are explicit; submitted fractions are rejected and malformed historical values have documented null semantics.
 - **Bootstrap coverage:** both non-test creation paths and public history mappings are named.
 - **Scope:** Ice Slide gameplay, semantic admission, highlighting, and UI remain in HPA-487/HPA-488.
