@@ -14,7 +14,8 @@ This design adds optional, versioned score context to the shared `game_scores` t
 
 The platform keeps a deliberate semantic split:
 
-- **Campaign-oriented competition and personal-best views** consider only unscoped rows.
+- **Campaign-oriented competition and best-score-derived progress** consider only unscoped rows.
+- **Achievement awarding at submission time** still evaluates every successful legacy or contextual play against the submitted score and `gameData`.
 - **Platform activity, aggregate statistics, score history, and existing daily challenges** continue to count both unscoped and scoped submissions.
 - **Game-specific competitive admission**, such as requiring a solved Ice Slide Daily run with a matching run key, remains outside this generic persistence layer.
 
@@ -23,69 +24,78 @@ The platform keeps a deliberate semantic split:
 The current implementation has these relevant properties:
 
 - `game_scores` has four meaningful columns: user, game, score, and timestamp.
-- `saveGameScoreWithAchievements()` first inserts the score, then evaluates score and in-game achievements from the submitted `gameData`.
+- `saveGameScoreWithAchievements()` calls the single `saveGameScore()` write path, then evaluates score-threshold and in-game achievements from the submitted score and transient `gameData`.
 - The score API subsequently updates platform daily-challenge progress.
 - `getGameLeaderboard()` returns score rows directly, ordered by score descending; repeated attempts from one user may occupy multiple positions.
 - `/api/leaderboard` supports both a single-game response and an all-games response when `gameId` is omitted.
 - The leaderboard route currently parses query parameters manually. The existing `leaderboardQuerySchema` requires `gameId` and therefore does not model the route's all-games path.
 - `getUserBestScore()` and compatibility aliases are reused by the personal-best API and achievement-progress calculations.
 - History, activity, aggregate-score, and challenge queries intentionally derive data from the complete `game_scores` activity stream.
-- Each score updates the existing aggregate-stat side effects, including total score and favorite-game assignment.
+- Each score updates existing aggregate-stat side effects, including total score and favorite-game assignment.
+- Public history queries select explicit fields, but the internal `GameScore` type and `getUserRecentScores().selectAll()` will widen after the schema change; public boundaries must not pass those rows through.
 - The database layer already uses defensive, lazy, idempotent LibSQL migrations with process-local single-flight promises and retry after incomplete migration.
 - Database behavior is tested both through mocked Kysely chains and real in-memory LibSQL integration tests.
 - The current score schema already requires `gameData` to be an object through Zod's record schema, but it does not impose a serialized-byte limit.
+- Repository search finds two non-test schema creation surfaces for `game_scores`: `scripts/init-db.sql` and `better-auth_migrations/2025-07-06-schema-consolidation.sql`. Other matches are historical documentation or test fixtures.
 
-The change must preserve those contracts unless this design explicitly narrows a query to unscoped rows.
+The change must preserve those contracts unless this design explicitly changes them.
 
 ### 2.1 Existing game-data size audit
 
 Current game-owned payloads are JSON objects and are generally compact. Most contain only scalar counters. Reflex is the largest naturally bounded payload: it records `gameHistory`, but the default game lasts 60 seconds and spawns at one-second intervals. Word Scramble records a list of correct words during a 60-second game, but neither its client logic nor the public score API provides a universal server-enforced upper bound on the number of entries a modified client could submit.
 
-Therefore, repository inspection cannot prove that every valid legacy request is below an arbitrary new 16 KiB threshold. To preserve the existing contract rather than rely on normal-play assumptions, the byte-size limit introduced by this design applies only when `gameData` will be persisted as part of a contextual submission. Legacy transient `gameData` keeps its existing validation behavior.
+Therefore, repository inspection cannot prove that every valid legacy request is below an arbitrary new 16 KiB threshold. The byte-size limit introduced by this design applies only when `gameData` will be persisted as part of a contextual submission. Legacy transient `gameData` keeps its existing validation behavior.
 
 ## 3. Goals
 
-1. Persist optional score mode, competition identity, ruleset version, and bounded contextual game data.
+1. Persist optional score mode, competition identity, required audit version, and bounded contextual game data.
 2. Keep every existing submission caller valid without modification.
 3. Keep historical and new Campaign scores comparable through the existing unscoped leaderboard.
-4. Prevent Daily and Expedition rows from changing Campaign leaderboards, personal bests, or Campaign-oriented achievement progress.
-5. Continue counting scoped submissions toward platform activity, aggregate statistics, history, and existing daily challenges.
-6. Provide a reusable scoped query that returns one deterministic best attempt per user.
-7. Migrate existing and partially migrated LibSQL schemas without table rebuilds or destructive rewrites.
-8. Make malformed stored JSON and partial migration states fail safely.
-9. Keep raw authentication identifiers out of public leaderboard responses.
-10. Keep Ice Slide-specific completion and run-identity verification outside the shared score layer.
+4. Prevent Daily and Expedition rows from changing Campaign leaderboards, personal bests, or best-score-derived Campaign progress.
+5. Keep current achievement awarding behavior for contextual submissions unless a game-specific issue explicitly opts out.
+6. Continue counting scoped submissions toward platform activity, aggregate statistics, history, favorite-game updates, and existing daily challenges.
+7. Provide a reusable scoped query that returns one deterministic best attempt per user.
+8. Migrate existing and partially migrated LibSQL schemas without table rebuilds or destructive rewrites.
+9. Make malformed stored JSON and partial migration states fail safely.
+10. Keep raw authentication identifiers and stored game JSON out of public API responses.
+11. Keep Ice Slide-specific completion and run-identity verification outside the shared score layer.
 
 ## 4. Non-goals
 
 - Ice Slide mode selection, generation, objectives, or scoring.
-- Daily leaderboard presentation.
+- Daily leaderboard presentation or current-user highlighting.
 - Server-authoritative replay, anti-cheat, or score recomputation.
 - Migrating existing games to contextual submissions.
 - Normalizing arbitrary game-specific data into dedicated columns.
+- Creating a generic ranking expression language for arbitrary future metrics.
 - Historical Daily navigation, seasonal leagues, or cross-seed Expedition ranking.
 - Redesigning the existing score-insert/stat-update transaction boundary.
 - Changing platform daily-challenge definitions or challenge rotation.
 - Publishing Better Auth user IDs for leaderboard highlighting or profile navigation.
 - Adding a second mode-only ranking index before a measured use case requires it.
+- Introducing Campaign-only achievement rules into the shared score layer.
 
 ## 5. Fixed Product and Platform Decisions
 
 | Decision | Requirement |
 |---|---|
 | Legacy path | A submission without `context` uses the current unscoped path and existing input-validation contract. |
+| Context presence | `context` is omit-only: omitted means legacy; `null` is invalid. |
 | Context ownership | Context is an explicit sibling of `gameData`; it is never inferred from game data. |
 | Game-data persistence | `gameData` is persisted only for a validated contextual submission. |
 | Contextual data bound | The 16 KiB serialized limit applies only to contextual game data that may be stored. |
 | Campaign ranking | Default/global leaderboards include only unscoped rows. |
-| Personal best | Existing best-score queries and Campaign-oriented achievement progress include only unscoped rows. |
+| Personal best | Existing best-score queries and best-score-derived Campaign progress include only unscoped rows. |
+| Achievement awarding | Scoped submissions still run score-threshold and in-game achievement checks against the submitted score and `gameData`. |
 | Platform activity | Scoped rows still count toward history, activity, aggregates, favorite-game updates, and existing daily challenges. |
-| Scoped ranking | One best row per user, selected and ordered deterministically. |
+| Unscoped ranking | Existing leaderboards remain raw-attempt lists; one user may appear multiple times. |
+| Scoped ranking | Scoped leaderboards return one deterministic best row per user. |
 | Public identity | Public scoped output exposes display identity but never raw `user_id`. |
-| Ruleset column | `ruleset_version` is audit/display metadata, not a ranking predicate or tie-break. |
+| Ruleset column | `ruleset_version` is required audit/display metadata, not a ranking predicate or tie-break. |
+| Tie-break projection | `elapsedSeconds` and `totalMoves` are the v1 allowlisted metrics; other game metrics remain in stored JSON. |
 | Daily admission | Ice Slide-specific solved/run/version checks belong to HPA-488. |
 | Invalid context | Reject with `400`; never silently downgrade to an unscoped score. |
-| Missing schema | Legacy operations continue where possible; contextual operations fail explicitly. |
+| Missing schema | Legacy operations continue where possible; contextual operations fail explicitly with `500`. |
 
 ## 6. Alternatives Considered
 
@@ -104,47 +114,23 @@ Add reusable scope/version columns and persist game-specific tie-break data as J
 
 - Tie-break extraction requires guarded SQLite JSON functions.
 - The exact-key index does not fully order mode-only queries.
-- Indexes optimize scope and score, but not arbitrary JSON metrics.
+- The public v1 projection recognizes only two metric keys.
 
 ### 6.2 Normalize elapsed time and moves into shared columns
 
-Add dedicated `elapsed_seconds` and `total_moves` columns alongside the context fields.
-
-**Advantages**
-
-- Simpler ranking SQL and stronger database typing.
-- Potentially indexable tie-break metrics.
-
-**Rejected because**
-
-- It overfits the shared score table to Ice Slide's first ranking contract.
-- Future games may require different secondary metrics.
-- The source design explicitly calls for persisted game data as the reusable extension.
+Rejected because it overfits the shared score table to Ice Slide's first ranking contract and makes every future ranking metric a schema decision.
 
 ### 6.3 Fetch all attempts and deduplicate in application code
 
-Query scoped attempts, deserialize every payload, sort in TypeScript, and retain the best row per user.
-
-**Advantages**
-
-- Straightforward TypeScript implementation.
-- No window-function SQL.
-
-**Rejected because**
-
-- Work and memory grow with all historical attempts.
-- Applying `limit` before deduplication produces incorrect rankings.
-- It moves a relational ranking problem out of the database and is harder to test for deterministic pagination behavior.
+Rejected because work and memory grow with historical attempts, applying `limit` before deduplication is incorrect, and relational ranking belongs in the database.
 
 ### 6.4 Apply the contextual byte limit to legacy requests
 
-Apply the new 16 KiB UTF-8 limit to every `gameData` object, including transient legacy submissions.
+Rejected because it changes an existing API validation contract unrelated to persistence and repository inspection cannot prove an absolute upper bound for modified clients or future legacy callers.
 
-**Rejected because**
+### 6.5 Publish raw user IDs for highlighting
 
-- It changes an existing API validation contract unrelated to persistence.
-- A code audit cannot prove an absolute upper bound for modified clients or future legacy callers.
-- HPA-484 can bound newly stored data without tightening existing transient achievement input.
+Rejected because HPA-488 can compare an internal row to the authenticated session server-side and expose `isCurrentUser` without publishing Better Auth identifiers.
 
 ## 7. Data Model
 
@@ -157,7 +143,7 @@ ruleset_version INTEGER NULL,
 game_data_json TEXT NULL
 ```
 
-Add the scoped ranking index:
+Add the scoped filtering index:
 
 ```sql
 CREATE INDEX IF NOT EXISTS idx_game_scores_scoped_ranking
@@ -170,9 +156,11 @@ ON game_scores (
 );
 ```
 
-Exact competitive callers such as Ice Slide Daily encode generator and ruleset identity into `competition_key`. `ruleset_version` is intentionally non-indexed and non-filtered in HPA-484; it is retained as audit/display metadata so stored attempts remain inspectable without making it a second source of competition identity. Version isolation is enforced through an exact `competition_key`, not through an implicit ruleset predicate.
+Exact competitive callers such as Ice Slide Daily encode generator and ruleset identity into `competition_key`. `ruleset_version` is intentionally non-indexed and non-filtered in HPA-484; it is required so every contextual row records explicit audit/version metadata independently of key parsing. Version isolation is enforced through an exact `competition_key`, not through an implicit ruleset predicate.
 
-A mode-only query uses the `(game_id, mode)` prefix but cannot use this index to provide the complete score ordering because `competition_key` lies between `mode` and `score`. That path may require a temporary sort. This is accepted because the shipped Daily ranking path always supplies an exact key, while mode-only ranking is a generic, non-latency-critical primitive with no current UI consumer. A second index is deferred until query plans and measured production volume justify its write/storage cost; the design does not invent an unsupported row-volume estimate.
+The index is a scope-filter/prefix helper, not a covering representation of the complete ranking order. JSON-derived elapsed time and moves plus row ID are absent from the index. Implementations must filter the candidate scope and then apply the authoritative window ordering; they must not assume an index scan already satisfies ranking.
+
+A mode-only query uses the `(game_id, mode)` prefix but cannot use this index to provide the complete score ordering because `competition_key` lies between `mode` and `score`. That path may require a temporary sort. This is accepted because the shipped Daily ranking path always supplies an exact key, while mode-only ranking is a generic, non-latency-critical primitive with no current UI consumer. A second index is deferred until query plans and measured production volume justify its write/storage cost.
 
 Update Kysely types additively:
 
@@ -190,13 +178,15 @@ export interface GameScoresTable {
 }
 ```
 
-`GameScore` therefore includes the new nullable fields. Existing public history DTOs retain their current response shapes unless a later issue explicitly exposes context.
+`GameScore` therefore includes the new nullable fields for internal database use. Public history and activity DTOs remain explicitly defined projections and never expose `mode`, `competition_key`, `ruleset_version`, or `game_data_json` unless a later issue deliberately changes that contract.
 
-Both checked-in schema/bootstrap definitions that create `game_scores` must include the new nullable columns and index. Existing databases rely on the runtime compatibility guard described below.
+Both non-test schema/bootstrap definitions that create `game_scores`—`scripts/init-db.sql` and `better-auth_migrations/2025-07-06-schema-consolidation.sql`—must include the new nullable columns and index. Existing databases rely on the runtime compatibility guard.
 
-## 8. Submission Contract
+## 8. Submission and Write Contracts
 
-Extend the client and server request shape with an optional strict context object:
+### 8.1 Client request shape
+
+Extend the object request shape:
 
 ```ts
 export interface ScoreSubmissionContext {
@@ -213,20 +203,61 @@ export interface ScoreData {
 }
 ```
 
-### 8.1 Legacy submission
+`submitScore(scoreData)` remains the canonical object-based transport call.
+
+The existing client `saveGameScore(gameId, score, onSuccess, onError, gameData, options)` helper must not gain another positional argument. Extend its existing options bag instead:
+
+```ts
+export interface SaveScoreOptions {
+    isStale?: () => boolean
+    context?: ScoreSubmissionContext
+}
+```
+
+The helper forwards `options.context` through `ScoreData`. Existing callers that omit it produce byte-equivalent request bodies.
+
+### 8.2 Single server write path
+
+Keep one database score-write function and one side-effect pipeline:
+
+```ts
+export interface PersistedScoreContext {
+    mode: string
+    competitionKey: string | null
+    rulesetVersion: number
+    gameDataJson: string | null
+}
+
+export async function saveGameScore(
+    userId: string,
+    gameId: string,
+    score: number,
+    context?: PersistedScoreContext
+): Promise<boolean>
+```
+
+Requirements:
+
+- The optional structured argument controls only additional inserted columns.
+- A contextual call checks complete schema capability before insertion.
+- Legacy calls insert the original columns and do not require the contextual schema.
+- Both paths continue through the same existing `getUserStats()` / `upsertUserStats()` update block.
+- `saveGameScoreWithAchievements()` delegates exactly once to this function, then executes the same score-threshold and in-game achievement checks.
+- Do not create a second contextual insert function with duplicated statistics or favorite-game behavior.
+- Serialization and validation happen before entering the write function; it receives normalized values only.
+
+### 8.3 Legacy submission
 
 A request without `context`:
 
-- inserts `user_id`, `game_id`, and `score` through the existing unscoped path;
+- inserts `user_id`, `game_id`, and `score` through the existing path;
 - leaves all four context columns `NULL`;
 - may include `gameData` for transient achievement evaluation;
-- keeps the existing object-shape validation and does not add a new serialized-byte limit;
+- keeps the existing object-shape validation and does not add a serialized-byte limit;
 - does not persist `gameData`;
-- runs the existing statistics, achievement, and challenge flows unchanged.
+- runs existing aggregate-stat, favorite-game, achievement, and challenge flows unchanged.
 
-"Unchanged" here covers both downstream behavior and the request contract: HPA-484 does not reject a legacy object solely because its serialized form exceeds the contextual storage limit.
-
-### 8.2 Contextual submission
+### 8.4 Contextual submission
 
 A request with `context`:
 
@@ -235,26 +266,32 @@ A request with `context`:
 - requires serialized contextual `gameData` to fit the storage bound;
 - inserts mode, optional competition key, ruleset version, and serialized game data;
 - stores `NULL` in `game_data_json` when game data is omitted;
-- runs the same existing aggregate-stat, favorite-game, achievement, and challenge side effects as a legacy submission.
+- runs the same aggregate-stat, favorite-game, score-threshold achievement, in-game achievement, and challenge side effects as a legacy submission.
 
-Context is never derived from `gameData`, and fields inside `gameData` never override explicit context.
+A contextual high score may award an existing score-threshold achievement even though best-score-derived Campaign progress ignores that scoped score. Likewise, contextual `gameData` may award an existing in-game achievement. The `earned` flag remains authoritative; a best-score-derived percentage may remain below 100 after an achievement was earned from a scoped play. Game-specific Campaign-only unlock rules, if ever required, belong in a later issue rather than being inferred by this shared layer.
 
-### 8.3 Validation
-
-Use a strict context schema and preserve the open, game-specific shape of `gameData`.
+### 8.5 Validation
 
 | Field | Validation |
 |---|---|
 | `mode` | Required in context; 1–32 characters; `[a-z][a-z0-9_-]*` |
 | `competitionKey` | Optional; 1–128 characters; letters, digits, `:`, `.`, `_`, and `-` |
 | `rulesetVersion` | Required integer; `1..2_147_483_647` |
-| `context` | Strict object; unknown fields rejected |
-| `gameData` | Preserve the current record/object validation; arrays and primitives remain rejected |
+| `context` | Strict optional object; omitted is valid and `null` is rejected |
+| `gameData` | Preserve current record/object validation; arrays and primitives remain rejected |
 | serialized contextual `gameData` | At most 16 KiB measured as UTF-8 bytes |
+
+The competition-key charset covers the canonical parent format:
+
+```text
+ice-slide:daily:YYYY-MM-DD:g<generatorVersion>:r<rulesetVersion>
+```
+
+No `/` or `#` character is required by the approved Daily key contract.
 
 The byte-size check runs only when `context` is present and `gameData` will be persisted. It must measure `TextEncoder().encode(serialized).byteLength` or an equivalent server-safe UTF-8 byte count, not JavaScript string length.
 
-Malformed request JSON, invalid context, oversized contextual data, and unknown context fields return `400` before inserting a score or updating statistics. A contextual validation failure is never retried as a legacy submission. An oversized legacy object remains subject to existing request/infrastructure limits but is not newly rejected by HPA-484's score schema.
+Malformed request JSON, `context: null`, invalid context, oversized contextual data, and unknown context fields return `400` before inserting a score or updating statistics. A contextual validation failure is never retried as a legacy submission.
 
 ## 9. Runtime Schema Compatibility
 
@@ -279,19 +316,20 @@ export interface GameScoresContextCapabilities {
 5. Cache concurrent callers behind one process-local promise.
 6. Record success only for capabilities that actually exist.
 7. Reset the shared promise when any required column migration is incomplete so a later request retries.
-8. If only index creation fails, retain the column capabilities but leave the guard retryable until `scopedIndex=true`; do not permanently cache a performance-only failure.
+8. If only index creation fails, retain column capabilities but leave the guard retryable until `scopedIndex=true`; do not permanently cache a performance-only failure.
 
 No path rebuilds or rewrites `game_scores`, and existing rows remain valid with `NULL` context.
 
 ### 9.2 Capability-dependent behavior
 
-- Contextual inserts require all four columns. If any are unavailable, return a server error and do not insert an unscoped replacement.
-- Scoped reads require all four columns. Missing capability is an explicit server failure, not an empty leaderboard or unscoped fallback.
-- Legacy inserts use the original column set and remain available when the context migration is incomplete.
+- Contextual inserts require all four columns. If any are unavailable, return `500` with public code `SCORE_CONTEXT_UNAVAILABLE`; do not insert an unscoped replacement.
+- Scoped reads require all four columns. Missing capability or a scoped query failure returns `500` with public code `SCOPED_LEADERBOARD_UNAVAILABLE`, not an empty leaderboard or unscoped fallback.
+- Public codes distinguish unavailable behavior from a legitimate empty result without exposing whether the internal cause was migration or query execution.
+- Legacy inserts use the original column set and remain available when context migration is incomplete.
 - Default unscoped reads apply every available isolation predicate:
   - when both scope columns exist: `mode IS NULL AND competition_key IS NULL`;
   - when only one exists after a partial migration: filter on the available column;
-  - when neither exists on a legacy schema: all existing rows are necessarily treated as unscoped.
+  - when neither exists on a legacy schema: all existing rows are treated as unscoped.
 - An index failure affects performance only. Contextual reads and writes remain valid when the four columns exist.
 
 This fallback is deliberately asymmetric: legacy behavior degrades gracefully, while requested contextual behavior never loses scope silently.
@@ -300,11 +338,9 @@ This fallback is deliberately asymmetric: legacy behavior degrades gracefully, w
 
 ### 10.1 Existing unscoped queries
 
-Keep explicit legacy functions rather than introducing a single highly conditional query.
+`getGameLeaderboard(gameId, limit)` adds unscoped predicates when available and retains its current public result shape, score-descending ordering, and raw-attempt semantics. The same user may occupy multiple entries.
 
-`getGameLeaderboard(gameId, limit)` adds unscoped predicates when available and retains its current public result shape and score-descending behavior.
-
-Every existing function that answers a user's best score for a game, including compatibility aliases and `/api/scores/best`, uses the same unscoped predicate. Personal-best-derived achievement progress therefore remains Campaign-compatible.
+Every existing function that answers a user's best score for a game, including compatibility aliases and `/api/scores/best`, uses the same unscoped predicate. Best-score-derived achievement progress therefore remains Campaign-compatible.
 
 The all-games leaderboard endpoint continues to call the unscoped query for every registered game.
 
@@ -317,14 +353,10 @@ Do not add unscoped predicates to:
 - aggregate total-score and activity statistics;
 - the existing stored `total_games_played`, `total_score`, and `favorite_game` update path;
 - games-played, unique-games, and total-score challenge queries;
-- submission-time score and in-game achievement checks;
+- submission-time score-threshold and in-game achievement checks;
 - existing daily-challenge progress updates.
 
-A Daily or Expedition attempt is still a real platform play even when it belongs to a separate competitive scope.
-
 ### 10.3 Scoped best-per-user query
-
-Add a separate reusable query. The database-layer row may retain `userId` internally because partitioning and later authenticated-user matching require it, but that identifier must be stripped before producing a public API entry.
 
 ```ts
 export interface ScopedLeaderboardQuery {
@@ -351,27 +383,37 @@ interface ScopedLeaderboardRow {
 export type ScopedLeaderboardEntry = Omit<ScopedLeaderboardRow, 'userId'>
 ```
 
-The query filters by exact `game_id` and `mode`; when `competitionKey` is supplied it also requires an exact `competition_key` match. A mode-only query intentionally spans keys and ruleset versions in that mode.
+The query filters by exact `game_id` and `mode`; when `competitionKey` is supplied it also requires an exact `competition_key` match. A mode-only query intentionally spans competition keys and ruleset eras. Mode-only SQL must not add an implicit `ruleset_version` predicate.
 
-Use a parameterized CTE with `ROW_NUMBER() OVER (PARTITION BY user_id ...)`. Apply `limit` only after selecting one row per user.
+Use parameterized staged CTEs and `ROW_NUMBER() OVER (PARTITION BY user_id ...)`. Apply `limit` only after selecting one row per user.
 
-The API mapping must remove `userId`. If HPA-488 needs authenticated-player highlighting, it should compare the internal row to the optional session server-side and expose a safe boolean such as `isCurrentUser`; it must not publish the Better Auth identifier.
+The API mapping removes `userId`. HPA-488 may compare the internal row to the session server-side and add `isCurrentUser`.
 
-### 10.4 Tie-break extraction
+### 10.4 V1 tie-break projection
 
-The reusable query recognizes `elapsedSeconds` and `totalMoves` only when each stored value is a non-negative JSON integer. Missing, malformed, negative, non-integer, or otherwise invalid values become `NULL` for ranking and output.
+The shared query recognizes only these allowlisted JSON keys in v1:
+
+- `elapsedSeconds`
+- `totalMoves`
+
+Unknown current or future game-specific metrics remain inside `game_data_json` and are not projected, filtered, or sorted until a later approved extension updates the allowlist and query contract.
+
+Each recognized value is accepted only when it is a non-negative JSON integer. Missing, malformed, negative, non-integer, or otherwise invalid values become `NULL`.
+
+A public `NULL` means **not available to this shared projection**. It may mean the game does not use that metric, the contextual submission omitted it, or the stored value was invalid. Consumers must use `gameId`/`mode` knowledge before labeling a null as “no time” or “no moves.”
 
 Use staged CTEs:
 
-1. An initial CTE filters the requested scope and exposes `game_data_json` only when `json_valid(game_data_json)=1`; invalid JSON becomes `NULL`.
-2. A later CTE invokes `json_type`/`json_extract` only against the valid JSON value.
-3. The ranking CTE consumes the normalized nullable integers.
+1. Filter the requested scope and expose `game_data_json` only when `json_valid(game_data_json)=1`; invalid JSON becomes `NULL`.
+2. Invoke `json_type`/`json_extract` only against the valid JSON value.
+3. Normalize allowlisted values to nullable integers.
+4. Apply the window ranking.
 
-Do not depend on SQL boolean-expression short-circuiting to protect JSON functions. A malformed historical or externally written row must never abort the leaderboard query.
+Do not depend on SQL boolean-expression short-circuiting to protect JSON functions.
 
 ### 10.5 Deterministic ranking order
 
-Use the same order when selecting a user's best attempt and when ordering the final best-per-user leaderboard:
+Use the same order when selecting a user's best attempt and ordering the final best-per-user leaderboard:
 
 1. `score DESC`
 2. valid elapsed time before missing/invalid elapsed time
@@ -381,19 +423,11 @@ Use the same order when selecting a user's best attempt and when ordering the fi
 6. `created_at ASC`
 7. `id ASC`
 
-The row ID is an internal final determinant for equal timestamps. It does not replace or reorder the documented product tie-breaks.
+The row ID is an internal final determinant for equal timestamps.
 
-The query keeps the existing player identity precedence:
+### 10.6 Public field naming and DTO isolation
 
-```text
-displayName -> username -> name -> "Anonymous"
-```
-
-### 10.6 Public field naming
-
-Shared public leaderboard fields retain the existing contract exactly, including `created_at`. The scoped response does not rename that field to `createdAt`.
-
-New opt-in fields use the existing API's TypeScript-facing camelCase convention:
+Shared public leaderboard fields retain the existing contract, including `created_at`. New opt-in fields are additive:
 
 ```text
 mode
@@ -403,56 +437,52 @@ elapsedSeconds
 totalMoves
 ```
 
-This means consumers can reuse the existing rank/player/score/timestamp rendering and feature-detect only the additive scoped fields.
+Public history and activity endpoints remain shape-identical. Implementations must select or map explicit fields at API/service boundaries and must never serialize `game_data_json`, raw `user_id`, or newly added context columns through an internal `selectAll()` result.
 
 ## 11. API Contracts
 
 ### 11.1 `POST /api/scores`
 
-- Existing request bodies without `context` remain valid under the existing legacy validation contract.
-- The contextual byte limit does not apply to a request that omits `context`.
+- Existing bodies without `context` remain valid under the legacy contract.
+- `context: null` is invalid.
+- The contextual byte limit does not apply when `context` is omitted.
 - Contextual validation errors return `400` and insert nothing.
-- Missing contextual schema capability returns a server error and inserts nothing.
+- Missing contextual schema capability returns `500` with `{ error, code: 'SCORE_CONTEXT_UNAVAILABLE' }`.
 - The success response shape remains unchanged.
-- Aggregate stats, favorite-game assignment, achievement processing, and challenge processing receive the same `gameId`, score, and game-data inputs as before.
-- A contextual score is not semantically admitted to a game-specific ranked competition here; that validation belongs to the consuming game issue.
+- Both submission forms use the single write path and identical aggregate-stat, favorite-game, achievement, and challenge sequencing.
 
 ### 11.2 `GET /api/leaderboard`
 
-Replace the route's manual parameter parsing with one validation schema that models both existing and scoped forms. The schema must keep `gameId` optional for the all-games request, parse/default `limit`, validate `mode` and `competitionKey`, and enforce cross-field combinations with a refinement:
+Replace manual parameter parsing with one validation schema that models existing and scoped forms. The schema keeps `gameId` optional for all-games, parses/defaults `limit`, validates `mode` and `competitionKey`, and enforces:
 
 - `mode` requires `gameId`;
-- `competitionKey` requires both `gameId` and `mode`.
-
-The route must call the shared `validateQuery()` helper or an equivalent single schema-validation entry point for all query parameters; it must not validate `limit` manually while handling scope parameters separately.
+- `competitionKey` requires `gameId` and `mode`.
 
 | Query | Behavior |
 |---|---|
-| no scope parameters | Preserve current unscoped behavior |
-| `gameId` only | Preserve current single-game unscoped response |
-| `gameId` + `mode` | Return scoped best-per-user results for that mode |
-| `gameId` + `mode` + `competitionKey` | Return exact scoped competition results |
+| no scope parameters | Existing all-games unscoped raw-attempt leaderboards |
+| `gameId` only | Existing single-game unscoped raw-attempt leaderboard |
+| `gameId` + `mode` | Scoped best-per-user leaderboard spanning that mode |
+| `gameId` + `mode` + `competitionKey` | Exact scoped best-per-user competition |
 | `competitionKey` without `mode` | `400` |
 | scope parameter without `gameId` | `400` |
 | invalid game, limit, mode, or key | `400` |
-| scoped schema unavailable | server error |
-| scoped database query failure | server error, not an empty-success response |
+| scoped capability/query unavailable | `500` with code `SCOPED_LEADERBOARD_UNAVAILABLE` |
 
-The existing unscoped response remains shape-compatible. Scoped entries retain `created_at`, never expose `userId`, and add only `mode`, `competitionKey`, `rulesetVersion`, `elapsedSeconds`, and `totalMoves`.
+The raw-attempt versus best-per-user difference is intentional and part of the public contract. HPA-488 must not assume Campaign/global entries are deduplicated.
 
-The legacy query may retain its current defensive empty-array behavior for compatibility. The new scoped query must preserve failure information so HPA-488 can distinguish an unavailable leaderboard from a legitimately empty competition.
+The legacy query may retain its defensive empty-array behavior for compatibility. Scoped failure must remain distinguishable from a legitimate empty scoped competition.
 
 ## 12. Error Handling
 
-- Invalid context or oversized contextual data fails before any database mutation.
-- Legacy game-data objects retain their existing score-schema validation and are not subject to the new contextual byte cap.
-- A contextual migration failure is logged and surfaced; no unscoped substitute is written.
-- Legacy submissions continue with the original insert columns where possible.
+- Invalid context or oversized contextual data fails before database mutation.
+- Legacy game-data objects are not subject to the new contextual byte cap.
+- Contextual migration failure is logged and surfaced; no unscoped substitute is written.
 - A partial schema never causes a query to reference a missing column.
-- Malformed persisted JSON is treated as missing tie-break data rather than a query failure.
-- An unavailable scoped leaderboard is distinguishable from an empty scoped leaderboard.
-- Existing score, aggregate-stat, favorite-game, achievement, and challenge side-effect ordering is preserved; transactional redesign is outside this issue.
-- Database and validation errors must not expose serialized game data, raw user IDs, or secrets in client responses.
+- Malformed persisted JSON becomes missing tie-break data rather than a query failure.
+- Public error codes identify an unavailable capability without exposing serialized game data, raw user IDs, SQL details, or secrets.
+- Existing side-effect ordering is preserved; transactional redesign remains out of scope.
+- Unscoped empty-on-error and scoped fail-loud behavior are covered separately so later refactoring cannot accidentally “unify” them.
 
 ## 13. Testing Strategy
 
@@ -461,137 +491,170 @@ Use mocked query tests for call boundaries and real in-memory LibSQL tests for s
 ### 13.1 Validation and client tests
 
 - Legacy payload without context remains valid.
-- A legacy object larger than 16 KiB remains accepted by the score schema, proving HPA-484 did not tighten the existing contract.
+- `context: null` is rejected; omission is accepted.
+- A legacy object larger than 16 KiB remains accepted by the score schema.
 - Contextual payload with and without game data is valid.
 - Mode, competition-key, and ruleset-version boundaries are covered.
+- The canonical Ice Slide key passes the competition-key regex; `/` and `#` are rejected.
 - Unknown context fields are rejected.
-- Arrays and primitives remain rejected as game data through the existing record/object validation.
+- Arrays and primitives remain rejected as game data.
 - Oversized contextual ASCII and multibyte UTF-8 payloads are rejected by encoded byte size.
-- Context is forwarded by `scoreService` without changing legacy request bodies.
-- Invalid context returns the existing client-facing invalid-score failure path.
+- `submitScore()` forwards `ScoreData.context`.
+- Client `saveGameScore()` forwards context through `SaveScoreOptions`, with no new positional argument and no change to legacy request bodies.
 
-### 13.2 Migration tests
+### 13.2 Migration and bootstrap tests
 
-- Fresh initialization contains all four columns and the scoped index.
+- Fresh initialization through each non-test schema surface contains all four columns and the index.
 - A legacy four-column table gains all columns without rewriting existing rows.
-- Unscoped fallback behavior covers the four meaningful scope-column states: neither `mode` nor `competition_key`, `mode` only, `competition_key` only, and both.
-- Representative interrupted states missing `ruleset_version` or `game_data_json` prove contextual operations fail and the next guard call completes migration.
-- Exhaustively testing all 16 column-presence permutations is not required because every state missing any contextual column has the same contextual fail/no-downgrade contract.
+- Unscoped fallback covers the four meaningful scope-column states.
+- Representative states missing `ruleset_version` or `game_data_json` fail contextual operations and complete on retry.
 - Repeated calls are idempotent.
 - Concurrent calls share one migration execution.
-- A failed column addition causes the next call to retry.
-- Index creation failure leaves column capabilities available and retries later.
-- Legacy inserts and default reads remain functional during incomplete migration.
-- Contextual operations fail rather than downgrade when schema capability is incomplete.
+- Failed column addition retries.
+- Failed index creation leaves columns usable and retries later.
+- Legacy operations continue during incomplete migration.
+- Contextual operations fail rather than downgrade.
 
-### 13.3 Real LibSQL query tests
+### 13.3 Real LibSQL query and side-effect tests
 
-- Legacy and contextual submissions round-trip the expected nullable columns.
-- Contextual game data is persisted exactly once; legacy game data remains transient.
-- Contextual submissions execute the existing aggregate-stat and favorite-game side effects.
-- Default game and all-games leaderboards exclude scoped rows.
-- Every personal-best function and compatibility alias excludes scoped rows.
-- Personal-best-derived achievement progress ignores scoped rows.
-- History, activity, aggregate statistics, favorite-game updates, and daily-challenge source queries include scoped rows.
+- Legacy and contextual submissions round-trip expected nullable columns through the same insert function.
+- Contextual game data is persisted once; legacy data remains transient.
+- Both paths execute the same aggregate-stat and favorite-game side effects.
+- Both paths execute score-threshold and in-game achievement checks.
+- A scoped score may award an achievement while unscoped best-score-derived percentage remains unchanged.
+- Default game and all-games leaderboards exclude scoped rows and retain raw-attempt semantics.
+- Every personal-best function and alias excludes scoped rows.
+- History, activity, aggregate statistics, favorite-game updates, and daily-challenge sources include scoped rows.
 - Mode and competition-key isolation are exact.
-- `ruleset_version` round-trips as metadata but is not an implicit filter or tie-break.
+- Mode-only queries do not add `ruleset_version` predicates.
+- `ruleset_version` round-trips as metadata and is required on contextual rows.
 - Each user appears at most once in scoped output.
-- A better retry replaces a worse retry in output while both remain stored.
-- Score, elapsed-time, move-count, submission-time, and row-ID tie-break levels are independently covered.
-- Valid tie-break values sort before missing or invalid values.
+- Better retries replace worse retries in output while all attempts remain stored.
+- Every tie-break level is independently covered.
+- Index presence is not treated as proof of complete ranking order.
+- Valid allowlisted values sort before null/invalid values.
+- Unknown JSON metrics remain unprojected.
 - Malformed JSON does not abort the query.
-- `limit` is applied after best-per-user selection.
-- Player identity fallback behavior remains unchanged.
-- The internal row retains `userId` for server use, while the public mapping omits it.
-- Scoped and unscoped public entries both retain `created_at`.
+- `limit` is applied after partitioning, including a fixture with at least 100 users and multiple attempts per user.
+- Internal rows retain `userId`; public mapping omits it.
+- Public history/activity DTOs remain shape-identical and omit all context/JSON fields.
+- Scoped and unscoped public entries retain `created_at`.
 
 ### 13.4 API tests
 
-- Existing no-`gameId` and single-game unscoped responses remain shape-compatible.
-- The unified leaderboard query schema accepts the all-games path and rejects every invalid scope combination.
-- The route uses the unified validation result rather than separate manual parsing.
-- Scoped mode-only and exact-key requests return the new fields and ranks.
-- Scoped entries retain `created_at` and do not serialize `userId`.
-- Contextual submission returns `400` with no insert for malformed context or oversized contextual data.
-- Legacy oversized object data is not newly rejected by HPA-484.
-- Scoped schema/query failure returns a server error rather than an empty result.
-- Existing aggregate-stat, favorite-game, achievement, and challenge update calls still occur after successful legacy and contextual submissions.
+- Existing all-games and single-game unscoped responses remain shape-compatible and raw-attempt based.
+- Unified query validation accepts all-games and rejects every invalid scope combination.
+- Scoped mode-only and exact-key requests return additive fields and best-per-user ranks.
+- Scoped entries retain `created_at` and omit `userId`.
+- Scoped null tie-break fields remain nullable and are not assigned game-independent labels by the backend.
+- Contextual validation failures return `400`.
+- Missing score-context capability returns `500` with `SCORE_CONTEXT_UNAVAILABLE`.
+- Scoped leaderboard failure returns `500` with `SCOPED_LEADERBOARD_UNAVAILABLE`, never empty `200`.
+- Existing side-effect calls still occur after successful legacy and contextual submissions.
+- Public history endpoints do not leak context columns after `GameScore` widens.
 
-End-to-end Daily UI coverage belongs to HPA-487 and HPA-488, not this backend foundation.
+End-to-end Daily UI coverage belongs to HPA-487 and HPA-488.
 
 ## 14. Implementation Boundaries
 
-Likely touched areas are intentionally limited to:
+Likely touched areas:
 
 ```text
 scripts/init-db.sql
-better-auth_migrations/...
+better-auth_migrations/2025-07-06-schema-consolidation.sql
 src/lib/server/db/types.ts
 src/lib/server/db/queries.ts
 src/lib/server/validations.ts
+src/lib/server/api-utils.ts or scoped endpoint response helpers
 src/lib/services/scoreService.ts
 src/pages/api/scores.ts
 src/pages/api/leaderboard.ts
+src/pages/api/scores/history.ts and any public score/history mapping tests
 focused unit, API, migration, legacy-schema, and LibSQL integration tests
 ```
 
-No Ice Slide runtime module should depend on unfinished HPA-487 data shapes in this issue. The platform contract must be usable independently by later games.
+Implementation constraints:
+
+- Extend the existing `saveGameScore()` database write contract with one optional structured context argument.
+- Keep `saveGameScoreWithAchievements()` as the single achievement pipeline.
+- Extend `ScoreData` and the existing client options bag; do not add a seventh positional argument to client `saveGameScore()`.
+- Public queries and endpoints use explicit DTO mapping; no internal `GameScore` pass-through.
+- The scoped window order, not the index declaration, is authoritative.
+- No Ice Slide runtime module depends on unfinished HPA-487 data shapes.
 
 ## 15. Delivery Sequence
 
-1. Add schema types, checked-in schema definitions, runtime capability guard, and focused migration tests.
-2. Add strict request context and contextual game-data storage bounds without tightening legacy validation.
-3. Extend score-service and insert paths while preserving all existing aggregate-stat, favorite-game, achievement, and challenge side effects.
+1. Update both schema creation surfaces, Kysely types, the capability guard, and focused migration/bootstrap tests.
+2. Add strict omit-only request context and contextual game-data storage bounds without tightening legacy validation.
+3. Extend the single score-write function and client options bag while preserving all existing side effects.
 4. Isolate default leaderboard and personal-best queries to unscoped rows.
-5. Add the scoped best-per-user LibSQL query, internal/public DTO boundary, and deterministic tie-break tests.
-6. Replace leaderboard manual parameter parsing with one schema and add validated opt-in filters.
-7. Run compatibility tests across fresh, legacy, representative partial, and malformed-data fixtures.
-
-This sequence keeps every intermediate change reviewable and prevents API work from landing before its storage/query invariants exist.
+5. Add the scoped best-per-user query, v1 metric allowlist, internal/public DTO boundary, and deterministic tie-break tests.
+6. Replace leaderboard manual parsing with one schema and stable scoped error categories.
+7. Audit and test every public history/activity mapping after `GameScore` widens.
+8. Run compatibility tests across fresh, legacy, representative partial, malformed-data, and high-attempt fixtures.
 
 ## 16. Acceptance Criteria
 
 - Existing rows remain valid and no table is destructively rewritten.
+- Both non-test schema creation surfaces include the new columns and index.
 - Existing score callers require no changes.
-- Legacy `gameData` keeps its existing validation contract, continues to power achievements, and is not persisted.
-- A contextual submission round-trips mode, optional key, ruleset version, and optional game data.
+- Client context is carried through the existing options/object contracts, not a new positional argument.
+- Legacy `gameData` keeps its current validation contract, continues to power achievements, and is not persisted.
+- `context: null` is rejected.
+- A contextual submission round-trips mode, optional key, required ruleset version, and optional game data.
 - Invalid context or oversized contextual data returns `400` and inserts nothing.
-- Default leaderboards, personal bests, and Campaign-oriented achievement progress exclude scoped rows.
+- Contextual schema failure returns explicit `500` without downgrade.
+- One score-write function serves legacy and contextual inserts and preserves all existing side effects.
+- Scoped submissions still award existing score-threshold and in-game achievements; only best-score-derived progress is unscoped.
+- Default leaderboards and personal bests exclude scoped rows.
+- Unscoped leaderboards remain raw-attempt lists; scoped leaderboards are best-per-user.
 - History, activity, aggregate statistics, favorite-game updates, and current daily challenges include scoped rows.
-- Scoped output contains at most one row per user.
+- Public history/activity DTOs remain shape-identical and never expose context columns or stored JSON.
 - Scoped public output preserves `created_at` and never exposes raw `user_id`.
-- `ruleset_version` is returned as metadata but does not silently define ranking scope.
+- `ruleset_version` is required metadata and never an implicit mode-only predicate or tie-break.
+- Only allowlisted v1 tie-break metrics are projected; unknown metrics remain stored-only.
+- The index is used for filtering where possible, while window SQL defines complete ranking.
 - All documented tie-breaks are deterministic and covered against real LibSQL.
 - Missing or malformed tie-break JSON cannot crash the query.
-- Legacy, representative partial, concurrent, and index-retry migration paths are covered.
-- The leaderboard route enforces all parameter combinations through one validation schema.
-- Existing achievement and challenge updates remain intact.
-- HPA-487 and HPA-488 can consume the context and scoped-query primitives without adding Ice Slide rules to the shared database layer.
+- Scoped unavailable errors are distinguishable from legitimate empty results.
+- The leaderboard route enforces all parameter combinations through one schema.
+- HPA-487 and HPA-488 can consume these primitives without adding Ice Slide rules to the shared database layer.
 
 ## 17. Resolved Decisions
 
-- Personal-best and achievement-progress queries use only unscoped rows.
-- Scoped rows still count as platform plays, aggregate-stat/favorite-game updates, and daily-challenge activity.
-- Context is explicit and separate from game data.
-- Legacy transient game data does not receive the new contextual 16 KiB storage bound.
+- Scoped submissions still run score-threshold and in-game achievement awarding against the submitted score and `gameData`.
+- Only personal-best/best-score-derived achievement progress is Campaign/unscoped; `earned` remains authoritative if the percentage differs.
+- Scoped rows count as platform plays, aggregate-stat/favorite-game updates, and daily-challenge activity.
+- Context is explicit, omit-only, and separate from game data.
+- Legacy transient game data does not receive the contextual 16 KiB storage bound.
+- One score-write function handles legacy and contextual persistence.
 - Contextual data is never silently discarded or downgraded.
-- Mode-only scoped ranking is allowed as a reusable primitive; competitive Daily callers use an exact competition key.
-- The mode-only path may sort because no second index is justified without a measured consumer.
-- `ruleset_version` is audit/display metadata; exact competition keys provide version isolation.
+- Unscoped ranking remains raw-attempt; scoped ranking is best-per-user.
+- Mode-only ranking intentionally spans keys and ruleset eras and must not add a ruleset predicate.
+- `ruleset_version` is required audit/display metadata so rows are inspectable without parsing keys.
+- The exact-key index assists filtering but does not define the complete ranking order.
+- `elapsedSeconds` and `totalMoves` are an Ice-Slide-first v1 projection allowlist; unknown metrics stay in JSON.
+- Null tie-break values mean unavailable/not-applicable to the shared projection, not a universal gameplay statement.
 - JSON tie-breaks are staged, guarded, nullable, and sorted after valid values.
 - Public scoped output preserves `created_at` and strips raw user IDs.
-- The leaderboard route uses one schema for all-games, single-game, and scoped query forms.
+- Public history/activity DTOs never pass through internal context or JSON fields.
+- Client context extends `ScoreData` and `SaveScoreOptions`, not the positional helper signature.
+- Scoped capability failures return stable public unavailable codes with HTTP 500.
+- The leaderboard route uses one schema for all-games, single-game, and scoped forms.
+- The canonical parent key format fits the approved competition-key charset.
+- The two non-test schema creation surfaces are updated together.
 - The shared layer does not decide whether an Ice Slide Daily submission is solved or trustworthy.
-- The canonical parent requirements live in Linear; the closed GitHub documentation branch is not the durable citation.
 
 ## 18. Spec Self-Review
 
-- **Placeholder scan:** no TBD, TODO, unresolved field bound, or invented production-volume target remains.
-- **Consistency:** Campaign competition is unscoped while platform activity includes all rows; every query family is assigned to one side of that boundary.
-- **Legacy compatibility:** the contextual persistence limit does not change the existing transient `gameData` request contract.
-- **Migration safety:** contextual operations require complete capability, while legacy behavior never references unavailable columns; index failure remains retryable.
-- **Determinism:** per-user selection and final ordering use the same complete sequence, including row ID as the final internal fallback.
-- **API surface:** existing shared fields retain their casing, new fields are additive, and raw auth identifiers remain private.
-- **Version semantics:** competition keys isolate versions; `ruleset_version` is explicit metadata rather than a hidden predicate.
-- **Scope:** the work remains a shared persistence/query foundation; Ice Slide gameplay, semantic admission, highlighting, and UI remain in HPA-487/HPA-488.
-- **Ambiguity resolution:** malformed JSON sorts as missing data, mode-only queries intentionally span keys, and the unified query schema models the all-games path.
+- **Placeholder scan:** no TBD, TODO, unresolved field bound, or invented volume target remains.
+- **Achievement semantics:** awarding and best-score-derived progress are explicitly separated.
+- **Write-path consistency:** one insert function and one side-effect pipeline serve both submission forms.
+- **Legacy compatibility:** contextual persistence limits do not change legacy transient input.
+- **Migration safety:** contextual operations require complete capability; legacy behavior never references unavailable columns; index failure remains retryable.
+- **Determinism:** per-user selection and final ordering use the same complete sequence, including row ID.
+- **API surface:** raw-attempt and best-per-user contracts are explicit; public DTOs retain casing and exclude raw IDs/JSON.
+- **Version semantics:** exact keys isolate versions; `ruleset_version` is required metadata rather than a hidden predicate.
+- **Metric extensibility:** the v1 allowlist is explicit and null semantics are documented.
+- **Bootstrap coverage:** both non-test creation paths and public history mappings are named.
+- **Scope:** Ice Slide gameplay, semantic admission, highlighting, and UI remain in HPA-487/HPA-488.
