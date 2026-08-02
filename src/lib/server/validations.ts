@@ -11,17 +11,74 @@ const gameIdValues = Object.values(GameID) as [string, ...string[]]
 /**
  * Score submission schema
  */
-export const scoreSubmissionSchema = z.object({
-    gameId: z.enum(gameIdValues, {
-        message: 'Invalid game ID',
-    }),
-    score: z
-        .number()
-        .int()
-        .min(0, { message: 'Score must be a non-negative integer' })
-        .max(999_999_999, { message: 'Score exceeds maximum allowed value' }),
-    gameData: z.record(z.string(), z.unknown()).optional(),
-})
+const SCORE_CONTEXT_MAX_GAME_DATA_BYTES = 16 * 1024
+const modePattern = /^[a-z][a-z0-9_-]*$/
+const competitionKeyPattern = /^[A-Za-z0-9:._-]+$/
+
+export const scoreContextSchema = z
+    .object({
+        mode: z.string().min(1).max(32).regex(modePattern),
+        competitionKey: z
+            .string()
+            .min(1)
+            .max(128)
+            .regex(competitionKeyPattern)
+            .optional(),
+        rulesetVersion: z.number().int().min(1).max(2_147_483_647),
+    })
+    .strict()
+
+export type ScoreSubmissionContext = z.infer<typeof scoreContextSchema>
+
+function addContextualGameDataIssues(
+    data: Record<string, unknown>,
+    ctx: z.RefinementCtx
+): void {
+    for (const key of ['elapsedSeconds', 'totalMoves'] as const) {
+        const value = data[key]
+        if (
+            value !== undefined &&
+            (typeof value !== 'number' || !Number.isInteger(value) || value < 0)
+        ) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['gameData', key],
+                message: `${key} must be a non-negative integer`,
+            })
+        }
+    }
+
+    const serialized = JSON.stringify(data)
+    const byteLength = new TextEncoder().encode(serialized).byteLength
+    if (byteLength > SCORE_CONTEXT_MAX_GAME_DATA_BYTES) {
+        ctx.addIssue({
+            code: 'custom',
+            path: ['gameData'],
+            message: 'Contextual gameData exceeds 16 KiB',
+        })
+    }
+}
+
+export const scoreSubmissionSchema = z
+    .object({
+        gameId: z.enum(gameIdValues, {
+            message: 'Invalid game ID',
+        }),
+        score: z
+            .number()
+            .int()
+            .min(0, { message: 'Score must be a non-negative integer' })
+            .max(999_999_999, {
+                message: 'Score exceeds maximum allowed value',
+            }),
+        gameData: z.record(z.string(), z.unknown()).optional(),
+        context: scoreContextSchema.optional(),
+    })
+    .superRefine((data, ctx) => {
+        if (data.context && data.gameData) {
+            addContextualGameDataIssues(data.gameData, ctx)
+        }
+    })
 
 export type ScoreSubmissionInput = z.infer<typeof scoreSubmissionSchema>
 
