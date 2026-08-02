@@ -452,4 +452,93 @@ describe('POST /api/scores', () => {
         expect(response.status).toBe(200)
         expect(result.success).toBe(true)
     })
+
+    it('normalizes context and updates challenges after a successful contextual save', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as never)
+        vi.mocked(getGameById).mockReturnValue(mockGame)
+        vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
+            success: true,
+            newAchievements: [],
+        })
+        vi.mocked(updateChallengeProgress).mockResolvedValue({
+            completedChallenges: [],
+            xpEarned: 0,
+            levelUp: false,
+        })
+
+        const request = new Request('http://localhost/api/scores', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                gameId: 'tetris',
+                score: 500,
+                gameData: {
+                    elapsedSeconds: 12,
+                    totalMoves: 34,
+                },
+                context: {
+                    mode: 'daily',
+                    competitionKey: 'daily:route',
+                    rulesetVersion: 1,
+                },
+            }),
+        })
+
+        const response = await POST({ request } as never)
+        expect(response.status).toBe(200)
+
+        expect(saveGameScoreWithAchievements).toHaveBeenCalledWith(
+            'user-123',
+            'tetris',
+            500,
+            {
+                elapsedSeconds: 12,
+                totalMoves: 34,
+            },
+            {
+                mode: 'daily',
+                competitionKey: 'daily:route',
+                rulesetVersion: 1,
+                gameDataJson: '{"elapsedSeconds":12,"totalMoves":34}',
+            }
+        )
+        expect(updateChallengeProgress).toHaveBeenCalledWith(
+            'user-123',
+            'tetris',
+            500
+        )
+        expect(
+            vi.mocked(saveGameScoreWithAchievements).mock.invocationCallOrder[0]
+        ).toBeLessThan(
+            vi.mocked(updateChallengeProgress).mock.invocationCallOrder[0]
+        )
+    })
+
+    it('does not update challenges after contextual capability failure', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as never)
+        vi.mocked(getGameById).mockReturnValue(mockGame)
+        vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
+            success: false,
+            newAchievements: [],
+            code: 'SCORE_CONTEXT_UNAVAILABLE',
+        })
+
+        const request = new Request('http://localhost/api/scores', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                gameId: 'tetris',
+                score: 500,
+                context: {
+                    mode: 'daily',
+                    rulesetVersion: 1,
+                },
+            }),
+        })
+
+        const response = await POST({ request } as never)
+
+        expect(response.status).toBe(500)
+        expect(updateChallengeProgress).not.toHaveBeenCalled()
+    })
 })

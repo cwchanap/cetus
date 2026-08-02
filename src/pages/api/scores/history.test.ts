@@ -268,4 +268,31 @@ describe('GET /api/scores/history', () => {
             )
         }
     })
+
+    it('exposes only the four public history DTO keys even if context columns leaked from the DB layer', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
+        vi.mocked(getUserGameHistory).mockResolvedValue([
+            {
+                game_id: 'tetris',
+                game_name: 'Tetris Challenge',
+                score: 100,
+                created_at: '2026-08-01T00:00:00.000Z',
+            },
+        ])
+
+        const url = new URL('http://localhost:4321/api/scores/history')
+        const request = new Request(url)
+
+        const response = await GET({ request, url } as any)
+        const result = await response.json()
+
+        expect(response.status).toBe(200)
+        expect(result.history).toHaveLength(1)
+        expect(Object.keys(result.history[0]).sort()).toEqual([
+            'created_at',
+            'game_id',
+            'game_name',
+            'score',
+        ])
+    })
 })
