@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS "game_scores" (
     "user_id" TEXT NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
     "game_id" TEXT NOT NULL,
     "score" INTEGER NOT NULL,
+    "mode" TEXT,
+    "competition_key" TEXT,
+    "ruleset_version" INTEGER,
+    "game_data_json" TEXT,
     "created_at" DATE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -61,4 +65,12 @@ CREATE TABLE IF NOT EXISTS "user_achievements" (
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS "idx_game_scores_user_id" ON "game_scores" ("user_id");
 CREATE INDEX IF NOT EXISTS "idx_game_scores_game_id" ON "game_scores" ("game_id");
+CREATE INDEX IF NOT EXISTS "idx_game_scores_scoped_ranking"
+    ON "game_scores" (
+        "game_id",
+        "mode",
+        "competition_key",
+        "score" DESC,
+        "created_at" ASC
+    );
 CREATE INDEX IF NOT EXISTS "idx_user_achievements_user_id" ON "user_achievements" ("user_id");
