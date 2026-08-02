@@ -7,9 +7,11 @@ import { updateChallengeProgress } from '@/lib/services/challengeService'
 import {
     jsonResponse,
     errorResponse,
+    codedErrorResponse,
     unauthorizedResponse,
     badRequestResponse,
 } from '@/lib/server/api-utils'
+import type { PersistedScoreContext } from '@/lib/server/db/game-score-context'
 import { scoreSubmissionSchema, validateBody } from '@/lib/server/validations'
 
 const isGameId = (id: string): id is GameID =>
@@ -31,7 +33,7 @@ export const POST: APIRoute = async ({ request }) => {
             return badRequestResponse(validation.error)
         }
 
-        const { gameId, score, gameData } = validation.data
+        const { gameId, score, gameData, context } = validation.data
         if (!isGameId(gameId)) {
             return badRequestResponse('Invalid game ID')
         }
@@ -43,14 +45,31 @@ export const POST: APIRoute = async ({ request }) => {
             return badRequestResponse('Invalid game ID')
         }
 
+        const persistedContext: PersistedScoreContext | undefined = context
+            ? {
+                  mode: context.mode,
+                  competitionKey: context.competitionKey ?? null,
+                  rulesetVersion: context.rulesetVersion,
+                  gameDataJson:
+                      gameData === undefined ? null : JSON.stringify(gameData),
+              }
+            : undefined
+
         const result = await saveGameScoreWithAchievements(
             session.user.id,
             validatedGameId,
             score,
-            gameData
+            gameData,
+            persistedContext
         )
 
         if (!result.success) {
+            if (result.code === 'SCORE_CONTEXT_UNAVAILABLE') {
+                return codedErrorResponse(
+                    'Score context is unavailable',
+                    'SCORE_CONTEXT_UNAVAILABLE'
+                )
+            }
             return errorResponse('Failed to save score')
         }
 
