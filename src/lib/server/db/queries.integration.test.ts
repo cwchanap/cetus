@@ -32,6 +32,12 @@ import {
     getAllUserIds,
     getActiveUserIdsBetween,
     getGameLeaderboard,
+    saveGameScore,
+    getUserGameHistory,
+    getUserDailyActivity,
+    getGamesPlayedCountToday,
+    getUniqueGamesPlayedToday,
+    getTotalScoreToday,
 } from '@/lib/server/db/queries'
 
 // ─── Schema setup ────────────────────────────────────────────────────────────
@@ -594,5 +600,103 @@ describe('Score context isolation (integration)', () => {
         const result = await getGameLeaderboard('tetris', 10)
 
         expect(result.map(entry => entry.score)).toEqual([200, 100])
+    })
+})
+
+// ─── Contextual write side effects (integration) ─────────────────────────────
+
+describe('Contextual write side effects (integration)', () => {
+    it('persists scoped context while retaining platform activity side effects', async () => {
+        await seedUser('scoped-user', 'Scoped Player')
+        await seedUserStats('scoped-user')
+
+        const result = await saveGameScore('scoped-user', 'tetris', 500, {
+            mode: 'daily',
+            competitionKey: 'daily:activity',
+            rulesetVersion: 1,
+            gameDataJson: JSON.stringify({
+                elapsedSeconds: 12,
+                totalMoves: 34,
+            }),
+        })
+        expect(result).toEqual({ success: true })
+
+        const scoreRows = await sql<{
+            mode: string | null
+            competition_key: string | null
+            ruleset_version: number | null
+            game_data_json: string | null
+        }>`
+            SELECT
+                mode,
+                competition_key,
+                ruleset_version,
+                game_data_json
+            FROM game_scores
+            WHERE user_id = 'scoped-user'
+        `.execute(db)
+        expect(scoreRows.rows).toEqual([
+            {
+                mode: 'daily',
+                competition_key: 'daily:activity',
+                ruleset_version: 1,
+                game_data_json: '{"elapsedSeconds":12,"totalMoves":34}',
+            },
+        ])
+
+        const stats = await sql<{
+            total_games_played: number
+            total_score: number
+            favorite_game: string | null
+        }>`
+            SELECT total_games_played, total_score, favorite_game
+            FROM user_stats
+            WHERE user_id = 'scoped-user'
+        `.execute(db)
+        // saveGameScore calls getUserStats (distinct game count = 1) then upserts
+        // total_games_played = 1 + 1 = 2. total_score = 0 + 500 = 500.
+        expect(stats.rows[0]).toEqual({
+            total_games_played: 2,
+            total_score: 500,
+            favorite_game: 'tetris',
+        })
+
+        const history = await getUserGameHistory('scoped-user', 10)
+        expect(history).toHaveLength(1)
+        expect(Object.keys(history[0]).sort()).toEqual([
+            'created_at',
+            'game_id',
+            'game_name',
+            'score',
+        ])
+
+        expect(await getGamesPlayedCountToday('scoped-user')).toBe(1)
+        expect(await getUniqueGamesPlayedToday('scoped-user')).toHaveLength(1)
+        expect(await getTotalScoreToday('scoped-user')).toBe(500)
+
+        const activity = await getUserDailyActivity(
+            'scoped-user',
+            new Date().getUTCFullYear()
+        )
+        expect(activity.reduce((sum, day) => sum + day.count, 0)).toBe(1)
+    })
+
+    it('omits context columns from the real getUserGameHistory query', async () => {
+        await seedScore('scoped-user', 'tetris', 500, {
+            mode: 'daily',
+            competitionKey: 'daily:leak',
+            rulesetVersion: 1,
+            gameDataJson: '{"elapsedSeconds":12}',
+        })
+
+        const history = await getUserGameHistory('scoped-user', 10)
+
+        expect(history).toHaveLength(1)
+        expect(Object.keys(history[0]).sort()).toEqual([
+            'created_at',
+            'game_id',
+            'game_name',
+            'score',
+        ])
     })
 })

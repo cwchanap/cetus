@@ -405,6 +405,45 @@ describe('Achievement Service', () => {
             expect(result[0].progress).toBe(25)
             expect(result[0].earned).toBe(true)
         })
+
+        it('treats earned as authoritative when scoped awarding exceeds unscoped progress', async () => {
+            const achievement: Achievement = {
+                id: 'tetris_master',
+                name: 'Tetris Master',
+                description: 'Score 1000 points in Tetris',
+                logo: '👑',
+                gameId: GameID.TETRIS,
+                condition: {
+                    type: 'score_threshold',
+                    threshold: 1000,
+                },
+                rarity: AchievementRarity.EPIC,
+            }
+
+            mockGetAchievementsByGame.mockReturnValue([achievement])
+            mockHasUserEarnedAchievement
+                .mockResolvedValueOnce(false)
+                .mockResolvedValueOnce(true)
+            mockAwardAchievement.mockResolvedValue(true)
+            mockGetUserBestScore.mockResolvedValue(250)
+
+            await expect(
+                checkAndAwardAchievements('user123', GameID.TETRIS, 1200)
+            ).resolves.toEqual(['tetris_master'])
+
+            const progress = await getUserGameAchievementProgress(
+                'user123',
+                GameID.TETRIS
+            )
+
+            expect(progress).toEqual([
+                {
+                    achievement,
+                    earned: true,
+                    progress: 25,
+                },
+            ])
+        })
     })
 
     describe('getAchievementNotifications', () => {
