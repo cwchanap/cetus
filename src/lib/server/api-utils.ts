@@ -20,6 +20,17 @@ export function errorResponse(message: string, status: number = 500): Response {
 }
 
 /**
+ * Create an error response with a machine-readable code
+ */
+export function codedErrorResponse<C extends string>(
+    message: string,
+    code: C,
+    status: number = 500
+): Response {
+    return jsonResponse({ error: message, code }, status)
+}
+
+/**
  * Create an unauthorized response
  */
 export function unauthorizedResponse(

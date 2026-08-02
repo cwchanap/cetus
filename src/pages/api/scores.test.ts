@@ -115,6 +115,7 @@ describe('POST /api/scores', () => {
             'user-123',
             'tetris',
             5000,
+            undefined,
             undefined
         )
     })
@@ -256,6 +257,7 @@ describe('POST /api/scores', () => {
         vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
             success: false,
             newAchievements: [],
+            code: 'SCORE_WRITE_FAILED',
         })
 
         const request = new Request('http://localhost:4321/api/scores', {
@@ -281,6 +283,7 @@ describe('POST /api/scores', () => {
             'user-123',
             'tetris',
             5000,
+            undefined,
             undefined
         )
     })
@@ -311,6 +314,34 @@ describe('POST /api/scores', () => {
         // Assert
         expect(response.status).toBe(500)
         expect(result).toEqual({ error: 'Internal server error' })
+    })
+
+    it('returns SCORE_CONTEXT_UNAVAILABLE when contextual storage is unavailable', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as never)
+        const { getGameById } = await import('@/lib/games')
+        vi.mocked(getGameById).mockReturnValue(mockGame)
+        vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
+            success: false,
+            newAchievements: [],
+            code: 'SCORE_CONTEXT_UNAVAILABLE',
+        })
+
+        const request = new Request('http://localhost/api/scores', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                gameId: 'tetris',
+                score: 100,
+                context: { mode: 'daily', rulesetVersion: 1 },
+            }),
+        })
+
+        const response = await POST({ request } as never)
+        expect(response.status).toBe(500)
+        expect(await response.json()).toEqual({
+            error: 'Score context is unavailable',
+            code: 'SCORE_CONTEXT_UNAVAILABLE',
+        })
     })
 
     it('should return 400 for malformed JSON', async () => {

@@ -131,6 +131,41 @@ describe('Score Service', () => {
             expect(result.success).toBe(true)
             expect(result.newAchievements).toEqual([])
         })
+
+        it('propagates recognized server error codes', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: false,
+                status: 500,
+                json: () =>
+                    Promise.resolve({
+                        error: 'Score context is unavailable',
+                        code: 'SCORE_CONTEXT_UNAVAILABLE',
+                    }),
+            })
+
+            const result = await submitScore({
+                gameId: GameID.TETRIS,
+                score: 100,
+                context: { mode: 'daily', rulesetVersion: 1 },
+            })
+
+            expect(result).toMatchObject({
+                success: false,
+                code: 'SCORE_CONTEXT_UNAVAILABLE',
+            })
+        })
+
+        it('does not invent a server code for network failures', async () => {
+            global.fetch = vi.fn().mockRejectedValue(new Error('offline'))
+
+            const result = await submitScore({
+                gameId: GameID.TETRIS,
+                score: 100,
+            })
+
+            expect(result.success).toBe(false)
+            expect(result.code).toBeUndefined()
+        })
     })
 
     describe('saveGameScore', () => {

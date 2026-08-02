@@ -13,6 +13,13 @@ import type {
     UserAchievementRecord,
     DailyChallengeProgress,
 } from './types'
+import {
+    ensureGameScoresContextSchema,
+    hasCompleteGameScoresContextColumns,
+    type PersistedScoreContext,
+    type SaveGameScoreResult,
+    type SaveGameScoreWithAchievementsResult,
+} from './game-score-context'
 
 function sanitizeError(error: unknown): string {
     return error instanceof Error ? error.message : String(error)
@@ -545,18 +552,38 @@ export async function getUserBestScore(
 export async function saveGameScore(
     userId: string,
     gameId: string,
-    score: number
-): Promise<boolean> {
+    score: number,
+    context?: PersistedScoreContext
+): Promise<SaveGameScoreResult> {
     try {
+        if (context) {
+            const state = await ensureGameScoresContextSchema()
+            if (
+                !state.known ||
+                !hasCompleteGameScoresContextColumns(state.capabilities)
+            ) {
+                return {
+                    success: false,
+                    code: 'SCORE_CONTEXT_UNAVAILABLE',
+                }
+            }
+        }
+
         const newScore: NewGameScore = {
             user_id: userId,
             game_id: gameId,
             score,
         }
 
+        if (context) {
+            newScore.mode = context.mode
+            newScore.competition_key = context.competitionKey
+            newScore.ruleset_version = context.rulesetVersion
+            newScore.game_data_json = context.gameDataJson
+        }
+
         await db.insertInto('game_scores').values(newScore).execute()
 
-        // Update user stats
         const currentStats = await getUserStats(userId)
         await upsertUserStats(userId, {
             total_games_played: (currentStats?.total_games_played || 0) + 1,
@@ -564,10 +591,10 @@ export async function saveGameScore(
             favorite_game: gameId,
         })
 
-        return true
+        return { success: true }
     } catch (error) {
         console.error('[saveGameScore] Database error:', sanitizeError(error))
-        return false
+        return { success: false, code: 'SCORE_WRITE_FAILED' }
     }
 }
 
@@ -585,27 +612,28 @@ export async function saveGameScoreWithAchievements(
     userId: string,
     gameId: string,
     score: number,
-    gameData?: unknown
-): Promise<{ success: boolean; newAchievements: string[] }> {
+    gameData?: unknown,
+    context?: PersistedScoreContext
+): Promise<SaveGameScoreWithAchievementsResult> {
     try {
-        // First save the score
-        const saveResult = await saveGameScore(userId, gameId, score)
-        if (!saveResult) {
-            return { success: false, newAchievements: [] }
+        const saveResult = await saveGameScore(userId, gameId, score, context)
+        if (!saveResult.success) {
+            return {
+                success: false,
+                newAchievements: [],
+                code: saveResult.code,
+            }
         }
 
-        // Use cached import to avoid circular dependency
         const { checkAndAwardAchievements, checkInGameAchievements } =
             await getAchievementService()
 
-        // Check and award score-based achievements
         const scoreAchievements = await checkAndAwardAchievements(
             userId,
             gameId as GameID,
             score
         )
 
-        // Check and award in-game achievements if game data is provided
         let inGameAchievements: string[] = []
         if (gameData !== undefined) {
             if (!isGameData(gameData)) {
@@ -628,7 +656,11 @@ export async function saveGameScoreWithAchievements(
             '[saveGameScoreWithAchievements] Database error:',
             sanitizeError(error)
         )
-        return { success: false, newAchievements: [] }
+        return {
+            success: false,
+            newAchievements: [],
+            code: 'SCORE_WRITE_FAILED',
+        }
     }
 }
 

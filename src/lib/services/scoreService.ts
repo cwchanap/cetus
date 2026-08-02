@@ -8,6 +8,8 @@ import { getGameById, type GameID } from '@/lib/games'
 import type { GameData } from '@/lib/games/shared/types'
 import type { ScoreSubmissionContext } from '@/lib/server/validations'
 
+export type ScoreSubmissionPublicErrorCode = 'SCORE_CONTEXT_UNAVAILABLE'
+
 export interface ScoreSubmissionResult {
     success: boolean
     newAchievements?: AchievementNotification[]
@@ -24,6 +26,7 @@ export interface ScoreSubmissionResult {
         newLevel?: number
     }
     error?: string
+    code?: ScoreSubmissionPublicErrorCode
 }
 
 export interface ScoreData {
@@ -61,16 +64,28 @@ export async function submitScore(
         })
 
         if (!response.ok) {
-            // Handle specific error cases
+            let body: { code?: unknown } | null = null
+            try {
+                body = (await response.json()) as { code?: unknown }
+            } catch {
+                body = null
+            }
+
+            const code =
+                body?.code === 'SCORE_CONTEXT_UNAVAILABLE'
+                    ? body.code
+                    : undefined
+
             if (response.status === 401) {
                 return {
                     success: false,
                     error: 'You must be logged in to save scores',
+                    code,
                 }
             } else if (response.status === 400) {
-                return { success: false, error: 'Invalid score data' }
+                return { success: false, error: 'Invalid score data', code }
             } else {
-                return { success: false, error: 'Failed to save score' }
+                return { success: false, error: 'Failed to save score', code }
             }
         }
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
     saveGameScore,
+    saveGameScoreWithAchievements,
     getUserGameHistory,
     getUserGameHistoryPaginated,
     getUserBestScoreByGame,
@@ -9,6 +10,7 @@ import {
     updateAllUserStreaksForUTC,
 } from '@/lib/server/db/queries'
 import { db } from '@/lib/server/db/client'
+import { ensureGameScoresContextSchema } from '@/lib/server/db/game-score-context'
 
 // Mock the database client
 vi.mock('@/lib/server/db/client', () => ({
@@ -23,6 +25,17 @@ vi.mock('@/lib/server/db/client', () => ({
         },
     },
 }))
+
+vi.mock('@/lib/server/db/game-score-context', async importOriginal => {
+    const actual =
+        await importOriginal<
+            typeof import('@/lib/server/db/game-score-context')
+        >()
+    return {
+        ...actual,
+        ensureGameScoresContextSchema: vi.fn(),
+    }
+})
 
 describe('Database Queries', () => {
     beforeEach(() => {
@@ -64,7 +77,7 @@ describe('Database Queries', () => {
             const result = await saveGameScore('user-123', 'tetris', 5000)
 
             // Assert
-            expect(result).toBe(true)
+            expect(result).toEqual({ success: true })
             expect(db.insertInto).toHaveBeenCalledWith('game_scores')
             expect(mockInsertQuery.values).toHaveBeenCalledWith({
                 user_id: 'user-123',
@@ -86,7 +99,10 @@ describe('Database Queries', () => {
             const result = await saveGameScore('user-123', 'tetris', 5000)
 
             // Assert
-            expect(result).toBe(false)
+            expect(result).toEqual({
+                success: false,
+                code: 'SCORE_WRITE_FAILED',
+            })
         })
 
         it('should use currentStats values when getUserStats returns non-null (lines 525-526 left-truthy branch)', async () => {
@@ -152,10 +168,157 @@ describe('Database Queries', () => {
 
             const result = await saveGameScore('user-123', 'tetris', 5000)
 
-            expect(result).toBe(true)
+            expect(result).toEqual({ success: true })
             expect(mockUpdateSet).toHaveBeenCalledWith(
                 expect.objectContaining({ total_score: 15000 })
             )
+        })
+
+        it('returns SCORE_CONTEXT_UNAVAILABLE and does not insert when columns are unavailable', async () => {
+            vi.mocked(ensureGameScoresContextSchema).mockResolvedValue({
+                known: true,
+                capabilities: {
+                    mode: true,
+                    competitionKey: true,
+                    rulesetVersion: false,
+                    gameDataJson: true,
+                    scopedIndex: false,
+                },
+            })
+
+            const result = await saveGameScore('u1', 'tetris', 100, {
+                mode: 'daily',
+                competitionKey: 'ice-slide:daily:2026-08-01:g1:r1',
+                rulesetVersion: 1,
+                gameDataJson: '{"elapsedSeconds":12,"totalMoves":34}',
+            })
+
+            expect(result).toEqual({
+                success: false,
+                code: 'SCORE_CONTEXT_UNAVAILABLE',
+            })
+            expect(db.insertInto).not.toHaveBeenCalled()
+        })
+
+        it('inserts context and uses the existing stats update chain', async () => {
+            vi.mocked(ensureGameScoresContextSchema).mockResolvedValue({
+                known: true,
+                capabilities: {
+                    mode: true,
+                    competitionKey: true,
+                    rulesetVersion: true,
+                    gameDataJson: true,
+                    scopedIndex: true,
+                },
+            })
+
+            const insert = {
+                values: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue({}),
+            }
+            vi.mocked(db.insertInto).mockReturnValue(insert as never)
+
+            const updateSet = vi.fn().mockReturnThis()
+            vi.mocked(db.updateTable).mockReturnValue({
+                set: updateSet,
+                where: vi.fn().mockReturnThis(),
+                execute: vi.fn().mockResolvedValue({}),
+            } as never)
+
+            const existingStats = {
+                id: 1,
+                user_id: 'u1',
+                total_games_played: 2,
+                total_score: 500,
+                favorite_game: 'snake',
+                streak_days: 0,
+                xp: 0,
+                level: 1,
+                challenge_streak: 0,
+                last_challenge_date: null,
+                login_streak: 0,
+                last_login_reward_date: null,
+                total_login_cycles: 0,
+                email_notifications: 1,
+                push_notifications: 0,
+                challenge_reminders: 1,
+                created_at: new Date(),
+                updated_at: new Date(),
+            }
+
+            vi.mocked(db.selectFrom)
+                .mockReturnValueOnce({
+                    selectAll: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi.fn().mockResolvedValue(existingStats),
+                } as never)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    distinct: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue([{ game_id: 'tetris' }]),
+                } as never)
+                .mockReturnValueOnce({
+                    selectAll: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    executeTakeFirst: vi.fn().mockResolvedValue(existingStats),
+                } as never)
+                .mockReturnValueOnce({
+                    select: vi.fn().mockReturnThis(),
+                    distinct: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    execute: vi.fn().mockResolvedValue([{ game_id: 'tetris' }]),
+                } as never)
+
+            const result = await saveGameScore('u1', 'tetris', 100, {
+                mode: 'daily',
+                competitionKey: null,
+                rulesetVersion: 1,
+                gameDataJson: null,
+            })
+
+            expect(result).toEqual({ success: true })
+            expect(insert.values).toHaveBeenCalledWith({
+                user_id: 'u1',
+                game_id: 'tetris',
+                score: 100,
+                mode: 'daily',
+                competition_key: null,
+                ruleset_version: 1,
+                game_data_json: null,
+            })
+            expect(updateSet).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    total_score: 600,
+                    favorite_game: 'tetris',
+                })
+            )
+        })
+
+        it('preserves capability failure through the achievement wrapper', async () => {
+            vi.mocked(ensureGameScoresContextSchema).mockResolvedValue({
+                known: false,
+            })
+
+            const result = await saveGameScoreWithAchievements(
+                'u1',
+                'tetris',
+                100,
+                { elapsedSeconds: 12 },
+                {
+                    mode: 'daily',
+                    competitionKey: null,
+                    rulesetVersion: 1,
+                    gameDataJson: '{"elapsedSeconds":12}',
+                }
+            )
+
+            expect(result).toEqual({
+                success: false,
+                newAchievements: [],
+                code: 'SCORE_CONTEXT_UNAVAILABLE',
+            })
+            expect(db.insertInto).not.toHaveBeenCalled()
         })
     })
 
