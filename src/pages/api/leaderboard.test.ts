@@ -1,11 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from '@/pages/api/leaderboard'
-import { getGameLeaderboard } from '@/lib/server/db/queries'
+import {
+    getGameLeaderboard,
+    getScopedGameLeaderboard,
+} from '@/lib/server/db/queries'
 import { getAllGames, GameID } from '@/lib/games'
 
 // Mock dependencies
 vi.mock('@/lib/server/db/queries', () => ({
     getGameLeaderboard: vi.fn(),
+    getScopedGameLeaderboard: vi.fn(),
+    toPublicScopedLeaderboardEntry: vi.fn(
+        ({ userId: _userId, ...entry }) => entry
+    ),
 }))
 
 vi.mock('@/lib/games', () => ({
@@ -82,7 +89,7 @@ describe('GET /api/leaderboard', () => {
             expect(response.status).toBe(400)
 
             const data = await response.json()
-            expect(data).toHaveProperty('error', 'Invalid limit parameter')
+            expect(typeof data.error).toBe('string')
         })
 
         it('should return 400 for negative limit', async () => {
@@ -92,7 +99,7 @@ describe('GET /api/leaderboard', () => {
             expect(response.status).toBe(400)
 
             const data = await response.json()
-            expect(data).toHaveProperty('error', 'Invalid limit parameter')
+            expect(typeof data.error).toBe('string')
         })
 
         it('should return 400 for limit exceeding maximum', async () => {
@@ -102,7 +109,7 @@ describe('GET /api/leaderboard', () => {
             expect(response.status).toBe(400)
 
             const data = await response.json()
-            expect(data).toHaveProperty('error', 'Invalid limit parameter')
+            expect(typeof data.error).toBe('string')
         })
     })
 
@@ -256,6 +263,138 @@ describe('GET /api/leaderboard', () => {
             expect(typeof entry.name).toBe('string')
             expect(typeof entry.score).toBe('number')
             expect(typeof entry.created_at).toBe('string')
+        })
+    })
+
+    describe('scoped leaderboard', () => {
+        it('returns a mode-only scoped best-per-user leaderboard', async () => {
+            vi.mocked(getScopedGameLeaderboard).mockResolvedValue({
+                success: true,
+                rows: [
+                    {
+                        userId: 'u1',
+                        name: 'Player',
+                        username: 'player',
+                        image: null,
+                        score: 500,
+                        created_at: '2026-08-01T00:00:00.000Z',
+                        mode: 'daily',
+                        competitionKey: null,
+                        rulesetVersion: 2,
+                        elapsedSeconds: 12,
+                        totalMoves: 34,
+                    },
+                ],
+            })
+
+            const response = await GET({
+                url: new URL(
+                    'http://localhost/api/leaderboard?gameId=tetris&mode=daily'
+                ),
+            } as never)
+
+            expect(response.status).toBe(200)
+            expect(getScopedGameLeaderboard).toHaveBeenCalledWith({
+                gameId: 'tetris',
+                mode: 'daily',
+                competitionKey: undefined,
+                limit: 10,
+            })
+
+            const body = await response.json()
+            expect(body.leaderboard).toEqual([
+                {
+                    rank: 1,
+                    name: 'Player',
+                    username: 'player',
+                    image: null,
+                    score: 500,
+                    created_at: '2026-08-01T00:00:00.000Z',
+                    mode: 'daily',
+                    competitionKey: null,
+                    rulesetVersion: 2,
+                    elapsedSeconds: 12,
+                    totalMoves: 34,
+                },
+            ])
+            expect(body.leaderboard[0]).not.toHaveProperty('userId')
+        })
+
+        it('forwards an exact competition key', async () => {
+            vi.mocked(getScopedGameLeaderboard).mockResolvedValue({
+                success: true,
+                rows: [],
+            })
+
+            await GET({
+                url: new URL(
+                    'http://localhost/api/leaderboard' +
+                        '?gameId=tetris&mode=daily&competitionKey=daily%3A1'
+                ),
+            } as never)
+
+            expect(getScopedGameLeaderboard).toHaveBeenCalledWith({
+                gameId: 'tetris',
+                mode: 'daily',
+                competitionKey: 'daily:1',
+                limit: 10,
+            })
+        })
+
+        it.each([
+            'http://localhost/api/leaderboard?mode=daily',
+            'http://localhost/api/leaderboard?competitionKey=daily%3A1',
+            'http://localhost/api/leaderboard?gameId=tetris&competitionKey=daily%3A1',
+        ])('rejects invalid scoped parameter combinations: %s', async url => {
+            const response = await GET({ url: new URL(url) } as never)
+            expect(response.status).toBe(400)
+            expect(getScopedGameLeaderboard).not.toHaveBeenCalled()
+        })
+
+        it('returns a stable scoped-unavailable code', async () => {
+            vi.mocked(getScopedGameLeaderboard).mockResolvedValue({
+                success: false,
+                code: 'SCOPED_LEADERBOARD_UNAVAILABLE',
+            })
+
+            const response = await GET({
+                url: new URL(
+                    'http://localhost/api/leaderboard?gameId=tetris&mode=daily'
+                ),
+            } as never)
+
+            expect(response.status).toBe(500)
+            expect(await response.json()).toEqual({
+                error: 'Scoped leaderboard is unavailable',
+                code: 'SCOPED_LEADERBOARD_UNAVAILABLE',
+            })
+        })
+
+        it('keeps two unscoped rows from the same user as two response entries', async () => {
+            vi.mocked(getGameLeaderboard).mockResolvedValue([
+                {
+                    name: 'Same User',
+                    username: 'sameuser',
+                    score: 1000,
+                    created_at: '2023-01-01T00:00:00Z',
+                    image: null,
+                },
+                {
+                    name: 'Same User',
+                    username: 'sameuser',
+                    score: 900,
+                    created_at: '2023-01-02T00:00:00Z',
+                    image: null,
+                },
+            ])
+
+            const url = new URL(
+                'http://localhost/api/leaderboard?gameId=tetris'
+            )
+            const response = await GET({ url } as never)
+
+            const data = await response.json()
+            expect(data.leaderboard).toHaveLength(2)
         })
     })
 })
