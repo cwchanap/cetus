@@ -269,30 +269,11 @@ describe('GET /api/scores/history', () => {
         }
     })
 
-    it('exposes only the four public history DTO keys even if context columns leaked from the DB layer', async () => {
-        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        vi.mocked(getUserGameHistory).mockResolvedValue([
-            {
-                game_id: 'tetris',
-                game_name: 'Tetris Challenge',
-                score: 100,
-                created_at: '2026-08-01T00:00:00.000Z',
-            },
-        ])
-
-        const url = new URL('http://localhost:4321/api/scores/history')
-        const request = new Request(url)
-
-        const response = await GET({ request, url } as any)
-        const result = await response.json()
-
-        expect(response.status).toBe(200)
-        expect(result.history).toHaveLength(1)
-        expect(Object.keys(result.history[0]).sort()).toEqual([
-            'created_at',
-            'game_id',
-            'game_name',
-            'score',
-        ])
-    })
+    // Note: regression coverage for "getUserGameHistory omits context columns"
+    // lives in src/lib/server/db/queries.integration.test.ts ("omits context
+    // columns from the real getUserGameHistory query"), which exercises the
+    // real allowlisted select against a row seeded with mode/competitionKey/
+    // rulesetVersion/gameDataJson. The GET /api/scores/history route is a
+    // pure pass-through of that query's result, so a route-level leak test
+    // would only re-mock the same allowlist without testing real behavior.
 })

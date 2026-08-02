@@ -352,6 +352,8 @@ describe('getScopedGameLeaderboard', () => {
             throw new Error('expected success')
         }
         expect(result.rows[0].userId).toBe('valid')
+        expect(result.rows[0].elapsedSeconds).toBe(12)
+        expect(result.rows[0].totalMoves).toBe(20)
         expect(result.rows.slice(1)).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
@@ -366,6 +368,68 @@ describe('getScopedGameLeaderboard', () => {
                 }),
             ])
         )
+    })
+
+    it('normalizes SQLite bare-timestamp created_at as UTC and preserves ISO inputs', async () => {
+        await seedUser('u1', 'One')
+        // SQLite CURRENT_TIMESTAMP stores 'YYYY-MM-DD HH:MM:SS' with no zone
+        // suffix; this must be interpreted as UTC, not local time.
+        await seedScopedScore('u1', 100, {
+            mode: 'daily',
+            competitionKey: 'daily:ts',
+            rulesetVersion: 1,
+            createdAt: '2026-08-01 00:00:00',
+            gameData: { elapsedSeconds: 1, totalMoves: 1 },
+        })
+
+        const result = await getScopedGameLeaderboard({
+            gameId: 'tetris',
+            mode: 'daily',
+            competitionKey: 'daily:ts',
+            limit: 10,
+        })
+
+        expect(result.success).toBe(true)
+        if (!result.success) {
+            throw new Error('expected success')
+        }
+        expect(result.rows[0].created_at).toBe('2026-08-01T00:00:00.000Z')
+    })
+
+    it('does not let one unparseable created_at poison the result set', async () => {
+        await seedUser('u1', 'One')
+        await seedUser('u2', 'Two')
+        await seedScopedScore('u1', 100, {
+            mode: 'daily',
+            competitionKey: 'daily:bad-ts',
+            rulesetVersion: 1,
+            createdAt: '2026-08-01T00:00:00Z',
+            gameData: { elapsedSeconds: 1, totalMoves: 1 },
+        })
+        await seedScopedScore('u2', 200, {
+            mode: 'daily',
+            competitionKey: 'daily:bad-ts',
+            rulesetVersion: 1,
+            createdAt: 'not-a-date',
+            gameData: { elapsedSeconds: 1, totalMoves: 1 },
+        })
+
+        const result = await getScopedGameLeaderboard({
+            gameId: 'tetris',
+            mode: 'daily',
+            competitionKey: 'daily:bad-ts',
+            limit: 10,
+        })
+
+        expect(result.success).toBe(true)
+        if (!result.success) {
+            throw new Error('expected success')
+        }
+        // Both rows return; the malformed timestamp falls back to its raw
+        // string instead of throwing and failing the whole query.
+        expect(result.rows).toHaveLength(2)
+        const badRow = result.rows.find(row => row.userId === 'u2')
+        expect(badRow?.created_at).toBe('not-a-date')
     })
 
     it('excludes null-version rows and does not project unknown JSON keys', async () => {
@@ -430,5 +494,39 @@ describe('getScopedGameLeaderboard', () => {
         expect(result.rows).toHaveLength(10)
         expect(new Set(result.rows.map(row => row.userId)).size).toBe(10)
         expect(result.rows[0].score).toBe(992)
+    })
+})
+
+describe('toPublicScopedLeaderboardEntry', () => {
+    it('excludes userId while preserving every public leaderboard field', () => {
+        const row = {
+            userId: 'secret-user-id',
+            name: 'Player',
+            username: 'player',
+            image: null,
+            score: 500,
+            created_at: '2026-08-01T00:00:00.000Z',
+            mode: 'daily',
+            competitionKey: 'daily:1',
+            rulesetVersion: 2,
+            elapsedSeconds: 12,
+            totalMoves: 34,
+        }
+
+        const entry = toPublicScopedLeaderboardEntry(row)
+
+        expect(entry).not.toHaveProperty('userId')
+        expect(entry).toEqual({
+            name: 'Player',
+            username: 'player',
+            image: null,
+            score: 500,
+            created_at: '2026-08-01T00:00:00.000Z',
+            mode: 'daily',
+            competitionKey: 'daily:1',
+            rulesetVersion: 2,
+            elapsedSeconds: 12,
+            totalMoves: 34,
+        })
     })
 })

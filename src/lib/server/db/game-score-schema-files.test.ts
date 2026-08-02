@@ -59,6 +59,32 @@ describe.each(schemaFiles)('%s', schemaPath => {
             'created_at',
         ])
 
+        // PRAGMA index_info returns column names but not sort directions.
+        // index_xinfo adds a `desc` column (1 = DESC, 0 = ASC) so we can
+        // verify the ranking-critical ordering: score DESC, created_at ASC.
+        const indexXinfo = await client.execute(
+            'PRAGMA index_xinfo(idx_game_scores_scoped_ranking)'
+        )
+        // index_xinfo appends a trailing rowid auxiliary row (name = null,
+        // cid = -1); filter it out so only the declared index columns remain.
+        const xinfoRows = indexXinfo.rows
+            .filter(row => row.name !== null)
+            .map(row => ({
+                name: String(row.name),
+                desc: Number(row.desc),
+            }))
+        expect(xinfoRows.map(row => row.name)).toEqual([
+            'game_id',
+            'mode',
+            'competition_key',
+            'score',
+            'created_at',
+        ])
+        const scoreColumn = xinfoRows.find(row => row.name === 'score')
+        const createdAtColumn = xinfoRows.find(row => row.name === 'created_at')
+        expect(scoreColumn?.desc).toBe(1)
+        expect(createdAtColumn?.desc).toBe(0)
+
         client.close()
     })
 })

@@ -278,9 +278,9 @@ describe('getUserRecentScores (integration)', () => {
 // ─── getUserBestScore ─────────────────────────────────────────────────────────
 
 describe('getUserBestScore (integration)', () => {
-    it('returns null when user has no scores for the game', async () => {
+    it('returns ok/null when user has no scores for the game', async () => {
         const result = await getUserBestScore('u1', 'tetris')
-        expect(result).toBeNull()
+        expect(result).toEqual({ status: 'ok', bestScore: null })
     })
 
     it('returns the highest score for the user/game pair', async () => {
@@ -289,7 +289,7 @@ describe('getUserBestScore (integration)', () => {
         await seedScore('u1', 'tetris', 2000)
 
         const result = await getUserBestScore('u1', 'tetris')
-        expect(result).toBe(5000)
+        expect(result).toEqual({ status: 'ok', bestScore: 5000 })
     })
 
     it('only considers scores for the specified game', async () => {
@@ -297,7 +297,7 @@ describe('getUserBestScore (integration)', () => {
         await seedScore('u1', 'tetris', 500)
 
         const result = await getUserBestScore('u1', 'tetris')
-        expect(result).toBe(500)
+        expect(result).toEqual({ status: 'ok', bestScore: 500 })
     })
 
     it('only considers scores for the specified user', async () => {
@@ -305,7 +305,7 @@ describe('getUserBestScore (integration)', () => {
         await seedScore('u1', 'tetris', 100)
 
         const result = await getUserBestScore('u1', 'tetris')
-        expect(result).toBe(100)
+        expect(result).toEqual({ status: 'ok', bestScore: 100 })
     })
 })
 
@@ -587,7 +587,10 @@ describe('Score context isolation (integration)', () => {
             rulesetVersion: 1,
         })
 
-        await expect(getUserBestScore('u1', 'tetris')).resolves.toBe(100)
+        await expect(getUserBestScore('u1', 'tetris')).resolves.toEqual({
+            status: 'ok',
+            bestScore: 100,
+        })
         await expect(getUserBestScoreForGame('u1', 'tetris')).resolves.toBe(100)
         await expect(getUserBestScoreByGame('u1', 'tetris')).resolves.toBe(100)
     })

@@ -62,14 +62,14 @@ function addContextualGameDataIssues(
 export const scoreSubmissionSchema = z
     .object({
         gameId: z.enum(gameIdValues, {
-            message: 'Invalid game ID',
+            error: 'Invalid game ID',
         }),
         score: z
             .number()
             .int()
-            .min(0, { message: 'Score must be a non-negative integer' })
+            .min(0, { error: 'Score must be a non-negative integer' })
             .max(999_999_999, {
-                message: 'Score exceeds maximum allowed value',
+                error: 'Score exceeds maximum allowed value',
             }),
         gameData: z.record(z.string(), z.unknown()).optional(),
         context: scoreContextSchema.optional(),

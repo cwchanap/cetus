@@ -303,7 +303,10 @@ describe('Achievement Service', () => {
                     rarity: AchievementRarity.COMMON,
                 },
             ])
-            mockGetUserBestScore.mockResolvedValue(50) // 50% progress
+            mockGetUserBestScore.mockResolvedValue({
+                status: 'ok',
+                bestScore: 50,
+            }) // 50% progress
             mockHasUserEarnedAchievement.mockResolvedValue(false)
 
             const result = await getUserGameAchievementProgress(
@@ -328,7 +331,10 @@ describe('Achievement Service', () => {
                     rarity: AchievementRarity.COMMON,
                 },
             ])
-            mockGetUserBestScore.mockResolvedValue(200) // 200% but should cap at 100%
+            mockGetUserBestScore.mockResolvedValue({
+                status: 'ok',
+                bestScore: 200,
+            }) // 200% but should cap at 100%
             mockHasUserEarnedAchievement.mockResolvedValue(true)
 
             const result = await getUserGameAchievementProgress(
@@ -352,7 +358,10 @@ describe('Achievement Service', () => {
                     rarity: AchievementRarity.RARE,
                 } satisfies Achievement,
             ])
-            mockGetUserBestScore.mockResolvedValue(999)
+            mockGetUserBestScore.mockResolvedValue({
+                status: 'ok',
+                bestScore: 999,
+            })
             mockHasUserEarnedAchievement.mockResolvedValue(false)
 
             const result = await getUserGameAchievementProgress(
@@ -378,6 +387,35 @@ describe('Achievement Service', () => {
             expect(result).toEqual([])
         })
 
+        it('returns an empty progress set when the score context is unavailable', async () => {
+            // A failed score-context probe is a retryable unavailable state,
+            // distinct from the user having no scores (which yields progress
+            // entries with 0%). Unavailable → no progress can be computed.
+            mockGetAchievementsByGame.mockReturnValue([
+                {
+                    id: 'tetris_novice',
+                    name: 'Tetris Novice',
+                    description: 'Score 100 points in Tetris',
+                    logo: '🔰',
+                    gameId: GameID.TETRIS,
+                    condition: { type: 'score_threshold', threshold: 100 },
+                    rarity: AchievementRarity.COMMON,
+                },
+            ])
+            mockGetUserBestScore.mockResolvedValue({
+                status: 'unavailable',
+                code: 'SCORE_CONTEXT_UNAVAILABLE',
+            })
+            mockHasUserEarnedAchievement.mockResolvedValue(false)
+
+            const result = await getUserGameAchievementProgress(
+                'user123',
+                GameID.TETRIS
+            )
+
+            expect(result).toEqual([])
+        })
+
         it('derives progress from the unscoped best score regardless of earned state', async () => {
             mockGetAchievementsByGame.mockReturnValue([
                 {
@@ -390,7 +428,10 @@ describe('Achievement Service', () => {
                     rarity: AchievementRarity.EPIC,
                 },
             ])
-            mockGetUserBestScore.mockResolvedValue(250)
+            mockGetUserBestScore.mockResolvedValue({
+                status: 'ok',
+                bestScore: 250,
+            })
             mockHasUserEarnedAchievement.mockResolvedValue(true)
 
             const result = await getUserGameAchievementProgress(
@@ -425,7 +466,10 @@ describe('Achievement Service', () => {
                 .mockResolvedValueOnce(false)
                 .mockResolvedValueOnce(true)
             mockAwardAchievement.mockResolvedValue(true)
-            mockGetUserBestScore.mockResolvedValue(250)
+            mockGetUserBestScore.mockResolvedValue({
+                status: 'ok',
+                bestScore: 250,
+            })
 
             await expect(
                 checkAndAwardAchievements('user123', GameID.TETRIS, 1200)

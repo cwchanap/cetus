@@ -75,7 +75,10 @@ describe('GET /api/scores/best', () => {
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
-        vi.mocked(getUserBestScore).mockResolvedValue(15000)
+        vi.mocked(getUserBestScore).mockResolvedValue({
+            status: 'ok',
+            bestScore: 15000,
+        })
 
         const url = new URL(
             'http://localhost:4321/api/scores/best?gameId=tetris'
@@ -98,7 +101,10 @@ describe('GET /api/scores/best', () => {
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
-        vi.mocked(getUserBestScore).mockResolvedValue(null)
+        vi.mocked(getUserBestScore).mockResolvedValue({
+            status: 'ok',
+            bestScore: null,
+        })
 
         const url = new URL(
             'http://localhost:4321/api/scores/best?gameId=tetris'
@@ -113,6 +119,35 @@ describe('GET /api/scores/best', () => {
         expect(response.status).toBe(200)
         expect(result).toEqual({ bestScore: null })
         expect(getGameById).toHaveBeenCalledWith('tetris')
+        expect(getUserBestScore).toHaveBeenCalledWith('user-123', 'tetris')
+    })
+
+    it('should return a 503 coded error when the score context is unavailable', async () => {
+        // Arrange — a failed score-context probe is a retryable unavailable
+        // state, distinct from the user having no scores (ok/null).
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
+        const { getGameById } = await import('@/lib/games')
+        vi.mocked(getGameById).mockReturnValue(mockGame)
+        vi.mocked(getUserBestScore).mockResolvedValue({
+            status: 'unavailable',
+            code: 'SCORE_CONTEXT_UNAVAILABLE',
+        })
+
+        const url = new URL(
+            'http://localhost:4321/api/scores/best?gameId=tetris'
+        )
+        const request = new Request(url)
+
+        // Act
+        const response = await GET({ request, url } as any)
+        const result = await response.json()
+
+        // Assert
+        expect(response.status).toBe(503)
+        expect(result).toEqual({
+            error: 'Score context is unavailable',
+            code: 'SCORE_CONTEXT_UNAVAILABLE',
+        })
         expect(getUserBestScore).toHaveBeenCalledWith('user-123', 'tetris')
     })
 
@@ -197,7 +232,10 @@ describe('GET /api/scores/best', () => {
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
-        vi.mocked(getUserBestScore).mockResolvedValue(8000)
+        vi.mocked(getUserBestScore).mockResolvedValue({
+            status: 'ok',
+            bestScore: 8000,
+        })
 
         const url = new URL(
             'http://localhost:4321/api/scores/best?gameId=quick_math'
@@ -314,7 +352,10 @@ describe('GET /api/scores/best', () => {
                 ...mockGame,
                 id: gameIds[i] as GameID,
             })
-            vi.mocked(getUserBestScore).mockResolvedValue(expectedScores[i])
+            vi.mocked(getUserBestScore).mockResolvedValue({
+                status: 'ok',
+                bestScore: expectedScores[i],
+            })
 
             const url = new URL(
                 `http://localhost:4321/api/scores/best?gameId=${gameIds[i]}`
@@ -341,7 +382,10 @@ describe('GET /api/scores/best', () => {
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
         const { getGameById } = await import('@/lib/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
-        vi.mocked(getUserBestScore).mockResolvedValue(0)
+        vi.mocked(getUserBestScore).mockResolvedValue({
+            status: 'ok',
+            bestScore: 0,
+        })
 
         const url = new URL(
             'http://localhost:4321/api/scores/best?gameId=tetris'
