@@ -305,6 +305,18 @@ describe('server validations', () => {
             expect(tooLow.success).toBe(false)
             expect(tooHigh.success).toBe(false)
         })
+
+        it.each(['10junk', '1.9', '0x10', ' 25', '25 ', '+5', '-1', '1e2', ''])(
+            'rejects partially numeric or non-decimal limit: %j',
+            value => {
+                const result = leaderboardQuerySchema.safeParse({
+                    gameId: GameID.TETRIS,
+                    limit: value,
+                })
+
+                expect(result.success).toBe(false)
+            }
+        )
     })
 
     describe('paginationQuerySchema', () => {

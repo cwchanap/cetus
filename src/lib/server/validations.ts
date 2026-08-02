@@ -152,7 +152,8 @@ export const leaderboardQuerySchema = z
             .optional(),
         limit: z
             .string()
-            .transform(value => Number.parseInt(value, 10))
+            .regex(/^\d+$/, { message: 'limit must be a positive integer' })
+            .transform(Number)
             .pipe(z.number().int().min(1).max(100))
             .optional()
             .default(10),

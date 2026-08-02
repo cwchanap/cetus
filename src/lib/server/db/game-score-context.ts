@@ -84,26 +84,72 @@ async function inspectCapabilities(): Promise<GameScoresContextCapabilities> {
     }
 }
 
+const MISSING_COLUMN_DEFINITIONS = [
+    {
+        capability: 'mode' as const,
+        add: () =>
+            sql`ALTER TABLE game_scores ADD COLUMN mode TEXT`.execute(db),
+    },
+    {
+        capability: 'competitionKey' as const,
+        add: () =>
+            sql`
+                ALTER TABLE game_scores ADD COLUMN competition_key TEXT
+            `.execute(db),
+    },
+    {
+        capability: 'rulesetVersion' as const,
+        add: () =>
+            sql`
+                ALTER TABLE game_scores ADD COLUMN ruleset_version INTEGER
+            `.execute(db),
+    },
+    {
+        capability: 'gameDataJson' as const,
+        add: () =>
+            sql`
+                ALTER TABLE game_scores ADD COLUMN game_data_json TEXT
+            `.execute(db),
+    },
+]
+
+/**
+ * Add a column, tolerating a concurrent migrator that already added it.
+ *
+ * A second Vercel instance can run the same migration between our initial
+ * schema inspection and this ALTER TABLE; SQLite then fails with
+ * "duplicate column name". Re-inspect the schema after such a failure and
+ * continue when the target column now exists, otherwise rethrow so the outer
+ * handler reports a genuine failure instead of a stale capability snapshot.
+ */
+async function addColumnToleratingConcurrentMigrator(
+    add: () => Promise<unknown>,
+    columnName: string
+): Promise<void> {
+    try {
+        await add()
+    } catch (error) {
+        const columns = await sql<{
+            name: string
+        }>`PRAGMA table_info(game_scores)`.execute(db)
+        const nowPresent = columns.rows.some(row => row.name === columnName)
+        if (nowPresent) {
+            return
+        }
+        throw error
+    }
+}
+
 async function addMissingColumns(
     capabilities: GameScoresContextCapabilities
 ): Promise<void> {
-    if (!capabilities.mode) {
-        await sql`ALTER TABLE game_scores ADD COLUMN mode TEXT`.execute(db)
-    }
-    if (!capabilities.competitionKey) {
-        await sql`
-            ALTER TABLE game_scores ADD COLUMN competition_key TEXT
-        `.execute(db)
-    }
-    if (!capabilities.rulesetVersion) {
-        await sql`
-            ALTER TABLE game_scores ADD COLUMN ruleset_version INTEGER
-        `.execute(db)
-    }
-    if (!capabilities.gameDataJson) {
-        await sql`
-            ALTER TABLE game_scores ADD COLUMN game_data_json TEXT
-        `.execute(db)
+    for (const definition of MISSING_COLUMN_DEFINITIONS) {
+        if (!capabilities[definition.capability]) {
+            await addColumnToleratingConcurrentMigrator(
+                definition.add,
+                definition.capability
+            )
+        }
     }
 }
 

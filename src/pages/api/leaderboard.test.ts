@@ -92,9 +92,9 @@ describe('GET /api/leaderboard', () => {
             const data = await response.json()
             expect(typeof data.error).toBe('string')
             expect(data.error.length).toBeGreaterThan(0)
-            // Non-numeric input fails the number-type check (NaN), distinct
+            // Non-decimal input fails the digit-only regex boundary, distinct
             // from the range checks below.
-            expect(data.error).toMatch(/NaN|expected number/i)
+            expect(data.error).toMatch(/positive integer|digit|number/i)
         })
 
         it('should return 400 for negative limit', async () => {
@@ -106,8 +106,9 @@ describe('GET /api/leaderboard', () => {
             const data = await response.json()
             expect(typeof data.error).toBe('string')
             expect(data.error.length).toBeGreaterThan(0)
-            // Negative value fails the minimum (>=1) check.
-            expect(data.error).toMatch(/>=|greater|at least|small/i)
+            // Negative values fail the digit-only regex boundary before the
+            // minimum (>=1) check runs.
+            expect(data.error).toMatch(/positive integer|digit|number/i)
         })
 
         it('should return 400 for limit exceeding maximum', async () => {

@@ -184,7 +184,18 @@ export async function getUserGameHistory(
 }
 
 /**
- * Get user's best score for a specific game
+ * Get user's best score for a specific game.
+ *
+ * Returns the best score as a number, or null when the user has no score.
+ *
+ * Note: this helper intentionally collapses every non-success path — network
+ * errors, non-2xx responses, and the server's retryable 503
+ * `SCORE_CONTEXT_UNAVAILABLE` state (see `src/pages/api/scores/best.ts`) — to
+ * the same null result used for "no score yet". This is the documented client
+ * contract: callers cannot distinguish a transient score-context outage from
+ * a genuine empty best score, and should treat null as "no score to show".
+ * If a future caller needs to retry on the unavailable state, switch this to
+ * a discriminated result that propagates `SCORE_CONTEXT_UNAVAILABLE`.
  */
 export async function getUserBestScore(
     gameId: GameType
