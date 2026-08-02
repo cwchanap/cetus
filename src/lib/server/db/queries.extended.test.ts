@@ -68,9 +68,36 @@ vi.mock('@/lib/achievements', () => ({
     ]),
 }))
 
+vi.mock('@/lib/server/db/game-score-context', async importOriginal => {
+    const actual =
+        await importOriginal<
+            typeof import('@/lib/server/db/game-score-context')
+        >()
+    return {
+        ...actual,
+        ensureGameScoresContextSchema: vi.fn(),
+    }
+})
+
+import { ensureGameScoresContextSchema } from '@/lib/server/db/game-score-context'
+
+const COMPLETE_CAPABILITIES = {
+    known: true,
+    capabilities: {
+        mode: true,
+        competitionKey: true,
+        rulesetVersion: true,
+        gameDataJson: true,
+        scopedIndex: true,
+    },
+} as const
+
 describe('Extended Database Queries', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        vi.mocked(ensureGameScoresContextSchema).mockResolvedValue(
+            COMPLETE_CAPABILITIES
+        )
     })
 
     describe('getUserStats', () => {

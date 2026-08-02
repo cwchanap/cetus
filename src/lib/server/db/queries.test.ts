@@ -40,6 +40,16 @@ vi.mock('@/lib/server/db/game-score-context', async importOriginal => {
 describe('Database Queries', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        vi.mocked(ensureGameScoresContextSchema).mockResolvedValue({
+            known: true,
+            capabilities: {
+                mode: true,
+                competitionKey: true,
+                rulesetVersion: true,
+                gameDataJson: true,
+                scopedIndex: true,
+            },
+        })
     })
 
     describe('saveGameScore', () => {
