@@ -87,11 +87,13 @@ async function inspectCapabilities(): Promise<GameScoresContextCapabilities> {
 const MISSING_COLUMN_DEFINITIONS = [
     {
         capability: 'mode' as const,
+        columnName: 'mode',
         add: () =>
             sql`ALTER TABLE game_scores ADD COLUMN mode TEXT`.execute(db),
     },
     {
         capability: 'competitionKey' as const,
+        columnName: 'competition_key',
         add: () =>
             sql`
                 ALTER TABLE game_scores ADD COLUMN competition_key TEXT
@@ -99,6 +101,7 @@ const MISSING_COLUMN_DEFINITIONS = [
     },
     {
         capability: 'rulesetVersion' as const,
+        columnName: 'ruleset_version',
         add: () =>
             sql`
                 ALTER TABLE game_scores ADD COLUMN ruleset_version INTEGER
@@ -106,6 +109,7 @@ const MISSING_COLUMN_DEFINITIONS = [
     },
     {
         capability: 'gameDataJson' as const,
+        columnName: 'game_data_json',
         add: () =>
             sql`
                 ALTER TABLE game_scores ADD COLUMN game_data_json TEXT
@@ -147,7 +151,7 @@ async function addMissingColumns(
         if (!capabilities[definition.capability]) {
             await addColumnToleratingConcurrentMigrator(
                 definition.add,
-                definition.capability
+                definition.columnName
             )
         }
     }
