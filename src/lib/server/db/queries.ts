@@ -2189,3 +2189,15 @@ export async function updateUserPreferences(
         return false
     }
 }
+
+export {
+    getScopedGameLeaderboard,
+    toPublicScopedLeaderboardEntry,
+} from './scoped-leaderboard'
+
+export type {
+    ScopedLeaderboardEntry,
+    ScopedLeaderboardQuery,
+    ScopedLeaderboardResult,
+    ScopedLeaderboardRow,
+} from './scoped-leaderboard'
