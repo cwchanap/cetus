@@ -143,17 +143,44 @@ export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>
 /**
  * Leaderboard query schema
  */
-export const leaderboardQuerySchema = z.object({
-    gameId: z.enum(gameIdValues, {
-        message: 'Invalid game ID',
-    }),
-    limit: z
-        .string()
-        .transform(s => parseInt(s, 10))
-        .pipe(z.number().int().min(1).max(100))
-        .optional()
-        .default(10),
-})
+export const leaderboardQuerySchema = z
+    .object({
+        gameId: z
+            .enum(gameIdValues, {
+                message: 'Invalid game ID',
+            })
+            .optional(),
+        limit: z
+            .string()
+            .transform(value => Number.parseInt(value, 10))
+            .pipe(z.number().int().min(1).max(100))
+            .optional()
+            .default(10),
+        mode: z.string().min(1).max(32).regex(modePattern).optional(),
+        competitionKey: z
+            .string()
+            .min(1)
+            .max(128)
+            .regex(competitionKeyPattern)
+            .optional(),
+    })
+    .superRefine((data, ctx) => {
+        if (data.mode && !data.gameId) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['mode'],
+                message: 'mode requires gameId',
+            })
+        }
+
+        if (data.competitionKey && (!data.gameId || !data.mode)) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['competitionKey'],
+                message: 'competitionKey requires gameId and mode',
+            })
+        }
+    })
 
 export type LeaderboardQueryInput = z.infer<typeof leaderboardQuerySchema>
 

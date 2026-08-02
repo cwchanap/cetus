@@ -244,6 +244,35 @@ describe('server validations', () => {
     })
 
     describe('leaderboardQuerySchema', () => {
+        it('accepts the all-games form', () => {
+            expect(leaderboardQuerySchema.parse({})).toEqual({ limit: 10 })
+        })
+
+        it('accepts game-only, mode-only scoped, and exact-key forms', () => {
+            expect(
+                leaderboardQuerySchema.safeParse({
+                    gameId: GameID.TETRIS,
+                    mode: 'daily',
+                }).success
+            ).toBe(true)
+
+            expect(
+                leaderboardQuerySchema.safeParse({
+                    gameId: GameID.TETRIS,
+                    mode: 'daily',
+                    competitionKey: 'daily:1',
+                }).success
+            ).toBe(true)
+        })
+
+        it.each([
+            { mode: 'daily' },
+            { competitionKey: 'daily:1' },
+            { gameId: GameID.TETRIS, competitionKey: 'daily:1' },
+        ])('rejects invalid cross-field combinations: %o', params => {
+            expect(leaderboardQuerySchema.safeParse(params).success).toBe(false)
+        })
+
         it('applies default limit and parses numeric limit', () => {
             const withDefault = leaderboardQuerySchema.safeParse({
                 gameId: GameID.TETRIS,
