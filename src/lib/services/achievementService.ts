@@ -102,7 +102,18 @@ export async function getUserGameAchievementProgress(
 > {
     try {
         const gameAchievements = getAchievementsByGame(gameId)
-        const userBestScore = (await getUserBestScore(userId, gameId)) ?? 0
+        const bestResult = await getUserBestScore(userId, gameId)
+
+        // A failed score-context probe is a retryable unavailable state. We
+        // cannot compute score-threshold progress without confirming the
+        // schema, so return an empty progress set rather than silently
+        // treating it as 0 (which would be indistinguishable from "no
+        // scores"). The no-scores case still falls through to progress
+        // entries with 0%.
+        if (bestResult.status === 'unavailable') {
+            return []
+        }
+        const userBestScore = bestResult.bestScore ?? 0
 
         const progress = []
 

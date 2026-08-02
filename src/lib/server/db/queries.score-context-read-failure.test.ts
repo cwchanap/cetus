@@ -38,10 +38,13 @@ describe('Score context read failure (unknown capability)', () => {
         expect(mockSelectFrom).not.toHaveBeenCalled()
     })
 
-    it('returns null from getUserBestScore without querying', async () => {
+    it('returns an unavailable result from getUserBestScore without querying', async () => {
         const result = await getUserBestScore('u1', 'tetris')
 
-        expect(result).toBeNull()
+        expect(result).toEqual({
+            status: 'unavailable',
+            code: 'SCORE_CONTEXT_UNAVAILABLE',
+        })
         expect(mockEnsure).toHaveBeenCalled()
         expect(mockSelectFrom).not.toHaveBeenCalled()
     })

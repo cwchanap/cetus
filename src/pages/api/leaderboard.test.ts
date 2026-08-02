@@ -3,6 +3,7 @@ import { GET } from '@/pages/api/leaderboard'
 import {
     getGameLeaderboard,
     getScopedGameLeaderboard,
+    type ScopedLeaderboardRow,
 } from '@/lib/server/db/queries'
 import { getAllGames, GameID } from '@/lib/games'
 
@@ -11,7 +12,7 @@ vi.mock('@/lib/server/db/queries', () => ({
     getGameLeaderboard: vi.fn(),
     getScopedGameLeaderboard: vi.fn(),
     toPublicScopedLeaderboardEntry: vi.fn(
-        ({ userId: _userId, ...entry }) => entry
+        ({ userId: _userId, ...entry }: ScopedLeaderboardRow) => entry
     ),
 }))
 
@@ -90,6 +91,10 @@ describe('GET /api/leaderboard', () => {
 
             const data = await response.json()
             expect(typeof data.error).toBe('string')
+            expect(data.error.length).toBeGreaterThan(0)
+            // Non-numeric input fails the number-type check (NaN), distinct
+            // from the range checks below.
+            expect(data.error).toMatch(/NaN|expected number/i)
         })
 
         it('should return 400 for negative limit', async () => {
@@ -100,6 +105,9 @@ describe('GET /api/leaderboard', () => {
 
             const data = await response.json()
             expect(typeof data.error).toBe('string')
+            expect(data.error.length).toBeGreaterThan(0)
+            // Negative value fails the minimum (>=1) check.
+            expect(data.error).toMatch(/>=|greater|at least|small/i)
         })
 
         it('should return 400 for limit exceeding maximum', async () => {
@@ -110,6 +118,9 @@ describe('GET /api/leaderboard', () => {
 
             const data = await response.json()
             expect(typeof data.error).toBe('string')
+            expect(data.error.length).toBeGreaterThan(0)
+            // Over-maximum value fails the maximum (<=100) check.
+            expect(data.error).toMatch(/<=|less|at most|big/i)
         })
     })
 

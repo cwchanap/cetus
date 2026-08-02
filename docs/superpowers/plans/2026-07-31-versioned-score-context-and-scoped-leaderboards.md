@@ -3063,7 +3063,13 @@ bun run format:check
 bun run build
 ```
 
-Expected: every command exits `0`.
+Expected:
+- `bun run lint`, `bun run format:check`, and `bun run build` must each exit `0`.
+- `bun run typecheck` has three known pre-existing errors in `src/lib/games/ice-slide/*` that are unrelated to this work and predate this branch:
+  1. `src/lib/games/ice-slide/game.crystal-farm.test.ts:3:1` — `Cannot find name 'vi'` (missing Vitest import).
+  2. `src/lib/games/ice-slide/init.test.ts:36:64` — `A spread argument must either have a tuple type or be passed to a rest parameter`.
+  3. `src/lib/games/ice-slide/init.ts:178:21` — `The left-hand side of an 'instanceof' expression must be of type 'any', an object type or a type parameter`.
+- This work must introduce **no additional** typecheck errors beyond those three baseline failures. Either leave the three baseline failures in place (they are out of scope) or fix them within this scope, but do not add new ones. Record the exact `bun run typecheck` error count before and after the work to confirm the delta is zero.
 
 - [ ] **Step 4: Inspect the final diff**
 

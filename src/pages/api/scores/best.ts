@@ -6,6 +6,7 @@ import {
     jsonResponse,
     unauthorizedResponse,
     badRequestResponse,
+    codedErrorResponse,
     errorResponse,
 } from '@/lib/server/api-utils'
 
@@ -38,9 +39,20 @@ export const GET: APIRoute = async ({ request, url }) => {
             return badRequestResponse('Invalid game ID')
         }
 
-        const bestScore = await getUserBestScore(session.user.id, gameId)
+        const result = await getUserBestScore(session.user.id, gameId)
 
-        return jsonResponse({ bestScore })
+        // A failed score-context probe is a retryable unavailable state,
+        // distinct from the user simply having no scores (ok/null). Surface it
+        // as a coded 503 instead of silently reporting null.
+        if (result.status === 'unavailable') {
+            return codedErrorResponse(
+                'Score context is unavailable',
+                'SCORE_CONTEXT_UNAVAILABLE',
+                503
+            )
+        }
+
+        return jsonResponse({ bestScore: result.bestScore })
     } catch (_error) {
         return errorResponse('Internal server error')
     }

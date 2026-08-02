@@ -371,10 +371,10 @@ describe('Extended Database Queries', () => {
 
             const result = await getUserBestScore('user-123', 'tetris')
 
-            expect(result).toBe(9500)
+            expect(result).toEqual({ status: 'ok', bestScore: 9500 })
         })
 
-        it('should return null when no scores exist', async () => {
+        it('should return ok/null when no scores exist', async () => {
             const mockQuery = {
                 select: vi.fn().mockReturnThis(),
                 where: vi.fn().mockReturnThis(),
@@ -386,17 +386,17 @@ describe('Extended Database Queries', () => {
 
             const result = await getUserBestScore('user-123', 'tetris')
 
-            expect(result).toBeNull()
+            expect(result).toEqual({ status: 'ok', bestScore: null })
         })
 
-        it('should return null on database error', async () => {
+        it('should return ok/null on database error', async () => {
             vi.mocked(db.selectFrom).mockImplementation(() => {
                 throw new Error('DB error')
             })
 
             const result = await getUserBestScore('user-123', 'tetris')
 
-            expect(result).toBeNull()
+            expect(result).toEqual({ status: 'ok', bestScore: null })
         })
     })
 

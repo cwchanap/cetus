@@ -234,6 +234,33 @@ async function getConfirmedScoreContextCapabilities(): Promise<
 }
 
 /**
+ * Apply the unscoped-score isolation predicate (`mode IS NULL AND
+ * competition_key IS NULL`) to a game_scores query when the contextual
+ * columns are present, so scoped/daily attempts never leak into legacy
+ * unscoped leaderboards or best-score reads. The column-reference arguments
+ * let the single-table (`getUserBestScore`) and joined (`getGameLeaderboard`)
+ * query shapes share one helper without duplicating the leakage-prevention
+ * logic at either call site.
+ */
+type UnscopedContextFilterable = {
+    where: (col: string, op: 'is', val: null) => UnscopedContextFilterable
+}
+
+function applyUnscopedContextIsolation<QB extends UnscopedContextFilterable>(
+    query: QB,
+    capabilities: GameScoresContextCapabilities | undefined,
+    modeColumn: 'mode' | 'game_scores.mode',
+    competitionKeyColumn: 'competition_key' | 'game_scores.competition_key'
+): QB {
+    if (!capabilities || !hasCompleteGameScoresContextColumns(capabilities)) {
+        return query
+    }
+    return query
+        .where(modeColumn, 'is', null)
+        .where(competitionKeyColumn, 'is', null) as QB
+}
+
+/**
  * Get game leaderboard (includes anonymous players)
  */
 export async function getGameLeaderboard(
@@ -254,31 +281,30 @@ export async function getGameLeaderboard(
             return []
         }
 
-        let query = db
-            .selectFrom('game_scores')
-            .leftJoin('user', 'user.id', 'game_scores.user_id')
-            .select(eb => [
-                eb
-                    .fn<string>('coalesce', [
-                        'user.displayName',
-                        'user.username',
-                        'user.name',
-                    ])
-                    .as('name'),
-                'user.username',
-                'game_scores.score',
-                'game_scores.created_at',
-                'user.image',
-            ])
-            .where('game_scores.game_id', '=', gameId)
-            .orderBy('game_scores.score', 'desc')
-            .limit(limit)
-
-        if (hasCompleteGameScoresContextColumns(capabilities)) {
-            query = query
-                .where('game_scores.mode', 'is', null)
-                .where('game_scores.competition_key', 'is', null)
-        }
+        const query = applyUnscopedContextIsolation(
+            db
+                .selectFrom('game_scores')
+                .leftJoin('user', 'user.id', 'game_scores.user_id')
+                .select(eb => [
+                    eb
+                        .fn<string>('coalesce', [
+                            'user.displayName',
+                            'user.username',
+                            'user.name',
+                        ])
+                        .as('name'),
+                    'user.username',
+                    'game_scores.score',
+                    'game_scores.created_at',
+                    'user.image',
+                ])
+                .where('game_scores.game_id', '=', gameId)
+                .orderBy('game_scores.score', 'desc')
+                .limit(limit),
+            capabilities,
+            'game_scores.mode',
+            'game_scores.competition_key'
+        )
 
         const results = await query.execute()
 
@@ -483,17 +509,15 @@ export async function getUserDailyActivity(
         // Filter by year directly using SQLite strftime to avoid type/format issues
         const yearStr = String(y)
 
-        // Use UTC for grouping to match UTC calendar logic in the UI
-        const dayExpr = sql<string>`strftime('%Y-%m-%d', "created_at", 'utc')`
+        // Treat stored created_at as UTC and bucket by its calendar date.
+        const dayExpr = sql<string>`strftime('%Y-%m-%d', "created_at")`
 
         const rows = (await db
             .selectFrom('game_scores')
             .select([dayExpr.as('day'), db.fn.count('id').as('count')])
             .where('user_id', '=', userId)
             // Filter by matching year in UTC
-            .where(
-                sql<boolean>`strftime('%Y', "created_at", 'utc') = ${yearStr}`
-            )
+            .where(sql<boolean>`strftime('%Y', "created_at") = ${yearStr}`)
             .groupBy(dayExpr)
             .orderBy('day', 'asc')
             .execute()) as unknown as Array<{
@@ -541,41 +565,64 @@ export async function getUserRecentScores(
 }
 
 /**
- * Get user's best score for a specific game
+ * Result of reading a user's best score for a game.
+ *
+ * - `ok`: the score-context schema probe succeeded. `bestScore` is `null` when
+ *   the user genuinely has no unscoped rows for the game, and a number when a
+ *   best score exists.
+ * - `unavailable`: the `ensureGameScoresContextSchema` probe failed (the
+ *   schema/capabilities could not be confirmed). This is a retryable state
+ *   distinct from "no rows" so callers (notably `/api/scores/best`) can
+ *   surface a coded 503 instead of silently reporting `null`/`0`.
+ */
+export type UserBestScoreResult =
+    | { status: 'ok'; bestScore: number | null }
+    | { status: 'unavailable'; code: 'SCORE_CONTEXT_UNAVAILABLE' }
+
+/**
+ * Get user's best score for a specific game.
+ *
+ * Returns a discriminated `UserBestScoreResult` so callers can distinguish a
+ * failed score-context probe (`unavailable`) from a genuine absence of score
+ * rows (`ok` with `bestScore: null`). Query-execution errors are still
+ * swallowed to `ok`/`null` to preserve the existing graceful-degradation
+ * behavior for transient read failures.
  */
 export async function getUserBestScore(
     userId: string,
     gameId: string
-): Promise<number | null> {
+): Promise<UserBestScoreResult> {
     try {
         const capabilities = await getConfirmedScoreContextCapabilities()
         if (capabilities === undefined) {
-            return null
+            return {
+                status: 'unavailable',
+                code: 'SCORE_CONTEXT_UNAVAILABLE',
+            }
         }
 
-        let query = db
-            .selectFrom('game_scores')
-            .select('score')
-            .where('user_id', '=', userId)
-            .where('game_id', '=', gameId)
-            .orderBy('score', 'desc')
-            .limit(1)
-
-        if (hasCompleteGameScoresContextColumns(capabilities)) {
-            query = query
-                .where('mode', 'is', null)
-                .where('competition_key', 'is', null)
-        }
+        const query = applyUnscopedContextIsolation(
+            db
+                .selectFrom('game_scores')
+                .select('score')
+                .where('user_id', '=', userId)
+                .where('game_id', '=', gameId)
+                .orderBy('score', 'desc')
+                .limit(1),
+            capabilities,
+            'mode',
+            'competition_key'
+        )
 
         const result = await query.executeTakeFirst()
 
-        return result?.score ?? null
+        return { status: 'ok', bestScore: result?.score ?? null }
     } catch (error) {
         console.error(
             '[getUserBestScore] Database error:',
             sanitizeError(error)
         )
-        return null
+        return { status: 'ok', bestScore: null }
     }
 }
 
@@ -824,9 +871,17 @@ export async function getUserGameHistoryPaginated(
 
 /**
  * Get user's best score for a specific game
- * @deprecated Use getUserBestScore instead - this is an alias for backward compatibility
+ * @deprecated Use getUserBestScore instead - this is an alias for backward compatibility.
+ * Preserves the legacy `Promise<number | null>` contract by collapsing the
+ * `unavailable` probe-failure state to `null`.
  */
-export const getUserBestScoreByGame = getUserBestScore
+export async function getUserBestScoreByGame(
+    userId: string,
+    gameId: string
+): Promise<number | null> {
+    const result = await getUserBestScore(userId, gameId)
+    return result.status === 'ok' ? result.bestScore : null
+}
 
 /**
  * Update user profile information
@@ -1002,13 +1057,16 @@ export async function awardAchievement(
 /**
  * Get user's best score for a specific game (for achievement checking)
  * Returns 0 instead of null when no score is found.
- * @deprecated Use getUserBestScore with ?? 0 instead
+ * @deprecated Use getUserBestScore instead. Preserves the legacy
+ * `Promise<number>` contract by collapsing both `null` and the `unavailable`
+ * probe-failure state to `0`.
  */
 export async function getUserBestScoreForGame(
     userId: string,
     gameId: string
 ): Promise<number> {
-    return (await getUserBestScore(userId, gameId)) ?? 0
+    const result = await getUserBestScore(userId, gameId)
+    return result.status === 'ok' ? (result.bestScore ?? 0) : 0
 }
 
 /**
@@ -1728,9 +1786,7 @@ export async function getUniqueGamesPlayedToday(
             .select('game_id')
             .distinct()
             .where('user_id', '=', userId)
-            .where(
-                sql<boolean>`strftime('%Y-%m-%d', created_at, 'utc') = ${today}`
-            )
+            .where(sql<boolean>`strftime('%Y-%m-%d', created_at) = ${today}`)
             .execute()
         return rows.map(r => r.game_id)
     } catch (error) {
@@ -1752,9 +1808,7 @@ export async function getTotalScoreToday(userId: string): Promise<number> {
             .selectFrom('game_scores')
             .select(db.fn.sum('score').as('total'))
             .where('user_id', '=', userId)
-            .where(
-                sql<boolean>`strftime('%Y-%m-%d', created_at, 'utc') = ${today}`
-            )
+            .where(sql<boolean>`strftime('%Y-%m-%d', created_at) = ${today}`)
             .executeTakeFirst()
         return Number(result?.total) || 0
     } catch (error) {
@@ -1775,9 +1829,7 @@ export async function getGamesPlayedCountToday(
             .selectFrom('game_scores')
             .select(db.fn.count('id').as('count'))
             .where('user_id', '=', userId)
-            .where(
-                sql<boolean>`strftime('%Y-%m-%d', created_at, 'utc') = ${today}`
-            )
+            .where(sql<boolean>`strftime('%Y-%m-%d', created_at) = ${today}`)
             .executeTakeFirst()
         return Number(result?.count) || 0
     } catch (error) {
