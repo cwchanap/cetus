@@ -94,6 +94,100 @@ describe('server validations', () => {
         })
     })
 
+    describe('scoreSubmissionSchema context', () => {
+        const base = { gameId: GameID.TETRIS, score: 100 }
+
+        it('accepts omitted context and rejects null context', () => {
+            expect(scoreSubmissionSchema.safeParse(base).success).toBe(true)
+            expect(
+                scoreSubmissionSchema.safeParse({ ...base, context: null })
+                    .success
+            ).toBe(false)
+        })
+
+        it('uses fully anchored mode and competition-key patterns', () => {
+            const valid = {
+                ...base,
+                context: {
+                    mode: 'daily',
+                    competitionKey: 'ice-slide:daily:2026-08-01:g1:r1',
+                    rulesetVersion: 1,
+                },
+            }
+            expect(scoreSubmissionSchema.safeParse(valid).success).toBe(true)
+
+            expect(
+                scoreSubmissionSchema.safeParse({
+                    ...valid,
+                    context: { ...valid.context, mode: 'daily!' },
+                }).success
+            ).toBe(false)
+
+            expect(
+                scoreSubmissionSchema.safeParse({
+                    ...valid,
+                    context: {
+                        ...valid.context,
+                        competitionKey: 'ok#invalid',
+                    },
+                }).success
+            ).toBe(false)
+        })
+
+        it('accepts oversized legacy gameData but rejects oversized contextual data', () => {
+            const gameData = { payload: 'x'.repeat(17 * 1024) }
+
+            expect(
+                scoreSubmissionSchema.safeParse({ ...base, gameData }).success
+            ).toBe(true)
+
+            expect(
+                scoreSubmissionSchema.safeParse({
+                    ...base,
+                    gameData,
+                    context: { mode: 'daily', rulesetVersion: 1 },
+                }).success
+            ).toBe(false)
+        })
+
+        it('measures contextual data in UTF-8 bytes', () => {
+            const gameData = { payload: '界'.repeat(6_000) }
+
+            expect(
+                scoreSubmissionSchema.safeParse({
+                    ...base,
+                    gameData,
+                    context: { mode: 'daily', rulesetVersion: 1 },
+                }).success
+            ).toBe(false)
+        })
+
+        it.each([
+            { elapsedSeconds: 12.5 },
+            { elapsedSeconds: -1 },
+            { totalMoves: 4.5 },
+            { totalMoves: -1 },
+        ])('rejects invalid allowlisted metrics: %o', metric => {
+            expect(
+                scoreSubmissionSchema.safeParse({
+                    ...base,
+                    gameData: metric,
+                    context: { mode: 'daily', rulesetVersion: 1 },
+                }).success
+            ).toBe(false)
+        })
+
+        it('accepts whole-second elapsed time and integer moves', () => {
+            expect(
+                scoreSubmissionSchema.safeParse({
+                    ...base,
+                    gameData: { elapsedSeconds: 12, totalMoves: 34 },
+                    context: { mode: 'daily', rulesetVersion: 1 },
+                }).success
+            ).toBe(true)
+        })
+    })
+
     describe('profileUpdateSchema', () => {
         it('normalizes whitespace and case', () => {
             const result = profileUpdateSchema.safeParse({

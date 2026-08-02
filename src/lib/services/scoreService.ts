@@ -6,6 +6,7 @@ import type { GameType } from '@/lib/server/db/types'
 import { type AchievementNotification } from '@/lib/achievements'
 import { getGameById, type GameID } from '@/lib/games'
 import type { GameData } from '@/lib/games/shared/types'
+import type { ScoreSubmissionContext } from '@/lib/server/validations'
 
 export interface ScoreSubmissionResult {
     success: boolean
@@ -29,10 +30,12 @@ export interface ScoreData {
     gameId: GameType
     score: number
     gameData?: GameData | Record<string, unknown>
+    context?: ScoreSubmissionContext
 }
 
 export interface SaveScoreOptions {
     isStale?: () => boolean
+    context?: ScoreSubmissionContext
 }
 
 export interface GameHistoryEntry {
@@ -98,7 +101,14 @@ export async function saveGameScore(
     }
 
     try {
-        const result = await submitScore({ gameId, score, gameData })
+        const scoreData: ScoreData = { gameId, score }
+        if (gameData !== undefined) {
+            scoreData.gameData = gameData
+        }
+        if (options?.context !== undefined) {
+            scoreData.context = options.context
+        }
+        const result = await submitScore(scoreData)
 
         if (options?.isStale?.()) {
             return

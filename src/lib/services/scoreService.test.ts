@@ -494,6 +494,59 @@ describe('Score Service', () => {
         })
     })
 
+    describe('saveGameScore context forwarding', () => {
+        it('forwards context through SaveScoreOptions without a new positional argument', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve({ success: true }),
+            })
+
+            await saveGameScore(
+                GameID.TETRIS,
+                100,
+                undefined,
+                undefined,
+                { elapsedSeconds: 12, totalMoves: 34 },
+                {
+                    context: {
+                        mode: 'daily',
+                        competitionKey: 'ice-slide:daily:2026-08-01:g1:r1',
+                        rulesetVersion: 1,
+                    },
+                }
+            )
+
+            const request = vi.mocked(global.fetch).mock
+                .calls[0][1] as RequestInit
+            expect(JSON.parse(String(request.body))).toEqual({
+                gameId: GameID.TETRIS,
+                score: 100,
+                gameData: { elapsedSeconds: 12, totalMoves: 34 },
+                context: {
+                    mode: 'daily',
+                    competitionKey: 'ice-slide:daily:2026-08-01:g1:r1',
+                    rulesetVersion: 1,
+                },
+            })
+        })
+
+        it('keeps the legacy request body free of a context property', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve({ success: true }),
+            })
+
+            await saveGameScore(GameID.TETRIS, 100)
+
+            const request = vi.mocked(global.fetch).mock
+                .calls[0][1] as RequestInit
+            expect(JSON.parse(String(request.body))).toEqual({
+                gameId: GameID.TETRIS,
+                score: 100,
+            })
+        })
+    })
+
     describe('saveGameScore stale-run guard', () => {
         it('suppresses all callbacks when isStale returns true on success', async () => {
             global.fetch = vi.fn().mockResolvedValue({
