@@ -359,7 +359,7 @@ No path rebuilds or rewrites `game_scores`, and existing rows remain valid with 
 - Legacy inserts use the original column set and remain available when context migration is incomplete.
 - Confirmed complete schema: default unscoped reads require both `mode IS NULL` and `competition_key IS NULL`.
 - Confirmed legacy/incomplete schema: default unscoped reads use the legacy no-predicate query. The supported write path cannot create contextual rows until all four columns exist, so partial-column permutations do not need distinct read predicates.
-- Unknown capability caused by a failed probe is **not** treated as confirmed legacy. Use the last cached confirmed snapshot when available; otherwise preserve each query's existing defensive failure result (`[]` for leaderboard reads, `null` for personal best) instead of failing open with an unfiltered query that could mix scoped rows after a process restart.
+- Unknown capability caused by a failed probe is **not** treated as confirmed legacy. Use the last cached confirmed snapshot when available; otherwise surface a discriminated `unavailable` result so callers can emit a coded 503 (`SCORE_CONTEXT_UNAVAILABLE`) instead of failing open with an unfiltered query that could mix scoped rows after a process restart. This applies uniformly to personal-best reads (`getUserBestScore` → `{ status: 'unavailable' }`), scoped leaderboard reads (`getScopedGameLeaderboard` → `{ success: false, code: 'SCOPED_LEADERBOARD_UNAVAILABLE' }`), and unscoped leaderboard reads (`getGameLeaderboard` → `{ status: 'unavailable', code: 'SCORE_CONTEXT_UNAVAILABLE' }`). A genuine absence of rows remains a successful empty result (`[]` / `null` / `ok`), distinct from the probe-failure state.
 - An index failure affects performance only. Contextual reads and writes remain valid when the four columns exist.
 
 This fallback is deliberately asymmetric: confirmed legacy schemas degrade gracefully, while unknown or requested contextual behavior never loses scope silently.
@@ -368,7 +368,7 @@ This fallback is deliberately asymmetric: confirmed legacy schemas degrade grace
 
 ### 10.1 Existing unscoped queries
 
-`getGameLeaderboard(gameId, limit)` adds unscoped predicates when available and retains its current public result shape, score-descending ordering, and raw-attempt semantics. The same user may occupy multiple entries.
+`getGameLeaderboard(gameId, limit)` adds unscoped predicates when available and retains its score-descending ordering and raw-attempt semantics. The same user may occupy multiple entries. Its public result shape is a discriminated `GameLeaderboardResult`: `GameLeaderboardEntry[]` on a successful probe (empty array = genuinely no unscoped rows; query-execution errors still swallow to `[]` for graceful degradation), or `{ status: 'unavailable', code: 'SCORE_CONTEXT_UNAVAILABLE' }` on a failed probe. Callers narrow with `isGameLeaderboardAvailable`; `/api/leaderboard` and the SSR leaderboard page handle the `unavailable` branch (the API emits a coded 503; the page degrades to its existing empty state).
 
 Every existing function that answers a user's best score for a game, including compatibility aliases and `/api/scores/best`, uses the same unscoped predicate. Best-score-derived achievement progress therefore remains Campaign-compatible.
 

@@ -14,6 +14,7 @@ vi.mock('@/lib/server/db/queries', () => ({
     toPublicScopedLeaderboardEntry: vi.fn(
         ({ userId: _userId, ...entry }: ScopedLeaderboardRow) => entry
     ),
+    isGameLeaderboardAvailable: (result: unknown) => Array.isArray(result),
 }))
 
 vi.mock('@/lib/games', () => ({
@@ -123,6 +124,24 @@ describe('GET /api/leaderboard', () => {
             // Over-maximum value fails the maximum (<=100) check.
             expect(data.error).toMatch(/<=|less|at most|big/i)
         })
+
+        it('should return a 503 coded error when any game leaderboard is unavailable', async () => {
+            vi.mocked(getGameLeaderboard).mockResolvedValue({
+                status: 'unavailable',
+                code: 'SCORE_CONTEXT_UNAVAILABLE',
+            })
+
+            const url = new URL('http://localhost/api/leaderboard')
+            const response = await GET({ url } as any)
+
+            expect(response.status).toBe(503)
+
+            const data = await response.json()
+            expect(data).toEqual({
+                error: 'Score context is unavailable',
+                code: 'SCORE_CONTEXT_UNAVAILABLE',
+            })
+        })
     })
 
     describe('with gameId parameter', () => {
@@ -211,6 +230,26 @@ describe('GET /api/leaderboard', () => {
 
             const data = await response.json()
             expect(data.leaderboard).toEqual([])
+        })
+
+        it('should return a 503 coded error when the score context is unavailable', async () => {
+            vi.mocked(getGameLeaderboard).mockResolvedValue({
+                status: 'unavailable',
+                code: 'SCORE_CONTEXT_UNAVAILABLE',
+            })
+
+            const url = new URL(
+                'http://localhost/api/leaderboard?gameId=tetris'
+            )
+            const response = await GET({ url } as any)
+
+            expect(response.status).toBe(503)
+
+            const data = await response.json()
+            expect(data).toEqual({
+                error: 'Score context is unavailable',
+                code: 'SCORE_CONTEXT_UNAVAILABLE',
+            })
         })
     })
 

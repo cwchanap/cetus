@@ -261,24 +261,57 @@ function applyUnscopedContextIsolation<QB extends UnscopedContextFilterable>(
 }
 
 /**
+ * A single entry in the unscoped game leaderboard.
+ */
+export type GameLeaderboardEntry = {
+    name: string
+    username: string | null
+    score: number
+    created_at: string
+    image: string | null
+}
+
+/**
+ * Result of reading the unscoped game leaderboard.
+ *
+ * - `GameLeaderboardEntry[]`: the score-context schema probe succeeded. An
+ *   empty array means the game genuinely has no unscoped rows. Query-execution
+ *   errors are still swallowed to `[]` to preserve the existing
+ *   graceful-degradation behavior for transient read failures.
+ * - `{ status: 'unavailable' }`: the `ensureGameScoresContextSchema` probe
+ *   failed (the schema/capabilities could not be confirmed). This is a
+ *   retryable state distinct from "no rows" so callers (notably
+ *   `/api/leaderboard`) can surface a coded 503 instead of silently reporting
+ *   an empty leaderboard — mirroring `getUserBestScore` and
+ *   `getScopedGameLeaderboard`.
+ */
+export type GameLeaderboardResult =
+    | GameLeaderboardEntry[]
+    | { status: 'unavailable'; code: 'SCORE_CONTEXT_UNAVAILABLE' }
+
+/**
+ * Type guard narrowing a `GameLeaderboardResult` to its success (array) branch.
+ */
+export function isGameLeaderboardAvailable(
+    result: GameLeaderboardResult
+): result is GameLeaderboardEntry[] {
+    return Array.isArray(result)
+}
+
+/**
  * Get game leaderboard (includes anonymous players)
  */
 export async function getGameLeaderboard(
     gameId: string,
     limit: number = 10
-): Promise<
-    Array<{
-        name: string
-        username: string | null
-        score: number
-        created_at: string
-        image: string | null
-    }>
-> {
+): Promise<GameLeaderboardResult> {
     try {
         const capabilities = await getConfirmedScoreContextCapabilities()
         if (capabilities === undefined) {
-            return []
+            return {
+                status: 'unavailable',
+                code: 'SCORE_CONTEXT_UNAVAILABLE',
+            }
         }
 
         const query = applyUnscopedContextIsolation(

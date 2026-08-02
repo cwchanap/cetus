@@ -2,7 +2,9 @@ import type { APIRoute } from 'astro'
 import {
     getGameLeaderboard,
     getScopedGameLeaderboard,
+    isGameLeaderboardAvailable,
     toPublicScopedLeaderboardEntry,
+    type GameLeaderboardEntry,
 } from '@/lib/server/db/queries'
 import { getAllGames } from '@/lib/games'
 import {
@@ -38,11 +40,30 @@ export const GET: APIRoute = async ({ url }) => {
             const results = await Promise.all(
                 games.map(game => getGameLeaderboard(game.id, limit))
             )
+            // A failed score-context probe is a retryable unavailable state,
+            // distinct from a game genuinely having no scores (empty array).
+            // The probe is global, so any unavailable result means the whole
+            // batch is unavailable — surface a coded 503 instead of silently
+            // returning empty leaderboards for every game.
+            const unavailableResult = results.find(
+                r => !isGameLeaderboardAvailable(r)
+            )
+            if (unavailableResult) {
+                return codedErrorResponse(
+                    'Score context is unavailable',
+                    'SCORE_CONTEXT_UNAVAILABLE',
+                    503
+                )
+            }
+
+            const leaderboardResults = results as GameLeaderboardEntry[][]
             games.forEach((game, i) => {
-                leaderboards[game.id] = results[i].map((entry, index) => ({
-                    rank: index + 1,
-                    ...entry,
-                }))
+                leaderboards[game.id] = leaderboardResults[i].map(
+                    (entry, index) => ({
+                        rank: index + 1,
+                        ...entry,
+                    })
+                )
             })
 
             return jsonResponse({ leaderboards })
@@ -85,6 +106,18 @@ export const GET: APIRoute = async ({ url }) => {
 
         // Unscoped game-only branch
         const leaderboard = await getGameLeaderboard(gameId, limit)
+        // A failed score-context probe is a retryable unavailable state,
+        // distinct from the game genuinely having no scores (empty array).
+        // Surface it as a coded 503 instead of silently reporting an empty
+        // leaderboard, mirroring /api/scores/best and the scoped branch.
+        if (!isGameLeaderboardAvailable(leaderboard)) {
+            return codedErrorResponse(
+                'Score context is unavailable',
+                'SCORE_CONTEXT_UNAVAILABLE',
+                503
+            )
+        }
+
         const leaderboardWithRanks = leaderboard.map((entry, index) => ({
             rank: index + 1,
             ...entry,
