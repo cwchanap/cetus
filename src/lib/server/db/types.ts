@@ -1,4 +1,4 @@
-import type { ColumnType, Selectable } from 'kysely'
+import type { ColumnType, Insertable, Selectable } from 'kysely'
 
 // Better Auth table types (based on the generated schema)
 export interface UserTable {
@@ -56,6 +56,22 @@ export interface GameScoresTable {
     user_id: string
     game_id: string
     score: number
+    mode: ColumnType<string | null, string | null | undefined, string | null>
+    competition_key: ColumnType<
+        string | null,
+        string | null | undefined,
+        string | null
+    >
+    ruleset_version: ColumnType<
+        number | null,
+        number | null | undefined,
+        number | null
+    >
+    game_data_json: ColumnType<
+        string | null,
+        string | null | undefined,
+        string | null
+    >
     created_at: ColumnType<Date, never, never> // DEFAULT CURRENT_TIMESTAMP
 }
 
@@ -142,7 +158,7 @@ export type UserUpdate = Partial<
     >
 >
 
-export type NewGameScore = Omit<GameScoresTable, 'id' | 'created_at'>
+export type NewGameScore = Insertable<GameScoresTable>
 export type GameScore = Selectable<GameScoresTable>
 
 export type NewUserStats = Omit<
