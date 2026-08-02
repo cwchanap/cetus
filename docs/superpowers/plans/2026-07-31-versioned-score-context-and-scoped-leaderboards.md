@@ -1485,11 +1485,12 @@ git commit -m "feat(scores): propagate contextual write failures"
 - Modify: `src/lib/server/db/queries.integration.test.ts`
 - Create: `src/lib/server/db/queries.score-context-read-failure.test.ts`
 - Modify: `src/lib/services/achievementService.test.ts`
+- Modify: `src/pages/api/leaderboard.ts`, `src/pages/leaderboard/index.astro` (narrow the new discriminated result)
 
 **Interfaces:**
 - Confirmed complete schema adds `mode IS NULL` and `competition_key IS NULL`.
 - Confirmed legacy/incomplete schema uses the existing no-predicate query.
-- Unknown capability without a cached snapshot returns `[]` for leaderboard and `null` for personal best.
+- Unknown capability without a cached snapshot returns a discriminated `unavailable` result (`{ status: 'unavailable', code: 'SCORE_CONTEXT_UNAVAILABLE' }`) from both `getGameLeaderboard` and `getUserBestScore`, distinct from a genuine empty result (`[]` / `null`). `getGameLeaderboard`'s return type becomes `GameLeaderboardResult = GameLeaderboardEntry[] | { status: 'unavailable'; code: 'SCORE_CONTEXT_UNAVAILABLE' }` with an `isGameLeaderboardAvailable` type guard.
 - `getUserBestScoreByGame` and `getUserBestScoreForGame` remain aliases/wrappers and inherit isolation.
 
 - [ ] **Step 1: Extend the integration fixture to the complete schema**
@@ -1576,6 +1577,8 @@ it('retains raw-attempt semantics for unscoped rows', async () => {
 })
 ```
 
+> **Type-narrowing note:** because `getGameLeaderboard` now returns a `GameLeaderboardResult` union, the integration tests narrow with a small `asEntries()` helper (throws if the result is the `unavailable` branch) before indexing or calling `.map()`. The assertions above express the intended behavior; the helper is the mechanism that satisfies TypeScript under the revised contract.
+
 Add an achievement-service test that mocks `getUserBestScore()` to an unscoped value and verifies progress remains derived from that value even when `earned` is true.
 
 - [ ] **Step 3: Write the unknown-capability fail-closed test**
@@ -1583,10 +1586,18 @@ Add an achievement-service test that mocks `getUserBestScore()` to an unscoped v
 Create `src/lib/server/db/queries.score-context-read-failure.test.ts`. Mock `game-score-context` to return `{ known: false }`, mock the database query chain, and assert:
 
 ```ts
-await expect(getGameLeaderboard('tetris', 10)).resolves.toEqual([])
-await expect(getUserBestScore('u1', 'tetris')).resolves.toBeNull()
+await expect(getGameLeaderboard('tetris', 10)).resolves.toEqual({
+    status: 'unavailable',
+    code: 'SCORE_CONTEXT_UNAVAILABLE',
+})
+await expect(getUserBestScore('u1', 'tetris')).resolves.toEqual({
+    status: 'unavailable',
+    code: 'SCORE_CONTEXT_UNAVAILABLE',
+})
 expect(mockSelectFrom).not.toHaveBeenCalled()
 ```
+
+> **Design note (post-spec revision):** the original plan called for `getGameLeaderboard` to return `[]` on a failed probe and `getUserBestScore` to return `null`. The implemented contract instead surfaces a discriminated `unavailable` result from both functions (and `getScopedGameLeaderboard` already did via `{ success: false, code: 'SCOPED_LEADERBOARD_UNAVAILABLE' }`), so callers can emit a coded 503 distinct from a genuine empty result. See spec §9 and §10.1 for the revised contract.
 
 - [ ] **Step 4: Run tests to verify they fail**
 
@@ -1615,20 +1626,20 @@ async function getConfirmedScoreContextCapabilities():
 ```
 
 Interpret:
-- `undefined`: unknown probe; return the existing defensive result.
+- `undefined`: unknown probe; return the discriminated `unavailable` result.
 - complete columns: add both unscoped predicates.
 - known incomplete columns: use the legacy no-predicate query.
 
-In both `getGameLeaderboard()` and `getUserBestScore()`:
+In `getUserBestScore()`:
 
 ```ts
 const capabilities = await getConfirmedScoreContextCapabilities()
 if (capabilities === undefined) {
-    return []
+    return { status: 'unavailable', code: 'SCORE_CONTEXT_UNAVAILABLE' }
 }
 ```
 
-Use `return null` in `getUserBestScore()`.
+In `getGameLeaderboard()`, return the same discriminated `unavailable` result (its return type is `GameLeaderboardResult = GameLeaderboardEntry[] | { status: 'unavailable'; code: 'SCORE_CONTEXT_UNAVAILABLE' }`). Export `GameLeaderboardEntry`, `GameLeaderboardResult`, and an `isGameLeaderboardAvailable` type guard so callers can narrow. Query-execution errors in the catch block still swallow to `[]` to preserve graceful degradation for transient read failures.
 
 After building the existing query, conditionally add:
 
@@ -1641,6 +1652,8 @@ if (hasCompleteGameScoresContextColumns(capabilities)) {
 ```
 
 For `getUserBestScore()`, use unqualified column names matching its single-table query.
+
+Callers (`/api/leaderboard`, `src/pages/leaderboard/index.astro`) must narrow with `isGameLeaderboardAvailable`: the API emits a coded 503 on the `unavailable` branch (both the single-game and all-games branches); the SSR page degrades to its existing empty state rather than failing the render.
 
 - [ ] **Step 6: Run focused tests**
 
@@ -2495,10 +2508,13 @@ vi.mock('@/lib/server/db/queries', () => ({
     toPublicScopedLeaderboardEntry: vi.fn(
         ({ userId: _userId, ...entry }) => entry
     ),
+    // The endpoint narrows with this type guard; provide it so the mock
+    // matches the real module surface.
+    isGameLeaderboardAvailable: (result: unknown) => Array.isArray(result),
 }))
 ```
 
-Import all three functions and add:
+Import all four symbols and add:
 
 ```ts
 it('returns a mode-only scoped best-per-user leaderboard', async () => {

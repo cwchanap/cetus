@@ -29,7 +29,13 @@ const gameLeaderboards: Record<string, LeaderboardEntry[]> = {}
 
 // Fetch leaderboard data for each game
 for (const game of games) {
-  gameLeaderboards[game.id] = await getGameLeaderboard(game.id, 10)
+  const result = await getGameLeaderboard(game.id, 10)
+  // A failed score-context probe returns a discriminated `unavailable` result
+  // (distinct from "no scores"). The server-rendered page degrades to the
+  // existing empty state rather than failing the whole render; the
+  // `/api/leaderboard` endpoint surfaces the coded 503 for programmatic
+  // callers.
+  gameLeaderboards[game.id] = Array.isArray(result) ? result : []
 }
 
 // Game icons mapping

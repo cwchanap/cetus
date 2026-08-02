@@ -32,6 +32,7 @@ import {
     getAllUserIds,
     getActiveUserIdsBetween,
     getGameLeaderboard,
+    isGameLeaderboardAvailable,
     saveGameScore,
     getUserGameHistory,
     getUserDailyActivity,
@@ -39,6 +40,20 @@ import {
     getUniqueGamesPlayedToday,
     getTotalScoreToday,
 } from '@/lib/server/db/queries'
+
+// Narrow a GameLeaderboardResult to its success (array) branch. These
+// integration tests run against a confirmed score-context schema, so the
+// probe always succeeds and the result is always an array; this helper makes
+// that invariant explicit for TypeScript while failing the test if it ever
+// does not hold.
+function asEntries(result: Awaited<ReturnType<typeof getGameLeaderboard>>) {
+    if (!isGameLeaderboardAvailable(result)) {
+        throw new Error(
+            'expected leaderboard entries but got unavailable result'
+        )
+    }
+    return result
+}
 
 // ─── Schema setup ────────────────────────────────────────────────────────────
 
@@ -488,7 +503,7 @@ describe('getGameLeaderboard (integration)', () => {
         await seedScore('u1', 'tetris', 3000)
         await seedScore('u2', 'tetris', 8000)
 
-        const result = await getGameLeaderboard('tetris')
+        const result = asEntries(await getGameLeaderboard('tetris'))
 
         expect(result[0].score).toBe(8000)
         expect(result[1].score).toBe(3000)
@@ -501,7 +516,7 @@ describe('getGameLeaderboard (integration)', () => {
             VALUES ('ghost-user', 'tetris', 5000)
         `.execute(db)
 
-        const result = await getGameLeaderboard('tetris')
+        const result = asEntries(await getGameLeaderboard('tetris'))
 
         expect(result).toHaveLength(1)
         expect(result[0].name).toBe('Anonymous')
@@ -516,7 +531,7 @@ describe('getGameLeaderboard (integration)', () => {
         })
         await seedScore('u1', 'tetris', 1000)
 
-        const result = await getGameLeaderboard('tetris')
+        const result = asEntries(await getGameLeaderboard('tetris'))
 
         expect(result[0].name).toBe('DisplayPref')
     })
@@ -525,7 +540,7 @@ describe('getGameLeaderboard (integration)', () => {
         await seedUser('u1', 'RealName', { username: 'handle' })
         await seedScore('u1', 'tetris', 1000)
 
-        const result = await getGameLeaderboard('tetris')
+        const result = asEntries(await getGameLeaderboard('tetris'))
 
         expect(result[0].name).toBe('handle')
     })
@@ -534,7 +549,7 @@ describe('getGameLeaderboard (integration)', () => {
         await seedUser('u1', 'RealName')
         await seedScore('u1', 'tetris', 1000)
 
-        const result = await getGameLeaderboard('tetris')
+        const result = asEntries(await getGameLeaderboard('tetris'))
 
         expect(result[0].name).toBe('RealName')
     })
@@ -556,7 +571,7 @@ describe('getGameLeaderboard (integration)', () => {
         await seedScore('u1', 'snake', 9999) // different game
         await seedScore('u1', 'tetris', 500)
 
-        const result = await getGameLeaderboard('tetris')
+        const result = asEntries(await getGameLeaderboard('tetris'))
 
         expect(result).toHaveLength(1)
         expect(result[0].score).toBe(500)
@@ -575,7 +590,7 @@ describe('Score context isolation (integration)', () => {
             rulesetVersion: 1,
         })
 
-        const result = await getGameLeaderboard('tetris', 10)
+        const result = asEntries(await getGameLeaderboard('tetris', 10))
 
         expect(result.map(entry => entry.score)).toEqual([100])
     })
@@ -600,7 +615,7 @@ describe('Score context isolation (integration)', () => {
         await seedScore('u1', 'tetris', 100)
         await seedScore('u1', 'tetris', 200)
 
-        const result = await getGameLeaderboard('tetris', 10)
+        const result = asEntries(await getGameLeaderboard('tetris', 10))
 
         expect(result.map(entry => entry.score)).toEqual([200, 100])
     })

@@ -30,10 +30,13 @@ describe('Score context read failure (unknown capability)', () => {
         mockEnsure.mockResolvedValue({ known: false })
     })
 
-    it('returns [] from getGameLeaderboard without querying', async () => {
+    it('returns an unavailable result from getGameLeaderboard without querying', async () => {
         const result = await getGameLeaderboard('tetris', 10)
 
-        expect(result).toEqual([])
+        expect(result).toEqual({
+            status: 'unavailable',
+            code: 'SCORE_CONTEXT_UNAVAILABLE',
+        })
         expect(mockEnsure).toHaveBeenCalled()
         expect(mockSelectFrom).not.toHaveBeenCalled()
     })

@@ -7,6 +7,7 @@ import {
     getUserBestScore,
     getUserBestScoreForGame,
     getGameLeaderboard,
+    isGameLeaderboardAvailable,
     saveGameScoreWithAchievements,
     updateUser,
     getUserAchievements,
@@ -91,6 +92,20 @@ const COMPLETE_CAPABILITIES = {
         scopedIndex: true,
     },
 } as const
+
+// Narrow a GameLeaderboardResult to its success (array) branch. These tests
+// mock ensureGameScoresContextSchema to confirmed-complete capabilities, so
+// the probe always succeeds and the result is always an array; this helper
+// makes that invariant explicit for TypeScript while failing the test if it
+// ever does not hold.
+function asEntries(result: Awaited<ReturnType<typeof getGameLeaderboard>>) {
+    if (!isGameLeaderboardAvailable(result)) {
+        throw new Error(
+            'expected leaderboard entries but got unavailable result'
+        )
+    }
+    return result
+}
 
 describe('Extended Database Queries', () => {
     beforeEach(() => {
@@ -453,7 +468,7 @@ describe('Extended Database Queries', () => {
             }
             vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
 
-            const result = await getGameLeaderboard('tetris', 10)
+            const result = asEntries(await getGameLeaderboard('tetris', 10))
 
             expect(result).toHaveLength(1)
             expect(result[0].name).toBe('Player One')
@@ -480,7 +495,7 @@ describe('Extended Database Queries', () => {
             }
             vi.mocked(db.selectFrom).mockReturnValue(mockQuery as any)
 
-            const result = await getGameLeaderboard('tetris')
+            const result = asEntries(await getGameLeaderboard('tetris'))
 
             expect(result[0].name).toBe('Anonymous')
             expect(result[0].username).toBeNull()
