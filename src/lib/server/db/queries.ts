@@ -19,6 +19,7 @@ import {
     type PersistedScoreContext,
     type SaveGameScoreResult,
     type SaveGameScoreWithAchievementsResult,
+    type GameScoresContextCapabilities,
 } from './game-score-context'
 
 function sanitizeError(error: unknown): string {
@@ -222,6 +223,16 @@ export async function updateUserLevel(
     }
 }
 
+async function getConfirmedScoreContextCapabilities(): Promise<
+    GameScoresContextCapabilities | undefined
+> {
+    const state = await ensureGameScoresContextSchema()
+    if (!state.known) {
+        return undefined
+    }
+    return state.capabilities
+}
+
 /**
  * Get game leaderboard (includes anonymous players)
  */
@@ -238,7 +249,12 @@ export async function getGameLeaderboard(
     }>
 > {
     try {
-        const results = await db
+        const capabilities = await getConfirmedScoreContextCapabilities()
+        if (capabilities === undefined) {
+            return []
+        }
+
+        let query = db
             .selectFrom('game_scores')
             .leftJoin('user', 'user.id', 'game_scores.user_id')
             .select(eb => [
@@ -257,7 +273,14 @@ export async function getGameLeaderboard(
             .where('game_scores.game_id', '=', gameId)
             .orderBy('game_scores.score', 'desc')
             .limit(limit)
-            .execute()
+
+        if (hasCompleteGameScoresContextColumns(capabilities)) {
+            query = query
+                .where('game_scores.mode', 'is', null)
+                .where('game_scores.competition_key', 'is', null)
+        }
+
+        const results = await query.execute()
 
         type Row = {
             name: string | null
@@ -525,14 +548,26 @@ export async function getUserBestScore(
     gameId: string
 ): Promise<number | null> {
     try {
-        const result = await db
+        const capabilities = await getConfirmedScoreContextCapabilities()
+        if (capabilities === undefined) {
+            return null
+        }
+
+        let query = db
             .selectFrom('game_scores')
             .select('score')
             .where('user_id', '=', userId)
             .where('game_id', '=', gameId)
             .orderBy('score', 'desc')
             .limit(1)
-            .executeTakeFirst()
+
+        if (hasCompleteGameScoresContextColumns(capabilities)) {
+            query = query
+                .where('mode', 'is', null)
+                .where('competition_key', 'is', null)
+        }
+
+        const result = await query.executeTakeFirst()
 
         return result?.score ?? null
     } catch (error) {

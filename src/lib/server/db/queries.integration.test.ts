@@ -24,6 +24,7 @@ import {
     getUserStats,
     getUserRecentScores,
     getUserBestScore,
+    getUserBestScoreByGame,
     getUserBestScoreForGame,
     hasUserEarnedAchievement,
     awardAchievement,
@@ -56,6 +57,10 @@ beforeAll(async () => {
             user_id TEXT NOT NULL,
             game_id TEXT NOT NULL,
             score INTEGER NOT NULL,
+            mode TEXT,
+            competition_key TEXT,
+            ruleset_version INTEGER,
+            game_data_json TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     `.execute(db)
@@ -118,19 +123,36 @@ async function seedScore(
     userId: string,
     gameId: string,
     score: number,
-    createdAt?: string
+    options: {
+        createdAt?: string
+        mode?: string
+        competitionKey?: string
+        rulesetVersion?: number
+        gameDataJson?: string
+    } = {}
 ) {
-    if (createdAt) {
-        await sql`
-            INSERT INTO game_scores (user_id, game_id, score, created_at)
-            VALUES (${userId}, ${gameId}, ${score}, ${createdAt})
-        `.execute(db)
-    } else {
-        await sql`
-            INSERT INTO game_scores (user_id, game_id, score)
-            VALUES (${userId}, ${gameId}, ${score})
-        `.execute(db)
-    }
+    await sql`
+        INSERT INTO game_scores (
+            user_id,
+            game_id,
+            score,
+            mode,
+            competition_key,
+            ruleset_version,
+            game_data_json,
+            created_at
+        )
+        VALUES (
+            ${userId},
+            ${gameId},
+            ${score},
+            ${options.mode ?? null},
+            ${options.competitionKey ?? null},
+            ${options.rulesetVersion ?? null},
+            ${options.gameDataJson ?? null},
+            ${options.createdAt ?? new Date().toISOString()}
+        )
+    `.execute(db)
 }
 
 async function seedUserStats(
@@ -420,12 +442,20 @@ describe('getActiveUserIdsBetween (integration)', () => {
 
     it('includes only in-range users, deduplicates same-user scores, and excludes out-of-range users', async () => {
         // u_before: score timestamped before the window – must be excluded
-        await seedScore('u_before', 'tetris', 100, '2024-06-01 00:00:00')
+        await seedScore('u_before', 'tetris', 100, {
+            createdAt: '2024-06-01 00:00:00',
+        })
         // u_inside: two scores within the window – must appear exactly once (distinct)
-        await seedScore('u_inside', 'tetris', 200, '4000-01-01 00:00:00')
-        await seedScore('u_inside', 'snake', 300, '4500-06-01 00:00:00')
+        await seedScore('u_inside', 'tetris', 200, {
+            createdAt: '4000-01-01 00:00:00',
+        })
+        await seedScore('u_inside', 'snake', 300, {
+            createdAt: '4500-06-01 00:00:00',
+        })
         // u_after: score timestamped after the window – must be excluded
-        await seedScore('u_after', 'tetris', 400, '9999-01-01 00:00:00')
+        await seedScore('u_after', 'tetris', 400, {
+            createdAt: '9999-01-01 00:00:00',
+        })
 
         const start = new Date(3e12)
         const end = new Date(5e12)
@@ -524,5 +554,45 @@ describe('getGameLeaderboard (integration)', () => {
 
         expect(result).toHaveLength(1)
         expect(result[0].score).toBe(500)
+    })
+})
+
+// ─── Score context isolation (integration) ────────────────────────────────────
+
+describe('Score context isolation (integration)', () => {
+    it('keeps scoped rows out of the default raw-attempt leaderboard', async () => {
+        await seedUser('u1', 'Player')
+        await seedScore('u1', 'tetris', 100)
+        await seedScore('u1', 'tetris', 999, {
+            mode: 'daily',
+            competitionKey: 'daily:1',
+            rulesetVersion: 1,
+        })
+
+        const result = await getGameLeaderboard('tetris', 10)
+
+        expect(result.map(entry => entry.score)).toEqual([100])
+    })
+
+    it('keeps scoped rows out of every personal-best alias', async () => {
+        await seedScore('u1', 'tetris', 100)
+        await seedScore('u1', 'tetris', 999, {
+            mode: 'daily',
+            rulesetVersion: 1,
+        })
+
+        await expect(getUserBestScore('u1', 'tetris')).resolves.toBe(100)
+        await expect(getUserBestScoreForGame('u1', 'tetris')).resolves.toBe(100)
+        await expect(getUserBestScoreByGame('u1', 'tetris')).resolves.toBe(100)
+    })
+
+    it('retains raw-attempt semantics for unscoped rows', async () => {
+        await seedUser('u1', 'Player')
+        await seedScore('u1', 'tetris', 100)
+        await seedScore('u1', 'tetris', 200)
+
+        const result = await getGameLeaderboard('tetris', 10)
+
+        expect(result.map(entry => entry.score)).toEqual([200, 100])
     })
 })
