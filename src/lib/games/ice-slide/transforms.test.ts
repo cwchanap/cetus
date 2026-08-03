@@ -45,9 +45,17 @@ it.each(BOARD_TRANSFORMS)(
         const source = ['ABC', 'DEF']
         const transformed = transformRows(source, transform)
 
-        for (let row = 0; row < source.length; row++) {
-            for (let col = 0; col < source[0].length; col++) {
-                const target = transformPosition({ row, col }, 2, 3, transform)
+        const sourceRows = source.length
+        const sourceCols = source[0].length
+
+        for (let row = 0; row < sourceRows; row++) {
+            for (let col = 0; col < sourceCols; col++) {
+                const target = transformPosition(
+                    { row, col },
+                    sourceRows,
+                    sourceCols,
+                    transform
+                )
                 expect(transformed[target.row][target.col]).toBe(
                     source[row][col]
                 )
@@ -55,6 +63,12 @@ it.each(BOARD_TRANSFORMS)(
         }
     }
 )
+
+it('throws RangeError for an out-of-range position', () => {
+    expect(() =>
+        transformPosition({ row: 5, col: 0 }, 2, 3, 'identity')
+    ).toThrow(RangeError)
+})
 
 it.each(BOARD_TRANSFORMS)('round-trips rows through inverse %s', transform => {
     const source = ['ABC', 'DEF']

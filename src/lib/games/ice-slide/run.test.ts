@@ -25,10 +25,13 @@ describe('Ice Slide run versions and signatures', () => {
             createIceSlideStageSignature({
                 rows: ICE_SLIDE_LEVELS[0].rows,
                 parMoves: 1,
+                transform: 'identity',
+                mutationIds: [],
+                difficulty: 'tutorial',
                 objectiveIds: [],
                 scoreMultiplierBps: 10000,
             })
-        ).toBe('is1-a387e186')
+        ).toBe('is2-68616e2d')
     })
 })
 
@@ -60,7 +63,7 @@ describe('Campaign run materialization', () => {
             expect(stage.mutationIds).toEqual([])
             expect(stage.objectiveIds).toEqual([])
             expect(stage.scoreMultiplierBps).toBe(10000)
-            expect(stage.signature).toMatch(/^is1-[0-9a-f]{8}$/)
+            expect(stage.signature).toMatch(/^is2-[0-9a-f]{8}$/)
         }
     })
 
@@ -94,18 +97,21 @@ it.each([
         (run: ReturnType<typeof createCampaignRunDefinition>) => {
             run.runKey = 'ice slide'
         },
+        'runKey must be transport-safe',
     ],
     [
         'version mismatch',
         (run: ReturnType<typeof createCampaignRunDefinition>) => {
-            run.runKey = 'ice-slide:campaign:g2:r1'
+            run.generatorVersion = 2
         },
+        'campaign versions must match the campaign runKey',
     ],
     [
         'Campaign seed',
         (run: ReturnType<typeof createCampaignRunDefinition>) => {
             run.seed = 'not-null'
         },
+        'campaign seed must be null',
     ],
     [
         'too many stages',
@@ -115,23 +121,92 @@ it.each([
                 id: `campaign:${index + 1}`,
             }))
         },
+        'run must contain between 1 and 64 stages',
     ],
     [
         'multiplier below band',
         (run: ReturnType<typeof createCampaignRunDefinition>) => {
             run.stages[0].scoreMultiplierBps = 999
         },
+        'scoreMultiplierBps must be an integer from 1000 through 50000',
     ],
     [
         'multiplier above band',
         (run: ReturnType<typeof createCampaignRunDefinition>) => {
             run.stages[0].scoreMultiplierBps = 50001
         },
+        'scoreMultiplierBps must be an integer from 1000 through 50000',
     ],
-] as const)('rejects %s', (_name, mutate) => {
+    [
+        'fractional multiplier',
+        (run: ReturnType<typeof createCampaignRunDefinition>) => {
+            run.stages[0].scoreMultiplierBps = 10000.5
+        },
+        'scoreMultiplierBps must be an integer from 1000 through 50000',
+    ],
+    [
+        'unknown glyph',
+        (run: ReturnType<typeof createCampaignRunDefinition>) => {
+            run.stages[0].rows = ['#####', '#S..#', '#Z..#', '#G..#', '#####']
+            run.stages[0].signature = createIceSlideStageSignature(
+                run.stages[0]
+            )
+        },
+        'unknown stage glyph',
+    ],
+    [
+        'non-rectangular rows',
+        (run: ReturnType<typeof createCampaignRunDefinition>) => {
+            run.stages[0].rows = ['#####', '#S..#', '###', '#G..#', '#####']
+        },
+        'stage rows must be rectangular',
+    ],
+    [
+        'signature mismatch',
+        (run: ReturnType<typeof createCampaignRunDefinition>) => {
+            run.stages[0].signature = 'is2-deadbeef'
+        },
+        'stage signature does not match its definition',
+    ],
+    [
+        'duplicate stage IDs',
+        (run: ReturnType<typeof createCampaignRunDefinition>) => {
+            run.stages[1] = structuredClone(run.stages[0])
+        },
+        'stage ids must contain unique non-empty values',
+    ],
+    [
+        'unknown objective',
+        (run: ReturnType<typeof createCampaignRunDefinition>) => {
+            run.stages[0].objectiveIds = ['no_falls', 'unknown' as never]
+            run.stages[0].signature = createIceSlideStageSignature(
+                run.stages[0]
+            )
+        },
+        'unknown objective "unknown"',
+    ],
+    [
+        'daily seed mismatch',
+        (run: ReturnType<typeof createCampaignRunDefinition>) => {
+            run.mode = 'daily'
+            run.runKey = 'ice-slide:daily:2026-08-03:g1:r1'
+            run.seed = 'ice-slide:daily:1:1:2026-08-04'
+        },
+        'daily seed must match the runKey date and versions',
+    ],
+    [
+        'expedition hash mismatch',
+        (run: ReturnType<typeof createCampaignRunDefinition>) => {
+            run.mode = 'expedition'
+            run.runKey = 'ice-slide:expedition:deadbeef:g1:r1'
+            run.seed = 'test-seed'
+        },
+        'expedition runKey hash must equal hashString32Hex(seed)',
+    ],
+] as const)('rejects %s', (_name, mutate, message) => {
     const run = cloneRun()
     mutate(run)
-    expect(() => assertValidIceSlideRunDefinition(run)).toThrow()
+    expect(() => assertValidIceSlideRunDefinition(run)).toThrow(message)
 })
 
 it('validates a Daily key/date/seed relationship', () => {

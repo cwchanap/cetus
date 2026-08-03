@@ -40,6 +40,8 @@ export function transformPosition(
     if (
         !Number.isInteger(inputRows) ||
         !Number.isInteger(inputCols) ||
+        !Number.isInteger(position.row) ||
+        !Number.isInteger(position.col) ||
         inputRows < 1 ||
         inputCols < 1 ||
         position.row < 0 ||
