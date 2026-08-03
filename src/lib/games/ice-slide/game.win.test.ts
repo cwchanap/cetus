@@ -1,35 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
-
-vi.mock('./levels', () => {
-    const levels = [
-        {
-            id: 1,
-            name: 'Crystal Dash',
-            parMoves: 1,
-            rows: ['######', '#SC.G#', '######'],
-        },
-    ]
-    return {
-        ICE_SLIDE_LEVELS: levels,
-        getLevel: (index: number) => {
-            const level = levels[index]
-            if (!level) {
-                throw new Error(`Ice Slide level index out of range: ${index}`)
-            }
-            return level
-        },
-    }
-})
-
 import { IceSlideGame } from './game'
+import { createTestRun, createTestStage } from './test-fixtures'
 
-describe('IceSlideGame win + crystal branch (mocked levels)', () => {
+describe('IceSlideGame win + crystal branch (explicit run)', () => {
     it('collects crystals and wins the single-level mission', () => {
         const onCrystal = vi.fn()
         const onWin = vi.fn()
         const onLevelClear = vi.fn()
+        const run = createTestRun([
+            createTestStage({
+                name: 'Crystal Dash',
+                rows: ['######', '#SC.G#', '######'],
+                parMoves: 1,
+            }),
+        ])
         const game = new IceSlideGame({ onCrystal, onWin, onLevelClear })
-        game.start()
+        game.start(run)
 
         game.move('E')
         expect(onCrystal).toHaveBeenCalledWith(1)

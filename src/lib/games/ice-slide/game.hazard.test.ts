@@ -1,34 +1,20 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('./levels', () => {
-    const levels = [
-        {
-            id: 1,
-            name: 'Hazard Lane',
-            parMoves: 1,
-            rows: ['#####', '#S.H#', '#G..#', '#####'],
-        },
-    ]
-    return {
-        ICE_SLIDE_LEVELS: levels,
-        getLevel: (index: number) => {
-            const level = levels[index]
-            if (!level) {
-                throw new Error(`Ice Slide level index out of range: ${index}`)
-            }
-            return level
-        },
-    }
-})
-
+import { describe, expect, it, vi } from 'vitest'
 import { IceSlideGame } from './game'
+import { createTestRun, createTestStage } from './test-fixtures'
 
-describe('IceSlideGame hazard branch (mocked levels)', () => {
+describe('IceSlideGame hazard branch (explicit run)', () => {
     it('reloads the level after sliding into a hazard', () => {
         const onHazard = vi.fn()
         const onMove = vi.fn()
+        const run = createTestRun([
+            createTestStage({
+                name: 'Hazard Lane',
+                rows: ['#####', '#S.H#', '#G..#', '#####'],
+                parMoves: 1,
+            }),
+        ])
         const game = new IceSlideGame({ onHazard, onMove })
-        game.start()
+        game.start(run)
 
         game.move('E')
         expect(onHazard).toHaveBeenCalled()
@@ -41,8 +27,15 @@ describe('IceSlideGame hazard branch (mocked levels)', () => {
     })
 
     it('does not award perfectLevels after a hazard then at-par solve', () => {
+        const run = createTestRun([
+            createTestStage({
+                name: 'Hazard Lane',
+                rows: ['#####', '#S.H#', '#G..#', '#####'],
+                parMoves: 1,
+            }),
+        ])
         const game = new IceSlideGame()
-        game.start()
+        game.start(run)
 
         game.move('E') // hazard; levelMoves retained at 1
         expect(game.getState().levelMoves).toBe(1)
@@ -65,8 +58,15 @@ describe('IceSlideGame hazard branch (mocked levels)', () => {
 
     it('stop leaves the run idle without winning', () => {
         const onWin = vi.fn()
+        const run = createTestRun([
+            createTestStage({
+                name: 'Hazard Lane',
+                rows: ['#####', '#S.H#', '#G..#', '#####'],
+                parMoves: 1,
+            }),
+        ])
         const game = new IceSlideGame({ onWin })
-        game.start()
+        game.start(run)
         game.stop()
         expect(game.getState().status).toBe('idle')
         expect(onWin).not.toHaveBeenCalled()
