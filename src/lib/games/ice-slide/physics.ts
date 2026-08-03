@@ -1,26 +1,26 @@
-import {
-    GLYPH_TO_CELL,
-    type CellType,
-    type GridPosition,
-    type IceSlideLevel,
-} from './types'
+import { GLYPH_TO_CELL, type CellType, type GridPosition } from './types'
 
-export function parseGrid(level: IceSlideLevel): CellType[][] {
-    if (level.rows.length === 0) {
-        throw new Error(`Level ${level.id} has no rows`)
+export interface IceSlideGridSource {
+    id: string | number
+    rows: readonly string[]
+}
+
+export function parseGrid(source: IceSlideGridSource): CellType[][] {
+    if (source.rows.length === 0) {
+        throw new Error(`Level ${source.id} has no rows`)
     }
-    const cols = level.rows[0].length
-    return level.rows.map((row, rowIndex) => {
+    const cols = source.rows[0].length
+    return source.rows.map((row, rowIndex) => {
         if (row.length !== cols) {
             throw new Error(
-                `Level ${level.id} row ${rowIndex} length ${row.length} != ${cols}`
+                `Level ${source.id} row ${rowIndex} length ${row.length} != ${cols}`
             )
         }
         return [...row].map(glyph => {
             const cell = GLYPH_TO_CELL[glyph]
             if (!cell) {
                 throw new Error(
-                    `Level ${level.id} unknown glyph "${glyph}" at row ${rowIndex}`
+                    `Level ${source.id} unknown glyph "${glyph}" at row ${rowIndex}`
                 )
             }
             return cell

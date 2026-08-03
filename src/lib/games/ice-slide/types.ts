@@ -42,6 +42,16 @@ export interface IceSlideState {
     perfectLevels: number
     levelsCleared: number
     lastSlidePath: GridPosition[]
+    mode: IceSlideMode
+    runKey: string
+    runSchemaVersion: 1
+    generatorVersion: number
+    rulesetVersion: number
+    stagesTotal: number
+    starsEarned: number
+    falls: number
+    resets: number
+    stageSignatures: string[]
 }
 
 export interface IceSlideGameData {
@@ -51,6 +61,16 @@ export interface IceSlideGameData {
     elapsedSeconds: number
     solved: boolean
     perfectLevels: number
+    mode: IceSlideMode
+    runKey: string
+    runSchemaVersion: 1
+    generatorVersion: number
+    rulesetVersion: number
+    stagesTotal: number
+    starsEarned: number
+    falls: number
+    resets: number
+    stageSignatures: string[]
 }
 
 export interface IceSlideCallbacks {
@@ -88,6 +108,30 @@ export type BoardTransform =
     | 'reflect_vertical'
     | 'reflect_main_diagonal'
     | 'reflect_anti_diagonal'
+
+export interface IceSlideRunDefinition {
+    schemaVersion: 1
+    generatorVersion: number
+    rulesetVersion: number
+    mode: IceSlideMode
+    runKey: string
+    seed: string | null
+    stages: IceSlideStageDefinition[]
+}
+
+export interface IceSlideStageDefinition {
+    id: string
+    name: string
+    templateId: string
+    difficulty: IceSlideDifficulty
+    rows: string[]
+    parMoves: number
+    transform: BoardTransform
+    mutationIds: string[]
+    objectiveIds: IceSlideObjectiveId[]
+    scoreMultiplierBps: number
+    signature: string
+}
 
 export const GLYPH_TO_CELL: Record<string, CellType> = {
     '#': 'wall',

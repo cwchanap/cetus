@@ -20,8 +20,6 @@ describe('ice-slide physics', () => {
     it('parses glyphs and finds start', () => {
         const grid = parseGrid({
             id: 99,
-            name: 't',
-            parMoves: 1,
             rows: ['####', '#SG#', '####'],
         })
         expect(grid[1][1]).toBe('start')
@@ -30,22 +28,16 @@ describe('ice-slide physics', () => {
     })
 
     it('rejects empty, jagged, and unknown glyphs', () => {
-        expect(() =>
-            parseGrid({ id: 1, name: 't', parMoves: 1, rows: [] })
-        ).toThrow(/no rows/)
+        expect(() => parseGrid({ id: 1, rows: [] })).toThrow(/no rows/)
         expect(() =>
             parseGrid({
                 id: 2,
-                name: 't',
-                parMoves: 1,
                 rows: ['###', '##'],
             })
         ).toThrow(/length/)
         expect(() =>
             parseGrid({
                 id: 3,
-                name: 't',
-                parMoves: 1,
                 rows: ['###', '#X#', '###'],
             })
         ).toThrow(/unknown glyph/)
@@ -54,8 +46,6 @@ describe('ice-slide physics', () => {
     it('throws when start is missing', () => {
         const grid = parseGrid({
             id: 99,
-            name: 't',
-            parMoves: 1,
             rows: ['###', '#.#', '###'],
         })
         expect(() => findStart(grid)).toThrow(/missing a start/)
@@ -64,8 +54,6 @@ describe('ice-slide physics', () => {
     it('slides until a wall and stops before it', () => {
         const grid = parseGrid({
             id: 99,
-            name: 't',
-            parMoves: 1,
             rows: ['#####', '#S..#', '#####'],
         })
         const start = findStart(grid)
@@ -94,8 +82,6 @@ describe('ice-slide physics', () => {
     it('stops before a rock', () => {
         const grid = parseGrid({
             id: 99,
-            name: 't',
-            parMoves: 1,
             rows: ['#####', '#S.O#', '#####'],
         })
         const start = findStart(grid)
@@ -110,8 +96,6 @@ describe('ice-slide physics', () => {
     it('stops on the goal', () => {
         const grid = parseGrid({
             id: 99,
-            name: 't',
-            parMoves: 1,
             rows: ['#####', '#S.G#', '#####'],
         })
         const start = findStart(grid)
@@ -127,8 +111,6 @@ describe('ice-slide physics', () => {
     it('collects crystals while sliding', () => {
         const grid = parseGrid({
             id: 99,
-            name: 't',
-            parMoves: 1,
             rows: ['######', '#S.C.#', '######'],
         })
         const start = findStart(grid)
@@ -145,8 +127,6 @@ describe('ice-slide physics', () => {
     it('reports hazard when entering a hole', () => {
         const grid = parseGrid({
             id: 99,
-            name: 't',
-            parMoves: 1,
             rows: ['#####', '#S.H#', '#####'],
         })
         const start = findStart(grid)
@@ -158,8 +138,6 @@ describe('ice-slide physics', () => {
     it('no-ops when the adjacent cell is blocked', () => {
         const grid = parseGrid({
             id: 99,
-            name: 't',
-            parMoves: 1,
             rows: ['###', '#S#', '###'],
         })
         const start = findStart(grid)
@@ -377,4 +355,13 @@ describe('ice-slide levels', () => {
         expect(() => getLevel(-1)).toThrow(/out of range/)
         expect(() => getLevel(ICE_SLIDE_LEVELS.length)).toThrow(/out of range/)
     })
+})
+
+it('parses materialized stage rows with a string id', () => {
+    const grid = parseGrid({
+        id: 'campaign:1',
+        rows: ['#####', '#S.G#', '#####'],
+    })
+    expect(grid[1][1]).toBe('start')
+    expect(grid[1][3]).toBe('goal')
 })
