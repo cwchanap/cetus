@@ -1,0 +1,92 @@
+import { describe, expect, it } from 'vitest'
+import {
+    BOARD_TRANSFORMS,
+    getUniqueBoardTransforms,
+    hashBoardRows,
+    inverseBoardTransform,
+    serializeBoardRows,
+    transformPosition,
+    transformRows,
+} from './transforms'
+
+describe('Ice Slide board transforms', () => {
+    const rows = ['ABC', 'DEF'] as const
+
+    it.each([
+        ['identity', ['ABC', 'DEF']],
+        ['rotate_90', ['DA', 'EB', 'FC']],
+        ['rotate_180', ['FED', 'CBA']],
+        ['rotate_270', ['CF', 'BE', 'AD']],
+        ['reflect_horizontal', ['DEF', 'ABC']],
+        ['reflect_vertical', ['CBA', 'FED']],
+        ['reflect_main_diagonal', ['AD', 'BE', 'CF']],
+        ['reflect_anti_diagonal', ['FC', 'EB', 'DA']],
+    ] as const)('applies %s', (transform, expected) => {
+        expect(transformRows(rows, transform)).toEqual(expected)
+    })
+
+    it('locks transform enumeration order', () => {
+        expect(BOARD_TRANSFORMS).toEqual([
+            'identity',
+            'rotate_90',
+            'rotate_180',
+            'rotate_270',
+            'reflect_horizontal',
+            'reflect_vertical',
+            'reflect_main_diagonal',
+            'reflect_anti_diagonal',
+        ])
+    })
+})
+
+it.each(BOARD_TRANSFORMS)(
+    'keeps transformed coordinates aligned for %s',
+    transform => {
+        const source = ['ABC', 'DEF']
+        const transformed = transformRows(source, transform)
+
+        for (let row = 0; row < source.length; row++) {
+            for (let col = 0; col < source[0].length; col++) {
+                const target = transformPosition({ row, col }, 2, 3, transform)
+                expect(transformed[target.row][target.col]).toBe(
+                    source[row][col]
+                )
+            }
+        }
+    }
+)
+
+it.each(BOARD_TRANSFORMS)('round-trips rows through inverse %s', transform => {
+    const source = ['ABC', 'DEF']
+    const transformed = transformRows(source, transform)
+    expect(
+        transformRows(transformed, inverseBoardTransform(transform))
+    ).toEqual(source)
+})
+
+it('serializes dimensions and row boundaries exactly', () => {
+    expect(serializeBoardRows(['AB', 'CD'])).toBe('2x2\u001fAB\u001eCD')
+    expect(hashBoardRows(['AB', 'CD'])).toMatch(/^[0-9a-f]{8}$/)
+})
+
+it.each([
+    [[]] as [string[]],
+    [['']] as [string[]],
+    [['ABC', 'DE']] as [string[]],
+])('rejects malformed canonical rows %j', rows => {
+    expect(() => serializeBoardRows(rows)).toThrow(RangeError)
+    expect(() => hashBoardRows(rows)).toThrow(RangeError)
+})
+
+it('deduplicates by complete canonical serialization', () => {
+    const variants = getUniqueBoardTransforms(['AAA', 'ABA', 'AAA'])
+    expect(variants).toHaveLength(1)
+    expect(variants[0].transform).toBe('identity')
+})
+
+it('retains all variants for an asymmetric rectangle', () => {
+    const variants = getUniqueBoardTransforms(['ABC', 'DEF'])
+    expect(variants).toHaveLength(8)
+    expect(variants.map(variant => variant.transform)).toEqual(BOARD_TRANSFORMS)
+    expect(new Set(variants.map(variant => variant.canonicalKey)).size).toBe(8)
+})

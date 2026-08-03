@@ -71,6 +71,24 @@ export const DIRECTION_DELTA: Record<Direction, GridPosition> = {
     W: { row: 0, col: -1 },
 }
 
+export type IceSlideMode = 'campaign' | 'daily' | 'expedition'
+export type IceSlideDifficulty = 'tutorial' | 'easy' | 'medium' | 'hard'
+
+export type IceSlideObjectiveId =
+    | 'collect_all_crystals'
+    | 'no_falls'
+    | 'no_reset'
+
+export type BoardTransform =
+    | 'identity'
+    | 'rotate_90'
+    | 'rotate_180'
+    | 'rotate_270'
+    | 'reflect_horizontal'
+    | 'reflect_vertical'
+    | 'reflect_main_diagonal'
+    | 'reflect_anti_diagonal'
+
 export const GLYPH_TO_CELL: Record<string, CellType> = {
     '#': 'wall',
     '.': 'ice',
