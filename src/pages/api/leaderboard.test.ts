@@ -414,7 +414,7 @@ describe('GET /api/leaderboard', () => {
                 ),
             } as never)
 
-            expect(response.status).toBe(500)
+            expect(response.status).toBe(503)
             expect(await response.json()).toEqual({
                 error: 'Scoped leaderboard is unavailable',
                 code: 'SCOPED_LEADERBOARD_UNAVAILABLE',
