@@ -207,7 +207,20 @@ async function inspectAndMigrate(): Promise<GameScoresContextState> {
         return cachedState
     } catch (error) {
         console.warn('[game-score-context] capability probe failed:', error)
-        return cachedState ?? { known: false }
+        // Reuse the cached state only when its context columns are confirmed
+        // complete. Returning an incomplete snapshot after a failed refresh is
+        // unsafe across Vercel instances: another instance may have finished
+        // the migration and started accepting scoped rows, and an incomplete
+        // capability set causes applyUnscopedContextIsolation to leave the
+        // query unfiltered, leaking scoped rows into unscoped leaderboards and
+        // bypassing the SCORE_CONTEXT_UNAVAILABLE 503 path. Fail closed.
+        if (
+            cachedState?.known === true &&
+            hasCompleteGameScoresContextColumns(cachedState.capabilities)
+        ) {
+            return cachedState
+        }
+        return { known: false }
     }
 }
 
