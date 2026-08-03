@@ -1071,7 +1071,7 @@ describe('Ice Slide run versions and signatures', () => {
                 objectiveIds: [],
                 scoreMultiplierBps: 10000,
             })
-        ).toBe('is2-68616e2d')
+        ).toBe('is2-d1feaba1')
     })
 })
 ```
@@ -1121,7 +1121,7 @@ export function createIceSlideStageSignature(input: {
         `rows=${serializeBoardRows(input.rows)}`,
         `parMoves=${input.parMoves}`,
         `transform=${input.transform}`,
-        `mutationIds=${sortedMutationIds.join(',')}`,
+        `mutationIds=${JSON.stringify(sortedMutationIds)}`,
         `difficulty=${input.difficulty}`,
         `objectiveIds=${sortedObjectiveIds.join(',')}`,
         `scoreMultiplierBps=${input.scoreMultiplierBps}`,
@@ -2086,7 +2086,7 @@ Before marking HPA-485 implementation complete, verify each design requirement a
 - [ ] All eight transforms match the rectangular fixture and coordinate table.
 - [ ] Canonical serialization rejects empty, zero-column, and jagged rows.
 - [ ] Symmetry dedup uses complete canonical keys.
-- [ ] First Frost signature is `is2-68616e2d`.
+- [ ] First Frost signature is `is2-d1feaba1`.
 - [ ] Campaign run key is derived from Campaign-specific generator and ruleset versions.
 - [ ] Run validation enforces transport-safe mode-specific key/seed/version relationships.
 - [ ] Run validation limits stages to `1..64` and multiplier BPS to `1000..50000`.

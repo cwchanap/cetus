@@ -689,7 +689,7 @@ const payload = [
     `rows=${serializeBoardRows(rows)}`,
     `parMoves=${parMoves}`,
     `transform=${transform}`,
-    `mutationIds=${sortedMutationIds.join(',')}`,
+    `mutationIds=${JSON.stringify(sortedMutationIds)}`,
     `difficulty=${difficulty}`,
     `objectiveIds=${sortedObjectiveIds.join(',')}`,
     `scoreMultiplierBps=${scoreMultiplierBps}`,
@@ -716,13 +716,13 @@ scoreMultiplierBps = 10000
 Exact preimage:
 
 ```text
-ice-slide-stage:v2\u001drows=5x5\u001f#####\u001e#S..#\u001e#...#\u001e#G..#\u001e#####\u001dparMoves=1\u001dtransform=identity\u001dmutationIds=\u001ddifficulty=tutorial\u001dobjectiveIds=\u001dscoreMultiplierBps=10000
+ice-slide-stage:v2\u001drows=5x5\u001f#####\u001e#S..#\u001e#...#\u001e#G..#\u001e#####\u001dparMoves=1\u001dtransform=identity\u001dmutationIds=[]\u001ddifficulty=tutorial\u001dobjectiveIds=\u001dscoreMultiplierBps=10000
 ```
 
 Golden signature:
 
 ```text
-is2-68616e2d
+is2-d1feaba1
 ```
 
 ## 11. Campaign materialization
