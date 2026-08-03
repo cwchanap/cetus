@@ -97,8 +97,11 @@ it.each([
     ['negative col', { row: 0, col: -1 }, 2, 2],
     ['row out of range', { row: 2, col: 0 }, 2, 2],
     ['col out of range', { row: 0, col: 2 }, 2, 2],
-    ['non-integer rows', { row: 0, col: 0 }, 1.5, 2],
-    ['non-integer cols', { row: 0, col: 0 }, 2, 0],
+    ['fractional inputRows', { row: 0, col: 0 }, 1.5, 2],
+    ['fractional inputCols', { row: 0, col: 0 }, 2, 1.5],
+    ['fractional position row', { row: 0.5, col: 0 }, 2, 2],
+    ['fractional position col', { row: 0, col: 0.5 }, 2, 2],
+    ['zero inputCols', { row: 0, col: 0 }, 2, 0],
 ] as const)(
     'rejects out-of-bounds position for %s',
     (_name, position, rows, cols) => {
@@ -119,4 +122,26 @@ it('retains all variants for an asymmetric rectangle', () => {
     expect(variants).toHaveLength(8)
     expect(variants.map(variant => variant.transform)).toEqual(BOARD_TRANSFORMS)
     expect(new Set(variants.map(variant => variant.canonicalKey)).size).toBe(8)
+})
+
+it('keeps exactly two variants for a board with fourfold rotation symmetry', () => {
+    const variants = getUniqueBoardTransforms(['ABCA', 'CDDB', 'BDDC', 'ACBA'])
+    expect(variants).toHaveLength(2)
+    expect(variants.map(variant => variant.transform)).toEqual([
+        'identity',
+        'reflect_horizontal',
+    ])
+    expect(new Set(variants.map(variant => variant.canonicalKey)).size).toBe(2)
+})
+
+it('keeps exactly four variants for a board with half-turn symmetry', () => {
+    const variants = getUniqueBoardTransforms(['ABC', 'CBA'])
+    expect(variants).toHaveLength(4)
+    expect(variants.map(variant => variant.transform)).toEqual([
+        'identity',
+        'rotate_90',
+        'reflect_horizontal',
+        'reflect_main_diagonal',
+    ])
+    expect(new Set(variants.map(variant => variant.canonicalKey)).size).toBe(4)
 })
