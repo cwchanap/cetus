@@ -78,6 +78,22 @@ it.each([
     expect(() => hashBoardRows(rows)).toThrow(RangeError)
 })
 
+it.each([
+    ['negative row', { row: -1, col: 0 }, 2, 2],
+    ['negative col', { row: 0, col: -1 }, 2, 2],
+    ['row out of range', { row: 2, col: 0 }, 2, 2],
+    ['col out of range', { row: 0, col: 2 }, 2, 2],
+    ['non-integer rows', { row: 0, col: 0 }, 1.5, 2],
+    ['non-integer cols', { row: 0, col: 0 }, 2, 0],
+] as const)(
+    'rejects out-of-bounds position for %s',
+    (_name, position, rows, cols) => {
+        expect(() =>
+            transformPosition(position, rows, cols, 'identity')
+        ).toThrow(RangeError)
+    }
+)
+
 it('deduplicates by complete canonical serialization', () => {
     const variants = getUniqueBoardTransforms(['AAA', 'ABA', 'AAA'])
     expect(variants).toHaveLength(1)
