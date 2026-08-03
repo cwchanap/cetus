@@ -1,33 +1,19 @@
 import { describe, expect, it, vi } from 'vitest'
-
-vi.mock('./levels', () => {
-    const levels = [
-        {
-            id: 1,
-            name: 'Crystal Hazard',
-            parMoves: 2,
-            rows: ['######', '#S.C.#', '#...H#', '######'],
-        },
-    ]
-    return {
-        ICE_SLIDE_LEVELS: levels,
-        getLevel: (index: number) => {
-            const level = levels[index]
-            if (!level) {
-                throw new Error(`Ice Slide level index out of range: ${index}`)
-            }
-            return level
-        },
-    }
-})
-
 import { IceSlideGame } from './game'
+import { createTestRun, createTestStage } from './test-fixtures'
 
 describe('IceSlideGame crystal farming via hazard', () => {
     it('subtracts attempt crystals after falling in a hole', () => {
         const onHazard = vi.fn()
+        const run = createTestRun([
+            createTestStage({
+                name: 'Crystal Hazard',
+                parMoves: 2,
+                rows: ['######', '#S.C.#', '#...H#', '######'],
+            }),
+        ])
         const game = new IceSlideGame({ onHazard })
-        game.start()
+        game.start(run)
 
         game.move('E') // collect crystal, stop at (1,4)
         expect(game.getState().crystalsCollected).toBe(1)

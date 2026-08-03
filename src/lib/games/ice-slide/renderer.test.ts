@@ -75,6 +75,16 @@ function makeState(
         perfectLevels: 0,
         levelsCleared: 0,
         lastSlidePath: [],
+        mode: 'campaign',
+        runKey: 'ice-slide:campaign:g1:r1',
+        runSchemaVersion: 1,
+        generatorVersion: 1,
+        rulesetVersion: 1,
+        stagesTotal: 8,
+        starsEarned: 0,
+        falls: 0,
+        resets: 0,
+        stageSignatures: [],
         ...overrides,
     }
 }

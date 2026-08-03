@@ -1,32 +1,18 @@
 import { describe, expect, it } from 'vitest'
-
-vi.mock('./levels', () => {
-    const levels = [
-        {
-            id: 1,
-            name: 'Crystal Corridor',
-            parMoves: 3,
-            rows: ['######', '#S.C.#', '#....#', '#...G#', '######'],
-        },
-    ]
-    return {
-        ICE_SLIDE_LEVELS: levels,
-        getLevel: (index: number) => {
-            const level = levels[index]
-            if (!level) {
-                throw new Error(`Ice Slide level index out of range: ${index}`)
-            }
-            return level
-        },
-    }
-})
-
 import { IceSlideGame } from './game'
+import { createTestRun, createTestStage } from './test-fixtures'
 
 describe('IceSlideGame crystal farming guard', () => {
     it('does not farm crystals across collect → reset → recollect', () => {
+        const run = createTestRun([
+            createTestStage({
+                name: 'Crystal Corridor',
+                parMoves: 3,
+                rows: ['######', '#S.C.#', '#....#', '#...G#', '######'],
+            }),
+        ])
         const game = new IceSlideGame()
-        game.start()
+        game.start(run)
 
         game.move('E')
         expect(game.getState().crystalsCollected).toBe(1)

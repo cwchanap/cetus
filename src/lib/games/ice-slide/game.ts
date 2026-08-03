@@ -3,20 +3,59 @@ import {
     type Direction,
     type IceSlideCallbacks,
     type IceSlideGameData,
+    type IceSlideRunDefinition,
+    type IceSlideStageDefinition,
     type IceSlideState,
 } from './types'
 import { cloneGrid, findStart, parseGrid, slide } from './physics'
-import { getLevel, ICE_SLIDE_LEVELS } from './levels'
+import {
+    assertValidIceSlideRunDefinition,
+    cloneIceSlideRunDefinition,
+    createCampaignRunDefinition,
+} from './run'
 import { levelScore, timeBonus } from './scoring'
 
 export class IceSlideGame {
     private state: IceSlideState
+    private activeRun: IceSlideRunDefinition
     private elapsedTimer: ReturnType<typeof setInterval> | null = null
     private callbacks: Partial<IceSlideCallbacks>
 
     constructor(callbacks: Partial<IceSlideCallbacks> = {}) {
         this.callbacks = callbacks
+        this.activeRun = createCampaignRunDefinition()
         this.state = this.createIdleState()
+    }
+
+    private runMetadata(): Pick<
+        IceSlideState,
+        | 'mode'
+        | 'runKey'
+        | 'runSchemaVersion'
+        | 'generatorVersion'
+        | 'rulesetVersion'
+        | 'stagesTotal'
+        | 'stageSignatures'
+    > {
+        return {
+            mode: this.activeRun.mode,
+            runKey: this.activeRun.runKey,
+            runSchemaVersion: this.activeRun.schemaVersion,
+            generatorVersion: this.activeRun.generatorVersion,
+            rulesetVersion: this.activeRun.rulesetVersion,
+            stagesTotal: this.activeRun.stages.length,
+            stageSignatures: this.activeRun.stages.map(
+                stage => stage.signature
+            ),
+        }
+    }
+
+    private getStage(index: number): IceSlideStageDefinition {
+        const stage = this.activeRun.stages[index]
+        if (!stage) {
+            throw new Error(`Ice Slide stage index out of range: ${index}`)
+        }
+        return stage
     }
 
     private createIdleState(): IceSlideState {
@@ -38,6 +77,10 @@ export class IceSlideGame {
             perfectLevels: 0,
             levelsCleared: 0,
             lastSlidePath: [],
+            ...this.runMetadata(),
+            starsEarned: 0,
+            falls: 0,
+            resets: 0,
         }
     }
 
@@ -48,6 +91,7 @@ export class IceSlideGame {
             player: { ...this.state.player },
             start: { ...this.state.start },
             lastSlidePath: this.state.lastSlidePath.map(p => ({ ...p })),
+            stageSignatures: [...this.state.stageSignatures],
         }
     }
 
@@ -59,11 +103,29 @@ export class IceSlideGame {
             elapsedSeconds: this.state.elapsedSeconds,
             solved: this.state.status === 'won',
             perfectLevels: this.state.perfectLevels,
+            mode: this.state.mode,
+            runKey: this.state.runKey,
+            runSchemaVersion: this.state.runSchemaVersion,
+            generatorVersion: this.state.generatorVersion,
+            rulesetVersion: this.state.rulesetVersion,
+            stagesTotal: this.state.stagesTotal,
+            starsEarned: this.state.starsEarned,
+            falls: this.state.falls,
+            resets: this.state.resets,
+            stageSignatures: [...this.state.stageSignatures],
         }
     }
 
-    start(): void {
+    start(run?: IceSlideRunDefinition): void {
+        const nextRun = run
+            ? (() => {
+                  assertValidIceSlideRunDefinition(run)
+                  return cloneIceSlideRunDefinition(run)
+              })()
+            : createCampaignRunDefinition()
+
         this.stopTimer()
+        this.activeRun = nextRun
         this.state = this.createIdleState()
         this.state.status = 'playing'
         this.loadLevel(0)
@@ -144,22 +206,22 @@ export class IceSlideGame {
     }
 
     private clearLevel(): void {
-        const level = getLevel(this.state.levelIndex)
+        const stage = this.getStage(this.state.levelIndex)
         const levelNumber = this.state.levelIndex + 1
         const gained = levelScore({
             levelNumber,
-            parMoves: level.parMoves,
+            parMoves: stage.parMoves,
             movesUsed: this.state.levelMoves,
             crystalsCollected: this.state.levelCrystalsCollected,
         })
         this.state.score += gained
         this.state.levelsCleared += 1
-        if (this.state.levelMoves <= level.parMoves) {
+        if (this.state.levelMoves <= stage.parMoves) {
             this.state.perfectLevels += 1
         }
         this.callbacks.onScoreUpdate?.(this.state.score)
 
-        if (this.state.levelIndex >= ICE_SLIDE_LEVELS.length - 1) {
+        if (this.state.levelIndex >= this.activeRun.stages.length - 1) {
             this.state.score += timeBonus(this.state.elapsedSeconds)
             this.state.status = 'won'
             this.stopTimer()
@@ -180,8 +242,8 @@ export class IceSlideGame {
             preserveLevelMoves?: boolean
         } = {}
     ): void {
-        const level = getLevel(index)
-        const grid = cloneGrid(parseGrid(level))
+        const stage = this.getStage(index)
+        const grid = cloneGrid(parseGrid(stage))
         const start = findStart(grid)
         // Start tile behaves as ice after spawn.
         grid[start.row][start.col] = 'ice'
@@ -194,13 +256,16 @@ export class IceSlideGame {
                   elapsedSeconds: this.state.elapsedSeconds,
                   perfectLevels: this.state.perfectLevels,
                   levelsCleared: this.state.levelsCleared,
+                  starsEarned: this.state.starsEarned,
+                  falls: this.state.falls,
+                  resets: this.state.resets,
                   status: this.state.status,
               }
             : null
 
         this.state = {
             levelIndex: index,
-            levelName: level.name,
+            levelName: stage.name,
             rows: grid.length,
             cols: grid[0].length,
             grid,
@@ -216,6 +281,10 @@ export class IceSlideGame {
             perfectLevels: preserved?.perfectLevels ?? 0,
             levelsCleared: preserved?.levelsCleared ?? 0,
             lastSlidePath: [],
+            ...this.runMetadata(),
+            starsEarned: preserved?.starsEarned ?? 0,
+            falls: preserved?.falls ?? 0,
+            resets: preserved?.resets ?? 0,
         }
     }
 
