@@ -11,7 +11,10 @@ import Avatar from '@/components/ui/Avatar.astro'
 
 // Server-side data fetching
 import { getAllGames } from '@/lib/games'
-import { getGameLeaderboard } from '@/lib/server/db/queries'
+import {
+  getGameLeaderboard,
+  isGameLeaderboardAvailable,
+} from '@/lib/server/db/queries'
 
 // Define types
 type LeaderboardEntry = {
@@ -35,7 +38,7 @@ for (const game of games) {
   // existing empty state rather than failing the whole render; the
   // `/api/leaderboard` endpoint surfaces the coded 503 for programmatic
   // callers.
-  gameLeaderboards[game.id] = Array.isArray(result) ? result : []
+  gameLeaderboards[game.id] = isGameLeaderboardAvailable(result) ? result : []
 }
 
 // Game icons mapping

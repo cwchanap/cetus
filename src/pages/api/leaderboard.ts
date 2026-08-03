@@ -88,7 +88,8 @@ export const GET: APIRoute = async ({ url }) => {
             if (!scoped.success) {
                 return codedErrorResponse(
                     'Scoped leaderboard is unavailable',
-                    'SCOPED_LEADERBOARD_UNAVAILABLE'
+                    'SCOPED_LEADERBOARD_UNAVAILABLE',
+                    503
                 )
             }
 

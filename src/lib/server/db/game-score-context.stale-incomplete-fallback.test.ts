@@ -58,13 +58,15 @@ describe('inspectAndMigrate - stale incomplete cached state', () => {
         // first ALTER so migration throws and the catch path runs with an
         // incomplete cachedState.
         let phase: 1 | 3 = 1
-        executor.executeQuery = vi.fn(async (query: any) => {
-            const sqlText: string = query.sql ?? ''
-            if (phase === 1 && /ALTER\s+TABLE/i.test(sqlText)) {
-                throw new Error('injected migration failure')
+        executor.executeQuery = vi.fn(
+            async (query: Parameters<typeof executor.executeQuery>[0]) => {
+                const sqlText: string = query.sql ?? ''
+                if (phase === 1 && /ALTER\s+TABLE/i.test(sqlText)) {
+                    throw new Error('injected migration failure')
+                }
+                return originalExecute(query)
             }
-            return originalExecute(query)
-        }) as typeof executor.executeQuery
+        ) as typeof executor.executeQuery
 
         const firstState = await ensureGameScoresContextSchema()
         // An incomplete cached state must not be reported as known; otherwise
@@ -106,13 +108,15 @@ describe('inspectAndMigrate - stale incomplete cached state', () => {
         // PRAGMA inspection is forced to throw; the leaderboard SELECT (if it
         // were to run) is allowed.
         phase = 3
-        executor.executeQuery = vi.fn(async (query: any) => {
-            const sqlText: string = query.sql ?? ''
-            if (/PRAGMA\s+table_info/i.test(sqlText)) {
-                throw new Error('injected probe failure')
+        executor.executeQuery = vi.fn(
+            async (query: Parameters<typeof executor.executeQuery>[0]) => {
+                const sqlText: string = query.sql ?? ''
+                if (/PRAGMA\s+table_info/i.test(sqlText)) {
+                    throw new Error('injected probe failure')
+                }
+                return originalExecute(query)
             }
-            return originalExecute(query)
-        }) as typeof executor.executeQuery
+        ) as typeof executor.executeQuery
 
         const result = await getGameLeaderboard('tetris', 10)
 
