@@ -43,7 +43,9 @@ export function createTestRun(
         rulesetVersion: ICE_SLIDE_RULESET_VERSION,
         mode: 'expedition',
         runKey:
-            'ice-slide:expedition:' + hashString32Hex('test-seed') + ':g1:r1',
+            'ice-slide:expedition:' +
+            hashString32Hex('test-seed') +
+            `:g1:r${ICE_SLIDE_RULESET_VERSION}`,
         seed: 'test-seed',
         stages: stages.map(stage => ({
             ...stage,

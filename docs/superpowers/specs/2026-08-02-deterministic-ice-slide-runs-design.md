@@ -267,6 +267,11 @@ ice-slide:expedition:<seedHash>:g<generatorVersion>:r<rulesetVersion>
 Additional relationships:
 
 - Campaign key must equal `CAMPAIGN_RUN_KEY` and `seed` must be `null`.
+- Daily `YYYY-MM-DD` must be a calendar-valid date, not merely lexical: the regex only
+  checks `\d{4}-\d{2}-\d{2}`, so the validator additionally round-trips the parsed
+  year/month/day through `new Date(Date.UTC(year, month - 1, day))` and requires the UTC
+  components to match, rejecting impossible dates such as `2026-02-30` or `2026-13-01`
+  before comparing generator/ruleset versions.
 - Daily `seed` must equal
   `ice-slide:daily:<generatorVersion>:<rulesetVersion>:YYYY-MM-DD`, using the same date
   captured in the run key.
@@ -663,37 +668,47 @@ The signature includes:
 
 - final canonical rows;
 - `parMoves`;
+- `transform` label;
+- sorted `mutationIds`;
+- `difficulty`;
 - sorted `objectiveIds`;
 - `scoreMultiplierBps`.
 
-It excludes display name, stage ID, template ID, transform label, and mutation IDs. Two
-generation paths producing the same playable content receive the same signature.
+It excludes display name, stage ID, and template ID. Two generation paths producing
+the same playable content receive the same signature.
 
 ### 10.2 Exact preimage and public format
 
 Use U+001D as the field separator. Canonical rows retain U+001F/U+001E:
 
 ```ts
+const sortedMutationIds = [...mutationIds].sort()
 const sortedObjectiveIds = [...objectiveIds].sort()
 const payload = [
-    'ice-slide-stage:v1',
+    'ice-slide-stage:v2',
     `rows=${serializeBoardRows(rows)}`,
     `parMoves=${parMoves}`,
+    `transform=${transform}`,
+    `mutationIds=${sortedMutationIds.join(',')}`,
+    `difficulty=${difficulty}`,
     `objectiveIds=${sortedObjectiveIds.join(',')}`,
     `scoreMultiplierBps=${scoreMultiplierBps}`,
 ].join('\u001d')
 
-const signature = `is1-${hashString32Hex(payload)}`
+const signature = `is2-${hashString32Hex(payload)}`
 ```
 
-The labels, order, separators, empty-objective representation, decimal numeric
-representation, and sorting are observable generator behavior.
+The labels, order, separators, empty-objective and empty-mutation representation,
+decimal numeric representation, and sorting are observable generator behavior.
 
 For First Frost:
 
 ```ts
 rows = ['#####', '#S..#', '#...#', '#G..#', '#####']
 parMoves = 1
+transform = 'identity'
+mutationIds = []
+difficulty = 'tutorial'
 objectiveIds = []
 scoreMultiplierBps = 10000
 ```
@@ -701,13 +716,13 @@ scoreMultiplierBps = 10000
 Exact preimage:
 
 ```text
-ice-slide-stage:v1\u001drows=5x5\u001f#####\u001e#S..#\u001e#...#\u001e#G..#\u001e#####\u001dparMoves=1\u001dobjectiveIds=\u001dscoreMultiplierBps=10000
+ice-slide-stage:v2\u001drows=5x5\u001f#####\u001e#S..#\u001e#...#\u001e#G..#\u001e#####\u001dparMoves=1\u001dtransform=identity\u001dmutationIds=\u001ddifficulty=tutorial\u001dobjectiveIds=\u001dscoreMultiplierBps=10000
 ```
 
 Golden signature:
 
 ```text
-is1-a387e186
+is2-68616e2d
 ```
 
 ## 11. Campaign materialization
@@ -827,14 +842,15 @@ start(run?: IceSlideRunDefinition): void
 
 Behavior:
 
-1. Stop any existing timer.
+1. If `run` is explicit, structurally validate and deep-clone it before stopping any timer or mutating state.
 2. If `run` is omitted, create a fresh known-good Campaign definition.
-3. If `run` is explicit, structurally validate and deep-clone it before mutating state.
+3. Stop any existing timer.
 4. Store the active run.
 5. Create playing state and load stage zero.
 6. Start the timer and invoke callbacks in the existing order.
 
-An invalid **explicit** run throws synchronously before state mutation or timer start.
+An invalid **explicit** run throws synchronously before the existing timer is stopped, before any
+state mutation, and before the new timer starts; prior state is left unchanged.
 The direct caller owns that exception boundary.
 
 HPA-485 leaves `init.ts` unchanged. Its current `game.start()` call is outside the
@@ -1075,6 +1091,20 @@ bun run typecheck
 bun run lint
 bun run format:check
 ```
+
+**Typecheck baseline (regression handling).** `bun run typecheck` is not expected to
+exit zero on `main` or on this branch. The repository carries a documented two-error
+baseline that predates this work and is out of scope:
+
+- `src/lib/games/ice-slide/init.test.ts:36` — ts(2556), a spread argument tuple-type error.
+- `src/lib/games/ice-slide/init.ts:178` — ts(2358), an `instanceof` left-hand-side error.
+
+Record the exact `bun run typecheck` error count before starting the branch and again
+after each verification step. The required outcome is a **zero delta**: the same two
+baseline errors and no others. Any new error in the files this branch touches
+(`run.ts`, `run.test.ts`, `test-fixtures.ts`, `transforms.ts`, `transforms.test.ts`,
+`seeded-rng.ts`, `seeded-rng.test.ts`, `game.ts`) is a regression and must be fixed
+before the branch can merge. Do not fix the two baseline errors here.
 
 ## 15. File boundaries
 

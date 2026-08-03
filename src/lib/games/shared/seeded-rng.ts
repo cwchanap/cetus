@@ -11,6 +11,9 @@ export interface SeededRng {
     fork(label: string): SeededRng
 }
 
+// FNV-1a 32-bit hash. 0x811c9dc5 is the FNV-1a offset basis and 0x01000193 is
+// the FNV prime; the unsigned shift normalizes the result to [0, 2^32). This
+// deterministic hash is the contract used by hashString32Hex.
 export function hashString32(value: string): number {
     let hash = 0x811c9dc5
     for (let index = 0; index < value.length; index++) {
@@ -32,6 +35,8 @@ function assertSeedSegment(value: string, field: string): void {
     }
 }
 
+// Mulberry32 PRNG. The state transition adds the constant 0x6d2b79f5 before
+// the bit-mixing steps; the unsigned shift keeps state in [0, 2^32).
 function createSeededRngFromPath(seedPath: string): SeededRng {
     let state = hashString32(seedPath)
 
@@ -56,6 +61,9 @@ function createSeededRngFromPath(seedPath: string): SeededRng {
             )
         }
 
+        // Rejection sampling to remove modulo bias: `limit` is the largest
+        // multiple of maxExclusive not exceeding 2^32, so any draw >= limit
+        // is discarded and redrawn rather than reduced via the modulo.
         const limit = Math.floor(UINT32_RANGE / maxExclusive) * maxExclusive
         let value: number
         do {

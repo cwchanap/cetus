@@ -28,7 +28,7 @@
 - `shuffle()` uses descending Fisher–Yates with one `nextInt(index + 1)` draw per iteration.
 - Board transforms support rectangular inputs; quarter turns and diagonal reflections swap dimensions.
 - Canonical board equality uses the complete serialized rows, never a compact hash alone.
-- Stage signature format is `is1-<8 lowercase hex digits>` and uses the exact preimage from the design.
+- Stage signature format is `is2-<8 lowercase hex digits>` and uses the exact preimage from the design.
 - Structural run validation is not solver validation; HPA-486 owns solvability and quality checks.
 - HPA-485 initializes and preserves `starsEarned`, `falls`, and `resets` as zero; HPA-487 owns their runtime semantics.
 - Current Campaign game data remains transient because unscoped score submissions do not persist `gameDataJson`.
@@ -422,12 +422,14 @@ it('never calls Math.random', () => {
 
     const rng = createSeededRng('ice-slide:test')
     rng.nextUint32()
-    rng.nextFloat()
+    const float = rng.nextFloat()
     rng.nextInt(7)
     rng.pick(['A', 'B'])
     rng.shuffle(['A', 'B', 'C'])
     rng.fork('stage').nextUint32()
 
+    expect(float).toBeGreaterThanOrEqual(0)
+    expect(float).toBeLessThan(1)
     expect(randomSpy).not.toHaveBeenCalled()
 })
 ```
@@ -636,6 +638,8 @@ export function transformPosition(
     if (
         !Number.isInteger(inputRows) ||
         !Number.isInteger(inputCols) ||
+        !Number.isInteger(position.row) ||
+        !Number.isInteger(position.col) ||
         inputRows < 1 ||
         inputCols < 1 ||
         position.row < 0 ||
@@ -857,6 +861,26 @@ it('retains all variants for an asymmetric rectangle', () => {
         new Set(variants.map(variant => variant.canonicalKey)).size
     ).toBe(8)
 })
+
+it('deduplicates to exactly two variants for a 180-symmetric board', () => {
+    const variants = getUniqueBoardTransforms(['AB', 'BA'])
+    expect(variants).toHaveLength(2)
+    expect(variants.map(variant => variant.transform)).toEqual([
+        'identity',
+        'rotate_90',
+    ])
+})
+
+it('deduplicates to exactly four variants for a horizontally symmetric board', () => {
+    const variants = getUniqueBoardTransforms(['AABB', 'BBAA'])
+    expect(variants).toHaveLength(4)
+    expect(variants.map(variant => variant.transform)).toEqual([
+        'identity',
+        'rotate_90',
+        'reflect_horizontal',
+        'reflect_main_diagonal',
+    ])
+})
 ```
 
 - [ ] **Step 11: Implement unique transform generation**
@@ -902,7 +926,10 @@ bunx vitest run src/lib/games/ice-slide/transforms.test.ts
 bun run typecheck
 ```
 
-Expected: both commands succeed.
+Expected: the vitest command succeeds. `bun run typecheck` exits with the
+documented two-error baseline (`init.test.ts:36` ts 2556, `init.ts:178` ts 2358)
+and no errors in `transforms.ts`/`transforms.test.ts`; record the baseline
+diagnostics and confirm no new errors are introduced.
 
 - [ ] **Step 13: Commit transforms and additive types**
 
@@ -942,6 +969,9 @@ export const CAMPAIGN_RUN_KEY: string
 export function createIceSlideStageSignature(input: {
     rows: readonly string[]
     parMoves: number
+    transform: BoardTransform
+    mutationIds: readonly string[]
+    difficulty: IceSlideDifficulty
     objectiveIds: readonly IceSlideObjectiveId[]
     scoreMultiplierBps: number
 }): string
@@ -1035,10 +1065,13 @@ describe('Ice Slide run versions and signatures', () => {
             createIceSlideStageSignature({
                 rows: ICE_SLIDE_LEVELS[0].rows,
                 parMoves: 1,
+                transform: 'identity',
+                mutationIds: [],
+                difficulty: 'tutorial',
                 objectiveIds: [],
                 scoreMultiplierBps: 10000,
             })
-        ).toBe('is1-a387e186')
+        ).toBe('is2-68616e2d')
     })
 })
 ```
@@ -1075,19 +1108,26 @@ export const CAMPAIGN_RUN_KEY =
 export function createIceSlideStageSignature(input: {
     rows: readonly string[]
     parMoves: number
+    transform: BoardTransform
+    mutationIds: readonly string[]
+    difficulty: IceSlideDifficulty
     objectiveIds: readonly IceSlideObjectiveId[]
     scoreMultiplierBps: number
 }): string {
+    const sortedMutationIds = [...input.mutationIds].sort()
     const sortedObjectiveIds = [...input.objectiveIds].sort()
     const payload = [
-        'ice-slide-stage:v1',
+        'ice-slide-stage:v2',
         `rows=${serializeBoardRows(input.rows)}`,
         `parMoves=${input.parMoves}`,
+        `transform=${input.transform}`,
+        `mutationIds=${sortedMutationIds.join(',')}`,
+        `difficulty=${input.difficulty}`,
         `objectiveIds=${sortedObjectiveIds.join(',')}`,
         `scoreMultiplierBps=${input.scoreMultiplierBps}`,
     ].join('\u001d')
 
-    return `is1-${hashString32Hex(payload)}`
+    return `is2-${hashString32Hex(payload)}`
 }
 ```
 
@@ -1124,7 +1164,7 @@ describe('Campaign run materialization', () => {
             expect(stage.mutationIds).toEqual([])
             expect(stage.objectiveIds).toEqual([])
             expect(stage.scoreMultiplierBps).toBe(10000)
-            expect(stage.signature).toMatch(/^is1-[0-9a-f]{8}$/)
+            expect(stage.signature).toMatch(/^is2-[0-9a-f]{8}$/)
         }
     })
 
@@ -1299,6 +1339,12 @@ const DAILY_KEY_PATTERN =
 const EXPEDITION_KEY_PATTERN =
     /^ice-slide:expedition:([0-9a-f]{8}):g([1-9]\d*):r([1-9]\d*)$/
 
+// DAILY_KEY_PATTERN is lexical only. After it matches, parse the captured
+// YYYY-MM-DD segment and reject impossible calendar dates (e.g. 2026-02-30,
+// 2026-13-01) by round-tripping through `new Date(Date.UTC(year, month-1, day))`
+// and requiring the UTC year/month/day to equal the parsed integers. Throw a
+// RangeError before comparing generator/ruleset versions.
+
 const MODES = new Set<IceSlideMode>([
     'campaign',
     'daily',
@@ -1354,7 +1400,7 @@ function assertUniqueNonEmpty(
 5. stage IDs and field enums;
 6. rectangular rows and `GLYPH_TO_CELL` keys;
 7. positive `parMoves`;
-8. `scoreMultiplierBps` in `1000..50000`;
+8. `scoreMultiplierBps` is an integer in `1000..50000` (reject fractional values such as `10000.5`);
 9. unique mutation/objective IDs and recognized objectives;
 10. exact signature recomputation.
 
@@ -1463,7 +1509,10 @@ bunx vitest run \
 bun run typecheck
 ```
 
-Expected: all tests pass and TypeScript accepts the additive interfaces.
+Expected: all tests pass. `bun run typecheck` exits with the documented two-error
+baseline (`init.test.ts:36` ts 2556, `init.ts:178` ts 2358) and no errors in
+`run.ts`/`run.test.ts`/`test-fixtures.ts`; record the baseline diagnostics and confirm
+no new errors are introduced.
 
 - [ ] **Step 13: Commit run materialization**
 
@@ -1796,7 +1845,7 @@ Do not apply `scoreMultiplierBps`.
 Before replacing `this.state` in `loadLevel()`, preserve:
 
 ```ts
-const cumulative = {
+const preserved = {
     moves: this.state.moves,
     crystalsCollected: this.state.crystalsCollected,
     score: this.state.score,
@@ -1961,7 +2010,12 @@ bun run format:check
 
 Expected:
 - Vitest exits with zero failed tests.
-- Astro typecheck exits successfully.
+- Astro typecheck exits with exactly the documented two-error baseline (see
+  `docs/superpowers/specs/2026-08-02-deterministic-ice-slide-runs-design.md` §14.6):
+  `src/lib/games/ice-slide/init.test.ts:36` (ts 2556) and
+  `src/lib/games/ice-slide/init.ts:178` (ts 2358). Record the error count before and
+  after this branch; the delta must be zero. Do not fix those two baseline errors
+  here — they are out of scope.
 - ESLint exits with no errors.
 - Prettier check reports all files formatted.
 
@@ -1982,7 +2036,11 @@ git diff origin/main...HEAD -- \
 ```
 
 Expected:
-- the first command lists only files from the plan’s New/Modified sections;
+- the first command lists only files from the plan’s New/Modified sections, plus the
+  two documentation files under review
+  (`docs/superpowers/plans/2026-08-02-deterministic-ice-slide-runs.md` and
+  `docs/superpowers/specs/2026-08-02-deterministic-ice-slide-runs-design.md`), which
+  this branch is permitted to modify;
 - the second command prints no diff.
 
 Also run:
@@ -2028,7 +2086,7 @@ Before marking HPA-485 implementation complete, verify each design requirement a
 - [ ] All eight transforms match the rectangular fixture and coordinate table.
 - [ ] Canonical serialization rejects empty, zero-column, and jagged rows.
 - [ ] Symmetry dedup uses complete canonical keys.
-- [ ] First Frost signature is `is1-a387e186`.
+- [ ] First Frost signature is `is2-68616e2d`.
 - [ ] Campaign run key is derived from Campaign-specific generator and ruleset versions.
 - [ ] Run validation enforces transport-safe mode-specific key/seed/version relationships.
 - [ ] Run validation limits stages to `1..64` and multiplier BPS to `1000..50000`.
@@ -2041,7 +2099,9 @@ Before marking HPA-485 implementation complete, verify each design requirement a
 - [ ] Existing achievement fields remain present.
 - [ ] HPA-487 follow-up gates are documented but not implemented here.
 - [ ] `init.ts`, renderer implementation, scoring, levels, platform challenges, achievements, and shared type re-export remain untouched.
-- [ ] Full tests, typecheck, lint, and formatting checks pass.
+- [ ] Full tests pass; `bun run typecheck` exits with exactly the documented two-error
+      baseline (`init.test.ts:36` ts 2556, `init.ts:178` ts 2358) and zero new errors;
+      lint and formatting checks pass.
 
 ## Execution Handoff
 

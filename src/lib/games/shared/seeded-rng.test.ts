@@ -17,6 +17,13 @@ describe('seeded RNG hashing and stream', () => {
             rng.nextUint32(),
         ]).toEqual([1843037723, 574486829, 1018436590, 1120027984, 770965377])
     })
+
+    it('locks the first nextFloat() value in [0, 1)', () => {
+        const value = createSeededRng('ice-slide:test').nextFloat()
+        expect(value).toBe(0.4291156593244523)
+        expect(value).toBeGreaterThanOrEqual(0)
+        expect(value).toBeLessThan(1)
+    })
 })
 
 describe('seeded RNG bounded selection', () => {

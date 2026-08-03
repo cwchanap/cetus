@@ -22,19 +22,26 @@ export const CAMPAIGN_RUN_KEY =
 export function createIceSlideStageSignature(input: {
     rows: readonly string[]
     parMoves: number
+    transform: BoardTransform
+    mutationIds: readonly string[]
+    difficulty: IceSlideDifficulty
     objectiveIds: readonly IceSlideObjectiveId[]
     scoreMultiplierBps: number
 }): string {
+    const sortedMutationIds = [...input.mutationIds].sort()
     const sortedObjectiveIds = [...input.objectiveIds].sort()
     const payload = [
-        'ice-slide-stage:v1',
+        'ice-slide-stage:v2',
         `rows=${serializeBoardRows(input.rows)}`,
         `parMoves=${input.parMoves}`,
+        `transform=${input.transform}`,
+        `mutationIds=${sortedMutationIds.join(',')}`,
+        `difficulty=${input.difficulty}`,
         `objectiveIds=${sortedObjectiveIds.join(',')}`,
         `scoreMultiplierBps=${input.scoreMultiplierBps}`,
     ].join('\u001d')
 
-    return `is1-${hashString32Hex(payload)}`
+    return `is2-${hashString32Hex(payload)}`
 }
 
 const CAMPAIGN_DIFFICULTIES: readonly IceSlideDifficulty[] = [
@@ -49,6 +56,11 @@ const CAMPAIGN_DIFFICULTIES: readonly IceSlideDifficulty[] = [
 ]
 
 export function createCampaignRunDefinition(): IceSlideRunDefinition {
+    if (CAMPAIGN_DIFFICULTIES.length !== ICE_SLIDE_LEVELS.length) {
+        throw new Error(
+            'CAMPAIGN_DIFFICULTIES and ICE_SLIDE_LEVELS must have the same length'
+        )
+    }
     return {
         schemaVersion: ICE_SLIDE_RUN_SCHEMA_VERSION,
         generatorVersion: ICE_SLIDE_CAMPAIGN_GENERATOR_VERSION,
@@ -84,18 +96,26 @@ const DAILY_KEY_PATTERN =
 const EXPEDITION_KEY_PATTERN =
     /^ice-slide:expedition:([0-9a-f]{8}):g([1-9]\d*):r([1-9]\d*)$/
 
-const MODES = new Set<IceSlideMode>(['campaign', 'daily', 'expedition'])
-const DIFFICULTIES = new Set<IceSlideDifficulty>([
+const MODE_TUPLE: readonly IceSlideMode[] = [
+    'campaign',
+    'daily',
+    'expedition',
+] as const satisfies readonly IceSlideMode[]
+const DIFFICULTY_TUPLE: readonly IceSlideDifficulty[] = [
     'tutorial',
     'easy',
     'medium',
     'hard',
-])
-const OBJECTIVES = new Set<IceSlideObjectiveId>([
+] as const satisfies readonly IceSlideDifficulty[]
+const OBJECTIVE_TUPLE: readonly IceSlideObjectiveId[] = [
     'collect_all_crystals',
     'no_falls',
     'no_reset',
-])
+] as const satisfies readonly IceSlideObjectiveId[]
+
+const MODES = new Set<IceSlideMode>(MODE_TUPLE)
+const DIFFICULTIES = new Set<IceSlideDifficulty>(DIFFICULTY_TUPLE)
+const OBJECTIVES = new Set<IceSlideObjectiveId>(OBJECTIVE_TUPLE)
 const TRANSFORMS = new Set<BoardTransform>(BOARD_TRANSFORMS)
 
 function assertPositiveInt(value: number, field: string): void {
@@ -158,6 +178,21 @@ export function assertValidIceSlideRunDefinition(
         const match = DAILY_KEY_PATTERN.exec(run.runKey)
         if (!match) {
             throw new RangeError('daily runKey must match the daily key format')
+        }
+        const dateSegment = match[1]
+        const [yearStr, monthStr, dayStr] = dateSegment.split('-')
+        const year = Number(yearStr)
+        const month = Number(monthStr)
+        const day = Number(dayStr)
+        const date = new Date(Date.UTC(year, month - 1, day))
+        if (
+            date.getUTCFullYear() !== year ||
+            date.getUTCMonth() !== month - 1 ||
+            date.getUTCDate() !== day
+        ) {
+            throw new RangeError(
+                'daily runKey date must be a calendar-valid YYYY-MM-DD date'
+            )
         }
         const generatorVersion = Number(match[2])
         const rulesetVersion = Number(match[3])
@@ -236,6 +271,9 @@ export function assertValidIceSlideRunDefinition(
             throw new RangeError('stage rows must not be empty')
         }
         const cols = stage.rows[0].length
+        if (cols === 0) {
+            throw new RangeError('stage rows must not have zero columns')
+        }
         for (const row of stage.rows) {
             if (row.length !== cols) {
                 throw new RangeError('stage rows must be rectangular')
@@ -268,6 +306,9 @@ export function assertValidIceSlideRunDefinition(
         const expectedSignature = createIceSlideStageSignature({
             rows: stage.rows,
             parMoves: stage.parMoves,
+            transform: stage.transform,
+            mutationIds: stage.mutationIds,
+            difficulty: stage.difficulty,
             objectiveIds: stage.objectiveIds,
             scoreMultiplierBps: stage.scoreMultiplierBps,
         })
