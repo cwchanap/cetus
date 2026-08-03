@@ -11,6 +11,7 @@ import {
     createCampaignRunDefinition,
     createIceSlideStageSignature,
 } from './run'
+import type { IceSlideObjectiveId } from './types'
 
 describe('Ice Slide run versions and signatures', () => {
     it('derives the Campaign key from mode-specific versions', () => {
@@ -31,7 +32,27 @@ describe('Ice Slide run versions and signatures', () => {
                 objectiveIds: [],
                 scoreMultiplierBps: 10000,
             })
-        ).toBe('is2-68616e2d')
+        ).toBe('is2-d1feaba1')
+    })
+
+    it('distinguishes mutation id lists that share a comma-joined form', () => {
+        const common = {
+            rows: ICE_SLIDE_LEVELS[0].rows,
+            parMoves: 1,
+            transform: 'identity' as const,
+            difficulty: 'tutorial' as const,
+            objectiveIds: [] as IceSlideObjectiveId[],
+            scoreMultiplierBps: 10000,
+        }
+        const commaFirst = createIceSlideStageSignature({
+            ...common,
+            mutationIds: ['a,b', 'c'],
+        })
+        const commaSecond = createIceSlideStageSignature({
+            ...common,
+            mutationIds: ['a', 'b,c'],
+        })
+        expect(commaFirst).not.toBe(commaSecond)
     })
 })
 

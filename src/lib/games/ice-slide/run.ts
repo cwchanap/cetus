@@ -35,7 +35,7 @@ export function createIceSlideStageSignature(input: {
         `rows=${serializeBoardRows(input.rows)}`,
         `parMoves=${input.parMoves}`,
         `transform=${input.transform}`,
-        `mutationIds=${sortedMutationIds.join(',')}`,
+        `mutationIds=${JSON.stringify(sortedMutationIds)}`,
         `difficulty=${input.difficulty}`,
         `objectiveIds=${sortedObjectiveIds.join(',')}`,
         `scoreMultiplierBps=${input.scoreMultiplierBps}`,
@@ -96,26 +96,30 @@ const DAILY_KEY_PATTERN =
 const EXPEDITION_KEY_PATTERN =
     /^ice-slide:expedition:([0-9a-f]{8}):g([1-9]\d*):r([1-9]\d*)$/
 
-const MODE_TUPLE: readonly IceSlideMode[] = [
-    'campaign',
-    'daily',
-    'expedition',
-] as const satisfies readonly IceSlideMode[]
-const DIFFICULTY_TUPLE: readonly IceSlideDifficulty[] = [
-    'tutorial',
-    'easy',
-    'medium',
-    'hard',
-] as const satisfies readonly IceSlideDifficulty[]
-const OBJECTIVE_TUPLE: readonly IceSlideObjectiveId[] = [
-    'collect_all_crystals',
-    'no_falls',
-    'no_reset',
-] as const satisfies readonly IceSlideObjectiveId[]
+const MODE_RECORD = {
+    campaign: true,
+    daily: true,
+    expedition: true,
+} as const satisfies Record<IceSlideMode, true>
+const DIFFICULTY_RECORD = {
+    tutorial: true,
+    easy: true,
+    medium: true,
+    hard: true,
+} as const satisfies Record<IceSlideDifficulty, true>
+const OBJECTIVE_RECORD = {
+    collect_all_crystals: true,
+    no_falls: true,
+    no_reset: true,
+} as const satisfies Record<IceSlideObjectiveId, true>
 
-const MODES = new Set<IceSlideMode>(MODE_TUPLE)
-const DIFFICULTIES = new Set<IceSlideDifficulty>(DIFFICULTY_TUPLE)
-const OBJECTIVES = new Set<IceSlideObjectiveId>(OBJECTIVE_TUPLE)
+const MODES = new Set<IceSlideMode>(Object.keys(MODE_RECORD) as IceSlideMode[])
+const DIFFICULTIES = new Set<IceSlideDifficulty>(
+    Object.keys(DIFFICULTY_RECORD) as IceSlideDifficulty[]
+)
+const OBJECTIVES = new Set<IceSlideObjectiveId>(
+    Object.keys(OBJECTIVE_RECORD) as IceSlideObjectiveId[]
+)
 const TRANSFORMS = new Set<BoardTransform>(BOARD_TRANSFORMS)
 
 function assertPositiveInt(value: number, field: string): void {
