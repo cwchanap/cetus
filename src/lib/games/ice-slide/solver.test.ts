@@ -13,6 +13,7 @@ describe('ice-slide solver', () => {
         expect(result.truncated).toBe(false)
         expect(result.reachableStopCount).toBe(2)
         expect(result.reachableCrystalIds).toEqual([])
+        expect(result.reachedGoalWithAllCrystals).toBe(false)
     })
 
     it('matches the current par for campaign level 2', () => {

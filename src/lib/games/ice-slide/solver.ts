@@ -138,7 +138,7 @@ export function solveIceSlideBoard(
                 if (minMoves === null || moves < minMoves) {
                     minMoves = moves
                 }
-                if (crystalMask === fullMask) {
+                if (crystalPositions.length > 0 && crystalMask === fullMask) {
                     reachedGoalWithAllCrystals = true
                 }
                 continue
