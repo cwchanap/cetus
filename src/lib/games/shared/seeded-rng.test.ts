@@ -44,7 +44,7 @@ describe('seeded RNG bounded selection', () => {
 
     it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 0x80000000])(
         'rejects invalid maxExclusive %s',
-        maxExclusive => {
+        (maxExclusive: number) => {
             expect(() =>
                 createSeededRng('ice-slide:test').nextInt(maxExclusive)
             ).toThrow(RangeError)
@@ -111,15 +111,18 @@ describe('seeded RNG labeled forks', () => {
         expect(first.nextUint32()).not.toBe(second.nextUint32())
     })
 
-    it.each(['', 'a\u001fb'])('rejects invalid seed key %j', seed => {
+    it.each(['', 'a\u001fb'])('rejects invalid seed key %j', (seed: string) => {
         expect(() => createSeededRng(seed)).toThrow(RangeError)
     })
 
-    it.each(['', 'a\u001fb'])('rejects invalid fork label %j', label => {
-        expect(() => createSeededRng('ice-slide:test').fork(label)).toThrow(
-            RangeError
-        )
-    })
+    it.each(['', 'a\u001fb'])(
+        'rejects invalid fork label %j',
+        (label: string) => {
+            expect(() => createSeededRng('ice-slide:test').fork(label)).toThrow(
+                RangeError
+            )
+        }
+    )
 })
 
 afterEach(() => {

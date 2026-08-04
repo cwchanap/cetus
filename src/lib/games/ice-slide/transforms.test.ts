@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { BoardTransform, GridPosition } from './types'
 import {
     BOARD_TRANSFORMS,
     getUniqueBoardTransforms,
@@ -21,9 +22,12 @@ describe('Ice Slide board transforms', () => {
         ['reflect_vertical', ['CBA', 'FED']],
         ['reflect_main_diagonal', ['AD', 'BE', 'CF']],
         ['reflect_anti_diagonal', ['FC', 'EB', 'DA']],
-    ] as const)('applies %s', (transform, expected) => {
-        expect(transformRows(rows, transform)).toEqual(expected)
-    })
+    ] as const)(
+        'applies %s',
+        (transform: BoardTransform, expected: readonly string[]) => {
+            expect(transformRows(rows, transform)).toEqual(expected)
+        }
+    )
 
     it('locks transform enumeration order', () => {
         expect(BOARD_TRANSFORMS).toEqual([
@@ -41,7 +45,7 @@ describe('Ice Slide board transforms', () => {
 
 it.each(BOARD_TRANSFORMS)(
     'keeps transformed coordinates aligned for %s',
-    transform => {
+    (transform: BoardTransform) => {
         const source = ['ABC', 'DEF']
         const transformed = transformRows(source, transform)
 
@@ -70,13 +74,16 @@ it('throws RangeError for an out-of-range position', () => {
     ).toThrow(RangeError)
 })
 
-it.each(BOARD_TRANSFORMS)('round-trips rows through inverse %s', transform => {
-    const source = ['ABC', 'DEF']
-    const transformed = transformRows(source, transform)
-    expect(
-        transformRows(transformed, inverseBoardTransform(transform))
-    ).toEqual(source)
-})
+it.each(BOARD_TRANSFORMS)(
+    'round-trips rows through inverse %s',
+    (transform: BoardTransform) => {
+        const source = ['ABC', 'DEF']
+        const transformed = transformRows(source, transform)
+        expect(
+            transformRows(transformed, inverseBoardTransform(transform))
+        ).toEqual(source)
+    }
+)
 
 it('serializes dimensions and row boundaries exactly', () => {
     expect(serializeBoardRows(['AB', 'CD'])).toBe('2x2\u001fAB\u001eCD')
@@ -87,7 +94,7 @@ it.each([
     [[]] as [string[]],
     [['']] as [string[]],
     [['ABC', 'DE']] as [string[]],
-])('rejects malformed canonical rows %j', rows => {
+])('rejects malformed canonical rows %j', (rows: string[]) => {
     expect(() => serializeBoardRows(rows)).toThrow(RangeError)
     expect(() => hashBoardRows(rows)).toThrow(RangeError)
 })
@@ -104,9 +111,14 @@ it.each([
     ['zero inputCols', { row: 0, col: 0 }, 2, 0],
 ] as const)(
     'rejects out-of-bounds position for %s',
-    (_name, position, rows, cols) => {
+    (
+        _name: string,
+        position: GridPosition,
+        inputRows: number,
+        inputCols: number
+    ) => {
         expect(() =>
-            transformPosition(position, rows, cols, 'identity')
+            transformPosition(position, inputRows, inputCols, 'identity')
         ).toThrow(RangeError)
     }
 )
