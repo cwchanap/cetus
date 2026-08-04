@@ -134,6 +134,15 @@ export function solveIceSlideBoard(
             stops.add(`${outcome.end.row},${outcome.end.col}`)
 
             const moves = current.moves + 1
+            const key = stateKey(outcome.end, crystalMask)
+            if (seen.has(key)) {
+                continue
+            }
+            if (seen.size >= limits.maxStates) {
+                truncated = true
+                break
+            }
+            seen.add(key)
             if (outcome.reachedGoal) {
                 if (minMoves === null || moves < minMoves) {
                     minMoves = moves
@@ -144,15 +153,6 @@ export function solveIceSlideBoard(
                 continue
             }
 
-            const key = stateKey(outcome.end, crystalMask)
-            if (seen.has(key)) {
-                continue
-            }
-            if (seen.size >= limits.maxStates) {
-                truncated = true
-                break
-            }
-            seen.add(key)
             queue.push({
                 position: outcome.end,
                 moves,
