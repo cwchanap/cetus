@@ -7,6 +7,7 @@ import {
     slide,
 } from './physics'
 import { getLevel, ICE_SLIDE_LEVELS } from './levels'
+import { solveIceSlideBoard } from './solver'
 import { DIRECTION_DELTA } from './types'
 import {
     crystalBonus,
@@ -176,178 +177,34 @@ describe('ice-slide scoring', () => {
 })
 
 describe('ice-slide levels', () => {
-    function minMoves(level: (typeof ICE_SLIDE_LEVELS)[number]): number | null {
-        const base = parseGrid(level)
-        const start = findStart(base)
-        const crystalPositions: Array<[number, number]> = []
-        for (let r = 0; r < base.length; r++) {
-            for (let c = 0; c < base[r].length; c++) {
-                if (base[r][c] === 'crystal') {
-                    crystalPositions.push([r, c])
-                }
-            }
-        }
-        const key = (r: number, c: number, mask: number) => `${r},${c},${mask}`
-        const queue = [
-            {
-                r: start.row,
-                c: start.col,
-                moves: 0,
-                grid: cloneGrid(base),
-            },
-        ]
-        queue[0].grid[start.row][start.col] = 'ice'
-        const seen = new Set([key(start.row, start.col, 0)])
-        let best: number | null = null
-        const dirs = ['N', 'E', 'S', 'W'] as const
-
-        while (queue.length) {
-            const cur = queue.shift()
-            if (!cur) {
-                break
-            }
-            for (const d of dirs) {
-                const g = cloneGrid(cur.grid)
-                const outcome = slide(
-                    g,
-                    { row: cur.r, col: cur.c },
-                    DIRECTION_DELTA[d]
-                )
-                if (outcome.kind === 'noop' || outcome.kind === 'hazard') {
-                    continue
-                }
-                let newMask = 0
-                for (let i = 0; i < crystalPositions.length; i++) {
-                    const [cr, cc] = crystalPositions[i]
-                    if (g[cr][cc] !== 'crystal') {
-                        newMask |= 1 << i
-                    }
-                }
-                const nk = key(outcome.end.row, outcome.end.col, newMask)
-                if (seen.has(nk)) {
-                    continue
-                }
-                seen.add(nk)
-                const moves = cur.moves + 1
-                if (outcome.reachedGoal) {
-                    if (best === null || moves < best) {
-                        best = moves
-                    }
-                    continue
-                }
-                if (moves < 25) {
-                    queue.push({
-                        r: outcome.end.row,
-                        c: outcome.end.col,
-                        moves,
-                        grid: g,
-                    })
-                }
-            }
-        }
-        return best
-    }
-
     it('ships exactly 8 solvable levels with matching parMoves', () => {
         expect(ICE_SLIDE_LEVELS).toHaveLength(8)
         for (const level of ICE_SLIDE_LEVELS) {
-            const min = minMoves(level)
-            expect(min, `level ${level.id} solvable`).not.toBeNull()
-            expect(min, `level ${level.id} par`).toBe(level.parMoves)
+            const result = solveIceSlideBoard(level, { maxStates: 10_000 })
+            expect(result.truncated, `level ${level.id} truncated`).toBe(false)
+            expect(result.solvable, `level ${level.id} solvable`).toBe(true)
+            expect(result.minMoves, `level ${level.id} par`).toBe(
+                level.parMoves
+            )
         }
     })
 
     it('makes every authored crystal collectable on a reachable slide', () => {
         for (const level of ICE_SLIDE_LEVELS) {
-            const base = parseGrid(level)
-            const start = findStart(base)
-            const crystalKeys: string[] = []
-            for (let r = 0; r < base.length; r++) {
-                for (let c = 0; c < base[r].length; c++) {
-                    if (base[r][c] === 'crystal') {
-                        crystalKeys.push(`${r},${c}`)
+            const expected: string[] = []
+            for (let r = 0; r < level.rows.length; r++) {
+                for (let c = 0; c < level.rows[r].length; c++) {
+                    if (level.rows[r][c] === 'C') {
+                        expected.push(`${r},${c}`)
                     }
                 }
             }
-            if (crystalKeys.length === 0) {
-                continue
-            }
-
-            type Node = {
-                r: number
-                c: number
-                grid: ReturnType<typeof cloneGrid>
-                collected: Set<string>
-            }
-            const queue: Node[] = [
-                {
-                    r: start.row,
-                    c: start.col,
-                    grid: cloneGrid(base),
-                    collected: new Set(),
-                },
-            ]
-            queue[0].grid[start.row][start.col] = 'ice'
-            const seen = new Set([`${start.row},${start.col},`])
-            const collectable = new Set<string>()
-            const dirs = ['N', 'E', 'S', 'W'] as const
-
-            while (queue.length) {
-                const cur = queue.shift()
-                if (!cur) {
-                    break
-                }
-                for (const d of dirs) {
-                    const g = cloneGrid(cur.grid)
-                    const before = new Set<string>()
-                    for (let r = 0; r < g.length; r++) {
-                        for (let c = 0; c < g[r].length; c++) {
-                            if (g[r][c] === 'crystal') {
-                                before.add(`${r},${c}`)
-                            }
-                        }
-                    }
-                    const outcome = slide(
-                        g,
-                        { row: cur.r, col: cur.c },
-                        DIRECTION_DELTA[d]
-                    )
-                    if (outcome.kind === 'noop' || outcome.kind === 'hazard') {
-                        continue
-                    }
-                    const collected = new Set(cur.collected)
-                    if (outcome.kind === 'moved' && outcome.crystals > 0) {
-                        for (const key of before) {
-                            const [rr, cc] = key.split(',').map(Number)
-                            if (g[rr][cc] !== 'crystal') {
-                                collected.add(key)
-                                collectable.add(key)
-                            }
-                        }
-                    }
-                    const mask = [...collected].sort().join('|')
-                    const nk = `${outcome.end.row},${outcome.end.col},${mask}`
-                    if (seen.has(nk)) {
-                        continue
-                    }
-                    seen.add(nk)
-                    if (!outcome.reachedGoal) {
-                        queue.push({
-                            r: outcome.end.row,
-                            c: outcome.end.col,
-                            grid: g,
-                            collected,
-                        })
-                    }
-                }
-            }
-
-            for (const key of crystalKeys) {
-                expect(
-                    collectable.has(key),
-                    `level ${level.id} crystal ${key} reachable`
-                ).toBe(true)
-            }
+            const result = solveIceSlideBoard(level, { maxStates: 10_000 })
+            expect(result.truncated, `level ${level.id} truncated`).toBe(false)
+            expect(
+                result.reachableCrystalIds,
+                `level ${level.id} crystal coverage`
+            ).toEqual(expected)
         }
     })
 
