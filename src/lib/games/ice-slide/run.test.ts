@@ -11,7 +11,7 @@ import {
     createCampaignRunDefinition,
     createIceSlideStageSignature,
 } from './run'
-import type { IceSlideObjectiveId } from './types'
+import type { IceSlideObjectiveId, IceSlideRunDefinition } from './types'
 
 describe('Ice Slide run versions and signatures', () => {
     it('derives the Campaign key from mode-specific versions', () => {
@@ -266,7 +266,7 @@ it('deep-clones every mutable run array', () => {
     expect(source.stages[0].objectiveIds).toEqual([])
 })
 
-function cloneDailyRun(): ReturnType<typeof createCampaignRunDefinition> {
+function makeDailyRun(): IceSlideRunDefinition {
     const run = cloneRun()
     run.mode = 'daily'
     run.generatorVersion = 3
@@ -276,9 +276,9 @@ function cloneDailyRun(): ReturnType<typeof createCampaignRunDefinition> {
     return run
 }
 
-function cloneExpeditionRun(
+function makeExpeditionRun(
     seed = 'ice-slide:expedition:sample-seed'
-): ReturnType<typeof createCampaignRunDefinition> {
+): IceSlideRunDefinition {
     const run = cloneRun()
     run.mode = 'expedition'
     run.generatorVersion = 4
@@ -295,125 +295,145 @@ describe('assertValidIceSlideRunDefinition rejections', () => {
             (run: ReturnType<typeof cloneRun>) => {
                 run.schemaVersion = 2 as 1
             },
+            'schemaVersion must be 1',
         ],
         [
             'generatorVersion not a positive int',
             (run: ReturnType<typeof cloneRun>) => {
                 run.generatorVersion = 0
             },
+            'generatorVersion must be a positive signed integer',
         ],
         [
             'rulesetVersion not a positive int',
             (run: ReturnType<typeof cloneRun>) => {
                 run.rulesetVersion = -1
             },
+            'rulesetVersion must be a positive signed integer',
         ],
         [
             'generatorVersion non-integer',
             (run: ReturnType<typeof cloneRun>) => {
                 run.generatorVersion = 1.5
             },
+            'generatorVersion must be a positive signed integer',
         ],
         [
             'unknown run mode',
             (run: ReturnType<typeof cloneRun>) => {
                 run.mode = 'arcade' as 'campaign'
             },
+            'unknown run mode "arcade"',
         ],
         [
             'campaign generatorVersion mismatch',
             (run: ReturnType<typeof cloneRun>) => {
                 run.generatorVersion = 2
             },
+            'campaign versions must match the campaign runKey',
         ],
         [
             'campaign rulesetVersion mismatch',
             (run: ReturnType<typeof cloneRun>) => {
                 run.rulesetVersion = 2
             },
+            'campaign versions must match the campaign runKey',
         ],
         [
             'duplicate stage ids',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[1].id = run.stages[0].id
             },
+            'stage ids must contain unique non-empty values',
         ],
         [
             'empty stage id',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].id = ''
             },
+            'stage ids must contain unique non-empty values',
         ],
         [
             'unknown stage difficulty',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].difficulty = 'impossible' as 'easy'
             },
+            'unknown stage difficulty "impossible"',
         ],
         [
             'unknown stage transform',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].transform = 'flip' as 'identity'
             },
+            'unknown stage transform "flip"',
         ],
         [
             'empty stage rows',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].rows = []
             },
+            'stage rows must not be empty',
         ],
         [
             'non-rectangular stage rows',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].rows = ['###', '##']
             },
+            'stage rows must be rectangular',
         ],
         [
             'unknown stage glyph',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].rows = ['###', '#X#', '###']
             },
+            'unknown stage glyph "X"',
         ],
         [
             'parMoves not a positive int',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].parMoves = 0
             },
+            'parMoves must be a positive signed integer',
         ],
         [
             'duplicate mutation ids',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].mutationIds = ['m:a', 'm:a']
             },
+            'mutation ids must contain unique non-empty values',
         ],
         [
             'empty mutation id',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].mutationIds = ['m:a', '']
             },
+            'mutation ids must contain unique non-empty values',
         ],
         [
             'duplicate objective ids',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].objectiveIds = ['no_falls', 'no_falls']
             },
+            'objective ids must contain unique non-empty values',
         ],
         [
             'unknown objective id',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].objectiveIds = ['no_falls', 'bogus' as 'no_falls']
             },
+            'unknown objective "bogus"',
         ],
         [
             'stage signature mismatch',
             (run: ReturnType<typeof cloneRun>) => {
                 run.stages[0].parMoves = 999
             },
+            'stage signature does not match its definition',
         ],
-    ] as const)('rejects %s', (_name, mutate) => {
+    ] as const)('rejects %s', (_name, mutate, message) => {
         const run = cloneRun()
         mutate(run)
-        expect(() => assertValidIceSlideRunDefinition(run)).toThrow(RangeError)
+        expect(() => assertValidIceSlideRunDefinition(run)).toThrow(message)
     })
 })
 
@@ -421,32 +441,44 @@ describe('Daily run key validation', () => {
     it.each([
         [
             'malformed daily key',
-            (run: ReturnType<typeof cloneDailyRun>) => {
+            (run: ReturnType<typeof makeDailyRun>) => {
                 run.runKey = 'ice-slide:daily:bad'
             },
+            'daily runKey must match the daily key format',
         ],
         [
             'daily generatorVersion mismatch',
-            (run: ReturnType<typeof cloneDailyRun>) => {
+            (run: ReturnType<typeof makeDailyRun>) => {
                 run.generatorVersion = 5
             },
+            'daily generatorVersion must match the runKey',
         ],
         [
             'daily rulesetVersion mismatch',
-            (run: ReturnType<typeof cloneDailyRun>) => {
+            (run: ReturnType<typeof makeDailyRun>) => {
                 run.rulesetVersion = 5
             },
+            'daily rulesetVersion must match the runKey',
         ],
         [
             'daily seed mismatch',
-            (run: ReturnType<typeof cloneDailyRun>) => {
+            (run: ReturnType<typeof makeDailyRun>) => {
                 run.seed = 'ice-slide:daily:3:2:2026-08-99'
             },
+            'daily seed must match the runKey date and versions',
         ],
-    ] as const)('rejects %s', (_name, mutate) => {
-        const run = cloneDailyRun()
+        [
+            'daily calendar-invalid date',
+            (run: ReturnType<typeof makeDailyRun>) => {
+                run.runKey = 'ice-slide:daily:2026-02-30:g3:r2'
+                run.seed = 'ice-slide:daily:3:2:2026-02-30'
+            },
+            'daily runKey date must be a calendar-valid YYYY-MM-DD date',
+        ],
+    ] as const)('rejects %s', (_name, mutate, message) => {
+        const run = makeDailyRun()
         mutate(run)
-        expect(() => assertValidIceSlideRunDefinition(run)).toThrow(RangeError)
+        expect(() => assertValidIceSlideRunDefinition(run)).toThrow(message)
     })
 })
 
@@ -454,49 +486,56 @@ describe('Expedition run key validation', () => {
     it.each([
         [
             'malformed expedition key',
-            (run: ReturnType<typeof cloneExpeditionRun>) => {
+            (run: ReturnType<typeof makeExpeditionRun>) => {
                 run.runKey = 'ice-slide:expedition:bad'
             },
+            'expedition runKey must match the expedition key format',
         ],
         [
             'expedition generatorVersion mismatch',
-            (run: ReturnType<typeof cloneExpeditionRun>) => {
+            (run: ReturnType<typeof makeExpeditionRun>) => {
                 run.generatorVersion = 99
             },
+            'expedition generatorVersion must match the runKey',
         ],
         [
             'expedition rulesetVersion mismatch',
-            (run: ReturnType<typeof cloneExpeditionRun>) => {
+            (run: ReturnType<typeof makeExpeditionRun>) => {
                 run.rulesetVersion = 99
             },
+            'expedition rulesetVersion must match the runKey',
         ],
         [
             'null expedition seed',
-            (run: ReturnType<typeof cloneExpeditionRun>) => {
+            (run: ReturnType<typeof makeExpeditionRun>) => {
                 run.seed = null
             },
+            'expedition seed must be non-empty without U+001F',
         ],
         [
             'empty expedition seed',
-            (run: ReturnType<typeof cloneExpeditionRun>) => {
+            (run: ReturnType<typeof makeExpeditionRun>) => {
                 run.seed = ''
             },
+            'expedition seed must be non-empty without U+001F',
         ],
         [
             'expedition seed with U+001F',
-            (run: ReturnType<typeof cloneExpeditionRun>) => {
+            (run: ReturnType<typeof makeExpeditionRun>) => {
                 run.seed = 'a\u001fb'
             },
+            'expedition seed must be non-empty without U+001F',
         ],
         [
             'expedition hash mismatch',
-            (run: ReturnType<typeof cloneExpeditionRun>) => {
+            (run: ReturnType<typeof makeExpeditionRun>) => {
                 run.seed = 'different-seed'
             },
+            'expedition runKey hash must equal hashString32Hex(seed)',
         ],
-    ] as const)('rejects %s', (_name, mutate) => {
-        const run = cloneExpeditionRun()
+    ] as const)('rejects %s', (_name, mutate, message) => {
+        const run = makeExpeditionRun()
         mutate(run)
-        expect(() => assertValidIceSlideRunDefinition(run)).toThrow(RangeError)
+        expect(() => assertValidIceSlideRunDefinition(run)).toThrow(message)
     })
 })
