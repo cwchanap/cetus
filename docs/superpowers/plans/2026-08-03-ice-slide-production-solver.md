@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Extract Ice Slide's test-only BFS into bounded deterministic production code and add a lean stage-quality validator for later Daily and Expedition generation.
+**Goal:** Extract Ice Slide's duplicated test BFS into a bounded production solver, then add the ticket-required lean quality validator for future generated candidates.
 
-**Architecture:** `solver.ts` owns complete BFS traversal over player position and a bounded numeric crystal mask. `quality.ts` owns ordered candidate acceptance policy. Campaign tests call the solver directly; runtime gameplay remains unchanged.
+**Architecture:** `solver.ts` returns search facts only: reachability, exact par, crystal facts, stop count, explored states, and truncation. `quality.ts` catches invalid solver input, applies duplicate/par/objective policy, and returns bounded rejection results. Campaign tests consume the solver directly; runtime gameplay remains unchanged.
 
 **Tech Stack:** TypeScript 6, Vitest 3, Bun 1.3, existing Ice Slide physics and transformation utilities.
 
@@ -13,41 +13,22 @@
 - Follow `docs/superpowers/specs/2026-08-03-ice-slide-production-solver-design.md`.
 - Reuse `parseGrid()`, `cloneGrid()`, `slide()`, `DIRECTION_DELTA`, and `serializeBoardRows()`.
 - Require an explicit positive safe-integer `maxStates`.
-- Use a `number` crystal mask with `MAX_SOLVER_CRYSTALS = 30`.
-- A truncated result is never accepted as solvable, but preserves an already-proven
-  shortest `minMoves`.
-- Keep the HPA-486-required result fields: stop count, crystal IDs, objective
-  feasibility, explored-state count, and truncation.
-- Do not modify runtime gameplay, run contracts, score behavior, UI, generator loops,
+- Use an internal 30-crystal `number`-mask ceiling; do not export it.
+- A truncated result returns `solvable: false` and `minMoves: null`.
+- Keep objective policy out of `solver.ts`.
+- Do not change runtime gameplay, run contracts, generator loops, score, database, UI,
   or future snow/cracked-ice mechanics.
-- Do not add a generic search abstraction, path output, caching, or worker execution.
-- Deliver the solver as one complete task; do not commit a half-populated public API.
+- Do not add path output, a generic search abstraction, caching, or worker execution.
 
----
+Implementation is limited to:
 
-## File Map
-
-### Create
-
-- `src/lib/games/ice-slide/solver.ts`
-- `src/lib/games/ice-slide/solver.test.ts`
-- `src/lib/games/ice-slide/quality.ts`
-- `src/lib/games/ice-slide/quality.test.ts`
-
-### Modify
-
-- `src/lib/games/ice-slide/physics.test.ts`
-
-### Must remain untouched
-
-- `src/lib/games/ice-slide/types.ts`
-- `src/lib/games/ice-slide/run.ts`
-- `src/lib/games/ice-slide/game.ts`
-- `src/lib/games/ice-slide/physics.ts`
-- `src/lib/games/ice-slide/levels.ts`
-- `src/lib/games/ice-slide/transforms.ts`
-- `src/lib/games/ice-slide/init.ts`
-- `src/lib/games/ice-slide/renderer.ts`
+```text
+src/lib/games/ice-slide/solver.ts
+src/lib/games/ice-slide/solver.test.ts
+src/lib/games/ice-slide/quality.ts
+src/lib/games/ice-slide/quality.test.ts
+src/lib/games/ice-slide/physics.test.ts
+```
 
 ---
 
@@ -60,8 +41,6 @@
 **Produces:**
 
 ```ts
-export const MAX_SOLVER_CRYSTALS = 30
-
 export interface IceSlideSolverLimits {
     maxStates: number
 }
@@ -71,7 +50,7 @@ export interface IceSlideSolveResult {
     minMoves: number | null
     reachableStopCount: number
     reachableCrystalIds: string[]
-    objectiveFeasibility: Record<IceSlideObjectiveId, boolean>
+    reachedGoalWithAllCrystals: boolean
     exploredStates: number
     truncated: boolean
 }
@@ -82,32 +61,26 @@ export function solveIceSlideBoard(
 ): IceSlideSolveResult
 ```
 
-- [ ] **Step 1: Write the failing solver tests**
+- [ ] **Step 1: Write failing solver tests**
 
-Create `solver.test.ts` with these named cases:
+Create `solver.test.ts` with these cases:
 
-| Test | Required assertion |
+| Test | Required behavior |
 |---|---|
-| `returns an exact one-move solution` | `minMoves === 1`, start+goal stop count, not truncated |
-| `finds a multi-move Campaign minimum` | Campaign level 2 matches current par |
-| `distinguishes the same stop with different crystal masks` | collect crystal, revisit a coordinate, then retain a valid goal route |
-| `returns row-major reachable crystal IDs` | IDs use zero-based `"row,col"` strings |
-| `excludes unreachable crystals` | isolated crystal is absent |
-| `reports all three objective contracts` | collect-all search result plus derived no-falls/no-reset semantics |
-| `counts explored states and unique stops` | state count distinguishes masks; stop count does not |
-| `does not mutate caller rows` | repeated calls return equal results and original rows remain equal |
-| `rejects invalid solver input` | empty/zero-column/jagged/unknown glyph, start/goal count, >30 crystals, invalid cap |
-| `truncates before a goal` | `truncated`, `solvable: false`, `minMoves: null` |
-| `preserves a proven minimum when later truncated` | `truncated`, `solvable: false`, non-null exact `minMoves` |
+| one-move board | exact `minMoves`, start+goal stops, not truncated |
+| Campaign level 2 | computed minimum matches current par |
+| crystal-mask state | revisiting one coordinate after collection is explored as a new state |
+| crystal IDs | reachable IDs are zero-based row-major `"row,col"` strings |
+| unreachable crystal | isolated crystal is absent |
+| all-crystals goal | `reachedGoalWithAllCrystals` reflects an actual goal state |
+| stop/state relationship | mask-distinguished `exploredStates` exceeds `reachableStopCount`; avoid an exact count |
+| immutability/determinism | repeated results match and caller rows remain unchanged |
+| invalid input | rows, glyphs, exact start/goal counts, >30 crystals, and invalid cap throw |
+| truncation | `truncated: true`, `solvable: false`, `minMoves: null`, states do not exceed cap |
 
-Use a crystal-state fixture where a correct result requires revisiting a previously seen
-coordinate after collecting a crystal. This test must fail if the visited key contains
-position only.
+The crystal fixture must fail if the visited key uses player position only.
 
-Use a separate branching fixture for post-goal truncation: direction order must reach a
-short goal first, then encounter enough additional unseen states to hit the cap.
-
-- [ ] **Step 2: Run tests and confirm the module is absent**
+- [ ] **Step 2: Verify the red test state**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/solver.test.ts
@@ -115,79 +88,60 @@ bun run test:run -- src/lib/games/ice-slide/solver.test.ts
 
 Expected: FAIL because `./solver` does not exist.
 
-- [ ] **Step 3: Implement input scanning and state encoding**
+- [ ] **Step 3: Implement board scanning and state encoding**
 
 In `solver.ts`:
 
 - validate `maxStates` with `Number.isSafeInteger(value) && value >= 1`;
-- call `parseGrid(source)`;
-- reject a zero-column board explicitly;
+- call `parseGrid(source)` and explicitly reject zero-column rows;
 - scan once for exactly one start, exactly one goal, hazards, and row-major crystals;
-- reject crystal count above `MAX_SOLVER_CRYSTALS`;
-- map each crystal ID to bit `1 << index`;
-- use the private state key:
+- throw when crystal count exceeds the internal limit of 30;
+- map each crystal index to `1 << index`;
+- encode visited state as `row,col,mask`;
+- do not import `IceSlideObjectiveId`.
+
+Use this internal state:
 
 ```ts
-function encodeStateKey(
-    position: GridPosition,
+interface SolverState {
+    position: GridPosition
+    moves: number
     crystalMask: number
-): string {
-    return `${position.row},${position.col},${crystalMask}`
+    grid: CellType[][]
 }
 ```
 
-The direct solver throws for invalid content. Do not add an exported validation helper.
+Keep the grid in the state because `slide()` mutates collected crystals. Do not add
+base-grid reconstruction logic in this task.
 
 - [ ] **Step 4: Implement complete BFS traversal**
 
-Use this exact traversal policy:
+Use this traversal policy:
 
-1. Clone the parsed grid and replace the start cell with ice.
-2. Queue the start state with `moves: 0` and mask `0`.
+1. Clone the parsed grid and replace the start with ice.
+2. Queue the start state with mask `0` and moves `0`.
 3. Use an array plus queue cursor.
 4. Try directions in `N`, `E`, `S`, `W` order.
-5. Clone the current state's grid before each `slide()` call.
+5. Clone the current grid before each `slide()` call.
 6. Skip `noop` and `hazard` outcomes.
-7. Update the crystal mask from crystal coordinates in `outcome.path`.
-8. Skip already-seen `(position, mask)` states.
-9. Before admitting an unseen state, compare `seen.size` with `maxStates`.
+7. Update the mask from crystal coordinates in `outcome.path`.
+8. Skip seen `(position, mask)` states.
+9. Before admitting an unseen state, enforce `maxStates`.
 10. Record goal states but do not enqueue them.
-11. Continue after the first goal until the queue is exhausted or the cap truncates.
+11. Continue after the first goal unless the cap truncates the search.
 
 Track:
 
-- `minMoves` from the first reached goal;
-- unique stop-coordinate IDs in a `Set<string>`;
-- reachable crystals in a `Set<string>`, returned by filtering the original row-major
-  crystal list;
-- whether any goal state consumed the complete crystal mask;
-- whether the board contains at least one hazard.
+- first goal depth;
+- unique stop coordinates;
+- reachable crystals, returned by filtering the original row-major list;
+- whether any goal consumed the full crystal mask;
+- admitted-state count.
 
-- [ ] **Step 5: Implement result semantics**
+On truncation, return `solvable: false`, `minMoves: null`, and already observed
+stop/crystal diagnostics. Do not preserve a partial par.
 
-For a complete search:
-
-```ts
-solvable = minMoves !== null
-objectiveFeasibility = {
-    collect_all_crystals:
-        crystalCount > 0 && reachedGoalWithAllCrystals,
-    no_falls: hasHazard && solvable,
-    no_reset: solvable,
-}
-```
-
-For truncation:
-
-- return immediately before admitting the over-cap state;
-- set `truncated: true` and `solvable: false`;
-- keep the current `minMoves`, which may be `null`;
-- keep already-observed stop/crystal counts and witnessed objective feasibility;
-- set `exploredStates` to `seen.size`.
-
-No result path or predecessor map is required.
-
-- [ ] **Step 6: Run and format the solver suite**
+- [ ] **Step 5: Run, format, and lint the solver**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/solver.test.ts
@@ -201,7 +155,7 @@ bunx eslint \
 
 Expected: solver tests pass; formatter and lint exit successfully.
 
-- [ ] **Step 7: Commit the complete solver**
+- [ ] **Step 6: Commit the complete solver**
 
 ```bash
 git add \
@@ -217,6 +171,10 @@ git commit -m "feat(ice-slide): add bounded production solver"
 **Files:**
 - Create: `src/lib/games/ice-slide/quality.ts`
 - Create: `src/lib/games/ice-slide/quality.test.ts`
+
+**Why this task exists:** HPA-486 explicitly requires a pure stage-quality validator and
+canonical duplicate detection. Do not add generator retries, mutation advice, aggregate
+counters, or fallback selection.
 
 **Produces:**
 
@@ -248,6 +206,7 @@ export type IceSlideStageQualityResult =
           accepted: true
           parMoves: number
           canonicalKey: string
+          objectiveFeasibility: Record<IceSlideObjectiveId, boolean>
           solveResult: IceSlideSolveResult
       }
     | {
@@ -259,27 +218,25 @@ export type IceSlideStageQualityResult =
       }
 ```
 
-- [ ] **Step 1: Write the failing quality tests**
+- [ ] **Step 1: Write failing quality tests**
 
 Create `quality.test.ts` with this matrix:
 
-| Fixture | Expected reason |
+| Fixture | Expected result |
 |---|---|
-| empty, zero-column, jagged, unknown glyph | `invalid_board` |
-| missing/multiple start | `invalid_board`, count in message |
-| missing/multiple goal | `invalid_board`, count in message |
-| more than 30 crystals | `invalid_board` |
-| existing exact canonical key | `duplicate_board` |
-| state cap hit | `solver_truncated` even when `minMoves` is present |
+| empty, zero-column, jagged rows | `invalid_board` |
+| unknown glyph, missing/multiple start or goal, >30 crystals | solver error mapped to `invalid_board` |
+| existing exact canonical key | `duplicate_board` before BFS |
+| state cap hit | `solver_truncated` |
 | fully explored impossible goal | `unsolvable` |
-| computed par below/above band | `par_out_of_band` |
-| assigned collect-all with unreachable crystal | `objective_infeasible`, crystal detail in message |
-| assigned collect-all without all-crystals goal route | `objective_infeasible` |
-| assigned no-falls on no-hazard board | `objective_infeasible` |
-| valid candidate | accepted with computed par, canonical key, and solver result |
+| computed par outside band | `par_out_of_band` |
+| crystal-free collect-all | `objective_infeasible` |
+| unreachable/all-crystals-impossible collect-all | `objective_infeasible` with crystal detail |
+| hazard-free no-falls | `objective_infeasible` |
+| valid candidate | accepted with par, canonical key, objective feasibility, and solver result |
 | invalid constraints | throws `RangeError` |
 
-- [ ] **Step 2: Run tests and confirm the module is absent**
+- [ ] **Step 2: Verify the red test state**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/quality.test.ts
@@ -287,41 +244,50 @@ bun run test:run -- src/lib/games/ice-slide/quality.test.ts
 
 Expected: FAIL because `./quality` does not exist.
 
-- [ ] **Step 3: Implement configuration and structural validation**
+- [ ] **Step 3: Implement constraint, shape, and duplicate checks**
 
 In `quality.ts`:
 
 - validate `maxStates`, `parBand.minMoves`, and `parBand.maxMoves` as positive safe
   integers;
 - throw when `minMoves > maxMoves`;
-- parse rows and scan crystal/start/goal counts;
-- map parsing, zero-column, crystal-ceiling, and exact-count failures to
-  `invalid_board` with concise diagnostic messages;
-- compute `canonicalKey = serializeBoardRows(candidate.rows)`;
-- reject an existing exact key as `duplicate_board` before calling the solver.
+- call `serializeBoardRows(candidate.rows)` inside a try/catch and map invalid shape to
+  `invalid_board`;
+- reject membership in `existingCanonicalKeys` as `duplicate_board` before BFS.
 
-The quality scan intentionally duplicates the solver's cheap defensive scan so direct
-solver calls still validate themselves. Do not add a third shared module.
+Do not parse or count start/goal tiles in `quality.ts`.
 
-- [ ] **Step 4: Implement ordered solver policy**
+- [ ] **Step 4: Call the solver and map invalid content once**
 
-After structural and duplicate checks:
+Call `solveIceSlideBoard(candidate, { maxStates })` inside a try/catch. Map parser,
+glyph, crystal-ceiling, and exact start/goal errors to `invalid_board` using the solver's
+message. This keeps validation wording in one place.
 
-1. Call `solveIceSlideBoard(candidate, { maxStates })`.
-2. Reject `solveResult.truncated` as `solver_truncated` before all other solver checks.
-3. Reject a complete unreachable search as `unsolvable`.
-4. Reject computed par outside the inclusive band as `par_out_of_band`.
-5. Evaluate assigned objectives in input order:
-   - for `collect_all_crystals`, use crystal counts and
-     `solveResult.objectiveFeasibility.collect_all_crystals`; make the message identify
-     unreachable crystals when the reachable count is lower;
-   - use `solveResult.objectiveFeasibility` for all other objective IDs;
-   - reject any failure as `objective_infeasible`.
-6. Return accepted result with computed par, canonical key, and solver result.
+Then apply checks in order:
 
-Callers branch on `reason`, never on message text.
+1. `truncated` → `solver_truncated`;
+2. `!solvable` → `unsolvable`;
+3. par outside the inclusive band → `par_out_of_band`.
 
-- [ ] **Step 5: Run and format quality tests**
+- [ ] **Step 5: Derive objective assignment feasibility**
+
+Count `C` and `H` glyphs from the final candidate rows and derive:
+
+```ts
+const objectiveFeasibility = {
+    collect_all_crystals:
+        crystalCount > 0 && solveResult.reachedGoalWithAllCrystals,
+    no_falls: hasHazard && solveResult.solvable,
+    no_reset: solveResult.solvable,
+}
+```
+
+These are policy/eligibility results, not solver search modes. Evaluate assigned
+`objectiveIds` in input order and reject the first false value as
+`objective_infeasible`. For collect-all failures, distinguish unreachable crystals in
+the diagnostic message when `reachableCrystalIds.length < crystalCount`.
+
+- [ ] **Step 6: Run, format, and lint quality validation**
 
 ```bash
 bun run test:run -- \
@@ -337,7 +303,7 @@ bunx eslint \
 
 Expected: both suites pass; formatter and lint exit successfully.
 
-- [ ] **Step 6: Commit quality validation**
+- [ ] **Step 7: Commit quality validation**
 
 ```bash
 git add \
@@ -353,7 +319,7 @@ git commit -m "feat(ice-slide): validate generated stage quality"
 **Files:**
 - Modify: `src/lib/games/ice-slide/physics.test.ts`
 
-- [ ] **Step 1: Replace Campaign minimum-move BFS**
+- [ ] **Step 1: Replace the Campaign minimum-move BFS**
 
 Import `solveIceSlideBoard`, delete the local `minMoves()` helper, and for every
 `ICE_SLIDE_LEVELS` entry assert:
@@ -365,12 +331,10 @@ expect(result.solvable, `level ${level.id} solvable`).toBe(true)
 expect(result.minMoves, `level ${level.id} par`).toBe(level.parMoves)
 ```
 
-- [ ] **Step 2: Replace Campaign crystal BFS**
+- [ ] **Step 2: Replace the Campaign crystal BFS**
 
-Delete the second local queue traversal. Derive expected IDs from `C` glyphs in row-major
-order and compare them with `result.reachableCrystalIds` from the same explicit cap.
-
-Keep `cloneGrid` imported because earlier physics tests still use it.
+Delete the second local traversal. Derive expected IDs from `C` glyphs in row-major order
+and compare them with `result.reachableCrystalIds` under the same explicit cap.
 
 - [ ] **Step 3: Run targeted and full tests**
 
@@ -394,52 +358,28 @@ bun run typecheck 2>&1 | tee /tmp/hpa-486-typecheck.txt
 ```
 
 Compare typecheck output with a clean worktree at the implementation base commit. The
-requirement is no new diagnostics; do not assume the two errors reported by PR #53 still
-form the current baseline.
+bar is no new diagnostics because `astro check` reports across the whole repository.
 
-- [ ] **Step 5: Verify implementation scope**
-
-```bash
-git diff --name-only origin/main...HEAD
-```
-
-Expected implementation files:
-
-```text
-src/lib/games/ice-slide/physics.test.ts
-src/lib/games/ice-slide/quality.test.ts
-src/lib/games/ice-slide/quality.ts
-src/lib/games/ice-slide/solver.test.ts
-src/lib/games/ice-slide/solver.ts
-```
-
-- [ ] **Step 6: Commit Campaign migration**
+- [ ] **Step 5: Commit the Campaign migration**
 
 ```bash
 git add src/lib/games/ice-slide/physics.test.ts
 git commit -m "test(ice-slide): use production solver for campaign content"
 ```
 
-- [ ] **Step 7: Open a draft implementation PR**
+- [ ] **Step 6: Open a draft implementation PR**
 
-The PR summary must state:
-
-- complete bounded solver with numeric crystal masks;
-- quality rejection policy and six reason codes;
-- preserved Campaign pars and crystal reachability;
-- truncation preserves proven `minMoves` but is always rejected;
-- no runtime, generator-loop, UI, score, or future-mechanic changes;
-- targeted/full test, lint, format, and baseline-aware typecheck results.
-
-Do not enable auto-merge.
+Summarize the solver, quality gate, Campaign regression replacement, YAGNI boundaries,
+and actual verification results. Do not enable auto-merge.
 
 ---
 
 ## Plan Self-Review
 
-- **Spec coverage:** all HPA-486 required fields and rejection checks map to Tasks 1–3.
-- **No partial API:** Task 1 delivers the complete solver in one commit.
-- **YAGNI:** no full source dump, generic framework, solution path, generator
-  orchestration, or future-state scaffolding.
-- **Type consistency:** `number` mask ceiling, six reason codes, truncation semantics,
-  and public interfaces match the design.
+- **Coverage:** solver extraction, ticket-required quality validation, Campaign migration,
+  truncation, objective policy, and verification each have an owning task.
+- **API consistency:** objective IDs appear only in `quality.ts`; solver results contain
+  search facts only.
+- **YAGNI:** no partial par after truncation, exported crystal-limit constant, duplicate
+  start/goal scan, exact traversal-count assertions, generator behavior, path output, or
+  generic framework remains.
