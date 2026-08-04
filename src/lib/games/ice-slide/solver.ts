@@ -175,7 +175,10 @@ export function solveIceSlideBoard(
         minMoves: truncated ? null : minMoves,
         reachableStopCount: stops.size,
         reachableCrystalIds,
-        reachedGoalWithAllCrystals,
+        // A full-crystal goal may be found before a later transition reaches
+        // the state cap. Suppress the flag when truncated so the result never
+        // claims partial solvability alongside `truncated: true`.
+        reachedGoalWithAllCrystals: !truncated && reachedGoalWithAllCrystals,
         exploredStates: seen.size,
         truncated,
     }
