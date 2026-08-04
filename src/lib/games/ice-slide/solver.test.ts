@@ -189,6 +189,17 @@ describe('ice-slide solver', () => {
         }
     })
 
+    it('truncates when the state cap is hit by a goal state on a one-move board', () => {
+        const result = solveIceSlideBoard(
+            { id: 'one-move-cap', rows: ['#####', '#S.G#', '#####'] },
+            { maxStates: 1 }
+        )
+        expect(result.truncated).toBe(true)
+        expect(result.solvable).toBe(false)
+        expect(result.minMoves).toBeNull()
+        expect(result.exploredStates).toBe(1)
+    })
+
     it('truncates at the state cap without preserving a partial par', () => {
         const result = solveIceSlideBoard(
             {
