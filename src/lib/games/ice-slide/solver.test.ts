@@ -220,4 +220,22 @@ describe('ice-slide solver', () => {
         expect(result.minMoves).toBeNull()
         expect(result.exploredStates).toBeLessThanOrEqual(5)
     })
+
+    it('clears reachedGoalWithAllCrystals when truncating after a full-crystal goal', () => {
+        // The full-crystal goal is admitted as the 7th state, then the next
+        // transition hits the cap. The flag must be suppressed to avoid
+        // contradicting `truncated: true` / `solvable: false`.
+        const result = solveIceSlideBoard(
+            {
+                id: 'crystal-truncate',
+                rows: ['#######', '#S.C.C#', '#.....#', '#..G..#', '#######'],
+            },
+            { maxStates: 7 }
+        )
+        expect(result.truncated).toBe(true)
+        expect(result.solvable).toBe(false)
+        expect(result.minMoves).toBeNull()
+        expect(result.reachedGoalWithAllCrystals).toBe(false)
+        expect(result.exploredStates).toBe(7)
+    })
 })
