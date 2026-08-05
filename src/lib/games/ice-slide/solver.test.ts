@@ -190,6 +190,14 @@ describe('ice-slide solver', () => {
     })
 
     it('truncates when the state cap is hit by a goal state on a one-move board', () => {
+        // Positive control: with a generous cap the board is solvable in 1 move.
+        const baseline = solveIceSlideBoard(
+            { id: 'one-move-baseline', rows: ['#####', '#S.G#', '#####'] },
+            { maxStates: 32 }
+        )
+        expect(baseline.solvable).toBe(true)
+        expect(baseline.minMoves).toBe(1)
+
         const result = solveIceSlideBoard(
             { id: 'one-move-cap', rows: ['#####', '#S.G#', '#####'] },
             { maxStates: 1 }
@@ -222,6 +230,17 @@ describe('ice-slide solver', () => {
     })
 
     it('clears reachedGoalWithAllCrystals when truncating after a full-crystal goal', () => {
+        // Positive control: with a generous cap the board reaches the goal
+        // with all crystals collected.
+        const baseline = solveIceSlideBoard(
+            {
+                id: 'crystal-baseline',
+                rows: ['#######', '#S.C.C#', '#.....#', '#..G..#', '#######'],
+            },
+            { maxStates: 64 }
+        )
+        expect(baseline.reachedGoalWithAllCrystals).toBe(true)
+
         // The full-crystal goal is admitted as the 7th state, then the next
         // transition hits the cap. The flag must be suppressed to avoid
         // contradicting `truncated: true` / `solvable: false`.
