@@ -135,7 +135,12 @@ function createElement<K extends keyof HTMLElementTagNameMap>(
     return el
 }
 
-function setupDOM() {
+type PreviewCtx = { fillRect: ReturnType<typeof vi.fn>; fillStyle: string }
+
+function setupDOM(): {
+    currentBubbleCtx: PreviewCtx
+    nextBubbleCtx: PreviewCtx
+} {
     const container = createElement('div', { id: 'game-container' })
     const currentBubble = createElement('canvas', {
         id: 'current-bubble',
@@ -209,25 +214,39 @@ function setupDOM() {
         resumeBtn
     )
 
-    // Provide a stub 2D context for the preview canvases
-    const mockCtx = {
+    // Provide separate stub 2D contexts for each preview canvas so tests can
+    // assert on current vs next independently (and detect null clears).
+    const currentBubbleCtx: PreviewCtx = {
         fillRect: vi.fn(),
         fillStyle: '',
     }
-    for (const c of [currentBubble, nextBubble]) {
-        Object.defineProperty(c, 'getContext', {
-            value: vi.fn(() => mockCtx),
-            writable: true,
-        })
+    const nextBubbleCtx: PreviewCtx = {
+        fillRect: vi.fn(),
+        fillStyle: '',
     }
+
+    Object.defineProperty(currentBubble, 'getContext', {
+        value: vi.fn(() => currentBubbleCtx),
+        writable: true,
+    })
+    Object.defineProperty(nextBubble, 'getContext', {
+        value: vi.fn(() => nextBubbleCtx),
+        writable: true,
+    })
+
+    return { currentBubbleCtx, nextBubbleCtx }
 }
 
 describe('initBubbleShooterGameFramework', () => {
     const rafCallbacks: FrameRequestCallback[] = []
     let result: Awaited<ReturnType<typeof initBubbleShooterGameFramework>>
+    let currentBubbleCtx: PreviewCtx
+    let nextBubbleCtx: PreviewCtx
 
     beforeEach(() => {
-        setupDOM()
+        const ctxs = setupDOM()
+        currentBubbleCtx = ctxs.currentBubbleCtx
+        nextBubbleCtx = ctxs.nextBubbleCtx
         vi.clearAllMocks()
         vi.useFakeTimers()
         vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
@@ -933,6 +952,32 @@ describe('initBubbleShooterGameFramework', () => {
                 nextBubble: { color: 0x00ff00 },
             })
             expect(drawBubbleOnCanvas).not.toHaveBeenCalled()
+        })
+
+        it('clears the preview canvases when currentBubble/nextBubble transition from a color to null', async () => {
+            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            result = await initBubbleShooterGameFramework()
+            const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
+            const callbacksArg = vi.mocked(BubbleShooterGame).mock
+                .calls[0][1] as any
+            const baseState = gameMock.getState()
+            // First a colored bubble on each canvas → one fillRect each
+            // (background) plus the bubble draw.
+            callbacksArg.onStateChange({
+                ...baseState,
+                currentBubble: { x: 300, y: 700, color: 0xff0000 },
+                nextBubble: { color: 0x00ff00 },
+            })
+            // Then null → the canvas must CLEAR (one more fillRect each for
+            // the background wipe; drawBubbleOnCanvas is NOT called).
+            callbacksArg.onStateChange({
+                ...baseState,
+                currentBubble: null,
+                nextBubble: null,
+            })
+
+            expect(currentBubbleCtx.fillRect).toHaveBeenCalledTimes(2)
+            expect(nextBubbleCtx.fillRect).toHaveBeenCalledTimes(2)
         })
     })
 

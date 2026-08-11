@@ -3,6 +3,8 @@ import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
+import { DEFAULT_BUBBLE_SHOOTER_CONFIG } from '@/lib/games/bubble-shooter/BubbleShooterGame'
+const rowAddInterval = DEFAULT_BUBBLE_SHOOTER_CONFIG.rowAddInterval
 ---
 
 <GamePage
@@ -109,10 +111,10 @@ import Button from '@/components/ui/Button.astro'
       </h3>
       <div class="space-y-2 text-sm text-cetus-ink">
         <p>• Match 3+ bubbles of the same color</p>
-        <p>• Bubbles must be connected to pop</p>
-        <p>• New row appears after each shot</p>
-        <p>• Game ends when bubbles reach bottom</p>
-        <p>• Higher combos = more points</p>
+        <p>• Disconnected bubbles fall after a match</p>
+        <p>• New row appears every {rowAddInterval} shots</p>
+        <p>• Game ends when bubbles reach the danger zone</p>
+        <p>• Accuracy counts shots that clear bubbles</p>
       </div>
     </Card>
   </div>

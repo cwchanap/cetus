@@ -14,6 +14,10 @@ const circuitHackerMarkup = readFileSync(
     resolve(process.cwd(), 'src/pages/circuit-hacker/index.astro'),
     'utf-8'
 )
+const bubbleShooterMarkup = readFileSync(
+    resolve(process.cwd(), 'src/pages/bubble-shooter/index.astro'),
+    'utf-8'
+)
 
 const games = [
     'tetris',
@@ -42,6 +46,20 @@ describe('Game board page markup', () => {
     it('exposes the Circuit Hacker canvas container and difficulty select', () => {
         expect(circuitHackerMarkup).toContain('id="game-canvas-container"')
         expect(circuitHackerMarkup).toContain('id="difficulty-select"')
+    })
+})
+
+describe('Bubble Shooter rules copy', () => {
+    it('sources rowAddInterval from config and reflects Tasks 4-6 mechanics', () => {
+        expect(bubbleShooterMarkup).toContain(
+            'DEFAULT_BUBBLE_SHOOTER_CONFIG.rowAddInterval'
+        )
+        expect(bubbleShooterMarkup).toContain(
+            'Disconnected bubbles fall after a match'
+        )
+        expect(bubbleShooterMarkup).not.toContain(
+            'New row appears after each shot'
+        )
     })
 })
 
