@@ -4,86 +4,70 @@
 
 **Goal:** Correct Bubble Shooter hex geometry, projectile simulation, legal attachment, cluster removal, queue/stat semantics, restart behavior, previews, and rules in one implementation PR.
 
-**Architecture:** Keep Bubble Shooter geometry and mechanics local to its existing module, reuse the shared `distance` helper, and leave the Pixi renderer coordinate-driven. Make two narrowly shared framework corrections in `BaseGame`: an ended-run `start()` resets before starting the next run, and `update(deltaTime)` is explicitly measured in seconds. No physics engine, shared hex-grid package, renderer rewrite, persistence migration, or compatibility layer is added.
+**Architecture:** Keep hex geometry and game rules local to Bubble Shooter, reuse the existing shared `distance` helper, and leave the Pixi renderer coordinate-driven. Make only two narrow framework changes: `BaseGame.start()` resets a completed run before starting the next one, and `BaseGame.update(deltaTime)` explicitly uses elapsed seconds.
 
 **Tech Stack:** Astro 5, TypeScript, PixiJS 8, Vitest/jsdom, Playwright, Bun 1.3.1.
 
 ## Global Constraints
 
-- Deliver all tasks on branch `agent/hpa-121-bubble-shooter-mechanics` in draft PR #57.
-- Track the work under Linear issue `HPA-121`.
+- Use branch `agent/hpa-121-bubble-shooter-mechanics` and draft PR #57.
+- Track under Linear `HPA-121`.
 - Reuse `distance` from `src/lib/games/shared/geometry.ts`.
-- Do not reuse `src/lib/games/shared/match3.ts`; it models rectangular run matching/gravity, not hex connectivity.
-- Do not add a physics engine, shared grid/graph package, new production module, animation, sound, asset, power-up, level, or difficulty feature.
-- `BaseGame.update(deltaTime)` uses elapsed **seconds**.
-- Set Bubble Shooter default `projectileSpeed` to exactly `720` pixels per second.
-- Clamp one Bubble Shooter projectile update to exactly `0.05` seconds.
-- Limit one Bubble Shooter projectile substep to at most `bubbleRadius / 2` travel.
-- Keep `MATCH_THRESHOLD = 3`, `POINTS_PER_BUBBLE = 10`, and `ALL_CLEAR_BONUS = 1000`.
-- Bubble collision is evaluated before ceiling collision on every projectile substep.
-- A blocked impact consumes the projectile but is not a game-over condition by itself; `checkGameOverCondition()` remains the gameplay game-over authority.
-- Count direct matches and ceiling-disconnected drops in score, `bubblesPopped`, and `largestCombo`.
-- Increment `successfulShots` once only when the newly attached bubble creates a direct same-color cluster of at least three.
-- Preserve the already-previewed current bubble; only reconcile future `nextBubble` after all board mutation/cleanup for the shot.
-- Initial-grid generation samples one snapshot of `config.colors`.
-- Added-row generation samples one snapshot of currently active board colors before mutating the board.
-- Board mutation ordering is explicit: mutate grid → refresh coordinates if row geometry changed → remove unsupported bubbles when required → synchronize `bubblesRemaining` → reconcile future queue.
-- `removeUnsupportedBubbles(constants)` returns `GridPosition[]` and does not call `syncBubbleCount()`.
-- Every planned commit must compile with all production callers; no intentionally broken signature-migration commit is allowed.
-- Tests use deterministic board state or stubbed `Math.random`.
-- Remove `rowOffset`; no compatibility layer is required for internal state/helper signatures.
-- Do not remove existing initializer-level restart guards from other games in this PR; the shared BaseGame fix makes them redundant but harmless.
+- Do not reuse rectangular `src/lib/games/shared/match3.ts`.
+- Do not add a physics engine, shared hex/grid package, renderer refactor, new production module, asset, animation, sound, power-up, level, or difficulty feature.
+- `BaseGame.update(deltaTime)` means elapsed **seconds**.
+- Bubble Shooter `projectileSpeed` default becomes exactly `720` pixels/second.
+- Clamp one Bubble Shooter physics update to exactly `0.05` seconds.
+- Each collision substep travels at most `bubbleRadius / 2`.
+- Keep `MATCH_THRESHOLD = 3`, `POINTS_PER_BUBBLE = 10`, `ALL_CLEAR_BONUS = 1000`.
+- Check bubble collision before ceiling collision on every substep.
+- A locally blocked impact consumes the shot but cannot end the run by itself; danger-zone detection remains the game-over authority.
+- Score direct matches and ceiling-disconnected drops; one direct match increments `successfulShots` once.
+- Preserve `currentBubble`; only reconcile future `nextBubble` after board mutation/cleanup.
+- `removeUnsupportedBubbles(constants): GridPosition[]` removes cells and returns positions but never synchronizes `bubblesRemaining`.
+- Every commit must typecheck; do not commit a helper-signature migration with broken callers.
+- Use deterministic board state or stubbed `Math.random` in tests.
+- Remove `rowOffset` without a compatibility shim.
+- Leave existing 2048/Evader/Reflex/Sudoku initializer restart guards in place; they become redundant but harmless.
 
 ---
 
 ## File Map
 
-### Shared framework
+**Shared framework**
+- Modify `src/lib/games/core/BaseGame.ts`
+- Modify `src/lib/games/core/core.test.ts`
 
-- `src/lib/games/core/BaseGame.ts`
-  - Reset a completed run inside `start()` before beginning the next run.
-  - Document `update(deltaTime)` as elapsed seconds.
-- `src/lib/games/core/core.test.ts`
-  - Regression coverage for ended-run restart and active-start no-op.
+**Bubble Shooter production**
+- Modify `src/lib/games/bubble-shooter/types.ts`
+- Modify `src/lib/games/bubble-shooter/utils.ts`
+- Modify `src/lib/games/bubble-shooter/BubbleShooterGame.ts`
+- Modify `src/lib/games/bubble-shooter/initFramework.ts`
+- Modify `src/pages/bubble-shooter/index.astro`
 
-### Bubble Shooter production
+**Tests**
+- Modify `src/lib/games/bubble-shooter/utils.test.ts`
+- Modify `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
+- Modify `src/lib/games/bubble-shooter/initFramework.test.ts`
+- Modify `src/pages/game-board-markup.test.ts`
 
-- `src/lib/games/bubble-shooter/types.ts`
-  - Add `RowPhase` and `successfulShots`; remove `rowOffset`; document speed units.
-- `src/lib/games/bubble-shooter/utils.ts`
-  - Physical parity, row width, centered coordinates, and phase-aware neighbors.
-- `src/lib/games/bubble-shooter/BubbleShooterGame.ts`
-  - Dense board normalization, projectile substeps, wall reflection, impact-local attachment, count sync, cluster/drop resolution, active colors, scoring/statistics.
-- `src/lib/games/bubble-shooter/initFramework.ts`
-  - Convert RAF milliseconds to seconds; clear preview canvases on null/reset.
-- `src/pages/bubble-shooter/index.astro`
-  - Render configured row interval and corrected rules.
-
-### Bubble Shooter tests
-
-- `src/lib/games/bubble-shooter/utils.test.ts`
-- `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
-- `src/lib/games/bubble-shooter/initFramework.test.ts`
-- `src/pages/game-board-markup.test.ts`
-
-`src/lib/games/bubble-shooter/BubbleShooterRenderer.ts` remains unchanged.
+`BubbleShooterRenderer.ts` remains unchanged.
 
 ---
 
-### Task 1: Fix shared ended-run restart semantics and define delta-time units
+### Task 1: Fix completed-run restart semantics and define `deltaTime`
 
 **Files:**
 - Modify: `src/lib/games/core/BaseGame.ts`
-- Modify: `src/lib/games/core/core.test.ts`
+- Test: `src/lib/games/core/core.test.ts`
 
-**Interfaces:**
-- Produces: `BaseGame.start()` resets when `state.gameStarted && state.isGameOver` before setting new-run flags.
-- Produces: `BaseGame.update(deltaTime)` contract = elapsed seconds.
-- Preserves: calling `start()` while already active is a no-op.
+**Produces:**
+- `start()` resets an ended run before new-run flags/hooks.
+- `update(deltaTime)` is documented as elapsed seconds.
 
-- [ ] **Step 1: Add a failing ended-run restart regression**
+- [ ] **Step 1: Add the failing restart regression**
 
-Inside the existing `BaseGame default hooks` suite, add:
+Inside the existing `BaseGame default hooks` suite:
 
 ```ts
 it('resets state and score before starting after game over', async () => {
@@ -117,9 +101,7 @@ it('resets state and score before starting after game over', async () => {
 })
 ```
 
-- [ ] **Step 2: Add/retain active-start no-op coverage**
-
-Add a focused assertion if the existing test does not already pin `reset()`:
+- [ ] **Step 2: Pin the active-start guard**
 
 ```ts
 it('does not reset when start is called while already active', () => {
@@ -142,17 +124,15 @@ it('does not reset when start is called while already active', () => {
 })
 ```
 
-- [ ] **Step 3: Verify the ended-run test fails**
+- [ ] **Step 3: Verify red**
 
 ```bash
 bun run test:run src/lib/games/core/core.test.ts -t "resets state and score|already active"
 ```
 
-Expected: ended-run test FAILS because `start()` currently flips flags without resetting `ScoreManager`/state; active-start test passes.
+Expected: ended-run test fails because current `start()` preserves prior score/state.
 
-- [ ] **Step 4: Implement the minimal shared restart fix**
-
-In `BaseGame.start()` keep the active guard first, then reset completed runs:
+- [ ] **Step 4: Implement the shared restart guard**
 
 ```ts
 start(): void {
@@ -181,11 +161,7 @@ start(): void {
 }
 ```
 
-Do not remove the existing reset-before-start guards from 2048/Evader/Reflex/Sudoku in this PR. Their explicit `reset()` changes `gameStarted` back to false, so the BaseGame guard is a no-op when `start()` follows.
-
-- [ ] **Step 5: Document seconds on the abstract update contract**
-
-Replace the bare abstract declaration with:
+- [ ] **Step 5: Document the update unit**
 
 ```ts
 /**
@@ -194,71 +170,56 @@ Replace the bare abstract declaration with:
 abstract update(deltaTime: number): void
 ```
 
-- [ ] **Step 6: Verify core tests and typecheck**
+- [ ] **Step 6: Verify green and commit**
 
 ```bash
 bun run test:run src/lib/games/core/core.test.ts
 bun run typecheck
-```
-
-Expected: PASS and typecheck exits 0.
-
-- [ ] **Step 7: Commit**
-
-```bash
 git add src/lib/games/core/BaseGame.ts src/lib/games/core/core.test.ts
 git commit -m "fix: reset completed BaseGame runs on start"
 ```
 
+Expected: test file passes and typecheck exits 0.
+
 ---
 
-### Task 2: Make hex geometry and board state phase-aware in one atomic commit
+### Task 2: Make geometry and board state phase-aware atomically
 
 **Files:**
 - Modify: `src/lib/games/bubble-shooter/types.ts`
 - Modify: `src/lib/games/bubble-shooter/utils.ts`
-- Modify: `src/lib/games/bubble-shooter/utils.test.ts`
 - Modify: `src/lib/games/bubble-shooter/BubbleShooterGame.ts`
-- Modify: `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
+- Test: `src/lib/games/bubble-shooter/utils.test.ts`
+- Test: `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
 
-**Interfaces:**
-- Produces: `RowPhase = 0 | 1`.
-- Produces: `getRowParity(row, rowPhase): RowPhase`.
-- Produces: `getRowColumnCount(row, rowPhase, constants): number`.
-- Produces: `getBubbleX(col, row, rowPhase, constants): number`.
-- Produces: `getBubbleY(row, constants): number`.
-- Produces: `getNeighbors(row, col, rowPhase, constants): GridPosition[]`.
-- Produces: `BubbleShooterState.rowPhase`.
-- Produces private `createEmptyRow`, `refreshBubbleCoordinates`, `syncBubbleCount`.
+**Produces:**
+- `RowPhase = 0 | 1`
+- `getRowParity(row, rowPhase)`
+- `getRowColumnCount(row, rowPhase, constants)`
+- `getBubbleX(col, row, rowPhase, constants)`
+- `getBubbleY(row, constants)`
+- `getNeighbors(row, col, rowPhase, constants)`
+- dense rows, `rowPhase`, coordinate refresh, authoritative count sync.
 
-- [ ] **Step 1: Rewrite the existing geometry suites, not just add new tests**
+- [ ] **Step 1: Rewrite the existing geometry suites**
 
-Replace the current `getBubbleX`, `getBubbleY`, and `getNeighbors` suites that call the old API. Keep color conversion and canvas-drawing tests.
-
-Use:
+Delete/rewrite the old 3-argument/`rowOffset` geometry tests; keep color/canvas tests.
 
 ```ts
 describe('phase-aware hex geometry', () => {
-    it('derives physical parity and row width from rowPhase', () => {
+    it('derives row parity and row width', () => {
         expect(getRowParity(0, 0)).toBe(0)
         expect(getRowParity(1, 0)).toBe(1)
         expect(getRowParity(0, 1)).toBe(1)
-        expect(getRowParity(1, 1)).toBe(0)
-
         expect(getRowColumnCount(0, 0, constants)).toBe(14)
-        expect(getRowColumnCount(1, 0, constants)).toBe(13)
         expect(getRowColumnCount(0, 1, constants)).toBe(13)
-        expect(getRowColumnCount(1, 1, constants)).toBe(14)
     })
 
-    it('centers full and offset rows inside projectile wall bounds', () => {
+    it('centers the full row exactly inside wall bounds', () => {
         expect(getBubbleX(0, 0, 0, constants)).toBe(40)
         expect(getBubbleX(13, 0, 0, constants)).toBe(560)
-        expect(getBubbleX(0, 0, 1, constants)).toBe(60)
-        expect(getBubbleX(12, 0, 1, constants)).toBe(540)
-
-        expect(getBubbleX(0, 0, 0, constants) - constants.BUBBLE_RADIUS).toBe(20)
-        expect(getBubbleX(13, 0, 0, constants) + constants.BUBBLE_RADIUS).toBe(580)
+        expect(getBubbleX(0, 0, 0, constants) - 20).toBe(20)
+        expect(getBubbleX(13, 0, 0, constants) + 20).toBe(580)
     })
 
     it('uses row-only vertical spacing', () => {
@@ -268,37 +229,26 @@ describe('phase-aware hex geometry', () => {
         )
     })
 
-    it('keeps every interior neighbor one diameter away', () => {
+    it('keeps each interior neighbor one bubble diameter away', () => {
         const origin = { row: 5, col: 5 }
-        const originPoint = {
-            x: getBubbleX(origin.col, origin.row, 1, constants),
-            y: getBubbleY(origin.row, constants),
-        }
+        const originX = getBubbleX(5, 5, 1, constants)
+        const originY = getBubbleY(5, constants)
 
-        for (const neighbor of getNeighbors(
-            origin.row,
-            origin.col,
-            1,
-            constants
-        )) {
-            const point = {
-                x: getBubbleX(neighbor.col, neighbor.row, 1, constants),
-                y: getBubbleY(neighbor.row, constants),
-            }
-            expect(
-                Math.hypot(
-                    point.x - originPoint.x,
-                    point.y - originPoint.y
-                )
-            ).toBeCloseTo(constants.BUBBLE_RADIUS * 2)
+        for (const neighbor of getNeighbors(5, 5, 1, constants)) {
+            const x = getBubbleX(
+                neighbor.col,
+                neighbor.row,
+                1,
+                constants
+            )
+            const y = getBubbleY(neighbor.row, constants)
+            expect(Math.hypot(x - originX, y - originY)).toBeCloseTo(40)
         }
     })
 })
 ```
 
-- [ ] **Step 2: Add test wrappers and a dense-grid invariant**
-
-In `BubbleShooterGame.test.ts` add:
+- [ ] **Step 2: Add dense-grid test helpers**
 
 ```ts
 const bubbleX = (
@@ -319,9 +269,7 @@ function countGrid(grid: BubbleShooterState['grid']): number {
     let count = 0
     for (const row of grid) {
         for (let col = 0; col < row.length; col++) {
-            if (row[col]) {
-                count++
-            }
+            if (row[col]) count++
         }
     }
     return count
@@ -340,22 +288,13 @@ function expectGridInvariant(game: BubbleShooterGame): void {
         for (let col = 0; col < row.length; col++) {
             expect(col in row).toBe(true)
             expect(row[col]).not.toBeUndefined()
-
             const bubble = row[col]
-            if (!bubble) {
-                continue
-            }
+            if (!bubble) continue
+
             expect(bubble.x).toBe(
-                getBubbleX(
-                    col,
-                    rowIndex,
-                    state.rowPhase,
-                    constants
-                )
+                getBubbleX(col, rowIndex, state.rowPhase, constants)
             )
-            expect(bubble.y).toBeCloseTo(
-                getBubbleY(rowIndex, constants)
-            )
+            expect(bubble.y).toBeCloseTo(getBubbleY(rowIndex, constants))
         }
     }
 
@@ -363,12 +302,10 @@ function expectGridInvariant(game: BubbleShooterGame): void {
 }
 ```
 
-Indexed checks are required because `Array.forEach`/`every` skip sparse holes.
-
-- [ ] **Step 3: Add a failing two-row insertion regression**
+- [ ] **Step 3: Add the two-row insertion regression**
 
 ```ts
-it('preserves dense phase-aware geometry through two inserted rows', () => {
+it('preserves dense geometry through two inserted rows', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     const game = makeGame({ newRowFillChance: 1 })
     game.start()
@@ -378,20 +315,17 @@ it('preserves dense phase-aware geometry through two inserted rows', () => {
     }
     const constants = game.getConstantsView()
 
-    expect(stateOf(game).rowPhase).toBe(0)
     expectGridInvariant(game)
-
     internal.addRowAtTop(constants, CONSTANTS.COLORS)
     expect(stateOf(game).rowPhase).toBe(1)
     expectGridInvariant(game)
-
     internal.addRowAtTop(constants, CONSTANTS.COLORS)
     expect(stateOf(game).rowPhase).toBe(0)
     expectGridInvariant(game)
 })
 ```
 
-- [ ] **Step 4: Verify migration tests fail before production changes**
+- [ ] **Step 4: Verify red**
 
 ```bash
 bun run test:run \
@@ -399,23 +333,14 @@ bun run test:run \
   src/lib/games/bubble-shooter/BubbleShooterGame.test.ts
 ```
 
-Expected: FAIL because phase helpers/signatures/state do not exist and current insertion leaves stale x/parity.
+Expected: helper signatures/state are missing and current insertion leaves stale x/parity.
 
-- [ ] **Step 5: Add RowPhase and replace geometry helpers**
-
-In `types.ts`:
+- [ ] **Step 5: Implement phase-aware helpers**
 
 ```ts
 export type RowPhase = 0 | 1
-```
 
-Replace geometry functions in `utils.ts` with:
-
-```ts
-export function getRowParity(
-    row: number,
-    rowPhase: RowPhase
-): RowPhase {
+export function getRowParity(row: number, rowPhase: RowPhase): RowPhase {
     return ((row + rowPhase) % 2) as RowPhase
 }
 
@@ -434,85 +359,41 @@ export function getBubbleX(
     constants: GameConstants
 ): number {
     const diameter = constants.BUBBLE_RADIUS * 2
-    const boardWidth = constants.GRID_WIDTH * diameter
-    const boardLeft = (constants.GAME_WIDTH - boardWidth) / 2
-    const parity = getRowParity(row, rowPhase)
-
+    const boardLeft =
+        (constants.GAME_WIDTH - constants.GRID_WIDTH * diameter) / 2
     return (
         boardLeft +
         constants.BUBBLE_RADIUS +
-        parity * constants.BUBBLE_RADIUS +
+        getRowParity(row, rowPhase) * constants.BUBBLE_RADIUS +
         col * diameter
     )
 }
 
-export function getBubbleY(
-    row: number,
-    constants: GameConstants
-): number {
+export function getBubbleY(row: number, constants: GameConstants): number {
     return (
         constants.BUBBLE_RADIUS +
         row * constants.BUBBLE_RADIUS * Math.sqrt(3)
     )
 }
-
-export function getNeighbors(
-    row: number,
-    col: number,
-    rowPhase: RowPhase,
-    constants: GameConstants
-): GridPosition[] {
-    const offsets =
-        getRowParity(row, rowPhase) === 0
-            ? [
-                  [-1, -1],
-                  [-1, 0],
-                  [0, -1],
-                  [0, 1],
-                  [1, -1],
-                  [1, 0],
-              ]
-            : [
-                  [-1, 0],
-                  [-1, 1],
-                  [0, -1],
-                  [0, 1],
-                  [1, 0],
-                  [1, 1],
-              ]
-
-    return offsets.flatMap(([rowDelta, colDelta]) => {
-        const neighborRow = row + rowDelta
-        const neighborCol = col + colDelta
-        if (
-            neighborRow < 0 ||
-            neighborRow >= constants.GRID_HEIGHT ||
-            neighborCol < 0 ||
-            neighborCol >=
-                getRowColumnCount(neighborRow, rowPhase, constants)
-        ) {
-            return []
-        }
-        return [{ row: neighborRow, col: neighborCol }]
-    })
-}
 ```
 
-- [ ] **Step 6: Replace `rowOffset` with dense phase-aware state**
+Implement `getNeighbors` with the existing even/odd offset sets, but derive parity with `getRowParity()` and bounds with `getRowColumnCount()`.
 
-In `BubbleShooterState` replace `rowOffset` with:
+- [ ] **Step 6: Replace `rowOffset` and make rows dense**
+
+State:
 
 ```ts
 rowPhase: RowPhase
 ```
 
-Initialize:
+Initial value:
 
 ```ts
 rowPhase: 0,
 ```
 
-Add:
+Helpers:
 
 ```ts
 private createEmptyRow(
@@ -533,23 +414,16 @@ private createEmptyRow(
 
 private refreshBubbleCoordinates(constants: GameConstants): void {
     for (let row = 0; row < constants.GRID_HEIGHT; row++) {
-        const count = getRowColumnCount(
-            row,
-            this.state.rowPhase,
-            constants
+        const width = getRowColumnCount(row, this.state.rowPhase, constants)
+        const oldRow = this.state.grid[row] ?? []
+        this.state.grid[row] = Array.from(
+            { length: width },
+            (_, col) => oldRow[col] ?? null
         )
-        const previous = this.state.grid[row] ?? []
-        const dense = Array.from(
-            { length: count },
-            (_, col) => previous[col] ?? null
-        )
-        this.state.grid[row] = dense
 
-        for (let col = 0; col < dense.length; col++) {
-            const bubble = dense[col]
-            if (!bubble) {
-                continue
-            }
+        for (let col = 0; col < width; col++) {
+            const bubble = this.state.grid[row][col]
+            if (!bubble) continue
             bubble.x = getBubbleX(
                 col,
                 row,
@@ -565,9 +439,7 @@ private syncBubbleCount(): number {
     let count = 0
     for (const row of this.state.grid) {
         for (let col = 0; col < row.length; col++) {
-            if (row[col]) {
-                count++
-            }
+            if (row[col]) count++
         }
     }
     this.state.bubblesRemaining = count
@@ -575,19 +447,11 @@ private syncBubbleCount(): number {
 }
 ```
 
-- [ ] **Step 7: Migrate all production callers in the same commit**
+- [ ] **Step 7: Migrate all callers in the same commit**
 
-`initializeGrid()` creates every row with `createEmptyRow()`, fills the first `initialRows` from a fixed `const generationColors = [...this.config.colors]`, then calls:
+`initializeGrid()` uses dense rows and `const generationColors = [...this.config.colors]`, then calls `refreshBubbleCoordinates()` and `syncBubbleCount()`.
 
-```ts
-this.refreshBubbleCoordinates(constants)
-this.syncBubbleCount()
-this.state.needsRedraw = true
-```
-
-Change every `getBubbleX/getBubbleY/getNeighbors` call in `BubbleShooterGame.ts` to the new signatures.
-
-Change row insertion to accept a color snapshot and preserve physical parity:
+`addRowAtTop()` becomes:
 
 ```ts
 private addRowAtTop(
@@ -618,9 +482,9 @@ private addRowAtTop(
 }
 ```
 
-For this task, `addNewRow()` may pass `[...this.config.colors]`; active-color snapshotting replaces that in Task 6.
+For this commit only, `addNewRow()` passes `[...this.config.colors]`; Task 6 replaces it with active colors.
 
-- [ ] **Step 8: Verify no old signatures remain and commit**
+- [ ] **Step 8: Verify green and commit**
 
 ```bash
 rg -n "rowOffset" src/lib/games/bubble-shooter
@@ -628,11 +492,6 @@ bun run test:run \
   src/lib/games/bubble-shooter/utils.test.ts \
   src/lib/games/bubble-shooter/BubbleShooterGame.test.ts
 bun run typecheck
-```
-
-Expected: no `rowOffset`, both test files PASS, typecheck exits 0.
-
-```bash
 git add src/lib/games/bubble-shooter/types.ts \
   src/lib/games/bubble-shooter/utils.ts \
   src/lib/games/bubble-shooter/utils.test.ts \
@@ -641,24 +500,26 @@ git add src/lib/games/bubble-shooter/types.ts \
 git commit -m "fix: make bubble shooter grid phase aware"
 ```
 
+Expected: no `rowOffset`, focused tests pass, typecheck exits 0.
+
 ---
 
-### Task 3: Standardize Bubble Shooter on seconds and add collision-safe projectile substeps
+### Task 3: Use elapsed seconds and collision-safe projectile substeps
 
 **Files:**
 - Modify: `src/lib/games/bubble-shooter/types.ts`
 - Modify: `src/lib/games/bubble-shooter/BubbleShooterGame.ts`
-- Modify: `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
 - Modify: `src/lib/games/bubble-shooter/initFramework.ts`
-- Modify: `src/lib/games/bubble-shooter/initFramework.test.ts`
+- Test: `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
+- Test: `src/lib/games/bubble-shooter/initFramework.test.ts`
 
-**Interfaces:**
-- Produces: `updateProjectile(deltaTimeSeconds: number): boolean`.
-- Produces: `reflectProjectileOffWalls(constants): void`.
-- Produces: `ProjectileImpact` union used by Task 4.
-- Changes Bubble Shooter RAF call to pass elapsed seconds.
+**Produces:**
+- `updateProjectile(deltaTimeSeconds)`
+- wall-position reflection
+- `ProjectileImpact`
+- RAF milliseconds → seconds conversion.
 
-- [ ] **Step 1: Add a failing refresh-rate independence test**
+- [ ] **Step 1: Add refresh-rate regression**
 
 ```ts
 function simulateProjectile(frameCount: number): number {
@@ -679,9 +540,7 @@ function simulateProjectile(frameCount: number): number {
             { length: CONSTANTS.GRID_HEIGHT },
             (_, row) =>
                 Array.from(
-                    {
-                        length: getRowColumnCount(row, 0, CONSTANTS),
-                    },
+                    { length: getRowColumnCount(row, 0, CONSTANTS) },
                     () => null
                 )
         ),
@@ -695,38 +554,29 @@ function simulateProjectile(frameCount: number): number {
 }
 
 it('moves equally for one second at 30Hz 60Hz and 120Hz', () => {
-    const at30Hz = simulateProjectile(30)
-    const at60Hz = simulateProjectile(60)
-    const at120Hz = simulateProjectile(120)
-
-    expect(at30Hz).toBeCloseTo(4_280, 5)
-    expect(at60Hz).toBeCloseTo(at30Hz, 5)
-    expect(at120Hz).toBeCloseTo(at30Hz, 5)
+    const at30 = simulateProjectile(30)
+    const at60 = simulateProjectile(60)
+    const at120 = simulateProjectile(120)
+    expect(at30).toBeCloseTo(4_280, 5)
+    expect(at60).toBeCloseTo(at30, 5)
+    expect(at120).toBeCloseTo(at30, 5)
 })
 ```
 
-- [ ] **Step 2: Add a failing high-speed tunneling test that requires substeps**
-
-Use a speed where one clamped frame can cross multiple bubble diameters:
+- [ ] **Step 2: Add a substep-sensitive tunneling regression**
 
 ```ts
-it('does not tunnel through a bubble at high configured speed', () => {
+it('does not tunnel at 4000 pixels per second', () => {
     const game = makeGame({ projectileSpeed: 4_000 })
     const grid = Array.from(
         { length: CONSTANTS.GRID_HEIGHT },
         (_, row) =>
             Array.from(
-                {
-                    length: getRowColumnCount(row, 0, CONSTANTS),
-                },
+                { length: getRowColumnCount(row, 0, CONSTANTS) },
                 () => null
             )
     )
-    grid[8][6] = {
-        color: 0x00ff00,
-        x: 300,
-        y: 300,
-    }
+    grid[8][6] = { color: 0x00ff00, x: 300, y: 300 }
 
     setState(game, {
         grid,
@@ -741,21 +591,20 @@ it('does not tunnel through a bubble at high configured speed', () => {
     })
 
     game.updateProjectile(0.05)
-
     expect(stateOf(game).projectile).toBeNull()
 })
 ```
 
-The projectile travels 200px in 50ms. Without substeps it ends 100px beyond the bubble and misses the 40px collision diameter; with 10px-or-smaller substeps it resolves the collision.
+A single unsplit 50ms step travels 200px and misses the bubble after crossing it; the substep loop must catch it.
 
-- [ ] **Step 3: Add a wall-reflection test**
+- [ ] **Step 3: Add wall and RAF-unit regressions**
 
 ```ts
-it('reflects position back inside the right wall', () => {
+it('reflects back inside the right wall', () => {
     const game = makeGame({ projectileSpeed: 720 })
     setState(game, {
         projectile: {
-            x: CONSTANTS.GAME_WIDTH - CONSTANTS.BUBBLE_RADIUS - 2,
+            x: 578,
             y: 400,
             vx: 720,
             vy: 0,
@@ -763,46 +612,30 @@ it('reflects position back inside the right wall', () => {
         },
         grid: [],
     })
-
     game.updateProjectile(0.016)
-
-    expect(stateOf(game).projectile?.x).toBeLessThanOrEqual(
-        CONSTANTS.GAME_WIDTH - CONSTANTS.BUBBLE_RADIUS
-    )
+    expect(stateOf(game).projectile?.x).toBeLessThanOrEqual(580)
     expect(stateOf(game).projectile?.vx).toBeLessThan(0)
 })
 ```
 
-- [ ] **Step 4: Add a failing initializer delta-unit test**
-
-In the RAF test, invoke the loop once to establish time and once 16ms later; assert:
+In `initFramework.test.ts`, stub two RAF timestamps 16ms apart and assert the second update receives:
 
 ```ts
 expect(gameMock.update).toHaveBeenLastCalledWith(0.016)
 ```
 
-Use `performance.now` stubbing consistent with the existing test setup so the assertion is deterministic.
-
-- [ ] **Step 5: Verify the new tests fail**
+- [ ] **Step 4: Verify red**
 
 ```bash
 bun run test:run \
   src/lib/games/bubble-shooter/BubbleShooterGame.test.ts \
   src/lib/games/bubble-shooter/initFramework.test.ts \
-  -t "one second|tunnel|right wall|delta"
+  -t "one second|4000|right wall|delta"
 ```
 
-Expected: FAIL because Bubble Shooter ignores delta, uses per-frame velocity, and the initializer passes milliseconds.
+Expected: failures because delta is ignored/passed as milliseconds.
 
-- [ ] **Step 6: Convert speed and implement bounded substeps**
-
-In config/types:
-
-```ts
-projectileSpeed: 720, // pixels per second
-```
-
-In `BubbleShooterGame.ts`:
+- [ ] **Step 5: Implement seconds, clamp, and substeps**
 
 ```ts
 const MAX_PROJECTILE_FRAME_SECONDS = 0.05
@@ -813,16 +646,14 @@ type ProjectileImpact =
     | { kind: 'bubble'; anchor: GridPosition }
 ```
 
-Change `update(deltaTime)` to call `updateProjectile(deltaTime)`.
+Set default `projectileSpeed: 720`.
 
-Implement:
+Core loop:
 
 ```ts
 updateProjectile(deltaTimeSeconds: number): boolean {
     const projectile = this.state.projectile
-    if (!projectile) {
-        return false
-    }
+    if (!projectile) return false
 
     const constants = this.getConstantsView()
     const elapsed = Math.min(
@@ -830,8 +661,7 @@ updateProjectile(deltaTimeSeconds: number): boolean {
         MAX_PROJECTILE_FRAME_SECONDS
     )
     const speed = Math.hypot(projectile.vx, projectile.vy)
-    const maxStepDistance =
-        constants.BUBBLE_RADIUS * MAX_PROJECTILE_SUBSTEP_RATIO
+    const maxStepDistance = constants.BUBBLE_RADIUS / 2
     const stepCount = Math.max(
         1,
         Math.ceil((speed * elapsed) / maxStepDistance)
@@ -844,82 +674,38 @@ updateProjectile(deltaTimeSeconds: number): boolean {
         this.reflectProjectileOffWalls(constants)
 
         const anchor = this.checkBubbleCollision()
-        if (anchor) {
-            return this.attachBubble({ kind: 'bubble', anchor })
-        }
+        if (anchor) return this.attachBubble({ kind: 'bubble', anchor })
         if (projectile.y <= constants.BUBBLE_RADIUS) {
             return this.attachBubble({ kind: 'ceiling' })
         }
     }
 
-    if (elapsed > 0) {
-        this.state.needsRedraw = true
-    }
+    if (elapsed > 0) this.state.needsRedraw = true
     return false
 }
 ```
 
-Bubble collision stays before ceiling collision.
+Wall reflection mirrors overshoot back inside `[radius, gameWidth-radius]` and flips `vx` toward the board.
 
-Implement wall reflection:
-
-```ts
-private reflectProjectileOffWalls(constants: GameConstants): void {
-    const projectile = this.state.projectile
-    if (!projectile) {
-        return
-    }
-
-    const minX = constants.BUBBLE_RADIUS
-    const maxX = constants.GAME_WIDTH - constants.BUBBLE_RADIUS
-
-    if (projectile.x < minX) {
-        projectile.x = minX + (minX - projectile.x)
-        projectile.vx = Math.abs(projectile.vx)
-    } else if (projectile.x > maxX) {
-        projectile.x = maxX - (projectile.x - maxX)
-        projectile.vx = -Math.abs(projectile.vx)
-    }
-
-    projectile.x = Math.min(maxX, Math.max(minX, projectile.x))
-}
-```
-
-Temporarily adapt `attachBubble` to accept `ProjectileImpact` while retaining its current candidate behavior; Task 4 removes the global fallback.
-
-- [ ] **Step 7: Convert the RAF loop from milliseconds to seconds**
-
-In `initFramework.ts`:
+- [ ] **Step 6: Convert RAF delta to seconds**
 
 ```ts
 const now = performance.now()
-if (lastFrame === 0) {
-    lastFrame = now
-}
+if (lastFrame === 0) lastFrame = now
 const deltaTimeSeconds = (now - lastFrame) / 1_000
 lastFrame = now
-
 game.update(deltaTimeSeconds)
 ```
 
-Do not clamp here; the game owns its 0.05s clamp.
+The game, not the initializer, owns the 0.05s clamp.
 
-- [ ] **Step 8: Update old projectile test call sites and verify**
-
-Replace old one-frame test calls with values such as `0.016`, and update expectations to `velocity * 0.016` where applicable.
+- [ ] **Step 7: Verify green and commit**
 
 ```bash
 bun run test:run \
   src/lib/games/bubble-shooter/BubbleShooterGame.test.ts \
   src/lib/games/bubble-shooter/initFramework.test.ts
 bun run typecheck
-```
-
-Expected: PASS and typecheck exits 0.
-
-- [ ] **Step 9: Commit**
-
-```bash
 git add src/lib/games/bubble-shooter/types.ts \
   src/lib/games/bubble-shooter/BubbleShooterGame.ts \
   src/lib/games/bubble-shooter/BubbleShooterGame.test.ts \
@@ -930,85 +716,30 @@ git commit -m "fix: make bubble shooter physics time based"
 
 ---
 
-### Task 4: Restrict attachment to impact-local cells without spurious game over
+### Task 4: Restrict attachment locally; blocked impact is not loss
 
 **Files:**
 - Modify: `src/lib/games/bubble-shooter/BubbleShooterGame.ts`
-- Modify: `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
+- Test: `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
 
-**Interfaces:**
-- Consumes: `ProjectileImpact` from Task 3.
-- Produces: `findAttachPosition(constants, impact): GridPosition | null`.
-- Produces: `findClosestEmptyPosition(constants, candidates): GridPosition | null`.
-- Removes: whole-board candidate search, `isValidAttachPosition`, and forced row-zero fallback.
+**Produces:** impact-local candidate selection, no whole-board fallback, no occupied overwrite.
 
-- [ ] **Step 1: Add an anchor-local attachment regression**
+- [ ] **Step 1: Add blocked/local regressions**
 
 ```ts
-it('attaches a bubble impact only beside the collided anchor', () => {
-    const game = makeGame({ rowAddInterval: 99 })
-    const anchor = { row: 4, col: 4 }
-    const grid = Array.from(
-        { length: CONSTANTS.GRID_HEIGHT },
-        (_, row) =>
-            Array.from(
-                {
-                    length: getRowColumnCount(row, 0, CONSTANTS),
-                },
-                () => null
-            )
-    )
-    grid[anchor.row][anchor.col] = {
-        color: 0x00ff00,
-        x: bubbleX(anchor.col, anchor.row),
-        y: bubbleY(anchor.row),
-    }
-
-    setState(game, {
-        grid,
-        rowPhase: 0,
-        projectile: {
-            x: bubbleX(anchor.col, anchor.row) + 5,
-            y: bubbleY(anchor.row) + 30,
-            vx: 0,
-            vy: -720,
-            color: 0xff0000,
-        },
-        bubblesRemaining: 1,
-    })
-
-    game.attachBubble({ kind: 'bubble', anchor })
-
-    expect(
-        neighbors(anchor.row, anchor.col).filter(
-            ({ row, col }) =>
-                stateOf(game).grid[row][col]?.color === 0xff0000
-        )
-    ).toHaveLength(1)
-})
-```
-
-- [ ] **Step 2: Add the partial-block regression that distinguishes blocked impact from loss**
-
-Construct one reachable impact with every legal candidate filled but no bubble near the danger zone:
-
-```ts
-it('consumes a locally blocked shot without ending the run', () => {
+it('consumes a locally blocked impact without ending the run', () => {
     const game = makeGame({ rowAddInterval: 99 })
     const anchor = { row: 2, col: 5 }
     const grid = Array.from(
         { length: CONSTANTS.GRID_HEIGHT },
         (_, row) =>
             Array.from(
-                {
-                    length: getRowColumnCount(row, 0, CONSTANTS),
-                },
+                { length: getRowColumnCount(row, 0, CONSTANTS) },
                 () => null
             )
     )
 
-    const occupied = [anchor, ...neighbors(anchor.row, anchor.col)]
-    for (const position of occupied) {
+    for (const position of [anchor, ...neighbors(2, 5)]) {
         grid[position.row][position.col] = {
             color: 0x00ff00,
             x: bubbleX(position.col, position.row),
@@ -1023,8 +754,8 @@ it('consumes a locally blocked shot without ending the run', () => {
         grid,
         rowPhase: 0,
         projectile: {
-            x: bubbleX(anchor.col, anchor.row),
-            y: bubbleY(anchor.row) + 30,
+            x: bubbleX(5, 2),
+            y: bubbleY(2) + 30,
             vx: 0,
             vy: -720,
             color: 0xff0000,
@@ -1040,112 +771,66 @@ it('consumes a locally blocked shot without ending the run', () => {
 })
 ```
 
-- [ ] **Step 3: Verify the attachment regressions fail**
+Also retain/add the anchor-neighbor test asserting a normal bubble impact inserts only within `getNeighbors(anchor...)`.
+
+- [ ] **Step 2: Pin bubble-before-ceiling priority with defined values**
+
+```ts
+it('prefers bubble collision when the projectile is also at the ceiling', () => {
+    const game = makeGame()
+    const targetCol = 6
+    const grid = Array.from(
+        { length: CONSTANTS.GRID_HEIGHT },
+        (_, row) =>
+            Array.from(
+                { length: getRowColumnCount(row, 0, CONSTANTS) },
+                () => null
+            )
+    )
+    grid[0][targetCol] = {
+        color: 0x00ff00,
+        x: bubbleX(targetCol, 0),
+        y: bubbleY(0),
+    }
+    setState(game, {
+        grid,
+        rowPhase: 0,
+        projectile: {
+            x: bubbleX(targetCol, 0),
+            y: CONSTANTS.BUBBLE_RADIUS,
+            vx: 0,
+            vy: -720,
+            color: 0xff0000,
+        },
+    })
+    const attachSpy = vi
+        .spyOn(game, 'attachBubble')
+        .mockReturnValue(false)
+
+    game.updateProjectile(0)
+
+    expect(attachSpy).toHaveBeenCalledWith({
+        kind: 'bubble',
+        anchor: { row: 0, col: targetCol },
+    })
+})
+```
+
+- [ ] **Step 3: Verify red**
 
 ```bash
-bun run test:run src/lib/games/bubble-shooter/BubbleShooterGame.test.ts -t "collided anchor|locally blocked"
+bun run test:run src/lib/games/bubble-shooter/BubbleShooterGame.test.ts -t "locally blocked|also at the ceiling"
 ```
 
-Expected: FAIL because current fallback searches the whole board and the previous plan's blocked behavior would end the run.
+- [ ] **Step 4: Implement candidate selection**
 
-- [ ] **Step 4: Implement impact-specific candidates using shared `distance`**
+For bubble impact candidates use only `getNeighbors(anchor...)`; for ceiling use only row-zero cells. Filter occupied cells and choose the nearest center with shared `distance`. Delete global candidate search, `isValidAttachPosition`, and fixed fallback.
 
-```ts
-private findAttachPosition(
-    constants: GameConstants,
-    impact: ProjectileImpact
-): GridPosition | null {
-    if (!this.state.projectile) {
-        return null
-    }
+- [ ] **Step 5: Finalize every resolved projectile without forced loss**
 
-    const candidates =
-        impact.kind === 'bubble'
-            ? getNeighbors(
-                  impact.anchor.row,
-                  impact.anchor.col,
-                  this.state.rowPhase,
-                  constants
-              )
-            : Array.from(
-                  {
-                      length: getRowColumnCount(
-                          0,
-                          this.state.rowPhase,
-                          constants
-                      ),
-                  },
-                  (_, col) => ({ row: 0, col })
-              )
-
-    return this.findClosestEmptyPosition(constants, candidates)
-}
-
-private findClosestEmptyPosition(
-    constants: GameConstants,
-    candidates: GridPosition[]
-): GridPosition | null {
-    const projectile = this.state.projectile
-    if (!projectile) {
-        return null
-    }
-
-    let best: GridPosition | null = null
-    let bestDistance = Number.POSITIVE_INFINITY
-
-    for (const candidate of candidates) {
-        if (this.state.grid[candidate.row]?.[candidate.col]) {
-            continue
-        }
-
-        const candidateDistance = distance(projectile, {
-            x: getBubbleX(
-                candidate.col,
-                candidate.row,
-                this.state.rowPhase,
-                constants
-            ),
-            y: getBubbleY(candidate.row, constants),
-        })
-        if (candidateDistance < bestDistance) {
-            best = candidate
-            bestDistance = candidateDistance
-        }
-    }
-
-    return best
-}
-```
-
-Delete `isValidAttachPosition` and the whole-board/fixed-cell fallback.
-
-- [ ] **Step 5: Make blocked impact a consumed normal shot**
-
-Structure `attachBubble` so row-interval bookkeeping and danger-zone checking run for both attached and blocked resolved projectiles:
+After optional insertion/matching:
 
 ```ts
-const attachPos = this.findAttachPosition(constants, impact)
-
-if (attachPos) {
-    if (this.state.grid[attachPos.row]?.[attachPos.col]) {
-        throw new Error('Bubble Shooter attach target must be empty')
-    }
-
-    this.state.grid[attachPos.row][attachPos.col] = {
-        color: this.state.projectile.color,
-        x: getBubbleX(
-            attachPos.col,
-            attachPos.row,
-            this.state.rowPhase,
-            constants
-        ),
-        y: getBubbleY(attachPos.row, constants),
-    }
-    this.syncBubbleCount()
-    this.checkMatches(attachPos.row, attachPos.col)
-    this.syncBubbleCount()
-}
-
 this.state.shotCount++
 if (
     this.state.bubblesRemaining > 0 &&
@@ -1166,29 +851,13 @@ if (this.checkGameOverCondition(constants)) {
 return false
 ```
 
-The blocked path writes no cell and creates no successful match. It still consumes a row-interval shot, and only the danger-zone check can end the run.
+If `findAttachPosition()` returns null, skip grid write/match entirely and proceed through this same finalization. The shot is consumed, `successfulShots` does not change, and only danger-zone checking can end the run.
 
-- [ ] **Step 6: Pin bubble-before-ceiling impact priority**
-
-Add a test with a row-zero bubble and a projectile substep that crosses both the bubble collision threshold and ceiling threshold. Spy on `attachBubble` and assert the impact is:
-
-```ts
-expect(attachSpy).toHaveBeenCalledWith({
-    kind: 'bubble',
-    anchor: { row: 0, col: targetCol },
-})
-```
-
-- [ ] **Step 7: Verify and commit**
+- [ ] **Step 6: Verify green and commit**
 
 ```bash
 bun run test:run src/lib/games/bubble-shooter/BubbleShooterGame.test.ts
 bun run typecheck
-```
-
-Expected: PASS and typecheck exits 0.
-
-```bash
 git add src/lib/games/bubble-shooter/BubbleShooterGame.ts \
   src/lib/games/bubble-shooter/BubbleShooterGame.test.ts
 git commit -m "fix: restrict bubble shooter attachment cells"
@@ -1196,198 +865,95 @@ git commit -m "fix: restrict bubble shooter attachment cells"
 
 ---
 
-### Task 5: Add ceiling-connectivity drops and one authoritative match resolution
+### Task 5: Add ceiling-connectivity drops
 
 **Files:**
 - Modify: `src/lib/games/bubble-shooter/types.ts`
 - Modify: `src/lib/games/bubble-shooter/BubbleShooterGame.ts`
-- Modify: `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
+- Test: `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
 
-**Interfaces:**
-- Produces: `successfulShots` state/stat field for Task 6 accuracy.
-- Produces: `ShotResolution`.
-- Produces: `collectColorCluster(start, constants): GridPosition[]`.
-- Produces: `collectCeilingConnected(constants): Set<string>`.
-- Produces: `removeUnsupportedBubbles(constants): GridPosition[]` with no count-sync side effect.
-- Produces: `resolveMatches(attached, constants): ShotResolution`.
+**Produces:** `successfulShots`, `ShotResolution`, direct hex cluster traversal, ceiling connectivity, exact drop contract.
 
-- [ ] **Step 1: Add a failing direct-match-plus-drop regression**
+- [ ] **Step 1: Add direct-match/drop regression**
+
+Use a dense grid with two top red bubbles, one blue supported only by the red cluster, and a red projectile attaching as the third red. Assert after attachment:
 
 ```ts
-it('scores a direct match and bubbles disconnected from the ceiling', () => {
-    const game = makeGame({ rowAddInterval: 99 })
+expect(countGrid(stateOf(game).grid)).toBe(0)
+expect(stateOf(game).bubblesPopped).toBe(4)
+expect(stateOf(game).largestCombo).toBe(4)
+expect(stateOf(game).successfulShots).toBe(1)
+expect(stateOf(game).score).toBe(1_040)
+```
+
+The committed test must build the exact positions with `bubbleX/bubbleY`, as in the current match tests.
+
+- [ ] **Step 2: Add exact maintenance-drop contract regression**
+
+```ts
+it('returns dropped positions without score or count side effects', () => {
+    const game = makeGame()
     const grid = Array.from(
         { length: CONSTANTS.GRID_HEIGHT },
         (_, row) =>
             Array.from(
-                {
-                    length: getRowColumnCount(row, 0, CONSTANTS),
-                },
+                { length: getRowColumnCount(row, 0, CONSTANTS) },
                 () => null
             )
     )
-
-    grid[0][0] = { color: 0xff0000, x: bubbleX(0, 0), y: bubbleY(0) }
-    grid[0][1] = { color: 0xff0000, x: bubbleX(1, 0), y: bubbleY(0) }
-    grid[1][0] = { color: 0x0000ff, x: bubbleX(0, 1), y: bubbleY(1) }
-
+    const isolated = { row: 3, col: 5 }
+    grid[0][0] = {
+        color: 0xff0000,
+        x: bubbleX(0, 0),
+        y: bubbleY(0),
+    }
+    grid[isolated.row][isolated.col] = {
+        color: 0x0000ff,
+        x: bubbleX(isolated.col, isolated.row),
+        y: bubbleY(isolated.row),
+    }
     setState(game, {
         grid,
         rowPhase: 0,
-        projectile: {
-            x: bubbleX(2, 0),
-            y: bubbleY(0),
-            vx: 0,
-            vy: -720,
-            color: 0xff0000,
-        },
-        bubblesRemaining: 3,
-        shotsFired: 1,
-        successfulShots: 0,
+        bubblesRemaining: 2,
         score: 0,
+        successfulShots: 0,
     })
 
-    game.attachBubble({ kind: 'ceiling' })
-
-    expect(countGrid(stateOf(game).grid)).toBe(0)
-    expect(stateOf(game).bubblesPopped).toBe(4)
-    expect(stateOf(game).largestCombo).toBe(4)
-    expect(stateOf(game).successfulShots).toBe(1)
-    expect(stateOf(game).score).toBe(1_040)
-})
-```
-
-- [ ] **Step 2: Add a failing contract test for maintenance cleanup**
-
-```ts
-it('returns unsupported positions without changing score or successfulShots', () => {
-    const game = makeGame()
-    // Build one top-connected red bubble and one isolated blue bubble.
-    // Use a dense grid and sync bubblesRemaining before invoking the helper.
     const internal = game as unknown as {
         removeUnsupportedBubbles: (
             constants: GameConstants
         ) => GridPosition[]
     }
-    const beforeScore = stateOf(game).score
-    const beforeSuccessfulShots = stateOf(game).successfulShots
-
     const dropped = internal.removeUnsupportedBubbles(
         game.getConstantsView()
     )
 
-    expect(dropped).toEqual([{ row: isolatedRow, col: isolatedCol }])
-    expect(stateOf(game).score).toBe(beforeScore)
-    expect(stateOf(game).successfulShots).toBe(beforeSuccessfulShots)
+    expect(dropped).toEqual([isolated])
+    expect(stateOf(game).grid[3][5]).toBeNull()
+    expect(stateOf(game).bubblesRemaining).toBe(2)
+    expect(stateOf(game).score).toBe(0)
+    expect(stateOf(game).successfulShots).toBe(0)
 })
 ```
 
-Use concrete `isolatedRow`/`isolatedCol` constants in the actual test setup; do not leave symbolic placeholders in committed code.
+`bubblesRemaining` intentionally remains 2 here, proving the helper does not sync counts.
 
-- [ ] **Step 3: Verify tests fail**
+- [ ] **Step 3: Verify red**
 
 ```bash
-bun run test:run src/lib/games/bubble-shooter/BubbleShooterGame.test.ts -t "disconnected from the ceiling|unsupported positions"
+bun run test:run src/lib/games/bubble-shooter/BubbleShooterGame.test.ts -t "disconnected|dropped positions"
 ```
 
-Expected: FAIL because unsupported bubbles are not removed and the helper contracts do not exist.
+- [ ] **Step 4: Add state and traversal contracts**
 
-- [ ] **Step 4: Add successful-shot state contracts**
+Add `successfulShots: number` to state/end stats/runtime stats; initialize to zero.
 
-Add `successfulShots: number` to `BubbleShooterState`, `BubbleShooterEndGameStats`, and `BubbleShooterStats`. Initialize:
+Implement iterative `collectColorCluster()` using phase-aware `getNeighbors()`.
 
-```ts
-successfulShots: 0,
-```
+Implement `collectCeilingConnected()` seeded by every occupied row-zero cell, ignoring color.
 
-Do not switch accuracy yet; Task 6 does that with the queue/stat semantics commit.
-
-- [ ] **Step 5: Implement local iterative hex traversals**
-
-```ts
-interface ShotResolution {
-    directMatches: GridPosition[]
-    dropped: GridPosition[]
-    removedCount: number
-}
-
-private collectColorCluster(
-    start: GridPosition,
-    constants: GameConstants
-): GridPosition[] {
-    const startBubble = this.state.grid[start.row]?.[start.col]
-    if (!startBubble) {
-        return []
-    }
-
-    const visited = new Set<string>()
-    const pending: GridPosition[] = [start]
-    const result: GridPosition[] = []
-
-    while (pending.length > 0) {
-        const current = pending.pop()!
-        const key = `${current.row},${current.col}`
-        if (visited.has(key)) {
-            continue
-        }
-        visited.add(key)
-
-        const bubble = this.state.grid[current.row]?.[current.col]
-        if (!bubble || bubble.color !== startBubble.color) {
-            continue
-        }
-        result.push(current)
-        pending.push(
-            ...getNeighbors(
-                current.row,
-                current.col,
-                this.state.rowPhase,
-                constants
-            )
-        )
-    }
-
-    return result
-}
-```
-
-Implement ceiling traversal seeded by every occupied row-zero cell:
-
-```ts
-private collectCeilingConnected(
-    constants: GameConstants
-): Set<string> {
-    const connected = new Set<string>()
-    const pending: GridPosition[] = []
-
-    for (let col = 0; col < this.state.grid[0].length; col++) {
-        if (this.state.grid[0][col]) {
-            pending.push({ row: 0, col })
-        }
-    }
-
-    while (pending.length > 0) {
-        const current = pending.pop()!
-        const key = `${current.row},${current.col}`
-        if (connected.has(key) || !this.state.grid[current.row]?.[current.col]) {
-            continue
-        }
-        connected.add(key)
-        pending.push(
-            ...getNeighbors(
-                current.row,
-                current.col,
-                this.state.rowPhase,
-                constants
-            )
-        )
-    }
-
-    return connected
-}
-```
-
-Implement the exact drop contract:
+Implement exactly:
 
 ```ts
 private removeUnsupportedBubbles(
@@ -1407,16 +973,19 @@ private removeUnsupportedBubbles(
             }
         }
     }
-
     return dropped
 }
 ```
 
-It must not call `syncBubbleCount()`.
-
-- [ ] **Step 6: Replace `checkMatches` with one resolution owner**
+- [ ] **Step 5: Replace match bookkeeping with one resolution**
 
 ```ts
+interface ShotResolution {
+    directMatches: GridPosition[]
+    dropped: GridPosition[]
+    removedCount: number
+}
+
 private resolveMatches(
     attached: GridPosition,
     constants: GameConstants
@@ -1429,8 +998,8 @@ private resolveMatches(
     this.removeBubbles(directMatches)
     const dropped = this.removeUnsupportedBubbles(constants)
     this.syncBubbleCount()
-
     const removedCount = directMatches.length + dropped.length
+
     this.addScore(removedCount * POINTS_PER_BUBBLE, 'bubble_pop')
     this.state.successfulShots++
     this.state.bubblesPopped += removedCount
@@ -1438,21 +1007,17 @@ private resolveMatches(
         this.state.largestCombo,
         removedCount
     )
-
     if (this.state.bubblesRemaining === 0) {
         this.addScore(ALL_CLEAR_BONUS, 'all_clear')
     }
-    this.state.needsRedraw = true
 
     return { directMatches, dropped, removedCount }
 }
 ```
 
-`resolveMatches` owns exactly one count sync after direct + unsupported removals.
+- [ ] **Step 6: Normalize maintenance boards before queue work**
 
-- [ ] **Step 7: Normalize connectivity after startup and row insertion**
-
-Rewrite startup maintenance before queue generation:
+Startup:
 
 ```ts
 protected onGameStart(): void {
@@ -1465,32 +1030,13 @@ protected onGameStart(): void {
 }
 ```
 
-Change `addNewRow()` to clean unsupported cells after the row mutation and then sync once:
+After row insertion, remove unsupported bubbles and call `syncBubbleCount()` once. Task 6 changes the row color snapshot and next-bubble reconciliation.
 
-```ts
-private addNewRow(constants: GameConstants): void {
-    this.addRowAtTop(constants, [...this.config.colors])
-    this.removeUnsupportedBubbles(constants)
-    this.syncBubbleCount()
-
-    if (this.checkGameOverCondition(constants)) {
-        this.state.needsRedraw = true
-    }
-}
-```
-
-Task 6 replaces the row-generation palette with an active-color snapshot and adds queue reconciliation.
-
-- [ ] **Step 8: Verify and commit**
+- [ ] **Step 7: Verify green and commit**
 
 ```bash
 bun run test:run src/lib/games/bubble-shooter/BubbleShooterGame.test.ts
 bun run typecheck
-```
-
-Expected: PASS and typecheck exits 0.
-
-```bash
 git add src/lib/games/bubble-shooter/types.ts \
   src/lib/games/bubble-shooter/BubbleShooterGame.ts \
   src/lib/games/bubble-shooter/BubbleShooterGame.test.ts
@@ -1499,132 +1045,110 @@ git commit -m "fix: drop unsupported bubble clusters"
 
 ---
 
-### Task 6: Generate playable future colors and switch to successful-shot accuracy
+### Task 6: Use active colors and successful-shot accuracy
 
 **Files:**
 - Modify: `src/lib/games/bubble-shooter/BubbleShooterGame.ts`
-- Modify: `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
+- Test: `src/lib/games/bubble-shooter/BubbleShooterGame.test.ts`
 
-**Interfaces:**
-- Consumes: `successfulShots` and connectivity cleanup from Task 5.
-- Produces: `getAvailableBubbleColors(): number[]`.
-- Produces: `reconcileNextBubbleColor(): void`.
-- Changes: opening/current/next generation samples active board colors after maintenance cleanup.
-- Changes: accuracy = `successfulShots / shotsFired`.
+**Produces:** playable opening/future colors, post-row ordering, true hit-rate accuracy.
 
-- [ ] **Step 1: Add the floating-only opening-color regression**
+- [ ] **Step 1: Add floating-only opening-color regression**
+
+Use config colors red/blue. Stub `initializeGrid()` to produce a top-connected red bubble and isolated blue bubble, then call `onGameStart()` with `Math.random=0`. Assert cleanup removes blue before queue generation and both current/next are red.
+
+Concrete final assertions:
 
 ```ts
-it('removes floating-only colors before generating the opening queue', () => {
-    const game = makeGame({ colors: [0xff0000, 0x0000ff] })
+expect(stateOf(game).grid[2][5]).toBeNull()
+expect(stateOf(game).bubblesRemaining).toBe(1)
+expect(stateOf(game).currentBubble?.color).toBe(0xff0000)
+expect(stateOf(game).nextBubble?.color).toBe(0xff0000)
+```
+
+- [ ] **Step 2: Add exact post-row cleanup/reconcile regression**
+
+```ts
+it('drops an unsupported color before reconciling nextBubble', () => {
+    const game = makeGame({
+        colors: [0xff0000, 0x0000ff],
+        rowAddInterval: 5,
+        newRowFillChance: 0.5,
+    })
     const grid = Array.from(
         { length: CONSTANTS.GRID_HEIGHT },
         (_, row) =>
             Array.from(
-                {
-                    length: getRowColumnCount(row, 0, CONSTANTS),
-                },
+                { length: getRowColumnCount(row, 0, CONSTANTS) },
                 () => null
             )
     )
+    grid[0][0] = { color: 0xff0000, x: bubbleX(0, 0), y: bubbleY(0) }
+    grid[0][12] = { color: 0x0000ff, x: bubbleX(12, 0), y: bubbleY(0) }
 
-    grid[0][0] = {
-        color: 0xff0000,
-        x: bubbleX(0, 0),
-        y: bubbleY(0),
-    }
-    grid[2][5] = {
-        color: 0x0000ff,
-        x: bubbleX(5, 2),
-        y: bubbleY(2),
-    }
-
-    const internal = game as unknown as {
-        initializeGrid: () => void
-        onGameStart: () => void
-    }
-    vi.spyOn(internal, 'initializeGrid').mockImplementation(() => {
-        setState(game, {
-            grid,
-            rowPhase: 0,
-            bubblesRemaining: 2,
-            currentBubble: null,
-            nextBubble: null,
-        })
+    setState(game, {
+        grid,
+        rowPhase: 0,
+        bubblesRemaining: 2,
+        shotCount: 4,
+        projectile: {
+            x: bubbleX(1, 0),
+            y: bubbleY(0),
+            vx: 0,
+            vy: -720,
+            color: 0xff0000,
+        },
+        nextBubble: { color: 0x0000ff },
     })
-    vi.spyOn(Math, 'random').mockReturnValue(0)
 
-    internal.onGameStart()
+    let randomCall = 0
+    vi.spyOn(Math, 'random').mockImplementation(() => {
+        randomCall++
+        if (randomCall === 1 || randomCall === 2 || randomCall === 15) {
+            return 0
+        }
+        return 1
+    })
 
-    expect(stateOf(game).grid[2][5]).toBeNull()
-    expect(stateOf(game).bubblesRemaining).toBe(1)
-    expect(stateOf(game).currentBubble?.color).toBe(0xff0000)
+    game.attachBubble({ kind: 'ceiling' })
+
+    expect(
+        stateOf(game).grid.flat().some(
+            bubble => bubble?.color === 0x0000ff
+        )
+    ).toBe(false)
+    expect(stateOf(game).bubblesRemaining).toBe(
+        countGrid(stateOf(game).grid)
+    )
     expect(stateOf(game).nextBubble?.color).toBe(0xff0000)
 })
 ```
 
-- [ ] **Step 2: Add active-color and accuracy regressions**
+The random sequence fills only new top-row col 0 red, leaves all other new top cells empty, then selects red when nextBubble is rerolled.
+
+- [ ] **Step 3: Add active-color and accuracy regressions**
 
 ```ts
-it('returns active colors and falls back to config on an empty board', () => {
-    const game = makeGame()
-    const internal = game as unknown as {
-        getAvailableBubbleColors: () => number[]
-    }
-
-    setState(game, {
-        grid: [[
-            { color: 0xff0000, x: bubbleX(0, 0), y: bubbleY(0) },
-            { color: 0x00ff00, x: bubbleX(1, 0), y: bubbleY(0) },
-        ]],
-    })
-    expect(internal.getAvailableBubbleColors().sort()).toEqual(
-        [0xff0000, 0x00ff00].sort()
-    )
-
-    setState(game, { grid: [] })
-    expect(internal.getAvailableBubbleColors()).toEqual(CONSTANTS.COLORS)
-})
-
-it('reports accuracy from successful shots', () => {
+it('reports successful-shot accuracy', () => {
     const game = makeGame()
     setState(game, {
         shotsFired: 10,
         successfulShots: 6,
         bubblesPopped: 18,
     })
-
     expect(game.getGameStats().accuracy).toBe(60)
 })
 ```
 
-- [ ] **Step 3: Add the post-row cleanup/reconcile ordering regression**
+Also assert `getAvailableBubbleColors()` returns unique board colors and falls back to `config.colors` on an empty grid.
 
-Create a deterministic interval-shot board where a color becomes unsupported after row mutation/cleanup. Assert after resolution:
-
-```ts
-expect(
-    stateOf(game).grid.flat().some(
-        bubble => bubble?.color === isolatedColor
-    )
-).toBe(false)
-expect(stateOf(game).bubblesRemaining).toBe(
-    countGrid(stateOf(game).grid)
-)
-expect(stateOf(game).nextBubble?.color).not.toBe(isolatedColor)
-```
-
-Use a concrete `const isolatedColor = 0x0000ff` in the committed test.
-
-- [ ] **Step 4: Verify tests fail**
+- [ ] **Step 4: Verify red**
 
 ```bash
-bun run test:run src/lib/games/bubble-shooter/BubbleShooterGame.test.ts -t "opening queue|active colors|accuracy|reconcile"
+bun run test:run src/lib/games/bubble-shooter/BubbleShooterGame.test.ts -t "opening|reconciling|successful-shot"
 ```
 
-Expected: FAIL because generation still uses the full configured palette and accuracy still uses popped bubbles.
-
-- [ ] **Step 5: Implement active-board color selection**
+- [ ] **Step 5: Implement active colors**
 
 ```ts
 private getAvailableBubbleColors(): number[] {
@@ -1632,9 +1156,7 @@ private getAvailableBubbleColors(): number[] {
     for (const row of this.state.grid) {
         for (let col = 0; col < row.length; col++) {
             const bubble = row[col]
-            if (bubble) {
-                colors.add(bubble.color)
-            }
+            if (bubble) colors.add(bubble.color)
         }
     }
     return colors.size > 0 ? [...colors] : [...this.config.colors]
@@ -1650,47 +1172,16 @@ private reconcileNextBubbleColor(): void {
         !this.state.nextBubble ||
         !colors.includes(this.state.nextBubble.color)
     ) {
-        this.state.nextBubble = {
-            color: this.randomColor(colors),
-        }
+        this.state.nextBubble = { color: this.randomColor(colors) }
     }
 }
 ```
 
-Use `randomColor(this.getAvailableBubbleColors())` in `generateBubble()` and `generateNextBubble()`.
+`generateBubble()`/`generateNextBubble()` use active colors. `initializeGrid()` still uses one fixed `config.colors` snapshot.
 
-`initializeGrid()` continues using `const generationColors = [...this.config.colors]` so partially generated cells do not feed back into initial generation.
+`addNewRow()` snapshots `getAvailableBubbleColors()` before calling `addRowAtTop()`, then performs connectivity cleanup/count sync. `attachBubble()` calls `reconcileNextBubbleColor()` exactly once after match resolution and any row insertion.
 
-- [ ] **Step 6: Snapshot active colors before added-row mutation**
-
-Change `addNewRow()` to:
-
-```ts
-private addNewRow(constants: GameConstants): void {
-    const generationColors = this.getAvailableBubbleColors()
-    this.addRowAtTop(constants, generationColors)
-    this.removeUnsupportedBubbles(constants)
-    this.syncBubbleCount()
-
-    if (this.checkGameOverCondition(constants)) {
-        this.state.needsRedraw = true
-    }
-}
-```
-
-Do not reconcile queue state inside `addRowAtTop()` or `addNewRow()`.
-
-At the end of `attachBubble`, after direct/drop resolution and any interval row insertion, call:
-
-```ts
-this.reconcileNextBubbleColor()
-```
-
-exactly once before final redraw/game-over completion. Never reroll `currentBubble`.
-
-- [ ] **Step 7: Switch statistics to successful-shot accuracy**
-
-In `getGameStats()`:
+- [ ] **Step 6: Switch accuracy and game data**
 
 ```ts
 const accuracy =
@@ -1699,18 +1190,13 @@ const accuracy =
         : 0
 ```
 
-Return `successfulShots` and include it in `getGameData()`.
+Include `successfulShots` in returned stats and `getGameData()`.
 
-- [ ] **Step 8: Verify and commit**
+- [ ] **Step 7: Verify green and commit**
 
 ```bash
 bun run test:run src/lib/games/bubble-shooter/BubbleShooterGame.test.ts
 bun run typecheck
-```
-
-Expected: PASS and typecheck exits 0.
-
-```bash
 git add src/lib/games/bubble-shooter/BubbleShooterGame.ts \
   src/lib/games/bubble-shooter/BubbleShooterGame.test.ts
 git commit -m "fix: keep bubble shooter colors and stats playable"
@@ -1718,37 +1204,48 @@ git commit -m "fix: keep bubble shooter colors and stats playable"
 
 ---
 
-### Task 7: Clear previews and align Bubble Shooter rules
+### Task 7: Clear previews and align rules
 
 **Files:**
 - Modify: `src/lib/games/bubble-shooter/initFramework.ts`
-- Modify: `src/lib/games/bubble-shooter/initFramework.test.ts`
 - Modify: `src/pages/bubble-shooter/index.astro`
-- Modify: `src/pages/game-board-markup.test.ts`
+- Test: `src/lib/games/bubble-shooter/initFramework.test.ts`
+- Test: `src/pages/game-board-markup.test.ts`
 
-**Interfaces:**
-- Consumes: BaseGame restart behavior from Task 1; no Bubble Shooter start-handler reset workaround is added.
-- Produces: null-aware preview drawing and `resetPreviewState()`.
-- Changes: page rules use configured `rowAddInterval`.
+**Produces:** null-safe preview canvases and accurate rules copy. No Bubble Shooter-local ended-run start workaround.
 
-- [ ] **Step 1: Extend initializer mock state**
+- [ ] **Step 1: Give preview canvases separate test contexts**
 
-Add:
+In `initFramework.test.ts`, replace the shared context with:
 
 ```ts
-rowPhase: 0,
-successfulShots: 0,
+const currentBubbleCtx = {
+    fillRect: vi.fn(),
+    fillStyle: '',
+}
+const nextBubbleCtx = {
+    fillRect: vi.fn(),
+    fillStyle: '',
+}
+
+Object.defineProperty(currentBubble, 'getContext', {
+    value: vi.fn(() => currentBubbleCtx),
+    writable: true,
+})
+Object.defineProperty(nextBubble, 'getContext', {
+    value: vi.fn(() => nextBubbleCtx),
+    writable: true,
+})
 ```
 
-Keep existing pointer/RAF mock behavior.
+Expose/store those two objects in the test setup scope so assertions can reference them directly.
 
-- [ ] **Step 2: Add a failing null-preview regression**
+- [ ] **Step 2: Add null-preview regression**
 
-Capture `onStateChange`, invoke it once with colors and once with both colors null. Assert each preview canvas is cleared for both states while bubble drawing only occurs for the colored state.
-
-A concrete assertion pattern:
+After initialization, capture the constructor callbacks and call:
 
 ```ts
+const baseState = gameMock.getState()
 callbacksArg.onStateChange({
     ...baseState,
     currentBubble: { x: 300, y: 700, color: 0xff0000 },
@@ -1760,21 +1257,17 @@ callbacksArg.onStateChange({
     nextBubble: null,
 })
 
-expect(currentContext.fillRect).toHaveBeenCalledTimes(2)
-expect(nextContext.fillRect).toHaveBeenCalledTimes(2)
+expect(currentBubbleCtx.fillRect).toHaveBeenCalledTimes(2)
+expect(nextBubbleCtx.fillRect).toHaveBeenCalledTimes(2)
 ```
 
-Use separate mocked contexts for current/next canvases so the assertions are not ambiguous.
-
-- [ ] **Step 3: Verify preview test fails**
+- [ ] **Step 3: Verify red**
 
 ```bash
 bun run test:run src/lib/games/bubble-shooter/initFramework.test.ts -t "preview"
 ```
 
-Expected: FAIL because undefined colors currently return before clearing the canvas.
-
-- [ ] **Step 4: Consolidate preview drawing**
+- [ ] **Step 4: Consolidate null-aware preview drawing**
 
 ```ts
 const drawBubblePreview = (
@@ -1782,15 +1275,11 @@ const drawBubblePreview = (
     context: CanvasRenderingContext2D | null,
     color: number | undefined
 ): void => {
-    if (!context) {
-        return
-    }
+    if (!context) return
 
     context.fillStyle = 'rgba(0, 0, 0, 0.1)'
     context.fillRect(0, 0, canvas.width, canvas.height)
-    if (color === undefined) {
-        return
-    }
+    if (color === undefined) return
 
     const centerX = canvas.width / 2
     const centerY = canvas.height / 2
@@ -1805,30 +1294,18 @@ const drawBubblePreview = (
 }
 ```
 
-Track cached colors as `number | undefined`. Add:
+Cache colors as `number | undefined`; clear/redraw when defined or undefined changes. Explicit reset/restart handlers clear both preview caches/canvases. Do not alter `startHandler` for ended runs; Task 1 owns that behavior.
 
-```ts
-const resetPreviewState = (): void => {
-    lastCurrentColor = undefined
-    lastNextColor = undefined
-    drawBubblePreview(currentBubbleCanvas, currentBubbleCtx, undefined)
-    drawBubblePreview(nextBubbleCanvas, nextBubbleCtx, undefined)
-}
-```
+- [ ] **Step 5: Render rules from configuration**
 
-Call it from explicit reset/restart handlers and the returned `restart()` function. Do not add reset logic to `startHandler`; Task 1 makes `BaseGame.start()` own ended-run reset.
-
-- [ ] **Step 5: Update rules from the configured interval**
-
-In Astro frontmatter:
+Astro frontmatter:
 
 ```astro
 import { DEFAULT_BUBBLE_SHOOTER_CONFIG } from '@/lib/games/bubble-shooter/BubbleShooterGame'
-
 const rowAddInterval = DEFAULT_BUBBLE_SHOOTER_CONFIG.rowAddInterval
 ```
 
-Render:
+Rules:
 
 ```astro
 <p>• Match 3+ bubbles of the same color</p>
@@ -1838,9 +1315,7 @@ Render:
 <p>• Accuracy counts shots that clear bubbles</p>
 ```
 
-- [ ] **Step 6: Pin rule-source markup**
-
-In `game-board-markup.test.ts`, load `src/pages/bubble-shooter/index.astro` and assert:
+- [ ] **Step 6: Pin rule source**
 
 ```ts
 expect(bubbleShooterMarkup).toContain(
@@ -1854,18 +1329,13 @@ expect(bubbleShooterMarkup).not.toContain(
 )
 ```
 
-- [ ] **Step 7: Verify and commit**
+- [ ] **Step 7: Verify green and commit**
 
 ```bash
 bun run test:run \
   src/lib/games/bubble-shooter/initFramework.test.ts \
   src/pages/game-board-markup.test.ts
 bun run typecheck
-```
-
-Expected: PASS and typecheck exits 0.
-
-```bash
 git add src/lib/games/bubble-shooter/initFramework.ts \
   src/lib/games/bubble-shooter/initFramework.test.ts \
   src/pages/bubble-shooter/index.astro \
@@ -1875,17 +1345,11 @@ git commit -m "fix: align bubble shooter previews and rules"
 
 ---
 
-### Task 8: Verify the complete single-PR implementation
+### Task 8: Verify the complete PR
 
-**Files:**
-- Review every file in the File Map.
-- Modify only when a verification command exposes a concrete defect.
+**Files:** Review every file in the File Map; change only concrete defects found by verification.
 
-**Interfaces:**
-- Verifies: `docs/superpowers/specs/2026-08-10-bubble-shooter-mechanics-correction-design.md`.
-- Produces: no new feature scope.
-
-- [ ] **Step 1: Run focused Bubble Shooter and core tests**
+- [ ] **Step 1: Focused tests**
 
 ```bash
 bun run test:run \
@@ -1899,16 +1363,16 @@ bun run test:run \
 
 Expected: PASS.
 
-- [ ] **Step 2: Search for stale state/signatures/fallbacks**
+- [ ] **Step 2: Stale-contract search**
 
 ```bash
 rg -n "rowOffset|isValidAttachPosition" src/lib/games/bubble-shooter
 rg -n "getBubbleX|getBubbleY|getNeighbors" src/lib/games/bubble-shooter
 ```
 
-Expected: no `rowOffset` or `isValidAttachPosition`; manually confirm every geometry call uses the phase-aware signatures.
+Expected: first command returns no matches; every helper call uses the new signatures.
 
-- [ ] **Step 3: Verify the critical lifecycle and unit contracts**
+- [ ] **Step 3: Framework/unit contract search**
 
 ```bash
 rg -n "gameStarted && this.state.isGameOver|elapsed time in seconds" \
@@ -1917,65 +1381,38 @@ rg -n "deltaTimeSeconds|/ 1_000" \
   src/lib/games/bubble-shooter/initFramework.ts
 ```
 
-Expected: BaseGame contains the ended-run reset guard and seconds documentation; Bubble Shooter RAF converts milliseconds to seconds.
+Expected: restart guard + seconds documentation exist; Bubble Shooter RAF converts milliseconds to seconds.
 
-- [ ] **Step 4: Run full unit suite**
+- [ ] **Step 4: Full unit suite**
 
 ```bash
 bun run test:run
 ```
 
-Expected: PASS with zero failed tests.
+Expected: zero failed tests.
 
-- [ ] **Step 5: Run typecheck**
+- [ ] **Step 5: Static validation**
 
 ```bash
 bun run typecheck
-```
-
-Expected: exit 0.
-
-- [ ] **Step 6: Run lint**
-
-```bash
 bun run lint
-```
-
-Expected: zero lint errors.
-
-- [ ] **Step 7: Run format check**
-
-```bash
 bun run format:check
-```
-
-Expected: exit 0.
-
-- [ ] **Step 8: Run production build**
-
-```bash
 bun run build
 ```
 
-Expected: exit 0.
+Expected: all commands exit 0; lint has zero errors.
 
-- [ ] **Step 9: Run existing Bubble Shooter happy-path E2E coverage**
-
-```bash
-bunx playwright test e2e/games/play-coverage.spec.ts --grep "bubble-shooter|Bubble Shooter"
-```
-
-If the shared play-coverage suite does not expose a title matching that grep, run the complete file instead:
+- [ ] **Step 6: Existing game E2E coverage**
 
 ```bash
 bunx playwright test e2e/games/play-coverage.spec.ts
 ```
 
-Expected: Bubble Shooter start → play → end/restart path passes.
+Expected: shared game happy-path suite passes, including Bubble Shooter.
 
-- [ ] **Step 10: Review score-era impact without adding migration scope**
+- [ ] **Step 7: Confirm score-era disclosure in PR body**
 
-Confirm the PR description notes:
+Add/retain this note:
 
 ```text
 Bubble Shooter now awards points for dropped unsupported bubbles and reports
@@ -1983,49 +1420,33 @@ successful-shot accuracy, so historical and new leaderboard rows may represent
 different scoring/stat semantics. No score migration/versioning is included.
 ```
 
-- [ ] **Step 11: Inspect final diff against scope**
+- [ ] **Step 8: Final scope diff**
 
 ```bash
 git diff --stat main...HEAD
 git diff --name-only main...HEAD
 ```
 
-Expected production changes are limited to:
+Expected production/test files are exactly the File Map plus the existing design/plan documents. `BubbleShooterRenderer.ts` should not appear.
 
-```text
-src/lib/games/core/BaseGame.ts
-src/lib/games/core/core.test.ts
-src/lib/games/bubble-shooter/types.ts
-src/lib/games/bubble-shooter/utils.ts
-src/lib/games/bubble-shooter/utils.test.ts
-src/lib/games/bubble-shooter/BubbleShooterGame.ts
-src/lib/games/bubble-shooter/BubbleShooterGame.test.ts
-src/lib/games/bubble-shooter/initFramework.ts
-src/lib/games/bubble-shooter/initFramework.test.ts
-src/pages/bubble-shooter/index.astro
-src/pages/game-board-markup.test.ts
-```
+- [ ] **Step 9: Update draft PR validation**
 
-plus the existing design/plan documents.
-
-- [ ] **Step 12: Update the draft PR validation checklist**
-
-Mark checks complete only from the fresh outputs above. Keep the PR draft until every required check passes.
+Mark checklist items complete only from the fresh command outputs above. Keep the PR draft until all required checks pass.
 
 ---
 
 ## Plan Self-Review
 
-- Every design requirement maps to a task: core restart/time units (Task 1), geometry/counts (Task 2), physics (Task 3), attachment (Task 4), connectivity/drops (Task 5), colors/accuracy (Task 6), previews/rules (Task 7), full verification (Task 8).
-- Existing geometry tests are explicitly rewritten in Task 2; no obsolete helper signatures survive that commit.
-- The phase-aware helper migration and all production callers are one atomic commit, so per-commit CI is compile-safe.
-- `removeUnsupportedBubbles(constants): GridPosition[]` has one unambiguous contract and no count-sync side effect.
-- Dense-array invariants use indexed checks rather than callbacks that skip holes.
-- Opening queue generation occurs only after startup connectivity cleanup.
-- Added-row queue reconciliation occurs only after row mutation, connectivity cleanup, and count sync.
-- Blocked attachment consumes a shot but cannot trigger game over except through the existing danger-zone condition.
-- The substep regression uses 4000px/s so it fails without substeps; it does not merely test the 50ms clamp.
-- Bubble Shooter uses seconds, matching the shared `BaseGame.update` contract and Evader precedent.
-- Connectivity/drop work is separate from active-color/accuracy work for cleaner review boundaries.
-- Scoring-era comparability is documented as a risk; no migration scope is added.
-- No `TBD`, `TODO`, compatibility shim, shared hex abstraction, or unrelated refactor is planned.
+- F1: restart behavior is owned by `BaseGame.start()`; no fifth Bubble Shooter initializer workaround.
+- F2: blocked impact consumes the projectile and interval shot but only danger-zone detection can end the run.
+- F3: tunneling test uses 4000px/s × 0.05s = 200px, so it fails without substeps.
+- F4: shared `deltaTime` unit is seconds; Bubble Shooter converts RAF milliseconds to seconds and clamps inside game logic.
+- Existing geometry suites are rewritten in the same atomic commit as helper/caller migration.
+- Dense rows are checked by index, so sparse holes cannot silently pass.
+- `removeUnsupportedBubbles()` has one exact return contract and no count-sync side effect.
+- Startup cleanup precedes active-color opening queue generation.
+- Added-row cleanup/count sync precedes next-bubble reconciliation.
+- Connectivity/drops are a separate commit from colors/accuracy.
+- Board centering is explicitly tested against projectile wall bounds.
+- Score-era comparability is disclosed without adding migration scope.
+- No `TBD`, `TODO`, undefined symbolic test variables, compatibility shim, shared hex abstraction, or unrelated refactor remains in the plan.
