@@ -742,6 +742,55 @@ describe('BaseGame default hooks', () => {
         expect(startListener.mock.calls.length).toBe(countAfterFirstStart)
         game.destroy()
     })
+
+    it('resets state and score before starting after game over', async () => {
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: true,
+                resettable: true,
+            },
+            {}
+        )
+
+        game.start()
+        game.addScore(75, 'first-run')
+        expect(game.getState().score).toBe(75)
+
+        await game.end()
+        expect(game.getState().isGameOver).toBe(true)
+
+        game.start()
+
+        expect(game.getState()).toMatchObject({
+            score: 0,
+            isActive: true,
+            isGameOver: false,
+            gameStarted: true,
+        })
+        expect(game.getScoreManager().getScore()).toBe(0)
+    })
+
+    it('does not reset when start is called while already active', () => {
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: true,
+                resettable: true,
+            },
+            {}
+        )
+        const resetSpy = vi.spyOn(game, 'reset')
+
+        game.start()
+        game.start()
+
+        expect(resetSpy).not.toHaveBeenCalled()
+    })
 })
 
 describe('BaseGame stale-run guard', () => {
