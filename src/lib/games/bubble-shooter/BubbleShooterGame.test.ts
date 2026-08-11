@@ -794,7 +794,7 @@ describe('BubbleShooterGame', () => {
             expect(endSpy).not.toHaveBeenCalled()
         })
 
-        it('uses fallback position when grid is fully filled', () => {
+        it('consumes a fully-blocked ceiling impact without throwing', () => {
             const game = makeGame()
             const grid: ({
                 color: number

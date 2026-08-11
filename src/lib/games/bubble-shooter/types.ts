@@ -31,8 +31,9 @@ export interface GridPosition {
 }
 
 // Disambiguated outcome of a projectile impact used by attachBubble.
-// 'ceiling' attaches via the global fallback (no anchor); 'bubble' snaps to a
-// neighbor of the collided anchor bubble.
+// 'ceiling' means the projectile reached the top wall; it attaches to the
+// nearest unoccupied row-zero cell (no anchor). 'bubble' snaps to a neighbor
+// of the collided anchor bubble.
 export type ProjectileImpact =
     | { kind: 'ceiling' }
     | { kind: 'bubble'; anchor: GridPosition }
