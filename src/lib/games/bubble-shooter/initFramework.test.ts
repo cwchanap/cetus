@@ -55,7 +55,7 @@ vi.mock('./BubbleShooterGame', () => ({
         gameWidth: 600,
         gameHeight: 800,
         shooterY: 740,
-        projectileSpeed: 12,
+        projectileSpeed: 720,
         initialRows: 5,
         rowAddInterval: 5,
         bubbleFillChance: 0.8,
@@ -739,6 +739,25 @@ describe('initBubbleShooterGameFramework', () => {
                 rafCallbacks[rafCallbacks.length - 1](0)
             }
             expect(rendererMock.render).not.toHaveBeenCalled()
+        })
+
+        it('passes the frame delta to game.update in seconds (not milliseconds)', async () => {
+            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            result = await initBubbleShooterGameFramework()
+            const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
+            vi.mocked(gameMock.update).mockClear()
+
+            // Two RAF frames 16ms apart: the first establishes lastFrame, the
+            // second computes dt = 16ms and must pass it as 0.016 seconds.
+            const base = 1_000
+            vi.spyOn(performance, 'now')
+                .mockReturnValueOnce(base)
+                .mockReturnValueOnce(base + 16)
+
+            rafCallbacks.shift()?.(base)
+            rafCallbacks.shift()?.(base + 16)
+
+            expect(gameMock.update).toHaveBeenLastCalledWith(0.016)
         })
     })
 

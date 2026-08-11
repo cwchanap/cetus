@@ -30,6 +30,13 @@ export interface GridPosition {
     col: number
 }
 
+// Disambiguated outcome of a projectile impact used by attachBubble.
+// 'ceiling' attaches via the global fallback (no anchor); 'bubble' snaps to a
+// neighbor of the collided anchor bubble.
+export type ProjectileImpact =
+    | { kind: 'ceiling' }
+    | { kind: 'bubble'; anchor: GridPosition }
+
 // Stats passed to onGameOver callback
 export interface BubbleShooterEndGameStats {
     bubblesPopped: number

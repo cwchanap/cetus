@@ -8,6 +8,7 @@ import type {
     BubbleShooterConfig,
     GameConstants,
     GridPosition,
+    Bubble,
 } from './types'
 import {
     getBubbleX,
@@ -103,6 +104,35 @@ function expectGridInvariant(game: BubbleShooterGame): void {
     }
 
     expect(state.bubblesRemaining).toBe(countGrid(state.grid))
+}
+
+function simulateProjectile(frameCount: number): number {
+    const game = makeGame({
+        gameHeight: 12_000,
+        shooterY: 10_000,
+        projectileSpeed: 720,
+    })
+    setState(game, {
+        projectile: {
+            x: 300,
+            y: 5_000,
+            vx: 0,
+            vy: -720,
+            color: 0xff0000,
+        },
+        grid: Array.from({ length: CONSTANTS.GRID_HEIGHT }, (_, row) =>
+            Array.from(
+                { length: getRowColumnCount(row, 0, CONSTANTS) },
+                () => null
+            )
+        ),
+        rowPhase: 0,
+    })
+
+    for (let frame = 0; frame < frameCount; frame++) {
+        game.updateProjectile(1 / frameCount)
+    }
+    return stateOf(game).projectile?.y ?? Number.NaN
 }
 
 describe('BubbleShooterGame', () => {
@@ -366,13 +396,19 @@ describe('BubbleShooterGame', () => {
         it('moves the projectile by its velocity', () => {
             const game = makeGame()
             setState(game, {
-                projectile: { x: 100, y: 200, vx: 5, vy: -10, color: 0xff0000 },
+                projectile: {
+                    x: 100,
+                    y: 200,
+                    vx: 500,
+                    vy: -1000,
+                    color: 0xff0000,
+                },
                 grid: [],
             })
-            game.updateProjectile()
+            game.updateProjectile(0.01)
             const p = stateOf(game).projectile
-            expect(p?.x).toBe(105)
-            expect(p?.y).toBe(190)
+            expect(p?.x).toBeCloseTo(105, 5)
+            expect(p?.y).toBeCloseTo(190, 5)
         })
 
         it('reflects off the left wall', () => {
@@ -381,13 +417,13 @@ describe('BubbleShooterGame', () => {
                 projectile: {
                     x: CONSTANTS.BUBBLE_RADIUS - 1,
                     y: 400,
-                    vx: -5,
-                    vy: -10,
+                    vx: -500,
+                    vy: -1000,
                     color: 0xff0000,
                 },
                 grid: [],
             })
-            game.updateProjectile()
+            game.updateProjectile(0.01)
             expect(stateOf(game).projectile?.vx).toBeGreaterThan(0)
         })
 
@@ -397,13 +433,13 @@ describe('BubbleShooterGame', () => {
                 projectile: {
                     x: CONSTANTS.GAME_WIDTH - CONSTANTS.BUBBLE_RADIUS + 1,
                     y: 400,
-                    vx: 5,
-                    vy: -10,
+                    vx: 500,
+                    vy: -1000,
                     color: 0xff0000,
                 },
                 grid: [],
             })
-            game.updateProjectile()
+            game.updateProjectile(0.01)
             expect(stateOf(game).projectile?.vx).toBeLessThan(0)
         })
 
@@ -415,19 +451,75 @@ describe('BubbleShooterGame', () => {
                     x: 300,
                     y: CONSTANTS.BUBBLE_RADIUS - 1,
                     vx: 0,
-                    vy: -5,
+                    vy: -500,
                     color: 0xff0000,
                 },
                 grid: [],
             })
-            game.updateProjectile()
+            game.updateProjectile(0.01)
             expect(stateOf(game).projectile).toBeNull()
         })
 
         it('does nothing without a projectile', () => {
             const game = makeGame()
             setState(game, { projectile: null, needsRedraw: false })
-            expect(game.updateProjectile()).toBe(false)
+            expect(game.updateProjectile(0.016)).toBe(false)
+        })
+    })
+
+    describe('updateProjectile (time-based physics)', () => {
+        it('moves equally for one second at 30Hz 60Hz and 120Hz', () => {
+            const at30 = simulateProjectile(30)
+            const at60 = simulateProjectile(60)
+            const at120 = simulateProjectile(120)
+            expect(at30).toBeCloseTo(4_280, 5)
+            expect(at60).toBeCloseTo(at30, 5)
+            expect(at120).toBeCloseTo(at30, 5)
+        })
+
+        it('does not tunnel at 4000 pixels per second', () => {
+            const game = makeGame({ projectileSpeed: 4_000 })
+            const grid: (Bubble | null)[][] = Array.from(
+                { length: CONSTANTS.GRID_HEIGHT },
+                (_, row) =>
+                    Array.from(
+                        { length: getRowColumnCount(row, 0, CONSTANTS) },
+                        () => null
+                    )
+            )
+            grid[8][6] = { color: 0x00ff00, x: 300, y: 300 }
+
+            setState(game, {
+                grid,
+                rowPhase: 0,
+                projectile: {
+                    x: 300,
+                    y: 400,
+                    vx: 0,
+                    vy: -4_000,
+                    color: 0xff0000,
+                },
+            })
+
+            game.updateProjectile(0.05)
+            expect(stateOf(game).projectile).toBeNull()
+        })
+
+        it('reflects back inside the right wall', () => {
+            const game = makeGame({ projectileSpeed: 720 })
+            setState(game, {
+                projectile: {
+                    x: 578,
+                    y: 400,
+                    vx: 720,
+                    vy: 0,
+                    color: 0xff0000,
+                },
+                grid: [],
+            })
+            game.updateProjectile(0.016)
+            expect(stateOf(game).projectile?.x).toBeLessThanOrEqual(580)
+            expect(stateOf(game).projectile?.vx).toBeLessThan(0)
         })
     })
 
@@ -455,7 +547,7 @@ describe('BubbleShooterGame', () => {
                 bubblesRemaining: 5,
                 score: 0,
             })
-            game.attachBubble()
+            game.attachBubble({ kind: 'ceiling' })
             const state = stateOf(game)
             expect(state.score).toBeGreaterThanOrEqual(30) // 3 * 10
             expect(state.bubblesPopped).toBe(3)
@@ -490,7 +582,7 @@ describe('BubbleShooterGame', () => {
                 ],
                 bubblesRemaining: 2,
             })
-            game.attachBubble()
+            game.attachBubble({ kind: 'ceiling' })
             // No match: blue added, bubblesRemaining = 2 + 1 = 3, nothing popped
             expect(stateOf(game).bubblesRemaining).toBe(3)
             expect(stateOf(game).bubblesPopped).toBe(0)
@@ -528,7 +620,7 @@ describe('BubbleShooterGame', () => {
                 bubblesRemaining: 3,
                 score: 0,
             })
-            game.attachBubble()
+            game.attachBubble({ kind: 'ceiling' })
             // 4 matched → 40 points + 1000 all clear bonus
             expect(stateOf(game).score).toBeGreaterThanOrEqual(1000)
         })
@@ -548,7 +640,7 @@ describe('BubbleShooterGame', () => {
                 shotCount: 4,
             })
             const before = stateOf(game).grid.length
-            game.attachBubble()
+            game.attachBubble({ kind: 'ceiling' })
             expect(stateOf(game).shotCount).toBe(5)
             expect(stateOf(game).grid.length).toBeGreaterThan(before)
         })
@@ -560,7 +652,7 @@ describe('BubbleShooterGame', () => {
                 projectile: { x: 300, y: 50, vx: 0, vy: -5, color: 0xff0000 },
                 grid: [],
             })
-            game.attachBubble()
+            game.attachBubble({ kind: 'ceiling' })
             expect(stateOf(game).projectile).toBeNull()
         })
 
@@ -590,7 +682,7 @@ describe('BubbleShooterGame', () => {
                 grid: realGrid,
                 bubblesRemaining: 1,
             })
-            game.attachBubble(anchor)
+            game.attachBubble({ kind: 'bubble', anchor })
             const filledNeighbor = getNeighbors(
                 anchor.row,
                 anchor.col,
@@ -624,7 +716,7 @@ describe('BubbleShooterGame', () => {
                 projectile: { x: 300, y: 400, vx: 0, vy: -5, color: 0x00ff00 },
                 grid,
             })
-            expect(() => game.attachBubble()).not.toThrow()
+            expect(() => game.attachBubble({ kind: 'ceiling' })).not.toThrow()
             expect(stateOf(game).projectile).toBeNull()
         })
     })
@@ -654,7 +746,7 @@ describe('BubbleShooterGame', () => {
                 grid,
                 shotCount: 4,
             })
-            const ended = game.attachBubble()
+            const ended = game.attachBubble({ kind: 'ceiling' })
             expect(ended).toBe(true)
         })
     })
@@ -738,13 +830,19 @@ describe('BubbleShooterGame', () => {
             game.start()
             // Arm a projectile so updateProjectile does real work.
             setState(game, {
-                projectile: { x: 100, y: 200, vx: 5, vy: -10, color: 0xff0000 },
+                projectile: {
+                    x: 100,
+                    y: 200,
+                    vx: 500,
+                    vy: 0,
+                    color: 0xff0000,
+                },
                 grid: [],
             })
             onStateChange.mockClear()
             // Invoke one update tick (the framework render loop calls this).
-            game.update(16)
-            expect(stateOf(game).projectile?.x).toBe(105)
+            game.update(0.016)
+            expect(stateOf(game).projectile?.x).toBeCloseTo(108, 5)
             expect(onStateChange).toHaveBeenCalled()
         })
 
@@ -753,13 +851,13 @@ describe('BubbleShooterGame', () => {
             game.start()
             game.pause()
             const projectileBefore = stateOf(game).projectile
-            game.update(16)
+            game.update(0.016)
             expect(stateOf(game).projectile).toEqual(projectileBefore)
         })
 
         it('update and render are safe no-ops when not active', () => {
             const game = makeGame()
-            expect(() => game.update(16)).not.toThrow()
+            expect(() => game.update(0.016)).not.toThrow()
             expect(() => game.render()).not.toThrow()
         })
 
@@ -793,7 +891,7 @@ describe('BubbleShooterGame', () => {
         it('attachBubble returns false when there is no projectile', () => {
             const game = makeGame()
             setState(game, { projectile: null })
-            expect(game.attachBubble()).toBe(false)
+            expect(game.attachBubble({ kind: 'ceiling' })).toBe(false)
         })
 
         it('findAttachPosition returns null when there is no projectile', () => {
