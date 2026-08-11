@@ -489,8 +489,10 @@ export class BubbleShooterGame extends BaseGame<
     /**
      * Attach the projectile to the grid, then resolve matches and game-over.
      * The impact disambiguates the trigger: 'bubble' snaps to a neighbor of
-     * the collided anchor; 'ceiling' falls back to the global nearest-cell
-     * search. Returns true if the game ended as a result.
+     * the collided anchor; 'ceiling' snaps to a row-zero cell. Candidates are
+     * strictly impact-local; a blocked impact (no unoccupied local candidate)
+     * consumes the shot but does not by itself end the run — only the danger-
+     * zone check in checkGameOverCondition can. Returns true if the game ended.
      */
     attachBubble(impact: ProjectileImpact): boolean {
         if (!this.state.projectile) {
@@ -516,24 +518,22 @@ export class BubbleShooterGame extends BaseGame<
             this.state.bubblesRemaining++
 
             this.checkMatches(attachPos.row, attachPos.col)
+        }
 
-            this.state.shotCount++
-            // Skip adding a new row when the board was just cleared by this
-            // shot (all-clear bonus awarded) so the board stays empty.
-            if (
-                this.state.bubblesRemaining > 0 &&
-                this.state.shotCount % this.config.rowAddInterval === 0
-            ) {
-                this.addNewRow(constants)
-            }
+        this.state.shotCount++
+        if (
+            this.state.bubblesRemaining > 0 &&
+            this.state.shotCount % this.config.rowAddInterval === 0
+        ) {
+            this.addNewRow(constants)
         }
 
         this.state.projectile = null
         this.state.needsRedraw = true
 
         if (this.checkGameOverCondition(constants)) {
-            this.end().catch(err =>
-                console.error('BubbleShooter end failed', err)
+            this.end().catch(error =>
+                console.error('BubbleShooter end failed', error)
             )
             return true
         }
@@ -548,37 +548,36 @@ export class BubbleShooterGame extends BaseGame<
             return null
         }
 
+        let candidates: GridPosition[]
         if (anchorPosition) {
-            const anchoredPosition = this.findClosestPosition(
-                constants,
-                getNeighbors(
-                    anchorPosition.row,
-                    anchorPosition.col,
-                    this.state.rowPhase,
-                    constants
-                )
+            // Bubble impact: only neighbors of the collided anchor are valid.
+            candidates = getNeighbors(
+                anchorPosition.row,
+                anchorPosition.col,
+                this.state.rowPhase,
+                constants
             )
-            if (anchoredPosition) {
-                return anchoredPosition
+        } else {
+            // Ceiling impact: only row-zero cells are valid attachment points.
+            const topRowCols = getRowColumnCount(
+                0,
+                this.state.rowPhase,
+                constants
+            )
+            candidates = []
+            for (let col = 0; col < topRowCols; col++) {
+                candidates.push({ row: 0, col })
             }
         }
 
-        const candidates: GridPosition[] = []
-        for (let row = 0; row < constants.GRID_HEIGHT; row++) {
-            const cols = getRowColumnCount(row, this.state.rowPhase, constants)
-            for (let col = 0; col < cols; col++) {
-                candidates.push({ row, col })
-            }
-        }
+        // Locality comes from the candidate set; filter occupied cells so the
+        // projectile never overwrites an existing bubble. No global or fixed
+        // fallback — a blocked impact returns null and is handled by the caller.
+        const unoccupied = candidates.filter(({ row, col }) => {
+            return !this.state.grid[row] || !this.state.grid[row][col]
+        })
 
-        return (
-            this.findClosestPosition(constants, candidates) || {
-                row: 0,
-                col: Math.floor(
-                    getRowColumnCount(0, this.state.rowPhase, constants) / 2
-                ),
-            }
-        )
+        return this.findClosestPosition(constants, unoccupied)
     }
 
     private findClosestPosition(
@@ -602,10 +601,7 @@ export class BubbleShooterGame extends BaseGame<
                 const y = getBubbleY(row, constants)
                 const dist = distance(this.state.projectile, { x, y })
 
-                if (
-                    this.isValidAttachPosition(row, col) &&
-                    dist < minDistance
-                ) {
+                if (dist < minDistance) {
                     minDistance = dist
                     bestPosition = { row, col }
                 }
@@ -613,18 +609,6 @@ export class BubbleShooterGame extends BaseGame<
         }
 
         return bestPosition
-    }
-
-    private isValidAttachPosition(row: number, col: number): boolean {
-        if (row === 0) {
-            return true
-        }
-
-        const constants = this.getConstantsView()
-        const neighbors = getNeighbors(row, col, this.state.rowPhase, constants)
-        return neighbors.some(({ row: nRow, col: nCol }) => {
-            return this.state.grid[nRow] && this.state.grid[nRow][nCol]
-        })
     }
 
     private checkMatches(startRow: number, startCol: number): void {
