@@ -90,23 +90,30 @@ export async function initBubbleShooterGameFramework(
         app.canvas.style.borderRadius = '8px'
     }
 
-    // Helpers for the current/next bubble preview canvases
-    const drawCurrentBubblePreview = (color: number | undefined) => {
-        if (!currentBubbleCtx || color === undefined) {
+    // Unified helper for the current/next bubble preview canvases.
+    // Fills the background REGARDLESS so a null/undefined color clears the
+    // canvas (instead of leaving the previous bubble visible), then draws
+    // the bubble only when color is defined.
+    const drawBubblePreview = (
+        canvas: HTMLCanvasElement,
+        context: CanvasRenderingContext2D | null,
+        color: number | undefined
+    ): void => {
+        if (!context) {
             return
         }
-        currentBubbleCtx.fillStyle = 'rgba(0, 0, 0, 0.1)'
-        currentBubbleCtx.fillRect(
-            0,
-            0,
-            currentBubbleCanvas.width,
-            currentBubbleCanvas.height
-        )
-        const centerX = currentBubbleCanvas.width / 2
-        const centerY = currentBubbleCanvas.height / 2
+
+        context.fillStyle = 'rgba(0, 0, 0, 0.1)'
+        context.fillRect(0, 0, canvas.width, canvas.height)
+        if (color === undefined) {
+            return
+        }
+
+        const centerX = canvas.width / 2
+        const centerY = canvas.height / 2
         const radius = Math.min(centerX, centerY) - 4
         drawBubbleOnCanvas(
-            currentBubbleCtx,
+            context,
             centerX,
             centerY,
             radius,
@@ -114,32 +121,18 @@ export async function initBubbleShooterGameFramework(
         )
     }
 
-    const drawNextBubblePreview = (color: number | undefined) => {
-        if (!nextBubbleCtx || color === undefined) {
-            return
-        }
-        nextBubbleCtx.fillStyle = 'rgba(0, 0, 0, 0.1)'
-        nextBubbleCtx.fillRect(
-            0,
-            0,
-            nextBubbleCanvas.width,
-            nextBubbleCanvas.height
-        )
-        const centerX = nextBubbleCanvas.width / 2
-        const centerY = nextBubbleCanvas.height / 2
-        const radius = Math.min(centerX, centerY) - 4
-        drawBubbleOnCanvas(
-            nextBubbleCtx,
-            centerX,
-            centerY,
-            radius,
-            pixiColorToHex(color)
-        )
-    }
+    // Track last-drawn preview colors as `number | undefined` so a transition
+    // from a color to undefined (null bubble) is detected as a change and
+    // triggers a clear via drawBubblePreview(... undefined).
+    let lastCurrentColor: number | undefined
+    let lastNextColor: number | undefined
 
-    // Track last-drawn preview colors to avoid redundant redraws
-    let lastCurrentColor: number | null = null
-    let lastNextColor: number | null = null
+    const clearPreviews = () => {
+        lastCurrentColor = undefined
+        lastNextColor = undefined
+        drawBubblePreview(currentBubbleCanvas, currentBubbleCtx, undefined)
+        drawBubblePreview(nextBubbleCanvas, nextBubbleCtx, undefined)
+    }
 
     // Enhanced callbacks with UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
@@ -149,17 +142,18 @@ export async function initBubbleShooterGameFramework(
             updateUI(bsState)
 
             const currentColor = bsState.currentBubble?.color
-            if (
-                currentColor !== undefined &&
-                currentColor !== lastCurrentColor
-            ) {
+            if (currentColor !== lastCurrentColor) {
                 lastCurrentColor = currentColor
-                drawCurrentBubblePreview(currentColor)
+                drawBubblePreview(
+                    currentBubbleCanvas,
+                    currentBubbleCtx,
+                    currentColor
+                )
             }
             const nextColor = bsState.nextBubble?.color
-            if (nextColor !== undefined && nextColor !== lastNextColor) {
+            if (nextColor !== lastNextColor) {
                 lastNextColor = nextColor
-                drawNextBubblePreview(nextColor)
+                drawBubblePreview(nextBubbleCanvas, nextBubbleCtx, nextColor)
             }
 
             customCallbacks?.onStateChange?.(state)
@@ -233,7 +227,7 @@ export async function initBubbleShooterGameFramework(
     const cleanupCanvasControls = setupCanvasControls(game, renderer)
 
     // Set up button handlers
-    const cleanupButtonHandlers = setupButtonHandlers(game)
+    const cleanupButtonHandlers = setupButtonHandlers(game, clearPreviews)
 
     // Set up keyboard controls (pause toggle)
     const cleanupKeyboardControls = setupKeyboardControls(game)
@@ -294,8 +288,7 @@ export async function initBubbleShooterGameFramework(
             game.destroy()
         },
         restart: () => {
-            lastCurrentColor = null
-            lastNextColor = null
+            clearPreviews()
             game.reset()
         },
         getState: () => game.getState(),
@@ -345,7 +338,10 @@ function showGameOver(finalScore: number, stats: BubbleShooterStats): void {
     }
 }
 
-function setupButtonHandlers(game: BubbleShooterGame): () => void {
+function setupButtonHandlers(
+    game: BubbleShooterGame,
+    clearPreviews: () => void
+): () => void {
     const startBtn = document.getElementById('start-btn')
     const endBtn = document.getElementById('end-btn')
     const pauseBtn = document.getElementById('pause-btn')
@@ -369,11 +365,13 @@ function setupButtonHandlers(game: BubbleShooterGame): () => void {
     }
 
     const resetHandler = () => {
+        clearPreviews()
         game.reset()
         resetButtonVisibility()
     }
 
     const restartHandler = () => {
+        clearPreviews()
         game.reset()
         resetButtonVisibility()
     }
