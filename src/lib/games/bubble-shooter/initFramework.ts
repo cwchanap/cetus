@@ -253,10 +253,12 @@ export async function initBubbleShooterGameFramework(
             if (lastFrame === 0) {
                 lastFrame = now
             }
-            const dt = now - lastFrame
+            // Convert the RAF millisecond delta to seconds — BaseGame.update
+            // advances by elapsed seconds. The game owns the per-frame clamp.
+            const deltaTimeSeconds = (now - lastFrame) / 1_000
             lastFrame = now
             // Drive game logic from the single rAF loop (no dual-RAF).
-            game.update(dt)
+            game.update(deltaTimeSeconds)
             const state = game.getState()
             if (state.needsRedraw) {
                 renderer.render(state)

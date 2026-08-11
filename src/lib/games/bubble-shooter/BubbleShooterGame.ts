@@ -9,6 +9,7 @@ import type {
     Bubble,
     GameConstants,
     GridPosition,
+    ProjectileImpact,
 } from './types'
 import {
     getBubbleX,
@@ -34,7 +35,7 @@ export const DEFAULT_BUBBLE_SHOOTER_CONFIG: BubbleShooterConfig = {
     gameWidth: 600,
     gameHeight: 800,
     shooterY: 800 - 60,
-    projectileSpeed: 12,
+    projectileSpeed: 720,
     initialRows: 5,
     rowAddInterval: 5,
     bubbleFillChance: 0.8,
@@ -47,6 +48,12 @@ const POINTS_PER_BUBBLE = 10
 const ALL_CLEAR_BONUS = 1000
 // Match threshold (number of same-color connected bubbles required to pop).
 const MATCH_THRESHOLD = 3
+// Cap a single physics update to this many seconds so a long frame (or a tab
+// suspended in the background) cannot teleport the projectile across the board.
+const MAX_PROJECTILE_FRAME_SECONDS = 0.05
+// Each collision substep travels at most this fraction of BUBBLE_RADIUS so a
+// fast projectile can never tunnel past a bubble between collision checks.
+const MAX_PROJECTILE_SUBSTEP_RATIO = 0.5
 
 export class BubbleShooterGame extends BaseGame<
     BubbleShooterState,
@@ -129,7 +136,7 @@ export class BubbleShooterGame extends BaseGame<
         this.emitStateChange()
     }
 
-    update(_deltaTime: number): void {
+    update(deltaTime: number): void {
         if (
             !this.state.isActive ||
             this.state.isPaused ||
@@ -138,7 +145,7 @@ export class BubbleShooterGame extends BaseGame<
             return
         }
 
-        this.updateProjectile()
+        this.updateProjectile(deltaTime)
 
         // Only emit state changes when something actually changed this frame.
         if (this.state.needsRedraw) {
@@ -378,46 +385,70 @@ export class BubbleShooterGame extends BaseGame<
     // --- Projectile physics ---
 
     /**
-     * Advance the projectile one step, handling wall bounces and attachment.
+     * Advance the projectile by elapsed seconds, using collision-safe substeps.
+     * On each substep the bubble collision is checked BEFORE the ceiling so a
+     * projectile grazing a bubble attaches to the bubble, not the ceiling.
      * Returns true if the game ended as a result of this step.
      */
-    updateProjectile(): boolean {
-        if (!this.state.projectile) {
+    updateProjectile(deltaTimeSeconds: number): boolean {
+        const projectile = this.state.projectile
+        if (!projectile) {
             return false
         }
 
         const constants = this.getConstantsView()
-        const oldX = this.state.projectile.x
-        const oldY = this.state.projectile.y
+        const elapsed = Math.min(
+            Math.max(deltaTimeSeconds, 0),
+            MAX_PROJECTILE_FRAME_SECONDS
+        )
+        const speed = Math.hypot(projectile.vx, projectile.vy)
+        const maxStepDistance =
+            constants.BUBBLE_RADIUS * MAX_PROJECTILE_SUBSTEP_RATIO
+        const stepCount = Math.max(
+            1,
+            Math.ceil((speed * elapsed) / maxStepDistance)
+        )
+        const stepSeconds = elapsed / stepCount
 
-        this.state.projectile.x += this.state.projectile.vx
-        this.state.projectile.y += this.state.projectile.vy
+        for (let step = 0; step < stepCount; step++) {
+            projectile.x += projectile.vx * stepSeconds
+            projectile.y += projectile.vy * stepSeconds
+            this.reflectProjectileOffWalls(constants)
 
-        // Wall collisions
-        if (
-            this.state.projectile.x <= constants.BUBBLE_RADIUS ||
-            this.state.projectile.x >=
-                constants.GAME_WIDTH - constants.BUBBLE_RADIUS
-        ) {
-            this.state.projectile.vx *= -1
+            const anchor = this.checkBubbleCollision()
+            if (anchor) {
+                return this.attachBubble({ kind: 'bubble', anchor })
+            }
+            if (projectile.y <= constants.BUBBLE_RADIUS) {
+                return this.attachBubble({ kind: 'ceiling' })
+            }
         }
 
-        if (
-            Math.abs(oldX - this.state.projectile.x) > 0.1 ||
-            Math.abs(oldY - this.state.projectile.y) > 0.1
-        ) {
+        if (elapsed > 0) {
             this.state.needsRedraw = true
         }
-
-        const bubbleCollision = this.checkBubbleCollision()
-        if (
-            this.state.projectile.y <= constants.BUBBLE_RADIUS ||
-            bubbleCollision
-        ) {
-            return this.attachBubble(bubbleCollision ?? undefined)
-        }
-
         return false
+    }
+
+    /**
+     * Mirror the projectile's overshoot back inside the playfield and flip vx
+     * toward the board. Unlike a plain sign flip, this keeps the projectile
+     * within [radius, gameWidth - radius] so it never escapes the board.
+     */
+    private reflectProjectileOffWalls(constants: GameConstants): void {
+        const projectile = this.state.projectile
+        if (!projectile) {
+            return
+        }
+        const minX = constants.BUBBLE_RADIUS
+        const maxX = constants.GAME_WIDTH - constants.BUBBLE_RADIUS
+        if (projectile.x < minX) {
+            projectile.x = 2 * minX - projectile.x
+            projectile.vx = Math.abs(projectile.vx)
+        } else if (projectile.x > maxX) {
+            projectile.x = 2 * maxX - projectile.x
+            projectile.vx = -Math.abs(projectile.vx)
+        }
     }
 
     /**
@@ -457,14 +488,18 @@ export class BubbleShooterGame extends BaseGame<
 
     /**
      * Attach the projectile to the grid, then resolve matches and game-over.
-     * Returns true if the game ended as a result.
+     * The impact disambiguates the trigger: 'bubble' snaps to a neighbor of
+     * the collided anchor; 'ceiling' falls back to the global nearest-cell
+     * search. Returns true if the game ended as a result.
      */
-    attachBubble(anchorPosition?: GridPosition): boolean {
+    attachBubble(impact: ProjectileImpact): boolean {
         if (!this.state.projectile) {
             return false
         }
 
         const constants = this.getConstantsView()
+        const anchorPosition =
+            impact.kind === 'bubble' ? impact.anchor : undefined
         const attachPos = this.findAttachPosition(constants, anchorPosition)
 
         if (attachPos) {
