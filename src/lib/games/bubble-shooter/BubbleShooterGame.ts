@@ -55,6 +55,14 @@ const MAX_PROJECTILE_FRAME_SECONDS = 0.05
 // fast projectile can never tunnel past a bubble between collision checks.
 const MAX_PROJECTILE_SUBSTEP_RATIO = 0.5
 
+// Outcome of resolving a single shot: direct color matches, ceiling-
+// disconnected drops, and the combined removed count used for scoring.
+interface ShotResolution {
+    directMatches: GridPosition[]
+    dropped: GridPosition[]
+    removedCount: number
+}
+
 export class BubbleShooterGame extends BaseGame<
     BubbleShooterState,
     BubbleShooterConfig,
@@ -106,13 +114,18 @@ export class BubbleShooterGame extends BaseGame<
             shotsFired: 0,
             bubblesPopped: 0,
             largestCombo: 0,
+            successfulShots: 0,
             needsRedraw: true,
         }
     }
 
     protected onGameStart(): void {
-        // Build the initial grid and load the first bubbles.
+        // Build the initial grid, drop any ceiling-disconnected clusters
+        // the random fill may have produced, then load the first bubbles.
+        const constants = this.getConstantsView()
         this.initializeGrid()
+        this.removeUnsupportedBubbles(constants)
+        this.syncBubbleCount()
         this.generateBubble()
         this.generateNextBubble()
     }
@@ -177,6 +190,7 @@ export class BubbleShooterGame extends BaseGame<
             shotsFired,
             accuracy: Math.min(rawAccuracy, 100),
             largestCombo: this.state.largestCombo,
+            successfulShots: this.state.successfulShots,
         }
     }
 
@@ -517,7 +531,7 @@ export class BubbleShooterGame extends BaseGame<
             }
             this.state.bubblesRemaining++
 
-            this.checkMatches(attachPos.row, attachPos.col)
+            this.resolveMatches(attachPos, constants)
         }
 
         this.state.shotCount++
@@ -611,61 +625,138 @@ export class BubbleShooterGame extends BaseGame<
         return bestPosition
     }
 
-    private checkMatches(startRow: number, startCol: number): void {
-        const bubble = this.state.grid[startRow][startCol]
-        if (!bubble) {
-            return
+    /**
+     * Iteratively collect the same-color cluster containing `start`, using
+     * phase-aware getNeighbors. Returns an empty list when the start cell is
+     * empty so resolveMatches can early-return without side effects.
+     */
+    private collectColorCluster(
+        start: GridPosition,
+        constants: GameConstants
+    ): GridPosition[] {
+        const startBubble = this.state.grid[start.row]?.[start.col]
+        if (!startBubble) {
+            return []
         }
-
-        const constants = this.getConstantsView()
-        const color = bubble.color
+        const color = startBubble.color
         const visited = new Set<string>()
-        const matches: GridPosition[] = []
+        const cluster: GridPosition[] = []
+        const stack: GridPosition[] = [start]
 
-        const dfs = (row: number, col: number): void => {
-            const key = `${row},${col}`
+        while (stack.length > 0) {
+            const current = stack.pop()!
+            const key = `${current.row},${current.col}`
             if (visited.has(key)) {
-                return
+                continue
             }
-            if (!this.state.grid[row] || !this.state.grid[row][col]) {
-                return
+            const bubble = this.state.grid[current.row]?.[current.col]
+            if (!bubble || bubble.color !== color) {
+                continue
             }
-            if (this.state.grid[row][col]?.color !== color) {
-                return
-            }
-
             visited.add(key)
-            matches.push({ row, col })
-
+            cluster.push(current)
             const neighbors = getNeighbors(
-                row,
-                col,
+                current.row,
+                current.col,
                 this.state.rowPhase,
                 constants
             )
-            neighbors.forEach(({ row: nRow, col: nCol }) => {
-                dfs(nRow, nCol)
-            })
+            for (const neighbor of neighbors) {
+                if (!visited.has(`${neighbor.row},${neighbor.col}`)) {
+                    stack.push(neighbor)
+                }
+            }
+        }
+        return cluster
+    }
+
+    /**
+     * Collect every cell reachable from occupied row-zero cells via occupied
+     * neighbors. Color is ignored — this is the ceiling-support set.
+     */
+    private collectCeilingConnected(constants: GameConstants): Set<string> {
+        const connected = new Set<string>()
+        const stack: GridPosition[] = []
+
+        const topRow = this.state.grid[0]
+        if (topRow) {
+            for (let col = 0; col < topRow.length; col++) {
+                if (topRow[col]) {
+                    stack.push({ row: 0, col })
+                }
+            }
         }
 
-        dfs(startRow, startCol)
-
-        if (matches.length >= MATCH_THRESHOLD) {
-            this.removeBubbles(matches)
-            this.addScore(matches.length * POINTS_PER_BUBBLE, 'bubble_pop')
-            this.state.bubblesPopped += matches.length
-            this.state.largestCombo = Math.max(
-                this.state.largestCombo,
-                matches.length
+        while (stack.length > 0) {
+            const current = stack.pop()!
+            const key = `${current.row},${current.col}`
+            if (connected.has(key)) {
+                continue
+            }
+            const bubble = this.state.grid[current.row]?.[current.col]
+            if (!bubble) {
+                continue
+            }
+            connected.add(key)
+            const neighbors = getNeighbors(
+                current.row,
+                current.col,
+                this.state.rowPhase,
+                constants
             )
-            this.state.bubblesRemaining -= matches.length
-            this.state.needsRedraw = true
+            for (const neighbor of neighbors) {
+                if (!connected.has(`${neighbor.row},${neighbor.col}`)) {
+                    stack.push(neighbor)
+                }
+            }
+        }
+        return connected
+    }
+
+    private removeUnsupportedBubbles(constants: GameConstants): GridPosition[] {
+        const connected = this.collectCeilingConnected(constants)
+        const dropped: GridPosition[] = []
+
+        for (let row = 0; row < this.state.grid.length; row++) {
+            for (let col = 0; col < this.state.grid[row].length; col++) {
+                if (
+                    this.state.grid[row][col] &&
+                    !connected.has(`${row},${col}`)
+                ) {
+                    dropped.push({ row, col })
+                    this.state.grid[row][col] = null
+                }
+            }
+        }
+        return dropped
+    }
+
+    private resolveMatches(
+        attached: GridPosition,
+        constants: GameConstants
+    ): ShotResolution {
+        const directMatches = this.collectColorCluster(attached, constants)
+        if (directMatches.length < MATCH_THRESHOLD) {
+            return { directMatches: [], dropped: [], removedCount: 0 }
         }
 
+        this.removeBubbles(directMatches)
+        const dropped = this.removeUnsupportedBubbles(constants)
+        this.syncBubbleCount()
+        const removedCount = directMatches.length + dropped.length
+
+        this.addScore(removedCount * POINTS_PER_BUBBLE, 'bubble_pop')
+        this.state.successfulShots++
+        this.state.bubblesPopped += removedCount
+        this.state.largestCombo = Math.max(
+            this.state.largestCombo,
+            removedCount
+        )
         if (this.state.bubblesRemaining === 0) {
             this.addScore(ALL_CLEAR_BONUS, 'all_clear')
-            this.state.needsRedraw = true
         }
+
+        return { directMatches, dropped, removedCount }
     }
 
     private removeBubbles(bubbles: GridPosition[]): void {
@@ -676,6 +767,8 @@ export class BubbleShooterGame extends BaseGame<
 
     private addNewRow(constants: GameConstants): void {
         this.addRowAtTop(constants, [...this.config.colors])
+        this.removeUnsupportedBubbles(constants)
+        this.syncBubbleCount()
 
         if (this.checkGameOverCondition(constants)) {
             this.state.needsRedraw = true

@@ -43,6 +43,7 @@ export interface BubbleShooterEndGameStats {
     shotsFired: number
     accuracy: number
     largestCombo: number
+    successfulShots: number
 }
 
 // Static game constants shape consumed by the shared grid/physics helpers
@@ -70,6 +71,7 @@ export interface BubbleShooterState extends BaseGameState {
     shotsFired: number
     bubblesPopped: number
     largestCombo: number
+    successfulShots: number
     needsRedraw: boolean
 }
 
@@ -96,4 +98,5 @@ export interface BubbleShooterStats extends BaseGameStats {
     shotsFired: number
     accuracy: number
     largestCombo: number
+    successfulShots: number
 }
