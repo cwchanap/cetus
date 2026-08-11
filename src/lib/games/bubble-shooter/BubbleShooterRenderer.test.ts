@@ -95,7 +95,7 @@ function makeState(
         aimAngle: -Math.PI / 2,
         projectile: null,
         bubblesRemaining: 0,
-        rowOffset: 0,
+        rowPhase: 0,
         shotCount: 0,
         shotsFired: 0,
         bubblesPopped: 0,
