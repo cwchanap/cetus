@@ -460,6 +460,45 @@ describe('BubbleShooterGame', () => {
             expect(stateOf(game).projectile).toBeNull()
         })
 
+        it('prefers bubble collision when the projectile is also at the ceiling', () => {
+            const game = makeGame()
+            const targetCol = 6
+            const grid: (Bubble | null)[][] = Array.from(
+                { length: CONSTANTS.GRID_HEIGHT },
+                (_, row) =>
+                    Array.from(
+                        { length: getRowColumnCount(row, 0, CONSTANTS) },
+                        () => null
+                    )
+            )
+            grid[0][targetCol] = {
+                color: 0x00ff00,
+                x: bubbleX(targetCol, 0),
+                y: bubbleY(0),
+            }
+            setState(game, {
+                grid,
+                rowPhase: 0,
+                projectile: {
+                    x: bubbleX(targetCol, 0),
+                    y: CONSTANTS.BUBBLE_RADIUS,
+                    vx: 0,
+                    vy: -720,
+                    color: 0xff0000,
+                },
+            })
+            const attachSpy = vi
+                .spyOn(game, 'attachBubble')
+                .mockReturnValue(false)
+
+            game.updateProjectile(0)
+
+            expect(attachSpy).toHaveBeenCalledWith({
+                kind: 'bubble',
+                anchor: { row: 0, col: targetCol },
+            })
+        })
+
         it('does nothing without a projectile', () => {
             const game = makeGame()
             setState(game, { projectile: null, needsRedraw: false })
@@ -693,6 +732,49 @@ describe('BubbleShooterGame', () => {
                     stateOf(game).grid[row]?.[col]?.color === 0xff0000
             )
             expect(filledNeighbor).toBeDefined()
+        })
+
+        it('consumes a locally blocked impact without ending the run', () => {
+            const game = makeGame({ rowAddInterval: 99 })
+            const anchor = { row: 2, col: 5 }
+            const grid: (Bubble | null)[][] = Array.from(
+                { length: CONSTANTS.GRID_HEIGHT },
+                (_, row) =>
+                    Array.from(
+                        { length: getRowColumnCount(row, 0, CONSTANTS) },
+                        () => null
+                    )
+            )
+
+            for (const position of [anchor, ...neighbors(2, 5)]) {
+                grid[position.row][position.col] = {
+                    color: 0x00ff00,
+                    x: bubbleX(position.col, position.row),
+                    y: bubbleY(position.row),
+                }
+            }
+            const before = JSON.stringify(grid)
+            const endSpy = vi.spyOn(game, 'end').mockResolvedValue(undefined)
+
+            setState(game, {
+                isActive: true,
+                grid,
+                rowPhase: 0,
+                projectile: {
+                    x: bubbleX(5, 2),
+                    y: bubbleY(2) + 30,
+                    vx: 0,
+                    vy: -720,
+                    color: 0xff0000,
+                },
+                bubblesRemaining: countGrid(grid),
+            })
+
+            expect(game.attachBubble({ kind: 'bubble', anchor })).toBe(false)
+            expect(JSON.stringify(stateOf(game).grid)).toBe(before)
+            expect(stateOf(game).projectile).toBeNull()
+            expect(stateOf(game).isActive).toBe(true)
+            expect(endSpy).not.toHaveBeenCalled()
         })
 
         it('uses fallback position when grid is fully filled', () => {
