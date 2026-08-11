@@ -70,6 +70,9 @@ export abstract class BaseGame<
      * Abstract methods that each game must implement
      */
     abstract createInitialState(): TState
+    /**
+     * Advance game logic by elapsed time in seconds.
+     */
     abstract update(deltaTime: number): void
     abstract render(): void
     abstract getGameStats(): TStats
@@ -81,6 +84,10 @@ export abstract class BaseGame<
     start(): void {
         if (this.state.isActive) {
             return
+        }
+
+        if (this.state.gameStarted && this.state.isGameOver) {
+            this.reset()
         }
 
         this.runGuard.next()
