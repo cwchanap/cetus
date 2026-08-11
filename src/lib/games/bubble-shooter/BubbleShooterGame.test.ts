@@ -194,18 +194,33 @@ describe('BubbleShooterGame', () => {
     })
 
     describe('getGameStats / accuracy', () => {
-        it('computes accuracy from bubblesPopped / shotsFired', () => {
+        it('computes accuracy from successfulShots / shotsFired', () => {
             const game = makeGame()
-            setState(game, { shotsFired: 10, bubblesPopped: 8 })
+            setState(game, {
+                shotsFired: 10,
+                successfulShots: 8,
+                bubblesPopped: 18,
+            })
             const stats = game.getGameStats()
             expect(stats.accuracy).toBe(80)
-            expect(stats.bubblesPopped).toBe(8)
+            expect(stats.bubblesPopped).toBe(18)
             expect(stats.shotsFired).toBe(10)
+            expect(stats.successfulShots).toBe(8)
         })
 
         it('returns zero accuracy when no shots fired', () => {
             const game = makeGame()
             expect(game.getGameStats().accuracy).toBe(0)
+        })
+
+        it('reports successful-shot accuracy', () => {
+            const game = makeGame()
+            setState(game, {
+                shotsFired: 10,
+                successfulShots: 6,
+                bubblesPopped: 18,
+            })
+            expect(game.getGameStats().accuracy).toBe(60)
         })
     })
 
@@ -216,6 +231,7 @@ describe('BubbleShooterGame', () => {
                 bubblesPopped: 7,
                 shotsFired: 12,
                 largestCombo: 4,
+                successfulShots: 5,
             })
             const data = (
                 game as unknown as {
@@ -226,6 +242,7 @@ describe('BubbleShooterGame', () => {
                 bubblesPopped: 7,
                 shotsFired: 12,
                 largestCombo: 4,
+                successfulShots: 5,
             })
         })
     })
@@ -919,6 +936,137 @@ describe('BubbleShooterGame', () => {
             expect(stateOf(game).bubblesRemaining).toBe(2)
             expect(stateOf(game).score).toBe(0)
             expect(stateOf(game).successfulShots).toBe(0)
+        })
+    })
+
+    describe('active colors', () => {
+        it('drops floating-only opening colors before queue generation', () => {
+            const game = makeGame({ colors: [0xff0000, 0x0000ff] })
+            // Stub initializeGrid() to produce a top-connected red bubble and
+            // an isolated blue bubble. onGameStart's cleanup must drop the
+            // blue before generateBubble/generateNextBubble run, so both
+            // queue bubbles are rolled from active colors (red only).
+            const internal = game as unknown as {
+                initializeGrid: () => void
+                onGameStart: () => void
+            }
+            vi.spyOn(internal, 'initializeGrid').mockImplementation(() => {
+                const grid: (Bubble | null)[][] = Array.from(
+                    { length: CONSTANTS.GRID_HEIGHT },
+                    (_, row) =>
+                        Array.from(
+                            { length: getRowColumnCount(row, 0, CONSTANTS) },
+                            () => null
+                        )
+                )
+                grid[0][0] = {
+                    color: 0xff0000,
+                    x: bubbleX(0, 0),
+                    y: bubbleY(0),
+                }
+                grid[2][5] = {
+                    color: 0x0000ff,
+                    x: bubbleX(5, 2),
+                    y: bubbleY(2),
+                }
+                setState(game, { grid, rowPhase: 0 })
+            })
+
+            vi.spyOn(Math, 'random').mockReturnValue(0)
+            internal.onGameStart()
+
+            expect(stateOf(game).grid[2][5]).toBeNull()
+            expect(stateOf(game).bubblesRemaining).toBe(1)
+            expect(stateOf(game).currentBubble?.color).toBe(0xff0000)
+            expect(stateOf(game).nextBubble?.color).toBe(0xff0000)
+        })
+
+        it('drops an unsupported color before reconciling nextBubble', () => {
+            const game = makeGame({
+                colors: [0xff0000, 0x0000ff],
+                rowAddInterval: 5,
+                newRowFillChance: 0.5,
+            })
+            const grid: (Bubble | null)[][] = Array.from(
+                { length: CONSTANTS.GRID_HEIGHT },
+                (_, row) =>
+                    Array.from(
+                        { length: getRowColumnCount(row, 0, CONSTANTS) },
+                        () => null
+                    )
+            )
+            grid[0][0] = { color: 0xff0000, x: bubbleX(0, 0), y: bubbleY(0) }
+            grid[0][12] = { color: 0x0000ff, x: bubbleX(12, 0), y: bubbleY(0) }
+
+            setState(game, {
+                grid,
+                rowPhase: 0,
+                bubblesRemaining: 2,
+                shotCount: 4,
+                projectile: {
+                    x: bubbleX(1, 0),
+                    y: bubbleY(0),
+                    vx: 0,
+                    vy: -720,
+                    color: 0xff0000,
+                },
+                nextBubble: { color: 0x0000ff },
+            })
+
+            let randomCall = 0
+            vi.spyOn(Math, 'random').mockImplementation(() => {
+                randomCall++
+                if (randomCall === 1 || randomCall === 2 || randomCall === 15) {
+                    return 0
+                }
+                return 1
+            })
+
+            game.attachBubble({ kind: 'ceiling' })
+
+            expect(
+                stateOf(game)
+                    .grid.flat()
+                    .some(bubble => bubble?.color === 0x0000ff)
+            ).toBe(false)
+            expect(stateOf(game).bubblesRemaining).toBe(
+                countGrid(stateOf(game).grid)
+            )
+            expect(stateOf(game).nextBubble?.color).toBe(0xff0000)
+        })
+
+        it('reports unique active colors from the board', () => {
+            const game = makeGame()
+            const grid: (Bubble | null)[][] = Array.from(
+                { length: CONSTANTS.GRID_HEIGHT },
+                (_, row) =>
+                    Array.from(
+                        { length: getRowColumnCount(row, 0, CONSTANTS) },
+                        () => null
+                    )
+            )
+            grid[0][0] = { color: 0xff0000, x: bubbleX(0, 0), y: bubbleY(0) }
+            grid[0][1] = { color: 0xff0000, x: bubbleX(1, 0), y: bubbleY(0) }
+            grid[1][0] = { color: 0x00ff00, x: bubbleX(0, 1), y: bubbleY(1) }
+            setState(game, { grid, rowPhase: 0 })
+
+            const internal = game as unknown as {
+                getAvailableBubbleColors: () => number[]
+            }
+            expect(internal.getAvailableBubbleColors()).toEqual([
+                0xff0000, 0x00ff00,
+            ])
+        })
+
+        it('falls back to config colors when the grid is empty', () => {
+            const game = makeGame()
+            setState(game, { grid: [] })
+            const internal = game as unknown as {
+                getAvailableBubbleColors: () => number[]
+            }
+            expect(internal.getAvailableBubbleColors()).toEqual(
+                CONSTANTS.COLORS
+            )
         })
     })
 

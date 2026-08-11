@@ -178,19 +178,21 @@ export class BubbleShooterGame extends BaseGame<
         const timerStatus = this.getTimerStatus()
         const shotsFired = this.state.shotsFired
         const bubblesPopped = this.state.bubblesPopped
-        // Cap at 100%: a single shot can pop multiple bubbles, so a raw
-        // bubblesPopped/shotsFired ratio would exceed 100%.
-        const rawAccuracy =
-            shotsFired > 0 ? (bubblesPopped / shotsFired) * 100 : 0
+        const successfulShots = this.state.successfulShots
+        // Accuracy is the successful-shot rate (shots that popped at least one
+        // bubble / total shots). No cap is needed: successfulShots cannot
+        // exceed shotsFired, so the ratio is already in [0, 100].
+        const accuracy =
+            shotsFired > 0 ? (successfulShots / shotsFired) * 100 : 0
         return {
             finalScore: this.state.score,
             timeElapsed: Math.floor(timerStatus.elapsedTime || 0),
             gameCompleted: this.state.isGameOver,
             bubblesPopped,
             shotsFired,
-            accuracy: Math.min(rawAccuracy, 100),
+            accuracy,
             largestCombo: this.state.largestCombo,
-            successfulShots: this.state.successfulShots,
+            successfulShots,
         }
     }
 
@@ -199,6 +201,7 @@ export class BubbleShooterGame extends BaseGame<
             bubblesPopped: this.state.bubblesPopped,
             shotsFired: this.state.shotsFired,
             largestCombo: this.state.largestCombo,
+            successfulShots: this.state.successfulShots,
         }
     }
 
@@ -373,9 +376,9 @@ export class BubbleShooterGame extends BaseGame<
 
     private generateBubble(): Bubble {
         const constants = this.getConstantsView()
-        const colorIndex = Math.floor(Math.random() * constants.COLORS.length)
+        const color = this.randomColor(this.getAvailableBubbleColors())
         const bubble: Bubble = {
-            color: constants.COLORS[colorIndex],
+            color,
             x: this.state.shooter.x,
             y: this.state.shooter.y - constants.BUBBLE_RADIUS * 1.5,
         }
@@ -385,15 +388,52 @@ export class BubbleShooterGame extends BaseGame<
     }
 
     private generateNextBubble(): { color: number } {
-        const constants = this.getConstantsView()
         const nextBubble = {
-            color: constants.COLORS[
-                Math.floor(Math.random() * constants.COLORS.length)
-            ],
+            color: this.randomColor(this.getAvailableBubbleColors()),
         }
         this.state.nextBubble = nextBubble
         this.state.needsRedraw = true
         return nextBubble
+    }
+
+    /**
+     * Unique colors currently present on the board. Used so the queue and new
+     * rows only produce colors the player can actually match. Falls back to
+     * the full config palette when the grid is empty (e.g. on reset).
+     */
+    private getAvailableBubbleColors(): number[] {
+        const colors = new Set<number>()
+        for (const row of this.state.grid) {
+            if (!row) {
+                continue
+            }
+            for (let col = 0; col < row.length; col++) {
+                const bubble = row[col]
+                if (bubble) {
+                    colors.add(bubble.color)
+                }
+            }
+        }
+        return colors.size > 0 ? [...colors] : [...this.config.colors]
+    }
+
+    private randomColor(colors: number[]): number {
+        return colors[Math.floor(Math.random() * colors.length)]
+    }
+
+    /**
+     * Re-roll nextBubble if its color is no longer present on the board (for
+     * example, after the last bubble of a color was just popped or dropped).
+     * Preserves the current bubble — only future shots are reconciled.
+     */
+    private reconcileNextBubbleColor(): void {
+        const colors = this.getAvailableBubbleColors()
+        if (
+            !this.state.nextBubble ||
+            !colors.includes(this.state.nextBubble.color)
+        ) {
+            this.state.nextBubble = { color: this.randomColor(colors) }
+        }
     }
 
     // --- Projectile physics ---
@@ -544,6 +584,9 @@ export class BubbleShooterGame extends BaseGame<
 
         this.state.projectile = null
         this.state.needsRedraw = true
+        // Reconcile nextBubble exactly once after match resolution and any
+        // row insertion so the upcoming shot is always a playable color.
+        this.reconcileNextBubbleColor()
 
         if (this.checkGameOverCondition(constants)) {
             this.end().catch(error =>
@@ -766,7 +809,11 @@ export class BubbleShooterGame extends BaseGame<
     }
 
     private addNewRow(constants: GameConstants): void {
-        this.addRowAtTop(constants, [...this.config.colors])
+        // Snapshot the active palette BEFORE the shift: addRowAtTop changes
+        // which bubbles occupy the top row, so a post-shift reading would
+        // seed the new row with colors that may have just been displaced.
+        const generationColors = this.getAvailableBubbleColors()
+        this.addRowAtTop(constants, generationColors)
         this.removeUnsupportedBubbles(constants)
         this.syncBubbleCount()
 
