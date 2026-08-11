@@ -805,31 +805,120 @@ describe('BubbleShooterGame', () => {
 
     describe('game over detection', () => {
         it('triggers end when a bubble enters the danger zone after a new row', () => {
+            // The danger-zone bubble must remain ceiling-connected after the
+            // row insertion; otherwise removeUnsupportedBubbles drops it and
+            // no game-over is triggered. A col-0 chain from row 0 to row 17
+            // stays connected after shifting to rows 1..18.
+            vi.spyOn(Math, 'random').mockReturnValue(0)
             const game = makeGame()
-            const dangerousY = getBubbleY(17, CONSTANTS)
-            const grid: ({
-                color: number
-                x: number
-                y: number
-            } | null)[][] = []
-            for (let r = 0; r < 18; r++) {
-                grid.push([])
-            }
-            grid[17] = [
-                {
+            const grid: (Bubble | null)[][] = Array.from(
+                { length: CONSTANTS.GRID_HEIGHT },
+                (_, row) =>
+                    Array.from(
+                        { length: getRowColumnCount(row, 0, CONSTANTS) },
+                        () => null
+                    )
+            )
+            for (let r = 0; r <= 17; r++) {
+                grid[r][0] = {
                     color: 0xff0000,
-                    x: getBubbleX(0, 17, 0, CONSTANTS),
-                    y: dangerousY,
-                },
-            ]
+                    x: bubbleX(0, r),
+                    y: bubbleY(r),
+                }
+            }
             setState(game, {
                 isActive: true, // allow end() to proceed to score save (fetch mocked)
                 projectile: { x: 300, y: 50, vx: 0, vy: -5, color: 0xff0000 },
                 grid,
+                rowPhase: 0,
                 shotCount: 4,
+                bubblesRemaining: 18,
             })
             const ended = game.attachBubble({ kind: 'ceiling' })
             expect(ended).toBe(true)
+        })
+    })
+
+    describe('ceiling-connectivity drops', () => {
+        it('drops bubbles disconnected from the ceiling after a direct match', () => {
+            const game = makeGame()
+            const grid: (Bubble | null)[][] = Array.from(
+                { length: CONSTANTS.GRID_HEIGHT },
+                (_, row) =>
+                    Array.from(
+                        { length: getRowColumnCount(row, 0, CONSTANTS) },
+                        () => null
+                    )
+            )
+            // Two top red bubbles with one blue supported only by the reds.
+            grid[0][0] = { color: 0xff0000, x: bubbleX(0, 0), y: bubbleY(0) }
+            grid[0][1] = { color: 0xff0000, x: bubbleX(1, 0), y: bubbleY(0) }
+            grid[1][0] = { color: 0x0000ff, x: bubbleX(0, 1), y: bubbleY(1) }
+            setState(game, {
+                isActive: false,
+                projectile: {
+                    x: bubbleX(2, 0),
+                    y: CONSTANTS.BUBBLE_RADIUS,
+                    vx: 0,
+                    vy: -720,
+                    color: 0xff0000,
+                },
+                grid,
+                rowPhase: 0,
+                bubblesRemaining: 3,
+                score: 0,
+            })
+            game.attachBubble({ kind: 'ceiling' })
+            expect(countGrid(stateOf(game).grid)).toBe(0)
+            expect(stateOf(game).bubblesPopped).toBe(4)
+            expect(stateOf(game).largestCombo).toBe(4)
+            expect(stateOf(game).successfulShots).toBe(1)
+            expect(stateOf(game).score).toBe(1_040)
+        })
+
+        it('returns dropped positions without score or count side effects', () => {
+            const game = makeGame()
+            const grid: (Bubble | null)[][] = Array.from(
+                { length: CONSTANTS.GRID_HEIGHT },
+                (_, row) =>
+                    Array.from(
+                        { length: getRowColumnCount(row, 0, CONSTANTS) },
+                        () => null
+                    )
+            )
+            const isolated = { row: 3, col: 5 }
+            grid[0][0] = {
+                color: 0xff0000,
+                x: bubbleX(0, 0),
+                y: bubbleY(0),
+            }
+            grid[isolated.row][isolated.col] = {
+                color: 0x0000ff,
+                x: bubbleX(isolated.col, isolated.row),
+                y: bubbleY(isolated.row),
+            }
+            setState(game, {
+                grid,
+                rowPhase: 0,
+                bubblesRemaining: 2,
+                score: 0,
+                successfulShots: 0,
+            })
+
+            const internal = game as unknown as {
+                removeUnsupportedBubbles: (
+                    constants: GameConstants
+                ) => GridPosition[]
+            }
+            const dropped = internal.removeUnsupportedBubbles(
+                game.getConstantsView()
+            )
+
+            expect(dropped).toEqual([isolated])
+            expect(stateOf(game).grid[3][5]).toBeNull()
+            expect(stateOf(game).bubblesRemaining).toBe(2)
+            expect(stateOf(game).score).toBe(0)
+            expect(stateOf(game).successfulShots).toBe(0)
         })
     })
 
@@ -998,15 +1087,6 @@ describe('BubbleShooterGame', () => {
                 ) => unknown
             }
             expect(internal.findClosestPosition(constants, [])).toBeNull()
-        })
-
-        it('checkMatches is a no-op when the start cell is empty', () => {
-            const game = makeGame()
-            setState(game, { grid: [[null, null]] })
-            const internal = game as unknown as {
-                checkMatches: (row: number, col: number) => void
-            }
-            expect(() => internal.checkMatches(0, 0)).not.toThrow()
         })
 
         it('checkBubbleCollision skips empty rows and null cells', () => {

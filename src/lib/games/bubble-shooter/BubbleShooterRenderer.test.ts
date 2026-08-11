@@ -100,6 +100,7 @@ function makeState(
         shotsFired: 0,
         bubblesPopped: 0,
         largestCombo: 0,
+        successfulShots: 0,
         needsRedraw: true,
         ...overrides,
     }
