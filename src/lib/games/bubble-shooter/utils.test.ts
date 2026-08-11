@@ -4,6 +4,8 @@ import {
     getBubbleX,
     getBubbleY,
     getNeighbors,
+    getRowParity,
+    getRowColumnCount,
     drawBubbleOnCanvas,
 } from './utils'
 import type { GameConstants } from './types'
@@ -37,94 +39,37 @@ describe('Bubble Shooter Utils', () => {
         })
     })
 
-    describe('getBubbleX', () => {
-        it('should calculate x position for even row (col=0)', () => {
-            // Even row: offset = 0 * BUBBLE_RADIUS = 0
-            // x = 0 + BUBBLE_RADIUS + 0 * (BUBBLE_RADIUS * 2) = 20
-            expect(getBubbleX(0, 0, constants)).toBe(20)
+    describe('phase-aware hex geometry', () => {
+        it('derives row parity and row width', () => {
+            expect(getRowParity(0, 0)).toBe(0)
+            expect(getRowParity(1, 0)).toBe(1)
+            expect(getRowParity(0, 1)).toBe(1)
+            expect(getRowColumnCount(0, 0, constants)).toBe(14)
+            expect(getRowColumnCount(0, 1, constants)).toBe(13)
         })
 
-        it('should calculate x position for even row (col=1)', () => {
-            // x = 0 + 20 + 1 * 40 = 60
-            expect(getBubbleX(1, 0, constants)).toBe(60)
+        it('centers the full row exactly inside wall bounds', () => {
+            expect(getBubbleX(0, 0, 0, constants)).toBe(40)
+            expect(getBubbleX(13, 0, 0, constants)).toBe(560)
+            expect(getBubbleX(0, 0, 0, constants) - 20).toBe(20)
+            expect(getBubbleX(13, 0, 0, constants) + 20).toBe(580)
         })
 
-        it('should calculate x position for odd row (offset applied)', () => {
-            // Odd row: offset = 1 * BUBBLE_RADIUS = 20
-            // x = 20 + 20 + 0 * 40 = 40
-            expect(getBubbleX(0, 1, constants)).toBe(40)
+        it('uses row-only vertical spacing', () => {
+            expect(getBubbleY(0, constants)).toBe(20)
+            expect(getBubbleY(1, constants)).toBeCloseTo(20 + 20 * Math.sqrt(3))
         })
 
-        it('should calculate x position for odd row col=1', () => {
-            // x = 20 + 20 + 1 * 40 = 80
-            expect(getBubbleX(1, 1, constants)).toBe(80)
-        })
-    })
+        it('keeps each interior neighbor one bubble diameter away', () => {
+            const origin = { row: 5, col: 5 }
+            const originX = getBubbleX(5, 5, 1, constants)
+            const originY = getBubbleY(5, constants)
 
-    describe('getBubbleY', () => {
-        it('should calculate y for row 0 with no offset', () => {
-            // y = BUBBLE_RADIUS + 0 * (BUBBLE_RADIUS * sqrt(3)) + 0
-            expect(getBubbleY(0, 0, constants)).toBe(20)
-        })
-
-        it('should calculate y for row 1 with no offset', () => {
-            const expected = 20 + 1 * (20 * Math.sqrt(3))
-            expect(getBubbleY(1, 0, constants)).toBeCloseTo(expected)
-        })
-
-        it('should include rowOffset in calculation', () => {
-            const withoutOffset = getBubbleY(0, 0, constants)
-            const withOffset = getBubbleY(0, 10, constants)
-            expect(withOffset - withoutOffset).toBe(10)
-        })
-    })
-
-    describe('getNeighbors', () => {
-        it('should return neighbors for even row interior cell', () => {
-            const neighbors = getNeighbors(2, 3, constants)
-            // For even row: offsets are [-1,-1],[-1,0],[0,-1],[0,1],[1,-1],[1,0]
-            expect(neighbors).toContainEqual({ row: 1, col: 2 })
-            expect(neighbors).toContainEqual({ row: 1, col: 3 })
-            expect(neighbors).toContainEqual({ row: 2, col: 2 })
-            expect(neighbors).toContainEqual({ row: 2, col: 4 })
-            expect(neighbors).toContainEqual({ row: 3, col: 2 })
-            expect(neighbors).toContainEqual({ row: 3, col: 3 })
-        })
-
-        it('should return neighbors for odd row interior cell', () => {
-            const neighbors = getNeighbors(3, 3, constants)
-            // For odd row: offsets are [-1,0],[-1,1],[0,-1],[0,1],[1,0],[1,1]
-            expect(neighbors).toContainEqual({ row: 2, col: 3 })
-            expect(neighbors).toContainEqual({ row: 2, col: 4 })
-            expect(neighbors).toContainEqual({ row: 3, col: 2 })
-            expect(neighbors).toContainEqual({ row: 3, col: 4 })
-            expect(neighbors).toContainEqual({ row: 4, col: 3 })
-            expect(neighbors).toContainEqual({ row: 4, col: 4 })
-        })
-
-        it('should filter out out-of-bounds neighbors for top-left corner', () => {
-            const neighbors = getNeighbors(0, 0, constants)
-            // No negative rows or cols
-            expect(neighbors.every(n => n.row >= 0 && n.col >= 0)).toBe(true)
-        })
-
-        it('should filter out neighbors beyond grid boundaries', () => {
-            const neighbors = getNeighbors(0, 0, constants)
-            expect(
-                neighbors.every(
-                    n =>
-                        n.row < constants.GRID_HEIGHT &&
-                        n.col < constants.GRID_WIDTH - (n.row % 2)
-                )
-            ).toBe(true)
-        })
-
-        it('should return fewer neighbors for edge cells', () => {
-            const cornerNeighbors = getNeighbors(0, 0, constants)
-            const interiorNeighbors = getNeighbors(5, 5, constants)
-            expect(cornerNeighbors.length).toBeLessThan(
-                interiorNeighbors.length
-            )
+            for (const neighbor of getNeighbors(5, 5, 1, constants)) {
+                const x = getBubbleX(neighbor.col, neighbor.row, 1, constants)
+                const y = getBubbleY(neighbor.row, constants)
+                expect(Math.hypot(x - originX, y - originY)).toBeCloseTo(40)
+            }
         })
     })
 

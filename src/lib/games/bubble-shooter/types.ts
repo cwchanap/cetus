@@ -4,6 +4,7 @@ import type {
     BaseGameConfig,
     BaseGameStats,
 } from '@/lib/games/core/types'
+import type { RowPhase } from './utils'
 
 export interface Bubble {
     color: number
@@ -57,7 +58,7 @@ export interface BubbleShooterState extends BaseGameState {
     aimAngle: number
     projectile: Projectile | null
     bubblesRemaining: number
-    rowOffset: number
+    rowPhase: RowPhase
     shotCount: number
     shotsFired: number
     bubblesPopped: number

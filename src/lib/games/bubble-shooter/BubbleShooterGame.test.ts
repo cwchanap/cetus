@@ -7,8 +7,15 @@ import type {
     BubbleShooterState,
     BubbleShooterConfig,
     GameConstants,
+    GridPosition,
 } from './types'
-import { getBubbleX, getBubbleY, getNeighbors } from './utils'
+import {
+    getBubbleX,
+    getBubbleY,
+    getNeighbors,
+    getRowColumnCount,
+    type RowPhase,
+} from './utils'
 
 const CONSTANTS: GameConstants = {
     BUBBLE_RADIUS: 20,
@@ -45,6 +52,57 @@ function setState(
     const internal = stateOf(game)
     Object.assign(internal, overrides)
     return internal
+}
+
+const bubbleX = (col: number, row: number, rowPhase: RowPhase = 0): number =>
+    getBubbleX(col, row, rowPhase, CONSTANTS)
+
+const bubbleY = (row: number): number => getBubbleY(row, CONSTANTS)
+
+const neighbors = (
+    row: number,
+    col: number,
+    rowPhase: RowPhase = 0
+): GridPosition[] => getNeighbors(row, col, rowPhase, CONSTANTS)
+
+function countGrid(grid: BubbleShooterState['grid']): number {
+    let count = 0
+    for (const row of grid) {
+        for (let col = 0; col < row.length; col++) {
+            if (row[col]) {
+                count++
+            }
+        }
+    }
+    return count
+}
+
+function expectGridInvariant(game: BubbleShooterGame): void {
+    const state = stateOf(game)
+    const constants = game.getConstantsView()
+
+    for (let rowIndex = 0; rowIndex < state.grid.length; rowIndex++) {
+        const row = state.grid[rowIndex]
+        expect(row).toHaveLength(
+            getRowColumnCount(rowIndex, state.rowPhase, constants)
+        )
+
+        for (let col = 0; col < row.length; col++) {
+            expect(col in row).toBe(true)
+            expect(row[col]).not.toBeUndefined()
+            const bubble = row[col]
+            if (!bubble) {
+                continue
+            }
+
+            expect(bubble.x).toBe(
+                getBubbleX(col, rowIndex, state.rowPhase, constants)
+            )
+            expect(bubble.y).toBeCloseTo(getBubbleY(rowIndex, constants))
+        }
+    }
+
+    expect(state.bubblesRemaining).toBe(countGrid(state.grid))
 }
 
 describe('BubbleShooterGame', () => {
@@ -231,8 +289,8 @@ describe('BubbleShooterGame', () => {
 
         it('detects collision with a grid bubble', () => {
             const game = makeGame()
-            const bx = getBubbleX(0, 0, CONSTANTS)
-            const by = getBubbleY(0, 0, CONSTANTS)
+            const bx = getBubbleX(0, 0, 0, CONSTANTS)
+            const by = getBubbleY(0, CONSTANTS)
             setState(game, {
                 projectile: {
                     x: bx + 1,
@@ -248,8 +306,8 @@ describe('BubbleShooterGame', () => {
 
         it('returns null when projectile is far from all bubbles', () => {
             const game = makeGame()
-            const bx = getBubbleX(0, 0, CONSTANTS)
-            const by = getBubbleY(0, 0, CONSTANTS)
+            const bx = getBubbleX(0, 0, 0, CONSTANTS)
+            const by = getBubbleY(0, CONSTANTS)
             setState(game, {
                 projectile: { x: 500, y: 500, vx: 0, vy: -5, color: 0xff0000 },
                 grid: [[{ color: 0x00ff00, x: bx, y: by }]],
@@ -261,13 +319,13 @@ describe('BubbleShooterGame', () => {
             const game = makeGame()
             const farBubble = {
                 color: 0x00ff00,
-                x: getBubbleX(0, 0, CONSTANTS),
-                y: getBubbleY(0, 0, CONSTANTS),
+                x: getBubbleX(0, 0, 0, CONSTANTS),
+                y: getBubbleY(0, CONSTANTS),
             }
             const nearBubble = {
                 color: 0x0000ff,
-                x: getBubbleX(1, 0, CONSTANTS),
-                y: getBubbleY(0, 0, CONSTANTS),
+                x: getBubbleX(1, 0, 0, CONSTANTS),
+                y: getBubbleY(0, CONSTANTS),
             }
             const dist = CONSTANTS.BUBBLE_RADIUS * 1.5
             setState(game, {
@@ -376,13 +434,13 @@ describe('BubbleShooterGame', () => {
     describe('attachBubble - matching & scoring', () => {
         it('detects matches of 3+ and awards score', () => {
             const game = makeGame()
-            const bx0 = getBubbleX(0, 0, CONSTANTS)
-            const by0 = getBubbleY(0, 0, CONSTANTS)
-            const bx1 = getBubbleX(1, 0, CONSTANTS)
+            const bx0 = getBubbleX(0, 0, 0, CONSTANTS)
+            const by0 = getBubbleY(0, CONSTANTS)
+            const bx1 = getBubbleX(1, 0, 0, CONSTANTS)
             setState(game, {
                 isActive: false,
                 projectile: {
-                    x: getBubbleX(2, 0, CONSTANTS) - 1,
+                    x: getBubbleX(2, 0, 0, CONSTANTS) - 1,
                     y: by0,
                     vx: 0,
                     vy: -5,
@@ -410,8 +468,8 @@ describe('BubbleShooterGame', () => {
             setState(game, {
                 isActive: false,
                 projectile: {
-                    x: getBubbleX(2, 0, CONSTANTS),
-                    y: getBubbleY(0, 0, CONSTANTS),
+                    x: getBubbleX(2, 0, 0, CONSTANTS),
+                    y: getBubbleY(0, CONSTANTS),
                     vx: 0,
                     vy: -5,
                     color: 0x0000ff, // blue into reds
@@ -420,13 +478,13 @@ describe('BubbleShooterGame', () => {
                     [
                         {
                             color: 0xff0000,
-                            x: getBubbleX(0, 0, CONSTANTS),
-                            y: getBubbleY(0, 0, CONSTANTS),
+                            x: getBubbleX(0, 0, 0, CONSTANTS),
+                            y: getBubbleY(0, CONSTANTS),
                         },
                         {
                             color: 0xff0000,
-                            x: getBubbleX(1, 0, CONSTANTS),
-                            y: getBubbleY(0, 0, CONSTANTS),
+                            x: getBubbleX(1, 0, 0, CONSTANTS),
+                            y: getBubbleY(0, CONSTANTS),
                         },
                     ],
                 ],
@@ -443,25 +501,25 @@ describe('BubbleShooterGame', () => {
             const bubbles = [
                 {
                     color: 0xff0000,
-                    x: getBubbleX(0, 0, CONSTANTS),
-                    y: getBubbleY(0, 0, CONSTANTS),
+                    x: getBubbleX(0, 0, 0, CONSTANTS),
+                    y: getBubbleY(0, CONSTANTS),
                 },
                 {
                     color: 0xff0000,
-                    x: getBubbleX(1, 0, CONSTANTS),
-                    y: getBubbleY(0, 0, CONSTANTS),
+                    x: getBubbleX(1, 0, 0, CONSTANTS),
+                    y: getBubbleY(0, CONSTANTS),
                 },
                 {
                     color: 0xff0000,
-                    x: getBubbleX(2, 0, CONSTANTS),
-                    y: getBubbleY(0, 0, CONSTANTS),
+                    x: getBubbleX(2, 0, 0, CONSTANTS),
+                    y: getBubbleY(0, CONSTANTS),
                 },
             ]
             setState(game, {
                 isActive: false,
                 projectile: {
-                    x: getBubbleX(3, 0, CONSTANTS),
-                    y: getBubbleY(0, 0, CONSTANTS),
+                    x: getBubbleX(3, 0, 0, CONSTANTS),
+                    y: getBubbleY(0, CONSTANTS),
                     vx: 0,
                     vy: -5,
                     color: 0xff0000,
@@ -517,14 +575,14 @@ describe('BubbleShooterGame', () => {
             realGrid[anchor.row] = []
             realGrid[anchor.row][anchor.col] = {
                 color: 0x00ff00,
-                x: getBubbleX(anchor.col, anchor.row, CONSTANTS),
-                y: getBubbleY(anchor.row, 0, CONSTANTS),
+                x: getBubbleX(anchor.col, anchor.row, 0, CONSTANTS),
+                y: getBubbleY(anchor.row, CONSTANTS),
             }
             setState(game, {
                 isActive: false,
                 projectile: {
-                    x: getBubbleX(0, 0, CONSTANTS),
-                    y: getBubbleY(0, 0, CONSTANTS),
+                    x: getBubbleX(0, 0, 0, CONSTANTS),
+                    y: getBubbleY(0, CONSTANTS),
                     vx: 0,
                     vy: -5,
                     color: 0xff0000,
@@ -536,6 +594,7 @@ describe('BubbleShooterGame', () => {
             const filledNeighbor = getNeighbors(
                 anchor.row,
                 anchor.col,
+                0,
                 CONSTANTS
             ).find(
                 ({ row, col }) =>
@@ -553,7 +612,7 @@ describe('BubbleShooterGame', () => {
             } | null)[][] = Array(CONSTANTS.GRID_HEIGHT)
                 .fill(null)
                 .map((_, row) => {
-                    const cols = CONSTANTS.GRID_WIDTH - (row % 2)
+                    const cols = getRowColumnCount(row, 0, CONSTANTS)
                     return Array(cols).fill({
                         color: 0xff0000,
                         x: 0,
@@ -573,7 +632,7 @@ describe('BubbleShooterGame', () => {
     describe('game over detection', () => {
         it('triggers end when a bubble enters the danger zone after a new row', () => {
             const game = makeGame()
-            const dangerousY = getBubbleY(17, 0, CONSTANTS)
+            const dangerousY = getBubbleY(17, CONSTANTS)
             const grid: ({
                 color: number
                 x: number
@@ -585,7 +644,7 @@ describe('BubbleShooterGame', () => {
             grid[17] = [
                 {
                     color: 0xff0000,
-                    x: getBubbleX(0, 17, CONSTANTS),
+                    x: getBubbleX(0, 17, 0, CONSTANTS),
                     y: dangerousY,
                 },
             ]
@@ -772,8 +831,8 @@ describe('BubbleShooterGame', () => {
 
         it('checkBubbleCollision skips empty rows and null cells', () => {
             const game = makeGame()
-            const bx = getBubbleX(0, 0, CONSTANTS)
-            const by = getBubbleY(0, 0, CONSTANTS)
+            const bx = getBubbleX(0, 0, 0, CONSTANTS)
+            const by = getBubbleY(0, CONSTANTS)
             // Row 0 has a real bubble; row 1 is undefined; row 2 has a null cell.
             setState(game, {
                 projectile: {
@@ -799,9 +858,38 @@ describe('BubbleShooterGame', () => {
                 bubblesRemaining: 0,
             })
             const internal = game as unknown as {
-                addRowAtTop: (c: typeof constants) => void
+                addRowAtTop: (
+                    constants: GameConstants,
+                    generationColors: number[]
+                ) => void
             }
-            expect(() => internal.addRowAtTop(constants)).not.toThrow()
+            expect(() =>
+                internal.addRowAtTop(constants, CONSTANTS.COLORS)
+            ).not.toThrow()
+        })
+    })
+
+    describe('phase-aware dense grid', () => {
+        it('preserves dense geometry through two inserted rows', () => {
+            vi.spyOn(Math, 'random').mockReturnValue(0)
+            const game = makeGame({ newRowFillChance: 1 })
+            game.start()
+
+            const internal = game as unknown as {
+                addRowAtTop: (
+                    constants: GameConstants,
+                    colors: number[]
+                ) => void
+            }
+            const constants = game.getConstantsView()
+
+            expectGridInvariant(game)
+            internal.addRowAtTop(constants, CONSTANTS.COLORS)
+            expect(stateOf(game).rowPhase).toBe(1)
+            expectGridInvariant(game)
+            internal.addRowAtTop(constants, CONSTANTS.COLORS)
+            expect(stateOf(game).rowPhase).toBe(0)
+            expectGridInvariant(game)
         })
     })
 })

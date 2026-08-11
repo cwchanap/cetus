@@ -10,7 +10,12 @@ import type {
     GameConstants,
     GridPosition,
 } from './types'
-import { getBubbleX, getBubbleY, getNeighbors } from './utils'
+import {
+    getBubbleX,
+    getBubbleY,
+    getNeighbors,
+    getRowColumnCount,
+} from './utils'
 import { distance } from '@/lib/games/shared/geometry'
 
 // Default configuration for Bubble Shooter game
@@ -89,7 +94,7 @@ export class BubbleShooterGame extends BaseGame<
             aimAngle: -Math.PI / 2,
             projectile: null,
             bubblesRemaining: 0,
-            rowOffset: 0,
+            rowPhase: 0,
             shotCount: 0,
             shotsFired: 0,
             bubblesPopped: 0,
@@ -276,37 +281,73 @@ export class BubbleShooterGame extends BaseGame<
 
     private initializeGrid(): void {
         const constants = this.getConstantsView()
+        const generationColors = [...this.config.colors]
         this.state.grid = []
-        this.state.bubblesRemaining = 0
 
         for (let row = 0; row < this.config.initialRows; row++) {
-            this.state.grid[row] = []
-            const cols = constants.GRID_WIDTH - (row % 2)
-            for (let col = 0; col < cols; col++) {
+            const rowCells = this.createEmptyRow(row, constants)
+            for (let col = 0; col < rowCells.length; col++) {
                 if (Math.random() < this.config.bubbleFillChance) {
-                    this.state.grid[row][col] = {
-                        color: constants.COLORS[
-                            Math.floor(Math.random() * constants.COLORS.length)
+                    rowCells[col] = {
+                        color: generationColors[
+                            Math.floor(Math.random() * generationColors.length)
                         ],
-                        x: getBubbleX(col, row, constants),
-                        y: getBubbleY(row, this.state.rowOffset, constants),
+                        x: 0,
+                        y: 0,
                     }
-                    this.state.bubblesRemaining++
-                } else {
-                    this.state.grid[row][col] = null
+                }
+            }
+            this.state.grid[row] = rowCells
+        }
+
+        this.refreshBubbleCoordinates(constants)
+        this.syncBubbleCount()
+        this.state.needsRedraw = true
+    }
+
+    private createEmptyRow(
+        row: number,
+        constants: GameConstants
+    ): (Bubble | null)[] {
+        return Array.from(
+            {
+                length: getRowColumnCount(row, this.state.rowPhase, constants),
+            },
+            () => null
+        )
+    }
+
+    private refreshBubbleCoordinates(constants: GameConstants): void {
+        for (let row = 0; row < constants.GRID_HEIGHT; row++) {
+            const width = getRowColumnCount(row, this.state.rowPhase, constants)
+            const oldRow = this.state.grid[row] ?? []
+            this.state.grid[row] = Array.from(
+                { length: width },
+                (_, col) => oldRow[col] ?? null
+            )
+
+            for (let col = 0; col < width; col++) {
+                const bubble = this.state.grid[row][col]
+                if (!bubble) {
+                    continue
+                }
+                bubble.x = getBubbleX(col, row, this.state.rowPhase, constants)
+                bubble.y = getBubbleY(row, constants)
+            }
+        }
+    }
+
+    private syncBubbleCount(): number {
+        let count = 0
+        for (const row of this.state.grid) {
+            for (let col = 0; col < row.length; col++) {
+                if (row[col]) {
+                    count++
                 }
             }
         }
-
-        for (
-            let row = this.config.initialRows;
-            row < constants.GRID_HEIGHT;
-            row++
-        ) {
-            this.state.grid[row] = []
-        }
-
-        this.state.needsRedraw = true
+        this.state.bubblesRemaining = count
+        return count
     }
 
     private generateBubble(): Bubble {
@@ -429,8 +470,13 @@ export class BubbleShooterGame extends BaseGame<
         if (attachPos) {
             this.state.grid[attachPos.row][attachPos.col] = {
                 color: this.state.projectile.color,
-                x: getBubbleX(attachPos.col, attachPos.row, constants),
-                y: getBubbleY(attachPos.row, this.state.rowOffset, constants),
+                x: getBubbleX(
+                    attachPos.col,
+                    attachPos.row,
+                    this.state.rowPhase,
+                    constants
+                ),
+                y: getBubbleY(attachPos.row, constants),
             }
             this.state.bubblesRemaining++
 
@@ -470,7 +516,12 @@ export class BubbleShooterGame extends BaseGame<
         if (anchorPosition) {
             const anchoredPosition = this.findClosestPosition(
                 constants,
-                getNeighbors(anchorPosition.row, anchorPosition.col, constants)
+                getNeighbors(
+                    anchorPosition.row,
+                    anchorPosition.col,
+                    this.state.rowPhase,
+                    constants
+                )
             )
             if (anchoredPosition) {
                 return anchoredPosition
@@ -479,7 +530,7 @@ export class BubbleShooterGame extends BaseGame<
 
         const candidates: GridPosition[] = []
         for (let row = 0; row < constants.GRID_HEIGHT; row++) {
-            const cols = constants.GRID_WIDTH - (row % 2)
+            const cols = getRowColumnCount(row, this.state.rowPhase, constants)
             for (let col = 0; col < cols; col++) {
                 candidates.push({ row, col })
             }
@@ -488,7 +539,9 @@ export class BubbleShooterGame extends BaseGame<
         return (
             this.findClosestPosition(constants, candidates) || {
                 row: 0,
-                col: Math.floor((constants.GRID_WIDTH - (0 % 2)) / 2),
+                col: Math.floor(
+                    getRowColumnCount(0, this.state.rowPhase, constants) / 2
+                ),
             }
         )
     }
@@ -510,8 +563,8 @@ export class BubbleShooterGame extends BaseGame<
             }
 
             if (!this.state.grid[row][col]) {
-                const x = getBubbleX(col, row, constants)
-                const y = getBubbleY(row, this.state.rowOffset, constants)
+                const x = getBubbleX(col, row, this.state.rowPhase, constants)
+                const y = getBubbleY(row, constants)
                 const dist = distance(this.state.projectile, { x, y })
 
                 if (
@@ -533,7 +586,7 @@ export class BubbleShooterGame extends BaseGame<
         }
 
         const constants = this.getConstantsView()
-        const neighbors = getNeighbors(row, col, constants)
+        const neighbors = getNeighbors(row, col, this.state.rowPhase, constants)
         return neighbors.some(({ row: nRow, col: nCol }) => {
             return this.state.grid[nRow] && this.state.grid[nRow][nCol]
         })
@@ -565,7 +618,12 @@ export class BubbleShooterGame extends BaseGame<
             visited.add(key)
             matches.push({ row, col })
 
-            const neighbors = getNeighbors(row, col, constants)
+            const neighbors = getNeighbors(
+                row,
+                col,
+                this.state.rowPhase,
+                constants
+            )
             neighbors.forEach(({ row: nRow, col: nCol }) => {
                 dfs(nRow, nCol)
             })
@@ -598,50 +656,37 @@ export class BubbleShooterGame extends BaseGame<
     }
 
     private addNewRow(constants: GameConstants): void {
-        this.addRowAtTop(constants)
+        this.addRowAtTop(constants, [...this.config.colors])
 
         if (this.checkGameOverCondition(constants)) {
             this.state.needsRedraw = true
         }
     }
 
-    private addRowAtTop(constants: GameConstants): void {
+    private addRowAtTop(
+        constants: GameConstants,
+        generationColors: number[]
+    ): void {
         for (let row = constants.GRID_HEIGHT - 1; row > 0; row--) {
-            this.state.grid[row] = this.state.grid[row - 1]
-                ? [...this.state.grid[row - 1]]
-                : []
-
-            if (this.state.grid[row]) {
-                for (let col = 0; col < this.state.grid[row].length; col++) {
-                    const bubble = this.state.grid[row][col]
-                    if (bubble) {
-                        bubble.y = getBubbleY(
-                            row,
-                            this.state.rowOffset,
-                            constants
-                        )
-                    }
-                }
-            }
+            this.state.grid[row] = [...(this.state.grid[row - 1] ?? [])]
         }
 
-        this.state.grid[0] = []
-        const cols = constants.GRID_WIDTH - (0 % 2)
-        for (let col = 0; col < cols; col++) {
+        this.state.rowPhase = this.state.rowPhase === 0 ? 1 : 0
+        const topRow = this.createEmptyRow(0, constants)
+        for (let col = 0; col < topRow.length; col++) {
             if (Math.random() < this.config.newRowFillChance) {
-                this.state.grid[0][col] = {
-                    color: constants.COLORS[
-                        Math.floor(Math.random() * constants.COLORS.length)
+                topRow[col] = {
+                    color: generationColors[
+                        Math.floor(Math.random() * generationColors.length)
                     ],
-                    x: getBubbleX(col, 0, constants),
-                    y: getBubbleY(0, this.state.rowOffset, constants),
+                    x: 0,
+                    y: 0,
                 }
-                this.state.bubblesRemaining++
-            } else {
-                this.state.grid[0][col] = null
             }
         }
-
+        this.state.grid[0] = topRow
+        this.refreshBubbleCoordinates(constants)
+        this.syncBubbleCount()
         this.state.needsRedraw = true
     }
 
