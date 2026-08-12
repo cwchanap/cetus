@@ -18,6 +18,10 @@ const bubbleShooterMarkup = readFileSync(
     resolve(process.cwd(), 'src/pages/bubble-shooter/index.astro'),
     'utf-8'
 )
+const iceSlideMarkup = readFileSync(
+    resolve(process.cwd(), 'src/pages/ice-slide/index.astro'),
+    'utf-8'
+)
 
 const games = [
     'tetris',
@@ -60,6 +64,23 @@ describe('Bubble Shooter rules copy', () => {
         expect(bubbleShooterMarkup).not.toContain(
             'New row appears after each shot'
         )
+    })
+})
+
+describe('Ice Slide Daily challenge markup', () => {
+    it('keeps stable mode, HUD, and result selectors', () => {
+        expect(iceSlideMarkup).toContain('id="ice-slide-mode-selector"')
+        expect(iceSlideMarkup).toContain('value="campaign"')
+        expect(iceSlideMarkup).toContain('value="daily"')
+        expect(iceSlideMarkup).not.toContain('value="expedition"')
+        expect(iceSlideMarkup).toContain('id="daily-meta"')
+        expect(iceSlideMarkup).toContain('id="daily-date"')
+        expect(iceSlideMarkup).toContain('id="daily-reset"')
+        expect(iceSlideMarkup).toContain('id="daily-stage-progress"')
+        expect(iceSlideMarkup).toContain('id="stage-clear-overlay"')
+        expect(iceSlideMarkup).toContain('id="stage-clear-continue-btn"')
+        expect(iceSlideMarkup).toContain('id="daily-final-stage-result"')
+        expect(iceSlideMarkup).toContain('id="change-mode-btn"')
     })
 })
 
