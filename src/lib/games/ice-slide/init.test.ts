@@ -1,10 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/services/scoreService', () => ({
     saveGameScore: vi.fn(),
 }))
 
-const swipeToDirection = vi.fn(() => null as 'N' | 'E' | 'S' | 'W' | null)
+const swipeToDirection = vi.fn(
+    (_dx: number, _dy: number) => null as 'N' | 'E' | 'S' | 'W' | null
+)
 const keyToDirection = vi.fn((key: string) => {
     if (key === 'ArrowDown' || key === 's') {
         return 'S' as const
@@ -33,7 +35,8 @@ vi.mock('./renderer', () => ({
     })),
     renderGrid: vi.fn(),
     cleanup: vi.fn(),
-    swipeToDirection: (...args: unknown[]) => swipeToDirection(...args),
+    swipeToDirection: (...args: unknown[]) =>
+        swipeToDirection(...(args as [number, number])),
     keyToDirection: (...args: unknown[]) =>
         keyToDirection(...(args as [string])),
 }))
@@ -42,6 +45,8 @@ import { initializeIceSlide } from './init'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { cleanup as rendererCleanup, setupPixiJS } from './renderer'
+import { cloneGrid, slide } from './physics'
+import { DIRECTION_DELTA, type CellType, type Direction } from './types'
 
 function mountDom(): HTMLElement {
     document.body.innerHTML = `
@@ -57,6 +62,27 @@ function mountDom(): HTMLElement {
       <div id="game-over-overlay" class="hidden">
         <span id="game-over-title"></span>
         <span id="final-score"></span>
+      </div>
+      <div id="daily-meta" class="hidden">
+        <span id="daily-date"></span>
+        <span id="daily-reset"></span>
+        <span id="daily-stage-progress"></span>
+        <span id="daily-objective-clear"></span>
+        <span id="daily-objective-efficient"></span>
+        <span id="daily-objective-bonus"></span>
+      </div>
+      <div id="stage-clear-overlay" class="hidden">
+        <span id="stage-clear-title"></span>
+        <span id="stage-clear-score"></span>
+        <span id="stage-clear-clear"></span>
+        <span id="stage-clear-efficient"></span>
+        <span id="stage-clear-bonus"></span>
+        <button id="stage-clear-continue-btn"></button>
+      </div>
+      <div id="daily-final-stage-result" class="hidden">
+        <span id="daily-final-clear"></span>
+        <span id="daily-final-efficient"></span>
+        <span id="daily-final-bonus"></span>
       </div>
     `
     return document.getElementById('game-canvas-container')!
@@ -74,12 +100,276 @@ const baseCallbacks = () => ({
     onError: vi.fn(),
 })
 
+function findSolution(
+    grid: CellType[][],
+    start: { row: number; col: number }
+): Direction[] | null {
+    type Node = {
+        grid: CellType[][]
+        position: { row: number; col: number }
+        path: Direction[]
+    }
+    const queue: Node[] = [
+        { grid: cloneGrid(grid), position: { ...start }, path: [] },
+    ]
+    const seen = new Set<string>()
+    const directions: Direction[] = ['N', 'E', 'S', 'W']
+
+    while (queue.length) {
+        const current = queue.shift()!
+        const key = `${current.position.row},${current.position.col}:${current.grid
+            .map(row => row.join(''))
+            .join('/')}`
+        if (seen.has(key)) {
+            continue
+        }
+        seen.add(key)
+
+        for (const direction of directions) {
+            const nextGrid = cloneGrid(current.grid)
+            const outcome = slide(
+                nextGrid,
+                current.position,
+                DIRECTION_DELTA[direction]
+            )
+            if (outcome.kind === 'noop' || outcome.kind === 'hazard') {
+                continue
+            }
+            const path = [...current.path, direction]
+            if (outcome.reachedGoal) {
+                return path
+            }
+            if (path.length < 40) {
+                queue.push({
+                    grid: nextGrid,
+                    position: outcome.end,
+                    path,
+                })
+            }
+        }
+    }
+    return null
+}
+
+function solveCurrentStage(
+    handle: Awaited<ReturnType<typeof initializeIceSlide>>
+) {
+    const game = handle.getGame()
+    expect(game).not.toBeNull()
+    const state = game!.getState()
+    const path = findSolution(state.grid, state.player)
+    expect(path).not.toBeNull()
+    for (const direction of path!) {
+        game!.move(direction)
+    }
+}
+
 describe('initializeIceSlide', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         swipeToDirection.mockReturnValue(null)
         vi.mocked(saveGameScore).mockReset()
         mountDom()
+    })
+
+    afterEach(() => {
+        const debugWindow = window as Window & {
+            iceSlideGame?: { cleanup: () => void }
+        }
+        debugWindow.iceSlideGame?.cleanup()
+        vi.useRealTimers()
+    })
+
+    it('keeps a Daily retry on its captured UTC run across rollover', async () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-08-12T23:59:59Z'))
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('daily')
+        const runKey = handle.getGame()!.getState().runKey
+        const signatures = handle.getGame()!.getState().stageSignatures
+
+        vi.setSystemTime(new Date('2026-08-13T00:00:01Z'))
+        await handle.playAgain()
+        expect(handle.getGame()!.getState().runKey).toBe(runKey)
+        expect(handle.getGame()!.getState().stageSignatures).toEqual(signatures)
+
+        await handle.start('daily')
+        expect(handle.getGame()!.getState().runKey).toContain('2026-08-13')
+        handle.cleanup()
+    })
+
+    it('keeps the no-argument start path on Campaign and hides Daily HUD', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start()
+        expect(handle.getGame()!.getState().mode).toBe('campaign')
+        expect(
+            document.getElementById('daily-meta')?.classList.contains('hidden')
+        ).toBe(true)
+        handle.cleanup()
+    })
+
+    it('populates Daily HUD before the first move', async () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-08-12T23:59:59Z'))
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('daily')
+        const state = handle.getGame()!.getState()
+        expect(
+            document.getElementById('daily-meta')?.classList.contains('hidden')
+        ).toBe(false)
+        expect(document.getElementById('daily-date')?.textContent).toBe(
+            '2026-08-12'
+        )
+        expect(document.getElementById('daily-reset')?.textContent).toContain(
+            '2026-08-13'
+        )
+        expect(
+            document.getElementById('daily-stage-progress')?.textContent
+        ).toBe('Stage 1 / 5')
+        expect(
+            document.getElementById('daily-objective-clear')?.textContent
+        ).toContain('Clear')
+        expect(
+            document.getElementById('daily-objective-efficient')?.textContent
+        ).toContain(String(state.parMoves))
+        expect(
+            document.getElementById('daily-objective-bonus')?.textContent
+        ).not.toBe('')
+        handle.cleanup()
+    })
+
+    it('gates Daily input behind Continue after a non-final clear', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('daily')
+        solveCurrentStage(handle)
+
+        expect(
+            document
+                .getElementById('stage-clear-overlay')
+                ?.classList.contains('hidden')
+        ).toBe(false)
+        expect(
+            document.getElementById('stage-clear-title')?.textContent
+        ).toContain('Stage 1')
+        expect(
+            document.getElementById('stage-clear-score')?.textContent
+        ).not.toBe('')
+
+        const game = handle.getGame()!
+        const movesBefore = game.getState().moves
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true })
+        )
+        expect(game.getState().moves).toBe(movesBefore)
+
+        const canvas = (await vi.mocked(setupPixiJS).mock.results.at(-1)!.value)
+            .app.canvas as HTMLCanvasElement
+        const down = new Event('pointerdown') as Event & {
+            clientX: number
+            clientY: number
+        }
+        const up = new Event('pointerup') as Event & {
+            clientX: number
+            clientY: number
+        }
+        Object.assign(down, { clientX: 10, clientY: 10 })
+        Object.assign(up, { clientX: 10, clientY: 60 })
+        swipeToDirection.mockReturnValue('S')
+        canvas.dispatchEvent(down)
+        canvas.dispatchEvent(up)
+        expect(game.getState().moves).toBe(movesBefore)
+
+        handle.resetLevel()
+        expect(game.getState().moves).toBe(movesBefore)
+
+        document
+            .getElementById('stage-clear-continue-btn')
+            ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        expect(
+            document
+                .getElementById('stage-clear-overlay')
+                ?.classList.contains('hidden')
+        ).toBe(true)
+        expect(
+            document.getElementById('daily-stage-progress')?.textContent
+        ).toBe('Stage 2 / 5')
+        handle.cleanup()
+    })
+
+    it('ends a zero-score Daily run locally without submitting', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('daily')
+        handle.stop()
+
+        expect(handle.getGame()!.getState().status).toBe('idle')
+        expect(document.getElementById('game-over-title')?.textContent).toBe(
+            'RUN ENDED'
+        )
+        expect(document.getElementById('final-score')?.textContent).toBe('0')
+        expect(saveGameScore).not.toHaveBeenCalled()
+        expect(document.getElementById('start-btn')?.style.display).toBe(
+            'inline-flex'
+        )
+        handle.cleanup()
+    })
+
+    it('renders final Daily stars and submits immediately from onWin', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('daily')
+        for (let stage = 1; stage <= 5; stage++) {
+            solveCurrentStage(handle)
+            if (stage < 5) {
+                document.getElementById('stage-clear-continue-btn')?.click()
+            }
+        }
+
+        const game = handle.getGame()!
+        const gameData = game.getGameData()
+        expect(game.getState().status).toBe('won')
+        expect(
+            document
+                .getElementById('stage-clear-overlay')
+                ?.classList.contains('hidden')
+        ).toBe(true)
+        expect(
+            document
+                .getElementById('daily-final-stage-result')
+                ?.classList.contains('hidden')
+        ).toBe(false)
+        expect(
+            document.getElementById('daily-final-clear')?.textContent
+        ).not.toBe('')
+        expect(
+            document.getElementById('daily-final-efficient')?.textContent
+        ).not.toBe('')
+        expect(
+            document.getElementById('daily-final-bonus')?.textContent
+        ).not.toBe('')
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+
+        const [, , , , submittedData, options] =
+            vi.mocked(saveGameScore).mock.calls[0]
+        expect(submittedData).toEqual(gameData)
+        expect(options).toMatchObject({
+            context: {
+                mode: 'daily',
+                competitionKey: gameData.runKey,
+                rulesetVersion: gameData.rulesetVersion,
+            },
+        })
+        handle.cleanup()
     })
 
     it('starts a run and updates HUD after a move', async () => {
