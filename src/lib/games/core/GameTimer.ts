@@ -99,10 +99,22 @@ export class GameTimer extends GameEventEmitter {
     }
 
     /**
-     * Reset the timer
+     * Reset the timer to its initial state without emitting an end event.
+     *
+     * Reset is not completion, so it must stay silent with respect to end.
+     * BaseGame forwards timer end as a game-level end; emitting here would
+     * leak an extra empty end event when a completed run is cleared before
+     * the next start (and when manual reset() runs during a save). Call
+     * stop() explicitly when a genuine end signal is required.
      */
     reset(): void {
-        this.stop()
+        if (this.intervalId !== null) {
+            clearInterval(this.intervalId)
+            this.intervalId = null
+        }
+
+        this.isRunning = false
+        this.isPaused = false
         this.startTime = 0
         this.pausedTime = 0
         this.totalPausedDuration = 0

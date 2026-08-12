@@ -1049,6 +1049,68 @@ describe('BaseGame stale-run guard', () => {
         vi.unstubAllGlobals()
     })
 
+    it('does not emit an extra end event when restarting a completed run', async () => {
+        // Regression: previously start() on a completed run called
+        // resetInternal() -> timer.reset() -> timer.stop(), whose
+        // unconditional emit('end') was forwarded as a game-level end with
+        // an empty payload, firing before the new run's start event.
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: [] }),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+        }
+
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: false,
+            },
+            {}
+        )
+        const endEvents: Array<{ data: unknown }> = []
+        const startEvents: Array<{ data: unknown }> = []
+        game.on('end', e => endEvents.push(e as any))
+        game.on('start', e => startEvents.push(e as any))
+
+        game.start()
+        const startsPerStart = startEvents.length
+        await game.end()
+        const endCountAfterFirstRun = endEvents.length
+
+        // Restart the completed run — must not emit an extra end. The
+        // restart should emit the same start events as a normal start and
+        // zero end events.
+        game.start()
+
+        expect(endEvents.length).toBe(endCountAfterFirstRun)
+        expect(startEvents.length).toBe(startsPerStart * 2)
+
+        game.destroy()
+        vi.unstubAllGlobals()
+    })
+
     it('invokes onEnd callback and onGameEnd hook when the run is not stale', async () => {
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
