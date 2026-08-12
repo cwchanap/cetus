@@ -161,15 +161,25 @@ describe('Ice Slide Daily generator v1', () => {
         )
     })
 
+    it('does not reuse a source template when stage pools overlap', () => {
+        const run = createIceSlideDailyRunDefinition('2026-01-01')
+        const templateIds = run.stages.map(stage => stage.templateId)
+
+        expect(new Set(templateIds).size).toBe(run.stages.length)
+    })
+
     it('materializes every calendar date in 2026', () => {
         for (
             let day = new Date('2026-01-01T00:00:00Z');
             day <= new Date('2026-12-31T00:00:00Z');
             day = new Date(day.getTime() + 86_400_000)
         ) {
-            expect(() =>
-                createIceSlideDailyRunDefinition(toIceSlideUtcDateKey(day))
-            ).not.toThrow()
+            const run = createIceSlideDailyRunDefinition(
+                toIceSlideUtcDateKey(day)
+            )
+            expect(
+                new Set(run.stages.map(stage => stage.templateId)).size
+            ).toBe(run.stages.length)
         }
     })
 })
