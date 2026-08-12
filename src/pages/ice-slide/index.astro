@@ -306,6 +306,14 @@ import Button from '@/components/ui/Button.astro'
       ;(checkedModeRadio ?? startBtn).focus()
     }
 
+    const restoreIdleModeControlsIfNoResult = () => {
+      if (!overlay.classList.contains('hidden')) {
+        return
+      }
+      setModeControlsDisabled(false)
+      focusIdleControl()
+    }
+
     const resetButtonState = () => {
       startBtn.style.display = 'inline-flex'
       endBtn.style.display = 'none'
@@ -333,6 +341,7 @@ import Button from '@/components/ui/Button.astro'
         onError: (_title, message) => {
           errorEl.textContent = message
           errorEl.classList.remove('hidden')
+          restoreIdleModeControlsIfNoResult()
         },
       })
     } catch (error) {
@@ -353,12 +362,13 @@ import Button from '@/components/ui/Button.astro'
           error instanceof Error ? error.message : 'Failed to start'
         errorEl.classList.remove('hidden')
         resetButtonState()
-        setModeControlsDisabled(false)
+        restoreIdleModeControlsIfNoResult()
       }
     })
 
     endBtn.addEventListener('click', () => {
       gameHandle?.stop()
+      restoreIdleModeControlsIfNoResult()
     })
 
     resetBtn?.addEventListener('click', () => {
@@ -377,7 +387,7 @@ import Button from '@/components/ui/Button.astro'
           error instanceof Error ? error.message : 'Failed to restart'
         errorEl.classList.remove('hidden')
         resetButtonState()
-        setModeControlsDisabled(false)
+        restoreIdleModeControlsIfNoResult()
       }
     })
 

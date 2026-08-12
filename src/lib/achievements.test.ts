@@ -1000,6 +1000,36 @@ describe('Ice Slide achievements', () => {
         ).toBe(false)
     })
 
+    it('ice_slide_crystals: awards when crystalsCollected >= 4', () => {
+        const check = getAchievementById('ice_slide_crystals')!.condition.check!
+        expect(
+            check(
+                {
+                    levelsCleared: 2,
+                    totalMoves: 8,
+                    crystalsCollected: 4,
+                    elapsedSeconds: 40,
+                    solved: false,
+                    perfectLevels: 1,
+                },
+                0
+            )
+        ).toBe(true)
+        expect(
+            check(
+                {
+                    levelsCleared: 2,
+                    totalMoves: 8,
+                    crystalsCollected: 3,
+                    elapsedSeconds: 40,
+                    solved: false,
+                    perfectLevels: 1,
+                },
+                0
+            )
+        ).toBe(false)
+    })
+
     it('ice_slide_complete: awards only when solved with all 8 levels cleared', () => {
         const check = getAchievementById('ice_slide_complete')!.condition.check!
         expect(
