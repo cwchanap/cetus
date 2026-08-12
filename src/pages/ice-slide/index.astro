@@ -1,6 +1,7 @@
 ---
 import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
+import Button from '@/components/ui/Button.astro'
 ---
 
 <GamePage
@@ -15,35 +16,123 @@ import Card from '@/components/ui/Card.astro'
   initialTime={0}
 >
   <div slot="game-board">
-    <div class="relative w-full">
-      <div
-        id="game-canvas-container"
-        class="bg-black/30 rounded-lg min-w-[240px] min-h-[240px] w-full flex items-center justify-center"
+    <div class="w-full max-w-xl space-y-4">
+      <fieldset
+        id="ice-slide-mode-selector"
+        class="rounded-lg border border-cetus-hairline bg-cetus-surface/70 px-4 py-3"
       >
-      </div>
+        <legend class="px-1 font-mono text-xs tracking-wide text-cetus-accent">
+          MODE
+        </legend>
+        <div
+          class="flex flex-col gap-2 text-sm text-cetus-ink sm:flex-row sm:gap-5"
+        >
+          <label class="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="ice-slide-mode"
+              value="campaign"
+              checked
+              class="accent-cetus-accent"
+            />
+            Campaign
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="ice-slide-mode"
+              value="daily"
+              class="accent-cetus-accent"
+            />
+            Daily
+          </label>
+        </div>
+      </fieldset>
 
-      <div
-        id="game-status"
-        class="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg"
-      >
-        <div class="text-center">
-          <div class="text-6xl mb-4">🧊</div>
-          <div
-            class="text-xl font-mono font-bold mb-2 cetus-wordmark cetus-wordmark--glow"
-            style="font-family: var(--cetus-display-font);"
-          >
-            ICE SLIDE
+      <div class="relative w-full">
+        <div
+          id="game-canvas-container"
+          class="bg-black/30 rounded-lg min-w-[240px] min-h-[240px] w-full flex items-center justify-center"
+        >
+        </div>
+
+        <div
+          id="game-status"
+          class="absolute inset-0 flex items-center justify-center bg-black/70 rounded-lg"
+        >
+          <div class="text-center">
+            <div class="text-6xl mb-4">🧊</div>
+            <div
+              class="text-xl font-mono font-bold mb-2 cetus-wordmark cetus-wordmark--glow"
+              style="font-family: var(--cetus-display-font);"
+            >
+              ICE SLIDE
+            </div>
+            <div class="text-cetus-ink-muted">
+              Choose a mode, then press Start to begin.
+            </div>
           </div>
-          <div class="text-cetus-ink-muted">
-            Press Start to begin the mission!
-          </div>
+        </div>
+
+        <div
+          id="game-error"
+          class="hidden text-sm text-amber-400 bg-amber-950/40 border border-amber-700/50 rounded-md px-3 py-2 text-center mt-2"
+        >
         </div>
       </div>
 
+      <Card id="daily-meta" variant="glass" class="hidden p-4">
+        <div
+          class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"
+        >
+          <div class="font-mono text-sm text-cetus-accent">
+            Daily <span id="daily-date">—</span>
+          </div>
+          <div id="daily-reset" class="text-xs text-cetus-ink-muted">—</div>
+          <div
+            id="daily-stage-progress"
+            class="w-full text-xs font-mono text-cetus-ink-muted"
+          >
+            Stage 1 / 5
+          </div>
+        </div>
+        <div
+          class="mt-3 grid gap-1 text-xs text-cetus-ink-muted sm:grid-cols-3"
+        >
+          <span id="daily-objective-clear">Clear the stage</span>
+          <span id="daily-objective-efficient">Efficient: —</span>
+          <span id="daily-objective-bonus">Bonus: —</span>
+        </div>
+      </Card>
+
       <div
-        id="game-error"
-        class="hidden text-sm text-amber-400 bg-amber-950/40 border border-amber-700/50 rounded-md px-3 py-2 text-center mt-2"
+        id="stage-clear-overlay"
+        class="fixed inset-0 z-40 hidden flex items-center justify-center bg-black/90 p-4"
       >
+        <div
+          class="w-full max-w-md rounded-2xl border border-cetus-accent/50 bg-cetus-surface p-6 text-center shadow-2xl"
+        >
+          <h2
+            id="stage-clear-title"
+            class="cetus-wordmark cetus-wordmark--glow text-2xl"
+          >
+            Stage clear
+          </h2>
+          <p id="stage-clear-score" class="mt-2 text-cetus-accent">+0</p>
+          <div class="mt-5 space-y-2 text-left text-sm text-cetus-ink">
+            <div id="stage-clear-clear">— Clear</div>
+            <div id="stage-clear-efficient">— Efficient</div>
+            <div id="stage-clear-bonus">— Bonus</div>
+          </div>
+          <Button
+            id="stage-clear-continue-btn"
+            type="button"
+            class="mt-6 w-full"
+            size="lg"
+          >
+            Continue
+          </Button>
+        </div>
       </div>
     </div>
   </div>
@@ -109,11 +198,52 @@ import Card from '@/components/ui/Card.astro'
         Current sector: <span id="level-name">—</span>
       </p>
     </Card>
+
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ DAILY BRIEF
+      </h3>
+      <p class="text-sm text-cetus-ink-muted">
+        Five seeded stages reset at 00:00 UTC each day.
+      </p>
+      <ul class="mt-3 space-y-2 text-xs text-cetus-ink-muted">
+        <li>• Earn Clear, Efficient, and seeded Bonus stars.</li>
+        <li>• Each optional star adds +100 points.</li>
+        <li>• Finish the run within the 5:00 completion budget.</li>
+        <li>• Play Again retries the same daily run and seed.</li>
+      </ul>
+    </Card>
+  </div>
+
+  <div slot="final-stats">
+    <div
+      id="daily-final-stage-result"
+      class="hidden text-left text-sm text-cetus-ink"
+    >
+      <div class="mb-2 font-mono text-cetus-accent">Daily stars</div>
+      <div id="daily-final-clear">— Clear</div>
+      <div id="daily-final-efficient">— Efficient</div>
+      <div id="daily-final-bonus">— Bonus</div>
+    </div>
+    <Button
+      id="change-mode-btn"
+      type="button"
+      variant="outline"
+      size="lg"
+      class="hidden w-full"
+    >
+      Change Mode
+    </Button>
   </div>
 </GamePage>
 
 <script>
   import { initializeIceSlide } from '@/lib/games/ice-slide/init'
+  import type { IceSlidePlayableMode } from '@/lib/games/ice-slide/types'
+
+  const requestedMode = new URLSearchParams(window.location.search).get('mode')
+  const selectedMode: IceSlidePlayableMode =
+    requestedMode === 'daily' ? 'daily' : 'campaign'
 
   let gameHandle: Awaited<ReturnType<typeof initializeIceSlide>> | null = null
 
@@ -126,6 +256,15 @@ import Card from '@/components/ui/Card.astro'
     const endBtn = document.getElementById('end-btn')
     const resetBtn = document.getElementById('reset-btn')
     const playAgainBtn = document.getElementById('play-again-btn')
+    const modeSelector = document.getElementById('ice-slide-mode-selector')
+    const dailyMeta = document.getElementById('daily-meta')
+    const modeRadios = Array.from(
+      document.querySelectorAll<HTMLInputElement>(
+        '#ice-slide-mode-selector input[name="ice-slide-mode"]'
+      )
+    )
+    const dailyFinalResult = document.getElementById('daily-final-stage-result')
+    const changeModeBtn = document.getElementById('change-mode-btn')
     if (
       !container ||
       !statusEl ||
@@ -133,9 +272,30 @@ import Card from '@/components/ui/Card.astro'
       !overlay ||
       !startBtn ||
       !endBtn ||
-      !playAgainBtn
+      !playAgainBtn ||
+      !modeSelector ||
+      modeRadios.length === 0 ||
+      !dailyMeta ||
+      !dailyFinalResult ||
+      !changeModeBtn
     ) {
       return
+    }
+
+    modeRadios.forEach(radio => {
+      radio.checked = radio.value === selectedMode
+    })
+
+    const readSelectedMode = (): IceSlidePlayableMode =>
+      modeRadios.find(radio => radio.checked)?.value === 'daily'
+        ? 'daily'
+        : 'campaign'
+
+    const setModeControlsDisabled = (disabled: boolean) => {
+      modeRadios.forEach(radio => {
+        radio.disabled = disabled
+      })
+      modeSelector.toggleAttribute('aria-disabled', disabled)
     }
 
     const resetButtonState = () => {
@@ -149,8 +309,10 @@ import Card from '@/components/ui/Card.astro'
           statusEl.classList.add('hidden')
           errorEl.classList.add('hidden')
           overlay.classList.add('hidden')
+          changeModeBtn.classList.add('hidden')
           startBtn.style.display = 'none'
           endBtn.style.display = 'inline-flex'
+          setModeControlsDisabled(true)
         },
         onMove: () => {},
         onCrystal: () => {},
@@ -160,6 +322,7 @@ import Card from '@/components/ui/Card.astro'
         onTimeUpdate: () => {},
         onWin: () => {
           resetButtonState()
+          changeModeBtn.classList.remove('hidden')
         },
         onError: (_title, message) => {
           errorEl.textContent = message
@@ -174,19 +337,29 @@ import Card from '@/components/ui/Card.astro'
     }
 
     startBtn.addEventListener('click', async () => {
+      const mode = readSelectedMode()
+      startBtn.style.display = 'none'
+      setModeControlsDisabled(true)
       try {
-        await gameHandle?.start()
+        await gameHandle?.start(mode)
       } catch (error) {
         errorEl.textContent =
           error instanceof Error ? error.message : 'Failed to start'
         errorEl.classList.remove('hidden')
         resetButtonState()
+        setModeControlsDisabled(false)
       }
     })
 
     endBtn.addEventListener('click', () => {
       gameHandle?.stop()
       resetButtonState()
+      if (!overlay.classList.contains('hidden')) {
+        changeModeBtn.classList.remove('hidden')
+      } else {
+        statusEl.classList.remove('hidden')
+        setModeControlsDisabled(false)
+      }
     })
 
     resetBtn?.addEventListener('click', () => {
@@ -195,14 +368,30 @@ import Card from '@/components/ui/Card.astro'
 
     playAgainBtn.addEventListener('click', async () => {
       overlay.classList.add('hidden')
+      changeModeBtn.classList.add('hidden')
+      startBtn.style.display = 'none'
+      endBtn.style.display = 'inline-flex'
+      setModeControlsDisabled(true)
       try {
-        await gameHandle?.start()
+        await gameHandle?.playAgain()
       } catch (error) {
         errorEl.textContent =
           error instanceof Error ? error.message : 'Failed to restart'
         errorEl.classList.remove('hidden')
         resetButtonState()
+        setModeControlsDisabled(false)
       }
+    })
+
+    changeModeBtn.addEventListener('click', () => {
+      overlay.classList.add('hidden')
+      dailyMeta.classList.add('hidden')
+      dailyFinalResult.classList.add('hidden')
+      statusEl.classList.remove('hidden')
+      errorEl.classList.add('hidden')
+      changeModeBtn.classList.add('hidden')
+      resetButtonState()
+      setModeControlsDisabled(false)
     })
   }
 
