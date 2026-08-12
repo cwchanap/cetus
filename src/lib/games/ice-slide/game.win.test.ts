@@ -19,7 +19,9 @@ describe('IceSlideGame win + crystal branch (explicit run)', () => {
 
         game.move('E')
         expect(onCrystal).toHaveBeenCalledWith(1)
-        expect(onLevelClear).toHaveBeenCalledWith(1)
+        expect(onLevelClear).toHaveBeenCalledWith(
+            expect.objectContaining({ stageNumber: 1 })
+        )
         expect(onWin).toHaveBeenCalled()
         expect(game.getState().status).toBe('won')
         expect(game.getGameData()).toMatchObject({

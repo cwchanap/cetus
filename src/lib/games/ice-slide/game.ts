@@ -4,16 +4,24 @@ import {
     type IceSlideCallbacks,
     type IceSlideGameData,
     type IceSlideRunDefinition,
+    type IceSlideStageClearResult,
     type IceSlideStageDefinition,
     type IceSlideState,
 } from './types'
-import { cloneGrid, findStart, parseGrid, slide } from './physics'
+import {
+    cloneGrid,
+    countCrystals,
+    findStart,
+    parseGrid,
+    slide,
+} from './physics'
 import {
     assertValidIceSlideRunDefinition,
     cloneIceSlideRunDefinition,
     createCampaignRunDefinition,
 } from './run'
-import { levelScore, timeBonus } from './scoring'
+import { isIceSlideObjectiveComplete } from './objectives'
+import { DAILY_SCORING_CONFIG, levelScore, timeBonus } from './scoring'
 
 export class IceSlideGame {
     private state: IceSlideState
@@ -69,6 +77,10 @@ export class IceSlideGame {
             start: { row: 0, col: 0 },
             moves: 0,
             levelMoves: 0,
+            parMoves: 0,
+            objectiveIds: [],
+            levelFalls: 0,
+            levelResets: 0,
             crystalsCollected: 0,
             levelCrystalsCollected: 0,
             score: 0,
@@ -91,6 +103,7 @@ export class IceSlideGame {
             player: { ...this.state.player },
             start: { ...this.state.start },
             lastSlidePath: this.state.lastSlidePath.map(p => ({ ...p })),
+            objectiveIds: [...this.state.objectiveIds],
             stageSignatures: [...this.state.stageSignatures],
         }
     }
@@ -149,7 +162,12 @@ export class IceSlideGame {
         }
         // Drop crystals gathered on this attempt so reset/hazard cannot farm.
         this.state.crystalsCollected -= this.state.levelCrystalsCollected
-        this.loadLevel(this.state.levelIndex, { preserveRun: true })
+        this.state.resets += 1
+        this.state.levelResets += 1
+        this.loadLevel(this.state.levelIndex, {
+            preserveRun: true,
+            preserveLevelAttemptStats: true,
+        })
     }
 
     move(direction: Direction): void {
@@ -171,9 +189,14 @@ export class IceSlideGame {
 
         if (outcome.kind === 'hazard') {
             this.state.crystalsCollected -= this.state.levelCrystalsCollected
+            this.state.falls += 1
+            this.state.resets += 1
+            this.state.levelFalls += 1
+            this.state.levelResets += 1
             this.loadLevel(this.state.levelIndex, {
                 preserveRun: true,
                 preserveLevelMoves: true,
+                preserveLevelAttemptStats: true,
             })
             this.callbacks.onMove?.({
                 moves: this.state.moves,
@@ -208,31 +231,81 @@ export class IceSlideGame {
     private clearLevel(): void {
         const stage = this.getStage(this.state.levelIndex)
         const levelNumber = this.state.levelIndex + 1
-        const gained = levelScore({
+        const efficient = this.state.levelMoves <= stage.parMoves
+        const totalCrystals = countCrystals(parseGrid(stage))
+        const bonusId =
+            this.activeRun.mode === 'daily'
+                ? (this.state.objectiveIds[0] ?? null)
+                : null
+        const bonusEarned =
+            bonusId === null
+                ? false
+                : isIceSlideObjectiveComplete(bonusId, {
+                      crystalsCollected: this.state.levelCrystalsCollected,
+                      totalCrystals,
+                      stageFalls: this.state.levelFalls,
+                      stageResets: this.state.levelResets,
+                  })
+        const optionalStarsEarned = Number(efficient) + Number(bonusEarned)
+        const scoringParams = {
             levelNumber,
             parMoves: stage.parMoves,
             movesUsed: this.state.levelMoves,
             crystalsCollected: this.state.levelCrystalsCollected,
-        })
-        this.state.score += gained
+        }
+        const scoreGained =
+            this.activeRun.mode === 'daily'
+                ? levelScore(
+                      { ...scoringParams, optionalStarsEarned },
+                      DAILY_SCORING_CONFIG
+                  )
+                : levelScore(scoringParams)
+        const result: IceSlideStageClearResult = {
+            stageNumber: levelNumber,
+            stageName: stage.name,
+            parMoves: stage.parMoves,
+            movesUsed: this.state.levelMoves,
+            crystalsCollected: this.state.levelCrystalsCollected,
+            scoreGained,
+            stars: {
+                clear: true,
+                efficient,
+                bonus:
+                    bonusId === null
+                        ? null
+                        : { id: bonusId, earned: bonusEarned },
+                earnedCount:
+                    this.activeRun.mode === 'daily'
+                        ? 1 + optionalStarsEarned
+                        : 0,
+            },
+        }
+
+        this.state.score += scoreGained
         this.state.levelsCleared += 1
-        if (this.state.levelMoves <= stage.parMoves) {
+        if (efficient) {
             this.state.perfectLevels += 1
+        }
+        if (this.activeRun.mode === 'daily') {
+            this.state.starsEarned += result.stars.earnedCount
         }
         this.callbacks.onScoreUpdate?.(this.state.score)
 
         if (this.state.levelIndex >= this.activeRun.stages.length - 1) {
-            this.state.score += timeBonus(this.state.elapsedSeconds)
+            this.state.score +=
+                this.activeRun.mode === 'daily'
+                    ? timeBonus(this.state.elapsedSeconds, DAILY_SCORING_CONFIG)
+                    : timeBonus(this.state.elapsedSeconds)
             this.state.status = 'won'
             this.stopTimer()
             this.callbacks.onScoreUpdate?.(this.state.score)
-            this.callbacks.onLevelClear?.(levelNumber)
+            this.callbacks.onLevelClear?.(result)
             this.callbacks.onWin?.(this.state.score)
             return
         }
 
         this.loadLevel(this.state.levelIndex + 1, { preserveRun: true })
-        this.callbacks.onLevelClear?.(levelNumber)
+        this.callbacks.onLevelClear?.(result)
     }
 
     private loadLevel(
@@ -240,6 +313,7 @@ export class IceSlideGame {
         options: {
             preserveRun?: boolean
             preserveLevelMoves?: boolean
+            preserveLevelAttemptStats?: boolean
         } = {}
     ): void {
         const stage = this.getStage(index)
@@ -259,6 +333,8 @@ export class IceSlideGame {
                   starsEarned: this.state.starsEarned,
                   falls: this.state.falls,
                   resets: this.state.resets,
+                  levelFalls: this.state.levelFalls,
+                  levelResets: this.state.levelResets,
                   status: this.state.status,
               }
             : null
@@ -273,6 +349,14 @@ export class IceSlideGame {
             start: { ...start },
             moves: preserved?.moves ?? 0,
             levelMoves: options.preserveLevelMoves ? this.state.levelMoves : 0,
+            parMoves: stage.parMoves,
+            objectiveIds: [...stage.objectiveIds],
+            levelFalls: options.preserveLevelAttemptStats
+                ? (preserved?.levelFalls ?? 0)
+                : 0,
+            levelResets: options.preserveLevelAttemptStats
+                ? (preserved?.levelResets ?? 0)
+                : 0,
             crystalsCollected: preserved?.crystalsCollected ?? 0,
             levelCrystalsCollected: 0,
             score: preserved?.score ?? 0,

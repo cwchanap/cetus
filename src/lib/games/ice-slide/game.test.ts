@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { IceSlideGame } from './game'
 import { CAMPAIGN_RUN_KEY } from './run'
-import { createTestRun, createTestStage } from './test-fixtures'
+import {
+    createTestDailyRun,
+    createTestRun,
+    createTestStage,
+} from './test-fixtures'
+import { DAILY_SCORING_CONFIG, levelScore, timeBonus } from './scoring'
+import type { IceSlideStageClearResult } from './types'
 
 function expectRunMetadataPreserved(
     before: ReturnType<IceSlideGame['getState']>,
@@ -15,8 +21,6 @@ function expectRunMetadataPreserved(
         rulesetVersion: before.rulesetVersion,
         stagesTotal: before.stagesTotal,
         starsEarned: before.starsEarned,
-        falls: before.falls,
-        resets: before.resets,
     })
     expect(after.stageSignatures).toEqual(before.stageSignatures)
 }
@@ -185,7 +189,9 @@ describe('IceSlideGame', () => {
         expect(state.levelName).toBe('First Frost')
 
         game.move('S')
-        expect(onLevelClear).toHaveBeenCalledWith(1)
+        expect(onLevelClear).toHaveBeenCalledWith(
+            expect.objectContaining({ stageNumber: 1 })
+        )
         expect(game.getState().levelIndex).toBe(1)
         expect(game.getState().levelsCleared).toBe(1)
         expect(game.getState().score).toBeGreaterThan(0)
@@ -257,6 +263,339 @@ describe('IceSlideGame', () => {
             perfectLevels: 1,
         })
         expect(typeof data.elapsedSeconds).toBe('number')
+        game.destroy()
+    })
+
+    it('tracks manual reset counters per run and per stage', () => {
+        const game = new IceSlideGame()
+        game.start(
+            createTestRun([
+                createTestStage({
+                    rows: ['#####', '#S..#', '#G..#', '#####'],
+                }),
+            ])
+        )
+        game.move('E')
+        const before = game.getState()
+
+        game.resetLevel()
+
+        const after = game.getState()
+        expect(after.resets).toBe(before.resets + 1)
+        expect(after.levelResets).toBe(1)
+        expect(after.levelFalls).toBe(0)
+        expect(after.levelMoves).toBe(0)
+        game.destroy()
+    })
+
+    it('resets stage attempt counters on normal stage advance', () => {
+        const onLevelClear = vi.fn()
+        const game = new IceSlideGame({ onLevelClear })
+        game.start(
+            createTestRun([
+                createTestStage({
+                    id: 'daily:counter:1',
+                    rows: ['#####', '#S.H#', '#G..#', '#####'],
+                    parMoves: 1,
+                }),
+                createTestStage({
+                    id: 'daily:counter:2',
+                    rows: ['#####', '#S.G#', '#####'],
+                    parMoves: 1,
+                }),
+            ])
+        )
+
+        game.move('E')
+        expect(game.getState()).toMatchObject({
+            levelFalls: 1,
+            levelResets: 1,
+            falls: 1,
+            resets: 1,
+        })
+        game.move('S')
+
+        const after = game.getState()
+        expect(after.levelIndex).toBe(1)
+        expect(after.levelFalls).toBe(0)
+        expect(after.levelResets).toBe(0)
+        expect(after.falls).toBe(1)
+        expect(after.resets).toBe(1)
+        expect(onLevelClear).toHaveBeenCalledWith(
+            expect.objectContaining({
+                stageNumber: 1,
+                stars: expect.objectContaining({
+                    bonus: null,
+                }),
+            })
+        )
+        game.destroy()
+    })
+
+    it('awards Daily clear, efficient, and bonus stars and config scoring', () => {
+        const onLevelClear = vi.fn()
+        const stage = createTestStage({
+            id: 'daily:score:1',
+            objectiveIds: ['no_falls'],
+            parMoves: 1,
+        })
+        const game = new IceSlideGame({ onLevelClear })
+        game.start(createTestDailyRun([stage]))
+
+        game.move('E')
+
+        const result = onLevelClear.mock.calls[0][0]
+        expect(result).toEqual({
+            stageNumber: 1,
+            stageName: 'Test Stage',
+            parMoves: 1,
+            movesUsed: 1,
+            crystalsCollected: 0,
+            scoreGained: levelScore(
+                {
+                    levelNumber: 1,
+                    parMoves: 1,
+                    movesUsed: 1,
+                    crystalsCollected: 0,
+                    optionalStarsEarned: 2,
+                },
+                DAILY_SCORING_CONFIG
+            ),
+            stars: {
+                clear: true,
+                efficient: true,
+                bonus: { id: 'no_falls', earned: true },
+                earnedCount: 3,
+            },
+        })
+        expect(game.getState().starsEarned).toBe(3)
+        game.destroy()
+    })
+
+    it('uses stage-scoped Daily no_falls facts after an earlier fall', () => {
+        const onLevelClear = vi.fn()
+        const game = new IceSlideGame({ onLevelClear })
+        game.start(
+            createTestDailyRun([
+                createTestStage({
+                    id: 'daily:facts:1',
+                    rows: ['#####', '#S.H#', '#G..#', '#####'],
+                    objectiveIds: [],
+                    parMoves: 1,
+                }),
+                createTestStage({
+                    id: 'daily:facts:2',
+                    objectiveIds: ['no_falls'],
+                    parMoves: 1,
+                }),
+            ])
+        )
+
+        game.move('E')
+        game.move('S')
+        game.move('E')
+
+        const secondResult = onLevelClear.mock.calls[1][0]
+        expect(game.getState().falls).toBe(1)
+        expect(secondResult.stars.bonus).toEqual({
+            id: 'no_falls',
+            earned: true,
+        })
+        game.destroy()
+    })
+
+    it('uses stage-scoped Daily no_reset facts after an earlier reset', () => {
+        const onLevelClear = vi.fn()
+        const game = new IceSlideGame({ onLevelClear })
+        game.start(
+            createTestDailyRun([
+                createTestStage({
+                    id: 'daily:reset-facts:1',
+                    objectiveIds: [],
+                }),
+                createTestStage({
+                    id: 'daily:reset-facts:2',
+                    objectiveIds: ['no_reset'],
+                }),
+            ])
+        )
+
+        game.resetLevel()
+        game.move('E')
+        game.move('E')
+
+        const secondResult = onLevelClear.mock.calls[1][0]
+        expect(game.getState().resets).toBe(1)
+        expect(secondResult.stars.bonus).toEqual({
+            id: 'no_reset',
+            earned: true,
+        })
+        game.destroy()
+    })
+
+    it('reports an inefficient Daily stage without the efficient star', () => {
+        const onLevelClear = vi.fn()
+        const game = new IceSlideGame({ onLevelClear })
+        game.start(
+            createTestDailyRun([
+                createTestStage({
+                    id: 'daily:over-par:1',
+                    rows: ['#####', '#S..#', '#..G#', '#####'],
+                    objectiveIds: ['no_falls'],
+                    parMoves: 1,
+                }),
+            ])
+        )
+
+        game.move('S')
+        game.move('E')
+
+        expect(onLevelClear.mock.calls[0][0].stars).toEqual({
+            clear: true,
+            efficient: false,
+            bonus: { id: 'no_falls', earned: true },
+            earnedCount: 2,
+        })
+        game.destroy()
+    })
+
+    it('reports Daily reset and hazard objective failures', () => {
+        const resetClear = vi.fn()
+        const resetGame = new IceSlideGame({ onLevelClear: resetClear })
+        resetGame.start(
+            createTestDailyRun([
+                createTestStage({
+                    id: 'daily:no-reset:1',
+                    objectiveIds: ['no_reset'],
+                }),
+            ])
+        )
+        resetGame.resetLevel()
+        resetGame.move('E')
+        expect(resetClear.mock.calls[0][0].stars).toEqual({
+            clear: true,
+            efficient: true,
+            bonus: { id: 'no_reset', earned: false },
+            earnedCount: 2,
+        })
+        resetGame.destroy()
+
+        const hazardClear = vi.fn()
+        const hazardGame = new IceSlideGame({ onLevelClear: hazardClear })
+        hazardGame.start(
+            createTestDailyRun([
+                createTestStage({
+                    id: 'daily:no-falls:1',
+                    rows: ['#####', '#S.H#', '#G..#', '#####'],
+                    objectiveIds: ['no_falls'],
+                    parMoves: 1,
+                }),
+            ])
+        )
+        hazardGame.move('E')
+        hazardGame.move('S')
+        expect(hazardClear.mock.calls[0][0].stars).toEqual({
+            clear: true,
+            efficient: false,
+            bonus: { id: 'no_falls', earned: false },
+            earnedCount: 1,
+        })
+        hazardGame.destroy()
+    })
+
+    it('reports collect-all based on crystals in the source stage', () => {
+        const collected = vi.fn()
+        const collectedGame = new IceSlideGame({ onLevelClear: collected })
+        collectedGame.start(
+            createTestDailyRun([
+                createTestStage({
+                    id: 'daily:crystals:1',
+                    rows: ['######', '#SC.G#', '######'],
+                    objectiveIds: ['collect_all_crystals'],
+                    parMoves: 1,
+                }),
+            ])
+        )
+        collectedGame.move('E')
+        expect(collected.mock.calls[0][0].stars.bonus).toEqual({
+            id: 'collect_all_crystals',
+            earned: true,
+        })
+        collectedGame.destroy()
+
+        const missed = vi.fn()
+        const missedGame = new IceSlideGame({ onLevelClear: missed })
+        missedGame.start(
+            createTestDailyRun([
+                createTestStage({
+                    id: 'daily:crystals:2',
+                    rows: ['#######', '#S..G.#', '#..C..#', '#######'],
+                    objectiveIds: ['collect_all_crystals'],
+                    parMoves: 1,
+                }),
+            ])
+        )
+        missedGame.move('E')
+        expect(missed.mock.calls[0][0].stars.bonus).toEqual({
+            id: 'collect_all_crystals',
+            earned: false,
+        })
+        missedGame.destroy()
+    })
+
+    it('uses Daily completion time config and level-clear then win order', () => {
+        vi.useFakeTimers()
+        const events: string[] = []
+        const onLevelClear = vi.fn((result: IceSlideStageClearResult) => {
+            void result
+            events.push('level-clear')
+        })
+        const onWin = vi.fn(() => events.push('win'))
+        const game = new IceSlideGame({ onLevelClear, onWin })
+        const stages = [createTestStage({ id: 'daily:time:1' })]
+        game.start(createTestDailyRun(stages))
+        vi.advanceTimersByTime(301_000)
+        game.move('E')
+
+        expect(events).toEqual(['level-clear', 'win'])
+        expect(onWin).toHaveBeenCalledWith(
+            onLevelClear.mock.calls[0][0].scoreGained +
+                timeBonus(301, DAILY_SCORING_CONFIG)
+        )
+        game.destroy()
+    })
+
+    it('preserves Campaign scoring and does not accumulate stars', () => {
+        vi.useFakeTimers()
+        const events: string[] = []
+        const onLevelClear = vi.fn((result: IceSlideStageClearResult) => {
+            void result
+            events.push('level-clear')
+        })
+        const onWin = vi.fn(() => events.push('win'))
+        const game = new IceSlideGame({ onLevelClear, onWin })
+        game.start(createTestRun([createTestStage()]))
+        game.move('E')
+
+        expect(events).toEqual(['level-clear', 'win'])
+        expect(game.getState().starsEarned).toBe(0)
+        expect(onLevelClear.mock.calls[0][0]).toMatchObject({
+            scoreGained: levelScore({
+                levelNumber: 1,
+                parMoves: 1,
+                movesUsed: 1,
+                crystalsCollected: 0,
+            }),
+            stars: {
+                clear: true,
+                efficient: true,
+                bonus: null,
+                earnedCount: 0,
+            },
+        })
+        expect(onWin).toHaveBeenCalledWith(
+            onLevelClear.mock.calls[0][0].scoreGained + timeBonus(0)
+        )
         game.destroy()
     })
 })
