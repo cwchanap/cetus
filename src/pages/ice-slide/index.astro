@@ -230,7 +230,7 @@ import Button from '@/components/ui/Button.astro'
       type="button"
       variant="outline"
       size="lg"
-      class="hidden w-full"
+      class="w-full"
     >
       Change Mode
     </Button>
@@ -298,6 +298,14 @@ import Button from '@/components/ui/Button.astro'
       modeSelector.toggleAttribute('aria-disabled', disabled)
     }
 
+    const focusIdleControl = () => {
+      const checkedModeRadio = modeRadios.find(
+        radio =>
+          radio.checked && !radio.disabled && radio.getClientRects().length > 0
+      )
+      ;(checkedModeRadio ?? startBtn).focus()
+    }
+
     const resetButtonState = () => {
       startBtn.style.display = 'inline-flex'
       endBtn.style.display = 'none'
@@ -309,7 +317,6 @@ import Button from '@/components/ui/Button.astro'
           statusEl.classList.add('hidden')
           errorEl.classList.add('hidden')
           overlay.classList.add('hidden')
-          changeModeBtn.classList.add('hidden')
           startBtn.style.display = 'none'
           endBtn.style.display = 'inline-flex'
           setModeControlsDisabled(true)
@@ -322,7 +329,6 @@ import Button from '@/components/ui/Button.astro'
         onTimeUpdate: () => {},
         onWin: () => {
           resetButtonState()
-          changeModeBtn.classList.remove('hidden')
         },
         onError: (_title, message) => {
           errorEl.textContent = message
@@ -353,13 +359,6 @@ import Button from '@/components/ui/Button.astro'
 
     endBtn.addEventListener('click', () => {
       gameHandle?.stop()
-      resetButtonState()
-      if (!overlay.classList.contains('hidden')) {
-        changeModeBtn.classList.remove('hidden')
-      } else {
-        statusEl.classList.remove('hidden')
-        setModeControlsDisabled(false)
-      }
     })
 
     resetBtn?.addEventListener('click', () => {
@@ -368,7 +367,6 @@ import Button from '@/components/ui/Button.astro'
 
     playAgainBtn.addEventListener('click', async () => {
       overlay.classList.add('hidden')
-      changeModeBtn.classList.add('hidden')
       startBtn.style.display = 'none'
       endBtn.style.display = 'inline-flex'
       setModeControlsDisabled(true)
@@ -389,9 +387,9 @@ import Button from '@/components/ui/Button.astro'
       dailyFinalResult.classList.add('hidden')
       statusEl.classList.remove('hidden')
       errorEl.classList.add('hidden')
-      changeModeBtn.classList.add('hidden')
       resetButtonState()
       setModeControlsDisabled(false)
+      focusIdleControl()
     })
   }
 
