@@ -23,6 +23,10 @@ describe('IceSlideGame hazard branch (explicit run)', () => {
         expect(game.getState().moves).toBe(1)
         // Hazard keeps the failed move; only manual Reset zeroes levelMoves.
         expect(game.getState().levelMoves).toBe(1)
+        expect(game.getState().falls).toBe(1)
+        expect(game.getState().resets).toBe(1)
+        expect(game.getState().levelFalls).toBe(1)
+        expect(game.getState().levelResets).toBe(1)
         game.destroy()
     })
 

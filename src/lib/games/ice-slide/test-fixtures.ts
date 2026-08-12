@@ -1,6 +1,9 @@
 import { hashString32Hex } from '../shared/seeded-rng'
+import { ICE_SLIDE_DAILY_GENERATOR_VERSION } from './daily'
 import {
+    assertValidIceSlideRunDefinition,
     createIceSlideStageSignature,
+    assertValidIceSlideUtcDateKey,
     ICE_SLIDE_RULESET_VERSION,
     ICE_SLIDE_RUN_SCHEMA_VERSION,
 } from './run'
@@ -55,4 +58,48 @@ export function createTestRun(
         })),
         ...overrides,
     }
+}
+
+function fiveSimpleStages(): IceSlideStageDefinition[] {
+    return Array.from({ length: 5 }, (_, index) =>
+        createTestStage({
+            id: `daily:test:${index + 1}`,
+            name: `Daily Test ${index + 1}`,
+            templateId: `test:${index + 1}`,
+            objectiveIds: ['no_falls'],
+        })
+    )
+}
+
+export function createTestDailyRun(
+    stages: IceSlideStageDefinition[] = fiveSimpleStages(),
+    dateKey = '2026-08-12'
+): IceSlideRunDefinition {
+    assertValidIceSlideUtcDateKey(dateKey)
+    const stageCopies = stages.map(stage => {
+        const copy = {
+            ...stage,
+            rows: [...stage.rows],
+            mutationIds: [...stage.mutationIds],
+            objectiveIds: [...stage.objectiveIds],
+        }
+        copy.signature = createIceSlideStageSignature(copy)
+        return copy
+    })
+    const seed =
+        `ice-slide:daily:${ICE_SLIDE_DAILY_GENERATOR_VERSION}:` +
+        `${ICE_SLIDE_RULESET_VERSION}:${dateKey}`
+    const run: IceSlideRunDefinition = {
+        schemaVersion: ICE_SLIDE_RUN_SCHEMA_VERSION,
+        generatorVersion: ICE_SLIDE_DAILY_GENERATOR_VERSION,
+        rulesetVersion: ICE_SLIDE_RULESET_VERSION,
+        mode: 'daily',
+        runKey:
+            `ice-slide:daily:${dateKey}:` +
+            `g${ICE_SLIDE_DAILY_GENERATOR_VERSION}:r${ICE_SLIDE_RULESET_VERSION}`,
+        seed,
+        stages: stageCopies,
+    }
+    assertValidIceSlideRunDefinition(run)
+    return run
 }
