@@ -1089,10 +1089,10 @@ describe('BaseGame stale-run guard', () => {
             },
             {}
         )
-        const endEvents: Array<{ data: unknown }> = []
-        const startEvents: Array<{ data: unknown }> = []
-        game.on('end', e => endEvents.push(e as any))
-        game.on('start', e => startEvents.push(e as any))
+        const endEvents: unknown[] = []
+        const startEvents: unknown[] = []
+        game.on('end', e => endEvents.push(e))
+        game.on('start', e => startEvents.push(e))
 
         game.start()
         const startsPerStart = startEvents.length
