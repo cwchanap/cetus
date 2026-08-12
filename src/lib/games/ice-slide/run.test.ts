@@ -6,6 +6,7 @@ import {
     ICE_SLIDE_CAMPAIGN_GENERATOR_VERSION,
     ICE_SLIDE_RULESET_VERSION,
     ICE_SLIDE_RUN_SCHEMA_VERSION,
+    assertValidIceSlideUtcDateKey,
     assertValidIceSlideRunDefinition,
     cloneIceSlideRunDefinition,
     createCampaignRunDefinition,
@@ -53,6 +54,20 @@ describe('Ice Slide run versions and signatures', () => {
             mutationIds: ['a', 'b,c'],
         })
         expect(commaFirst).not.toBe(commaSecond)
+    })
+
+    it('validates exact UTC calendar date keys', () => {
+        expect(() => assertValidIceSlideUtcDateKey('2026-08-12')).not.toThrow()
+        expect(() => assertValidIceSlideUtcDateKey('2026-02-29')).toThrow(
+            RangeError
+        )
+        expect(() => assertValidIceSlideUtcDateKey('2024-02-29')).not.toThrow()
+        expect(() => assertValidIceSlideUtcDateKey('2026-13-01')).toThrow(
+            RangeError
+        )
+        expect(() => assertValidIceSlideUtcDateKey('08-12-2026')).toThrow(
+            RangeError
+        )
     })
 })
 

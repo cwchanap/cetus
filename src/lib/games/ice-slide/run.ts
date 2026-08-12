@@ -44,7 +44,7 @@ export function createIceSlideStageSignature(input: {
     return `is2-${hashString32Hex(payload)}`
 }
 
-const CAMPAIGN_DIFFICULTIES: readonly IceSlideDifficulty[] = [
+export const CAMPAIGN_STAGE_DIFFICULTIES: readonly IceSlideDifficulty[] = [
     'tutorial',
     'easy',
     'easy',
@@ -56,9 +56,9 @@ const CAMPAIGN_DIFFICULTIES: readonly IceSlideDifficulty[] = [
 ]
 
 export function createCampaignRunDefinition(): IceSlideRunDefinition {
-    if (CAMPAIGN_DIFFICULTIES.length !== ICE_SLIDE_LEVELS.length) {
+    if (CAMPAIGN_STAGE_DIFFICULTIES.length !== ICE_SLIDE_LEVELS.length) {
         throw new Error(
-            'CAMPAIGN_DIFFICULTIES and ICE_SLIDE_LEVELS must have the same length'
+            'CAMPAIGN_STAGE_DIFFICULTIES and ICE_SLIDE_LEVELS must have the same length'
         )
     }
     return {
@@ -74,7 +74,7 @@ export function createCampaignRunDefinition(): IceSlideRunDefinition {
                 id: `campaign:${level.id}`,
                 name: level.name,
                 templateId: `campaign:${level.id}`,
-                difficulty: CAMPAIGN_DIFFICULTIES[index],
+                difficulty: CAMPAIGN_STAGE_DIFFICULTIES[index],
                 rows,
                 parMoves: level.parMoves,
                 transform: 'identity' as const,
@@ -93,6 +93,7 @@ const RUN_KEY_PATTERN = /^[A-Za-z0-9:._-]+$/
 const RUN_KEY_MAX_LENGTH = 128
 const DAILY_KEY_PATTERN =
     /^ice-slide:daily:(\d{4}-\d{2}-\d{2}):g([1-9]\d*):r([1-9]\d*)$/
+const UTC_DATE_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 const EXPEDITION_KEY_PATTERN =
     /^ice-slide:expedition:([0-9a-f]{8}):g([1-9]\d*):r([1-9]\d*)$/
 
@@ -121,6 +122,29 @@ const OBJECTIVES = new Set<IceSlideObjectiveId>(
     Object.keys(OBJECTIVE_RECORD) as IceSlideObjectiveId[]
 )
 const TRANSFORMS = new Set<BoardTransform>(BOARD_TRANSFORMS)
+
+export function assertValidIceSlideUtcDateKey(dateKey: string): void {
+    const match = UTC_DATE_KEY_PATTERN.exec(dateKey)
+    if (!match) {
+        throw new RangeError(
+            'daily runKey date must be a calendar-valid YYYY-MM-DD date'
+        )
+    }
+
+    const year = Number(match[1])
+    const month = Number(match[2])
+    const day = Number(match[3])
+    const date = new Date(Date.UTC(year, month - 1, day))
+    if (
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() !== month - 1 ||
+        date.getUTCDate() !== day
+    ) {
+        throw new RangeError(
+            'daily runKey date must be a calendar-valid YYYY-MM-DD date'
+        )
+    }
+}
 
 function assertPositiveInt(value: number, field: string): void {
     if (!Number.isInteger(value) || value < 1 || value > 0x7fffffff) {
@@ -184,20 +208,7 @@ export function assertValidIceSlideRunDefinition(
             throw new RangeError('daily runKey must match the daily key format')
         }
         const dateSegment = match[1]
-        const [yearStr, monthStr, dayStr] = dateSegment.split('-')
-        const year = Number(yearStr)
-        const month = Number(monthStr)
-        const day = Number(dayStr)
-        const date = new Date(Date.UTC(year, month - 1, day))
-        if (
-            date.getUTCFullYear() !== year ||
-            date.getUTCMonth() !== month - 1 ||
-            date.getUTCDate() !== day
-        ) {
-            throw new RangeError(
-                'daily runKey date must be a calendar-valid YYYY-MM-DD date'
-            )
-        }
+        assertValidIceSlideUtcDateKey(dateSegment)
         const generatorVersion = Number(match[2])
         const rulesetVersion = Number(match[3])
         if (run.generatorVersion !== generatorVersion) {
