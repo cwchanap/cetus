@@ -89,6 +89,23 @@ describe('Score Service', () => {
             expect(result.error).toBe('You must be logged in to save scores')
         })
 
+        it('returns a structured unauthenticated code for every 401 response', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: false,
+                status: 401,
+                json: () =>
+                    Promise.resolve({ code: 'SCORE_CONTEXT_UNAVAILABLE' }),
+            })
+
+            await expect(
+                submitScore({ gameId: GameID.TETRIS, score: 1000 })
+            ).resolves.toMatchObject({
+                success: false,
+                code: 'UNAUTHENTICATED',
+                error: 'You must be logged in to save scores',
+            })
+        })
+
         it('should handle 400 bad request error', async () => {
             global.fetch = vi.fn().mockResolvedValue({
                 ok: false,
@@ -216,7 +233,29 @@ describe('Score Service', () => {
             await saveGameScore(GameID.TETRIS, 1000, onSuccess, onError)
 
             expect(onSuccess).not.toHaveBeenCalled()
-            expect(onError).toHaveBeenCalledWith('Failed to save score')
+            expect(onError).toHaveBeenCalledWith(
+                'Failed to save score',
+                expect.objectContaining({ success: false })
+            )
+        })
+
+        it('forwards a structured failed submission as the second onError argument', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: false,
+                status: 401,
+                json: () => Promise.resolve({}),
+            })
+
+            const onError = vi.fn()
+            await saveGameScore(GameID.TETRIS, 1000, undefined, onError)
+
+            expect(onError).toHaveBeenCalledWith(
+                'You must be logged in to save scores',
+                expect.objectContaining({
+                    success: false,
+                    code: 'UNAUTHENTICATED',
+                })
+            )
         })
 
         it('should use fallback error message when result has no error field', async () => {
@@ -228,7 +267,10 @@ describe('Score Service', () => {
             const onError = vi.fn()
             await saveGameScore(GameID.TETRIS, 1000, undefined, onError)
 
-            expect(onError).toHaveBeenCalledWith('Failed to save score')
+            expect(onError).toHaveBeenCalledWith(
+                'Failed to save score',
+                expect.objectContaining({ success: false })
+            )
         })
 
         it('should call onError when network request throws', async () => {

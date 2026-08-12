@@ -10,7 +10,15 @@ import {
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
-import type { IceSlideCallbacks } from './types'
+import { createIceSlideDailyRunDefinition, toIceSlideUtcDateKey } from './daily'
+import { cloneIceSlideRunDefinition } from './run'
+import { ICE_SLIDE_OBJECTIVE_LABELS } from './objectives'
+import type {
+    IceSlideCallbacks,
+    IceSlidePlayableMode,
+    IceSlideRunDefinition,
+    IceSlideStageClearResult,
+} from './types'
 
 const runGuard = createRunGuard()
 
@@ -21,7 +29,8 @@ export interface IceSlideUICallbacks extends IceSlideCallbacks {
 }
 
 export interface IceSlideHandle {
-    start: () => Promise<void>
+    start: (mode?: IceSlidePlayableMode) => Promise<void>
+    playAgain: () => Promise<void>
     stop: () => void
     resetLevel: () => void
     cleanup: () => void
@@ -32,6 +41,13 @@ function setText(id: string, value: string): void {
     const el = document.getElementById(id)
     if (el) {
         el.textContent = value
+    }
+}
+
+function setVisible(id: string, visible: boolean): void {
+    const el = document.getElementById(id)
+    if (el) {
+        el.classList.toggle('hidden', !visible)
     }
 }
 
@@ -49,16 +65,30 @@ function resetButtons(): void {
 function showOverlay(title: string, score: number): void {
     setText('game-over-title', title)
     setText('final-score', score.toString())
-    const overlay = document.getElementById('game-over-overlay')
-    if (overlay) {
-        overlay.classList.remove('hidden')
-    }
+    setVisible('game-over-overlay', true)
 }
 
 function formatTime(seconds: number): string {
     const m = Math.floor(seconds / 60)
     const s = seconds % 60
     return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function extractDailyDateKey(runKey: string): string | null {
+    return /^ice-slide:daily:(\d{4}-\d{2}-\d{2}):/.exec(runKey)?.[1] ?? null
+}
+
+function nextUtcDateKey(dateKey: string): string {
+    const [year, month, day] = dateKey.split('-').map(Number)
+    return toIceSlideUtcDateKey(new Date(Date.UTC(year, month - 1, day + 1)))
+}
+
+function starCopy(label: string, earned: boolean): string {
+    return `${earned ? '✓' : '—'} ${label}`
+}
+
+function formatError(error: unknown): string {
+    return error instanceof Error ? error.message : String(error)
 }
 
 export async function initializeIceSlide(
@@ -70,6 +100,10 @@ export async function initializeIceSlide(
     let renderedRows = 0
     let renderedCols = 0
     let pointerStart: { x: number; y: number } | null = null
+    let inputLocked = false
+    let currentMode: IceSlidePlayableMode = 'campaign'
+    let dailyDateKey: string | null = null
+    let retryDailyRun: IceSlideRunDefinition | null = null
     runGuard.next()
 
     const pointerHandlers: {
@@ -79,6 +113,24 @@ export async function initializeIceSlide(
 
     const keyboardHandler = {
         keydown: null as ((e: KeyboardEvent) => void) | null,
+    }
+
+    const continueHandler = (): void => {
+        if (!inputLocked) {
+            return
+        }
+        hideStageClear()
+        render()
+        syncHud()
+    }
+
+    const hideStageClear = (): void => {
+        inputLocked = false
+        setVisible('stage-clear-overlay', false)
+    }
+
+    const hideFinalStageResult = (): void => {
+        setVisible('daily-final-stage-result', false)
     }
 
     const teardownRenderer = (): void => {
@@ -113,9 +165,13 @@ export async function initializeIceSlide(
     }
 
     const failRun = (error: unknown): void => {
+        runGuard.next()
         game?.destroy()
         game = null
         teardownRenderer()
+        hideStageClear()
+        hideFinalStageResult()
+        setVisible('daily-meta', false)
         resetButtons()
         callbacks.onError?.(
             'Ice Slide Error',
@@ -131,6 +187,7 @@ export async function initializeIceSlide(
 
     const syncHud = (): void => {
         if (!game) {
+            setVisible('daily-meta', false)
             return
         }
         const state = game.getState()
@@ -143,6 +200,79 @@ export async function initializeIceSlide(
         if (levelName) {
             levelName.textContent = state.levelName
         }
+
+        const isDaily = state.mode === 'daily'
+        setVisible('daily-meta', isDaily)
+        if (!isDaily) {
+            return
+        }
+
+        const capturedDateKey =
+            dailyDateKey ?? extractDailyDateKey(state.runKey) ?? ''
+        setText('daily-date', capturedDateKey)
+        if (capturedDateKey) {
+            setText(
+                'daily-reset',
+                `Resets at 00:00 UTC ${nextUtcDateKey(capturedDateKey)}`
+            )
+        }
+        setText(
+            'daily-stage-progress',
+            `Stage ${state.levelIndex + 1} / ${state.stagesTotal}`
+        )
+        setText('daily-objective-clear', 'Clear the stage')
+        setText(
+            'daily-objective-efficient',
+            `Efficient: ${state.parMoves} moves or fewer`
+        )
+        const objectiveId = state.objectiveIds[0]
+        setText(
+            'daily-objective-bonus',
+            objectiveId
+                ? `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[objectiveId]}`
+                : 'Bonus: —'
+        )
+    }
+
+    const populateStageClear = (result: IceSlideStageClearResult): void => {
+        setText('stage-clear-title', `Stage ${result.stageNumber} clear`)
+        setText('stage-clear-score', `+${result.scoreGained}`)
+        setText('stage-clear-clear', starCopy('Clear', result.stars.clear))
+        setText(
+            'stage-clear-efficient',
+            starCopy('Efficient', result.stars.efficient)
+        )
+        setText(
+            'stage-clear-bonus',
+            result.stars.bonus
+                ? starCopy(
+                      `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[result.stars.bonus.id]}`,
+                      result.stars.bonus.earned
+                  )
+                : '— Bonus'
+        )
+        setVisible('stage-clear-overlay', true)
+        document.getElementById('stage-clear-continue-btn')?.focus()
+    }
+
+    const populateFinalStageResult = (
+        result: IceSlideStageClearResult
+    ): void => {
+        setText('daily-final-clear', starCopy('Clear', result.stars.clear))
+        setText(
+            'daily-final-efficient',
+            starCopy('Efficient', result.stars.efficient)
+        )
+        setText(
+            'daily-final-bonus',
+            result.stars.bonus
+                ? starCopy(
+                      `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[result.stars.bonus.id]}`,
+                      result.stars.bonus.earned
+                  )
+                : '— Bonus'
+        )
+        setVisible('daily-final-stage-result', true)
     }
 
     const submitScore = (finalScore: number): void => {
@@ -152,6 +282,17 @@ export async function initializeIceSlide(
         const gameData = game.getGameData()
         const runId = runGuard.current()
         const isStale = () => runGuard.isStale(runId)
+        const isDaily = gameData.mode === 'daily'
+        const options = isDaily
+            ? {
+                  isStale,
+                  context: {
+                      mode: 'daily' as const,
+                      competitionKey: gameData.runKey,
+                      rulesetVersion: gameData.rulesetVersion,
+                  },
+              }
+            : { isStale }
         saveGameScore(
             GameID.ICE_SLIDE,
             finalScore,
@@ -169,19 +310,22 @@ export async function initializeIceSlide(
                     )
                 }
             },
-            error => {
+            (error, result) => {
                 if (isStale()) {
                     return
                 }
-                callbacks.onError?.(
-                    'Score not saved',
-                    error instanceof Error ? error.message : String(error)
-                )
+                if (isDaily && result?.code === 'UNAUTHENTICATED') {
+                    return
+                }
+                callbacks.onError?.('Score not saved', formatError(error))
             },
             gameData,
-            { isStale }
+            options
         )
     }
+
+    const canAcceptMove = (): boolean =>
+        !!game && game.getState().status === 'playing' && !inputLocked
 
     const wireInput = (): void => {
         if (!renderer || !game) {
@@ -189,13 +333,14 @@ export async function initializeIceSlide(
         }
 
         pointerHandlers.down = (event: PointerEvent) => {
+            if (!canAcceptMove()) {
+                pointerStart = null
+                return
+            }
             pointerStart = { x: event.clientX, y: event.clientY }
         }
         pointerHandlers.up = (event: PointerEvent) => {
-            if (!pointerStart || !game) {
-                return
-            }
-            if (game.getState().status !== 'playing') {
+            if (!pointerStart || !game || !canAcceptMove()) {
                 pointerStart = null
                 return
             }
@@ -216,7 +361,7 @@ export async function initializeIceSlide(
         renderer.app.canvas.addEventListener('pointerup', pointerHandlers.up)
 
         keyboardHandler.keydown = (event: KeyboardEvent) => {
-            if (!game || game.getState().status !== 'playing') {
+            if (!game || !canAcceptMove()) {
                 return
             }
             const direction = keyToDirection(event.key)
@@ -256,62 +401,118 @@ export async function initializeIceSlide(
         syncHud()
     }
 
-    const handle: IceSlideHandle = {
-        start: async () => {
-            runGuard.next()
-            teardownRenderer()
-            game?.destroy()
+    const startRun = async (run?: IceSlideRunDefinition): Promise<void> => {
+        runGuard.next()
+        teardownRenderer()
+        game?.destroy()
+        hideStageClear()
+        hideFinalStageResult()
+        setVisible('game-over-overlay', false)
+        if (run?.mode === 'daily') {
+            currentMode = 'daily'
+            dailyDateKey =
+                dailyDateKey ?? extractDailyDateKey(run.runKey) ?? null
+        } else {
+            currentMode = 'campaign'
+        }
 
-            game = new IceSlideGame({
-                onGameStart: () => {
-                    callbacks.onGameStart()
-                    syncHud()
-                },
-                onMove: info => {
-                    callbacks.onMove(info)
-                },
-                onCrystal: total => {
-                    callbacks.onCrystal(total)
-                },
-                onLevelClear: level => {
-                    callbacks.onLevelClear(level)
-                },
-                onHazard: () => {
-                    callbacks.onHazard()
-                },
-                onScoreUpdate: score => {
-                    callbacks.onScoreUpdate(score)
-                },
-                onTimeUpdate: seconds => {
-                    callbacks.onTimeUpdate(seconds)
-                    setText('time-remaining', formatTime(seconds))
-                },
-                onWin: finalScore => {
-                    callbacks.onWin(finalScore)
-                    resetButtons()
-                    showOverlay('MISSION COMPLETE!', finalScore)
-                    submitScore(finalScore)
-                    syncHud()
-                },
-            })
-
-            game.start()
-            const state = game.getState()
-            try {
-                await ensureRenderer(state.rows, state.cols)
-                render()
+        game = new IceSlideGame({
+            onGameStart: () => {
+                callbacks.onGameStart()
                 syncHud()
-            } catch (error) {
-                failRun(error)
-                throw error
+            },
+            onMove: info => {
+                callbacks.onMove(info)
+            },
+            onCrystal: total => {
+                callbacks.onCrystal(total)
+            },
+            onLevelClear: result => {
+                callbacks.onLevelClear(result)
+                if (!game || game.getState().mode !== 'daily') {
+                    return
+                }
+                if (game.getState().status === 'playing') {
+                    inputLocked = true
+                    populateStageClear(result)
+                } else if (game.getState().status === 'won') {
+                    populateFinalStageResult(result)
+                }
+            },
+            onHazard: () => {
+                callbacks.onHazard()
+            },
+            onScoreUpdate: score => {
+                callbacks.onScoreUpdate(score)
+            },
+            onTimeUpdate: seconds => {
+                callbacks.onTimeUpdate(seconds)
+                setText('time-remaining', formatTime(seconds))
+            },
+            onWin: finalScore => {
+                callbacks.onWin(finalScore)
+                hideStageClear()
+                resetButtons()
+                showOverlay('MISSION COMPLETE!', finalScore)
+                submitScore(finalScore)
+                syncHud()
+            },
+        })
+
+        game.start(run)
+        const state = game.getState()
+        try {
+            await ensureRenderer(state.rows, state.cols)
+            render()
+            syncHud()
+        } catch (error) {
+            failRun(error)
+            throw error
+        }
+    }
+
+    const handle: IceSlideHandle = {
+        start: async (mode = 'campaign') => {
+            if (mode === 'daily') {
+                const dateKey = toIceSlideUtcDateKey(new Date())
+                const run = createIceSlideDailyRunDefinition(dateKey)
+                retryDailyRun = cloneIceSlideRunDefinition(run)
+                dailyDateKey = dateKey
+                currentMode = 'daily'
+                await startRun(run)
+                return
             }
+            currentMode = 'campaign'
+            await startRun()
+        },
+
+        playAgain: async () => {
+            if (currentMode === 'daily' && retryDailyRun) {
+                const run = cloneIceSlideRunDefinition(retryDailyRun)
+                dailyDateKey = extractDailyDateKey(run.runKey)
+                await startRun(run)
+                return
+            }
+            await startRun()
         },
 
         stop: () => {
             if (!game) {
                 return
             }
-            const { status, score } = game.getState()
+            const { status, score, mode } = game.getState()
+            if (mode === 'daily') {
+                if (status !== 'playing') {
+                    return
+                }
+                hideStageClear()
+                game.stop()
+                resetButtons()
+                showOverlay('RUN ENDED', score)
+                syncHud()
+                return
+            }
+
             const shouldSubmit = status === 'playing' && score > 0
             game.stop()
             resetButtons()
@@ -322,7 +523,10 @@ export async function initializeIceSlide(
         },
 
         resetLevel: () => {
-            game?.resetLevel()
+            if (!game || !canAcceptMove()) {
+                return
+            }
+            game.resetLevel()
             render()
             syncHud()
         },
@@ -331,7 +535,13 @@ export async function initializeIceSlide(
             runGuard.next()
             game?.destroy()
             game = null
+            hideStageClear()
+            hideFinalStageResult()
+            setVisible('daily-meta', false)
             teardownRenderer()
+            document
+                .getElementById('stage-clear-continue-btn')
+                ?.removeEventListener('click', continueHandler)
             const debugWindow = window as Window & {
                 iceSlideGame?: IceSlideHandle
             }
@@ -345,5 +555,8 @@ export async function initializeIceSlide(
 
     ;(window as Window & { iceSlideGame?: IceSlideHandle }).iceSlideGame =
         handle
+    document
+        .getElementById('stage-clear-continue-btn')
+        ?.addEventListener('click', continueHandler)
     return handle
 }

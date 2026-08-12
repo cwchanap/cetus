@@ -8,7 +8,9 @@ import { getGameById, type GameID } from '@/lib/games'
 import type { GameData } from '@/lib/games/shared/types'
 import type { ScoreSubmissionContext } from '@/lib/server/validations'
 
-export type ScoreSubmissionPublicErrorCode = 'SCORE_CONTEXT_UNAVAILABLE'
+export type ScoreSubmissionPublicErrorCode =
+    | 'SCORE_CONTEXT_UNAVAILABLE'
+    | 'UNAUTHENTICATED'
 
 export interface ScoreSubmissionResult {
     success: boolean
@@ -72,9 +74,11 @@ export async function submitScore(
             }
 
             const code =
-                body?.code === 'SCORE_CONTEXT_UNAVAILABLE'
-                    ? body.code
-                    : undefined
+                response.status === 401
+                    ? 'UNAUTHENTICATED'
+                    : body?.code === 'SCORE_CONTEXT_UNAVAILABLE'
+                      ? body.code
+                      : undefined
 
             if (response.status === 401) {
                 return {
@@ -107,7 +111,7 @@ export async function saveGameScore(
     gameId: GameType,
     score: number,
     onSuccess?: (result: ScoreSubmissionResult) => void,
-    onError?: (error: string) => void,
+    onError?: (error: string, result?: ScoreSubmissionResult) => void,
     gameData?: GameData | Record<string, unknown>,
     options?: SaveScoreOptions
 ): Promise<void> {
@@ -153,7 +157,12 @@ export async function saveGameScore(
 
             onSuccess?.(result)
         } else {
-            onError?.(result.error || 'Failed to save score')
+            const message = result.error || 'Failed to save score'
+            if (message === 'Network error occurred' && !result.code) {
+                onError?.(message)
+            } else {
+                onError?.(message, result)
+            }
         }
     } catch (_error) {
         if (options?.isStale?.()) {
