@@ -34,6 +34,10 @@ export interface IceSlideState {
     start: GridPosition
     moves: number
     levelMoves: number
+    parMoves: number
+    objectiveIds: IceSlideObjectiveId[]
+    levelFalls: number
+    levelResets: number
     crystalsCollected: number
     levelCrystalsCollected: number
     score: number
@@ -77,11 +81,28 @@ export interface IceSlideCallbacks {
     onGameStart: () => void
     onMove: (info: { moves: number; levelMoves: number }) => void
     onCrystal: (total: number) => void
-    onLevelClear: (level: number) => void
+    onLevelClear: (result: IceSlideStageClearResult) => void
     onHazard: () => void
     onScoreUpdate: (score: number) => void
     onTimeUpdate: (elapsedSeconds: number) => void
     onWin: (finalScore: number) => void
+}
+
+export type IceSlidePlayableMode = 'campaign' | 'daily'
+
+export interface IceSlideStageClearResult {
+    stageNumber: number
+    stageName: string
+    parMoves: number
+    movesUsed: number
+    crystalsCollected: number
+    scoreGained: number
+    stars: {
+        clear: boolean
+        efficient: boolean
+        bonus: { id: IceSlideObjectiveId; earned: boolean } | null
+        earnedCount: number
+    }
 }
 
 export const DIRECTION_DELTA: Record<Direction, GridPosition> = {
