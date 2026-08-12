@@ -362,6 +362,27 @@ test.describe('Ice Slide', () => {
         await expect(page.locator('#start-btn')).toBeVisible()
     })
 
+    test('restores mode controls after ending a zero-score Campaign run', async ({
+        page,
+    }) => {
+        await page.goto('/ice-slide')
+        await expectIceSlideReadyAndIdle(page)
+        await startGameWhenReady(page)
+        await expect(page.locator('#end-btn')).toBeVisible()
+
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#game-over-overlay')).toHaveClass(/hidden/)
+
+        const campaignRadio = page.locator('input[value="campaign"]')
+        const dailyRadio = page.locator('input[value="daily"]')
+        await expect(campaignRadio).toBeEnabled()
+        await expect(dailyRadio).toBeEnabled()
+        await expect(campaignRadio).toBeFocused()
+
+        await dailyRadio.check()
+        await expect(dailyRadio).toBeChecked()
+    })
+
     test('preselects Daily and exposes objectives before the first move', async ({
         page,
     }) => {

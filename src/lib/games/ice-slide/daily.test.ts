@@ -21,6 +21,15 @@ describe('Ice Slide Daily date keys', () => {
             RangeError
         )
     })
+
+    it('rejects Dates outside the YYYY-MM-DD transport range', () => {
+        expect(() =>
+            toIceSlideUtcDateKey(new Date(Date.UTC(10000, 0, 1)))
+        ).toThrow(RangeError)
+        expect(() =>
+            toIceSlideUtcDateKey(new Date(Date.UTC(-1, 0, 1)))
+        ).toThrow(RangeError)
+    })
 })
 
 describe('Ice Slide Daily generator v1', () => {

@@ -60,4 +60,24 @@ describe('score-context index retry backoff', () => {
         }
         expect(recovered.capabilities.scopedIndex).toBe(true)
     })
+
+    it('reuses complete cached context when a refresh probe fails', async () => {
+        const first = await ensureGameScoresContextSchema()
+        expect(first.known).toBe(true)
+        if (first.known) {
+            // Simulate a stale cached snapshot after an index disappears so
+            // the next call must refresh capabilities.
+            first.capabilities.scopedIndex = false
+        }
+        vi.advanceTimersByTime(60_001)
+
+        const executeSpy = vi
+            .spyOn(db.getExecutor(), 'executeQuery')
+            .mockRejectedValueOnce(new Error('probe failed'))
+        const recovered = await ensureGameScoresContextSchema()
+
+        expect(recovered).toEqual(first)
+        expect(executeSpy).toHaveBeenCalled()
+        executeSpy.mockRestore()
+    })
 })

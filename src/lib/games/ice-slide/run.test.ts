@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { hashString32Hex } from '../shared/seeded-rng'
-import { ICE_SLIDE_LEVELS } from './levels'
+import { getLevel, ICE_SLIDE_LEVELS } from './levels'
 import {
     CAMPAIGN_RUN_KEY,
     ICE_SLIDE_CAMPAIGN_GENERATOR_VERSION,
@@ -115,6 +115,16 @@ describe('Campaign run materialization', () => {
     })
 })
 
+it('rejects an out-of-range authored level lookup', () => {
+    expect(() => getLevel(ICE_SLIDE_LEVELS.length)).toThrow(
+        'Ice Slide level index out of range'
+    )
+})
+
+it('returns the authored level for a valid index', () => {
+    expect(getLevel(0)).toBe(ICE_SLIDE_LEVELS[0])
+})
+
 function cloneRun(
     run = createCampaignRunDefinition()
 ): ReturnType<typeof createCampaignRunDefinition> {
@@ -141,6 +151,13 @@ it.each([
             run.generatorVersion = 2
         },
         'campaign versions must match the campaign runKey',
+    ],
+    [
+        'Campaign run key mismatch',
+        (run: ReturnType<typeof createCampaignRunDefinition>) => {
+            run.runKey = 'ice-slide:campaign:g9:r1'
+        },
+        'campaign runKey must be ice-slide:campaign:g1:r1',
     ],
     [
         'Campaign seed',
@@ -388,6 +405,13 @@ describe('assertValidIceSlideRunDefinition rejections', () => {
                 run.stages[0].rows = []
             },
             'stage rows must not be empty',
+        ],
+        [
+            'zero-column stage rows',
+            (run: ReturnType<typeof cloneRun>) => {
+                run.stages[0].rows = ['']
+            },
+            'stage rows must not have zero columns',
         ],
         [
             'non-rectangular stage rows',

@@ -47,6 +47,7 @@ import { GameID } from '@/lib/games'
 import { cleanup as rendererCleanup, setupPixiJS } from './renderer'
 import { cloneGrid, slide } from './physics'
 import { DIRECTION_DELTA, type CellType, type Direction } from './types'
+import { createTestRun, createTestStage } from './test-fixtures'
 
 function mountDom(): HTMLElement {
     document.body.innerHTML = `
@@ -301,6 +302,14 @@ describe('initializeIceSlide', () => {
         expect(
             document.getElementById('daily-stage-progress')?.textContent
         ).toBe('Stage 2 / 5')
+        document
+            .getElementById('stage-clear-continue-btn')
+            ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        expect(
+            document
+                .getElementById('stage-clear-overlay')
+                ?.classList.contains('hidden')
+        ).toBe(true)
         handle.cleanup()
     })
 
@@ -319,6 +328,50 @@ describe('initializeIceSlide', () => {
         expect(saveGameScore).not.toHaveBeenCalled()
         expect(document.getElementById('start-btn')?.style.display).toBe(
             'inline-flex'
+        )
+        handle.stop()
+        handle.cleanup()
+    })
+
+    it('renders a Daily clear without a bonus row when no objective is assigned', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('daily')
+        const game = handle.getGame()!
+        ;(
+            game as unknown as { state: { objectiveIds: string[] } }
+        ).state.objectiveIds = []
+        solveCurrentStage(handle)
+
+        expect(document.getElementById('stage-clear-bonus')?.textContent).toBe(
+            '— Bonus'
+        )
+        document.getElementById('stage-clear-continue-btn')?.click()
+        handle.cleanup()
+    })
+
+    it('renders a final Daily result without a bonus row when no objective is assigned', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('daily')
+        for (let stage = 1; stage <= 5; stage++) {
+            if (stage === 5) {
+                ;(
+                    handle.getGame() as unknown as {
+                        state: { objectiveIds: string[] }
+                    }
+                ).state.objectiveIds = []
+            }
+            solveCurrentStage(handle)
+            if (stage < 5) {
+                document.getElementById('stage-clear-continue-btn')?.click()
+            }
+        }
+
+        expect(document.getElementById('daily-final-bonus')?.textContent).toBe(
+            '— Bonus'
         )
         handle.cleanup()
     })
@@ -438,6 +491,18 @@ describe('initializeIceSlide', () => {
         expect(debugWindow.iceSlideGame).toBeUndefined()
     })
 
+    it('replays Campaign when Play Again is requested without a Daily retry', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start()
+        await handle.playAgain()
+
+        expect(handle.getGame()?.getState().mode).toBe('campaign')
+        expect(handle.getGame()?.getState().status).toBe('playing')
+        handle.cleanup()
+    })
+
     it('forwards afterMove failures to onError and ends the run', async () => {
         const callbacks = baseCallbacks()
         const container = mountDom()
@@ -460,6 +525,35 @@ describe('initializeIceSlide', () => {
             'inline-flex'
         )
         expect(document.getElementById('end-btn')?.style.display).toBe('none')
+        handle.cleanup()
+    })
+
+    it('ignores a deferred renderer resize that completes after stop', async () => {
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+        await handle.start()
+
+        const initialRenderer = (await vi
+            .mocked(setupPixiJS)
+            .mock.results.at(-1)!.value)!
+        let resolveResize!: (renderer: typeof initialRenderer) => void
+        const pendingResize = new Promise<typeof initialRenderer>(resolve => {
+            resolveResize = resolve
+        })
+        vi.mocked(setupPixiJS).mockReturnValueOnce(pendingResize)
+
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })
+        )
+        handle.stop()
+        handle.cleanup()
+        resolveResize(initialRenderer)
+        await pendingResize
+        await Promise.resolve()
+
+        expect(handle.getGame()).toBeNull()
+        expect(callbacks.onError).not.toHaveBeenCalled()
         handle.cleanup()
     })
 
@@ -501,6 +595,20 @@ describe('initializeIceSlide', () => {
             expect(handle.getGame()?.getState().levelIndex).toBe(1)
         })
 
+        handle.cleanup()
+    })
+
+    it('ignores keyboard input that does not map to a direction', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+        await handle.start()
+        const movesBefore = handle.getGame()?.getState().moves
+
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'q', bubbles: true })
+        )
+
+        expect(handle.getGame()?.getState().moves).toBe(movesBefore)
         handle.cleanup()
     })
 
@@ -564,6 +672,74 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
+    it('ignores score callbacks that arrive after the run is stale', async () => {
+        const callbacks = baseCallbacks()
+        let onSuccess: ((result: unknown) => void) | undefined
+        let onError: ((error: string, result?: unknown) => void) | undefined
+        const achievementHandler = vi.fn()
+        window.addEventListener('achievementsEarned', achievementHandler)
+        vi.mocked(saveGameScore).mockImplementation(
+            (_id, _score, success, error) => {
+                onSuccess = success as ((result: unknown) => void) | undefined
+                onError = error as
+                    | ((error: string, result?: unknown) => void)
+                    | undefined
+                return Promise.resolve()
+            }
+        )
+
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+        await handle.start()
+        handle.getGame()?.move('S')
+        handle.stop()
+        handle.cleanup()
+
+        onSuccess?.({
+            success: true,
+            newAchievements: [{ id: 'stale' }],
+        })
+        onError?.('stale failure')
+
+        expect(achievementHandler).not.toHaveBeenCalled()
+        expect(callbacks.onError).not.toHaveBeenCalled()
+        window.removeEventListener('achievementsEarned', achievementHandler)
+    })
+
+    it('forwards hazard and score updates from an active custom run', async () => {
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+        await handle.start()
+
+        handle.getGame()!.start(
+            createTestRun([
+                createTestStage({
+                    rows: ['#####', '#S.H#', '#G..#', '#####'],
+                }),
+            ])
+        )
+        handle.getGame()!.move('E')
+
+        expect(callbacks.onScoreUpdate).toHaveBeenCalledWith(0)
+        expect(callbacks.onHazard).toHaveBeenCalledTimes(1)
+        handle.cleanup()
+    })
+
+    it('does not submit a zero score from a win callback', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+        await handle.start()
+        ;(
+            handle.getGame() as unknown as {
+                callbacks: { onWin?: (score: number) => void }
+            }
+        ).callbacks.onWin?.(0)
+
+        expect(saveGameScore).not.toHaveBeenCalled()
+        handle.cleanup()
+    })
+
     it('surfaces score errors via onError', async () => {
         const callbacks = baseCallbacks()
         const container = mountDom()
@@ -585,13 +761,43 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
+    it('silences an unauthenticated Daily score error', async () => {
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+        await handle.start('daily')
+
+        vi.mocked(saveGameScore).mockImplementation(
+            (_id, _score, _onSuccess, onErrorCb) => {
+                onErrorCb?.('You must be logged in to save scores', {
+                    success: false,
+                    code: 'UNAUTHENTICATED',
+                })
+                return Promise.resolve()
+            }
+        )
+
+        for (let stage = 1; stage <= 5; stage++) {
+            solveCurrentStage(handle)
+            if (stage < 5) {
+                document.getElementById('stage-clear-continue-btn')?.click()
+            }
+        }
+
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+        expect(callbacks.onError).not.toHaveBeenCalled()
+        handle.cleanup()
+    })
+
     it('cleanup tears down renderer and game', async () => {
         const container = mountDom()
         const handle = await initializeIceSlide(container, baseCallbacks())
         await handle.start()
+        container.appendChild(document.createElement('canvas'))
         handle.cleanup()
         expect(handle.getGame()).toBeNull()
         expect(rendererCleanup).toHaveBeenCalled()
+        expect(container).toBeEmptyDOMElement()
     })
 
     it('stop is a no-op before start', async () => {

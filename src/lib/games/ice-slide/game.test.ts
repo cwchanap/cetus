@@ -68,6 +68,20 @@ describe('IceSlideGame', () => {
         game.destroy()
     })
 
+    it('reports an out-of-range active stage lookup', () => {
+        const game = new IceSlideGame()
+        game.start()
+
+        expect(() =>
+            (
+                game as unknown as {
+                    getStage: (index: number) => unknown
+                }
+            ).getStage(999)
+        ).toThrow('Ice Slide stage index out of range')
+        game.destroy()
+    })
+
     it('provides five distinct canonical boards in the default Daily fixture', () => {
         const run = createTestDailyRun()
         const boardKeys = run.stages.map(stage =>
@@ -259,6 +273,21 @@ describe('IceSlideGame', () => {
         vi.advanceTimersByTime(3000)
         expect(onTimeUpdate).not.toHaveBeenCalled()
         expect(game.getState().elapsedSeconds).toBe(0)
+        game.destroy()
+    })
+
+    it('does not advance elapsed time when a timer observes an idle state', () => {
+        vi.useFakeTimers()
+        const onTimeUpdate = vi.fn()
+        const game = new IceSlideGame({ onTimeUpdate })
+        game.start()
+        ;(game as unknown as { state: { status: string } }).state.status =
+            'idle'
+        onTimeUpdate.mockClear()
+        vi.advanceTimersByTime(1000)
+
+        expect(game.getState().elapsedSeconds).toBe(0)
+        expect(onTimeUpdate).not.toHaveBeenCalled()
         game.destroy()
     })
 
