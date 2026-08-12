@@ -87,7 +87,10 @@ export abstract class BaseGame<
         }
 
         if (this.state.gameStarted && this.state.isGameOver) {
-            this.reset()
+            // Bypass the public resettable guard: a completed run must be
+            // cleared before the next run starts even when manual reset() is
+            // disabled. reset() still enforces config.resettable for callers.
+            this.resetInternal()
         }
 
         this.runGuard.next()
@@ -207,6 +210,16 @@ export abstract class BaseGame<
             return
         }
 
+        this.resetInternal()
+    }
+
+    /**
+     * Internal reset sequence shared by reset() and the completed-run branch
+     * of start(). Does NOT enforce config.resettable — callers are responsible
+     * for the guard (reset() checks it; start() bypasses it intentionally so a
+     * completed run is always cleared before the next one).
+     */
+    private resetInternal(): void {
         this.runGuard.next()
         this.timer.reset()
         this.scoreManager.reset()

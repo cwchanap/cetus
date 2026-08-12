@@ -135,7 +135,11 @@ function createElement<K extends keyof HTMLElementTagNameMap>(
     return el
 }
 
-type PreviewCtx = { fillRect: ReturnType<typeof vi.fn>; fillStyle: string }
+type PreviewCtx = {
+    fillRect: ReturnType<typeof vi.fn>
+    clearRect: ReturnType<typeof vi.fn>
+    fillStyle: string
+}
 
 function setupDOM(): {
     currentBubbleCtx: PreviewCtx
@@ -218,10 +222,12 @@ function setupDOM(): {
     // assert on current vs next independently (and detect null clears).
     const currentBubbleCtx: PreviewCtx = {
         fillRect: vi.fn(),
+        clearRect: vi.fn(),
         fillStyle: '',
     }
     const nextBubbleCtx: PreviewCtx = {
         fillRect: vi.fn(),
+        clearRect: vi.fn(),
         fillStyle: '',
     }
 
@@ -956,28 +962,37 @@ describe('initBubbleShooterGameFramework', () => {
 
         it('clears the preview canvases when currentBubble/nextBubble transition from a color to null', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { drawBubbleOnCanvas } = await import('./utils')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             const callbacksArg = vi.mocked(BubbleShooterGame).mock
                 .calls[0][1] as any
             const baseState = gameMock.getState()
             // First a colored bubble on each canvas → one fillRect each
-            // (background) plus the bubble draw.
+            // (translucent background) plus the bubble draw.
             callbacksArg.onStateChange({
                 ...baseState,
                 currentBubble: { x: 300, y: 700, color: 0xff0000 },
                 nextBubble: { color: 0x00ff00 },
             })
-            // Then null → the canvas must CLEAR (one more fillRect each for
-            // the background wipe; drawBubbleOnCanvas is NOT called).
+            vi.mocked(drawBubbleOnCanvas).mockClear()
+            currentBubbleCtx.fillRect.mockClear()
+            currentBubbleCtx.clearRect.mockClear()
+            nextBubbleCtx.fillRect.mockClear()
+            nextBubbleCtx.clearRect.mockClear()
+            // Then null → the canvas must CLEAR via clearRect (no background
+            // fillRect, no drawBubbleOnCanvas) on both preview contexts.
             callbacksArg.onStateChange({
                 ...baseState,
                 currentBubble: null,
                 nextBubble: null,
             })
 
-            expect(currentBubbleCtx.fillRect).toHaveBeenCalledTimes(2)
-            expect(nextBubbleCtx.fillRect).toHaveBeenCalledTimes(2)
+            expect(currentBubbleCtx.clearRect).toHaveBeenCalledTimes(1)
+            expect(nextBubbleCtx.clearRect).toHaveBeenCalledTimes(1)
+            expect(currentBubbleCtx.fillRect).not.toHaveBeenCalled()
+            expect(nextBubbleCtx.fillRect).not.toHaveBeenCalled()
+            expect(drawBubbleOnCanvas).not.toHaveBeenCalled()
         })
     })
 
