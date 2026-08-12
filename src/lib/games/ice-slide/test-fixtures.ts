@@ -61,12 +61,26 @@ export function createTestRun(
 }
 
 function fiveSimpleStages(): IceSlideStageDefinition[] {
-    return Array.from({ length: 5 }, (_, index) =>
+    const boards = [
+        { rows: ['#####', '#S.G#', '#####'], parMoves: 1 },
+        { rows: ['#####', '#S..#', '#G..#', '#####'], parMoves: 1 },
+        { rows: ['######', '#S..G#', '######'], parMoves: 1 },
+        {
+            rows: ['#####', '#S..#', '#..G#', '#####'],
+            parMoves: 2,
+        },
+        {
+            rows: ['######', '#S...#', '#..G.#', '######'],
+            parMoves: 2,
+        },
+    ]
+    return boards.map((board, index) =>
         createTestStage({
             id: `daily:test:${index + 1}`,
             name: `Daily Test ${index + 1}`,
             templateId: `test:${index + 1}`,
             objectiveIds: ['no_falls'],
+            ...board,
         })
     )
 }
