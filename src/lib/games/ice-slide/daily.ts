@@ -62,6 +62,7 @@ export function createIceSlideDailyRunDefinition(
         `${ICE_SLIDE_RULESET_VERSION}:${dateKey}`
     const rootRng = createSeededRng(seed)
     const acceptedCanonicalKeys = new Set<string>()
+    const acceptedSourceIds = new Set<number>()
     const stages: IceSlideStageDefinition[] = []
 
     for (const [stageIndex, pool] of ICE_SLIDE_DAILY_STAGE_POOLS.entries()) {
@@ -71,6 +72,9 @@ export function createIceSlideDailyRunDefinition(
         let materializedStage: IceSlideStageDefinition | null = null
 
         for (const templateId of templateOrder) {
+            if (acceptedSourceIds.has(templateId)) {
+                continue
+            }
             const sourceIndex = ICE_SLIDE_LEVELS.findIndex(
                 level => level.id === templateId
             )
@@ -129,6 +133,7 @@ export function createIceSlideDailyRunDefinition(
                 }
                 stage.signature = createIceSlideStageSignature(stage)
                 acceptedCanonicalKeys.add(quality.canonicalKey)
+                acceptedSourceIds.add(source.id)
                 materializedStage = stage
                 break
             }
