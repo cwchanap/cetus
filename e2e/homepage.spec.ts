@@ -48,7 +48,11 @@ test.describe('Homepage', () => {
         const homePage = new HomePage(page)
         await homePage.goto()
 
-        const h1Count = await page.locator('h1').count()
+        // Use the page document directly so Astro's dev-toolbar shadow DOM does
+        // not contribute its internal headings to the application markup count.
+        const h1Count = await page.evaluate(
+            () => document.querySelectorAll('h1').length
+        )
         expect(h1Count).toBe(1)
     })
 })
