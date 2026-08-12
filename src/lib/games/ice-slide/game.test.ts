@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { IceSlideGame } from './game'
-import { CAMPAIGN_RUN_KEY } from './run'
+import { CAMPAIGN_RUN_KEY, createCampaignRunDefinition } from './run'
 import {
     createTestDailyRun,
     createTestRun,
     createTestStage,
 } from './test-fixtures'
 import { DAILY_SCORING_CONFIG, levelScore, timeBonus } from './scoring'
+import { serializeBoardRows } from './transforms'
 import type { IceSlideStageClearResult } from './types'
 
 function expectRunMetadataPreserved(
@@ -65,6 +66,17 @@ describe('IceSlideGame', () => {
         expect(() => game.start()).not.toThrow()
         expect(game.getState().levelName).toBe('First Frost')
         game.destroy()
+    })
+
+    it('provides five distinct canonical boards in the default Daily fixture', () => {
+        const run = createTestDailyRun()
+        const boardKeys = run.stages.map(stage =>
+            serializeBoardRows(stage.rows)
+        )
+
+        expect(run.stages).toHaveLength(5)
+        expect(new Set(boardKeys).size).toBe(5)
+        expect(new Set(run.stages.map(stage => stage.signature)).size).toBe(5)
     })
 
     it('plays an explicit run according to its own stage count', () => {
@@ -543,7 +555,7 @@ describe('IceSlideGame', () => {
         missedGame.destroy()
     })
 
-    it('uses Daily completion time config and level-clear then win order', () => {
+    it('completes the default five-stage Daily run with accumulated stars', () => {
         vi.useFakeTimers()
         const events: string[] = []
         const onLevelClear = vi.fn((result: IceSlideStageClearResult) => {
@@ -552,15 +564,37 @@ describe('IceSlideGame', () => {
         })
         const onWin = vi.fn(() => events.push('win'))
         const game = new IceSlideGame({ onLevelClear, onWin })
-        const stages = [createTestStage({ id: 'daily:time:1' })]
-        game.start(createTestDailyRun(stages))
+        game.start(createTestDailyRun())
         vi.advanceTimersByTime(301_000)
-        game.move('E')
+        for (const stageMoves of [
+            ['E'],
+            ['S'],
+            ['E'],
+            ['S', 'E'],
+            ['S', 'E'],
+        ]) {
+            for (const direction of stageMoves) {
+                game.move(direction as 'N' | 'E' | 'S' | 'W')
+            }
+        }
 
-        expect(events).toEqual(['level-clear', 'win'])
+        expect(onLevelClear).toHaveBeenCalledTimes(5)
+        expect(game.getState().starsEarned).toBe(15)
+        expect(game.getState().levelsCleared).toBe(5)
+        expect(events).toEqual([
+            'level-clear',
+            'level-clear',
+            'level-clear',
+            'level-clear',
+            'level-clear',
+            'win',
+        ])
+        const stageScore = onLevelClear.mock.calls.reduce(
+            (total, [result]) => total + result.scoreGained,
+            0
+        )
         expect(onWin).toHaveBeenCalledWith(
-            onLevelClear.mock.calls[0][0].scoreGained +
-                timeBonus(301, DAILY_SCORING_CONFIG)
+            stageScore + timeBonus(301, DAILY_SCORING_CONFIG)
         )
         game.destroy()
     })
@@ -574,11 +608,36 @@ describe('IceSlideGame', () => {
         })
         const onWin = vi.fn(() => events.push('win'))
         const game = new IceSlideGame({ onLevelClear, onWin })
-        game.start(createTestRun([createTestStage()]))
-        game.move('E')
+        game.start(createCampaignRunDefinition())
+        const campaignSolutions = [
+            ['S'],
+            ['S', 'E', 'S'],
+            ['E', 'S', 'E', 'S'],
+            ['E', 'S', 'W', 'S', 'E'],
+            ['S', 'E', 'N', 'W', 'S', 'E'],
+            ['S', 'E', 'S'],
+            ['S', 'E', 'N', 'W', 'S', 'E'],
+            ['S', 'E', 'N', 'W', 'S', 'E'],
+        ]
+        for (const stageMoves of campaignSolutions) {
+            for (const direction of stageMoves) {
+                game.move(direction as 'N' | 'E' | 'S' | 'W')
+            }
+        }
 
-        expect(events).toEqual(['level-clear', 'win'])
+        expect(events).toEqual([
+            'level-clear',
+            'level-clear',
+            'level-clear',
+            'level-clear',
+            'level-clear',
+            'level-clear',
+            'level-clear',
+            'level-clear',
+            'win',
+        ])
         expect(game.getState().starsEarned).toBe(0)
+        expect(onLevelClear).toHaveBeenCalledTimes(8)
         expect(onLevelClear.mock.calls[0][0]).toMatchObject({
             scoreGained: levelScore({
                 levelNumber: 1,
@@ -593,9 +652,11 @@ describe('IceSlideGame', () => {
                 earnedCount: 0,
             },
         })
-        expect(onWin).toHaveBeenCalledWith(
-            onLevelClear.mock.calls[0][0].scoreGained + timeBonus(0)
+        const stageScore = onLevelClear.mock.calls.reduce(
+            (total, [result]) => total + result.scoreGained,
+            0
         )
+        expect(onWin).toHaveBeenCalledWith(stageScore + timeBonus(0))
         game.destroy()
     })
 })
