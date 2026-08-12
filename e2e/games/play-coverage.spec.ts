@@ -319,6 +319,7 @@ test.describe('Ice Slide', () => {
         await expect(page.locator('#game-status')).toBeVisible()
         await expect(page.locator('#score')).toHaveText('0')
         await expect(page.locator('#moves')).toHaveText('0')
+        await expect(page.locator('input[value="campaign"]')).toBeChecked()
 
         await startGameWhenReady(page)
         await expectVisibleGameSurface(page, '#game-canvas-container canvas')
@@ -336,4 +337,68 @@ test.describe('Ice Slide', () => {
         )
         await expect(page.locator('#start-btn')).toBeVisible()
     })
+
+    test('preselects Daily and exposes objectives before the first move', async ({
+        page,
+    }) => {
+        await page.clock.setFixedTime(new Date('2026-08-12T20:00:00Z'))
+        await page.goto('/ice-slide?mode=daily')
+
+        await expect(page.locator('input[value="daily"]')).toBeChecked()
+        await startGameWhenReady(page)
+        await expect(page.locator('#daily-meta')).toBeVisible()
+        await expect(page.locator('#daily-date')).toHaveText('2026-08-12')
+        await expect(page.locator('#daily-stage-progress')).toHaveText(
+            /1\s*\/\s*5/
+        )
+        await expect(page.locator('#daily-objective-clear')).toContainText(
+            'Clear'
+        )
+        await expect(page.locator('#daily-objective-efficient')).toContainText(
+            'Efficient'
+        )
+        await expect(page.locator('#daily-objective-bonus')).not.toHaveText('')
+    })
+
+    test('Play Again preserves Daily identity across rollover and Change Mode stays idle', async ({
+        page,
+    }) => {
+        await page.clock.setFixedTime(new Date('2026-08-12T23:59:59Z'))
+        await page.goto('/ice-slide?mode=daily')
+        await startGameWhenReady(page)
+        await expect(page.locator('#daily-date')).toHaveText('2026-08-12')
+
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/
+        )
+
+        await page.clock.setFixedTime(new Date('2026-08-13T00:00:01Z'))
+        await page.locator('#play-again-btn').click()
+        await expect(page.locator('#daily-date')).toHaveText('2026-08-12')
+        await expect(page.locator('#end-btn')).toBeVisible()
+
+        await page.locator('#end-btn').click()
+        await page.locator('#change-mode-btn').click()
+
+        const modeInputs = page.locator('#ice-slide-mode-selector input')
+        await expect(modeInputs).toHaveCount(2)
+        await expect(modeInputs.nth(0)).toBeEnabled()
+        await expect(modeInputs.nth(1)).toBeEnabled()
+        await expect(page.locator('#start-btn')).toBeVisible()
+        await expect(page.locator('#end-btn')).toHaveCSS('display', 'none')
+        await expect(page.locator('#game-status')).toBeVisible()
+        await expect(page.locator('input[value="daily"]')).toBeFocused()
+    })
+
+    for (const mode of ['expedition', 'not-a-mode']) {
+        test(`falls back to Campaign for mode=${mode}`, async ({ page }) => {
+            await page.goto(`/ice-slide?mode=${mode}`)
+
+            await expect(page.locator('input[value="campaign"]')).toBeChecked()
+            await expect(page.locator('#start-btn')).toBeVisible()
+            await expect(page.locator('#game-status')).toBeVisible()
+            await expect(page.locator('#end-btn')).toHaveCSS('display', 'none')
+        })
+    }
 })
