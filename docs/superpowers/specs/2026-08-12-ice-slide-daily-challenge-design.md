@@ -4,104 +4,105 @@
 - **Status:** Proposed for HPA-487 implementation
 - **Repository:** `cwchanap/cetus`
 - **Linear issue:** HPA-487 — Ship Ice Slide Daily Challenge MVP with mode selection and three-star objectives
-- **Planning PR:** #60
 - **Parent design:** `docs/superpowers/specs/2026-07-30-ice-slide-replayability-design.md`
 
 ## 1. Summary
 
-HPA-487 is the next unblocked Ice Slide replayability task. HPA-484 already added optional score context, HPA-485 added deterministic run definitions/RNG/transforms, and HPA-486 added the production solver and stage-quality validator.
+HPA-487 is the next unblocked Ice Slide replayability task. HPA-484 already added optional score context, HPA-485 added deterministic materialized runs/RNG/transforms, and HPA-486 added the production solver and stage-quality validator.
 
-This is an integration feature, not a new game framework. Daily generation materializes an `IceSlideRunDefinition` before play starts; `IceSlideGame` continues to consume materialized runs. Pure helpers own Daily generation, objective evaluation, and scoring. `init.ts` owns the clock boundary, exact retry identity, Daily HUD synchronization, stage-result gating, and submission choice.
+Daily therefore remains an integration feature, not a second game engine or a generic generation framework:
 
-The MVP ships only two selectable modes:
+- `daily.ts` materializes a complete `IceSlideRunDefinition` from an explicit UTC date key.
+- `IceSlideGame` consumes the materialized run and never reads the clock or random source.
+- objective completion and score policy stay pure.
+- `init.ts` owns fresh-vs-retry identity, HUD synchronization, mid-run stage-result gating, and score submission.
+- `index.astro` owns the page-local Campaign/Daily selector and overlays.
 
-- **Campaign** — unchanged default behavior.
-- **Daily** — one deterministic five-stage run per UTC date and version pair.
-
-HPA-488 remains responsible for server-side Daily semantic admission and the Daily leaderboard UI/query flow.
+Only **Campaign** and **Daily** are selectable. HPA-488 remains responsible for server-side Daily semantic admission and per-day leaderboard presentation.
 
 ## 2. Why HPA-487 Is Next
 
-Linear models HPA-487 as blocked by HPA-484, HPA-485, and HPA-486. All three are Done. HPA-487 then unlocks HPA-488, HPA-489, and HPA-490.
+Linear models HPA-487 as blocked by HPA-484, HPA-485, and HPA-486; all three are Done. HPA-487 then unblocks HPA-488, HPA-489, and HPA-490.
 
-The planning work lives in draft PR #60. HPA-487 remains a planning-only Backlog item until implementation begins.
+The current shipping seams already cover almost everything this feature needs:
 
-## 3. Existing Boundaries to Reuse
+- `run.ts`: run schema/version validation, Daily run-key/seed validation, signatures, Campaign materialization, defensive cloning.
+- `seeded-rng.ts`: stable FNV-1a/Mulberry32 and labeled forks.
+- `transforms.ts`: all eight transforms and canonical transform deduplication.
+- `quality.ts` / `solver.ts`: pure solver-backed stage validation.
+- `physics.ts`: parsing, sliding, and crystal counting.
+- `game.ts`: explicit `start(run?)` plus run metadata/state.
+- `scoreService.ts`: score submission plus optional contextual metadata.
+- `GamePage.astro` / `GameOverlay.astro`: existing final result overlay and `final-stats` slot.
 
-The current code already provides the important foundations:
+Do not introduce `generator.ts`, a mode registry, shared overlay framework, or new persistence service.
 
-- `run.ts` owns run schema/version checks, Daily run-key/seed validation, stage signatures, Campaign materialization, and defensive cloning.
-- `seeded-rng.ts` owns stable FNV-1a/Mulberry32 RNG and labeled forks.
-- `transforms.ts` owns all eight transforms and canonical deduplication through `getUniqueBoardTransforms()`.
-- `solver.ts` and `quality.ts` own bounded solve facts and stage admission.
-- `game.ts` already accepts `start(run?: IceSlideRunDefinition)` and reports run/version metadata.
-- `scoreService.ts` already accepts contextual submissions through `SaveScoreOptions.context`.
-- `index.astro` already owns page-level Start/End/Reset/Play Again wiring.
+## 3. Approaches Considered
 
-HPA-487 extends these seams. It does not introduce `generator.ts`, a generic generated-run service, a mode registry, a new persistence service, or a shared overlay framework.
+### 3.1 Recommended: thin Daily materializer + local integration
 
-## 4. Approaches Considered
+Create one focused `daily.ts`, one pure objective helper, and additive score configuration. Extend only the existing Ice Slide game/init/page seams.
 
-### 4.1 Recommended: thin Daily materializer + pure policy helpers
+This is the smallest implementation that preserves deterministic contracts and leaves HPA-489 free to design mutation templates without inheriting a guessed abstraction.
 
-Add a focused `daily.ts` that turns an explicit UTC date key into a complete five-stage run, plus `objectives.ts` for objective evaluation. Extend existing scoring/game/init/page surfaces only where Daily differs.
+### 3.2 Generic generated-run service
 
-This reuses every HPA-484/485/486 primitive directly and keeps the clock/RNG out of `IceSlideGame`.
+Rejected. Daily v1 only selects/transforms authored Campaign levels. Expedition has different authored mutation/fallback requirements and should not be forced into an abstraction written before it exists.
 
-### 4.2 Generic generated-run service
+### 3.3 Generate inside `IceSlideGame`
 
-Rejected. Only Daily uses generated content today, while HPA-489 has materially different authored mutation templates and bounded candidate generation. Generalizing now would encode guesses.
+Rejected. Clock/RNG ownership would break the materialized-run boundary and make retry/UTC-rollover behavior harder to reason about and test.
 
-### 4.3 Put Daily generation inside `IceSlideGame`
+## 4. Fixed Product Decisions
 
-Rejected. It breaks the materialized-run boundary and couples gameplay state to the current clock and random-selection policy.
+1. Campaign remains the default and keeps current scoring, achievements, unscoped submission, and positive-score partial-End behavior.
+2. Daily is the only additional selectable mode; no Expedition placeholder is shown.
+3. `/ice-slide?mode=daily` preselects Daily. Missing, malformed, `campaign`, or unavailable values select Campaign. Query selection never auto-starts.
+4. A fresh `start('daily')` captures the current UTC date once and materializes that run.
+5. `playAgain()` retries the exact previously materialized Daily run even after UTC rollover.
+6. Change Mode returns to the idle selector without auto-start; the next Start is fresh.
+7. Daily contains exactly five stages and one seeded feasible bonus objective per stage.
+8. Non-final Daily stage clears use an explicit Continue overlay; there is no auto-advance timer.
+9. The final Daily stage does **not** require Continue. Its three-star result is rendered in the existing final result overlay and `onWin` follows the existing immediate submission path.
+10. Daily End is always local-only and never submits. Ending an active Daily run shows `RUN ENDED` even when score is zero so Play Again/Change Mode remain available.
+11. Anonymous Daily completion may hit the normal score endpoint; a structured unauthenticated result is treated as local-only rather than as a visible save error.
+12. HPA-488 owns server admission/ranking. Expedition, mutation templates, snow, cracked ice, abilities, and platform Daily Challenge rotation are out of scope.
 
-## 5. Fixed Product Decisions
+## 5. Shared UTC Day Contract
 
-1. Campaign remains the default and keeps existing score/submission semantics.
-2. Daily is the only additional selectable mode. Do not show an Expedition placeholder.
-3. `/ice-slide?mode=daily` preselects Daily. Any other/malformed value selects Campaign. Query selection never auto-starts.
-4. A fresh Daily Start captures the current UTC date once and materializes a run for that date.
-5. `Play Again` reuses the exact previously materialized Daily run, even after UTC rollover.
-6. **Change Mode** from the result overlay returns to the idle selector without starting a run; a later Daily Start captures the then-current UTC date.
-7. Daily has exactly five stages and exactly one seeded feasible bonus objective per stage.
-8. Stage-clear feedback uses an explicit **Continue** button. There is no auto-advance timer or forced animation delay.
-9. A partial Daily End is local only and never sends a score.
-10. A completed authenticated Daily sends contextual score data. A positively confirmed anonymous session stays local without a score-save error.
-11. HPA-488 owns server-side Daily admission and ranked presentation.
-12. The finite authored Daily candidate set throws if it cannot materialize a valid stage; HPA-487 does not add the parent roadmap's mutation-generation fallback/retry service.
-13. Expedition, mutation templates, snow, cracked ice, abilities, and the platform-wide Daily Challenge rotation remain out of scope.
+### 5.1 One calendar validator
 
-## 6. Daily Run Materialization
-
-### 6.1 Shared UTC date-key validation
-
-The existing calendar-valid `YYYY-MM-DD` check inside `assertValidIceSlideRunDefinition()` must become one exported `run.ts` helper instead of being copied into `daily.ts`:
+`run.ts` already contains the calendar-valid `YYYY-MM-DD` logic inside `assertValidIceSlideRunDefinition()`. Extract it once:
 
 ```ts
 export function assertValidIceSlideUtcDateKey(dateKey: string): void
 ```
 
-The helper requires the exact `YYYY-MM-DD` shape, constructs a UTC calendar date, round-trips year/month/day, and throws `RangeError` for malformed or impossible dates.
+The function:
 
-`assertValidIceSlideRunDefinition()` calls this helper for the date segment captured by the Daily run-key regex.
+- requires exact `YYYY-MM-DD` syntax;
+- parses year/month/day numerically;
+- constructs UTC midnight;
+- round-trips UTC year/month/day;
+- throws `RangeError` for malformed or impossible dates.
+
+Daily run validation calls this helper instead of maintaining its current inline copy.
+
+### 5.2 Explicit-Date formatter
 
 `daily.ts` exposes:
 
 ```ts
-export function toIceSlideUtcDateKey(date: Date): string {
-  if (!Number.isFinite(date.getTime())) {
-    throw new RangeError('date must be valid')
-  }
-  const dateKey = date.toISOString().slice(0, 10)
-  assertValidIceSlideUtcDateKey(dateKey)
-  return dateKey
-}
+export function toIceSlideUtcDateKey(date: Date): string
 ```
 
-`createIceSlideDailyRunDefinition(dateKey)` also calls `assertValidIceSlideUtcDateKey(dateKey)` before constructing any seed or run key. There is one calendar-validation contract, not a second Daily parser.
+It rejects an invalid `Date`, derives the UTC `YYYY-MM-DD` value, calls `assertValidIceSlideUtcDateKey()`, and returns the key.
 
-### 6.2 Version and identity
+This intentionally overlaps the **same UTC-midnight boundary** used by platform `getTodayUTC()` / `getSecondsUntilMidnightUTC()` in `src/lib/challenges.ts`, but keeps an explicit `Date` input so Ice Slide rollover tests do not depend on the wall clock. Do not create a second platform date system.
+
+## 6. Daily Run Materialization
+
+### 6.1 Version and identity
 
 Add:
 
@@ -110,18 +111,18 @@ export const ICE_SLIDE_DAILY_GENERATOR_VERSION = 1
 export const ICE_SLIDE_DAILY_SOLVER_MAX_STATES = 10_000
 ```
 
-For an explicit `dateKey`:
+For `dateKey`:
 
 ```text
-seed = ice-slide:daily:<generatorVersion>:<rulesetVersion>:YYYY-MM-DD
+seed   = ice-slide:daily:<generatorVersion>:<rulesetVersion>:YYYY-MM-DD
 runKey = ice-slide:daily:YYYY-MM-DD:g<generatorVersion>:r<rulesetVersion>
 ```
 
-The generator uses the existing `ICE_SLIDE_RULESET_VERSION`. It never reads the current clock itself.
+The ruleset version is the existing `ICE_SLIDE_RULESET_VERSION`.
 
-### 6.3 Tier pools and source resolution
+### 6.2 Tier pools
 
-Daily stage pools are fixed:
+Pools contain authored `IceSlideLevel.id` values, never array offsets:
 
 ```ts
 export const ICE_SLIDE_DAILY_STAGE_POOLS = [
@@ -133,19 +134,19 @@ export const ICE_SLIDE_DAILY_STAGE_POOLS = [
 ] as const
 ```
 
-Pool values are authored `IceSlideLevel.id` values, never array offsets. Resolve a source by searching `ICE_SLIDE_LEVELS` for matching `level.id`; do not use `ICE_SLIDE_LEVELS[id - 1]`.
+Resolve a source by finding the level whose `level.id` matches the selected ID. Never use `ICE_SLIDE_LEVELS[id - 1]`.
 
-`run.ts` exports its existing difficulty mapping as:
+`run.ts` exports the existing Campaign mapping:
 
 ```ts
 export const CAMPAIGN_STAGE_DIFFICULTIES: readonly IceSlideDifficulty[]
 ```
 
-After resolving the level, use that level's actual array index to read its Campaign difficulty.
+After resolving the source, use its real Campaign array index to obtain difficulty.
 
-### 6.4 Frozen stage metadata
+### 6.3 Frozen stage metadata
 
-Every selected Daily stage materializes these exact identity fields:
+Every Daily stage materializes:
 
 ```ts
 {
@@ -162,55 +163,53 @@ Every selected Daily stage materializes these exact identity fields:
 }
 ```
 
-Compute `signature` from that complete object with `createIceSlideStageSignature()`.
+Then compute `signature` with `createIceSlideStageSignature()`.
 
-These fields are part of the deterministic generator contract. A change that alters them for an existing date requires a Daily generator-version bump.
+`id`, name, template identity, difficulty, rows, par, transform, objective, multiplier, and signature are all generator-v1 output. Do not casually re-record changed golden output under generator version 1.
 
-### 6.5 Exact deterministic selection algorithm
+### 6.4 Frozen selection algorithm
 
-The selection algorithm is frozen as follows:
+For each 1-based stage `N`:
 
-1. Create `rootRng = createSeededRng(seed)`.
-2. For 1-based stage `N`, create `stageRng = rootRng.fork(`stage:${N}`)`.
-3. Shuffle that stage's level-ID pool with `stageRng.fork('template').shuffle(pool)`.
-4. Iterate the shuffled IDs and skip any `campaign:<id>` template already used by the run.
-5. Resolve the source by `level.id` and call `getUniqueBoardTransforms(source.rows)`.
-6. Shuffle those canonical-deduplicated variants with:
-
-   ```ts
-   stageRng
-     .fork(`transform:${source.id}`)
-     .shuffle(getUniqueBoardTransforms(source.rows))
-   ```
-
-7. Iterate variants and call `validateIceSlideStageQuality()` with:
+1. `rootRng = createSeededRng(seed)`.
+2. `stageRng = rootRng.fork(`stage:${N}`)`.
+3. `templateOrder = stageRng.fork('template').shuffle(pool)`.
+4. Iterate template IDs, skipping `campaign:<id>` values already used in this run.
+5. Resolve source by `level.id`.
+6. `variants = getUniqueBoardTransforms(source.rows)`.
+7. `variantOrder = stageRng.fork(`transform:${source.id}`).shuffle(variants)`.
+8. Iterate variants and call `validateIceSlideStageQuality()` with:
    - `objectiveIds: []`;
-   - par band exactly equal to `source.parMoves`;
+   - exact par band `[source.parMoves, source.parMoves]`;
    - `maxStates = 10_000`;
-   - canonical keys already accepted for earlier stages.
-8. The first accepted candidate wins; use `quality.parMoves` as the materialized par.
-9. Build eligible bonus objectives from `quality.objectiveFeasibility` in this fixed order:
+   - canonical keys already accepted earlier in the run.
+9. Use the first accepted candidate and its returned `quality.parMoves`.
+10. Build eligible objective IDs in this fixed order:
 
    ```ts
-   [
-     'collect_all_crystals',
-     'no_falls',
-     'no_reset',
-   ]
+   ['collect_all_crystals', 'no_falls', 'no_reset']
    ```
 
-10. Pick exactly one with `stageRng.fork('objective').pick(eligibleObjectives)`.
-11. Materialize the frozen metadata from §6.4 and compute the signature.
-12. Record its template ID and canonical key, then continue.
-13. After five stages, call `assertValidIceSlideRunDefinition(run)` before returning it.
+11. `bonusObjective = stageRng.fork('objective').pick(eligibleObjectives)`.
+12. Materialize the frozen stage metadata and signature.
+13. Record template/canonical identities and continue.
+14. Validate the finished run with `assertValidIceSlideRunDefinition()`.
 
-`no_reset` is feasible for every accepted solvable board, so the eligible-objective list cannot be empty.
+`no_reset` is feasible on every accepted solvable board, so the objective list is non-empty.
 
-The largest stage pool has three sources and each source has at most eight unique transforms. The finite authored search is therefore below the parent design's 64-candidate bound without adding a retry/fallback subsystem. If no source/variant satisfies the frozen contract, `createIceSlideDailyRunDefinition()` throws and the existing `failRun()` lifecycle owns cleanup/error display.
+### 6.5 Quality gate behavior in generator v1
+
+With the current checked-in Campaign content, transforms are board isometries, the par band is exactly the authored par, and the 2026 content sweep observes no rejected candidate: the first eligible candidate passes the quality gate.
+
+Keep the quality call anyway because HPA-487 explicitly requires production-solver verification and because it catches future content drift (bad par, solver truncation, invalid content, accidental duplicate). Do **not** add dependency injection or synthetic Daily pools only to force the Daily throw branch. Rejection behavior is already covered by `quality.test.ts`.
+
+If the finite authored candidate set cannot satisfy the contract, `createIceSlideDailyRunDefinition()` throws and the existing `failRun()` lifecycle owns cleanup/error display. There is no Daily retry/fallback subsystem.
+
+“Recomputed par” in HPA-487 means the production solver independently verifies the transformed board and returns the materialized par; in v1 that value equals the authored source par by transform isometry. Canonical uniqueness is still asserted on the materialized run even though current source/template constraints make duplicates absent by construction.
 
 ### 6.6 Generator-v1 golden output
 
-Generator version 1 is not defined only by invariants. The full deterministic tuple for `2026-08-12` is frozen:
+The literal projection for `2026-08-12` is frozen:
 
 ```ts
 [
@@ -267,28 +266,39 @@ Generator version 1 is not defined only by invariants. The full deterministic tu
 ]
 ```
 
-`daily.test.ts` asserts this literal projection in addition to run-key/seed and structural invariants.
+`daily.test.ts` asserts this literal tuple. The test name/documentation must state that a red golden test requires a generator-version decision; do not “fix” it by blindly re-recording the vector.
 
-Before generator v1 is considered frozen, the test suite also materializes every UTC date from `2026-01-01` through `2026-12-31` and asserts that none throws. This is a bounded content-validity sweep, not a statistical quality guarantee.
+Also materialize every date from `2026-01-01` through `2026-12-31` and assert none throws. This is a cheap bounded content-validity sweep, not a statistical quality benchmark.
 
-Any future change to pool contents/order, fork labels, transform candidate order, objective ordering, source metadata mapping, stage-signature inputs, or another generator choice that changes the same date's materialized run increments `ICE_SLIDE_DAILY_GENERATOR_VERSION`. Competitive physics/objective/scoring meaning continues to use `ICE_SLIDE_RULESET_VERSION`.
+### 6.7 Version-bump rules
 
-### 6.7 No hidden nondeterminism
+Increment `ICE_SLIDE_DAILY_GENERATOR_VERSION` whenever the same date could materialize different run data. This explicitly includes:
 
-`daily.ts` does not call `Math.random()`, `crypto.getRandomValues()`, or read the current clock. All entropy comes from the explicit seed and the frozen labeled RNG forks.
+- pool contents/order;
+- fork labels or RNG selection order;
+- transform candidate behavior/order;
+- objective eligibility ordering/selection;
+- stage metadata mapping;
+- stage-signature inputs;
+- `CAMPAIGN_STAGE_DIFFICULTIES` changes affecting eligible Daily levels;
+- **any edit to eligible `ICE_SLIDE_LEVELS` identity/name/rows/parMoves that changes Daily output**.
 
-## 7. Objective and Star Model
+Competitive physics/objective/scoring interpretation changes use `ICE_SLIDE_RULESET_VERSION` as already designed.
 
-Add a pure `objectives.ts` helper:
+No Daily path calls `Math.random()`, `crypto.getRandomValues()`, or reads the clock.
+
+## 7. Objective and Star Policy
+
+### 7.1 Stage-scoped facts
+
+Add a pure helper with names that cannot be confused with cumulative run counters:
 
 ```ts
 export interface IceSlideObjectiveFacts {
-  parMoves: number
-  movesUsed: number
   crystalsCollected: number
   totalCrystals: number
-  falls: number
-  resets: number
+  stageFalls: number
+  stageResets: number
 }
 
 export function isIceSlideObjectiveComplete(
@@ -297,23 +307,27 @@ export function isIceSlideObjectiveComplete(
 ): boolean
 ```
 
-Completion rules:
+Rules:
 
-- `collect_all_crystals`: `totalCrystals > 0` and all stage crystals were collected.
-- `no_falls`: no hazard was entered during the stage.
-- `no_reset`: neither manual Reset nor hazard reset occurred during the stage.
+- `collect_all_crystals`: `totalCrystals > 0` and `crystalsCollected === totalCrystals`.
+- `no_falls`: `stageFalls === 0`.
+- `no_reset`: `stageResets === 0`.
 
-Daily stars at clear time:
+Add `ICE_SLIDE_OBJECTIVE_LABELS` for the three bonus-objective labels.
 
-- Clear: always earned.
-- Efficient: `movesUsed <= parMoves`.
-- Bonus: evaluate the stage's single `objectiveIds[0]`.
+### 7.2 Efficient uses one expression
 
-The game records cumulative Daily stars in the existing `starsEarned` field. Campaign continues to report zero Daily stars.
+Efficient is not a second objective helper. In `clearLevel()` compute once:
 
-## 8. Runtime State and Stage Results
+```ts
+const efficient = this.state.levelMoves <= stage.parMoves
+```
 
-Extend `IceSlideState` only with active-stage facts needed by policy/UI:
+Use that same boolean both for existing `perfectLevels` behavior and for the Daily Efficient star.
+
+### 7.3 Counters
+
+`IceSlideState` already has cumulative `falls`, `resets`, and `starsEarned`. Make them live and add only:
 
 ```ts
 parMoves: number
@@ -322,16 +336,19 @@ levelFalls: number
 levelResets: number
 ```
 
-`getState()` defensively copies `objectiveIds`.
+Rules:
 
-Counter rules:
+- manual Reset: cumulative `resets += 1`, stage `levelResets += 1`, no fall increment;
+- hazard: cumulative `falls += 1`, `resets += 1`, stage `levelFalls += 1`, `levelResets += 1` exactly once;
+- hazard move remains counted in `levelMoves`;
+- same-stage reload preserves stage attempt counters;
+- normal stage advance resets stage attempt counters to zero.
 
-- A normal committed move keeps existing move behavior.
-- Manual Reset increments `resets` and `levelResets`; it does not increment falls.
-- Hazard entry increments `falls`, `resets`, `levelFalls`, and `levelResets` exactly once.
-- Hazard reload preserves the hazard move in `levelMoves`.
-- A new stage resets `levelFalls`/`levelResets` to zero.
-- Same-stage Reset/hazard reload preserves those stage attempt counters.
+At clear time, obtain the source-stage crystal total using existing physics parsing/counting (`countCrystals(parseGrid(stage))`) rather than exporting the private quality-module glyph counter.
+
+A regression test must prove stage scope: make a mistake on stage 1, then cleanly clear stage 2 and still earn stage 2 `no_falls`/`no_reset` as appropriate.
+
+## 8. Stage-Clear Result Contract
 
 Replace numeric `onLevelClear(level)` with:
 
@@ -352,65 +369,75 @@ export interface IceSlideStageClearResult {
 }
 ```
 
-Campaign may report Efficient as a fact but shows no star UI and does not increment `starsEarned`.
+Campaign may expose `efficient` in the result object, but does not show Daily star UI and does not increment `starsEarned`.
 
-### 8.1 Preserve the current callback order
+Preserve engine callback ordering:
 
-Do not redesign `IceSlideGame` into a paused-stage state machine.
+- non-final clear: compute result, load next stage through the existing immediate flow, then invoke `onLevelClear(result)`;
+- final clear: apply completion bonus, set `status = 'won'`, stop timer, invoke `onLevelClear(result)`, then invoke `onWin(finalScore)` synchronously.
 
-- On a non-final clear, the game computes the completed-stage result, prepares the next stage using the existing immediate-load flow, and invokes `onLevelClear(result)`.
-- On a final clear, it applies the correct completion bonus, sets `status = 'won'`, stops the timer, invokes `onLevelClear(result)`, then invokes `onWin(finalScore)` synchronously.
+Tests lock final order as `level-clear` then `win`.
 
-Tests lock final callback order as `level-clear` then `win`.
+## 9. Scoring Without Per-Mode Function Copies
 
-The browser overlay, not the game engine, prevents interaction with the already-prepared next stage.
-
-## 9. Scoring
-
-Existing Campaign functions/constants remain unchanged.
-
-Add:
+Keep the existing shared scoring primitives. Add only the data needed to vary Daily behavior.
 
 ```ts
-export const DAILY_SCORING_CONFIG = {
-  objectiveStarBonus: 100,
-  timeBudgetSeconds: 300,
+export interface IceSlideModeScoringConfig {
+  objectiveStarBonus: number
+  timeBudgetSeconds: number
+  timeBonusPerSec: number
+}
+
+export const SCORING_CONFIG = {
+  levelClearBase: 200,
+  moveBonusPerUnderPar: 25,
+  crystalBonus: 50,
+  timeBudgetSeconds: 360,
   timeBonusPerSec: 5,
+  objectiveStarBonus: 0,
 } as const
 
-export function dailyStageScore(params: {
-  stageNumber: number
-  parMoves: number
-  movesUsed: number
-  crystalsCollected: number
-  optionalStarsEarned: number
-}): number
-
-export function dailyTimeBonus(elapsedSeconds: number): number
+export const DAILY_SCORING_CONFIG: IceSlideModeScoringConfig = {
+  timeBudgetSeconds: 300,
+  timeBonusPerSec: 5,
+  objectiveStarBonus: 100,
+}
 ```
 
-Daily stage score:
+Keep `levelClearPoints()`, `moveBonus()`, and `crystalBonus()` behavior unchanged.
+
+Extend existing functions additively:
+
+```ts
+export function timeBonus(
+  elapsedSeconds: number,
+  config: IceSlideModeScoringConfig = SCORING_CONFIG
+): number
+
+export function levelScore(
+  params: {
+    levelNumber: number
+    parMoves: number
+    movesUsed: number
+    crystalsCollected: number
+    optionalStarsEarned?: number
+  },
+  config: IceSlideModeScoringConfig = SCORING_CONFIG
+): number
+```
+
+`levelScore()` adds:
 
 ```text
-200 × stageNumber
-+ moveBonus(parMoves, movesUsed)
-+ 50 × crystalsCollected
-+ 100 × optionalStarsEarned
+(optionalStarsEarned ?? 0) × config.objectiveStarBonus
 ```
 
-`optionalStarsEarned` counts Efficient and bonus stars only (`0..2`). Clear is represented by the base clear points.
-
-Daily completion bonus:
-
-```text
-max(0, (300 - elapsedSeconds) × 5)
-```
-
-Campaign keeps the existing 360-second completion bonus. Expedition scoring is untouched.
+Campaign callers remain unchanged and therefore get zero star bonus plus the existing 360-second time budget. Daily passes `DAILY_SCORING_CONFIG` and a `0..2` Efficient/bonus star count. This same closed shape can serve Expedition later without another pair of mode-named scoring functions.
 
 ## 10. Browser Lifecycle and Retry Semantics
 
-Use the two shipped choices only:
+Use the narrow playable boundary:
 
 ```ts
 export type IceSlidePlayableMode = 'campaign' | 'daily'
@@ -425,118 +452,147 @@ export interface IceSlideHandle {
 }
 ```
 
-`start(mode)` means a fresh run:
+`IceSlideMode` remains broader (`campaign | daily | expedition`) on materialized run contracts.
 
-- Campaign starts the normal Campaign.
-- Daily calls `toIceSlideUtcDateKey(new Date())`, materializes the Daily, and stores a defensive copy plus the captured date key for retry/HUD use.
+Fresh Start:
 
-`playAgain()` retries the last started run:
+- Campaign starts the existing Campaign run.
+- Daily calls `toIceSlideUtcDateKey(new Date())`, materializes the run, and stores a defensive retry copy plus captured date key.
+
+Play Again:
 
 - Campaign starts Campaign again.
-- Daily starts a clone of the exact stored run and reuses its captured date key. It does not read the clock.
+- Daily starts a clone of the stored Daily run and reuses its captured date key; it never reads the clock.
 
-This is the only fresh-vs-retry distinction needed for UTC rollover.
+Start/fail/cleanup clear any non-final stage overlay/input lock state.
 
-## 11. Stage-Clear, Final-Win, and End Semantics
+## 11. Non-Final Stage Overlay and Final Result
 
-`init.ts` owns `inputLocked`, the stage-clear DOM state, and `pendingDailyWinScore`.
+### 11.1 Input gate
 
-Movement is accepted only when:
+`init.ts` owns one `inputLocked` flag. Keyboard, pointer/swipe, and Reset accept input only when the game is playing and the lock is clear.
 
-```text
-game.status === 'playing' && inputLocked === false
-```
+### 11.2 Non-final Daily clear
 
-Keyboard and pointer/swipe use the same predicate. Reset also no-ops while the stage-clear overlay is active.
+When Daily `onLevelClear(result)` runs and the current game status is still `playing`:
 
-### 11.1 Daily non-final clear
+1. set `inputLocked = true`;
+2. populate/show the page-local stage-clear overlay;
+3. focus Continue;
+4. the already-loaded next board may render underneath the opaque overlay;
+5. Continue hides the overlay, clears the lock, and re-renders/re-syncs HUD before the next move.
 
-1. `onLevelClear(result)` sets `inputLocked = true`.
-2. Fill/show the stage-clear overlay and focus Continue.
-3. `afterMove()` may render/synchronize the already-prepared next stage underneath the opaque overlay.
-4. Continue hides the overlay, clears the lock, and calls render/HUD sync again before the player can move.
+There is no timer.
 
-### 11.2 Daily final clear
+### 11.3 Final Daily clear
 
-Keep the engine callback order from §8.1.
+When Daily `onLevelClear(result)` observes current status `won`:
 
-1. Final `onLevelClear(result)` shows/locks the stage-clear overlay.
-2. The immediately following Daily `onWin(finalScore)` **only** stores `pendingDailyWinScore = finalScore`; it does not show `MISSION COMPLETE`, call the external `callbacks.onWin`, reset buttons, authenticate, or submit.
-3. Continue on that final overlay clears the stage overlay, shows `MISSION COMPLETE`, invokes the external win callback, resets controls, and starts the completed Daily submission flow exactly once.
+- do **not** show the mid-run stage-clear overlay;
+- populate the Daily final-stage star/result rows already rendered through `GamePage`'s `final-stats` slot.
 
-This guarantees that the final stage result is visible before the result overlay or network work.
+The immediately following `onWin(finalScore)` keeps the existing result path:
 
-### 11.3 End while a stage-clear overlay is visible
+- invoke external `callbacks.onWin`;
+- reset controls;
+- show `MISSION COMPLETE`;
+- submit the completed Daily score immediately;
+- keep the completed local result visible regardless of submission outcome.
 
-The behavior is explicit because the engine has already advanced/finished underneath the overlay:
+This removes `pendingDailyWinScore`, inert-End special cases, and the risk of losing a completed run because the player closes the tab before pressing Continue.
 
-- **Non-final Daily overlay:** `stop()` hides the stage-clear overlay, clears the lock/pending stage UI, stops the now-current run, restores controls, shows local `RUN ENDED`, and does **not** submit any Daily score.
-- **Final Daily overlay:** the End control is hidden/disabled while the final result awaits Continue. A programmatic `stop()` is a no-op: it leaves the final stage-clear overlay and pending win intact and does not submit. Continue remains the only transition to completed-result submission.
+### 11.4 Daily End
 
-All start/fail/cleanup paths clear stage-result DOM state, locks, and pending win state.
+Daily `stop()` is deliberately different from Campaign partial submission:
 
-There is no auto-dismiss timer. Reduced-motion users therefore have no forced delay.
+- if Daily is active and `status === 'playing'`, stop it, clear any non-final stage overlay/lock, restore controls, show local `RUN ENDED` with the current score **even when score is zero**, and never submit;
+- retain the stored Daily retry snapshot so Play Again reproduces the same run;
+- Campaign keeps its existing positive-score partial submission behavior.
+
+After final win, normal result UI has already replaced gameplay controls, so no final-overlay End state machine is needed.
 
 ## 12. Daily HUD and Page UI
 
-Keep all page markup local to `src/pages/ice-slide/index.astro`; no shared component/API changes are needed.
+Keep markup page-local.
 
-### 12.1 Pre-run selector
+### 12.1 Selector
 
-Add a semantic Campaign/Daily selector above the canvas. Campaign is selected by default. Only exact query value `daily` changes that preselection. The selector is disabled while a run is active and re-enabled by Change Mode.
+Use a semantic Campaign/Daily fieldset/radio control patterned after existing page-local controls. Do not override the GamePage controls slot, because that would require recreating Start/End/Reset controls.
 
 ### 12.2 HUD ownership
 
-`init.ts` extends `syncHud()` so the objective state cannot drift from the already-loaded game stage.
+Extend `init.ts` `syncHud()`:
 
-For Campaign:
+Campaign:
 
 - hide `#daily-meta`;
-- preserve existing score/level/moves/crystals/time/name behavior.
-
-For Daily:
-
-- show `#daily-meta`;
-- set `#daily-date` from the captured/retried Daily date key;
-- set `#daily-reset` to `Resets at 00:00 UTC` plus the next UTC date;
-- set `#daily-stage-progress` to `Stage N / 5`;
-- set Clear text for reaching the goal;
-- set Efficient text from current `state.parMoves`;
-- set bonus text from `ICE_SLIDE_OBJECTIVE_LABELS[state.objectiveIds[0]]`.
-
-Call this synchronization on initial Daily Start, normal `syncHud()` paths, and again after stage-clear Continue. Therefore every new Daily board exposes its three objectives before its first accepted move.
-
-Do not add a UTC countdown scheduler.
-
-### 12.3 Stage-clear overlay
-
-Add a page-local opaque overlay inside the board area containing stage name/number, all three earned/missed objective rows, stage score gained, and a real Continue button. Use text/symbols in addition to color.
-
-### 12.4 Result overlay and Change Mode
-
-Keep shared GameOverlay's Play Again button. Add a page-local `#change-mode-btn` through `final-stats`.
-
-- Play Again calls `gameHandle.playAgain()`.
-- Change Mode hides the result overlay, shows the pre-run status/selector, re-enables mode controls, and does not auto-start.
-
-No `GameOverlay` API change is required.
-
-### 12.5 Scoring copy
-
-Keep Campaign scoring copy and add a concise Daily note: +100 for each Efficient/bonus star and a 5:00 completion budget.
-
-## 13. Score Submission and Anonymous Play
-
-Campaign remains behavior-compatible:
-
-- completed Campaign submits unscoped;
-- manually ended Campaign with positive score still submits partial score.
+- preserve existing score/level/moves/crystals/time/name rendering.
 
 Daily:
 
-- any partial End never submits;
-- only final-stage Continue may initiate completed submission;
-- submission includes current game data and:
+- show `#daily-meta`;
+- set `#daily-date` from captured/retried date key;
+- set `#daily-reset` to the next UTC day boundary (`Resets at 00:00 UTC …`);
+- set `#daily-stage-progress` to `Stage N / 5`;
+- set Clear copy;
+- set Efficient copy from `state.parMoves`;
+- set bonus copy from `ICE_SLIDE_OBJECTIVE_LABELS[state.objectiveIds[0]]`.
+
+Call HUD sync on initial Start, normal move/render paths, and after Continue. Every Daily stage therefore shows objectives before its first accepted move.
+
+### 12.3 Result markup
+
+Use the existing `final-stats` slot for two page-local pieces:
+
+- a hidden Daily final-stage result block with Clear/Efficient/bonus earned/missed rows;
+- `#change-mode-btn`.
+
+No `GameOverlay` API change.
+
+### 12.4 Page wiring
+
+- Start reads the selected radio and calls `gameHandle.start(mode)`.
+- Play Again calls `gameHandle.playAgain()`.
+- Change Mode hides result UI, restores the pre-run status/selector, re-enables mode controls, and does not start anything.
+
+Do not add leaderboard copy before HPA-488.
+
+## 13. Submission and Anonymous Play
+
+### 13.1 Reuse the existing score request
+
+Do not perform an `authClient.getSession()` preflight. The score endpoint is already authoritative and returns 401 for anonymous users.
+
+Extend the existing client result channel additively:
+
+```ts
+export type ScoreSubmissionPublicErrorCode =
+  | 'SCORE_CONTEXT_UNAVAILABLE'
+  | 'UNAUTHENTICATED'
+```
+
+In `submitScore()`, map HTTP 401 to `code: 'UNAUTHENTICATED'` regardless of response-body code.
+
+Expose the structured failure through the existing callback without breaking one-argument callers:
+
+```ts
+onError?: (error: string, result?: ScoreSubmissionResult) => void
+```
+
+`saveGameScore()` invokes `onError(message, result)` for a completed non-success response; transport exceptions still call it without a structured result.
+
+Daily `init.ts` then:
+
+- submits immediately from final `onWin` with contextual game data;
+- suppresses visible `Score not saved` UI only when `result?.code === 'UNAUTHENTICATED'`;
+- reports other save/network failures normally;
+- retains existing run-guard stale-response behavior in `saveGameScore()`.
+
+This avoids an extra session request and a second staleness check while preserving local anonymous completion.
+
+### 13.2 Daily context
+
+Completed Daily submits:
 
 ```ts
 {
@@ -549,26 +605,17 @@ Daily:
 }
 ```
 
-Before Daily submission, call `authClient.getSession()`:
-
-- confirmed no session/no auth error => local result only;
-- session exists => submit normally;
-- session check fails => let the existing score endpoint remain authoritative instead of silently discarding a possibly authenticated result.
-
-Capture the run guard before awaiting auth and re-check staleness afterward.
-
-A score-save failure never invalidates local completion. HPA-488 adds server-side solved/run/version admission and ranking.
+Daily partial End never submits. Campaign remains unscoped. HPA-488 adds server-side solved/run/version admission and ranking.
 
 ## 14. Error Handling
 
-- Invalid/malformed mode query values fall back to Campaign without auto-start.
-- Daily materialization failures use existing `failRun()` cleanup.
-- Failed renderer setup keeps existing cleanup behavior.
-- Fresh/retry start clears stale stage/result overlay state before creating a game.
-- Run guards continue to suppress stale async callbacks.
-- Daily score failure uses existing `Score not saved` reporting without removing local completion UI.
-- Confirmed anonymous Daily completion is not an error.
-- No path falls back to nondeterministic generation.
+- malformed/unavailable mode query => Campaign selection, no auto-start;
+- materialization failure => existing `failRun()` cleanup/player-safe error;
+- renderer failure => existing cleanup path;
+- start/fail/cleanup => clear mid-run overlay/lock state;
+- Daily 401 => local completed result, no save-error toast;
+- other Daily score failure => local result remains visible and normal save error is reported;
+- no nondeterministic generation fallback.
 
 ## 15. File Boundaries
 
@@ -586,105 +633,112 @@ A score-save failure never invalidates local completion. HPA-488 adds server-sid
 - `src/lib/games/ice-slide/run.ts`
 - `src/lib/games/ice-slide/scoring.ts`
 - `src/lib/games/ice-slide/test-fixtures.ts`
-- `src/lib/games/ice-slide/game.ts` and existing game tests
-- `src/lib/games/ice-slide/init.ts` and `init.test.ts`
+- `src/lib/games/ice-slide/game.ts` and focused tests
+- `src/lib/games/ice-slide/init.ts` and tests
+- `src/lib/services/scoreService.ts` and tests (additive unauthenticated error propagation)
 - `src/pages/ice-slide/index.astro`
 - `src/pages/game-board-markup.test.ts`
 - `e2e/games/play-coverage.spec.ts`
 
-### Do not modify for HPA-487
+### Do not modify
 
 - database schema/query code;
 - `/api/leaderboard` or leaderboard pages;
-- server-side Daily admission logic;
-- Expedition templates/generation;
+- server Daily semantic admission;
 - shared `GamePage`/`GameOverlay` APIs;
+- Expedition/templates/snow/cracked ice;
 - platform Daily Challenge rotation.
 
 ## 16. Testing Strategy
 
-### Pure generation
+### Daily materializer
 
-- shared UTC date-key helper accepts/rejects calendar dates once for both run validation and Daily materialization;
-- exact seed/run-key for `2026-08-12`;
-- literal generator-v1 golden tuple from §6.6;
-- exactly five stages with pool-valid, non-repeated source template IDs;
-- unique final canonical boards;
-- source resolution by `level.id`, copied source name, and Campaign difficulty mapping;
-- same date/version is byte-equivalent;
-- representative different dates vary deterministically;
-- every par equals the production solver result and assigned objective is feasible;
-- every date in calendar year 2026 materializes without throwing;
-- run signatures validate through `assertValidIceSlideRunDefinition()`.
+- strict shared UTC date validation;
+- exact run key/seed;
+- literal `2026-08-12` golden tuple;
+- all 365 dates in 2026 materialize without throw;
+- pool membership/source-template uniqueness;
+- canonical final-board uniqueness;
+- production quality validation returns accepted and verified par;
+- exactly one feasible bonus objective;
+- full run passes `assertValidIceSlideRunDefinition()`.
 
-### Objectives/scoring
+Do not add a synthetic dependency-injected Daily generator solely to force rejection; `quality.test.ts` already owns rejection branch coverage.
 
-- collect-all success/failure and zero-crystal behavior;
-- no-falls success/failure;
-- no-reset distinguishes manual/hazard reset history;
-- Efficient uses `<= par`;
-- exact Daily star bonus and 300-second completion boundaries;
-- Campaign scoring remains unchanged.
+### Objective/runtime/scoring
 
-### Game runtime
-
-- manual Reset increments reset counters once;
-- hazard increments fall/reset counters once and preserves move semantics;
-- per-stage counters survive same-stage reload and reset on advance;
-- Daily clear result reports exact stars/score gained;
-- cumulative Daily stars carry across stages;
-- final callback order stays `onLevelClear` then `onWin`;
-- Campaign score/progression/reset/hazard behavior remains compatible.
+- collect-all/no-falls/no-reset stage facts;
+- stage-1 mistake does not poison stage-2 clean objective results;
+- Efficient boolean drives both existing perfect-level behavior and Daily star;
+- reset/hazard counters increment exactly once;
+- Daily stage star bonus through `levelScore(..., DAILY_SCORING_CONFIG)`;
+- Daily 300-second `timeBonus(..., DAILY_SCORING_CONFIG)` boundaries;
+- Campaign scoring unchanged with default config;
+- final callback order remains level-clear then win.
 
 ### Browser integration
 
 - fresh Daily captures current UTC date;
-- `playAgain()` reproduces the exact run/signatures after simulated UTC rollover;
-- fresh Daily after rollover uses the new date;
-- Campaign hides Daily HUD;
-- Daily start populates date/reset/stage/par/bonus HUD before the first move;
-- Continue re-syncs the next stage HUD;
-- non-final overlay End terminates locally with no submission;
-- final overlay `onWin` remains pending until Continue; final overlay End is inert;
-- partial Daily End never calls `saveGameScore()`;
-- completed Daily uses exact context once;
-- confirmed anonymous completion skips submission;
-- keyboard/swipe/reset remain locked while stage result is active;
-- cleanup/failure clears locks/overlays/pending win;
-- Campaign partial/full submissions remain unscoped.
+- handle `playAgain()` retains exact run across rollover;
+- fresh Daily after rollover uses new date;
+- Daily HUD is populated before first move and after Continue;
+- non-final Continue gates keyboard/swipe/Reset;
+- Daily End at zero score shows local `RUN ENDED` and does not submit;
+- completed Daily submits immediately from final `onWin` with exact context;
+- final result overlay contains final stage star outcome;
+- `UNAUTHENTICATED` result is silent/local; other save errors remain visible;
+- Campaign full/partial submission stays unscoped.
 
 ### Page/E2E
 
-- `/ice-slide` defaults to Campaign;
-- `/ice-slide?mode=daily` preselects Daily;
-- malformed/unavailable mode falls back to Campaign;
-- Daily Start shows date/stage/objectives;
-- Playwright fixes browser time before UTC rollover, starts Daily, ends locally, advances clock across midnight, clicks Play Again, and verifies the displayed Daily date is unchanged;
-- Change Mode returns to an enabled selector/pre-run state without auto-start;
-- Campaign happy path remains covered;
-- manual Continue has keyboard-accessible behavior and no reduced-motion wait.
+- default/query mode selection;
+- actual Play Again button preserves Daily date across simulated UTC rollover;
+- Change Mode returns to idle without auto-start;
+- Daily HUD/objectives visible before first move;
+- Campaign smoke remains intact;
+- malformed/unavailable modes fall back to Campaign.
 
-## 17. Acceptance Criteria
+Static markup tests assert stable DOM IDs/semantics only. They do not assert source-code snippets such as `gameHandle?.playAgain()` or non-contract copy strings; Playwright owns those behaviors.
+
+## 17. Coverage and Verification
+
+The repository's Vitest config does not define a local numeric threshold, but `codecov.yml` currently requires **95% project and 95% patch coverage**. HPA-487 must satisfy the repository's existing Codecov status gate; this feature does not introduce or change that threshold.
+
+Final implementation verification:
+
+```bash
+bun run format:check
+bun run lint
+bun run typecheck
+bun run test:run
+bun run test:coverage
+bun run build
+bun run test:e2e -- e2e/games/play-coverage.spec.ts --grep "Ice Slide"
+```
+
+Any pre-existing typecheck baseline may be documented only if it is byte-identical on `main`; diagnostics in HPA-487-touched files must be fixed.
+
+## 18. Acceptance Criteria
 
 HPA-487 is complete when:
 
-1. the generator-v1 golden `2026-08-12` tuple and same-date byte equivalence are locked;
-2. the complete 2026 UTC date sweep materializes without failure and representative dates vary;
-3. every run has five unique source templates and canonical boards, recomputed pars, and one feasible bonus objective;
-4. stars correctly reflect par, crystals, hazards, manual Reset, and hazard reset;
-5. Daily scoring uses the documented stage formula and 300-second budget while Campaign stays unchanged;
-6. final engine callbacks keep `onLevelClear` then `onWin`, while browser completion/submission waits for final Continue;
-7. partial/overlay End behavior is deterministic and never admits a partial Daily submission;
-8. Daily HUD is correct before each stage's first accepted move;
-9. Play Again retry identity is covered both in handle tests across UTC rollover and in page-level Playwright wiring; Change Mode has no auto-start;
-10. only completed Daily runs attempt contextual submission and confirmed anonymous runs remain local;
-11. no HPA-488 ranking/server-admission or Expedition/evolving-tile work is pulled into this implementation.
+1. the frozen generator-v1 date produces its exact golden run and the 2026 sweep succeeds;
+2. each Daily run contains five pool-valid unique templates and unique materialized canonical boards;
+3. every materialized stage passes the production quality/solver verification and uses the returned par;
+4. bonus objectives and stars use **stage-scoped** crystal/fall/reset facts;
+5. Campaign scoring/output remain unchanged while Daily uses the same scoring functions with Daily config;
+6. non-final stage results gate input until Continue; final stars appear in the normal final result overlay without an extra Continue;
+7. completed Daily submits immediately with scoped context, while Daily End never submits and anonymous 401 remains local/silent;
+8. fresh Start vs Play Again preserve the documented UTC rollover identity through the real page wiring;
+9. Daily HUD shows date/reset/stage/par/bonus objective before each stage's first accepted move;
+10. no HPA-488 ranking/server-admission or Expedition/evolving-tile work enters this implementation.
 
-## 18. Spec Self-Review
+## 19. Spec Self-Review
 
-- **Placeholder scan:** no TBD/TODO remains.
-- **Consistency:** one materialized-run boundary; one UTC calendar validator; one frozen RNG-label/output contract.
-- **Scope:** HPA-488 and HPA-489+ remain separate.
-- **YAGNI:** no generic generator pipeline, mode registry, persistence service, shared overlay abstraction, countdown scheduler, or game-engine pause state.
-- **Lifecycle ambiguity:** final callback order, final Continue, non-final/final End, HUD re-sync, Play Again, and Change Mode are explicit.
-- **Versioning:** a same-date materialization change is a generator-version change, not a silent patch.
+- **Scope:** still six bounded implementation tasks; no new subsystem.
+- **Reuse:** existing run/RNG/transforms/quality/physics/score/overlay seams remain authoritative.
+- **Determinism:** source content edits are explicitly generator-versioned and the golden vector is a tripwire, not a snapshot to casually update.
+- **Lifecycle:** only non-final Daily stages need a Continue state; final completion uses the existing result/submission path.
+- **Stage policy:** stage counters cannot be confused with cumulative run counters.
+- **Submission:** no auth preflight; the existing response channel gains one additive structured code.
+- **Coverage:** 95% is an existing Codecov policy, not a new Vitest threshold introduced by HPA-487.
