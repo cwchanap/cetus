@@ -91,9 +91,10 @@ export async function initBubbleShooterGameFramework(
     }
 
     // Unified helper for the current/next bubble preview canvases.
-    // Fills the background REGARDLESS so a null/undefined color clears the
-    // canvas (instead of leaving the previous bubble visible), then draws
-    // the bubble only when color is defined.
+    // A null/undefined color CLEARS the canvas via clearRect (a translucent
+    // fillRect would only composite over the previous bubble, leaving a
+    // ghost). A defined color paints the translucent background then draws
+    // the bubble on top.
     const drawBubblePreview = (
         canvas: HTMLCanvasElement,
         context: CanvasRenderingContext2D | null,
@@ -103,11 +104,13 @@ export async function initBubbleShooterGameFramework(
             return
         }
 
-        context.fillStyle = 'rgba(0, 0, 0, 0.1)'
-        context.fillRect(0, 0, canvas.width, canvas.height)
         if (color === undefined) {
+            context.clearRect(0, 0, canvas.width, canvas.height)
             return
         }
+
+        context.fillStyle = 'rgba(0, 0, 0, 0.1)'
+        context.fillRect(0, 0, canvas.width, canvas.height)
 
         const centerX = canvas.width / 2
         const centerY = canvas.height / 2

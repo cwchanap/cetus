@@ -791,6 +791,43 @@ describe('BaseGame default hooks', () => {
 
         expect(resetSpy).not.toHaveBeenCalled()
     })
+
+    it('restarts from game over with fresh state even when resettable is false', async () => {
+        const game = new MinimalGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: true,
+                resettable: false,
+            },
+            {}
+        )
+
+        game.start()
+        game.addScore(75, 'first-run')
+        expect(game.getState().score).toBe(75)
+
+        await game.end()
+        expect(game.getState().isGameOver).toBe(true)
+
+        // Manual reset() is blocked by the resettable guard...
+        game.reset()
+        expect(game.getScoreManager().getScore()).toBe(75)
+
+        // ...but start() must still clear the completed run so the next run
+        // does not inherit stale score/state.
+        game.start()
+
+        expect(game.getState()).toMatchObject({
+            score: 0,
+            isActive: true,
+            isGameOver: false,
+            gameStarted: true,
+        })
+        expect(game.getScoreManager().getScore()).toBe(0)
+        game.destroy()
+    })
 })
 
 describe('BaseGame stale-run guard', () => {
