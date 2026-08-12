@@ -18,6 +18,30 @@ async function startGameWhenReady(
     }).toPass({ timeout: 10000 })
 }
 
+async function expectIceSlideReadyAndIdle(page: Page): Promise<void> {
+    await expect
+        .poll(
+            () =>
+                page.evaluate(() => {
+                    const handle = (
+                        window as Window & {
+                            iceSlideGame?: {
+                                getGame: () => {
+                                    getState: () => { status: string }
+                                } | null
+                            }
+                        }
+                    ).iceSlideGame
+                    if (!handle) {
+                        return 'initializing'
+                    }
+                    return handle.getGame()?.getState().status ?? 'idle'
+                }),
+            { timeout: 10000 }
+        )
+        .toBe('idle')
+}
+
 async function expectVisibleGameSurface(
     page: Page,
     selector: string
@@ -395,6 +419,7 @@ test.describe('Ice Slide', () => {
         test(`falls back to Campaign for mode=${mode}`, async ({ page }) => {
             await page.goto(`/ice-slide?mode=${mode}`)
 
+            await expectIceSlideReadyAndIdle(page)
             await expect(page.locator('input[value="campaign"]')).toBeChecked()
             await expect(page.locator('#start-btn')).toBeVisible()
             await expect(page.locator('#game-status')).toBeVisible()
