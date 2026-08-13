@@ -134,7 +134,8 @@ export function assertValidIceSlideUtcDateKey(dateKey: string): void {
     const year = Number(match[1])
     const month = Number(match[2])
     const day = Number(match[3])
-    const date = new Date(Date.UTC(year, month - 1, day))
+    const date = new Date()
+    date.setUTCFullYear(year, month - 1, day)
     if (
         date.getUTCFullYear() !== year ||
         date.getUTCMonth() !== month - 1 ||

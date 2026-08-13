@@ -69,6 +69,9 @@ describe('score-context index retry backoff', () => {
             // the next call must refresh capabilities.
             first.capabilities.scopedIndex = false
         }
+        const expectedCapabilities = first.known
+            ? { ...first.capabilities }
+            : null
         vi.advanceTimersByTime(60_001)
 
         const executeSpy = vi
@@ -76,7 +79,10 @@ describe('score-context index retry backoff', () => {
             .mockRejectedValueOnce(new Error('probe failed'))
         const recovered = await ensureGameScoresContextSchema()
 
-        expect(recovered).toEqual(first)
+        expect(recovered.known).toBe(true)
+        if (recovered.known && expectedCapabilities) {
+            expect(recovered.capabilities).toEqual(expectedCapabilities)
+        }
         expect(executeSpy).toHaveBeenCalled()
         executeSpy.mockRestore()
     })

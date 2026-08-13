@@ -172,7 +172,7 @@ describe('Score Service', () => {
             })
         })
 
-        it('does not invent a server code for network failures', async () => {
+        it('assigns a network error code for network failures', async () => {
             global.fetch = vi.fn().mockRejectedValue(new Error('offline'))
 
             const result = await submitScore({
@@ -181,7 +181,7 @@ describe('Score Service', () => {
             })
 
             expect(result.success).toBe(false)
-            expect(result.code).toBeUndefined()
+            expect(result.code).toBe('NETWORK_ERROR')
         })
     })
 

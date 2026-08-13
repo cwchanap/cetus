@@ -69,6 +69,11 @@ describe('Ice Slide run versions and signatures', () => {
             RangeError
         )
     })
+
+    it('accepts low-year date keys that Date.UTC would remap to 1900-1999', () => {
+        expect(() => assertValidIceSlideUtcDateKey('0000-01-01')).not.toThrow()
+        expect(() => assertValidIceSlideUtcDateKey('0099-01-01')).not.toThrow()
+    })
 })
 
 describe('Campaign run materialization', () => {

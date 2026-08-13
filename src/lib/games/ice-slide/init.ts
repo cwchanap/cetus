@@ -87,6 +87,15 @@ function starCopy(label: string, earned: boolean): string {
     return `${earned ? '✓' : '—'} ${label}`
 }
 
+function formatBonusRow(result: IceSlideStageClearResult): string {
+    return result.stars.bonus
+        ? starCopy(
+              `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[result.stars.bonus.id]}`,
+              result.stars.bonus.earned
+          )
+        : '— Bonus'
+}
+
 function formatError(error: unknown): string {
     return error instanceof Error ? error.message : String(error)
 }
@@ -242,15 +251,7 @@ export async function initializeIceSlide(
             'stage-clear-efficient',
             starCopy('Efficient', result.stars.efficient)
         )
-        setText(
-            'stage-clear-bonus',
-            result.stars.bonus
-                ? starCopy(
-                      `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[result.stars.bonus.id]}`,
-                      result.stars.bonus.earned
-                  )
-                : '— Bonus'
-        )
+        setText('stage-clear-bonus', formatBonusRow(result))
         setVisible('stage-clear-overlay', true)
         document.getElementById('stage-clear-continue-btn')?.focus()
     }
@@ -263,15 +264,7 @@ export async function initializeIceSlide(
             'daily-final-efficient',
             starCopy('Efficient', result.stars.efficient)
         )
-        setText(
-            'daily-final-bonus',
-            result.stars.bonus
-                ? starCopy(
-                      `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[result.stars.bonus.id]}`,
-                      result.stars.bonus.earned
-                  )
-                : '— Bonus'
-        )
+        setText('daily-final-bonus', formatBonusRow(result))
         setVisible('daily-final-stage-result', true)
     }
 
