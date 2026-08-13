@@ -41,10 +41,21 @@ vi.mock('./renderer', () => ({
         keyToDirection(...(args as [string])),
 }))
 
+vi.mock('./daily', async () => {
+    const actual = await vi.importActual<typeof import('./daily')>('./daily')
+    return {
+        ...actual,
+        createIceSlideDailyRunDefinition: vi.fn(
+            actual.createIceSlideDailyRunDefinition
+        ),
+    }
+})
+
 import { initializeIceSlide } from './init'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { cleanup as rendererCleanup, setupPixiJS } from './renderer'
+import { createIceSlideDailyRunDefinition } from './daily'
 import { cloneGrid, slide } from './physics'
 import { DIRECTION_DELTA, type CellType, type Direction } from './types'
 import { createTestRun, createTestStage } from './test-fixtures'
@@ -944,6 +955,37 @@ describe('initializeIceSlide', () => {
         expect(saveGameScore).toHaveBeenCalledTimes(1)
         expect(document.getElementById('game-over-title')?.textContent).toBe(
             'MISSION COMPLETE!'
+        )
+        handle.cleanup()
+    })
+
+    it('tears down the previous run when Daily materialization fails', async () => {
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+
+        // Mount a Campaign run first so a game/renderer is live.
+        await handle.start()
+        expect(handle.getGame()).not.toBeNull()
+
+        // Force the next Daily generation to throw.
+        vi.mocked(createIceSlideDailyRunDefinition).mockImplementationOnce(
+            () => {
+                throw new Error('gen failed')
+            }
+        )
+
+        await expect(handle.start('daily')).rejects.toThrow('gen failed')
+        expect(callbacks.onError).toHaveBeenCalledWith(
+            'Ice Slide Error',
+            'gen failed'
+        )
+        // failRun must have torn down the previous game/renderer.
+        expect(handle.getGame()).toBeNull()
+        expect(vi.mocked(rendererCleanup)).toHaveBeenCalled()
+        expect(container.childNodes.length).toBe(0)
+        expect(document.getElementById('start-btn')?.style.display).toBe(
+            'inline-flex'
         )
         handle.cleanup()
     })
