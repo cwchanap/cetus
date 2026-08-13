@@ -79,6 +79,36 @@ import Button from '@/components/ui/Button.astro'
           class="hidden text-sm text-amber-400 bg-amber-950/40 border border-amber-700/50 rounded-md px-3 py-2 text-center mt-2"
         >
         </div>
+
+        <div
+          id="stage-clear-overlay"
+          class="absolute inset-0 z-40 hidden flex items-center justify-center bg-black/90 rounded-lg p-4"
+        >
+          <div
+            class="w-full max-w-md rounded-2xl border border-cetus-accent/50 bg-cetus-surface p-6 text-center shadow-2xl"
+          >
+            <h2
+              id="stage-clear-title"
+              class="cetus-wordmark cetus-wordmark--glow text-2xl"
+            >
+              Stage clear
+            </h2>
+            <p id="stage-clear-score" class="mt-2 text-cetus-accent">+0</p>
+            <div class="mt-5 space-y-2 text-left text-sm text-cetus-ink">
+              <div id="stage-clear-clear">— Clear</div>
+              <div id="stage-clear-efficient">— Efficient</div>
+              <div id="stage-clear-bonus">— Bonus</div>
+            </div>
+            <Button
+              id="stage-clear-continue-btn"
+              type="button"
+              class="mt-6 w-full"
+              size="lg"
+            >
+              Continue
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Card id="daily-meta" variant="glass" class="hidden p-4">
@@ -104,36 +134,6 @@ import Button from '@/components/ui/Button.astro'
           <span id="daily-objective-bonus">Bonus: —</span>
         </div>
       </Card>
-
-      <div
-        id="stage-clear-overlay"
-        class="fixed inset-0 z-40 hidden flex items-center justify-center bg-black/90 p-4"
-      >
-        <div
-          class="w-full max-w-md rounded-2xl border border-cetus-accent/50 bg-cetus-surface p-6 text-center shadow-2xl"
-        >
-          <h2
-            id="stage-clear-title"
-            class="cetus-wordmark cetus-wordmark--glow text-2xl"
-          >
-            Stage clear
-          </h2>
-          <p id="stage-clear-score" class="mt-2 text-cetus-accent">+0</p>
-          <div class="mt-5 space-y-2 text-left text-sm text-cetus-ink">
-            <div id="stage-clear-clear">— Clear</div>
-            <div id="stage-clear-efficient">— Efficient</div>
-            <div id="stage-clear-bonus">— Bonus</div>
-          </div>
-          <Button
-            id="stage-clear-continue-btn"
-            type="button"
-            class="mt-6 w-full"
-            size="lg"
-          >
-            Continue
-          </Button>
-        </div>
-      </div>
     </div>
   </div>
 

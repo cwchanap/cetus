@@ -65,6 +65,34 @@ export function createIceSlideDailyRunDefinition(
     const acceptedSourceIds = new Set<number>()
     const stages: IceSlideStageDefinition[] = []
 
+    // Resolve every authored pool reference once before materialization so
+    // that stale/missing level IDs are reported regardless of which
+    // candidate the per-stage shuffle happens to visit first.
+    const uniquePoolIds = new Set<number>()
+    for (const pool of ICE_SLIDE_DAILY_STAGE_POOLS) {
+        for (const templateId of pool) {
+            uniquePoolIds.add(templateId)
+        }
+    }
+    const resolvedSources = new Map<
+        number,
+        { source: (typeof ICE_SLIDE_LEVELS)[number]; sourceIndex: number }
+    >()
+    for (const templateId of uniquePoolIds) {
+        const sourceIndex = ICE_SLIDE_LEVELS.findIndex(
+            level => level.id === templateId
+        )
+        if (sourceIndex < 0) {
+            throw new Error(
+                `Daily pool references missing Ice Slide level ${templateId}`
+            )
+        }
+        resolvedSources.set(templateId, {
+            source: ICE_SLIDE_LEVELS[sourceIndex],
+            sourceIndex,
+        })
+    }
+
     for (const [stageIndex, pool] of ICE_SLIDE_DAILY_STAGE_POOLS.entries()) {
         const stageNumber = stageIndex + 1
         const stageRng = rootRng.fork(`stage:${stageNumber}`)
@@ -75,15 +103,11 @@ export function createIceSlideDailyRunDefinition(
             if (acceptedSourceIds.has(templateId)) {
                 continue
             }
-            const sourceIndex = ICE_SLIDE_LEVELS.findIndex(
-                level => level.id === templateId
-            )
-            if (sourceIndex < 0) {
-                throw new Error(
-                    `Daily stage ${stageNumber} references missing Ice Slide level ${templateId}`
-                )
+            const resolved = resolvedSources.get(templateId)
+            if (!resolved) {
+                continue
             }
-            const source = ICE_SLIDE_LEVELS[sourceIndex]
+            const { source, sourceIndex } = resolved
             const variantOrder = stageRng
                 .fork(`transform:${source.id}`)
                 .shuffle(getUniqueBoardTransforms(source.rows))

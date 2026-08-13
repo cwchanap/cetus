@@ -474,11 +474,17 @@ export async function initializeIceSlide(
     const handle: IceSlideHandle = {
         start: async (mode = 'campaign') => {
             if (mode === 'daily') {
-                const dateKey = toIceSlideUtcDateKey(new Date())
-                const run = createIceSlideDailyRunDefinition(dateKey)
-                retryDailyRun = cloneIceSlideRunDefinition(run)
-                dailyDateKey = dateKey
-                currentMode = 'daily'
+                let run: IceSlideRunDefinition
+                try {
+                    const dateKey = toIceSlideUtcDateKey(new Date())
+                    run = createIceSlideDailyRunDefinition(dateKey)
+                    retryDailyRun = cloneIceSlideRunDefinition(run)
+                    dailyDateKey = dateKey
+                    currentMode = 'daily'
+                } catch (error) {
+                    failRun(error)
+                    throw error
+                }
                 await startRun(run)
                 return
             }
