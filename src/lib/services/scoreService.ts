@@ -11,6 +11,7 @@ import type { ScoreSubmissionContext } from '@/lib/server/validations'
 export type ScoreSubmissionPublicErrorCode =
     | 'SCORE_CONTEXT_UNAVAILABLE'
     | 'UNAUTHENTICATED'
+    | 'NETWORK_ERROR'
 
 export interface ScoreSubmissionResult {
     success: boolean
@@ -100,7 +101,11 @@ export async function submitScore(
             challengeUpdates: result.challengeUpdates,
         }
     } catch (_error) {
-        return { success: false, error: 'Network error occurred' }
+        return {
+            success: false,
+            error: 'Network error occurred',
+            code: 'NETWORK_ERROR',
+        }
     }
 }
 
@@ -158,7 +163,7 @@ export async function saveGameScore(
             onSuccess?.(result)
         } else {
             const message = result.error || 'Failed to save score'
-            if (message === 'Network error occurred' && !result.code) {
+            if (result.code === 'NETWORK_ERROR') {
                 onError?.(message)
             } else {
                 onError?.(message, result)

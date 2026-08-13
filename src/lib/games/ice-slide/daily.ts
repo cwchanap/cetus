@@ -93,6 +93,13 @@ export function createIceSlideDailyRunDefinition(
         })
     }
 
+    // Generator-v1 determinism invariants: the same dateKey must always
+    // produce the same stage list. This depends on (1) ICE_SLIDE_DAILY_STAGE_POOLS
+    // order, (2) the stable fork labels used for template/transform/objective
+    // shuffles ("stage:N", "transform:ID", "objective"), (3) quality-rejection
+    // decisions from validateIceSlideStageQuality, and (4) objective selection
+    // via the deterministic pick from eligibleObjectives. Changing any of these
+    // breaks historical daily-run reproducibility and bumps the generator version.
     for (const [stageIndex, pool] of ICE_SLIDE_DAILY_STAGE_POOLS.entries()) {
         const stageNumber = stageIndex + 1
         const stageRng = rootRng.fork(`stage:${stageNumber}`)
