@@ -21,6 +21,7 @@ vi.mock('@/lib/games', () => ({
     getAllGames: vi.fn(),
     GameID: {
         TETRIS: 'tetris',
+        ICE_SLIDE: 'ice_slide',
     },
 }))
 
@@ -35,6 +36,22 @@ describe('GET /api/leaderboard', () => {
         isActive: true,
     }
 
+    const iceSlideGame = {
+        id: 'ice_slide' as GameID,
+        name: 'Ice Slide',
+        description: 'Slide across slippery ice',
+        category: 'puzzle' as const,
+        difficulty: 'medium' as const,
+        tags: ['ice', 'slide'],
+        isActive: true,
+    }
+
+    const routeContext = (url: string, user: { id: string } | null = null) =>
+        ({
+            url: new URL(url),
+            locals: { user, session: null },
+        }) as never
+
     const mockLeaderboardEntry = {
         name: 'Test Player',
         username: 'testplayer',
@@ -45,14 +62,17 @@ describe('GET /api/leaderboard', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
-        vi.mocked(getAllGames).mockReturnValue([mockGame])
+        vi.mocked(getAllGames).mockReturnValue([mockGame, iceSlideGame])
         vi.mocked(getGameLeaderboard).mockResolvedValue([mockLeaderboardEntry])
     })
 
     describe('without gameId parameter', () => {
         it('should return leaderboards for all games', async () => {
             const url = new URL('http://localhost/api/leaderboard')
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.status).toBe(200)
 
@@ -70,14 +90,14 @@ describe('GET /api/leaderboard', () => {
 
         it('should use default limit of 10', async () => {
             const url = new URL('http://localhost/api/leaderboard')
-            await GET({ url } as any)
+            await GET({ url, locals: { user: null, session: null } } as any)
 
             expect(getGameLeaderboard).toHaveBeenCalledWith('tetris', 10)
         })
 
         it('should use custom limit when provided', async () => {
             const url = new URL('http://localhost/api/leaderboard?limit=5')
-            await GET({ url } as any)
+            await GET({ url, locals: { user: null, session: null } } as any)
 
             expect(getGameLeaderboard).toHaveBeenCalledWith('tetris', 5)
         })
@@ -86,7 +106,10 @@ describe('GET /api/leaderboard', () => {
             const url = new URL(
                 'http://localhost/api/leaderboard?limit=invalid'
             )
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.status).toBe(400)
 
@@ -100,7 +123,10 @@ describe('GET /api/leaderboard', () => {
 
         it('should return 400 for negative limit', async () => {
             const url = new URL('http://localhost/api/leaderboard?limit=-5')
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.status).toBe(400)
 
@@ -114,7 +140,10 @@ describe('GET /api/leaderboard', () => {
 
         it('should return 400 for limit exceeding maximum', async () => {
             const url = new URL('http://localhost/api/leaderboard?limit=101')
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.status).toBe(400)
 
@@ -132,7 +161,10 @@ describe('GET /api/leaderboard', () => {
             })
 
             const url = new URL('http://localhost/api/leaderboard')
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.status).toBe(503)
 
@@ -149,7 +181,10 @@ describe('GET /api/leaderboard', () => {
             const url = new URL(
                 'http://localhost/api/leaderboard?gameId=tetris'
             )
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.status).toBe(200)
 
@@ -172,7 +207,10 @@ describe('GET /api/leaderboard', () => {
             const url = new URL(
                 'http://localhost/api/leaderboard?gameId=invalid'
             )
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.status).toBe(400)
 
@@ -209,7 +247,10 @@ describe('GET /api/leaderboard', () => {
             const url = new URL(
                 'http://localhost/api/leaderboard?gameId=tetris'
             )
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             const data = await response.json()
             expect(data.leaderboard).toHaveLength(3)
@@ -224,7 +265,10 @@ describe('GET /api/leaderboard', () => {
             const url = new URL(
                 'http://localhost/api/leaderboard?gameId=tetris'
             )
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.status).toBe(200)
 
@@ -241,7 +285,10 @@ describe('GET /api/leaderboard', () => {
             const url = new URL(
                 'http://localhost/api/leaderboard?gameId=tetris'
             )
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.status).toBe(503)
 
@@ -262,7 +309,10 @@ describe('GET /api/leaderboard', () => {
             const url = new URL(
                 'http://localhost/api/leaderboard?gameId=tetris'
             )
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.status).toBe(500)
 
@@ -276,7 +326,10 @@ describe('GET /api/leaderboard', () => {
             })
 
             const url = new URL('http://localhost/api/leaderboard')
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.status).toBe(500)
 
@@ -290,7 +343,10 @@ describe('GET /api/leaderboard', () => {
             const url = new URL(
                 'http://localhost/api/leaderboard?gameId=tetris'
             )
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             expect(response.headers.get('Content-Type')).toBe(
                 'application/json'
@@ -301,7 +357,10 @@ describe('GET /api/leaderboard', () => {
             const url = new URL(
                 'http://localhost/api/leaderboard?gameId=tetris'
             )
-            const response = await GET({ url } as any)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as any)
 
             const data = await response.json()
             const entry = data.leaderboard[0]
@@ -342,6 +401,7 @@ describe('GET /api/leaderboard', () => {
                 url: new URL(
                     'http://localhost/api/leaderboard?gameId=tetris&mode=daily'
                 ),
+                locals: { user: null, session: null },
             } as never)
 
             expect(response.status).toBe(200)
@@ -353,6 +413,7 @@ describe('GET /api/leaderboard', () => {
             })
 
             const body = await response.json()
+            expect(body.viewerAuthenticated).toBe(false)
             expect(body.leaderboard).toEqual([
                 {
                     rank: 1,
@@ -366,6 +427,7 @@ describe('GET /api/leaderboard', () => {
                     rulesetVersion: 2,
                     elapsedSeconds: 12,
                     totalMoves: 34,
+                    isCurrentUser: false,
                 },
             ])
             expect(body.leaderboard[0]).not.toHaveProperty('userId')
@@ -382,6 +444,7 @@ describe('GET /api/leaderboard', () => {
                     'http://localhost/api/leaderboard' +
                         '?gameId=tetris&mode=daily&competitionKey=daily%3A1'
                 ),
+                locals: { user: null, session: null },
             } as never)
 
             expect(getScopedGameLeaderboard).toHaveBeenCalledWith({
@@ -397,7 +460,10 @@ describe('GET /api/leaderboard', () => {
             'http://localhost/api/leaderboard?competitionKey=daily%3A1',
             'http://localhost/api/leaderboard?gameId=tetris&competitionKey=daily%3A1',
         ])('rejects invalid scoped parameter combinations: %s', async url => {
-            const response = await GET({ url: new URL(url) } as never)
+            const response = await GET({
+                url: new URL(url),
+                locals: { user: null, session: null },
+            } as never)
             expect(response.status).toBe(400)
             expect(getScopedGameLeaderboard).not.toHaveBeenCalled()
         })
@@ -412,6 +478,7 @@ describe('GET /api/leaderboard', () => {
                 url: new URL(
                     'http://localhost/api/leaderboard?gameId=tetris&mode=daily'
                 ),
+                locals: { user: null, session: null },
             } as never)
 
             expect(response.status).toBe(503)
@@ -442,10 +509,131 @@ describe('GET /api/leaderboard', () => {
             const url = new URL(
                 'http://localhost/api/leaderboard?gameId=tetris'
             )
-            const response = await GET({ url } as never)
+            const response = await GET({
+                url,
+                locals: { user: null, session: null },
+            } as never)
 
             const data = await response.json()
             expect(data.leaderboard).toHaveLength(2)
+        })
+
+        it('rejects a calendar-invalid Ice Slide Daily competition key', async () => {
+            const response = await GET(
+                routeContext(
+                    'http://localhost/api/leaderboard' +
+                        '?gameId=ice_slide&mode=daily' +
+                        '&competitionKey=ice-slide%3Adaily%3A2026-02-29%3Ag1%3Ar1'
+                )
+            )
+
+            expect(response.status).toBe(400)
+            expect(getScopedGameLeaderboard).not.toHaveBeenCalled()
+        })
+
+        it('reads the Ice Slide Daily leaderboard by exact competition key', async () => {
+            vi.mocked(getScopedGameLeaderboard).mockResolvedValue({
+                success: true,
+                rows: [],
+            })
+
+            const response = await GET(
+                routeContext(
+                    'http://localhost/api/leaderboard' +
+                        '?gameId=ice_slide&mode=daily' +
+                        '&competitionKey=ice-slide%3Adaily%3A2026-08-12%3Ag1%3Ar1'
+                )
+            )
+
+            expect(response.status).toBe(200)
+            expect(getScopedGameLeaderboard).toHaveBeenCalledWith({
+                gameId: 'ice_slide',
+                mode: 'daily',
+                competitionKey: 'ice-slide:daily:2026-08-12:g1:r1',
+                limit: 10,
+            })
+        })
+
+        it('marks the viewer row as current from locals.user', async () => {
+            vi.mocked(getScopedGameLeaderboard).mockResolvedValue({
+                success: true,
+                rows: [
+                    {
+                        userId: 'u1',
+                        name: 'Pilot',
+                        username: 'pilot',
+                        image: null,
+                        score: 4321,
+                        created_at: '2026-08-12T00:00:00.000Z',
+                        mode: 'daily',
+                        competitionKey: 'ice-slide:daily:2026-08-12:g1:r1',
+                        rulesetVersion: 1,
+                        elapsedSeconds: 87,
+                        totalMoves: 31,
+                    },
+                ],
+            })
+
+            const response = await GET(
+                routeContext(
+                    'http://localhost/api/leaderboard' +
+                        '?gameId=ice_slide&mode=daily' +
+                        '&competitionKey=ice-slide%3Adaily%3A2026-08-12%3Ag1%3Ar1',
+                    { id: 'u1' }
+                )
+            )
+
+            const body = await response.json()
+            expect(body.viewerAuthenticated).toBe(true)
+            expect(body.leaderboard[0]).toMatchObject({
+                rank: 1,
+                isCurrentUser: true,
+            })
+            expect(body.leaderboard[0]).not.toHaveProperty('userId')
+        })
+
+        it('reports viewerAuthenticated false for a signed-out scoped read', async () => {
+            vi.mocked(getScopedGameLeaderboard).mockResolvedValue({
+                success: true,
+                rows: [
+                    {
+                        userId: 'u1',
+                        name: 'Pilot',
+                        username: 'pilot',
+                        image: null,
+                        score: 4321,
+                        created_at: '2026-08-12T00:00:00.000Z',
+                        mode: 'daily',
+                        competitionKey: 'ice-slide:daily:2026-08-12:g1:r1',
+                        rulesetVersion: 1,
+                        elapsedSeconds: 87,
+                        totalMoves: 31,
+                    },
+                ],
+            })
+
+            const response = await GET(
+                routeContext(
+                    'http://localhost/api/leaderboard' +
+                        '?gameId=ice_slide&mode=daily' +
+                        '&competitionKey=ice-slide%3Adaily%3A2026-08-12%3Ag1%3Ar1',
+                    null
+                )
+            )
+
+            const body = await response.json()
+            expect(body.viewerAuthenticated).toBe(false)
+            expect(body.leaderboard[0].isCurrentUser).toBe(false)
+        })
+
+        it('does not add viewer metadata to an unscoped game response', async () => {
+            const response = await GET(
+                routeContext('http://localhost/api/leaderboard?gameId=tetris')
+            )
+
+            const body = await response.json()
+            expect(body).not.toHaveProperty('viewerAuthenticated')
+            expect(body.leaderboard[0]).not.toHaveProperty('isCurrentUser')
         })
     })
 })

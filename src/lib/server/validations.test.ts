@@ -273,6 +273,30 @@ describe('server validations', () => {
             expect(leaderboardQuerySchema.safeParse(params).success).toBe(false)
         })
 
+        it('requires competitionKey for Ice Slide Daily while keeping mode-only valid for other games', () => {
+            expect(
+                leaderboardQuerySchema.safeParse({
+                    gameId: GameID.ICE_SLIDE,
+                    mode: 'daily',
+                }).success
+            ).toBe(false)
+
+            expect(
+                leaderboardQuerySchema.safeParse({
+                    gameId: GameID.ICE_SLIDE,
+                    mode: 'daily',
+                    competitionKey: 'ice-slide:daily:2026-08-12:g1:r1',
+                }).success
+            ).toBe(true)
+
+            expect(
+                leaderboardQuerySchema.safeParse({
+                    gameId: GameID.TETRIS,
+                    mode: 'daily',
+                }).success
+            ).toBe(true)
+        })
+
         it('applies default limit and parses numeric limit', () => {
             const withDefault = leaderboardQuerySchema.safeParse({
                 gameId: GameID.TETRIS,
