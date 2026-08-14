@@ -13,6 +13,7 @@ import {
     createIceSlideStageSignature,
     parseIceSlideDailyRunKey,
     formatIceSlideDailyRunKey,
+    iceSlideDailyAdmissionError,
 } from './run'
 import type { IceSlideObjectiveId, IceSlideRunDefinition } from './types'
 
@@ -625,5 +626,137 @@ describe('Ice Slide Daily competition key grammar', () => {
         [{ dateKey: '2026-08-12', generatorVersion: 1, rulesetVersion: 0 }],
     ])('rejects invalid formatted identity %j', identity => {
         expect(() => formatIceSlideDailyRunKey(identity)).toThrow()
+    })
+})
+
+describe('Ice Slide Daily score admission', () => {
+    const validDailyContext = {
+        mode: 'daily',
+        competitionKey: 'ice-slide:daily:2026-08-12:g1:r1',
+        rulesetVersion: 1,
+    }
+
+    const validDailyGameData = {
+        mode: 'daily',
+        solved: true,
+        runKey: 'ice-slide:daily:2026-08-12:g1:r1',
+        generatorVersion: 1,
+        rulesetVersion: 1,
+        elapsedSeconds: 87,
+        totalMoves: 31,
+    }
+
+    it('admits a valid Daily payload', () => {
+        expect(
+            iceSlideDailyAdmissionError(validDailyContext, validDailyGameData)
+        ).toBeNull()
+    })
+
+    it.each([
+        ['missing-context', undefined, validDailyGameData, 'missing-context'],
+        [
+            'context-mode-mismatch',
+            { ...validDailyContext, mode: 'expedition' },
+            validDailyGameData,
+            'context-mode-mismatch',
+        ],
+        [
+            'missing-competition-key',
+            { mode: 'daily', rulesetVersion: 1 },
+            validDailyGameData,
+            'missing-competition-key',
+        ],
+        [
+            'malformed-competition-key',
+            {
+                ...validDailyContext,
+                competitionKey: 'ice-slide:daily:2026-02-29:g1:r1',
+            },
+            validDailyGameData,
+            'malformed-competition-key',
+        ],
+        [
+            'missing-game-data',
+            validDailyContext,
+            undefined,
+            'missing-game-data',
+        ],
+        [
+            'game-data-mode-mismatch',
+            validDailyContext,
+            { ...validDailyGameData, mode: 'expedition' },
+            'game-data-mode-mismatch',
+        ],
+        [
+            'unsolved',
+            validDailyContext,
+            { ...validDailyGameData, solved: false },
+            'unsolved',
+        ],
+        [
+            'run-key-mismatch',
+            validDailyContext,
+            {
+                ...validDailyGameData,
+                runKey: 'ice-slide:daily:2026-08-11:g1:r1',
+            },
+            'run-key-mismatch',
+        ],
+        [
+            'generator-version-mismatch',
+            validDailyContext,
+            { ...validDailyGameData, generatorVersion: 2 },
+            'generator-version-mismatch',
+        ],
+        [
+            'game-data-ruleset-mismatch',
+            validDailyContext,
+            { ...validDailyGameData, rulesetVersion: 2 },
+            'game-data-ruleset-mismatch',
+        ],
+        [
+            'context-ruleset-mismatch',
+            { ...validDailyContext, rulesetVersion: 2 },
+            { ...validDailyGameData, rulesetVersion: 2 },
+            'context-ruleset-mismatch',
+        ],
+        [
+            'invalid-elapsed-seconds',
+            validDailyContext,
+            { ...validDailyGameData, elapsedSeconds: -1 },
+            'invalid-elapsed-seconds',
+        ],
+        [
+            'invalid-total-moves',
+            validDailyContext,
+            { ...validDailyGameData, totalMoves: -1 },
+            'invalid-total-moves',
+        ],
+    ])('returns reason %s', (_name, context, gameData, expected) => {
+        expect(iceSlideDailyAdmissionError(context, gameData)).toEqual({
+            reason: expected,
+        })
+    })
+
+    it('returns null for a non-Daily Campaign-like payload', () => {
+        expect(
+            iceSlideDailyAdmissionError(undefined, {
+                mode: 'campaign',
+                solved: true,
+            })
+        ).toBeNull()
+    })
+
+    it('returns null for a non-Daily Expedition payload', () => {
+        expect(
+            iceSlideDailyAdmissionError(
+                {
+                    mode: 'expedition',
+                    competitionKey: 'ice-slide:expedition:abcd1234:g1:r1',
+                    rulesetVersion: 1,
+                },
+                { mode: 'expedition', solved: true }
+            )
+        ).toBeNull()
     })
 })

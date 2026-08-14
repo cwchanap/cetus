@@ -541,4 +541,131 @@ describe('POST /api/scores', () => {
         expect(response.status).toBe(500)
         expect(updateChallengeProgress).not.toHaveBeenCalled()
     })
+
+    describe('Ice Slide Daily score admission', () => {
+        const iceSlideGame: Game = {
+            id: GameID.ICE_SLIDE,
+            name: 'Ice Slide',
+            description: 'Slide across slippery ice',
+            category: 'puzzle',
+            difficulty: 'medium',
+            tags: [],
+            isActive: true,
+        }
+
+        const validDailyBody = {
+            gameId: 'ice_slide',
+            score: 4321,
+            gameData: {
+                mode: 'daily',
+                solved: true,
+                runKey: 'ice-slide:daily:2026-08-12:g1:r1',
+                generatorVersion: 1,
+                rulesetVersion: 1,
+                elapsedSeconds: 87,
+                totalMoves: 31,
+            },
+            context: {
+                mode: 'daily',
+                competitionKey: 'ice-slide:daily:2026-08-12:g1:r1',
+                rulesetVersion: 1,
+            },
+        }
+
+        const postBody = (body: unknown) =>
+            new Request('http://localhost/api/scores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+
+        beforeEach(() => {
+            vi.mocked(auth.api.getSession).mockResolvedValue(
+                mockSession as never
+            )
+            vi.mocked(getGameById).mockReturnValue(iceSlideGame)
+        })
+
+        it('accepts and persists a valid Ice Slide Daily score', async () => {
+            vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
+                success: true,
+                newAchievements: [],
+            })
+
+            const response = await POST({
+                request: postBody(validDailyBody),
+            } as never)
+
+            expect(response.status).toBe(200)
+            expect(saveGameScoreWithAchievements).toHaveBeenCalledTimes(1)
+            expect(saveGameScoreWithAchievements).toHaveBeenCalledWith(
+                'user-123',
+                'ice_slide',
+                4321,
+                expect.objectContaining({
+                    mode: 'daily',
+                    solved: true,
+                    runKey: 'ice-slide:daily:2026-08-12:g1:r1',
+                }),
+                expect.objectContaining({
+                    mode: 'daily',
+                    competitionKey: 'ice-slide:daily:2026-08-12:g1:r1',
+                    rulesetVersion: 1,
+                })
+            )
+        })
+
+        it.each([
+            [
+                'unsolved Daily',
+                {
+                    ...validDailyBody,
+                    gameData: {
+                        ...validDailyBody.gameData,
+                        solved: false,
+                    },
+                },
+            ],
+            [
+                'malformed competition key',
+                {
+                    ...validDailyBody,
+                    context: {
+                        ...validDailyBody.context,
+                        competitionKey: 'ice-slide:daily:2026-02-29:g1:r1',
+                    },
+                },
+            ],
+            [
+                'context/key ruleset mismatch',
+                {
+                    ...validDailyBody,
+                    context: { ...validDailyBody.context, rulesetVersion: 2 },
+                    gameData: {
+                        ...validDailyBody.gameData,
+                        rulesetVersion: 2,
+                    },
+                },
+            ],
+            [
+                'Expedition game data with Daily context',
+                {
+                    ...validDailyBody,
+                    gameData: {
+                        ...validDailyBody.gameData,
+                        mode: 'expedition',
+                    },
+                },
+            ],
+        ])('rejects %s with 400 and does not persist', async (_name, body) => {
+            const response = await POST({
+                request: postBody(body),
+            } as never)
+
+            expect(response.status).toBe(400)
+            const result = await response.json()
+            expect(result.error).toBe('Invalid Ice Slide Daily score data')
+            expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
+        })
+    })
 })
