@@ -5,6 +5,7 @@ import {
     assertValidIceSlideRunDefinition,
     assertValidIceSlideUtcDateKey,
     createIceSlideStageSignature,
+    formatIceSlideDailyRunKey,
     ICE_SLIDE_RULESET_VERSION,
     ICE_SLIDE_RUN_SCHEMA_VERSION,
     CAMPAIGN_STAGE_DIFFICULTIES,
@@ -50,6 +51,14 @@ export function toIceSlideUtcDateKey(date: Date): string {
     ].join('-')
     assertValidIceSlideUtcDateKey(dateKey)
     return dateKey
+}
+
+export function createIceSlideDailyCompetitionKey(dateKey: string): string {
+    return formatIceSlideDailyRunKey({
+        dateKey,
+        generatorVersion: ICE_SLIDE_DAILY_GENERATOR_VERSION,
+        rulesetVersion: ICE_SLIDE_RULESET_VERSION,
+    })
 }
 
 export function createIceSlideDailyRunDefinition(
@@ -187,7 +196,7 @@ export function createIceSlideDailyRunDefinition(
         generatorVersion: ICE_SLIDE_DAILY_GENERATOR_VERSION,
         rulesetVersion: ICE_SLIDE_RULESET_VERSION,
         mode: 'daily',
-        runKey: `ice-slide:daily:${dateKey}:g${ICE_SLIDE_DAILY_GENERATOR_VERSION}:r${ICE_SLIDE_RULESET_VERSION}`,
+        runKey: createIceSlideDailyCompetitionKey(dateKey),
         seed,
         stages,
     }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { serializeBoardRows } from './transforms'
 import { assertValidIceSlideRunDefinition } from './run'
 import {
+    createIceSlideDailyCompetitionKey,
     createIceSlideDailyRunDefinition,
     ICE_SLIDE_DAILY_GENERATOR_VERSION,
     ICE_SLIDE_DAILY_SOLVER_MAX_STATES,
@@ -190,5 +191,13 @@ describe('Ice Slide Daily generator v1', () => {
                 new Set(run.stages.map(stage => stage.templateId)).size
             ).toBe(run.stages.length)
         }
+    })
+})
+
+describe('Ice Slide Daily competition key constructor', () => {
+    it('builds the frozen generator-v1 Daily competition key', () => {
+        expect(createIceSlideDailyCompetitionKey('2026-08-12')).toBe(
+            'ice-slide:daily:2026-08-12:g1:r1'
+        )
     })
 })

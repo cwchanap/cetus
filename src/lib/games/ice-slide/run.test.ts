@@ -11,6 +11,8 @@ import {
     cloneIceSlideRunDefinition,
     createCampaignRunDefinition,
     createIceSlideStageSignature,
+    parseIceSlideDailyRunKey,
+    formatIceSlideDailyRunKey,
 } from './run'
 import type { IceSlideObjectiveId, IceSlideRunDefinition } from './types'
 
@@ -517,7 +519,7 @@ describe('Daily run key validation', () => {
                 run.runKey = 'ice-slide:daily:2026-02-30:g3:r2'
                 run.seed = 'ice-slide:daily:3:2:2026-02-30'
             },
-            'daily runKey date must be a calendar-valid YYYY-MM-DD date',
+            'daily runKey must match the daily key format',
         ],
     ] as const)('rejects %s', (_name, mutate, message) => {
         const run = makeDailyRun()
@@ -581,5 +583,47 @@ describe('Expedition run key validation', () => {
         const run = makeExpeditionRun()
         mutate(run)
         expect(() => assertValidIceSlideRunDefinition(run)).toThrow(message)
+    })
+})
+
+describe('Ice Slide Daily competition key grammar', () => {
+    it('parses an exact Daily competition identity', () => {
+        expect(
+            parseIceSlideDailyRunKey('ice-slide:daily:2026-08-12:g3:r2')
+        ).toEqual({
+            dateKey: '2026-08-12',
+            generatorVersion: 3,
+            rulesetVersion: 2,
+        })
+    })
+
+    it('formats and round-trips a Daily competition identity', () => {
+        const identity = {
+            dateKey: '2026-08-12',
+            generatorVersion: 3,
+            rulesetVersion: 2,
+        }
+        const key = formatIceSlideDailyRunKey(identity)
+        expect(key).toBe('ice-slide:daily:2026-08-12:g3:r2')
+        expect(parseIceSlideDailyRunKey(key)).toEqual(identity)
+    })
+
+    it.each([
+        'ice-slide:daily:2026-02-29:g1:r1',
+        'ice-slide:daily:2026-08-12:g0:r1',
+        'ice-slide:daily:2026-08-12:g1:r0',
+        'ice-slide:daily:2026-08-12:g1',
+        'ice-slide:daily:2026-08-12:g1:r1:extra',
+        'daily:2026-08-12:g1:r1',
+    ])('rejects invalid Daily competition key %s', runKey => {
+        expect(parseIceSlideDailyRunKey(runKey)).toBeNull()
+    })
+
+    it.each([
+        [{ dateKey: '2026-02-29', generatorVersion: 1, rulesetVersion: 1 }],
+        [{ dateKey: '2026-08-12', generatorVersion: 0, rulesetVersion: 1 }],
+        [{ dateKey: '2026-08-12', generatorVersion: 1, rulesetVersion: 0 }],
+    ])('rejects invalid formatted identity %j', identity => {
+        expect(() => formatIceSlideDailyRunKey(identity)).toThrow()
     })
 })
