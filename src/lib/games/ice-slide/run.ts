@@ -204,23 +204,19 @@ export function assertValidIceSlideRunDefinition(
             throw new RangeError('campaign seed must be null')
         }
     } else if (run.mode === 'daily') {
-        const match = DAILY_KEY_PATTERN.exec(run.runKey)
-        if (!match) {
+        const identity = parseIceSlideDailyRunKey(run.runKey)
+        if (!identity) {
             throw new RangeError('daily runKey must match the daily key format')
         }
-        const dateSegment = match[1]
-        assertValidIceSlideUtcDateKey(dateSegment)
-        const generatorVersion = Number(match[2])
-        const rulesetVersion = Number(match[3])
-        if (run.generatorVersion !== generatorVersion) {
+        if (run.generatorVersion !== identity.generatorVersion) {
             throw new RangeError('daily generatorVersion must match the runKey')
         }
-        if (run.rulesetVersion !== rulesetVersion) {
+        if (run.rulesetVersion !== identity.rulesetVersion) {
             throw new RangeError('daily rulesetVersion must match the runKey')
         }
         const expectedSeed =
-            `ice-slide:daily:${generatorVersion}:` +
-            `${rulesetVersion}:${match[1]}`
+            `ice-slide:daily:${identity.generatorVersion}:` +
+            `${identity.rulesetVersion}:${identity.dateKey}`
         if (run.seed !== expectedSeed) {
             throw new RangeError(
                 'daily seed must match the runKey date and versions'
@@ -334,6 +330,56 @@ export function assertValidIceSlideRunDefinition(
             )
         }
     }
+}
+
+export interface IceSlideDailyRunIdentity {
+    dateKey: string
+    generatorVersion: number
+    rulesetVersion: number
+}
+
+export function parseIceSlideDailyRunKey(
+    runKey: string
+): IceSlideDailyRunIdentity | null {
+    const match = DAILY_KEY_PATTERN.exec(runKey)
+    if (!match) {
+        return null
+    }
+
+    try {
+        assertValidIceSlideUtcDateKey(match[1])
+    } catch {
+        return null
+    }
+
+    const generatorVersion = Number(match[2])
+    const rulesetVersion = Number(match[3])
+    if (
+        !Number.isSafeInteger(generatorVersion) ||
+        generatorVersion < 1 ||
+        !Number.isSafeInteger(rulesetVersion) ||
+        rulesetVersion < 1
+    ) {
+        return null
+    }
+
+    return {
+        dateKey: match[1],
+        generatorVersion,
+        rulesetVersion,
+    }
+}
+
+export function formatIceSlideDailyRunKey(
+    identity: IceSlideDailyRunIdentity
+): string {
+    assertValidIceSlideUtcDateKey(identity.dateKey)
+    assertPositiveInt(identity.generatorVersion, 'generatorVersion')
+    assertPositiveInt(identity.rulesetVersion, 'rulesetVersion')
+    return (
+        `ice-slide:daily:${identity.dateKey}:` +
+        `g${identity.generatorVersion}:r${identity.rulesetVersion}`
+    )
 }
 
 export function cloneIceSlideRunDefinition(

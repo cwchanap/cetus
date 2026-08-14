@@ -11,7 +11,7 @@ import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
 import { createIceSlideDailyRunDefinition, toIceSlideUtcDateKey } from './daily'
-import { cloneIceSlideRunDefinition } from './run'
+import { cloneIceSlideRunDefinition, parseIceSlideDailyRunKey } from './run'
 import { ICE_SLIDE_OBJECTIVE_LABELS } from './objectives'
 import type {
     IceSlideCallbacks,
@@ -72,10 +72,6 @@ function formatTime(seconds: number): string {
     const m = Math.floor(seconds / 60)
     const s = seconds % 60
     return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-function extractDailyDateKey(runKey: string): string | null {
-    return /^ice-slide:daily:(\d{4}-\d{2}-\d{2}):/.exec(runKey)?.[1] ?? null
 }
 
 function nextUtcDateKey(dateKey: string): string {
@@ -217,7 +213,9 @@ export async function initializeIceSlide(
         }
 
         const capturedDateKey =
-            dailyDateKey ?? extractDailyDateKey(state.runKey) ?? ''
+            dailyDateKey ??
+            parseIceSlideDailyRunKey(state.runKey)?.dateKey ??
+            ''
         setText('daily-date', capturedDateKey)
         if (capturedDateKey) {
             setText(
@@ -403,8 +401,7 @@ export async function initializeIceSlide(
         setVisible('game-over-overlay', false)
         if (run?.mode === 'daily') {
             currentMode = 'daily'
-            dailyDateKey =
-                dailyDateKey ?? extractDailyDateKey(run.runKey) ?? null
+            dailyDateKey = parseIceSlideDailyRunKey(run.runKey)?.dateKey ?? null
         } else {
             currentMode = 'campaign'
         }
@@ -488,7 +485,8 @@ export async function initializeIceSlide(
         playAgain: async () => {
             if (currentMode === 'daily' && retryDailyRun) {
                 const run = cloneIceSlideRunDefinition(retryDailyRun)
-                dailyDateKey = extractDailyDateKey(run.runKey)
+                dailyDateKey =
+                    parseIceSlideDailyRunKey(run.runKey)?.dateKey ?? null
                 await startRun(run)
                 return
             }
