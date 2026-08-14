@@ -6,7 +6,8 @@ import {
     toPublicScopedLeaderboardEntry,
     type GameLeaderboardEntry,
 } from '@/lib/server/db/queries'
-import { getAllGames } from '@/lib/games'
+import { getAllGames, GameID } from '@/lib/games'
+import { parseIceSlideDailyRunKey } from '@/lib/games/ice-slide/run'
 import {
     jsonResponse,
     badRequestResponse,
@@ -15,7 +16,7 @@ import {
 } from '@/lib/server/api-utils'
 import { leaderboardQuerySchema, validateQuery } from '@/lib/server/validations'
 
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, locals }) => {
     try {
         const parsed = validateQuery(url, leaderboardQuerySchema)
         if (!parsed.success) {
@@ -78,6 +79,20 @@ export const GET: APIRoute = async ({ url }) => {
 
         // Scoped branch: mode present → best-per-user via scoped query
         if (mode) {
+            // leaderboardQuerySchema requires the key's presence for Ice Slide
+            // Daily; this route validates the Ice Slide domain grammar and
+            // calendar semantics.
+            if (gameId === GameID.ICE_SLIDE && mode === 'daily') {
+                if (
+                    !competitionKey ||
+                    !parseIceSlideDailyRunKey(competitionKey)
+                ) {
+                    return badRequestResponse(
+                        'Invalid Ice Slide Daily competitionKey'
+                    )
+                }
+            }
+
             const scoped = await getScopedGameLeaderboard({
                 gameId,
                 mode,
@@ -93,14 +108,18 @@ export const GET: APIRoute = async ({ url }) => {
                 )
             }
 
+            const viewerUserId = locals.user?.id ?? null
             const leaderboard = scoped.rows.map((row, index) => ({
                 rank: index + 1,
                 ...toPublicScopedLeaderboardEntry(row),
+                isCurrentUser:
+                    viewerUserId !== null && row.userId === viewerUserId,
             }))
 
             return jsonResponse({
                 gameId,
                 gameName: game.name,
+                viewerAuthenticated: viewerUserId !== null,
                 leaderboard,
             })
         }

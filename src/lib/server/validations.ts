@@ -181,6 +181,21 @@ export const leaderboardQuerySchema = z
                 message: 'competitionKey requires gameId and mode',
             })
         }
+
+        // Ice Slide Daily additionally requires an exact competition key; the
+        // route validates that key's game-domain grammar with
+        // parseIceSlideDailyRunKey().
+        if (
+            data.gameId === GameID.ICE_SLIDE &&
+            data.mode === 'daily' &&
+            !data.competitionKey
+        ) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['competitionKey'],
+                message: 'competitionKey is required for Ice Slide Daily',
+            })
+        }
     })
 
 export type LeaderboardQueryInput = z.infer<typeof leaderboardQuerySchema>
