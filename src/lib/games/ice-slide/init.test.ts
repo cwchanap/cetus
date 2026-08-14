@@ -110,6 +110,7 @@ const baseCallbacks = () => ({
     onTimeUpdate: vi.fn(),
     onWin: vi.fn(),
     onError: vi.fn(),
+    onScoreSaved: vi.fn(),
 })
 
 function findSolution(
@@ -797,6 +798,102 @@ describe('initializeIceSlide', () => {
 
         expect(saveGameScore).toHaveBeenCalledTimes(1)
         expect(callbacks.onError).not.toHaveBeenCalled()
+        handle.cleanup()
+    })
+
+    it('fires onScoreSaved after a current successful Daily save', async () => {
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+        await handle.start('daily')
+
+        vi.mocked(saveGameScore).mockImplementation(
+            (_id, _score, onSuccess) => {
+                onSuccess?.({ success: true, newAchievements: [] } as never)
+                return Promise.resolve()
+            }
+        )
+
+        for (let stage = 1; stage <= 5; stage++) {
+            solveCurrentStage(handle)
+            if (stage < 5) {
+                document.getElementById('stage-clear-continue-btn')?.click()
+            }
+        }
+
+        expect(callbacks.onScoreSaved).toHaveBeenCalledTimes(1)
+        const saved = callbacks.onScoreSaved.mock.calls[0][0]
+        expect(saved.mode).toBe('daily')
+        expect(saved.solved).toBe(true)
+        const runKey = handle.getGame()?.getState().runKey
+        expect(saved.runKey).toBe(runKey)
+        handle.cleanup()
+    })
+
+    it('does not fire onScoreSaved on an unauthenticated Daily score error', async () => {
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+        await handle.start('daily')
+
+        vi.mocked(saveGameScore).mockImplementation(
+            (_id, _score, _onSuccess, onErrorCb) => {
+                onErrorCb?.('You must be logged in to save scores', {
+                    success: false,
+                    code: 'UNAUTHENTICATED',
+                })
+                return Promise.resolve()
+            }
+        )
+
+        for (let stage = 1; stage <= 5; stage++) {
+            solveCurrentStage(handle)
+            if (stage < 5) {
+                document.getElementById('stage-clear-continue-btn')?.click()
+            }
+        }
+
+        expect(callbacks.onScoreSaved).not.toHaveBeenCalled()
+        handle.cleanup()
+    })
+
+    it('does not fire onScoreSaved on a generic score error', async () => {
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+        await handle.start()
+        handle.getGame()?.move('S')
+
+        vi.mocked(saveGameScore).mockImplementation(
+            (_id, _score, _onSuccess, onErrorCb) => {
+                onErrorCb?.('nope')
+                return Promise.resolve()
+            }
+        )
+
+        handle.stop()
+        expect(callbacks.onScoreSaved).not.toHaveBeenCalled()
+        handle.cleanup()
+    })
+
+    it('suppresses onScoreSaved when a newer run starts first', async () => {
+        const callbacks = baseCallbacks()
+        let onSuccess: ((result: unknown) => void) | undefined
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+        await handle.start()
+        handle.getGame()?.move('S')
+
+        vi.mocked(saveGameScore).mockImplementation((_id, _score, success) => {
+            onSuccess = success as ((result: unknown) => void) | undefined
+            return Promise.resolve()
+        })
+
+        handle.stop()
+        await handle.start()
+
+        onSuccess?.({ success: true, newAchievements: [] })
+        expect(callbacks.onScoreSaved).not.toHaveBeenCalled()
         handle.cleanup()
     })
 

@@ -81,6 +81,13 @@ describe('Ice Slide Daily challenge markup', () => {
         expect(iceSlideMarkup).toContain('id="stage-clear-continue-btn"')
         expect(iceSlideMarkup).toContain('id="daily-final-stage-result"')
         expect(iceSlideMarkup).toContain('id="change-mode-btn"')
+        expect(iceSlideMarkup).toContain('id="daily-leaderboard"')
+        expect(iceSlideMarkup).toContain('id="daily-leaderboard-date"')
+        expect(iceSlideMarkup).toContain('id="daily-leaderboard-signed-out"')
+        expect(iceSlideMarkup).toContain('id="daily-leaderboard-loading"')
+        expect(iceSlideMarkup).toContain('id="daily-leaderboard-empty"')
+        expect(iceSlideMarkup).toContain('id="daily-leaderboard-unavailable"')
+        expect(iceSlideMarkup).toContain('id="daily-leaderboard-rows"')
     })
 })
 

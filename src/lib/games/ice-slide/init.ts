@@ -15,6 +15,7 @@ import { cloneIceSlideRunDefinition, parseIceSlideDailyRunKey } from './run'
 import { ICE_SLIDE_OBJECTIVE_LABELS } from './objectives'
 import type {
     IceSlideCallbacks,
+    IceSlideGameData,
     IceSlidePlayableMode,
     IceSlideRunDefinition,
     IceSlideStageClearResult,
@@ -26,6 +27,7 @@ export const CELL_SIZE = 48
 
 export interface IceSlideUICallbacks extends IceSlideCallbacks {
     onError?: (title: string, message: string) => void
+    onScoreSaved?: (gameData: IceSlideGameData) => void
 }
 
 export interface IceSlideHandle {
@@ -300,6 +302,7 @@ export async function initializeIceSlide(
                         })
                     )
                 }
+                callbacks.onScoreSaved?.(gameData)
             },
             (error, result) => {
                 if (isStale()) {

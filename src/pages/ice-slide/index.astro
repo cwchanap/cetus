@@ -134,6 +134,42 @@ import Button from '@/components/ui/Button.astro'
           <span id="daily-objective-bonus">Bonus: —</span>
         </div>
       </Card>
+
+      <Card id="daily-leaderboard" variant="glass" class="hidden p-4">
+        <div class="flex items-baseline justify-between gap-3">
+          <h3 class="font-mono text-sm tracking-wide text-cetus-accent">
+            ▸ DAILY RANKING
+          </h3>
+          <span id="daily-leaderboard-date" class="text-xs text-cetus-ink-muted"
+            >—</span
+          >
+        </div>
+        <p
+          id="daily-leaderboard-signed-out"
+          class="hidden mt-2 text-xs text-cetus-ink-muted"
+        >
+          Sign in to submit a ranked result. You can still view today's ranking.
+        </p>
+        <p
+          id="daily-leaderboard-loading"
+          class="mt-3 text-sm text-cetus-ink-muted"
+        >
+          Loading ranking…
+        </p>
+        <p
+          id="daily-leaderboard-empty"
+          class="hidden mt-3 text-sm text-cetus-ink-muted"
+        >
+          No ranked finishes yet.
+        </p>
+        <p
+          id="daily-leaderboard-unavailable"
+          class="hidden mt-3 text-sm text-cetus-ink-muted"
+        >
+          Ranking is temporarily unavailable.
+        </p>
+        <div id="daily-leaderboard-rows" class="hidden mt-3 space-y-2"></div>
+      </Card>
     </div>
   </div>
 
@@ -239,6 +275,11 @@ import Button from '@/components/ui/Button.astro'
 
 <script>
   import { initializeIceSlide } from '@/lib/games/ice-slide/init'
+  import {
+    createIceSlideDailyCompetitionKey,
+    toIceSlideUtcDateKey,
+  } from '@/lib/games/ice-slide/daily'
+  import { createDailyLeaderboardController } from '@/lib/games/ice-slide/daily-leaderboard'
   import type { IceSlidePlayableMode } from '@/lib/games/ice-slide/types'
 
   const requestedMode = new URLSearchParams(window.location.search).get('mode')
@@ -265,6 +306,19 @@ import Button from '@/components/ui/Button.astro'
     )
     const dailyFinalResult = document.getElementById('daily-final-stage-result')
     const changeModeBtn = document.getElementById('change-mode-btn')
+    const leaderboardPanel = document.getElementById('daily-leaderboard')
+    const leaderboardDate = document.getElementById('daily-leaderboard-date')
+    const leaderboardSignedOut = document.getElementById(
+      'daily-leaderboard-signed-out'
+    )
+    const leaderboardLoading = document.getElementById(
+      'daily-leaderboard-loading'
+    )
+    const leaderboardEmpty = document.getElementById('daily-leaderboard-empty')
+    const leaderboardUnavailable = document.getElementById(
+      'daily-leaderboard-unavailable'
+    )
+    const leaderboardRows = document.getElementById('daily-leaderboard-rows')
     if (
       !container ||
       !statusEl ||
@@ -277,10 +331,30 @@ import Button from '@/components/ui/Button.astro'
       modeRadios.length === 0 ||
       !dailyMeta ||
       !dailyFinalResult ||
-      !changeModeBtn
+      !changeModeBtn ||
+      !leaderboardPanel ||
+      !leaderboardDate ||
+      !leaderboardSignedOut ||
+      !leaderboardLoading ||
+      !leaderboardEmpty ||
+      !leaderboardUnavailable ||
+      !leaderboardRows
     ) {
       return
     }
+
+    const leaderboardController = createDailyLeaderboardController({
+      panel: leaderboardPanel,
+      date: leaderboardDate,
+      signedOut: leaderboardSignedOut,
+      loading: leaderboardLoading,
+      empty: leaderboardEmpty,
+      unavailable: leaderboardUnavailable,
+      rows: leaderboardRows,
+    })
+
+    const currentUtcDailyKey = () =>
+      createIceSlideDailyCompetitionKey(toIceSlideUtcDateKey(new Date()))
 
     modeRadios.forEach(radio => {
       radio.checked = radio.value === selectedMode
@@ -343,6 +417,11 @@ import Button from '@/components/ui/Button.astro'
           errorEl.classList.remove('hidden')
           restoreIdleModeControlsIfNoResult()
         },
+        onScoreSaved: gameData => {
+          if (gameData.mode === 'daily') {
+            leaderboardController.load(gameData.runKey)
+          }
+        },
       })
     } catch (error) {
       errorEl.textContent =
@@ -351,12 +430,26 @@ import Button from '@/components/ui/Button.astro'
       return
     }
 
+    if (readSelectedMode() === 'daily') {
+      leaderboardController.load(currentUtcDailyKey())
+    } else {
+      leaderboardController.hide()
+    }
+
     startBtn.addEventListener('click', async () => {
       const mode = readSelectedMode()
       startBtn.style.display = 'none'
       setModeControlsDisabled(true)
       try {
         await gameHandle?.start(mode)
+        if (mode === 'daily') {
+          const runKey = gameHandle?.getGame()?.getState().runKey
+          if (runKey) {
+            leaderboardController.load(runKey)
+          }
+        } else {
+          leaderboardController.hide()
+        }
       } catch (error) {
         errorEl.textContent =
           error instanceof Error ? error.message : 'Failed to start'
@@ -382,6 +475,14 @@ import Button from '@/components/ui/Button.astro'
       setModeControlsDisabled(true)
       try {
         await gameHandle?.playAgain()
+        if (gameHandle?.getGame()?.getState().mode === 'daily') {
+          const runKey = gameHandle.getGame()?.getState().runKey
+          if (runKey) {
+            leaderboardController.load(runKey)
+          }
+        } else {
+          leaderboardController.hide()
+        }
       } catch (error) {
         errorEl.textContent =
           error instanceof Error ? error.message : 'Failed to restart'
@@ -400,6 +501,21 @@ import Button from '@/components/ui/Button.astro'
       resetButtonState()
       setModeControlsDisabled(false)
       focusIdleControl()
+      if (readSelectedMode() === 'daily') {
+        leaderboardController.load(currentUtcDailyKey())
+      } else {
+        leaderboardController.hide()
+      }
+    })
+
+    modeRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        if (readSelectedMode() === 'daily') {
+          leaderboardController.load(currentUtcDailyKey())
+        } else {
+          leaderboardController.hide()
+        }
+      })
     })
   }
 
