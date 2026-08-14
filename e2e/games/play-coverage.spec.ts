@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS } from '../../src/lib/games/ice-slide/test-fixtures'
 
 /**
  * One happy-path play test per game. Each game's "Start" listener attaches
@@ -335,6 +336,32 @@ test.describe('Satellite Sync', () => {
 })
 
 test.describe('Ice Slide', () => {
+    const DIRECTION_TO_KEY = {
+        N: 'ArrowUp',
+        E: 'ArrowRight',
+        S: 'ArrowDown',
+        W: 'ArrowLeft',
+    } as const
+
+    async function completeFrozenDaily(page: Page): Promise<void> {
+        for (
+            let stage = 0;
+            stage < ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS.length;
+            stage++
+        ) {
+            for (const direction of ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS[
+                stage
+            ]) {
+                await page.keyboard.press(DIRECTION_TO_KEY[direction])
+            }
+            if (stage < ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS.length - 1) {
+                await expect(page.locator('#stage-clear-overlay')).toBeVisible()
+                await page.locator('#stage-clear-continue-btn').click()
+            }
+        }
+        await expect(page.locator('#game-over-overlay')).toBeVisible()
+    }
+
     test('renders, starts, accepts a move, and can be ended', async ({
         page,
     }) => {
@@ -447,4 +474,179 @@ test.describe('Ice Slide', () => {
             await expect(page.locator('#end-btn')).toHaveCSS('display', 'none')
         })
     }
+
+    test('loads the active Daily ranking and renders the empty + signed-out states', async ({
+        page,
+    }) => {
+        await page.clock.setFixedTime(new Date('2026-08-12T20:00:00Z'))
+        await page.route('**/api/leaderboard?*', async route => {
+            expect(route.request().url()).toContain(
+                'competitionKey=ice-slide%3Adaily%3A2026-08-12%3Ag1%3Ar1'
+            )
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    gameId: 'ice_slide',
+                    gameName: 'Ice Slide',
+                    viewerAuthenticated: false,
+                    leaderboard: [],
+                }),
+            })
+        })
+
+        await page.goto('/ice-slide?mode=daily')
+
+        await expect(page.locator('#daily-leaderboard-empty')).toBeVisible()
+        await expect(
+            page.locator('#daily-leaderboard-signed-out')
+        ).toBeVisible()
+    })
+
+    test('renders a ranked Daily row and highlights the viewer', async ({
+        page,
+    }) => {
+        await page.clock.setFixedTime(new Date('2026-08-12T20:00:00Z'))
+        await page.route('**/api/leaderboard?*', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    gameId: 'ice_slide',
+                    gameName: 'Ice Slide',
+                    viewerAuthenticated: true,
+                    leaderboard: [
+                        {
+                            rank: 1,
+                            name: 'Pilot',
+                            score: 4321,
+                            elapsedSeconds: 87,
+                            totalMoves: 31,
+                            isCurrentUser: true,
+                        },
+                    ],
+                }),
+            })
+        })
+
+        await page.goto('/ice-slide?mode=daily')
+
+        const rows = page.locator('#daily-leaderboard-rows')
+        await expect(rows).toBeVisible()
+        const rowText = (await rows.textContent()) ?? ''
+        expect(rowText).toContain('#1')
+        expect(rowText).toContain('Pilot')
+        expect(rowText).toContain('4,321')
+        expect(rowText).toContain('1:27')
+        expect(rowText).toContain('31')
+        expect(rowText).toContain('YOU')
+    })
+
+    test('shows unavailable for a leaderboard failure without blocking Daily play', async ({
+        page,
+    }) => {
+        await page.clock.setFixedTime(new Date('2026-08-12T20:00:00Z'))
+        await page.route('**/api/leaderboard?*', route =>
+            route.fulfill({
+                status: 503,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    error: 'Scoped leaderboard is unavailable',
+                    code: 'SCOPED_LEADERBOARD_UNAVAILABLE',
+                }),
+            })
+        )
+
+        await page.goto('/ice-slide?mode=daily')
+
+        await expect(
+            page.locator('#daily-leaderboard-unavailable')
+        ).toBeVisible()
+        await startGameWhenReady(page)
+        await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+        await expect(page.locator('#end-btn')).toBeVisible()
+        await expect(page.locator('#game-error')).toHaveClass(/hidden/)
+    })
+
+    test('refreshes the Daily ranking on a successful submit using the captured key', async ({
+        page,
+    }) => {
+        await page.clock.setFixedTime(new Date('2026-08-12T20:00:00Z'))
+        const leaderboardRequests: string[] = []
+        await page.route('**/api/leaderboard?*', route => {
+            leaderboardRequests.push(route.request().url())
+            return route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    gameId: 'ice_slide',
+                    gameName: 'Ice Slide',
+                    viewerAuthenticated: false,
+                    leaderboard: [],
+                }),
+            })
+        })
+        let scoresBody: Record<string, unknown> = {}
+        await page.route('**/api/scores', async route => {
+            scoresBody = JSON.parse(route.request().postData() ?? '{}')
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ success: true, newAchievements: [] }),
+            })
+        })
+
+        await page.goto('/ice-slide?mode=daily')
+        await expect(page.locator('#daily-leaderboard-empty')).toBeVisible()
+
+        const before = leaderboardRequests.length
+        await startGameWhenReady(page)
+        await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+        await completeFrozenDaily(page)
+
+        await expect
+            .poll(() => leaderboardRequests.length, { timeout: 10_000 })
+            .toBeGreaterThan(before)
+        expect(leaderboardRequests[leaderboardRequests.length - 1]).toContain(
+            'competitionKey=ice-slide%3Adaily%3A2026-08-12%3Ag1%3Ar1'
+        )
+        expect(scoresBody).toMatchObject({
+            context: {
+                mode: 'daily',
+                competitionKey: 'ice-slide:daily:2026-08-12:g1:r1',
+                rulesetVersion: 1,
+            },
+        })
+        expect((scoresBody.gameData as { solved?: boolean }).solved).toBe(true)
+    })
+
+    test('suppresses a delayed leaderboard response after switching to Campaign', async ({
+        page,
+    }) => {
+        await page.clock.setFixedTime(new Date('2026-08-12T20:00:00Z'))
+        let resolveDaily: (() => void) | undefined
+        await page.route('**/api/leaderboard?*', async route => {
+            await new Promise<void>(resolve => {
+                resolveDaily = resolve
+            })
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    gameId: 'ice_slide',
+                    gameName: 'Ice Slide',
+                    viewerAuthenticated: false,
+                    leaderboard: [],
+                }),
+            })
+        })
+
+        await page.goto('/ice-slide?mode=daily')
+        await page.locator('input[value="campaign"]').check()
+
+        await expect(page.locator('#daily-leaderboard')).toHaveClass(/hidden/)
+        resolveDaily?.()
+        await expect(page.locator('#daily-leaderboard')).toHaveClass(/hidden/)
+        await expect(page.locator('#daily-leaderboard-rows')).toBeEmpty()
+    })
 })

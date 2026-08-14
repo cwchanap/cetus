@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { serializeBoardRows } from './transforms'
 import { assertValidIceSlideRunDefinition } from './run'
+import { IceSlideGame } from './game'
+import { solveIceSlideBoard } from './solver'
 import {
     createIceSlideDailyCompetitionKey,
     createIceSlideDailyRunDefinition,
@@ -9,6 +11,7 @@ import {
     ICE_SLIDE_DAILY_STAGE_POOLS,
     toIceSlideUtcDateKey,
 } from './daily'
+import { ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS } from './test-fixtures'
 
 describe('Ice Slide Daily date keys', () => {
     it('formats a Date in UTC', () => {
@@ -199,5 +202,42 @@ describe('Ice Slide Daily competition key constructor', () => {
         expect(createIceSlideDailyCompetitionKey('2026-08-12')).toBe(
             'ice-slide:daily:2026-08-12:g1:r1'
         )
+    })
+})
+
+describe('Ice Slide Daily frozen 2026-08-12 playthrough', () => {
+    it('locks the shared 2026-08-12 minimum-move completion fixture', () => {
+        const run = createIceSlideDailyRunDefinition('2026-08-12')
+        expect(ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS).toHaveLength(
+            run.stages.length
+        )
+
+        const game = new IceSlideGame()
+        game.start(run)
+
+        for (const [
+            stageIndex,
+            directions,
+        ] of ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS.entries()) {
+            const stage = run.stages[stageIndex]
+            const solved = solveIceSlideBoard(stage, {
+                maxStates: ICE_SLIDE_DAILY_SOLVER_MAX_STATES,
+            })
+            expect(solved.truncated).toBe(false)
+            expect(solved.minMoves).toBe(directions.length)
+
+            for (const direction of directions) {
+                game.move(direction)
+            }
+
+            if (stageIndex < run.stages.length - 1) {
+                expect(game.getState().levelIndex).toBe(stageIndex + 1)
+                expect(game.getState().status).toBe('playing')
+            }
+        }
+
+        expect(game.getState().status).toBe('won')
+        expect(game.getGameData().solved).toBe(true)
+        game.destroy()
     })
 })

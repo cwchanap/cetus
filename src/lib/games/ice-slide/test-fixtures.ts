@@ -7,7 +7,11 @@ import {
     ICE_SLIDE_RULESET_VERSION,
     ICE_SLIDE_RUN_SCHEMA_VERSION,
 } from './run'
-import type { IceSlideRunDefinition, IceSlideStageDefinition } from './types'
+import type {
+    Direction,
+    IceSlideRunDefinition,
+    IceSlideStageDefinition,
+} from './types'
 
 export function createTestStage(
     overrides: Partial<IceSlideStageDefinition> = {}
@@ -117,3 +121,17 @@ export function createTestDailyRun(
     assertValidIceSlideRunDefinition(run)
     return run
 }
+
+/**
+ * Frozen minimum-move direction sequence that completes the deterministic
+ * generator-v1 2026-08-12 Daily. Shared by the unit replay (daily.test.ts) and
+ * the Playwright Ice Slide coverage; the latter derives arrow keys from it via
+ * a local map so no second copy of the sequence exists.
+ */
+export const ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS = [
+    ['S', 'E', 'S'],
+    ['N', 'W', 'N', 'W'],
+    ['W', 'N', 'E', 'S', 'W', 'N'],
+    ['S', 'W', 'N', 'E', 'S', 'W'],
+    ['E', 'S', 'W', 'N', 'E', 'S'],
+] as const satisfies readonly (readonly Direction[])[]

@@ -236,4 +236,45 @@ describe('Ice Slide Daily leaderboard controller', () => {
         expect(elements.panel.classList.contains('hidden')).toBe(true)
         expect(elements.rows.children).toHaveLength(0)
     })
+
+    it('shows unavailable when the leaderboard fetch rejects', async () => {
+        const controller = createDailyLeaderboardController(elements, () =>
+            Promise.reject(new Error('network error'))
+        )
+
+        await controller.load('ice-slide:daily:2026-08-12:g1:r1')
+
+        expect(elements.unavailable.classList.contains('hidden')).toBe(false)
+        expect(elements.rows.classList.contains('hidden')).toBe(true)
+    })
+
+    it('shows unavailable when the leaderboard response is not ok', async () => {
+        const controller = createDailyLeaderboardController(elements, () =>
+            Promise.resolve({
+                ok: false,
+                status: 503,
+                json: async () => ({}),
+            } as unknown as Response)
+        )
+
+        await controller.load('ice-slide:daily:2026-08-12:g1:r1')
+
+        expect(elements.unavailable.classList.contains('hidden')).toBe(false)
+    })
+
+    it('shows unavailable when the leaderboard body fails to parse', async () => {
+        const controller = createDailyLeaderboardController(elements, () =>
+            Promise.resolve({
+                ok: true,
+                status: 200,
+                json: async () => {
+                    throw new Error('bad json')
+                },
+            } as unknown as Response)
+        )
+
+        await controller.load('ice-slide:daily:2026-08-12:g1:r1')
+
+        expect(elements.unavailable.classList.contains('hidden')).toBe(false)
+    })
 })
