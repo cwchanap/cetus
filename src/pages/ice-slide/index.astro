@@ -150,24 +150,26 @@ import Button from '@/components/ui/Button.astro'
         >
           Sign in to submit a ranked result. You can still view today's ranking.
         </p>
-        <p
-          id="daily-leaderboard-loading"
-          class="mt-3 text-sm text-cetus-ink-muted"
-        >
-          Loading ranking…
-        </p>
-        <p
-          id="daily-leaderboard-empty"
-          class="hidden mt-3 text-sm text-cetus-ink-muted"
-        >
-          No ranked finishes yet.
-        </p>
-        <p
-          id="daily-leaderboard-unavailable"
-          class="hidden mt-3 text-sm text-cetus-ink-muted"
-        >
-          Ranking is temporarily unavailable.
-        </p>
+        <div aria-live="polite" aria-atomic="true">
+          <p
+            id="daily-leaderboard-loading"
+            class="mt-3 text-sm text-cetus-ink-muted"
+          >
+            Loading ranking…
+          </p>
+          <p
+            id="daily-leaderboard-empty"
+            class="hidden mt-3 text-sm text-cetus-ink-muted"
+          >
+            No ranked finishes yet.
+          </p>
+          <p
+            id="daily-leaderboard-unavailable"
+            class="hidden mt-3 text-sm text-cetus-ink-muted"
+          >
+            Ranking is temporarily unavailable.
+          </p>
+        </div>
         <div id="daily-leaderboard-rows" class="hidden mt-3 space-y-2"></div>
       </Card>
     </div>
@@ -353,6 +355,18 @@ import Button from '@/components/ui/Button.astro'
       rows: leaderboardRows,
     })
 
+    let activeDailyRunKey: string | undefined
+
+    const loadDailyLeaderboard = (runKey: string): void => {
+      activeDailyRunKey = runKey
+      void leaderboardController.load(runKey)
+    }
+
+    const hideDailyLeaderboard = (): void => {
+      activeDailyRunKey = undefined
+      leaderboardController.hide()
+    }
+
     const currentUtcDailyKey = () =>
       createIceSlideDailyCompetitionKey(toIceSlideUtcDateKey(new Date()))
 
@@ -418,8 +432,11 @@ import Button from '@/components/ui/Button.astro'
           restoreIdleModeControlsIfNoResult()
         },
         onScoreSaved: gameData => {
-          if (gameData.mode === 'daily') {
-            leaderboardController.load(gameData.runKey)
+          if (
+            gameData.mode === 'daily' &&
+            gameData.runKey === activeDailyRunKey
+          ) {
+            loadDailyLeaderboard(gameData.runKey)
           }
         },
       })
@@ -431,9 +448,9 @@ import Button from '@/components/ui/Button.astro'
     }
 
     if (readSelectedMode() === 'daily') {
-      leaderboardController.load(currentUtcDailyKey())
+      loadDailyLeaderboard(currentUtcDailyKey())
     } else {
-      leaderboardController.hide()
+      hideDailyLeaderboard()
     }
 
     startBtn.addEventListener('click', async () => {
@@ -445,10 +462,10 @@ import Button from '@/components/ui/Button.astro'
         if (mode === 'daily') {
           const runKey = gameHandle?.getGame()?.getState().runKey
           if (runKey) {
-            leaderboardController.load(runKey)
+            loadDailyLeaderboard(runKey)
           }
         } else {
-          leaderboardController.hide()
+          hideDailyLeaderboard()
         }
       } catch (error) {
         errorEl.textContent =
@@ -478,10 +495,10 @@ import Button from '@/components/ui/Button.astro'
         if (gameHandle?.getGame()?.getState().mode === 'daily') {
           const runKey = gameHandle.getGame()?.getState().runKey
           if (runKey) {
-            leaderboardController.load(runKey)
+            loadDailyLeaderboard(runKey)
           }
         } else {
-          leaderboardController.hide()
+          hideDailyLeaderboard()
         }
       } catch (error) {
         errorEl.textContent =
@@ -502,18 +519,18 @@ import Button from '@/components/ui/Button.astro'
       setModeControlsDisabled(false)
       focusIdleControl()
       if (readSelectedMode() === 'daily') {
-        leaderboardController.load(currentUtcDailyKey())
+        loadDailyLeaderboard(currentUtcDailyKey())
       } else {
-        leaderboardController.hide()
+        hideDailyLeaderboard()
       }
     })
 
     modeRadios.forEach(radio => {
       radio.addEventListener('change', () => {
         if (readSelectedMode() === 'daily') {
-          leaderboardController.load(currentUtcDailyKey())
+          loadDailyLeaderboard(currentUtcDailyKey())
         } else {
-          leaderboardController.hide()
+          hideDailyLeaderboard()
         }
       })
     })
