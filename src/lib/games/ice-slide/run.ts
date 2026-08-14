@@ -147,8 +147,12 @@ export function assertValidIceSlideUtcDateKey(dateKey: string): void {
     }
 }
 
+function isPositiveInt(value: number): boolean {
+    return Number.isInteger(value) && value >= 1 && value <= 0x7fffffff
+}
+
 function assertPositiveInt(value: number, field: string): void {
-    if (!Number.isInteger(value) || value < 1 || value > 0x7fffffff) {
+    if (!isPositiveInt(value)) {
         throw new RangeError(`${field} must be a positive signed integer`)
     }
 }
@@ -354,12 +358,7 @@ export function parseIceSlideDailyRunKey(
 
     const generatorVersion = Number(match[2])
     const rulesetVersion = Number(match[3])
-    if (
-        !Number.isSafeInteger(generatorVersion) ||
-        generatorVersion < 1 ||
-        !Number.isSafeInteger(rulesetVersion) ||
-        rulesetVersion < 1
-    ) {
+    if (!isPositiveInt(generatorVersion) || !isPositiveInt(rulesetVersion)) {
         return null
     }
 

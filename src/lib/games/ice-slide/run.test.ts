@@ -609,10 +609,24 @@ describe('Ice Slide Daily competition key grammar', () => {
         expect(parseIceSlideDailyRunKey(key)).toEqual(identity)
     })
 
+    it('accepts the maximum positive signed-int versions (0x7fffffff)', () => {
+        expect(
+            parseIceSlideDailyRunKey(
+                'ice-slide:daily:2026-08-12:g2147483647:r2147483647'
+            )
+        ).toEqual({
+            dateKey: '2026-08-12',
+            generatorVersion: 2147483647,
+            rulesetVersion: 2147483647,
+        })
+    })
+
     it.each([
         'ice-slide:daily:2026-02-29:g1:r1',
         'ice-slide:daily:2026-08-12:g0:r1',
         'ice-slide:daily:2026-08-12:g1:r0',
+        'ice-slide:daily:2026-08-12:g2147483648:r1',
+        'ice-slide:daily:2026-08-12:g1:r2147483648',
         'ice-slide:daily:2026-08-12:g1',
         'ice-slide:daily:2026-08-12:g1:r1:extra',
         'daily:2026-08-12:g1:r1',

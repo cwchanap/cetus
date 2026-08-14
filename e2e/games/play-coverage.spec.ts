@@ -599,14 +599,25 @@ test.describe('Ice Slide', () => {
         await page.goto('/ice-slide?mode=daily')
         await expect(page.locator('#daily-leaderboard-empty')).toBeVisible()
 
-        const before = leaderboardRequests.length
+        // Init has already fired one leaderboard request (Daily selected at
+        // load). The Start handler fires a second one for the captured runKey
+        // once the run begins, so wait for that Start-triggered request to
+        // land before capturing the pre-submit baseline. Otherwise the
+        // final count assertion could pass on the Start request alone, even
+        // if onScoreSaved stopped refreshing the leaderboard.
+        const afterStart = leaderboardRequests.length
         await startGameWhenReady(page)
         await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+        await expect
+            .poll(() => leaderboardRequests.length, { timeout: 10_000 })
+            .toBeGreaterThan(afterStart)
+
+        const beforeSubmit = leaderboardRequests.length
         await completeFrozenDaily(page)
 
         await expect
             .poll(() => leaderboardRequests.length, { timeout: 10_000 })
-            .toBeGreaterThan(before)
+            .toBeGreaterThan(beforeSubmit)
         expect(leaderboardRequests[leaderboardRequests.length - 1]).toContain(
             'competitionKey=ice-slide%3Adaily%3A2026-08-12%3Ag1%3Ar1'
         )
