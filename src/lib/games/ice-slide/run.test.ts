@@ -732,6 +732,24 @@ describe('Ice Slide Daily score admission', () => {
             { ...validDailyGameData, totalMoves: -1 },
             'invalid-total-moves',
         ],
+        [
+            'invalid-elapsed-seconds-above-max-safe-integer',
+            validDailyContext,
+            {
+                ...validDailyGameData,
+                elapsedSeconds: Number.MAX_SAFE_INTEGER + 1,
+            },
+            'invalid-elapsed-seconds',
+        ],
+        [
+            'invalid-total-moves-above-max-safe-integer',
+            validDailyContext,
+            {
+                ...validDailyGameData,
+                totalMoves: Number.MAX_SAFE_INTEGER + 1,
+            },
+            'invalid-total-moves',
+        ],
     ])('returns reason %s', (_name, context, gameData, expected) => {
         expect(iceSlideDailyAdmissionError(context, gameData)).toEqual({
             reason: expected,

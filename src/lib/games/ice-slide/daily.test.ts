@@ -213,31 +213,34 @@ describe('Ice Slide Daily frozen 2026-08-12 playthrough', () => {
         )
 
         const game = new IceSlideGame()
-        game.start(run)
+        try {
+            game.start(run)
 
-        for (const [
-            stageIndex,
-            directions,
-        ] of ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS.entries()) {
-            const stage = run.stages[stageIndex]
-            const solved = solveIceSlideBoard(stage, {
-                maxStates: ICE_SLIDE_DAILY_SOLVER_MAX_STATES,
-            })
-            expect(solved.truncated).toBe(false)
-            expect(solved.minMoves).toBe(directions.length)
+            for (const [
+                stageIndex,
+                directions,
+            ] of ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS.entries()) {
+                const stage = run.stages[stageIndex]
+                const solved = solveIceSlideBoard(stage, {
+                    maxStates: ICE_SLIDE_DAILY_SOLVER_MAX_STATES,
+                })
+                expect(solved.truncated).toBe(false)
+                expect(solved.minMoves).toBe(directions.length)
 
-            for (const direction of directions) {
-                game.move(direction)
+                for (const direction of directions) {
+                    game.move(direction)
+                }
+
+                if (stageIndex < run.stages.length - 1) {
+                    expect(game.getState().levelIndex).toBe(stageIndex + 1)
+                    expect(game.getState().status).toBe('playing')
+                }
             }
 
-            if (stageIndex < run.stages.length - 1) {
-                expect(game.getState().levelIndex).toBe(stageIndex + 1)
-                expect(game.getState().status).toBe('playing')
-            }
+            expect(game.getState().status).toBe('won')
+            expect(game.getGameData().solved).toBe(true)
+        } finally {
+            game.destroy()
         }
-
-        expect(game.getState().status).toBe('won')
-        expect(game.getGameData().solved).toBe(true)
-        game.destroy()
     })
 })

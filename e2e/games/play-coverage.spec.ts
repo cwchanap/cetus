@@ -642,6 +642,7 @@ test.describe('Ice Slide', () => {
         })
 
         await page.goto('/ice-slide?mode=daily')
+        await expect.poll(() => resolveDaily, { timeout: 10_000 }).toBeDefined()
         await page.locator('input[value="campaign"]').check()
 
         await expect(page.locator('#daily-leaderboard')).toHaveClass(/hidden/)
