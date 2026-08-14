@@ -10,15 +10,15 @@
 
 HPA-488 completes the competitive half of Ice Slide Daily without creating another leaderboard subsystem.
 
-HPA-484 already provides persisted score context plus a scoped best-per-user query. HPA-487 now submits completed Daily runs with `mode='daily'`, the captured run key as `competitionKey`, ruleset version, and full Ice Slide game data. The remaining work is narrow:
+HPA-484 already provides persisted score context plus a scoped best-per-user query. HPA-487 submits completed Daily runs with `mode='daily'`, the captured run key as `competitionKey`, ruleset version, and full Ice Slide game data. The remaining work is narrow:
 
-1. centralize the already-frozen Daily run/competition-key interpretation and remove the weaker `init.ts` date parser;
+1. centralize the frozen Daily run-key grammar and remove the weaker `init.ts` date parser;
 2. reject malformed or mismatched Ice Slide Daily score submissions before persistence;
-3. require an exact Daily competition key for Ice Slide Daily leaderboard reads while reusing HPA-484's query unchanged;
-4. add current-viewer metadata without exposing user IDs;
-5. render and refresh one Ice-Slide-specific Daily leaderboard through a small testable client module.
+3. require an exact Daily competition key for Ice Slide Daily leaderboard reads while leaving HPA-484's ranking query unchanged;
+4. derive current-viewer metadata from the authenticated user the middleware already stored in `Astro.locals`;
+5. render and refresh one Ice-Slide-specific Daily leaderboard through a small unit-tested client module.
 
-No new database table, endpoint family, ranking query, shared leaderboard framework, persistence service, or generic game-mode registry is needed.
+No new database table, endpoint family, ranking query, shared leaderboard framework, persistence service, auth round-trip, or generic game-mode registry is needed.
 
 ## 2. Goals
 
@@ -32,7 +32,8 @@ No new database table, endpoint family, ranking query, shared leaderboard framew
 - Refresh the active Daily ranking after a successful Daily score save.
 - Keep Campaign leaderboard behavior and `/api/leaderboard?gameId=ice_slide` unchanged.
 - Keep local Daily play/completion usable when score saving or leaderboard loading fails.
-- Give the page-local request-token/render behavior unit coverage rather than making Playwright its first proof.
+- Unit-test the page-local request-token/render behavior instead of making Playwright its first proof.
+- Keep one frozen `2026-08-12` direction fixture shared by its unit replay and Playwright consumer.
 
 ## 3. Non-goals
 
@@ -45,13 +46,14 @@ No new database table, endpoint family, ranking query, shared leaderboard framew
 - Cross-seed Expedition ranking.
 - A shared client leaderboard component for other games.
 - Changes to the global leaderboard page.
-- Read-repair or migration of any pre-HPA-488 malformed scoped rows.
+- Read-repair or migration of pre-HPA-488 malformed scoped rows.
+- Refactoring unrelated game time formatters.
 
 ## 4. Approaches considered
 
 ### A. Reuse the scoped query and specialize the existing score/leaderboard routes — selected
 
-Keep `/api/scores` and `/api/leaderboard` as the only network seams. Add Ice Slide Daily semantic checks to score admission, exact-key enforcement to the scoped leaderboard branch, and one Ice-Slide-specific client helper module for testable panel behavior.
+Keep `/api/scores` and `/api/leaderboard` as the only network seams. Add Ice Slide Daily semantic checks to score admission, exact-key enforcement to the existing leaderboard validation/route seam, and one Ice-Slide-specific client helper module for testable panel behavior.
 
 **Why selected:** it reuses every expensive piece already delivered by HPA-484, touches the fewest abstractions, and leaves generic scoped ranking available for future modes.
 
@@ -65,17 +67,17 @@ This would make the Daily contract obvious but duplicate request validation, ran
 
 This would avoid server changes but would allow malformed Daily submissions into persisted/ranked data and would keep the mode-only cross-date query footgun.
 
-**Rejected:** the ticket explicitly owns server admission and competitive isolation.
+**Rejected:** the ticket owns server admission and competitive isolation.
 
 ## 5. Competition identity contract
 
-The existing Daily run key is also the competition key:
+The Daily run key is also the competition key:
 
 ```text
 ice-slide:daily:YYYY-MM-DD:g<generatorVersion>:r<rulesetVersion>
 ```
 
-`run.ts` remains the single owner of that syntax. Export:
+`run.ts` owns both parsing and formatting of that grammar:
 
 ```ts
 export interface IceSlideDailyRunIdentity {
@@ -87,11 +89,15 @@ export interface IceSlideDailyRunIdentity {
 export function parseIceSlideDailyRunKey(
     runKey: string
 ): IceSlideDailyRunIdentity | null
+
+export function formatIceSlideDailyRunKey(
+    identity: IceSlideDailyRunIdentity
+): string
 ```
 
-The parser rejects malformed keys, trailing garbage, zero/non-positive versions, and calendar-invalid dates.
+`formatIceSlideDailyRunKey()` validates the UTC date and positive integer versions before returning the key. The parser rejects malformed keys, trailing garbage, non-positive versions, and calendar-invalid dates. Unit tests cover parse/format round trips.
 
-Every consumer that interprets a Daily key uses this parser:
+Every consumer that interprets a Daily key uses `parseIceSlideDailyRunKey()`:
 
 - `assertValidIceSlideRunDefinition()`;
 - the Ice Slide Daily score-admission helper;
@@ -113,23 +119,48 @@ parseIceSlideDailyRunKey(runKey)?.dateKey ?? null
 
 This prevents HUD and rollover logic from accepting a weaker key grammar than server admission.
 
-`daily.ts` also exports:
+`daily.ts` retains ownership of the current Daily generator version and imports `formatIceSlideDailyRunKey()` to expose the current-version convenience helper:
 
 ```ts
-export function createIceSlideDailyCompetitionKey(dateKey: string): string
+export function createIceSlideDailyCompetitionKey(dateKey: string): string {
+    return formatIceSlideDailyRunKey({
+        dateKey,
+        generatorVersion: ICE_SLIDE_DAILY_GENERATOR_VERSION,
+        rulesetVersion: ICE_SLIDE_RULESET_VERSION,
+    })
+}
 ```
 
-`createIceSlideDailyRunDefinition()` uses this helper for `run.runKey`. The idle Daily page uses the same helper to ask for the current UTC competition before a run starts. A started run still uses its captured `runKey`, so crossing UTC midnight cannot silently move the result to a new board.
+`createIceSlideDailyRunDefinition()` uses that helper for `run.runKey`. The idle Daily page uses the same helper to ask for the current UTC competition before a run starts. A started run still uses its captured `runKey`, so crossing UTC midnight cannot move the result to a new board.
 
-Changing these helpers does not change generator-v1 output; they centralize the already-frozen format.
+This changes no generator-v1 output; it only removes duplicate grammar construction.
 
 ## 6. Score admission
 
-Keep the generic Zod transport schema unchanged. Ice Slide Daily semantics run after generic validation and game-ID resolution in `src/pages/api/scores.ts`.
+Keep the generic Zod score transport schema unchanged. Ice Slide Daily semantics run after generic validation and game-ID resolution in `src/pages/api/scores.ts`.
 
 The domain check is pure and lives beside the Daily-key parser in `run.ts`:
 
 ```ts
+export type IceSlideDailyAdmissionReason =
+    | 'missing-context'
+    | 'context-mode-mismatch'
+    | 'missing-competition-key'
+    | 'malformed-competition-key'
+    | 'missing-game-data'
+    | 'game-data-mode-mismatch'
+    | 'unsolved'
+    | 'run-key-mismatch'
+    | 'generator-version-mismatch'
+    | 'game-data-ruleset-mismatch'
+    | 'context-ruleset-mismatch'
+    | 'invalid-elapsed-seconds'
+    | 'invalid-total-moves'
+
+export interface IceSlideDailyAdmissionError {
+    reason: IceSlideDailyAdmissionReason
+}
+
 export function iceSlideDailyAdmissionError(
     context: {
         mode: string
@@ -137,12 +168,12 @@ export function iceSlideDailyAdmissionError(
         rulesetVersion: number
     } | undefined,
     gameData: Record<string, unknown> | undefined
-): string | null
+): IceSlideDailyAdmissionError | null
 ```
 
-The route calls it only when `validatedGameId === GameID.ICE_SLIDE`. `run.ts` therefore does not import server validation types or the global game registry.
+The route calls it only when `validatedGameId === GameID.ICE_SLIDE`. `run.ts` therefore imports neither server validation types nor the global game registry.
 
-A payload claims Daily identity when either `context?.mode === 'daily'` or `gameData?.mode === 'daily'`. Such a claim is accepted only when all of these are true:
+A payload claims Daily identity when either `context?.mode === 'daily'` or `gameData?.mode === 'daily'`. A non-Daily Ice Slide payload returns `null`. A Daily claim is accepted only when all of these are true:
 
 - context exists and `context.mode === 'daily'`;
 - `context.competitionKey` exists and parses as a valid Ice Slide Daily run key;
@@ -156,13 +187,21 @@ A payload claims Daily identity when either `context?.mode === 'daily'` or `game
 - `gameData.elapsedSeconds` is a non-negative integer;
 - `gameData.totalMoves` is a non-negative integer.
 
-Invalid Daily claims return the existing HTTP 400 bad-request shape and are not persisted. No new public error-code family is required; the existing score client already maps a 400 response to invalid score data.
+The helper returns the first violated closed-union reason in a fixed order. Unit tests assert the exact reason for each invalid fixture, so removing one invariant cannot stay green because another overlapping check rejected the same payload.
 
-The helper unit tests name malformed competition keys and negative elapsed/move metrics explicitly even though generic Zod already rejects negative metrics when context is present. That keeps the domain invariant true independently of route validation order.
+The route maps every reason to the same existing public 400 body:
 
-This deliberately does **not** regenerate the Daily, recompute score, inspect stage rows, or verify move history. That remains outside HPA-488.
+```text
+Invalid Ice Slide Daily score data
+```
 
-Campaign behavior is unchanged because Campaign still submits without competitive context. Future Expedition context is also unaffected unless it incorrectly claims Daily identity.
+and does not call persistence. The server may log only the reason string for development diagnostics; it does not echo score payloads or create a new public error-code family.
+
+The helper unit tests include malformed competition keys and negative elapsed/move metrics even though generic Zod already rejects negative metrics when context is present. That keeps the domain invariant independent of route validation order.
+
+This deliberately does **not** regenerate the Daily, recompute score, inspect stage rows, or verify move history.
+
+Campaign behavior is unchanged because Campaign submits without competitive context. Future Expedition context is unaffected unless it claims Daily identity.
 
 ## 7. Scoped ranking and API contract
 
@@ -192,22 +231,38 @@ Rows written before semantic Daily admission are not a compatibility target. HPA
 /api/leaderboard?gameId=ice_slide&mode=daily&competitionKey=<exact-key>&limit=10
 ```
 
-For `gameId=ice_slide&mode=daily`:
+The existing `leaderboardQuerySchema.superRefine()` owns parameter-presence relationships. Extend it with:
 
-- `competitionKey` is required;
-- it must parse as a valid Ice Slide Daily key;
-- the unchanged scoped query receives `{ gameId, mode, competitionKey, limit }`.
+- when `gameId === GameID.ICE_SLIDE && mode === 'daily'`, `competitionKey` is required.
 
-This prevents the existing generic mode-only query from combining multiple Ice Slide Daily dates or versions. Other games/modes retain HPA-484's generic mode-only behavior.
+This sits beside the existing generic rules that `mode` requires `gameId` and `competitionKey` requires both `gameId` and `mode`.
 
-### 7.3 Viewer metadata
+The validation schema checks presence/transport shape only. It does **not** import Ice Slide domain parsing. A short comment points to the route's semantic companion.
 
-The scoped API branch performs an optional session lookup after a successful ranking query. Public leaderboard access remains public.
+After generic query validation succeeds, the leaderboard route parses the exact key with `parseIceSlideDailyRunKey()` for Ice Slide Daily. Malformed/calendar-invalid keys return the existing bad-request shape. Another short comment points back to the schema presence rule.
 
-`GET` must destructure both `url` and `request`:
+The unchanged scoped query receives exactly:
 
 ```ts
-export const GET: APIRoute = async ({ url, request }) => {
+{ gameId, mode, competitionKey, limit }
+```
+
+This prevents mode-only Ice Slide Daily reads from mixing dates/versions while preserving HPA-484's mode-only behavior for other games/modes.
+
+### 7.3 Viewer metadata from middleware locals
+
+`src/middleware.ts` already calls `auth.api.getSession()` for every request and stores the result in `context.locals.user` / `context.locals.session`. `env.d.ts` types `locals.user` as `User | null`.
+
+The leaderboard route therefore consumes the established request context instead of authenticating a second time:
+
+```ts
+export const GET: APIRoute = async ({ url, locals }) => {
+```
+
+After a successful scoped ranking query:
+
+```ts
+const viewerUserId = locals.user?.id ?? null
 ```
 
 The public scoped row keeps its existing fields and gains:
@@ -222,11 +277,13 @@ Every scoped response gains:
 viewerAuthenticated: boolean
 ```
 
-`isCurrentUser` is computed by comparing the private DB `userId` with the session user ID before combining it with `toPublicScopedLeaderboardEntry(row)`. The raw user ID remains absent from the response.
+`isCurrentUser` is computed by comparing the private DB `userId` with `viewerUserId` before combining it with `toPublicScopedLeaderboardEntry(row)`. The raw user ID remains absent from the response.
 
-An auth lookup failure degrades to an unauthenticated viewer rather than failing an otherwise available public leaderboard. The unscoped Campaign response shape is untouched.
+There is no route-local auth import, no `getViewerUserId()` helper, and no compatibility branch for tests that omit `request`. Route tests pass `locals: { user: null }` or a minimal user object, matching existing API-route test patterns.
 
-Because viewer metadata is additive to **all scoped responses**, existing scoped Tetris API assertions are updated deliberately; only unscoped responses retain byte/shape compatibility.
+The middleware's auth lookup remains the single auth lookup for the request. If it fails, normal middleware error behavior applies; HPA-488 does not add a second best-effort session policy that cannot be reached after middleware failure.
+
+Because viewer metadata is additive to **all scoped responses**, existing scoped Tetris API assertions are updated deliberately. Unscoped Campaign responses retain their current shape.
 
 ## 8. Ice Slide page UX
 
@@ -270,11 +327,13 @@ setDailyLeaderboardPanelState(elements, state)
 createDailyLeaderboardController(elements, fetcher?)
 ```
 
-The controller is a small closure, not a shared store or class hierarchy. It owns one monotonically increasing request token and exposes only the operations the page needs, such as `load(competitionKey)` and `hide()`/invalidation.
+The controller is a small closure, not a shared store or class hierarchy. It owns one monotonically increasing request token and exposes only `load(competitionKey)` and `hide()`.
 
-Unit tests in `daily-leaderboard.test.ts` execute the real loader under jsdom, including a delayed stale response. Playwright remains integration coverage rather than the first proof of token gating.
+Unit tests in `daily-leaderboard.test.ts` execute the real loader under jsdom, including delayed stale responses. Playwright remains integration coverage rather than the first proof of token gating.
 
-For elapsed formatting, reuse the existing `src/lib/games/shared/utils.ts::formatTime`. Remove the duplicate local `formatTime()` from `init.ts` and import the shared helper there too. The leaderboard wrapper maps `null` to `—` before calling the shared formatter.
+For leaderboard elapsed display, `formatDailyLeaderboardElapsed()` maps `null` to `—` and otherwise reuses `src/lib/games/shared/utils.ts::formatTime`.
+
+HPA-488 does **not** replace the existing private `init.ts::formatTime()`. That helper uses unbounded `M:SS`, whereas the shared helper switches to `H:MM:SS` after one hour. Changing the in-run HUD at that boundary is unrelated to Daily ranking and stays out of scope.
 
 ### 8.2 Loading lifecycle
 
@@ -294,15 +353,53 @@ Anonymous completion does not fire this callback because the score was not persi
 
 ### 8.3 Stale requests and failure isolation
 
-`createDailyLeaderboardController()` owns one request token. Every load captures the token and competition key; responses render only when the token remains current. `hide()` invalidates the token before hiding the panel.
+`createDailyLeaderboardController()` owns one request token. Every load increments/captures the token and parses the competition key.
 
-Switching to Campaign or starting/loading a newer Daily invalidates older requests. No `AbortController`, global store, event bus, or shared run guard is added for this one caller.
+If the key cannot be parsed, the controller shows the panel's `unavailable` state instead of silently returning and leaving stale rows visible.
+
+For a valid key, responses render only when the token remains current. `hide()` invalidates the token before hiding the panel.
+
+Switching to Campaign or loading a newer Daily invalidates older requests. No `AbortController`, global store, event bus, or shared run guard is added for this one caller.
 
 A 503/error switches only the leaderboard panel to unavailable. It never calls the game `failRun` path and never hides the local completion overlay.
 
 The Astro script remains wiring only: mode selection, Start, Play Again, Change Mode, captured run-key handoff, and `onScoreSaved` refresh.
 
-## 9. File boundaries
+## 9. Frozen Daily playthrough fixture
+
+The deterministic `2026-08-12` playthrough exists once in the existing test-only fixture module:
+
+```ts
+// src/lib/games/ice-slide/test-fixtures.ts
+export const ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS = [
+    ['S', 'E', 'S'],
+    ['N', 'W', 'N', 'W'],
+    ['W', 'N', 'E', 'S', 'W', 'N'],
+    ['S', 'W', 'N', 'E', 'S', 'W'],
+    ['E', 'S', 'W', 'N', 'E', 'S'],
+] as const satisfies readonly (readonly Direction[])[]
+```
+
+A unit test replays this exact fixture through `IceSlideGame` with `createIceSlideDailyRunDefinition('2026-08-12')`, advancing each non-final stage through the normal game API and asserting the final run reaches `status='won'` with `solved=true`.
+
+For each stage, the test also compares the fixture length with `solveIceSlideBoard(stage, { maxStates: ICE_SLIDE_DAILY_SOLVER_MAX_STATES }).minMoves`. The solver does not produce a path, so this is an optimal-length assertion rather than a second source of directions.
+
+The E2E spec imports the same fixture and derives browser keys through one local map:
+
+```ts
+const DIRECTION_TO_KEY = {
+    N: 'ArrowUp',
+    E: 'ArrowRight',
+    S: 'ArrowDown',
+    W: 'ArrowLeft',
+} as const
+```
+
+No arrow-key sequence is hardcoded separately in Playwright.
+
+Stages with `collect_all_crystals` still treat that objective as optional; the fixture proves deterministic completion and shortest-goal length, not every optional star.
+
+## 10. File boundaries
 
 Expected implementation files:
 
@@ -311,8 +408,11 @@ src/lib/games/ice-slide/run.ts
 src/lib/games/ice-slide/run.test.ts
 src/lib/games/ice-slide/daily.ts
 src/lib/games/ice-slide/daily.test.ts
+src/lib/games/ice-slide/test-fixtures.ts
 src/pages/api/scores.ts
 src/pages/api/scores.test.ts
+src/lib/server/validations.ts
+src/lib/server/validations.test.ts
 src/pages/api/leaderboard.ts
 src/pages/api/leaderboard.test.ts
 src/lib/games/ice-slide/init.ts
@@ -329,53 +429,43 @@ Not modified:
 ```text
 src/lib/server/db/scoped-leaderboard.ts
 src/lib/server/db/scoped-leaderboard.integration.test.ts
+src/middleware.ts
+env.d.ts
 ```
 
 The one new production module is justified by executable unit coverage of the page-local async/render state; it is intentionally game-specific and not a reusable component framework.
 
-## 10. Test strategy
+## 11. Test strategy
 
 ### Pure/unit
 
 - valid and invalid Daily competition-key parsing;
+- parse/format round trip for Daily identity;
 - `assertValidIceSlideRunDefinition()` and every `init.ts` date extraction use the same parser;
-- key construction preserves generator-v1/run-key output;
+- current-version key construction preserves generator-v1 output;
 - pure Daily admission accepts the exact HPA-487 payload;
-- pure Daily admission rejects omitted context, unsolved data, mode mismatch, malformed/mismatched run key, generator mismatch, ruleset mismatch, missing/negative metrics, and Expedition masquerading as Daily;
-- score route returns 400/no-persist for representative semantic failures after generic validation;
+- every invalid Daily admission fixture asserts an exact closed-union reason;
+- malformed keys, omitted context/data, mode mismatch, unsolved runs, run/generator/ruleset mismatch, missing/negative metrics, and Expedition masquerading as Daily are independently pinned;
+- score route maps admission reasons to the same 400/no-persist behavior;
 - `onScoreSaved` fires once after a current successful save and never on stale/error/unauthenticated paths;
 - Daily leaderboard URL/state/row/elapsed helpers run in jsdom;
-- controller tests prove loading/empty/unavailable/signed-out rendering and stale-response suppression.
+- controller tests prove loading/empty/unavailable/signed-out rendering, invalid-key behavior, and stale-response suppression;
+- the single frozen direction fixture replays to a solved Daily and matches each stage's solver minimum-move count.
 
-### Database/API
+### API
 
-- HPA-484's unchanged real-LibSQL best-per-user/tie-break suite remains green;
-- Ice Slide Daily leaderboard requests require and validate the exact `competitionKey`;
+- `leaderboardQuerySchema` requires `competitionKey` specifically for `ice_slide + daily` while preserving generic mode-only forms for other games;
+- malformed/calendar-invalid exact Ice Slide Daily keys are rejected semantically by the route;
 - the scoped query is called with only `{ gameId, mode, competitionKey, limit }`;
-- current-viewer rows gain `isCurrentUser=true` without exposing `userId`;
-- signed-out and auth-failure scoped responses return `viewerAuthenticated=false`;
+- current-viewer rows gain `isCurrentUser=true` from `locals.user` without exposing `userId`;
+- signed-out scoped responses use `locals.user=null` and return `viewerAuthenticated=false`;
+- no leaderboard API test imports or mocks `@/lib/auth` for HPA-488;
 - existing scoped Tetris response assertions are updated for the additive viewer fields;
 - Campaign/unscoped API tests keep their current response shape.
 
-### Deterministic Daily playthrough fixture
-
-Before Playwright depends on hard-coded keypresses, a unit test replays the exact five `2026-08-12` sequences through `IceSlideGame` using `createIceSlideDailyRunDefinition('2026-08-12')` and asserts the run reaches `status='won'` with `solved=true`.
-
-The known shortest goal sequences are:
-
-```text
-S E S
-N W N W
-W N E S W N
-S W N E S W
-E S W N E S
-```
-
-Stages 3 and 4 have `collect_all_crystals` as an optional bonus objective; these sequences are allowed to miss that bonus and still clear the run. The unit replay exists to prove the browser fixture clears the materialized boards, not to require every optional star.
-
 ### Browser
 
-Use the existing Ice Slide Playwright section. Add deterministic route-backed assertions for:
+Use the existing Ice Slide Playwright section. Add route-backed assertions for:
 
 - Daily selection loads the exact active key and renders empty/signed-out states;
 - ranked rows render all required metrics and the `YOU` marker;
@@ -383,23 +473,28 @@ Use the existing Ice Slide Playwright section. Add deterministic route-backed as
 - a successful current-run save triggers a second fetch for the same captured key;
 - a delayed stale leaderboard response cannot reappear after switching to Campaign/newer identity.
 
-Existing HPA-487 rollover/Play Again tests remain the source of truth for captured Daily identity.
+The browser completion helper imports `ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS` and derives keys from `DIRECTION_TO_KEY`; it never owns a second copy of the sequence.
 
-## 11. Acceptance mapping
+## 12. Acceptance mapping
 
-- **Different dates/generator/ruleset versions do not mix:** exact competition key is mandatory for Ice Slide Daily reads and is validated by the one parser; accepted writes must match that key's encoded identity.
-- **One row per user / better retries:** reused HPA-484 partitioned query unchanged.
-- **Tie-break order:** reused HPA-484 SQL and deterministic DB tests unchanged.
-- **Incomplete/mismatched/malformed/Expedition submissions cannot rank:** rejected before persistence by the pure Ice Slide Daily admission helper.
+- **Different dates/generator/ruleset versions do not mix:** exact key required; one parser/formatter owns identity grammar; unchanged query filters exact key.
+- **One row per user / better retries:** reused HPA-484 partitioned query.
+- **Tie-break order:** reused HPA-484 SQL and deterministic DB tests.
+- **Incomplete/mismatched/malformed/Expedition submissions cannot rank:** rejected before persistence with independently tested reasons.
 - **Campaign compatibility:** Campaign writes and unscoped read branch remain unchanged.
-- **Local play survives failures:** leaderboard errors stay inside the Daily leaderboard controller; score errors retain HPA-487 behavior.
-- **Authenticated/anonymous/empty/failure/success coverage:** split across API, init, jsdom controller, and Playwright tests.
+- **Viewer highlighting:** uses existing middleware-authenticated `locals.user`; private `userId` never enters the public DTO.
+- **Local play survives failures:** leaderboard errors are controller-local; score errors retain HPA-487 behavior.
+- **Authenticated/anonymous/empty/failure/success coverage:** split across API, init/controller, markup, and Playwright tests.
+- **Deterministic completion fixture:** one directions source is unit-replayed before Playwright consumes it.
 
-## 12. Self-review
+## 13. Self-review
 
 - No placeholder requirement remains.
-- There is one Daily-key parser and one current-version key constructor.
-- The existing scoped ranking query is reused without a redundant identity field.
-- Semantic admission is pure domain logic rather than a large route-local closure.
-- The single new client module is game-specific and exists to make async/token/render behavior directly testable.
-- No database schema, endpoint, shared UI abstraction, replay verifier, historical browser, Expedition ranking, or current-user rank-beyond-top-N query is added.
+- The design adds no schema, endpoint, ranking query, auth request, or shared UI framework.
+- `run.ts` owns Daily key grammar in both directions; `daily.ts` supplies only current version constants.
+- `getScopedGameLeaderboard()` remains unchanged.
+- Middleware auth is reused instead of repeated.
+- Admission reasons independently freeze semantic invariants while preserving one public 400 response.
+- The new leaderboard uses shared time formatting without changing existing Ice Slide HUD behavior.
+- The async panel logic is unit-testable; Astro remains structure/wiring.
+- Historical navigation, anti-cheat, Expedition ranking, and current-user rank-beyond-top-N remain out of scope.
