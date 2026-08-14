@@ -4,48 +4,59 @@
 
 **Goal:** Admit only valid completed Ice Slide Daily scores, rank one best result per player for the exact Daily competition, and show/refetch that ranking on the Ice Slide page without changing Campaign behavior.
 
-**Architecture:** Reuse HPA-484's existing score-context persistence and `getScopedGameLeaderboard()` window query unchanged. `run.ts` owns the single Daily-key parser plus pure Daily admission semantics; `/api/scores` and `/api/leaderboard` remain the only network seams. A small Ice-Slide-specific `daily-leaderboard.ts` module owns fetch/render/request-token behavior so the Astro page stays wiring-only and the risky async UI logic is unit-testable.
+**Architecture:** Reuse HPA-484's existing score-context persistence and `getScopedGameLeaderboard()` window query unchanged. `run.ts` owns the Daily key grammar in both directions plus pure Daily admission semantics; `/api/scores` and `/api/leaderboard` remain the only network seams. Viewer identity comes from middleware-populated `locals.user`. A small Ice-Slide-specific `daily-leaderboard.ts` module owns fetch/render/request-token behavior so the Astro page stays wiring-only and the risky async UI logic is unit-testable.
 
-**Tech Stack:** Astro 5, TypeScript, Tailwind CSS 4, Better Auth, Kysely + LibSQL/Turso, Vitest/jsdom, Playwright, Bun 1.3.1.
+**Tech Stack:** Astro 5, TypeScript, Tailwind CSS 4, Better Auth middleware locals, Kysely + LibSQL/Turso, Vitest/jsdom, Playwright, Bun 1.3.1.
 
 ## Global Constraints
 
 - Keep `/api/leaderboard?gameId=ice_slide` on the existing unscoped Campaign response path.
 - Daily competition keys remain `ice-slide:daily:YYYY-MM-DD:g<generatorVersion>:r<rulesetVersion>` and use UTC dates.
-- Daily ranking order remains score DESC, elapsed seconds ASC, total moves ASC, submission time ASC; row ID is only the existing final deterministic fallback for exact ties.
+- Daily ranking order remains score DESC, elapsed seconds ASC, total moves ASC, submission time ASC; row ID stays only the existing final deterministic fallback for exact ties.
 - Repeated attempts remain stored; only the existing best-per-user query chooses the displayed row.
-- `getScopedGameLeaderboard()` and `ScopedLeaderboardQuery` remain unchanged in HPA-488; the exact competition key is the competitive scope.
-- Do not add database schema, a new endpoint, a best-score cache/table, a generic mode registry, a shared leaderboard component, or an auth preflight request.
-- Do not add replay verification, score recomputation, historical Daily navigation, Expedition ranking, read-repair for pre-HPA-488 malformed rows, or current-user rank lookup beyond returned rows.
+- Do not modify `ScopedLeaderboardQuery`, `getScopedGameLeaderboard()`, or its real-LibSQL tie-break suite.
+- Do not add database schema, a new endpoint, a best-score cache/table, a generic mode registry, a shared leaderboard component/framework, or another auth request.
+- Do not add replay verification, score recomputation, historical Daily navigation, Expedition ranking, read-repair, or current-user rank lookup beyond returned rows.
 - Astro owns durable HTML; client TypeScript may update/toggle existing structure and create leaderboard row children without `innerHTML`.
-- Leaderboard or viewer-auth lookup failure must never enter the Ice Slide `failRun` path or invalidate a local result.
+- Leaderboard failures must never enter the Ice Slide `failRun` path or invalidate a local result.
 - Preserve HPA-487's captured Daily run identity across UTC rollover and Play Again.
-- Reuse `src/lib/games/shared/utils.ts::formatTime`; do not add another M:SS formatter.
+- Leave the existing private `init.ts::formatTime()` behavior unchanged; the new leaderboard alone reuses shared `formatTime()`.
+- Keep one frozen `2026-08-12` direction fixture in `test-fixtures.ts`; unit and E2E consumers import the same constant.
 - Keep existing remote Codecov project/patch coverage requirements at 95%.
 
 ---
 
 ## File map
 
-One new production module is intentional because it turns page-local async/render behavior into executable unit tests.
+- `src/lib/games/ice-slide/run.ts` — parse/format the frozen Daily key and expose pure Daily admission reasons.
+- `src/lib/games/ice-slide/run.test.ts` — identity round-trip and exact admission-reason tests.
+- `src/lib/games/ice-slide/daily.ts` — current-version Daily competition-key convenience constructor.
+- `src/lib/games/ice-slide/daily.test.ts` — frozen generator output plus shared playthrough replay.
+- `src/lib/games/ice-slide/test-fixtures.ts` — single frozen `2026-08-12` direction fixture.
+- `src/lib/games/ice-slide/init.ts` — consume the one Daily parser and report current successful score saves.
+- `src/lib/games/ice-slide/init.test.ts` — callback staleness/error coverage; no time-format behavior change.
+- `src/pages/api/scores.ts` — one Ice Slide dispatch to the pure admission helper.
+- `src/pages/api/scores.test.ts` — HTTP 400/no-persist boundary coverage.
+- `src/lib/server/validations.ts` — require `competitionKey` for `ice_slide + daily` alongside existing query-parameter relationship rules.
+- `src/lib/server/validations.test.ts` — presence rule and generic-mode compatibility.
+- `src/pages/api/leaderboard.ts` — semantic Daily-key validation plus viewer matching from `locals.user`.
+- `src/pages/api/leaderboard.test.ts` — exact-key/read DTO/viewer tests using `locals`, with no auth mock.
+- `src/lib/games/ice-slide/daily-leaderboard.ts` — page-local URL/state/row/fetch/request-token logic.
+- `src/lib/games/ice-slide/daily-leaderboard.test.ts` — jsdom async/render/stale-request tests.
+- `src/pages/ice-slide/index.astro` — static Daily ranking card and event wiring only.
+- `src/pages/game-board-markup.test.ts` — durable leaderboard element IDs only.
+- `e2e/games/play-coverage.spec.ts` — browser integration using the shared direction fixture.
 
-- `src/lib/games/ice-slide/run.ts` — single Daily run-key parser plus pure Daily score-admission helper.
-- `src/lib/games/ice-slide/daily.ts` — centralize construction of the frozen Daily competition key.
-- `src/lib/games/ice-slide/init.ts` — consume the one parser for captured date identity, reuse shared `formatTime`, and report successful score saves.
-- `src/pages/api/scores.ts` — call the pure Ice Slide Daily admission helper before persistence.
-- `src/pages/api/leaderboard.ts` — require exact Ice Slide Daily identity and add viewer metadata to scoped responses.
-- `src/lib/games/ice-slide/daily-leaderboard.ts` — Ice-Slide-specific URL/state/row/fetch/request-token logic.
-- `src/pages/ice-slide/index.astro` — static Daily leaderboard card plus event wiring only.
-- Existing colocated tests and `e2e/games/play-coverage.spec.ts` — contract, DOM, async-state, and browser coverage.
-
-Explicitly **not modified**:
+Explicitly unchanged:
 
 - `src/lib/server/db/scoped-leaderboard.ts`
 - `src/lib/server/db/scoped-leaderboard.integration.test.ts`
+- `src/middleware.ts`
+- `env.d.ts`
 
 ---
 
-### Task 1: Make one Daily competition-identity parser serve every consumer
+### Task 1: Make `run.ts` the single Daily-key grammar owner
 
 **Files:**
 - Modify: `src/lib/games/ice-slide/run.ts`
@@ -67,14 +78,18 @@ export function parseIceSlideDailyRunKey(
     runKey: string
 ): IceSlideDailyRunIdentity | null
 
+export function formatIceSlideDailyRunKey(
+    identity: IceSlideDailyRunIdentity
+): string
+
 export function createIceSlideDailyCompetitionKey(dateKey: string): string
 ```
 
-`createIceSlideDailyRunDefinition(dateKey)` must continue producing byte-equivalent generator-v1 run keys, seeds, stages, objectives, and signatures.
+`createIceSlideDailyCompetitionKey()` remains in `daily.ts`, but delegates grammar formatting to `run.ts` with current generator/ruleset constants.
 
-- [ ] **Step 1: Write failing parser tests in `run.test.ts`**
+- [ ] **Step 1: Add parser/formatter tests to `run.test.ts`**
 
-Add the parser import and lock exact identity plus malformed/calendar-invalid/unsafe versions:
+Add imports for `parseIceSlideDailyRunKey` and `formatIceSlideDailyRunKey`.
 
 ```ts
 it('parses an exact Daily competition identity', () => {
@@ -87,6 +102,17 @@ it('parses an exact Daily competition identity', () => {
     })
 })
 
+it('formats and round-trips a Daily competition identity', () => {
+    const identity = {
+        dateKey: '2026-08-12',
+        generatorVersion: 3,
+        rulesetVersion: 2,
+    }
+    const key = formatIceSlideDailyRunKey(identity)
+    expect(key).toBe('ice-slide:daily:2026-08-12:g3:r2')
+    expect(parseIceSlideDailyRunKey(key)).toEqual(identity)
+})
+
 it.each([
     'ice-slide:daily:2026-02-29:g1:r1',
     'ice-slide:daily:2026-08-12:g0:r1',
@@ -94,31 +120,32 @@ it.each([
     'ice-slide:daily:2026-08-12:g1',
     'ice-slide:daily:2026-08-12:g1:r1:extra',
     'daily:2026-08-12:g1:r1',
-    'ice-slide:daily:2026-08-12:g999999999999999999999:r1',
 ])('rejects invalid Daily competition key %s', runKey => {
     expect(parseIceSlideDailyRunKey(runKey)).toBeNull()
 })
+
+it.each([
+    [{ dateKey: '2026-02-29', generatorVersion: 1, rulesetVersion: 1 }],
+    [{ dateKey: '2026-08-12', generatorVersion: 0, rulesetVersion: 1 }],
+    [{ dateKey: '2026-08-12', generatorVersion: 1, rulesetVersion: 0 }],
+])('rejects invalid formatted identity %j', identity => {
+    expect(() => formatIceSlideDailyRunKey(identity)).toThrow()
+})
 ```
 
-- [ ] **Step 2: Run the focused run suite and confirm red**
+- [ ] **Step 2: Run the focused run tests and confirm red**
 
 ```bash
 bun run test:run src/lib/games/ice-slide/run.test.ts
 ```
 
-Expected: FAIL because `parseIceSlideDailyRunKey` is not exported.
+Expected: FAIL because the parser/formatter are not exported yet.
 
-- [ ] **Step 3: Implement the parser and reuse it in Daily run validation**
+- [ ] **Step 3: Implement parse/format in `run.ts` and reuse the parser in run validation**
 
-Keep `DAILY_KEY_PATTERN` as the single syntax regex. Parse versions once and reject anything outside the existing positive signed-integer contract:
+Keep the existing anchored `DAILY_KEY_PATTERN`. Add a positive-integer guard using the same signed-int domain as the run validator.
 
 ```ts
-export interface IceSlideDailyRunIdentity {
-    dateKey: string
-    generatorVersion: number
-    rulesetVersion: number
-}
-
 export function parseIceSlideDailyRunKey(
     runKey: string
 ): IceSlideDailyRunIdentity | null {
@@ -127,14 +154,20 @@ export function parseIceSlideDailyRunKey(
         return null
     }
 
-    const generatorVersion = Number(match[2])
-    const rulesetVersion = Number(match[3])
-
     try {
         assertValidIceSlideUtcDateKey(match[1])
-        assertPositiveInt(generatorVersion, 'generatorVersion')
-        assertPositiveInt(rulesetVersion, 'rulesetVersion')
     } catch {
+        return null
+    }
+
+    const generatorVersion = Number(match[2])
+    const rulesetVersion = Number(match[3])
+    if (
+        !Number.isSafeInteger(generatorVersion) ||
+        generatorVersion < 1 ||
+        !Number.isSafeInteger(rulesetVersion) ||
+        rulesetVersion < 1
+    ) {
         return null
     }
 
@@ -144,29 +177,32 @@ export function parseIceSlideDailyRunKey(
         rulesetVersion,
     }
 }
+
+export function formatIceSlideDailyRunKey(
+    identity: IceSlideDailyRunIdentity
+): string {
+    assertValidIceSlideUtcDateKey(identity.dateKey)
+    assertPositiveInt(identity.generatorVersion, 'generatorVersion')
+    assertPositiveInt(identity.rulesetVersion, 'rulesetVersion')
+    return (
+        `ice-slide:daily:${identity.dateKey}:` +
+        `g${identity.generatorVersion}:r${identity.rulesetVersion}`
+    )
+}
 ```
 
-Replace the Daily branch's independent regex extraction with:
+Replace the Daily branch's independent `DAILY_KEY_PATTERN.exec(...)` extraction with:
 
 ```ts
 const identity = parseIceSlideDailyRunKey(run.runKey)
 if (!identity) {
     throw new RangeError('daily runKey must match the daily key format')
 }
-if (run.generatorVersion !== identity.generatorVersion) {
-    throw new RangeError('daily generatorVersion must match the runKey')
-}
-if (run.rulesetVersion !== identity.rulesetVersion) {
-    throw new RangeError('daily rulesetVersion must match the runKey')
-}
-const expectedSeed =
-    `ice-slide:daily:${identity.generatorVersion}:` +
-    `${identity.rulesetVersion}:${identity.dateKey}`
 ```
 
-Do not retain another Daily-key regex parser elsewhere in `run.ts`.
+Use `identity.generatorVersion`, `identity.rulesetVersion`, and `identity.dateKey` for version and expected-seed checks.
 
-- [ ] **Step 4: Add the competition-key constructor test in `daily.test.ts`**
+- [ ] **Step 4: Add the current-version constructor test in `daily.test.ts`**
 
 ```ts
 it('builds the frozen generator-v1 Daily competition key', () => {
@@ -174,47 +210,35 @@ it('builds the frozen generator-v1 Daily competition key', () => {
         'ice-slide:daily:2026-08-12:g1:r1'
     )
 })
-
-it('rejects an invalid Daily competition date', () => {
-    expect(() => createIceSlideDailyCompetitionKey('2026-02-29')).toThrow(
-        RangeError
-    )
-})
 ```
 
-- [ ] **Step 5: Implement the constructor and use it in the Daily materializer**
+The existing literal `2026-08-12` generator fixture must remain byte-equivalent.
+
+- [ ] **Step 5: Delegate the Daily constructor to `run.ts`**
 
 In `daily.ts`:
 
 ```ts
 export function createIceSlideDailyCompetitionKey(dateKey: string): string {
-    assertValidIceSlideUtcDateKey(dateKey)
-    return (
-        `ice-slide:daily:${dateKey}:` +
-        `g${ICE_SLIDE_DAILY_GENERATOR_VERSION}:r${ICE_SLIDE_RULESET_VERSION}`
-    )
+    return formatIceSlideDailyRunKey({
+        dateKey,
+        generatorVersion: ICE_SLIDE_DAILY_GENERATOR_VERSION,
+        rulesetVersion: ICE_SLIDE_RULESET_VERSION,
+    })
 }
 ```
 
-Replace only the run-key literal:
+Then keep:
 
 ```ts
 runKey: createIceSlideDailyCompetitionKey(dateKey),
 ```
 
-Do not change the Daily seed, fork labels, stage pools, transform/objective selection, or version constants.
+Do not change the seed, fork labels, stage pools, transform/objective selection, or version constants.
 
-- [ ] **Step 6: Remove the weaker `init.ts` Daily-date parser**
+- [ ] **Step 6: Delete `extractDailyDateKey()` from `init.ts`**
 
-Import `parseIceSlideDailyRunKey` from `./run`, delete:
-
-```ts
-function extractDailyDateKey(runKey: string): string | null {
-    return /^ice-slide:daily:(\d{4}-\d{2}-\d{2}):/.exec(runKey)?.[1] ?? null
-}
-```
-
-Replace both live consumers:
+Import `parseIceSlideDailyRunKey` from `./run` and replace both current callers:
 
 ```ts
 const capturedDateKey =
@@ -227,9 +251,9 @@ and:
 dailyDateKey = parseIceSlideDailyRunKey(run.runKey)?.dateKey ?? null
 ```
 
-The `startRun()` Daily branch uses the same expression when it needs to recover the captured date from an explicit run.
+Do **not** touch the existing private `formatTime()` in this task.
 
-- [ ] **Step 7: Run identity/generator/init regressions**
+- [ ] **Step 7: Run the identity/generator/init regressions**
 
 ```bash
 bun run test:run \
@@ -238,7 +262,7 @@ bun run test:run \
   src/lib/games/ice-slide/init.test.ts
 ```
 
-Expected: PASS, including the existing literal `2026-08-12` generator-v1 fixture and rollover/Play Again tests.
+Expected: PASS, including existing UTC-rollover/retry behavior and the frozen generator fixture.
 
 - [ ] **Step 8: Commit**
 
@@ -251,7 +275,7 @@ git commit -m "refactor(ice-slide): centralize Daily competition identity"
 
 ---
 
-### Task 2: Put Ice Slide Daily score admission in pure domain code
+### Task 2: Add independently testable Daily score-admission reasons
 
 **Files:**
 - Modify: `src/lib/games/ice-slide/run.ts`
@@ -262,6 +286,21 @@ git commit -m "refactor(ice-slide): centralize Daily competition identity"
 **Interfaces:**
 
 ```ts
+export type IceSlideDailyAdmissionReason =
+    | 'missing-context'
+    | 'context-mode-mismatch'
+    | 'missing-competition-key'
+    | 'malformed-competition-key'
+    | 'missing-game-data'
+    | 'game-data-mode-mismatch'
+    | 'unsolved'
+    | 'run-key-mismatch'
+    | 'generator-version-mismatch'
+    | 'game-data-ruleset-mismatch'
+    | 'context-ruleset-mismatch'
+    | 'invalid-elapsed-seconds'
+    | 'invalid-total-moves'
+
 export function iceSlideDailyAdmissionError(
     context: {
         mode: string
@@ -269,14 +308,14 @@ export function iceSlideDailyAdmissionError(
         rulesetVersion: number
     } | undefined,
     gameData: Record<string, unknown> | undefined
-): string | null
+): { reason: IceSlideDailyAdmissionReason } | null
 ```
 
-The route calls this only for `GameID.ICE_SLIDE`. Invalid semantic Daily claims return the existing HTTP 400 bad-request response and never call `saveGameScoreWithAchievements()`.
+The route maps every non-null result to the same public HTTP 400 body and does not persist.
 
-- [ ] **Step 1: Add pure admission fixtures to `run.test.ts`**
+- [ ] **Step 1: Add one accepted fixture and an exact-reason matrix to `run.test.ts`**
 
-Define one valid payload:
+Define:
 
 ```ts
 const validDailyContext = {
@@ -286,134 +325,220 @@ const validDailyContext = {
 }
 
 const validDailyGameData = {
-    levelsCleared: 5,
-    totalMoves: 31,
-    crystalsCollected: 2,
-    elapsedSeconds: 87,
-    solved: true,
-    perfectLevels: 3,
     mode: 'daily',
+    solved: true,
     runKey: 'ice-slide:daily:2026-08-12:g1:r1',
-    runSchemaVersion: 1,
     generatorVersion: 1,
     rulesetVersion: 1,
-    stagesTotal: 5,
-    starsEarned: 13,
-    falls: 0,
-    resets: 0,
-    stageSignatures: ['a', 'b', 'c', 'd', 'e'],
+    elapsedSeconds: 87,
+    totalMoves: 31,
 }
 ```
 
-Assert the valid claim returns `null`, then cover every domain invariant:
+Assert:
+
+```ts
+expect(
+    iceSlideDailyAdmissionError(validDailyContext, validDailyGameData)
+).toBeNull()
+```
+
+Then add explicit tests whose mutations isolate one reason at a time:
 
 ```ts
 it.each([
-    ['missing context', undefined, validDailyGameData],
-    ['unsolved', validDailyContext, { ...validDailyGameData, solved: false }],
-    ['game-data mode mismatch', validDailyContext, { ...validDailyGameData, mode: 'expedition' }],
-    ['context mode mismatch', { ...validDailyContext, mode: 'expedition' }, validDailyGameData],
-    ['malformed competition key', { ...validDailyContext, competitionKey: 'ice-slide:daily:2026-02-29:g1:r1' }, { ...validDailyGameData, runKey: 'ice-slide:daily:2026-02-29:g1:r1' }],
-    ['run-key mismatch', validDailyContext, { ...validDailyGameData, runKey: 'ice-slide:daily:2026-08-11:g1:r1' }],
-    ['generator mismatch', validDailyContext, { ...validDailyGameData, generatorVersion: 2 }],
-    ['game-data ruleset mismatch', validDailyContext, { ...validDailyGameData, rulesetVersion: 2 }],
-    ['context ruleset mismatch', { ...validDailyContext, rulesetVersion: 2 }, validDailyGameData],
-    ['negative elapsed', validDailyContext, { ...validDailyGameData, elapsedSeconds: -1 }],
-    ['negative moves', validDailyContext, { ...validDailyGameData, totalMoves: -1 }],
-])('rejects Daily admission: %s', (_name, context, gameData) => {
-    expect(iceSlideDailyAdmissionError(context, gameData)).not.toBeNull()
+    ['missing-context', undefined, validDailyGameData, 'missing-context'],
+    [
+        'context-mode-mismatch',
+        { ...validDailyContext, mode: 'expedition' },
+        validDailyGameData,
+        'context-mode-mismatch',
+    ],
+    [
+        'missing-competition-key',
+        { mode: 'daily', rulesetVersion: 1 },
+        validDailyGameData,
+        'missing-competition-key',
+    ],
+    [
+        'malformed-competition-key',
+        { ...validDailyContext, competitionKey: 'ice-slide:daily:2026-02-29:g1:r1' },
+        validDailyGameData,
+        'malformed-competition-key',
+    ],
+    [
+        'missing-game-data',
+        validDailyContext,
+        undefined,
+        'missing-game-data',
+    ],
+    [
+        'game-data-mode-mismatch',
+        validDailyContext,
+        { ...validDailyGameData, mode: 'expedition' },
+        'game-data-mode-mismatch',
+    ],
+    [
+        'unsolved',
+        validDailyContext,
+        { ...validDailyGameData, solved: false },
+        'unsolved',
+    ],
+    [
+        'run-key-mismatch',
+        validDailyContext,
+        { ...validDailyGameData, runKey: 'ice-slide:daily:2026-08-11:g1:r1' },
+        'run-key-mismatch',
+    ],
+    [
+        'generator-version-mismatch',
+        validDailyContext,
+        { ...validDailyGameData, generatorVersion: 2 },
+        'generator-version-mismatch',
+    ],
+    [
+        'game-data-ruleset-mismatch',
+        validDailyContext,
+        { ...validDailyGameData, rulesetVersion: 2 },
+        'game-data-ruleset-mismatch',
+    ],
+    [
+        'context-ruleset-mismatch',
+        { ...validDailyContext, rulesetVersion: 2 },
+        { ...validDailyGameData, rulesetVersion: 2 },
+        'context-ruleset-mismatch',
+    ],
+    [
+        'invalid-elapsed-seconds',
+        validDailyContext,
+        { ...validDailyGameData, elapsedSeconds: -1 },
+        'invalid-elapsed-seconds',
+    ],
+    [
+        'invalid-total-moves',
+        validDailyContext,
+        { ...validDailyGameData, totalMoves: -1 },
+        'invalid-total-moves',
+    ],
+])('returns reason %s', (_name, context, gameData, expected) => {
+    expect(iceSlideDailyAdmissionError(context, gameData)).toEqual({
+        reason: expected,
+    })
 })
 ```
 
-Also cover missing `elapsedSeconds` and `totalMoves` by cloning/deleting those keys before calling the helper.
+Also assert a non-Daily Campaign-like payload and a non-Daily Expedition payload both return `null`.
 
-Finally assert a non-Daily Ice Slide payload such as `{ mode: 'expedition' }` + `{ mode: 'expedition' }` returns `null`; HPA-488 must not accidentally implement Expedition admission.
-
-- [ ] **Step 2: Run the run suite and confirm red**
+- [ ] **Step 2: Run the pure suite and confirm red**
 
 ```bash
 bun run test:run src/lib/games/ice-slide/run.test.ts
 ```
 
-Expected: FAIL because `iceSlideDailyAdmissionError` does not exist.
+Expected: FAIL because the admission helper does not exist.
 
-- [ ] **Step 3: Implement the pure helper next to the parser**
+- [ ] **Step 3: Implement the helper as ordered single-invariant branches**
 
-Use one local integer guard and the parser from Task 1:
+Use one small metric guard:
 
 ```ts
 function isNonNegativeInteger(value: unknown): value is number {
     return typeof value === 'number' && Number.isInteger(value) && value >= 0
 }
+```
 
+Implement in this exact order so each reason remains independently observable:
+
+```ts
 export function iceSlideDailyAdmissionError(
-    context: {
-        mode: string
-        competitionKey?: string
-        rulesetVersion: number
-    } | undefined,
+    context: DailyAdmissionContext | undefined,
     gameData: Record<string, unknown> | undefined
-): string | null {
+): { reason: IceSlideDailyAdmissionReason } | null {
     const claimsDaily =
         context?.mode === 'daily' || gameData?.mode === 'daily'
     if (!claimsDaily) {
         return null
     }
-
-    if (context?.mode !== 'daily' || !context.competitionKey || !gameData) {
-        return 'Invalid Ice Slide Daily score data'
+    if (!context) {
+        return { reason: 'missing-context' }
+    }
+    if (context.mode !== 'daily') {
+        return { reason: 'context-mode-mismatch' }
+    }
+    if (!context.competitionKey) {
+        return { reason: 'missing-competition-key' }
     }
 
     const identity = parseIceSlideDailyRunKey(context.competitionKey)
-    if (
-        !identity ||
-        gameData.mode !== 'daily' ||
-        gameData.solved !== true ||
-        gameData.runKey !== context.competitionKey ||
-        gameData.generatorVersion !== identity.generatorVersion ||
-        gameData.rulesetVersion !== context.rulesetVersion ||
-        context.rulesetVersion !== identity.rulesetVersion ||
-        !isNonNegativeInteger(gameData.elapsedSeconds) ||
-        !isNonNegativeInteger(gameData.totalMoves)
-    ) {
-        return 'Invalid Ice Slide Daily score data'
+    if (!identity) {
+        return { reason: 'malformed-competition-key' }
     }
-
+    if (!gameData) {
+        return { reason: 'missing-game-data' }
+    }
+    if (gameData.mode !== 'daily') {
+        return { reason: 'game-data-mode-mismatch' }
+    }
+    if (gameData.solved !== true) {
+        return { reason: 'unsolved' }
+    }
+    if (gameData.runKey !== context.competitionKey) {
+        return { reason: 'run-key-mismatch' }
+    }
+    if (gameData.generatorVersion !== identity.generatorVersion) {
+        return { reason: 'generator-version-mismatch' }
+    }
+    if (gameData.rulesetVersion !== context.rulesetVersion) {
+        return { reason: 'game-data-ruleset-mismatch' }
+    }
+    if (context.rulesetVersion !== identity.rulesetVersion) {
+        return { reason: 'context-ruleset-mismatch' }
+    }
+    if (!isNonNegativeInteger(gameData.elapsedSeconds)) {
+        return { reason: 'invalid-elapsed-seconds' }
+    }
+    if (!isNonNegativeInteger(gameData.totalMoves)) {
+        return { reason: 'invalid-total-moves' }
+    }
     return null
 }
 ```
 
-Do not import `ScoreSubmissionInput`, `GameID`, server modules, or auth into `run.ts`.
+Do not collapse these checks back into one `||` chain.
 
-- [ ] **Step 4: Add score-route red tests**
+- [ ] **Step 4: Add score-route boundary tests**
 
-In `scores.test.ts`, add an Ice Slide game fixture and a valid request using the same payload. Assert 200 and the existing persistence call shape.
+Use the existing authenticated-session and score persistence mocks. Add one valid Ice Slide Daily POST and representative invalid HTTP cases:
 
-Add representative HTTP 400/no-persist cases for:
+- unsolved Daily;
+- malformed competition key;
+- context/key ruleset mismatch where `gameData.rulesetVersion` matches context but the key is still `r1`;
+- Expedition game data with Daily context.
 
-1. `solved:false`;
-2. malformed but transport-safe `competitionKey='ice-slide:daily:2026-02-29:g1:r1'` with matching `gameData.runKey`;
-3. `context.mode='daily'` with `gameData.mode='expedition'`;
-4. `elapsedSeconds:-1` and `totalMoves:-1` — these are expected to be caught by generic Zod before domain admission, but still must return 400 and skip persistence.
+Each invalid request that passes generic Zod must return 400 and leave `saveGameScoreWithAchievements` uncalled.
 
-Keep or add one non-Ice-Slide contextual score regression proving a generic Tetris scoped submission is still accepted; the route must dispatch Daily semantics only for `GameID.ICE_SLIDE`.
+Negative metric transport remains covered by generic validation tests; the pure helper already freezes its own negative-metric invariants.
 
-- [ ] **Step 5: Wire one route call before `PersistedScoreContext` construction**
+- [ ] **Step 5: Dispatch from `/api/scores` after generic validation**
 
-Import `iceSlideDailyAdmissionError`. After game resolution:
+Import `iceSlideDailyAdmissionError`. After `getGameById()` succeeds and before building `PersistedScoreContext`:
 
 ```ts
 if (validatedGameId === GameID.ICE_SLIDE) {
-    const dailyAdmissionError = iceSlideDailyAdmissionError(context, gameData)
-    if (dailyAdmissionError) {
-        return badRequestResponse(dailyAdmissionError)
+    const admissionError = iceSlideDailyAdmissionError(context, gameData)
+    if (admissionError) {
+        console.warn(
+            '[scores API] Rejected Ice Slide Daily score:',
+            admissionError.reason
+        )
+        return badRequestResponse('Invalid Ice Slide Daily score data')
     }
 }
 ```
 
-Do not add a route-local semantic closure, new error code, stage regeneration, score recomputation, or board inspection.
+Do not log the score payload. Do not add a public admission error-code family.
 
-- [ ] **Step 6: Run score/domain regressions**
+- [ ] **Step 6: Run score regressions**
 
 ```bash
 bun run test:run \
@@ -422,7 +547,7 @@ bun run test:run \
   src/lib/services/scoreService.test.ts
 ```
 
-Expected: PASS.
+Expected: PASS. Existing non-Ice-Slide, Campaign, and generic score behavior remains unchanged.
 
 - [ ] **Step 7: Commit**
 
@@ -434,148 +559,114 @@ git commit -m "feat(ice-slide): admit valid Daily scores only"
 
 ---
 
-### Task 3: Require exact Daily reads and add privacy-safe viewer metadata
+### Task 3: Require exact Daily reads and reuse middleware viewer identity
 
 **Files:**
+- Modify: `src/lib/server/validations.ts`
+- Modify: `src/lib/server/validations.test.ts`
 - Modify: `src/pages/api/leaderboard.ts`
 - Modify: `src/pages/api/leaderboard.test.ts`
 
 **Interfaces:**
 
-- `getScopedGameLeaderboard()` remains:
+- `ScopedLeaderboardQuery` remains unchanged.
+- All scoped API rows gain `isCurrentUser: boolean`.
+- All scoped API responses gain `viewerAuthenticated: boolean`.
+- Unscoped responses remain unchanged.
 
-```ts
-getScopedGameLeaderboard({
-    gameId,
-    mode,
-    competitionKey,
-    limit,
-})
+- [ ] **Step 1: Add the Ice Slide Daily presence rule to `leaderboardQuerySchema` tests**
+
+Add tests for:
+
+```text
+?gameId=ice_slide&mode=daily                            -> invalid
+?gameId=ice_slide&mode=daily&competitionKey=<key>      -> valid
+?gameId=tetris&mode=daily                              -> still valid
 ```
 
-No `rulesetVersion` field is added.
+The valid exact key may use `ice-slide:daily:2026-08-12:g1:r1`; grammar semantics are route-owned, so the validation test only proves presence/transport relationships.
 
-- Every scoped API row gains `isCurrentUser: boolean`.
-- Every scoped API response gains `viewerAuthenticated: boolean`.
-- Unscoped Campaign response shape remains unchanged.
+- [ ] **Step 2: Run validation tests and confirm red**
 
-- [ ] **Step 1: Update test mocks before adding new assertions**
+```bash
+bun run test:run src/lib/server/validations.test.ts
+```
 
-In `leaderboard.test.ts`, extend the mocked `GameID` immediately:
+Expected: FAIL because Ice Slide Daily does not yet require `competitionKey`.
+
+- [ ] **Step 3: Extend `leaderboardQuerySchema.superRefine()`**
+
+After the existing generic relationship rules, add:
+
+```ts
+// Ice Slide Daily additionally requires an exact competition key; the
+// route validates that key's game-domain grammar with parseIceSlideDailyRunKey().
+if (
+    data.gameId === GameID.ICE_SLIDE &&
+    data.mode === 'daily' &&
+    !data.competitionKey
+) {
+    ctx.addIssue({
+        code: 'custom',
+        path: ['competitionKey'],
+        message: 'competitionKey is required for Ice Slide Daily',
+    })
+}
+```
+
+Do not import the Ice Slide parser into generic validation code.
+
+- [ ] **Step 4: Update leaderboard test setup before adding viewer tests**
+
+The file-level game mock must include:
 
 ```ts
 GameID: {
     TETRIS: 'tetris',
     ICE_SLIDE: 'ice_slide',
-},
+}
 ```
 
-Add the file-level auth mock, matching `scores.test.ts`:
+Add an Ice Slide game to `getAllGames()` fixtures.
+
+Do **not** add `vi.mock('@/lib/auth')`; the route will not import auth.
+
+Create a minimal route-context helper:
 
 ```ts
-vi.mock('@/lib/auth', () => ({
-    auth: {
-        api: {
-            getSession: vi.fn(),
-        },
-    },
-}))
+const routeContext = (
+    url: string,
+    user: { id: string } | null = null
+) =>
+    ({
+        url: new URL(url),
+        locals: { user, session: null },
+    }) as never
 ```
 
-Import `auth` for `vi.mocked(auth.api.getSession)` assertions.
+Update every existing direct `GET({ url } as ...)` in this test file to include `locals` through the helper or an equivalent explicit object. No production `undefined` compatibility path is added just for old tests.
 
-Update `beforeEach()` so auth defaults to signed out:
+- [ ] **Step 5: Add exact-key semantic read tests**
+
+Add:
+
+- calendar-invalid key returns 400 and does not call `getScopedGameLeaderboard`;
+- valid key calls the unchanged query with exactly:
 
 ```ts
-vi.mocked(auth.api.getSession).mockResolvedValue(null)
-```
-
-Do this before writing Ice Slide assertions; otherwise importing real `auth.ts` requires secrets and the Tetris-only `GameID` mock makes the Daily branch unreachable.
-
-- [ ] **Step 2: Update the existing scoped Tetris response assertion for additive viewer fields**
-
-The current mode-only Tetris scoped request remains valid. Its response now intentionally contains:
-
-```ts
-expect(body.viewerAuthenticated).toBe(false)
-expect(body.leaderboard).toEqual([
-    {
-        rank: 1,
-        name: 'Player',
-        username: 'player',
-        image: null,
-        score: 500,
-        created_at: '2026-08-01T00:00:00.000Z',
-        mode: 'daily',
-        competitionKey: null,
-        rulesetVersion: 2,
-        elapsedSeconds: 12,
-        totalMoves: 34,
-        isCurrentUser: false,
-    },
-])
-```
-
-This is an additive scoped contract change. Do not weaken the unscoped shape assertions.
-
-- [ ] **Step 3: Add Ice Slide Daily read-admission tests**
-
-Mock an Ice Slide game entry and assert:
-
-```text
-GET /api/leaderboard?gameId=ice_slide&mode=daily
-=> 400, query not called
-```
-
-```text
-GET /api/leaderboard?gameId=ice_slide&mode=daily&competitionKey=ice-slide:daily:2026-02-29:g1:r1
-=> 400, query not called
-```
-
-For a valid key:
-
-```ts
-expect(getScopedGameLeaderboard).toHaveBeenCalledWith({
+{
     gameId: 'ice_slide',
     mode: 'daily',
     competitionKey: 'ice-slide:daily:2026-08-12:g1:r1',
     limit: 10,
-})
-```
-
-Retain the existing generic mode-only Tetris test and assert it still forwards:
-
-```ts
-{
-    gameId: 'tetris',
-    mode: 'daily',
-    competitionKey: undefined,
-    limit: 10,
 }
 ```
 
-- [ ] **Step 4: Add authenticated, signed-out, and auth-failure viewer tests**
+- existing Tetris mode-only scoped request still calls the unchanged query with `competitionKey: undefined`.
 
-The route signature will use `{ url, request }`, so new scoped tests pass a real request:
+- [ ] **Step 6: Add viewer metadata tests from `locals.user`**
 
-```ts
-const url = new URL(
-    'http://localhost/api/leaderboard?gameId=ice_slide&mode=daily&competitionKey=ice-slide%3Adaily%3A2026-08-12%3Ag1%3Ar1'
-)
-const request = new Request(url)
-const response = await GET({ url, request } as never)
-```
-
-For a private row `userId:'u1'`, mock:
-
-```ts
-vi.mocked(auth.api.getSession).mockResolvedValue({
-    user: { id: 'u1' },
-    session: {},
-} as never)
-```
-
-Assert:
+For a scoped row whose private `userId` is `u1`, call with `locals.user = { id: 'u1' }` and assert:
 
 ```ts
 expect(body.viewerAuthenticated).toBe(true)
@@ -586,46 +677,46 @@ expect(body.leaderboard[0]).toMatchObject({
 expect(body.leaderboard[0]).not.toHaveProperty('userId')
 ```
 
-Then cover:
+Call the same scoped query with `locals.user = null` and assert:
 
-- `getSession -> null`: 200, `viewerAuthenticated:false`, all `isCurrentUser:false`;
-- `getSession` rejects: same public 200/false behavior;
-- `GET ?gameId=ice_slide` unscoped: no `viewerAuthenticated`, no `isCurrentUser`, and auth lookup is not required.
+```ts
+expect(body.viewerAuthenticated).toBe(false)
+expect(body.leaderboard[0].isCurrentUser).toBe(false)
+```
 
-- [ ] **Step 5: Run the API suite and confirm red**
+Update the existing scoped Tetris `toEqual` assertion to include `viewerAuthenticated` and `isCurrentUser` because those fields are intentionally additive to all scoped responses.
+
+Assert an unscoped game response does **not** gain either field.
+
+- [ ] **Step 7: Run API tests and confirm new cases red**
 
 ```bash
 bun run test:run src/pages/api/leaderboard.test.ts
 ```
 
-Expected: the new exact-key and viewer-metadata assertions FAIL.
+Expected: exact-key semantic and viewer metadata assertions FAIL before route changes.
 
-- [ ] **Step 6: Implement exact Ice Slide Daily admission without changing the query contract**
+- [ ] **Step 8: Implement route semantics using `locals`**
 
 Change the route signature:
 
 ```ts
-export const GET: APIRoute = async ({ url, request }) => {
+export const GET: APIRoute = async ({ url, locals }) => {
 ```
 
-Import `GameID`, `parseIceSlideDailyRunKey`, and `auth`.
-
-Before the scoped query:
+The schema already guarantees key presence for Ice Slide Daily. In the scoped branch, keep a semantic companion comment and validate grammar:
 
 ```ts
+// leaderboardQuerySchema requires the key's presence for Ice Slide Daily;
+// this route validates the Ice Slide domain grammar/calendar semantics.
 if (gameId === GameID.ICE_SLIDE && mode === 'daily') {
-    if (!competitionKey) {
-        return badRequestResponse(
-            'competitionKey is required for Ice Slide Daily'
-        )
-    }
-    if (!parseIceSlideDailyRunKey(competitionKey)) {
+    if (!competitionKey || !parseIceSlideDailyRunKey(competitionKey)) {
         return badRequestResponse('Invalid Ice Slide Daily competitionKey')
     }
 }
 ```
 
-Keep the existing call shape exactly:
+Call the existing query unchanged:
 
 ```ts
 const scoped = await getScopedGameLeaderboard({
@@ -636,30 +727,10 @@ const scoped = await getScopedGameLeaderboard({
 })
 ```
 
-- [ ] **Step 7: Add best-effort viewer lookup only after a successful scoped query**
-
-Use a helper that tolerates older tests passing no `request`:
+After success:
 
 ```ts
-async function getViewerUserId(
-    request: Request | undefined
-): Promise<string | null> {
-    if (!request) {
-        return null
-    }
-    try {
-        const session = await auth.api.getSession({ headers: request.headers })
-        return session?.user.id ?? null
-    } catch {
-        return null
-    }
-}
-```
-
-After `scoped.success`:
-
-```ts
-const viewerUserId = await getViewerUserId(request)
+const viewerUserId = locals.user?.id ?? null
 const leaderboard = scoped.rows.map((row, index) => ({
     rank: index + 1,
     ...toPublicScopedLeaderboardEntry(row),
@@ -674,29 +745,29 @@ return jsonResponse({
 })
 ```
 
-Do not run auth lookup for unscoped responses and do not expose `userId`.
+Do not import `auth`, do not thread `request`, and do not add `getViewerUserId()`.
 
-- [ ] **Step 8: Run API plus unchanged DB-ranking regressions**
+- [ ] **Step 9: Run validation/API regressions**
 
 ```bash
 bun run test:run \
-  src/pages/api/leaderboard.test.ts \
-  src/lib/server/db/scoped-leaderboard.integration.test.ts \
-  src/lib/server/validations.test.ts
+  src/lib/server/validations.test.ts \
+  src/pages/api/leaderboard.test.ts
 ```
 
-Expected: PASS. The DB file is included only to prove HPA-484's best-per-user/tie-break query remains unchanged and green.
+Expected: PASS, including generic Tetris mode-only behavior and unscoped Campaign response contracts.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add src/pages/api/leaderboard.ts src/pages/api/leaderboard.test.ts
+git add src/lib/server/validations.ts src/lib/server/validations.test.ts \
+  src/pages/api/leaderboard.ts src/pages/api/leaderboard.test.ts
 git commit -m "feat(ice-slide): scope Daily leaderboard reads"
 ```
 
 ---
 
-### Task 4: Put Daily leaderboard async/render state in a unit-tested game module
+### Task 4: Add a unit-tested Daily leaderboard controller and post-save refresh seam
 
 **Files:**
 - Create: `src/lib/games/ice-slide/daily-leaderboard.ts`
@@ -707,14 +778,6 @@ git commit -m "feat(ice-slide): scope Daily leaderboard reads"
 - Modify: `src/pages/game-board-markup.test.ts`
 
 **Interfaces:**
-
-`IceSlideUICallbacks` gains:
-
-```ts
-onScoreSaved?: (gameData: IceSlideGameData) => void
-```
-
-The new module exports:
 
 ```ts
 export interface DailyLeaderboardEntry {
@@ -737,78 +800,42 @@ export type DailyLeaderboardPanelState =
     | 'unavailable'
     | 'rows'
 
-export interface DailyLeaderboardElements {
-    panel: HTMLElement
-    date: HTMLElement
-    signedOut: HTMLElement
-    loading: HTMLElement
-    empty: HTMLElement
-    unavailable: HTMLElement
-    rows: HTMLElement
-}
+export function buildIceSlideDailyLeaderboardUrl(
+    competitionKey: string
+): string
 
-export interface DailyLeaderboardController {
+export function formatDailyLeaderboardElapsed(
+    seconds: number | null
+): string
+
+export function createDailyLeaderboardRowElement(
+    entry: DailyLeaderboardEntry,
+    document: Document
+): HTMLElement
+
+export function setDailyLeaderboardPanelState(
+    elements: DailyLeaderboardElements,
+    state: DailyLeaderboardPanelState
+): void
+
+export function createDailyLeaderboardController(
+    elements: DailyLeaderboardElements,
+    fetcher?: typeof fetch
+): {
     load: (competitionKey: string) => Promise<void>
     hide: () => void
 }
 ```
 
-Durable page IDs:
-
-```text
-daily-leaderboard
-daily-leaderboard-date
-daily-leaderboard-signed-out
-daily-leaderboard-loading
-daily-leaderboard-empty
-daily-leaderboard-unavailable
-daily-leaderboard-rows
-```
-
-- [ ] **Step 1: Add `init.test.ts` score-saved callback red tests**
-
-Reuse the existing mocked `saveGameScore` and add:
-
-1. current successful Daily save calls `onScoreSaved` once with the submitted `gameData`;
-2. `UNAUTHENTICATED`/other score error never calls it;
-3. if a newer run invalidates the run guard before the old success callback fires, the stale callback never reaches it.
-
-Match at least:
+`IceSlideUICallbacks` gains:
 
 ```ts
-expect(onScoreSaved).toHaveBeenCalledWith(
-    expect.objectContaining({
-        mode: 'daily',
-        solved: true,
-        runKey: 'ice-slide:daily:2026-08-12:g1:r1',
-        rulesetVersion: 1,
-    })
-)
+onScoreSaved?: (gameData: IceSlideGameData) => void
 ```
 
-- [ ] **Step 2: Run `init.test.ts` and confirm red**
+- [ ] **Step 1: Add controller helper tests before implementation**
 
-```bash
-bun run test:run src/lib/games/ice-slide/init.test.ts
-```
-
-Expected: FAIL because the callback does not exist/fire.
-
-- [ ] **Step 3: Add `onScoreSaved` and remove Ice Slide's duplicate formatter**
-
-Import `IceSlideGameData` for the callback type and `formatTime` from `../shared/utils`. Delete the local `formatTime()` implementation from `init.ts`.
-
-In the existing score success callback, after the stale check and achievement dispatch:
-
-```ts
-callbacks.onScoreSaved?.(gameData)
-```
-
-Do not fetch leaderboard data from `init.ts`.
-
-- [ ] **Step 4: Write failing unit tests for `daily-leaderboard.ts`**
-
-Create a jsdom fixture with all seven elements. Tests must cover:
+In `daily-leaderboard.test.ts`, mount the seven required static elements and test:
 
 ```ts
 expect(
@@ -819,23 +846,54 @@ expect(
     '/api/leaderboard?gameId=ice_slide&mode=daily&competitionKey=' +
         'ice-slide%3Adaily%3A2026-08-12%3Ag1%3Ar1&limit=10'
 )
-
-expect(formatDailyLeaderboardElapsed(null)).toBe('—')
-expect(formatDailyLeaderboardElapsed(87)).toBe('1:27')
 ```
 
-For row construction, assert a current-user row contains rank/name/formatted score/elapsed/moves plus literal `YOU`, and a non-current row does not contain `YOU`.
+Elapsed formatting:
 
-For state toggling, assert exactly one of loading/empty/unavailable/rows is visible for each `DailyLeaderboardPanelState`.
+```ts
+expect(formatDailyLeaderboardElapsed(null)).toBe('—')
+expect(formatDailyLeaderboardElapsed(87)).toBe('1:27')
+expect(formatDailyLeaderboardElapsed(3665)).toBe('1:01:05')
+```
 
-For the controller:
+The `3665` assertion belongs to the **new leaderboard formatter only**. Do not assert/change the existing in-run HUD's private `M:SS` formatter.
 
-- a successful empty signed-out response shows panel/date/signed-out + empty state;
-- a 503 shows unavailable without throwing;
-- a delayed response resolved after `hide()` does not append rows or unhide the panel;
-- a delayed older load resolved after a newer load cannot replace the newer date/rows.
+Row rendering must assert rank, player, localized score text, elapsed, moves, and a literal `YOU` badge for `isCurrentUser=true`, using `textContent`/children rather than `innerHTML`.
 
-- [ ] **Step 5: Run the new module suite and confirm red**
+- [ ] **Step 2: Add controller-state tests**
+
+Test `loading`, `empty`, `unavailable`, and `rows` visibility toggles through `setDailyLeaderboardPanelState()`.
+
+Add a successful load using a mocked fetcher and assert:
+
+- panel becomes visible;
+- date is derived from `parseIceSlideDailyRunKey()`;
+- signed-out note follows `viewerAuthenticated`;
+- rows are replaced, not appended across refreshes.
+
+Add an invalid-key load:
+
+```ts
+await controller.load('not-a-daily-key')
+expect(unavailable).not.toHaveClass('hidden')
+expect(rows).toHaveClass('hidden')
+```
+
+This must not silently leave previous ranking rows visible.
+
+- [ ] **Step 3: Add delayed stale-response coverage**
+
+Use two deferred fetch responses:
+
+1. call `load(oldKey)`;
+2. call `load(newKey)` before the first resolves;
+3. resolve the new request with `New Pilot`;
+4. resolve the old request with `Old Pilot`;
+5. assert only `New Pilot` remains.
+
+Then test `hide()` while a request is pending; releasing that request must not reveal the panel or render its row.
+
+- [ ] **Step 4: Run the new module test and confirm red**
 
 ```bash
 bun run test:run src/lib/games/ice-slide/daily-leaderboard.test.ts
@@ -843,24 +901,16 @@ bun run test:run src/lib/games/ice-slide/daily-leaderboard.test.ts
 
 Expected: FAIL because the module does not exist.
 
-- [ ] **Step 6: Implement the focused helper module**
+- [ ] **Step 5: Implement `daily-leaderboard.ts` minimally**
 
-Use `formatTime` from `../shared/utils`, `GameID.ICE_SLIDE`, and `parseIceSlideDailyRunKey`.
-
-URL builder:
+Import:
 
 ```ts
-export function buildIceSlideDailyLeaderboardUrl(
-    competitionKey: string
-): string {
-    return (
-        `/api/leaderboard?gameId=${GameID.ICE_SLIDE}&mode=daily&` +
-        `competitionKey=${encodeURIComponent(competitionKey)}&limit=10`
-    )
-}
+import { formatTime } from '../shared/utils'
+import { parseIceSlideDailyRunKey } from './run'
 ```
 
-Elapsed wrapper:
+`formatDailyLeaderboardElapsed()` is:
 
 ```ts
 export function formatDailyLeaderboardElapsed(
@@ -870,98 +920,35 @@ export function formatDailyLeaderboardElapsed(
 }
 ```
 
-State helper:
+`load()` increments/captures one request token before parsing. If parsing fails, show the panel and set `unavailable`. For valid keys, set the date/loading state, fetch the exact URL, re-check the token after `fetch()` and after `json()`, then render current data only.
+
+`hide()` increments the token before adding `hidden` to the panel.
+
+Do not add `AbortController`, a class hierarchy, a store, or an event bus.
+
+- [ ] **Step 6: Add `onScoreSaved` unit coverage to `init.test.ts`**
+
+Reuse the existing mocked `saveGameScore`. Add:
+
+1. current successful Daily save calls `onScoreSaved` once with game data containing `mode:'daily'`, `solved:true`, and the captured `runKey`;
+2. `UNAUTHENTICATED` and generic score errors never call it;
+3. starting a newer run before an older mocked success callback fires suppresses the stale callback.
+
+- [ ] **Step 7: Implement the callback in `init.ts`**
+
+Import `IceSlideGameData` only for the callback type. In the existing score success callback, after the run-guard stale check and achievement dispatch:
 
 ```ts
-export function setDailyLeaderboardPanelState(
-    elements: DailyLeaderboardElements,
-    state: DailyLeaderboardPanelState
-): void {
-    elements.loading.classList.toggle('hidden', state !== 'loading')
-    elements.empty.classList.toggle('hidden', state !== 'empty')
-    elements.unavailable.classList.toggle('hidden', state !== 'unavailable')
-    elements.rows.classList.toggle('hidden', state !== 'rows')
-}
+callbacks.onScoreSaved?.(gameData)
 ```
 
-`createDailyLeaderboardRowElement()` must use `document.createElement`, `textContent`, and classes only; never `innerHTML`. Format scores with `toLocaleString()`. Render a literal `YOU` badge only for `isCurrentUser`.
+Do not fetch a leaderboard from `init.ts`.
 
-Implement `createDailyLeaderboardController(elements, fetcher = fetch)` as one closure with `let requestToken = 0`:
+Do not remove or replace the existing private `formatTime()`; HPA-488 leaves in-run HUD formatting unchanged.
 
-```ts
-export function createDailyLeaderboardController(
-    elements: DailyLeaderboardElements,
-    fetcher: typeof fetch = fetch
-): DailyLeaderboardController {
-    let requestToken = 0
+- [ ] **Step 8: Add the static Astro card and markup IDs**
 
-    return {
-        async load(competitionKey) {
-            const identity = parseIceSlideDailyRunKey(competitionKey)
-            if (!identity) {
-                return
-            }
-
-            const token = ++requestToken
-            elements.panel.classList.remove('hidden')
-            elements.date.textContent = identity.dateKey
-            elements.signedOut.classList.add('hidden')
-            setDailyLeaderboardPanelState(elements, 'loading')
-
-            try {
-                const response = await fetcher(
-                    buildIceSlideDailyLeaderboardUrl(competitionKey)
-                )
-                if (token !== requestToken) {
-                    return
-                }
-                if (!response.ok) {
-                    setDailyLeaderboardPanelState(elements, 'unavailable')
-                    return
-                }
-
-                const data =
-                    (await response.json()) as DailyLeaderboardResponse
-                if (token !== requestToken) {
-                    return
-                }
-
-                while (elements.rows.firstChild) {
-                    elements.rows.removeChild(elements.rows.firstChild)
-                }
-                for (const entry of data.leaderboard) {
-                    elements.rows.appendChild(
-                        createDailyLeaderboardRowElement(entry, document)
-                    )
-                }
-                elements.signedOut.classList.toggle(
-                    'hidden',
-                    data.viewerAuthenticated
-                )
-                setDailyLeaderboardPanelState(
-                    elements,
-                    data.leaderboard.length > 0 ? 'rows' : 'empty'
-                )
-            } catch {
-                if (token === requestToken) {
-                    setDailyLeaderboardPanelState(elements, 'unavailable')
-                }
-            }
-        },
-
-        hide() {
-            requestToken += 1
-            elements.panel.classList.add('hidden')
-        },
-    }
-}
-```
-
-Do not add `AbortController`, a store, event bus, class hierarchy, or generic leaderboard abstraction.
-
-- [ ] **Step 7: Add the static Astro card and structural markup assertions**
-
-Place below `#daily-meta`:
+Place directly below `#daily-meta`:
 
 ```astro
 <Card id="daily-leaderboard" variant="glass" class="hidden p-4">
@@ -987,159 +974,173 @@ Place below `#daily-meta`:
 </Card>
 ```
 
-Add all seven IDs to `src/pages/game-board-markup.test.ts`. Keep that test structural; behavior belongs in `daily-leaderboard.test.ts` and Playwright.
+Add all seven IDs to `src/pages/game-board-markup.test.ts`. Keep that test structural; do not assert Astro script source text.
 
-- [ ] **Step 8: Make the Astro script wiring-only**
+- [ ] **Step 9: Wire the Astro page to the controller**
 
 Import:
 
 ```ts
-import {
-  createDailyLeaderboardController,
-  type DailyLeaderboardElements,
-} from '@/lib/games/ice-slide/daily-leaderboard'
+import { createDailyLeaderboardController } from '@/lib/games/ice-slide/daily-leaderboard'
 import {
   createIceSlideDailyCompetitionKey,
   toIceSlideUtcDateKey,
 } from '@/lib/games/ice-slide/daily'
 ```
 
-Query the seven elements, build `DailyLeaderboardElements`, and instantiate one controller. Keep page helpers limited to identity handoff:
+Build the `DailyLeaderboardElements` object from the static IDs and construct one controller.
 
-```ts
-const currentUtcDailyKey = () =>
-  createIceSlideDailyCompetitionKey(toIceSlideUtcDateKey(new Date()))
+Use these transitions:
 
-const loadCurrentDailyLeaderboard = () =>
-  dailyLeaderboardController.load(currentUtcDailyKey())
+- after page init, if Daily is selected, `controller.load(currentUtcDailyKey())`;
+- idle radio change to Daily loads current UTC key;
+- idle radio change to Campaign calls `controller.hide()`;
+- after `await gameHandle.start('daily')`, load `gameHandle.getGame()?.getState().runKey`;
+- after Daily `playAgain()`, load the game's still-captured run key;
+- `onScoreSaved(gameData)` loads `gameData.runKey` only when `gameData.mode === 'daily'`;
+- Change Mode hides or loads based on the still-selected radio.
 
-const loadCapturedDailyLeaderboard = () => {
-  const state = gameHandle?.getGame()?.getState()
-  if (state?.mode === 'daily') {
-    void dailyLeaderboardController.load(state.runKey)
-  }
-}
-```
+The page does not duplicate URL construction, parsing, token logic, row creation, or formatting.
 
-Wire exact transitions:
-
-- after initialization, if selected radio is Daily, load today's key;
-- idle radio change to Daily -> load today's key;
-- idle radio change to Campaign -> `hide()`;
-- after successful `await gameHandle.start('daily')` -> load captured `state.runKey`;
-- after successful Daily `playAgain()` -> load captured `state.runKey`;
-- `onScoreSaved(gameData)` -> if `gameData.mode === 'daily'`, load `gameData.runKey`;
-- Change Mode -> return to idle controls; if selected radio is Daily load today's current key, otherwise hide;
-- leaderboard errors remain inside the controller and never touch `#game-error`/`failRun`.
-
-This keeps rollover behavior correct: in-progress/post-save refresh uses captured identity; idle selection uses the current UTC identity.
-
-- [ ] **Step 9: Run focused DOM/client/init suites**
+- [ ] **Step 10: Run Task 4 unit/markup verification**
 
 ```bash
 bun run test:run \
-  src/lib/games/ice-slide/init.test.ts \
   src/lib/games/ice-slide/daily-leaderboard.test.ts \
+  src/lib/games/ice-slide/init.test.ts \
   src/pages/game-board-markup.test.ts
 ```
 
-Expected: PASS, including stale-response tests before browser coverage runs.
+Expected: PASS.
 
-- [ ] **Step 10: Commit**
+**Coverage boundary:** these tests execute the controller, callback, and durable markup. They do **not** execute the inline Astro event wiring from Step 9. Task 5 Playwright is intentionally the first executable proof that the page wiring connects those tested seams correctly.
+
+- [ ] **Step 11: Commit**
 
 ```bash
-git add src/lib/games/ice-slide/init.ts src/lib/games/ice-slide/init.test.ts \
-  src/lib/games/ice-slide/daily-leaderboard.ts \
+git add src/lib/games/ice-slide/daily-leaderboard.ts \
   src/lib/games/ice-slide/daily-leaderboard.test.ts \
+  src/lib/games/ice-slide/init.ts src/lib/games/ice-slide/init.test.ts \
   src/pages/ice-slide/index.astro src/pages/game-board-markup.test.ts
 git commit -m "feat(ice-slide): show Daily leaderboard"
 ```
 
 ---
 
-### Task 5: Lock the frozen Daily playthrough before using it in Playwright
+### Task 5: Share one frozen playthrough fixture, prove page wiring, and run repository gates
 
 **Files:**
+- Modify: `src/lib/games/ice-slide/test-fixtures.ts`
 - Modify: `src/lib/games/ice-slide/daily.test.ts`
 - Modify: `e2e/games/play-coverage.spec.ts`
 
 **Interfaces:**
-- Consumes the exact HPA-487 generator-v1 fixture for `2026-08-12`.
-- No production interface changes.
-
-- [ ] **Step 1: Add a unit replay for the exact five browser sequences**
-
-In `daily.test.ts`, import `IceSlideGame` and `Direction`. Lock the exact directions:
 
 ```ts
-const DAILY_2026_08_12_DIRECTIONS: readonly (readonly Direction[])[] = [
+export const ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS = [
     ['S', 'E', 'S'],
     ['N', 'W', 'N', 'W'],
     ['W', 'N', 'E', 'S', 'W', 'N'],
     ['S', 'W', 'N', 'E', 'S', 'W'],
     ['E', 'S', 'W', 'N', 'E', 'S'],
-]
+] as const satisfies readonly (readonly Direction[])[]
 ```
 
-Replay them through the real game/runtime contract:
+- [ ] **Step 1: Put the direction fixture in `test-fixtures.ts` once**
+
+Import `Direction` as a type and export the constant above.
+
+Do not export browser key strings from the source fixture; it remains game-domain directions only.
+
+- [ ] **Step 2: Unit-replay the shared fixture before Playwright consumes it**
+
+In `daily.test.ts`, import:
 
 ```ts
-it('locks the 2026-08-12 browser playthrough against the materialized Daily', () => {
-    const run = createIceSlideDailyRunDefinition('2026-08-12')
-    const game = new IceSlideGame()
+import { IceSlideGame } from './game'
+import { solveIceSlideBoard } from './solver'
+import { ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS } from './test-fixtures'
+```
 
-    try {
-        game.start(run)
-        for (const [stageIndex, directions] of
-            DAILY_2026_08_12_DIRECTIONS.entries()) {
-            expect(directions).toHaveLength(run.stages[stageIndex].parMoves)
-            for (const direction of directions) {
-                game.move(direction)
-            }
+Add:
+
+```ts
+it('locks the shared 2026-08-12 minimum-move completion fixture', () => {
+    const run = createIceSlideDailyRunDefinition('2026-08-12')
+    expect(ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS).toHaveLength(
+        run.stages.length
+    )
+
+    const game = new IceSlideGame()
+    game.start(run)
+
+    for (const [stageIndex, directions] of
+        ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS.entries()) {
+        const stage = run.stages[stageIndex]
+        const solved = solveIceSlideBoard(stage, {
+            maxStates: ICE_SLIDE_DAILY_SOLVER_MAX_STATES,
+        })
+        expect(solved.truncated).toBe(false)
+        expect(solved.minMoves).toBe(directions.length)
+
+        for (const direction of directions) {
+            game.move(direction)
         }
 
-        expect(game.getState().status).toBe('won')
-        expect(game.getGameData()).toMatchObject({
-            mode: 'daily',
-            runKey: 'ice-slide:daily:2026-08-12:g1:r1',
-            solved: true,
-            levelsCleared: 5,
-        })
-    } finally {
-        game.destroy()
+        if (stageIndex < run.stages.length - 1) {
+            expect(game.getState().levelIndex).toBe(stageIndex + 1)
+            expect(game.getState().status).toBe('playing')
+        }
     }
+
+    expect(game.getState().status).toBe('won')
+    expect(game.getGameData().solved).toBe(true)
+    game.destroy()
 })
 ```
 
-Stages 3 and 4 have `collect_all_crystals` as an optional bonus. The test requires a completed run, not all optional stars; this directly validates the same crystal-mutating runtime that Playwright will drive.
+This validates the exact shared directions and their minimum-move lengths. It does not claim every optional star is earned.
 
-- [ ] **Step 2: Run the unit fixture before adding browser dependence**
+- [ ] **Step 3: Run the unit consumer first**
 
 ```bash
 bun run test:run src/lib/games/ice-slide/daily.test.ts
 ```
 
-Expected: PASS. If any sequence is wrong, correct it here first; do not discover the mistake for the first time in Playwright.
+Expected: PASS before any browser test uses the fixture. If it fails, fix the fixture here rather than debugging an opaque Playwright failure.
 
-- [ ] **Step 3: Add the matching Playwright helper**
+- [ ] **Step 4: Import the same fixture in Playwright and derive keys**
 
-Use the exact arrow-key translation of the unit fixture:
+At the top of `e2e/games/play-coverage.spec.ts`:
 
 ```ts
-const DAILY_2026_08_12_SOLUTIONS = [
-    ['ArrowDown', 'ArrowRight', 'ArrowDown'],
-    ['ArrowUp', 'ArrowLeft', 'ArrowUp', 'ArrowLeft'],
-    ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'],
-    ['ArrowDown', 'ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'],
-    ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'],
-] as const
+import { ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS } from '../../src/lib/games/ice-slide/test-fixtures'
+```
+
+Inside the Ice Slide test section:
+
+```ts
+const DIRECTION_TO_KEY = {
+    N: 'ArrowUp',
+    E: 'ArrowRight',
+    S: 'ArrowDown',
+    W: 'ArrowLeft',
+} as const
 
 async function completeFrozenDaily(page: Page): Promise<void> {
-    for (let stage = 0; stage < DAILY_2026_08_12_SOLUTIONS.length; stage++) {
-        for (const key of DAILY_2026_08_12_SOLUTIONS[stage]) {
-            await page.keyboard.press(key)
+    for (
+        let stage = 0;
+        stage < ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS.length;
+        stage++
+    ) {
+        for (const direction of
+            ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS[stage]) {
+            await page.keyboard.press(DIRECTION_TO_KEY[direction])
         }
-        if (stage < DAILY_2026_08_12_SOLUTIONS.length - 1) {
+        if (
+            stage <
+            ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS.length - 1
+        ) {
             await expect(page.locator('#stage-clear-overlay')).toBeVisible()
             await page.locator('#stage-clear-continue-btn').click()
         }
@@ -1148,11 +1149,13 @@ async function completeFrozenDaily(page: Page): Promise<void> {
 }
 ```
 
-- [ ] **Step 4: Cover signed-out/empty and ranked-current-user rendering**
+Do not hardcode a second arrow-key sequence array.
 
-With fixed time `2026-08-12T20:00:00Z`, intercept `**/api/leaderboard?*`.
+- [ ] **Step 5: Cover signed-out/empty and viewer-row rendering**
 
-Empty signed-out response:
+Fix time to `2026-08-12T20:00:00Z` and route `**/api/leaderboard?*`.
+
+Empty response:
 
 ```json
 {
@@ -1163,9 +1166,13 @@ Empty signed-out response:
 }
 ```
 
-Assert the request contains exact competition key `ice-slide:daily:2026-08-12:g1:r1`, the empty state is visible, and the sign-in note is visible.
+Assert:
 
-Current-user row response:
+- request key equals `ice-slide:daily:2026-08-12:g1:r1`;
+- empty state visible;
+- signed-out note visible.
+
+Viewer response:
 
 ```json
 {
@@ -1183,49 +1190,49 @@ Current-user row response:
 }
 ```
 
-Assert rows show `1`, `Pilot`, `4,321`, `1:27`, `31`, and visible `YOU` text.
+Assert row text includes `1`, `Pilot`, `4,321`, `1:27`, `31`, and visible `YOU`.
 
-- [ ] **Step 5: Cover unavailable ranking without blocking play**
+- [ ] **Step 6: Cover leaderboard unavailable without blocking play**
 
-Return status 503 with the normal scoped-unavailable body. Assert `#daily-leaderboard-unavailable` is visible, then start Daily and verify the Pixi canvas and `#end-btn` remain usable. `#game-error` must stay hidden for a leaderboard-only failure.
+Return 503 for the leaderboard route with the existing coded scoped-unavailable body. Assert `#daily-leaderboard-unavailable` is visible, then Start Daily and verify the Pixi canvas plus `#end-btn` remain usable. The generic `#game-error` surface must stay hidden for a leaderboard-only failure.
 
-- [ ] **Step 6: Cover successful-submit refresh on the captured key**
+- [ ] **Step 7: Cover successful-submit refresh on the captured key**
 
-Mock `/api/scores` with a 200 success body and count leaderboard requests. Start the fixed-date Daily, record the request count, call `completeFrozenDaily(page)`, then assert a later request occurs and its `competitionKey` remains:
+Mock `/api/scores` with a 200 success body and count leaderboard requests. Start fixed-date Daily, record the current request count, call `completeFrozenDaily(page)`, then assert another leaderboard fetch occurs and its exact key remains:
 
 ```text
 ice-slide:daily:2026-08-12:g1:r1
 ```
 
-Inspect the POST once and assert:
+Inspect the POST body once and assert:
 
 ```ts
-context.mode === 'daily'
-context.competitionKey === 'ice-slide:daily:2026-08-12:g1:r1'
-gameData.solved === true
+expect(body.context).toMatchObject({
+    mode: 'daily',
+    competitionKey: 'ice-slide:daily:2026-08-12:g1:r1',
+    rulesetVersion: 1,
+})
+expect(body.gameData.solved).toBe(true)
 ```
 
-This proves `onScoreSaved` refreshes the captured competition rather than recomputing today's identity.
+- [ ] **Step 8: Cover delayed stale-response suppression through real page wiring**
 
-- [ ] **Step 7: Keep one browser integration proof for stale suppression**
-
-Delay one Daily leaderboard response. While pending, switch the idle mode selection to Campaign. Release the old response and assert:
+Delay a Daily leaderboard response. While it is pending, switch idle mode selection to Campaign. Release the delayed response and assert:
 
 - `#daily-leaderboard` remains hidden;
-- delayed row text never appears;
-- Campaign remains selectable/startable.
+- delayed row text never appears.
 
-The detailed request-token semantics are already red/green in `daily-leaderboard.test.ts`; this test proves page wiring invokes invalidation correctly.
+This proves the Astro wiring actually calls the controller's tested invalidation path. Do not add `AbortController` only for this test.
 
-- [ ] **Step 8: Run focused Ice Slide browser coverage**
+- [ ] **Step 9: Run focused Ice Slide browser coverage**
 
 ```bash
 bun run test:e2e -- e2e/games/play-coverage.spec.ts --grep "Ice Slide"
 ```
 
-Expected: all existing HPA-487 cases plus the new leaderboard cases PASS.
+Expected: all existing HPA-487 cases plus new leaderboard cases PASS.
 
-- [ ] **Step 9: Run focused unit/API/integration suites once more**
+- [ ] **Step 10: Run focused unit/API coverage once more**
 
 ```bash
 bun run test:run \
@@ -1233,15 +1240,15 @@ bun run test:run \
   src/lib/games/ice-slide/daily.test.ts \
   src/lib/games/ice-slide/init.test.ts \
   src/lib/games/ice-slide/daily-leaderboard.test.ts \
-  src/lib/server/db/scoped-leaderboard.integration.test.ts \
   src/pages/api/scores.test.ts \
+  src/lib/server/validations.test.ts \
   src/pages/api/leaderboard.test.ts \
   src/pages/game-board-markup.test.ts
 ```
 
 Expected: PASS.
 
-- [ ] **Step 10: Run full repository verification**
+- [ ] **Step 11: Run full repository verification**
 
 ```bash
 bun run test:run
@@ -1258,10 +1265,12 @@ Expected:
 - local coverage does not regress the repository below the configured 95% project target;
 - remote Codecov project and patch checks remain authoritative after push.
 
-- [ ] **Step 11: Commit the deterministic fixture and E2E coverage**
+- [ ] **Step 12: Commit the shared fixture/browser coverage**
 
 ```bash
-git add src/lib/games/ice-slide/daily.test.ts e2e/games/play-coverage.spec.ts
+git add src/lib/games/ice-slide/test-fixtures.ts \
+  src/lib/games/ice-slide/daily.test.ts \
+  e2e/games/play-coverage.spec.ts
 git commit -m "test(ice-slide): cover Daily leaderboard flows"
 ```
 
@@ -1269,10 +1278,12 @@ git commit -m "test(ice-slide): cover Daily leaderboard flows"
 
 ## Plan self-review
 
-- **Spec coverage:** Daily identity/admission, exact-key read isolation, unchanged best-per-user ranking, viewer highlighting, signed-out/loading/empty/unavailable states, successful-save refresh, stale suppression, Campaign compatibility, and failure isolation each map to a concrete task.
-- **Parser consistency:** `assertValidIceSlideRunDefinition`, `init.ts`, score admission, leaderboard admission, and client identity display all consume `parseIceSlideDailyRunKey`; `extractDailyDateKey` is removed.
-- **Query consistency:** no `ScopedLeaderboardQuery.rulesetVersion` field or duplicate ruleset filter is introduced; exact competition key is the Daily scope.
-- **Test seams:** score semantics live in a pure helper; async page behavior lives in `daily-leaderboard.ts`; the frozen browser keypresses are validated by a unit replay before Playwright.
-- **Existing-test compatibility:** the plan explicitly mocks `@/lib/auth`, adds `GameID.ICE_SLIDE`, threads `request`, and updates the existing scoped Tetris response for additive viewer fields.
+- **Spec coverage:** Daily identity, exact semantic admission, exact-key reads, best-per-user reuse, middleware viewer highlighting, signed-out/loading/empty/unavailable states, successful-save refresh, stale suppression, Campaign compatibility, and failure isolation each map to a concrete task.
+- **Reuse:** `getScopedGameLeaderboard()` stays unchanged; `locals.user` avoids a second auth lookup; shared `formatTime()` is used only for the new leaderboard; existing `test-fixtures.ts` owns the frozen playthrough once.
+- **Identity consistency:** `run.ts` owns parse + format grammar. `daily.ts` only supplies current generator/ruleset constants to the formatter. `init.ts`, writes, reads, and client display all parse through the same function.
+- **Admission consistency:** every semantic invariant has a distinct closed-union reason test, while the public API still emits one stable 400 body.
+- **Client test seam:** request-token/render logic is executed under jsdom in Task 4. Task 4 explicitly does not claim to execute Astro event wiring; Task 5 Playwright proves that integration.
+- **HUD compatibility:** HPA-488 does not change the existing Ice Slide in-run `M:SS` formatter; the shared formatter is used only by the new ranking panel.
+- **Fixture consistency:** one direction fixture feeds both the unit replay and browser key translation; Playwright does not own a duplicate sequence.
 - **Placeholder scan:** no TBD/TODO/future implementation step remains.
-- **Scope check:** no schema, endpoint family, shared UI abstraction, replay verifier, historical browser, Expedition ranking, read repair, or current-user rank query has entered the plan.
+- **Scope check:** no schema, endpoint family, ranking query change, auth preflight/lookup, shared UI abstraction, replay verifier, historical browser, Expedition ranking, or current-user rank query has entered the plan.
