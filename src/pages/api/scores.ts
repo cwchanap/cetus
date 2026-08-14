@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { saveGameScoreWithAchievements } from '@/lib/server/db/queries'
 import { getGameById, GameID } from '@/lib/games'
+import { iceSlideDailyAdmissionError } from '@/lib/games/ice-slide/run'
 import { auth } from '@/lib/auth'
 import { getAchievementNotifications } from '@/lib/services/achievementService'
 import { updateChallengeProgress } from '@/lib/services/challengeService'
@@ -43,6 +44,20 @@ export const POST: APIRoute = async ({ request }) => {
         const game = getGameById(validatedGameId)
         if (!game) {
             return badRequestResponse('Invalid game ID')
+        }
+
+        if (validatedGameId === GameID.ICE_SLIDE) {
+            const admissionError = iceSlideDailyAdmissionError(
+                context,
+                gameData
+            )
+            if (admissionError) {
+                console.warn(
+                    '[scores API] Rejected Ice Slide Daily score:',
+                    admissionError.reason
+                )
+                return badRequestResponse('Invalid Ice Slide Daily score data')
+            }
         }
 
         const persistedContext: PersistedScoreContext | undefined = context

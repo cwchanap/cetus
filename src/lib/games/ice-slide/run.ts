@@ -382,6 +382,83 @@ export function formatIceSlideDailyRunKey(
     )
 }
 
+export type IceSlideDailyAdmissionReason =
+    | 'missing-context'
+    | 'context-mode-mismatch'
+    | 'missing-competition-key'
+    | 'malformed-competition-key'
+    | 'missing-game-data'
+    | 'game-data-mode-mismatch'
+    | 'unsolved'
+    | 'run-key-mismatch'
+    | 'generator-version-mismatch'
+    | 'game-data-ruleset-mismatch'
+    | 'context-ruleset-mismatch'
+    | 'invalid-elapsed-seconds'
+    | 'invalid-total-moves'
+
+interface DailyAdmissionContext {
+    mode: string
+    competitionKey?: string
+    rulesetVersion: number
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+    return typeof value === 'number' && Number.isInteger(value) && value >= 0
+}
+
+export function iceSlideDailyAdmissionError(
+    context: DailyAdmissionContext | undefined,
+    gameData: Record<string, unknown> | undefined
+): { reason: IceSlideDailyAdmissionReason } | null {
+    const claimsDaily = context?.mode === 'daily' || gameData?.mode === 'daily'
+    if (!claimsDaily) {
+        return null
+    }
+    if (!context) {
+        return { reason: 'missing-context' }
+    }
+    if (context.mode !== 'daily') {
+        return { reason: 'context-mode-mismatch' }
+    }
+    if (!context.competitionKey) {
+        return { reason: 'missing-competition-key' }
+    }
+
+    const identity = parseIceSlideDailyRunKey(context.competitionKey)
+    if (!identity) {
+        return { reason: 'malformed-competition-key' }
+    }
+    if (!gameData) {
+        return { reason: 'missing-game-data' }
+    }
+    if (gameData.mode !== 'daily') {
+        return { reason: 'game-data-mode-mismatch' }
+    }
+    if (gameData.solved !== true) {
+        return { reason: 'unsolved' }
+    }
+    if (gameData.runKey !== context.competitionKey) {
+        return { reason: 'run-key-mismatch' }
+    }
+    if (gameData.generatorVersion !== identity.generatorVersion) {
+        return { reason: 'generator-version-mismatch' }
+    }
+    if (gameData.rulesetVersion !== context.rulesetVersion) {
+        return { reason: 'game-data-ruleset-mismatch' }
+    }
+    if (context.rulesetVersion !== identity.rulesetVersion) {
+        return { reason: 'context-ruleset-mismatch' }
+    }
+    if (!isNonNegativeInteger(gameData.elapsedSeconds)) {
+        return { reason: 'invalid-elapsed-seconds' }
+    }
+    if (!isNonNegativeInteger(gameData.totalMoves)) {
+        return { reason: 'invalid-total-moves' }
+    }
+    return null
+}
+
 export function cloneIceSlideRunDefinition(
     run: IceSlideRunDefinition
 ): IceSlideRunDefinition {
