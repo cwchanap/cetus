@@ -14,6 +14,8 @@ export interface IceSlideStageQualityConstraints {
     }
     maxStates: number
     existingCanonicalKeys?: ReadonlySet<string>
+    minReachableStops?: number
+    maxHazards?: number
 }
 
 export type IceSlideStageRejectionReason =
@@ -22,6 +24,8 @@ export type IceSlideStageRejectionReason =
     | 'solver_truncated'
     | 'unsolvable'
     | 'par_out_of_band'
+    | 'reachable_stops_below_min'
+    | 'too_many_hazards'
     | 'objective_infeasible'
 
 export type IceSlideStageQualityResult =
@@ -56,6 +60,23 @@ function validateConstraints(
         throw new RangeError(
             'parBand.minMoves must not exceed parBand.maxMoves'
         )
+    }
+    if (
+        constraints.minReachableStops !== undefined &&
+        (!Number.isSafeInteger(constraints.minReachableStops) ||
+            constraints.minReachableStops < 1)
+    ) {
+        throw new RangeError(
+            'minReachableStops must be a positive safe integer'
+        )
+    }
+
+    if (
+        constraints.maxHazards !== undefined &&
+        (!Number.isSafeInteger(constraints.maxHazards) ||
+            constraints.maxHazards < 0)
+    ) {
+        throw new RangeError('maxHazards must be a non-negative safe integer')
     }
 }
 
@@ -172,8 +193,37 @@ export function validateIceSlideStageQuality(
         }
     }
 
+    if (
+        constraints.minReachableStops !== undefined &&
+        solveResult.reachableStopCount < constraints.minReachableStops
+    ) {
+        return {
+            accepted: false,
+            reason: 'reachable_stops_below_min',
+            message:
+                `reachable stops ${solveResult.reachableStopCount} below minimum ` +
+                `${constraints.minReachableStops}`,
+            canonicalKey,
+            solveResult,
+        }
+    }
+
+    const hazardCount = countGlyphs(candidate.rows, 'H')
+    if (
+        constraints.maxHazards !== undefined &&
+        hazardCount > constraints.maxHazards
+    ) {
+        return {
+            accepted: false,
+            reason: 'too_many_hazards',
+            message: `hazards ${hazardCount} exceed maximum ${constraints.maxHazards}`,
+            canonicalKey,
+            solveResult,
+        }
+    }
+
     const crystalCount = countGlyphs(candidate.rows, 'C')
-    const hasHazard = countGlyphs(candidate.rows, 'H') > 0
+    const hasHazard = hazardCount > 0
     const objectiveFeasibility: Record<IceSlideObjectiveId, boolean> = {
         collect_all_crystals:
             crystalCount > 0 && solveResult.reachedGoalWithAllCrystals,
