@@ -59,6 +59,37 @@ describe('ice-slide stage quality: constraints', () => {
         }
     })
 
+    it('accepts optional stop floor and hazard ceiling, rejecting unsafe values', () => {
+        expect(() =>
+            validateIceSlideStageQuality(candidate, {
+                parBand: { minMoves: 1, maxMoves: 20 },
+                maxStates: 10_000,
+                minReachableStops: 1,
+                maxHazards: 0,
+            })
+        ).not.toThrow()
+
+        for (const value of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+            expect(() =>
+                validateIceSlideStageQuality(candidate, {
+                    parBand: { minMoves: 1, maxMoves: 20 },
+                    maxStates: 10_000,
+                    minReachableStops: value,
+                })
+            ).toThrow(RangeError)
+        }
+
+        for (const value of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+            expect(() =>
+                validateIceSlideStageQuality(candidate, {
+                    parBand: { minMoves: 1, maxMoves: 20 },
+                    maxStates: 10_000,
+                    maxHazards: value,
+                })
+            ).toThrow(RangeError)
+        }
+    })
+
     it('throws when the par band is inverted', () => {
         expect(() =>
             validateIceSlideStageQuality(candidate, {
@@ -295,6 +326,110 @@ describe('ice-slide stage quality: objective feasibility', () => {
             expect(result.reason).toBe('objective_infeasible')
             expect(result.message).toMatch(/hazard/)
         }
+    })
+})
+
+describe('ice-slide stage quality: stop/hazard policy', () => {
+    const candidate = {
+        id: 'stop-policy',
+        rows: SOLVABLE,
+        objectiveIds: [],
+    }
+    const hazardCandidate = {
+        id: 'hazard-policy',
+        rows: HAZARD_BOARD,
+        objectiveIds: [],
+    }
+
+    it('rejects a board whose reachable stops fall below the floor', () => {
+        expect(
+            validateIceSlideStageQuality(candidate, {
+                parBand: { minMoves: 1, maxMoves: 20 },
+                maxStates: 10_000,
+                minReachableStops: 999,
+            })
+        ).toMatchObject({
+            accepted: false,
+            reason: 'reachable_stops_below_min',
+        })
+    })
+
+    it('rejects a board whose hazards exceed the ceiling', () => {
+        expect(
+            validateIceSlideStageQuality(hazardCandidate, {
+                parBand: { minMoves: 1, maxMoves: 20 },
+                maxStates: 10_000,
+                maxHazards: 0,
+            })
+        ).toMatchObject({
+            accepted: false,
+            reason: 'too_many_hazards',
+        })
+    })
+
+    it('checks the par band before the stop/hazard policy', () => {
+        expect(
+            validateIceSlideStageQuality(hazardCandidate, {
+                parBand: { minMoves: 5, maxMoves: 10 },
+                maxStates: 10_000,
+                minReachableStops: 999,
+                maxHazards: 0,
+            })
+        ).toMatchObject({
+            accepted: false,
+            reason: 'par_out_of_band',
+        })
+    })
+
+    it('checks the stop floor before the hazard ceiling and objectives', () => {
+        expect(
+            validateIceSlideStageQuality(hazardCandidate, {
+                parBand: { minMoves: 1, maxMoves: 20 },
+                maxStates: 10_000,
+                minReachableStops: 999,
+                maxHazards: 0,
+            })
+        ).toMatchObject({
+            accepted: false,
+            reason: 'reachable_stops_below_min',
+        })
+        expect(
+            validateIceSlideStageQuality(
+                {
+                    id: 'stop-before-objective',
+                    rows: SOLVABLE,
+                    objectiveIds: ['no_falls'],
+                },
+                {
+                    parBand: { minMoves: 1, maxMoves: 20 },
+                    maxStates: 10_000,
+                    minReachableStops: 999,
+                }
+            )
+        ).toMatchObject({
+            accepted: false,
+            reason: 'reachable_stops_below_min',
+        })
+    })
+
+    it('checks the hazard ceiling before objective feasibility', () => {
+        expect(
+            validateIceSlideStageQuality(
+                {
+                    id: 'hazard-before-objective',
+                    rows: HAZARD_BOARD,
+                    objectiveIds: ['collect_all_crystals'],
+                },
+                {
+                    parBand: { minMoves: 1, maxMoves: 20 },
+                    maxStates: 10_000,
+                    maxHazards: 0,
+                }
+            )
+        ).toMatchObject({
+            accepted: false,
+            reason: 'too_many_hazards',
+        })
     })
 })
 
