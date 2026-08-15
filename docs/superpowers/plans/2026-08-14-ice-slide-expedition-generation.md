@@ -973,24 +973,30 @@ const seed =
 ```
 
 For each seed, iterate every stage number in `TIER_STAGES[difficulty]`,
-keeping one shared canonical-key Set that both stage generation and
-`assertResult` regeneration receive:
+keeping one shared canonical-key Set of previously generated stage keys.
+Stage generation receives the shared Set; replay validation receives a
+snapshot of that Set taken before generation, so the newly generated key
+is not treated as an existing duplicate:
 
-1. generate the stage with `existingCanonicalKeys` set to the shared Set of
-   previously generated stage keys;
-2. assert the returned transform-invariant key is new in that Set, then add
-   it;
-3. recompute the minimum transform-orbit key for each final board and assert
+1. snapshot the shared canonical-key Set before generation (e.g.
+   `new Set(shared)`);
+2. generate the stage with `existingCanonicalKeys` set to the shared Set;
+3. assert the returned transform-invariant key is new in the shared Set
+   (do not add it yet);
+4. recompute the minimum transform-orbit key for each final board and assert
    it equals returned `canonicalKey`;
-4. regenerate the input and assert byte-identical output;
-5. independently validate final stages using their selected `objectiveIds`
+5. regenerate the input with `existingCanonicalKeys` set to the
+   pre-generation snapshot and assert byte-identical output;
+6. only after replay succeeds, add the returned `canonicalKey` to the
+   shared Set;
+7. independently validate final stages using their selected `objectiveIds`
    and owning template par/stops/hazard constraints; do **not** pass the
    orbit-key set into `quality.ts`;
-6. solve each board with 10,000 states and assert solvable/not truncated;
-7. fold attempts, `worstAttempts`, fallback count, closed-union rejections,
+8. solve each board with 10,000 states and assert solvable/not truncated;
+9. fold attempts, `worstAttempts`, fallback count, closed-union rejections,
    and worst explored states into stats (`stageCount` =
    `seedsPerTier * TIER_STAGES[difficulty].length`);
-8. invoke optional `onStage`.
+10. invoke optional `onStage`.
 
 The shared helper must not duplicate the generator's template/stage-selection algorithm beyond the tier/stage mapping above.
 
