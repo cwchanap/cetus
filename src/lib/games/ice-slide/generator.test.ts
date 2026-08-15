@@ -5,6 +5,7 @@ import {
 } from './generator'
 import { validateIceSlideStageQuality } from './quality'
 import {
+    getIceSlideFallback,
     getIceSlideTemplatesByDifficulty,
     type IceSlideTemplate,
 } from './templates'
@@ -125,6 +126,39 @@ const PATTERN_SELECT_TEMPLATE: IceSlideTemplate = {
     fallbackVariantId: 'easy-open-lane-v1',
 }
 
+/**
+ * Crafted non-square (4x5) template restricted to rotate_90. Every fork has
+ * exactly one alternative, so the generated stage is fixed: the base rotates
+ * to 5 rows x 4 cols and slot coordinates must swap dimensions correctly.
+ */
+const ROTATE_ONLY_TEMPLATE: IceSlideTemplate = {
+    id: 'easy-rotate-only',
+    name: 'Rotate Only',
+    difficulty: 'easy',
+    baseRows: ['#####', '#S...', '#....', '#####'],
+    allowedTransforms: ['rotate_90'],
+    slots: {
+        goals: [{ id: 'goal:west', position: { row: 2, col: 1 } }],
+        rocks: [{ id: 'rocks:none', positions: [] }],
+        hazards: [{ id: 'hazards:south', positions: [{ row: 2, col: 3 }] }],
+        crystals: [
+            {
+                id: 'crystals:pair',
+                positions: [
+                    { row: 1, col: 3 },
+                    { row: 2, col: 4 },
+                ],
+            },
+        ],
+    },
+    constraints: {
+        parBand: { minMoves: 1, maxMoves: 6 },
+        minReachableStops: 2,
+        maxHazards: 1,
+    },
+    fallbackVariantId: 'easy-open-lane-v1',
+}
+
 const input = {
     seed: 'ice-slide:hpa-489:v1:easy',
     stageNumber: 1,
@@ -160,6 +194,13 @@ describe('ice-slide expedition generation: input and determinism', () => {
                 difficulty: 'easy',
             })
         ).toThrow(RangeError)
+        expect(() =>
+            createIceSlideExpeditionStage({
+                seed: '',
+                stageNumber: 1,
+                difficulty: 'easy',
+            })
+        ).toThrow('seed must be non-empty')
     })
 
     it('rejects invalid stage numbers', () => {
@@ -177,6 +218,13 @@ describe('ice-slide expedition generation: input and determinism', () => {
                     difficulty: 'easy',
                 })
             ).toThrow(RangeError)
+            expect(() =>
+                createIceSlideExpeditionStage({
+                    seed: 'ice-slide:hpa-489:v1:easy',
+                    stageNumber,
+                    difficulty: 'easy',
+                })
+            ).toThrow('stageNumber must be a positive safe integer')
         }
     })
 
@@ -325,6 +373,78 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
             warn.mockRestore()
         }
     })
+
+    it('warns only in development, never in production', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const validateMock = vi.mocked(validateIceSlideStageQuality)
+        validateMock.mockImplementation((candidate, constraints) => {
+            if (String(candidate.id).includes(':attempt:')) {
+                return {
+                    accepted: false,
+                    reason: 'unsolvable',
+                    message: 'forced candidate rejection',
+                }
+            }
+            return realValidate(candidate, constraints)
+        })
+        const fallbackInput = {
+            seed: 'ice-slide:hpa-489:v1:fallback:easy',
+            stageNumber: 1,
+            difficulty: 'easy',
+        } as const
+
+        try {
+            vi.stubEnv('DEV', true)
+            expect(() =>
+                createIceSlideExpeditionStage(fallbackInput)
+            ).not.toThrow()
+            expect(warn).toHaveBeenCalledTimes(1)
+
+            warn.mockClear()
+            vi.stubEnv('DEV', false)
+            expect(() =>
+                createIceSlideExpeditionStage(fallbackInput)
+            ).not.toThrow()
+            expect(warn).not.toHaveBeenCalled()
+        } finally {
+            vi.unstubAllEnvs()
+            validateMock.mockRestore()
+            warn.mockRestore()
+        }
+    })
+
+    it('rejects an all-infeasible objective set with bounded retry and fallback', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const validateMock = vi.mocked(validateIceSlideStageQuality)
+        validateMock.mockImplementation((candidate, constraints) => {
+            const real = realValidate(candidate, constraints)
+            if (!real.accepted) {
+                return real
+            }
+            return {
+                ...real,
+                objectiveFeasibility: {
+                    collect_all_crystals: false,
+                    no_falls: false,
+                    no_reset: false,
+                },
+            }
+        })
+
+        try {
+            expect(() =>
+                createIceSlideExpeditionStage({
+                    seed: 'ice-slide:hpa-489:v1:no-objective:easy',
+                    stageNumber: 1,
+                    difficulty: 'easy',
+                })
+            ).toThrow(/has no valid generated candidate or fallback/)
+            expect(warn).not.toHaveBeenCalled()
+        } finally {
+            validateMock.mockRestore()
+            warn.mockRestore()
+        }
+    })
 })
 
 describe('ice-slide expedition generation: forced materialization collisions', () => {
@@ -361,6 +481,10 @@ describe('ice-slide expedition generation: forced materialization collisions', (
                 '#G..#',
                 '#####',
             ])
+            // Returned rows are a copy, never the catalog-owned array.
+            expect(result.stage.rows).not.toBe(
+                getIceSlideFallback('easy-open-lane-v1').rows
+            )
         } finally {
             templatesMock.mockRestore()
             validateMock.mockRestore()
@@ -413,6 +537,36 @@ describe('ice-slide expedition generation: complete pattern placement', () => {
             ])
             expect(glyphCount(result.stage.rows, 'C')).toBe(2)
             expect(glyphCount(result.stage.rows, 'H')).toBe(1)
+        } finally {
+            templatesMock.mockRestore()
+        }
+    })
+
+    it('maps slot coordinates across swapped non-square dimensions under rotate_90', () => {
+        const templatesMock = vi.mocked(getIceSlideTemplatesByDifficulty)
+        templatesMock.mockImplementation(() => [ROTATE_ONLY_TEMPLATE])
+
+        try {
+            const result = createIceSlideExpeditionStage({
+                seed: 'ice-slide:hpa-489:v1:rotate-only:easy',
+                stageNumber: 1,
+                difficulty: 'easy',
+            })
+
+            expect(result.usedFallback).toBe(false)
+            expect(result.stage.transform).toBe('rotate_90')
+            // 4x5 base rotates to 5 rows x 4 cols; goal lands west of the
+            // start, hazard and both crystals keep their authored cells.
+            expect(result.stage.rows).toEqual([
+                '####',
+                '#GS#',
+                '#..#',
+                '#HC#',
+                '#C.#',
+            ])
+            expect(glyphCount(result.stage.rows, 'G')).toBe(1)
+            expect(glyphCount(result.stage.rows, 'H')).toBe(1)
+            expect(glyphCount(result.stage.rows, 'C')).toBe(2)
         } finally {
             templatesMock.mockRestore()
         }

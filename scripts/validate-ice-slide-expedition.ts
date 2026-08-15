@@ -11,6 +11,7 @@ import {
     type IceSlideTemplateDifficulty,
 } from '../src/lib/games/ice-slide/templates'
 import { getUniqueBoardTransforms } from '../src/lib/games/ice-slide/transforms'
+import { pathToFileURL } from 'node:url'
 
 export interface IceSlideExpeditionValidationStats {
     difficulty: IceSlideTemplateDifficulty
@@ -29,6 +30,13 @@ const TIER_STAGES = {
     hard: [5, 6],
 } as const
 
+/**
+ * Independent recompute of the board's transform-invariant identity: the
+ * lexicographically smallest canonicalKey among all unique transforms of
+ * the board. Must stay consistent with the canonicalKey returned by
+ * createIceSlideExpeditionStage; kept local (not getBoardOrbitKey) so the
+ * validation loop cross-checks the generator rather than sharing its helper.
+ */
 function orbitKey(rows: readonly string[]): string {
     return getUniqueBoardTransforms(rows)
         .map(variant => variant.canonicalKey)
@@ -150,7 +158,7 @@ export function runIceSlideExpeditionValidation(options: {
     for (const difficulty of Object.keys(
         TIER_STAGES
     ) as IceSlideTemplateDifficulty[]) {
-        const [firstStageNumber, secondStageNumber] = TIER_STAGES[difficulty]
+        const stageNumbers = TIER_STAGES[difficulty]
         const rejectionCounts: Partial<
             Record<IceSlideGenerationRejectionReason, number>
         > = {}
@@ -163,30 +171,25 @@ export function runIceSlideExpeditionValidation(options: {
             const seed =
                 `ice-slide:validate:v1:${difficulty}:` +
                 String(index).padStart(4, '0')
+            // One shared key set per seed: every stage generation and
+            // assertResult regeneration sees all previously used boards.
+            const canonicalKeys = new Set<string>()
 
-            const first = createIceSlideExpeditionStage({
-                seed,
-                stageNumber: firstStageNumber,
-                difficulty,
-            })
-            const second = createIceSlideExpeditionStage({
-                seed,
-                stageNumber: secondStageNumber,
-                difficulty,
-                existingCanonicalKeys: new Set([first.canonicalKey]),
-            })
-            if (second.canonicalKey === first.canonicalKey) {
-                throw new Error(
-                    `seed ${seed}: stage ${secondStageNumber} is a ` +
-                        'transform-equivalent duplicate of stage ' +
-                        `${firstStageNumber}`
-                )
-            }
+            for (const stageNumber of stageNumbers) {
+                const result = createIceSlideExpeditionStage({
+                    seed,
+                    stageNumber,
+                    difficulty,
+                    existingCanonicalKeys: canonicalKeys,
+                })
+                if (canonicalKeys.has(result.canonicalKey)) {
+                    throw new Error(
+                        `seed ${seed}: stage ${stageNumber} is a ` +
+                            'transform-equivalent duplicate of an earlier ' +
+                            'same-seed stage'
+                    )
+                }
 
-            for (const [stageNumber, result] of [
-                [firstStageNumber, first],
-                [secondStageNumber, second],
-            ] as const) {
                 worstExploredStates = Math.max(
                     worstExploredStates,
                     assertResult(
@@ -194,11 +197,10 @@ export function runIceSlideExpeditionValidation(options: {
                         stageNumber,
                         result,
                         difficulty,
-                        stageNumber === secondStageNumber
-                            ? new Set([first.canonicalKey])
-                            : undefined
+                        canonicalKeys
                     )
                 )
+                canonicalKeys.add(result.canonicalKey)
                 totalAttempts += result.attempts
                 worstAttempts = Math.max(worstAttempts, result.attempts)
                 if (result.usedFallback) {
@@ -217,7 +219,7 @@ export function runIceSlideExpeditionValidation(options: {
         summaries.push({
             difficulty,
             seeds: seedsPerTier,
-            stageCount: seedsPerTier * 2,
+            stageCount: seedsPerTier * stageNumbers.length,
             totalAttempts,
             worstAttempts,
             fallbacks,
@@ -229,7 +231,9 @@ export function runIceSlideExpeditionValidation(options: {
     return summaries
 }
 
-const isMain = import.meta.url === `file://${process.argv[1]}`
+const isMain =
+    (import.meta as { main?: boolean }).main ??
+    import.meta.url === pathToFileURL(process.argv[1] ?? '').href
 if (isMain) {
     const summaries = runIceSlideExpeditionValidation({ seedsPerTier: 1_000 })
     for (const summary of summaries) {

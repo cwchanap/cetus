@@ -1,4 +1,5 @@
-import { BOARD_TRANSFORMS, getUniqueBoardTransforms } from './transforms'
+import { parseGrid } from './physics'
+import { BOARD_TRANSFORMS, getBoardOrbitKey } from './transforms'
 import type { BoardTransform, GridPosition, IceSlideDifficulty } from './types'
 
 export type IceSlideTemplateDifficulty = Exclude<IceSlideDifficulty, 'tutorial'>
@@ -10,14 +11,14 @@ export interface IceSlideNamedPosition {
 
 export interface IceSlideNamedPositionPattern {
     id: string
-    positions: GridPosition[]
+    positions: readonly GridPosition[]
 }
 
 export interface IceSlideTemplate {
     id: string
     name: string
     difficulty: IceSlideTemplateDifficulty
-    baseRows: string[]
+    baseRows: readonly string[]
     allowedTransforms: BoardTransform[]
     slots: {
         goals: IceSlideNamedPosition[]
@@ -37,7 +38,7 @@ export interface IceSlideTemplateFallback {
     id: string
     templateId: string
     difficulty: IceSlideTemplateDifficulty
-    rows: string[]
+    rows: readonly string[]
 }
 
 export interface IceSlideTemplateCatalog {
@@ -741,6 +742,12 @@ function assertRectangularRows(rows: readonly string[], field: string): void {
     }
 }
 
+function assertExactlyOneStart(rows: readonly string[], field: string): void {
+    if (rows.join('').split('S').length - 1 !== 1) {
+        throw new RangeError(`${field} must contain exactly one S`)
+    }
+}
+
 function assertIcePosition(
     rows: readonly string[],
     position: GridPosition,
@@ -808,12 +815,6 @@ function assertTemplateSlotsValid(template: IceSlideTemplate): void {
     }
 }
 
-function getTransformOrbitKey(rows: readonly string[]): string {
-    return getUniqueBoardTransforms(rows)
-        .map(variant => variant.canonicalKey)
-        .sort()[0]
-}
-
 export function assertValidIceSlideTemplateCatalog(
     catalog: IceSlideTemplateCatalog = {
         templates: ICE_SLIDE_EXPEDITION_TEMPLATES,
@@ -836,16 +837,15 @@ export function assertValidIceSlideTemplateCatalog(
             template.baseRows,
             `template ${template.id} baseRows`
         )
-        const flatBase = template.baseRows.join('')
-        if (flatBase.split('S').length - 1 !== 1) {
-            throw new RangeError(
-                `template ${template.id} baseRows must contain exactly one S`
-            )
-        }
-        for (const glyph of ['G', 'O', 'H', 'C']) {
-            if (flatBase.includes(glyph)) {
+        assertExactlyOneStart(
+            template.baseRows,
+            `template ${template.id} baseRows`
+        )
+        for (const glyph of template.baseRows.join('')) {
+            if (glyph !== '#' && glyph !== '.' && glyph !== 'S') {
                 throw new RangeError(
-                    `template ${template.id} baseRows must not contain ${glyph}`
+                    `template ${template.id} baseRows may contain only ` +
+                        `#, ., or S but found ${glyph}`
                 )
             }
         }
@@ -904,10 +904,21 @@ export function assertValidIceSlideTemplateCatalog(
 
     for (const fallback of fallbacks) {
         assertRectangularRows(fallback.rows, `fallback ${fallback.id} rows`)
+        assertExactlyOneStart(fallback.rows, `fallback ${fallback.id} rows`)
+        // Reuse the production board parser (playable glyph set
+        // # . S G O H C), normalized to the catalog's RangeError contract.
+        try {
+            parseGrid({ id: fallback.id, rows: fallback.rows })
+        } catch (error) {
+            throw new RangeError(
+                `fallback ${fallback.id} rows contain an unplayable glyph: ` +
+                    (error instanceof Error ? error.message : String(error))
+            )
+        }
     }
 
     const orbitKeys = templates.map(template =>
-        getTransformOrbitKey(template.baseRows)
+        getBoardOrbitKey(template.baseRows)
     )
     if (new Set(orbitKeys).size !== orbitKeys.length) {
         throw new RangeError(

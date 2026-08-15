@@ -10,7 +10,7 @@ import {
     type IceSlideTemplateDifficulty,
 } from './templates'
 import {
-    getUniqueBoardTransforms,
+    getBoardOrbitKey,
     transformPosition,
     transformRows,
 } from './transforms'
@@ -48,12 +48,6 @@ const OBJECTIVE_ORDER: readonly IceSlideObjectiveId[] = [
     'no_falls',
     'no_reset',
 ]
-
-function getTransformInvariantCanonicalKey(rows: readonly string[]): string {
-    return getUniqueBoardTransforms(rows)
-        .map(variant => variant.canonicalKey)
-        .sort()[0]
-}
 
 /**
  * Materialize slot picks onto the transformed base board. Only ice cells ('.')
@@ -192,7 +186,7 @@ export function createIceSlideExpeditionStage(input: {
         }
         const rows = materialized.rows
 
-        const canonicalKey = getTransformInvariantCanonicalKey(rows)
+        const canonicalKey = getBoardOrbitKey(rows)
         if (input.existingCanonicalKeys?.has(canonicalKey)) {
             increment('duplicate_board')
             continue
@@ -216,11 +210,18 @@ export function createIceSlideExpeditionStage(input: {
             continue
         }
 
+        const eligibleObjectives = OBJECTIVE_ORDER.filter(
+            id => quality.objectiveFeasibility[id]
+        )
+        if (eligibleObjectives.length === 0) {
+            // Accepted boards are solvable, so no_reset always qualifies
+            // today; keep a future feasibility change from crashing pick().
+            increment('objective_infeasible')
+            continue
+        }
         const objectiveId = attemptRng
             .fork('objective')
-            .pick(
-                OBJECTIVE_ORDER.filter(id => quality.objectiveFeasibility[id])
-            )
+            .pick(eligibleObjectives)
 
         return {
             stage: buildStage({
@@ -249,7 +250,7 @@ export function createIceSlideExpeditionStage(input: {
     )
 
     for (const { template, fallback } of fallbackOrder) {
-        const canonicalKey = getTransformInvariantCanonicalKey(fallback.rows)
+        const canonicalKey = getBoardOrbitKey(fallback.rows)
         if (input.existingCanonicalKeys?.has(canonicalKey)) {
             increment('duplicate_board')
             continue
@@ -273,21 +274,28 @@ export function createIceSlideExpeditionStage(input: {
             continue
         }
 
+        const eligibleObjectives = OBJECTIVE_ORDER.filter(
+            id => quality.objectiveFeasibility[id]
+        )
+        if (eligibleObjectives.length === 0) {
+            increment('objective_infeasible')
+            continue
+        }
         const objectiveId = stageRng
             .fork(`fallback:${fallback.id}:objective`)
-            .pick(
-                OBJECTIVE_ORDER.filter(id => quality.objectiveFeasibility[id])
-            )
+            .pick(eligibleObjectives)
 
-        // eslint-disable-next-line no-console
-        console.warn('Ice Slide Expedition generation fallback', {
-            stageNumber: input.stageNumber,
-            difficulty: input.difficulty,
-            seedHash: hashString32Hex(input.seed),
-            attempts: ICE_SLIDE_EXPEDITION_MAX_ATTEMPTS,
-            rejectionCounts: { ...rejectionCounts },
-            fallbackId: fallback.id,
-        })
+        if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.warn('Ice Slide Expedition generation fallback', {
+                stageNumber: input.stageNumber,
+                difficulty: input.difficulty,
+                seedHash: hashString32Hex(input.seed),
+                attempts: ICE_SLIDE_EXPEDITION_MAX_ATTEMPTS,
+                rejectionCounts: { ...rejectionCounts },
+                fallbackId: fallback.id,
+            })
+        }
 
         return {
             stage: buildStage({
@@ -295,7 +303,7 @@ export function createIceSlideExpeditionStage(input: {
                 name: template.name,
                 templateId: template.id,
                 difficulty: template.difficulty,
-                rows: fallback.rows,
+                rows: [...fallback.rows],
                 parMoves: quality.parMoves,
                 transform: 'identity',
                 mutationIds: [`fallback:${fallback.id}`],

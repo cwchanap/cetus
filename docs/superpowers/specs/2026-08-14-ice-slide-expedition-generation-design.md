@@ -135,7 +135,11 @@ Checked-in catalog validation asserts:
 
 - unique non-empty template/fallback/slot IDs;
 - rectangular non-empty rows;
-- exactly one `S` and no `G/O/H/C` in `baseRows`;
+- exactly one `S`, and every `baseRows` cell is one of `#`, `.`, or `S` (this
+  forbids `G/O/H/C` and any unknown glyph);
+- fallback rows are rectangular, contain exactly one `S`, and use only the
+  playable glyphs `#`, `.`, `S`, `G`, `O`, `H`, `C` (reusing the production
+  board parser);
 - non-empty unique `allowedTransforms`;
 - at least one goal and one rock/hazard/crystal pattern;
 - authored positions are in bounds and land on `.` in untransformed `baseRows`;
@@ -574,17 +578,19 @@ export function createIceSlideExpeditionStage(input: {
 
 ### 9.1 Transform-invariant board key
 
-Keep this helper local to `generator.ts`:
+The orbit-key helper lives in `transforms.ts` as `getBoardOrbitKey()`:
 
 ```ts
-function getTransformInvariantCanonicalKey(rows: readonly string[]): string {
+export function getBoardOrbitKey(rows: readonly string[]): string {
     return getUniqueBoardTransforms(rows)
         .map(variant => variant.canonicalKey)
         .sort()[0]
 }
 ```
 
-This intentionally reuses `getUniqueBoardTransforms()` **only on complete materialized rows**. It collapses all rotations/reflections of one puzzle to one key without changing Daily or `quality.ts`.
+`generator.ts` and the template-catalog validator both call this single
+helper. It intentionally reuses `getUniqueBoardTransforms()` **only on complete
+materialized rows or full-row fallbacks**. It collapses all rotations/reflections of one puzzle to one key without changing Daily or `quality.ts`.
 
 ### 9.2 Frozen RNG paths
 
@@ -613,7 +619,7 @@ For attempts 1–64:
 6. derive the transform-invariant final-board key; if `existingCanonicalKeys` contains it, increment `duplicate_board` and continue;
 7. call `validateIceSlideStageQuality()` with `objectiveIds: []`, template par/stops/hazard constraints, `10_000` states, and **no** `existingCanonicalKeys`;
 8. on quality rejection, increment `quality.reason` and continue;
-9. on acceptance, filter fixed `OBJECTIVE_ORDER` through `quality.objectiveFeasibility` and pick with `attemptRng.fork('objective')`;
+9. on acceptance, filter fixed `OBJECTIVE_ORDER` through `quality.objectiveFeasibility`; if nothing is eligible, increment `objective_infeasible` and continue to the next attempt (accepted boards are solvable, so `no_reset` always qualifies today — the guard keeps a future feasibility change from crashing the objective pick); otherwise pick with `attemptRng.fork('objective')`;
 10. build/sign the stage and return the transform-invariant canonical key.
 
 ```ts
@@ -652,22 +658,26 @@ After 64 rejected candidates:
 2. shuffle with `stageRng.fork('fallback')`;
 3. for each fallback, derive the transform-invariant key and reject it as `duplicate_board` if already used;
 4. call quality with `objectiveIds: []`, owning template constraints, and no literal duplicate set;
-5. after acceptance, pick the bonus objective from `quality.objectiveFeasibility` using `stageRng.fork(`fallback:${fallback.id}:objective`)`;
-6. build with `transform: 'identity'`, `mutationIds: [`fallback:${fallback.id}`]`, `usedFallback: true`, `attempts: 64`, and return the transform-invariant key;
-7. emit exactly one stable development diagnostic:
+5. after acceptance, filter fixed `OBJECTIVE_ORDER` through `quality.objectiveFeasibility`; if nothing is eligible, increment `objective_infeasible` and try the next fallback; otherwise pick the bonus objective using `stageRng.fork(`fallback:${fallback.id}:objective`)`;
+6. build with `transform: 'identity'`, `mutationIds: [`fallback:${fallback.id}`]`, `usedFallback: true`, `attempts: 64`, a defensive copy of `fallback.rows`, and return the transform-invariant key;
+7. in development, emit exactly one stable diagnostic:
 
 ```ts
-console.warn('Ice Slide Expedition generation fallback', {
-    stageNumber: input.stageNumber,
-    difficulty: input.difficulty,
-    seedHash: hashString32Hex(input.seed),
-    attempts: ICE_SLIDE_EXPEDITION_MAX_ATTEMPTS,
-    rejectionCounts: { ...rejectionCounts },
-    fallbackId: fallback.id,
-})
+if (import.meta.env.DEV) {
+    console.warn('Ice Slide Expedition generation fallback', {
+        stageNumber: input.stageNumber,
+        difficulty: input.difficulty,
+        seedHash: hashString32Hex(input.seed),
+        attempts: ICE_SLIDE_EXPEDITION_MAX_ATTEMPTS,
+        rejectionCounts: { ...rejectionCounts },
+        fallbackId: fallback.id,
+    })
+}
 ```
 
-Do not log the raw seed and do not inject a logger.
+Do not log the raw seed and do not inject a logger. Tests cover both branches:
+the warning fires under `import.meta.env.DEV === true` and is suppressed under
+`false`.
 
 If all three fallbacks are invalid/duplicate, throw an `Error` containing stage number and difficulty but no player-facing text.
 
@@ -712,7 +722,7 @@ For each seed generate two same-tier future slots:
 Thread stage 1's **transform-invariant** key into stage 2. The shared loop checks:
 
 - the two orbit keys differ;
-- recomputing `getTransformInvariantCanonicalKey(stage.rows)` equals the returned key;
+- recomputing `getBoardOrbitKey(stage.rows)` equals the returned key;
 - repeated generation is byte-identical;
 - final stages independently pass quality with selected objectives and owning constraints;
 - par matches the quality result;

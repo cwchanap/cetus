@@ -173,3 +173,14 @@ export function getUniqueBoardTransforms(
 
     return variants
 }
+
+/**
+ * Transform-invariant board identity: the lexicographically smallest
+ * canonicalKey among all unique transforms of the board. Every
+ * rotation/reflection of one puzzle collapses to the same key.
+ */
+export function getBoardOrbitKey(rows: readonly string[]): string {
+    return getUniqueBoardTransforms(rows)
+        .map(variant => variant.canonicalKey)
+        .sort()[0]
+}

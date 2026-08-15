@@ -381,7 +381,10 @@ Test real catalog success plus representative invalid clones for:
 - empty/duplicate IDs;
 - empty/non-rectangular rows;
 - zero/multiple `S`;
-- forbidden `G/O/H/C` in base;
+- forbidden `G/O/H/C` in base, plus an unknown-glyph clone proving every
+  `baseRows` cell must be one of `#`, `.`, or `S`;
+- fallback rows missing their single `S` or containing a non-playable glyph
+  (reuse the production board parser for the glyph check);
 - empty/duplicate transform list;
 - missing goal/category alternatives;
 - out-of-bounds or non-ice positions;
@@ -432,7 +435,10 @@ const result = validateIceSlideStageQuality(
 expect(result, fallback.id).toMatchObject({ accepted: true })
 ```
 
-The new rectangular `hard-zero-cross-v1` must resolve at par 5 or otherwise be retuned in design + code before continuing.
+Every fallback — including the rectangular `hard-zero-cross-v1` — is checked
+against its owning template's declared par band (`hard-zero-cross` declares
+`[5, 10]`), plus that band's stop floor and hazard ceiling. No fallback is
+retuned solely to hit an exact par value.
 
 - [ ] **Step 7: Run template + quality tests**
 
@@ -492,7 +498,13 @@ export function createIceSlideExpeditionStage(input: {
 
 - [ ] **Step 1: Write failing input/determinism/random-source tests**
 
-Cover empty seed, invalid stage numbers, repeated `toEqual` output, and:
+Input contract: `createIceSlideExpeditionStage` requires a non-empty `seed`
+and a positive safe-integer `stageNumber`. Violations throw a `RangeError`
+with the exact messages `'seed must be non-empty'` and `'stageNumber must be
+a positive safe integer'`.
+
+Cover empty seed, invalid stage numbers (asserting those exact `RangeError`
+messages), repeated `toEqual` output, and:
 
 ```ts
 const random = vi.spyOn(Math, 'random').mockImplementation(() => {
@@ -529,10 +541,11 @@ Transform coordinates against original base dimensions; materialize onto `transf
 
 - [ ] **Step 4: Add the transform-invariant canonical-key helper**
 
-Keep it local:
+Export one shared helper from `transforms.ts` (also used by the template
+catalog validator):
 
 ```ts
-function getTransformInvariantCanonicalKey(rows: readonly string[]): string {
+export function getBoardOrbitKey(rows: readonly string[]): string {
     return getUniqueBoardTransforms(rows)
         .map(variant => variant.canonicalKey)
         .sort()[0]
@@ -579,7 +592,7 @@ On materialization collision increment `materialization_collision` and continue.
 Then:
 
 ```ts
-const canonicalKey = getTransformInvariantCanonicalKey(rows)
+const canonicalKey = getBoardOrbitKey(rows)
 if (input.existingCanonicalKeys?.has(canonicalKey)) {
     increment('duplicate_board')
     continue
@@ -615,10 +628,22 @@ const OBJECTIVE_ORDER = [
     'no_reset',
 ] as const
 
-const objectiveId = attemptRng.fork('objective').pick(
-    OBJECTIVE_ORDER.filter(id => quality.objectiveFeasibility[id])
+const eligibleObjectives = OBJECTIVE_ORDER.filter(
+    id => quality.objectiveFeasibility[id]
 )
+if (eligibleObjectives.length === 0) {
+    increment('objective_infeasible')
+    continue
+}
+const objectiveId = attemptRng.fork('objective').pick(eligibleObjectives)
 ```
+
+If the eligible set is empty the attempt is rejected as `objective_infeasible`
+and generation retries within the same 64-attempt bound — `pick` must never
+receive an empty list. Cover this with a test that mocks accepted quality
+results carrying an all-infeasible `objectiveFeasibility` map and asserts
+bounded candidate retry, then bounded fallback attempts, ending in the
+exhaustion error.
 
 - [ ] **Step 6: Build accepted stage metadata**
 
@@ -666,22 +691,26 @@ For each fallback:
 1. derive transform-invariant key;
 2. reject/increment `duplicate_board` if caller already used it;
 3. validate with `objectiveIds: []`, owning constraints, no literal duplicate Set;
-4. select objective from accepted `quality.objectiveFeasibility` with `stageRng.fork(`fallback:${fallback.id}:objective`)`;
-5. build with `transform: 'identity'` and `mutationIds: [`fallback:${fallback.id}`]`;
-6. emit exactly one warning:
+4. select objective from accepted `quality.objectiveFeasibility` with `stageRng.fork(`fallback:${fallback.id}:objective`)`; if nothing is eligible, increment `objective_infeasible` and try the next fallback;
+5. build with `transform: 'identity'`, `mutationIds: [`fallback:${fallback.id}`]`, and a defensive copy of `fallback.rows`;
+6. in development, emit exactly one warning:
 
 ```ts
-console.warn('Ice Slide Expedition generation fallback', {
-    stageNumber: input.stageNumber,
-    difficulty: input.difficulty,
-    seedHash: hashString32Hex(input.seed),
-    attempts: ICE_SLIDE_EXPEDITION_MAX_ATTEMPTS,
-    rejectionCounts: { ...rejectionCounts },
-    fallbackId: fallback.id,
-})
+if (import.meta.env.DEV) {
+    console.warn('Ice Slide Expedition generation fallback', {
+        stageNumber: input.stageNumber,
+        difficulty: input.difficulty,
+        seedHash: hashString32Hex(input.seed),
+        attempts: ICE_SLIDE_EXPEDITION_MAX_ATTEMPTS,
+        rejectionCounts: { ...rejectionCounts },
+        fallbackId: fallback.id,
+    })
+}
 ```
 
-Do not log raw seed and do not add logger injection.
+Do not log raw seed and do not add logger injection. Tests must verify the
+warning fires under `import.meta.env.DEV === true` and is suppressed under
+`false` (e.g. via `vi.stubEnv`).
 
 If none accept, throw:
 
@@ -943,19 +972,27 @@ const seed =
     String(index).padStart(4, '0')
 ```
 
-For each seed:
+For each seed, iterate every stage number in `TIER_STAGES[difficulty]`,
+keeping one shared canonical-key Set that both stage generation and
+`assertResult` regeneration receive:
 
-1. generate first stage;
-2. generate second with `existingCanonicalKeys: new Set([first.canonicalKey])`;
-3. assert the returned transform-invariant keys differ;
-4. recompute the minimum transform-orbit key for each final board and assert it equals returned `canonicalKey`;
-5. regenerate both inputs and assert byte-identical output;
-6. independently validate final stages using their selected `objectiveIds` and owning template par/stops/hazard constraints; do **not** pass the orbit-key set into `quality.ts`;
-7. solve each board with 10,000 states and assert solvable/not truncated;
-8. fold attempts, `worstAttempts`, fallback count, closed-union rejections, and worst explored states into stats;
-9. invoke optional `onStage`.
+1. generate the stage with `existingCanonicalKeys` set to the shared Set of
+   previously generated stage keys;
+2. assert the returned transform-invariant key is new in that Set, then add
+   it;
+3. recompute the minimum transform-orbit key for each final board and assert
+   it equals returned `canonicalKey`;
+4. regenerate the input and assert byte-identical output;
+5. independently validate final stages using their selected `objectiveIds`
+   and owning template par/stops/hazard constraints; do **not** pass the
+   orbit-key set into `quality.ts`;
+6. solve each board with 10,000 states and assert solvable/not truncated;
+7. fold attempts, `worstAttempts`, fallback count, closed-union rejections,
+   and worst explored states into stats (`stageCount` =
+   `seedsPerTier * TIER_STAGES[difficulty].length`);
+8. invoke optional `onStage`.
 
-The shared helper must not duplicate the generator's template/stage-selection algorithm beyond the fixed two-stage tier mapping above.
+The shared helper must not duplicate the generator's template/stage-selection algorithm beyond the tier/stage mapping above.
 
 - [ ] **Step 4: Add CLI entry point around the same helper**
 
