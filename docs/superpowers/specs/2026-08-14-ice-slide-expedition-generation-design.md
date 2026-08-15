@@ -808,7 +808,7 @@ HPA-489 is complete when:
 - The stale-branch finding about missing prior revisions does not apply to the current branch; validate-first objectives, shared validation helper, explicit goldens, closed rejection types, and corrected foundation paths were already committed before this revision.
 - Transform-invariant duplicate detection is accepted and now uses the existing transform-orbit enumerator on **final materialized rows only**.
 - The old `hard-zero-cross` was exactly a transformed `hard-absolute-zero`; it is replaced by a distinct rectangular topology and fallback.
-- Removing fallbacks is rejected because HPA-489 explicitly requires a full-row fallback per template, deterministic fallback on exhaustion, and playable fallbacks when every candidate rejects.
+- Removing fallbacks is rejected because HPA-489 explicitly requires a full-row fallback per template, deterministic fallback on exhaustion, a development-visible fallback diagnostic, and playable fallbacks when every candidate rejects.
 - `existingTemplateIds` is not added: HPA-489 specifies canonical puzzle uniqueness, not unique template IDs, and a same-template/different-mutation stage is valid variety.
 - `allowedTransforms` stays because it is an explicit authored-template requirement even though all v1 templates currently choose all eight.
 - No hardware-dependent wall-clock test is added; deterministic attempt/state metrics are expanded instead.
