@@ -60,14 +60,13 @@ describe('ice-slide stage quality: constraints', () => {
     })
 
     it('accepts optional stop floor and hazard ceiling, rejecting unsafe values', () => {
-        expect(() =>
-            validateIceSlideStageQuality(candidate, {
-                parBand: { minMoves: 1, maxMoves: 20 },
-                maxStates: 10_000,
-                minReachableStops: 1,
-                maxHazards: 0,
-            })
-        ).not.toThrow()
+        const accepted = validateIceSlideStageQuality(candidate, {
+            parBand: { minMoves: 1, maxMoves: 20 },
+            maxStates: 10_000,
+            minReachableStops: 1,
+            maxHazards: 0,
+        })
+        expect(accepted.accepted).toBe(true)
 
         for (const value of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
             expect(() =>

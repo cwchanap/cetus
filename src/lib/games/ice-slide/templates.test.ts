@@ -1,18 +1,33 @@
 import { describe, expect, it } from 'vitest'
 import { validateIceSlideStageQuality } from './quality'
-import { getUniqueBoardTransforms } from './transforms'
+import { getBoardOrbitKey } from './transforms'
 import {
     assertValidIceSlideTemplateCatalog,
     ICE_SLIDE_EXPEDITION_FALLBACKS,
     ICE_SLIDE_EXPEDITION_TEMPLATES,
-    type IceSlideTemplateCatalog,
+    type IceSlideTemplate,
+    type IceSlideTemplateFallback,
 } from './templates'
 
-function cloneCatalog(): IceSlideTemplateCatalog {
+// The catalog types are readonly so callers cannot mutate checked-in content;
+// structural-validation tests need writable deep clones to force violations.
+type Mutable<T> = {
+    -readonly [K in keyof T]: T[K] extends readonly (infer U)[]
+        ? Mutable<U>[]
+        : T[K] extends object
+          ? Mutable<T[K]>
+          : T[K]
+}
+type MutableCatalog = {
+    templates: Mutable<IceSlideTemplate>[]
+    fallbacks: Mutable<IceSlideTemplateFallback>[]
+}
+
+function cloneCatalog(): MutableCatalog {
     return structuredClone({
         templates: ICE_SLIDE_EXPEDITION_TEMPLATES,
         fallbacks: ICE_SLIDE_EXPEDITION_FALLBACKS,
-    })
+    }) as unknown as MutableCatalog
 }
 
 describe('ice-slide expedition templates: catalog identity', () => {
@@ -47,7 +62,7 @@ describe('ice-slide expedition templates: structural validation', () => {
 
     const invalidCases: Array<{
         label: string
-        mutate: (catalog: IceSlideTemplateCatalog) => void
+        mutate: (catalog: MutableCatalog) => void
     }> = [
         {
             label: 'empty template IDs',
@@ -137,10 +152,28 @@ describe('ice-slide expedition templates: structural validation', () => {
         },
         ...(['G', 'O', 'H', 'C'] as const).map(glyph => ({
             label: `forbidden ${glyph} in baseRows`,
-            mutate: (catalog: IceSlideTemplateCatalog) => {
+            mutate: (catalog: MutableCatalog) => {
                 catalog.templates[0].baseRows[1] = `#S.${glyph}#`
             },
         })),
+        {
+            label: 'unknown glyph in baseRows',
+            mutate: catalog => {
+                catalog.templates[0].baseRows[1] = '#SX.#'
+            },
+        },
+        {
+            label: 'fallback rows without a start',
+            mutate: catalog => {
+                catalog.fallbacks[0].rows = ['#####', '#...#', '#G..#', '#####']
+            },
+        },
+        {
+            label: 'unknown glyph in fallback rows',
+            mutate: catalog => {
+                catalog.fallbacks[0].rows[1] = '#SX.#'
+            },
+        },
         {
             label: 'empty allowedTransforms',
             mutate: catalog => {
@@ -270,14 +303,8 @@ describe('ice-slide expedition templates: structural validation', () => {
 
 describe('ice-slide expedition templates: transform-orbit uniqueness', () => {
     it('has nine distinct base family orbit keys', () => {
-        function orbitKey(rows: readonly string[]): string {
-            return getUniqueBoardTransforms(rows)
-                .map(variant => variant.canonicalKey)
-                .sort()[0]
-        }
-
         const keys = ICE_SLIDE_EXPEDITION_TEMPLATES.map(template =>
-            orbitKey(template.baseRows)
+            getBoardOrbitKey(template.baseRows)
         )
         expect(new Set(keys).size).toBe(keys.length)
     })
@@ -307,9 +334,15 @@ describe('ice-slide expedition templates: fallback quality', () => {
                 }
             )
             expect(result, fallback.id).toMatchObject({ accepted: true })
-            if (fallback.id === 'hard-zero-cross-v1' && result.accepted) {
-                expect(result.parMoves, fallback.id).toBe(5)
+            if (!result.accepted) {
+                continue
             }
+            expect(result.parMoves, fallback.id).toBeGreaterThanOrEqual(
+                template.constraints.parBand.minMoves
+            )
+            expect(result.parMoves, fallback.id).toBeLessThanOrEqual(
+                template.constraints.parBand.maxMoves
+            )
         }
     })
 })
