@@ -8,91 +8,99 @@
 
 ## 1. Summary
 
-HPA-490 is the next unblocked Ice Slide replayability task. The repository already has the hard parts this mode needs:
+HPA-490 is an assembly and product-integration task. The repository already has the difficult foundations:
 
 - versioned score context and isolation of contextual rows from the legacy Campaign leaderboard;
-- explicit `IceSlideRunDefinition` / `IceSlideStageDefinition` contracts and Expedition run-key validation;
-- Daily's objective/star/scoring lifecycle and mode-selection UI;
-- nine authored Expedition template families, solver validation, transform-invariant duplicate detection, deterministic fallbacks, and the one-stage `createIceSlideExpeditionStage()` seam.
+- materialized `IceSlideRunDefinition` / `IceSlideStageDefinition` contracts and Expedition run-key validation;
+- Daily objective/star/scoring behavior and browser lifecycle patterns;
+- nine authored Expedition template families, bounded solver validation, transform-invariant duplicate detection, deterministic fallbacks, and the one-stage `createIceSlideExpeditionStage()` seam.
 
-HPA-490 remains an assembly and product-integration task. Add one pure `expedition.ts` run materializer that builds the fixed six-stage tier sequence, then extend the existing game/browser/page seams to make Expedition playable, retryable, restartable with a fresh seed, locally completable when signed out, and persistable as contextual personal history.
+Add one pure `expedition.ts` materializer for the fixed six-stage run, then extend the existing game/init/page seams. Keep browser randomness and captured retry identity in `init.ts`. Add only two small mode-policy helpers in `scoring.ts` to avoid duplicating `daily || expedition` checks.
 
-Two tiny shared mode-policy helpers in `scoring.ts` prevent Daily/Expedition objective behavior from becoming repeated `daily || expedition` checks. They are not a registry: they only answer whether a mode uses stars/objectives and which existing scoring config applies.
+Do not add a generated-run framework, mode registry, persistence service, new DB/API/leaderboard path, generic overlay system, or HPA-491 route-choice/Undo machinery.
 
-Do not introduce a generated-run framework, mode registry, persistence service, new leaderboard route, generic overlay system, or HPA-491 route-choice/Undo machinery.
-
-## 2. Current reusable seams
+## 2. Existing seams to reuse
 
 Reuse directly:
 
 - `src/lib/games/ice-slide/generator.ts`
   - `createIceSlideExpeditionStage({ seed, stageNumber, difficulty, existingCanonicalKeys })`
   - `ICE_SLIDE_EXPEDITION_GENERATOR_VERSION = 1`
-  - 64-attempt bound, 10,000-state solver cap, deterministic tier fallbacks, transform-orbit dedupe, DEV fallback diagnostics.
+  - 64-attempt bound, 10,000-state solver cap, deterministic fallbacks, transform-orbit dedupe, DEV diagnostics.
 - `src/lib/games/ice-slide/run.ts`
-  - run/stage validation, stable stage signatures, `ICE_SLIDE_RUN_SCHEMA_VERSION`, `ICE_SLIDE_RULESET_VERSION`, and the existing Expedition run-key grammar.
+  - schema/ruleset constants, stage signatures, run validation, and existing private Expedition run-key grammar.
 - `src/lib/games/ice-slide/game.ts`
-  - consumes complete materialized runs, owns stage progression/counters/stars/game data, and never chooses seeds or reads browser randomness.
+  - consumes complete materialized runs and owns stage progression/counters/game data.
 - `src/lib/games/ice-slide/init.ts`
-  - owns browser lifecycle, captured retry run, Pixi recreation, HUD/overlay text, input locking, stale-submit guard, and score submission.
+  - owns browser lifecycle, retry state, Pixi recreation, HUD/overlay text, input locking, run guard, and score submission.
 - `src/lib/games/ice-slide/scoring.ts`
   - pure configurable stage and completion scoring.
-- `src/lib/server/db/game-score-context.ts` and `src/lib/server/db/queries.ts`
-  - contextual rows are persisted with `mode`; the default leaderboard is restricted to rows where both `mode` and `competition_key` are null.
-- `src/pages/api/scores.ts`
-  - contextual non-Daily modes pass through the existing bounded context schema; Daily-only admission checks do not reject Expedition.
+- HPA-484 score context
+  - `scoreContextSchema` already accepts `mode='expedition'`;
+  - contextual rows are already excluded from unscoped Campaign/global leaderboard reads;
+  - Daily ranking explicitly selects Daily context.
 
-No database schema, query, API, or Daily leaderboard change is required for HPA-490.
+No DB migration, DB query, `/api/scores`, `/api/leaderboard`, or Daily-leaderboard change is required.
 
 ## 3. Approaches considered
 
-### 3.1 Recommended: pure run materializer + narrow mode integration
+### 3.1 Recommended: pure run materializer + narrow integration
 
-Create `expedition.ts` to assemble six stages from the HPA-489 one-stage generator. Keep browser-only random seed creation and the captured retry run in `init.ts`. Reuse two small scoring/mode helpers for behavior that is truly shared by Daily and Expedition. Keep actual differences—Daily competition key/ranking and Expedition submit-on-End—explicit.
+Create `expedition.ts` to assemble six stages from the HPA-489 one-stage generator. `init.ts` creates a browser seed, captures the materialized retry run, and owns HUD/result text that needs the raw seed. The Astro page supplies markup and event wiring.
 
-This preserves the existing separation: generator code materializes data; `IceSlideGame` consumes data; `init.ts` handles browser state/HUD/submission; the page provides static markup and event wiring.
+Use two tiny helpers for shared Daily/Expedition objective/scoring policy. Keep real differences explicit: Daily has a competition key/ranking; Expedition may persist a positive-score partial End.
 
-### 3.2 Generic Daily/Expedition mode framework
+### 3.2 Generic mode framework
 
-Rejected. A mode registry, controller hierarchy, or configuration-driven overlay system would add abstractions without a current need. HPA-490 needs only one config selector and one objective-mode predicate.
+Rejected. Three modes do not justify a registry/controller hierarchy. Two pure helpers over the existing union are enough.
 
-### 3.3 Assemble the six stages directly in `init.ts`
+### 3.3 Assemble stages in `init.ts`
 
-Rejected. This would mix deterministic generation with browser randomness and DOM/Pixi lifecycle. It would make Retry Seed correctness harder to unit-test and weaken the existing materialize-before-play contract.
+Rejected. Deterministic generation belongs outside DOM/Pixi/browser-randomness lifecycle and should stay unit-testable.
+
+### 3.4 Persist zero-progress Expedition Ends
+
+Rejected for HPA-490. Persisting score `0` would require relaxing both `init.ts` and `scoreService.ts`, but the resulting row is immediately consumed by generic profile/history/stat/challenge paths even though HPA-490 ships no Expedition-specific history reader. A Start → immediate End would count as a played game and could advance `PLAY_GAMES`/variety challenge state.
+
+Positive-score partial Expedition rows already satisfy the ticket's useful personal-history/achievement intent. A stage-0 End remains a local result only. If a future Expedition history UI needs zero-progress attempts, add that behavior with an explicit product decision then.
 
 ## 4. Fixed decisions
 
 1. Add one pure `src/lib/games/ice-slide/expedition.ts`; do not expand `generator.ts` into a run builder.
-2. `IceSlidePlayableMode` becomes `campaign | daily | expedition` only when this mode ships.
-3. The six stage difficulties are fixed and exported as:
+2. `IceSlidePlayableMode` becomes `campaign | daily | expedition` when HPA-490 ships.
+3. The six stage difficulties are fixed:
 
    ```ts
    ['easy', 'easy', 'medium', 'medium', 'hard', 'hard']
    ```
 
-4. `createIceSlideExpeditionRunDefinition(seed)` calls `createIceSlideExpeditionStage()` exactly six times with stage numbers 1 through 6 and one accumulating transform-orbit canonical-key set.
-5. Add each returned `canonicalKey` only after that stage is accepted. The one-stage generator remains responsible for candidate rejection, fallback selection, solver caps, and DEV diagnostics.
-6. Expedition run construction is pure and deterministic. It never calls `crypto.getRandomValues()` or `Math.random()`.
-7. `init.ts` creates a random seed exactly once for a fresh Expedition using `crypto.getRandomValues(new Uint32Array(4))`, serialized as four zero-padded 8-hex words (32 lowercase hex characters).
-8. There is no `Math.random()` fallback if Web Crypto fails; the existing `failRun` path cleans up and shows a player-safe error.
-9. `Retry Seed` reuses a defensive clone of the already-materialized six-stage run. It does not regenerate from current generator code.
-10. `New Expedition` captures a new Web Crypto seed and materializes a new run.
-11. Expedition uses the same three-star model as Daily: Clear, Efficient, and one seeded bonus objective.
-12. Expedition uses the Daily stage formula with `objectiveStarBonus = 100` and a six-stage completion budget of 360 seconds at 5 points/second.
-13. Add `isIceSlideObjectiveMode(mode)` and `iceSlideScoringConfig(mode)` in `scoring.ts`; use them where Daily and Expedition genuinely share objective/scoring/HUD/overlay/local-auth behavior. Keep Expedition-only End submission explicit.
-14. Do not apply non-1.00 stage multipliers in HPA-490. HPA-491 owns route-choice multipliers.
-15. Campaign scoring and behavior remain unchanged. The Campaign `levelScore()` / `timeBonus()` calls retain their default-config path; Daily remains 300 seconds.
-16. Completed and manually ended Expedition attempts submit contextual rows with `context.mode = 'expedition'`, no `competitionKey`, and the run ruleset version.
-17. Manual End persists partial Expedition data even when accumulated score is 0. Add an explicit score-service opt-in rather than changing zero-score behavior for every game.
-18. Anonymous Expedition completion/End remains local. `UNAUTHENTICATED` is silent for the two objective modes, while other failures remain visible.
-19. Expedition rows remain excluded from Campaign/global ranking by existing contextual-row isolation. Daily queries already require `mode='daily'` and a Daily competition key.
-20. Keep `/ice-slide?mode=daily` as the only query preselection. `?mode=expedition` continues to fall back to Campaign.
-21. `init.ts`, not page script, owns Expedition seed/HUD/summary text because the full 32-hex seed exists only on the captured `IceSlideRunDefinition.seed`. Do not add the seed to `IceSlideState` or persisted `IceSlideGameData` solely for display.
-22. No run resume, Safe/Risky choices, Undo, snow, cracked ice, cross-seed ranking, seasons, rewards, seed-entry/share UI, or history UI.
+4. `createIceSlideExpeditionRunDefinition(seed)` calls `createIceSlideExpeditionStage()` exactly six times with stage numbers 1–6 and one accumulating transform-orbit canonical-key set.
+5. Add each returned canonical key only after successful stage generation.
+6. The run materializer never calls Web Crypto, `Date`, DOM/Pixi, network, or `Math.random()`.
+7. A fresh Expedition captures one 128-bit seed with `crypto.getRandomValues(new Uint32Array(4))`, serialized as 32 lowercase hex characters.
+8. Web Crypto failure is loud through the existing `failRun()` path; never fall back to `Math.random()`.
+9. Retry Seed clones the already-materialized run. It never regenerates from current template/generator code.
+10. New Expedition is simply `handle.start('expedition')` again; do not add a redundant `handle.newExpedition()` method.
+11. Expedition uses the Daily three-star model: Clear, Efficient, and one seeded bonus objective.
+12. Expedition uses `objectiveStarBonus = 100`, `timeBudgetSeconds = 360`, `timeBonusPerSec = 5`.
+13. The 360-second Expedition budget intentionally matches the current Campaign default. HPA-490 does not rebalance it. A zero completion-time bonus is an acceptable common v1 outcome on slower six-stage runs; do not write UI copy that promises finishing under 6:00 as a normal target.
+14. Daily remains on its 300-second budget. Campaign keeps its existing default-config call path.
+15. Add `isIceSlideObjectiveMode(mode)` and `iceSlideScoringConfig(mode)` in `scoring.ts`; do not create a registry.
+16. All HPA-490 stages remain `scoreMultiplierBps = 10_000`; HPA-491 owns risk/reward multipliers.
+17. Completed Expedition runs submit contextual `mode='expedition'` rows with no competition key.
+18. Manual Expedition End submits only when accumulated score is **greater than zero**, matching the existing score-service contract. A zero-score End is local-only.
+19. Positive-score partial Expedition rows intentionally participate in existing generic score history, user stats, achievements, and daily challenge progress. They require actual stage progress; zero-progress rows are not persisted.
+20. Daily End remains local-only. Campaign behavior remains unchanged.
+21. `UNAUTHENTICATED` is silent for Daily and Expedition so anonymous play remains local; other submission errors remain visible.
+22. `failRun()` clears `retryRun`, resets `currentMode` to Campaign, and clears `dailyDateKey` so a failed mode start cannot leave stale retry identity behind.
+23. `playAgain()` never silently falls from Daily/Expedition to Campaign if objective-mode retry state is unexpectedly missing; treat that invariant failure as an error.
+24. The full 32-hex seed remains browser-owned captured run state. Do not add it to `IceSlideState` or persisted `IceSlideGameData` just for display.
+25. `?mode=daily` and `?mode=expedition` preselect their shipped modes. Unknown values fall back to Campaign. Query preselection does not reproduce an Expedition seed; it only selects the mode before Start.
+26. No run resume, seed input/share, personal-history UI, Safe/Risky choice, Undo, snow, cracked ice, cross-seed ranking, seasons, or rewards.
 
 ## 5. Expedition run construction
 
-Create `src/lib/games/ice-slide/expedition.ts` with the narrow public seam:
+Create:
 
 ```ts
 export const ICE_SLIDE_EXPEDITION_STAGE_DIFFICULTIES = [
@@ -109,28 +117,22 @@ export function createIceSlideExpeditionRunDefinition(
 ): IceSlideRunDefinition
 ```
 
-The function:
+The materializer:
 
 1. rejects an empty seed;
 2. creates one `Set<string>` for canonical keys;
-3. generates stages 1–6 using the fixed tier array and the same seed;
-4. passes the accumulated keys as `existingCanonicalKeys`;
-5. records each returned key after successful generation;
-6. hashes the seed once with `hashString32Hex(seed)` for run identity;
-7. returns schema version 1, generator version 1, current ruleset version, `mode: 'expedition'`, the original seed, six materialized stages, and the formatted run key;
+3. generates all six stages with the same seed and fixed difficulty sequence;
+4. passes prior keys to every later stage;
+5. records each accepted key;
+6. hashes the seed once for the run-key identity;
+7. returns schema/generator/ruleset versions, `mode: 'expedition'`, the original seed, and all six materialized stages;
 8. calls `assertValidIceSlideRunDefinition()` before returning.
 
-No retry loop belongs here; HPA-489 already owns bounded candidate/fallback behavior.
+There is no outer retry loop. HPA-489 already owns bounded candidate attempts and fallback selection.
 
-### 5.1 Expedition run-key helpers
+### 5.1 Run-key helpers
 
-`run.ts` already validates:
-
-```text
-ice-slide:expedition:<8-hex-seed-hash>:g<generatorVersion>:r<rulesetVersion>
-```
-
-Expose parse/format as an actual inverse pair, matching Daily's identity helpers:
+Expose the existing grammar through an inverse pair matching Daily:
 
 ```ts
 export interface IceSlideExpeditionRunIdentity {
@@ -148,19 +150,18 @@ export function formatIceSlideExpeditionRunKey(
 ): string
 ```
 
-The formatter validates an 8-character lowercase hex `seedHash` plus positive generator/ruleset versions; it does not know or hash the original seed. `createIceSlideExpeditionRunDefinition()` owns the one hash operation because it still has the seed.
+The formatter validates the 8-lowercase-hex hash and positive versions. The run materializer performs `hashString32Hex(seed)` because it owns the raw seed. Run validation uses the parser and separately verifies that the run's seed hashes to the key identity.
 
-`assertValidIceSlideRunDefinition()` uses the parser for grammar/version extraction, then separately verifies `hashString32Hex(run.seed) === identity.seedHash`. Empty/U+001F seed checks stay in run validation/materialization where the original seed exists.
+No schema/ruleset bump is required for HPA-490.
 
-No new run schema or ruleset version is required. HPA-490 activates already-designed semantics; it does not change Campaign/Daily physics or competitive meaning.
-
-## 6. Shared objective/scoring policy
+## 6. Objective/scoring policy
 
 Add:
 
 ```ts
 export const EXPEDITION_SCORING_CONFIG: IceSlideModeScoringConfig = {
   objectiveStarBonus: 100,
+  // Intentionally equal to the existing Campaign completion budget.
   timeBudgetSeconds: 360,
   timeBonusPerSec: 5,
 }
@@ -180,22 +181,19 @@ export function iceSlideScoringConfig(
 }
 ```
 
-These helpers are deliberately not a mode registry. They centralize only the policy that otherwise becomes repeated at every call site.
+`IceSlideGame.clearLevel()` uses these helpers for objective/star behavior and mode config selection while preserving Campaign's existing default-config `levelScore()` / `timeBonus()` calls.
 
-In `IceSlideGame.clearLevel()`:
+`init.ts` may use `isIceSlideObjectiveMode()` for truly shared stage-result/retry/auth behavior, but Daily competition behavior and Expedition End persistence remain explicit branches.
 
-- derive `isObjectiveMode` through the helper;
-- read `state.objectiveIds[0]` only for objective modes;
-- count Efficient + Bonus optional stars for objective modes;
-- select the Daily/Expedition config through `iceSlideScoringConfig()`;
-- keep Campaign's existing default `levelScore(scoringParams)` and `timeBonus(elapsedSeconds)` calls;
-- accumulate `starsEarned` only for objective modes.
+## 7. Browser lifecycle
 
-`init.ts` uses `isIceSlideObjectiveMode()` for shared stage-result overlay gating, objective-mode retry behavior, and silent `UNAUTHENTICATED` handling. It does not use the helper to erase genuine mode differences: Daily still owns date/competition-key leaderboard behavior, and Expedition alone submits partial End results.
+Keep a single captured non-Campaign run:
 
-## 7. Browser lifecycle and Retry/New semantics
+```ts
+let retryRun: IceSlideRunDefinition | null = null
+```
 
-Keep seed creation in `init.ts`:
+Fresh Expedition seed helper:
 
 ```ts
 function createExpeditionSeed(): string {
@@ -205,25 +203,19 @@ function createExpeditionSeed(): string {
 }
 ```
 
-Replace `retryDailyRun` with one captured non-Campaign snapshot:
-
-```ts
-let retryRun: IceSlideRunDefinition | null = null
-```
-
 Behavior:
 
-- `start('campaign')`: current behavior; clear retry metadata.
-- `start('daily')`: materialize today's Daily run, clone into `retryRun`, then start it.
-- `start('expedition')`: create one seed, materialize the full run, clone into `retryRun`, then start it.
-- `playAgain()`: if current mode is an objective mode and `retryRun` exists, clone/restart it; otherwise start Campaign.
-- `newExpedition()`: use the same fresh Expedition start path and therefore capture a new seed.
+- Campaign start clears retry metadata and starts Campaign.
+- Daily start materializes today's run and captures a clone in `retryRun`.
+- Expedition start captures one Web Crypto seed, materializes all six stages, and captures a clone in `retryRun`.
+- Retry Seed / Play Again clones the captured run for objective modes.
+- If an objective mode somehow has no retry snapshot, fail loudly instead of silently starting Campaign.
+- `failRun()` invalidates the run guard, destroys game/renderer, hides mode/result UI, **clears retry state**, resets internal mode to Campaign, and restores Start.
+- Stage dimension changes continue to recreate Pixi exactly as today.
 
-`startRun()` sets `currentMode` from the supplied run rather than a Daily-vs-Campaign binary. `dailyDateKey` remains Daily-only and is cleared for Campaign/Expedition. Pixi recreation remains dimension-driven exactly as today.
+## 8. Submission semantics
 
-## 8. Submission and personal-history semantics
-
-Expedition sends:
+Expedition completion or positive-score partial End submits:
 
 ```ts
 {
@@ -235,149 +227,160 @@ Expedition sends:
 }
 ```
 
-No competition key is sent because there is no cross-seed global ranking.
+No competition key is sent.
 
-### 8.1 Partial zero-score persistence
+Keep the existing `submitScore(finalScore)` positive-score guard. `scoreService.ts` remains untouched.
 
-Extend `SaveScoreOptions`:
+End behavior:
 
-```ts
-export interface SaveScoreOptions {
-  isStale?: () => boolean
-  context?: ScoreSubmissionContext
-  allowZeroScore?: boolean
-}
-```
+- Expedition score `> 0`: stop locally, show `RUN ENDED`, populate Expedition summary, submit `solved: false` contextual game data.
+- Expedition score `0`: stop locally, show `RUN ENDED`, populate Expedition summary, **do not submit**.
+- Expedition completion: submit once with `solved: true`.
+- Daily End: local-only.
+- Campaign: unchanged.
 
-`saveGameScore()` always rejects negative scores and rejects zero unless `allowZeroScore === true`. Only Expedition passes that opt-in.
-
-This lets authenticated players End before clearing stage 1 and persist `solved: false`, `levelsCleared: 0`, score/counters/run identity/signatures. The full raw seed is intentionally not added to `gameData`; HPA-490 does not ship history UI or seed reconstruction from stored rows.
-
-### 8.2 End and completion
-
-- Expedition completion submits once with `solved: true`.
-- Expedition End submits once with `solved: false`, including score 0.
-- Daily End remains local-only.
-- Campaign End retains current partial-score behavior.
-- Submission failure never invalidates the local result.
-- `UNAUTHENTICATED` is silent for objective modes; other errors remain visible.
-- The existing run guard suppresses stale async callbacks after Retry Seed, New Expedition, mode changes, or cleanup.
+Submission failure never invalidates the local result. Silent `UNAUTHENTICATED` applies to Daily and Expedition only.
 
 ## 9. UI and interaction
 
 ### 9.1 Mode selector
 
-Add a third shipped radio:
+Ship three radios:
 
 ```text
 Campaign | Daily | Expedition
 ```
 
-No disabled placeholder or feature flag is needed.
+`?mode=expedition` preselects Expedition; Start still creates a fresh random seed.
 
-### 9.2 Expedition HUD ownership
+### 9.2 Expedition HUD
 
-Add a separate hidden `#expedition-meta` card. Display:
+Add a separate hidden `#expedition-meta` card. `init.ts::syncHud()` owns its text because `init.ts` owns `retryRun.seed`.
 
-- `Seed <32-hex seed>`;
-- `Stage N / 6 · EASY|MEDIUM|HARD`;
-- cumulative `Stars X / 18`;
-- cumulative `Falls X · Resets Y`;
+Display:
+
+- full 32-hex seed;
+- `Stage N / 6 · TIER`;
+- cumulative `Stars X / Y`;
+- cumulative Falls / Resets;
 - Clear / Efficient / Bonus objective text.
 
-Moves, crystals, elapsed time, level, and score remain in the shared HUD.
+Use the **materialized run** as the tier source:
 
-`init.ts::syncHud()` populates this card. The seed comes from `retryRun?.seed`, not `state.runKey`: the run key contains only the 8-hex hash and the full seed is not recoverable from it. `syncHud()` shows exactly one of Daily meta / Expedition meta.
+```ts
+retryRun?.stages[state.levelIndex]?.difficulty
+```
 
-The page adds the DOM only; it does not try to recover a seed from `getState()` / `getGameData()`. The Daily leaderboard remains hidden for Expedition.
+Do not import the intended difficulty array into `init.ts` just for display.
 
-### 9.3 Stage-clear and final result
+Compute maximum stars from runtime state:
 
-Reuse the current stage-clear overlay for both objective modes on non-final stages and keep input locked until Continue.
+```ts
+state.stagesTotal * 3
+```
 
-Rename the Daily-only final-star IDs to neutral `#run-final-*` IDs. `init.ts::populateFinalStageResult()` sets the heading to `Daily stars` or `Expedition stars` and fills the same three rows.
+Moves, crystals, elapsed time, level, and score remain shared HUD fields.
 
-For Expedition final/End results, add a compact summary containing seed, stages cleared / 6, stars, moves, crystals, falls/resets, and elapsed time. `init.ts` populates these values from `game.getGameData()` plus `retryRun?.seed`; the page never needs direct access to the retry closure.
+### 9.3 Stage-clear/final result
 
-The page owns only action wiring/presentation:
+Reuse the stage-clear overlay for Daily and Expedition non-final stages; input stays locked until Continue.
 
-- Expedition result => Play Again label becomes **Retry Seed** and **New Expedition** is visible.
-- New Expedition calls `handle.newExpedition()`.
+Rename Daily-only final-star IDs to neutral `#run-final-*` IDs in one cohesive DOM-contract task that updates `init.ts` and page markup together. Do not leave an intermediate commit where Expedition renders a `Daily stars` heading.
+
+Expedition final/End summary includes seed, stages cleared / total, stars, moves, crystals, falls/resets, elapsed time.
+
+`init.ts` populates values from `game.getGameData()` plus `retryRun?.seed`. The page owns action labels/wiring:
+
+- Expedition result: Play Again label = **Retry Seed**; New Expedition visible.
+- New Expedition button calls `gameHandle.start('expedition')` directly.
+- Campaign/Daily: Play Again label remains **Play Again**; New Expedition hidden.
 - Change Mode returns to idle.
-- Campaign/Daily retain **Play Again** and hide New Expedition.
 
-No generic result-overlay component is introduced.
+### 9.4 Page bootstrap guard
 
-## 10. Error handling
+Do not add all Expedition display-only nodes to the page's existing all-or-nothing `init()` DOM guard. `init.ts` setters already tolerate missing display nodes and `game-board-markup.test.ts` locks the required static IDs.
 
-- Empty seeds are rejected by the pure materializer.
-- Candidate/fallback failures remain bounded by HPA-489 and keep its DEV diagnostics.
-- Complete-run materialization failure uses `failRun()`: invalidate stale callbacks, destroy game/timer, clean Pixi/input, hide stage/meta/result UI, restore buttons, and show a player-safe error.
-- Web Crypto failure follows the same path and never falls back to `Math.random()`.
-- Score persistence failure preserves the completed/ended local result.
+Use optional wiring for the New Expedition button (`newExpeditionBtn?.addEventListener(...)`) so a display/control typo cannot silently disable Campaign and Daily initialization. The markup test remains the build-time contract.
+
+## 10. Error handling and residual risks
+
+### 10.1 Full-run generation exhaustion
+
+Because the entire six-stage run materializes before `game.start()`, cross-tier canonical-key exhaustion is a **pre-run** failure, not a mid-run failure. HPA-489 throws if a stage has no valid candidate/fallback remaining.
+
+Mitigation:
+
+- exercise **500 deterministic complete six-stage runs** in `expedition.test.ts`;
+- assert every run has the fixed 2/2/2 sequence, six transform-orbit-unique boards, and passes run validation;
+- retain HPA-489's 1,000-seed-per-tier validator as the deeper generator/content regression;
+- runtime failure goes through `failRun()`, and the player can start a New Expedition with a fresh seed.
+
+Do **not** assert that the 500-run sweep uses zero fallbacks. Fallbacks are explicitly valid HPA-489 output; HPA-489's validator already reports fallback frequency. HPA-490's direct test owns complete-run assembly, not a second fallback-quality policy.
+
+### 10.2 Web Crypto failure
+
+Fail through the normal player-safe error path. No pseudo-random fallback.
+
+### 10.3 Retry-state corruption
+
+`failRun()` clears captured retry state. Objective-mode `playAgain()` with no retry snapshot errors instead of silently starting Campaign.
+
+### 10.4 Time-budget calibration
+
+The 360-second budget is intentionally the current Campaign value. Six generated stages may often earn zero time bonus. That is acceptable for v1; HPA-490 does not add a balance study or misleading under-6:00 objective copy.
 
 ## 11. Testing
 
 ### 11.1 Pure run tests
 
-Add `expedition.test.ts` covering:
+Cover:
 
-- same seed => deep-equal definitions;
-- exact 2/2/2 order;
-- six unique transform-orbit canonical boards;
-- valid run key/hash/version identity;
-- stage IDs/signatures/objectives preserved;
+- parse/format Expedition key inverse semantics;
+- same seed => deep-equal run;
+- exact easy/easy/medium/medium/hard/hard order;
+- unique transform-orbit keys across all six stages;
+- current run-key/hash/version identity;
+- one objective per stage;
 - empty seed rejection;
 - no `Math.random()`;
-- **32 deterministic full-run seeds** through `createIceSlideExpeditionRunDefinition()`, each asserting six stages, 2/2/2 order, six distinct orbit keys, and `assertValidIceSlideRunDefinition()` success.
+- **500 deterministic complete-run materializations** with all six stages unique and `assertValidIceSlideRunDefinition()` passing.
 
-The 32-run sweep specifically exercises the HPA-490 path that HPA-489 did not: one seed and one canonical-key set carried across easy, medium, and hard stages. It can catch late-stage depletion/fallback collisions that per-tier validation cannot.
-
-Extend `run.test.ts` for Expedition parse/format inverse round trips and malformed seed-hash/version cases.
+Do not reject a valid run merely because HPA-489 selected a fallback.
 
 ### 11.2 Game/scoring tests
 
+Cover Expedition stars, 360-second config, Daily's unchanged 300-second config, Campaign unchanged behavior, cumulative stars, solved state, and stage signatures.
+
+### 11.3 Lifecycle/submission tests
+
 Cover:
 
-- `isIceSlideObjectiveMode()` returns false for Campaign and true for Daily/Expedition;
-- `iceSlideScoringConfig()` maps all three modes correctly;
-- Expedition Efficient + Bonus stars match Daily stage rules;
-- Expedition completion uses 360 seconds while Daily remains 300;
-- stars accumulate through Expedition;
-- Campaign score/stars remain unchanged;
-- game data reports Expedition mode, six stages, run key/signatures/counters/solved state without persisting the raw seed.
+- Web Crypto called once on fresh Expedition;
+- Retry Seed consumes no new randomness and preserves run identity/signatures;
+- fresh `start('expedition')` consumes new randomness;
+- failed Expedition start clears `retryRun`, `dailyDateKey`, and internal mode state;
+- objective-mode retry without a snapshot cannot silently start Campaign;
+- completed Expedition contextual submission;
+- positive-score End contextual partial submission;
+- zero-score End does **not** call score submission;
+- silent `UNAUTHENTICATED` for Expedition;
+- visible non-auth submission errors preserve local result;
+- renderer recreation, overlay input gating, reset, cleanup.
 
-### 11.3 Lifecycle/submission/HUD tests
+### 11.4 Markup/browser tests
 
-Stub Web Crypto with deterministic word arrays and verify:
+Cover:
 
-- fresh Expedition captures Web Crypto once and never calls `Math.random()`;
-- Retry Seed restarts the captured run without another crypto call;
-- New Expedition consumes a new crypto value and changes identity;
-- `syncHud()` renders the full 32-hex seed from `retryRun.seed` and not the run-key hash;
-- final/End summary gets seed + game-data counters in `init.ts`;
-- completed Expedition sends contextual solved data;
-- End sends contextual partial data, including zero;
-- `UNAUTHENTICATED` is silent for objective modes;
-- other failures preserve result but surface the existing error;
-- renderer recreation, stage-clear input gating, failure, and cleanup remain correct.
-
-Score-service tests keep zero skipped by default and permit it only with `allowZeroScore: true`.
-
-### 11.4 Markup/E2E
-
-Update stable markup assertions for the third radio and Expedition/meta/result controls. Extend the existing Ice Slide Playwright suite to prove:
-
-- Expedition starts with six-stage tier/HUD data and the full seed;
-- Daily leaderboard stays hidden;
-- Retry Seed preserves seed/run identity;
-- New Expedition changes identity under deterministic crypto stubs;
-- End shows partial summary and sends Expedition context;
-- Continue gates input between stages;
-- Change Mode restores an enabled three-mode selector;
-- Campaign/Daily flows remain green.
-
-Keep `bun run validate:ice-slide-expedition` as an HPA-489 generator/content regression. It does **not** count as HPA-490 six-stage assembly proof because it resets canonical keys per tier. The new full-run unit sweep owns that proof. Do not expand the script into a second run fuzzer.
+- third mode radio and durable Expedition/result IDs;
+- `?mode=expedition` preselection;
+- seed/tier/stars/falls/reset HUD;
+- Daily leaderboard hidden for Expedition;
+- Retry Seed preserves identity;
+- New Expedition button calls fresh `start('expedition')` and changes identity under deterministic Web Crypto stubs;
+- zero-score End stays local; positive partial End submits;
+- neutral final-star heading;
+- Change Mode restores enabled three-mode selector;
+- Campaign/Daily regressions remain green.
 
 ## 12. Files
 
@@ -386,7 +389,7 @@ Create:
 - `src/lib/games/ice-slide/expedition.ts`
 - `src/lib/games/ice-slide/expedition.test.ts`
 
-Modify narrowly:
+Modify:
 
 - `src/lib/games/ice-slide/run.ts`
 - `src/lib/games/ice-slide/run.test.ts`
@@ -397,35 +400,40 @@ Modify narrowly:
 - `src/lib/games/ice-slide/game.test.ts`
 - `src/lib/games/ice-slide/init.ts`
 - `src/lib/games/ice-slide/init.test.ts`
-- `src/lib/services/scoreService.ts`
-- `src/lib/services/scoreService.test.ts`
 - `src/pages/ice-slide/index.astro`
 - `src/pages/game-board-markup.test.ts`
 - `e2e/games/play-coverage.spec.ts`
 
-Explicitly do not modify DB schemas/queries, `/api/scores`, `/api/leaderboard`, `daily-leaderboard.ts`, templates, solver, quality, physics, renderer drawing, or generator internals unless a failing HPA-490 test demonstrates a regression in an already-shipped seam.
+Do not modify:
+
+- `src/lib/services/scoreService.ts` / tests;
+- generator/templates/quality/solver/physics/renderer internals;
+- `scripts/validate-ice-slide-expedition.ts`;
+- DB schema/query files;
+- `/api/scores.ts`;
+- `/api/leaderboard.ts`;
+- `daily-leaderboard.ts`.
 
 ## 13. YAGNI boundaries
 
-No generic mode registry/controller, generated-run abstraction above `IceSlideRunDefinition`, server seeds, seed input/share/deep links, Expedition ranking/normalization, history UI, resume, route choices/multipliers/Undo, snow/cracked ice, logger injection, duplicated solver/quality validation, database migration, or new API route.
+No mode registry, generated-run framework, persistence subsystem, score-service zero opt-in, new DB/API route, seed share/input, history UI, cross-seed ranking, Safe/Risky route choice, Undo, snow, cracked ice, resume, or validation-script rewrite.
 
 ## 14. Acceptance mapping
 
-- **Retry Seed:** captured materialized run clone + lifecycle tests.
-- **New Expedition:** one Web Crypto capture + pure materializer + no `Math.random()`.
-- **2/2/2 six-stage run:** fixed exported tier array + single-seed assertions + 32 full-run assembly sweep.
-- **Validated/fallback content:** HPA-489 stage generator remains the sole stage source.
-- **Campaign/Daily unchanged:** centralized objective/config helpers plus explicit real differences and regression/E2E coverage.
-- **Completed/partial persistence:** contextual Expedition submission on win/End, zero-score opt-in.
-- **No competitive leakage:** existing contextual isolation/Daily query semantics; no ranking code.
-- **Anonymous local play:** silent objective-mode `UNAUTHENTICATED` handling.
-- **Seed/HUD/summary:** `init.ts` reads captured `retryRun.seed`; no raw seed added to state/gameData.
-- **Renderer/overlay/input/reset/retry/new/cleanup/failure:** existing `init.ts` seams extended and locked with unit/E2E tests.
+- **Retry Seed exact reproduction:** captured materialized run clone.
+- **New Expedition:** fresh Web Crypto seed via `start('expedition')`; no `Math.random()`.
+- **2/2/2 run:** fixed sequence plus 500-run assembly sweep.
+- **Validated/fallback content:** HPA-489 generator remains the only stage source; valid fallbacks stay allowed.
+- **Campaign/Daily unchanged:** explicit regression tests and preserved scoring/query behavior.
+- **Completed/partial persistence:** completion plus positive-score End persist contextual game data; zero-progress End stays local to avoid unrelated history/challenge side effects.
+- **No leaderboard leakage:** existing context isolation; no ranking changes.
+- **Anonymous local play:** silent objective-mode unauthenticated response.
+- **Renderer/overlay/reset/retry/fresh/failure coverage:** existing lifecycle seams extended with unit/browser tests.
 
 ## 15. Self-review
 
-- **Placeholder scan:** no TBD/TODO or deferred HPA-490 requirement remains.
-- **Consistency:** seed creation and raw-seed display stay browser-owned; run generation stays pure; `IceSlideGame` stays generator-agnostic.
-- **Scope:** HPA-491/HPA-492/HPA-493 remain separate.
-- **Reuse:** two tiny shared policy helpers replace repeated mode ORs without becoming a registry; no DB/API/leaderboard machinery is duplicated.
-- **Verification:** HPA-489's per-tier content validator remains a regression gate, while HPA-490 now has direct multi-seed six-stage assembly coverage.
+- **Placeholder scan:** no TBD/TODO.
+- **Consistency:** complete run materializes before play; seed remains browser-owned; page never reconstructs it from the hash.
+- **Scope:** no HPA-491/HPA-492/HPA-493 work.
+- **Reuse:** no DB/API/score-service/generator duplication.
+- **Risk:** cross-tier exhaustion is covered by direct 500-run assembly testing and player-safe fresh-seed recovery.
