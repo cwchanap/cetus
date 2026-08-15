@@ -5,40 +5,43 @@ import type { BoardTransform, GridPosition, IceSlideDifficulty } from './types'
 export type IceSlideTemplateDifficulty = Exclude<IceSlideDifficulty, 'tutorial'>
 
 export interface IceSlideNamedPosition {
-    id: string
-    position: GridPosition
+    readonly id: string
+    readonly position: GridPosition
 }
 
 export interface IceSlideNamedPositionPattern {
-    id: string
-    positions: readonly GridPosition[]
+    readonly id: string
+    readonly positions: readonly GridPosition[]
 }
 
 export interface IceSlideTemplate {
-    id: string
-    name: string
-    difficulty: IceSlideTemplateDifficulty
-    baseRows: readonly string[]
-    allowedTransforms: BoardTransform[]
-    slots: {
-        goals: IceSlideNamedPosition[]
-        rocks: IceSlideNamedPositionPattern[]
-        hazards: IceSlideNamedPositionPattern[]
-        crystals: IceSlideNamedPositionPattern[]
+    readonly id: string
+    readonly name: string
+    readonly difficulty: IceSlideTemplateDifficulty
+    readonly baseRows: readonly string[]
+    readonly allowedTransforms: readonly BoardTransform[]
+    readonly slots: {
+        readonly goals: readonly IceSlideNamedPosition[]
+        readonly rocks: readonly IceSlideNamedPositionPattern[]
+        readonly hazards: readonly IceSlideNamedPositionPattern[]
+        readonly crystals: readonly IceSlideNamedPositionPattern[]
     }
-    constraints: {
-        parBand: { minMoves: number; maxMoves: number }
-        minReachableStops: number
-        maxHazards: number
+    readonly constraints: {
+        readonly parBand: {
+            readonly minMoves: number
+            readonly maxMoves: number
+        }
+        readonly minReachableStops: number
+        readonly maxHazards: number
     }
-    fallbackVariantId: string
+    readonly fallbackVariantId: string
 }
 
 export interface IceSlideTemplateFallback {
-    id: string
-    templateId: string
-    difficulty: IceSlideTemplateDifficulty
-    rows: readonly string[]
+    readonly id: string
+    readonly templateId: string
+    readonly difficulty: IceSlideTemplateDifficulty
+    readonly rows: readonly string[]
 }
 
 export interface IceSlideTemplateCatalog {
