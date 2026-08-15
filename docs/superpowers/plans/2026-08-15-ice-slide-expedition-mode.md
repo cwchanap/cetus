@@ -2,27 +2,27 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship HPA-490 as a six-stage seeded Ice Slide Expedition mode with deterministic 2/2/2 stage assembly, Retry Seed/New Expedition lifecycle, three-star scoring, contextual completed/partial persistence, and no competitive leaderboard leakage.
+**Goal:** Ship HPA-490 as a six-stage seeded Ice Slide Expedition mode with deterministic 2/2/2 assembly, Retry Seed/New Expedition behavior, three-star scoring, positive-progress partial persistence, and no competitive leaderboard leakage.
 
-**Architecture:** Add one pure `expedition.ts` materializer over HPA-489's one-stage generator. Keep Web Crypto seed creation, captured retry-run identity, HUD/result population, renderer lifecycle, and submission in `init.ts`; the Astro page supplies static DOM and event wiring. Add only two small shared mode-policy helpers in `scoring.ts` so Daily/Expedition objective behavior does not become repeated `daily || expedition` checks; keep real mode differences explicit.
+**Architecture:** Add one pure `expedition.ts` materializer over HPA-489's one-stage generator. Keep Web Crypto seed creation, captured retry identity, HUD/result population, renderer lifecycle, and score submission in `init.ts`. Reuse two tiny mode-policy helpers in `scoring.ts`; keep real Daily/Expedition differences explicit. The page supplies static DOM and event wiring only.
 
 **Tech Stack:** Astro 5, TypeScript 6, PixiJS 8, Vitest 3, Playwright 1.54, existing Kysely/Turso score context, Bun 1.3.1.
 
 ## Global Constraints
 
-- Expedition has exactly six stages in this order: `easy, easy, medium, medium, hard, hard`.
-- `createIceSlideExpeditionStage()` remains the only source of generated stage content; preserve its 64-attempt bound, 10,000-state solver cap, deterministic fallbacks, transform-orbit dedupe, and DEV diagnostics.
+- Expedition has exactly six stages: `easy, easy, medium, medium, hard, hard`.
+- `createIceSlideExpeditionStage()` remains the only generated-stage source; preserve its 64-attempt bound, 10,000-state solver cap, valid deterministic fallbacks, transform-orbit dedupe, and DEV diagnostics.
 - `createIceSlideExpeditionRunDefinition()` is pure: no DOM, Pixi, Web Crypto, network, `Date`, or `Math.random()`.
-- New Expedition captures a seed once from `crypto.getRandomValues`; Retry Seed reuses the already-materialized run snapshot and must not consume new randomness.
-- Expedition stage scoring matches Daily's `+100` optional-star semantics; Expedition completion uses 360 seconds while Daily stays 300 seconds.
-- Campaign retains the existing default-config `levelScore()` / `timeBonus()` path.
-- Do not apply HPA-491 multipliers; all HPA-490 stages remain `scoreMultiplierBps = 10_000`.
-- Completed and manually ended Expedition attempts persist with `mode='expedition'`, no competition key, and versioned `gameData`; an authenticated zero-score early End must persist.
-- Anonymous Expedition play completes/ends locally without an error toast when submission returns `UNAUTHENTICATED`.
-- Campaign remains unscoped and score-compatible; Daily ranking/admission stays unchanged.
-- The full 32-hex Expedition seed stays in browser-owned captured run state. Do not add it to `IceSlideState` or persisted `IceSlideGameData` for HUD/history purposes.
-- Keep `/ice-slide?mode=daily` as the only query-param preselection; `?mode=expedition` continues to fall back to Campaign.
-- No Safe/Risky choices, Undo, snow, cracked ice, cross-seed ranking, resume, seed input/share UI, history UI, DB migration, API route, generic mode registry, or overlay framework.
+- New Expedition captures one seed from `crypto.getRandomValues`; Retry Seed reuses the already-materialized run snapshot and consumes no new randomness.
+- Expedition stage scoring uses the Daily `+100` optional-star semantics; completion uses 360 seconds, intentionally equal to Campaign's existing default budget. Daily stays at 300 seconds.
+- Campaign keeps its existing default-config `levelScore()` / `timeBonus()` call path.
+- Completed Expedition and **positive-score** manual End attempts persist with `mode='expedition'`, no competition key, and versioned game data.
+- A zero-score stage-0 End remains local and does not create a generic history/stat/challenge row.
+- Anonymous Expedition play completes/ends locally without an error toast on `UNAUTHENTICATED`.
+- Campaign remains unscoped and score-compatible; Daily admission/ranking remains unchanged.
+- The raw 32-hex seed stays on the browser-owned captured run; do not add it to `IceSlideState` or persisted `IceSlideGameData` just for display.
+- `?mode=daily` and `?mode=expedition` preselect shipped modes; unknown query values fall back to Campaign.
+- No Safe/Risky choices, Undo, snow, cracked ice, cross-seed ranking, resume, seed input/share UI, history UI, DB/API work, score-service zero opt-in, mode registry, or generic overlay framework.
 
 ---
 
@@ -30,23 +30,23 @@
 
 **Create**
 
-- `src/lib/games/ice-slide/expedition.ts` — pure six-stage Expedition run materialization.
-- `src/lib/games/ice-slide/expedition.test.ts` — deterministic assembly, multi-seed full-run uniqueness, tier order, and no-randomness coverage.
+- `src/lib/games/ice-slide/expedition.ts` — pure six-stage run materialization.
+- `src/lib/games/ice-slide/expedition.test.ts` — deterministic assembly, 500-run cross-tier sweep, uniqueness, and no-randomness coverage.
 
 **Modify**
 
-- `src/lib/games/ice-slide/run.ts` / `run.test.ts` — public Expedition run-key identity parser/formatter and single-source validation.
-- `src/lib/games/ice-slide/scoring.ts` / `scoring.test.ts` — Expedition scoring config plus two small mode-policy helpers.
-- `src/lib/games/ice-slide/game.ts` / `game.test.ts` — objective/star and completion scoring for Expedition using those helpers.
-- `src/lib/services/scoreService.ts` / `scoreService.test.ts` — explicit zero-score submission opt-in.
-- `src/lib/games/ice-slide/types.ts` — ship `expedition` as a playable mode.
-- `src/lib/games/ice-slide/init.ts` / `init.test.ts` — Web Crypto seed capture, Retry/New lifecycle, contextual complete/partial submission, shared objective-mode overlays, and Expedition HUD/result population from the captured run seed.
-- `src/pages/ice-slide/index.astro` — third radio, Expedition DOM, result actions, New Expedition wiring, Daily leaderboard isolation.
-- `src/pages/game-board-markup.test.ts` — durable Expedition selectors.
-- `e2e/games/play-coverage.spec.ts` — browser lifecycle coverage.
+- `src/lib/games/ice-slide/run.ts` / `run.test.ts` — public Expedition identity parser/formatter and shared validation.
+- `src/lib/games/ice-slide/scoring.ts` / `scoring.test.ts` — Expedition config plus two small mode-policy helpers.
+- `src/lib/games/ice-slide/game.ts` / `game.test.ts` — objective/star/completion scoring for Expedition.
+- `src/lib/games/ice-slide/types.ts` — ship Expedition as a playable mode.
+- `src/lib/games/ice-slide/init.ts` / `init.test.ts` — Web Crypto seed capture, retry/failure state, contextual completion/partial submission, objective-mode overlay/HUD/result behavior.
+- `src/pages/ice-slide/index.astro` — third mode radio, Expedition DOM/action wiring, query preselection, leaderboard isolation.
+- `src/pages/game-board-markup.test.ts` — durable Expedition/result IDs.
+- `e2e/games/play-coverage.spec.ts` — real browser lifecycle coverage.
 
-**Do not modify unless a failing HPA-490 test proves a regression in an already-shipped seam**
+**Do not modify unless a failing HPA-490 test proves an already-shipped regression**
 
+- `src/lib/services/scoreService.ts` / tests
 - `src/lib/games/ice-slide/generator.ts`
 - `src/lib/games/ice-slide/templates.ts`
 - `src/lib/games/ice-slide/quality.ts`
@@ -104,7 +104,7 @@ export function createIceSlideExpeditionRunDefinition(
 
 - [ ] **Step 1: Add failing inverse run-key tests**
 
-In `run.test.ts`, use the production hash only to construct the identity; the formatter accepts the identity rather than the raw seed:
+In `run.test.ts`:
 
 ```ts
 it('round-trips Expedition run identity', () => {
@@ -121,9 +121,9 @@ it('round-trips Expedition run identity', () => {
     `ice-slide:expedition:${identity.seedHash}:g1:r1`
   )
   expect(parseIceSlideExpeditionRunKey(runKey)).toEqual(identity)
-  expect(formatIceSlideExpeditionRunKey(
-    parseIceSlideExpeditionRunKey(runKey)!
-  )).toBe(runKey)
+  expect(
+    formatIceSlideExpeditionRunKey(parseIceSlideExpeditionRunKey(runKey)!)
+  ).toBe(runKey)
 })
 
 it.each([
@@ -134,7 +134,7 @@ it.each([
   expect(parseIceSlideExpeditionRunKey(runKey)).toBeNull()
 })
 
-it('rejects malformed Expedition seed hashes when formatting', () => {
+it('rejects non-lowercase-hex Expedition hashes when formatting', () => {
   expect(() =>
     formatIceSlideExpeditionRunKey({
       seedHash: 'ABCDEF12',
@@ -145,17 +145,17 @@ it('rejects malformed Expedition seed hashes when formatting', () => {
 })
 ```
 
-- [ ] **Step 2: Run run-key tests and verify RED**
+- [ ] **Step 2: Run key tests and verify RED**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/run.test.ts
 ```
 
-Expected: FAIL because public Expedition identity helpers do not exist.
+Expected: FAIL because the public Expedition helper pair does not exist.
 
-- [ ] **Step 3: Extract the Expedition grammar into inverse helpers**
+- [ ] **Step 3: Extract the existing Expedition grammar into inverse helpers**
 
-In `run.ts`, retain the current key regex and add:
+In `run.ts`:
 
 ```ts
 export interface IceSlideExpeditionRunIdentity {
@@ -187,7 +187,9 @@ export function formatIceSlideExpeditionRunKey(
   identity: IceSlideExpeditionRunIdentity
 ): string {
   if (!/^[0-9a-f]{8}$/.test(identity.seedHash)) {
-    throw new RangeError('expedition seedHash must be 8 lowercase hex characters')
+    throw new RangeError(
+      'expedition seedHash must be 8 lowercase hex characters'
+    )
   }
   assertPositiveInt(identity.generatorVersion, 'generatorVersion')
   assertPositiveInt(identity.rulesetVersion, 'rulesetVersion')
@@ -198,21 +200,23 @@ export function formatIceSlideExpeditionRunKey(
 }
 ```
 
-Refactor `assertValidIceSlideRunDefinition()` to call `parseIceSlideExpeditionRunKey(run.runKey)`, then keep the existing original-seed checks and separately assert:
+Refactor the Expedition branch of `assertValidIceSlideRunDefinition()` to call the parser, then keep the existing raw-seed validation and check:
 
 ```ts
-hashString32Hex(run.seed) === identity.seedHash
+if (hashString32Hex(run.seed) !== identity.seedHash) {
+  throw new RangeError(
+    'expedition runKey hash must equal hashString32Hex(seed)'
+  )
+}
 ```
 
-Do not move raw-seed validation into the formatter; the formatter cannot reconstruct or validate the original seed.
-
-- [ ] **Step 4: Re-run `run.test.ts` and verify GREEN**
+- [ ] **Step 4: Re-run run tests and verify GREEN**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/run.test.ts
 ```
 
-Expected: PASS including existing Campaign/Daily cases.
+Expected: PASS including existing Campaign/Daily validation cases.
 
 - [ ] **Step 5: Add failing single-seed materializer tests**
 
@@ -230,12 +234,14 @@ it('materializes the same six-stage run for the same seed', () => {
   expect(first.stages).toHaveLength(6)
 })
 
-it('uses the fixed 2/2/2 tier order with no transform-equivalent duplicates', () => {
+it('uses the fixed 2/2/2 order with six unique board orbits', () => {
   const run = createIceSlideExpeditionRunDefinition(SEED)
   expect(run.stages.map(stage => stage.difficulty)).toEqual([
     'easy', 'easy', 'medium', 'medium', 'hard', 'hard',
   ])
-  expect(new Set(run.stages.map(stage => getBoardOrbitKey(stage.rows))).size).toBe(6)
+  expect(
+    new Set(run.stages.map(stage => getBoardOrbitKey(stage.rows))).size
+  ).toBe(6)
   expect(run.stages.map(stage => stage.id)).toEqual([
     'expedition:1', 'expedition:2', 'expedition:3',
     'expedition:4', 'expedition:5', 'expedition:6',
@@ -253,27 +259,16 @@ it('rejects an empty seed', () => {
 })
 ```
 
-Also assert:
+Also assert the run key uses `hashString32Hex(SEED)`, every stage has one objective, current versions are used, and `assertValidIceSlideRunDefinition(run)` does not throw.
+
+- [ ] **Step 6: Add the direct 500-seed complete-run sweep**
+
+This test calls the **new six-stage materializer**, not the HPA-489 per-tier validator:
 
 ```ts
-const run = createIceSlideExpeditionRunDefinition(SEED)
-expect(run.runKey).toBe(formatIceSlideExpeditionRunKey({
-  seedHash: hashString32Hex(SEED),
-  generatorVersion: ICE_SLIDE_EXPEDITION_GENERATOR_VERSION,
-  rulesetVersion: ICE_SLIDE_RULESET_VERSION,
-}))
-expect(run.stages.every(stage => stage.objectiveIds.length === 1)).toBe(true)
-expect(() => assertValidIceSlideRunDefinition(run)).not.toThrow()
-```
-
-- [ ] **Step 6: Add the HPA-490 cross-tier multi-seed assembly test**
-
-This test must call the **six-stage run materializer**, not the HPA-489 per-tier validator:
-
-```ts
-it('materializes valid unique six-stage runs across 32 deterministic seeds', () => {
-  for (let index = 0; index < 32; index++) {
-    const seed = `hpa-490:full-run:${String(index).padStart(2, '0')}`
+it('materializes 500 valid unique complete runs', () => {
+  for (let index = 0; index < 500; index++) {
+    const seed = `hpa-490:full-run:${String(index).padStart(3, '0')}`
     const run = createIceSlideExpeditionRunDefinition(seed)
 
     expect(run.stages.map(stage => stage.difficulty)).toEqual([
@@ -288,7 +283,7 @@ it('materializes valid unique six-stage runs across 32 deterministic seeds', () 
 })
 ```
 
-This is the direct guard against a stage-5/6 failure caused by canonical boards consumed by earlier tiers. Do not substitute `runIceSlideExpeditionValidation()`; it resets the key set per tier.
+Do **not** assert `usedFallback === false` or inspect `mutationIds` to reject fallbacks. Fallbacks are valid HPA-489 output. HPA-489's deep validator already records fallback frequency; this test owns cross-tier full-run assembly/exhaustion.
 
 - [ ] **Step 7: Run Expedition tests and verify RED**
 
@@ -352,7 +347,7 @@ export function createIceSlideExpeditionRunDefinition(
 }
 ```
 
-No retry loop belongs here.
+No outer retry loop belongs here.
 
 - [ ] **Step 9: Run pure Expedition/run/generator tests and verify GREEN**
 
@@ -363,7 +358,7 @@ bun run test:run -- \
   src/lib/games/ice-slide/generator.test.ts
 ```
 
-Expected: PASS, including all 32 complete runs.
+Expected: PASS including all 500 complete runs.
 
 - [ ] **Step 10: Commit Task 1**
 
@@ -378,7 +373,7 @@ git commit -m "feat(ice-slide): materialize seeded Expedition runs"
 
 ---
 
-### Task 2: Centralize objective-mode/scoring policy and add Expedition scoring
+### Task 2: Centralize objective-mode scoring policy and add Expedition scoring
 
 **Files:**
 - Modify: `src/lib/games/ice-slide/scoring.ts`
@@ -387,26 +382,18 @@ git commit -m "feat(ice-slide): materialize seeded Expedition runs"
 - Modify: `src/lib/games/ice-slide/game.test.ts`
 
 **Interfaces:**
-- Consumes: existing `SCORING_CONFIG`, `DAILY_SCORING_CONFIG`, `levelScore()`, `timeBonus()`, `IceSlideMode`, objective completion.
+- Consumes: `SCORING_CONFIG`, `DAILY_SCORING_CONFIG`, `levelScore()`, `timeBonus()`, `IceSlideMode`, objective completion.
 - Produces:
 
 ```ts
-export const EXPEDITION_SCORING_CONFIG: IceSlideModeScoringConfig = {
-  objectiveStarBonus: 100,
-  timeBudgetSeconds: 360,
-  timeBonusPerSec: 5,
-}
-
+export const EXPEDITION_SCORING_CONFIG: IceSlideModeScoringConfig
 export function isIceSlideObjectiveMode(mode: IceSlideMode): boolean
-
 export function iceSlideScoringConfig(
   mode: IceSlideMode
 ): IceSlideModeScoringConfig
 ```
 
-- [ ] **Step 1: Add failing scoring policy tests**
-
-In `scoring.test.ts`:
+- [ ] **Step 1: Add failing policy/config tests**
 
 ```ts
 it('maps objective modes and scoring configs explicitly', () => {
@@ -416,15 +403,20 @@ it('maps objective modes and scoring configs explicitly', () => {
 
   expect(iceSlideScoringConfig('campaign')).toBe(SCORING_CONFIG)
   expect(iceSlideScoringConfig('daily')).toBe(DAILY_SCORING_CONFIG)
-  expect(iceSlideScoringConfig('expedition')).toBe(EXPEDITION_SCORING_CONFIG)
+  expect(iceSlideScoringConfig('expedition')).toBe(
+    EXPEDITION_SCORING_CONFIG
+  )
 })
 
-it('uses Daily star value with a 360-second Expedition budget', () => {
+it('uses a 360-second Expedition completion budget', () => {
   expect(EXPEDITION_SCORING_CONFIG).toEqual({
     objectiveStarBonus: 100,
     timeBudgetSeconds: 360,
     timeBonusPerSec: 5,
   })
+  expect(EXPEDITION_SCORING_CONFIG.timeBudgetSeconds).toBe(
+    SCORING_CONFIG.timeBudgetSeconds
+  )
   expect(timeBonus(300, EXPEDITION_SCORING_CONFIG)).toBe(300)
   expect(timeBonus(360, EXPEDITION_SCORING_CONFIG)).toBe(0)
 })
@@ -436,15 +428,12 @@ it('uses Daily star value with a 360-second Expedition budget', () => {
 bun run test:run -- src/lib/games/ice-slide/scoring.test.ts
 ```
 
-Expected: FAIL because Expedition config/helpers do not exist.
-
-- [ ] **Step 3: Add the config and two tiny policy helpers**
-
-In `scoring.ts`:
+- [ ] **Step 3: Add the config and two tiny helpers**
 
 ```ts
 export const EXPEDITION_SCORING_CONFIG: IceSlideModeScoringConfig = {
   objectiveStarBonus: 100,
+  // Intentionally equal to the current Campaign completion budget.
   timeBudgetSeconds: 360,
   timeBonusPerSec: 5,
 }
@@ -464,11 +453,11 @@ export function iceSlideScoringConfig(
 }
 ```
 
-Import only `IceSlideMode` from `types.ts`. Do not create a registry/map object or generic mode metadata contract.
+Do not create a mode registry/map.
 
-- [ ] **Step 4: Add failing game tests for Expedition stars and completion scoring**
+- [ ] **Step 4: Add failing game tests for Expedition stars and completion bonus**
 
-Build a small explicit `mode: 'expedition'` run with signed stages and assert:
+Use a small signed explicit Expedition run and assert:
 
 ```ts
 expect(result.stars.clear).toBe(true)
@@ -478,13 +467,7 @@ expect(result.stars.earnedCount).toBe(3)
 expect(game.getState().starsEarned).toBe(3)
 ```
 
-For a one-stage fixture completed at 300 elapsed seconds, assert the final Expedition score includes:
-
-```ts
-timeBonus(300, EXPEDITION_SCORING_CONFIG) === 300
-```
-
-Retain Daily's 300-second and Campaign completion assertions in the same regression set.
+For a one-stage test at 300 elapsed seconds, assert Expedition includes `timeBonus(300, EXPEDITION_SCORING_CONFIG) === 300`. Keep Daily's 300-second and Campaign completion assertions alongside it.
 
 - [ ] **Step 5: Run game tests and verify RED**
 
@@ -492,9 +475,7 @@ Retain Daily's 300-second and Campaign completion assertions in the same regress
 bun run test:run -- src/lib/games/ice-slide/game.test.ts
 ```
 
-Expected: Expedition currently follows Campaign objective/star semantics.
-
-- [ ] **Step 6: Refactor `clearLevel()` to consume policy helpers**
+- [ ] **Step 6: Refactor `clearLevel()` to consume the helpers**
 
 Use:
 
@@ -506,14 +487,12 @@ const scoringConfig = iceSlideScoringConfig(mode)
 
 Then:
 
-- read the stage bonus objective only when `isObjectiveMode`;
-- compute Efficient + Bonus optional stars only when `isObjectiveMode`;
-- for Daily/Expedition call `levelScore({ ...scoringParams, optionalStarsEarned }, scoringConfig)`;
-- for Campaign keep the existing `levelScore(scoringParams)` call;
-- increment `state.starsEarned` only when `isObjectiveMode`;
-- on completion, call `timeBonus(elapsedSeconds, scoringConfig)` only for objective modes and retain `timeBonus(elapsedSeconds)` for Campaign.
-
-Do not branch on template IDs, seed, fallback state, or future route choices.
+- read bonus objective only for objective modes;
+- compute Efficient + Bonus optional stars only for objective modes;
+- call configured `levelScore()` for Daily/Expedition;
+- keep Campaign's existing default `levelScore(scoringParams)` call;
+- accumulate `starsEarned` only for objective modes;
+- call configured `timeBonus()` only for objective modes, preserving Campaign's default call.
 
 - [ ] **Step 7: Run scoring/game regressions and verify GREEN**
 
@@ -525,8 +504,6 @@ bun run test:run -- \
   src/lib/games/ice-slide/game.hazard.test.ts
 ```
 
-Expected: PASS with Campaign/Daily expectations unchanged.
-
 - [ ] **Step 8: Commit Task 2**
 
 ```bash
@@ -535,103 +512,12 @@ git add \
   src/lib/games/ice-slide/scoring.test.ts \
   src/lib/games/ice-slide/game.ts \
   src/lib/games/ice-slide/game.test.ts
-git commit -m "feat(ice-slide): centralize Expedition scoring policy"
+git commit -m "feat(ice-slide): add Expedition scoring policy"
 ```
 
 ---
 
-### Task 3: Permit zero-score persistence only for explicit Expedition submissions
-
-**Files:**
-- Modify: `src/lib/services/scoreService.ts`
-- Modify: `src/lib/services/scoreService.test.ts`
-
-**Interfaces:**
-- Consumes: existing `saveGameScore()` and `SaveScoreOptions`.
-- Produces:
-
-```ts
-export interface SaveScoreOptions {
-  isStale?: () => boolean
-  context?: ScoreSubmissionContext
-  allowZeroScore?: boolean
-}
-```
-
-- [ ] **Step 1: Add failing default/opt-in zero-score tests**
-
-```ts
-it('continues to skip zero scores by default', async () => {
-  await saveGameScore(GameID.ICE_SLIDE, 0)
-  expect(fetchMock).not.toHaveBeenCalled()
-})
-
-it('submits zero when allowZeroScore is explicit', async () => {
-  await saveGameScore(
-    GameID.ICE_SLIDE,
-    0,
-    undefined,
-    undefined,
-    { solved: false, mode: 'expedition' },
-    {
-      allowZeroScore: true,
-      context: { mode: 'expedition', rulesetVersion: 1 },
-    }
-  )
-  expect(fetchMock).toHaveBeenCalledTimes(1)
-})
-
-it('never submits a negative score', async () => {
-  await saveGameScore(
-    GameID.ICE_SLIDE,
-    -1,
-    undefined,
-    undefined,
-    { solved: false, mode: 'expedition' },
-    { allowZeroScore: true }
-  )
-  expect(fetchMock).not.toHaveBeenCalled()
-})
-```
-
-- [ ] **Step 2: Run score-service tests and verify RED**
-
-```bash
-bun run test:run -- src/lib/services/scoreService.test.ts
-```
-
-Expected: explicit zero still returns before fetch.
-
-- [ ] **Step 3: Implement the narrow guard**
-
-Replace the current `score <= 0` check with:
-
-```ts
-if (score < 0 || (score === 0 && options?.allowZeroScore !== true)) {
-  return
-}
-```
-
-Do not change `submitScore()` or server validation; server score validation already accepts non-negative integer 0.
-
-- [ ] **Step 4: Re-run score-service tests and verify GREEN**
-
-```bash
-bun run test:run -- src/lib/services/scoreService.test.ts
-```
-
-Expected: PASS with every existing caller retaining zero-score suppression.
-
-- [ ] **Step 5: Commit Task 3**
-
-```bash
-git add src/lib/services/scoreService.ts src/lib/services/scoreService.test.ts
-git commit -m "feat(scores): allow explicit zero-score history rows"
-```
-
----
-
-### Task 4: Add browser seed capture, Retry/New lifecycle, and contextual Expedition submission
+### Task 3: Add browser seed capture, safe Retry Seed state, and contextual Expedition persistence
 
 **Files:**
 - Modify: `src/lib/games/ice-slide/types.ts`
@@ -639,37 +525,18 @@ git commit -m "feat(scores): allow explicit zero-score history rows"
 - Modify: `src/lib/games/ice-slide/init.test.ts`
 
 **Interfaces:**
-- Consumes: `createIceSlideExpeditionRunDefinition()`, `cloneIceSlideRunDefinition()`, `isIceSlideObjectiveMode()`, current run guard, score service, Daily lifecycle.
+- Consumes: `createIceSlideExpeditionRunDefinition()`, `cloneIceSlideRunDefinition()`, `isIceSlideObjectiveMode()`, existing run guard/score service.
 - Produces:
 
 ```ts
 export type IceSlidePlayableMode = 'campaign' | 'daily' | 'expedition'
-
-export interface IceSlideHandle {
-  start: (mode?: IceSlidePlayableMode) => Promise<void>
-  playAgain: () => Promise<void>
-  newExpedition: () => Promise<void>
-  stop: () => void
-  resetLevel: () => void
-  cleanup: () => void
-  getGame: () => IceSlideGame | null
-}
 ```
 
-`createExpeditionSeed()` and `retryRun` remain private to `init.ts`.
+No new handle method is added; New Expedition reuses `start('expedition')`.
 
-- [ ] **Step 1: Add failing start/retry/new-seed lifecycle tests**
+- [ ] **Step 1: Add failing fresh/retry lifecycle tests**
 
-Stub Web Crypto with two deterministic sequences:
-
-```ts
-const cryptoValues = [
-  new Uint32Array([0x00112233, 0x44556677, 0x8899aabb, 0xccddeeff]),
-  new Uint32Array([0x10213243, 0x54657687, 0x98a9bacb, 0xdcedfe0f]),
-]
-```
-
-Verify:
+Stub Web Crypto with two deterministic word arrays and verify:
 
 ```ts
 await handle.start('expedition')
@@ -684,59 +551,62 @@ expect(retry.runKey).toBe(first.runKey)
 expect(retry.stageSignatures).toEqual(first.stageSignatures)
 expect(getRandomValues).toHaveBeenCalledTimes(1)
 
-await handle.newExpedition()
-const next = handle.getGame()!.getState()
-expect(next.runKey).not.toBe(first.runKey)
+await handle.start('expedition')
+const fresh = handle.getGame()!.getState()
+expect(fresh.runKey).not.toBe(first.runKey)
 expect(getRandomValues).toHaveBeenCalledTimes(2)
 ```
 
-Spy on `Math.random` and assert it remains untouched.
+Spy on `Math.random()` and assert it remains untouched.
 
-- [ ] **Step 2: Add failing complete/partial submission tests**
+- [ ] **Step 2: Add failing submission tests**
 
-Mock `saveGameScore` and assert Expedition sends:
+Mock `saveGameScore` and prove:
+
+- completion sends `mode='expedition'`, no competition key, `solved: true`;
+- positive-score End sends `mode='expedition'`, `solved: false`;
+- immediate zero-score End never calls `saveGameScore`;
+- `UNAUTHENTICATED` for Expedition does not call `onError`.
+
+Expected Expedition options:
 
 ```ts
-expect(saveGameScore).toHaveBeenCalledWith(
-  GameID.ICE_SLIDE,
-  expect.any(Number),
-  expect.any(Function),
-  expect.any(Function),
-  expect.objectContaining({
+expect.objectContaining({
+  context: {
     mode: 'expedition',
-    stagesTotal: 6,
-  }),
-  expect.objectContaining({
-    allowZeroScore: true,
-    context: {
-      mode: 'expedition',
-      rulesetVersion: 1,
-    },
-  })
-)
+    rulesetVersion: 1,
+  },
+})
 ```
 
-For immediate End, assert score `0` and `gameData.solved === false`. For completion, assert `solved === true`. Add an Expedition `UNAUTHENTICATED` case that does not call `onError`.
+There is no `allowZeroScore` option.
 
-- [ ] **Step 3: Run init tests and verify RED**
+- [ ] **Step 3: Add failing stale-retry failure tests**
+
+Model the real dangerous sequence:
+
+1. start Daily successfully;
+2. attempt Expedition with Web Crypto/materialization throwing;
+3. assert failure clears the captured retry snapshot and internal Daily date/mode state;
+4. verify a later retry path cannot silently relaunch the previous Daily run.
+
+Also add an invariant test that objective-mode `playAgain()` with no retry snapshot rejects instead of starting Campaign.
+
+- [ ] **Step 4: Run init tests and verify RED**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/init.test.ts
 ```
 
-Expected: Expedition is not playable and the new lifecycle paths do not exist.
+- [ ] **Step 5: Ship the playable mode and private seed helper**
 
-- [ ] **Step 4: Expand the playable-mode type and import the pure materializer/policy helper**
-
-Change only:
+Change:
 
 ```ts
 export type IceSlidePlayableMode = 'campaign' | 'daily' | 'expedition'
 ```
 
-Import `createIceSlideExpeditionRunDefinition` and `isIceSlideObjectiveMode` into `init.ts`. Do not expose generator internals to the page.
-
-- [ ] **Step 5: Add private Web Crypto seed capture**
+Add:
 
 ```ts
 function createExpeditionSeed(): string {
@@ -746,88 +616,136 @@ function createExpeditionSeed(): string {
 }
 ```
 
-No catch/fallback lives inside this helper. The caller's existing `try/catch -> failRun()` owns cleanup/error display.
+No fallback inside the helper.
 
-- [ ] **Step 6: Replace Daily-only retry state with a captured objective-run snapshot**
+- [ ] **Step 6: Generalize the captured retry run and clear it on failure**
 
-Use:
+Replace `retryDailyRun` with:
 
 ```ts
 let retryRun: IceSlideRunDefinition | null = null
 ```
 
-Rules:
-
-- Daily start clones its materialized run into `retryRun`.
-- Expedition start captures one seed, materializes all six stages, clones into `retryRun`.
-- Campaign start clears `retryRun`.
-- `playAgain()` clones `retryRun` when `isIceSlideObjectiveMode(currentMode)` and a snapshot exists; otherwise start Campaign.
-- `newExpedition()` invokes the same fresh Expedition path and consumes a new seed.
-- `dailyDateKey` remains Daily-only and is reset for Campaign/Expedition.
-
-In `startRun(run?)`, derive `currentMode` from `run?.mode ?? 'campaign'`; do not preserve the old Daily-vs-Campaign binary assignment.
-
-- [ ] **Step 7: Generalize existing stage-result overlay gating with the helper**
-
-In `onLevelClear`:
+In `failRun()` add the state reset before restoring controls:
 
 ```ts
-if (!game || !isIceSlideObjectiveMode(game.getState().mode)) {
+retryRun = null
+currentMode = 'campaign'
+dailyDateKey = null
+```
+
+`failRun()` still destroys game/renderer and invalidates the run guard.
+
+- [ ] **Step 7: Implement fresh Campaign/Daily/Expedition starts**
+
+Rules:
+
+- Campaign: clear retry metadata and start Campaign.
+- Daily: materialize current date, capture clone, start run.
+- Expedition: create one seed, materialize six-stage run, capture clone, start run.
+
+`startRun(run)` sets:
+
+```ts
+currentMode = run?.mode ?? 'campaign'
+dailyDateKey =
+  run?.mode === 'daily'
+    ? parseIceSlideDailyRunKey(run.runKey)?.dateKey ?? null
+    : null
+```
+
+- [ ] **Step 8: Make `playAgain()` safe for objective modes**
+
+Use an explicit invariant:
+
+```ts
+if (isIceSlideObjectiveMode(currentMode)) {
+  if (!retryRun) {
+    throw new Error('Ice Slide retry run is unavailable')
+  }
+  const run = cloneIceSlideRunDefinition(retryRun)
+  dailyDateKey =
+    run.mode === 'daily'
+      ? parseIceSlideDailyRunKey(run.runKey)?.dateKey ?? null
+      : null
+  await startRun(run)
+  return
+}
+
+await startRun()
+```
+
+Do not silently fall back to Campaign from Daily/Expedition.
+
+- [ ] **Step 9: Add Expedition submission context without changing positive-score gating**
+
+Keep:
+
+```ts
+if (!game || finalScore <= 0) {
   return
 }
 ```
 
-Daily and Expedition then reuse the current non-final input lock/stage-clear behavior and final result callback path. Keep the existing DOM IDs for this task; Task 5 renames/populates the new neutral/result DOM together with the page markup so no unlisted `init.ts` edit is required later.
+Select options explicitly:
 
-- [ ] **Step 8: Add contextual Expedition submission and explicit End behavior**
+```ts
+const options =
+  gameData.mode === 'daily'
+    ? {
+        isStale,
+        context: {
+          mode: 'daily' as const,
+          competitionKey: gameData.runKey,
+          rulesetVersion: gameData.rulesetVersion,
+        },
+      }
+    : gameData.mode === 'expedition'
+      ? {
+          isStale,
+          context: {
+            mode: 'expedition' as const,
+            rulesetVersion: gameData.rulesetVersion,
+          },
+        }
+      : { isStale }
+```
 
-In `submitScore()`:
+Suppress `UNAUTHENTICATED` when `isIceSlideObjectiveMode(gameData.mode)`.
 
-- Campaign remains unscoped.
-- Daily keeps `{ mode:'daily', competitionKey, rulesetVersion }`.
-- Expedition uses `{ mode:'expedition', rulesetVersion }` plus `allowZeroScore: true`.
-- Suppress `UNAUTHENTICATED` when `isIceSlideObjectiveMode(gameData.mode)`.
-- Do not collapse Daily/Expedition context construction into a registry; their payloads differ.
-
-In `stop()`, retain an explicit Expedition-only branch:
+- [ ] **Step 10: Add an explicit Expedition End branch**
 
 ```ts
 if (mode === 'expedition') {
   if (status !== 'playing') return
   hideStageClear()
+  const shouldSubmit = score > 0
   game.stop()
   resetButtons()
   showOverlay('RUN ENDED', score)
-  submitScore(score)
+  if (shouldSubmit) {
+    submitScore(score)
+  }
   syncHud()
   return
 }
 ```
 
-Daily End stays local-only; Campaign logic remains unchanged.
+This deliberately leaves stage-0 score `0` local-only while preserving a visible local result.
 
-- [ ] **Step 9: Lock renderer/failure/cleanup regressions**
+- [ ] **Step 11: Lock renderer/failure/cleanup regressions**
 
-Extend init tests to ensure:
+Extend existing tests for renderer recreation on generated stage-size changes, cleanup of pointer/keyboard handlers, and failed start resetting retry/mode/date state.
 
-- a generated next stage with different dimensions causes `setupPixiJS` recreation after Continue;
-- a thrown Expedition materialization error leaves `getGame() === null`, container empty, handlers removed, overlays/meta hidden, Start restored;
-- cleanup invalidates stale submission callbacks and removes listeners.
-
-Reuse existing renderer mocks/failRun assertions; no cleanup abstraction.
-
-- [ ] **Step 10: Run lifecycle tests and verify GREEN**
+- [ ] **Step 12: Run lifecycle tests and verify GREEN**
 
 ```bash
 bun run test:run -- \
   src/lib/games/ice-slide/init.test.ts \
-  src/lib/games/ice-slide/expedition.test.ts \
-  src/lib/services/scoreService.test.ts
+  src/lib/games/ice-slide/expedition.test.ts
 ```
 
-Expected: PASS.
-
-- [ ] **Step 11: Commit Task 4**
+- [ ] **Step 13: Commit Task 3**
 
 ```bash
 git add \
@@ -839,21 +757,19 @@ git commit -m "feat(ice-slide): add Expedition run lifecycle"
 
 ---
 
-### Task 5: Ship Expedition HUD/result DOM with `init.ts`-owned seed and summary population
+### Task 4: Add the neutral objective-run presentation contract and Expedition HUD/summary
 
 **Files:**
 - Modify: `src/lib/games/ice-slide/init.ts`
 - Modify: `src/lib/games/ice-slide/init.test.ts`
 - Modify: `src/pages/ice-slide/index.astro`
 - Modify: `src/pages/game-board-markup.test.ts`
-- Modify: `e2e/games/play-coverage.spec.ts`
 
 **Interfaces:**
-- Consumes: private `retryRun`, `isIceSlideObjectiveMode()`, `IceSlideHandle.start()`, `playAgain()`, `newExpedition()`, `getGame()`.
-- Produces durable DOM selectors:
+- Consumes: captured `retryRun`, objective-mode predicate, game state/data.
+- Produces durable DOM IDs:
 
 ```text
-input[value="expedition"]
 #expedition-meta
 #expedition-seed
 #expedition-stage-progress
@@ -878,88 +794,62 @@ input[value="expedition"]
 #new-expedition-btn
 ```
 
-The page does **not** own or reconstruct the full seed. `init.ts` populates seed/summary text from `retryRun.seed` plus game state/data.
+This task intentionally changes `init.ts` and page markup **together** so the DOM-ID rename never lands in a green-but-runtime-broken intermediate commit.
 
-- [ ] **Step 1: Add failing init tests for full-seed HUD and summary ownership**
+- [ ] **Step 1: Change markup tests first and verify RED**
 
-Create the required DOM nodes in the existing init test fixture and stub crypto to produce:
-
-```text
-00112233445566778899aabbccddeeff
-```
-
-After `start('expedition')` assert:
-
-```ts
-expect(document.getElementById('expedition-seed')?.textContent).toBe(
-  '00112233445566778899aabbccddeeff'
-)
-expect(document.getElementById('expedition-seed')?.textContent).not.toBe(
-  parseIceSlideExpeditionRunKey(handle.getGame()!.getState().runKey)?.seedHash
-)
-```
-
-After immediate End assert `#expedition-summary-seed` contains the same 32-hex seed and summary progress/counters reflect `game.getGameData()`.
-
-This test prevents the page from trying to derive a seed from the 8-hex run-key hash.
-
-- [ ] **Step 2: Add failing markup tests for the shipped Expedition DOM**
-
-In `game-board-markup.test.ts` replace the old Expedition-absent assertion with:
-
-```ts
-expect(iceSlideMarkup).toContain('value="expedition"')
-expect(iceSlideMarkup).toContain('id="expedition-meta"')
-expect(iceSlideMarkup).toContain('id="expedition-seed"')
-expect(iceSlideMarkup).toContain('id="expedition-summary"')
-expect(iceSlideMarkup).toContain('id="new-expedition-btn"')
-expect(iceSlideMarkup).toContain('id="run-final-stage-result"')
-```
-
-Keep every existing Daily leaderboard ID asserted.
-
-- [ ] **Step 3: Run init/markup tests and verify RED**
+In `game-board-markup.test.ts`, replace the old “Expedition absent” assertion with required third-radio/Expedition IDs and neutral `#run-final-*` IDs. Keep every Daily leaderboard selector assertion.
 
 ```bash
-bun run test:run -- \
-  src/lib/games/ice-slide/init.test.ts \
-  src/pages/game-board-markup.test.ts
+bun run test:run -- src/pages/game-board-markup.test.ts
 ```
 
-Expected: FAIL on missing Expedition/neutral DOM and seed/summary population.
+Expected: FAIL on missing new IDs.
 
-- [ ] **Step 4: Add the third radio without changing URL preselection**
+- [ ] **Step 2: Add the third radio, Expedition meta, summary, and neutral final markup**
 
-In `index.astro`, add Expedition beside Campaign/Daily. Preserve:
+Add the Expedition radio beside Campaign/Daily.
+
+Rename existing Daily-only final IDs to `#run-final-*` directly; do not keep compatibility aliases.
+
+Add hidden Expedition meta/summary blocks and New Expedition button. Do not add “finish within 6:00” objective copy; the time budget is a score bonus, not a promised normal completion target.
+
+- [ ] **Step 3: Neutralize final-star population in `init.ts`**
+
+Replace Daily-only IDs with neutral IDs and set the heading from the active mode:
 
 ```ts
-const selectedMode: IceSlidePlayableMode =
-  requestedMode === 'daily' ? 'daily' : 'campaign'
+setText(
+  'run-final-heading',
+  game?.getState().mode === 'expedition'
+    ? 'Expedition stars'
+    : 'Daily stars'
+)
 ```
 
-Update `readSelectedMode()` only:
+Populate Clear/Efficient/Bonus through the existing formatter.
+
+- [ ] **Step 4: Generalize stage-result overlay gating here**
+
+In `onLevelClear`, return only for Campaign:
 
 ```ts
-const value = modeRadios.find(radio => radio.checked)?.value
-return value === 'daily'
-  ? 'daily'
-  : value === 'expedition'
-    ? 'expedition'
-    : 'campaign'
+if (!game || !isIceSlideObjectiveMode(game.getState().mode)) {
+  return
+}
 ```
 
-No registry.
+Daily and Expedition non-final stages lock input/show the shared stage-clear overlay; final stages populate the neutral final-star block.
 
-- [ ] **Step 5: Add the Expedition HUD markup and populate it in `init.ts::syncHud()`**
+Keeping this in the presentation task avoids the Task 3 intermediate where Expedition would render a literal `Daily stars` heading.
 
-Add a hidden `#expedition-meta` Card containing seed, stage/tier, stars, falls/resets, and Clear/Efficient/Bonus labels.
+- [ ] **Step 5: Populate Expedition HUD from the materialized captured run**
 
 In `syncHud()`:
 
 ```ts
-const mode = state.mode
-const isDaily = mode === 'daily'
-const isExpedition = mode === 'expedition'
+const isDaily = state.mode === 'daily'
+const isExpedition = state.mode === 'expedition'
 setVisible('daily-meta', isDaily)
 setVisible('expedition-meta', isExpedition)
 ```
@@ -967,47 +857,25 @@ setVisible('expedition-meta', isExpedition)
 For Expedition:
 
 ```ts
-setText('expedition-seed', retryRun?.seed ?? '—')
+const seed = retryRun?.seed ?? '—'
+const tier = retryRun?.stages[state.levelIndex]?.difficulty
+const maxStars = state.stagesTotal * 3
+
+setText('expedition-seed', seed)
 setText(
   'expedition-stage-progress',
-  `Stage ${state.levelIndex + 1} / ${state.stagesTotal} · ` +
-    ICE_SLIDE_EXPEDITION_STAGE_DIFFICULTIES[state.levelIndex].toUpperCase()
+  `Stage ${state.levelIndex + 1} / ${state.stagesTotal}` +
+    (tier ? ` · ${tier.toUpperCase()}` : '')
 )
-setText('expedition-stars', `Stars ${state.starsEarned} / 18`)
+setText('expedition-stars', `Stars ${state.starsEarned} / ${maxStars}`)
 setText('expedition-attempts', `Falls ${state.falls} · Resets ${state.resets}`)
 ```
 
-Populate Clear/Efficient/Bonus objective copy using the same objective-label source as Daily. Use `isIceSlideObjectiveMode(mode)` for shared objective copy, not another `daily || expedition` expression.
+Use current stage objective IDs for Clear/Efficient/Bonus copy. Do not import `ICE_SLIDE_EXPEDITION_STAGE_DIFFICULTIES` into `init.ts` for display.
 
-Do not add `difficulty` or `seed` to `IceSlideState` solely for HUD rendering.
+- [ ] **Step 6: Add `populateExpeditionSummary()` in `init.ts`**
 
-- [ ] **Step 6: Neutralize final-star IDs in page + init together**
-
-Rename:
-
-```text
-#daily-final-stage-result -> #run-final-stage-result
-#daily-final-clear        -> #run-final-clear
-#daily-final-efficient    -> #run-final-efficient
-#daily-final-bonus        -> #run-final-bonus
-```
-
-Add `#run-final-heading`.
-
-Update `hideFinalStageResult()` / `populateFinalStageResult()` in `init.ts` in the same task:
-
-```ts
-setText(
-  'run-final-heading',
-  game?.getState().mode === 'expedition' ? 'Expedition stars' : 'Daily stars'
-)
-```
-
-Fill the three neutral rows from the existing `IceSlideStageClearResult`. Update Daily unit/markup/E2E selectors in this same task; no compatibility aliases for private DOM IDs.
-
-- [ ] **Step 7: Add `init.ts`-owned Expedition final/End summary population**
-
-Add hidden summary DOM in the page, but populate it only from `init.ts`:
+Read generic run data plus the captured seed:
 
 ```ts
 const populateExpeditionSummary = (): void => {
@@ -1022,53 +890,47 @@ const populateExpeditionSummary = (): void => {
     'expedition-summary-progress',
     `${data.levelsCleared} / ${data.stagesTotal} stages`
   )
-  setText('expedition-summary-stars', `${data.starsEarned} / 18 stars`)
-  setText('expedition-summary-moves', `${data.totalMoves} moves`)
-  setText('expedition-summary-crystals', `${data.crystalsCollected} crystals`)
+  setText(
+    'expedition-summary-stars',
+    `${data.starsEarned} / ${data.stagesTotal * 3} stars`
+  )
+  setText('expedition-summary-moves', String(data.totalMoves))
+  setText('expedition-summary-crystals', String(data.crystalsCollected))
   setText(
     'expedition-summary-attempts',
-    `${data.falls} falls · ${data.resets} resets`
+    `Falls ${data.falls} · Resets ${data.resets}`
   )
   setText('expedition-summary-time', formatTime(data.elapsedSeconds))
   setVisible('expedition-summary', true)
 }
 ```
 
-Call this after Expedition `onWin` result setup and after the Expedition `stop()` branch has called `game.stop()`. Hide it when starting a new run, changing away from Expedition, failing a run, or cleanup.
+Call it after Expedition win and after the Expedition stop branch has stopped the game, regardless of whether score was 0 or positive.
 
-Do not persist the raw seed in `IceSlideGameData`.
+- [ ] **Step 7: Keep Expedition display nodes out of the page's all-or-nothing bootstrap guard**
 
-- [ ] **Step 8: Keep action presentation in the page**
+The page script does not need to dereference meta/summary text nodes because `init.ts` owns population. Keep those display-only IDs out of the existing giant null guard.
 
-Add `#new-expedition-btn` under final stats.
-
-Use one small page-local helper for button visibility/label only:
+Query the New Expedition button as optional page wiring:
 
 ```ts
-const syncResultActions = () => {
-  const expedition = gameHandle?.getGame()?.getState().mode === 'expedition'
-  playAgainBtn.textContent = expedition ? 'Retry Seed' : 'Play Again'
-  newExpeditionBtn.classList.toggle('hidden', !expedition)
-}
+const newExpeditionBtn = document.getElementById('new-expedition-btn')
 ```
 
-The page must not read `gameData` to populate summary fields and must not derive the seed from `runKey`.
+Do not make a missing optional Expedition display node prevent Campaign/Daily initialization; the markup test is the static contract.
 
-Call the helper after result/End transitions and reset it on Change Mode/new starts.
+- [ ] **Step 8: Update init/markup tests for HUD sources and summary**
 
-- [ ] **Step 9: Wire New Expedition and preserve Daily leaderboard isolation**
+Assert:
 
-`#new-expedition-btn` click:
+- tier comes from `retryRun.stages[state.levelIndex].difficulty`;
+- max stars uses `state.stagesTotal * 3`;
+- raw seed comes from captured run, not run-key hash;
+- neutral final heading is Daily vs Expedition correctly;
+- zero-score End still gets local summary;
+- positive partial End gets the same local summary plus submission from Task 3.
 
-1. hide the result overlay;
-2. disable mode controls;
-3. hide the Daily leaderboard;
-4. call `gameHandle.newExpedition()`;
-5. restore existing button/error behavior on rejection.
-
-Mode changes/start paths call `leaderboardController.hide()` for Campaign/Expedition; only Daily computes/loads a competition key.
-
-- [ ] **Step 10: Re-run init/markup tests and verify GREEN**
+- [ ] **Step 9: Run presentation unit/markup tests and verify GREEN**
 
 ```bash
 bun run test:run -- \
@@ -1076,96 +938,191 @@ bun run test:run -- \
   src/pages/game-board-markup.test.ts
 ```
 
-Expected: PASS, including full-seed/summary ownership tests and existing Daily selectors migrated to neutral final IDs.
-
-- [ ] **Step 11: Add Playwright Expedition lifecycle coverage**
-
-In the existing Ice Slide `test.describe`, install deterministic Web Crypto before navigation using `page.addInitScript()`. Override only `crypto.getRandomValues` calls for the `Uint32Array(4)` seed shape and delegate unrelated typed arrays to the native implementation.
-
-Add browser assertions that prove:
-
-1. selecting Expedition + Start shows the full 32-hex `#expedition-seed`, `Stage 1 / 6 · EASY`, and no Daily leaderboard;
-2. immediate End sends `/api/scores` with score `0`, `context.mode === 'expedition'`, no `competitionKey`, and `gameData.solved === false` when mocked successful;
-3. End summary displays the same full seed plus `0 / 6 stages` and counters;
-4. Play Again reads `Retry Seed`; clicking it preserves full seed + run key;
-5. End again + New Expedition consumes the second deterministic crypto value and changes seed/run identity;
-6. Change Mode returns to exactly three enabled radio inputs;
-7. `?mode=expedition` still preselects Campaign;
-8. a non-final clear locks keyboard/pointer movement until Continue.
-
-Use a deterministic generated-stage solution/path fixture pattern already present around Daily tests. Do not create a separate Expedition E2E harness.
-
-- [ ] **Step 12: Run focused Ice Slide Playwright tests**
-
-```bash
-bun run test:e2e -- e2e/games/play-coverage.spec.ts --grep "Ice Slide"
-```
-
-Expected: all existing Campaign/Daily/leaderboard tests plus Expedition tests PASS.
-
-- [ ] **Step 13: Commit Task 5**
+- [ ] **Step 10: Commit Task 4**
 
 ```bash
 git add \
   src/lib/games/ice-slide/init.ts \
   src/lib/games/ice-slide/init.test.ts \
   src/pages/ice-slide/index.astro \
-  src/pages/game-board-markup.test.ts \
-  e2e/games/play-coverage.spec.ts
-git commit -m "feat(ice-slide): expose Expedition mode controls"
+  src/pages/game-board-markup.test.ts
+git commit -m "feat(ice-slide): add Expedition run presentation"
 ```
 
 ---
 
-### Task 6: Run HPA-490 full-run, regression, and content-validation gates
+### Task 5: Wire shipped Expedition controls and browser lifecycle
 
 **Files:**
-- No planned production files.
-- Any fix discovered here must stay within the HPA-490 file set above and be tied to a failing verification command.
+- Modify: `src/pages/ice-slide/index.astro`
+- Modify: `e2e/games/play-coverage.spec.ts`
 
 **Interfaces:**
-- Consumes the completed feature.
-- Produces verification evidence only; no new abstraction/API.
+- Consumes: `IceSlidePlayableMode`, `IceSlideHandle.start()`, `playAgain()`, `getGame()` and Task 4 DOM.
+- Produces: shipped mode selection, Retry Seed/New Expedition actions, Daily leaderboard isolation.
 
-- [ ] **Step 1: Re-run the direct HPA-490 six-stage assembly proof**
+- [ ] **Step 1: Preselect both shipped non-Campaign modes**
 
-```bash
-bun run test:run -- src/lib/games/ice-slide/expedition.test.ts
+Replace the Daily-only query ternary with:
+
+```ts
+const requestedMode = new URLSearchParams(window.location.search).get('mode')
+const selectedMode: IceSlidePlayableMode =
+  requestedMode === 'daily'
+    ? 'daily'
+    : requestedMode === 'expedition'
+      ? 'expedition'
+      : 'campaign'
 ```
 
-Expected: PASS including the 32-seed test where one canonical-key set survives all six tiers.
+This selects a mode only; Expedition still captures a fresh seed on Start.
 
-This is the assembly gate. Do not replace it with the HPA-489 script.
+- [ ] **Step 2: Read the three radio values explicitly**
 
-- [ ] **Step 2: Run all Ice Slide unit tests**
+```ts
+const readSelectedMode = (): IceSlidePlayableMode => {
+  const value = modeRadios.find(radio => radio.checked)?.value
+  return value === 'daily'
+    ? 'daily'
+    : value === 'expedition'
+      ? 'expedition'
+      : 'campaign'
+}
+```
+
+No registry.
+
+- [ ] **Step 3: Add one page-local action-state helper**
+
+```ts
+const syncResultActions = () => {
+  const isExpedition =
+    gameHandle?.getGame()?.getState().mode === 'expedition'
+  playAgainBtn.textContent = isExpedition ? 'Retry Seed' : 'Play Again'
+  newExpeditionBtn?.classList.toggle('hidden', !isExpedition)
+}
+```
+
+Call it after result-producing win/End paths; restore default state when starting/changing modes.
+
+- [ ] **Step 4: Wire New Expedition to the existing `start()` API**
+
+```ts
+newExpeditionBtn?.addEventListener('click', async () => {
+  overlay.classList.add('hidden')
+  startBtn.style.display = 'none'
+  endBtn.style.display = 'inline-flex'
+  setModeControlsDisabled(true)
+  hideDailyLeaderboard()
+  try {
+    await gameHandle?.start('expedition')
+  } catch (error) {
+    errorEl.textContent =
+      error instanceof Error ? error.message : 'Failed to start Expedition'
+    errorEl.classList.remove('hidden')
+    resetButtonState()
+    restoreIdleModeControlsIfNoResult()
+  }
+})
+```
+
+Do not add `IceSlideHandle.newExpedition()`.
+
+- [ ] **Step 5: Keep Daily leaderboard behavior exact**
+
+Only Daily selection/start/retry loads a Daily competition key. Campaign and Expedition call `leaderboardController.hide()`.
+
+- [ ] **Step 6: Add deterministic browser crypto setup**
+
+Use `page.addInitScript()` before navigation to override `crypto.getRandomValues` for the Expedition 4-word `Uint32Array` calls with two known seeds, delegating unrelated calls to the native method.
+
+- [ ] **Step 7: Add E2E coverage for Expedition start/retry/fresh/query behavior**
+
+Prove:
+
+1. `/ice-slide?mode=expedition` preselects Expedition but remains idle until Start;
+2. Start shows Expedition meta, six stages, Stage 1/EASY, and hides Daily leaderboard;
+3. immediate End shows local Expedition summary, sends no `/api/scores` request, and labels Play Again as Retry Seed;
+4. Retry Seed preserves displayed seed/run key and consumes no second crypto seed;
+5. New Expedition calls the existing fresh start path and changes displayed seed/run key;
+6. Change Mode returns to an enabled three-radio selector.
+
+- [ ] **Step 8: Add positive-partial submission browser coverage**
+
+Use a deterministic generated route to clear at least one non-final stage, Continue, then End. Assert `/api/scores` receives:
+
+```ts
+expect(body).toMatchObject({
+  context: {
+    mode: 'expedition',
+    rulesetVersion: 1,
+  },
+  gameData: {
+    mode: 'expedition',
+    solved: false,
+    levelsCleared: expect.any(Number),
+  },
+})
+```
+
+Also assert `score > 0` and no `competitionKey` is present.
+
+- [ ] **Step 9: Lock stage-clear input gating in the browser**
+
+After a non-final Expedition clear, assert keyboard input does not change moves until `#stage-clear-continue-btn` is clicked, then verify the next stage accepts movement.
+
+- [ ] **Step 10: Re-run Campaign/Daily browser regressions**
+
+Keep existing Campaign, Daily rollover, Daily retry, ranking, failure, and stale-response tests green. Replace the old `mode=expedition -> Campaign` assertion with Expedition preselection; keep an unknown-mode fallback test.
+
+- [ ] **Step 11: Run focused E2E and verify GREEN**
+
+```bash
+bun run test:e2e -- e2e/games/play-coverage.spec.ts --grep "Ice Slide"
+```
+
+- [ ] **Step 12: Commit Task 5**
+
+```bash
+git add \
+  src/pages/ice-slide/index.astro \
+  e2e/games/play-coverage.spec.ts
+git commit -m "feat(ice-slide): wire Expedition mode controls"
+```
+
+---
+
+### Task 6: Run HPA-490 regression and content-validation gates
+
+**Files:**
+- No planned production changes.
+- Any verification fix must stay within the HPA-490 files above and correspond to a failing command.
+
+- [ ] **Step 1: Run all Ice Slide unit tests**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide
 ```
 
-Expected: PASS.
+Expected: PASS, including the 500-run full Expedition assembly sweep.
 
-- [ ] **Step 3: Re-run HPA-489's generator/content validation as a regression gate**
+- [ ] **Step 2: Re-run HPA-489 deep per-tier content validation**
 
 ```bash
 bun run validate:ice-slide-expedition
 ```
 
-Expected: all 1,000-seed-per-tier checks PASS with no invalid accepted stage.
+Expected: 1,000-seed-per-tier validation passes. Treat this as generator/content regression evidence, not the HPA-490 full-run proof.
 
-This command validates the one-stage generator/templates within each tier; it is **not** the six-stage HPA-490 proof because its canonical-key set resets for each tier/seed prefix. Do not expand the script into a full-run fuzzer in this task.
-
-- [ ] **Step 4: Run score-service and markup tests**
+- [ ] **Step 3: Run markup tests**
 
 ```bash
-bun run test:run -- \
-  src/lib/services/scoreService.test.ts \
-  src/pages/game-board-markup.test.ts
+bun run test:run -- src/pages/game-board-markup.test.ts
 ```
 
 Expected: PASS.
 
-- [ ] **Step 5: Run the full unit suite**
+- [ ] **Step 4: Run the full unit suite**
 
 ```bash
 bun run test:run
@@ -1173,7 +1130,7 @@ bun run test:run
 
 Expected: PASS.
 
-- [ ] **Step 6: Run static quality gates**
+- [ ] **Step 5: Run static quality gates**
 
 ```bash
 bun run typecheck
@@ -1182,18 +1139,18 @@ bun run format:check
 bun run build
 ```
 
-Expected: all commands exit 0. The current Codecov target is 90%; do not invent an HPA-490-specific threshold.
+Expected: all exit 0. Current Codecov target remains the repository's existing 90%; do not invent an HPA-490 threshold.
 
-- [ ] **Step 7: Run focused and full E2E**
+- [ ] **Step 6: Run focused and full E2E**
 
 ```bash
 bun run test:e2e -- e2e/games/play-coverage.spec.ts --grep "Ice Slide"
 bun run test:e2e
 ```
 
-Expected: PASS in the configured repository environment.
+Expected: PASS in the configured E2E environment.
 
-- [ ] **Step 8: Verify scope mechanically**
+- [ ] **Step 7: Verify scope mechanically**
 
 ```bash
 git diff --name-only main...HEAD
@@ -1201,30 +1158,30 @@ git grep -n "Math.random" -- \
   src/lib/games/ice-slide/expedition.ts \
   src/lib/games/ice-slide/init.ts
 git diff main...HEAD -- \
-  scripts/validate-ice-slide-expedition.ts \
+  src/lib/services/scoreService.ts \
   src/lib/server/db \
   src/pages/api/scores.ts \
   src/pages/api/leaderboard.ts \
-  src/lib/games/ice-slide/daily-leaderboard.ts
+  src/lib/games/ice-slide/daily-leaderboard.ts \
+  scripts/validate-ice-slide-expedition.ts
 ```
 
 Expected:
 
 - first command contains only planned HPA-490 implementation/tests/docs;
-- second command has no Expedition seed/generation use of `Math.random()`;
-- third command is empty.
+- second has no Expedition seed/generation use of `Math.random()`;
+- third is empty.
 
-- [ ] **Step 9: Commit only verification-driven fixes if required**
+- [ ] **Step 8: Commit only verification-driven fixes if required**
 
-If Steps 1–8 are green, do not create an empty verification commit. If a planned HPA-490 file requires a concrete fix to make a gate pass, commit only that tested correction with a behavior-specific message.
+Do not create an empty verification commit. If a planned HPA-490 file needs a concrete fix to make a gate pass, commit that tested behavior only.
 
 ---
 
 ## Plan self-review
 
-- **Spec coverage:** six-stage assembly, deterministic Retry/New semantics, 2/2/2 tiers, objectives/stars, 360-second completion bonus, contextual complete/partial persistence including zero-score End, anonymous local behavior, leaderboard isolation, renderer recreation, overlays/input gating, Reset, cleanup, submission failures, full-seed HUD/summary ownership, and full-run cross-tier validation all map to explicit tasks.
-- **Placeholder scan:** no implementation step depends on TBD/TODO or an unspecified API.
-- **Type consistency:** `IceSlidePlayableMode`, `IceSlideExpeditionRunIdentity`, inverse run-key helpers, `createIceSlideExpeditionRunDefinition()`, `EXPEDITION_SCORING_CONFIG`, `isIceSlideObjectiveMode()`, `iceSlideScoringConfig()`, `SaveScoreOptions.allowZeroScore`, and `IceSlideHandle.newExpedition()` use the same names across tasks.
-- **Ownership:** `init.ts` owns the captured raw seed and summary/HUD text; the page owns markup, result button presentation, Daily leaderboard wiring, and New Expedition click only.
-- **Verification:** the 32-seed six-stage materializer test proves HPA-490 assembly; HPA-489's 1,000-seed-per-tier command remains a separate generator/content regression.
-- **Scope check:** HPA-491 Safe/Risky/Undo, HPA-492 snow, HPA-493 cracked ice, ranking calibration, seed sharing, history UI, generic frameworks, and script refactors remain outside this plan.
+- **Spec coverage:** six-stage assembly, deterministic Retry/New semantics, 2/2/2 tiers, objective stars, 360-second completion config, completed/positive-partial persistence, zero-progress local End, anonymous local behavior, leaderboard isolation, renderer recreation, overlays/input gating, Reset, cleanup, submission failures, and failure-state retry cleanup all map to explicit tasks.
+- **Placeholder scan:** no TBD/TODO or unspecified interface remains.
+- **Type consistency:** Expedition identity helpers, run materializer, scoring helpers, `IceSlidePlayableMode`, and existing `IceSlideHandle.start()`/`playAgain()` APIs use the same names throughout.
+- **Task sizing:** deterministic run/scoring/lifecycle/presentation/browser concerns are separated; the neutral DOM-ID rename lands with both producer and markup in Task 4 so no green-but-broken intermediate is planned.
+- **Scope check:** no score-service zero opt-in, DB/API work, HPA-491 route choices/Undo, HPA-492 snow, HPA-493 cracked ice, history UI, or validation-script rewrite.
