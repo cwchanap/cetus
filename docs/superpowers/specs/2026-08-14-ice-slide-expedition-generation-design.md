@@ -4,74 +4,83 @@
 - **Status:** Proposed for HPA-489 implementation
 - **Repository:** `cwchanap/cetus`
 - **Linear issue:** HPA-489 — Build authored Ice Slide mutation templates and bounded seeded level generation
-- **Parent design:** `docs/superpowers/specs/2026-07-30-ice-slide-replayability-design.md`
+- **Foundation designs:**
+  - `docs/superpowers/specs/2026-08-02-deterministic-ice-slide-runs-design.md`
+  - `docs/superpowers/specs/2026-08-03-ice-slide-production-solver-design.md`
 
 ## 1. Summary
 
-HPA-489 is the first Phase 2 Ice Slide replayability task. HPA-485 already provides deterministic materialized runs, seeded RNG, transforms, and stage signatures; HPA-486 provides the bounded production solver and quality gate; HPA-487 provides objective/scoring semantics and proves that `IceSlideGame` should consume a fully materialized run rather than participate in generation. HPA-488 is also complete, but is not a dependency of generation.
+HPA-489 is the first Phase 2 Ice Slide replayability task. The current repository already has the seams this work needs:
 
-This task should stay one layer below Expedition mode:
+- deterministic materialized stage/run contracts, seeded RNG, transforms, and signatures from HPA-485;
+- the bounded production solver and pure stage-quality gate from HPA-486;
+- Daily objective/scoring semantics and a proven materialize-before-play boundary from HPA-487.
 
-- `templates.ts` owns nine checked-in mutation templates and their complete known-good fallback boards.
-- `generator.ts` materializes **one deterministic stage at a time** from an explicit seed, stage number, difficulty, and set of already-used canonical boards.
-- `quality.ts` gains only the two authored constraints it currently cannot express: minimum reachable stops and maximum hazards.
-- a checked-in validation script exercises 1,000 seeds per tier; normal Vitest coverage keeps a deterministic 100-seed-per-tier smoke sweep.
-- HPA-490 remains responsible for creating a random Expedition seed, assembling six stages, exposing Retry Seed/New Expedition, persisting personal results, and making Expedition browser-playable.
+HPA-489 should stay one layer below Expedition mode:
 
-No generator framework, template DSL, registry, worker, cache, UI, database work, or dynamic tile machinery is needed.
+- `templates.ts` owns nine checked-in mutation templates and nine complete known-good fallback boards;
+- `generator.ts` materializes **one deterministic `IceSlideStageDefinition` at a time** from an explicit seed, stage number, difficulty, and caller-owned canonical-key set;
+- `quality.ts` gains only the two authored constraints it cannot currently express: minimum reachable stops and maximum hazards;
+- one validation loop is reused at two depths: 100 seeds per tier in Vitest and 1,000 seeds per tier from a Bun command;
+- HPA-490 remains responsible for creating a random Expedition seed, assembling six stages, Retry Seed/New Expedition, browser UX, and personal-result persistence.
 
-## 2. Why HPA-489 Is Next
+No generator framework, template DSL, registry, worker, cache, UI, database work, or dynamic-tile machinery is needed.
 
-Linear models HPA-489 as blocked by HPA-485, HPA-486, and HPA-487. All three are Done. HPA-489 then blocks HPA-490, the six-stage Expedition mode.
+## 2. Ownership and existing seams
 
-Current `main` already has the seams this task should reuse:
+Use the existing repository boundaries directly:
 
 - `src/lib/games/shared/seeded-rng.ts` — stable FNV-1a/Mulberry32, unbiased `nextInt`, `pick`, `shuffle`, and labeled forks.
-- `src/lib/games/ice-slide/transforms.ts` — row and coordinate transforms for all eight board symmetries.
-- `src/lib/games/ice-slide/solver.ts` — bounded BFS with `reachableStopCount`, crystal facts, and truncation.
+- `src/lib/games/ice-slide/transforms.ts` — `transformRows()` and `transformPosition()` for all eight board symmetries.
+- `src/lib/games/ice-slide/solver.ts` — bounded BFS with `reachableStopCount`, crystal facts, explored-state count, and truncation.
 - `src/lib/games/ice-slide/quality.ts` — parsing, duplicate, solver, par-band, and objective-feasibility rejection.
-- `src/lib/games/ice-slide/run.ts` — materialized stage signature and run validation.
-- `src/lib/games/ice-slide/daily.ts` — a useful example of generator-owned deterministic choices without moving RNG/clock behavior into gameplay.
+- `src/lib/games/ice-slide/run.ts` — `IceSlideStageDefinition`, signatures, and versioned run contracts.
+- `src/lib/games/ice-slide/daily.ts` — reference ordering for validate-first objective selection.
 
-The correct next seam is therefore authored content plus a bounded pure-ish stage materializer, not a second runtime path.
+Do not use `getUniqueBoardTransforms()` for Expedition generation. Daily applies it to complete authored boards; Expedition transforms `baseRows` and authored slot coordinates first, then materializes mutations, and canonical uniqueness is evaluated on the resulting final board.
 
-## 3. Approaches Considered
+Do not reuse `src/lib/games/circuit-hacker/generator.ts`; it uses `Math.random()` and has unrelated generation semantics.
 
-### 3.1 Recommended: authored catalog + single-stage materializer
+## 3. Approaches considered
 
-Keep static template data in `templates.ts`, bounded deterministic materialization in `generator.ts`, and batch validation in one script. Return an `IceSlideStageDefinition` plus small generation metadata needed for validation/diagnostics.
+### 3.1 Recommended: authored catalog + one-stage materializer
 
-This fits HPA-490 cleanly: it can call the stage materializer six times with stage numbers 1–6 and an accumulating canonical-key set, without HPA-489 guessing Expedition UI or persistence behavior.
+Keep static template data in `templates.ts`, bounded deterministic materialization in `generator.ts`, and content validation in one shared validation function used by test and CLI entry points.
 
-### 3.2 Build the full six-stage Expedition run now
+This gives HPA-490 a narrow seam: call the stage materializer six times with stage numbers 1–6 and an accumulating canonical-key set.
 
-Rejected. HPA-490 explicitly owns six-stage assembly, random seed creation, Retry Seed/New Expedition, personal-result persistence, and browser integration. Pulling those forward would create a second design PR for the same mode and blur ticket ownership.
+### 3.2 Full six-stage Expedition run now
+
+Rejected. HPA-490 owns run assembly, random seed creation, Retry Seed/New Expedition, personal-result persistence, and browser integration.
 
 ### 3.3 Generic generated-level framework / template DSL
 
-Rejected. Only Ice Slide consumes mutation templates today. A generic registry, JSON schema, plugin interface, or reusable maze/generator abstraction would add indirection before a second consumer exists. Checked-in typed TypeScript data is simpler to review, refactor, and validate.
+Rejected. Only Ice Slide consumes mutation templates. Typed checked-in TypeScript data is smaller and easier to review than a registry, JSON schema, plugin interface, or generalized maze generator.
 
-## 4. Fixed Scope Decisions
+## 4. Fixed decisions
 
-1. HPA-489 produces stage definitions, not complete Expedition runs.
-2. `IceSlidePlayableMode` stays `campaign | daily`; do not expose Expedition in `init.ts` or `index.astro`.
-3. Ship exactly nine v1 templates: three easy, three medium, and three hard.
-4. Template `baseRows` contain only `#`, `.`, and exactly one `S`; they contain no `G`, `O`, `H`, or `C`. All variable entities come from named authored alternatives.
-5. A template chooses exactly one named goal position and exactly one named **pattern** from each of rocks, hazards, and crystals. A pattern is a complete authored set of positions; `none` is represented explicitly as an empty pattern. The generator never chooses an arbitrary subset of positions.
-6. All eight board transforms are available to v1 templates unless the template narrows `allowedTransforms` explicitly. Transform rows and slot coordinates before choosing/materializing mutations.
-7. Selected mutation IDs are stable category-prefixed IDs such as `goal:south`, `rocks:center`, `hazards:none`, and `crystals:pair`. They are recorded in `IceSlideStageDefinition.mutationIds`.
-8. `scoreMultiplierBps` is always `10_000` in HPA-489. HPA-491 owns risk/reward multipliers.
-9. Each stage gets exactly one seeded bonus objective. `no_reset` is always syntactically eligible; `collect_all_crystals` requires at least one final `C`; `no_falls` requires at least one final `H`. The existing quality gate makes final feasibility authoritative.
-10. Generation makes at most **64 candidate attempts per stage** and solves each candidate with **10,000 max states**.
-11. Generation never calls `Math.random()` or `crypto.getRandomValues()`. HPA-490 creates a new random seed once; HPA-489 only consumes an explicit seed.
-12. Exhaustion falls back to a deterministic order of checked-in full-row fallbacks for the requested tier. Fallbacks are validated against the same canonical-duplicate and solver/quality rules before use.
-13. A fallback records `transform: 'identity'` and `mutationIds: ['fallback:<fallbackId>']`. It is a complete board, not a mutation recipe.
-14. If all tier fallbacks are invalid or duplicate, generation throws. HPA-490's existing run-start failure boundary will own player-safe cleanup when that caller exists.
-15. Campaign levels and Daily pools remain unchanged and are never imported as runtime template content. V1 fallback literals may intentionally mirror currently solver-proven Campaign boards, but are copied into `templates.ts` so later Campaign edits cannot silently change Expedition generator-v1 output.
+1. HPA-489 produces individual stages, not `IceSlideRunDefinition` values.
+2. `IceSlidePlayableMode` remains `campaign | daily`.
+3. Ship exactly nine generator-v1 templates: three easy, three medium, three hard.
+4. Template `baseRows` contain only `#`, `.`, and exactly one `S`; they contain no `G`, `O`, `H`, or `C`.
+5. Select exactly one named goal and exactly one complete named pattern from rocks, hazards, and crystals. `none=[]` is an explicit pattern; never choose arbitrary subsets.
+6. Transform `baseRows` and every slot coordinate with the same `BoardTransform` before mutation placement.
+7. Record stable category-prefixed mutation IDs such as `goal:south`, `rocks:center`, `hazards:none`, and `crystals:pair`.
+8. `scoreMultiplierBps` is `10_000` for HPA-489. HPA-491 owns risk/reward multipliers.
+9. Validate the materialized board with `objectiveIds: []` first. After an accepted quality result, choose exactly one bonus objective from `quality.objectiveFeasibility` in the fixed order `collect_all_crystals`, `no_falls`, `no_reset`. This matches Daily and avoids rejecting a playable board because a syntactically eligible objective happened to be infeasible.
+10. Candidate generation makes at most **64 attempts per stage**; each solver call uses **10,000 max states**.
+11. Generation never calls `Math.random()` or `crypto.getRandomValues()`. HPA-490 owns one-time random seed creation.
+12. After 64 candidate failures, try the requested tier's three checked-in full-row fallbacks in deterministic seeded order.
+13. Fallback boards go through the same duplicate, solver, par, reachable-stop, and hazard checks with `objectiveIds: []`; choose the bonus objective only after a fallback is accepted.
+14. A fallback records `transform: 'identity'` and `mutationIds: ['fallback:<fallbackId>']`.
+15. Fallback use is returned as metadata only. The materializer does not log. Validation tooling owns tuning/report output.
+16. If all tier fallbacks are invalid or duplicate, throw. There is no emergency board or unbounded retry.
+17. Campaign levels and Daily pools remain unchanged. Fallback literals may mirror current Campaign rows, but are copied into `templates.ts`; generator-v1 does not import `ICE_SLIDE_LEVELS` as content.
+18. Generator/content changes that alter same-input output require an Expedition generator-version bump. `ICE_SLIDE_RULESET_VERSION` does not change for this work.
 
-## 5. Template Contracts
+## 5. Template contracts
 
-Keep template-only contracts beside their content rather than expanding the already broad `types.ts` with authoring-only shapes:
+Keep authoring-only shapes beside the content rather than adding them to `types.ts`:
 
 ```ts
 export type IceSlideTemplateDifficulty = Exclude<
@@ -117,23 +126,23 @@ export interface IceSlideTemplateFallback {
 }
 ```
 
-Template validation is deterministic checked-in-content validation, not a Zod/runtime schema. Assert:
+Template validation is simple checked-in-content validation, not a Zod/runtime schema. Assert:
 
-- non-empty unique template/fallback/slot IDs;
+- unique non-empty template/fallback/slot IDs;
 - rectangular non-empty rows;
 - exactly one `S` and no `G/O/H/C` in `baseRows`;
 - non-empty unique `allowedTransforms`;
-- at least one goal and one rock/hazard/crystal pattern (the latter may be `none=[]`);
-- every authored position is in bounds and lands on `.` in the untransformed base;
-- positions within one pattern are unique;
-- positive ordered par band, positive `minReachableStops`, and non-negative integer `maxHazards`;
-- `fallbackVariantId` resolves to a fallback with matching `templateId` and difficulty.
+- at least one goal and one rock/hazard/crystal pattern;
+- authored positions are in bounds and land on `.` in untransformed `baseRows`;
+- no duplicate coordinates inside one pattern;
+- positive ordered par band, positive `minReachableStops`, non-negative integer `maxHazards`;
+- `fallbackVariantId` resolves to a fallback with matching template and difficulty.
 
-Cross-category positions may overlap across different authored alternatives. A selected candidate that creates an actual overlap is rejected for that attempt rather than banning useful coordinates from every other alternative.
+Cross-category positions may overlap across different alternatives. Only an actually selected overlap is rejected as `materialization_collision`.
 
-## 6. Locked V1 Template Families
+## 6. Locked generator-v1 template families
 
-Coordinates are zero-based `(row,col)`. Pattern IDs below are part of generator-v1 output and therefore versioned content.
+Coordinates are zero-based `(row,col)`. IDs and ordering below are generator-versioned content.
 
 ### 6.1 Easy
 
@@ -386,8 +395,6 @@ fallbackVariantId = 'hard-absolute-zero-v1'
 
 #### `hard-zero-cross`
 
-This is a separately checked-in family based on the 90-degree wall topology, not a runtime reference to `hard-absolute-zero`.
-
 ```ts
 baseRows = [
   '#########', '#...#..S#', '#.#....##', '#.......#',
@@ -418,11 +425,11 @@ constraints = { parBand: [5,10], minReachableStops: 7, maxHazards: 1 }
 fallbackVariantId = 'hard-zero-cross-v1'
 ```
 
-These are authored candidate spaces, not promises that every combination is accepted. The bounded quality gate is intentionally allowed to reject unsolvable, duplicate, collision, objective-infeasible, too-easy, or too-hard combinations.
+These are candidate spaces, not promises that every combination is valid. The bounded gate may reject collisions, invalid/duplicate boards, truncation, unsolvable boards, out-of-band pars, too few reachable stops, or too many hazards.
 
-## 7. Checked-in Fallbacks
+## 7. Checked-in full-row fallbacks
 
-Each template owns one complete fallback. Keep them as literals in `templates.ts`; do not import `ICE_SLIDE_LEVELS`.
+Keep fallbacks as literals in `templates.ts`; do not import `ICE_SLIDE_LEVELS`.
 
 ```ts
 'easy-open-lane-v1' =
@@ -467,11 +474,11 @@ Each template owns one complete fallback. Keep them as literals in `templates.ts
 ]
 ```
 
-The first eight intentionally copy currently solver-proven Campaign rows as independent literals; the ninth is the 90-degree full-row variant of the current hardest board. This gives every template a checked-in known-good recovery board without coupling generator-v1 output to `levels.ts`.
+The first eight intentionally copy currently solver-proven Campaign rows as independent literals; the ninth is a full-row rotated variant. If a fallback fails its owning template's par/stops/hazard constraints during implementation, retune that literal or constraint in both this design and code; do not weaken the shared quality gate.
 
-## 8. Quality Gate Extension
+## 8. Quality-gate extension
 
-Extend the existing constraint shape additively:
+Extend the current constraint shape additively:
 
 ```ts
 export interface IceSlideStageQualityConstraints {
@@ -490,7 +497,7 @@ Add two closed rejection reasons:
 | 'too_many_hazards'
 ```
 
-Ordering stays deterministic:
+Deterministic order remains:
 
 1. validate constraints;
 2. parse/serialize board;
@@ -504,23 +511,31 @@ Ordering stays deterministic:
 10. reject assigned objective infeasibility;
 11. accept.
 
-Both new constraints are optional so Daily behavior and generator-v1 output remain unchanged.
+Both new fields are optional. Daily passes neither, so Daily generator-v1 remains byte-stable. Reuse `solveResult.reachableStopCount` and the existing `countGlyphs()` helper; do not add a second board scanner.
 
-## 9. Deterministic Stage Materializer
+HPA-489 generator calls the quality gate with `objectiveIds: []`, so `objective_infeasible` remains a direct quality-gate behavior/test but is not expected from the normal Expedition candidate/fallback path.
 
-Expose a narrow API:
+## 9. Deterministic one-stage materializer
+
+Expose:
 
 ```ts
 export const ICE_SLIDE_EXPEDITION_GENERATOR_VERSION = 1
 export const ICE_SLIDE_EXPEDITION_MAX_ATTEMPTS = 64
 export const ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES = 10_000
 
+export type IceSlideGenerationRejectionReason =
+    | IceSlideStageRejectionReason
+    | 'materialization_collision'
+
 export interface IceSlideGeneratedStage {
     stage: IceSlideStageDefinition
     canonicalKey: string
     attempts: number
     usedFallback: boolean
-    rejectionCounts: Readonly<Record<string, number>>
+    rejectionCounts: Readonly<
+        Partial<Record<IceSlideGenerationRejectionReason, number>>
+    >
 }
 
 export function createIceSlideExpeditionStage(input: {
@@ -531,41 +546,52 @@ export function createIceSlideExpeditionStage(input: {
 }): IceSlideGeneratedStage
 ```
 
-`stageNumber` must be a positive safe integer. The materialized stage ID is `expedition:<stageNumber>`. HPA-490 can use stage numbers 1–6 directly.
+`stageNumber` is a positive safe integer. Stage ID is `expedition:<stageNumber>`.
 
 ### 9.1 Frozen RNG paths
 
 ```text
-root:     createSeededRng(seed).fork('expedition:g1').fork('stage:<N>')
-attempt:  root.fork('attempt:<1..64>')
-template: attempt.fork('template')
-transform:attempt.fork('transform')
-goal:     attempt.fork('goal')
-rocks:    attempt.fork('rocks')
-hazards:  attempt.fork('hazards')
-crystals: attempt.fork('crystals')
-objective:attempt.fork('objective')
-fallback: root.fork('fallback')
+root:      createSeededRng(seed).fork('expedition:g1').fork('stage:<N>')
+attempt:   root.fork('attempt:<1..64>')
+template:  attempt.fork('template')
+transform: attempt.fork('transform')
+goal:      attempt.fork('goal')
+rocks:     attempt.fork('rocks')
+hazards:   attempt.fork('hazards')
+crystals:  attempt.fork('crystals')
+objective: attempt.fork('objective')  # consumed only after board quality accepts
+fallback:  root.fork('fallback')
 ```
 
-Fork labels and the ordering below are generator-versioned behavior.
+Fork labels, catalog order, and the order below are generator-versioned behavior.
 
-### 9.2 Candidate attempt order
+### 9.2 Candidate order
 
-For each attempt 1–64:
+For attempts 1–64:
 
-1. pick one template from the requested difficulty tier;
+1. pick one template from the requested tier;
 2. pick one `allowedTransform`;
-3. transform `baseRows` and **all slot coordinates** with existing `transformRows()` / `transformPosition()`;
-4. pick one transformed goal and one transformed pattern from rocks, hazards, and crystals;
-5. materialize final rows in category order goal → rocks → hazards → crystals; if two selected mutations collide or target a non-ice cell after earlier placement, reject the attempt as a materialization collision;
-6. derive the syntactically eligible objective list from final rows in fixed order `collect_all_crystals`, `no_falls`, `no_reset`, then pick one objective;
-7. call `validateIceSlideStageQuality()` with template par band, `10_000` states, accumulated canonical keys, `minReachableStops`, and `maxHazards`;
-8. if rejected, increment the stable rejection counter and continue;
-9. if accepted, materialize `IceSlideStageDefinition` with returned par/canonical key and compute `signature` through `createIceSlideStageSignature()`;
+3. transform `baseRows` and all slot coordinates with `transformRows()` / `transformPosition()`;
+4. pick one transformed goal and one complete transformed rocks/hazards/crystals pattern;
+5. materialize in category order goal → rocks → hazards → crystals; reject any selected collision/non-ice target as `materialization_collision`;
+6. call `validateIceSlideStageQuality()` with `objectiveIds: []`, the template par band, `10_000` states, caller canonical keys, `minReachableStops`, and `maxHazards`;
+7. on rejection, increment `quality.reason` and continue;
+8. on acceptance, build eligible objectives in the fixed order below from `quality.objectiveFeasibility` and pick with `attemptRng.fork('objective')`:
+
+   ```ts
+   const OBJECTIVE_ORDER = [
+       'collect_all_crystals',
+       'no_falls',
+       'no_reset',
+   ] as const
+   ```
+
+9. materialize `IceSlideStageDefinition` with the accepted par/canonical key and `createIceSlideStageSignature()`;
 10. return immediately.
 
-The accepted stage uses:
+Do not export or reuse Daily's private objective-order constant. Copy these three IDs into `generator.ts`; a shared objective-selection service would be more machinery than this task needs.
+
+Accepted candidate metadata is:
 
 ```ts
 {
@@ -583,141 +609,165 @@ The accepted stage uses:
 }
 ```
 
-## 10. Exhaustion and Fallback Semantics
+## 10. Exhaustion and fallback semantics
 
 After 64 rejected candidates:
 
-1. obtain all three fallbacks for the requested tier;
-2. shuffle that fallback list with `stageRng.fork('fallback')`;
-3. for each fallback, choose a deterministic syntactically eligible objective from `stageRng.fork('fallback:<id>:objective')`;
-4. validate the complete fallback with the same par/stops/hazard constraints belonging to its template and the caller's existing canonical keys;
-5. accept the first valid non-duplicate fallback;
-6. emit one `console.warn` containing stage number, difficulty, seed hash (not raw seed), `attempts=64`, rejection counts, and chosen fallback ID;
-7. return `usedFallback: true`, `attempts: 64`, and the fallback stage metadata.
+1. resolve the three fallbacks for the requested tier;
+2. shuffle them with `stageRng.fork('fallback')`;
+3. for each fallback, call `validateIceSlideStageQuality()` with `objectiveIds: []`, the owning template constraints, and caller canonical keys;
+4. if rejected, continue to the next fallback;
+5. if accepted, select the bonus objective from `quality.objectiveFeasibility` using the same fixed objective order and `stageRng.fork(`fallback:${fallback.id}:objective`)`;
+6. return the first accepted fallback with `transform: 'identity'`, `mutationIds: [`fallback:${fallback.id}`]`, `usedFallback: true`, `attempts: 64`, and the accumulated closed-union `rejectionCounts`.
 
-If every fallback is invalid/duplicate, throw an `Error` that contains stage number and difficulty but no player-facing UI text.
+The generator does **not** call `console.warn`. `IceSlideGeneratedStage` already reports fallback use, attempts, and rejections; the content-validation command is the tuning/diagnostic surface.
 
-There are three fallbacks per tier so the future six-stage run can use two stages of one tier without a single fallback board necessarily duplicating an earlier stage.
+If all three fallbacks are invalid or duplicate, throw an `Error` containing stage number and difficulty but no player-facing text.
 
-## 11. Validation Tooling
+There are three fallbacks per tier so HPA-490 can later request two same-tier stages without a single fallback board necessarily duplicating an earlier stage.
 
-Add:
+## 11. One validation loop, two depths
 
-```text
-scripts/validate-ice-slide-expedition.ts
-```
-
-and package script:
+Keep the package script:
 
 ```json
 "validate:ice-slide-expedition": "bun scripts/validate-ice-slide-expedition.ts"
 ```
 
-The script runs exactly 1,000 deterministic seed keys per tier by default:
+The script file also exports the one reusable loop:
+
+```ts
+export function runIceSlideExpeditionValidation(options: {
+    seedsPerTier: number
+    onStage?: (stage: IceSlideGeneratedStage) => void
+}): IceSlideExpeditionValidationSummary[]
+```
+
+`generator.validation.test.ts` imports that helper and runs it with `seedsPerTier: 100`. The CLI entry point invokes the same helper with `seedsPerTier: 1_000` and prints one stable JSON summary per tier. Keep the CLI execution behind a main-module guard so importing the helper in Vitest does not print or run the 1,000-seed sweep.
+
+Seed keys are:
 
 ```text
 ice-slide:validate:v1:<difficulty>:0000
 ...
-ice-slide:validate:v1:<difficulty>:0999
+ice-slide:validate:v1:<difficulty>:<N-1 padded to 4 digits>
 ```
 
-For each seed, generate two stages of that tier using the actual future Expedition stage-number slots:
+For each seed generate two same-tier stages using the future Expedition slots:
 
-- easy: stage 1 then 2;
-- medium: stage 3 then 4;
-- hard: stage 5 then 6.
+- easy: 1 then 2;
+- medium: 3 then 4;
+- hard: 5 then 6.
 
-Pass stage 1's canonical key into stage 2's `existingCanonicalKeys`. For every result assert:
+Thread stage 1's canonical key into stage 2. The shared loop checks:
 
-- accepted/fallback rows parse and solve without truncation;
-- par remains inside the owning template band;
-- objective is feasible;
-- canonical keys differ within the pair;
-- `mutationIds`, transform, rows, par, objective, multiplier, and signature reproduce byte-for-byte when regenerated with the same input;
-- no `Math.random()` path is used.
+- stage 2 canonical key differs from stage 1;
+- repeated generation is byte-identical;
+- each final stage independently passes `validateIceSlideStageQuality()` with its owning template constraints and `objectiveIds: stage.objectiveIds`;
+- par matches the quality result;
+- `solveIceSlideBoard(..., { maxStates: 10_000 })` is solvable and not truncated;
+- metadata/signature remain internally consistent.
 
-Print per-tier totals for attempts, candidate rejections by reason, fallback count, and worst explored-state count. Exit non-zero on any invariant failure. Metrics are tuning output only; HPA-489 does not establish a rejection-rate or fallback-rate product SLA.
+Return/aggregate per-tier:
 
-Normal CI keeps the same logic at 100 seeds per tier in `generator.validation.test.ts`. Do not add a new GitHub Actions job; the file is discovered by the existing Vitest run.
+```ts
+interface IceSlideExpeditionValidationStats {
+    difficulty: IceSlideTemplateDifficulty
+    seeds: number
+    stageCount: number
+    totalAttempts: number
+    fallbacks: number
+    rejectionCounts: Partial<
+        Record<IceSlideGenerationRejectionReason, number>
+    >
+    worstExploredStates: number
+}
+```
 
-## 12. File Boundaries
+Sort rejection keys before CLI printing. Do not reopen diagnostics as `Record<string, number>`. There is no rejection-rate/fallback-rate SLA and no new GitHub Actions job.
+
+## 12. File boundaries
 
 ### Create
 
-- `src/lib/games/ice-slide/templates.ts` — authoring contracts, nine template definitions, nine fallbacks, static-content assertions/lookups.
-- `src/lib/games/ice-slide/templates.test.ts` — structural checks and independent fallback quality checks.
-- `src/lib/games/ice-slide/generator.ts` — bounded one-stage materialization and deterministic fallback selection.
-- `src/lib/games/ice-slide/generator.test.ts` — attempt order, determinism, transforms, collisions, rejection/fallback behavior, signatures.
-- `src/lib/games/ice-slide/generator.validation.test.ts` — 100-seed-per-tier CI smoke sweep.
-- `scripts/validate-ice-slide-expedition.ts` — 1,000-seed-per-tier content validation/report.
+- `src/lib/games/ice-slide/templates.ts`
+- `src/lib/games/ice-slide/templates.test.ts`
+- `src/lib/games/ice-slide/generator.ts`
+- `src/lib/games/ice-slide/generator.test.ts`
+- `src/lib/games/ice-slide/generator.validation.test.ts`
+- `scripts/validate-ice-slide-expedition.ts`
 
 ### Modify
 
-- `src/lib/games/ice-slide/quality.ts` / `quality.test.ts` — optional reachable-stop and hazard constraints.
-- `package.json` — validation script only.
+- `src/lib/games/ice-slide/quality.ts`
+- `src/lib/games/ice-slide/quality.test.ts`
+- `package.json`
 
 ### Explicitly unchanged
 
-- `levels.ts` and Daily stage pools;
+- `levels.ts` and Daily stage pools/output;
 - `game.ts`, `init.ts`, renderer, and Ice Slide page;
 - `IceSlidePlayableMode`;
 - score APIs, DB schema, leaderboards, and personal-history persistence;
-- `ICE_SLIDE_RULESET_VERSION` (generation content/algorithm changes generator version, not physics/scoring ruleset);
-- snow, cracked ice, Undo, route-choice, and ability code.
+- `ICE_SLIDE_RULESET_VERSION`;
+- snow, cracked ice, Undo, route choice, and abilities.
 
-## 13. Testing Requirements
+## 13. Testing requirements
 
-Unit tests must lock:
+Unit tests lock:
 
-- all nine template IDs, tier counts, fallback links, and structural validation;
-- all nine fallback boards accepted independently by the production quality gate;
-- transformed slot coordinates use the same transform as transformed rows;
-- complete pattern selection rather than arbitrary position subsets;
-- materialization collision rejection;
-- optional quality constraints and their rejection order;
+- nine template IDs/tier counts/fallback links and structural validation;
+- all nine fallback boards accepted independently by production quality rules;
+- transformed slot coordinates use the same transform as `baseRows`;
+- complete pattern selection, not arbitrary subsets;
+- materialization-collision rejection;
+- optional quality constraints and rejection order;
 - exact 64-attempt cap;
-- stable fork labels through at least one frozen seed projection;
+- stable RNG paths through explicit inline generator-v1 goldens;
 - byte-equivalent repeated output and rejection/fallback traces;
-- canonical duplicate rejection using caller-provided keys;
-- deterministic fallback order and fallback diagnostic;
+- caller canonical-set duplicate handling without mutating that Set;
+- deterministic fallback order and `usedFallback` metadata;
 - all-fallback-invalid throw behavior;
 - `Math.random` patched to throw without affecting generation;
-- 100 deterministic seeds per tier, two same-tier stages per seed, without invalid accepted output.
+- the shared validation loop at 100 seeds per tier.
 
-The manual validation command must cover 1,000 seeds per tier before template-pool or generator-v1 changes are merged.
+Do not use Vitest snapshots. For one frozen seed per tier, assert `rows`, `transform`, `mutationIds`, `objectiveIds`, `parMoves`, and `signature` inline. Changing those expected literals is an explicit generator-version decision.
 
-## 14. Out of Scope
+The manual command runs the same validation loop at 1,000 seeds per tier before template-pool or generator-v1 changes are merged.
 
-- generating the six-stage `IceSlideRunDefinition`;
-- `crypto.getRandomValues()` seed creation;
-- Retry Seed / New Expedition UI;
-- Expedition mode selector/HUD/result overlay;
-- Expedition score submission or personal history;
-- global Expedition leaderboard or cross-seed calibration;
-- Safe/Risky route choices, Undo charges, multipliers beyond `1.00×`;
-- snow, cracked ice, dynamic solver state;
-- arbitrary wall placement or procedural maze generation;
-- JSON authoring files, external level editor, schema registry, generic generator framework.
-
-## 15. Acceptance Checklist
+## 14. Acceptance checklist
 
 HPA-489 is complete when:
 
 - three easy, three medium, and three hard templates plus nine complete fallbacks are checked in;
-- every template and fallback passes structural validation, and every fallback passes production solver/quality validation;
+- every template/fallback passes structural validation and every fallback passes production quality validation;
 - same seed/version/stage/difficulty/existing-canonical input reproduces stage data and rejection/fallback behavior;
-- accepted stages always satisfy start/goal shape, solver cap, par band, objective feasibility, reachable-stop floor, hazard ceiling, and canonical uniqueness;
-- no generator path uses `Math.random()` or unbounded retry;
+- accepted stages satisfy start/goal shape, solver cap, par band, selected-objective feasibility, reachable-stop floor, hazard ceiling, and canonical uniqueness;
+- no generator path uses `Math.random()`, `crypto.getRandomValues()`, logging, or unbounded retry;
 - exactly 64 candidate attempts precede deterministic fallback selection;
-- the 100-seed-per-tier Vitest smoke passes;
-- `bun run validate:ice-slide-expedition` passes 1,000 seeds per tier and prints actionable rejection/fallback diagnostics;
+- the 100-seed-per-tier Vitest smoke uses the same helper as the 1,000-seed-per-tier command;
+- `bun run validate:ice-slide-expedition` prints closed-union rejection/fallback diagnostics and exits successfully;
 - Campaign and Daily content/output remain unchanged;
 - no HPA-490 UI/run/persistence work is included.
 
-## 16. Spec Self-Review
+## 15. Out of scope
+
+- six-stage `IceSlideRunDefinition` assembly;
+- Expedition seed creation with `crypto.getRandomValues()`;
+- Retry Seed / New Expedition UI;
+- Expedition mode selector/HUD/results;
+- Expedition score submission or personal history;
+- global Expedition leaderboard/calibration;
+- Safe/Risky choices, Undo, multipliers beyond `1.00×`;
+- snow, cracked ice, dynamic solver state;
+- arbitrary wall placement or procedural maze generation;
+- JSON authoring files, editor, registry, generic generator framework.
+
+## 16. Spec self-review
 
 - **Placeholder scan:** no TBD/TODO or open algorithm choice remains.
-- **Consistency:** stage generation stops at the materialized-stage boundary; HPA-490 still owns complete-run behavior.
-- **Determinism:** content IDs, fork labels, attempt order, solver cap, fallback order, and output metadata are versioned and explicit.
-- **Scope:** only two production modules are added, one existing quality seam is extended, and validation tooling is local to checked-in content.
-- **YAGNI:** no generic generation framework, runtime registry, editor, worker, cache, or future dynamic-tile abstraction is introduced.
+- **Consistency:** quality accepts the board before generator-owned objective selection for both candidates and fallbacks.
+- **Determinism:** catalog order, fork labels, attempt order, solver cap, objective order, fallback order, and metadata are explicit generator-v1 contracts.
+- **Diagnostics:** `rejectionCounts` stays on the closed union; generator logging and snapshot files are absent.
+- **Validation:** one loop drives both the 100- and 1,000-seed depths.
+- **Scope:** HPA-490 still owns full-run behavior; HPA-489 remains content + one-stage generation only.
