@@ -5,6 +5,7 @@ import {
     type IceSlideGenerationRejectionReason,
 } from '../src/lib/games/ice-slide/generator'
 import { validateIceSlideStageQuality } from '../src/lib/games/ice-slide/quality'
+import { createIceSlideStageSignature } from '../src/lib/games/ice-slide/run'
 import {
     getIceSlideTemplatesByDifficulty,
     type IceSlideTemplateDifficulty,
@@ -38,10 +39,47 @@ function assertResult(
     seed: string,
     stageNumber: number,
     result: IceSlideGeneratedStage,
+    tierDifficulty: IceSlideTemplateDifficulty,
     existingCanonicalKeys?: ReadonlySet<string>
 ): number {
     const context = `seed ${seed} stage ${stageNumber}`
-    const recomputedKey = orbitKey(result.stage.rows)
+    const { stage } = result
+
+    if (stage.id !== `expedition:${stageNumber}`) {
+        throw new Error(
+            `${context}: stage id ${stage.id} does not match ` +
+                `expedition:${stageNumber}`
+        )
+    }
+    if (stage.difficulty !== tierDifficulty) {
+        throw new Error(
+            `${context}: stage difficulty ${stage.difficulty} does not match ` +
+                `tier ${tierDifficulty}`
+        )
+    }
+    if (stage.scoreMultiplierBps !== 10_000) {
+        throw new Error(
+            `${context}: scoreMultiplierBps ${stage.scoreMultiplierBps} ` +
+                'is not the expedition multiplier 10000'
+        )
+    }
+    const expectedSignature = createIceSlideStageSignature({
+        rows: stage.rows,
+        parMoves: stage.parMoves,
+        transform: stage.transform,
+        mutationIds: stage.mutationIds,
+        difficulty: stage.difficulty,
+        objectiveIds: stage.objectiveIds,
+        scoreMultiplierBps: stage.scoreMultiplierBps,
+    })
+    if (stage.signature !== expectedSignature) {
+        throw new Error(
+            `${context}: signature ${stage.signature} does not match ` +
+                `recomputed ${expectedSignature}`
+        )
+    }
+
+    const recomputedKey = orbitKey(stage.rows)
     if (recomputedKey !== result.canonicalKey) {
         throw new Error(
             `${context}: returned canonicalKey ${result.canonicalKey} ` +
@@ -52,28 +90,27 @@ function assertResult(
     const regenerated = createIceSlideExpeditionStage({
         seed,
         stageNumber,
-        difficulty: result.stage.difficulty as IceSlideTemplateDifficulty,
+        difficulty: tierDifficulty,
         existingCanonicalKeys,
     })
     if (JSON.stringify(regenerated) !== JSON.stringify(result)) {
         throw new Error(`${context}: regeneration is not byte-identical`)
     }
 
-    const template = getIceSlideTemplatesByDifficulty(
-        result.stage.difficulty as IceSlideTemplateDifficulty
-    ).find(candidate => candidate.id === result.stage.templateId)
+    const template = getIceSlideTemplatesByDifficulty(tierDifficulty).find(
+        candidate => candidate.id === stage.templateId
+    )
     if (!template) {
         throw new Error(
-            `${context}: no ${result.stage.difficulty} template ` +
-                result.stage.templateId
+            `${context}: no ${tierDifficulty} template ` + stage.templateId
         )
     }
 
     const quality = validateIceSlideStageQuality(
         {
-            id: result.stage.id,
-            rows: result.stage.rows,
-            objectiveIds: result.stage.objectiveIds,
+            id: stage.id,
+            rows: stage.rows,
+            objectiveIds: stage.objectiveIds,
         },
         {
             parBand: template.constraints.parBand,
@@ -156,6 +193,7 @@ export function runIceSlideExpeditionValidation(options: {
                         seed,
                         stageNumber,
                         result,
+                        difficulty,
                         stageNumber === secondStageNumber
                             ? new Set([first.canonicalKey])
                             : undefined
