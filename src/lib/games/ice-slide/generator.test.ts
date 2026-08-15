@@ -3,7 +3,11 @@ import {
     createIceSlideExpeditionStage,
     type IceSlideGeneratedStage,
 } from './generator'
-import { validateIceSlideStageQuality } from './quality'
+import {
+    type IceSlideStageQualityCandidate,
+    type IceSlideStageQualityConstraints,
+    validateIceSlideStageQuality,
+} from './quality'
 import {
     getIceSlideFallback,
     getIceSlideTemplatesByDifficulty,
@@ -282,16 +286,21 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
     it('uses a deterministic fallback with bounded candidate attempts', () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
         const validateMock = vi.mocked(validateIceSlideStageQuality)
-        validateMock.mockImplementation((candidate, constraints) => {
-            if (String(candidate.id).includes(':attempt:')) {
-                return {
-                    accepted: false,
-                    reason: 'unsolvable',
-                    message: 'forced candidate rejection',
+        validateMock.mockImplementation(
+            (
+                candidate: IceSlideStageQualityCandidate,
+                constraints: IceSlideStageQualityConstraints
+            ) => {
+                if (String(candidate.id).includes(':attempt:')) {
+                    return {
+                        accepted: false,
+                        reason: 'unsolvable',
+                        message: 'forced candidate rejection',
+                    }
                 }
+                return realValidate(candidate, constraints)
             }
-            return realValidate(candidate, constraints)
-        })
+        )
 
         try {
             const result = createIceSlideExpeditionStage({
@@ -346,16 +355,21 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
     it('pins the exact accepted fallback id for a frozen seed', () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
         const validateMock = vi.mocked(validateIceSlideStageQuality)
-        validateMock.mockImplementation((candidate, constraints) => {
-            if (String(candidate.id).includes(':attempt:')) {
-                return {
-                    accepted: false,
-                    reason: 'unsolvable',
-                    message: 'forced candidate rejection',
+        validateMock.mockImplementation(
+            (
+                candidate: IceSlideStageQualityCandidate,
+                constraints: IceSlideStageQualityConstraints
+            ) => {
+                if (String(candidate.id).includes(':attempt:')) {
+                    return {
+                        accepted: false,
+                        reason: 'unsolvable',
+                        message: 'forced candidate rejection',
+                    }
                 }
+                return realValidate(candidate, constraints)
             }
-            return realValidate(candidate, constraints)
-        })
+        )
 
         try {
             const result = createIceSlideExpeditionStage({
@@ -377,16 +391,21 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
     it('warns only in development, never in production', () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
         const validateMock = vi.mocked(validateIceSlideStageQuality)
-        validateMock.mockImplementation((candidate, constraints) => {
-            if (String(candidate.id).includes(':attempt:')) {
-                return {
-                    accepted: false,
-                    reason: 'unsolvable',
-                    message: 'forced candidate rejection',
+        validateMock.mockImplementation(
+            (
+                candidate: IceSlideStageQualityCandidate,
+                constraints: IceSlideStageQualityConstraints
+            ) => {
+                if (String(candidate.id).includes(':attempt:')) {
+                    return {
+                        accepted: false,
+                        reason: 'unsolvable',
+                        message: 'forced candidate rejection',
+                    }
                 }
+                return realValidate(candidate, constraints)
             }
-            return realValidate(candidate, constraints)
-        })
+        )
         const fallbackInput = {
             seed: 'ice-slide:hpa-489:v1:fallback:easy',
             stageNumber: 1,
@@ -416,20 +435,25 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
     it('rejects an all-infeasible objective set with bounded retry and fallback', () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
         const validateMock = vi.mocked(validateIceSlideStageQuality)
-        validateMock.mockImplementation((candidate, constraints) => {
-            const real = realValidate(candidate, constraints)
-            if (!real.accepted) {
-                return real
+        validateMock.mockImplementation(
+            (
+                candidate: IceSlideStageQualityCandidate,
+                constraints: IceSlideStageQualityConstraints
+            ) => {
+                const real = realValidate(candidate, constraints)
+                if (!real.accepted) {
+                    return real
+                }
+                return {
+                    ...real,
+                    objectiveFeasibility: {
+                        collect_all_crystals: false,
+                        no_falls: false,
+                        no_reset: false,
+                    },
+                }
             }
-            return {
-                ...real,
-                objectiveFeasibility: {
-                    collect_all_crystals: false,
-                    no_falls: false,
-                    no_reset: false,
-                },
-            }
-        })
+        )
 
         try {
             expect(() =>
