@@ -2,52 +2,54 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement HPA-489 as a deterministic, bounded one-stage Expedition generator backed by nine authored mutation templates, checked-in full-row fallbacks, solver/quality validation, and one reusable content-validation loop, without shipping Expedition gameplay/UI yet.
+**Goal:** Implement HPA-489 as a deterministic bounded one-stage Expedition generator backed by nine authored mutation templates, transform-invariant in-run duplicate detection, checked-in full-row fallbacks, solver/quality validation, and one reusable multi-seed validation loop, without shipping Expedition gameplay/UI yet.
 
-**Architecture:** Keep authored content in `templates.ts`, candidate retry/fallback policy in `generator.ts`, and extend the existing pure `quality.ts` only with the two missing authored constraints. Validate a materialized board first with `objectiveIds: []`, then choose one bonus objective from the returned feasibility map, matching Daily. HPA-490 later owns random seed creation, six-stage assembly, Retry Seed/New Expedition, browser lifecycle, and persistence.
+**Architecture:** Keep authored content in `templates.ts`, bounded retry/fallback policy in `generator.ts`, and extend existing `quality.ts` only with the two missing authored constraints. Final-board duplicate identity is stronger than `quality.ts`'s literal-row key: `generator.ts` derives the minimum serialized key across the fully materialized board's transform orbit. HPA-490 later assembles six returned stages and owns random seed creation, browser lifecycle, and persistence.
 
-**Tech Stack:** Astro 5 repository, TypeScript 6, Bun 1.3, Vitest 3, existing Ice Slide FNV-1a/Mulberry32 RNG, board transforms, bounded BFS solver, and stage-quality validator.
+**Tech Stack:** Astro 5 repository, TypeScript 6, Bun 1.3, Vitest 3, existing FNV-1a/Mulberry32 RNG, Ice Slide transforms, bounded BFS solver, and stage-quality validator.
 
-## Global constraints
+## Global Constraints
 
-- HPA-489 materializes one `IceSlideStageDefinition` at a time; it does not build an `IceSlideRunDefinition` or expose Expedition in the browser.
-- Ship exactly nine generator-v1 templates: three easy, three medium, three hard, plus one independent full-row fallback per template.
+- Materialize one `IceSlideStageDefinition` at a time; do not build an `IceSlideRunDefinition` or expose Expedition in the browser.
+- Ship exactly nine generator-v1 templates: three easy, three medium, three hard, plus one complete checked-in fallback per template.
 - `baseRows` contain only `#`, `.`, and exactly one `S`; goals/rocks/hazards/crystals come only from named authored alternatives.
-- Select one complete authored pattern for rocks, hazards, and crystals; no arbitrary subsets.
-- Transform static rows and all slot coordinates with `transformRows()` / `transformPosition()` before mutation placement. Do not use `getUniqueBoardTransforms()`.
-- Generation order is fixed: template → transform → transformed slots → mutations → rows → quality with no objective → feasible objective pick → accept/retry.
-- Accepted stage metadata records template ID, transform, mutation IDs, rows, computed par, one objective, `10_000` multiplier basis points, and signature.
-- Candidate generation is capped at exactly 64 attempts; every solver call is capped at exactly 10,000 states.
-- On 64 candidate rejections, try the requested tier's three full-row fallbacks in deterministic seeded order. Return fallback metadata; do not log from the generator.
-- If no fallback is valid and non-duplicate, throw; no emergency board and no unbounded retry.
-- `Math.random()` and `crypto.getRandomValues()` are forbidden in HPA-489 generation.
-- Campaign levels, Daily pools/output, `IceSlidePlayableMode`, score APIs, database, UI, and `ICE_SLIDE_RULESET_VERSION` remain unchanged.
-- Generator/content changes that alter same-input output require a future `ICE_SLIDE_EXPEDITION_GENERATOR_VERSION` bump.
-- Exact template rows, slots, constraints, and fallback rows come from `docs/superpowers/specs/2026-08-14-ice-slide-expedition-generation-design.md` §§6–7.
+- Select complete patterns, never arbitrary position subsets.
+- Keep per-template `allowedTransforms`; HPA-489 explicitly owns allowed-transform authoring even though all v1 templates use all eight.
+- Transform static rows and slot coordinates before materializing mutations.
+- Final-board canonical keys are transform-invariant. Rotated/reflected copies count as the same puzzle.
+- Validate with `objectiveIds: []` first, then pick from `quality.objectiveFeasibility` in fixed order `collect_all_crystals`, `no_falls`, `no_reset`.
+- Candidate generation is capped at exactly 64 attempts; every solver call is capped at 10,000 states.
+- After exhaustion, try the requested tier's checked-in fallbacks in deterministic seeded order. If none is usable, throw.
+- Fallback use emits exactly one development-only `console.warn` with hashed seed and structured metadata; do not inject a logger.
+- Never call `Math.random()` or `crypto.getRandomValues()` in HPA-489 generation.
+- Existing Campaign levels, Daily output/pools, `IceSlidePlayableMode`, score APIs, DB, UI, and `ICE_SLIDE_RULESET_VERSION` remain unchanged.
+- HPA-489 requires final-puzzle uniqueness, not template-ID uniqueness. Do not add `existingTemplateIds` unless the product requirement changes.
+- Exact template rows/slots/fallbacks come from `docs/superpowers/specs/2026-08-14-ice-slide-expedition-generation-design.md` §§6–7.
 
 ---
 
-## File structure
+## File Structure
 
 ### Create
 
-- `src/lib/games/ice-slide/templates.ts` — authoring contracts, nine templates, nine independent fallbacks, compact catalog assertions/lookups.
-- `src/lib/games/ice-slide/templates.test.ts` — structural catalog tests and independent fallback quality checks.
-- `src/lib/games/ice-slide/generator.ts` — deterministic one-stage materialization, bounded retry, fallback selection, generation metadata.
-- `src/lib/games/ice-slide/generator.test.ts` — determinism, transformed slots, collisions, duplicate handling, 64-attempt/fallback behavior, explicit generator-v1 goldens.
-- `src/lib/games/ice-slide/generator.validation.test.ts` — invokes the shared validator at 100 seeds per tier.
-- `scripts/validate-ice-slide-expedition.ts` — exports the shared validation loop and runs it at 1,000 seeds per tier when executed directly.
+- `src/lib/games/ice-slide/templates.ts` — authoring-only contracts, nine templates, nine independent fallbacks, compact checked-in-content validation and lookups.
+- `src/lib/games/ice-slide/templates.test.ts` — catalog structure, transform-orbit family uniqueness, fallback solver/quality validation.
+- `src/lib/games/ice-slide/generator.ts` — one-stage deterministic materialization, transform-invariant duplicate key, bounded retry, deterministic fallback, one-shot dev diagnostic.
+- `src/lib/games/ice-slide/generator.test.ts` — deterministic output, transform/slot behavior, orbit duplicate semantics, collision/rejection/fallback paths, explicit generator-v1 goldens.
+- `src/lib/games/ice-slide/generator.validation.test.ts` — 100-seed-per-tier smoke using the shared validation helper.
+- `scripts/validate-ice-slide-expedition.ts` — shared validation helper plus 1,000-seed-per-tier CLI reporting.
 
 ### Modify
 
-- `src/lib/games/ice-slide/quality.ts`
-- `src/lib/games/ice-slide/quality.test.ts`
-- `package.json`
+- `src/lib/games/ice-slide/quality.ts` — optional reachable-stop floor and hazard ceiling only.
+- `src/lib/games/ice-slide/quality.test.ts` — additive constraint/rejection-order tests.
+- `package.json` — add `validate:ice-slide-expedition` only.
 
 ### Explicitly unchanged
 
 - `src/lib/games/ice-slide/levels.ts`
 - `src/lib/games/ice-slide/daily.ts`
+- `src/lib/games/ice-slide/run.ts`
 - `src/lib/games/ice-slide/game.ts`
 - `src/lib/games/ice-slide/init.ts`
 - `src/lib/games/ice-slide/renderer.ts`
@@ -56,7 +58,7 @@
 
 ---
 
-### Task 1: Extend stage quality with authored stop/hazard constraints
+### Task 1: Extend the stage-quality gate with optional stop/hazard constraints
 
 **Files:**
 - Modify: `src/lib/games/ice-slide/quality.ts`
@@ -66,7 +68,10 @@
 
 ```ts
 export interface IceSlideStageQualityConstraints {
-    parBand: { minMoves: number; maxMoves: number }
+    parBand: {
+        minMoves: number
+        maxMoves: number
+    }
     maxStates: number
     existingCanonicalKeys?: ReadonlySet<string>
     minReachableStops?: number
@@ -86,25 +91,22 @@ export type IceSlideStageRejectionReason =
 
 - [ ] **Step 1: Add failing constraint-bound tests**
 
-Use the existing valid fixture in `quality.test.ts`:
+Use existing local quality fixtures; do not create a second fixture module.
 
 ```ts
 expect(() =>
-    validateIceSlideStageQuality(
-        { id: 'valid', rows: SIMPLE_ROWS, objectiveIds: [] },
-        {
-            parBand: { minMoves: 1, maxMoves: 10 },
-            maxStates: 10_000,
-            minReachableStops: 1,
-            maxHazards: 0,
-        }
-    )
+    validateIceSlideStageQuality(candidate, {
+        parBand: { minMoves: 1, maxMoves: 20 },
+        maxStates: 10_000,
+        minReachableStops: 1,
+        maxHazards: 0,
+    })
 ).not.toThrow()
 
 for (const value of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
     expect(() =>
         validateIceSlideStageQuality(candidate, {
-            parBand: { minMoves: 1, maxMoves: 10 },
+            parBand: { minMoves: 1, maxMoves: 20 },
             maxStates: 10_000,
             minReachableStops: value,
         })
@@ -114,7 +116,7 @@ for (const value of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
 for (const value of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
     expect(() =>
         validateIceSlideStageQuality(candidate, {
-            parBand: { minMoves: 1, maxMoves: 10 },
+            parBand: { minMoves: 1, maxMoves: 20 },
             maxStates: 10_000,
             maxHazards: value,
         })
@@ -122,17 +124,17 @@ for (const value of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
 }
 ```
 
-- [ ] **Step 2: Run the focused test red**
+- [ ] **Step 2: Run red**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/quality.test.ts
 ```
 
-Expected: FAIL because the optional constraints/rejection reasons do not exist.
+Expected: FAIL because new constraints/reasons are absent.
 
-- [ ] **Step 3: Validate the optional fields**
+- [ ] **Step 3: Implement additive constraint validation**
 
-Add to `validateConstraints()`:
+Extend `validateConstraints()`:
 
 ```ts
 if (
@@ -145,44 +147,48 @@ if (
 
 if (
     constraints.maxHazards !== undefined &&
-    (!Number.isSafeInteger(constraints.maxHazards) || constraints.maxHazards < 0)
+    (!Number.isSafeInteger(constraints.maxHazards) ||
+        constraints.maxHazards < 0)
 ) {
     throw new RangeError('maxHazards must be a non-negative safe integer')
 }
 ```
 
-Do not give either field a default; `undefined` preserves current Daily semantics.
+No default values; `undefined` preserves existing semantics.
 
-- [ ] **Step 4: Add failing rejection-order tests**
+- [ ] **Step 4: Add failing rejection/order tests**
 
-Lock both reasons and ordering:
+Lock:
 
 ```ts
-expect(validateIceSlideStageQuality(candidate, {
+expect(validate(candidate, {
     parBand: { minMoves: 1, maxMoves: 20 },
     maxStates: 10_000,
     minReachableStops: 999,
-})).toMatchObject({ accepted: false, reason: 'reachable_stops_below_min' })
+})).toMatchObject({
+    accepted: false,
+    reason: 'reachable_stops_below_min',
+})
 
-expect(validateIceSlideStageQuality(hazardCandidate, {
+expect(validate(hazardCandidate, {
     parBand: { minMoves: 1, maxMoves: 20 },
     maxStates: 10_000,
     maxHazards: 0,
-})).toMatchObject({ accepted: false, reason: 'too_many_hazards' })
-
-expect(validateIceSlideStageQuality(parOutOfBandCandidate, {
-    parBand: { minMoves: 99, maxMoves: 100 },
-    maxStates: 10_000,
-    minReachableStops: 999,
-    maxHazards: 0,
-})).toMatchObject({ accepted: false, reason: 'par_out_of_band' })
+})).toMatchObject({
+    accepted: false,
+    reason: 'too_many_hazards',
+})
 ```
 
-Also keep one direct `objective_infeasible` test so the quality API retains that behavior independently of the generator.
+And rejection order:
 
-- [ ] **Step 5: Implement post-solver checks using existing facts**
+1. `par_out_of_band` before stop/hazard policy;
+2. `reachable_stops_below_min` before hazard/objective policy;
+3. `too_many_hazards` before objective feasibility.
 
-Immediately after the current par-band check and before objective feasibility:
+- [ ] **Step 5: Implement post-solver checks**
+
+Immediately after the existing par-band check and before objective feasibility:
 
 ```ts
 if (
@@ -213,13 +219,11 @@ if (
         solveResult,
     }
 }
-
-const hasHazard = hazardCount > 0
 ```
 
-Reuse the existing private `countGlyphs()`; do not add another scanner.
+Reuse `hazardCount > 0` for the existing `hasHazard` calculation.
 
-- [ ] **Step 6: Run quality + Daily regressions**
+- [ ] **Step 6: Run quality + unchanged Daily regressions**
 
 ```bash
 bun run test:run -- \
@@ -227,7 +231,7 @@ bun run test:run -- \
   src/lib/games/ice-slide/daily.test.ts
 ```
 
-Expected: PASS, including unchanged Daily golden output.
+Expected: PASS.
 
 - [ ] **Step 7: Commit**
 
@@ -238,7 +242,7 @@ git commit -m "feat(ice-slide): extend generated stage quality constraints"
 
 ---
 
-### Task 2: Add nine authored templates and nine independent fallbacks
+### Task 2: Add nine distinct authored templates and nine fallbacks
 
 **Files:**
 - Create: `src/lib/games/ice-slide/templates.ts`
@@ -294,13 +298,11 @@ export const ICE_SLIDE_EXPEDITION_FALLBACKS: readonly IceSlideTemplateFallback[]
 export function getIceSlideTemplatesByDifficulty(
     difficulty: IceSlideTemplateDifficulty
 ): readonly IceSlideTemplate[]
-export function getIceSlideFallback(
-    fallbackId: string
-): IceSlideTemplateFallback
+export function getIceSlideFallback(id: string): IceSlideTemplateFallback
 export function assertValidIceSlideTemplateCatalog(): void
 ```
 
-- [ ] **Step 1: Write failing identity/count tests**
+- [ ] **Step 1: Write exact catalog identity tests**
 
 ```ts
 expect(
@@ -320,93 +322,117 @@ expect(
     ['hard', 'hard-absolute-zero', 'hard-absolute-zero-v1'],
     ['hard', 'hard-zero-cross', 'hard-zero-cross-v1'],
 ])
-
-expect(ICE_SLIDE_EXPEDITION_FALLBACKS.map(item => item.id)).toEqual([
-    'easy-open-lane-v1',
-    'easy-corner-pocket-v1',
-    'easy-bank-shot-v1',
-    'medium-thin-ice-v1',
-    'medium-crystal-cache-v1',
-    'medium-fracture-zone-v1',
-    'hard-deep-freeze-v1',
-    'hard-absolute-zero-v1',
-    'hard-zero-cross-v1',
-])
 ```
 
-Also assert each tier has exactly three templates.
+Assert three templates per tier and exact fallback IDs.
 
-- [ ] **Step 2: Run the template test red**
+- [ ] **Step 2: Run red**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/templates.test.ts
 ```
 
-Expected: FAIL because `templates.ts` does not exist.
+Expected: FAIL because `templates.ts` is absent.
 
-- [ ] **Step 3: Add exact contracts/content from design §§6–7**
+- [ ] **Step 3: Add contracts and exact content**
 
-Copy the nine `baseRows`, slot IDs/coordinates, constraints, and nine fallback row literals exactly. Use:
+Copy exact rows/coordinates/constraints/fallbacks from design §§6–7. All v1 templates use:
 
 ```ts
 allowedTransforms: [...BOARD_TRANSFORMS]
 ```
 
-Do not import `ICE_SLIDE_LEVELS` and do not derive fallbacks from Campaign at runtime.
+Do not import `ICE_SLIDE_LEVELS`.
 
-- [ ] **Step 4: Write failing structural-validation tests**
+The third hard family is the new rectangular topology:
 
-Test the real catalog plus representative invalid clones. Cover:
+```ts
+baseRows = [
+    '#########',
+    '#S..#...#',
+    '#.......#',
+    '#.....#.#',
+    '#..#....#',
+    '#.#.....#',
+    '#.....#.#',
+    '#########',
+]
+```
 
-- duplicate/empty IDs;
-- non-rectangular/empty rows;
-- zero or multiple `S`;
-- forbidden `G/O/H/C` in `baseRows`;
+Its fallback is:
+
+```ts
+[
+    '#########',
+    '#S..#...#',
+    '#.......#',
+    '#.....#.#',
+    '#..#....#',
+    '#.#.....#',
+    '#.....#G#',
+    '#########',
+]
+```
+
+- [ ] **Step 4: Add structural-validation tests**
+
+Test real catalog success plus representative invalid clones for:
+
+- empty/duplicate IDs;
+- empty/non-rectangular rows;
+- zero/multiple `S`;
+- forbidden `G/O/H/C` in base;
 - empty/duplicate transform list;
-- no goal or missing pattern category;
-- out-of-bounds/non-ice slot;
-- duplicate coordinates inside one pattern;
-- invalid par band/stop floor/hazard ceiling;
+- missing goal/category alternatives;
+- out-of-bounds or non-ice positions;
+- duplicate positions inside a pattern;
+- invalid par/stop/hazard constraints;
 - missing/mismatched fallback.
 
-A narrow exported helper is sufficient if needed:
+Use simple module-local loops/Sets. Do not export the private validators from `run.ts`; that would couple authoring validation to run-schema internals.
+
+- [ ] **Step 5: Add transform-orbit family uniqueness test**
+
+Use the existing orbit builder on complete `baseRows`:
 
 ```ts
-export function assertValidIceSlideTemplate(
-    template: IceSlideTemplate,
-    fallbacks: readonly IceSlideTemplateFallback[]
-): void
-```
-
-No registry/class/Zod schema.
-
-- [ ] **Step 5: Implement compact Set/loop assertions**
-
-Call `assertValidIceSlideTemplateCatalog()` once after the checked-in constants are defined so malformed authored content fails loudly in development/test.
-
-- [ ] **Step 6: Independently validate every fallback**
-
-```ts
-for (const fallback of ICE_SLIDE_EXPEDITION_FALLBACKS) {
-    const template = ICE_SLIDE_EXPEDITION_TEMPLATES.find(
-        item => item.id === fallback.templateId
-    )!
-
-    const result = validateIceSlideStageQuality(
-        { id: fallback.id, rows: fallback.rows, objectiveIds: [] },
-        {
-            parBand: template.constraints.parBand,
-            maxStates: 10_000,
-            minReachableStops: template.constraints.minReachableStops,
-            maxHazards: template.constraints.maxHazards,
-        }
-    )
-
-    expect(result, fallback.id).toMatchObject({ accepted: true })
+function orbitKey(rows: readonly string[]): string {
+    return getUniqueBoardTransforms(rows)
+        .map(variant => variant.canonicalKey)
+        .sort()[0]
 }
+
+const keys = ICE_SLIDE_EXPEDITION_TEMPLATES.map(template =>
+    orbitKey(template.baseRows)
+)
+expect(new Set(keys)).toHaveSize(keys.length)
 ```
 
-Do not write a second start/goal parser; this production quality/solver path already validates shape.
+This specifically prevents the old `hard-zero-cross === rotate_90(hard-absolute-zero)` content mistake from returning.
+
+- [ ] **Step 6: Validate every fallback with production quality**
+
+For each fallback resolve its owning template and call:
+
+```ts
+const result = validateIceSlideStageQuality(
+    {
+        id: fallback.id,
+        rows: fallback.rows,
+        objectiveIds: [],
+    },
+    {
+        parBand: template.constraints.parBand,
+        maxStates: 10_000,
+        minReachableStops: template.constraints.minReachableStops,
+        maxHazards: template.constraints.maxHazards,
+    }
+)
+
+expect(result, fallback.id).toMatchObject({ accepted: true })
+```
+
+The new rectangular `hard-zero-cross-v1` must resolve at par 5 or otherwise be retuned in design + code before continuing.
 
 - [ ] **Step 7: Run template + quality tests**
 
@@ -416,7 +442,7 @@ bun run test:run -- \
   src/lib/games/ice-slide/quality.test.ts
 ```
 
-Expected: PASS. If a fallback fails its documented band/stops/hazard constraint, retune the literal or constraint in both the design and code rather than weakening the global gate.
+Expected: PASS.
 
 - [ ] **Step 8: Commit**
 
@@ -429,7 +455,7 @@ git commit -m "feat(ice-slide): add expedition mutation templates"
 
 ---
 
-### Task 3: Implement bounded one-stage generation and fallback
+### Task 3: Implement bounded generation, orbit dedupe, and fallback
 
 **Files:**
 - Create: `src/lib/games/ice-slide/generator.ts`
@@ -466,69 +492,67 @@ export function createIceSlideExpeditionStage(input: {
 
 - [ ] **Step 1: Write failing input/determinism/random-source tests**
 
+Cover empty seed, invalid stage numbers, repeated `toEqual` output, and:
+
 ```ts
-expect(() =>
-    createIceSlideExpeditionStage({
-        seed: '',
-        stageNumber: 1,
-        difficulty: 'easy',
-    })
-).toThrow(RangeError)
-
-for (const stageNumber of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
-    expect(() =>
-        createIceSlideExpeditionStage({
-            seed: 'ice-slide:test',
-            stageNumber,
-            difficulty: 'easy',
-        })
-    ).toThrow(RangeError)
+const random = vi.spyOn(Math, 'random').mockImplementation(() => {
+    throw new Error('Math.random must not be called')
+})
+try {
+    expect(() => createIceSlideExpeditionStage(input)).not.toThrow()
+} finally {
+    random.mockRestore()
 }
-
-const input = {
-    seed: 'ice-slide:expedition:test:v1',
-    stageNumber: 1,
-    difficulty: 'easy' as const,
-}
-expect(createIceSlideExpeditionStage(input)).toEqual(
-    createIceSlideExpeditionStage(input)
-)
 ```
 
-Patch `Math.random()` to throw and assert generation still succeeds; production `generator.ts` must have no `crypto` import.
+No production `crypto` import.
 
-- [ ] **Step 2: Run generator tests red**
+- [ ] **Step 2: Run red**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/generator.test.ts
 ```
 
-Expected: FAIL on the missing module/exports.
+Expected: FAIL on missing module/exports.
 
-- [ ] **Step 3: Add local transformed-slot/materialization helpers**
+- [ ] **Step 3: Add local transform/materialization helpers**
 
-Use plain functions, not a generator class:
+Use plain data helpers, no class.
 
 ```ts
-interface TransformedTemplateSlots {
-    goals: IceSlideNamedPosition[]
-    rocks: IceSlideNamedPositionPattern[]
-    hazards: IceSlideNamedPositionPattern[]
-    crystals: IceSlideNamedPositionPattern[]
-}
-
 type MaterializeResult =
     | { ok: true; rows: string[] }
     | { ok: false; reason: 'materialization_collision' }
 ```
 
-Transform positions against original `baseRows.length` / `baseRows[0].length`, and materialize onto `transformRows(template.baseRows, transform)` in goal → rocks → hazards → crystals order. Only `.` may be replaced. `none=[]` writes nothing.
+Transform coordinates against original base dimensions; materialize onto `transformRows(template.baseRows, transform)` in goal → rocks → hazards → crystals order. Only `.` may be replaced.
 
-- [ ] **Step 4: Add failing transformed-slot/complete-pattern tests**
+- [ ] **Step 4: Add the transform-invariant canonical-key helper**
 
-Prefer public-path tests through frozen seeds rather than exporting production-only helper APIs. Assert at least one non-identity result and a result containing `crystals:pair` has exactly two `C` cells.
+Keep it local:
 
-- [ ] **Step 5: Implement the frozen candidate RNG tree**
+```ts
+function getTransformInvariantCanonicalKey(rows: readonly string[]): string {
+    return getUniqueBoardTransforms(rows)
+        .map(variant => variant.canonicalKey)
+        .sort()[0]
+}
+```
+
+This is invoked only after final rows exist.
+
+Add a test-local equivalent and assert:
+
+```ts
+const result = createIceSlideExpeditionStage(input)
+const expected = orbitKey(result.stage.rows)
+const rotated = transformRows(result.stage.rows, 'rotate_90')
+
+expect(result.canonicalKey).toBe(expected)
+expect(orbitKey(rotated)).toBe(expected)
+```
+
+- [ ] **Step 5: Implement frozen candidate RNG tree**
 
 ```ts
 const stageRng = createSeededRng(input.seed)
@@ -536,7 +560,7 @@ const stageRng = createSeededRng(input.seed)
     .fork(`stage:${input.stageNumber}`)
 ```
 
-For attempts 1 through 64:
+For `attempt` 1–64:
 
 ```ts
 const attemptRng = stageRng.fork(`attempt:${attempt}`)
@@ -548,18 +572,21 @@ const transform = attemptRng
     .pick(template.allowedTransforms)
 ```
 
-Then transform slots and pick:
+Pick transformed goal/rock/hazard/crystal alternatives from `goal`, `rocks`, `hazards`, `crystals` forks.
+
+On materialization collision increment `materialization_collision` and continue.
+
+Then:
 
 ```ts
-const goal = attemptRng.fork('goal').pick(slots.goals)
-const rocks = attemptRng.fork('rocks').pick(slots.rocks)
-const hazards = attemptRng.fork('hazards').pick(slots.hazards)
-const crystals = attemptRng.fork('crystals').pick(slots.crystals)
+const canonicalKey = getTransformInvariantCanonicalKey(rows)
+if (input.existingCanonicalKeys?.has(canonicalKey)) {
+    increment('duplicate_board')
+    continue
+}
 ```
 
-On materialization collision, increment only `materialization_collision` and continue.
-
-Validate the board **before** objective choice:
+Call quality **without** `existingCanonicalKeys`:
 
 ```ts
 const quality = validateIceSlideStageQuality(
@@ -571,14 +598,13 @@ const quality = validateIceSlideStageQuality(
     {
         parBand: template.constraints.parBand,
         maxStates: ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES,
-        existingCanonicalKeys: input.existingCanonicalKeys,
         minReachableStops: template.constraints.minReachableStops,
         maxHazards: template.constraints.maxHazards,
     }
 )
 ```
 
-If rejected, increment `quality.reason` and continue.
+On rejection increment `quality.reason` and continue.
 
 After acceptance:
 
@@ -589,13 +615,10 @@ const OBJECTIVE_ORDER = [
     'no_reset',
 ] as const
 
-const eligibleObjectives = OBJECTIVE_ORDER.filter(
-    objectiveId => quality.objectiveFeasibility[objectiveId]
+const objectiveId = attemptRng.fork('objective').pick(
+    OBJECTIVE_ORDER.filter(id => quality.objectiveFeasibility[id])
 )
-const objectiveId = attemptRng.fork('objective').pick(eligibleObjectives)
 ```
-
-Do not export Daily's private constant or introduce a shared objective-selection service. `no_reset` guarantees a non-empty list for every accepted board.
 
 - [ ] **Step 6: Build accepted stage metadata**
 
@@ -605,9 +628,11 @@ Use one local `buildStage()` helper shared by candidate/fallback success. Candid
 [goal.id, rocks.id, hazards.id, crystals.id]
 ```
 
-Return `attempts: attempt`, `usedFallback: false`, accepted `canonicalKey`, and a defensive closed-union rejection-count copy.
+Return the transform-invariant `canonicalKey`, `attempts: attempt`, `usedFallback: false`, and a defensive copy of closed-union rejection counts.
 
-- [ ] **Step 7: Add duplicate-board coverage**
+- [ ] **Step 7: Add orbit-duplicate input coverage**
+
+Generate a first stage; pass its returned key back without mutating caller state:
 
 ```ts
 const first = createIceSlideExpeditionStage(input)
@@ -621,11 +646,11 @@ expect(second.canonicalKey).not.toBe(first.canonicalKey)
 expect(existing).toEqual(new Set([first.canonicalKey]))
 ```
 
-The second call may accept a later candidate or fallback.
+Also assert `first.canonicalKey` equals the orbit key of every `transformRows(first.stage.rows, transform)` variant.
 
-- [ ] **Step 8: Implement deterministic fallback after exactly 64 failures**
+- [ ] **Step 8: Implement deterministic fallback after 64 attempts**
 
-Resolve each tier template's full-row fallback, then shuffle:
+Resolve and shuffle tier fallbacks:
 
 ```ts
 const fallbackOrder = stageRng
@@ -636,21 +661,29 @@ const fallbackOrder = stageRng
     })))
 ```
 
-For each fallback, validate first with `objectiveIds: []` and owning template constraints. Only after `quality.accepted` choose:
+For each fallback:
+
+1. derive transform-invariant key;
+2. reject/increment `duplicate_board` if caller already used it;
+3. validate with `objectiveIds: []`, owning constraints, no literal duplicate Set;
+4. select objective from accepted `quality.objectiveFeasibility` with `stageRng.fork(`fallback:${fallback.id}:objective`)`;
+5. build with `transform: 'identity'` and `mutationIds: [`fallback:${fallback.id}`]`;
+6. emit exactly one warning:
 
 ```ts
-const objectiveId = stageRng
-    .fork(`fallback:${fallback.id}:objective`)
-    .pick(
-        OBJECTIVE_ORDER.filter(
-            id => quality.objectiveFeasibility[id]
-        )
-    )
+console.warn('Ice Slide Expedition generation fallback', {
+    stageNumber: input.stageNumber,
+    difficulty: input.difficulty,
+    seedHash: hashString32Hex(input.seed),
+    attempts: ICE_SLIDE_EXPEDITION_MAX_ATTEMPTS,
+    rejectionCounts: { ...rejectionCounts },
+    fallbackId: fallback.id,
+})
 ```
 
-Build the fallback stage with `transform: 'identity'` and `mutationIds: [`fallback:${fallback.id}`]`; return `usedFallback: true`, `attempts: 64`, and rejection metadata.
+Do not log raw seed and do not add logger injection.
 
-Do **not** call `console.warn` or accept a logger dependency. If all fallbacks reject:
+If none accept, throw:
 
 ```ts
 throw new Error(
@@ -659,25 +692,50 @@ throw new Error(
 )
 ```
 
-- [ ] **Step 9: Test 64-reject/fallback behavior with Vitest module mocking only**
+- [ ] **Step 9: Test 64-attempt fallback without brittle call counts**
 
-Mock `validateIceSlideStageQuality` so candidate calls 1–64 return one stable rejection, then delegate fallback calls to the real validator. Assert:
+Mock only the imported quality module. The mock distinguishes candidate IDs from full-row fallback IDs rather than assuming every attempt reaches quality:
 
 ```ts
-expect(result.usedFallback).toBe(true)
-expect(result.attempts).toBe(64)
-expect(result.stage.transform).toBe('identity')
-expect(result.stage.mutationIds[0]).toMatch(/^fallback:/)
-expect(validateMock).toHaveBeenCalledTimes(65)
+const validateMock = vi.mocked(validateIceSlideStageQuality)
+validateMock.mockImplementation((candidate, constraints) => {
+    if (String(candidate.id).includes(':attempt:')) {
+        return {
+            accepted: false,
+            reason: 'unsolvable',
+            message: 'forced candidate rejection',
+        }
+    }
+    return realValidate(candidate, constraints)
+})
 ```
 
-Also assert rejection counts and fallback objective feasibility. There is no warn spy.
+Materialization collisions legitimately bypass quality. Assert the invariant instead of `toHaveBeenCalledTimes(65)`:
 
-For the hard-failure case, reject every validator call and assert the candidate loop stops at 64 before the finite three-fallback list is exhausted. Do not add injectable validator/RNG/logger seams.
+```ts
+const candidateQualityCalls = validateMock.mock.calls.filter(
+    ([candidate]) => String(candidate.id).includes(':attempt:')
+).length
+const collisionCount = result.rejectionCounts.materialization_collision ?? 0
+const fallbackCalls = validateMock.mock.calls.length - candidateQualityCalls
+
+expect(result.usedFallback).toBe(true)
+expect(result.attempts).toBe(64)
+expect(candidateQualityCalls + collisionCount).toBe(64)
+expect(fallbackCalls).toBeGreaterThanOrEqual(1)
+expect(fallbackCalls).toBeLessThanOrEqual(3)
+expect(result.stage.transform).toBe('identity')
+expect(result.stage.mutationIds[0]).toMatch(/^fallback:/)
+expect(warn).toHaveBeenCalledTimes(1)
+```
+
+For all-fallback failure, force every quality call to reject and assert the bounded error path. Do not add injectable validator/RNG/logger parameters.
 
 - [ ] **Step 10: Lock explicit generator-v1 goldens — no snapshots**
 
-For these three seeds, assert the listed fields inline. These values freeze the validate-first objective contract and the current catalog/fork ordering.
+Use a test-local `projectStage()` selecting exactly rows, transform, mutation IDs, objective IDs, par, and signature.
+
+Easy:
 
 ```ts
 expect(projectStage(createIceSlideExpeditionStage({
@@ -703,7 +761,11 @@ expect(projectStage(createIceSlideExpeditionStage({
     parMoves: 2,
     signature: 'is2-4c1bb3e2',
 })
+```
 
+Medium:
+
+```ts
 expect(projectStage(createIceSlideExpeditionStage({
     seed: 'ice-slide:hpa-489:v1:medium',
     stageNumber: 3,
@@ -730,7 +792,11 @@ expect(projectStage(createIceSlideExpeditionStage({
     parMoves: 3,
     signature: 'is2-cadf4ffb',
 })
+```
 
+Hard — updated for the distinct rectangular `hard-zero-cross` family:
+
+```ts
 expect(projectStage(createIceSlideExpeditionStage({
     seed: 'ice-slide:hpa-489:v1:hard',
     stageNumber: 5,
@@ -738,31 +804,28 @@ expect(projectStage(createIceSlideExpeditionStage({
 }))).toEqual({
     rows: [
         '#########',
-        '#.......#',
-        '#.#...#.#',
-        '#G......#',
-        '##..H..##',
-        '#...O...#',
-        '#.#.#...#',
-        '#.....#S#',
+        '#.....#G#',
+        '#.#.....#',
+        '#.O#....#',
+        '#.....#.#',
+        '#....CH.#',
+        '#S..#...#',
         '#########',
     ],
-    transform: 'rotate_90',
+    transform: 'reflect_horizontal',
     mutationIds: [
-        'goal:south-mid',
-        'rocks:center-east',
-        'hazards:center',
-        'crystals:none',
+        'goal:southeast',
+        'rocks:center-west',
+        'hazards:upper-east',
+        'crystals:northeast',
     ],
-    objectiveIds: ['no_reset'],
+    objectiveIds: ['no_falls'],
     parMoves: 5,
-    signature: 'is2-3a9b2699',
+    signature: 'is2-40f46428',
 })
 ```
 
-`projectStage()` is a test-local projection selecting exactly `rows`, `transform`, `mutationIds`, `objectiveIds`, `parMoves`, and `signature`.
-
-Also keep:
+Keep byte-repeat proof:
 
 ```ts
 const first = createIceSlideExpeditionStage(input)
@@ -811,6 +874,7 @@ export interface IceSlideExpeditionValidationStats {
     seeds: number
     stageCount: number
     totalAttempts: number
+    worstAttempts: number
     fallbacks: number
     rejectionCounts: Partial<
         Record<IceSlideGenerationRejectionReason, number>
@@ -824,9 +888,7 @@ export function runIceSlideExpeditionValidation(options: {
 }): IceSlideExpeditionValidationStats[]
 ```
 
-The function lives in `scripts/validate-ice-slide-expedition.ts`; the Vitest file imports it. Keep CLI execution behind a main-module guard so importing the helper does not print or trigger the 1,000-seed sweep.
-
-- [ ] **Step 1: Write the 100-seed smoke test against the shared helper**
+- [ ] **Step 1: Write the 100-seed smoke against the shared helper**
 
 ```ts
 import { runIceSlideExpeditionValidation } from '../../../../scripts/validate-ice-slide-expedition'
@@ -843,20 +905,27 @@ it('validates 100 deterministic seeds per tier', () => {
         ['medium', 100, 200],
         ['hard', 100, 200],
     ])
+
+    for (const summary of summaries) {
+        expect(summary.worstAttempts).toBeGreaterThanOrEqual(1)
+        expect(summary.worstAttempts).toBeLessThanOrEqual(64)
+    }
 })
 ```
 
-- [ ] **Step 2: Run the smoke test red**
+Do not add a hardware-dependent wall-clock assertion. The deterministic attempt/state metrics are the tuning signal; Vitest's normal timeout remains the hang guard.
+
+- [ ] **Step 2: Run red**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/generator.validation.test.ts
 ```
 
-Expected: FAIL because the script/helper does not exist.
+Expected: FAIL because the shared helper/script does not exist.
 
-- [ ] **Step 3: Implement the one validation loop**
+- [ ] **Step 3: Implement one validation loop**
 
-Use exactly:
+Use future tier/stage slots:
 
 ```ts
 const TIER_STAGES = {
@@ -866,7 +935,7 @@ const TIER_STAGES = {
 } as const
 ```
 
-For each difficulty and index from `0` through `seedsPerTier - 1`, derive:
+Seed format:
 
 ```ts
 const seed =
@@ -874,51 +943,52 @@ const seed =
     String(index).padStart(4, '0')
 ```
 
-Generate stage 1, then stage 2 with stage 1's canonical key in `existingCanonicalKeys`. For each generated stage, resolve the owning template and:
+For each seed:
 
-1. call `validateIceSlideStageQuality()` using `stage.stage.objectiveIds`, owner par/stops/hazard constraints, and the appropriate prior canonical Set;
-2. throw if rejected or `quality.parMoves !== stage.stage.parMoves`;
-3. call `solveIceSlideBoard(stage.stage, { maxStates: 10_000 })` and throw if truncated/unsolvable;
-4. regenerate with identical input and throw unless `JSON.stringify()` is byte-identical;
-5. throw if the same-tier pair has duplicate canonical keys;
-6. fold attempts, fallback count, `stage.rejectionCounts`, and explored states into the closed-union stats;
-7. invoke `onStage?.(stage)` after all invariants pass.
+1. generate first stage;
+2. generate second with `existingCanonicalKeys: new Set([first.canonicalKey])`;
+3. assert the returned transform-invariant keys differ;
+4. recompute the minimum transform-orbit key for each final board and assert it equals returned `canonicalKey`;
+5. regenerate both inputs and assert byte-identical output;
+6. independently validate final stages using their selected `objectiveIds` and owning template par/stops/hazard constraints; do **not** pass the orbit-key set into `quality.ts`;
+7. solve each board with 10,000 states and assert solvable/not truncated;
+8. fold attempts, `worstAttempts`, fallback count, closed-union rejections, and worst explored states into stats;
+9. invoke optional `onStage`.
 
-Error messages include difficulty, seed index, stage number, template ID, and invariant name. Stop on the first corrupted result; do not swallow errors.
+The shared helper must not duplicate the generator's template/stage-selection algorithm beyond the fixed two-stage tier mapping above.
 
-Sort rejection keys only when formatting CLI output. The internal type remains:
+- [ ] **Step 4: Add CLI entry point around the same helper**
 
-```ts
-Partial<Record<IceSlideGenerationRejectionReason, number>>
-```
-
-- [ ] **Step 4: Add the CLI wrapper and package script**
-
-When executed directly:
+Use a main-module guard such as:
 
 ```ts
-const summaries = runIceSlideExpeditionValidation({ seedsPerTier: 1_000 })
-for (const summary of summaries) {
-    console.log(JSON.stringify({
-        ...summary,
-        rejectionCounts: Object.fromEntries(
-            Object.entries(summary.rejectionCounts).sort(([a], [b]) =>
-                a.localeCompare(b)
-            )
-        ),
-    }))
+const isMain = import.meta.url === `file://${process.argv[1]}`
+if (isMain) {
+    const summaries = runIceSlideExpeditionValidation({ seedsPerTier: 1_000 })
+    for (const summary of summaries) {
+        console.log(JSON.stringify({
+            ...summary,
+            rejectionCounts: Object.fromEntries(
+                Object.entries(summary.rejectionCounts).sort(([a], [b]) =>
+                    a.localeCompare(b)
+                )
+            ),
+        }))
+    }
 }
 ```
 
-Add only:
+Keep rejection-count typing closed in helper code; sorting for JSON does not create a second diagnostic vocabulary.
+
+- [ ] **Step 5: Add package script only**
 
 ```json
 "validate:ice-slide-expedition": "bun scripts/validate-ice-slide-expedition.ts"
 ```
 
-No new Actions workflow.
+No new workflow file.
 
-- [ ] **Step 5: Run both depths**
+- [ ] **Step 6: Run both depths**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/generator.validation.test.ts
@@ -927,14 +997,14 @@ bun run validate:ice-slide-expedition
 
 Expected:
 
-- Vitest exits 0 after 300 seeds / 600 generated stages;
-- CLI exits 0 after 3,000 seeds / 6,000 generated stages;
-- CLI prints one deterministic JSON line for easy, medium, hard;
-- no invalid accepted board, objective mismatch, duplicate pair, truncation, or nondeterministic regeneration.
+- 100-seed/tier smoke exits 0;
+- 1,000-seed/tier command exits 0;
+- two final boards per seed are never transform-equivalent duplicates;
+- output has easy/medium/hard summaries including `totalAttempts`, `worstAttempts`, fallbacks, rejection counts, and worst explored states.
 
-There is no rejection/fallback-rate SLA.
+There is deliberately no fallback-rate SLA; fallbacks are a required recovery path, not a validation failure by definition.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add \
@@ -946,11 +1016,11 @@ git commit -m "test(ice-slide): validate expedition generator content"
 
 ---
 
-### Task 5: Run full regression gates and verify HPA-489 boundaries
+### Task 5: Run full regression gates and verify scope
 
 **Files:**
 - No new production files expected.
-- Modify only Task 1–4 files if a gate reveals a real HPA-489 defect.
+- Modify only Task 1–4 files if verification exposes an HPA-489 defect.
 
 - [ ] **Step 1: Run all Ice Slide unit tests**
 
@@ -958,9 +1028,9 @@ git commit -m "test(ice-slide): validate expedition generator content"
 bun run test:run -- src/lib/games/ice-slide
 ```
 
-Expected: PASS, including unchanged Daily goldens and Campaign/run/solver regressions.
+Expected: PASS, including unchanged Daily generator goldens and Campaign/run/solver regressions.
 
-- [ ] **Step 2: Run the full unit suite**
+- [ ] **Step 2: Run repository tests**
 
 ```bash
 bun run test:run
@@ -977,17 +1047,19 @@ bun run format:check
 bun run build
 ```
 
-Expected: all exit 0. If formatting is the only failure, format intended files, inspect the diff, and rerun.
+Expected: all exit 0.
 
-- [ ] **Step 4: Run the 1,000-seed-per-tier validator again**
+If formatting alone fails on intended files, run `bun run format`, inspect the exact diff, and rerun the gate.
+
+- [ ] **Step 4: Run final 1,000-seed validation**
 
 ```bash
 bun run validate:ice-slide-expedition
 ```
 
-Expected: exit 0. Put the three summary lines in the implementation PR description; do not convert current rates into thresholds.
+Expected: exit 0. Record the three tier summaries in the implementation PR description. Do not turn observed attempts/fallback counts into new product thresholds without a separate decision.
 
-- [ ] **Step 5: Verify changed-path scope**
+- [ ] **Step 5: Verify changed-file scope**
 
 ```bash
 git diff --name-only main...HEAD
@@ -1007,9 +1079,11 @@ scripts/validate-ice-slide-expedition.ts
 package.json
 ```
 
-plus the approved design/plan docs if implementation starts from this branch. There must be no snapshot file and no `game.ts`, `init.ts`, page, DB, score, leaderboard, `levels.ts`, or `daily.ts` production change.
+plus the approved design/plan docs if implementation starts from this branch.
 
-- [ ] **Step 6: Commit only real gate-driven cleanup if needed**
+There must be no production changes to `levels.ts`, `daily.ts`, `run.ts`, `game.ts`, `init.ts`, page/UI, DB, score, or leaderboard code.
+
+- [ ] **Step 6: Commit gate-driven cleanup only if needed**
 
 ```bash
 git add <only-files-fixed-for-verification>
@@ -1020,11 +1094,11 @@ Do not create an empty cleanup commit.
 
 ---
 
-## Plan self-review
+## Plan Self-Review
 
-- **Spec coverage:** Tasks 1–4 cover the catalog/fallbacks, transform-then-place, validate-first objective selection, exact 64/10k bounds, duplicate handling, signatures, deterministic fallback metadata, explicit v1 goldens, and one shared 100/1,000-seed validation loop.
-- **Placeholder scan:** no TODO/TBD, snapshot-generation step, logger seam, or duplicated validator loop remains.
-- **Type consistency:** `IceSlideGenerationRejectionReason` is closed and every `rejectionCounts` consumer uses `Partial<Record<IceSlideGenerationRejectionReason, number>>`.
-- **Generator-version contract:** objective RNG is consumed only after a board/fallback passes quality; changing the inline goldens requires an intentional version decision.
-- **Scope check:** HPA-490 retains full-run assembly, random seed creation, UI, Retry Seed/New Expedition, and persistence.
-- **YAGNI:** no generator class, logger injection, registry, JSON schema, editor, worker, cache, or generic cross-game abstraction.
+- **Spec coverage:** Tasks 1–4 cover typed template content, all nine fallbacks, transform/slot materialization, transform-invariant duplicate identity, validate-first objectives, 64-attempt cap, 10,000-state solver bound, deterministic fallback/diagnostic behavior, explicit v1 goldens, and one 100/1,000-seed validation loop.
+- **Review resolution:** stale prior-revision claims are ignored; transform-orbit dedupe, distinct hard topology, and collision-safe fallback test counts are incorporated. Fallbacks, per-template allowed transforms, and the lack of template-ID uniqueness are retained because they match HPA-489's actual contract.
+- **Placeholder scan:** no TBD/TODO, unspecified API, or “tests later” step remains.
+- **Type consistency:** `IceSlideTemplateDifficulty`, quality constraints, generation rejection union, `IceSlideGeneratedStage`, and validation stats are introduced before consumers use them.
+- **Scope:** HPA-490 still owns complete run assembly, seed creation, UI, and persistence.
+- **YAGNI:** no generator class, DI/logger interface, registry, JSON schema, editor, worker, cache, cross-game abstraction, or hardware-dependent performance gate is introduced.
