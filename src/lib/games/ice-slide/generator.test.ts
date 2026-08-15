@@ -5,6 +5,10 @@ import {
 } from './generator'
 import { validateIceSlideStageQuality } from './quality'
 import {
+    getIceSlideTemplatesByDifficulty,
+    type IceSlideTemplate,
+} from './templates'
+import {
     BOARD_TRANSFORMS,
     getUniqueBoardTransforms,
     transformRows,
@@ -20,8 +24,106 @@ vi.mock('./quality', async importOriginal => {
     }
 })
 
+vi.mock('./templates', async importOriginal => {
+    const actual = await importOriginal<typeof import('./templates')>()
+    return {
+        ...actual,
+        getIceSlideTemplatesByDifficulty: vi.fn(
+            actual.getIceSlideTemplatesByDifficulty
+        ),
+    }
+})
+
 const { validateIceSlideStageQuality: realValidate } =
     await vi.importActual<typeof import('./quality')>('./quality')
+
+/**
+ * Crafted easy-tier template whose every goal alternative shares its cell
+ * with every rock/hazard/crystal alternative, so any pick combination fails
+ * materialization. fallbackVariantId resolves to the REAL easy-open-lane-v1
+ * fallback board, so generation completes via the fallback path.
+ */
+const COLLISION_TRAP_TEMPLATE: IceSlideTemplate = {
+    id: 'easy-collision-trap',
+    name: 'Collision Trap',
+    difficulty: 'easy',
+    baseRows: ['#####', '#S..#', '#...#', '#...#', '#####'],
+    allowedTransforms: [...BOARD_TRANSFORMS],
+    slots: {
+        goals: [
+            { id: 'goal:one', position: { row: 1, col: 2 } },
+            { id: 'goal:two', position: { row: 1, col: 2 } },
+            { id: 'goal:three', position: { row: 1, col: 2 } },
+        ],
+        rocks: [
+            { id: 'rocks:one', positions: [{ row: 1, col: 2 }] },
+            { id: 'rocks:two', positions: [{ row: 1, col: 2 }] },
+        ],
+        hazards: [{ id: 'hazards:one', positions: [{ row: 1, col: 2 }] }],
+        crystals: [{ id: 'crystals:one', positions: [{ row: 1, col: 2 }] }],
+    },
+    constraints: {
+        parBand: { minMoves: 1, maxMoves: 4 },
+        minReachableStops: 3,
+        maxHazards: 1,
+    },
+    fallbackVariantId: 'easy-open-lane-v1',
+}
+
+/**
+ * Crafted easy-tier template whose every crystal alternative has 2 cells and
+ * every hazard alternative 1 cell, all on free ice and pairwise compatible,
+ * so any pick combination materializes and passes quality with the full
+ * selected pattern placed.
+ */
+const PATTERN_SELECT_TEMPLATE: IceSlideTemplate = {
+    id: 'easy-pattern-select',
+    name: 'Pattern Select',
+    difficulty: 'easy',
+    baseRows: ['#####', '#S..#', '#...#', '#...#', '#####'],
+    allowedTransforms: [...BOARD_TRANSFORMS],
+    slots: {
+        goals: [
+            { id: 'goal:a', position: { row: 3, col: 3 } },
+            { id: 'goal:b', position: { row: 3, col: 3 } },
+            { id: 'goal:c', position: { row: 3, col: 3 } },
+        ],
+        rocks: [{ id: 'rocks:none', positions: [] }],
+        hazards: [
+            { id: 'hazards:a', positions: [{ row: 1, col: 3 }] },
+            { id: 'hazards:b', positions: [{ row: 2, col: 2 }] },
+        ],
+        crystals: [
+            {
+                id: 'crystals:a',
+                positions: [
+                    { row: 1, col: 2 },
+                    { row: 3, col: 2 },
+                ],
+            },
+            {
+                id: 'crystals:b',
+                positions: [
+                    { row: 1, col: 2 },
+                    { row: 2, col: 3 },
+                ],
+            },
+            {
+                id: 'crystals:c',
+                positions: [
+                    { row: 3, col: 2 },
+                    { row: 2, col: 3 },
+                ],
+            },
+        ],
+    },
+    constraints: {
+        parBand: { minMoves: 1, maxMoves: 4 },
+        minReachableStops: 3,
+        maxHazards: 1,
+    },
+    fallbackVariantId: 'easy-open-lane-v1',
+}
 
 const input = {
     seed: 'ice-slide:hpa-489:v1:easy',
@@ -39,6 +141,10 @@ function projectStage(result: IceSlideGeneratedStage): object {
     const { rows, transform, mutationIds, objectiveIds, parMoves, signature } =
         result.stage
     return { rows, transform, mutationIds, objectiveIds, parMoves, signature }
+}
+
+function glyphCount(rows: readonly string[], glyph: string): number {
+    return rows.join('').split(glyph).length - 1
 }
 
 afterEach(() => {
@@ -186,6 +292,129 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
             ).toThrow(/Ice Slide Expedition stage 1 \(easy\)/)
         } finally {
             validateMock.mockRestore()
+        }
+    })
+
+    it('pins the exact accepted fallback id for a frozen seed', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const validateMock = vi.mocked(validateIceSlideStageQuality)
+        validateMock.mockImplementation((candidate, constraints) => {
+            if (String(candidate.id).includes(':attempt:')) {
+                return {
+                    accepted: false,
+                    reason: 'unsolvable',
+                    message: 'forced candidate rejection',
+                }
+            }
+            return realValidate(candidate, constraints)
+        })
+
+        try {
+            const result = createIceSlideExpeditionStage({
+                seed: 'ice-slide:hpa-489:v1:fallback:easy',
+                stageNumber: 1,
+                difficulty: 'easy',
+            })
+
+            expect(result.usedFallback).toBe(true)
+            expect(result.stage.mutationIds).toEqual([
+                'fallback:easy-corner-pocket-v1',
+            ])
+        } finally {
+            validateMock.mockRestore()
+            warn.mockRestore()
+        }
+    })
+})
+
+describe('ice-slide expedition generation: forced materialization collisions', () => {
+    it('rejects all 64 candidates by collision and completes via the real fallback', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const templatesMock = vi.mocked(getIceSlideTemplatesByDifficulty)
+        const validateMock = vi.mocked(validateIceSlideStageQuality)
+        templatesMock.mockImplementation(() => [COLLISION_TRAP_TEMPLATE])
+
+        try {
+            const result = createIceSlideExpeditionStage({
+                seed: 'ice-slide:hpa-489:v1:forced-collision:easy',
+                stageNumber: 1,
+                difficulty: 'easy',
+            })
+
+            expect(result.usedFallback).toBe(true)
+            expect(result.attempts).toBe(64)
+            expect(result.rejectionCounts).toEqual({
+                materialization_collision: 64,
+            })
+            expect(
+                validateMock.mock.calls.filter(([candidate]) =>
+                    String(candidate.id).includes(':attempt:')
+                )
+            ).toEqual([])
+            expect(result.stage.mutationIds).toEqual([
+                'fallback:easy-open-lane-v1',
+            ])
+            expect(result.stage.rows).toEqual([
+                '#####',
+                '#S..#',
+                '#...#',
+                '#G..#',
+                '#####',
+            ])
+        } finally {
+            templatesMock.mockRestore()
+            validateMock.mockRestore()
+            warn.mockRestore()
+        }
+    })
+
+    it('produces byte-identical traces across repeated forced-fallback runs', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const templatesMock = vi.mocked(getIceSlideTemplatesByDifficulty)
+        templatesMock.mockImplementation(() => [COLLISION_TRAP_TEMPLATE])
+
+        try {
+            const forcedFallbackInput = {
+                seed: 'ice-slide:hpa-489:v1:forced-collision:easy',
+                stageNumber: 1,
+                difficulty: 'easy',
+            } as const
+            const first = createIceSlideExpeditionStage(forcedFallbackInput)
+            const second = createIceSlideExpeditionStage(forcedFallbackInput)
+
+            expect(first.usedFallback).toBe(true)
+            expect(JSON.stringify(second)).toBe(JSON.stringify(first))
+            expect(warn).toHaveBeenCalledTimes(2)
+        } finally {
+            templatesMock.mockRestore()
+            warn.mockRestore()
+        }
+    })
+})
+
+describe('ice-slide expedition generation: complete pattern placement', () => {
+    it('places every cell of the selected multi-position slot patterns', () => {
+        const templatesMock = vi.mocked(getIceSlideTemplatesByDifficulty)
+        templatesMock.mockImplementation(() => [PATTERN_SELECT_TEMPLATE])
+
+        try {
+            const result = createIceSlideExpeditionStage({
+                seed: 'ice-slide:hpa-489:v1:pattern-select:easy',
+                stageNumber: 1,
+                difficulty: 'easy',
+            })
+
+            expect(result.usedFallback).toBe(false)
+            expect(result.stage.mutationIds).toEqual([
+                expect.stringMatching(/^goal:/),
+                'rocks:none',
+                expect.stringMatching(/^hazards:/),
+                expect.stringMatching(/^crystals:/),
+            ])
+            expect(glyphCount(result.stage.rows, 'C')).toBe(2)
+            expect(glyphCount(result.stage.rows, 'H')).toBe(1)
+        } finally {
+            templatesMock.mockRestore()
         }
     })
 })
