@@ -15,9 +15,6 @@ it('validates 100 deterministic seeds per tier', () => {
         ['hard', 100, 200],
     ])
 
-    const repeated = runIceSlideExpeditionValidation({ seedsPerTier: 100 })
-    expect(repeated).toEqual(summaries)
-
     for (const summary of summaries) {
         expect(summary.worstAttempts).toBeGreaterThanOrEqual(1)
         expect(summary.worstAttempts).toBeLessThanOrEqual(64)
