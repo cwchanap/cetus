@@ -6,12 +6,12 @@ export type IceSlideTemplateDifficulty = Exclude<IceSlideDifficulty, 'tutorial'>
 
 export interface IceSlideNamedPosition {
     readonly id: string
-    readonly position: GridPosition
+    readonly position: Readonly<GridPosition>
 }
 
 export interface IceSlideNamedPositionPattern {
     readonly id: string
-    readonly positions: readonly GridPosition[]
+    readonly positions: readonly Readonly<GridPosition>[]
 }
 
 export interface IceSlideTemplate {
