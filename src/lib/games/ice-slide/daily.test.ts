@@ -11,6 +11,7 @@ import {
     ICE_SLIDE_DAILY_STAGE_POOLS,
     toIceSlideUtcDateKey,
 } from './daily'
+import { ICE_SLIDE_OBJECTIVE_IDS } from './objectives'
 import { ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS } from './test-fixtures'
 
 describe('Ice Slide Daily date keys', () => {
@@ -46,6 +47,11 @@ describe('Ice Slide Daily generator v1', () => {
             [3, 4, 5],
             [5, 6, 7],
             [7, 8],
+        ])
+        expect(ICE_SLIDE_OBJECTIVE_IDS).toEqual([
+            'collect_all_crystals',
+            'no_falls',
+            'no_reset',
         ])
     })
 

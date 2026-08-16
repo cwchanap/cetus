@@ -7,6 +7,7 @@ import {
     assertValidIceSlideRunDefinition,
 } from './run'
 import {
+    ICE_SLIDE_EXPEDITION_RULESET_VERSION,
     ICE_SLIDE_EXPEDITION_STAGE_DIFFICULTIES,
     createIceSlideExpeditionRunDefinition,
 } from './expedition'
@@ -73,14 +74,17 @@ describe('Ice Slide Expedition run materialization', () => {
             'hard',
         ])
         expect(run.schemaVersion).toBe(ICE_SLIDE_RUN_SCHEMA_VERSION)
+        expect(ICE_SLIDE_EXPEDITION_GENERATOR_VERSION).toBe(2)
+        expect(ICE_SLIDE_RULESET_VERSION).toBe(1)
+        expect(ICE_SLIDE_EXPEDITION_RULESET_VERSION).toBe(2)
         expect(run.generatorVersion).toBe(
             ICE_SLIDE_EXPEDITION_GENERATOR_VERSION
         )
-        expect(run.rulesetVersion).toBe(ICE_SLIDE_RULESET_VERSION)
+        expect(run.rulesetVersion).toBe(ICE_SLIDE_EXPEDITION_RULESET_VERSION)
         expect(run.runKey).toBe(
             `ice-slide:expedition:${hashString32Hex(SEED)}:` +
                 `g${ICE_SLIDE_EXPEDITION_GENERATOR_VERSION}:` +
-                `r${ICE_SLIDE_RULESET_VERSION}`
+                `r${ICE_SLIDE_EXPEDITION_RULESET_VERSION}`
         )
         for (const stage of run.stages) {
             expect(stage.objectiveIds).toHaveLength(1)

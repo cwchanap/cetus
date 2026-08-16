@@ -1,10 +1,71 @@
 import { describe, expect, it } from 'vitest'
 import {
+    getIceSlideObjectiveFeasibility,
+    ICE_SLIDE_OBJECTIVE_IDS,
     ICE_SLIDE_OBJECTIVE_LABELS,
     isIceSlideObjectiveComplete,
 } from './objectives'
+import type { IceSlideSolveResult } from './solver'
 
 describe('Ice Slide objective policy', () => {
+    it('computes the shared objective order and feasibility from board facts', () => {
+        expect(ICE_SLIDE_OBJECTIVE_IDS).toEqual([
+            'collect_all_crystals',
+            'no_falls',
+            'no_reset',
+        ])
+
+        const allEligible = getIceSlideObjectiveFeasibility(
+            ['#####', '#S.C#', '#..G#', '#.H.#', '#####'],
+            {
+                solvable: true,
+                minMoves: 2,
+                reachableStopCount: 5,
+                reachableCrystalIds: ['1,3'],
+                reachedGoalWithAllCrystals: true,
+                exploredStates: 8,
+                truncated: false,
+            }
+        )
+
+        expect(allEligible).toEqual({
+            collect_all_crystals: true,
+            no_falls: true,
+            no_reset: true,
+        })
+
+        const solvableResult: IceSlideSolveResult = {
+            solvable: true,
+            minMoves: 1,
+            reachableStopCount: 2,
+            reachableCrystalIds: [],
+            reachedGoalWithAllCrystals: false,
+            exploredStates: 2,
+            truncated: false,
+        }
+        const noCrystal = getIceSlideObjectiveFeasibility(
+            ['#####', '#S..#', '#..G#', '#...#', '#####'],
+            solvableResult
+        )
+        const noHazard = getIceSlideObjectiveFeasibility(
+            ['#####', '#S.C#', '#..G#', '#...#', '#####'],
+            { ...solvableResult, reachedGoalWithAllCrystals: true }
+        )
+        const cannotFinishWithAllCrystals = getIceSlideObjectiveFeasibility(
+            ['#####', '#S.C#', '#..G#', '#.H.#', '#####'],
+            solvableResult
+        )
+        const solvable = getIceSlideObjectiveFeasibility(
+            ['#####', '#S..#', '#..G#', '#...#', '#####'],
+            solvableResult
+        )
+
+        expect(noCrystal.collect_all_crystals).toBe(false)
+        expect(noHazard.no_falls).toBe(false)
+        expect(cannotFinishWithAllCrystals.collect_all_crystals).toBe(false)
+        expect(solvable.no_reset).toBe(true)
+    })
+
     it('requires at least one crystal and collecting them all', () => {
         expect(
             isIceSlideObjectiveComplete('collect_all_crystals', {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getIceSlideObjectiveFeasibility } from './objectives'
 import { ICE_SLIDE_LEVELS } from './levels'
 import { validateIceSlideStageQuality } from './quality'
 import { serializeBoardRows } from './transforms'
@@ -453,6 +454,12 @@ describe('ice-slide stage quality: accepted candidates', () => {
             })
             expect(result.solveResult.solvable).toBe(true)
             expect(result.solveResult.minMoves).toBe(2)
+            expect(result.objectiveFeasibility).toEqual(
+                getIceSlideObjectiveFeasibility(
+                    CRYSTAL_BOARD,
+                    result.solveResult
+                )
+            )
         }
     })
 
