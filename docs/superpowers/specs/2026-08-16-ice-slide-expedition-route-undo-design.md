@@ -8,122 +8,140 @@
 
 ## 1. Summary
 
-HPA-491 is the next actionable Ice Slide replayability task. HPA-490 now ships a complete six-stage seeded Expedition and HPA-491 is blocked only by that completed work. HPA-491 also establishes the Undo snapshot contract required by HPA-493, while HPA-492 can proceed independently.
-
-Add two run decisions to Expedition only:
+HPA-491 adds two Expedition-only decisions:
 
 - after stage 2, choose **Safe Cache** or **Risk Protocol** for stage 3;
 - after stage 4, choose the same two options for stage 5.
 
-Safe Cache grants one Undo charge and leaves the next stage at `1.00×`. Risk Protocol grants no charge, adds one additional seeded eligible bonus objective to the next stage, and applies `1.25×` to that complete stage subtotal, rounded down.
+Safe grants one Undo charge and keeps the next stage at `1.00×`. Risk grants no charge, adds one additional seeded eligible bonus objective to the already-materialized next stage, and applies `1.25×` to that stage subtotal after objective bonuses, rounded down once.
 
-Keep the implementation local to the current Ice Slide seams. Generation remains bounded and deterministic; route effects mutate only the already-materialized next-stage metadata, not its board or par. `IceSlideGame` owns pending choices, charges, and the one-move Undo snapshot. `init.ts` owns the route-choice overlay and input locking. No ability framework, progression system, database/API change, or new renderer subsystem is needed.
+Keep the implementation local to existing Ice Slide seams. Do not regenerate boards from the route overlay. `IceSlideGame` owns the pending-choice token, route history, charge counters, and one private pre-move Undo snapshot. `init.ts` owns overlay/HUD presentation. No ability registry, progression system, DB/API/leaderboard work, alternate route layouts, snow, cracked ice, or compatibility layer is needed.
 
 ## 2. Existing seams to reuse
 
 Reuse directly:
 
-- `src/lib/games/ice-slide/expedition.ts`
-  - pure six-stage run materialization;
-  - fixed `easy, easy, medium, medium, hard, hard` sequence;
-  - Expedition run-key construction.
 - `src/lib/games/ice-slide/generator.ts`
-  - bounded 64-attempt stage generation;
-  - production quality/solver validation;
+  - `createIceSlideExpeditionStage()`;
+  - 64 candidate attempts;
+  - 10,000-state solver cap;
   - deterministic fallbacks and labeled seeded RNG.
+- `src/lib/games/ice-slide/expedition.ts`
+  - complete six-stage materialization;
+  - fixed `easy, easy, medium, medium, hard, hard` sequence.
 - `src/lib/games/ice-slide/run.ts`
-  - deep run cloning;
-  - run validation;
-  - stage signature creation already including sorted objectives and `scoreMultiplierBps`.
+  - `cloneIceSlideRunDefinition()`;
+  - `createIceSlideStageSignature()`;
+  - `assertValidIceSlideRunDefinition()`;
+  - stage validation already accepts multiple unique `objectiveIds` and `scoreMultiplierBps` from `1000` through `50000`.
 - `src/lib/games/ice-slide/game.ts`
-  - authoritative committed-move boundary;
-  - stage progression, counters, scoring, resets, and game-data reporting.
-- `src/lib/games/ice-slide/objectives.ts` and `quality.ts`
-  - existing objective completion and feasibility facts.
+  - authoritative committed-move boundary in `move()`;
+  - `loadLevel()` state reconstruction;
+  - stage progression, resets, counters, score, and game-data reporting.
+- `src/lib/games/ice-slide/objectives.ts` / `quality.ts`
+  - objective completion and current objective-feasibility policy.
 - `src/lib/games/ice-slide/init.ts`
-  - stage-clear overlay, input lock, retry identity, renderer refresh, and cleanup.
+  - stage-clear overlay, input lock, retry run, renderer refresh, and cleanup.
 - `src/pages/ice-slide/index.astro`
-  - existing Expedition HUD/result surface and page-local action wiring.
+  - existing Expedition HUD/result surfaces and page-local action wiring.
+- `scripts/validate-ice-slide-expedition.ts`
+  - the 1,000-seed-per-tier content gate, already invoking real stage numbers `1..6`.
+- `src/lib/games/ice-slide/generator.validation.test.ts`
+  - the CI-sized wrapper over the same validation loop.
 - `e2e/games/play-coverage.spec.ts`
-  - deterministic Expedition seeds and generated-stage route helper already used by browser coverage.
+  - pinned Expedition seeds and browser route helpers.
 
-The stage contract already has `objectiveIds: IceSlideObjectiveId[]` and `scoreMultiplierBps`, so HPA-491 does not need a new run schema.
+The stage model already has `objectiveIds: IceSlideObjectiveId[]` and `scoreMultiplierBps`; HPA-491 makes those existing fields fully meaningful rather than adding a run schema.
 
-## 3. Approaches considered
+## 3. Approaches
 
-### 3.1 Recommended: pure route effect + game-owned Undo
+### 3.1 Selected: metadata-only route effect + game-owned Undo
 
-Extend the current stage generator with one optional minimum-eligible-objective constraint, then add a pure Expedition route-effect function. The game records the player's choice and applies the returned stage metadata before the first move of the target stage. Undo snapshots live inside `IceSlideGame` at the same boundary that currently decides whether a slide is a noop, hazard, or committed move.
+Generate Risk-capable stages up front, then apply a choice by cloning the base run and changing only target-stage metadata. Safe grants a charge. Risk adds one eligible objective, changes the multiplier, and resigns the stage.
 
-This keeps deterministic content, gameplay state, and browser UI separate while adding only the APIs HPA-491 needs.
+Undo is one private pre-move snapshot in `IceSlideGame`. It is not a generic ability system or history stack.
 
-### 3.2 Re-run or mutate generation from the route overlay
+### 3.2 Regenerate a route at choice time
 
-Rejected. `init.ts` should not know generator internals, and a route choice must never branch to a different board. The route effect is metadata-only.
+Rejected. The route overlay must not choose another board, par, transform, or mutation. Generation remains complete before gameplay begins.
 
-### 3.3 Generic ability/progression framework
+### 3.3 Serialize an objective-eligibility pool into the run
 
-Rejected. Two route decisions and one consumable action do not justify inventory, effect registries, reducers, or a cross-game ability system. HPA-493 can extend the private Undo snapshot when cracked-ice state arrives.
+Rejected. There are only two Risk choices per run. Re-solving the already-materialized target board with the existing 10,000-state cap is simpler and avoids another serialized contract.
 
-## 4. Fixed product and architecture decisions
+### 3.4 Generic ability/progression framework
+
+Rejected. Two route choices and one consumable action do not justify inventory, effects registries, reducers, or cross-game machinery.
+
+## 4. Fixed decisions
 
 1. Route choices exist only in active Expedition gameplay.
-2. Choices occur exactly after stages 2 and 4 and affect only stages 3 and 5 respectively.
-3. Stage-clear feedback remains first. Pressing **Continue** after stage 2 or 4 opens the route-choice overlay instead of immediately unlocking movement.
-4. **Safe Cache** grants exactly one Undo charge and does not otherwise mutate the target stage.
-5. **Risk Protocol** grants zero charges, adds exactly one additional eligible objective, sets the target stage multiplier to `12_500` basis points, and recomputes that stage signature.
-6. Risk never changes rows, par, transform, mutation IDs, difficulty, or stage identity.
-7. The Risk multiplier applies after all stage objective bonuses: `floor(rawStageSubtotal * 12_500 / 10_000)`.
-8. A route choice is represented by `IceSlideExpeditionRouteChoice = 'safe' | 'risky'`.
-9. `routeChoices` in game data is chronological: index 0 is the stage-2 decision and index 1 is the stage-4 decision. Partial runs may contain zero or one entries.
-10. The same seed plus the same choices reproduces the same final objective arrays, multipliers, scores, and stage signatures.
-11. Retry Seed starts from the captured base run again; it does not pre-apply the previous attempt's choices.
-12. Campaign and Daily expose neither route choices nor Undo.
-13. No route choice is persisted separately from normal Expedition `gameData`; current contextual score persistence remains sufficient.
-14. There is no cross-seed Expedition ranking or balance calibration in this task.
+2. Choices occur exactly after stages 2 and 4 and affect only stages 3 and 5.
+3. Stage-clear feedback remains first; Continue then opens the route-choice overlay at those checkpoints.
+4. Safe grants exactly one Undo charge and does not alter the target stage.
+5. Risk grants zero charges, adds exactly one eligible objective, sets `scoreMultiplierBps = 12_500`, and recomputes the target signature.
+6. Risk never changes rows, par, transform, mutation IDs, difficulty, stage ID, or stage order.
+7. Risk scoring is `floor(rawStageSubtotal * 12_500 / 10_000)` after all objective bonuses.
+8. Retry Seed starts from the captured base `retryRun`; it does not replay choices from the previous attempt.
+9. The same seed plus the same choices reproduces objective arrays, multipliers, scores, and signatures.
+10. Campaign and Daily expose neither route choices nor Undo.
+11. `routeChoices` is chronological: index 0 is the stage-2 choice and index 1 is the stage-4 choice.
+12. No separate persistence path is added; route/Undo data is additive to normal Expedition `gameData`.
+13. Every implementation task that changes TypeScript contracts keeps the tree type-checkable before its commit.
 
-## 5. Risk-capable deterministic generation
+## 5. Risk-capable generation
 
-### 5.1 Why generation needs one small extension
+### 5.1 The invariant belongs in the generator
 
-Risk Protocol requires a second **eligible** objective. HPA-489 currently guarantees only that an accepted stage has at least one eligible objective. Discovering after stage 2 or 4 that the already-materialized next stage has no second objective would make the route overlay impossible to satisfy.
+Risk requires a second eligible objective on stages 3 and 5. This cannot be an `expedition.ts` caller convention because the repository also exercises `createIceSlideExpeditionStage()` directly from the content validator and generator tests.
 
-Extend `createIceSlideExpeditionStage()` with:
+Extend the generator input with an optional override:
 
 ```ts
 minEligibleObjectives?: number
 ```
 
-Behavior:
+Resolve the effective value from the stage number by default:
 
-- default remains `1`;
-- valid values are integers from `1` through the current objective count;
-- candidate and fallback acceptance requires at least that many feasible objectives;
-- insufficient candidates use a closed rejection reason such as `insufficient_objective_options` and remain inside the existing 64-attempt/fallback flow.
+```ts
+const minEligibleObjectives =
+    input.minEligibleObjectives ??
+    (input.stageNumber === 3 || input.stageNumber === 5 ? 2 : 1)
+```
 
-`createIceSlideExpeditionRunDefinition()` passes `minEligibleObjectives: 2` only for stage numbers 3 and 5. Other stages use the current default.
+The override exists for focused tests/direct callers. Production and the validation script get the stage-3/stage-5 invariant automatically by supplying the real stage number.
 
-At least one checked-in Medium fallback and one checked-in Hard fallback must satisfy the two-objective requirement. Catalog/content tests prove this rather than adding another fallback subsystem.
+Candidate and fallback acceptance requires at least that many feasible objectives. An otherwise valid board with too few choices is rejected with a closed reason such as `insufficient_objective_options` inside the existing 64-attempt/fallback flow.
 
-### 5.2 Objective feasibility reuse
+This matters for current checked-in content: a fallback with neither crystals nor hazards has only `no_reset` eligible and must not satisfy a Risk-target stage. Keep a catalog assertion proving at least one Medium fallback and one Hard fallback is two-objective capable.
 
-Move the existing objective-order/feasibility calculation behind one pure reusable helper in `objectives.ts`. `quality.ts` continues to own stage acceptance; `expedition.ts` may solve the already-materialized target stage at route-choice application time and reuse the same feasibility helper to select the extra objective.
+### 5.2 Validation path
 
-There are only two route choices per run, so a bounded 10,000-state solve at choice application is simpler than serializing an additional hidden eligibility pool into the run contract.
+There is no separate `validation.ts` module. Frozen/content validation is owned by:
 
-### 5.3 Versioning
+- `src/lib/games/ice-slide/generator.test.ts`;
+- `src/lib/games/ice-slide/generator.validation.test.ts`;
+- `scripts/validate-ice-slide-expedition.ts`.
 
-HPA-491 intentionally breaks previous Expedition seed output and Expedition score/rule meaning without compatibility machinery:
+The validation script already uses Medium stage numbers `[3, 4]` and Hard `[5, 6]`. With the stage-number default, its 1,000-seed gate exercises the same Risk-capability constraint as production without special arguments.
 
-- increment `ICE_SLIDE_EXPEDITION_GENERATOR_VERSION` from `1` to `2`, because stages 3 and 5 now have an additional generation acceptance constraint;
-- add `ICE_SLIDE_EXPEDITION_RULESET_VERSION = 2` for Expedition runs, because route multipliers and Undo change Expedition rules;
-- keep the shared Campaign/Daily `ICE_SLIDE_RULESET_VERSION` unchanged so HPA-491 does not rotate Daily competition keys or Campaign identity.
+### 5.3 Objective feasibility reuse
 
-The Expedition run key therefore becomes `g2:r2` for newly materialized runs. Existing generator-v1 test goldens are replaced; no compatibility adapter is retained.
+Extract the current feasibility calculation and objective order behind one pure helper in `objectives.ts`. `quality.ts` still owns stage acceptance. The generator and route-effect helper reuse the same feasibility facts.
 
-## 6. Pure route-effect contract
+### 5.4 Versioning
 
-Add to `expedition.ts`:
+HPA-491 deliberately changes Expedition output and Expedition scoring/rule meaning:
+
+- bump `ICE_SLIDE_EXPEDITION_GENERATOR_VERSION` from `1` to `2`;
+- add `ICE_SLIDE_EXPEDITION_RULESET_VERSION = 2` for Expedition runs only;
+- leave Campaign/Daily `ICE_SLIDE_RULESET_VERSION` unchanged.
+
+Replace generator-v1 frozen outputs/validation labels with v2. Do not add a compatibility branch.
+
+## 6. Pure route effect
+
+Add:
 
 ```ts
 export type IceSlideExpeditionRouteChoice = 'safe' | 'risky'
@@ -144,49 +162,57 @@ export function applyIceSlideExpeditionRouteChoice(
 The helper:
 
 1. requires a valid Expedition run with a non-null seed;
-2. clones the input run and never mutates the caller's object;
-3. maps `2 -> stage index 2` and `4 -> stage index 4`;
-4. for Safe, returns the cloned run unchanged with `undoChargesGranted: 1`;
-5. for Risk, solves the target board with the existing Expedition solver cap, derives the shared eligible-objective list, removes already-active objectives, and deterministically picks one remaining ID from a labeled RNG fork using the run seed/version and cleared-stage number;
-6. appends that objective, sets `scoreMultiplierBps = 12_500`, recomputes `signature`, and validates the resulting run;
-7. returns `undoChargesGranted: 0`.
+2. clones with `cloneIceSlideRunDefinition()` and never mutates the caller;
+3. maps checkpoint 2 to stage index 2 and checkpoint 4 to index 4;
+4. Safe returns the clone with one granted charge;
+5. Risk solves the target board using `ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES`, derives eligible objectives, removes already-active objectives, and picks one remaining ID from a labeled RNG fork;
+6. appends the objective, sets `12_500`, recomputes the signature with `createIceSlideStageSignature()`, and validates with `assertValidIceSlideRunDefinition()`;
+7. returns zero granted charges for Risk.
 
-The choice does not alter `runKey`: the key identifies the base seed plus generator/ruleset versions, while player choices and resulting stage signatures live in game data.
+The run key stays the base seed/version identity. The player's route choices and resulting stage signatures live in game data.
 
-## 7. Multi-objective scoring and stars
+## 7. Multi-objective scoring and result contract
 
-The current runtime only evaluates `objectiveIds[0]`. HPA-491 makes the existing array contract real.
+The current runtime consumes only the first objective. HPA-491 changes the existing array contract into real multi-objective behavior.
 
-Change the stage-clear result to expose all bonus results:
+Change:
 
 ```ts
-bonuses: Array<{
+stars.bonus
+```
+
+to:
+
+```ts
+stars.bonuses: Array<{
     id: IceSlideObjectiveId
     earned: boolean
 }>
 ```
 
+This is an atomic contract rename: every TypeScript call site, including `init.ts`, tests, and direct fixtures, changes in the same implementation task. The first commit that introduces `bonuses` must still type-check. Rich “Risk Bonus” copy remains a later UI task; the contract task only preserves the existing one-bonus presentation for Daily/current Expedition while updating the data shape.
+
 For objective modes:
 
 - Clear contributes one star.
 - Efficient contributes one star when earned.
-- Every active bonus objective contributes one star when earned.
-- Daily still has one bonus objective, so its visible behavior remains equivalent.
-- A Risk target stage can have four possible stars: Clear, Efficient, original Bonus, Risk Bonus.
+- Every active bonus objective contributes one earned star when satisfied.
+- Daily remains one-bonus behavior.
+- A Risk target stage can have four possible stars.
 
-Extend `levelScore()` with optional `scoreMultiplierBps`, defaulting to `10_000`. Compute the existing raw subtotal first, then apply and floor the multiplier once.
+Extend `levelScore()` with optional `scoreMultiplierBps`, defaulting to `10_000`; compute the current subtotal first, then multiply and floor once.
 
-Add `starsPossible` to state/game data and derive it from the active run as:
+Derive `starsPossible` from the active objective-mode run:
 
 ```ts
 sum(2 + stage.objectiveIds.length)
 ```
 
-for Daily/Expedition. Campaign can remain `0` because it does not use the star model. Recompute it after a Risk route effect changes the active run.
+Do not hard-code `stagesTotal * 3` after Risk exists.
 
 ## 8. Game-owned route lifecycle
 
-Add Expedition-only state:
+Add Expedition run state:
 
 ```ts
 pendingRouteChoiceAfterStage: 2 | 4 | null
@@ -198,11 +224,31 @@ starsPossible: number
 
 After clearing Expedition stage 2 or 4:
 
-1. load the already-materialized next stage through the existing `loadLevel()` path;
-2. set `pendingRouteChoiceAfterStage` to the stage just cleared;
+1. load the already-materialized next stage through `loadLevel()`;
+2. only after that reconstruction, set `pendingRouteChoiceAfterStage` to the stage just cleared;
 3. invoke the existing level-clear callback.
 
-While a route choice is pending, `move()` and `resetLevel()` are no-ops at the game layer, even if a stale browser handler fires.
+While a choice is pending, `move()` and `resetLevel()` are no-ops at the game layer.
+
+### 8.1 Preserve-run contract
+
+`loadLevel()` rebuilds `this.state` wholesale. Therefore route/charge state must join the existing preserve-run bag exactly like score/stars/falls/resets:
+
+- clone/preserve `routeChoices`;
+- preserve `undoChargesAvailable`;
+- preserve `undoChargesUsed`.
+
+Do not preserve `starsPossible` as stored state; recompute it from `activeRun` because it is derived. Do not preserve a pending choice through the reconstruction; the checkpoint token is set explicitly after loading the target stage.
+
+This guarantee applies to:
+
+- hazard resets;
+- manual Reset;
+- normal stage transitions.
+
+A Safe charge must therefore survive a stage-3 hazard/reset and remain available when the player reaches stage 4 if unused. The stage-4 route gate must still see the prior `routeChoices` entry.
+
+### 8.2 Choice application
 
 Add:
 
@@ -210,18 +256,11 @@ Add:
 chooseExpeditionRoute(choice: IceSlideExpeditionRouteChoice): boolean
 ```
 
-It succeeds only when all are true:
+It succeeds only when mode/status/pending token/prior-choice count match. On success it applies the pure route effect, replaces `activeRun`, synchronizes current objective IDs and stage signatures, recomputes `starsPossible`, grants any Safe charge, records the choice, clears the pending token, and returns `true`. Stale/double calls return `false` with no mutation.
 
-- mode is Expedition;
-- status is `playing`;
-- `pendingRouteChoiceAfterStage` is `2` or `4`;
-- the number of prior choices matches that checkpoint.
+## 9. Undo
 
-On success it applies the pure route effect to `activeRun`, synchronizes the current state's objective IDs/stage signatures/star ceiling, grants any Safe charge, records the choice, clears the pending token, and returns `true`. A stale/double call returns `false` and changes nothing.
-
-## 9. Undo contract
-
-Keep a single private snapshot in `IceSlideGame`; do not add an inventory or history stack.
+Keep exactly one private snapshot in `game.ts`:
 
 ```ts
 interface IceSlideUndoSnapshot {
@@ -234,41 +273,23 @@ interface IceSlideUndoSnapshot {
 }
 ```
 
-Before resolving a direction, clone these pre-move values. Then:
+Before `slide()` mutates the grid, clone these values. Then:
 
-- noop: keep the previous eligible snapshot unchanged because no move committed;
-- normal non-hazard move: replace the snapshot with the pre-move snapshot;
-- hazard: discard the snapshot;
-- stage transition, manual Reset, start, stop, and cleanup: discard the snapshot.
+- noop: keep the prior snapshot;
+- committed non-hazard move: replace the snapshot with the pre-move values;
+- hazard: discard the snapshot, but preserve route history and unused charges through `loadLevel()`;
+- manual Reset: discard the snapshot, while preserving run-scoped route/charge fields;
+- stage transition/start/stop/destroy: discard the snapshot.
 
-Add:
+`canUndo()` is true only for active Expedition play with no pending route choice, at least one charge, and a current-stage snapshot.
 
-```ts
-canUndo(): boolean
-undo(): boolean
-```
+A successful Undo restores grid/player/crystal and objective-attempt state, consumes one charge, increments used charges, clears the snapshot and `lastSlidePath`, and deliberately leaves total/stage move counters, time, score, route choices, and run metadata untouched.
 
-Undo is allowed only when:
-
-- mode is Expedition;
-- status is `playing`;
-- no route choice is pending;
-- at least one charge is available;
-- a snapshot from the current stage exists.
-
-A successful Undo:
-
-1. restores the cloned grid, player, crystal totals, and objective-relevant attempt fields;
-2. consumes one available charge and increments `undoChargesUsed`;
-3. clears the snapshot so another Undo requires another committed move;
-4. clears `lastSlidePath`;
-5. deliberately leaves total/stage move counters, elapsed time, route choices, and score untouched.
-
-Restoring the grid also restores crystals consumed by the undone move. HPA-493 will extend this private snapshot with fragile/collapsed state; HPA-491 does not create a generic dynamic-state abstraction in advance.
+HPA-493 may later extend this same private snapshot with fragile/collapsed state. HPA-491 does not introduce a second snapshot type or dynamic-state abstraction.
 
 ## 10. Game data
 
-Make the following additive fields explicit on `IceSlideGameData`:
+Additive fields:
 
 ```ts
 routeChoices: IceSlideExpeditionRouteChoice[]
@@ -279,127 +300,92 @@ stageObjectiveIds: IceSlideObjectiveId[][]
 stageScoreMultipliersBps: number[]
 ```
 
-`stageSignatures` already reports the resulting signatures and is refreshed after a Risk choice.
+`stageSignatures` already reports resulting signatures and is refreshed after Risk.
 
-Campaign and Daily report empty/zero route/Undo values; their current score submission paths remain unchanged. Expedition completion and positive-score partial End continue through the existing contextual submission path.
+Campaign/Daily report empty/zero route/Undo values. Existing persistence and leaderboard behavior is unchanged.
 
-## 11. Browser UI and accessibility
+## 11. Browser UI
 
-### 11.1 Route-choice overlay
+### 11.1 Route choice
 
-Add a page-local `#expedition-route-choice-overlay` inside the game-board surface with two native buttons:
+Add one page-local hidden overlay with native buttons:
 
-- `#expedition-safe-btn` — **Safe Cache** — “Gain 1 Undo charge · next stage ×1.00”
-- `#expedition-risk-btn` — **Risk Protocol** — “Extra bonus objective · next stage ×1.25”
+- `#expedition-safe-btn` — Safe Cache — “Gain 1 Undo charge · next stage ×1.00”
+- `#expedition-risk-btn` — Risk Protocol — “Extra bonus objective · next stage ×1.25”
 
-The stage-clear overlay remains first. `Continue` behaves as follows:
+Continue after stage 2/4 hides the stage-clear overlay but keeps input locked, shows the choice overlay, and focuses Safe. A valid choice hides the overlay, refreshes HUD/rendering, unlocks input, and does not regenerate the board.
 
-- normal non-final objective stage: hide stage clear and unlock input;
-- Expedition stage 2/4: hide stage clear, keep input locked, show route choice, focus Safe Cache.
+Failure, cleanup, restart, End, and Change Mode hide the route overlay.
 
-Choosing a valid route hides the overlay, refreshes HUD/board state, unlocks input, and focuses the game surface when appropriate. Choice buttons are real buttons and therefore keyboard/touch accessible. No timed auto-selection or animation delay is added; reduced-motion behavior is naturally unchanged.
+### 11.2 Undo button
 
-`failRun()`, `cleanup()`, run restart, End, and Change Mode hide the route overlay and clear its UI lock.
-
-### 11.2 Undo control
-
-Keep Undo local to the Expedition HUD instead of replacing the shared `GameControls` component. Add:
-
-```text
-#expedition-undo-btn
-```
-
-The button displays the current charge count and is disabled unless `game.canUndo()` is true. Clicking it calls the handle's `undo()`, then re-renders and syncs HUD. Campaign/Daily never show the Expedition HUD and therefore never expose the control.
+Add `#expedition-undo-btn` inside `#expedition-meta`. It shows the available charge count and is disabled unless `game.canUndo()` is true. Do not fork `GameControls`.
 
 ### 11.3 Objective/result copy
 
-The HUD and stage-clear/final result surfaces render every bonus objective/result, not only `objectiveIds[0]`. Daily still renders one Bonus row. Risk stages render the original Bonus plus one Risk Bonus row. Expedition star totals use `starsPossible` rather than `stagesTotal * 3`.
+The later UI task expands the mechanically-updated `stars.bonuses` contract into deterministic multi-objective copy: original Bonus plus Risk Bonus. HUD/current objectives use stable array order. Expedition max stars uses `starsPossible`.
 
 ## 12. Error handling
 
-- A generated stage that cannot satisfy its configured minimum eligible-objective count is rejected inside the existing bounded attempt flow.
-- If every candidate and checked-in fallback fails, run materialization throws through the existing `failRun()` path; there is no weaker Risk mode.
-- A Risk route effect unexpectedly finding no remaining eligible objective throws as an invariant violation and ends through the existing player-safe failure path.
-- Stale or double route-button handlers return `false` and do not apply effects twice.
-- Undo with no charge/snapshot, after a hazard/reset, outside Expedition, or during a choice returns `false` and changes nothing.
-- Score-submission failure does not invalidate the local run, unchanged from HPA-490.
+- Too few eligible objectives rejects a candidate/fallback inside the existing bounded generator.
+- If all candidates/fallbacks fail, run materialization uses the existing failure path; there is no weaker Risk mode.
+- Risk re-solves the target board and throws on solver truncation/unsolvable/no remaining eligible objective as an invariant failure.
+- Stale/double choices return `false`.
+- Invalid Undo returns `false`.
+- Score-submission failure does not invalidate a local result.
 
-## 13. Testing strategy
+## 13. Testing
 
-### 13.1 Generator and route-effect tests
+### Generator/content
 
-Cover:
+- stage 3/5 default to two eligible objectives without caller opt-in;
+- explicit `minEligibleObjectives` override is covered for tests/direct callers;
+- insufficient candidate/fallback options are rejected deterministically;
+- at least one Medium and Hard fallback is Risk-capable;
+- `generator.validation.test.ts` and the 1,000-seed script exercise real stage numbers and therefore the production constraint;
+- v2 deterministic outputs replace v1 with no compatibility path.
 
-- `minEligibleObjectives` validation/default behavior;
-- candidate and fallback rejection for insufficient objective options;
-- route-target stages 3 and 5 always expose at least two eligible objectives over the deterministic complete-run sweep;
-- Medium and Hard fallback pools contain at least one route-capable fallback;
-- generator-v2 deterministic goldens;
-- Safe leaves stage metadata at `1.00×` and grants one charge;
-- Risk adds one non-duplicate eligible objective, uses `12_500`, changes the stage signature, and grants no charge;
-- same seed + same route calls deep-equal;
-- source run is never mutated.
+### Route/scoring
 
-### 13.2 Scoring/game tests
+- Safe leaves target metadata unchanged and grants one charge;
+- Risk adds one unique eligible objective, sets 12,500 bps, resigns, and is deterministic;
+- multiple bonus objectives are evaluated/scored;
+- the multiplier is applied after bonuses and floored once;
+- Daily remains one-bonus/1.00× behavior;
+- the `stars.bonus -> stars.bonuses` rename updates all TypeScript consumers in one commit and `bun run typecheck` passes there.
 
-Cover:
+### Lifecycle/Undo
 
-- multiple bonus objectives are evaluated independently;
-- multiplier is applied after objective bonuses and floored once;
-- Daily one-bonus scoring remains unchanged;
-- stage 2/4 sets the exact pending token;
-- move/reset cannot pass a pending choice;
-- stale/double choices are rejected;
-- Safe charge accumulation and Risk metadata synchronization;
-- game data records choices, charges, objective arrays, multipliers, stars possible, and resulting signatures.
+- pending checkpoints exist exactly after stage 2/4;
+- stale/double choices fail closed;
+- Safe -> stage-3 hazard/reset preserves charge and route history;
+- Safe -> stage-3 clear preserves charge and route history into stage 4;
+- Risk updates current objectives/signatures/star ceiling before the first target-stage move;
+- ordinary Undo restores pre-move state while retaining move cost;
+- crystal Undo restores the crystal cell/counters;
+- hazard/reset/stage-cross invalidates the snapshot but does not wipe run-scoped charges/history.
 
-### 13.3 Undo tests
+### Browser
 
-Cover:
+- stage-clear Continue -> route overlay sequencing;
+- movement remains locked before a choice;
+- buttons work with keyboard/touch semantics;
+- Safe enables one-step Undo;
+- Risk produces deterministic objective/multiplier/signature on Retry Seed with the same choice;
+- Campaign/Daily do not expose route/Undo UI.
 
-- ordinary move restoration;
-- crystal collection restores both grid and crystal counters;
-- move counters do not decrement;
-- no-op does not destroy the previous eligible snapshot;
-- hazard/manual Reset clears Undo eligibility;
-- zero-charge, Campaign, Daily, pending-choice, and ended-run calls fail closed;
-- Undo consumes one charge and cannot be chained without another committed move;
-- stage clear cannot be undone across the transition.
-
-### 13.4 UI/E2E
-
-Extend existing Ice Slide browser coverage with the pinned Expedition seed:
-
-1. clear stages 1 and 2;
-2. verify stage-clear Continue opens the route choice and movement remains blocked;
-3. select Safe with the button/keyboard path;
-4. make one normal stage-3 move, use Undo, and verify position/grid restoration while move count stays charged;
-5. verify button charge/disabled state;
-6. separately prove Risk adds a second objective and `1.25×` metadata for the deterministic target stage;
-7. retry the seed, make the same choice, and compare resulting stage objective IDs/multiplier/signature;
-8. verify Campaign/Daily have no visible route choice or Undo control.
-
-Keep static DOM-ID coverage in `src/pages/game-board-markup.test.ts`.
-
-## 14. YAGNI boundaries
+## 14. Scope boundaries
 
 Do not add:
 
-- a generic ability/effect/inventory framework;
-- permanent progression or saved consumables;
-- branching/generated alternate layouts after a choice;
-- more than one-step Undo history;
-- DB schema, API, score-service, or leaderboard changes;
-- seed sharing/input/history UI;
+- ability/effect registry;
+- inventory or permanent progression;
+- multi-step Undo history;
+- eligibility fields in the run schema;
+- alternate route layouts;
+- DB/API/leaderboard changes;
+- seed-sharing/history UI;
 - global Expedition ranking;
-- snow or cracked-ice behavior;
-- a generalized dynamic-tile snapshot abstraction before HPA-493;
-- compatibility code for generator-v1 Expedition seeds.
-
-## 15. Spec self-review
-
-- **Placeholder scan:** no TBD/TODO or deferred requirement remains inside HPA-491 scope.
-- **Consistency:** route choices affect only stages 3/5; Safe only grants Undo; Risk only adds one objective plus the documented multiplier; Retry starts from the base materialized run again.
-- **Determinism:** Risk target stages are generated with two eligible objectives up front, and the second objective is selected from the final board using a labeled seed fork.
-- **Scope:** no HPA-492/HPA-493 mechanic or platform persistence change is pulled forward.
-- **Future seam:** HPA-493 can extend the private Undo snapshot directly without replacing HPA-491 architecture.
+- snow or cracked ice;
+- a second Undo snapshot type;
+- generator-v1 compatibility.
