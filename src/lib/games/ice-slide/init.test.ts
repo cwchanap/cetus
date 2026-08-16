@@ -104,6 +104,15 @@ function mountDom(): HTMLElement {
         <span id="daily-objective-efficient"></span>
         <span id="daily-objective-bonus"></span>
       </div>
+      <div id="expedition-meta" class="hidden">
+        <span id="expedition-seed"></span>
+        <span id="expedition-stage-progress"></span>
+        <span id="expedition-stars"></span>
+        <span id="expedition-attempts"></span>
+        <span id="expedition-objective-clear"></span>
+        <span id="expedition-objective-efficient"></span>
+        <span id="expedition-objective-bonus"></span>
+      </div>
       <div id="stage-clear-overlay" class="hidden">
         <span id="stage-clear-title"></span>
         <span id="stage-clear-score"></span>
@@ -112,10 +121,20 @@ function mountDom(): HTMLElement {
         <span id="stage-clear-bonus"></span>
         <button id="stage-clear-continue-btn"></button>
       </div>
-      <div id="daily-final-stage-result" class="hidden">
-        <span id="daily-final-clear"></span>
-        <span id="daily-final-efficient"></span>
-        <span id="daily-final-bonus"></span>
+      <div id="run-final-stage-result" class="hidden">
+        <span id="run-final-heading"></span>
+        <span id="run-final-clear"></span>
+        <span id="run-final-efficient"></span>
+        <span id="run-final-bonus"></span>
+      </div>
+      <div id="expedition-summary" class="hidden">
+        <span id="expedition-summary-seed"></span>
+        <span id="expedition-summary-progress"></span>
+        <span id="expedition-summary-stars"></span>
+        <span id="expedition-summary-moves"></span>
+        <span id="expedition-summary-crystals"></span>
+        <span id="expedition-summary-attempts"></span>
+        <span id="expedition-summary-time"></span>
       </div>
     `
     return document.getElementById('game-canvas-container')!
@@ -404,7 +423,7 @@ describe('initializeIceSlide', () => {
             }
         }
 
-        expect(document.getElementById('daily-final-bonus')?.textContent).toBe(
+        expect(document.getElementById('run-final-bonus')?.textContent).toBe(
             '— Bonus'
         )
         handle.cleanup()
@@ -432,17 +451,20 @@ describe('initializeIceSlide', () => {
         ).toBe(true)
         expect(
             document
-                .getElementById('daily-final-stage-result')
+                .getElementById('run-final-stage-result')
                 ?.classList.contains('hidden')
         ).toBe(false)
+        expect(document.getElementById('run-final-heading')?.textContent).toBe(
+            'Daily stars'
+        )
         expect(
-            document.getElementById('daily-final-clear')?.textContent
+            document.getElementById('run-final-clear')?.textContent
         ).not.toBe('')
         expect(
-            document.getElementById('daily-final-efficient')?.textContent
+            document.getElementById('run-final-efficient')?.textContent
         ).not.toBe('')
         expect(
-            document.getElementById('daily-final-bonus')?.textContent
+            document.getElementById('run-final-bonus')?.textContent
         ).not.toBe('')
         expect(saveGameScore).toHaveBeenCalledTimes(1)
 
@@ -1150,6 +1172,61 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
+    it('populates the Expedition HUD from the captured run', async () => {
+        const seed = '11111111222222223333333344444444'
+        const getRandomValues = vi.fn((array: Uint32Array) => {
+            array.set(
+                new Uint32Array([
+                    0x11111111, 0x22222222, 0x33333333, 0x44444444,
+                ])
+            )
+            return array
+        })
+        vi.stubGlobal('crypto', { getRandomValues })
+
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('expedition')
+        const state = handle.getGame()!.getState()
+        const run = createIceSlideExpeditionRunDefinition(seed)
+
+        expect(
+            document
+                .getElementById('expedition-meta')
+                ?.classList.contains('hidden')
+        ).toBe(false)
+        // Raw seed from the captured run, not the run-key hash.
+        expect(document.getElementById('expedition-seed')?.textContent).toBe(
+            seed
+        )
+        // Tier comes from the captured run's current stage definition.
+        expect(
+            document.getElementById('expedition-stage-progress')?.textContent
+        ).toBe(
+            `Stage ${state.levelIndex + 1} / ${state.stagesTotal} · ` +
+                run.stages[state.levelIndex].difficulty.toUpperCase()
+        )
+        // Max stars derives from the total stage count.
+        expect(document.getElementById('expedition-stars')?.textContent).toBe(
+            `Stars ${state.starsEarned} / ${state.stagesTotal * 3}`
+        )
+        expect(
+            document.getElementById('expedition-attempts')?.textContent
+        ).toBe(`Falls ${state.falls} · Resets ${state.resets}`)
+        expect(
+            document.getElementById('expedition-objective-clear')?.textContent
+        ).toContain('Clear')
+        expect(
+            document.getElementById('expedition-objective-efficient')
+                ?.textContent
+        ).toContain(String(state.parMoves))
+        expect(
+            document.getElementById('expedition-objective-bonus')?.textContent
+        ).not.toBe('')
+        handle.cleanup()
+    })
+
     it('submits a completed Expedition run with expedition context', async () => {
         const container = mountDom()
         const handle = await initializeIceSlide(container, baseCallbacks())
@@ -1163,6 +1240,34 @@ describe('initializeIceSlide', () => {
         const gameData = game.getGameData()
         expect(game.getState().status).toBe('won')
         expect(saveGameScore).toHaveBeenCalledTimes(1)
+        expect(
+            document
+                .getElementById('run-final-stage-result')
+                ?.classList.contains('hidden')
+        ).toBe(false)
+        expect(document.getElementById('run-final-heading')?.textContent).toBe(
+            'Expedition stars'
+        )
+        expect(
+            document.getElementById('run-final-clear')?.textContent
+        ).not.toBe('')
+        expect(
+            document.getElementById('run-final-efficient')?.textContent
+        ).not.toBe('')
+        expect(
+            document.getElementById('run-final-bonus')?.textContent
+        ).not.toBe('')
+        expect(
+            document
+                .getElementById('expedition-summary')
+                ?.classList.contains('hidden')
+        ).toBe(false)
+        expect(
+            document.getElementById('expedition-summary-progress')?.textContent
+        ).toBe(`${gameData.stagesTotal} / ${gameData.stagesTotal} stages`)
+        expect(
+            document.getElementById('expedition-summary-stars')?.textContent
+        ).toBe(`${gameData.starsEarned} / ${gameData.stagesTotal * 3} stars`)
 
         const [, , , , submittedData, options] =
             vi.mocked(saveGameScore).mock.calls[0]
@@ -1215,6 +1320,15 @@ describe('initializeIceSlide', () => {
         expect(document.getElementById('game-over-title')?.textContent).toBe(
             'RUN ENDED'
         )
+        // The same local summary as a zero-score End, plus submission.
+        expect(
+            document
+                .getElementById('expedition-summary')
+                ?.classList.contains('hidden')
+        ).toBe(false)
+        expect(
+            document.getElementById('expedition-summary-progress')?.textContent
+        ).toBe('1 / 6 stages')
         handle.cleanup()
     })
 
@@ -1234,6 +1348,33 @@ describe('initializeIceSlide', () => {
         expect(document.getElementById('start-btn')?.style.display).toBe(
             'inline-flex'
         )
+        // Zero-score End still renders the local Expedition summary.
+        expect(
+            document
+                .getElementById('expedition-summary')
+                ?.classList.contains('hidden')
+        ).toBe(false)
+        expect(
+            document.getElementById('expedition-summary-seed')?.textContent
+        ).toMatch(/^[0-9a-f]{32}$/)
+        expect(
+            document.getElementById('expedition-summary-progress')?.textContent
+        ).toBe('0 / 6 stages')
+        expect(
+            document.getElementById('expedition-summary-stars')?.textContent
+        ).toBe('0 / 18 stars')
+        expect(
+            document.getElementById('expedition-summary-moves')?.textContent
+        ).toBe('0')
+        expect(
+            document.getElementById('expedition-summary-crystals')?.textContent
+        ).toBe('0')
+        expect(
+            document.getElementById('expedition-summary-attempts')?.textContent
+        ).toBe('Falls 0 · Resets 0')
+        expect(
+            document.getElementById('expedition-summary-time')?.textContent
+        ).toBe('0:00')
         handle.cleanup()
     })
 
@@ -1333,7 +1474,9 @@ describe('initializeIceSlide', () => {
 
         // Play generated stages through the wired input so afterMove ensures
         // the renderer for each new board size. Same-size stages reuse the
-        // renderer; the first size change recreates it.
+        // renderer; the first size change recreates it. Expedition non-final
+        // clears lock wired input behind the shared stage-clear overlay, so
+        // Continue is clicked between stages.
         let stage = handle.getGame()!.getState()
         for (;;) {
             const path = findSolution(stage.grid, stage.player)
@@ -1351,6 +1494,8 @@ describe('initializeIceSlide', () => {
                     stage.levelIndex
                 )
             })
+            // No-op for the final clear (status is won, input never locked).
+            document.getElementById('stage-clear-continue-btn')?.click()
             const next = handle.getGame()!.getState()
             if (next.rows === stage.rows && next.cols === stage.cols) {
                 expect(vi.mocked(setupPixiJS).mock.calls.length).toBe(
