@@ -13,6 +13,8 @@ import {
     createIceSlideStageSignature,
     parseIceSlideDailyRunKey,
     formatIceSlideDailyRunKey,
+    parseIceSlideExpeditionRunKey,
+    formatIceSlideExpeditionRunKey,
     iceSlideDailyAdmissionError,
 } from './run'
 import type { IceSlideObjectiveId, IceSlideRunDefinition } from './types'
@@ -640,6 +642,45 @@ describe('Ice Slide Daily competition key grammar', () => {
         [{ dateKey: '2026-08-12', generatorVersion: 1, rulesetVersion: 0 }],
     ])('rejects invalid formatted identity %j', identity => {
         expect(() => formatIceSlideDailyRunKey(identity)).toThrow()
+    })
+})
+
+describe('Ice Slide Expedition run key grammar', () => {
+    it('round-trips Expedition run identity', () => {
+        const seed = '00112233445566778899aabbccddeeff'
+        const identity = {
+            seedHash: hashString32Hex(seed),
+            generatorVersion: 1,
+            rulesetVersion: 1,
+        }
+
+        const runKey = formatIceSlideExpeditionRunKey(identity)
+
+        expect(runKey).toBe(`ice-slide:expedition:${identity.seedHash}:g1:r1`)
+        expect(parseIceSlideExpeditionRunKey(runKey)).toEqual(identity)
+        expect(
+            formatIceSlideExpeditionRunKey(
+                parseIceSlideExpeditionRunKey(runKey)!
+            )
+        ).toBe(runKey)
+    })
+
+    it.each([
+        'ice-slide:expedition:nothex:g1:r1',
+        'ice-slide:expedition:12345678:g0:r1',
+        'ice-slide:expedition:12345678:g1:r0',
+    ])('rejects malformed Expedition key %s', runKey => {
+        expect(parseIceSlideExpeditionRunKey(runKey)).toBeNull()
+    })
+
+    it('rejects non-lowercase-hex Expedition hashes when formatting', () => {
+        expect(() =>
+            formatIceSlideExpeditionRunKey({
+                seedHash: 'ABCDEF12',
+                generatorVersion: 1,
+                rulesetVersion: 1,
+            })
+        ).toThrow(RangeError)
     })
 })
 
