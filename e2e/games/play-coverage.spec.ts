@@ -468,7 +468,11 @@ test.describe('Ice Slide', () => {
                 const nativeGetRandomValues =
                     crypto.getRandomValues.bind(crypto)
                 let expeditionCalls = 0
-                crypto.getRandomValues = (array: ArrayBufferView) => {
+                crypto.getRandomValues = <
+                    T extends ArrayBufferView<ArrayBuffer>,
+                >(
+                    array: T
+                ): T => {
                     if (array instanceof Uint32Array && array.length === 4) {
                         const words = expeditionCalls === 0 ? seedA : seedB
                         array.set(words)
@@ -483,7 +487,10 @@ test.describe('Ice Slide', () => {
                     return nativeGetRandomValues(array)
                 }
             },
-            [EXPEDITION_SEED_A_WORDS, EXPEDITION_SEED_B_WORDS]
+            [EXPEDITION_SEED_A_WORDS, EXPEDITION_SEED_B_WORDS] as [
+                number[],
+                number[],
+            ]
         )
     }
 
