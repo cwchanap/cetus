@@ -262,12 +262,10 @@ export class IceSlideGame {
             movesUsed: this.state.levelMoves,
             crystalsCollected: this.state.levelCrystalsCollected,
         }
-        const scoreGained = isObjectiveMode
-            ? levelScore(
-                  { ...scoringParams, optionalStarsEarned },
-                  scoringConfig
-              )
-            : levelScore(scoringParams)
+        const scoreGained = levelScore(
+            { ...scoringParams, optionalStarsEarned },
+            scoringConfig
+        )
         const result: IceSlideStageClearResult = {
             stageNumber: levelNumber,
             stageName: stage.name,

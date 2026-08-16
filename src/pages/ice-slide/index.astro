@@ -360,12 +360,13 @@ import Button from '@/components/ui/Button.astro'
   import type { IceSlidePlayableMode } from '@/lib/games/ice-slide/types'
 
   const requestedMode = new URLSearchParams(window.location.search).get('mode')
-  const selectedMode: IceSlidePlayableMode =
-    requestedMode === 'daily'
+  const toPlayableMode = (value: string | null): IceSlidePlayableMode =>
+    value === 'daily'
       ? 'daily'
-      : requestedMode === 'expedition'
+      : value === 'expedition'
         ? 'expedition'
         : 'campaign'
+  const selectedMode: IceSlidePlayableMode = toPlayableMode(requestedMode)
 
   let gameHandle: Awaited<ReturnType<typeof initializeIceSlide>> | null = null
 
@@ -455,14 +456,8 @@ import Button from '@/components/ui/Button.astro'
       radio.checked = radio.value === selectedMode
     })
 
-    const readSelectedMode = (): IceSlidePlayableMode => {
-      const value = modeRadios.find(radio => radio.checked)?.value
-      return value === 'daily'
-        ? 'daily'
-        : value === 'expedition'
-          ? 'expedition'
-          : 'campaign'
-    }
+    const readSelectedMode = (): IceSlidePlayableMode =>
+      toPlayableMode(modeRadios.find(radio => radio.checked)?.value ?? null)
 
     const syncResultActions = () => {
       const isExpedition =
@@ -601,6 +596,7 @@ import Button from '@/components/ui/Button.astro'
         errorEl.classList.remove('hidden')
         resetButtonState()
         restoreIdleModeControlsIfNoResult()
+        syncResultActions()
       }
     })
 

@@ -11,6 +11,7 @@ import {
     createIceSlideExpeditionRunDefinition,
 } from './expedition'
 import { getBoardOrbitKey } from './transforms'
+import type { IceSlideStageDefinition } from './types'
 
 const SEED = '00112233445566778899aabbccddeeff'
 
@@ -26,18 +27,19 @@ describe('Ice Slide Expedition run materialization', () => {
 
     it('uses the fixed 2/2/2 order with six unique board orbits', () => {
         const run = createIceSlideExpeditionRunDefinition(SEED)
-        expect(run.stages.map(stage => stage.difficulty)).toEqual([
-            'easy',
-            'easy',
-            'medium',
-            'medium',
-            'hard',
-            'hard',
-        ])
         expect(
-            new Set(run.stages.map(stage => getBoardOrbitKey(stage.rows))).size
+            run.stages.map((stage: IceSlideStageDefinition) => stage.difficulty)
+        ).toEqual(['easy', 'easy', 'medium', 'medium', 'hard', 'hard'])
+        expect(
+            new Set(
+                run.stages.map((stage: IceSlideStageDefinition) =>
+                    getBoardOrbitKey(stage.rows)
+                )
+            ).size
         ).toBe(6)
-        expect(run.stages.map(stage => stage.id)).toEqual([
+        expect(
+            run.stages.map((stage: IceSlideStageDefinition) => stage.id)
+        ).toEqual([
             'expedition:1',
             'expedition:2',
             'expedition:3',
@@ -91,18 +93,18 @@ describe('Ice Slide Expedition run materialization', () => {
             const seed = `hpa-490:full-run:${String(index).padStart(3, '0')}`
             const run = createIceSlideExpeditionRunDefinition(seed)
 
-            expect(run.stages.map(stage => stage.difficulty)).toEqual([
-                'easy',
-                'easy',
-                'medium',
-                'medium',
-                'hard',
-                'hard',
-            ])
+            expect(
+                run.stages.map(
+                    (stage: IceSlideStageDefinition) => stage.difficulty
+                )
+            ).toEqual(['easy', 'easy', 'medium', 'medium', 'hard', 'hard'])
             expect(run.stages).toHaveLength(6)
             expect(
-                new Set(run.stages.map(stage => getBoardOrbitKey(stage.rows)))
-                    .size
+                new Set(
+                    run.stages.map((stage: IceSlideStageDefinition) =>
+                        getBoardOrbitKey(stage.rows)
+                    )
+                ).size
             ).toBe(6)
             expect(() => assertValidIceSlideRunDefinition(run)).not.toThrow()
         }

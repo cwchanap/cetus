@@ -67,7 +67,7 @@ describe('Bubble Shooter rules copy', () => {
     })
 })
 
-describe('Ice Slide Daily challenge markup', () => {
+describe('Ice Slide Daily and Expedition challenge markup', () => {
     it('keeps stable mode, HUD, and result selectors', () => {
         expect(iceSlideMarkup).toContain('id="ice-slide-mode-selector"')
         expect(iceSlideMarkup).toContain('value="campaign"')
