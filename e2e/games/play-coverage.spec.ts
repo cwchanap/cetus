@@ -5,6 +5,7 @@ import { parseGrid, slide } from '../../src/lib/games/ice-slide/physics'
 import type {
     Direction,
     GridPosition,
+    IceSlideRunDefinition,
 } from '../../src/lib/games/ice-slide/types'
 
 /**
@@ -29,10 +30,9 @@ const EXPEDITION_SEED_B_HEX = EXPEDITION_SEED_B_WORDS.map(word =>
  * behavior while avoiding falls entirely.
  */
 function findExpeditionRoute(
-    seed: string,
+    run: IceSlideRunDefinition,
     stageNumber: number
 ): readonly Direction[] {
-    const run = createIceSlideExpeditionRunDefinition(seed)
     const stage = run.stages[stageNumber - 1]
     const grid = parseGrid({ id: stage.id, rows: stage.rows })
     let start: GridPosition | null = null
@@ -44,7 +44,7 @@ function findExpeditionRoute(
         }
     }
     if (!start) {
-        throw new Error(`No start tile on ${seed} stage ${stageNumber}`)
+        throw new Error(`No start tile on ${run.seed} stage ${stageNumber}`)
     }
     const directions: Direction[] = ['N', 'E', 'S', 'W']
     const delta = (direction: Direction) => ({
@@ -56,6 +56,10 @@ function findExpeditionRoute(
         path: Direction[]
         grid: ReturnType<typeof parseGrid>
     }> = [{ pos: start, path: [], grid: grid.map(row => [...row]) }]
+    // Position-only visited set: crystals are consumed by slide() but do not
+    // affect movement physics (they never block or redirect), so two paths
+    // reaching the same position with different crystal states have identical
+    // remaining routes. This keeps the BFS fast without tracking crystal state.
     const seen = new Set<string>([`${start.row},${start.col}`])
     let cursor = 0
     while (cursor < queue.length) {
@@ -82,7 +86,7 @@ function findExpeditionRoute(
             break
         }
     }
-    throw new Error(`No route found for ${seed} stage ${stageNumber}`)
+    throw new Error(`No route found for ${run.seed} stage ${stageNumber}`)
 }
 
 const expeditionSeedARun = createIceSlideExpeditionRunDefinition(
@@ -91,8 +95,8 @@ const expeditionSeedARun = createIceSlideExpeditionRunDefinition(
 const expeditionSeedBRun = createIceSlideExpeditionRunDefinition(
     EXPEDITION_SEED_B_HEX
 )
-const expeditionRouteAStage1 = findExpeditionRoute(EXPEDITION_SEED_A_HEX, 1)
-const expeditionRouteAStage2 = findExpeditionRoute(EXPEDITION_SEED_A_HEX, 2)
+const expeditionRouteAStage1 = findExpeditionRoute(expeditionSeedARun, 1)
+const expeditionRouteAStage2 = findExpeditionRoute(expeditionSeedARun, 2)
 
 /**
  * One happy-path play test per game. Each game's "Start" listener attaches
@@ -473,7 +477,15 @@ test.describe('Ice Slide', () => {
                 >(
                     array: T
                 ): T => {
-                    if (array instanceof Uint32Array && array.length === 4) {
+                    if (
+                        array instanceof Uint32Array &&
+                        array.length === 4 &&
+                        (
+                            array as unknown as {
+                                __iceSlideExpeditionSeed?: boolean
+                            }
+                        ).__iceSlideExpeditionSeed === true
+                    ) {
                         const words = expeditionCalls === 0 ? seedA : seedB
                         array.set(words)
                         expeditionCalls += 1

@@ -669,7 +669,7 @@ describe('Ice Slide Expedition run key grammar', () => {
         'ice-slide:expedition:nothex:g1:r1',
         'ice-slide:expedition:12345678:g0:r1',
         'ice-slide:expedition:12345678:g1:r0',
-    ])('rejects malformed Expedition key %s', runKey => {
+    ])('rejects malformed Expedition key %s', (runKey: string) => {
         expect(parseIceSlideExpeditionRunKey(runKey)).toBeNull()
     })
 

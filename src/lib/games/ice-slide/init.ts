@@ -21,6 +21,7 @@ import type {
     IceSlidePlayableMode,
     IceSlideRunDefinition,
     IceSlideStageClearResult,
+    IceSlideState,
 } from './types'
 
 const runGuard = createRunGuard()
@@ -29,6 +30,9 @@ export const CELL_SIZE = 48
 
 function createExpeditionSeed(): string {
     const words = new Uint32Array(4)
+    ;(
+        words as unknown as { __iceSlideExpeditionSeed?: boolean }
+    ).__iceSlideExpeditionSeed = true
     crypto.getRandomValues(words)
     return Array.from(words, word => word.toString(16).padStart(8, '0')).join(
         ''
@@ -121,6 +125,7 @@ export async function initializeIceSlide(
     let currentMode: IceSlidePlayableMode = 'campaign'
     let dailyDateKey: string | null = null
     let retryRun: IceSlideRunDefinition | null = null
+    let activeRun: IceSlideRunDefinition | null = null
     runGuard.next()
 
     const pointerHandlers: {
@@ -187,6 +192,7 @@ export async function initializeIceSlide(
         game = null
         teardownRenderer()
         retryRun = null
+        activeRun = null
         currentMode = 'campaign'
         dailyDateKey = null
         hideStageClear()
@@ -205,6 +211,24 @@ export async function initializeIceSlide(
         if (renderer && game) {
             renderGrid(renderer, game.getState())
         }
+    }
+
+    const populateObjectiveHud = (
+        state: IceSlideState,
+        prefix: string
+    ): void => {
+        setText(`${prefix}-objective-clear`, 'Clear the stage')
+        setText(
+            `${prefix}-objective-efficient`,
+            `Efficient: ${state.parMoves} moves or fewer`
+        )
+        const objectiveId = state.objectiveIds[0]
+        setText(
+            `${prefix}-objective-bonus`,
+            objectiveId
+                ? `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[objectiveId]}`
+                : 'Bonus: —'
+        )
     }
 
     const syncHud = (): void => {
@@ -244,18 +268,7 @@ export async function initializeIceSlide(
                 'daily-stage-progress',
                 `Stage ${state.levelIndex + 1} / ${state.stagesTotal}`
             )
-            setText('daily-objective-clear', 'Clear the stage')
-            setText(
-                'daily-objective-efficient',
-                `Efficient: ${state.parMoves} moves or fewer`
-            )
-            const objectiveId = state.objectiveIds[0]
-            setText(
-                'daily-objective-bonus',
-                objectiveId
-                    ? `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[objectiveId]}`
-                    : 'Bonus: —'
-            )
+            populateObjectiveHud(state, 'daily')
             return
         }
         if (!isExpedition) {
@@ -263,7 +276,7 @@ export async function initializeIceSlide(
         }
 
         const seed = retryRun?.seed ?? '—'
-        const tier = retryRun?.stages[state.levelIndex]?.difficulty
+        const tier = activeRun?.stages[state.levelIndex]?.difficulty
         const maxStars = state.stagesTotal * 3
 
         setText('expedition-seed', seed)
@@ -277,18 +290,7 @@ export async function initializeIceSlide(
             'expedition-attempts',
             `Falls ${state.falls} · Resets ${state.resets}`
         )
-        setText('expedition-objective-clear', 'Clear the stage')
-        setText(
-            'expedition-objective-efficient',
-            `Efficient: ${state.parMoves} moves or fewer`
-        )
-        const objectiveId = state.objectiveIds[0]
-        setText(
-            'expedition-objective-bonus',
-            objectiveId
-                ? `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[objectiveId]}`
-                : 'Bonus: —'
-        )
+        populateObjectiveHud(state, 'expedition')
     }
 
     const populateStageClear = (result: IceSlideStageClearResult): void => {
@@ -494,6 +496,7 @@ export async function initializeIceSlide(
         hideRunFinalStageResult()
         setVisible('expedition-summary', false)
         setVisible('game-over-overlay', false)
+        activeRun = run ?? null
         currentMode = run?.mode ?? 'campaign'
         dailyDateKey =
             run?.mode === 'daily'
@@ -594,7 +597,11 @@ export async function initializeIceSlide(
         playAgain: async () => {
             if (isIceSlideObjectiveMode(currentMode)) {
                 if (!retryRun) {
-                    throw new Error('Ice Slide retry run is unavailable')
+                    const error = new Error(
+                        'Ice Slide retry run is unavailable'
+                    )
+                    failRun(error)
+                    throw error
                 }
                 const run = cloneIceSlideRunDefinition(retryRun)
                 dailyDateKey =
@@ -669,6 +676,7 @@ export async function initializeIceSlide(
             hideRunFinalStageResult()
             setVisible('daily-meta', false)
             setVisible('expedition-meta', false)
+            setVisible('expedition-summary', false)
             teardownRenderer()
             document
                 .getElementById('stage-clear-continue-btn')

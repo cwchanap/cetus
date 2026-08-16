@@ -1487,7 +1487,7 @@ describe('initializeIceSlide', () => {
         await expect(handle.playAgain()).rejects.toThrow(
             'Ice Slide retry run is unavailable'
         )
-        expect(handle.getGame()?.getState().mode).toBe('daily')
+        expect(handle.getGame()).toBeNull()
         handle.cleanup()
     })
 
@@ -1510,7 +1510,14 @@ describe('initializeIceSlide', () => {
         // clears lock wired input behind the shared stage-clear overlay, so
         // Continue is clicked between stages.
         let stage = handle.getGame()!.getState()
+        let stageCounter = 0
+        const maxStages = stage.stagesTotal
         for (;;) {
+            expect(
+                stageCounter,
+                'No board-size change occurred across all generated stages'
+            ).toBeLessThan(maxStages)
+            stageCounter++
             const path = findSolution(stage.grid, stage.player)
             expect(path).not.toBeNull()
             for (const direction of path!) {

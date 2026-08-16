@@ -32,14 +32,17 @@ export function isIceSlideObjectiveMode(mode: IceSlideMode): boolean {
     return mode !== 'campaign'
 }
 
+const SCORING_CONFIG_BY_MODE: Record<IceSlideMode, IceSlideModeScoringConfig> =
+    {
+        campaign: SCORING_CONFIG,
+        daily: DAILY_SCORING_CONFIG,
+        expedition: EXPEDITION_SCORING_CONFIG,
+    }
+
 export function iceSlideScoringConfig(
     mode: IceSlideMode
 ): IceSlideModeScoringConfig {
-    return mode === 'daily'
-        ? DAILY_SCORING_CONFIG
-        : mode === 'expedition'
-          ? EXPEDITION_SCORING_CONFIG
-          : SCORING_CONFIG
+    return SCORING_CONFIG_BY_MODE[mode]
 }
 
 export function levelClearPoints(levelNumber: number): number {
