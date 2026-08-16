@@ -8,6 +8,7 @@ import {
     levelScore,
     timeBonus,
 } from './scoring'
+import { ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS } from './expedition'
 
 describe('Ice Slide scoring configuration', () => {
     it('preserves Campaign scoring defaults', () => {
@@ -40,6 +41,23 @@ describe('Ice Slide scoring configuration', () => {
         expect(timeBonus(299, DAILY_SCORING_CONFIG)).toBe(5)
         expect(timeBonus(300, DAILY_SCORING_CONFIG)).toBe(0)
         expect(timeBonus(301, DAILY_SCORING_CONFIG)).toBe(0)
+    })
+
+    it('applies the Expedition risk multiplier after all objective bonuses', () => {
+        expect(
+            levelScore(
+                {
+                    levelNumber: 3,
+                    parMoves: 4,
+                    movesUsed: 4,
+                    crystalsCollected: 1,
+                    optionalStarsEarned: 3,
+                    scoreMultiplierBps:
+                        ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS,
+                },
+                EXPEDITION_SCORING_CONFIG
+            )
+        ).toBe(Math.floor((600 + 25 + 50 + 300) * 1.25))
     })
 
     it('maps objective modes and scoring configs explicitly', () => {

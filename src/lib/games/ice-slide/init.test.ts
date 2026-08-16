@@ -412,6 +412,24 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
+    it('renders the first bonus from a multi-objective result row', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('daily')
+        ;(
+            handle.getGame() as unknown as {
+                state: { objectiveIds: string[] }
+            }
+        ).state.objectiveIds = ['no_reset', 'no_falls']
+        solveCurrentStage(handle)
+
+        expect(document.getElementById('stage-clear-bonus')?.textContent).toBe(
+            '✓ Bonus: No resets'
+        )
+        handle.cleanup()
+    })
+
     it('renders a final Daily result without a bonus row when no objective is assigned', async () => {
         const container = mountDom()
         const handle = await initializeIceSlide(container, baseCallbacks())

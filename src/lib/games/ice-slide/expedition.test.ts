@@ -5,11 +5,16 @@ import {
     ICE_SLIDE_RULESET_VERSION,
     ICE_SLIDE_RUN_SCHEMA_VERSION,
     assertValidIceSlideRunDefinition,
+    createCampaignRunDefinition,
 } from './run'
+import { createIceSlideDailyRunDefinition } from './daily'
 import {
+    ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS,
     ICE_SLIDE_EXPEDITION_RULESET_VERSION,
     ICE_SLIDE_EXPEDITION_STAGE_DIFFICULTIES,
+    applyIceSlideExpeditionRouteChoice,
     createIceSlideExpeditionRunDefinition,
+    type IceSlideExpeditionChoiceStage,
 } from './expedition'
 import { getBoardOrbitKey } from './transforms'
 import type { IceSlideStageDefinition } from './types'
@@ -90,6 +95,90 @@ describe('Ice Slide Expedition run materialization', () => {
             expect(stage.objectiveIds).toHaveLength(1)
         }
         expect(() => assertValidIceSlideRunDefinition(run)).not.toThrow()
+    })
+
+    it('applies deterministic Safe and Risk route effects after stages 2 and 4', () => {
+        const base = createIceSlideExpeditionRunDefinition('route-effect-seed')
+
+        for (const afterStageNumber of [2, 4] as const) {
+            const safe = applyIceSlideExpeditionRouteChoice(
+                base,
+                afterStageNumber,
+                'safe'
+            )
+            expect(safe.undoChargesGranted).toBe(1)
+            expect(safe.run.stages[afterStageNumber]).toEqual(
+                base.stages[afterStageNumber]
+            )
+            expect(base.stages[afterStageNumber].scoreMultiplierBps).toBe(
+                10_000
+            )
+
+            const riskyA = applyIceSlideExpeditionRouteChoice(
+                base,
+                afterStageNumber,
+                'risky'
+            )
+            const riskyB = applyIceSlideExpeditionRouteChoice(
+                base,
+                afterStageNumber,
+                'risky'
+            )
+            expect(riskyA).toEqual(riskyB)
+            expect(riskyA.undoChargesGranted).toBe(0)
+            expect(
+                riskyA.run.stages[afterStageNumber].objectiveIds
+            ).toHaveLength(2)
+            expect(
+                new Set(riskyA.run.stages[afterStageNumber].objectiveIds).size
+            ).toBe(2)
+            expect(riskyA.run.stages[afterStageNumber].scoreMultiplierBps).toBe(
+                ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS
+            )
+            expect(riskyA.run.stages[afterStageNumber].signature).not.toBe(
+                base.stages[afterStageNumber].signature
+            )
+            expect(base.stages[afterStageNumber].objectiveIds).toHaveLength(1)
+        }
+    })
+
+    it('rejects non-Expedition, malformed checkpoint, and unseeded inputs without mutation', () => {
+        const campaign = createCampaignRunDefinition()
+        const campaignBefore = JSON.stringify(campaign)
+        expect(() =>
+            applyIceSlideExpeditionRouteChoice(campaign, 2, 'safe')
+        ).toThrow('route choices require a seeded Expedition run')
+        expect(JSON.stringify(campaign)).toBe(campaignBefore)
+
+        const daily = createIceSlideDailyRunDefinition('2026-08-12')
+        const dailyBefore = JSON.stringify(daily)
+        expect(() =>
+            applyIceSlideExpeditionRouteChoice(daily, 2, 'safe')
+        ).toThrow('route choices require a seeded Expedition run')
+        expect(JSON.stringify(daily)).toBe(dailyBefore)
+
+        const malformedCheckpoint = createIceSlideExpeditionRunDefinition(
+            'route-effect-invalid-checkpoint'
+        )
+        const malformedBefore = JSON.stringify(malformedCheckpoint)
+        expect(() =>
+            applyIceSlideExpeditionRouteChoice(
+                malformedCheckpoint,
+                3 as unknown as IceSlideExpeditionChoiceStage,
+                'safe'
+            )
+        ).toThrow()
+        expect(JSON.stringify(malformedCheckpoint)).toBe(malformedBefore)
+
+        const unseeded = createIceSlideExpeditionRunDefinition(
+            'route-effect-null-seed'
+        )
+        unseeded.seed = null
+        const unseededBefore = JSON.stringify(unseeded)
+        expect(() =>
+            applyIceSlideExpeditionRouteChoice(unseeded, 2, 'safe')
+        ).toThrow()
+        expect(JSON.stringify(unseeded)).toBe(unseededBefore)
     })
 
     it('materializes 500 valid unique complete runs', () => {

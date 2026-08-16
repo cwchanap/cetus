@@ -241,20 +241,20 @@ export class IceSlideGame {
         const scoringConfig = iceSlideScoringConfig(mode)
         const efficient = this.state.levelMoves <= stage.parMoves
         const totalCrystals = countCrystals(parseGrid(stage))
-        const bonusId = isObjectiveMode
-            ? (this.state.objectiveIds[0] ?? null)
-            : null
-        const bonusEarned =
-            bonusId === null
-                ? false
-                : isIceSlideObjectiveComplete(bonusId, {
+        const bonuses = isObjectiveMode
+            ? this.state.objectiveIds.map(id => ({
+                  id,
+                  earned: isIceSlideObjectiveComplete(id, {
                       crystalsCollected: this.state.levelCrystalsCollected,
                       totalCrystals,
                       stageFalls: this.state.levelFalls,
                       stageResets: this.state.levelResets,
-                  })
+                  }),
+              }))
+            : []
+        const bonusStarsEarned = bonuses.filter(item => item.earned).length
         const optionalStarsEarned = isObjectiveMode
-            ? Number(efficient) + Number(bonusEarned)
+            ? Number(efficient) + bonusStarsEarned
             : 0
         const scoringParams = {
             levelNumber,
@@ -263,7 +263,11 @@ export class IceSlideGame {
             crystalsCollected: this.state.levelCrystalsCollected,
         }
         const scoreGained = levelScore(
-            { ...scoringParams, optionalStarsEarned },
+            {
+                ...scoringParams,
+                optionalStarsEarned,
+                scoreMultiplierBps: stage.scoreMultiplierBps,
+            },
             scoringConfig
         )
         const result: IceSlideStageClearResult = {
@@ -276,10 +280,7 @@ export class IceSlideGame {
             stars: {
                 clear: true,
                 efficient,
-                bonus:
-                    bonusId === null
-                        ? null
-                        : { id: bonusId, earned: bonusEarned },
+                bonuses,
                 earnedCount: isObjectiveMode ? 1 + optionalStarsEarned : 0,
             },
         }
