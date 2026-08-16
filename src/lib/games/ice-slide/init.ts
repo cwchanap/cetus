@@ -100,10 +100,11 @@ function starCopy(label: string, earned: boolean): string {
 }
 
 function formatBonusRow(result: IceSlideStageClearResult): string {
-    return result.stars.bonus
+    const bonus = result.stars.bonuses[0]
+    return bonus
         ? starCopy(
-              `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[result.stars.bonus.id]}`,
-              result.stars.bonus.earned
+              `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[bonus.id]}`,
+              bonus.earned
           )
         : '— Bonus'
 }

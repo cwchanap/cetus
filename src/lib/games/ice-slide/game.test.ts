@@ -12,6 +12,7 @@ import {
     levelScore,
     timeBonus,
 } from './scoring'
+import { ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS } from './expedition'
 import { serializeBoardRows } from './transforms'
 import type { IceSlideRunDefinition, IceSlideStageClearResult } from './types'
 
@@ -377,7 +378,7 @@ describe('IceSlideGame', () => {
             expect.objectContaining({
                 stageNumber: 1,
                 stars: expect.objectContaining({
-                    bonus: null,
+                    bonuses: [],
                 }),
             })
         )
@@ -416,7 +417,7 @@ describe('IceSlideGame', () => {
             stars: {
                 clear: true,
                 efficient: true,
-                bonus: { id: 'no_falls', earned: true },
+                bonuses: [{ id: 'no_falls', earned: true }],
                 earnedCount: 3,
             },
         })
@@ -456,11 +457,56 @@ describe('IceSlideGame', () => {
             stars: {
                 clear: true,
                 efficient: true,
-                bonus: { id: 'no_reset', earned: true },
+                bonuses: [{ id: 'no_reset', earned: true }],
                 earnedCount: 3,
             },
         })
         expect(game.getState().starsEarned).toBe(3)
+        game.destroy()
+    })
+
+    it('evaluates and scores every active Expedition objective', () => {
+        const onLevelClear = vi.fn()
+        const game = new IceSlideGame({ onLevelClear })
+        game.start(
+            createTestRun([
+                createTestStage({
+                    id: 'expedition:multi-objective:1',
+                    objectiveIds: ['no_reset', 'no_falls'],
+                    scoreMultiplierBps:
+                        ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS,
+                    parMoves: 1,
+                }),
+            ])
+        )
+
+        game.move('E')
+
+        const result = onLevelClear.mock.calls[0][0]
+        expect(result.scoreGained).toBe(
+            levelScore(
+                {
+                    levelNumber: 1,
+                    parMoves: 1,
+                    movesUsed: 1,
+                    crystalsCollected: 0,
+                    optionalStarsEarned: 3,
+                    scoreMultiplierBps:
+                        ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS,
+                },
+                EXPEDITION_SCORING_CONFIG
+            )
+        )
+        expect(result.stars).toEqual({
+            clear: true,
+            efficient: true,
+            bonuses: [
+                { id: 'no_reset', earned: true },
+                { id: 'no_falls', earned: true },
+            ],
+            earnedCount: 4,
+        })
+        expect(game.getState().starsEarned).toBe(4)
         game.destroy()
     })
 
@@ -538,10 +584,12 @@ describe('IceSlideGame', () => {
 
         const secondResult = onLevelClear.mock.calls[1][0]
         expect(game.getState().falls).toBe(1)
-        expect(secondResult.stars.bonus).toEqual({
-            id: 'no_falls',
-            earned: true,
-        })
+        expect(secondResult.stars.bonuses).toEqual([
+            {
+                id: 'no_falls',
+                earned: true,
+            },
+        ])
         game.destroy()
     })
 
@@ -567,10 +615,12 @@ describe('IceSlideGame', () => {
 
         const secondResult = onLevelClear.mock.calls[1][0]
         expect(game.getState().resets).toBe(1)
-        expect(secondResult.stars.bonus).toEqual({
-            id: 'no_reset',
-            earned: true,
-        })
+        expect(secondResult.stars.bonuses).toEqual([
+            {
+                id: 'no_reset',
+                earned: true,
+            },
+        ])
         game.destroy()
     })
 
@@ -594,7 +644,7 @@ describe('IceSlideGame', () => {
         expect(onLevelClear.mock.calls[0][0].stars).toEqual({
             clear: true,
             efficient: false,
-            bonus: { id: 'no_falls', earned: true },
+            bonuses: [{ id: 'no_falls', earned: true }],
             earnedCount: 2,
         })
         game.destroy()
@@ -616,7 +666,7 @@ describe('IceSlideGame', () => {
         expect(resetClear.mock.calls[0][0].stars).toEqual({
             clear: true,
             efficient: true,
-            bonus: { id: 'no_reset', earned: false },
+            bonuses: [{ id: 'no_reset', earned: false }],
             earnedCount: 2,
         })
         resetGame.destroy()
@@ -638,7 +688,7 @@ describe('IceSlideGame', () => {
         expect(hazardClear.mock.calls[0][0].stars).toEqual({
             clear: true,
             efficient: false,
-            bonus: { id: 'no_falls', earned: false },
+            bonuses: [{ id: 'no_falls', earned: false }],
             earnedCount: 1,
         })
         hazardGame.destroy()
@@ -658,10 +708,12 @@ describe('IceSlideGame', () => {
             ])
         )
         collectedGame.move('E')
-        expect(collected.mock.calls[0][0].stars.bonus).toEqual({
-            id: 'collect_all_crystals',
-            earned: true,
-        })
+        expect(collected.mock.calls[0][0].stars.bonuses).toEqual([
+            {
+                id: 'collect_all_crystals',
+                earned: true,
+            },
+        ])
         collectedGame.destroy()
 
         const missed = vi.fn()
@@ -677,10 +729,12 @@ describe('IceSlideGame', () => {
             ])
         )
         missedGame.move('E')
-        expect(missed.mock.calls[0][0].stars.bonus).toEqual({
-            id: 'collect_all_crystals',
-            earned: false,
-        })
+        expect(missed.mock.calls[0][0].stars.bonuses).toEqual([
+            {
+                id: 'collect_all_crystals',
+                earned: false,
+            },
+        ])
         missedGame.destroy()
     })
 
@@ -777,7 +831,7 @@ describe('IceSlideGame', () => {
             stars: {
                 clear: true,
                 efficient: true,
-                bonus: null,
+                bonuses: [],
                 earnedCount: 0,
             },
         })

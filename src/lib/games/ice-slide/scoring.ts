@@ -79,13 +79,16 @@ export function levelScore(
         movesUsed: number
         crystalsCollected: number
         optionalStarsEarned?: number
+        scoreMultiplierBps?: number
     },
     config: IceSlideModeScoringConfig = SCORING_CONFIG
 ): number {
-    return (
+    const subtotal =
         levelClearPoints(params.levelNumber) +
         moveBonus(params.parMoves, params.movesUsed) +
         crystalBonus(params.crystalsCollected) +
         (params.optionalStarsEarned ?? 0) * config.objectiveStarBonus
-    )
+
+    const multiplierBps = params.scoreMultiplierBps ?? 10_000
+    return Math.floor((subtotal * multiplierBps) / 10_000)
 }

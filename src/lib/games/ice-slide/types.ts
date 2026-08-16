@@ -100,7 +100,7 @@ export interface IceSlideStageClearResult {
     stars: {
         clear: boolean
         efficient: boolean
-        bonus: { id: IceSlideObjectiveId; earned: boolean } | null
+        bonuses: Array<{ id: IceSlideObjectiveId; earned: boolean }>
         earnedCount: number
     }
 }
