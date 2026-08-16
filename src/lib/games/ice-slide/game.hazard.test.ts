@@ -1,6 +1,56 @@
 import { describe, expect, it, vi } from 'vitest'
 import { IceSlideGame } from './game'
 import { createTestRun, createTestStage } from './test-fixtures'
+import type { Direction } from './types'
+
+function createRouteLifecycleRun() {
+    const createRouteStage = (
+        id: string,
+        rows: string[] = ['#####', '#S.G#', '#####']
+    ) =>
+        createTestStage({
+            id,
+            rows,
+            objectiveIds: ['no_reset'],
+        })
+
+    return createTestRun([
+        createRouteStage('expedition:route:1'),
+        createRouteStage('expedition:route:2'),
+        createRouteStage('expedition:route:3', [
+            '######',
+            '#S..H#',
+            '#G...#',
+            '######',
+        ]),
+        createRouteStage('expedition:route:4'),
+        createRouteStage('expedition:route:5', [
+            '######',
+            '#S..H#',
+            '#G...#',
+            '######',
+        ]),
+        createRouteStage('expedition:route:6'),
+    ])
+}
+
+function clearCurrentStage(game: IceSlideGame): void {
+    const routes: Record<number, Direction[]> = {
+        0: ['E'],
+        1: ['E'],
+        2: ['E', 'S'],
+        3: ['E'],
+        4: ['E', 'S'],
+        5: ['E'],
+    }
+    const route = routes[game.getState().levelIndex]
+    if (!route) {
+        throw new Error('missing test route')
+    }
+    for (const direction of route) {
+        game.move(direction)
+    }
+}
 
 describe('IceSlideGame hazard branch (explicit run)', () => {
     it('reloads the level after sliding into a hazard', () => {
@@ -48,6 +98,38 @@ describe('IceSlideGame hazard branch (explicit run)', () => {
         game.move('E') // clear in 2 post-hazard moves → total levelMoves 3 > par 1
         expect(game.getState().levelsCleared).toBe(1)
         expect(game.getState().perfectLevels).toBe(0)
+        game.destroy()
+    })
+
+    it('preserves Expedition route charges and history through hazard, reset, and advance', () => {
+        const game = new IceSlideGame()
+        game.start(createRouteLifecycleRun())
+
+        clearCurrentStage(game)
+        clearCurrentStage(game)
+        expect(game.chooseExpeditionRoute('safe')).toBe(true)
+
+        game.move('E')
+        expect(game.getState().undoChargesAvailable).toBe(1)
+        expect(game.getState().undoChargesUsed).toBe(0)
+        expect(game.getState().routeChoices).toEqual(['safe'])
+
+        game.resetLevel()
+        expect(game.getState().undoChargesAvailable).toBe(1)
+        expect(game.getState().undoChargesUsed).toBe(0)
+        expect(game.getState().routeChoices).toEqual(['safe'])
+
+        clearCurrentStage(game)
+        expect(game.getState().levelIndex).toBe(3)
+        expect(game.getState().undoChargesAvailable).toBe(1)
+        expect(game.getState().undoChargesUsed).toBe(0)
+        expect(game.getState().routeChoices).toEqual(['safe'])
+
+        clearCurrentStage(game)
+        expect(game.getState().levelIndex).toBe(4)
+        expect(game.chooseExpeditionRoute('safe')).toBe(true)
+        expect(game.getState().routeChoices).toEqual(['safe', 'safe'])
+        expect(game.getState().undoChargesAvailable).toBe(2)
         game.destroy()
     })
 

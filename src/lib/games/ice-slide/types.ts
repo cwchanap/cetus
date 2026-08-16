@@ -1,3 +1,5 @@
+import type { IceSlideExpeditionRouteChoice } from './expedition'
+
 export type Direction = 'N' | 'E' | 'S' | 'W'
 
 export type CellType =
@@ -36,6 +38,11 @@ export interface IceSlideState {
     levelMoves: number
     parMoves: number
     objectiveIds: IceSlideObjectiveId[]
+    pendingRouteChoiceAfterStage: 2 | 4 | null
+    routeChoices: IceSlideExpeditionRouteChoice[]
+    undoChargesAvailable: number
+    undoChargesUsed: number
+    starsPossible: number
     levelFalls: number
     levelResets: number
     crystalsCollected: number
@@ -75,6 +82,12 @@ export interface IceSlideGameData {
     falls: number
     resets: number
     stageSignatures: string[]
+    routeChoices: IceSlideExpeditionRouteChoice[]
+    undoChargesAvailable: number
+    undoChargesUsed: number
+    starsPossible: number
+    stageObjectiveIds: IceSlideObjectiveId[][]
+    stageScoreMultipliersBps: number[]
 }
 
 export interface IceSlideCallbacks {
