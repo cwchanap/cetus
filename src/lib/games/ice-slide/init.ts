@@ -146,8 +146,8 @@ export async function initializeIceSlide(
         setVisible('stage-clear-overlay', false)
     }
 
-    const hideFinalStageResult = (): void => {
-        setVisible('daily-final-stage-result', false)
+    const hideRunFinalStageResult = (): void => {
+        setVisible('run-final-stage-result', false)
     }
 
     const teardownRenderer = (): void => {
@@ -190,8 +190,10 @@ export async function initializeIceSlide(
         currentMode = 'campaign'
         dailyDateKey = null
         hideStageClear()
-        hideFinalStageResult()
+        hideRunFinalStageResult()
         setVisible('daily-meta', false)
+        setVisible('expedition-meta', false)
+        setVisible('expedition-summary', false)
         resetButtons()
         callbacks.onError?.(
             'Ice Slide Error',
@@ -208,6 +210,7 @@ export async function initializeIceSlide(
     const syncHud = (): void => {
         if (!game) {
             setVisible('daily-meta', false)
+            setVisible('expedition-meta', false)
             return
         }
         const state = game.getState()
@@ -222,34 +225,66 @@ export async function initializeIceSlide(
         }
 
         const isDaily = state.mode === 'daily'
+        const isExpedition = state.mode === 'expedition'
         setVisible('daily-meta', isDaily)
-        if (!isDaily) {
+        setVisible('expedition-meta', isExpedition)
+        if (isDaily) {
+            const capturedDateKey =
+                dailyDateKey ??
+                parseIceSlideDailyRunKey(state.runKey)?.dateKey ??
+                ''
+            setText('daily-date', capturedDateKey)
+            if (capturedDateKey) {
+                setText(
+                    'daily-reset',
+                    `Resets at 00:00 UTC ${nextUtcDateKey(capturedDateKey)}`
+                )
+            }
+            setText(
+                'daily-stage-progress',
+                `Stage ${state.levelIndex + 1} / ${state.stagesTotal}`
+            )
+            setText('daily-objective-clear', 'Clear the stage')
+            setText(
+                'daily-objective-efficient',
+                `Efficient: ${state.parMoves} moves or fewer`
+            )
+            const objectiveId = state.objectiveIds[0]
+            setText(
+                'daily-objective-bonus',
+                objectiveId
+                    ? `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[objectiveId]}`
+                    : 'Bonus: —'
+            )
+            return
+        }
+        if (!isExpedition) {
             return
         }
 
-        const capturedDateKey =
-            dailyDateKey ??
-            parseIceSlideDailyRunKey(state.runKey)?.dateKey ??
-            ''
-        setText('daily-date', capturedDateKey)
-        if (capturedDateKey) {
-            setText(
-                'daily-reset',
-                `Resets at 00:00 UTC ${nextUtcDateKey(capturedDateKey)}`
-            )
-        }
+        const seed = retryRun?.seed ?? '—'
+        const tier = retryRun?.stages[state.levelIndex]?.difficulty
+        const maxStars = state.stagesTotal * 3
+
+        setText('expedition-seed', seed)
         setText(
-            'daily-stage-progress',
-            `Stage ${state.levelIndex + 1} / ${state.stagesTotal}`
+            'expedition-stage-progress',
+            `Stage ${state.levelIndex + 1} / ${state.stagesTotal}` +
+                (tier ? ` · ${tier.toUpperCase()}` : '')
         )
-        setText('daily-objective-clear', 'Clear the stage')
+        setText('expedition-stars', `Stars ${state.starsEarned} / ${maxStars}`)
         setText(
-            'daily-objective-efficient',
+            'expedition-attempts',
+            `Falls ${state.falls} · Resets ${state.resets}`
+        )
+        setText('expedition-objective-clear', 'Clear the stage')
+        setText(
+            'expedition-objective-efficient',
             `Efficient: ${state.parMoves} moves or fewer`
         )
         const objectiveId = state.objectiveIds[0]
         setText(
-            'daily-objective-bonus',
+            'expedition-objective-bonus',
             objectiveId
                 ? `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[objectiveId]}`
                 : 'Bonus: —'
@@ -272,13 +307,45 @@ export async function initializeIceSlide(
     const populateFinalStageResult = (
         result: IceSlideStageClearResult
     ): void => {
-        setText('daily-final-clear', starCopy('Clear', result.stars.clear))
         setText(
-            'daily-final-efficient',
+            'run-final-heading',
+            game?.getState().mode === 'expedition'
+                ? 'Expedition stars'
+                : 'Daily stars'
+        )
+        setText('run-final-clear', starCopy('Clear', result.stars.clear))
+        setText(
+            'run-final-efficient',
             starCopy('Efficient', result.stars.efficient)
         )
-        setText('daily-final-bonus', formatBonusRow(result))
-        setVisible('daily-final-stage-result', true)
+        setText('run-final-bonus', formatBonusRow(result))
+        setVisible('run-final-stage-result', true)
+    }
+
+    const populateExpeditionSummary = (): void => {
+        if (!game || game.getState().mode !== 'expedition') {
+            setVisible('expedition-summary', false)
+            return
+        }
+
+        const data = game.getGameData()
+        setText('expedition-summary-seed', retryRun?.seed ?? '—')
+        setText(
+            'expedition-summary-progress',
+            `${data.levelsCleared} / ${data.stagesTotal} stages`
+        )
+        setText(
+            'expedition-summary-stars',
+            `${data.starsEarned} / ${data.stagesTotal * 3} stars`
+        )
+        setText('expedition-summary-moves', String(data.totalMoves))
+        setText('expedition-summary-crystals', String(data.crystalsCollected))
+        setText(
+            'expedition-summary-attempts',
+            `Falls ${data.falls} · Resets ${data.resets}`
+        )
+        setText('expedition-summary-time', formatTime(data.elapsedSeconds))
+        setVisible('expedition-summary', true)
     }
 
     const submitScore = (finalScore: number): void => {
@@ -424,7 +491,7 @@ export async function initializeIceSlide(
         teardownRenderer()
         game?.destroy()
         hideStageClear()
-        hideFinalStageResult()
+        hideRunFinalStageResult()
         setVisible('game-over-overlay', false)
         currentMode = run?.mode ?? 'campaign'
         dailyDateKey =
@@ -445,7 +512,7 @@ export async function initializeIceSlide(
             },
             onLevelClear: result => {
                 callbacks.onLevelClear(result)
-                if (!game || game.getState().mode !== 'daily') {
+                if (!game || !isIceSlideObjectiveMode(game.getState().mode)) {
                     return
                 }
                 if (game.getState().status === 'playing') {
@@ -472,6 +539,7 @@ export async function initializeIceSlide(
                 showOverlay('MISSION COMPLETE!', finalScore)
                 submitScore(finalScore)
                 syncHud()
+                populateExpeditionSummary()
             },
         })
 
@@ -558,6 +626,7 @@ export async function initializeIceSlide(
                     submitScore(score)
                 }
                 syncHud()
+                populateExpeditionSummary()
                 return
             }
 
@@ -596,8 +665,9 @@ export async function initializeIceSlide(
             game?.destroy()
             game = null
             hideStageClear()
-            hideFinalStageResult()
+            hideRunFinalStageResult()
             setVisible('daily-meta', false)
+            setVisible('expedition-meta', false)
             teardownRenderer()
             document
                 .getElementById('stage-clear-continue-btn')
