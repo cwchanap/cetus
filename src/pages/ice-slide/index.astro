@@ -361,7 +361,11 @@ import Button from '@/components/ui/Button.astro'
 
   const requestedMode = new URLSearchParams(window.location.search).get('mode')
   const selectedMode: IceSlidePlayableMode =
-    requestedMode === 'daily' ? 'daily' : 'campaign'
+    requestedMode === 'daily'
+      ? 'daily'
+      : requestedMode === 'expedition'
+        ? 'expedition'
+        : 'campaign'
 
   let gameHandle: Awaited<ReturnType<typeof initializeIceSlide>> | null = null
 
@@ -376,6 +380,7 @@ import Button from '@/components/ui/Button.astro'
     const playAgainBtn = document.getElementById('play-again-btn')
     const modeSelector = document.getElementById('ice-slide-mode-selector')
     const dailyMeta = document.getElementById('daily-meta')
+    const expeditionMeta = document.getElementById('expedition-meta')
     const modeRadios = Array.from(
       document.querySelectorAll<HTMLInputElement>(
         '#ice-slide-mode-selector input[name="ice-slide-mode"]'
@@ -408,6 +413,7 @@ import Button from '@/components/ui/Button.astro'
       !modeSelector ||
       modeRadios.length === 0 ||
       !dailyMeta ||
+      !expeditionMeta ||
       !runFinalResult ||
       !changeModeBtn ||
       !leaderboardPanel ||
@@ -450,10 +456,21 @@ import Button from '@/components/ui/Button.astro'
       radio.checked = radio.value === selectedMode
     })
 
-    const readSelectedMode = (): IceSlidePlayableMode =>
-      modeRadios.find(radio => radio.checked)?.value === 'daily'
+    const readSelectedMode = (): IceSlidePlayableMode => {
+      const value = modeRadios.find(radio => radio.checked)?.value
+      return value === 'daily'
         ? 'daily'
-        : 'campaign'
+        : value === 'expedition'
+          ? 'expedition'
+          : 'campaign'
+    }
+
+    const syncResultActions = () => {
+      const isExpedition =
+        gameHandle?.getGame()?.getState().mode === 'expedition'
+      playAgainBtn.textContent = isExpedition ? 'Retry Seed' : 'Play Again'
+      newExpeditionBtn?.classList.toggle('hidden', !isExpedition)
+    }
 
     const setModeControlsDisabled = (disabled: boolean) => {
       modeRadios.forEach(radio => {
@@ -501,6 +518,7 @@ import Button from '@/components/ui/Button.astro'
         onTimeUpdate: () => {},
         onWin: () => {
           resetButtonState()
+          syncResultActions()
         },
         onError: (_title, message) => {
           errorEl.textContent = message
@@ -543,6 +561,7 @@ import Button from '@/components/ui/Button.astro'
         } else {
           hideDailyLeaderboard()
         }
+        syncResultActions()
       } catch (error) {
         errorEl.textContent =
           error instanceof Error ? error.message : 'Failed to start'
@@ -554,6 +573,7 @@ import Button from '@/components/ui/Button.astro'
 
     endBtn.addEventListener('click', () => {
       gameHandle?.stop()
+      syncResultActions()
       restoreIdleModeControlsIfNoResult()
     })
 
@@ -585,13 +605,33 @@ import Button from '@/components/ui/Button.astro'
       }
     })
 
+    newExpeditionBtn?.addEventListener('click', async () => {
+      overlay.classList.add('hidden')
+      startBtn.style.display = 'none'
+      endBtn.style.display = 'inline-flex'
+      setModeControlsDisabled(true)
+      hideDailyLeaderboard()
+      try {
+        await gameHandle?.start('expedition')
+      } catch (error) {
+        errorEl.textContent =
+          error instanceof Error ? error.message : 'Failed to start Expedition'
+        errorEl.classList.remove('hidden')
+        resetButtonState()
+        restoreIdleModeControlsIfNoResult()
+      }
+    })
+
     changeModeBtn.addEventListener('click', () => {
       overlay.classList.add('hidden')
       dailyMeta.classList.add('hidden')
+      expeditionMeta.classList.add('hidden')
       runFinalResult.classList.add('hidden')
       statusEl.classList.remove('hidden')
       errorEl.classList.add('hidden')
       resetButtonState()
+      playAgainBtn.textContent = 'Play Again'
+      newExpeditionBtn?.classList.add('hidden')
       setModeControlsDisabled(false)
       focusIdleControl()
       if (readSelectedMode() === 'daily') {

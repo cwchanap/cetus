@@ -1,5 +1,98 @@
 import { test, expect, type Page } from '@playwright/test'
 import { ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS } from '../../src/lib/games/ice-slide/test-fixtures'
+import { createIceSlideExpeditionRunDefinition } from '../../src/lib/games/ice-slide/expedition'
+import { parseGrid, slide } from '../../src/lib/games/ice-slide/physics'
+import type {
+    Direction,
+    GridPosition,
+} from '../../src/lib/games/ice-slide/types'
+
+/**
+ * Two pinned 4-word seeds for deterministic Expedition crypto. The page
+ * builds a 32-hex-char seed from the four words it draws on each fresh
+ * Expedition start, so the override below returns these exact words for the
+ * first two draws (first Expedition start, then New Expedition).
+ */
+const EXPEDITION_SEED_A_WORDS = [0x11111111, 0x22222222, 0x33333333, 0x44444444]
+const EXPEDITION_SEED_B_WORDS = [0xaaaaaaaa, 0xbbbbbbbb, 0xcccccccc, 0xdddddddd]
+const EXPEDITION_SEED_A_HEX = EXPEDITION_SEED_A_WORDS.map(word =>
+    word.toString(16).padStart(8, '0')
+).join('')
+const EXPEDITION_SEED_B_HEX = EXPEDITION_SEED_B_WORDS.map(word =>
+    word.toString(16).padStart(8, '0')
+).join('')
+
+/**
+ * Breadth-first search over the same physics the page uses (parseGrid +
+ * slide), producing a deterministic fall-free route for a generated stage.
+ * Skipping `noop` and `hazard` outcomes mirrors `IceSlideGame.move`'s guard
+ * behavior while avoiding falls entirely.
+ */
+function findExpeditionRoute(
+    seed: string,
+    stageNumber: number
+): readonly Direction[] {
+    const run = createIceSlideExpeditionRunDefinition(seed)
+    const stage = run.stages[stageNumber - 1]
+    const grid = parseGrid({ id: stage.id, rows: stage.rows })
+    let start: GridPosition | null = null
+    for (let row = 0; row < grid.length; row++) {
+        for (let col = 0; col < grid[row].length; col++) {
+            if (grid[row][col] === 'start') {
+                start = { row, col }
+            }
+        }
+    }
+    if (!start) {
+        throw new Error(`No start tile on ${seed} stage ${stageNumber}`)
+    }
+    const directions: Direction[] = ['N', 'E', 'S', 'W']
+    const delta = (direction: Direction) => ({
+        row: direction === 'N' ? -1 : direction === 'S' ? 1 : 0,
+        col: direction === 'E' ? 1 : direction === 'W' ? -1 : 0,
+    })
+    const queue: Array<{
+        pos: GridPosition
+        path: Direction[]
+        grid: ReturnType<typeof parseGrid>
+    }> = [{ pos: start, path: [], grid: grid.map(row => [...row]) }]
+    const seen = new Set<string>([`${start.row},${start.col}`])
+    let cursor = 0
+    while (cursor < queue.length) {
+        const current = queue[cursor]
+        cursor++
+        for (const direction of directions) {
+            const nextGrid = current.grid.map(row => [...row])
+            const outcome = slide(nextGrid, current.pos, delta(direction))
+            if (outcome.kind !== 'moved') {
+                continue
+            }
+            const key = `${outcome.end.row},${outcome.end.col}`
+            if (seen.has(key)) {
+                continue
+            }
+            seen.add(key)
+            const path = [...current.path, direction]
+            if (outcome.reachedGoal) {
+                return path
+            }
+            queue.push({ pos: outcome.end, path, grid: nextGrid })
+        }
+        if (seen.size > 100_000) {
+            break
+        }
+    }
+    throw new Error(`No route found for ${seed} stage ${stageNumber}`)
+}
+
+const expeditionSeedARun = createIceSlideExpeditionRunDefinition(
+    EXPEDITION_SEED_A_HEX
+)
+const expeditionSeedBRun = createIceSlideExpeditionRunDefinition(
+    EXPEDITION_SEED_B_HEX
+)
+const expeditionRouteAStage1 = findExpeditionRoute(EXPEDITION_SEED_A_HEX, 1)
+const expeditionRouteAStage2 = findExpeditionRoute(EXPEDITION_SEED_A_HEX, 2)
 
 /**
  * One happy-path play test per game. Each game's "Start" listener attaches
@@ -362,6 +455,82 @@ test.describe('Ice Slide', () => {
         await expect(page.locator('#game-over-overlay')).toBeVisible()
     }
 
+    /**
+     * Override crypto.getRandomValues before navigation so each fresh
+     * Expedition start draws the pinned 4-word seeds (first start = A, New
+     * Expedition = B). Unrelated draws delegate to the native method, and
+     * the expedition draw count is exposed for Retry Seed assertions.
+     */
+    async function installExpeditionCrypto(page: Page): Promise<void> {
+        await page.addInitScript(
+            (seeds: [number[], number[]]) => {
+                const [seedA, seedB] = seeds
+                const nativeGetRandomValues =
+                    crypto.getRandomValues.bind(crypto)
+                let expeditionCalls = 0
+                crypto.getRandomValues = (array: ArrayBufferView) => {
+                    if (array instanceof Uint32Array && array.length === 4) {
+                        const words = expeditionCalls === 0 ? seedA : seedB
+                        array.set(words)
+                        expeditionCalls += 1
+                        ;(
+                            window as Window & {
+                                __expeditionSeedCalls?: number
+                            }
+                        ).__expeditionSeedCalls = expeditionCalls
+                        return array
+                    }
+                    return nativeGetRandomValues(array)
+                }
+            },
+            [EXPEDITION_SEED_A_WORDS, EXPEDITION_SEED_B_WORDS]
+        )
+    }
+
+    async function expeditionSeedCalls(page: Page): Promise<number> {
+        return page.evaluate(() => {
+            return (
+                (window as Window & { __expeditionSeedCalls?: number })
+                    .__expeditionSeedCalls ?? 0
+            )
+        })
+    }
+
+    async function expeditionRunKey(page: Page): Promise<string | null> {
+        return page.evaluate(() => {
+            const handle = (
+                window as Window & {
+                    iceSlideGame?: {
+                        getGame: () => {
+                            getState: () => { runKey: string }
+                        } | null
+                    }
+                }
+            ).iceSlideGame
+            return handle?.getGame()?.getState().runKey ?? null
+        })
+    }
+
+    async function pressRoute(
+        page: Page,
+        route: readonly Direction[]
+    ): Promise<void> {
+        for (const direction of route) {
+            await page.keyboard.press(DIRECTION_TO_KEY[direction])
+        }
+    }
+
+    /**
+     * Start and wait for the canvas: the canvas only appears after the
+     * async PixiJS setup, which is also what wires keyboard input. Input
+     * sent before that is silently dropped, so tests that press keys (or
+     * End a run) must wait for this signal first.
+     */
+    async function startExpeditionWhenReady(page: Page): Promise<void> {
+        await startGameWhenReady(page)
+        await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+    }
+
     test('renders, starts, accepts a move, and can be ended', async ({
         page,
     }) => {
@@ -454,26 +623,249 @@ test.describe('Ice Slide', () => {
         await page.locator('#change-mode-btn').click()
 
         const modeInputs = page.locator('#ice-slide-mode-selector input')
-        await expect(modeInputs).toHaveCount(2)
-        await expect(modeInputs.nth(0)).toBeEnabled()
-        await expect(modeInputs.nth(1)).toBeEnabled()
+        await expect(modeInputs).toHaveCount(3)
+        for (const value of ['campaign', 'daily', 'expedition']) {
+            await expect(page.locator(`input[value="${value}"]`)).toBeEnabled()
+        }
         await expect(page.locator('#start-btn')).toBeVisible()
         await expect(page.locator('#end-btn')).toHaveCSS('display', 'none')
         await expect(page.locator('#game-status')).toBeVisible()
         await expect(page.locator('input[value="daily"]')).toBeFocused()
     })
 
-    for (const mode of ['expedition', 'not-a-mode']) {
-        test(`falls back to Campaign for mode=${mode}`, async ({ page }) => {
-            await page.goto(`/ice-slide?mode=${mode}`)
+    test('falls back to Campaign for an unknown mode query', async ({
+        page,
+    }) => {
+        await page.goto('/ice-slide?mode=not-a-mode')
 
-            await expectIceSlideReadyAndIdle(page)
-            await expect(page.locator('input[value="campaign"]')).toBeChecked()
-            await expect(page.locator('#start-btn')).toBeVisible()
-            await expect(page.locator('#game-status')).toBeVisible()
-            await expect(page.locator('#end-btn')).toHaveCSS('display', 'none')
+        await expectIceSlideReadyAndIdle(page)
+        await expect(page.locator('input[value="campaign"]')).toBeChecked()
+        await expect(page.locator('#start-btn')).toBeVisible()
+        await expect(page.locator('#game-status')).toBeVisible()
+        await expect(page.locator('#end-btn')).toHaveCSS('display', 'none')
+    })
+
+    test('preselects Expedition from the query and stays idle until Start', async ({
+        page,
+    }) => {
+        await installExpeditionCrypto(page)
+        await page.goto('/ice-slide?mode=expedition')
+
+        await expectIceSlideReadyAndIdle(page)
+        await expect(page.locator('input[value="expedition"]')).toBeChecked()
+        await expect(page.locator('input[value="campaign"]')).not.toBeChecked()
+        await expect(page.locator('#start-btn')).toBeVisible()
+        await expect(page.locator('#game-status')).toBeVisible()
+        await expect(page.locator('#expedition-meta')).toHaveClass(/hidden/)
+        await expect(page.locator('#daily-leaderboard')).toHaveClass(/hidden/)
+        // Preselection alone must not draw an Expedition seed.
+        await expect(await expeditionSeedCalls(page)).toBe(0)
+    })
+
+    test('Expedition Start shows meta, six stages, Stage 1 EASY, and hides the Daily leaderboard', async ({
+        page,
+    }) => {
+        await installExpeditionCrypto(page)
+        await page.goto('/ice-slide?mode=expedition')
+        await startExpeditionWhenReady(page)
+
+        await expect(page.locator('#expedition-meta')).toBeVisible()
+        await expect(page.locator('#expedition-seed')).toHaveText(
+            EXPEDITION_SEED_A_HEX
+        )
+        expect(await expeditionRunKey(page)).toBe(expeditionSeedARun.runKey)
+        await expect(page.locator('#expedition-stage-progress')).toContainText(
+            'Stage 1 / 6'
+        )
+        // The tier suffix only appears after the run's HUD sync.
+        await expect(page.locator('#expedition-stage-progress')).toContainText(
+            'EASY'
+        )
+        await expect(page.locator('#daily-leaderboard')).toHaveClass(/hidden/)
+        await expect(page.locator('#end-btn')).toBeVisible()
+    })
+
+    test('immediate Expedition End shows a local summary, sends no score, and labels Play Again as Retry Seed', async ({
+        page,
+    }) => {
+        let scoresRequests = 0
+        await page.route('**/api/scores', async route => {
+            scoresRequests += 1
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ success: true, newAchievements: [] }),
+            })
         })
-    }
+        await installExpeditionCrypto(page)
+        await page.goto('/ice-slide?mode=expedition')
+        await startExpeditionWhenReady(page)
+
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/
+        )
+        await expect(page.locator('#expedition-summary')).toBeVisible()
+        await expect(page.locator('#expedition-summary-seed')).toHaveText(
+            EXPEDITION_SEED_A_HEX
+        )
+        await expect(page.locator('#expedition-summary-progress')).toHaveText(
+            '0 / 6 stages'
+        )
+        await expect(page.locator('#expedition-summary-stars')).toHaveText(
+            '0 / 18 stars'
+        )
+        await expect(page.locator('#play-again-btn')).toHaveText('Retry Seed')
+        await expect(page.locator('#new-expedition-btn')).toBeVisible()
+        expect(scoresRequests).toBe(0)
+    })
+
+    test('Retry Seed preserves the seed and run key without a new crypto draw', async ({
+        page,
+    }) => {
+        await installExpeditionCrypto(page)
+        await page.goto('/ice-slide?mode=expedition')
+        await startExpeditionWhenReady(page)
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#play-again-btn')).toHaveText('Retry Seed')
+
+        const seedBefore = await page
+            .locator('#expedition-summary-seed')
+            .textContent()
+        const runKeyBefore = await expeditionRunKey(page)
+        expect(await expeditionSeedCalls(page)).toBe(1)
+
+        await page.locator('#play-again-btn').click()
+        await expect(page.locator('#end-btn')).toBeVisible()
+        await expect(page.locator('#expedition-seed')).toHaveText(
+            EXPEDITION_SEED_A_HEX
+        )
+        const seedAfter = await page.locator('#expedition-seed').textContent()
+        const runKeyAfter = await expeditionRunKey(page)
+        expect(seedAfter).toBe(seedBefore)
+        expect(runKeyAfter).toBe(runKeyBefore)
+        // Retry Seed replays the same run; it must not draw a second seed.
+        expect(await expeditionSeedCalls(page)).toBe(1)
+    })
+
+    test('New Expedition starts a fresh run with a new seed and run key', async ({
+        page,
+    }) => {
+        await installExpeditionCrypto(page)
+        await page.goto('/ice-slide?mode=expedition')
+        await startExpeditionWhenReady(page)
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#new-expedition-btn')).toBeVisible()
+
+        await page.locator('#new-expedition-btn').click()
+        await expect(page.locator('#end-btn')).toBeVisible()
+        await expect(page.locator('#expedition-seed')).toHaveText(
+            EXPEDITION_SEED_B_HEX
+        )
+        expect(await expeditionRunKey(page)).toBe(expeditionSeedBRun.runKey)
+        expect(await expeditionSeedCalls(page)).toBe(2)
+        await expect(page.locator('input[value="expedition"]')).toBeDisabled()
+        await expect(page.locator('#daily-leaderboard')).toHaveClass(/hidden/)
+    })
+
+    test('Change Mode returns to an enabled three-radio selector', async ({
+        page,
+    }) => {
+        await installExpeditionCrypto(page)
+        await page.goto('/ice-slide?mode=expedition')
+        await startExpeditionWhenReady(page)
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/
+        )
+
+        await page.locator('#change-mode-btn').click()
+        const modeInputs = page.locator('#ice-slide-mode-selector input')
+        await expect(modeInputs).toHaveCount(3)
+        for (const value of ['campaign', 'daily', 'expedition']) {
+            await expect(page.locator(`input[value="${value}"]`)).toBeEnabled()
+        }
+        await expect(page.locator('#start-btn')).toBeVisible()
+        await expect(page.locator('#end-btn')).toHaveCSS('display', 'none')
+        await expect(page.locator('#game-status')).toBeVisible()
+        await expect(page.locator('#expedition-meta')).toHaveClass(/hidden/)
+    })
+
+    test('submits a positive partial Expedition run without a competition key', async ({
+        page,
+    }) => {
+        let scoresBody: Record<string, unknown> = {}
+        let scoresRequests = 0
+        await page.route('**/api/scores', async route => {
+            scoresRequests += 1
+            scoresBody = JSON.parse(route.request().postData() ?? '{}')
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ success: true, newAchievements: [] }),
+            })
+        })
+        await installExpeditionCrypto(page)
+        await page.goto('/ice-slide?mode=expedition')
+        await startExpeditionWhenReady(page)
+
+        // Clear stage 1 (non-final), Continue, then End on stage 2.
+        await pressRoute(page, expeditionRouteAStage1)
+        await expect(page.locator('#stage-clear-overlay')).toBeVisible()
+        await page.locator('#stage-clear-continue-btn').click()
+        await expect(page.locator('#expedition-stage-progress')).toContainText(
+            'Stage 2 / 6'
+        )
+
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/
+        )
+        await expect.poll(() => scoresRequests, { timeout: 10_000 }).toBe(1)
+        expect(scoresBody).toMatchObject({
+            context: {
+                mode: 'expedition',
+                rulesetVersion: 1,
+            },
+            gameData: {
+                mode: 'expedition',
+                solved: false,
+                levelsCleared: expect.any(Number),
+            },
+        })
+        expect(scoresBody.score).toBeGreaterThan(0)
+        expect(
+            (scoresBody.context as { competitionKey?: unknown }).competitionKey
+        ).toBeUndefined()
+    })
+
+    test('locks input after a non-final Expedition clear until Continue', async ({
+        page,
+    }) => {
+        await installExpeditionCrypto(page)
+        await page.goto('/ice-slide?mode=expedition')
+        await startExpeditionWhenReady(page)
+
+        await pressRoute(page, expeditionRouteAStage1)
+        await expect(page.locator('#stage-clear-overlay')).toBeVisible()
+        const movesAfterClear = await page.locator('#moves').textContent()
+
+        // Stage-clear holds input: arrow keys must not change the run.
+        await page.keyboard.press('ArrowUp')
+        await page.keyboard.press('ArrowRight')
+        await expect(page.locator('#moves')).toHaveText(movesAfterClear ?? '0')
+        await expect(page.locator('#stage-clear-overlay')).toBeVisible()
+
+        await page.locator('#stage-clear-continue-btn').click()
+        await expect(page.locator('#expedition-stage-progress')).toContainText(
+            'Stage 2 / 6'
+        )
+        // The next stage accepts movement again.
+        await pressRoute(page, expeditionRouteAStage2.slice(0, 1))
+        await expect(page.locator('#moves')).not.toHaveText(
+            movesAfterClear ?? '0'
+        )
+    })
 
     test('loads the active Daily ranking and renders the empty + signed-out states', async ({
         page,
