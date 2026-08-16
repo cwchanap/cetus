@@ -1,6 +1,8 @@
 import {
     DIRECTION_DELTA,
+    type CellType,
     type Direction,
+    type GridPosition,
     type IceSlideCallbacks,
     type IceSlideGameData,
     type IceSlideRunDefinition,
@@ -32,16 +34,33 @@ import {
     timeBonus,
 } from './scoring'
 
+interface IceSlideUndoSnapshot {
+    grid: CellType[][]
+    player: GridPosition
+    crystalsCollected: number
+    levelCrystalsCollected: number
+}
+
 export class IceSlideGame {
     private state: IceSlideState
     private activeRun: IceSlideRunDefinition
     private elapsedTimer: ReturnType<typeof setInterval> | null = null
     private callbacks: Partial<IceSlideCallbacks>
+    private undoSnapshot: IceSlideUndoSnapshot | null = null
 
     constructor(callbacks: Partial<IceSlideCallbacks> = {}) {
         this.callbacks = callbacks
         this.activeRun = createCampaignRunDefinition()
         this.state = this.createIdleState()
+    }
+
+    private createUndoSnapshot(): IceSlideUndoSnapshot {
+        return {
+            grid: cloneGrid(this.state.grid),
+            player: { ...this.state.player },
+            crystalsCollected: this.state.crystalsCollected,
+            levelCrystalsCollected: this.state.levelCrystalsCollected,
+        }
     }
 
     private runMetadata(): Pick<
@@ -184,6 +203,7 @@ export class IceSlideGame {
     }
 
     stop(): void {
+        this.undoSnapshot = null
         this.stopTimer()
         if (this.state.status === 'playing') {
             this.state.status = 'idle'
@@ -217,6 +237,33 @@ export class IceSlideGame {
         return true
     }
 
+    canUndo(): boolean {
+        return (
+            this.state.mode === 'expedition' &&
+            this.state.status === 'playing' &&
+            this.state.pendingRouteChoiceAfterStage === null &&
+            this.state.undoChargesAvailable > 0 &&
+            this.undoSnapshot !== null
+        )
+    }
+
+    undo(): boolean {
+        if (!this.canUndo() || !this.undoSnapshot) {
+            return false
+        }
+
+        const snapshot = this.undoSnapshot
+        this.state.grid = cloneGrid(snapshot.grid)
+        this.state.player = { ...snapshot.player }
+        this.state.crystalsCollected = snapshot.crystalsCollected
+        this.state.levelCrystalsCollected = snapshot.levelCrystalsCollected
+        this.state.undoChargesAvailable -= 1
+        this.state.undoChargesUsed += 1
+        this.state.lastSlidePath = []
+        this.undoSnapshot = null
+        return true
+    }
+
     /** Reload current level without resetting run score/time. */
     resetLevel(): void {
         if (
@@ -244,6 +291,7 @@ export class IceSlideGame {
         }
 
         const delta = DIRECTION_DELTA[direction]
+        const preMoveSnapshot = this.createUndoSnapshot()
         const outcome = slide(this.state.grid, this.state.player, delta)
 
         if (outcome.kind === 'noop') {
@@ -274,6 +322,8 @@ export class IceSlideGame {
             return
         }
 
+        this.undoSnapshot =
+            this.state.mode === 'expedition' ? preMoveSnapshot : null
         this.state.player = { ...outcome.end }
         if (outcome.crystals > 0) {
             this.state.levelCrystalsCollected += outcome.crystals
@@ -292,6 +342,7 @@ export class IceSlideGame {
     }
 
     destroy(): void {
+        this.undoSnapshot = null
         this.stopTimer()
         this.callbacks = {}
     }
@@ -385,6 +436,7 @@ export class IceSlideGame {
             preserveLevelAttemptStats?: boolean
         } = {}
     ): void {
+        this.undoSnapshot = null
         const stage = this.getStage(index)
         const grid = cloneGrid(parseGrid(stage))
         const start = findStart(grid)

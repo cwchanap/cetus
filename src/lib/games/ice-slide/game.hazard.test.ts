@@ -3,7 +3,9 @@ import { IceSlideGame } from './game'
 import { createTestRun, createTestStage } from './test-fixtures'
 import type { Direction } from './types'
 
-function createRouteLifecycleRun() {
+function createRouteLifecycleRun(
+    stage3Rows: string[] = ['######', '#S..H#', '#G...#', '######']
+) {
     const createRouteStage = (
         id: string,
         rows: string[] = ['#####', '#S.G#', '#####']
@@ -17,12 +19,7 @@ function createRouteLifecycleRun() {
     return createTestRun([
         createRouteStage('expedition:route:1'),
         createRouteStage('expedition:route:2'),
-        createRouteStage('expedition:route:3', [
-            '######',
-            '#S..H#',
-            '#G...#',
-            '######',
-        ]),
+        createRouteStage('expedition:route:3', stage3Rows),
         createRouteStage('expedition:route:4'),
         createRouteStage('expedition:route:5', [
             '######',
@@ -77,6 +74,61 @@ describe('IceSlideGame hazard branch (explicit run)', () => {
         expect(game.getState().resets).toBe(1)
         expect(game.getState().levelFalls).toBe(1)
         expect(game.getState().levelResets).toBe(1)
+        game.destroy()
+    })
+
+    it('invalidates Undo after a hazard rebuild without spending its charge', () => {
+        const game = new IceSlideGame()
+        game.start(
+            createRouteLifecycleRun([
+                '########',
+                '#S..O.H#',
+                '#......#',
+                '#G.....#',
+                '########',
+            ])
+        )
+        clearCurrentStage(game)
+        clearCurrentStage(game)
+        expect(game.chooseExpeditionRoute('safe')).toBe(true)
+
+        game.move('E')
+        expect(game.canUndo()).toBe(true)
+        game.move('S')
+        game.move('E')
+        game.move('N')
+
+        expect(game.undo()).toBe(false)
+        expect(game.canUndo()).toBe(false)
+        expect(game.getState().undoChargesAvailable).toBe(1)
+        expect(game.getState().undoChargesUsed).toBe(0)
+        expect(game.getState().routeChoices).toEqual(['safe'])
+        game.destroy()
+    })
+
+    it('invalidates Undo after a manual reset without spending its charge', () => {
+        const game = new IceSlideGame()
+        game.start(
+            createRouteLifecycleRun([
+                '#######',
+                '#S....#',
+                '#G....#',
+                '#######',
+            ])
+        )
+        clearCurrentStage(game)
+        clearCurrentStage(game)
+        expect(game.chooseExpeditionRoute('safe')).toBe(true)
+
+        game.move('E')
+        expect(game.canUndo()).toBe(true)
+        game.resetLevel()
+
+        expect(game.undo()).toBe(false)
+        expect(game.canUndo()).toBe(false)
+        expect(game.getState().undoChargesAvailable).toBe(1)
+        expect(game.getState().undoChargesUsed).toBe(0)
+        expect(game.getState().routeChoices).toEqual(['safe'])
         game.destroy()
     })
 

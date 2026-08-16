@@ -20,7 +20,9 @@ import type {
     IceSlideStageClearResult,
 } from './types'
 
-function createRouteLifecycleRun(): IceSlideRunDefinition {
+function createRouteLifecycleRun(
+    stage3Rows: string[] = ['######', '#S..H#', '#G...#', '######']
+): IceSlideRunDefinition {
     const createRouteStage = (
         id: string,
         rows: string[] = ['#####', '#S.G#', '#####']
@@ -34,12 +36,7 @@ function createRouteLifecycleRun(): IceSlideRunDefinition {
     return createTestRun([
         createRouteStage('expedition:route:1'),
         createRouteStage('expedition:route:2'),
-        createRouteStage('expedition:route:3', [
-            '######',
-            '#S..H#',
-            '#G...#',
-            '######',
-        ]),
+        createRouteStage('expedition:route:3', stage3Rows),
         createRouteStage('expedition:route:4'),
         createRouteStage('expedition:route:5', [
             '######',
@@ -187,6 +184,161 @@ describe('IceSlideGame', () => {
         expect(game.getState().routeChoices).toEqual(['safe'])
         expect(game.getState().undoChargesAvailable).toBe(1)
         game.destroy()
+    })
+
+    it('supports one-step Undo for a committed Expedition move', () => {
+        const game = new IceSlideGame()
+        game.start(
+            createRouteLifecycleRun([
+                '#######',
+                '#S....#',
+                '#G....#',
+                '#######',
+            ])
+        )
+        clearCurrentStage(game)
+        clearCurrentStage(game)
+        expect(game.chooseExpeditionRoute('safe')).toBe(true)
+
+        const before = game.getState()
+        game.move('E')
+        const afterMove = game.getState()
+        expect(afterMove.moves).toBe(before.moves + 1)
+        expect(game.canUndo()).toBe(true)
+
+        expect(game.undo()).toBe(true)
+        const afterUndo = game.getState()
+        expect(afterUndo.player).toEqual(before.player)
+        expect(afterUndo.grid).toEqual(before.grid)
+        expect(afterUndo.moves).toBe(afterMove.moves)
+        expect(afterUndo.levelMoves).toBe(afterMove.levelMoves)
+        expect(afterUndo.undoChargesAvailable).toBe(0)
+        expect(afterUndo.undoChargesUsed).toBe(1)
+        expect(afterUndo.lastSlidePath).toEqual([])
+        expect(game.canUndo()).toBe(false)
+        game.destroy()
+    })
+
+    it('keeps the previous Undo opportunity after a noop', () => {
+        const game = new IceSlideGame()
+        game.start(
+            createRouteLifecycleRun([
+                '#######',
+                '#S....#',
+                '#G....#',
+                '#######',
+            ])
+        )
+        clearCurrentStage(game)
+        clearCurrentStage(game)
+        expect(game.chooseExpeditionRoute('safe')).toBe(true)
+
+        game.move('E')
+        expect(game.canUndo()).toBe(true)
+        game.move('E')
+        expect(game.canUndo()).toBe(true)
+        expect(game.undo()).toBe(true)
+        game.destroy()
+    })
+
+    it('invalidates Undo when a non-final goal loads the next stage', () => {
+        const game = new IceSlideGame()
+        game.start(createRouteLifecycleRun(['#####', '#S.G#', '#####']))
+        clearCurrentStage(game)
+        clearCurrentStage(game)
+        expect(game.chooseExpeditionRoute('safe')).toBe(true)
+
+        game.move('E')
+        expect(game.getState().levelIndex).toBe(3)
+        expect(game.undo()).toBe(false)
+        expect(game.getState().undoChargesAvailable).toBe(1)
+        expect(game.getState().undoChargesUsed).toBe(0)
+        expect(game.getState().routeChoices).toEqual(['safe'])
+        game.destroy()
+    })
+
+    it('rejects Undo outside active charged Expedition gameplay', () => {
+        const campaign = new IceSlideGame()
+        campaign.start()
+        expect(campaign.canUndo()).toBe(false)
+        expect(campaign.undo()).toBe(false)
+        campaign.destroy()
+
+        const daily = new IceSlideGame()
+        daily.start(
+            createTestDailyRun([
+                createTestStage({
+                    rows: ['#######', '#S....#', '#G....#', '#######'],
+                }),
+            ])
+        )
+        daily.move('E')
+        expect(daily.canUndo()).toBe(false)
+        expect(daily.undo()).toBe(false)
+        daily.destroy()
+
+        const zeroCharges = new IceSlideGame()
+        zeroCharges.start(
+            createTestRun([
+                createTestStage({
+                    rows: ['#######', '#S....#', '#G....#', '#######'],
+                }),
+            ])
+        )
+        zeroCharges.move('E')
+        expect(zeroCharges.canUndo()).toBe(false)
+        expect(zeroCharges.undo()).toBe(false)
+        zeroCharges.destroy()
+
+        const pending = new IceSlideGame()
+        pending.start(createRouteLifecycleRun())
+        clearCurrentStage(pending)
+        clearCurrentStage(pending)
+        expect(pending.chooseExpeditionRoute('safe')).toBe(true)
+        clearCurrentStage(pending)
+        clearCurrentStage(pending)
+        expect(pending.getState().pendingRouteChoiceAfterStage).toBe(4)
+        expect(pending.getState().undoChargesAvailable).toBe(1)
+        expect(pending.canUndo()).toBe(false)
+        expect(pending.undo()).toBe(false)
+        pending.destroy()
+
+        const stopped = new IceSlideGame()
+        stopped.start(
+            createRouteLifecycleRun([
+                '#######',
+                '#S....#',
+                '#G....#',
+                '#######',
+            ])
+        )
+        clearCurrentStage(stopped)
+        clearCurrentStage(stopped)
+        expect(stopped.chooseExpeditionRoute('safe')).toBe(true)
+        stopped.move('E')
+        expect(stopped.canUndo()).toBe(true)
+        stopped.stop()
+        expect(stopped.canUndo()).toBe(false)
+        expect(stopped.undo()).toBe(false)
+        stopped.destroy()
+
+        const won = new IceSlideGame()
+        won.start(
+            createTestRun([
+                createTestStage({ id: 'won:1' }),
+                createTestStage({ id: 'won:2' }),
+                createTestStage({ id: 'won:3' }),
+            ])
+        )
+        won.move('E')
+        won.move('E')
+        expect(won.getState().pendingRouteChoiceAfterStage).toBe(2)
+        expect(won.chooseExpeditionRoute('safe')).toBe(true)
+        won.move('E')
+        expect(won.getState().status).toBe('won')
+        expect(won.canUndo()).toBe(false)
+        expect(won.undo()).toBe(false)
+        won.destroy()
     })
 
     it('refreshes current stage metadata after a Risk route choice', () => {
