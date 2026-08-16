@@ -4,25 +4,63 @@
 
 **Goal:** Add deterministic Safe/Risky Expedition choices after stages 2 and 4 plus one-step charge-based Undo, while preserving Campaign/Daily behavior and the existing materialized-run architecture.
 
-**Architecture:** Make stages 3 and 5 Risk-capable by default inside the existing bounded stage generator, then apply choices through one pure metadata-only `applyIceSlideExpeditionRouteChoice()` helper. `IceSlideGame` owns pending choice state, preserved run-scoped route/charge state, and one private pre-move Undo snapshot; `init.ts` and the Ice Slide page own only presentation and browser input gating.
+**Architecture:** Make stages 3 and 5 Risk-capable directly from their stage numbers inside the existing bounded generator, then apply choices through one pure metadata-only `applyIceSlideExpeditionRouteChoice()` helper. `IceSlideGame` owns the pending token, run-scoped route/charge state, and one four-field pre-move snapshot; `loadLevel()` is the single snapshot-invalidation choke point for level rebuilds. `init.ts` and the Ice Slide page own presentation and browser input gating only.
 
 **Tech Stack:** TypeScript, Astro, PixiJS, Vitest, Playwright, Bun.
 
 ## Global Constraints
 
 - Choice checkpoints are exactly after Expedition stages 2 and 4; effects apply only to stages 3 and 5.
-- Safe Cache grants one Undo charge and keeps the target stage at `10_000` basis points (`1.00×`).
-- Risk Protocol grants no charge, adds exactly one additional seeded eligible objective, and sets the target stage to `12_500` basis points (`1.25×`).
+- Safe Cache grants one Undo charge and leaves the target stage at `10_000` basis points (`1.00×`).
+- Risk Protocol grants no charge, adds exactly one additional seeded eligible objective, and uses exported `ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS = 12_500` (`1.25×`).
 - Apply the Risk multiplier after objective bonuses and floor exactly once.
-- Stages 3 and 5 must require at least two eligible objectives by generator default; callers must not need to remember the invariant.
+- Stage numbers 3 and 5 require at least two eligible objectives inside `createIceSlideExpeditionStage()`; do not add a caller override.
+- Keep the validator seed corpus prefix `ice-slide:validate:v1:` unchanged while re-validating the corpus with generator v2.
 - Undo is available only after a non-hazard committed Expedition move, consumes one charge, and does not decrement total or stage move counters.
-- `routeChoices`, `undoChargesAvailable`, and `undoChargesUsed` are run-scoped state and must survive hazard resets, manual Reset, and stage transitions.
-- `starsPossible` is derived from `activeRun`; recompute it instead of preserving a stale value.
+- `routeChoices`, `undoChargesAvailable`, and `undoChargesUsed` are run-scoped and survive hazard resets, manual Reset, and stage transitions.
+- `starsPossible` is derived from `activeRun`; never preserve a stale copy through the `loadLevel()` bag.
 - Retry Seed starts from the captured base run; do not replay prior choices.
 - Campaign and Daily never expose route choices or Undo.
 - Keep generation bounded at 64 attempts per stage and the solver cap at 10,000 states.
-- Every task that changes TypeScript contracts leaves the tree type-checkable at its commit boundary.
+- Every task that changes TypeScript contracts must leave `bun run typecheck` green at its commit boundary.
 - Do not add DB/API/leaderboard work, a generic ability framework, permanent progression, alternate route layouts, snow, cracked ice, eligibility fields in the run schema, a second Undo snapshot type, or generator-v1 compatibility code.
+
+---
+
+## File Structure
+
+### Production files changed
+
+- `src/lib/games/ice-slide/objectives.ts` — one shared objective selection order plus reusable feasibility policy.
+- `src/lib/games/ice-slide/daily.ts` — reuse the shared objective order; no Daily behavior/version change.
+- `src/lib/games/ice-slide/quality.ts` — reuse the feasibility helper while retaining quality acceptance/rejection ownership.
+- `src/lib/games/ice-slide/generator.ts` — stage-number Risk capability, generator v2, closed rejection reason.
+- `src/lib/games/ice-slide/expedition.ts` — Expedition ruleset v2, Risk multiplier constant, pure route effect.
+- `src/lib/games/ice-slide/types.ts` — multi-bonus result plus route/charge/star game state/data.
+- `src/lib/games/ice-slide/scoring.ts` — apply optional basis-point multiplier after subtotal.
+- `src/lib/games/ice-slide/game.ts` — multi-objective scoring, route lifecycle, preservation, one-step Undo.
+- `src/lib/games/ice-slide/init.ts` — browser route/Undo handle and HUD/overlay presentation.
+- `src/pages/ice-slide/index.astro` — page-local route overlay, Undo button, derived Risk multiplier copy, non-authoritative star placeholder.
+- `scripts/validate-ice-slide-expedition.ts` — assert stage-3/5 capability from existing `quality.objectiveFeasibility`; keep validation corpus stable.
+
+### Tests changed
+
+- `src/lib/games/ice-slide/objectives.test.ts`
+- `src/lib/games/ice-slide/daily.test.ts`
+- `src/lib/games/ice-slide/quality.test.ts`
+- `src/lib/games/ice-slide/generator.test.ts`
+- `src/lib/games/ice-slide/generator.validation.test.ts`
+- `src/lib/games/ice-slide/templates.test.ts`
+- `src/lib/games/ice-slide/expedition.test.ts`
+- `src/lib/games/ice-slide/scoring.test.ts`
+- `src/lib/games/ice-slide/game.test.ts`
+- `src/lib/games/ice-slide/game.hazard.test.ts`
+- `src/lib/games/ice-slide/game.crystal-farm.test.ts`
+- `src/lib/games/ice-slide/init.test.ts`
+- `src/pages/game-board-markup.test.ts`
+- `e2e/games/play-coverage.spec.ts`
+
+`run.ts::OBJECTIVE_RECORD` stays unchanged. It is the exhaustive validator membership record, not an RNG selection-order array.
 
 ---
 
@@ -30,31 +68,33 @@
 
 **Files:**
 - Modify: `src/lib/games/ice-slide/objectives.ts`
-- Create or modify: `src/lib/games/ice-slide/objectives.test.ts`
+- Modify: `src/lib/games/ice-slide/objectives.test.ts`
+- Modify: `src/lib/games/ice-slide/daily.ts`
+- Modify: `src/lib/games/ice-slide/daily.test.ts`
 - Modify: `src/lib/games/ice-slide/quality.ts`
 - Modify: `src/lib/games/ice-slide/quality.test.ts`
 - Modify: `src/lib/games/ice-slide/generator.ts`
 - Modify: `src/lib/games/ice-slide/generator.test.ts`
 - Modify: `src/lib/games/ice-slide/generator.validation.test.ts`
-- Modify: `scripts/validate-ice-slide-expedition.ts`
+- Modify: `src/lib/games/ice-slide/templates.test.ts`
 - Modify: `src/lib/games/ice-slide/expedition.ts`
 - Modify: `src/lib/games/ice-slide/expedition.test.ts`
-- Modify only for catalog assertions if needed: `src/lib/games/ice-slide/templates.test.ts`
+- Modify: `scripts/validate-ice-slide-expedition.ts`
 
 **Interfaces:**
 - Produces: `ICE_SLIDE_OBJECTIVE_IDS: readonly IceSlideObjectiveId[]`
 - Produces: `getIceSlideObjectiveFeasibility(rows, solveResult): Record<IceSlideObjectiveId, boolean>`
-- Extends: `createIceSlideExpeditionStage({ ..., minEligibleObjectives?: number })`
-- Default rule: stage numbers `3` and `5` require `2`; all other stage numbers require `1`
 - Changes: `ICE_SLIDE_EXPEDITION_GENERATOR_VERSION` from `1` to `2`
 - Produces: `ICE_SLIDE_EXPEDITION_RULESET_VERSION = 2`
+- Generator invariant: stage `3`/`5` requires two eligible objectives; all other stage numbers require one.
+- Adds rejection reason: `insufficient_objective_options`
 
-- [ ] **Step 1: Lock the current feasibility policy in tests**
+- [ ] **Step 1: Lock current feasibility semantics with focused tests**
 
-Create/extend `objectives.test.ts` with cases for:
+In `objectives.test.ts`, add exact cases for crystals/hazards/solvability:
 
 ```ts
-const feasibility = getIceSlideObjectiveFeasibility(
+const allEligible = getIceSlideObjectiveFeasibility(
     ['#####', '#S.C#', '#..G#', '#.H.#', '#####'],
     {
         solvable: true,
@@ -67,121 +107,172 @@ const feasibility = getIceSlideObjectiveFeasibility(
     }
 )
 
-expect(feasibility).toEqual({
+expect(allEligible).toEqual({
     collect_all_crystals: true,
     no_falls: true,
     no_reset: true,
 })
 ```
 
-Also cover:
-
-- no crystal -> `collect_all_crystals: false`;
-- no hazard -> `no_falls: false`;
-- solvable board that cannot finish with all crystals -> collect false;
-- solvable board -> `no_reset: true`.
-
-- [ ] **Step 2: Run the helper tests and verify the helper is missing**
-
-```bash
-bun run test:run -- src/lib/games/ice-slide/objectives.test.ts src/lib/games/ice-slide/quality.test.ts
-```
-
-Expected: FAIL because the shared helper/order does not exist.
-
-- [ ] **Step 3: Extract objective order and feasibility without changing quality semantics**
-
-In `objectives.ts` add:
+Add three more fixtures:
 
 ```ts
+expect(noCrystal.collect_all_crystals).toBe(false)
+expect(noHazard.no_falls).toBe(false)
+expect(cannotFinishWithAllCrystals.collect_all_crystals).toBe(false)
+expect(solvable.no_reset).toBe(true)
+```
+
+- [ ] **Step 2: Run the focused tests and confirm the helper is missing**
+
+```bash
+bun run test:run -- \
+  src/lib/games/ice-slide/objectives.test.ts \
+  src/lib/games/ice-slide/quality.test.ts
+```
+
+Expected: FAIL because `ICE_SLIDE_OBJECTIVE_IDS` / `getIceSlideObjectiveFeasibility()` do not exist.
+
+- [ ] **Step 3: Extract the shared objective order and feasibility calculation**
+
+In `objectives.ts`:
+
+```ts
+import type { IceSlideSolveResult } from './solver'
+import type { IceSlideObjectiveId } from './types'
+
 export const ICE_SLIDE_OBJECTIVE_IDS = [
     'collect_all_crystals',
     'no_falls',
     'no_reset',
 ] as const satisfies readonly IceSlideObjectiveId[]
+
+function countGlyph(rows: readonly string[], glyph: string): number {
+    let count = 0
+    for (const row of rows) {
+        for (const cell of row) {
+            if (cell === glyph) count += 1
+        }
+    }
+    return count
+}
+
+export function getIceSlideObjectiveFeasibility(
+    rows: readonly string[],
+    solveResult: IceSlideSolveResult
+): Record<IceSlideObjectiveId, boolean> {
+    const crystalCount = countGlyph(rows, 'C')
+    const hasHazard = countGlyph(rows, 'H') > 0
+    return {
+        collect_all_crystals:
+            crystalCount > 0 && solveResult.reachedGoalWithAllCrystals,
+        no_falls: hasHazard && solveResult.solvable,
+        no_reset: solveResult.solvable,
+    }
+}
 ```
 
-Add one pure `getIceSlideObjectiveFeasibility()` using the current crystal/hazard/solver facts. Import `IceSlideSolveResult` as a type only. Move only the policy calculation; keep `quality.ts` responsible for candidate acceptance and rejection messages.
+Keep the existing completion-label/completion functions in the same module.
 
-Replace `quality.ts`'s local feasibility object with the helper.
+In `quality.ts`, replace the local feasibility object with:
 
-- [ ] **Step 4: Verify the extraction is behavior-neutral**
+```ts
+const objectiveFeasibility = getIceSlideObjectiveFeasibility(
+    candidate.rows,
+    solveResult
+)
+```
+
+Keep `quality.ts`'s rejection messages and accepted return shape unchanged.
+
+- [ ] **Step 4: Remove the two true selection-order duplicates**
+
+In `generator.ts`, delete `OBJECTIVE_ORDER` and use:
+
+```ts
+const eligibleObjectives = ICE_SLIDE_OBJECTIVE_IDS.filter(
+    id => quality.objectiveFeasibility[id]
+)
+```
+
+In `daily.ts`, delete `DAILY_OBJECTIVE_ORDER` and use the same constant:
+
+```ts
+const eligibleObjectives = ICE_SLIDE_OBJECTIVE_IDS.filter(
+    objectiveId => quality.objectiveFeasibility[objectiveId]
+)
+```
+
+Do not modify `run.ts::OBJECTIVE_RECORD`.
+
+- [ ] **Step 5: Run objective/quality/Daily tests to prove the extraction is neutral**
 
 ```bash
-bun run test:run -- src/lib/games/ice-slide/objectives.test.ts src/lib/games/ice-slide/quality.test.ts
+bun run test:run -- \
+  src/lib/games/ice-slide/objectives.test.ts \
+  src/lib/games/ice-slide/quality.test.ts \
+  src/lib/games/ice-slide/daily.test.ts
 ```
 
-Expected: PASS.
+Expected: PASS, including existing frozen Daily output assertions.
 
-- [ ] **Step 5: Write generator tests for the stage-number default**
+- [ ] **Step 6: Add generator tests for stage-number Risk capability**
 
-Add tests that call the generator **without** `minEligibleObjectives`:
+Add tests with no extra generator input:
 
 ```ts
 const stage3 = createIceSlideExpeditionStage({
-    seed: 'risk-stage-3-default',
+    seed: 'risk-stage-3',
     stageNumber: 3,
     difficulty: 'medium',
 })
 const stage5 = createIceSlideExpeditionStage({
-    seed: 'risk-stage-5-default',
+    seed: 'risk-stage-5',
     stageNumber: 5,
     difficulty: 'hard',
 })
 ```
 
-For each, independently solve and assert:
+For each, use the production solver/helper in the unit test and assert:
 
 ```ts
-const feasibility = getIceSlideObjectiveFeasibility(stage.rows, solve)
+const solve = solveIceSlideBoard(stage.stage, {
+    maxStates: ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES,
+})
+const feasibility = getIceSlideObjectiveFeasibility(stage.stage.rows, solve)
 expect(
     ICE_SLIDE_OBJECTIVE_IDS.filter(id => feasibility[id]).length
 ).toBeGreaterThanOrEqual(2)
 ```
 
-Also prove stage 4/6 default to one objective option, and add an explicit override test such as `minEligibleObjectives: 1` so focused tests/direct callers can bypass the stage default intentionally.
+Add a stage-4 fixture to exercise the ordinary path and prove a valid one-objective board can still be accepted when the stage number is not 3/5.
 
-Add validation tests for overrides outside `1..ICE_SLIDE_OBJECTIVE_IDS.length`.
+Add a mocked/controlled candidate path that produces an otherwise valid one-objective board for stage 3 and assert `rejectionCounts.insufficient_objective_options` increments.
 
-- [ ] **Step 6: Add the closed rejection reason before implementation**
-
-Extend the generator rejection union with:
-
-```ts
-'insufficient_objective_options'
-```
-
-Add a test fixture/mocked candidate path showing an otherwise accepted board is rejected when its feasible-objective count is below the effective minimum.
-
-- [ ] **Step 7: Run generator tests and verify the new default fails**
+- [ ] **Step 7: Run generator tests and verify stage 3/5 still accept one-option boards**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/generator.test.ts
 ```
 
-Expected: FAIL because stage 3/5 do not yet default to two eligible objectives.
+Expected: FAIL on the new capability/rejection assertions.
 
-- [ ] **Step 8: Implement the effective minimum in `generator.ts`**
+- [ ] **Step 8: Implement the stage-number minimum in `generator.ts`**
 
-Resolve the requirement once near input validation:
+Add the rejection union member:
+
+```ts
+| 'insufficient_objective_options'
+```
+
+Resolve the minimum with no caller override:
 
 ```ts
 const minEligibleObjectives =
-    input.minEligibleObjectives ??
-    (input.stageNumber === 3 || input.stageNumber === 5 ? 2 : 1)
-
-if (
-    !Number.isSafeInteger(minEligibleObjectives) ||
-    minEligibleObjectives < 1 ||
-    minEligibleObjectives > ICE_SLIDE_OBJECTIVE_IDS.length
-) {
-    throw new RangeError(
-        `minEligibleObjectives must be an integer from 1 through ${ICE_SLIDE_OBJECTIVE_IDS.length}`
-    )
-}
+    input.stageNumber === 3 || input.stageNumber === 5 ? 2 : 1
 ```
 
-After candidate and fallback quality acceptance:
+After each candidate/fallback quality success:
 
 ```ts
 const eligibleObjectives = ICE_SLIDE_OBJECTIVE_IDS.filter(
@@ -195,29 +286,27 @@ if (eligibleObjectives.length < minEligibleObjectives) {
 
 Keep the existing seeded objective pick from this ordered list.
 
-Do **not** put stage-3/stage-5 special arguments in `expedition.ts`; the invariant belongs in the generator.
+- [ ] **Step 9: Bump Expedition generator and ruleset identity**
 
-- [ ] **Step 9: Bump Expedition generator/ruleset identity without touching Daily/Campaign**
-
-Change:
+In `generator.ts`:
 
 ```ts
-ICE_SLIDE_EXPEDITION_GENERATOR_VERSION = 2
+export const ICE_SLIDE_EXPEDITION_GENERATOR_VERSION = 2
 ```
 
-Add in `expedition.ts`:
+In `expedition.ts`:
 
 ```ts
 export const ICE_SLIDE_EXPEDITION_RULESET_VERSION = 2
 ```
 
-Use the Expedition-only constant for Expedition run construction/run-key formatting. Leave shared `ICE_SLIDE_RULESET_VERSION` untouched.
+Use the Expedition-specific ruleset constant when constructing/formatting the Expedition run. Leave shared `ICE_SLIDE_RULESET_VERSION` unchanged for Campaign/Daily.
 
-Replace frozen generator-v1 output expectations with v2; do not retain a v1 branch.
+Update frozen Expedition generator/run expectations to v2. Do not retain generator-v1 branches.
 
-- [ ] **Step 10: Make the validation loop exercise the production invariant**
+- [ ] **Step 10: Keep the validation corpus fixed and reuse existing feasibility output**
 
-Keep `scripts/validate-ice-slide-expedition.ts` calling the generator with its existing real stage numbers:
+In `scripts/validate-ice-slide-expedition.ts`, retain:
 
 ```ts
 const TIER_STAGES = {
@@ -227,36 +316,62 @@ const TIER_STAGES = {
 } as const
 ```
 
-Do not pass a special `minEligibleObjectives` argument. That is the point of the generator default.
+Keep the seed prefix unchanged:
 
-Update validation seed/version labels from `validate:v1` to `validate:v2` where frozen labels describe the generator contract.
+```ts
+const seed =
+    `ice-slide:validate:v1:${difficulty}:` +
+    String(index).padStart(4, '0')
+```
 
-In the independent assertion path, for stage `3`/`5`, derive feasibility from the independently solved board and require at least two eligible objectives.
+Add a comment immediately above it:
 
-- [ ] **Step 11: Lock fallback capability**
+```ts
+// Stable validation-corpus ID; intentionally independent of generator version.
+```
 
-Add a catalog test that independently validates checked-in fallbacks and proves:
+After the existing `validateIceSlideStageQuality()` call succeeds, count directly from its returned feasibility record:
 
-- at least one Medium fallback has two or more eligible objectives;
-- at least one Hard fallback has two or more eligible objectives.
+```ts
+if (stageNumber === 3 || stageNumber === 5) {
+    const eligibleCount = ICE_SLIDE_OBJECTIVE_IDS.filter(
+        id => quality.objectiveFeasibility[id]
+    ).length
+    if (eligibleCount < 2) {
+        throw new Error(`${context}: Risk target has only ${eligibleCount} eligible objectives`)
+    }
+}
+```
 
-Do not require every fallback to be Risk-capable. A one-objective fallback such as a board with no `C` and no `H` remains valid for non-Risk target stages; it is simply skipped for stage 3/5.
+Do not run another solver/helper call in the validator.
 
-- [ ] **Step 12: Run generation/content gates**
+- [ ] **Step 11: Lock fallback capability without requiring every fallback to qualify**
+
+In `templates.test.ts`, independently validate each Medium/Hard fallback with the existing quality helper and assert:
+
+```ts
+expect(mediumRiskCapableFallbacks.length).toBeGreaterThanOrEqual(1)
+expect(hardRiskCapableFallbacks.length).toBeGreaterThanOrEqual(1)
+```
+
+A fallback with no `C`/`H` remains valid content; it simply cannot satisfy stage 3/5 and is skipped by the generator.
+
+- [ ] **Step 12: Run generation/content/type gates**
 
 ```bash
 bun run test:run -- \
   src/lib/games/ice-slide/objectives.test.ts \
+  src/lib/games/ice-slide/daily.test.ts \
   src/lib/games/ice-slide/quality.test.ts \
   src/lib/games/ice-slide/generator.test.ts \
   src/lib/games/ice-slide/generator.validation.test.ts \
-  src/lib/games/ice-slide/expedition.test.ts \
-  src/lib/games/ice-slide/templates.test.ts
+  src/lib/games/ice-slide/templates.test.ts \
+  src/lib/games/ice-slide/expedition.test.ts
 bun run validate:ice-slide-expedition
 bun run typecheck
 ```
 
-Expected: PASS. The 1,000-seed validator now checks the same stage-3/stage-5 constraint production uses.
+Expected: PASS. The same `validate:v1` corpus is now evaluated by generator v2 rules.
 
 - [ ] **Step 13: Commit**
 
@@ -264,24 +379,24 @@ Expected: PASS. The 1,000-seed validator now checks the same stage-3/stage-5 con
 git add \
   src/lib/games/ice-slide/objectives.ts \
   src/lib/games/ice-slide/objectives.test.ts \
+  src/lib/games/ice-slide/daily.ts \
+  src/lib/games/ice-slide/daily.test.ts \
   src/lib/games/ice-slide/quality.ts \
   src/lib/games/ice-slide/quality.test.ts \
   src/lib/games/ice-slide/generator.ts \
   src/lib/games/ice-slide/generator.test.ts \
   src/lib/games/ice-slide/generator.validation.test.ts \
+  src/lib/games/ice-slide/templates.test.ts \
   src/lib/games/ice-slide/expedition.ts \
   src/lib/games/ice-slide/expedition.test.ts \
-  src/lib/games/ice-slide/templates.test.ts \
   scripts/validate-ice-slide-expedition.ts
 
 git commit -m "feat(ice-slide): guarantee risk-capable expedition stages"
 ```
 
-Omit `objectives.test.ts` or `templates.test.ts` from `git add` if the repository already locates those assertions in an existing file instead of creating/modifying them.
-
 ---
 
-### Task 2: Add pure route effects and atomically adopt multi-objective results
+### Task 2: Add the pure route effect and atomically adopt multi-objective scoring
 
 **Files:**
 - Modify: `src/lib/games/ice-slide/types.ts`
@@ -293,18 +408,18 @@ Omit `objectives.test.ts` or `templates.test.ts` from `git add` if the repositor
 - Modify: `src/lib/games/ice-slide/game.test.ts`
 - Modify: `src/lib/games/ice-slide/init.ts`
 - Modify: `src/lib/games/ice-slide/init.test.ts`
-- Modify any other direct TypeScript fixture discovered by `grep -R "stars\.bonus" src e2e`
 
 **Interfaces:**
 - Produces: `IceSlideExpeditionRouteChoice = 'safe' | 'risky'`
 - Produces: `IceSlideExpeditionChoiceStage = 2 | 4`
+- Produces: `ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS = 12_500`
 - Produces: `applyIceSlideExpeditionRouteChoice(run, afterStageNumber, choice): IceSlideExpeditionRouteEffect`
 - Changes atomically: `IceSlideStageClearResult.stars.bonus` -> `stars.bonuses`
-- Extends: `levelScore()` params with optional `scoreMultiplierBps`, default `10_000`
+- Extends `levelScore()` params with optional `scoreMultiplierBps`, default `10_000`
 
-- [ ] **Step 1: Write pure route-effect tests**
+- [ ] **Step 1: Write pure Safe/Risk route-effect tests**
 
-Use a deterministic Expedition v2 run:
+In `expedition.test.ts`:
 
 ```ts
 const base = createIceSlideExpeditionRunDefinition('route-effect-seed')
@@ -312,6 +427,7 @@ const base = createIceSlideExpeditionRunDefinition('route-effect-seed')
 const safe = applyIceSlideExpeditionRouteChoice(base, 2, 'safe')
 expect(safe.undoChargesGranted).toBe(1)
 expect(safe.run.stages[2]).toEqual(base.stages[2])
+expect(base.stages[2].scoreMultiplierBps).toBe(10_000)
 
 const riskyA = applyIceSlideExpeditionRouteChoice(base, 2, 'risky')
 const riskyB = applyIceSlideExpeditionRouteChoice(base, 2, 'risky')
@@ -319,14 +435,18 @@ expect(riskyA).toEqual(riskyB)
 expect(riskyA.undoChargesGranted).toBe(0)
 expect(riskyA.run.stages[2].objectiveIds).toHaveLength(2)
 expect(new Set(riskyA.run.stages[2].objectiveIds).size).toBe(2)
-expect(riskyA.run.stages[2].scoreMultiplierBps).toBe(12_500)
+expect(riskyA.run.stages[2].scoreMultiplierBps).toBe(
+    ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS
+)
 expect(riskyA.run.stages[2].signature).not.toBe(base.stages[2].signature)
 expect(base.stages[2].objectiveIds).toHaveLength(1)
 ```
 
-Repeat checkpoint 4 -> stage index 4. Assert invalid choice checkpoint, Campaign/Daily input, null seed, or malformed Expedition run fails without mutating the input.
+Repeat with `afterStageNumber = 4` and address the target as `run.stages[afterStageNumber]`. Do not duplicate a ternary checkpoint mapping in tests.
 
-- [ ] **Step 2: Run route tests and verify the helper is absent**
+Assert Campaign/Daily input, invalid checkpoint shape, or null Expedition seed throws without mutating the caller.
+
+- [ ] **Step 2: Run route tests and confirm the helper/constant are missing**
 
 ```bash
 bun run test:run -- src/lib/games/ice-slide/expedition.test.ts
@@ -334,24 +454,38 @@ bun run test:run -- src/lib/games/ice-slide/expedition.test.ts
 
 Expected: FAIL.
 
-- [ ] **Step 3: Implement `applyIceSlideExpeditionRouteChoice()` using existing seams**
+- [ ] **Step 3: Implement `applyIceSlideExpeditionRouteChoice()` using existing run seams**
 
-Use:
-
-- `cloneIceSlideRunDefinition()`;
-- `solveIceSlideBoard(..., { maxStates: ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES })`;
-- `getIceSlideObjectiveFeasibility()`;
-- a labeled `createSeededRng(run.seed)` fork;
-- `createIceSlideStageSignature()`;
-- `assertValidIceSlideRunDefinition()`.
-
-Core Risk shape:
+In `expedition.ts`:
 
 ```ts
-const targetIndex = afterStageNumber === 2 ? 2 : 4
-const nextRun = cloneIceSlideRunDefinition(run)
-const target = nextRun.stages[targetIndex]
+export const ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS = 12_500
+```
 
+Validate the supplied run first, then clone it:
+
+```ts
+assertValidIceSlideRunDefinition(run)
+if (run.mode !== 'expedition' || run.seed === null) {
+    throw new RangeError('route choices require a seeded Expedition run')
+}
+const nextRun = cloneIceSlideRunDefinition(run)
+const targetIndex = afterStageNumber
+```
+
+Safe:
+
+```ts
+if (choice === 'safe') {
+    assertValidIceSlideRunDefinition(nextRun)
+    return { run: nextRun, undoChargesGranted: 1 }
+}
+```
+
+Risk:
+
+```ts
+const target = nextRun.stages[targetIndex]
 const solve = solveIceSlideBoard(target, {
     maxStates: ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES,
 })
@@ -374,16 +508,17 @@ const extraObjective = createSeededRng(run.seed)
     .pick(remaining)
 
 target.objectiveIds.push(extraObjective)
-target.scoreMultiplierBps = 12_500
+target.scoreMultiplierBps = ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS
 target.signature = createIceSlideStageSignature(target)
 assertValidIceSlideRunDefinition(nextRun)
+return { run: nextRun, undoChargesGranted: 0 }
 ```
 
-Safe returns the cloned run unchanged plus `undoChargesGranted: 1`.
+No board/par/mutation field changes.
 
-- [ ] **Step 4: Write multiplier tests before changing scoring**
+- [ ] **Step 4: Write multiplier and multi-objective scoring tests**
 
-Add an exact case:
+In `scoring.test.ts`:
 
 ```ts
 expect(
@@ -394,33 +529,31 @@ expect(
             movesUsed: 4,
             crystalsCollected: 1,
             optionalStarsEarned: 3,
-            scoreMultiplierBps: 12_500,
+            scoreMultiplierBps: ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS,
         },
         EXPEDITION_SCORING_CONFIG
     )
 ).toBe(Math.floor((600 + 25 + 50 + 300) * 1.25))
 ```
 
-Existing callers without the field must keep current Campaign/Daily outputs.
+Keep existing Campaign/Daily assertions where the multiplier is omitted.
 
-- [ ] **Step 5: Implement multiplier-at-end scoring**
+- [ ] **Step 5: Extend `levelScore()` without creating another scoring function**
 
-In `levelScore()` compute the existing subtotal, then:
+In `scoring.ts`:
 
 ```ts
+const subtotal =
+    levelClearPoints(params.levelNumber) +
+    moveBonus(params.parMoves, params.movesUsed) +
+    crystalBonus(params.crystalsCollected) +
+    (params.optionalStarsEarned ?? 0) * config.objectiveStarBonus
+
 const multiplierBps = params.scoreMultiplierBps ?? 10_000
 return Math.floor((subtotal * multiplierBps) / 10_000)
 ```
 
-Do not add a second Expedition scoring function.
-
-- [ ] **Step 6: Write game tests for two bonus objectives**
-
-Use a stage with two objective IDs and `12_500` bps. Assert the result exposes both and `scoreGained` equals the floored multiplied subtotal.
-
-Keep a Daily regression showing one bonus entry and unchanged Daily score.
-
-- [ ] **Step 7: Change `stars.bonus` to `stars.bonuses` atomically across TypeScript consumers**
+- [ ] **Step 6: Atomically change the stage-clear result contract**
 
 In `types.ts`:
 
@@ -433,9 +566,40 @@ stars: {
 }
 ```
 
-In `IceSlideGame.clearLevel()` evaluate every `state.objectiveIds` and build `bonuses` in stable array order. Count all earned bonus objectives and pass `stage.scoreMultiplierBps` to `levelScore()`.
+In `game.ts`, evaluate every current objective:
 
-In the **same task/commit**, update every current singular TypeScript call site. In `init.ts`, preserve the old single-bonus presentation for now:
+```ts
+const bonuses = isObjectiveMode
+    ? this.state.objectiveIds.map(id => ({
+          id,
+          earned: isIceSlideObjectiveComplete(id, {
+              crystalsCollected: this.state.levelCrystalsCollected,
+              totalCrystals,
+              stageFalls: this.state.levelFalls,
+              stageResets: this.state.levelResets,
+          }),
+      }))
+    : []
+const bonusStarsEarned = bonuses.filter(item => item.earned).length
+const optionalStarsEarned = isObjectiveMode
+    ? Number(efficient) + bonusStarsEarned
+    : 0
+```
+
+Pass `stage.scoreMultiplierBps` into `levelScore()` and set:
+
+```ts
+stars: {
+    clear: true,
+    efficient,
+    bonuses,
+    earnedCount: isObjectiveMode ? 1 + optionalStarsEarned : 0,
+}
+```
+
+- [ ] **Step 7: Update the single production result consumer in the same commit**
+
+In `init.ts`, keep current one-row presentation until Task 5:
 
 ```ts
 function formatBonusRow(result: IceSlideStageClearResult): string {
@@ -449,22 +613,20 @@ function formatBonusRow(result: IceSlideStageClearResult): string {
 }
 ```
 
-Update `game.test.ts`, `init.test.ts`, and other fixtures from `result.stars.bonus` to `result.stars.bonuses[0]` or array assertions as appropriate.
+Update direct `stars.bonus` assertions/fixtures in `game.test.ts` and `init.test.ts` to use `stars.bonuses`.
 
-Do **not** add Risk Bonus wording or multi-objective HUD joining yet; Task 5 owns presentation expansion.
-
-- [ ] **Step 8: Prove this contract commit is green and type-checkable**
+- [ ] **Step 8: Run the contract/scoring/type gate**
 
 ```bash
 bun run test:run -- \
+  src/lib/games/ice-slide/expedition.test.ts \
   src/lib/games/ice-slide/scoring.test.ts \
   src/lib/games/ice-slide/game.test.ts \
-  src/lib/games/ice-slide/expedition.test.ts \
   src/lib/games/ice-slide/init.test.ts
 bun run typecheck
 ```
 
-Expected: PASS. No intermediate tree may still reference `stars.bonus`.
+Expected: PASS. No TypeScript consumer still references `stars.bonus`.
 
 - [ ] **Step 9: Commit**
 
@@ -492,17 +654,16 @@ git commit -m "feat(ice-slide): apply expedition route effects"
 - Modify: `src/lib/games/ice-slide/game.ts`
 - Modify: `src/lib/games/ice-slide/game.test.ts`
 - Modify: `src/lib/games/ice-slide/game.hazard.test.ts`
-- Modify: `src/lib/games/ice-slide/game.win.test.ts` only if direct fixtures require the additive fields
 
 **Interfaces:**
 - Adds state: `pendingRouteChoiceAfterStage`, `routeChoices`, `undoChargesAvailable`, `undoChargesUsed`, `starsPossible`
 - Produces: `IceSlideGame.chooseExpeditionRoute(choice): boolean`
 - Extends game data with route/charge/star/per-stage metadata
-- Consumes: `applyIceSlideExpeditionRouteChoice()` from Task 2
+- Reuses: `runMetadata()` for signature/run identity refresh
 
-- [ ] **Step 1: Write checkpoint/gating tests**
+- [ ] **Step 1: Write checkpoint and authoritative gating tests**
 
-Build a deterministic six-stage Expedition fixture and assert:
+Build a six-stage Expedition fixture and assert:
 
 ```ts
 clearCurrentStage(game) // stage 1
@@ -512,17 +673,16 @@ clearCurrentStage(game) // stage 2
 expect(game.getState().levelIndex).toBe(2)
 expect(game.getState().pendingRouteChoiceAfterStage).toBe(2)
 
-const beforeBlockedMove = game.getState()
+const beforeBlocked = game.getState()
 game.move('E')
-expect(game.getState().moves).toBe(beforeBlockedMove.moves)
-
 game.resetLevel()
-expect(game.getState().resets).toBe(beforeBlockedMove.resets)
+expect(game.getState().moves).toBe(beforeBlocked.moves)
+expect(game.getState().resets).toBe(beforeBlocked.resets)
 ```
 
-Repeat at stage 4.
+Repeat after stage 4.
 
-- [ ] **Step 2: Write choice/state tests**
+- [ ] **Step 2: Write Safe/Risk/stale choice tests**
 
 Safe:
 
@@ -536,14 +696,14 @@ expect(game.chooseExpeditionRoute('safe')).toBe(false)
 
 Risk must update current `objectiveIds`, `stageSignatures`, `starsPossible`, and game-data multiplier before the first target-stage move.
 
-- [ ] **Step 3: Write preserve-run regression tests before adding fields**
+- [ ] **Step 3: Write preserve-run regression coverage before adding fields**
 
-This test owns the `loadLevel()` reconstruction hazard:
+Drive the actual lifecycle:
 
-1. clear stages 1/2;
+1. clear stages 1 and 2;
 2. choose Safe;
-3. trigger a stage-3 hazard (or call the real hazard path through movement);
-4. assert after reset:
+3. trigger a stage-3 hazard/reset;
+4. assert:
 
 ```ts
 expect(game.getState().undoChargesAvailable).toBe(1)
@@ -551,18 +711,13 @@ expect(game.getState().undoChargesUsed).toBe(0)
 expect(game.getState().routeChoices).toEqual(['safe'])
 ```
 
-Then clear stage 3 and assert on stage 4:
+5. call manual `resetLevel()` on stage 3 and assert the same three fields again;
+6. clear stage 3 and assert the charge/history still exist on stage 4;
+7. clear stage 4 and prove a second route choice succeeds.
 
-```ts
-expect(game.getState().undoChargesAvailable).toBe(1)
-expect(game.getState().routeChoices).toEqual(['safe'])
-```
+This test owns the `loadLevel()` preserve-bag contract.
 
-Finally clear stage 4 and prove the second route choice is accepted, demonstrating the prior choice was not wiped.
-
-Add the same preservation assertion for manual `resetLevel()` if the hazard fixture does not already cover the shared reconstruct path.
-
-- [ ] **Step 4: Run the focused game tests and verify state APIs are missing**
+- [ ] **Step 4: Run focused game tests and confirm state APIs are absent**
 
 ```bash
 bun run test:run -- \
@@ -572,7 +727,7 @@ bun run test:run -- \
 
 Expected: FAIL.
 
-- [ ] **Step 5: Add minimal state/game-data fields**
+- [ ] **Step 5: Add the minimal state/game-data fields**
 
 In `IceSlideState`:
 
@@ -595,21 +750,16 @@ stageObjectiveIds: IceSlideObjectiveId[][]
 stageScoreMultipliersBps: number[]
 ```
 
-Idle/new runs initialize route/charge fields empty/zero. Clone arrays from `getState()` and `getGameData()`.
+Initialize empty/zero route/charge fields for a new run and deep-clone arrays from `getState()` / `getGameData()`.
 
-- [ ] **Step 6: Make `loadLevel()` preserve exactly the run-scoped fields**
+- [ ] **Step 6: Extend the existing `loadLevel()` preserve bag**
 
-Extend the existing `preserveRun` object alongside score/stars/falls/resets:
+Alongside score/stars/falls/resets:
 
 ```ts
-const preserved = options.preserveRun
-    ? {
-          // existing fields...
-          routeChoices: [...this.state.routeChoices],
-          undoChargesAvailable: this.state.undoChargesAvailable,
-          undoChargesUsed: this.state.undoChargesUsed,
-      }
-    : null
+routeChoices: [...this.state.routeChoices],
+undoChargesAvailable: this.state.undoChargesAvailable,
+undoChargesUsed: this.state.undoChargesUsed,
 ```
 
 When rebuilding state:
@@ -622,11 +772,9 @@ pendingRouteChoiceAfterStage: null,
 starsPossible: this.starsPossibleForActiveRun(),
 ```
 
-`starsPossible` is derived; recompute it instead of copying it through the preserve bag.
+Do not preserve `starsPossible`; derive it. Do not preserve a pending token through the rebuild.
 
-Do not attempt to preserve a pending checkpoint through a load. `clearLevel()` explicitly sets the correct pending token only **after** loading the target stage.
-
-- [ ] **Step 7: Add the derived star-ceiling helper**
+- [ ] **Step 7: Add the star-ceiling helper**
 
 ```ts
 private starsPossibleForActiveRun(): number {
@@ -640,21 +788,23 @@ private starsPossibleForActiveRun(): number {
 }
 ```
 
-Use it when state is created/rebuilt and after Risk changes `activeRun`.
+- [ ] **Step 8: Set the checkpoint only after the target stage is loaded**
 
-- [ ] **Step 8: Set pending checkpoints after reconstruction**
-
-In `clearLevel()` remember the stage number being cleared, then keep the existing next-stage load. After:
+Remember the one-based stage being cleared. Keep the existing next-stage reconstruction:
 
 ```ts
 this.loadLevel(this.state.levelIndex + 1, { preserveRun: true })
 ```
 
-set pending only for Expedition stage 2/4 before `onLevelClear` fires.
+Then, only for Expedition stage 2/4:
 
-Guard both `move()` and `resetLevel()` when a choice is pending.
+```ts
+this.state.pendingRouteChoiceAfterStage = clearedStageNumber
+```
 
-- [ ] **Step 9: Implement fail-closed `chooseExpeditionRoute()`**
+Set this before `onLevelClear` fires. Guard both `move()` and `resetLevel()` when the pending token is non-null.
+
+- [ ] **Step 9: Implement fail-closed `chooseExpeditionRoute()` and reuse `runMetadata()`**
 
 ```ts
 chooseExpeditionRoute(choice: IceSlideExpeditionRouteChoice): boolean {
@@ -676,7 +826,7 @@ chooseExpeditionRoute(choice: IceSlideExpeditionRouteChoice): boolean {
     this.activeRun = effect.run
     const stage = this.getStage(this.state.levelIndex)
     this.state.objectiveIds = [...stage.objectiveIds]
-    this.state.stageSignatures = this.activeRun.stages.map(item => item.signature)
+    Object.assign(this.state, this.runMetadata())
     this.state.starsPossible = this.starsPossibleForActiveRun()
     this.state.undoChargesAvailable += effect.undoChargesGranted
     this.state.routeChoices.push(choice)
@@ -685,7 +835,9 @@ chooseExpeditionRoute(choice: IceSlideExpeditionRouteChoice): boolean {
 }
 ```
 
-- [ ] **Step 10: Populate additive game data from active run/state**
+Do not hand-build a second `stageSignatures = activeRun.stages.map(...)` path.
+
+- [ ] **Step 10: Populate additive game data from the active run**
 
 ```ts
 stageObjectiveIds: this.activeRun.stages.map(stage => [...stage.objectiveIds]),
@@ -701,12 +853,11 @@ Return cloned `routeChoices` plus charge/star fields.
 ```bash
 bun run test:run -- \
   src/lib/games/ice-slide/game.test.ts \
-  src/lib/games/ice-slide/game.hazard.test.ts \
-  src/lib/games/ice-slide/game.win.test.ts
+  src/lib/games/ice-slide/game.hazard.test.ts
 bun run typecheck
 ```
 
-Expected: PASS, including Safe -> stage-3 hazard -> stage-3 clear preservation.
+Expected: PASS, including Safe -> hazard -> manual Reset -> stage clear -> second checkpoint.
 
 - [ ] **Step 12: Commit**
 
@@ -715,17 +866,14 @@ git add \
   src/lib/games/ice-slide/types.ts \
   src/lib/games/ice-slide/game.ts \
   src/lib/games/ice-slide/game.test.ts \
-  src/lib/games/ice-slide/game.hazard.test.ts \
-  src/lib/games/ice-slide/game.win.test.ts
+  src/lib/games/ice-slide/game.hazard.test.ts
 
 git commit -m "feat(ice-slide): add expedition route lifecycle"
 ```
 
-Omit `game.win.test.ts` if unchanged.
-
 ---
 
-### Task 4: Add one-step charge-based Undo at the committed-move boundary
+### Task 4: Add one-step charge-based Undo through the `loadLevel()` choke point
 
 **Files:**
 - Modify: `src/lib/games/ice-slide/game.ts`
@@ -737,11 +885,11 @@ Omit `game.win.test.ts` if unchanged.
 - Produces: `IceSlideGame.canUndo(): boolean`
 - Produces: `IceSlideGame.undo(): boolean`
 - Private only: one `IceSlideUndoSnapshot | null`
-- Consumes preserved route/charge state from Task 3
+- Snapshot fields: grid, player, total crystals, stage crystals only
 
 - [ ] **Step 1: Write ordinary-move Undo tests**
 
-Grant a Safe charge through the real stage-2 choice, then on stage 3:
+After choosing Safe for stage 3:
 
 ```ts
 const before = game.getState()
@@ -761,31 +909,33 @@ expect(afterUndo.undoChargesUsed).toBe(1)
 expect(game.canUndo()).toBe(false)
 ```
 
-- [ ] **Step 2: Write crystal restore and invalidation tests**
+- [ ] **Step 2: Write crystal/noop/invalidation tests**
 
-Cover:
+Cover exactly:
 
-- moving through a crystal then Undo restores the `C` cell and both crystal counters;
-- noop after a valid move does not remove the prior Undo opportunity;
-- hazard clears the snapshot, but **does not consume or wipe the Safe charge or route history** after `loadLevel()`;
-- manual Reset clears the snapshot, but preserves route/charge state;
-- stage clear clears the snapshot and preserves unused charges/history;
-- pending choice, Campaign, Daily, zero charges, stopped, and won states cannot Undo.
+- a committed move collecting a crystal followed by Undo restores the `C` cell and both crystal counters;
+- noop after a valid committed move keeps the prior Undo opportunity;
+- hazard rebuild makes `undo()` return `false` while preserving the unused charge/history;
+- manual Reset rebuild makes `undo()` return `false` while preserving the unused charge/history;
+- non-final stage transition makes `undo()` return `false` and preserves unused charge/history;
+- Campaign, Daily, pending route choice, zero charges, stopped state, and won state cannot Undo.
 
-- [ ] **Step 3: Run tests and verify Undo APIs are absent**
+Do not assert restoration of `levelFalls` or `levelResets`; Undo cannot un-fall/un-reset.
+
+- [ ] **Step 3: Run Undo tests and confirm APIs are absent**
 
 ```bash
 bun run test:run -- \
   src/lib/games/ice-slide/game.test.ts \
-  src/lib/games/ice-slide/game.hazard.test.ts \
-  src/lib/games/ice-slide/game.crystal-farm.test.ts
+  src/lib/games/ice-slide/game.crystal-farm.test.ts \
+  src/lib/games/ice-slide/game.hazard.test.ts
 ```
 
 Expected: FAIL.
 
-- [ ] **Step 4: Add one private snapshot type**
+- [ ] **Step 4: Add the four-field private snapshot**
 
-Keep it in `game.ts`:
+In `game.ts`:
 
 ```ts
 interface IceSlideUndoSnapshot {
@@ -793,47 +943,88 @@ interface IceSlideUndoSnapshot {
     player: GridPosition
     crystalsCollected: number
     levelCrystalsCollected: number
-    levelFalls: number
-    levelResets: number
 }
 
 private undoSnapshot: IceSlideUndoSnapshot | null = null
 ```
 
-Do not create a second public snapshot contract.
+Add:
 
-- [ ] **Step 5: Capture at the committed-move boundary**
+```ts
+private createUndoSnapshot(): IceSlideUndoSnapshot {
+    return {
+        grid: cloneGrid(this.state.grid),
+        player: { ...this.state.player },
+        crystalsCollected: this.state.crystalsCollected,
+        levelCrystalsCollected: this.state.levelCrystalsCollected,
+    }
+}
+```
 
-Before `slide()` mutates the grid:
+- [ ] **Step 5: Make `loadLevel()` the snapshot invalidation choke point**
+
+At the first line of `loadLevel()`:
+
+```ts
+this.undoSnapshot = null
+```
+
+This covers:
+
+- `start()` -> `loadLevel(0)`;
+- manual `resetLevel()`;
+- the hazard rebuild;
+- non-final stage transitions;
+- future level-rebuild callers.
+
+Also clear explicitly in the two paths that do not need to rebuild a level:
+
+```ts
+stop(): void {
+    this.undoSnapshot = null
+    // existing stop behavior
+}
+
+destroy(): void {
+    this.undoSnapshot = null
+    // existing destroy behavior
+}
+```
+
+Do not add separate snapshot clears to reset/hazard/stage-transition callers.
+
+- [ ] **Step 6: Capture only a committed non-hazard move**
+
+Before calling the mutating `slide()`:
 
 ```ts
 const preMoveSnapshot = this.createUndoSnapshot()
 const outcome = slide(this.state.grid, this.state.player, delta)
 ```
 
-Then:
+On noop:
 
 ```ts
 if (outcome.kind === 'noop') {
     this.state.lastSlidePath = []
     return
 }
+```
 
-if (outcome.kind === 'hazard') {
-    this.undoSnapshot = null
-    // existing hazard/reset path
-    return
-}
+Do not change `undoSnapshot` here.
 
+The hazard branch continues into `loadLevel()`, which clears the snapshot through the choke point.
+
+After confirming a normal moved outcome, before callbacks/clear handling:
+
+```ts
 this.undoSnapshot =
     this.state.mode === 'expedition' ? preMoveSnapshot : null
 ```
 
-Do not overwrite the prior snapshot on noop.
+A non-final goal immediately calls `loadLevel()` from `clearLevel()` and therefore invalidates it. A final goal changes status to `won`, so `canUndo()` is false even if the private reference remains until stop/destroy.
 
-Clear the snapshot on start, stop, destroy, manual Reset, hazard, and stage transition. The state-reconstruction path from Task 3 preserves run-scoped charges/history independently.
-
-- [ ] **Step 6: Implement `canUndo()` / `undo()`**
+- [ ] **Step 7: Implement `canUndo()` and `undo()`**
 
 ```ts
 canUndo(): boolean {
@@ -847,50 +1038,56 @@ canUndo(): boolean {
 }
 ```
 
-On successful Undo restore only snapshot-owned fields:
+Successful Undo:
 
 ```ts
-this.state.grid = cloneGrid(snapshot.grid)
-this.state.player = { ...snapshot.player }
-this.state.crystalsCollected = snapshot.crystalsCollected
-this.state.levelCrystalsCollected = snapshot.levelCrystalsCollected
-this.state.levelFalls = snapshot.levelFalls
-this.state.levelResets = snapshot.levelResets
-this.state.undoChargesAvailable -= 1
-this.state.undoChargesUsed += 1
-this.state.lastSlidePath = []
-this.undoSnapshot = null
+undo(): boolean {
+    if (!this.canUndo() || !this.undoSnapshot) {
+        return false
+    }
+
+    const snapshot = this.undoSnapshot
+    this.state.grid = cloneGrid(snapshot.grid)
+    this.state.player = { ...snapshot.player }
+    this.state.crystalsCollected = snapshot.crystalsCollected
+    this.state.levelCrystalsCollected = snapshot.levelCrystalsCollected
+    this.state.undoChargesAvailable -= 1
+    this.state.undoChargesUsed += 1
+    this.state.lastSlidePath = []
+    this.undoSnapshot = null
+    return true
+}
 ```
 
-Do not restore `moves`, `levelMoves`, elapsed time, score, route choices, active run metadata, or stage signatures.
+Do not restore `moves`, `levelMoves`, elapsed time, score, `levelFalls`, `levelResets`, route choices, active run metadata, or stage signatures.
 
-- [ ] **Step 7: Run Undo/preservation/type tests**
+- [ ] **Step 8: Run Undo/preservation/type gates**
 
 ```bash
 bun run test:run -- \
   src/lib/games/ice-slide/game.test.ts \
-  src/lib/games/ice-slide/game.hazard.test.ts \
-  src/lib/games/ice-slide/game.crystal-farm.test.ts
+  src/lib/games/ice-slide/game.crystal-farm.test.ts \
+  src/lib/games/ice-slide/game.hazard.test.ts
 bun run typecheck
 ```
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add \
   src/lib/games/ice-slide/game.ts \
   src/lib/games/ice-slide/game.test.ts \
-  src/lib/games/ice-slide/game.hazard.test.ts \
-  src/lib/games/ice-slide/game.crystal-farm.test.ts
+  src/lib/games/ice-slide/game.crystal-farm.test.ts \
+  src/lib/games/ice-slide/game.hazard.test.ts
 
 git commit -m "feat(ice-slide): add expedition undo charges"
 ```
 
 ---
 
-### Task 5: Expand UI to route choices, multiple bonus copy, and Undo control
+### Task 5: Wire the route overlay, dynamic star ceiling, and Undo control
 
 **Files:**
 - Modify: `src/lib/games/ice-slide/init.ts`
@@ -900,16 +1097,64 @@ git commit -m "feat(ice-slide): add expedition undo charges"
 
 **Interfaces:**
 - Extends `IceSlideHandle` with `chooseExpeditionRoute(choice): boolean` and `undo(): boolean`
-- Consumes: `pendingRouteChoiceAfterStage`, `starsPossible`, charge fields, `game.canUndo()`
 - Adds IDs: `expedition-route-choice-overlay`, `expedition-safe-btn`, `expedition-risk-btn`, `expedition-undo-btn`
+- Consumes: `pendingRouteChoiceAfterStage`, `starsPossible`, charge fields, `game.canUndo()`
+- UI multiplier copy derives from `ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS`
 
-- [ ] **Step 1: Lock the DOM contract**
+- [ ] **Step 1: Lock the page DOM contract, including the static star placeholder**
 
-In `game-board-markup.test.ts`, require the four IDs above. Assert Safe/Risk are buttons and the route overlay starts hidden. Keep existing stage-clear IDs.
+In `game-board-markup.test.ts`, require:
 
-- [ ] **Step 2: Write Continue -> route-choice sequencing tests**
+```text
+#expedition-route-choice-overlay
+#expedition-safe-btn
+#expedition-risk-btn
+#expedition-undo-btn
+```
 
-Drive a synthetic stage-2 clear, then:
+Assert Safe/Risk are buttons and the route overlay starts hidden.
+
+Change the static Expedition stars placeholder in `index.astro` from:
+
+```text
+Stars 0 / 18
+```
+
+to:
+
+```text
+Stars 0 / —
+```
+
+Add a markup assertion that `/ 18` is no longer present in `#expedition-stars`.
+
+- [ ] **Step 2: Derive Risk copy from the exported basis-point constant**
+
+In Astro frontmatter:
+
+```ts
+import { ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS } from '@/lib/games/ice-slide/expedition'
+
+const expeditionRiskMultiplier = (
+  ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS / 10_000
+).toFixed(2)
+```
+
+Render the Risk button copy using that value rather than a second literal `1.25`:
+
+```astro
+<Button id="expedition-risk-btn" type="button">
+  Risk Protocol — Extra bonus objective · next stage ×{expeditionRiskMultiplier}
+</Button>
+```
+
+Safe copy remains `×1.00` because Safe is definitionally the unmodified baseline.
+
+- [ ] **Step 3: Extend the `init.test.ts` DOM fixture and write sequencing tests**
+
+Add the route overlay/buttons and Undo button to `mountDom()`.
+
+Drive a stage-2 clear and assert:
 
 ```ts
 continueButton.click()
@@ -918,15 +1163,25 @@ expect(routeChoiceOverlay.classList.contains('hidden')).toBe(false)
 expect(document.activeElement).toBe(safeButton)
 ```
 
-Assert keyboard/swipe movement remains locked until a valid choice. Double/stale choice must not unlock or mutate again. Failure/cleanup hides the overlay.
+While it is visible, keyboard/swipe movement and Reset remain blocked. A stale/double choice returns false and cannot unlock/mutate twice.
 
-- [ ] **Step 3: Write UI tests for multiple bonus copy and dynamic stars**
+- [ ] **Step 4: Write dynamic star/multi-bonus/Undo HUD tests**
 
-Provide a Risk state/result with two bonus objectives and `starsPossible: 19`. Assert both labels/results are rendered in stable array order and no `/ 18` assumption remains.
+Provide an Expedition state/result with two bonus objectives and `starsPossible: 19`.
 
-Assert Undo button label/count and disabled state track `undoChargesAvailable` and `game.canUndo()`.
+Assert:
 
-- [ ] **Step 4: Run markup/init tests and verify behavior is missing**
+```ts
+expect(document.getElementById('expedition-stars')?.textContent).toBe(
+    'Stars 0 / 19'
+)
+```
+
+Assert stage/final bonus text contains both objective labels in stable order, with the second presented as `Risk Bonus`.
+
+Assert `#expedition-undo-btn` shows the available charge count and is disabled exactly when `game.canUndo()` is false.
+
+- [ ] **Step 5: Run UI tests and confirm new behavior is missing**
 
 ```bash
 bun run test:run -- \
@@ -936,9 +1191,9 @@ bun run test:run -- \
 
 Expected: FAIL.
 
-- [ ] **Step 5: Expand the Task-2 mechanical bonus adapter into full multi-bonus copy**
+- [ ] **Step 6: Expand singular bonus presentation to all results/objectives**
 
-Task 2 already changed the data contract to `stars.bonuses` while keeping old one-row presentation. Now replace that adapter with stable multi-bonus formatting:
+Replace the Task-2 adapter with:
 
 ```ts
 function formatBonusRows(
@@ -957,11 +1212,11 @@ function formatBonusRows(
 }
 ```
 
-For the HUD, join every current `objectiveIds` label in stable array order.
+For current objective HUD copy, map every `state.objectiveIds` in stable order instead of reading `[0]`.
 
-- [ ] **Step 6: Keep input locked between Continue and a choice**
+- [ ] **Step 7: Keep browser input locked between Continue and the route choice**
 
-Continue behavior:
+Update Continue behavior:
 
 ```ts
 const pending = game?.getState().pendingRouteChoiceAfterStage
@@ -971,21 +1226,22 @@ if (pending !== null) {
     document.getElementById('expedition-safe-btn')?.focus()
     return
 }
+
 inputLocked = false
 render()
 syncHud()
 ```
 
-Add one small helper that hides the route overlay during start/failure/stop/cleanup.
+Create one `hideRouteChoice()` helper and call it from start/fail/stop/cleanup paths that already own browser UI cleanup.
 
-- [ ] **Step 7: Extend `IceSlideHandle` narrowly**
+- [ ] **Step 8: Extend `IceSlideHandle` narrowly**
 
 ```ts
 chooseExpeditionRoute: choice => {
     if (!game || !inputLocked || !game.chooseExpeditionRoute(choice)) {
         return false
     }
-    setVisible('expedition-route-choice-overlay', false)
+    hideRouteChoice()
     inputLocked = false
     render()
     syncHud()
@@ -1001,9 +1257,11 @@ undo: () => {
 },
 ```
 
-- [ ] **Step 8: Add page-local overlay and Undo button**
+Return booleans so stale page handlers cannot pretend an effect applied.
 
-Place the route overlay inside the existing game-board surface with two `Button` components. Put Undo inside `#expedition-meta`:
+- [ ] **Step 9: Add page-local route/Undo controls**
+
+Place the hidden route overlay inside the current game-board surface. Put the Undo button inside `#expedition-meta`:
 
 ```astro
 <Button
@@ -1017,15 +1275,36 @@ Place the route overlay inside the existing game-board surface with two `Button`
 </Button>
 ```
 
-Do not fork `GameControls`.
+Keep the shared `GameControls` component unchanged.
 
-Wire native click handlers directly to the handle; no timer or auto-choice.
+Wire page listeners directly to the handle:
 
-- [ ] **Step 9: Use state/game-data totals, not hard-coded Expedition assumptions**
+```ts
+safeBtn?.addEventListener('click', () => {
+  gameHandle?.chooseExpeditionRoute('safe')
+})
+riskBtn?.addEventListener('click', () => {
+  gameHandle?.chooseExpeditionRoute('risky')
+})
+undoBtn?.addEventListener('click', () => {
+  gameHandle?.undo()
+})
+```
 
-Use `state.starsPossible`, `undoChargesAvailable`, and `undoChargesUsed`. Remove `state.stagesTotal * 3` from Expedition HUD/summary paths.
+- [ ] **Step 10: Replace every runtime Expedition star-ceiling assumption**
 
-- [ ] **Step 10: Run UI/type tests**
+In `init.ts`, use:
+
+```ts
+setText(
+    'expedition-stars',
+    `Stars ${state.starsEarned} / ${state.starsPossible}`
+)
+```
+
+In Expedition summary use `gameData.starsPossible`; remove `state.stagesTotal * 3` / `data.stagesTotal * 3`.
+
+- [ ] **Step 11: Run UI/type gates**
 
 ```bash
 bun run test:run -- \
@@ -1036,7 +1315,7 @@ bun run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 11: Commit**
+- [ ] **Step 12: Commit**
 
 ```bash
 git add \
@@ -1050,55 +1329,57 @@ git commit -m "feat(ice-slide): add expedition route and undo UI"
 
 ---
 
-### Task 6: Prove deterministic route/Undo behavior and run full gates
+### Task 6: Prove deterministic choices/Undo in browser and run regression gates
 
 **Files:**
 - Modify: `e2e/games/play-coverage.spec.ts`
-- Modify only if required by public fixture changes: `src/lib/games/ice-slide/test-fixtures.ts`
 
 **Interfaces:**
-- Reuses pinned Expedition Crypto seeds and existing `findExpeditionRoute()` helper
-- Reads only public state/game data through `window.iceSlideGame.getGame()`
+- Reuses existing pinned Expedition Crypto seeds.
+- Reuses `findExpeditionRoute()` which materializes routes from the current generator at module load.
+- Reads public game state/data through `window.iceSlideGame.getGame()` only.
 
-- [ ] **Step 1: Add Safe + Undo browser coverage**
+- [ ] **Step 1: Extend the existing Ice Slide helper path through stage 2**
 
-With the existing pinned seed:
+Use the current pinned seed and `findExpeditionRoute()` to compute stage-1/stage-2 routes from generator v2. Do not hard-code old v1 moves; changing the generator RNG label legitimately changes every stage.
 
-1. clear stages 1/2;
-2. Continue;
-3. assert route overlay visible;
-4. press a move key and prove move count is unchanged while choice is pending;
-5. choose Safe;
-6. make one non-goal committed stage-3 move;
-7. click `#expedition-undo-btn`;
-8. assert position/grid return to pre-move state, total/stage move cost remains, and one charge is consumed.
+- [ ] **Step 2: Add a Safe + Undo browser path**
 
-- [ ] **Step 2: Add deterministic Risk coverage**
+Clear stages 1 and 2, click Continue, and assert the route overlay appears.
 
-Retry the captured seed, choose Risk after stage 2, then inspect:
+Before choosing, press an arrow key and assert the move count does not change.
+
+Choose Safe. On stage 3 make one non-goal committed move and capture public state before/after the move. Click `#expedition-undo-btn` and assert:
+
+- player/grid return to the pre-move values;
+- displayed/internal total moves remain at the post-move count;
+- the charge becomes zero;
+- `undoChargesUsed` becomes one.
+
+- [ ] **Step 3: Add deterministic Risk replay coverage**
+
+Retry the same captured seed, clear stages 1/2, choose Risk, then inspect:
 
 ```ts
-const routeData = await page.evaluate(() => {
-    const game = window.iceSlideGame?.getGame()
-    return game?.getGameData()
-})
+const data = await page.evaluate(() =>
+    window.iceSlideGame?.getGame()?.getGameData()
+)
 
-expect(routeData?.routeChoices).toEqual(['risky'])
-expect(routeData?.stageObjectiveIds[2]).toHaveLength(2)
-expect(routeData?.stageScoreMultipliersBps[2]).toBe(12_500)
+expect(data?.routeChoices).toEqual(['risky'])
+expect(data?.stageObjectiveIds[2]).toHaveLength(2)
+expect(data?.stageScoreMultipliersBps[2]).toBe(
+    ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS
+)
 ```
 
-Capture the target signature, Retry Seed again, repeat the Risk choice, and assert objectives/multiplier/signature are identical.
-
-- [ ] **Step 3: Add browser preservation coverage for Safe state**
-
-After Safe, force or navigate through a stage-3 hazard path when the pinned fixture provides one; otherwise keep this as unit coverage from Tasks 3/4. If exercised in browser, assert charge/history remain after the reset.
-
-Do not add a test-only gameplay API solely to force a hazard.
+Capture stage-3 signature/objective IDs. Retry the same seed again, make the same Risk choice, and assert both values reproduce exactly.
 
 - [ ] **Step 4: Add Campaign/Daily absence checks**
 
-Assert the route overlay remains hidden and the Undo button is not visible because Expedition HUD is hidden.
+For Campaign and Daily assert:
+
+- `#expedition-route-choice-overlay` stays hidden;
+- `#expedition-meta` stays hidden, so the Undo button is not exposed.
 
 - [ ] **Step 5: Run focused Ice Slide Playwright**
 
@@ -1106,18 +1387,16 @@ Assert the route overlay remains hidden and the Undo button is not visible becau
 bunx playwright test e2e/games/play-coverage.spec.ts --grep "Ice Slide"
 ```
 
-Expected: PASS.
+Expected: all Ice Slide cases PASS.
 
-- [ ] **Step 6: Run the complete Ice Slide unit/content suite**
+- [ ] **Step 6: Run the complete Ice Slide/content gates**
 
 ```bash
-bun run test:run -- \
-  src/lib/games/ice-slide \
-  src/pages/game-board-markup.test.ts
+bun run test:run -- src/lib/games/ice-slide src/pages/game-board-markup.test.ts
 bun run validate:ice-slide-expedition
 ```
 
-Expected: PASS. The 1,000-seed validator exercises stage-3/stage-5 Risk capability through the generator default.
+Expected: PASS. The validator keeps the stable `validate:v1` corpus prefix while exercising generator v2.
 
 - [ ] **Step 7: Run repository gates**
 
@@ -1138,22 +1417,21 @@ git diff --stat main...HEAD
 git diff --name-only main...HEAD
 ```
 
-Expected production scope: Ice Slide objective/quality/generator/expedition/types/scoring/game/init/page files plus focused tests, validation script, and E2E. No DB schema, API, leaderboard, score service, snow, or cracked-ice implementation.
+Expected production scope is limited to the Ice Slide objective/Daily/quality/generator/expedition/types/scoring/game/init/page files and their tests/E2E plus the existing Expedition validation script. No DB schema, API, leaderboard, score-service, snow, cracked-ice, or shared ability framework files.
 
 - [ ] **Step 9: Commit browser coverage**
 
 ```bash
-git add e2e/games/play-coverage.spec.ts src/lib/games/ice-slide/test-fixtures.ts
+git add e2e/games/play-coverage.spec.ts
 git commit -m "test(ice-slide): cover expedition route choices and undo"
 ```
 
-If `test-fixtures.ts` is unchanged, omit it.
+---
 
-## Plan self-review
+## Plan Self-Review
 
-- **Spec coverage:** generator-owned Risk eligibility, Expedition-only versioning, pure metadata route effects, multi-objective scoring, route lifecycle, `loadLevel()` preservation, one-step Undo, UI input gating, cleanup, and browser determinism each have an owner.
-- **Validation-path check:** there is no planned `validation.ts`; the plan names `generator.validation.test.ts` and `scripts/validate-ice-slide-expedition.ts`, which are the actual content-validation seams.
-- **Preservation check:** route history and charge counters are explicitly copied through `loadLevel()`'s preserve-run bag; `starsPossible` is recomputed from `activeRun`.
-- **Task-green check:** the `stars.bonus -> stars.bonuses` rename updates `game.ts`, `init.ts`, and tests in Task 2, followed by `bun run typecheck`; Task 5 only expands copy/wiring.
-- **Placeholder scan:** no TBD/TODO or unowned “handle edge cases” step remains.
-- **YAGNI check:** no framework, eligibility serialization, second snapshot type, platform persistence, alternate layouts, multi-step Undo, snow, cracked ice, or compatibility layer is planned.
+- **Spec coverage:** generator stage-number invariant, stable validation corpus, feasibility reuse, versioning, pure route effect, centralized Risk multiplier, multi-objective scoring, exact route checkpoints, run-state preservation, `runMetadata()` reuse, four-field Undo, `loadLevel()` invalidation choke point, dynamic star ceiling, page-local controls, and browser determinism all have explicit owning tasks.
+- **Placeholder scan:** no TBD/TODO, conditional file ownership, “implement similarly,” or unowned edge-case step remains.
+- **Type consistency:** `ICE_SLIDE_OBJECTIVE_IDS` originates in `objectives.ts`; Expedition constants/effect originate in `expedition.ts`; Task 2 produces `stars.bonuses`; Task 3 produces route/charge state; Task 4 produces Undo APIs; Task 5 exposes only those public seams to browser code.
+- **Reuse check:** Daily shares the objective selection order; `run.ts::OBJECTIVE_RECORD` remains the exhaustive membership validator; the content script counts existing `quality.objectiveFeasibility`; route state refresh uses `runMetadata()`; level rebuilds invalidate Undo in `loadLevel()`.
+- **YAGNI check:** no `minEligibleObjectives` input, eligibility pool/schema field, mapping API, ability registry, multi-step Undo, second snapshot, DB/API work, snow/cracked ice, or compatibility layer.
