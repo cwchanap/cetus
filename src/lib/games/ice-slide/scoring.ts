@@ -1,3 +1,5 @@
+import type { IceSlideMode } from './types'
+
 export interface IceSlideModeScoringConfig {
     objectiveStarBonus: number
     timeBudgetSeconds: number
@@ -17,6 +19,27 @@ export const DAILY_SCORING_CONFIG: IceSlideModeScoringConfig = {
     objectiveStarBonus: 100,
     timeBudgetSeconds: 300,
     timeBonusPerSec: 5,
+}
+
+export const EXPEDITION_SCORING_CONFIG: IceSlideModeScoringConfig = {
+    objectiveStarBonus: 100,
+    // Intentionally equal to the current Campaign completion budget.
+    timeBudgetSeconds: 360,
+    timeBonusPerSec: 5,
+}
+
+export function isIceSlideObjectiveMode(mode: IceSlideMode): boolean {
+    return mode !== 'campaign'
+}
+
+export function iceSlideScoringConfig(
+    mode: IceSlideMode
+): IceSlideModeScoringConfig {
+    return mode === 'daily'
+        ? DAILY_SCORING_CONFIG
+        : mode === 'expedition'
+          ? EXPEDITION_SCORING_CONFIG
+          : SCORING_CONFIG
 }
 
 export function levelClearPoints(levelNumber: number): number {
