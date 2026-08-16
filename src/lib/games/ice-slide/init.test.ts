@@ -78,7 +78,12 @@ import { createIceSlideDailyRunDefinition } from './daily'
 import { createIceSlideExpeditionRunDefinition } from './expedition'
 import { CAMPAIGN_RUN_KEY, cloneIceSlideRunDefinition } from './run'
 import { cloneGrid, slide } from './physics'
-import { DIRECTION_DELTA, type CellType, type Direction } from './types'
+import {
+    DIRECTION_DELTA,
+    type CellType,
+    type Direction,
+    type IceSlideGameData,
+} from './types'
 import { createTestRun, createTestStage } from './test-fixtures'
 
 function mountDom(): HTMLElement {
@@ -1272,8 +1277,9 @@ describe('initializeIceSlide', () => {
         const [, , , , submittedData, options] =
             vi.mocked(saveGameScore).mock.calls[0]
         expect(submittedData).toEqual(gameData)
-        expect(submittedData.mode).toBe('expedition')
-        expect(submittedData.solved).toBe(true)
+        const expeditionData = submittedData as IceSlideGameData
+        expect(expeditionData.mode).toBe('expedition')
+        expect(expeditionData.solved).toBe(true)
         expect(options).toMatchObject({
             context: {
                 mode: 'expedition',
@@ -1302,8 +1308,9 @@ describe('initializeIceSlide', () => {
         const [, score, , , submittedData, options] =
             vi.mocked(saveGameScore).mock.calls[0]
         expect(score).toBeGreaterThan(0)
-        expect(submittedData.mode).toBe('expedition')
-        expect(submittedData.solved).toBe(false)
+        const expeditionData = submittedData as IceSlideGameData
+        expect(expeditionData.mode).toBe('expedition')
+        expect(expeditionData.solved).toBe(false)
         expect(options).toMatchObject({
             context: {
                 mode: 'expedition',
