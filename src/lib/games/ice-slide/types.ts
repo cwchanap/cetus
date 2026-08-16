@@ -88,7 +88,7 @@ export interface IceSlideCallbacks {
     onWin: (finalScore: number) => void
 }
 
-export type IceSlidePlayableMode = 'campaign' | 'daily'
+export type IceSlidePlayableMode = 'campaign' | 'daily' | 'expedition'
 
 export interface IceSlideStageClearResult {
     stageNumber: number
