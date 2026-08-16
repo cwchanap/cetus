@@ -2,6 +2,11 @@
 import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Button from '@/components/ui/Button.astro'
+import { ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS } from '@/lib/games/ice-slide/expedition'
+
+const expeditionRiskMultiplier = (
+  ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS / 10_000
+).toFixed(2)
 ---
 
 <GamePage
@@ -118,6 +123,32 @@ import Button from '@/components/ui/Button.astro'
             </Button>
           </div>
         </div>
+
+        <div
+          id="expedition-route-choice-overlay"
+          class="absolute inset-0 z-50 hidden flex items-center justify-center rounded-lg bg-black/90 p-4"
+        >
+          <div
+            class="w-full max-w-md rounded-2xl border border-cetus-accent/50 bg-cetus-surface p-6 text-center shadow-2xl"
+          >
+            <h2 class="cetus-wordmark cetus-wordmark--glow text-2xl">
+              Choose your route
+            </h2>
+            <p class="mt-2 text-sm text-cetus-ink-muted">
+              Pick a protocol for the next stage.
+            </p>
+            <div class="mt-5 grid gap-3">
+              <Button id="expedition-safe-btn" type="button">
+                Safe Cache — Gain 1 Undo charge · next stage ×1.00
+              </Button>
+              <Button id="expedition-risk-btn" type="button">
+                Risk Protocol — Extra bonus objective · next stage ×{
+                  expeditionRiskMultiplier
+                }
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Card id="daily-meta" variant="glass" class="hidden p-4">
@@ -161,7 +192,7 @@ import Button from '@/components/ui/Button.astro'
         <div
           class="mt-3 grid gap-1 text-xs text-cetus-ink-muted sm:grid-cols-2"
         >
-          <span id="expedition-stars">Stars 0 / 18</span>
+          <span id="expedition-stars">Stars 0 / —</span>
           <span id="expedition-attempts">Falls 0 · Resets 0</span>
         </div>
         <div
@@ -171,6 +202,16 @@ import Button from '@/components/ui/Button.astro'
           <span id="expedition-objective-efficient">Efficient: —</span>
           <span id="expedition-objective-bonus">Bonus: —</span>
         </div>
+        <Button
+          id="expedition-undo-btn"
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled
+          class="mt-3"
+        >
+          Undo (0)
+        </Button>
       </Card>
 
       <Card id="daily-leaderboard" variant="glass" class="hidden p-4">
@@ -378,6 +419,12 @@ import Button from '@/components/ui/Button.astro'
     const startBtn = document.getElementById('start-btn')
     const endBtn = document.getElementById('end-btn')
     const resetBtn = document.getElementById('reset-btn')
+    const safeBtn = document.getElementById('expedition-safe-btn')
+    const riskBtn = document.getElementById('expedition-risk-btn')
+    const undoBtn = document.getElementById('expedition-undo-btn')
+    const routeChoiceOverlay = document.getElementById(
+      'expedition-route-choice-overlay'
+    )
     const playAgainBtn = document.getElementById('play-again-btn')
     const modeSelector = document.getElementById('ice-slide-mode-selector')
     const dailyMeta = document.getElementById('daily-meta')
@@ -575,6 +622,16 @@ import Button from '@/components/ui/Button.astro'
       gameHandle?.resetLevel()
     })
 
+    safeBtn?.addEventListener('click', () => {
+      gameHandle?.chooseExpeditionRoute('safe')
+    })
+    riskBtn?.addEventListener('click', () => {
+      gameHandle?.chooseExpeditionRoute('risky')
+    })
+    undoBtn?.addEventListener('click', () => {
+      gameHandle?.undo()
+    })
+
     playAgainBtn.addEventListener('click', async () => {
       overlay.classList.add('hidden')
       startBtn.style.display = 'none'
@@ -618,6 +675,9 @@ import Button from '@/components/ui/Button.astro'
     })
 
     changeModeBtn.addEventListener('click', () => {
+      if (!routeChoiceOverlay?.classList.contains('hidden')) {
+        gameHandle?.stop()
+      }
       overlay.classList.add('hidden')
       dailyMeta.classList.add('hidden')
       expeditionMeta?.classList.add('hidden')

@@ -120,6 +120,7 @@ function mountDom(): HTMLElement {
         <span id="expedition-objective-clear"></span>
         <span id="expedition-objective-efficient"></span>
         <span id="expedition-objective-bonus"></span>
+        <button id="expedition-undo-btn" disabled>Undo (0)</button>
       </div>
       <div id="stage-clear-overlay" class="hidden">
         <span id="stage-clear-title"></span>
@@ -128,6 +129,10 @@ function mountDom(): HTMLElement {
         <span id="stage-clear-efficient"></span>
         <span id="stage-clear-bonus"></span>
         <button id="stage-clear-continue-btn"></button>
+      </div>
+      <div id="expedition-route-choice-overlay" class="hidden">
+        <button id="expedition-safe-btn" type="button">Safe</button>
+        <button id="expedition-risk-btn" type="button">Risk</button>
       </div>
       <div id="run-final-stage-result" class="hidden">
         <span id="run-final-heading"></span>
@@ -374,6 +379,129 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
+    it('shows the Expedition route choice after stage 2 Continue and keeps input locked', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('expedition')
+        solveCurrentStage(handle)
+        document.getElementById('stage-clear-continue-btn')?.click()
+        solveCurrentStage(handle)
+
+        const game = handle.getGame()!
+        const stageClearOverlay = document.getElementById(
+            'stage-clear-overlay'
+        )!
+        const routeChoiceOverlay = document.getElementById(
+            'expedition-route-choice-overlay'
+        )!
+        const continueButton = document.getElementById(
+            'stage-clear-continue-btn'
+        )!
+        const safeButton = document.getElementById('expedition-safe-btn')!
+        expect(game.getState().pendingRouteChoiceAfterStage).toBe(2)
+        expect(stageClearOverlay.classList.contains('hidden')).toBe(false)
+
+        continueButton.click()
+        expect(stageClearOverlay.classList.contains('hidden')).toBe(true)
+        expect(routeChoiceOverlay.classList.contains('hidden')).toBe(false)
+        expect(document.activeElement).toBe(safeButton)
+
+        const beforeBlocked = game.getState()
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', {
+                key: 'ArrowDown',
+                bubbles: true,
+                cancelable: true,
+            })
+        )
+        const canvas = (await vi.mocked(setupPixiJS).mock.results.at(-1)!.value)
+            .app.canvas as HTMLCanvasElement
+        const down = new Event('pointerdown') as Event & {
+            clientX: number
+            clientY: number
+        }
+        const up = new Event('pointerup') as Event & {
+            clientX: number
+            clientY: number
+        }
+        Object.assign(down, { clientX: 10, clientY: 10 })
+        Object.assign(up, { clientX: 10, clientY: 60 })
+        swipeToDirection.mockReturnValue('S')
+        canvas.dispatchEvent(down)
+        canvas.dispatchEvent(up)
+        handle.resetLevel()
+
+        expect(game.getState().moves).toBe(beforeBlocked.moves)
+        expect(game.getState().resets).toBe(beforeBlocked.resets)
+        expect(handle.chooseExpeditionRoute('safe')).toBe(true)
+        expect(routeChoiceOverlay.classList.contains('hidden')).toBe(true)
+        expect(game.getState().grid).toEqual(beforeBlocked.grid)
+        expect(game.getState().routeChoices).toEqual(['safe'])
+
+        const afterChoice = game.getState()
+        expect(handle.chooseExpeditionRoute('risky')).toBe(false)
+        expect(game.getState().routeChoices).toEqual(afterChoice.routeChoices)
+        expect(game.getState().undoChargesAvailable).toBe(
+            afterChoice.undoChargesAvailable
+        )
+        handle.cleanup()
+    })
+
+    it('renders dynamic Expedition stars and keeps Undo disabled exactly when unavailable', async () => {
+        const stages = [
+            ['no_reset', 'no_falls'],
+            ['no_falls'],
+            ['no_falls'],
+            ['no_falls'],
+            ['no_falls'],
+            ['no_falls'],
+        ] as const
+        const run = createTestRun(
+            stages.map((objectiveIds, index) =>
+                createTestStage({
+                    id: `expedition:ui:${index + 1}`,
+                    rows: ['#####', '#S..#', '#..G#', '#####'],
+                    parMoves: 2,
+                    objectiveIds: [...objectiveIds],
+                })
+            )
+        )
+        vi.mocked(createIceSlideExpeditionRunDefinition).mockReturnValueOnce(
+            run
+        )
+
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+        await handle.start('expedition')
+
+        const game = handle.getGame()!
+        const undoButton = document.getElementById(
+            'expedition-undo-btn'
+        ) as HTMLButtonElement
+        expect(document.getElementById('expedition-stars')?.textContent).toBe(
+            'Stars 0 / 19'
+        )
+        expect(undoButton.textContent).toBe('Undo (0)')
+        expect(undoButton.disabled).toBe(!game.canUndo())
+
+        game.move('E')
+        ;(
+            game as unknown as { state: { undoChargesAvailable: number } }
+        ).state.undoChargesAvailable = 1
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })
+        )
+        await vi.waitFor(() => {
+            expect(undoButton.textContent).toBe('Undo (1)')
+        })
+        expect(undoButton.disabled).toBe(!game.canUndo())
+        expect(handle.undo()).toBe(true)
+        expect(undoButton.textContent).toBe('Undo (0)')
+        expect(undoButton.disabled).toBe(!game.canUndo())
+        handle.cleanup()
+    })
+
     it('ends a zero-score Daily run locally without submitting', async () => {
         const container = mountDom()
         const handle = await initializeIceSlide(container, baseCallbacks())
@@ -412,7 +540,7 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
-    it('renders the first bonus from a multi-objective result row', async () => {
+    it('renders every bonus from a multi-objective result row', async () => {
         const container = mountDom()
         const handle = await initializeIceSlide(container, baseCallbacks())
 
@@ -425,7 +553,7 @@ describe('initializeIceSlide', () => {
         solveCurrentStage(handle)
 
         expect(document.getElementById('stage-clear-bonus')?.textContent).toBe(
-            '✓ Bonus: No resets'
+            '✓ Bonus: No resets · ✓ Risk Bonus: No falls'
         )
         handle.cleanup()
     })
@@ -451,6 +579,26 @@ describe('initializeIceSlide', () => {
 
         expect(document.getElementById('run-final-bonus')?.textContent).toBe(
             '— Bonus'
+        )
+        handle.cleanup()
+    })
+
+    it('renders every final bonus row in stable order', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('expedition')
+        handle.getGame()!.start(
+            createTestRun([
+                createTestStage({
+                    objectiveIds: ['no_reset', 'no_falls'],
+                }),
+            ])
+        )
+        solveCurrentStage(handle)
+
+        expect(document.getElementById('run-final-bonus')?.textContent).toBe(
+            '✓ Bonus: No resets · ✓ Risk Bonus: No falls'
         )
         handle.cleanup()
     })
@@ -1233,9 +1381,8 @@ describe('initializeIceSlide', () => {
             `Stage ${state.levelIndex + 1} / ${state.stagesTotal} · ` +
                 run.stages[state.levelIndex].difficulty.toUpperCase()
         )
-        // Max stars derives from the total stage count.
         expect(document.getElementById('expedition-stars')?.textContent).toBe(
-            `Stars ${state.starsEarned} / ${state.stagesTotal * 3}`
+            `Stars ${state.starsEarned} / ${state.starsPossible}`
         )
         expect(
             document.getElementById('expedition-attempts')?.textContent
@@ -1301,7 +1448,7 @@ describe('initializeIceSlide', () => {
         ).toBe(`${gameData.stagesTotal} / ${gameData.stagesTotal} stages`)
         expect(
             document.getElementById('expedition-summary-stars')?.textContent
-        ).toBe(`${gameData.starsEarned} / ${gameData.stagesTotal * 3} stars`)
+        ).toBe(`${gameData.starsEarned} / ${gameData.starsPossible} stars`)
 
         const [, , , , submittedData, options] =
             vi.mocked(saveGameScore).mock.calls[0]
@@ -1396,9 +1543,10 @@ describe('initializeIceSlide', () => {
         expect(
             document.getElementById('expedition-summary-progress')?.textContent
         ).toBe('0 / 6 stages')
+        const gameData = handle.getGame()!.getGameData()
         expect(
             document.getElementById('expedition-summary-stars')?.textContent
-        ).toBe('0 / 18 stars')
+        ).toBe(`0 / ${gameData.starsPossible} stars`)
         expect(
             document.getElementById('expedition-summary-moves')?.textContent
         ).toBe('0')
