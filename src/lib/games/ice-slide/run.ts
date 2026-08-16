@@ -227,21 +227,18 @@ export function assertValidIceSlideRunDefinition(
             )
         }
     } else {
-        const match = EXPEDITION_KEY_PATTERN.exec(run.runKey)
-        if (!match) {
+        const identity = parseIceSlideExpeditionRunKey(run.runKey)
+        if (!identity) {
             throw new RangeError(
                 'expedition runKey must match the expedition key format'
             )
         }
-        const keyHash = match[1]
-        const generatorVersion = Number(match[2])
-        const rulesetVersion = Number(match[3])
-        if (run.generatorVersion !== generatorVersion) {
+        if (run.generatorVersion !== identity.generatorVersion) {
             throw new RangeError(
                 'expedition generatorVersion must match the runKey'
             )
         }
-        if (run.rulesetVersion !== rulesetVersion) {
+        if (run.rulesetVersion !== identity.rulesetVersion) {
             throw new RangeError(
                 'expedition rulesetVersion must match the runKey'
             )
@@ -255,7 +252,7 @@ export function assertValidIceSlideRunDefinition(
                 'expedition seed must be non-empty without U+001F'
             )
         }
-        if (hashString32Hex(run.seed) !== keyHash) {
+        if (hashString32Hex(run.seed) !== identity.seedHash) {
             throw new RangeError(
                 'expedition runKey hash must equal hashString32Hex(seed)'
             )
@@ -377,6 +374,49 @@ export function formatIceSlideDailyRunKey(
     assertPositiveInt(identity.rulesetVersion, 'rulesetVersion')
     return (
         `ice-slide:daily:${identity.dateKey}:` +
+        `g${identity.generatorVersion}:r${identity.rulesetVersion}`
+    )
+}
+
+export interface IceSlideExpeditionRunIdentity {
+    seedHash: string
+    generatorVersion: number
+    rulesetVersion: number
+}
+
+export function parseIceSlideExpeditionRunKey(
+    runKey: string
+): IceSlideExpeditionRunIdentity | null {
+    const match = EXPEDITION_KEY_PATTERN.exec(runKey)
+    if (!match) {
+        return null
+    }
+
+    const generatorVersion = Number(match[2])
+    const rulesetVersion = Number(match[3])
+    if (!isPositiveInt(generatorVersion) || !isPositiveInt(rulesetVersion)) {
+        return null
+    }
+
+    return {
+        seedHash: match[1],
+        generatorVersion,
+        rulesetVersion,
+    }
+}
+
+export function formatIceSlideExpeditionRunKey(
+    identity: IceSlideExpeditionRunIdentity
+): string {
+    if (!/^[0-9a-f]{8}$/.test(identity.seedHash)) {
+        throw new RangeError(
+            'expedition seedHash must be 8 lowercase hex characters'
+        )
+    }
+    assertPositiveInt(identity.generatorVersion, 'generatorVersion')
+    assertPositiveInt(identity.rulesetVersion, 'rulesetVersion')
+    return (
+        `ice-slide:expedition:${identity.seedHash}:` +
         `g${identity.generatorVersion}:r${identity.rulesetVersion}`
     )
 }
