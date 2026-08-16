@@ -14,7 +14,60 @@ import {
 } from './scoring'
 import { ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS } from './expedition'
 import { serializeBoardRows } from './transforms'
-import type { IceSlideRunDefinition, IceSlideStageClearResult } from './types'
+import type {
+    Direction,
+    IceSlideRunDefinition,
+    IceSlideStageClearResult,
+} from './types'
+
+function createRouteLifecycleRun(): IceSlideRunDefinition {
+    const createRouteStage = (
+        id: string,
+        rows: string[] = ['#####', '#S.G#', '#####']
+    ) =>
+        createTestStage({
+            id,
+            rows,
+            objectiveIds: ['no_reset'],
+        })
+
+    return createTestRun([
+        createRouteStage('expedition:route:1'),
+        createRouteStage('expedition:route:2'),
+        createRouteStage('expedition:route:3', [
+            '######',
+            '#S..H#',
+            '#G...#',
+            '######',
+        ]),
+        createRouteStage('expedition:route:4'),
+        createRouteStage('expedition:route:5', [
+            '######',
+            '#S..H#',
+            '#G...#',
+            '######',
+        ]),
+        createRouteStage('expedition:route:6'),
+    ])
+}
+
+function clearCurrentStage(game: IceSlideGame): void {
+    const routes: Record<number, Direction[]> = {
+        0: ['E'],
+        1: ['E'],
+        2: ['E', 'S'],
+        3: ['E'],
+        4: ['E', 'S'],
+        5: ['E'],
+    }
+    const route = routes[game.getState().levelIndex]
+    if (!route) {
+        throw new Error('missing test route')
+    }
+    for (const direction of route) {
+        game.move(direction)
+    }
+}
 
 function expectRunMetadataPreserved(
     before: ReturnType<IceSlideGame['getState']>,
@@ -53,6 +106,11 @@ describe('IceSlideGame', () => {
             starsEarned: 0,
             falls: 0,
             resets: 0,
+            pendingRouteChoiceAfterStage: null,
+            routeChoices: [],
+            undoChargesAvailable: 0,
+            undoChargesUsed: 0,
+            starsPossible: 0,
         })
         expect(state.stageSignatures).toHaveLength(8)
         expect(data).toMatchObject({
@@ -61,8 +119,18 @@ describe('IceSlideGame', () => {
             starsEarned: 0,
             falls: 0,
             resets: 0,
+            routeChoices: [],
+            undoChargesAvailable: 0,
+            undoChargesUsed: 0,
+            starsPossible: 0,
         })
         expect(data.stageSignatures).toEqual(state.stageSignatures)
+        expect(data.stageObjectiveIds).toEqual(
+            Array.from({ length: 8 }, () => [])
+        )
+        expect(data.stageScoreMultipliersBps).toEqual(
+            Array.from({ length: 8 }, () => 10000)
+        )
         expect(data.stageSignatures).not.toBe(state.stageSignatures)
         game.destroy()
     })
@@ -71,6 +139,77 @@ describe('IceSlideGame', () => {
         const game = new IceSlideGame()
         expect(() => game.start()).not.toThrow()
         expect(game.getState().levelName).toBe('First Frost')
+        game.destroy()
+    })
+
+    it('gates movement and reset while an Expedition route choice is pending', () => {
+        const game = new IceSlideGame()
+        game.start(createRouteLifecycleRun())
+
+        clearCurrentStage(game)
+        expect(game.getState().pendingRouteChoiceAfterStage).toBeNull()
+
+        clearCurrentStage(game)
+        expect(game.getState().levelIndex).toBe(2)
+        expect(game.getState().pendingRouteChoiceAfterStage).toBe(2)
+
+        const beforeBlocked = game.getState()
+        game.move('E')
+        game.resetLevel()
+        expect(game.getState().moves).toBe(beforeBlocked.moves)
+        expect(game.getState().resets).toBe(beforeBlocked.resets)
+
+        expect(game.chooseExpeditionRoute('safe')).toBe(true)
+        clearCurrentStage(game)
+        clearCurrentStage(game)
+        expect(game.getState().levelIndex).toBe(4)
+        expect(game.getState().pendingRouteChoiceAfterStage).toBe(4)
+
+        const beforeSecondBlocked = game.getState()
+        game.move('E')
+        game.resetLevel()
+        expect(game.getState().moves).toBe(beforeSecondBlocked.moves)
+        expect(game.getState().resets).toBe(beforeSecondBlocked.resets)
+        game.destroy()
+    })
+
+    it('applies a Safe route choice once and grants one undo charge', () => {
+        const game = new IceSlideGame()
+        game.start(createRouteLifecycleRun())
+        clearCurrentStage(game)
+        clearCurrentStage(game)
+
+        expect(game.chooseExpeditionRoute('safe')).toBe(true)
+        expect(game.getState().pendingRouteChoiceAfterStage).toBeNull()
+        expect(game.getState().undoChargesAvailable).toBe(1)
+        expect(game.getState().routeChoices).toEqual(['safe'])
+        expect(game.chooseExpeditionRoute('safe')).toBe(false)
+        expect(game.getState().routeChoices).toEqual(['safe'])
+        expect(game.getState().undoChargesAvailable).toBe(1)
+        game.destroy()
+    })
+
+    it('refreshes current stage metadata after a Risk route choice', () => {
+        const game = new IceSlideGame()
+        game.start(createRouteLifecycleRun())
+        clearCurrentStage(game)
+        clearCurrentStage(game)
+
+        const before = game.getState()
+        expect(game.chooseExpeditionRoute('risky')).toBe(true)
+        const after = game.getState()
+        const data = game.getGameData()
+
+        expect(after.objectiveIds).toEqual(['no_reset', 'no_falls'])
+        expect(after.stageSignatures[2]).not.toBe(before.stageSignatures[2])
+        expect(after.starsPossible).toBe(before.starsPossible + 1)
+        expect(data.stageObjectiveIds[2]).toEqual(after.objectiveIds)
+        expect(data.stageScoreMultipliersBps[2]).toBe(
+            ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS
+        )
+        expect(data.stageScoreMultipliersBps[2]).toBe(12500)
+
+        game.move('E')
         game.destroy()
     })
 

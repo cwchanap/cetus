@@ -16,6 +16,10 @@ import {
     slide,
 } from './physics'
 import {
+    applyIceSlideExpeditionRouteChoice,
+    type IceSlideExpeditionRouteChoice,
+} from './expedition'
+import {
     assertValidIceSlideRunDefinition,
     cloneIceSlideRunDefinition,
     createCampaignRunDefinition,
@@ -63,6 +67,16 @@ export class IceSlideGame {
         }
     }
 
+    private starsPossibleForActiveRun(): number {
+        if (!isIceSlideObjectiveMode(this.activeRun.mode)) {
+            return 0
+        }
+        return this.activeRun.stages.reduce(
+            (sum, stage) => sum + 2 + stage.objectiveIds.length,
+            0
+        )
+    }
+
     private getStage(index: number): IceSlideStageDefinition {
         const stage = this.activeRun.stages[index]
         if (!stage) {
@@ -84,6 +98,11 @@ export class IceSlideGame {
             levelMoves: 0,
             parMoves: 0,
             objectiveIds: [],
+            pendingRouteChoiceAfterStage: null,
+            routeChoices: [],
+            undoChargesAvailable: 0,
+            undoChargesUsed: 0,
+            starsPossible: this.starsPossibleForActiveRun(),
             levelFalls: 0,
             levelResets: 0,
             crystalsCollected: 0,
@@ -110,6 +129,7 @@ export class IceSlideGame {
             lastSlidePath: this.state.lastSlidePath.map(p => ({ ...p })),
             objectiveIds: [...this.state.objectiveIds],
             stageSignatures: [...this.state.stageSignatures],
+            routeChoices: [...this.state.routeChoices],
         }
     }
 
@@ -131,6 +151,16 @@ export class IceSlideGame {
             falls: this.state.falls,
             resets: this.state.resets,
             stageSignatures: [...this.state.stageSignatures],
+            routeChoices: [...this.state.routeChoices],
+            undoChargesAvailable: this.state.undoChargesAvailable,
+            undoChargesUsed: this.state.undoChargesUsed,
+            starsPossible: this.state.starsPossible,
+            stageObjectiveIds: this.activeRun.stages.map(stage => [
+                ...stage.objectiveIds,
+            ]),
+            stageScoreMultipliersBps: this.activeRun.stages.map(
+                stage => stage.scoreMultiplierBps
+            ),
         }
     }
 
@@ -160,9 +190,39 @@ export class IceSlideGame {
         }
     }
 
+    chooseExpeditionRoute(choice: IceSlideExpeditionRouteChoice): boolean {
+        const afterStageNumber = this.state.pendingRouteChoiceAfterStage
+        if (
+            this.state.mode !== 'expedition' ||
+            this.state.status !== 'playing' ||
+            afterStageNumber === null ||
+            this.state.routeChoices.length !== (afterStageNumber === 2 ? 0 : 1)
+        ) {
+            return false
+        }
+
+        const effect = applyIceSlideExpeditionRouteChoice(
+            this.activeRun,
+            afterStageNumber,
+            choice
+        )
+        this.activeRun = effect.run
+        const stage = this.getStage(this.state.levelIndex)
+        this.state.objectiveIds = [...stage.objectiveIds]
+        Object.assign(this.state, this.runMetadata())
+        this.state.starsPossible = this.starsPossibleForActiveRun()
+        this.state.undoChargesAvailable += effect.undoChargesGranted
+        this.state.routeChoices.push(choice)
+        this.state.pendingRouteChoiceAfterStage = null
+        return true
+    }
+
     /** Reload current level without resetting run score/time. */
     resetLevel(): void {
-        if (this.state.status !== 'playing') {
+        if (
+            this.state.status !== 'playing' ||
+            this.state.pendingRouteChoiceAfterStage !== null
+        ) {
             return
         }
         // Drop crystals gathered on this attempt so reset/hazard cannot farm.
@@ -176,7 +236,10 @@ export class IceSlideGame {
     }
 
     move(direction: Direction): void {
-        if (this.state.status !== 'playing') {
+        if (
+            this.state.status !== 'playing' ||
+            this.state.pendingRouteChoiceAfterStage !== null
+        ) {
             return
         }
 
@@ -308,6 +371,9 @@ export class IceSlideGame {
         }
 
         this.loadLevel(this.state.levelIndex + 1, { preserveRun: true })
+        if (mode === 'expedition' && (levelNumber === 2 || levelNumber === 4)) {
+            this.state.pendingRouteChoiceAfterStage = levelNumber
+        }
         this.callbacks.onLevelClear?.(result)
     }
 
@@ -336,6 +402,9 @@ export class IceSlideGame {
                   starsEarned: this.state.starsEarned,
                   falls: this.state.falls,
                   resets: this.state.resets,
+                  routeChoices: [...this.state.routeChoices],
+                  undoChargesAvailable: this.state.undoChargesAvailable,
+                  undoChargesUsed: this.state.undoChargesUsed,
                   levelFalls: this.state.levelFalls,
                   levelResets: this.state.levelResets,
                   status: this.state.status,
@@ -354,6 +423,11 @@ export class IceSlideGame {
             levelMoves: options.preserveLevelMoves ? this.state.levelMoves : 0,
             parMoves: stage.parMoves,
             objectiveIds: [...stage.objectiveIds],
+            pendingRouteChoiceAfterStage: null,
+            routeChoices: preserved?.routeChoices ?? [],
+            undoChargesAvailable: preserved?.undoChargesAvailable ?? 0,
+            undoChargesUsed: preserved?.undoChargesUsed ?? 0,
+            starsPossible: this.starsPossibleForActiveRun(),
             levelFalls: options.preserveLevelAttemptStats
                 ? (preserved?.levelFalls ?? 0)
                 : 0,

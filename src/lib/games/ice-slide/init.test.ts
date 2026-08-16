@@ -1260,6 +1260,14 @@ describe('initializeIceSlide', () => {
         await handle.start('expedition')
         for (let stage = 1; stage <= 6; stage++) {
             solveCurrentStage(handle)
+            if (
+                handle.getGame()!.getState().pendingRouteChoiceAfterStage !==
+                null
+            ) {
+                expect(handle.getGame()!.chooseExpeditionRoute('safe')).toBe(
+                    true
+                )
+            }
         }
 
         const game = handle.getGame()!
