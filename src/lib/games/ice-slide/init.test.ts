@@ -51,11 +51,32 @@ vi.mock('./daily', async () => {
     }
 })
 
+vi.mock('./expedition', async () => {
+    const actual =
+        await vi.importActual<typeof import('./expedition')>('./expedition')
+    return {
+        ...actual,
+        createIceSlideExpeditionRunDefinition: vi.fn(
+            actual.createIceSlideExpeditionRunDefinition
+        ),
+    }
+})
+
+vi.mock('./run', async () => {
+    const actual = await vi.importActual<typeof import('./run')>('./run')
+    return {
+        ...actual,
+        cloneIceSlideRunDefinition: vi.fn(actual.cloneIceSlideRunDefinition),
+    }
+})
+
 import { initializeIceSlide } from './init'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { cleanup as rendererCleanup, setupPixiJS } from './renderer'
 import { createIceSlideDailyRunDefinition } from './daily'
+import { createIceSlideExpeditionRunDefinition } from './expedition'
+import { CAMPAIGN_RUN_KEY, cloneIceSlideRunDefinition } from './run'
 import { cloneGrid, slide } from './physics'
 import { DIRECTION_DELTA, type CellType, type Direction } from './types'
 import { createTestRun, createTestStage } from './test-fixtures'
@@ -191,6 +212,7 @@ describe('initializeIceSlide', () => {
         }
         debugWindow.iceSlideGame?.cleanup()
         vi.useRealTimers()
+        vi.unstubAllGlobals()
     })
 
     it('keeps a Daily retry on its captured UTC run across rollover', async () => {
@@ -1084,6 +1106,304 @@ describe('initializeIceSlide', () => {
         expect(document.getElementById('start-btn')?.style.display).toBe(
             'inline-flex'
         )
+        handle.cleanup()
+    })
+
+    it('starts, retries, and refreshes a seeded Expedition run', async () => {
+        const words = [
+            new Uint32Array([0x11111111, 0x22222222, 0x33333333, 0x44444444]),
+            new Uint32Array([0xaaaaaaaa, 0xbbbbbbbb, 0xcccccccc, 0xdddddddd]),
+        ]
+        const getRandomValues = vi.fn((array: Uint32Array) => {
+            const next = words.shift()
+            if (!next) {
+                throw new Error('unexpected getRandomValues call')
+            }
+            array.set(next)
+            return array
+        })
+        vi.stubGlobal('crypto', { getRandomValues })
+        const mathRandom = vi.spyOn(Math, 'random')
+
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('expedition')
+        const first = handle.getGame()!.getState()
+        expect(first.mode).toBe('expedition')
+        expect(first.stagesTotal).toBe(6)
+        expect(getRandomValues).toHaveBeenCalledTimes(1)
+
+        await handle.playAgain()
+        const retry = handle.getGame()!.getState()
+        expect(retry.runKey).toBe(first.runKey)
+        expect(retry.stageSignatures).toEqual(first.stageSignatures)
+        expect(getRandomValues).toHaveBeenCalledTimes(1)
+
+        await handle.start('expedition')
+        const fresh = handle.getGame()!.getState()
+        expect(fresh.runKey).not.toBe(first.runKey)
+        expect(getRandomValues).toHaveBeenCalledTimes(2)
+
+        expect(mathRandom).not.toHaveBeenCalled()
+        mathRandom.mockRestore()
+        handle.cleanup()
+    })
+
+    it('submits a completed Expedition run with expedition context', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('expedition')
+        for (let stage = 1; stage <= 6; stage++) {
+            solveCurrentStage(handle)
+        }
+
+        const game = handle.getGame()!
+        const gameData = game.getGameData()
+        expect(game.getState().status).toBe('won')
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+
+        const [, , , , submittedData, options] =
+            vi.mocked(saveGameScore).mock.calls[0]
+        expect(submittedData).toEqual(gameData)
+        expect(submittedData.mode).toBe('expedition')
+        expect(submittedData.solved).toBe(true)
+        expect(options).toMatchObject({
+            context: {
+                mode: 'expedition',
+                rulesetVersion: 1,
+            },
+        })
+        expect(
+            (
+                options as {
+                    context?: { competitionKey?: string }
+                }
+            ).context?.competitionKey
+        ).toBeUndefined()
+        handle.cleanup()
+    })
+
+    it('submits a positive-score Expedition End with expedition context', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('expedition')
+        solveCurrentStage(handle)
+        handle.stop()
+
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+        const [, score, , , submittedData, options] =
+            vi.mocked(saveGameScore).mock.calls[0]
+        expect(score).toBeGreaterThan(0)
+        expect(submittedData.mode).toBe('expedition')
+        expect(submittedData.solved).toBe(false)
+        expect(options).toMatchObject({
+            context: {
+                mode: 'expedition',
+                rulesetVersion: 1,
+            },
+        })
+        expect(
+            (
+                options as {
+                    context?: { competitionKey?: string }
+                }
+            ).context?.competitionKey
+        ).toBeUndefined()
+        expect(document.getElementById('game-over-title')?.textContent).toBe(
+            'RUN ENDED'
+        )
+        handle.cleanup()
+    })
+
+    it('ends a zero-score Expedition run locally without submitting', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('expedition')
+        handle.stop()
+
+        expect(handle.getGame()!.getState().status).toBe('idle')
+        expect(document.getElementById('game-over-title')?.textContent).toBe(
+            'RUN ENDED'
+        )
+        expect(document.getElementById('final-score')?.textContent).toBe('0')
+        expect(saveGameScore).not.toHaveBeenCalled()
+        expect(document.getElementById('start-btn')?.style.display).toBe(
+            'inline-flex'
+        )
+        handle.cleanup()
+    })
+
+    it('silences an unauthenticated Expedition score error', async () => {
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+
+        await handle.start('expedition')
+        solveCurrentStage(handle)
+
+        vi.mocked(saveGameScore).mockImplementation(
+            (_id, _score, _onSuccess, onErrorCb) => {
+                onErrorCb?.('You must be logged in to save scores', {
+                    success: false,
+                    code: 'UNAUTHENTICATED',
+                })
+                return Promise.resolve()
+            }
+        )
+        handle.stop()
+
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+        expect(callbacks.onError).not.toHaveBeenCalled()
+        handle.cleanup()
+    })
+
+    it('clears stale retry state when an Expedition start fails after Daily', async () => {
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+
+        await handle.start('daily')
+        const dailyRunKey = handle.getGame()!.getState().runKey
+
+        // Expedition materialization blows up mid-start.
+        vi.mocked(createIceSlideExpeditionRunDefinition).mockImplementationOnce(
+            () => {
+                throw new Error('gen failed')
+            }
+        )
+        await expect(handle.start('expedition')).rejects.toThrow('gen failed')
+        expect(callbacks.onError).toHaveBeenCalledWith(
+            'Ice Slide Error',
+            'gen failed'
+        )
+        expect(handle.getGame()).toBeNull()
+        expect(document.getElementById('start-btn')?.style.display).toBe(
+            'inline-flex'
+        )
+
+        // failRun cleared the captured retry snapshot and the internal Daily
+        // date/mode state: a later retry cannot silently relaunch the
+        // previous Daily run.
+        await handle.playAgain()
+        const state = handle.getGame()!.getState()
+        expect(state.mode).toBe('campaign')
+        expect(state.runKey).toBe(CAMPAIGN_RUN_KEY)
+        expect(state.runKey).not.toBe(dailyRunKey)
+        expect(
+            document.getElementById('daily-meta')?.classList.contains('hidden')
+        ).toBe(true)
+        handle.cleanup()
+    })
+
+    it('rejects Play Again in an objective mode when the retry snapshot is missing', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        // Activate Daily (objective mode) while the retry snapshot capture
+        // yields null this once — objective mode is live with no captured run.
+        vi.mocked(cloneIceSlideRunDefinition).mockImplementationOnce(
+            () => null as never
+        )
+        await handle.start('daily')
+        expect(handle.getGame()?.getState().mode).toBe('daily')
+
+        await expect(handle.playAgain()).rejects.toThrow(
+            'Ice Slide retry run is unavailable'
+        )
+        expect(handle.getGame()?.getState().mode).toBe('daily')
+        handle.cleanup()
+    })
+
+    it('recreates the renderer when a generated Expedition stage changes size', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        await handle.start('expedition')
+        const callsAfterStart = vi.mocked(setupPixiJS).mock.calls.length
+        const keyByDirection: Record<'N' | 'E' | 'S' | 'W', string> = {
+            N: 'ArrowUp',
+            E: 'ArrowRight',
+            S: 'ArrowDown',
+            W: 'ArrowLeft',
+        }
+
+        // Play generated stages through the wired input so afterMove ensures
+        // the renderer for each new board size. Same-size stages reuse the
+        // renderer; the first size change recreates it.
+        let stage = handle.getGame()!.getState()
+        for (;;) {
+            const path = findSolution(stage.grid, stage.player)
+            expect(path).not.toBeNull()
+            for (const direction of path!) {
+                window.dispatchEvent(
+                    new KeyboardEvent('keydown', {
+                        key: keyByDirection[direction],
+                        bubbles: true,
+                    })
+                )
+            }
+            await vi.waitFor(() => {
+                expect(handle.getGame()?.getState().levelIndex).toBeGreaterThan(
+                    stage.levelIndex
+                )
+            })
+            const next = handle.getGame()!.getState()
+            if (next.rows === stage.rows && next.cols === stage.cols) {
+                expect(vi.mocked(setupPixiJS).mock.calls.length).toBe(
+                    callsAfterStart
+                )
+                stage = next
+                continue
+            }
+            await vi.waitFor(() => {
+                expect(
+                    vi.mocked(setupPixiJS).mock.calls.length
+                ).toBeGreaterThan(callsAfterStart)
+            })
+            break
+        }
+        handle.cleanup()
+    })
+
+    it('tears down pointer and keyboard handlers on cleanup', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+        await handle.start()
+
+        const canvas = (await vi.mocked(setupPixiJS).mock.results.at(-1)!.value)
+            .app.canvas as HTMLCanvasElement
+
+        handle.cleanup()
+
+        // The canvas is detached and its listeners removed: dispatching on it
+        // or on the window must not reach the game's input handlers.
+        expect(container.childNodes.length).toBe(0)
+        const down = new Event('pointerdown') as Event & {
+            clientX: number
+            clientY: number
+        }
+        Object.assign(down, { clientX: 10, clientY: 10 })
+        const up = new Event('pointerup') as Event & {
+            clientX: number
+            clientY: number
+        }
+        Object.assign(up, { clientX: 10, clientY: 60 })
+        canvas.dispatchEvent(down)
+        canvas.dispatchEvent(up)
+        const keydown = new KeyboardEvent('keydown', {
+            key: 'ArrowDown',
+            bubbles: true,
+            cancelable: true,
+        })
+        expect(window.dispatchEvent(keydown)).toBe(true)
+        expect(keydown.defaultPrevented).toBe(false)
+        expect(swipeToDirection).not.toHaveBeenCalled()
+        expect(keyToDirection).not.toHaveBeenCalled()
+        expect(handle.getGame()).toBeNull()
         handle.cleanup()
     })
 })

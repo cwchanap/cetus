@@ -11,7 +11,9 @@ import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
 import { createIceSlideDailyRunDefinition, toIceSlideUtcDateKey } from './daily'
+import { createIceSlideExpeditionRunDefinition } from './expedition'
 import { cloneIceSlideRunDefinition, parseIceSlideDailyRunKey } from './run'
+import { isIceSlideObjectiveMode } from './scoring'
 import { ICE_SLIDE_OBJECTIVE_LABELS } from './objectives'
 import type {
     IceSlideCallbacks,
@@ -24,6 +26,14 @@ import type {
 const runGuard = createRunGuard()
 
 export const CELL_SIZE = 48
+
+function createExpeditionSeed(): string {
+    const words = new Uint32Array(4)
+    crypto.getRandomValues(words)
+    return Array.from(words, word => word.toString(16).padStart(8, '0')).join(
+        ''
+    )
+}
 
 export interface IceSlideUICallbacks extends IceSlideCallbacks {
     onError?: (title: string, message: string) => void
@@ -110,7 +120,7 @@ export async function initializeIceSlide(
     let inputLocked = false
     let currentMode: IceSlidePlayableMode = 'campaign'
     let dailyDateKey: string | null = null
-    let retryDailyRun: IceSlideRunDefinition | null = null
+    let retryRun: IceSlideRunDefinition | null = null
     runGuard.next()
 
     const pointerHandlers: {
@@ -176,6 +186,9 @@ export async function initializeIceSlide(
         game?.destroy()
         game = null
         teardownRenderer()
+        retryRun = null
+        currentMode = 'campaign'
+        dailyDateKey = null
         hideStageClear()
         hideFinalStageResult()
         setVisible('daily-meta', false)
@@ -275,17 +288,25 @@ export async function initializeIceSlide(
         const gameData = game.getGameData()
         const runId = runGuard.current()
         const isStale = () => runGuard.isStale(runId)
-        const isDaily = gameData.mode === 'daily'
-        const options = isDaily
-            ? {
-                  isStale,
-                  context: {
-                      mode: 'daily' as const,
-                      competitionKey: gameData.runKey,
-                      rulesetVersion: gameData.rulesetVersion,
-                  },
-              }
-            : { isStale }
+        const options =
+            gameData.mode === 'daily'
+                ? {
+                      isStale,
+                      context: {
+                          mode: 'daily' as const,
+                          competitionKey: gameData.runKey,
+                          rulesetVersion: gameData.rulesetVersion,
+                      },
+                  }
+                : gameData.mode === 'expedition'
+                  ? {
+                        isStale,
+                        context: {
+                            mode: 'expedition' as const,
+                            rulesetVersion: gameData.rulesetVersion,
+                        },
+                    }
+                  : { isStale }
         saveGameScore(
             GameID.ICE_SLIDE,
             finalScore,
@@ -308,7 +329,10 @@ export async function initializeIceSlide(
                 if (isStale()) {
                     return
                 }
-                if (isDaily && result?.code === 'UNAUTHENTICATED') {
+                if (
+                    isIceSlideObjectiveMode(gameData.mode) &&
+                    result?.code === 'UNAUTHENTICATED'
+                ) {
                     return
                 }
                 callbacks.onError?.('Score not saved', formatError(error))
@@ -402,12 +426,11 @@ export async function initializeIceSlide(
         hideStageClear()
         hideFinalStageResult()
         setVisible('game-over-overlay', false)
-        if (run?.mode === 'daily') {
-            currentMode = 'daily'
-            dailyDateKey = parseIceSlideDailyRunKey(run.runKey)?.dateKey ?? null
-        } else {
-            currentMode = 'campaign'
-        }
+        currentMode = run?.mode ?? 'campaign'
+        dailyDateKey =
+            run?.mode === 'daily'
+                ? (parseIceSlideDailyRunKey(run.runKey)?.dateKey ?? null)
+                : null
 
         game = new IceSlideGame({
             onGameStart: () => {
@@ -471,7 +494,7 @@ export async function initializeIceSlide(
                 try {
                     const dateKey = toIceSlideUtcDateKey(new Date())
                     run = createIceSlideDailyRunDefinition(dateKey)
-                    retryDailyRun = cloneIceSlideRunDefinition(run)
+                    retryRun = cloneIceSlideRunDefinition(run)
                     dailyDateKey = dateKey
                     currentMode = 'daily'
                 } catch (error) {
@@ -481,18 +504,39 @@ export async function initializeIceSlide(
                 await startRun(run)
                 return
             }
+            if (mode === 'expedition') {
+                let run: IceSlideRunDefinition
+                try {
+                    const seed = createExpeditionSeed()
+                    run = createIceSlideExpeditionRunDefinition(seed)
+                    retryRun = cloneIceSlideRunDefinition(run)
+                } catch (error) {
+                    failRun(error)
+                    throw error
+                }
+                await startRun(run)
+                return
+            }
             currentMode = 'campaign'
+            retryRun = null
             await startRun()
         },
 
         playAgain: async () => {
-            if (currentMode === 'daily' && retryDailyRun) {
-                const run = cloneIceSlideRunDefinition(retryDailyRun)
+            if (isIceSlideObjectiveMode(currentMode)) {
+                if (!retryRun) {
+                    throw new Error('Ice Slide retry run is unavailable')
+                }
+                const run = cloneIceSlideRunDefinition(retryRun)
                 dailyDateKey =
-                    parseIceSlideDailyRunKey(run.runKey)?.dateKey ?? null
+                    run.mode === 'daily'
+                        ? (parseIceSlideDailyRunKey(run.runKey)?.dateKey ??
+                          null)
+                        : null
                 await startRun(run)
                 return
             }
+
             await startRun()
         },
 
@@ -501,6 +545,22 @@ export async function initializeIceSlide(
                 return
             }
             const { status, score, mode } = game.getState()
+            if (mode === 'expedition') {
+                if (status !== 'playing') {
+                    return
+                }
+                hideStageClear()
+                const shouldSubmit = score > 0
+                game.stop()
+                resetButtons()
+                showOverlay('RUN ENDED', score)
+                if (shouldSubmit) {
+                    submitScore(score)
+                }
+                syncHud()
+                return
+            }
+
             if (mode === 'daily') {
                 if (status !== 'playing') {
                     return
