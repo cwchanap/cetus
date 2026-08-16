@@ -492,6 +492,7 @@ export async function initializeIceSlide(
         game?.destroy()
         hideStageClear()
         hideRunFinalStageResult()
+        setVisible('expedition-summary', false)
         setVisible('game-over-overlay', false)
         currentMode = run?.mode ?? 'campaign'
         dailyDateKey =

@@ -1385,6 +1385,31 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
+    it('hides a previous Expedition summary when another mode starts and ends', async () => {
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+
+        // A local Expedition End renders its summary in the result overlay.
+        await handle.start('expedition')
+        handle.stop()
+        expect(
+            document
+                .getElementById('expedition-summary')
+                ?.classList.contains('hidden')
+        ).toBe(false)
+
+        // Starting another mode must reset that stale summary so a manual End
+        // in the new run cannot show the previous Expedition's statistics.
+        await handle.start('campaign')
+        handle.stop()
+        expect(
+            document
+                .getElementById('expedition-summary')
+                ?.classList.contains('hidden')
+        ).toBe(true)
+        handle.cleanup()
+    })
+
     it('silences an unauthenticated Expedition score error', async () => {
         const callbacks = baseCallbacks()
         const container = mountDom()
