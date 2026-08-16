@@ -1,11 +1,16 @@
 import { test, expect, type Page } from '@playwright/test'
 import { ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS } from '../../src/lib/games/ice-slide/test-fixtures'
-import { createIceSlideExpeditionRunDefinition } from '../../src/lib/games/ice-slide/expedition'
+import {
+    ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS,
+    createIceSlideExpeditionRunDefinition,
+} from '../../src/lib/games/ice-slide/expedition'
 import { parseGrid, slide } from '../../src/lib/games/ice-slide/physics'
 import type {
     Direction,
     GridPosition,
+    IceSlideGameData,
     IceSlideRunDefinition,
+    IceSlideState,
 } from '../../src/lib/games/ice-slide/types'
 
 /**
@@ -97,6 +102,7 @@ const expeditionSeedBRun = createIceSlideExpeditionRunDefinition(
 )
 const expeditionRouteAStage1 = findExpeditionRoute(expeditionSeedARun, 1)
 const expeditionRouteAStage2 = findExpeditionRoute(expeditionSeedARun, 2)
+const expeditionRouteAStage3 = findExpeditionRoute(expeditionSeedARun, 3)
 
 /**
  * One happy-path play test per game. Each game's "Start" listener attaches
@@ -530,6 +536,46 @@ test.describe('Ice Slide', () => {
         })
     }
 
+    async function expeditionState(page: Page): Promise<IceSlideState> {
+        return page.evaluate(() => {
+            const state = (
+                window as Window & {
+                    iceSlideGame?: {
+                        getGame: () => {
+                            getState: () => IceSlideState
+                        } | null
+                    }
+                }
+            ).iceSlideGame
+                ?.getGame()
+                ?.getState()
+            if (!state) {
+                throw new Error('Ice Slide game state is unavailable')
+            }
+            return state
+        })
+    }
+
+    async function expeditionGameData(page: Page): Promise<IceSlideGameData> {
+        return page.evaluate(() => {
+            const data = (
+                window as Window & {
+                    iceSlideGame?: {
+                        getGame: () => {
+                            getGameData: () => IceSlideGameData
+                        } | null
+                    }
+                }
+            ).iceSlideGame
+                ?.getGame()
+                ?.getGameData()
+            if (!data) {
+                throw new Error('Ice Slide game data is unavailable')
+            }
+            return data
+        })
+    }
+
     async function pressRoute(
         page: Page,
         route: readonly Direction[]
@@ -548,6 +594,24 @@ test.describe('Ice Slide', () => {
     async function startExpeditionWhenReady(page: Page): Promise<void> {
         await startGameWhenReady(page)
         await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+    }
+
+    async function reachExpeditionRouteChoiceAfterStage2(
+        page: Page
+    ): Promise<void> {
+        await pressRoute(page, expeditionRouteAStage1)
+        await expect(page.locator('#stage-clear-overlay')).toBeVisible()
+        await page.locator('#stage-clear-continue-btn').click()
+        await expect(page.locator('#expedition-stage-progress')).toContainText(
+            'Stage 2 / 6'
+        )
+
+        await pressRoute(page, expeditionRouteAStage2)
+        await expect(page.locator('#stage-clear-overlay')).toBeVisible()
+        await page.locator('#stage-clear-continue-btn').click()
+        await expect(
+            page.locator('#expedition-route-choice-overlay')
+        ).toBeVisible()
     }
 
     test('renders, starts, accepts a move, and can be ended', async ({
@@ -844,7 +908,7 @@ test.describe('Ice Slide', () => {
         expect(scoresBody).toMatchObject({
             context: {
                 mode: 'expedition',
-                rulesetVersion: 1,
+                rulesetVersion: 2,
             },
             gameData: {
                 mode: 'expedition',
@@ -885,6 +949,110 @@ test.describe('Ice Slide', () => {
             movesAfterClear ?? '0'
         )
     })
+
+    test('covers the Safe route and browser Undo state', async ({ page }) => {
+        await installExpeditionCrypto(page)
+        await page.goto('/ice-slide?mode=expedition')
+        await startExpeditionWhenReady(page)
+
+        await reachExpeditionRouteChoiceAfterStage2(page)
+        const movesBeforeChoice = await page.locator('#moves').textContent()
+        await page.keyboard.press('ArrowUp')
+        await expect(page.locator('#moves')).toHaveText(
+            movesBeforeChoice ?? '0'
+        )
+
+        await page.locator('#expedition-safe-btn').click()
+        await expect(
+            page.locator('#expedition-route-choice-overlay')
+        ).toHaveClass(/hidden/)
+
+        const beforeMove = await expeditionState(page)
+        expect(beforeMove.levelIndex).toBe(2)
+        expect(beforeMove.status).toBe('playing')
+        expect(expeditionRouteAStage3.length).toBeGreaterThan(1)
+
+        await pressRoute(page, expeditionRouteAStage3.slice(0, 1))
+        const afterMove = await expeditionState(page)
+        expect(afterMove.levelIndex).toBe(beforeMove.levelIndex)
+        expect(afterMove.status).toBe('playing')
+        expect(afterMove.player).not.toEqual(beforeMove.player)
+        expect(afterMove.moves).toBe(beforeMove.moves + 1)
+        await expect(page.locator('#expedition-undo-btn')).toBeEnabled()
+
+        await page.locator('#expedition-undo-btn').click()
+        const afterUndo = await expeditionState(page)
+        expect(afterUndo.player).toEqual(beforeMove.player)
+        expect(afterUndo.grid).toEqual(beforeMove.grid)
+        expect(afterUndo.moves).toBe(afterMove.moves)
+        expect(afterUndo.undoChargesAvailable).toBe(0)
+        expect(afterUndo.undoChargesUsed).toBe(1)
+        await expect(page.locator('#moves')).toHaveText(String(afterMove.moves))
+        await expect(page.locator('#expedition-undo-btn')).toHaveText(
+            'Undo (0)'
+        )
+        await expect(page.locator('#expedition-undo-btn')).toBeDisabled()
+    })
+
+    test('replays the Risk route deterministically on Retry Seed', async ({
+        page,
+    }) => {
+        await installExpeditionCrypto(page)
+        await page.goto('/ice-slide?mode=expedition')
+        await startExpeditionWhenReady(page)
+        const seedBefore =
+            (await page.locator('#expedition-seed').textContent()) ?? ''
+
+        await reachExpeditionRouteChoiceAfterStage2(page)
+        await page.locator('#expedition-risk-btn').click()
+        const firstRiskData = await expeditionGameData(page)
+        expect(firstRiskData.routeChoices).toEqual(['risky'])
+        expect(firstRiskData.stageObjectiveIds[2]).toHaveLength(2)
+        expect(firstRiskData.stageScoreMultipliersBps[2]).toBe(
+            ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS
+        )
+        const firstRiskSignature = firstRiskData.stageSignatures[2]
+        const firstRiskObjectives = firstRiskData.stageObjectiveIds[2]
+
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/
+        )
+        await expect(page.locator('#play-again-btn')).toHaveText('Retry Seed')
+        await page.locator('#play-again-btn').click()
+        await expect(page.locator('#end-btn')).toBeVisible()
+        await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+        await expect(page.locator('#expedition-seed')).toHaveText(seedBefore)
+
+        await reachExpeditionRouteChoiceAfterStage2(page)
+        const beforeReplayChoice = await expeditionGameData(page)
+        expect(beforeReplayChoice.routeChoices).toEqual([])
+
+        await page.locator('#expedition-risk-btn').click()
+        const replayedRiskData = await expeditionGameData(page)
+        expect(replayedRiskData.routeChoices).toEqual(['risky'])
+        expect(replayedRiskData.stageObjectiveIds[2]).toEqual(
+            firstRiskObjectives
+        )
+        expect(replayedRiskData.stageSignatures[2]).toBe(firstRiskSignature)
+        expect(replayedRiskData.stageScoreMultipliersBps[2]).toBe(
+            ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS
+        )
+    })
+
+    for (const mode of ['campaign', 'daily'] as const) {
+        test(`${mode} does not expose Expedition route choices or Undo`, async ({
+            page,
+        }) => {
+            await page.goto(`/ice-slide?mode=${mode}`)
+            await startGameWhenReady(page)
+            await expect(
+                page.locator('#expedition-route-choice-overlay')
+            ).toHaveClass(/hidden/)
+            await expect(page.locator('#expedition-meta')).toHaveClass(/hidden/)
+            await expect(page.locator('#expedition-undo-btn')).toBeHidden()
+        })
+    }
 
     test('loads the active Daily ranking and renders the empty + signed-out states', async ({
         page,
