@@ -21,7 +21,12 @@ import {
     createCampaignRunDefinition,
 } from './run'
 import { isIceSlideObjectiveComplete } from './objectives'
-import { DAILY_SCORING_CONFIG, levelScore, timeBonus } from './scoring'
+import {
+    iceSlideScoringConfig,
+    isIceSlideObjectiveMode,
+    levelScore,
+    timeBonus,
+} from './scoring'
 
 export class IceSlideGame {
     private state: IceSlideState
@@ -231,12 +236,14 @@ export class IceSlideGame {
     private clearLevel(): void {
         const stage = this.getStage(this.state.levelIndex)
         const levelNumber = this.state.levelIndex + 1
+        const mode = this.activeRun.mode
+        const isObjectiveMode = isIceSlideObjectiveMode(mode)
+        const scoringConfig = iceSlideScoringConfig(mode)
         const efficient = this.state.levelMoves <= stage.parMoves
         const totalCrystals = countCrystals(parseGrid(stage))
-        const bonusId =
-            this.activeRun.mode === 'daily'
-                ? (this.state.objectiveIds[0] ?? null)
-                : null
+        const bonusId = isObjectiveMode
+            ? (this.state.objectiveIds[0] ?? null)
+            : null
         const bonusEarned =
             bonusId === null
                 ? false
@@ -246,20 +253,21 @@ export class IceSlideGame {
                       stageFalls: this.state.levelFalls,
                       stageResets: this.state.levelResets,
                   })
-        const optionalStarsEarned = Number(efficient) + Number(bonusEarned)
+        const optionalStarsEarned = isObjectiveMode
+            ? Number(efficient) + Number(bonusEarned)
+            : 0
         const scoringParams = {
             levelNumber,
             parMoves: stage.parMoves,
             movesUsed: this.state.levelMoves,
             crystalsCollected: this.state.levelCrystalsCollected,
         }
-        const scoreGained =
-            this.activeRun.mode === 'daily'
-                ? levelScore(
-                      { ...scoringParams, optionalStarsEarned },
-                      DAILY_SCORING_CONFIG
-                  )
-                : levelScore(scoringParams)
+        const scoreGained = isObjectiveMode
+            ? levelScore(
+                  { ...scoringParams, optionalStarsEarned },
+                  scoringConfig
+              )
+            : levelScore(scoringParams)
         const result: IceSlideStageClearResult = {
             stageNumber: levelNumber,
             stageName: stage.name,
@@ -274,10 +282,7 @@ export class IceSlideGame {
                     bonusId === null
                         ? null
                         : { id: bonusId, earned: bonusEarned },
-                earnedCount:
-                    this.activeRun.mode === 'daily'
-                        ? 1 + optionalStarsEarned
-                        : 0,
+                earnedCount: isObjectiveMode ? 1 + optionalStarsEarned : 0,
             },
         }
 
@@ -286,16 +291,15 @@ export class IceSlideGame {
         if (efficient) {
             this.state.perfectLevels += 1
         }
-        if (this.activeRun.mode === 'daily') {
+        if (isObjectiveMode) {
             this.state.starsEarned += result.stars.earnedCount
         }
         this.callbacks.onScoreUpdate?.(this.state.score)
 
         if (this.state.levelIndex >= this.activeRun.stages.length - 1) {
-            this.state.score +=
-                this.activeRun.mode === 'daily'
-                    ? timeBonus(this.state.elapsedSeconds, DAILY_SCORING_CONFIG)
-                    : timeBonus(this.state.elapsedSeconds)
+            this.state.score += isObjectiveMode
+                ? timeBonus(this.state.elapsedSeconds, scoringConfig)
+                : timeBonus(this.state.elapsedSeconds)
             this.state.status = 'won'
             this.stopTimer()
             this.callbacks.onScoreUpdate?.(this.state.score)

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { DAILY_SCORING_CONFIG, levelScore, timeBonus } from './scoring'
+import {
+    DAILY_SCORING_CONFIG,
+    EXPEDITION_SCORING_CONFIG,
+    SCORING_CONFIG,
+    iceSlideScoringConfig,
+    isIceSlideObjectiveMode,
+    levelScore,
+    timeBonus,
+} from './scoring'
 
 describe('Ice Slide scoring configuration', () => {
     it('preserves Campaign scoring defaults', () => {
@@ -32,5 +40,30 @@ describe('Ice Slide scoring configuration', () => {
         expect(timeBonus(299, DAILY_SCORING_CONFIG)).toBe(5)
         expect(timeBonus(300, DAILY_SCORING_CONFIG)).toBe(0)
         expect(timeBonus(301, DAILY_SCORING_CONFIG)).toBe(0)
+    })
+
+    it('maps objective modes and scoring configs explicitly', () => {
+        expect(isIceSlideObjectiveMode('campaign')).toBe(false)
+        expect(isIceSlideObjectiveMode('daily')).toBe(true)
+        expect(isIceSlideObjectiveMode('expedition')).toBe(true)
+
+        expect(iceSlideScoringConfig('campaign')).toBe(SCORING_CONFIG)
+        expect(iceSlideScoringConfig('daily')).toBe(DAILY_SCORING_CONFIG)
+        expect(iceSlideScoringConfig('expedition')).toBe(
+            EXPEDITION_SCORING_CONFIG
+        )
+    })
+
+    it('uses a 360-second Expedition completion budget', () => {
+        expect(EXPEDITION_SCORING_CONFIG).toEqual({
+            objectiveStarBonus: 100,
+            timeBudgetSeconds: 360,
+            timeBonusPerSec: 5,
+        })
+        expect(EXPEDITION_SCORING_CONFIG.timeBudgetSeconds).toBe(
+            SCORING_CONFIG.timeBudgetSeconds
+        )
+        expect(timeBonus(300, EXPEDITION_SCORING_CONFIG)).toBe(300)
+        expect(timeBonus(360, EXPEDITION_SCORING_CONFIG)).toBe(0)
     })
 })

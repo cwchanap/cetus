@@ -6,9 +6,14 @@ import {
     createTestRun,
     createTestStage,
 } from './test-fixtures'
-import { DAILY_SCORING_CONFIG, levelScore, timeBonus } from './scoring'
+import {
+    DAILY_SCORING_CONFIG,
+    EXPEDITION_SCORING_CONFIG,
+    levelScore,
+    timeBonus,
+} from './scoring'
 import { serializeBoardRows } from './transforms'
-import type { IceSlideStageClearResult } from './types'
+import type { IceSlideRunDefinition, IceSlideStageClearResult } from './types'
 
 function expectRunMetadataPreserved(
     before: ReturnType<IceSlideGame['getState']>,
@@ -157,7 +162,13 @@ describe('IceSlideGame', () => {
             }),
         ]
         const game = new IceSlideGame()
-        game.start(createTestRun(stages))
+        game.start(
+            createTestRun(stages, {
+                mode: 'campaign',
+                runKey: CAMPAIGN_RUN_KEY,
+                seed: null,
+            })
+        )
         const before = game.getState()
         game.move('E')
         expect(game.getState().levelName).toBe('Second Test')
@@ -411,6 +422,95 @@ describe('IceSlideGame', () => {
         })
         expect(game.getState().starsEarned).toBe(3)
         game.destroy()
+    })
+
+    it('awards Expedition clear, efficient, and bonus stars and config scoring', () => {
+        const onLevelClear = vi.fn()
+        const stage = createTestStage({
+            id: 'expedition:score:1',
+            objectiveIds: ['no_reset'],
+            parMoves: 1,
+        })
+        const game = new IceSlideGame({ onLevelClear })
+        game.start(createTestRun([stage]))
+
+        game.move('E')
+
+        const result = onLevelClear.mock.calls[0][0]
+        expect(result).toEqual({
+            stageNumber: 1,
+            stageName: 'Test Stage',
+            parMoves: 1,
+            movesUsed: 1,
+            crystalsCollected: 0,
+            scoreGained: levelScore(
+                {
+                    levelNumber: 1,
+                    parMoves: 1,
+                    movesUsed: 1,
+                    crystalsCollected: 0,
+                    optionalStarsEarned: 2,
+                },
+                EXPEDITION_SCORING_CONFIG
+            ),
+            stars: {
+                clear: true,
+                efficient: true,
+                bonus: { id: 'no_reset', earned: true },
+                earnedCount: 3,
+            },
+        })
+        expect(game.getState().starsEarned).toBe(3)
+        game.destroy()
+    })
+
+    it('applies mode-specific completion time bonuses at 300 elapsed seconds', () => {
+        vi.useFakeTimers()
+        const oneStage = () =>
+            createTestStage({
+                id: 'expedition:time:1',
+                objectiveIds: ['no_reset'],
+                parMoves: 1,
+            })
+        const completeAt300 = (
+            run: IceSlideRunDefinition
+        ): { scoreGained: number; winScore: number } => {
+            const onLevelClear = vi.fn()
+            const onWin = vi.fn()
+            const game = new IceSlideGame({ onLevelClear, onWin })
+            game.start(run)
+            vi.advanceTimersByTime(300_000)
+            game.move('E')
+            const result: IceSlideStageClearResult =
+                onLevelClear.mock.calls[0][0]
+            game.destroy()
+            return {
+                scoreGained: result.scoreGained,
+                winScore: onWin.mock.calls[0][0],
+            }
+        }
+
+        const expedition = completeAt300(createTestRun([oneStage()]))
+        expect(expedition.winScore).toBe(
+            expedition.scoreGained + timeBonus(300, EXPEDITION_SCORING_CONFIG)
+        )
+        expect(timeBonus(300, EXPEDITION_SCORING_CONFIG)).toBe(300)
+
+        const daily = completeAt300(createTestDailyRun([oneStage()]))
+        expect(daily.winScore).toBe(
+            daily.scoreGained + timeBonus(300, DAILY_SCORING_CONFIG)
+        )
+        expect(timeBonus(300, DAILY_SCORING_CONFIG)).toBe(0)
+
+        const campaign = completeAt300(
+            createTestRun([oneStage()], {
+                mode: 'campaign',
+                runKey: CAMPAIGN_RUN_KEY,
+                seed: null,
+            })
+        )
+        expect(campaign.winScore).toBe(campaign.scoreGained + timeBonus(300))
+        expect(timeBonus(300)).toBe(300)
     })
 
     it('uses stage-scoped Daily no_falls facts after an earlier fall', () => {
