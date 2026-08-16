@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ICE_SLIDE_OBJECTIVE_IDS } from './objectives'
 import { validateIceSlideStageQuality } from './quality'
 import { getBoardOrbitKey } from './transforms'
 import {
@@ -312,6 +313,9 @@ describe('ice-slide expedition templates: transform-orbit uniqueness', () => {
 
 describe('ice-slide expedition templates: fallback quality', () => {
     it('accepts every fallback under its owning template constraints', () => {
+        const mediumRiskCapableFallbacks: string[] = []
+        const hardRiskCapableFallbacks: string[] = []
+
         for (const fallback of ICE_SLIDE_EXPEDITION_FALLBACKS) {
             const template = ICE_SLIDE_EXPEDITION_TEMPLATES.find(
                 candidate => candidate.id === fallback.templateId
@@ -343,6 +347,21 @@ describe('ice-slide expedition templates: fallback quality', () => {
             expect(result.parMoves, fallback.id).toBeLessThanOrEqual(
                 template.constraints.parBand.maxMoves
             )
+
+            const eligibleCount = ICE_SLIDE_OBJECTIVE_IDS.filter(
+                id => result.objectiveFeasibility[id]
+            ).length
+            if (eligibleCount < 2) {
+                continue
+            }
+            if (fallback.difficulty === 'medium') {
+                mediumRiskCapableFallbacks.push(fallback.id)
+            } else if (fallback.difficulty === 'hard') {
+                hardRiskCapableFallbacks.push(fallback.id)
+            }
         }
+
+        expect(mediumRiskCapableFallbacks.length).toBeGreaterThanOrEqual(1)
+        expect(hardRiskCapableFallbacks.length).toBeGreaterThanOrEqual(1)
     })
 })

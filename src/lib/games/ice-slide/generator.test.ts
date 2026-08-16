@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
     createIceSlideExpeditionStage,
+    ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES,
     type IceSlideGeneratedStage,
 } from './generator'
+import {
+    getIceSlideObjectiveFeasibility,
+    ICE_SLIDE_OBJECTIVE_IDS,
+} from './objectives'
 import {
     type IceSlideStageQualityCandidate,
     type IceSlideStageQualityConstraints,
@@ -18,6 +23,7 @@ import {
     getUniqueBoardTransforms,
     transformRows,
 } from './transforms'
+import { solveIceSlideBoard } from './solver'
 
 vi.mock('./quality', async importOriginal => {
     const actual = await importOriginal<typeof import('./quality')>()
@@ -168,6 +174,56 @@ const input = {
     stageNumber: 1,
     difficulty: 'easy',
 } as const
+
+describe('ice-slide expedition generation: Risk capability', () => {
+    it('generates at least two eligible objectives for stages 3 and 5', () => {
+        const stage3 = createIceSlideExpeditionStage({
+            seed: 'risk-stage-3',
+            stageNumber: 3,
+            difficulty: 'medium',
+        })
+        const stage5 = createIceSlideExpeditionStage({
+            seed: 'risk-stage-5',
+            stageNumber: 5,
+            difficulty: 'hard',
+        })
+
+        for (const stage of [stage3, stage5]) {
+            const solve = solveIceSlideBoard(stage.stage, {
+                maxStates: ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES,
+            })
+            const feasibility = getIceSlideObjectiveFeasibility(
+                stage.stage.rows,
+                solve
+            )
+            expect(
+                ICE_SLIDE_OBJECTIVE_IDS.filter(id => feasibility[id]).length
+            ).toBeGreaterThanOrEqual(2)
+        }
+    })
+
+    it('keeps ordinary stages valid with one selected objective', () => {
+        const stage4 = createIceSlideExpeditionStage({
+            seed: 'risk-stage-4',
+            stageNumber: 4,
+            difficulty: 'medium',
+        })
+
+        expect(stage4.stage.objectiveIds).toHaveLength(1)
+    })
+
+    it('counts valid one-objective candidates rejected for stage 3', () => {
+        const stage3 = createIceSlideExpeditionStage({
+            seed: 'risk-rejection-2',
+            stageNumber: 3,
+            difficulty: 'medium',
+        })
+
+        expect(
+            stage3.rejectionCounts.insufficient_objective_options
+        ).toBeGreaterThan(0)
+    })
+})
 
 function orbitKey(rows: readonly string[]): string {
     return getUniqueBoardTransforms(rows)
@@ -380,7 +436,7 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
 
             expect(result.usedFallback).toBe(true)
             expect(result.stage.mutationIds).toEqual([
-                'fallback:easy-corner-pocket-v1',
+                'fallback:easy-open-lane-v1',
             ])
         } finally {
             validateMock.mockRestore()
@@ -597,8 +653,8 @@ describe('ice-slide expedition generation: complete pattern placement', () => {
     })
 })
 
-describe('ice-slide expedition generation: generator-v1 goldens', () => {
-    it('locks the easy generator-v1 golden', () => {
+describe('ice-slide expedition generation: generator-v2 goldens', () => {
+    it('locks the easy generator-v2 golden', () => {
         expect(
             projectStage(
                 createIceSlideExpeditionStage({
@@ -608,21 +664,21 @@ describe('ice-slide expedition generation: generator-v1 goldens', () => {
                 })
             )
         ).toEqual({
-            rows: ['#####', '#.C.#', '#H.G#', '#S..#', '#####'],
-            transform: 'reflect_horizontal',
+            rows: ['#####', '#S.C#', '#.O.#', '#G..#', '#####'],
+            transform: 'identity',
             mutationIds: [
-                'goal:east',
-                'rocks:none',
-                'hazards:west',
-                'crystals:south-mid',
+                'goal:south',
+                'rocks:center',
+                'hazards:none',
+                'crystals:northeast',
             ],
-            objectiveIds: ['no_falls'],
-            parMoves: 2,
-            signature: 'is2-4c1bb3e2',
+            objectiveIds: ['collect_all_crystals'],
+            parMoves: 1,
+            signature: 'is2-c8600062',
         })
     })
 
-    it('locks the medium generator-v1 golden', () => {
+    it('locks the medium generator-v2 golden', () => {
         expect(
             projectStage(
                 createIceSlideExpeditionStage({
@@ -633,29 +689,29 @@ describe('ice-slide expedition generation: generator-v1 goldens', () => {
             )
         ).toEqual({
             rows: [
-                '########',
-                '#..#..S#',
-                '#H....##',
-                '#..#.#.#',
-                '#......#',
-                '#..#...#',
-                '#G.....#',
-                '########',
+                '#########',
+                '#...#...#',
+                '#.O...H.#',
+                '#G..#...#',
+                '#.......#',
+                '#.#....##',
+                '#...#..S#',
+                '#########',
             ],
-            transform: 'rotate_90',
+            transform: 'reflect_anti_diagonal',
             mutationIds: [
-                'goal:southeast',
-                'rocks:none',
-                'hazards:southwest',
+                'goal:south-mid',
+                'rocks:lower-east',
+                'hazards:upper-east',
                 'crystals:none',
             ],
-            objectiveIds: ['no_falls'],
-            parMoves: 3,
-            signature: 'is2-cadf4ffb',
+            objectiveIds: ['no_reset'],
+            parMoves: 6,
+            signature: 'is2-f942214b',
         })
     })
 
-    it('locks the hard generator-v1 golden', () => {
+    it('locks the hard generator-v2 golden', () => {
         expect(
             projectStage(
                 createIceSlideExpeditionStage({
@@ -667,24 +723,25 @@ describe('ice-slide expedition generation: generator-v1 goldens', () => {
         ).toEqual({
             rows: [
                 '#########',
-                '#.....#G#',
-                '#.#.....#',
-                '#.O#....#',
-                '#.....#.#',
-                '#....CH.#',
-                '#S..#...#',
+                '#.......#',
+                '#.#.O.#.#',
+                '#GC.....#',
+                '##..H..##',
+                '#.....C.#',
+                '#.#.#...#',
+                '#.....#S#',
                 '#########',
             ],
-            transform: 'reflect_horizontal',
+            transform: 'rotate_180',
             mutationIds: [
-                'goal:southeast',
-                'rocks:center-west',
-                'hazards:upper-east',
-                'crystals:northeast',
+                'goal:east-pocket',
+                'rocks:lower-center',
+                'hazards:center',
+                'crystals:pair',
             ],
-            objectiveIds: ['no_falls'],
-            parMoves: 5,
-            signature: 'is2-40f46428',
+            objectiveIds: ['no_reset'],
+            parMoves: 7,
+            signature: 'is2-d01c6a81',
         })
     })
 

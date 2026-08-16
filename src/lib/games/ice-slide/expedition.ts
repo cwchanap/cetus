@@ -4,12 +4,13 @@ import {
     createIceSlideExpeditionStage,
 } from './generator'
 import {
-    ICE_SLIDE_RULESET_VERSION,
     ICE_SLIDE_RUN_SCHEMA_VERSION,
     assertValidIceSlideRunDefinition,
     formatIceSlideExpeditionRunKey,
 } from './run'
 import type { IceSlideRunDefinition } from './types'
+
+export const ICE_SLIDE_EXPEDITION_RULESET_VERSION = 2
 
 export const ICE_SLIDE_EXPEDITION_STAGE_DIFFICULTIES = [
     'easy',
@@ -44,12 +45,12 @@ export function createIceSlideExpeditionRunDefinition(
     const run: IceSlideRunDefinition = {
         schemaVersion: ICE_SLIDE_RUN_SCHEMA_VERSION,
         generatorVersion: ICE_SLIDE_EXPEDITION_GENERATOR_VERSION,
-        rulesetVersion: ICE_SLIDE_RULESET_VERSION,
+        rulesetVersion: ICE_SLIDE_EXPEDITION_RULESET_VERSION,
         mode: 'expedition',
         runKey: formatIceSlideExpeditionRunKey({
             seedHash: hashString32Hex(seed),
             generatorVersion: ICE_SLIDE_EXPEDITION_GENERATOR_VERSION,
-            rulesetVersion: ICE_SLIDE_RULESET_VERSION,
+            rulesetVersion: ICE_SLIDE_EXPEDITION_RULESET_VERSION,
         }),
         seed,
         stages,

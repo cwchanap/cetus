@@ -1,4 +1,5 @@
 import { createSeededRng, hashString32Hex } from '../shared/seeded-rng'
+import { ICE_SLIDE_OBJECTIVE_IDS } from './objectives'
 import {
     validateIceSlideStageQuality,
     type IceSlideStageRejectionReason,
@@ -21,13 +22,14 @@ import type {
     IceSlideStageDefinition,
 } from './types'
 
-export const ICE_SLIDE_EXPEDITION_GENERATOR_VERSION = 1
+export const ICE_SLIDE_EXPEDITION_GENERATOR_VERSION = 2
 export const ICE_SLIDE_EXPEDITION_MAX_ATTEMPTS = 64
 export const ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES = 10_000
 
 export type IceSlideGenerationRejectionReason =
     | IceSlideStageRejectionReason
     | 'materialization_collision'
+    | 'insufficient_objective_options'
 
 export interface IceSlideGeneratedStage {
     stage: IceSlideStageDefinition
@@ -42,12 +44,6 @@ export interface IceSlideGeneratedStage {
 type MaterializeResult =
     | { ok: true; rows: string[] }
     | { ok: false; reason: 'materialization_collision' }
-
-const OBJECTIVE_ORDER: readonly IceSlideObjectiveId[] = [
-    'collect_all_crystals',
-    'no_falls',
-    'no_reset',
-]
 
 /**
  * Materialize slot picks onto the transformed base board. Only ice cells ('.')
@@ -141,6 +137,8 @@ export function createIceSlideExpeditionStage(input: {
     if (!Number.isSafeInteger(input.stageNumber) || input.stageNumber < 1) {
         throw new RangeError('stageNumber must be a positive safe integer')
     }
+    const minEligibleObjectives =
+        input.stageNumber === 3 || input.stageNumber === 5 ? 2 : 1
 
     const rejectionCounts: Partial<
         Record<IceSlideGenerationRejectionReason, number>
@@ -210,13 +208,11 @@ export function createIceSlideExpeditionStage(input: {
             continue
         }
 
-        const eligibleObjectives = OBJECTIVE_ORDER.filter(
+        const eligibleObjectives = ICE_SLIDE_OBJECTIVE_IDS.filter(
             id => quality.objectiveFeasibility[id]
         )
-        if (eligibleObjectives.length === 0) {
-            // Accepted boards are solvable, so no_reset always qualifies
-            // today; keep a future feasibility change from crashing pick().
-            increment('objective_infeasible')
+        if (eligibleObjectives.length < minEligibleObjectives) {
+            increment('insufficient_objective_options')
             continue
         }
         const objectiveId = attemptRng
@@ -274,11 +270,11 @@ export function createIceSlideExpeditionStage(input: {
             continue
         }
 
-        const eligibleObjectives = OBJECTIVE_ORDER.filter(
+        const eligibleObjectives = ICE_SLIDE_OBJECTIVE_IDS.filter(
             id => quality.objectiveFeasibility[id]
         )
-        if (eligibleObjectives.length === 0) {
-            increment('objective_infeasible')
+        if (eligibleObjectives.length < minEligibleObjectives) {
+            increment('insufficient_objective_options')
             continue
         }
         const objectiveId = stageRng

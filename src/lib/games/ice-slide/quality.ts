@@ -1,5 +1,6 @@
 import type { IceSlideGridSource } from './physics'
 import { solveIceSlideBoard, type IceSlideSolveResult } from './solver'
+import { getIceSlideObjectiveFeasibility } from './objectives'
 import { serializeBoardRows } from './transforms'
 import type { IceSlideObjectiveId } from './types'
 
@@ -223,13 +224,10 @@ export function validateIceSlideStageQuality(
     }
 
     const crystalCount = countGlyphs(candidate.rows, 'C')
-    const hasHazard = hazardCount > 0
-    const objectiveFeasibility: Record<IceSlideObjectiveId, boolean> = {
-        collect_all_crystals:
-            crystalCount > 0 && solveResult.reachedGoalWithAllCrystals,
-        no_falls: hasHazard && solveResult.solvable,
-        no_reset: solveResult.solvable,
-    }
+    const objectiveFeasibility = getIceSlideObjectiveFeasibility(
+        candidate.rows,
+        solveResult
+    )
 
     for (const objectiveId of candidate.objectiveIds) {
         if (objectiveFeasibility[objectiveId]) {

@@ -1,5 +1,6 @@
 import { createSeededRng } from '../shared/seeded-rng'
 import { ICE_SLIDE_LEVELS } from './levels'
+import { ICE_SLIDE_OBJECTIVE_IDS } from './objectives'
 import { validateIceSlideStageQuality } from './quality'
 import {
     assertValidIceSlideRunDefinition,
@@ -11,11 +12,7 @@ import {
     CAMPAIGN_STAGE_DIFFICULTIES,
 } from './run'
 import { getUniqueBoardTransforms } from './transforms'
-import type {
-    IceSlideObjectiveId,
-    IceSlideRunDefinition,
-    IceSlideStageDefinition,
-} from './types'
+import type { IceSlideRunDefinition, IceSlideStageDefinition } from './types'
 
 export const ICE_SLIDE_DAILY_GENERATOR_VERSION = 1
 export const ICE_SLIDE_DAILY_SOLVER_MAX_STATES = 10_000
@@ -26,12 +23,6 @@ export const ICE_SLIDE_DAILY_STAGE_POOLS = [
     [5, 6, 7],
     [7, 8],
 ] as const
-
-const DAILY_OBJECTIVE_ORDER: readonly IceSlideObjectiveId[] = [
-    'collect_all_crystals',
-    'no_falls',
-    'no_reset',
-]
 
 export function toIceSlideUtcDateKey(date: Date): string {
     const timestamp = date.getTime()
@@ -148,7 +139,7 @@ export function createIceSlideDailyRunDefinition(
                     continue
                 }
 
-                const eligibleObjectives = DAILY_OBJECTIVE_ORDER.filter(
+                const eligibleObjectives = ICE_SLIDE_OBJECTIVE_IDS.filter(
                     objectiveId => quality.objectiveFeasibility[objectiveId]
                 )
                 if (eligibleObjectives.length === 0) {

@@ -75,7 +75,10 @@ import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { cleanup as rendererCleanup, setupPixiJS } from './renderer'
 import { createIceSlideDailyRunDefinition } from './daily'
-import { createIceSlideExpeditionRunDefinition } from './expedition'
+import {
+    createIceSlideExpeditionRunDefinition,
+    ICE_SLIDE_EXPEDITION_RULESET_VERSION,
+} from './expedition'
 import { CAMPAIGN_RUN_KEY, cloneIceSlideRunDefinition } from './run'
 import { cloneGrid, slide } from './physics'
 import {
@@ -1283,7 +1286,7 @@ describe('initializeIceSlide', () => {
         expect(options).toMatchObject({
             context: {
                 mode: 'expedition',
-                rulesetVersion: 1,
+                rulesetVersion: ICE_SLIDE_EXPEDITION_RULESET_VERSION,
             },
         })
         expect(
@@ -1314,7 +1317,7 @@ describe('initializeIceSlide', () => {
         expect(options).toMatchObject({
             context: {
                 mode: 'expedition',
-                rulesetVersion: 1,
+                rulesetVersion: ICE_SLIDE_EXPEDITION_RULESET_VERSION,
             },
         })
         expect(

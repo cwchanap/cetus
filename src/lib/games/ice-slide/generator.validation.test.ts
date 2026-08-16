@@ -1,6 +1,14 @@
 import { it, expect } from 'vitest'
 import { runIceSlideExpeditionValidation } from '../../../../scripts/validate-ice-slide-expedition'
-import { ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES } from './generator'
+import {
+    getIceSlideObjectiveFeasibility,
+    ICE_SLIDE_OBJECTIVE_IDS,
+} from './objectives'
+import {
+    ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES,
+    type IceSlideGeneratedStage,
+} from './generator'
+import { solveIceSlideBoard } from './solver'
 
 // 100 seeds x 3 tiers x 2 stages of generation + independent solving; give CI
 // machines explicit headroom instead of relying on the default timeout.
@@ -22,5 +30,34 @@ it('validates 100 deterministic seeds per tier', () => {
             ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES
         )
         expect(summary.fallbacks).toBeLessThanOrEqual(summary.stageCount)
+    }
+}, 120_000)
+
+it('keeps every validated stage 3 and 5 Risk-capable', () => {
+    const riskStages: IceSlideGeneratedStage[] = []
+    runIceSlideExpeditionValidation({
+        seedsPerTier: 5,
+        onStage: stage => {
+            const stageNumber = Number(
+                stage.stage.id.slice('expedition:'.length)
+            )
+            if (stageNumber === 3 || stageNumber === 5) {
+                riskStages.push(stage)
+            }
+        },
+    })
+
+    expect(riskStages).toHaveLength(10)
+    for (const stage of riskStages) {
+        const solve = solveIceSlideBoard(stage.stage, {
+            maxStates: ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES,
+        })
+        const feasibility = getIceSlideObjectiveFeasibility(
+            stage.stage.rows,
+            solve
+        )
+        expect(
+            ICE_SLIDE_OBJECTIVE_IDS.filter(id => feasibility[id]).length
+        ).toBeGreaterThanOrEqual(2)
     }
 }, 120_000)

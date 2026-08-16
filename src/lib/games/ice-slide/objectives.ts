@@ -1,3 +1,4 @@
+import type { IceSlideSolveResult } from './solver'
 import type { IceSlideObjectiveId } from './types'
 
 export interface IceSlideObjectiveFacts {
@@ -5,6 +6,38 @@ export interface IceSlideObjectiveFacts {
     totalCrystals: number
     stageFalls: number
     stageResets: number
+}
+
+export const ICE_SLIDE_OBJECTIVE_IDS = [
+    'collect_all_crystals',
+    'no_falls',
+    'no_reset',
+] as const satisfies readonly IceSlideObjectiveId[]
+
+function countGlyph(rows: readonly string[], glyph: string): number {
+    let count = 0
+    for (const row of rows) {
+        for (const cell of row) {
+            if (cell === glyph) {
+                count += 1
+            }
+        }
+    }
+    return count
+}
+
+export function getIceSlideObjectiveFeasibility(
+    rows: readonly string[],
+    solveResult: IceSlideSolveResult
+): Record<IceSlideObjectiveId, boolean> {
+    const crystalCount = countGlyph(rows, 'C')
+    const hasHazard = countGlyph(rows, 'H') > 0
+    return {
+        collect_all_crystals:
+            crystalCount > 0 && solveResult.reachedGoalWithAllCrystals,
+        no_falls: hasHazard && solveResult.solvable,
+        no_reset: solveResult.solvable,
+    }
 }
 
 export const ICE_SLIDE_OBJECTIVE_LABELS: Record<IceSlideObjectiveId, string> = {

@@ -4,6 +4,7 @@ import {
     type IceSlideGeneratedStage,
     type IceSlideGenerationRejectionReason,
 } from '../src/lib/games/ice-slide/generator'
+import { ICE_SLIDE_OBJECTIVE_IDS } from '../src/lib/games/ice-slide/objectives'
 import { validateIceSlideStageQuality } from '../src/lib/games/ice-slide/quality'
 import { createIceSlideStageSignature } from '../src/lib/games/ice-slide/run'
 import {
@@ -133,6 +134,16 @@ function assertResult(
                 `(${quality.reason}): ${quality.message}`
         )
     }
+    if (stageNumber === 3 || stageNumber === 5) {
+        const eligibleCount = ICE_SLIDE_OBJECTIVE_IDS.filter(
+            id => quality.objectiveFeasibility[id]
+        ).length
+        if (eligibleCount < 2) {
+            throw new Error(
+                `${context}: Risk target has only ${eligibleCount} eligible objectives`
+            )
+        }
+    }
     if (quality.parMoves !== result.stage.parMoves) {
         throw new Error(
             `${context}: par mismatch: independent ${quality.parMoves} ` +
@@ -168,6 +179,7 @@ export function runIceSlideExpeditionValidation(options: {
         let worstExploredStates = 0
 
         for (let index = 0; index < seedsPerTier; index++) {
+            // Stable validation-corpus ID; intentionally independent of generator version.
             const seed =
                 `ice-slide:validate:v1:${difficulty}:` +
                 String(index).padStart(4, '0')
