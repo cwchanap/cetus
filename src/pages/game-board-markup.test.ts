@@ -85,6 +85,24 @@ describe('Ice Slide Daily and Expedition challenge markup', () => {
         expect(iceSlideMarkup).toContain('id="run-final-efficient"')
         expect(iceSlideMarkup).toContain('id="run-final-bonus"')
         expect(iceSlideMarkup).toContain('id="change-mode-btn"')
+        expect(iceSlideMarkup).toContain('id="expedition-route-choice-overlay"')
+        expect(iceSlideMarkup).toContain('id="expedition-safe-btn"')
+        expect(iceSlideMarkup).toContain('id="expedition-risk-btn"')
+        expect(iceSlideMarkup).toContain('id="expedition-undo-btn"')
+        expect(iceSlideMarkup).toMatch(
+            /id="expedition-route-choice-overlay"[^>]*class="[^"]*hidden/
+        )
+        expect(iceSlideMarkup).toMatch(
+            /<Button id="expedition-safe-btn" type="button">/
+        )
+        expect(iceSlideMarkup).toMatch(
+            /<Button id="expedition-risk-btn" type="button">/
+        )
+        const expeditionStars = iceSlideMarkup.match(
+            /<span id="expedition-stars">([\s\S]*?)<\/span>/
+        )?.[1]
+        expect(expeditionStars).toBe('Stars 0 / —')
+        expect(expeditionStars).not.toContain('/ 18')
         expect(iceSlideMarkup).toContain('id="expedition-meta"')
         expect(iceSlideMarkup).toContain('id="expedition-seed"')
         expect(iceSlideMarkup).toContain('id="expedition-stage-progress"')

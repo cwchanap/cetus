@@ -11,7 +11,10 @@ import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createRunGuard } from '@/lib/games/core'
 import { createIceSlideDailyRunDefinition, toIceSlideUtcDateKey } from './daily'
-import { createIceSlideExpeditionRunDefinition } from './expedition'
+import {
+    createIceSlideExpeditionRunDefinition,
+    type IceSlideExpeditionRouteChoice,
+} from './expedition'
 import { cloneIceSlideRunDefinition, parseIceSlideDailyRunKey } from './run'
 import { isIceSlideObjectiveMode } from './scoring'
 import { ICE_SLIDE_OBJECTIVE_LABELS } from './objectives'
@@ -49,6 +52,8 @@ export interface IceSlideHandle {
     playAgain: () => Promise<void>
     stop: () => void
     resetLevel: () => void
+    chooseExpeditionRoute: (choice: IceSlideExpeditionRouteChoice) => boolean
+    undo: () => boolean
     cleanup: () => void
     getGame: () => IceSlideGame | null
 }
@@ -99,14 +104,19 @@ function starCopy(label: string, earned: boolean): string {
     return `${earned ? '✓' : '—'} ${label}`
 }
 
-function formatBonusRow(result: IceSlideStageClearResult): string {
-    const bonus = result.stars.bonuses[0]
-    return bonus
-        ? starCopy(
-              `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[bonus.id]}`,
-              bonus.earned
-          )
-        : '— Bonus'
+function formatBonusRows(
+    bonuses: IceSlideStageClearResult['stars']['bonuses']
+): string {
+    return bonuses.length === 0
+        ? '— Bonus'
+        : bonuses
+              .map((bonus, index) =>
+                  starCopy(
+                      `${index === 0 ? 'Bonus' : 'Risk Bonus'}: ${ICE_SLIDE_OBJECTIVE_LABELS[bonus.id]}`,
+                      bonus.earned
+                  )
+              )
+              .join(' · ')
 }
 
 function formatError(error: unknown): string {
@@ -142,7 +152,15 @@ export async function initializeIceSlide(
         if (!inputLocked) {
             return
         }
-        hideStageClear()
+        const pending = game?.getState().pendingRouteChoiceAfterStage
+        setVisible('stage-clear-overlay', false)
+        if (pending !== null) {
+            setVisible('expedition-route-choice-overlay', true)
+            document.getElementById('expedition-safe-btn')?.focus()
+            return
+        }
+
+        inputLocked = false
         render()
         syncHud()
     }
@@ -150,6 +168,10 @@ export async function initializeIceSlide(
     const hideStageClear = (): void => {
         inputLocked = false
         setVisible('stage-clear-overlay', false)
+    }
+
+    const hideRouteChoice = (): void => {
+        setVisible('expedition-route-choice-overlay', false)
     }
 
     const hideRunFinalStageResult = (): void => {
@@ -197,6 +219,7 @@ export async function initializeIceSlide(
         currentMode = 'campaign'
         dailyDateKey = null
         hideStageClear()
+        hideRouteChoice()
         hideRunFinalStageResult()
         setVisible('daily-meta', false)
         setVisible('expedition-meta', false)
@@ -223,12 +246,12 @@ export async function initializeIceSlide(
             `${prefix}-objective-efficient`,
             `Efficient: ${state.parMoves} moves or fewer`
         )
-        const objectiveId = state.objectiveIds[0]
+        const objectiveCopy = state.objectiveIds
+            .map(id => ICE_SLIDE_OBJECTIVE_LABELS[id])
+            .join(' · ')
         setText(
             `${prefix}-objective-bonus`,
-            objectiveId
-                ? `Bonus: ${ICE_SLIDE_OBJECTIVE_LABELS[objectiveId]}`
-                : 'Bonus: —'
+            objectiveCopy ? `Bonus: ${objectiveCopy}` : 'Bonus: —'
         )
     }
 
@@ -236,9 +259,23 @@ export async function initializeIceSlide(
         if (!game) {
             setVisible('daily-meta', false)
             setVisible('expedition-meta', false)
+            setText('expedition-undo-btn', 'Undo (0)')
+            const undoButton = document.getElementById(
+                'expedition-undo-btn'
+            ) as HTMLButtonElement | null
+            if (undoButton) {
+                undoButton.disabled = true
+            }
             return
         }
         const state = game.getState()
+        const undoButton = document.getElementById(
+            'expedition-undo-btn'
+        ) as HTMLButtonElement | null
+        if (undoButton) {
+            undoButton.textContent = `Undo (${state.undoChargesAvailable})`
+            undoButton.disabled = !game.canUndo()
+        }
         setText('score', state.score.toString())
         setText('level', String(state.levelIndex + 1))
         setText('moves', state.moves.toString())
@@ -278,7 +315,6 @@ export async function initializeIceSlide(
 
         const seed = retryRun?.seed ?? '—'
         const tier = activeRun?.stages[state.levelIndex]?.difficulty
-        const maxStars = state.stagesTotal * 3
 
         setText('expedition-seed', seed)
         setText(
@@ -286,7 +322,10 @@ export async function initializeIceSlide(
             `Stage ${state.levelIndex + 1} / ${state.stagesTotal}` +
                 (tier ? ` · ${tier.toUpperCase()}` : '')
         )
-        setText('expedition-stars', `Stars ${state.starsEarned} / ${maxStars}`)
+        setText(
+            'expedition-stars',
+            `Stars ${state.starsEarned} / ${state.starsPossible}`
+        )
         setText(
             'expedition-attempts',
             `Falls ${state.falls} · Resets ${state.resets}`
@@ -302,7 +341,7 @@ export async function initializeIceSlide(
             'stage-clear-efficient',
             starCopy('Efficient', result.stars.efficient)
         )
-        setText('stage-clear-bonus', formatBonusRow(result))
+        setText('stage-clear-bonus', formatBonusRows(result.stars.bonuses))
         setVisible('stage-clear-overlay', true)
         document.getElementById('stage-clear-continue-btn')?.focus()
     }
@@ -321,7 +360,7 @@ export async function initializeIceSlide(
             'run-final-efficient',
             starCopy('Efficient', result.stars.efficient)
         )
-        setText('run-final-bonus', formatBonusRow(result))
+        setText('run-final-bonus', formatBonusRows(result.stars.bonuses))
         setVisible('run-final-stage-result', true)
     }
 
@@ -339,7 +378,7 @@ export async function initializeIceSlide(
         )
         setText(
             'expedition-summary-stars',
-            `${data.starsEarned} / ${data.stagesTotal * 3} stars`
+            `${data.starsEarned} / ${data.starsPossible} stars`
         )
         setText('expedition-summary-moves', String(data.totalMoves))
         setText('expedition-summary-crystals', String(data.crystalsCollected))
@@ -494,6 +533,7 @@ export async function initializeIceSlide(
         teardownRenderer()
         game?.destroy()
         hideStageClear()
+        hideRouteChoice()
         hideRunFinalStageResult()
         setVisible('expedition-summary', false)
         setVisible('game-over-overlay', false)
@@ -540,6 +580,7 @@ export async function initializeIceSlide(
             onWin: finalScore => {
                 callbacks.onWin(finalScore)
                 hideStageClear()
+                hideRouteChoice()
                 resetButtons()
                 showOverlay('MISSION COMPLETE!', finalScore)
                 submitScore(finalScore)
@@ -618,6 +659,7 @@ export async function initializeIceSlide(
         },
 
         stop: () => {
+            hideRouteChoice()
             if (!game) {
                 return
             }
@@ -669,11 +711,32 @@ export async function initializeIceSlide(
             syncHud()
         },
 
+        chooseExpeditionRoute: choice => {
+            if (!game || !inputLocked || !game.chooseExpeditionRoute(choice)) {
+                return false
+            }
+            hideRouteChoice()
+            inputLocked = false
+            render()
+            syncHud()
+            return true
+        },
+
+        undo: () => {
+            if (!game || !game.undo()) {
+                return false
+            }
+            render()
+            syncHud()
+            return true
+        },
+
         cleanup: () => {
             runGuard.next()
             game?.destroy()
             game = null
             hideStageClear()
+            hideRouteChoice()
             hideRunFinalStageResult()
             setVisible('daily-meta', false)
             setVisible('expedition-meta', false)
