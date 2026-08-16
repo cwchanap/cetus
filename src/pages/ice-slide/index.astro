@@ -413,7 +413,6 @@ import Button from '@/components/ui/Button.astro'
       !modeSelector ||
       modeRadios.length === 0 ||
       !dailyMeta ||
-      !expeditionMeta ||
       !runFinalResult ||
       !changeModeBtn ||
       !leaderboardPanel ||
@@ -625,7 +624,7 @@ import Button from '@/components/ui/Button.astro'
     changeModeBtn.addEventListener('click', () => {
       overlay.classList.add('hidden')
       dailyMeta.classList.add('hidden')
-      expeditionMeta.classList.add('hidden')
+      expeditionMeta?.classList.add('hidden')
       runFinalResult.classList.add('hidden')
       statusEl.classList.remove('hidden')
       errorEl.classList.add('hidden')
