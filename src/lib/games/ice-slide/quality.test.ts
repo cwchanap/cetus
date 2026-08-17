@@ -434,6 +434,25 @@ describe('ice-slide stage quality: stop/hazard policy', () => {
 })
 
 describe('ice-slide stage quality: accepted candidates', () => {
+    it('accepts a snow stop with the corresponding par', () => {
+        const result = validateIceSlideStageQuality(
+            {
+                id: 'snow-quality',
+                rows: ['######', '#S.NG#', '######'],
+                objectiveIds: [],
+            },
+            {
+                parBand: { minMoves: 2, maxMoves: 2 },
+                maxStates: 32,
+            }
+        )
+
+        expect(result.accepted).toBe(true)
+        if (result.accepted) {
+            expect(result.parMoves).toBe(2)
+        }
+    })
+
     it('accepts a valid board with par, key, feasibility, and solve result', () => {
         const result = validateIceSlideStageQuality(
             {
