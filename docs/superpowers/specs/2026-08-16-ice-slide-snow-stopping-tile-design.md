@@ -254,7 +254,7 @@ const _exhaustive: never = cell
 return _exhaustive
 ```
 
-The earlier `wall` branch remains an early return, so TypeScript narrows it out before this switch.
+The earlier `wall` branch remains an early return, so TypeScript narrows it out before this switch. Do not add a `default` case: the `never` tail is intentionally the compile-time guard for HPA-493 and any later tile additions.
 
 The snow treatment must be recognizable by geometry/pattern, not hue alone: retain the common floor, draw a pale inset field, then overlay multiple short offset bands using existing `rect`/`roundRect` primitives. Do not add animation, filters, textures, sprites, or reduced-motion branching.
 
