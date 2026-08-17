@@ -150,10 +150,19 @@ describe('ice-slide renderer', () => {
     })
 
     it('renders every cell type, slide trail, and player without throwing', async () => {
-        const rs = await setupPixiJS(container, 2, 7, 48)
+        const rs = await setupPixiJS(container, 2, 8, 48)
         const grid: CellType[][] = [
-            ['wall', 'ice', 'goal', 'rock', 'hazard', 'crystal', 'start'],
-            ['wall', 'ice', 'ice', 'ice', 'ice', 'ice', 'wall'],
+            [
+                'wall',
+                'ice',
+                'goal',
+                'rock',
+                'hazard',
+                'crystal',
+                'snow',
+                'start',
+            ],
+            ['wall', 'ice', 'ice', 'ice', 'ice', 'ice', 'ice', 'wall'],
         ]
         const state = makeState(grid, {
             player: { row: 1, col: 2 },
@@ -171,6 +180,24 @@ describe('ice-slide renderer', () => {
         cleanup(rs)
         expect(rs.gridGraphic.destroy).toHaveBeenCalled()
         expect(rs.app.destroy).toHaveBeenCalledWith(true)
+    })
+
+    it('renders snow with an inset field and offset bands', async () => {
+        const rs = await setupPixiJS(container, 1, 1, 48)
+        const grid: CellType[][] = [['snow']]
+
+        renderGrid(rs, makeState(grid, { player: { row: 0, col: 0 } }))
+
+        const rectCalls = vi.mocked(rs.gridGraphic.rect).mock.calls
+        const roundRectCalls = vi.mocked(rs.gridGraphic.roundRect).mock.calls
+
+        expect(rectCalls.length).toBeGreaterThanOrEqual(2)
+        expect(roundRectCalls.length).toBeGreaterThanOrEqual(3)
+        expect(roundRectCalls[0]).toEqual([6, 6, 36, 36, 5])
+        expect(roundRectCalls.slice(1).length).toBeGreaterThanOrEqual(2)
+        expect(
+            roundRectCalls.slice(1).every(([x, y]) => x !== 6 || y !== 6)
+        ).toBe(true)
     })
 
     it('maps swipe deltas to cardinal directions', () => {

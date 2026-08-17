@@ -121,36 +121,56 @@ function drawCell(
     const cx = x + cellSize / 2
     const cy = y + cellSize / 2
 
-    if (cell === 'goal') {
-        g.roundRect(x + 8, y + 8, cellSize - 16, cellSize - 16, 6).fill(
-            COLORS.goal
-        )
-        return
+    switch (cell) {
+        case 'goal':
+            g.roundRect(x + 8, y + 8, cellSize - 16, cellSize - 16, 6).fill(
+                COLORS.goal
+            )
+            return
+
+        case 'rock':
+            g.roundRect(x + 10, y + 10, cellSize - 20, cellSize - 20, 4).fill(
+                COLORS.rock
+            )
+            return
+
+        case 'hazard':
+            g.circle(cx, cy, cellSize * 0.28).fill(COLORS.hazard)
+            g.circle(cx, cy, cellSize * 0.14).fill(0x450a0a)
+            return
+
+        case 'crystal':
+            g.star(cx, cy, 4, cellSize * 0.28, cellSize * 0.12).fill(
+                COLORS.crystal
+            )
+            return
+
+        case 'snow':
+            g.roundRect(x + 6, y + 6, cellSize - 12, cellSize - 12, 5).fill({
+                color: COLORS.snow,
+                alpha: 0.7,
+            })
+            g.roundRect(x + 10, y + 13, cellSize * 0.45, 4, 2).fill(COLORS.snow)
+            g.roundRect(
+                x + cellSize * 0.42,
+                y + 24,
+                cellSize * 0.38,
+                4,
+                2
+            ).fill(COLORS.snow)
+            return
+
+        case 'ice':
+        case 'start':
+            g.rect(x + 6, y + 6, cellSize - 12, cellSize - 12).fill({
+                color: COLORS.ice,
+                alpha: 0.18,
+            })
+            return
     }
 
-    if (cell === 'rock') {
-        g.roundRect(x + 10, y + 10, cellSize - 20, cellSize - 20, 4).fill(
-            COLORS.rock
-        )
-        return
-    }
-
-    if (cell === 'hazard') {
-        g.circle(cx, cy, cellSize * 0.28).fill(COLORS.hazard)
-        g.circle(cx, cy, cellSize * 0.14).fill(0x450a0a)
-        return
-    }
-
-    if (cell === 'crystal') {
-        g.star(cx, cy, 4, cellSize * 0.28, cellSize * 0.12).fill(COLORS.crystal)
-        return
-    }
-
-    // ice shimmer
-    g.rect(x + 6, y + 6, cellSize - 12, cellSize - 12).fill({
-        color: COLORS.ice,
-        alpha: 0.18,
-    })
+    const _exhaustive: never = cell
+    return _exhaustive
 }
 
 export function cleanup(renderer: RendererState): void {
