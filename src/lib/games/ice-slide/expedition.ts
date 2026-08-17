@@ -53,6 +53,12 @@ export function applyIceSlideExpeditionRouteChoice(
         )
     }
 
+    if (choice !== 'safe' && choice !== 'risky') {
+        throw new RangeError(
+            `route choice must be 'safe' or 'risky', received: ${String(choice)}`
+        )
+    }
+
     const nextRun = cloneIceSlideRunDefinition(run)
     const targetIndex = afterStageNumber
 
