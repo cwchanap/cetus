@@ -16,6 +16,20 @@ describe('ice-slide solver', () => {
         expect(result.reachedGoalWithAllCrystals).toBe(false)
     })
 
+    it('accounts for snow stops in the minimum', () => {
+        const result = solveIceSlideBoard(
+            {
+                id: 'snow-par',
+                rows: ['######', '#S.NG#', '######'],
+            },
+            { maxStates: 32 }
+        )
+
+        expect(result.solvable).toBe(true)
+        expect(result.truncated).toBe(false)
+        expect(result.minMoves).toBe(2)
+    })
+
     it('matches the current par for campaign level 2', () => {
         const level = ICE_SLIDE_LEVELS[1]
         const result = solveIceSlideBoard(level, { maxStates: 64 })

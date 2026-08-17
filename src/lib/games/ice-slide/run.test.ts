@@ -147,6 +147,15 @@ it('accepts the Campaign run', () => {
     ).not.toThrow()
 })
 
+it('accepts a Campaign run with a snow-bearing stage', () => {
+    const run = cloneRun()
+    run.stages[0].rows = ['######', '#S.NG#', '######']
+    run.stages[0].parMoves = 2
+    run.stages[0].signature = createIceSlideStageSignature(run.stages[0])
+
+    expect(() => assertValidIceSlideRunDefinition(run)).not.toThrow()
+})
+
 it.each([
     [
         'bad key characters',
