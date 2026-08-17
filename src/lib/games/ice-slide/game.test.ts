@@ -20,6 +20,16 @@ import type {
     IceSlideStageClearResult,
 } from './types'
 
+const SNOW_STAGE = createTestStage({
+    id: 'test:snow',
+    rows: ['#######', '#S.NH.#', '#..G..#', '#######'],
+    parMoves: 2,
+})
+
+function createSnowRun(): IceSlideRunDefinition {
+    return createTestRun([SNOW_STAGE])
+}
+
 function createRouteLifecycleRun(
     stage3Rows: string[] = ['######', '#S..H#', '#G...#', '######']
 ): IceSlideRunDefinition {
@@ -216,6 +226,88 @@ describe('IceSlideGame', () => {
         expect(afterUndo.undoChargesUsed).toBe(1)
         expect(afterUndo.lastSlidePath).toEqual([])
         expect(game.canUndo()).toBe(false)
+        game.destroy()
+    })
+
+    it('stops on snow during a normal move', () => {
+        const game = new IceSlideGame()
+        game.start(createSnowRun())
+
+        game.move('E')
+
+        const state = game.getState()
+        expect(state.player).toEqual({ row: 1, col: 3 })
+        expect(state.grid[1][3]).toBe('snow')
+        game.destroy()
+    })
+
+    it('restores snow after a manual level reset', () => {
+        const game = new IceSlideGame()
+        game.start(createSnowRun())
+        game.move('E')
+
+        game.resetLevel()
+
+        const state = game.getState()
+        expect(state.player).toEqual(state.start)
+        expect(state.grid[1][3]).toBe('snow')
+        expect(state.resets).toBe(1)
+        expect(state.levelResets).toBe(1)
+        game.destroy()
+    })
+
+    it('restores snow after a hazard reload', () => {
+        const onHazard = vi.fn()
+        const game = new IceSlideGame({ onHazard })
+        game.start(createSnowRun())
+
+        game.move('E')
+        game.move('E')
+
+        const state = game.getState()
+        expect(onHazard).toHaveBeenCalledTimes(1)
+        expect(state.player).toEqual(state.start)
+        expect(state.grid[1][3]).toBe('snow')
+        expect(state.falls).toBe(1)
+        expect(state.resets).toBe(1)
+        expect(state.levelFalls).toBe(1)
+        expect(state.levelResets).toBe(1)
+        game.destroy()
+    })
+
+    it('isolates snow state from getState output mutation', () => {
+        const game = new IceSlideGame()
+        game.start(createSnowRun())
+        game.move('E')
+
+        const snapshot = game.getState()
+        snapshot.grid[1][3] = 'ice'
+
+        expect(game.getState().grid[1][3]).toBe('snow')
+        game.destroy()
+    })
+
+    it('restores snow through an Expedition Undo round-trip', () => {
+        const game = new IceSlideGame()
+        game.start(createRouteLifecycleRun(SNOW_STAGE.rows))
+        clearCurrentStage(game)
+        clearCurrentStage(game)
+        expect(game.chooseExpeditionRoute('safe')).toBe(true)
+
+        const before = game.getState()
+        game.move('E')
+        const afterMove = game.getState()
+
+        expect(afterMove.player).toEqual({ row: 1, col: 3 })
+        expect(afterMove.grid[1][3]).toBe('snow')
+        expect(game.canUndo()).toBe(true)
+
+        expect(game.undo()).toBe(true)
+        const afterUndo = game.getState()
+        expect(afterUndo.player).toEqual(before.player)
+        expect(afterUndo.grid[1][3]).toBe('snow')
+        expect(afterUndo.moves).toBe(afterMove.moves)
+        expect(afterUndo.levelMoves).toBe(afterMove.levelMoves)
         game.destroy()
     })
 
