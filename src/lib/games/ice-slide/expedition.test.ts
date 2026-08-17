@@ -181,6 +181,40 @@ describe('Ice Slide Expedition run materialization', () => {
         expect(JSON.stringify(unseeded)).toBe(unseededBefore)
     })
 
+    it('rejects an invalid runtime route choice without applying Risk effects or mutating the run', () => {
+        const base = createIceSlideExpeditionRunDefinition(
+            'route-invalid-choice'
+        )
+        const baseBefore = JSON.stringify(base)
+        const baseStageBefore = JSON.stringify(base.stages[2])
+
+        const invalidChoices = [
+            'medium',
+            '',
+            'SAFE',
+            'safe ',
+            undefined,
+            null,
+            0,
+            {},
+        ] as unknown as IceSlideExpeditionRouteChoice[]
+        for (const invalid of invalidChoices) {
+            expect(() =>
+                applyIceSlideExpeditionRouteChoice(base, 2, invalid)
+            ).toThrow(RangeError)
+            expect(JSON.stringify(base)).toBe(baseBefore)
+            expect(JSON.stringify(base.stages[2])).toBe(baseStageBefore)
+        }
+
+        // Sanity: valid choices still work after the invalid attempts.
+        const safe = applyIceSlideExpeditionRouteChoice(base, 2, 'safe')
+        expect(safe.undoChargesGranted).toBe(1)
+        const risky = applyIceSlideExpeditionRouteChoice(base, 2, 'risky')
+        expect(risky.undoChargesGranted).toBe(0)
+        expect(risky.run.stages[2].objectiveIds).toHaveLength(2)
+        expect(JSON.stringify(base)).toBe(baseBefore)
+    })
+
     it('materializes 500 valid unique complete runs', () => {
         for (let index = 0; index < 500; index++) {
             const seed = `hpa-490:full-run:${String(index).padStart(3, '0')}`
