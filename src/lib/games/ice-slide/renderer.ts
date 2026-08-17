@@ -16,6 +16,7 @@ const COLORS: Record<CellType, number> = {
     rock: 0x64748b,
     hazard: 0x7f1d1d,
     crystal: 0x67e8f9,
+    snow: 0xe0f2fe,
 }
 
 const PLAYER_COLOR = 0xf0f9ff
