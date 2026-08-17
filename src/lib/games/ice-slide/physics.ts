@@ -127,6 +127,16 @@ export function slide(
         col = nc
         path.push({ row, col })
 
+        if (next === 'snow') {
+            return {
+                kind: 'moved',
+                path,
+                end: { row, col },
+                crystals,
+                reachedGoal: false,
+            }
+        }
+
         if (next === 'hazard') {
             return { kind: 'hazard', path }
         }
