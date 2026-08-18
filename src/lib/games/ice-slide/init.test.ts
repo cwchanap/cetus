@@ -828,6 +828,35 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
+    it('routes keyboard input through the mapper and stops on snow', async () => {
+        const run = createTestRun([
+            createTestStage({
+                rows: ['#######', '#S.N.G#', '#######'],
+            }),
+        ])
+        vi.mocked(createIceSlideExpeditionRunDefinition).mockReturnValueOnce(
+            run
+        )
+
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+        await handle.start('expedition')
+
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', {
+                key: 'ArrowRight',
+                cancelable: true,
+            })
+        )
+
+        expect(keyToDirection).toHaveBeenCalledWith('ArrowRight')
+        expect(handle.getGame()?.getState().player).toEqual({
+            row: 1,
+            col: 3,
+        })
+        handle.cleanup()
+    })
+
     it('ignores keyboard input that does not map to a direction', async () => {
         const container = mountDom()
         const handle = await initializeIceSlide(container, baseCallbacks())
