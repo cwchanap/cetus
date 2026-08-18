@@ -15,6 +15,7 @@ import {
     applyIceSlideExpeditionRouteChoice,
     createIceSlideExpeditionRunDefinition,
     type IceSlideExpeditionChoiceStage,
+    type IceSlideExpeditionRouteChoice,
 } from './expedition'
 import { getBoardOrbitKey } from './transforms'
 import type { IceSlideStageDefinition } from './types'
