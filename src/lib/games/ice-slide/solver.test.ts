@@ -311,7 +311,7 @@ describe('ice-slide solver', () => {
         ['eight fragile', EIGHT_FRAGILE_BOARD, 6],
     ])(
         'keeps %s within the existing solver budget',
-        (_name, rows, minMoves) => {
+        (_name: string, rows: string[], minMoves: number) => {
             const result = solveIceSlideBoard(
                 { id: `budget:${_name}`, rows },
                 { maxStates: 10_000 }
