@@ -136,7 +136,7 @@ The load-bearing solver test must reach the same player position with the same c
 
 Keep the current fixed state cap and fail-closed truncation. Do not add adaptive limits, A*, caching, or another solver.
 
-The review correctly identifies one missing feasibility signal: future content needs evidence that representative fragile density fits the existing budget. Add characterization fixtures in `solver.test.ts` around roughly **4** and **8** fragile cells. They should:
+Future content does need evidence that representative fragile density fits the existing budget. Add characterization fixtures in `solver.test.ts` around roughly **4** and **8** fragile cells. They should:
 
 - solve under the existing cap without truncation;
 - record `exploredStates` as diagnostic evidence during implementation;
