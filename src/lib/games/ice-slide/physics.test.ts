@@ -36,6 +36,14 @@ describe('ice-slide physics', () => {
         expect(grid[1][2]).toBe('snow')
     })
 
+    it('parses the fragile glyph', () => {
+        const grid = parseGrid({
+            id: 'fragile-parse',
+            rows: ['#####', '#SFG#', '#####'],
+        })
+        expect(grid[1][2]).toBe('fragile')
+    })
+
     it('rejects empty, jagged, and unknown glyphs', () => {
         expect(() => parseGrid({ id: 1, rows: [] })).toThrow(/no rows/)
         expect(() =>
@@ -173,6 +181,71 @@ describe('ice-slide physics', () => {
         }
         expect(grid[1][3]).toBe('ice')
         expect(grid[1][4]).toBe('snow')
+    })
+
+    it('keeps fragile intact while occupied and collapses it on a valid leave', () => {
+        const grid = parseGrid({
+            id: 'fragile-stop-leave',
+            rows: ['#####', '#S.F#', '#...#', '#####'],
+        })
+        const start = findStart(grid)
+        grid[start.row][start.col] = 'ice'
+
+        const enter = slide(grid, start, DIRECTION_DELTA.E)
+        expect(enter).toMatchObject({
+            kind: 'moved',
+            end: { row: 1, col: 3 },
+        })
+        expect(grid[1][3]).toBe('fragile')
+
+        const leave = slide(grid, { row: 1, col: 3 }, DIRECTION_DELTA.S)
+        expect(leave).toMatchObject({
+            kind: 'moved',
+            end: { row: 2, col: 3 },
+        })
+        expect(grid[1][3]).toBe('collapsed')
+    })
+
+    it('collapses fragile tiles traversed in the middle of a slide', () => {
+        const grid = parseGrid({
+            id: 'fragile-pass-through',
+            rows: ['######', '#S.F.#', '######'],
+        })
+        const start = findStart(grid)
+        grid[start.row][start.col] = 'ice'
+
+        expect(slide(grid, start, DIRECTION_DELTA.E)).toMatchObject({
+            kind: 'moved',
+            end: { row: 1, col: 4 },
+        })
+        expect(grid[1][3]).toBe('collapsed')
+    })
+
+    it('does not collapse fragile on a blocked noop', () => {
+        const grid = parseGrid({
+            id: 'fragile-noop',
+            rows: ['#####', '#..F#', '#...#', '#####'],
+        })
+
+        expect(
+            slide(grid, { row: 1, col: 3 }, DIRECTION_DELTA.E)
+        ).toMatchObject({ kind: 'noop' })
+        expect(grid[1][3]).toBe('fragile')
+    })
+
+    it('treats an already collapsed tile as a hazard on entry', () => {
+        const grid = parseGrid({
+            id: 'collapsed-entry',
+            rows: ['#####', '#..F#', '#...#', '#####'],
+        })
+
+        expect(
+            slide(grid, { row: 1, col: 3 }, DIRECTION_DELTA.S)
+        ).toMatchObject({ kind: 'moved' })
+        expect(grid[1][3]).toBe('collapsed')
+        expect(
+            slide(grid, { row: 2, col: 3 }, DIRECTION_DELTA.N)
+        ).toMatchObject({ kind: 'hazard' })
     })
 
     it('collects crystals while sliding', () => {

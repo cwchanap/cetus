@@ -11,6 +11,8 @@ export type CellType =
     | 'hazard'
     | 'crystal'
     | 'snow'
+    | 'fragile'
+    | 'collapsed'
 
 export interface GridPosition {
     row: number
@@ -20,7 +22,7 @@ export interface GridPosition {
 export interface IceSlideLevel {
     id: number
     name: string
-    /** Row-major string rows using # . S G O H C N glyphs */
+    /** Row-major string rows using # . S G O H C N F glyphs */
     rows: string[]
     parMoves: number
 }
@@ -177,4 +179,5 @@ export const GLYPH_TO_CELL: Record<string, CellType> = {
     H: 'hazard',
     C: 'crystal',
     N: 'snow',
+    F: 'fragile',
 }
