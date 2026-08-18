@@ -30,6 +30,16 @@ function createSnowRun(): IceSlideRunDefinition {
     return createTestRun([SNOW_STAGE])
 }
 
+const FRAGILE_STAGE = createTestStage({
+    id: 'test:fragile',
+    rows: ['#####', '#S.F#', '#...#', '#G..#', '#####'],
+    parMoves: 1,
+})
+
+function createFragileRun(): IceSlideRunDefinition {
+    return createTestRun([FRAGILE_STAGE])
+}
+
 function createRouteLifecycleRun(
     stage3Rows: string[] = ['######', '#S..H#', '#G...#', '######']
 ): IceSlideRunDefinition {
@@ -308,6 +318,96 @@ describe('IceSlideGame', () => {
         expect(afterUndo.grid[1][3]).toBe('snow')
         expect(afterUndo.moves).toBe(afterMove.moves)
         expect(afterUndo.levelMoves).toBe(afterMove.levelMoves)
+        game.destroy()
+    })
+
+    it('restores fragile state after manual reset', () => {
+        const game = new IceSlideGame()
+        game.start(createFragileRun())
+        game.move('E')
+        game.move('S')
+
+        expect(game.getState().grid[1][3]).toBe('collapsed')
+
+        const snapshot = game.getState()
+        snapshot.grid[1][3] = 'ice'
+        expect(game.getState().grid[1][3]).toBe('collapsed')
+
+        game.resetLevel()
+        const state = game.getState()
+        expect(state.player).toEqual(state.start)
+        expect(state.grid[1][3]).toBe('fragile')
+        expect(state.resets).toBe(1)
+        expect(state.levelResets).toBe(1)
+        game.destroy()
+    })
+
+    it('restores fragile state after entering a collapsed tile', () => {
+        const onHazard = vi.fn()
+        const game = new IceSlideGame({ onHazard })
+        game.start(createFragileRun())
+
+        game.move('E')
+        game.move('S')
+        game.move('N')
+
+        const state = game.getState()
+        expect(onHazard).toHaveBeenCalledTimes(1)
+        expect(state.player).toEqual(state.start)
+        expect(state.grid[1][3]).toBe('fragile')
+        expect(state.falls).toBe(1)
+        expect(state.resets).toBe(1)
+        expect(state.levelFalls).toBe(1)
+        expect(state.levelResets).toBe(1)
+        game.destroy()
+    })
+
+    it('discards same-slide fragile collapse when that move later falls', () => {
+        const game = new IceSlideGame()
+        game.start(
+            createTestRun([
+                createTestStage({
+                    id: 'test:fragile-hazard-rollback',
+                    rows: ['#######', '#S.FH.#', '#..G..#', '#######'],
+                }),
+            ])
+        )
+
+        game.move('E')
+        const state = game.getState()
+        expect(state.falls).toBe(1)
+        expect(state.player).toEqual(state.start)
+        expect(state.grid[1][3]).toBe('fragile')
+        game.destroy()
+    })
+
+    it('restores fragile state through an Expedition Undo round-trip', () => {
+        const game = new IceSlideGame()
+        game.start(createRouteLifecycleRun(FRAGILE_STAGE.rows))
+        clearCurrentStage(game)
+        clearCurrentStage(game)
+        expect(game.chooseExpeditionRoute('safe')).toBe(true)
+
+        game.move('E')
+        const beforeLeave = game.getState()
+        expect(beforeLeave.grid[1][3]).toBe('fragile')
+        const signaturesBefore = [...beforeLeave.stageSignatures]
+
+        game.move('S')
+        const afterMove = game.getState()
+        expect(afterMove.grid[1][3]).toBe('collapsed')
+        expect(afterMove.stageSignatures).toEqual(signaturesBefore)
+        expect(game.canUndo()).toBe(true)
+
+        expect(game.undo()).toBe(true)
+        const afterUndo = game.getState()
+        expect(afterUndo.player).toEqual(beforeLeave.player)
+        expect(afterUndo.grid[1][3]).toBe('fragile')
+        expect(afterUndo.moves).toBe(afterMove.moves)
+        expect(afterUndo.levelMoves).toBe(afterMove.levelMoves)
+        expect(afterUndo.undoChargesAvailable).toBe(0)
+        expect(afterUndo.undoChargesUsed).toBe(1)
+        expect(afterUndo.stageSignatures).toEqual(signaturesBefore)
         game.destroy()
     })
 

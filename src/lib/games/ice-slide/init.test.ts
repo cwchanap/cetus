@@ -860,6 +860,39 @@ describe('initializeIceSlide', () => {
         }
     })
 
+    it('routes keyboard input through the mapper and stops on fragile', async () => {
+        const run = createTestRun([
+            createTestStage({
+                rows: ['#####', '#S.F#', '#G..#', '#####'],
+            }),
+        ])
+        vi.mocked(createIceSlideExpeditionRunDefinition).mockReturnValueOnce(
+            run
+        )
+
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+        try {
+            await handle.start('expedition')
+
+            window.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowRight',
+                    cancelable: true,
+                })
+            )
+
+            expect(keyToDirection).toHaveBeenCalledWith('ArrowRight')
+            expect(handle.getGame()?.getState().player).toEqual({
+                row: 1,
+                col: 3,
+            })
+            expect(handle.getGame()?.getState().grid[1][3]).toBe('fragile')
+        } finally {
+            handle.cleanup()
+        }
+    })
+
     it('ignores keyboard input that does not map to a direction', async () => {
         const container = mountDom()
         const handle = await initializeIceSlide(container, baseCallbacks())
