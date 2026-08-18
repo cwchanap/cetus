@@ -26,13 +26,17 @@ interface SolverState {
     position: GridPosition
     moves: number
     crystalMask: number
+    collapsedMask: bigint
     grid: CellType[][]
 }
 
 /**
  * Solve an Ice Slide board with a bounded breadth-first search over
- * `(position, crystal mask)` states. Returns the minimum moves to the goal
- * plus reachability diagnostics, or truncates when `maxStates` is exceeded.
+ * `(position, crystal mask, collapsed mask)` states. The collapsed mask
+ * records which fragile tiles have cracked, derived from the post-`slide`
+ * grid so distinct collapse histories at one stop stay distinct. Returns
+ * the minimum moves to the goal plus reachability diagnostics, or
+ * truncates when `maxStates` is exceeded.
  */
 export function solveIceSlideBoard(
     source: IceSlideGridSource,
@@ -50,6 +54,7 @@ export function solveIceSlideBoard(
     let start: GridPosition | null = null
     let goalCount = 0
     const crystalPositions: GridPosition[] = []
+    const fragilePositions: GridPosition[] = []
     for (let row = 0; row < base.length; row++) {
         for (let col = 0; col < base[row].length; col++) {
             const cell = base[row][col]
@@ -64,6 +69,8 @@ export function solveIceSlideBoard(
                 goalCount++
             } else if (cell === 'crystal') {
                 crystalPositions.push({ row, col })
+            } else if (cell === 'fragile') {
+                fragilePositions.push({ row, col })
             }
         }
     }
@@ -83,17 +90,27 @@ export function solveIceSlideBoard(
     }
 
     const fullMask = (1 << crystalPositions.length) - 1
-    const stateKey = (position: GridPosition, crystalMask: number) =>
-        `${position.row},${position.col},${crystalMask}`
+    const stateKey = (
+        position: GridPosition,
+        crystalMask: number,
+        collapsedMask: bigint
+    ) =>
+        `${position.row},${position.col},${crystalMask},${collapsedMask.toString(16)}`
 
     const startGrid = cloneGrid(base)
     startGrid[start.row][start.col] = 'ice'
 
     const directions: Direction[] = ['N', 'E', 'S', 'W']
     const queue: SolverState[] = [
-        { position: start, moves: 0, crystalMask: 0, grid: startGrid },
+        {
+            position: start,
+            moves: 0,
+            crystalMask: 0,
+            collapsedMask: 0n,
+            grid: startGrid,
+        },
     ]
-    const seen = new Set<string>([stateKey(start, 0)])
+    const seen = new Set<string>([stateKey(start, 0, 0n)])
     const stops = new Set<string>([`${start.row},${start.col}`])
     const crystalReached = new Array<boolean>(crystalPositions.length).fill(
         false
@@ -131,10 +148,18 @@ export function solveIceSlideBoard(
                 }
             }
 
+            let collapsedMask = 0n
+            for (let i = 0; i < fragilePositions.length; i++) {
+                const fragile = fragilePositions[i]
+                if (grid[fragile.row][fragile.col] === 'collapsed') {
+                    collapsedMask |= 1n << BigInt(i)
+                }
+            }
+
             stops.add(`${outcome.end.row},${outcome.end.col}`)
 
             const moves = current.moves + 1
-            const key = stateKey(outcome.end, crystalMask)
+            const key = stateKey(outcome.end, crystalMask, collapsedMask)
             if (seen.has(key)) {
                 continue
             }
@@ -157,6 +182,7 @@ export function solveIceSlideBoard(
                 position: outcome.end,
                 moves,
                 crystalMask,
+                collapsedMask,
                 grid,
             })
         }

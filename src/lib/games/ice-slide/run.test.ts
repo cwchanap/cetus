@@ -61,6 +61,21 @@ describe('Ice Slide run versions and signatures', () => {
         expect(commaFirst).not.toBe(commaSecond)
     })
 
+    it('includes authored fragile rows in stage signatures', () => {
+        const run = cloneRun()
+        const stage = run.stages[0]
+        const ice = createIceSlideStageSignature({
+            ...stage,
+            rows: ['######', '#S..G#', '######'],
+        })
+        const fragile = createIceSlideStageSignature({
+            ...stage,
+            rows: ['######', '#S.FG#', '######'],
+        })
+
+        expect(fragile).not.toBe(ice)
+    })
+
     it('validates exact UTC calendar date keys', () => {
         expect(() => assertValidIceSlideUtcDateKey('2026-08-12')).not.toThrow()
         expect(() => assertValidIceSlideUtcDateKey('2026-02-29')).toThrow(
@@ -151,6 +166,15 @@ it('accepts a Campaign run with a snow-bearing stage', () => {
     const run = cloneRun()
     run.stages[0].rows = ['######', '#S.NG#', '######']
     run.stages[0].parMoves = 2
+    run.stages[0].signature = createIceSlideStageSignature(run.stages[0])
+
+    expect(() => assertValidIceSlideRunDefinition(run)).not.toThrow()
+})
+
+it('accepts a Campaign run with a fragile-bearing stage', () => {
+    const run = cloneRun()
+    run.stages[0].rows = ['######', '#S.FG#', '######']
+    run.stages[0].parMoves = 1
     run.stages[0].signature = createIceSlideStageSignature(run.stages[0])
 
     expect(() => assertValidIceSlideRunDefinition(run)).not.toThrow()

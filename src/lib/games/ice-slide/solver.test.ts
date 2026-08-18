@@ -2,6 +2,28 @@ import { describe, expect, it } from 'vitest'
 import { solveIceSlideBoard } from './solver'
 import { ICE_SLIDE_LEVELS } from './levels'
 
+const FRAGILE_MASK_BOARD = [
+    '#######',
+    '#F....#',
+    '#.F.G.#',
+    '##..F.#',
+    '#.....#',
+    '#S.##F#',
+    '#######',
+]
+
+const EIGHT_FRAGILE_BOARD = [
+    '#########',
+    '#F...#.##',
+    '#..F....#',
+    '#...S...#',
+    '#..FF..F#',
+    '#.G##..##',
+    '#F....F.#',
+    '##.F....#',
+    '#########',
+]
+
 describe('ice-slide solver', () => {
     it('solves a one-move board with the exact minimum', () => {
         const result = solveIceSlideBoard(
@@ -270,5 +292,57 @@ describe('ice-slide solver', () => {
         expect(result.minMoves).toBeNull()
         expect(result.reachedGoalWithAllCrystals).toBe(false)
         expect(result.exploredStates).toBe(7)
+    })
+
+    it('distinguishes the same stop under different collapsed-fragile histories', () => {
+        const result = solveIceSlideBoard(
+            { id: 'fragile-mask-state', rows: FRAGILE_MASK_BOARD },
+            { maxStates: 10_000 }
+        )
+
+        expect(result.solvable).toBe(true)
+        expect(result.truncated).toBe(false)
+        expect(result.minMoves).toBe(6)
+        expect(result.exploredStates).toBeGreaterThan(result.reachableStopCount)
+    })
+
+    it.each([
+        ['four fragile', FRAGILE_MASK_BOARD, 6],
+        ['eight fragile', EIGHT_FRAGILE_BOARD, 6],
+    ])(
+        'keeps %s within the existing solver budget',
+        (_name, rows, minMoves) => {
+            const result = solveIceSlideBoard(
+                { id: `budget:${_name}`, rows },
+                { maxStates: 10_000 }
+            )
+
+            expect(result.solvable).toBe(true)
+            expect(result.truncated).toBe(false)
+            expect(result.minMoves).toBe(minMoves)
+            expect(result.exploredStates).toBeLessThan(10_000)
+        }
+    )
+
+    it('does not impose a 30-fragile representation limit', () => {
+        const rows = [
+            '#########',
+            '#S.....G#',
+            '#########',
+            '#FFFFFFF#',
+            '#FFFFFFF#',
+            '#FFFFFFF#',
+            '#FFFFFFF#',
+            '#FFF....#',
+            '#########',
+        ]
+
+        const result = solveIceSlideBoard(
+            { id: 'many-fragile', rows },
+            { maxStates: 32 }
+        )
+        expect(result.solvable).toBe(true)
+        expect(result.minMoves).toBe(1)
+        expect(result.truncated).toBe(false)
     })
 })

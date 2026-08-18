@@ -17,6 +17,15 @@ const HAZARD_BOARD = [
 ]
 const MASK_STATE = ['######', '#S.C.#', '#..#.#', '#....#', '#.G..#', '######']
 const WALLED_GOAL = ['######', '#S...#', '##G###', '#....#', '######']
+const FRAGILE_MASK_BOARD = [
+    '#######',
+    '#F....#',
+    '#.F.G.#',
+    '##..F.#',
+    '#.....#',
+    '#S.##F#',
+    '#######',
+]
 
 const defaultConstraints = {
     parBand: { minMoves: 1, maxMoves: 10 },
@@ -212,6 +221,25 @@ describe('ice-slide stage quality: solver outcome checks', () => {
             expect(result.solveResult?.solvable).toBe(false)
             expect(result.canonicalKey).toBe(serializeBoardRows(WALLED_GOAL))
         }
+    })
+
+    it('fails closed when fragile state exhausts the solver cap', () => {
+        const result = validateIceSlideStageQuality(
+            {
+                id: 'fragile-truncated',
+                rows: FRAGILE_MASK_BOARD,
+                objectiveIds: [],
+            },
+            {
+                parBand: { minMoves: 1, maxMoves: 20 },
+                maxStates: 10,
+            }
+        )
+
+        expect(result).toMatchObject({
+            accepted: false,
+            reason: 'solver_truncated',
+        })
     })
 
     it('rejects a computed par below the band', () => {
@@ -504,6 +532,26 @@ describe('ice-slide stage quality: accepted candidates', () => {
         if (result.accepted === true) {
             expect(result.parMoves).toBe(2)
             expect(result.objectiveFeasibility.no_falls).toBe(true)
+        }
+    })
+
+    it('accepts a fragile board using the stateful solver result', () => {
+        const result = validateIceSlideStageQuality(
+            {
+                id: 'fragile-quality',
+                rows: FRAGILE_MASK_BOARD,
+                objectiveIds: [],
+            },
+            {
+                parBand: { minMoves: 6, maxMoves: 6 },
+                maxStates: 10_000,
+            }
+        )
+
+        expect(result.accepted).toBe(true)
+        if (result.accepted) {
+            expect(result.parMoves).toBe(6)
+            expect(result.solveResult.truncated).toBe(false)
         }
     })
 })
