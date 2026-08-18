@@ -840,21 +840,24 @@ describe('initializeIceSlide', () => {
 
         const container = mountDom()
         const handle = await initializeIceSlide(container, baseCallbacks())
-        await handle.start('expedition')
+        try {
+            await handle.start('expedition')
 
-        window.dispatchEvent(
-            new KeyboardEvent('keydown', {
-                key: 'ArrowRight',
-                cancelable: true,
+            window.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowRight',
+                    cancelable: true,
+                })
+            )
+
+            expect(keyToDirection).toHaveBeenCalledWith('ArrowRight')
+            expect(handle.getGame()?.getState().player).toEqual({
+                row: 1,
+                col: 3,
             })
-        )
-
-        expect(keyToDirection).toHaveBeenCalledWith('ArrowRight')
-        expect(handle.getGame()?.getState().player).toEqual({
-            row: 1,
-            col: 3,
-        })
-        handle.cleanup()
+        } finally {
+            handle.cleanup()
+        }
     })
 
     it('ignores keyboard input that does not map to a direction', async () => {
