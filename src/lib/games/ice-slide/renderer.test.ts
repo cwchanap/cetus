@@ -150,7 +150,7 @@ describe('ice-slide renderer', () => {
     })
 
     it('renders every cell type, slide trail, and player without throwing', async () => {
-        const rs = await setupPixiJS(container, 2, 8, 48)
+        const rs = await setupPixiJS(container, 2, 10, 48)
         const grid: CellType[][] = [
             [
                 'wall',
@@ -160,9 +160,22 @@ describe('ice-slide renderer', () => {
                 'hazard',
                 'crystal',
                 'snow',
+                'fragile',
+                'collapsed',
                 'start',
             ],
-            ['wall', 'ice', 'ice', 'ice', 'ice', 'ice', 'ice', 'wall'],
+            [
+                'wall',
+                'ice',
+                'ice',
+                'ice',
+                'ice',
+                'ice',
+                'ice',
+                'ice',
+                'ice',
+                'wall',
+            ],
         ]
         const state = makeState(grid, {
             player: { row: 1, col: 2 },
@@ -198,6 +211,31 @@ describe('ice-slide renderer', () => {
         expect(
             roundRectCalls.slice(1).every(([x, y]) => x !== 6 || y !== 6)
         ).toBe(true)
+    })
+
+    it('renders fragile with a visible segmented crack', async () => {
+        const rs = await setupPixiJS(container, 1, 2, 48)
+        renderGrid(
+            rs,
+            makeState([['fragile', 'ice']], { player: { row: 0, col: 1 } })
+        )
+
+        const calls = vi.mocked(rs.gridGraphic.roundRect).mock.calls
+        expect(calls).toContainEqual([13, 9, 3, 14, 1])
+        expect(calls).toContainEqual([15, 20, 13, 3, 1])
+        expect(calls).toContainEqual([25, 20, 3, 15, 1])
+    })
+
+    it('renders collapsed as a hollow broken surface', async () => {
+        const rs = await setupPixiJS(container, 1, 2, 48)
+        renderGrid(
+            rs,
+            makeState([['collapsed', 'ice']], { player: { row: 0, col: 1 } })
+        )
+
+        const calls = vi.mocked(rs.gridGraphic.roundRect).mock.calls
+        expect(calls).toContainEqual([7, 7, 34, 34, 5])
+        expect(calls).toContainEqual([14, 14, 20, 20, 4])
     })
 
     it('maps swipe deltas to cardinal directions', () => {

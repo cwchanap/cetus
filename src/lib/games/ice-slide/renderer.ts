@@ -17,6 +17,8 @@ const COLORS: Record<CellType, number> = {
     hazard: 0x7f1d1d,
     crystal: 0x67e8f9,
     snow: 0xe0f2fe,
+    fragile: 0x67e8f9,
+    collapsed: 0x94a3b8,
 }
 
 const PLAYER_COLOR = 0xf0f9ff
@@ -158,6 +160,31 @@ function drawCell(
                 4,
                 2
             ).fill(COLORS.snow)
+            return
+
+        case 'fragile':
+            g.rect(x + 6, y + 6, cellSize - 12, cellSize - 12).fill({
+                color: COLORS.ice,
+                alpha: 0.18,
+            })
+            g.roundRect(x + 13, y + 9, 3, 14, 1).fill(COLORS.fragile)
+            g.roundRect(x + 15, y + 20, 13, 3, 1).fill(COLORS.fragile)
+            g.roundRect(x + 25, y + 20, 3, 15, 1).fill(COLORS.fragile)
+            return
+
+        case 'collapsed':
+            g.roundRect(x + 7, y + 7, cellSize - 14, cellSize - 14, 5).stroke({
+                color: COLORS.collapsed,
+                width: 3,
+                alpha: 0.9,
+            })
+            g.roundRect(x + 14, y + 14, cellSize - 28, cellSize - 28, 4).stroke(
+                {
+                    color: COLORS.collapsed,
+                    width: 2,
+                    alpha: 0.7,
+                }
+            )
             return
 
         case 'ice':

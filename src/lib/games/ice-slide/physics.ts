@@ -72,7 +72,8 @@ export type SlideOutcome =
 
 /**
  * Simulate a slide from `from` in `direction` on `grid`.
- * Mutates `grid` only when crystals are collected (`kind: 'moved'`).
+ * Mutates the supplied grid for in-slide state transitions such as crystal
+ * consumption and fragile-to-collapsed exits.
  */
 export function slide(
     grid: CellType[][],
@@ -123,6 +124,10 @@ export function slide(
             }
         }
 
+        if (grid[row][col] === 'fragile') {
+            grid[row][col] = 'collapsed'
+        }
+
         row = nr
         col = nc
         path.push({ row, col })
@@ -137,7 +142,7 @@ export function slide(
             }
         }
 
-        if (next === 'hazard') {
+        if (next === 'hazard' || next === 'collapsed') {
             return { kind: 'hazard', path }
         }
 
