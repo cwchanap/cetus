@@ -503,7 +503,7 @@ The lower fragile region is unreachable by design; this test isolates representa
 
 - [ ] **Step 3: Add quality/run tests that should consume the same new contract without production changes.**
 
-In `quality.test.ts`, use the four-fragile fixture and assert the quality gate consumes the stateful par and fails closed with a small cap:
+In `quality.test.ts`, use the four-fragile fixture and assert the quality gate consumes the stateful solver result and fails closed with a small cap:
 
 ```ts
 it('accepts a fragile board using the stateful solver result', () => {
