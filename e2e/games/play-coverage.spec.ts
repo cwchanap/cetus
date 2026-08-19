@@ -1241,3 +1241,38 @@ test.describe('Ice Slide', () => {
         await expect(page.locator('#daily-leaderboard-rows')).toBeEmpty()
     })
 })
+
+test.describe('Mine Grid', () => {
+    test('starts on Easy and exercises flag then reveal', async ({ page }) => {
+        await page.goto('/mine-grid')
+        await expect(page.locator('#mine-grid-board')).toBeVisible()
+
+        await page.locator('#easy-btn').click()
+        await expect(page.locator('#difficulty')).toHaveText(/Easy/i)
+        await startGameWhenReady(page)
+
+        await page.locator('#flag-mode-btn').click()
+        const firstHidden = page
+            .locator('#mine-grid-board .mine-grid-cell[data-state="hidden"]')
+            .first()
+        await firstHidden.click()
+        await expect(
+            page.locator(
+                '#mine-grid-board .mine-grid-cell[data-state="flagged"]'
+            )
+        ).toHaveCount(1)
+
+        await page.locator('#reveal-mode-btn').click()
+        await page
+            .locator('#mine-grid-board .mine-grid-cell[data-state="hidden"]')
+            .first()
+            .click()
+
+        await page.locator('#reset-btn').click()
+        await expect(
+            page.locator(
+                '#mine-grid-board .mine-grid-cell[data-state="hidden"]'
+            )
+        ).toHaveCount(64)
+    })
+})
