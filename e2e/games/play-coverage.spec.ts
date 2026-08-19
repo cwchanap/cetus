@@ -1255,7 +1255,7 @@ test.describe('Mine Grid', () => {
         const firstHidden = page
             .locator('#mine-grid-board .mine-grid-cell[data-state="hidden"]')
             .first()
-        await firstHidden.dispatchEvent('click')
+        await firstHidden.click()
         await expect(
             page.locator(
                 '#mine-grid-board .mine-grid-cell[data-state="flagged"]'
@@ -1266,7 +1266,7 @@ test.describe('Mine Grid', () => {
         await page
             .locator('#mine-grid-board .mine-grid-cell[data-state="hidden"]')
             .first()
-            .dispatchEvent('click')
+            .click()
 
         await page.locator('#reset-btn').click()
         await expect(
