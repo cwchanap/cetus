@@ -99,6 +99,21 @@ describe('Game Framework Core', () => {
             expect(timer.getCurrentTime()).toBe(5)
         })
 
+        it('updates duration while stopped and rejects updates while running', () => {
+            const timer = new GameTimer({
+                duration: 10,
+                countDown: true,
+                autoStart: false,
+            })
+
+            expect(timer.setDuration(20)).toBe(true)
+            expect(timer.getCurrentTime()).toBe(20)
+
+            timer.start()
+            expect(timer.setDuration(30)).toBe(false)
+            expect(timer.getCurrentTime()).toBe(20)
+        })
+
         it('should emit events correctly', () => {
             const onStart = vi.fn()
             const onPause = vi.fn()
@@ -471,6 +486,90 @@ describe('BaseGame default hooks', () => {
             }
         }
     }
+
+    class TimingGame extends BaseGame {
+        createInitialState() {
+            return {
+                score: 0,
+                timeRemaining: this.config.duration,
+                isActive: false,
+                isPaused: false,
+                isGameOver: false,
+                gameStarted: false,
+            }
+        }
+        update(_dt: number) {}
+        render() {}
+        cleanup() {}
+        getGameStats() {
+            const timer = this.getTimerStatus()
+            return {
+                finalScore: this.scoreManager.getScore(),
+                timeElapsed: timer.elapsedTime,
+                gameCompleted: this.state.isGameOver,
+            }
+        }
+        changeDuration(seconds: number) {
+            return this.setDuration(seconds)
+        }
+    }
+
+    it('preserves final elapsed and remaining time after manual end', async () => {
+        vi.useFakeTimers()
+        const game = new TimingGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 10,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: true,
+            },
+            {},
+            { basePoints: 0, timeBonus: true }
+        )
+
+        game.start()
+        await vi.advanceTimersByTimeAsync(4000)
+        await game.end()
+
+        expect(game.getTimerStatus().elapsedTime).toBe(4)
+        expect(game.getTimerStatus().currentTime).toBe(6)
+        expect(game.getScoreManager().getScore()).toBe(30)
+        vi.useRealTimers()
+    })
+
+    it('preserves duration elapsed and zero remaining after timeout', async () => {
+        vi.useFakeTimers()
+        const game = new TimingGame(GameID.QUICK_MATH, {
+            duration: 2,
+            achievementIntegration: false,
+            pausable: false,
+            resettable: true,
+        })
+
+        game.start()
+        await vi.advanceTimersByTimeAsync(2000)
+        await Promise.resolve()
+
+        expect(game.getTimerStatus().elapsedTime).toBe(2)
+        expect(game.getTimerStatus().currentTime).toBe(0)
+        vi.useRealTimers()
+    })
+
+    it('changes duration only while idle and resets the visible timer state', () => {
+        const game = new TimingGame(GameID.QUICK_MATH, {
+            duration: 10,
+            achievementIntegration: false,
+            pausable: false,
+            resettable: true,
+        })
+
+        expect(game.changeDuration(30)).toBe(true)
+        expect(game.getTimerStatus().currentTime).toBe(30)
+
+        game.start()
+        expect(game.changeDuration(60)).toBe(false)
+    })
 
     it('should cover onGamePause base implementation', async () => {
         const game = new MinimalGame(

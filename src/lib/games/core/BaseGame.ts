@@ -23,6 +23,10 @@ export abstract class BaseGame<
     protected scoreManager: ScoreManager
     protected gameId: GameID
     private runGuard = createRunGuard()
+    private finalTimerSnapshot: {
+        currentTime: number
+        elapsedTime: number
+    } | null = null
 
     constructor(
         gameId: GameID,
@@ -159,13 +163,25 @@ export abstract class BaseGame<
             return
         }
 
+        const liveTimer = this.timer.getStatus()
+        const finalCurrentTime = liveTimer.isRunning
+            ? liveTimer.currentTime
+            : Math.max(0, this.state.timeRemaining)
+        const finalElapsedTime = liveTimer.isRunning
+            ? liveTimer.elapsedTime
+            : Math.max(0, this.config.duration - finalCurrentTime)
+
+        this.finalTimerSnapshot = {
+            currentTime: finalCurrentTime,
+            elapsedTime: finalElapsedTime,
+        }
+
         this.state.isActive = false
         this.state.isGameOver = true
         this.timer.stop()
 
         // Apply time bonus if applicable
-        const timeRemaining = this.timer.getCurrentTime()
-        this.scoreManager.applyTimeBonus(timeRemaining)
+        this.scoreManager.applyTimeBonus(finalCurrentTime)
 
         // Get final stats
         const finalStats = this.getGameStats()
@@ -220,6 +236,7 @@ export abstract class BaseGame<
      * completed run is always cleared before the next one).
      */
     private resetInternal(): void {
+        this.finalTimerSnapshot = null
         this.runGuard.next()
         this.timer.reset()
         this.scoreManager.reset()
@@ -274,7 +291,26 @@ export abstract class BaseGame<
      * Get timer status
      */
     getTimerStatus() {
-        return this.timer.getStatus()
+        const status = this.timer.getStatus()
+        if (!this.finalTimerSnapshot) {
+            return status
+        }
+        return {
+            ...status,
+            currentTime: this.finalTimerSnapshot.currentTime,
+            elapsedTime: this.finalTimerSnapshot.elapsedTime,
+            isComplete: this.finalTimerSnapshot.currentTime <= 0,
+        }
+    }
+
+    protected setDuration(seconds: number): boolean {
+        if (this.state.isActive || !this.timer.setDuration(seconds)) {
+            return false
+        }
+        this.config.duration = seconds
+        this.state.timeRemaining = seconds
+        this.finalTimerSnapshot = null
+        return true
     }
 
     /**
