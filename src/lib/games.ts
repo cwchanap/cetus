@@ -38,6 +38,7 @@ export enum GameID {
     CIRCUIT_HACKER = 'circuit_hacker',
     SATELLITE_SYNC = 'satellite_sync',
     ICE_SLIDE = 'ice_slide',
+    MINE_GRID = 'mine_grid',
 }
 
 // Game system types
@@ -328,6 +329,7 @@ const GAME_ICONS: Record<GameID, string> = {
     [GameID.CIRCUIT_HACKER]: '🔌',
     [GameID.SATELLITE_SYNC]: '🛰️',
     [GameID.ICE_SLIDE]: '🧊',
+    [GameID.MINE_GRID]: '💣',
 }
 
 // Game icon helper function
