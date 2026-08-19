@@ -60,6 +60,7 @@ export class MineGridRenderer extends DOMRenderer {
         }
 
         boardElement.style.gridTemplateColumns = `repeat(${state.board[0]?.length ?? 0}, 1fr)`
+        boardElement.style.gridTemplateRows = `repeat(${state.board.length}, 1fr)`
         while (boardElement.firstChild) {
             boardElement.removeChild(boardElement.firstChild)
         }

@@ -99,12 +99,13 @@ describe('MineGridRenderer', () => {
         ])
     })
 
-    it('sets grid-template-columns from the board width', async () => {
+    it('sets grid template tracks from the board dimensions', async () => {
         const instance = await initializeRenderer()
 
         instance.render(makeState())
 
         expect(board.style.gridTemplateColumns).toBe('repeat(2, 1fr)')
+        expect(board.style.gridTemplateRows).toBe('repeat(2, 1fr)')
     })
 
     it('renders flagged, numbered, and mine labels/classes', async () => {
