@@ -14,7 +14,7 @@ import Button from '@/components/ui/Button.astro'
   showEnd={false}
   initialTime={300}
 >
-  <div slot="game-board" class="w-[560px] max-w-full">
+  <div slot="game-board" class="w-[min(560px,calc(100vw-2rem))]">
     <div
       id="mine-grid-container"
       class="w-full max-w-[560px] aspect-square"
