@@ -11,6 +11,7 @@ import type {
     CircuitHackerGameData,
     SatelliteSyncGameData,
     IceSlideGameData,
+    MineGridGameData,
     GameHistoryEntry,
 } from './games/shared/types'
 
@@ -34,6 +35,7 @@ export type AchievementCheckData =
     | CircuitHackerGameData
     | SatelliteSyncGameData
     | IceSlideGameData
+    | MineGridGameData
     | Record<string, unknown>
 
 export interface Achievement {
@@ -1447,6 +1449,62 @@ export const ACHIEVEMENTS: Achievement[] = [
         condition: {
             type: 'score_threshold',
             threshold: 8000,
+        },
+        rarity: AchievementRarity.LEGENDARY,
+    },
+
+    // Mine Grid achievements
+    {
+        id: 'mine_grid_welcome',
+        name: 'First Sweep',
+        description: 'Score your first point in Mine Grid.',
+        logo: '💣',
+        gameId: GameID.MINE_GRID,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'mine_grid_clean_scan',
+        name: 'Clean Scan',
+        description: 'Clear a Mine Grid without an incorrect flag action.',
+        logo: '🧹',
+        gameId: GameID.MINE_GRID,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as MineGridGameData
+                return data.cleared && data.incorrectFlagActions === 0
+            },
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'mine_grid_deep_field',
+        name: 'Deep Field',
+        description: 'Clear the Mine Grid on Hard difficulty.',
+        logo: '🌌',
+        gameId: GameID.MINE_GRID,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as MineGridGameData
+                return data.cleared && data.difficulty === 'hard'
+            },
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: 'mine_grid_demolition_expert',
+        name: 'Demolition Expert',
+        description: 'Score 5,000 points in Mine Grid.',
+        logo: '🏆',
+        gameId: GameID.MINE_GRID,
+        condition: {
+            type: 'score_threshold',
+            threshold: 5000,
         },
         rarity: AchievementRarity.LEGENDARY,
     },

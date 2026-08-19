@@ -22,6 +22,10 @@ const iceSlideMarkup = readFileSync(
     resolve(process.cwd(), 'src/pages/ice-slide/index.astro'),
     'utf-8'
 )
+const mineGridMarkup = readFileSync(
+    resolve(process.cwd(), 'src/pages/mine-grid/index.astro'),
+    'utf-8'
+)
 
 const games = [
     'tetris',
@@ -39,6 +43,7 @@ const games = [
     'circuit-hacker',
     'satellite-sync',
     'ice-slide',
+    'mine-grid',
 ]
 
 describe('Game board page markup', () => {
@@ -127,6 +132,16 @@ describe('Ice Slide Daily and Expedition challenge markup', () => {
         expect(iceSlideMarkup).toContain('id="daily-leaderboard-empty"')
         expect(iceSlideMarkup).toContain('id="daily-leaderboard-unavailable"')
         expect(iceSlideMarkup).toContain('id="daily-leaderboard-rows"')
+    })
+})
+
+describe('Mine Grid page markup', () => {
+    it('keeps the two-container board and root-level initializer', () => {
+        expect(mineGridMarkup).toContain('id="mine-grid-container"')
+        expect(mineGridMarkup).toContain('id="mine-grid-board"')
+        expect(mineGridMarkup).toMatch(
+            /<\/GamePage>\s*<script>[\s\S]*initMineGridGameFramework/
+        )
     })
 })
 

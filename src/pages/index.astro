@@ -14,7 +14,7 @@ const games = getAllGames()
 const featured = getFeaturedGames(games)
 const zones: DepthZone[] = ['shallow', 'mid', 'abyssal']
 
-// Catalog numbers run 01..15, assigned within each zone in registry order.
+// Catalog numbers run 01..16, assigned within each zone in registry order.
 const catalogIndex = new Map<string, number>()
 let n = 1
 for (const z of zones) {
@@ -26,7 +26,7 @@ for (const z of zones) {
 
 <AppLayout
   title="Cetus — A catalog of single-player games"
-  description="Fifteen single-player minigames, trawled from the deep. No login — play in one click."
+  description="Sixteen single-player minigames, trawled from the deep. No login — play in one click."
   theme="abyssal"
 >
   <!-- HERO VITRINE -->
@@ -83,7 +83,7 @@ for (const z of zones) {
 
       <p class="mt-10 font-mono text-xs tracking-[0.2em] text-cetus-ink-muted">
         <a href="#catalog" class="inline-block min-h-[24px] py-1">
-          browse all fifteen ↓
+          browse all sixteen ↓
         </a>
       </p>
     </Container>

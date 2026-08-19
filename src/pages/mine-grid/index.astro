@@ -1,0 +1,125 @@
+---
+import GamePage from '@/components/games/GamePage.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import Button from '@/components/ui/Button.astro'
+---
+
+<GamePage
+  gameId="mine-grid"
+  title="Mine Grid"
+  description="Scan the field, flag hidden mines, and reveal every safe cell"
+  icon="💣"
+  showPause={false}
+  showEnd={false}
+  initialTime={300}
+>
+  <div slot="game-board" class="w-full max-w-[560px]">
+    <div
+      id="mine-grid-container"
+      class="w-full max-w-[560px] aspect-square"
+      aria-label="Mine Grid board"
+    >
+      <div id="mine-grid-board" class="grid w-full h-full gap-1"></div>
+    </div>
+  </div>
+
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono"
+      >Difficulty: <span id="difficulty">Medium</span></span
+    >
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Flags: <span id="flags">0</span></span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Safe: <span id="safe-progress">0 / 85</span></span>
+  </Badge>
+
+  <div slot="game-info" class="space-y-6">
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ DIFFICULTY
+      </h3>
+      <div class="grid grid-cols-3 gap-2">
+        <Button id="easy-btn" variant="outline" size="sm">Easy</Button>
+        <Button id="medium-btn" variant="primary" size="sm">Medium</Button>
+        <Button id="hard-btn" variant="outline" size="sm">Hard</Button>
+      </div>
+    </Card>
+
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ ACTION MODE
+      </h3>
+      <div class="flex gap-2">
+        <Button
+          id="reveal-mode-btn"
+          variant="primary"
+          size="sm"
+          aria-pressed="true">Reveal</Button
+        >
+        <Button
+          id="flag-mode-btn"
+          variant="outline"
+          size="sm"
+          aria-pressed="false">Flag</Button
+        >
+      </div>
+      <p class="mt-3 text-xs text-cetus-ink-muted">
+        Right-click any cell to flag it regardless of the selected mode.
+      </p>
+    </Card>
+
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ HOW TO PLAY
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink">
+        <p>Reveal every safe cell without detonating a mine.</p>
+        <p>Use adjacent numbers to locate hidden mines.</p>
+        <p>Flag suspected mines with Flag mode or right-click.</p>
+      </div>
+    </Card>
+
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SCORING
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink">
+        <p>Safe cells are worth points when the field is cleared.</p>
+        <p>Correct flags add bonus points; incorrect flags cost points.</p>
+        <p>Clear the grid quickly for a larger time bonus.</p>
+      </div>
+    </Card>
+  </div>
+
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Outcome: <span id="final-outcome" class="text-cetus-accent">—</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Difficulty:
+      <span id="final-difficulty" class="text-cetus-accent-3">Medium</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Time: <span id="final-time" class="text-cetus-accent">05:00</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Incorrect Flags:
+      <span id="final-incorrect-flags" class="text-cetus-accent-2">0</span>
+    </div>
+  </div>
+</GamePage>
+
+<script>
+  import { initMineGridGameFramework } from '@/lib/games/mine-grid/initFramework'
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const handle = await initMineGridGameFramework()
+    if (handle) {
+      ;(window as Window & { mineGridGame?: typeof handle }).mineGridGame =
+        handle
+    }
+  })
+</script>
