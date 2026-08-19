@@ -12,6 +12,7 @@ import {
     type Achievement,
 } from './achievements'
 import { GameID } from './games'
+import type { MineGridGameData } from './games/mine-grid/types'
 
 describe('Achievement System', () => {
     describe('getAllAchievements', () => {
@@ -952,6 +953,72 @@ describe('Satellite Sync achievements', () => {
                 0
             )
         ).toBe(false)
+    })
+})
+
+describe('Mine Grid achievements', () => {
+    const baseData: MineGridGameData = {
+        difficulty: 'medium',
+        cleared: false,
+        revealedSafeCells: 0,
+        incorrectFlagActions: 0,
+        elapsedSeconds: 0,
+    }
+
+    it('registers all four Mine Grid achievements with their threshold metadata', () => {
+        const list = getAchievementsByGame(GameID.MINE_GRID)
+        expect(list.map(achievement => achievement.id)).toEqual([
+            'mine_grid_welcome',
+            'mine_grid_clean_scan',
+            'mine_grid_deep_field',
+            'mine_grid_demolition_expert',
+        ])
+        expect(
+            getAchievementById('mine_grid_welcome')?.condition.threshold
+        ).toBe(1)
+        expect(
+            getAchievementById('mine_grid_demolition_expert')?.condition
+                .threshold
+        ).toBe(5000)
+    })
+
+    it('clean scan requires a cleared run with zero incorrect flag actions', () => {
+        const check = getAchievementById('mine_grid_clean_scan')!.condition
+            .check!
+        expect(check({ ...baseData, cleared: true }, 0)).toBe(true)
+        expect(
+            check({ ...baseData, cleared: true, incorrectFlagActions: 1 }, 0)
+        ).toBe(false)
+        expect(check(baseData, 0)).toBe(false)
+    })
+
+    it('deep field requires a cleared hard-difficulty run', () => {
+        const check = getAchievementById('mine_grid_deep_field')!.condition
+            .check!
+        expect(
+            check({ ...baseData, difficulty: 'hard', cleared: true }, 0)
+        ).toBe(true)
+        expect(
+            check({ ...baseData, difficulty: 'easy', cleared: true }, 0)
+        ).toBe(false)
+        expect(
+            check({ ...baseData, difficulty: 'hard', cleared: false }, 0)
+        ).toBe(false)
+    })
+
+    it('threshold achievements use their configured score cutoffs', () => {
+        const welcome = getAchievementById('mine_grid_welcome')!
+        const demolitionExpert = getAchievementById(
+            'mine_grid_demolition_expert'
+        )!
+
+        expect(welcome.condition.threshold).toBe(1)
+        expect(demolitionExpert.condition.threshold).toBe(5000)
+        expect(1).toBeGreaterThanOrEqual(welcome.condition.threshold!)
+        expect(4999).toBeLessThan(demolitionExpert.condition.threshold!)
+        expect(5000).toBeGreaterThanOrEqual(
+            demolitionExpert.condition.threshold!
+        )
     })
 })
 

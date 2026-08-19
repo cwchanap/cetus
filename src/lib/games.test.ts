@@ -253,6 +253,38 @@ describe('Ice Slide registration', () => {
     })
 })
 
+describe('Mine Grid registration', () => {
+    it('has the Mine Grid ID and registry entry', () => {
+        expect(GameID.MINE_GRID).toBe('mine_grid')
+        const game = getGameById(GameID.MINE_GRID)
+        expect(game).toBeDefined()
+        expect(game).toMatchObject({
+            id: GameID.MINE_GRID,
+            name: 'Mine Grid',
+            description:
+                'Scan a hidden field, flag suspected mines, and reveal every safe cell',
+            category: 'puzzle',
+            maxPlayers: 1,
+            estimatedDuration: '3-10 minutes',
+            difficulty: 'medium',
+            tags: ['mines', 'logic', 'grid', 'single-player', 'strategy'],
+            isActive: true,
+            organism: { shape: 'lattice', color: 'green' },
+            depth: 'abyssal',
+        })
+    })
+
+    it('has the Mine Grid icon', () => {
+        expect(getGameIcon(GameID.MINE_GRID)).toBe('💣')
+    })
+
+    it('is included in the GAMES list exactly once', () => {
+        expect(GAMES.filter(game => game.id === GameID.MINE_GRID)).toHaveLength(
+            1
+        )
+    })
+})
+
 describe('getGameUrl route derivation', () => {
     it('replaces underscores with hyphens and prefixes a slash', () => {
         expect(getGameUrl('satellite_sync')).toBe('/satellite-sync')

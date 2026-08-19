@@ -266,6 +266,20 @@ export const GAMES: Game[] = [
         organism: { shape: 'lattice', color: 'ice' },
         depth: 'mid',
     },
+    {
+        id: GameID.MINE_GRID,
+        name: 'Mine Grid',
+        description:
+            'Scan a hidden field, flag suspected mines, and reveal every safe cell',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '3-10 minutes',
+        difficulty: 'medium',
+        tags: ['mines', 'logic', 'grid', 'single-player', 'strategy'],
+        isActive: true,
+        organism: { shape: 'lattice', color: 'green' },
+        depth: 'abyssal',
+    },
 ]
 
 // Helper functions
