@@ -98,6 +98,14 @@ export class GameTimer extends GameEventEmitter {
         this.emit('end')
     }
 
+    setDuration(seconds: number): boolean {
+        if (this.isRunning) {
+            return false
+        }
+        this.config.duration = seconds
+        return true
+    }
+
     /**
      * Reset the timer to its initial state without emitting an end event.
      *
