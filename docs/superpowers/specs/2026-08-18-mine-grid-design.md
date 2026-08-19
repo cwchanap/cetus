@@ -216,6 +216,8 @@ The implementation adds one BaseGame-owned final timer snapshot. At the start of
 
 This removes the duplicated elapsed-capture fields/`end()` overrides from Sudoku and Word Scramble and fixes post-end `getTimerStatus().elapsedTime` for existing consumers such as Quick Math without migrating every subclass.
 
+The snapshot relies on the existing BaseGame state contract that countdown-driven games keep `state.timeRemaining` synchronized from the timer callback. The implementation verifies the current framework-native subclasses initialize `timeRemaining` from their configured duration and adds core timeout/manual-end tests before removing local workarounds.
+
 #### Idle duration update
 
 Difficulty changes require different countdown lengths. Replacing a game instance mid-session would introduce listener teardown/reattach choreography that no current initializer uses. Instead the core gains the smallest reusable idle-duration seam:
