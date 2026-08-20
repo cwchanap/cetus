@@ -15,12 +15,14 @@ import Button from '@/components/ui/Button.astro'
   initialTime={300}
 >
   <div slot="game-board" class="w-[min(560px,calc(100vw-2rem))]">
-    <div
-      id="mine-grid-container"
-      class="w-full max-w-[560px] aspect-square"
-      aria-label="Mine Grid board"
-    >
-      <div id="mine-grid-board" class="grid w-full h-full gap-1"></div>
+    <div id="mine-grid-container" class="w-full max-w-[560px] aspect-square">
+      <div
+        id="mine-grid-board"
+        class="grid w-full h-full gap-1"
+        role="grid"
+        aria-label="Mine Grid board"
+      >
+      </div>
     </div>
   </div>
 
@@ -42,9 +44,27 @@ import Button from '@/components/ui/Button.astro'
         ▸ DIFFICULTY
       </h3>
       <div class="grid grid-cols-3 gap-2">
-        <Button id="easy-btn" variant="outline" size="sm">Easy</Button>
-        <Button id="medium-btn" variant="primary" size="sm">Medium</Button>
-        <Button id="hard-btn" variant="outline" size="sm">Hard</Button>
+        <Button
+          id="easy-btn"
+          variant="outline"
+          size="sm"
+          aria-pressed="false"
+          class="mine-grid-difficulty hover-glow-cyan">Easy</Button
+        >
+        <Button
+          id="medium-btn"
+          variant="outline"
+          size="sm"
+          aria-pressed="true"
+          class="mine-grid-difficulty hover-glow-cyan">Medium</Button
+        >
+        <Button
+          id="hard-btn"
+          variant="outline"
+          size="sm"
+          aria-pressed="false"
+          class="mine-grid-difficulty hover-glow-cyan">Hard</Button
+        >
       </div>
     </Card>
 
@@ -103,7 +123,7 @@ import Button from '@/components/ui/Button.astro'
       <span id="final-difficulty" class="text-cetus-accent-3">Medium</span>
     </div>
     <div class="text-lg text-cetus-ink">
-      Time: <span id="final-time" class="text-cetus-accent">05:00</span>
+      Time: <span id="final-time" class="text-cetus-accent">00:00</span>
     </div>
     <div class="text-lg text-cetus-ink">
       Incorrect Flags:
@@ -115,11 +135,27 @@ import Button from '@/components/ui/Button.astro'
 <script>
   import { initMineGridGameFramework } from '@/lib/games/mine-grid/initFramework'
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    const handle = await initMineGridGameFramework()
-    if (handle) {
-      ;(window as Window & { mineGridGame?: typeof handle }).mineGridGame =
-        handle
-    }
+  document.addEventListener('DOMContentLoaded', () => {
+    initMineGridGameFramework()
+      .then(handle => {
+        if (handle) {
+          ;(window as Window & { mineGridGame?: typeof handle }).mineGridGame =
+            handle
+        }
+      })
+      .catch(error => {
+        console.error('Mine Grid failed to initialize', error)
+      })
   })
 </script>
+
+<style is:global>
+  /* Selected difficulty button mirrors Button.astro's `primary` variant.
+     `aria-pressed` is the single trigger for both a11y state and styling,
+     so initFramework only toggles the attribute — no class swapping.
+     `hover-glow-cyan` is a global class on the buttons themselves. */
+  @reference "../../styles/global.css";
+  .mine-grid-difficulty[aria-pressed='true'] {
+    @apply border-0 bg-gradient-to-r from-[var(--cetus-btn-from)] to-[var(--cetus-btn-to)] text-white shadow-lg shadow-cetus-accent-2/25 hover:from-cetus-accent hover:to-cetus-accent-2;
+  }
+</style>

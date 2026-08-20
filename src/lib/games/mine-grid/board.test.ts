@@ -66,4 +66,28 @@ describe('Mine Grid board', () => {
         const positions = getFloodRevealPositions(board, 2, 2)
         expect(positions).not.toContainEqual({ row: 1, col: 1 })
     })
+
+    it('rejects rng outputs outside the [0, 1) range during the shuffle', () => {
+        for (const badRng of [
+            () => NaN,
+            () => Infinity,
+            () => -Infinity,
+            () => -0.1,
+            () => 1,
+            () => 1.5,
+        ]) {
+            const board = makeBoard(3, 3)
+            expect(() =>
+                placeMines(board, 1, { row: 2, col: 2 }, badRng)
+            ).toThrow(RangeError)
+        }
+    })
+
+    it('accepts rng draws at the inclusive 0 boundary', () => {
+        const board = makeBoard(3, 3)
+        expect(() =>
+            placeMines(board, 1, { row: 2, col: 2 }, zeroRng)
+        ).not.toThrow()
+        expect(findCells(board, cell => cell.hasMine)).toHaveLength(1)
+    })
 })

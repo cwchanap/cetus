@@ -102,6 +102,9 @@ export class GameTimer extends GameEventEmitter {
         if (this.isRunning) {
             return false
         }
+        if (!Number.isFinite(seconds) || seconds <= 0) {
+            return false
+        }
         this.config.duration = seconds
         return true
     }
