@@ -10,17 +10,17 @@ Pattern Pulse is a one-minute visual memory game. Four signal pads represent dis
 
 Version 1 deliberately uses **visual + symbolic cues only**. HPA-74 allows “lights, symbols, or sounds”; adding Web Audio would introduce mute/autoplay/accessibility and test behavior without being required for the game loop. Each pad therefore has a stable number and symbol in addition to its color/animation.
 
-Pattern Pulse fits the existing framework cleanly. It is event-driven, needs one countdown, has no continuous physics, and renders a fixed four-button surface. The implementation uses `BaseGame + DOMRenderer`, following the same lifecycle/score/achievement seams used by Memory Matrix and Mine Grid. It does not add a PixiJS loop, a generic sequence-game framework, a second timer abstraction, or new persistence/API behavior.
+Pattern Pulse fits the existing framework cleanly. It is event-driven, needs one countdown, has no continuous physics, and renders a fixed four-button surface. The implementation uses `BaseGame + DOMRenderer`, following the existing lifecycle/score/achievement seams used by Memory Matrix and Mine Grid. It does not add a PixiJS loop, a generic sequence-game framework, a second timer abstraction, or new persistence/API behavior.
 
 ## Product Goals
 
 - Deliver a recognizable repeat-the-pattern memory game that completes in about one minute.
 - Make the core loop immediately understandable: **watch → repeat → feedback → longer sequence**.
-- Reward three things requested by HPA-74: completed sequences, consecutive success streaks, and fast responses.
+- Reward the three scoring dimensions requested by HPA-74: completed sequences, consecutive success streaks, and fast responses.
 - Give players a recoverable mistake model rather than ending the first time they mis-tap.
 - Work equally well with touch, mouse, native button activation, and desktop `1`–`4` shortcuts.
 - Reuse existing Cetus timer, score submission, run-staleness, achievements, page, and leaderboard/progress infrastructure.
-- Keep random sequence generation deterministic under an injected `() => number` for cheap unit tests.
+- Keep random generation and response timing deterministic in unit tests with two narrow injected functions.
 
 ## Non-Goals
 
@@ -43,7 +43,7 @@ Version 1 intentionally does **not** include:
 
 ### A. `BaseGame + DOMRenderer` with four semantic buttons — **selected**
 
-This matches the actual problem: a fixed four-pad interaction surface driven by discrete events and timeouts. `BaseGame` already owns the 60-second countdown, score submission, final timer snapshot, reset behavior, and stale async save protection. `DOMRenderer` is enough to toggle pad visual state.
+This matches the actual problem: a fixed four-pad interaction surface driven by discrete events and timeouts. `BaseGame` already owns the countdown, score submission, final timer snapshot, reset behavior, and stale async save protection. `DOMRenderer` supplies the existing renderer lifecycle and container access without requiring a canvas.
 
 Advantages:
 
@@ -94,9 +94,16 @@ A sequence item is one of four integer pad IDs:
 type PatternPad = 0 | 1 | 2 | 3
 ```
 
-The first fresh board contains three independently generated pads. Each successful round appends exactly one independently generated pad.
+The first fresh state contains three independently generated pads. Each successful round appends exactly one independently generated pad.
 
-Production uses `Math.random`; tests inject an RNG. Generation is intentionally unbiased and allows consecutive duplicate pad values. Preventing repeats would create a different distribution and is not required for a readable four-pad Simon-style game.
+Production uses `Math.random`; tests inject `rng: () => number`. Generation is intentionally unbiased and allows consecutive duplicate pad values. Preventing repeats would create a different distribution and is not required for a readable four-pad Simon-style game.
+
+RNG consumption is part of the deterministic contract:
+
+- fresh state creation consumes exactly `initialSequenceLength` RNG values;
+- each completed round consumes exactly one additional RNG value when the new pad is appended;
+- playback, accepted inputs, and wrong attempts consume no RNG values;
+- Reset creates a fresh state and therefore consumes a fresh `initialSequenceLength` values.
 
 ### Phase model
 
@@ -117,7 +124,7 @@ The only accepted player inputs occur in `input`.
 For every correct pad:
 
 - advance `inputIndex`;
-- accumulate the elapsed response time since the input phase began or the previous accepted correct input;
+- accumulate elapsed response time since input opened or the previous accepted correct input;
 - do not award score yet.
 
 When the final pad is correct:
@@ -151,10 +158,11 @@ When the BaseGame timer reaches zero in any active phase:
 - cancel the one pending Pattern Pulse scheduled callback;
 - set phase `ended`;
 - set outcome `timeout`;
+- clear the active pad/feedback cue;
 - emit the final state;
 - delegate to `BaseGame.handleTimeUp()` / `end()`.
 
-The player keeps all score earned from already-completed sequences.
+The player keeps all score earned from already-completed sequences. Later advancement of fake/browser time must not reopen input or light another pad.
 
 ## Scheduling Model
 
@@ -180,28 +188,36 @@ pre-play delay
 
 This avoids an array of timeout IDs and makes reset/end/cleanup cancellation a single operation.
 
-`reset()`, terminal mistakes, timeout, and `cleanup()` clear the pending callback. No delayed callback from an old round is allowed to mutate a fresh run.
+`reset()`, terminal mistakes, timeout, and `cleanup()` clear the pending callback. No delayed callback from an old round is allowed to mutate a fresh or ended run.
 
-Vitest fake timers drive this scheduling in unit tests; timer functions are not dependency-injected.
+Vitest fake timers drive this scheduling in unit tests; timer functions are not dependency-injected. `vi.runAllTimers()` is allowed only after Reset has stopped BaseGame's countdown interval. Active-run tests advance fake time in bounded increments.
 
 ## Response-Time Measurement
 
 The game config accepts a tiny clock seam:
 
 ```ts
-now?: () => number
+now: () => number
 ```
 
 Production defaults to `Date.now`. Unit tests inject exact millisecond values.
 
-When input opens, `lastInputAtMs = now()`. Each accepted correct pad records:
+Clock sampling sites are frozen rather than incidental:
+
+1. call `now()` exactly once when entering the `input` phase;
+2. call `now()` exactly once for each **accepted correct** pad;
+3. playback and the wrong-pad branch do not sample `now()`;
+4. timing accumulated before a later wrong pad is discarded with that failed attempt.
+
+For an accepted correct pad:
 
 ```ts
-responseMs = Math.max(0, now() - lastInputAtMs)
-lastInputAtMs = now()
+const nowMs = now()
+responseMs = Math.max(0, nowMs - lastInputAtMs)
+lastInputAtMs = nowMs
 ```
 
-The round score uses the average of these correct response durations only after the whole sequence is completed. Timing from failed attempts is discarded.
+The round score uses the average of these correct response durations only after the whole sequence is completed. Tests assert the expected clock call count so the scoring contract cannot silently change because of unrelated extra reads.
 
 There is no server-side anti-cheat or response-time validation in HPA-74; this uses the same client-trusted score model as existing Cetus games.
 
@@ -227,7 +243,7 @@ Examples:
 | 6 | 4 | 250 ms | 900 |
 | 8 | 1 | 1200 ms | 800 |
 
-`BaseGame` is configured with `timeBonus: false`. There is no end-of-run time bonus because a normal run already lasts to the same 60-second boundary; speed is rewarded directly at the per-round response seam.
+`BaseGame` is configured with `timeBonus: false`. There is no end-of-run time bonus because a normal run already uses the same 60-second boundary; speed is rewarded directly at the per-round response seam.
 
 Mistakes do not directly subtract points. Their cost is lost time, a reset streak, and eventual early termination. This keeps the scoring model easy to explain and avoids double-penalizing an already-limited mistake budget.
 
@@ -271,7 +287,15 @@ interface PatternPulseStats extends BaseGameStats {
 }
 ```
 
-Achievement/submission data:
+Both terminal outcomes are completed runs. `getGameStats()` reports:
+
+```ts
+gameCompleted: this.state.isGameOver
+```
+
+This matches the existing BaseGame sibling convention and means a scored three-mistake finish is not mislabeled as incomplete.
+
+Achievement/submission data stays minimal:
 
 ```ts
 interface PatternPulseGameData {
@@ -279,11 +303,10 @@ interface PatternPulseGameData {
   longestSequence: number
   mistakes: number
   maxStreak: number
-  perfectRun: boolean
 }
 ```
 
-`perfectRun` means `completedRounds > 0 && mistakes === 0` at the end of the run.
+There is **no `perfectRun` field**. `Clean Signal` checks `completedRounds >= 3 && mistakes === 0` directly, avoiding a second derived boolean with competing semantics.
 
 The generated sequence and response timestamps are not persisted.
 
@@ -318,17 +341,11 @@ e2e/games/play-coverage.spec.ts
 CLAUDE.md
 ```
 
-No core game, database, API, auth, or score-service source file needs to change.
+No core game, renderer-framework, database, API, auth, or score-service source file needs to change.
 
 ### `types.ts`
 
-Owns Pattern Pulse constants and type contracts:
-
-- pad IDs;
-- phase/outcome/feedback;
-- config;
-- state/stats/game data;
-- fixed gameplay constants.
+Owns Pattern Pulse pad IDs, phase/outcome/feedback, config, state/stats/game-data contracts, and fixed timing constants.
 
 ### `scoring.ts`
 
@@ -343,7 +360,7 @@ Extends `BaseGame<PatternPulseState, PatternPulseConfig, PatternPulseStats>` and
 - one-at-a-time cue scheduling;
 - input validation through `pressPad(pad)`;
 - streak/mistake/round accounting;
-- response-time measurement;
+- response-time measurement at the frozen sampling sites;
 - sequence growth after success;
 - replay of the same sequence after a recoverable error;
 - terminal mistake handling;
@@ -356,7 +373,9 @@ Extends `BaseGame<PatternPulseState, PatternPulseConfig, PatternPulseStats>` and
 
 Extends `DOMRenderer` and mounts to `#pattern-pulse-board`.
 
-The four pads themselves are static Astro-owned buttons. The renderer never recreates the board. It:
+The four pads are **Astro-owned static children**. This differs from Mine Grid/Memory Matrix, whose renderers create and own their dynamic cells/cards. Pattern Pulse therefore uses `DOMRenderer` for setup/container helpers but does not adopt its child-destruction behavior.
+
+The renderer:
 
 - verifies the four `button[data-pattern-pad]` nodes exist during `setup()`;
 - installs one delegated `click` listener on the board container;
@@ -364,7 +383,12 @@ The four pads themselves are static Astro-owned buttons. The renderer never recr
 - enables buttons only during `input`;
 - toggles `data-active` for the current playback pad;
 - toggles a wrong-feedback attribute on the pressed bad pad;
-- removes its stable listener in `cleanup()`.
+- in `cleanup()`, removes the delegated listener and resets pad runtime attributes/disabled state;
+- **does not call `super.cleanup()`**, because `DOMRenderer.cleanup()` clears the container and would delete the Astro-owned buttons.
+
+Pattern Pulse sets neither `responsive` nor `containerClass`, so skipping `DOMRenderer.cleanup()` leaves no DOMRenderer-owned resize listener/class behind. `DOMRenderer.ts` itself remains unchanged.
+
+`destroy()` must leave all four pad nodes in the DOM. A renderer may then be re-initialized against the same Astro fixture without recreating the buttons.
 
 There are no per-pad listeners and no `innerHTML` rendering.
 
@@ -381,14 +405,12 @@ The initializer follows the current Mine Grid framework wiring rather than intro
 - shows final outcome/stats through the existing GamePage overlay;
 - forwards BaseGame achievement/challenge events;
 - protects active runs with the established `beforeunload` pattern;
-- removes every listener and destroys renderer/game exactly once;
+- removes every initializer-owned listener and destroys renderer/game exactly once;
 - exposes `window.patternPulseGame` with `getGame()`, `getState()`, `restart()`, and `cleanup()` for browser smoke/debug use.
 
 No second run guard is added; `BaseGame` already protects stale async score completion.
 
 ## Input and Accessibility
-
-### Four distinct pads
 
 Each button has three independent identity cues:
 
@@ -401,21 +423,9 @@ Each button has three independent identity cues:
 
 Color and glow reinforce these cues but are never the only differentiator.
 
-### Mouse and touch
+Mouse/touch uses native button click/tap behavior. `1`–`4` activate the corresponding pad during input. Enter/Space naturally activate a focused enabled pad. Global numeric shortcuts do nothing when focus is in `input`, `textarea`, `select`, or a content-editable element. No custom arrow-key focus grid is added.
 
-The fixed buttons use native click/tap behavior. No gesture recognizer or canvas coordinate conversion is required.
-
-### Keyboard
-
-- `1`–`4` activate the corresponding pad during input.
-- Enter/Space naturally activate a focused pad while it is enabled.
-- Inputs outside the `input` phase are ignored.
-- Global numeric shortcuts do nothing when focus is in `input`, `textarea`, `select`, or a content-editable element.
-- No custom arrow-key focus grid is added.
-
-### Status feedback
-
-The page contains an `aria-live="polite"` status node. Stable copy is derived from phase:
+The page contains an `aria-live="polite"` status node with stable phase copy:
 
 - `READY`
 - `WATCH`
@@ -451,7 +461,7 @@ Stable IDs:
 - `#mistakes` — `n / 3` display;
 - `#final-outcome`, `#final-rounds`, `#final-longest-sequence`, `#final-max-streak`, `#final-mistakes` — result overlay values.
 
-Static four-pad HTML and styling live in Astro. TypeScript changes state attributes/text only.
+Static four-pad HTML and styling live in Astro. TypeScript changes runtime attributes/text only.
 
 ## Platform Integration
 
@@ -481,11 +491,9 @@ Registry entry:
 }
 ```
 
-`getGameIcon(GameID.PATTERN_PULSE)` returns `🔁`.
+`getGameIcon(GameID.PATTERN_PULSE)` returns `🔁`. `getGameUrl()` remains unchanged; its current underscore-to-hyphen rule already derives `/pattern-pulse`.
 
-The `/pattern-pulse` page must land in the same implementation task as registry activation because `games.test.ts` requires every active registry entry to resolve to an existing Astro route.
-
-`all-games-navigation.spec.ts` derives its targets from `GAMES`; no source edit is required there.
+The `/pattern-pulse` page must exist before registry activation because `games.test.ts` requires every active registry entry to resolve to an existing Astro route. `all-games-navigation.spec.ts` derives targets from `GAMES`; no source edit is required there.
 
 ### Shared game-data type
 
@@ -513,27 +521,22 @@ No achievement requires server/schema changes; all use the existing score submis
 
 ### Pure scoring tests
 
-Lock:
-
-- sequence-length points;
-- no streak bonus on the first success;
-- increasing streak bonus;
-- speed bonus maximum and zero floor;
-- exact representative formula values.
+Lock sequence-length points, no first-success streak bonus, increasing streak bonus, speed maximum/zero floor, and exact representative formula values.
 
 ### Game state-machine tests
 
 Use injected RNG, injected `now`, and Vitest fake timers to prove:
 
-- a new run begins with a three-pad sequence;
-- watch playback emits pads in order and rejects input until `input`;
-- a correct full repeat scores once, increments streak/rounds, appends one pad, and speeds playback;
-- a wrong pad increments mistakes, breaks streak, scores nothing, and replays the same sequence;
-- the third mistake ends the run;
-- timeout during playback cancels later cue callbacks and ends with earned score intact;
+- fresh construction consumes exactly three RNG values and produces the expected three-pad sequence;
+- playback consumes no RNG and no response-clock reads;
+- a correct full repeat samples `now()` exactly once at input-open plus once per accepted correct pad;
+- a successful round scores once, increments streak/rounds, consumes exactly one additional RNG value, appends one pad, and speeds playback;
+- a wrong pad itself consumes neither RNG nor `now()`, increments mistakes, breaks streak, scores nothing, and replays the same sequence;
+- the third mistake ends the run and `gameCompleted` is true after BaseGame end processing;
+- **timeout while playback still has a queued cue** clears that cue; advancing a full later playback budget leaves `phase='ended'`, `outcome='timeout'`, `activePad=null`, the earned score unchanged, and `pressPad()` rejected;
 - reset during a pending cue cannot mutate the fresh state;
-- repeated-pad sequences are accepted (no accidental anti-repeat behavior);
-- submitted game data reports rounds, longest sequence, mistakes, max streak, and perfect-run status.
+- repeated-pad sequences are accepted;
+- submitted game data reports only rounds, longest sequence, mistakes, and max streak.
 
 ### Renderer tests
 
@@ -544,22 +547,12 @@ Prove:
 - clicks are ignored outside input phase;
 - active/wrong attributes follow state;
 - button enabled state follows phase;
-- cleanup removes the delegated listener.
+- `destroy()` removes the delegated listener **without deleting any of the four Astro-owned buttons**;
+- the renderer can initialize again against the same preserved static board.
 
 ### Initializer/page tests
 
-Lock:
-
-- missing outer container takes the existing error path;
-- Start triggers game playback;
-- renderer click and `1`–`4` keyboard shortcuts reach `pressPad()`;
-- editable targets suppress shortcuts;
-- HUD text follows state/time/score;
-- Reset/Play Again restore idle presentation;
-- achievement/challenge notifications are forwarded;
-- cleanup is idempotent;
-- static page contains both container IDs and four pad buttons;
-- root-level initializer script follows the current Astro page contract.
+Lock missing-container error handling, Start, renderer click + `1`–`4` shortcuts, editable-target suppression, HUD/time/score updates, Reset/Play Again idle presentation, achievement/challenge forwarding, beforeunload handling, idempotent cleanup, the two-container/four-button page contract, and the root-level initializer script.
 
 ### Browser smoke
 
@@ -579,16 +572,14 @@ Do not make Playwright sleep for hard-coded playback timings; poll the debug sta
 
 ## Required Regression Gates
 
-Implementation should finish with:
-
 ```bash
-bun run test:run -- src/lib/games/pattern-pulse
-bun run test:run -- src/lib/games.test.ts src/lib/achievements.test.ts src/pages/game-board-markup.test.ts
+bun run test:run src/lib/games/pattern-pulse
+bun run test:run src/lib/games.test.ts src/lib/achievements.test.ts src/pages/game-board-markup.test.ts
 bun run typecheck
 bun run lint
 bun run format:check
 bun run build
-bun run test:e2e -- e2e/games/play-coverage.spec.ts e2e/games/all-games-navigation.spec.ts
+bun run test:e2e e2e/games/play-coverage.spec.ts e2e/games/all-games-navigation.spec.ts
 bun run test:coverage
 ```
 
@@ -596,11 +587,23 @@ Current `codecov.yml` requires both project and patch coverage to be at least **
 
 ## Risks and Mitigations
 
-### Stale scheduled playback after reset/end
+### Static pad ownership vs renderer cleanup
 
-**Risk:** a queued cue from the previous round could light a pad or open input in a new run.
+**Risk:** `DOMRenderer.cleanup()` clears its mount. Calling it from Pattern Pulse would delete the Astro-owned buttons and make reinitialization fail.
 
-**Mitigation:** exactly one Pattern Pulse timeout exists at a time; reset, terminal outcome, timeout, and cleanup all clear it. Unit tests reset during playback before advancing fake timers.
+**Mitigation:** Pattern Pulse cleanup is deliberately listener/attribute-only and does not call `super.cleanup()`. The renderer sets no responsive/container-class options, so no DOMRenderer-owned resources need separate teardown. Renderer tests destroy/reinitialize the same static board.
+
+### Stale scheduled playback after reset/timeout
+
+**Risk:** a queued cue from the previous phase could light a pad or open input after the run is reset or timed out.
+
+**Mitigation:** exactly one Pattern Pulse timeout exists at a time; reset, terminal outcome, timeout, and cleanup all clear it. Separate tests cover both reset and a one-second timeout while playback still has queued work, then advance additional fake time and prove the state stays ended/idle.
+
+### Clock/RNG call-site drift
+
+**Risk:** extra `now()` or `rng()` reads could silently change deterministic scoring/generation tests.
+
+**Mitigation:** sampling sites are part of the v1 contract and tests assert call counts: initial state + one pad per success for RNG; input-open + accepted correct pads for `now()`.
 
 ### Async score save races with restart
 
