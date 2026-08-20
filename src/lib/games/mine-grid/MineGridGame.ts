@@ -143,7 +143,9 @@ export class MineGridGame extends BaseGame<
             }
             this.state.result = 'mine'
             this.emitStateChange()
-            void this.end()
+            void this.end().catch(err =>
+                console.error('MineGridGame end failed (mine)', err)
+            )
             return true
         }
 
@@ -177,7 +179,9 @@ export class MineGridGame extends BaseGame<
             this.state.result = 'cleared'
             this.addScore(score, 'grid_clear')
             this.emitStateChange()
-            void this.end()
+            void this.end().catch(err =>
+                console.error('MineGridGame end failed (cleared)', err)
+            )
             return true
         }
 

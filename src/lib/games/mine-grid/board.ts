@@ -37,8 +37,15 @@ export function placeMines(
         throw new RangeError('Invalid Mine Grid mine count')
     }
 
+    // Fisher–Yates shuffle. Each rng() draw must be a finite number in the
+    // [0, 1) range; otherwise Math.floor could produce an out-of-bounds or NaN
+    // index, corrupting the candidate order.
     for (let i = candidates.length - 1; i > 0; i--) {
-        const j = Math.floor(rng() * (i + 1))
+        const draw = rng()
+        if (!Number.isFinite(draw) || draw < 0 || draw >= 1) {
+            throw new RangeError('Mine Grid rng returned an invalid value')
+        }
+        const j = Math.floor(draw * (i + 1))
         ;[candidates[i], candidates[j]] = [candidates[j], candidates[i]]
     }
 

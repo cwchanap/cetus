@@ -21,7 +21,7 @@ const makeGame = (): MineGridGame =>
         preset: { ...tinyConfig.preset },
     })
 
-const clearTinyGame = (game: MineGridGame, flagMine = false): void => {
+const clearTinyGame = (game: MineGridGame, flagMine: boolean = false): void => {
     game.start()
     expect(game.revealCell(1, 1)).toBe(true)
     if (flagMine) {

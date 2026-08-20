@@ -90,6 +90,24 @@ export async function initMineGridGameFramework(): Promise<
         }
     }
 
+    // `aria-pressed` is the single source of truth for the selected difficulty
+    // button — the page's scoped CSS keys the primary styling off it, so this
+    // only toggles the attribute (no class swapping).
+    const setDifficultySelection = (difficulty: MineGridDifficulty): void => {
+        for (const candidate of ['easy', 'medium', 'hard'] as const) {
+            const button = document.getElementById(
+                `${candidate}-btn`
+            ) as HTMLButtonElement | null
+            if (!button) {
+                continue
+            }
+            button.setAttribute(
+                'aria-pressed',
+                String(candidate === difficulty)
+            )
+        }
+    }
+
     const setStartVisible = (visible: boolean): void => {
         const startButton = document.getElementById(
             'start-btn'
@@ -115,10 +133,7 @@ export async function initMineGridGameFramework(): Promise<
 
     const syncHud = (state: MineGridState): void => {
         const preset = MINE_GRID_PRESETS[state.difficulty]
-        setText(
-            'difficulty',
-            state.difficulty.charAt(0).toUpperCase() + state.difficulty.slice(1)
-        )
+        setText('difficulty', capitalize(state.difficulty))
         setText('score', String(state.score))
         setText('time-remaining', String(state.timeRemaining))
         setText('flags', String(state.flagsPlaced))
@@ -216,18 +231,12 @@ export async function initMineGridGameFramework(): Promise<
         syncHud(game.getState())
         resetPresentation()
     }
-    const playAgainHandler = (): void => {
-        game.reset()
-        renderer.render(game.getState())
-        syncHud(game.getState())
-        resetPresentation()
-    }
     const revealModeHandler: EventListener = () => setActionMode('reveal')
     const flagModeHandler: EventListener = () => setActionMode('flag')
 
     listen(startButton, 'click', startHandler)
     listen(resetButton, 'click', resetHandler)
-    listen(playAgainButton, 'click', playAgainHandler)
+    listen(playAgainButton, 'click', resetHandler)
     listen(revealModeButton, 'click', revealModeHandler)
     listen(flagModeButton, 'click', flagModeHandler)
 
@@ -235,6 +244,7 @@ export async function initMineGridGameFramework(): Promise<
         (difficulty: MineGridDifficulty): EventListener =>
         () => {
             if (game.newGame(difficulty)) {
+                setDifficultySelection(difficulty)
                 renderer.render(game.getState())
                 syncHud(game.getState())
                 resetPresentation()
@@ -270,6 +280,7 @@ export async function initMineGridGameFramework(): Promise<
     setActionMode('reveal')
     setStartVisible(true)
     setDifficultyButtonsDisabled(false)
+    setDifficultySelection(game.getState().difficulty)
 
     let cleanedUp = false
     const cleanup = (): void => {

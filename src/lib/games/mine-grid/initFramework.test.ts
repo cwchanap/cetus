@@ -370,16 +370,8 @@ describe('initMineGridGameFramework', () => {
     it('forwards achievement and challenge notifications from end events', async () => {
         const showAchievementAward = vi.fn()
         const showChallengeComplete = vi.fn()
-        ;(
-            window as Window & {
-                showAchievementAward?: typeof showAchievementAward
-            }
-        ).showAchievementAward = showAchievementAward
-        ;(
-            window as Window & {
-                showChallengeComplete?: typeof showChallengeComplete
-            }
-        ).showChallengeComplete = showChallengeComplete
+        vi.stubGlobal('showAchievementAward', showAchievementAward)
+        vi.stubGlobal('showChallengeComplete', showChallengeComplete)
         vi.mocked(fetch).mockResolvedValue({
             ok: true,
             json: async () => ({

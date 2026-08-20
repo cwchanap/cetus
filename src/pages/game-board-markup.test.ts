@@ -140,7 +140,7 @@ describe('Mine Grid page markup', () => {
         expect(mineGridMarkup).toContain('id="mine-grid-container"')
         expect(mineGridMarkup).toContain('id="mine-grid-board"')
         expect(mineGridMarkup).toMatch(
-            /<\/GamePage>\s*<script>[\s\S]*initMineGridGameFramework/
+            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initMineGridGameFramework/
         )
     })
 })

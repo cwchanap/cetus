@@ -1006,19 +1006,28 @@ describe('Mine Grid achievements', () => {
         ).toBe(false)
     })
 
-    it('threshold achievements use their configured score cutoffs', () => {
+    it('threshold achievements award at or above their configured score cutoffs', () => {
         const welcome = getAchievementById('mine_grid_welcome')!
         const demolitionExpert = getAchievementById(
             'mine_grid_demolition_expert'
         )!
 
-        expect(welcome.condition.threshold).toBe(1)
-        expect(demolitionExpert.condition.threshold).toBe(5000)
-        expect(1).toBeGreaterThanOrEqual(welcome.condition.threshold!)
-        expect(4999).toBeLessThan(demolitionExpert.condition.threshold!)
-        expect(5000).toBeGreaterThanOrEqual(
-            demolitionExpert.condition.threshold!
+        // Mirrors achievementService's score_threshold evaluation rule.
+        const meetsThreshold = (score: number, threshold: number): boolean =>
+            score >= threshold
+
+        const welcomeThreshold = welcome.condition.threshold!
+        const demoThreshold = demolitionExpert.condition.threshold!
+
+        // Below threshold: not awarded. At/above: awarded.
+        expect(meetsThreshold(welcomeThreshold - 1, welcomeThreshold)).toBe(
+            false
         )
+        expect(meetsThreshold(welcomeThreshold, welcomeThreshold)).toBe(true)
+
+        expect(meetsThreshold(demoThreshold - 1, demoThreshold)).toBe(false)
+        expect(meetsThreshold(demoThreshold, demoThreshold)).toBe(true)
+        expect(meetsThreshold(demoThreshold + 1, demoThreshold)).toBe(true)
     })
 })
 

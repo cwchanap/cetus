@@ -114,6 +114,26 @@ describe('Game Framework Core', () => {
             expect(timer.getCurrentTime()).toBe(20)
         })
 
+        it('rejects non-positive, non-finite, or NaN durations while stopped', () => {
+            const timer = new GameTimer({
+                duration: 10,
+                countDown: true,
+                autoStart: false,
+            })
+
+            expect(timer.setDuration(0)).toBe(false)
+            expect(timer.setDuration(-5)).toBe(false)
+            expect(timer.setDuration(NaN)).toBe(false)
+            expect(timer.setDuration(Infinity)).toBe(false)
+            expect(timer.setDuration(-Infinity)).toBe(false)
+            // Invalid inputs must not mutate the configured duration.
+            expect(timer.getCurrentTime()).toBe(10)
+
+            // A valid positive finite value still applies after refusals.
+            expect(timer.setDuration(45)).toBe(true)
+            expect(timer.getCurrentTime()).toBe(45)
+        })
+
         it('should emit events correctly', () => {
             const onStart = vi.fn()
             const onPause = vi.fn()
