@@ -137,6 +137,31 @@ describe('MineGridGame', () => {
         expect(mines.every(cell => cell.revealed)).toBe(true)
     })
 
+    it('counts pre-reveal safe flags as incorrect on timeout after lazy placement', async () => {
+        vi.useFakeTimers()
+        const game = makeGame()
+        game.start()
+
+        // Flag a cell before any reveal. With zeroRng the timeout path
+        // places its single mine at (1, 0), so (0, 1) is a known-safe
+        // cell and the pre-flag must be counted as incorrect once mines
+        // are materialized at expiry.
+        expect(game.toggleFlag(0, 1)).toBe(true)
+        expect(game.getState().incorrectFlagActions).toBe(0)
+
+        await vi.advanceTimersByTimeAsync(tinyConfig.duration * 1000)
+        await Promise.resolve()
+
+        const state = game.getState()
+        expect(state.result).toBe('timeout')
+        expect(state.isGameOver).toBe(true)
+        expect(state.minesPlaced).toBe(true)
+        expect(state.board[1][0].hasMine).toBe(true)
+        expect(state.board[0][1].hasMine).toBe(false)
+        expect(state.incorrectFlagActions).toBe(1)
+        expect(game.getGameStats().incorrectFlagActions).toBe(1)
+    })
+
     it('awards the clear score exactly once', () => {
         const game = makeGame()
         clearTinyGame(game)
