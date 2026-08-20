@@ -124,9 +124,17 @@ describe('MineGridGame', () => {
         await vi.advanceTimersByTimeAsync(tinyConfig.duration * 1000)
         await Promise.resolve()
 
-        expect(game.getState().result).toBe('timeout')
-        expect(game.getState().isGameOver).toBe(true)
+        const state = game.getState()
+        expect(state.result).toBe('timeout')
+        expect(state.isGameOver).toBe(true)
         expect(game.getScoreManager().getScore()).toBe(0)
+
+        // Timeout with no reveal must still materialize and reveal every
+        // preset mine (design spec: "all mines are shown").
+        expect(state.minesPlaced).toBe(true)
+        const mines = state.board.flat().filter(cell => cell.hasMine)
+        expect(mines).toHaveLength(tinyConfig.preset.mines)
+        expect(mines.every(cell => cell.revealed)).toBe(true)
     })
 
     it('awards the clear score exactly once', () => {

@@ -75,15 +75,17 @@ import Button from '@/components/ui/Button.astro'
       <div class="flex gap-2">
         <Button
           id="reveal-mode-btn"
-          variant="primary"
+          variant="outline"
           size="sm"
-          aria-pressed="true">Reveal</Button
+          aria-pressed="true"
+          class="mine-grid-mode hover-glow-cyan">Reveal</Button
         >
         <Button
           id="flag-mode-btn"
           variant="outline"
           size="sm"
-          aria-pressed="false">Flag</Button
+          aria-pressed="false"
+          class="mine-grid-mode hover-glow-cyan">Flag</Button
         >
       </div>
       <p class="mt-3 text-xs text-cetus-ink-muted">
@@ -150,12 +152,59 @@ import Button from '@/components/ui/Button.astro'
 </script>
 
 <style is:global>
-  /* Selected difficulty button mirrors Button.astro's `primary` variant.
+  /* Selected difficulty/mode buttons mirror Button.astro's `primary` variant.
      `aria-pressed` is the single trigger for both a11y state and styling,
      so initFramework only toggles the attribute — no class swapping.
      `hover-glow-cyan` is a global class on the buttons themselves. */
   @reference "../../styles/global.css";
-  .mine-grid-difficulty[aria-pressed='true'] {
+  .mine-grid-difficulty[aria-pressed='true'],
+  .mine-grid-mode[aria-pressed='true'] {
     @apply border-0 bg-gradient-to-r from-[var(--cetus-btn-from)] to-[var(--cetus-btn-to)] text-white shadow-lg shadow-cetus-accent-2/25 hover:from-cetus-accent hover:to-cetus-accent-2;
+  }
+
+  /* Cell visual states keyed by `data-state` (set by MineGridRenderer).
+     The renderer only emits the class + attribute; all visual affordance
+     for hidden/flagged/revealed/mine lives here per the design contract. */
+  .mine-grid-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    line-height: 1;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+  }
+  .mine-grid-cell[data-state='hidden'] {
+    background: color-mix(in srgb, var(--cetus-accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cetus-accent) 25%, transparent);
+    color: transparent;
+  }
+  .mine-grid-cell[data-state='hidden']:hover {
+    background: color-mix(in srgb, var(--cetus-accent) 18%, transparent);
+    border-color: color-mix(in srgb, var(--cetus-accent) 50%, transparent);
+  }
+  .mine-grid-cell[data-state='hidden']:focus-visible {
+    outline: 2px solid var(--cetus-accent);
+    outline-offset: 1px;
+  }
+  .mine-grid-cell[data-state='flagged'] {
+    background: color-mix(in srgb, var(--cetus-accent-2) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cetus-accent-2) 55%, transparent);
+    color: var(--cetus-accent-2);
+  }
+  .mine-grid-cell[data-state='revealed'] {
+    background: color-mix(in srgb, var(--cetus-surface) 60%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cetus-accent) 15%, transparent);
+    color: var(--cetus-accent);
+    cursor: default;
+  }
+  .mine-grid-cell[data-state='mine'] {
+    background: color-mix(in srgb, var(--cetus-accent-3) 22%, transparent);
+    border: 1px solid var(--cetus-accent-3);
+    color: var(--cetus-accent-3);
+    cursor: default;
   }
 </style>

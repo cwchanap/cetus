@@ -224,6 +224,19 @@ export class MineGridGame extends BaseGame<
 
     protected handleTimeUp(): void {
         this.state.result = 'timeout'
+        // If the player never revealed, mines were never placed lazily.
+        // Materialize a valid layout first so "all mines are shown" holds
+        // (design spec §Gameplay Flow step 8). The safe cell is nominal —
+        // no cell is revealed as a first click, we only need mines to exist.
+        if (!this.state.minesPlaced) {
+            placeMines(
+                this.state.board,
+                this.config.preset.mines,
+                { row: 0, col: 0 },
+                this.config.rng
+            )
+            this.state.minesPlaced = true
+        }
         for (const { value } of findCells(
             this.state.board,
             cell => cell.hasMine
