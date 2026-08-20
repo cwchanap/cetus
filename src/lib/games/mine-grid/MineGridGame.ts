@@ -236,6 +236,14 @@ export class MineGridGame extends BaseGame<
                 this.config.rng
             )
             this.state.minesPlaced = true
+            // Mirror the first-reveal path: any cell flagged before mines
+            // were materialized that did not become a mine is an incorrect
+            // flag (design spec: every pre-flagged safe cell is evaluated
+            // immediately after mine placement).
+            this.state.incorrectFlagActions += findCells(
+                this.state.board,
+                candidate => candidate.flagged && !candidate.hasMine
+            ).length
         }
         for (const { value } of findCells(
             this.state.board,
