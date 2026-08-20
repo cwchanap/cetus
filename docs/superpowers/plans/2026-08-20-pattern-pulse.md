@@ -4,7 +4,7 @@
 
 **Goal:** Add Pattern Pulse, a one-minute four-pad memory-sequence game with increasing sequences, recoverable mistakes, streak/response-speed scoring, accessible desktop/mobile input, achievements, and the existing Cetus score/leaderboard flow.
 
-**Architecture:** `PatternPulseGame` extends `BaseGame` and owns a small event-driven watch/input/feedback state machine plus exactly one scheduled browser timeout. `PatternPulseRenderer` extends `DOMRenderer` and manipulates four static Astro-owned buttons. BaseGame remains unchanged and owns the countdown, score submission, final-timer reporting, reset lifecycle, and stale async-save protection.
+**Architecture:** `PatternPulseGame` extends `BaseGame` and owns a small event-driven watch/input/feedback state machine plus exactly one scheduled browser timeout. `PatternPulseRenderer` extends `DOMRenderer` for container/setup helpers but treats the four pad buttons as Astro-owned static children, so its cleanup is deliberately listener/attribute-only rather than `DOMRenderer.cleanup()` child destruction. BaseGame remains unchanged and owns countdown, score submission, final-timer reporting, reset lifecycle, and stale async-save protection.
 
 **Tech Stack:** Astro 5 + TypeScript, Tailwind CSS 4, existing BaseGame/DOMRenderer framework, Vitest/jsdom, Playwright, existing Turso/Kysely score path.
 
@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Package manager is **Bun** (`bun@1.3.1`).
-- One HPA-74 task maps to one implementation PR; do not split registration/achievements into another PR.
+- One HPA-74 task maps to one implementation PR; registration and achievements stay in that PR.
 - Game ID **`pattern_pulse`**, route **`/pattern-pulse`**, title **`Pattern Pulse`**, icon **`🔁`**.
 - Fixed v1: 60 seconds, 4 pads, initial sequence length 3, mistake limit 3.
 - Playback: 600 ms initial pulse, 40 ms faster per completed round, 320 ms floor, 140 ms gap, 400 ms pre-play delay, 500 ms feedback.
@@ -21,7 +21,9 @@
 - Consecutive duplicate pads are legal; do not add anti-repeat generation.
 - Accept player input only in `phase === 'input'`.
 - Exactly one Pattern Pulse `setTimeout` may be pending. Clear it on reset, terminal mistake, timeout, and cleanup.
-- Inject only `rng: () => number` and `now: () => number`. Use Vitest fake timers for browser timing; do not inject timer APIs.
+- Inject `rng: () => number` and `now: () => number`; do not inject timer APIs.
+- RNG sampling is frozen: fresh state = `initialSequenceLength` calls, successful growth = one call, playback/wrong attempts = zero calls.
+- Clock sampling is frozen: one `now()` call entering input and one per accepted correct pad; playback and the wrong-pad branch do not sample `now()`.
 - BaseGame scoring config uses `timeBonus: false`.
 - Frozen round score:
 
@@ -33,35 +35,44 @@ roundScore = completionPoints + streakBonus + speedBonus
 ```
 
 - Mistakes do not directly subtract score.
+- `PatternPulseStats.gameCompleted` is `this.state.isGameOver`; both timeout and third-mistake finishes are completed/scored runs.
+- `PatternPulseGameData` contains only `completedRounds`, `longestSequence`, `mistakes`, and `maxStreak`. Do **not** add `perfectRun`; Clean Signal checks `completedRounds >= 3 && mistakes === 0` directly.
 - Use `BaseGame + DOMRenderer`; no handle runtime, generic sequence engine, PixiJS loop, Web Audio, haptics, difficulty selector, extra pad layouts, Daily mode, persistence, new DB/API/score endpoint, or per-input timeout.
-- Static pad/page HTML is Astro-owned. TypeScript changes attributes/text only; no `innerHTML` board replacement.
+- All four pad buttons and static page structure live in Astro. TypeScript only toggles attributes/text.
 - Pad identities: `1 ▲`, `2 ●`, `3 ◆`, `4 ✦`.
 - Mouse/touch use native buttons. Keys `1`–`4` map to pads `0`–`3`; Enter/Space remain native button activation. Numeric shortcuts ignore editable targets.
 - `#pattern-pulse-container` is the initializer guard; `#pattern-pulse-board` is the renderer mount.
-- Create the route before activating the registry entry because `games.test.ts` checks that every active game has a route.
+- `PatternPulseRenderer.cleanup()` must **not** call `super.cleanup()`: `DOMRenderer.cleanup()` clears its mount, while these children are Astro-owned. Pattern Pulse sets neither `responsive` nor `containerClass`, so no DOMRenderer-owned listener/class needs teardown.
+- Create `/pattern-pulse` before activating the registry entry because `games.test.ts` verifies every active game has a route.
+- `getGameUrl()` is unchanged; it already derives `/pattern-pulse` from `pattern_pulse`.
 - `e2e/games/all-games-navigation.spec.ts` is registry-derived and stays source-unchanged.
 - Edit `CLAUDE.md`, not its `AGENTS.md` symlink.
 - Current Codecov project/patch targets are **90%** with zero threshold leniency.
 
-## Risks to Lock in Tests
+## Risks to Lock Before UI Work
 
-- A queued cue from an old run must not mutate reset/ended state.
-- BaseGame's existing run guard must remain the only stale-score protection.
-- E2E must read the debug handle's random sequence and poll phase; no hard-coded sequence or sleeps.
-- Renderer and game logic both reject playback-phase input.
-- `createInitialState()` may use `this.config`, but not subclass field initializers that execute after `super()`.
-- Never call `vi.runAllTimers()` while BaseGame's countdown interval is active; advance fake time in bounded increments.
+- **Timeout during queued playback:** the one-second test must expire BaseGame while playback still has scheduled work, then advance several more seconds and prove no cue/input reappears.
+- **Reset during queued playback:** Reset stops BaseGame's interval; only after that may a test safely use `vi.runAllTimers()`.
+- **Static pad ownership:** renderer destroy must leave the four Astro buttons in place and permit re-initialization against the same fixture.
+- **Clock/RNG drift:** tests assert call counts so the scoring/generation contract cannot change because of extra incidental reads.
+- **Async score save:** reuse BaseGame's existing run guard; do not add a Pattern Pulse token.
 
 ---
 
-### Task 1: Contracts and pure scoring
+### Task 1: Define contracts and pure round scoring
 
 **Files**
 - Create `src/lib/games/pattern-pulse/types.ts`
 - Create `src/lib/games/pattern-pulse/scoring.ts`
 - Create `src/lib/games/pattern-pulse/scoring.test.ts`
 
-- [ ] **1.1 Define the contracts/config**
+**Produces**
+- `PatternPad`, phase/outcome/feedback unions
+- `PatternPulseConfig`, state/stats/game-data contracts
+- `PATTERN_PULSE_TIMING`, `createPatternPulseConfig()`
+- `calculatePatternPulseRoundScore()`
+
+- [ ] **1.1 Create the contracts/config**
 
 ```typescript
 // src/lib/games/pattern-pulse/types.ts
@@ -135,7 +146,6 @@ export interface PatternPulseGameData {
     longestSequence: number
     mistakes: number
     maxStreak: number
-    perfectRun: boolean
 }
 ```
 
@@ -147,7 +157,7 @@ import { describe, expect, it } from 'vitest'
 import { calculatePatternPulseRoundScore } from './scoring'
 
 describe('calculatePatternPulseRoundScore', () => {
-    it('scores length + first-round speed', () => {
+    it('scores length and first-round speed', () => {
         expect(calculatePatternPulseRoundScore({
             sequenceLength: 3,
             streak: 1,
@@ -163,15 +173,12 @@ describe('calculatePatternPulseRoundScore', () => {
         })).toBe(570)
     })
 
-    it('caps speed bonus at 200', () => {
+    it('caps and floors speed bonus', () => {
         expect(calculatePatternPulseRoundScore({
             sequenceLength: 3,
             streak: 1,
             averageResponseMs: 0,
         })).toBe(500)
-    })
-
-    it('floors speed bonus at zero', () => {
         expect(calculatePatternPulseRoundScore({
             sequenceLength: 8,
             streak: 1,
@@ -189,7 +196,7 @@ bun run test:run src/lib/games/pattern-pulse/scoring.test.ts
 
 Expected: RED because `scoring.ts` does not exist.
 
-- [ ] **1.3 Implement the scorer**
+- [ ] **1.3 Implement the scorer and rerun GREEN**
 
 ```typescript
 // src/lib/games/pattern-pulse/scoring.ts
@@ -215,8 +222,6 @@ export function calculatePatternPulseRoundScore({
 }
 ```
 
-Run and expect GREEN:
-
 ```bash
 bun run test:run src/lib/games/pattern-pulse/scoring.test.ts
 ```
@@ -230,7 +235,7 @@ git commit -m "feat(pattern-pulse): add contracts and scoring"
 
 ---
 
-### Task 2: BaseGame state machine, scheduling, mistakes, and response timing
+### Task 2: Implement and freeze the BaseGame state machine
 
 **Files**
 - Create `src/lib/games/pattern-pulse/PatternPulseGame.ts`
@@ -238,22 +243,17 @@ git commit -m "feat(pattern-pulse): add contracts and scoring"
 - Reuse unchanged `src/lib/games/core/BaseGame.ts`
 - Reuse unchanged `src/lib/games/core/GameTimer.ts`
 
-- [ ] **2.1 Build deterministic test helpers and RED start/playback coverage**
+**Produces**
+- `PatternPulseGame.pressPad(pad)`
+- watch/input/feedback scheduling
+- response timing, mistakes/streaks, stats/game data
+
+- [ ] **2.1 Add deterministic helpers and RED start/playback coverage**
 
 ```typescript
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PatternPulseGame } from './PatternPulseGame'
 import { createPatternPulseConfig, type PatternPad } from './types'
-
-function sequenceRng(values: number[]): () => number {
-    let index = 0
-    return () => values[index++ % values.length]
-}
-
-function makeClock(values: number[]): () => number {
-    let index = 0
-    return () => values[Math.min(index++, values.length - 1)]
-}
 
 function advanceToInput(game: PatternPulseGame): void {
     for (let guard = 0; guard < 100 && game.getState().phase !== 'input'; guard++) {
@@ -272,30 +272,31 @@ describe('PatternPulseGame', () => {
     beforeEach(() => vi.useFakeTimers())
     afterEach(() => vi.useRealTimers())
 
-    it('starts with three deterministic pads and rejects watch-phase input', () => {
-        const game = new PatternPulseGame(createPatternPulseConfig({
-            rng: sequenceRng([0, 0.3, 0.6]),
-        }))
+    it('creates three deterministic pads and rejects watch-phase input', () => {
+        const values = [0, 0.3, 0.6]
+        const rng = vi.fn(() => values.shift() ?? 0)
+        const game = new PatternPulseGame(createPatternPulseConfig({ rng }))
+
         expect(game.getState().sequence).toEqual([0, 1, 2])
+        expect(rng).toHaveBeenCalledTimes(3)
         game.start()
         expect(game.getState().phase).toBe('watch')
         expect(game.pressPad(0)).toBe(false)
         advanceToInput(game)
+        expect(rng).toHaveBeenCalledTimes(3)
     })
 })
 ```
 
-Run:
+Run and expect RED:
 
 ```bash
 bun run test:run src/lib/games/pattern-pulse/PatternPulseGame.test.ts
 ```
 
-Expected: RED.
-
 - [ ] **2.2 Implement the BaseGame shell and exactly-one-timeout playback loop**
 
-`PatternPulseGame` must:
+Use:
 
 ```typescript
 export class PatternPulseGame extends BaseGame<
@@ -349,10 +350,14 @@ export class PatternPulseGame extends BaseGame<
     cleanup(): void {
         this.clearScheduled()
     }
+
+    getConfig(): PatternPulseConfig {
+        return { ...this.config }
+    }
 }
 ```
 
-Use these exact timing primitives:
+Timing primitives:
 
 ```typescript
 private nextPad(): PatternPad {
@@ -384,41 +389,61 @@ private clearScheduled(): void {
 }
 ```
 
-`onGameStart()` enters `watch`, waits 400 ms, then alternates `activePad=<sequence[index]>` for `pulseMs()` and `activePad=null` for 140 ms. After the last gap, enter `input`, set `inputIndex=0`, reset current response total, and capture `lastInputAtMs=this.config.now()`.
+`onGameStart()` enters `watch`, waits 400 ms, then alternates `activePad=<sequence[index]>` for `pulseMs()` and `activePad=null` for 140 ms. After the final gap, enter `input`, reset `inputIndex`/response total, and sample `lastInputAtMs = this.config.now()` exactly once.
 
-Every phase/state transition calls one local `emitStateChange()` helper using the same `callbacks.onStateChange` + `this.emit('state-change', …)` pattern as Mine Grid.
+- [ ] **2.3 Freeze `now()` and RNG call sites while implementing success**
 
-- [ ] **2.3 RED/GREEN successful-round scoring/growth**
-
-Add:
+Use a clock spy whose values only make sense under the frozen sampling contract:
 
 ```typescript
-it('scores a full repeat and grows the sequence once', () => {
-    const game = new PatternPulseGame(createPatternPulseConfig({
-        rng: sequenceRng([0, 0.3, 0.6, 0.9]),
-        now: makeClock([0, 500, 1000, 1500]),
-    }))
+it('samples now only at input-open and accepted correct pads', () => {
+    const rngValues = [0, 0.3, 0.6, 0.9]
+    const rng = vi.fn(() => rngValues.shift() ?? 0)
+    const now = vi
+        .fn<() => number>()
+        .mockReturnValueOnce(0)
+        .mockReturnValueOnce(500)
+        .mockReturnValueOnce(1000)
+        .mockReturnValueOnce(1500)
+
+    const game = new PatternPulseGame(createPatternPulseConfig({ rng, now }))
+    expect(rng).toHaveBeenCalledTimes(3)
+    expect(now).not.toHaveBeenCalled()
+
     game.start()
     advanceToInput(game)
-    enterSequence(game, [0, 1, 2])
+    expect(now).toHaveBeenCalledTimes(1)
+    expect(rng).toHaveBeenCalledTimes(3)
 
+    enterSequence(game, [0, 1, 2])
+    expect(now).toHaveBeenCalledTimes(4)
     expect(game.getState()).toMatchObject({
+        score: 400,
         completedRounds: 1,
         streak: 1,
         maxStreak: 1,
         longestSequence: 3,
         phase: 'feedback',
         feedback: 'correct',
-        score: 400,
     })
+    expect(rng).toHaveBeenCalledTimes(3)
 
     vi.advanceTimersByTime(PATTERN_PULSE_TIMING.feedbackMs)
     expect(game.getState().sequence).toEqual([0, 1, 2, 3])
-    expect(game.getState().phase).toBe('watch')
+    expect(rng).toHaveBeenCalledTimes(4)
 })
 ```
 
-Accepted correct input records `max(0, now-lastInputAtMs)`, updates `lastInputAtMs`, and increments `inputIndex`. On full completion:
+Accepted correct pad implementation:
+
+```typescript
+const nowMs = this.config.now()
+this.responseTotalMs += Math.max(0, nowMs - this.lastInputAtMs)
+this.lastInputAtMs = nowMs
+this.state.inputIndex++
+```
+
+On full sequence:
 
 ```typescript
 const sequenceLength = this.state.sequence.length
@@ -442,19 +467,24 @@ this.schedule(() => {
 }, PATTERN_PULSE_TIMING.feedbackMs)
 ```
 
-- [ ] **2.4 RED/GREEN recoverable and terminal mistakes**
-
-Lock:
+- [ ] **2.4 Implement recoverable/terminal mistakes and prove wrong input adds no clock/RNG reads**
 
 ```typescript
-it('replays the same sequence after a recoverable mistake', () => {
-    const game = new PatternPulseGame(createPatternPulseConfig({
-        rng: sequenceRng([0, 0.3, 0.6]),
-    }))
+it('replays the same sequence and does not sample rng/now on a wrong first pad', () => {
+    const rngValues = [0, 0.3, 0.6]
+    const rng = vi.fn(() => rngValues.shift() ?? 0)
+    const now = vi.fn(() => 100)
+    const game = new PatternPulseGame(createPatternPulseConfig({ rng, now }))
+
     game.start()
     advanceToInput(game)
     const before = [...game.getState().sequence]
-    game.pressPad(3)
+    const nowCallsBeforeWrong = now.mock.calls.length
+    const rngCallsBeforeWrong = rng.mock.calls.length
+
+    expect(game.pressPad(3)).toBe(true)
+    expect(now).toHaveBeenCalledTimes(nowCallsBeforeWrong)
+    expect(rng).toHaveBeenCalledTimes(rngCallsBeforeWrong)
     expect(game.getState()).toMatchObject({
         mistakes: 1,
         streak: 0,
@@ -462,13 +492,14 @@ it('replays the same sequence after a recoverable mistake', () => {
         feedback: 'wrong',
         activePad: 3,
     })
+
     vi.advanceTimersByTime(PATTERN_PULSE_TIMING.feedbackMs)
     expect(game.getState().sequence).toEqual(before)
-    expect(game.getState().phase).toBe('watch')
+    expect(rng).toHaveBeenCalledTimes(rngCallsBeforeWrong)
 })
 ```
 
-Wrong input behavior:
+Wrong branch:
 
 ```typescript
 this.state.mistakes++
@@ -494,39 +525,63 @@ this.emitStateChange()
 this.schedule(() => this.beginPlayback(), PATTERN_PULSE_TIMING.feedbackMs)
 ```
 
-Add a third-mistake test with `initialSequenceLength: 1`, `rng: () => 0`; make three wrong attempts and assert `outcome='mistakes'`, `phase='ended'`, `isGameOver=true`.
-
-- [ ] **2.5 Lock reset, timeout, duplicate pads, stats/data**
-
-Required regressions:
+Add a one-pad deterministic test that makes three wrong attempts and asserts after the third:
 
 ```typescript
-it('allows consecutive duplicate pads', () => {
-    const game = new PatternPulseGame(createPatternPulseConfig({
-        initialSequenceLength: 3,
-        rng: () => 0,
-        now: makeClock([0, 100, 200, 300]),
-    }))
-    expect(game.getState().sequence).toEqual([0, 0, 0])
-    game.start()
-    advanceToInput(game)
-    enterSequence(game, [0, 0, 0])
-    expect(game.getState().completedRounds).toBe(1)
+expect(game.getState()).toMatchObject({
+    mistakes: 3,
+    outcome: 'mistakes',
+    phase: 'ended',
+    isGameOver: true,
 })
+expect(game.getGameStats().gameCompleted).toBe(true)
+```
 
-it('cannot leak a queued cue after reset', () => {
-    const game = new PatternPulseGame(createPatternPulseConfig({ rng: () => 0 }))
+- [ ] **2.5 Add the load-bearing timeout-during-playback RED/GREEN regression**
+
+Use a short duration exactly as other BaseGame game tests do. Do not use `runAllTimers()` while active:
+
+```typescript
+it('cancels queued playback when the BaseGame timer expires', () => {
+    const game = new PatternPulseGame(createPatternPulseConfig({
+        duration: 1,
+        rng: () => 0,
+    }))
+
     game.start()
     vi.advanceTimersByTime(PATTERN_PULSE_TIMING.prePlaybackDelayMs)
-    game.reset()
-    expect(game.getState().phase).toBe('idle')
-    vi.runAllTimers() // safe: BaseGame timer is stopped by reset()
-    expect(game.getState().phase).toBe('idle')
-    expect(game.getState().activePad).toBeNull()
+    expect(game.getState()).toMatchObject({
+        phase: 'watch',
+        activePad: 0,
+        score: 0,
+    })
+
+    // Cross the BaseGame one-second timer boundary while playback still has
+    // queued work. If the pad-off callback wins the exact 1000ms ordering,
+    // handleTimeUp must still clear the newly queued gap callback.
+    vi.advanceTimersByTime(650)
+    expect(game.getState()).toMatchObject({
+        phase: 'ended',
+        outcome: 'timeout',
+        activePad: null,
+        score: 0,
+        isGameOver: true,
+    })
+    expect(game.getGameStats().gameCompleted).toBe(true)
+    expect(game.pressPad(0)).toBe(false)
+
+    vi.advanceTimersByTime(5_000)
+    expect(game.getState()).toMatchObject({
+        phase: 'ended',
+        outcome: 'timeout',
+        activePad: null,
+        score: 0,
+    })
+    expect(game.pressPad(0)).toBe(false)
 })
 ```
 
-Override timeout before delegating:
+Timeout override:
 
 ```typescript
 protected handleTimeUp(): void {
@@ -540,14 +595,38 @@ protected handleTimeUp(): void {
 }
 ```
 
-Stats/data:
+- [ ] **2.6 Lock reset, repeated pads, stats, and minimal submitted data**
+
+Reset regression:
+
+```typescript
+it('cannot leak a queued cue after reset', () => {
+    const game = new PatternPulseGame(createPatternPulseConfig({ rng: () => 0 }))
+    game.start()
+    vi.advanceTimersByTime(PATTERN_PULSE_TIMING.prePlaybackDelayMs)
+    expect(game.getState().activePad).toBe(0)
+
+    game.reset()
+    expect(game.getState().phase).toBe('idle')
+    vi.runAllTimers() // safe here: BaseGame.reset() already stopped its interval
+    expect(game.getState()).toMatchObject({
+        phase: 'idle',
+        activePad: null,
+        outcome: 'playing',
+    })
+})
+```
+
+Repeated-pad regression uses `rng: () => 0`, enters `[0, 0, 0]`, and asserts one completed round.
+
+Stats/data implementations:
 
 ```typescript
 getGameStats(): PatternPulseStats {
     return {
         finalScore: this.state.score,
         timeElapsed: Math.floor(this.getTimerStatus().elapsedTime),
-        gameCompleted: this.state.outcome === 'timeout',
+        gameCompleted: this.state.isGameOver,
         outcome: this.state.outcome,
         completedRounds: this.state.completedRounds,
         longestSequence: this.state.longestSequence,
@@ -562,7 +641,6 @@ protected getGameData(): PatternPulseGameData {
         longestSequence: this.state.longestSequence,
         mistakes: this.state.mistakes,
         maxStreak: this.state.maxStreak,
-        perfectRun: this.state.completedRounds > 0 && this.state.mistakes === 0,
     }
 }
 ```
@@ -575,9 +653,9 @@ Run:
 bun run test:run src/lib/games/pattern-pulse/PatternPulseGame.test.ts src/lib/games/pattern-pulse/scoring.test.ts
 ```
 
-Expected: GREEN.
+Expected: GREEN, including timeout-during-playback and sampling-count tests.
 
-- [ ] **2.6 Commit**
+- [ ] **2.7 Commit**
 
 ```bash
 git add src/lib/games/pattern-pulse/PatternPulseGame.ts src/lib/games/pattern-pulse/PatternPulseGame.test.ts
@@ -586,45 +664,69 @@ git commit -m "feat(pattern-pulse): add memory sequence game state"
 
 ---
 
-### Task 3: Fixed four-pad DOM renderer
+### Task 3: Add the fixed four-pad renderer without destroying Astro-owned children
 
 **Files**
 - Create `src/lib/games/pattern-pulse/PatternPulseRenderer.ts`
 - Create `src/lib/games/pattern-pulse/PatternPulseRenderer.test.ts`
 - Reuse unchanged `src/lib/games/renderers/DOMRenderer.ts`
 
-- [ ] **3.1 RED renderer contract**
+- [ ] **3.1 Write RED renderer ownership/input tests**
 
-Mount four static buttons in jsdom and prove:
+Mount:
 
 ```typescript
-const state = (phase: PatternPulseState['phase'], activePad: PatternPad | null = null): PatternPulseState => ({
-    score: 0,
-    timeRemaining: 60,
-    isActive: true,
-    isPaused: false,
-    isGameOver: false,
-    gameStarted: true,
-    phase,
-    outcome: 'playing',
-    sequence: [0, 1, 2],
-    inputIndex: 0,
-    activePad,
-    feedback: null,
-    completedRounds: 0,
-    mistakes: 0,
-    streak: 0,
-    maxStreak: 0,
-    longestSequence: 0,
-})
+document.body.innerHTML = `
+    <div id="pattern-pulse-board">
+        <button data-pattern-pad="0" type="button">1 ▲</button>
+        <button data-pattern-pad="1" type="button">2 ●</button>
+        <button data-pattern-pad="2" type="button">3 ◆</button>
+        <button data-pattern-pad="3" type="button">4 ✦</button>
+    </div>
+`
 ```
 
-Assertions:
+Use a complete `PatternPulseState` fixture and assert:
 
-- input phase click on pad `2` invokes callback once with `2`;
-- watch phase disables pads and `data-active='true'` follows `activePad`;
-- wrong feedback sets `data-feedback='wrong'` only on the pressed bad pad;
-- `destroy()` removes the delegated click listener.
+```typescript
+it('delegates one enabled-pad click', async () => {
+    const renderer = new PatternPulseRenderer()
+    const onPad = vi.fn()
+    renderer.setPadPressCallback(onPad)
+    await renderer.initialize()
+    renderer.render(inputState())
+    document.querySelector<HTMLButtonElement>('[data-pattern-pad="2"]')?.click()
+    expect(onPad).toHaveBeenCalledOnce()
+    expect(onPad).toHaveBeenCalledWith(2)
+})
+
+it('disables input while watching and marks the active pad', async () => {
+    const renderer = new PatternPulseRenderer()
+    await renderer.initialize()
+    renderer.render(watchState(1))
+    const pad = document.querySelector<HTMLButtonElement>('[data-pattern-pad="1"]')
+    expect(pad?.disabled).toBe(true)
+    expect(pad?.dataset.active).toBe('true')
+})
+
+it('destroy preserves all Astro-owned pads and supports re-initialization', async () => {
+    const renderer = new PatternPulseRenderer()
+    const onPad = vi.fn()
+    renderer.setPadPressCallback(onPad)
+    await renderer.initialize()
+    renderer.render(inputState())
+
+    renderer.destroy()
+    expect(document.querySelectorAll('button[data-pattern-pad]')).toHaveLength(4)
+    document.querySelector<HTMLButtonElement>('[data-pattern-pad="0"]')?.click()
+    expect(onPad).not.toHaveBeenCalled()
+
+    await renderer.initialize()
+    renderer.render(inputState())
+    document.querySelector<HTMLButtonElement>('[data-pattern-pad="0"]')?.click()
+    expect(onPad).toHaveBeenCalledOnce()
+})
+```
 
 Run and expect RED:
 
@@ -632,7 +734,7 @@ Run and expect RED:
 bun run test:run src/lib/games/pattern-pulse/PatternPulseRenderer.test.ts
 ```
 
-- [ ] **3.2 Implement attribute-only rendering and one delegated click listener**
+- [ ] **3.2 Implement delegated click + attribute-only rendering**
 
 ```typescript
 export class PatternPulseRenderer extends DOMRenderer {
@@ -690,14 +792,21 @@ export class PatternPulseRenderer extends DOMRenderer {
 
     cleanup(): void {
         this.removeEventListener('click', this.clickHandler)
+        for (const button of this.padButtons) {
+            button.disabled = false
+            delete button.dataset.active
+            delete button.dataset.feedback
+        }
         this.padButtons = []
         this.acceptingInput = false
-        super.cleanup()
+        // Intentionally do not call super.cleanup(): DOMRenderer.cleanup()
+        // clearContainer() would delete Astro-owned pad buttons. This renderer
+        // does not enable DOMRenderer responsive/containerClass resources.
     }
 }
 ```
 
-The local type guard checks object-ness, `Array.isArray(sequence)`, and string `phase` only; do not add a schema library.
+The local type guard checks object-ness, `Array.isArray(sequence)`, and string `phase`; do not add a schema dependency.
 
 Run and expect GREEN:
 
@@ -709,12 +818,12 @@ bun run test:run src/lib/games/pattern-pulse/PatternPulseRenderer.test.ts
 
 ```bash
 git add src/lib/games/pattern-pulse/PatternPulseRenderer.ts src/lib/games/pattern-pulse/PatternPulseRenderer.test.ts
-git commit -m "feat(pattern-pulse): add four-pad DOM renderer"
+git commit -m "feat(pattern-pulse): add static-pad DOM renderer"
 ```
 
 ---
 
-### Task 4: Astro page + initializer as one DOM contract
+### Task 4: Wire the Astro page and initializer as one DOM contract
 
 **Files**
 - Create `src/lib/games/pattern-pulse/initFramework.ts`
@@ -722,11 +831,16 @@ git commit -m "feat(pattern-pulse): add four-pad DOM renderer"
 - Create `src/pages/pattern-pulse/index.astro`
 - Modify `src/pages/game-board-markup.test.ts`
 
-- [ ] **4.1 RED page-markup contract, then create the page before registry activation**
+- [ ] **4.1 Create the page before registry activation and lock its static markup**
 
-In `src/pages/game-board-markup.test.ts`, read `src/pages/pattern-pulse/index.astro` and assert:
+Add a markup fixture/assertion:
 
 ```typescript
+const patternPulseMarkup = readFileSync(
+    resolve(process.cwd(), 'src/pages/pattern-pulse/index.astro'),
+    'utf-8'
+)
+
 expect(patternPulseMarkup).toContain('id="pattern-pulse-container"')
 expect(patternPulseMarkup).toContain('id="pattern-pulse-board"')
 expect(patternPulseMarkup.match(/data-pattern-pad="[0-3]"/g)).toHaveLength(4)
@@ -736,7 +850,7 @@ expect(patternPulseMarkup).toMatch(
 )
 ```
 
-Create `src/pages/pattern-pulse/index.astro` with:
+Create `/pattern-pulse/index.astro` using `GamePage`:
 
 ```astro
 <GamePage
@@ -748,47 +862,29 @@ Create `src/pages/pattern-pulse/index.astro` with:
   showEnd={false}
   initialTime={60}
 >
-  <div slot="game-board" id="pattern-pulse-container" class="w-[min(520px,calc(100vw-2rem))]">
-    <div id="pattern-pulse-board" class="grid grid-cols-2 gap-3 aspect-square" role="group" aria-label="Pattern Pulse signal pads">
-      <button type="button" class="pattern-pulse-pad" data-pattern-pad="0" aria-label="Pad 1, triangle"><span aria-hidden="true">▲</span><span>1</span></button>
-      <button type="button" class="pattern-pulse-pad" data-pattern-pad="1" aria-label="Pad 2, circle"><span aria-hidden="true">●</span><span>2</span></button>
-      <button type="button" class="pattern-pulse-pad" data-pattern-pad="2" aria-label="Pad 3, diamond"><span aria-hidden="true">◆</span><span>3</span></button>
-      <button type="button" class="pattern-pulse-pad" data-pattern-pad="3" aria-label="Pad 4, star"><span aria-hidden="true">✦</span><span>4</span></button>
-    </div>
-    <p id="pattern-status" class="mt-4 text-center font-mono text-cetus-accent" aria-live="polite">READY</p>
-  </div>
 ```
 
-Add `additional-stats` IDs `sequence-length`, `completed-rounds`, `streak`, `mistakes`; concise HOW TO PLAY/SCORING cards; final-stat IDs `final-outcome`, `final-rounds`, `final-longest-sequence`, `final-max-streak`, `final-mistakes`; and a root-level script that calls `initPatternPulseGameFramework()` and stores the returned handle on `window.patternPulseGame`.
-
-Use exact pad-state CSS:
+Static game-board content:
 
 ```astro
-<style is:global>
-  @reference "../../styles/global.css";
-  .pattern-pulse-pad {
-    @apply flex min-h-32 flex-col items-center justify-center gap-2 rounded-xl border border-cetus-accent/30 bg-cetus-surface/50 text-3xl font-bold text-cetus-ink transition duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cetus-accent disabled:cursor-default;
-  }
-  .pattern-pulse-pad[data-active='true'] {
-    transform: scale(1.04);
-    border-color: var(--cetus-accent);
-    background: color-mix(in srgb, var(--cetus-accent) 24%, transparent);
-    box-shadow: 0 0 28px color-mix(in srgb, var(--cetus-accent) 42%, transparent);
-  }
-  .pattern-pulse-pad[data-feedback='wrong'] {
-    border-color: var(--cetus-accent-3);
-    background: color-mix(in srgb, var(--cetus-accent-3) 24%, transparent);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .pattern-pulse-pad { transition: none; }
-    .pattern-pulse-pad[data-active='true'] { transform: none; }
-  }
-</style>
+<div slot="game-board" id="pattern-pulse-container" class="w-[min(520px,calc(100vw-2rem))]">
+  <div id="pattern-pulse-board" class="grid grid-cols-2 gap-3 aspect-square" role="group" aria-label="Pattern Pulse signal pads">
+    <button type="button" class="pattern-pulse-pad" data-pattern-pad="0" aria-label="Pad 1, triangle"><span aria-hidden="true">▲</span><span>1</span></button>
+    <button type="button" class="pattern-pulse-pad" data-pattern-pad="1" aria-label="Pad 2, circle"><span aria-hidden="true">●</span><span>2</span></button>
+    <button type="button" class="pattern-pulse-pad" data-pattern-pad="2" aria-label="Pad 3, diamond"><span aria-hidden="true">◆</span><span>3</span></button>
+    <button type="button" class="pattern-pulse-pad" data-pattern-pad="3" aria-label="Pad 4, star"><span aria-hidden="true">✦</span><span>4</span></button>
+  </div>
+  <p id="pattern-status" aria-live="polite">READY</p>
+</div>
 ```
 
-- [ ] **4.2 RED initializer tests with bounded fake-time advancement**
+Add additional-stat IDs `sequence-length`, `completed-rounds`, `streak`, `mistakes`; final-stat IDs `final-outcome`, `final-rounds`, `final-longest-sequence`, `final-max-streak`, `final-mistakes`; concise rules/scoring cards; and a root-level initializer script that assigns the returned handle to `window.patternPulseGame`.
 
-Create a jsdom fixture for the stable IDs. For active-run tests use:
+Page CSS must keep symbols visible in every state, use border/glow/scale in addition to color, provide focus-visible treatment, and remove transforms/transitions under `prefers-reduced-motion`.
+
+- [ ] **4.2 Write initializer RED tests with bounded fake time**
+
+For active-run tests:
 
 ```typescript
 const advanceInitialPlayback = (): void => {
@@ -796,9 +892,9 @@ const advanceInitialPlayback = (): void => {
 }
 ```
 
-Do **not** use `vi.runAllTimers()` while the BaseGame countdown is running.
+Do not use `vi.runAllTimers()` while BaseGame's countdown is active.
 
-Required tests:
+Numeric shortcut test:
 
 ```typescript
 it('maps a numeric shortcut during input', async () => {
@@ -813,26 +909,23 @@ it('maps a numeric shortcut during input', async () => {
     }))
     expect(handle?.game.getState().inputIndex).toBe(1)
 })
-
-it('ignores numeric shortcuts from editable targets', async () => {
-    const input = document.createElement('input')
-    document.body.appendChild(input)
-    const handle = await initPatternPulseGameFramework()
-    handle?.game.start()
-    advanceInitialPlayback()
-    input.dispatchEvent(new KeyboardEvent('keydown', {
-        key: '1',
-        bubbles: true,
-    }))
-    expect(handle?.game.getState().inputIndex).toBe(0)
-})
 ```
 
-Also prove missing outer container error handling, renderer click delegation, HUD updates, score/time updates, Reset/Play Again idle presentation, achievement/challenge forwarding, beforeunload, and idempotent cleanup.
+Editable-target test dispatches the same key from a focused/input element and asserts `inputIndex` remains `0`.
 
-- [ ] **4.3 Implement initializer by reusing the Mine Grid wiring shape**
+Other exact assertions:
 
-Use one `PatternPulseGame` + one `PatternPulseRenderer`, tracked listeners, `handleGameError`, BaseGame end-event achievement/challenge forwarding, and one cleanup guard.
+- missing `#pattern-pulse-container` returns `undefined` through `handleGameError`;
+- clicking a renderer pad in input advances `inputIndex`;
+- state changes update `pattern-status`, sequence length, rounds, streak, mistakes;
+- BaseGame score/time callbacks update `#score` / `#time-remaining`;
+- Reset and Play Again restore `READY`, hide result overlay, and show Start;
+- end event forwards non-empty achievement/challenge payloads exactly once;
+- active run installs beforeunload protection;
+- `cleanup()` removes tracked page/window listeners and is idempotent;
+- renderer destroy during cleanup leaves all four static pad nodes present.
+
+- [ ] **4.3 Implement initializer using the Mine Grid lifecycle shape**
 
 Helpers:
 
@@ -865,19 +958,9 @@ function statusText(state: PatternPulseState): string {
 }
 ```
 
-`syncHud(state)` writes score-independent state:
+Use one `PatternPulseGame`, one `PatternPulseRenderer`, the existing error helpers, tracked listeners, BaseGame end-event achievement/challenge forwarding, beforeunload, and one `cleanedUp` guard.
 
-```typescript
-setText('pattern-status', statusText(state))
-setText('sequence-length', String(state.sequence.length))
-setText('completed-rounds', String(state.completedRounds))
-setText('streak', String(state.streak))
-setText('mistakes', `${state.mistakes} / ${game.getConfig().mistakeLimit}`)
-```
-
-If `getConfig()` is not otherwise needed, expose a read-only `getConfig(): PatternPulseConfig` on `PatternPulseGame` returning `{ ...this.config }`; do not reach into protected config from the initializer.
-
-Initializer result:
+Return:
 
 ```typescript
 export interface PatternPulseInitResult {
@@ -890,15 +973,11 @@ export interface PatternPulseInitResult {
 }
 ```
 
-- [ ] **4.4 Add `pattern-pulse` to the shared GamePage wrapper list now that the page exists**
-
-Run:
+- [ ] **4.4 Add `pattern-pulse` to the GamePage wrapper list and run GREEN**
 
 ```bash
 bun run test:run src/lib/games/pattern-pulse src/pages/game-board-markup.test.ts
 ```
-
-Expected: GREEN.
 
 - [ ] **4.5 Commit**
 
@@ -909,7 +988,7 @@ git commit -m "feat(pattern-pulse): wire accessible game page"
 
 ---
 
-### Task 5: Registry, shared data contract, and four achievements
+### Task 5: Register the game and add four typed achievements
 
 **Files**
 - Modify `src/lib/games.ts`
@@ -919,11 +998,11 @@ git commit -m "feat(pattern-pulse): wire accessible game page"
 - Modify `src/lib/achievements.test.ts`
 - Reuse score/API/database files unchanged
 
-- [ ] **5.1 RED registry test**
+- [ ] **5.1 Write RED registry tests**
 
 ```typescript
 describe('Pattern Pulse registration', () => {
-    it('has the exact active registry entry', () => {
+    it('has the exact registry contract', () => {
         expect(GameID.PATTERN_PULSE).toBe('pattern_pulse')
         expect(getGameById(GameID.PATTERN_PULSE)).toMatchObject({
             id: GameID.PATTERN_PULSE,
@@ -950,17 +1029,17 @@ Run and expect RED:
 bun run test:run src/lib/games.test.ts
 ```
 
-- [ ] **5.2 Add enum/registry/icon**
+- [ ] **5.2 Add enum, registry record, and icon**
 
-Add `PATTERN_PULSE = 'pattern_pulse'`, the exact object above, and `[GameID.PATTERN_PULSE]: '🔁'` to `GAME_ICONS`. Do not edit `getGameUrl()`.
+Add `PATTERN_PULSE = 'pattern_pulse'`, the exact record above, and `[GameID.PATTERN_PULSE]: '🔁'`. Do not edit `getGameUrl()`.
 
-Run and expect GREEN:
+Run and expect GREEN, including the existing route-exists test:
 
 ```bash
 bun run test:run src/lib/games.test.ts
 ```
 
-- [ ] **5.3 Add the typed game-data alias**
+- [ ] **5.3 Extend the canonical game-data union**
 
 ```typescript
 // src/lib/games/shared/types.ts
@@ -968,17 +1047,17 @@ export type PatternPulseGameData =
     import('../pattern-pulse/types').PatternPulseGameData
 ```
 
-Include it in `GameData`, import it into `src/lib/achievements.ts`, and include it in `AchievementCheckData`.
+Add it to `GameData`, import it into `achievements.ts`, and include it in `AchievementCheckData`.
 
-- [ ] **5.4 RED achievement tests, then definitions**
+- [ ] **5.4 Add four achievement tests and definitions**
 
-Lock these IDs/conditions:
+Freeze:
 
-```typescript
-pattern_pulse_welcome   // score_threshold >= 1
-pattern_pulse_streak_3  // maxStreak >= 3
-pattern_pulse_sequence_8 // longestSequence >= 8
-pattern_pulse_perfect   // completedRounds >= 3 && mistakes === 0
+```text
+pattern_pulse_welcome    score_threshold >= 1
+pattern_pulse_streak_3   maxStreak >= 3
+pattern_pulse_sequence_8 longestSequence >= 8
+pattern_pulse_perfect    completedRounds >= 3 && mistakes === 0
 ```
 
 Definitions:
@@ -1032,14 +1111,14 @@ Definitions:
 },
 ```
 
+No `perfectRun` field exists or is read.
+
 Run:
 
 ```bash
 bun run test:run src/lib/games.test.ts src/lib/achievements.test.ts src/lib/games/pattern-pulse
 bun run typecheck
 ```
-
-Expected: GREEN / 0 type errors.
 
 - [ ] **5.5 Commit**
 
@@ -1050,7 +1129,7 @@ git commit -m "feat(pattern-pulse): register game and achievements"
 
 ---
 
-### Task 6: Browser coverage, inventory, and final gates
+### Task 6: Add browser coverage, update inventory, and run final gates
 
 **Files**
 - Modify `e2e/games/play-coverage.spec.ts`
@@ -1059,8 +1138,6 @@ git commit -m "feat(pattern-pulse): register game and achievements"
 - Verify `AGENTS.md` symlink unchanged
 
 - [ ] **6.1 Add non-flaky browser smoke using the debug handle**
-
-Append a Pattern Pulse describe block. Poll live phase and read the actual random sequence:
 
 ```typescript
 test('Pattern Pulse completes one sequence and accepts a numeric shortcut', async ({ page }) => {
@@ -1100,9 +1177,9 @@ test('Pattern Pulse completes one sequence and accepts a numeric shortcut', asyn
 })
 ```
 
-Do not use `waitForTimeout()` and do not seed production through a query parameter.
+Do not use hard-coded sequence values, `waitForTimeout()`, or a production test seed query parameter.
 
-- [ ] **6.2 Update only factual game inventory in `CLAUDE.md`**
+- [ ] **6.2 Update only factual `CLAUDE.md` inventory**
 
 - 16 → **17** implemented games; append Pattern Pulse.
 - Add `pattern-pulse/` to game structure.
@@ -1119,14 +1196,16 @@ test -L AGENTS.md
 test "$(readlink AGENTS.md)" = "CLAUDE.md"
 ```
 
-- [ ] **6.4 Focused tests**
+- [ ] **6.4 Run focused unit/markup gates**
 
 ```bash
 bun run test:run src/lib/games/pattern-pulse
 bun run test:run src/lib/games.test.ts src/lib/achievements.test.ts src/pages/game-board-markup.test.ts
 ```
 
-- [ ] **6.5 Type/lint/format/build**
+The first command includes the Task 2 timeout-during-playback and clock/RNG call-count regressions plus Task 3 static-pad ownership test.
+
+- [ ] **6.5 Run type/lint/format/build**
 
 ```bash
 bun run typecheck
@@ -1135,15 +1214,15 @@ bun run format:check
 bun run build
 ```
 
-- [ ] **6.6 Browser routing/play gates**
+- [ ] **6.6 Run browser routing/play gates**
 
 ```bash
 bun run test:e2e e2e/games/play-coverage.spec.ts e2e/games/all-games-navigation.spec.ts
 ```
 
-`all-games-navigation.spec.ts` should need no source change; the new `GAMES` entry automatically adds Pattern Pulse coverage.
+`all-games-navigation.spec.ts` should need no source change; the registry entry automatically adds Pattern Pulse coverage.
 
-- [ ] **6.7 Coverage/full regression**
+- [ ] **6.7 Run coverage/full regression**
 
 ```bash
 bun run test:coverage
@@ -1152,7 +1231,7 @@ bun run test:run
 
 Remote Codecov project + patch checks must both meet the configured 90% target.
 
-- [ ] **6.8 Scope review**
+- [ ] **6.8 Review final scope**
 
 ```bash
 git diff --name-only main...HEAD
@@ -1185,12 +1264,16 @@ git commit -m "test(pattern-pulse): cover browser flow and inventory"
 ## Final Definition of Done
 
 - Four static symbol+number pads render on `/pattern-pulse`.
+- Renderer destroy preserves those Astro-owned pads and permits re-initialization.
 - Run ends at 60 seconds or the third mistake.
 - Initial sequence is 3; each success adds exactly 1 pad.
 - Recoverable mistakes replay the same sequence and reset streak.
 - Playback follows the 600 ms → 320 ms formula.
 - Only complete sequences score, using the frozen length/streak/response formula.
-- Reset/end/timeout cannot leak a queued cue into new state.
+- RNG/clock call sites match the frozen contracts.
+- Reset **and timeout during queued playback** cannot leak a cue into later state.
+- Both terminal outcomes report `gameCompleted=true` through BaseGame `isGameOver`.
+- Submitted game data has no duplicate `perfectRun` boolean; Clean Signal derives directly from rounds + mistakes.
 - Touch/mouse, native button keyboard activation, and `1`–`4` shortcuts work.
 - Existing BaseGame score/achievement/challenge flow is reused unchanged.
 - Registry/icon/shared type/four achievements/markup/browser coverage are present.
