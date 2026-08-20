@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
     getAllAchievements,
     getAchievementById,
@@ -13,6 +13,22 @@ import {
 } from './achievements'
 import { GameID } from './games'
 import type { MineGridGameData } from './games/mine-grid/types'
+import { checkAndAwardAchievements } from './services/achievementService'
+
+// Mock the database queries so checkAndAwardAchievements can be exercised
+// through the production evaluator without a live database. Only the score
+// threshold branch of checkAndAwardAchievements touches these mocks; the
+// achievement definitions in ./achievements remain real (unmocked).
+vi.mock('./server/db/queries', () => ({
+    awardAchievement: vi.fn(),
+    hasUserEarnedAchievement: vi.fn(),
+    getUserBestScore: vi.fn(),
+}))
+
+import { awardAchievement, hasUserEarnedAchievement } from './server/db/queries'
+
+const mockAwardAchievement = vi.mocked(awardAchievement)
+const mockHasUserEarnedAchievement = vi.mocked(hasUserEarnedAchievement)
 
 describe('Achievement System', () => {
     describe('getAllAchievements', () => {
@@ -1006,28 +1022,82 @@ describe('Mine Grid achievements', () => {
         ).toBe(false)
     })
 
-    it('threshold achievements award at or above their configured score cutoffs', () => {
-        const welcome = getAchievementById('mine_grid_welcome')!
-        const demolitionExpert = getAchievementById(
-            'mine_grid_demolition_expert'
-        )!
+    describe('checkAndAwardAchievements threshold evaluation', () => {
+        beforeEach(() => {
+            vi.clearAllMocks()
+            mockHasUserEarnedAchievement.mockResolvedValue(false)
+            mockAwardAchievement.mockResolvedValue(true)
+        })
 
-        // Mirrors achievementService's score_threshold evaluation rule.
-        const meetsThreshold = (score: number, threshold: number): boolean =>
-            score >= threshold
+        it('mine_grid_welcome is not awarded below its threshold (score 0)', async () => {
+            const result = await checkAndAwardAchievements(
+                'user123',
+                GameID.MINE_GRID,
+                0
+            )
+            expect(result).not.toContain('mine_grid_welcome')
+            expect(mockAwardAchievement).not.toHaveBeenCalledWith(
+                'user123',
+                'mine_grid_welcome'
+            )
+        })
 
-        const welcomeThreshold = welcome.condition.threshold!
-        const demoThreshold = demolitionExpert.condition.threshold!
+        it('mine_grid_welcome is awarded at its exact threshold (score 1)', async () => {
+            const result = await checkAndAwardAchievements(
+                'user123',
+                GameID.MINE_GRID,
+                1
+            )
+            expect(result).toContain('mine_grid_welcome')
+            expect(mockAwardAchievement).toHaveBeenCalledWith(
+                'user123',
+                'mine_grid_welcome'
+            )
+        })
 
-        // Below threshold: not awarded. At/above: awarded.
-        expect(meetsThreshold(welcomeThreshold - 1, welcomeThreshold)).toBe(
-            false
-        )
-        expect(meetsThreshold(welcomeThreshold, welcomeThreshold)).toBe(true)
+        it('mine_grid_welcome is awarded above its threshold (score 2)', async () => {
+            const result = await checkAndAwardAchievements(
+                'user123',
+                GameID.MINE_GRID,
+                2
+            )
+            expect(result).toContain('mine_grid_welcome')
+        })
 
-        expect(meetsThreshold(demoThreshold - 1, demoThreshold)).toBe(false)
-        expect(meetsThreshold(demoThreshold, demoThreshold)).toBe(true)
-        expect(meetsThreshold(demoThreshold + 1, demoThreshold)).toBe(true)
+        it('mine_grid_demolition_expert is not awarded below its threshold (score 4999)', async () => {
+            const result = await checkAndAwardAchievements(
+                'user123',
+                GameID.MINE_GRID,
+                4999
+            )
+            expect(result).not.toContain('mine_grid_demolition_expert')
+            expect(mockAwardAchievement).not.toHaveBeenCalledWith(
+                'user123',
+                'mine_grid_demolition_expert'
+            )
+        })
+
+        it('mine_grid_demolition_expert is awarded at its exact threshold (score 5000)', async () => {
+            const result = await checkAndAwardAchievements(
+                'user123',
+                GameID.MINE_GRID,
+                5000
+            )
+            expect(result).toContain('mine_grid_demolition_expert')
+            expect(mockAwardAchievement).toHaveBeenCalledWith(
+                'user123',
+                'mine_grid_demolition_expert'
+            )
+        })
+
+        it('mine_grid_demolition_expert is awarded above its threshold (score 5001)', async () => {
+            const result = await checkAndAwardAchievements(
+                'user123',
+                GameID.MINE_GRID,
+                5001
+            )
+            expect(result).toContain('mine_grid_demolition_expert')
+        })
     })
 })
 
