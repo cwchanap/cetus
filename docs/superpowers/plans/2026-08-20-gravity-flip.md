@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add Gravity Flip, a one-minute one-button side-scrolling action game with continuous gravity physics, rising speed/density, spikes/gaps/moving hazards, collectible stars, accessible desktop/mobile input, achievements, and the existing Cetus score/leaderboard flow.
+**Goal:** Add Gravity Flip, a one-minute one-button side-scrolling action game with continuous gravity physics, rising speed/density, a safe-by-construction five-kind challenge catalog, collectible stars, accessible desktop/mobile input, achievements, and the existing Cetus score/leaderboard flow.
 
-**Architecture:** `GravityFlipGame` extends `BaseGame` and owns fixed-X vertical player physics, a tiny private challenge stream, collision/star collection, and score synchronization. `GravityFlipRenderer` extends `PixiJSRenderer` with one static corridor layer and one redrawn dynamic scene layer. A custom initializer follows Evader's existing single-rAF pattern; the game internally substeps physics to avoid tunneling. No shared runner/physics framework or backend change is required.
+**Architecture:** `GravityFlipGame` extends `BaseGame` and owns fixed-X vertical physics, a closed game-local hazard catalog, collision/star collection, mover-safe bounds, and score synchronization. `GravityFlipRenderer` extends `PixiJSRenderer` with one static corridor layer and one redrawn dynamic scene layer. A custom initializer combines Pattern Pulse's current error/debug-handle contract with Evader's single-rAF loop; the game internally substeps physics to prevent tunneling. No shared runner/physics/input framework or backend change is required.
 
 **Tech Stack:** Astro 5 + TypeScript 6, PixiJS 8.10, Tailwind CSS 4, existing BaseGame/PixiJSRenderer framework, Vitest/jsdom, Playwright, existing Turso/Kysely score path.
 
@@ -13,48 +13,51 @@
 ## Global Constraints
 
 - Package manager: **Bun `1.3.1`**.
-- Deliver HPA-73 in **one implementation PR**; game, registration, achievements, page, and tests stay together.
+- Deliver HPA-73 in **one implementation PR**; game, route, registration, achievements, and tests stay together.
 - ID **`gravity_flip`**, route **`/gravity-flip`**, title **`Gravity Flip`**, icon **`🌗`**.
 - Fixed v1 run: **60 seconds**, logical canvas **800×320**.
-- Fixed player/world rules: player X **150**, size **28**, corridor inset **36**, gravity **1800 px/s²**, vertical-speed cap **700 px/s**, internal physics step **1/120 s**.
-- World speed ramps **220 → 360 px/s** over the run; challenge spacing ramps **520 → 400 px**.
-- Moving hazards do not enter the random catalog before **15 elapsed seconds**.
-- `GRAVITY_FLIP_RULES` / `createGravityFlipConfig()` are the single production source for gameplay constants.
+- Player/world rules: player X **150**, size **28**, corridor inset **36**, gravity **1800 px/s²**, vertical-speed cap **700 px/s**, internal physics step **1/120 s**.
+- World speed ramps **220 → 360 px/s**; challenge spacing ramps **520 → 400 px**.
+- Moving hazards unlock at **15 elapsed seconds**.
+- Mover size is **40 px** and rail clearance is **28 px**; default mover top-left Y travel is exactly **64..216**.
+- `GRAVITY_FLIP_RULES`, `GRAVITY_FLIP_HAZARD_CATALOG`, and `calculateGravityFlipScore()` are the only production sources for gameplay constants/catalog semantics/scoring.
 - `flipGravity()` reverses gravity but **does not zero vertical velocity**.
-- The first challenge is always a floor spike; later challenges use injected `rng: () => number`.
-- One challenge family per spacing interval; no compound random maze/grammar.
-- Floor/ceiling spike and gap challenges place one star on the opposite safe surface; movers do not require a star.
-- Gap collision is lethal only while the player overlaps the gap X-range and is touching that same surface.
-- Spike/mover collision uses conservative AABBs; do not add pixel-perfect geometry.
+- The first challenge is always a floor spike; later challenge selection uses injected `rng: () => number` only.
+- Do not classify hazard kinds with `startsWith`, `endsWith`, or substring parsing.
+- Spike/gap challenges place one star on the opposite safe surface; movers do not carry a star.
+- A mover at either bounce extremum must not overlap a player resting on either rail.
+- Gap collision is lethal only when player X overlaps the gap and the player is touching the gap's catalog surface.
+- Spike/mover collision uses conservative AABBs; no pixel-perfect geometry.
 - Frozen score: `floor(distancePx / 50) * 10 + starsCollected * 250`.
-- `calculateGravityFlipScore()` is the only production implementation of that score formula.
-- BaseGame uses `timeBonus: false`.
-- Terminal outcomes are `collision` and `survived`; timeout sets `survived` before delegating to BaseGame.
-- Submitted data is `distance`, `starsCollected`, `flips`, `survivedFullRun`.
-- Use existing BaseGame timer/save/run-guard/achievement flow; no second timer or stale-run token.
-- Use `BaseGame + PixiJSRenderer`; no shared runner engine, physics engine, generic spawner, level editor, image assets, persistence, Daily mode, schema/API/leaderboard change, audio, or haptics.
-- Renderer keeps fixed logical coordinates; page CSS scales the canvas visually for mobile.
-- Keyboard controls: `Space`, `ArrowUp`, `ArrowDown`; ignore repeat, modifier chords, and editable targets.
-- Pointer-down on the canvas and native `#flip-btn` both call `game.flipGravity()`.
-- Create `/gravity-flip` before adding the active `GAMES` registry record because `games.test.ts` verifies every registered route exists.
-- `getGameUrl()` stays unchanged.
-- `e2e/games/all-games-navigation.spec.ts` stays source-unchanged and derives coverage from `GAMES`.
-- `BaseGame.ts`, `GameTimer.ts`, `ScoreManager.ts`, `PixiJSRenderer.ts`, `GameInitializer.ts`, score service, database, APIs, and auth remain production-unchanged.
-- Edit `CLAUDE.md`, not the repository's `AGENTS.md` symlink.
-- Codecov project and patch targets are **90%**, threshold **0%**, blocking on missing reports.
+- BaseGame uses `timeBonus: false`; reuse BaseGame timer/save/run-guard/completed-run auto-reset.
+- Terminal outcomes: `collision` and `survived`; timeout sets `survived` before delegating to BaseGame.
+- Collision UI is **GRAVITY LOST / Collision**; survival UI is **RUN COMPLETE / Survived**.
+- Submitted data: `distance`, `starsCollected`, `flips`, `survivedFullRun`.
+- Keyboard: `Space`, `ArrowUp`, `ArrowDown`; ignore repeat, Ctrl/Meta/Alt, editable targets, and button targets.
+- Canvas `pointerdown` and native `#flip-btn` click call the same `game.flipGravity()` API.
+- `#flip-btn` native Enter/Space activation owns button-key input; document keydown must not also flip.
+- `GravityFlipInitResult` includes `getGame()`; the Astro page, not `initFramework.ts`, assigns `window.gravityFlipGame`.
+- Play Again intentionally hides the overlay and calls `game.start()` so BaseGame auto-resets **and starts** the completed run.
+- Create `/gravity-flip` before activating the `GAMES` registry entry because `games.test.ts` verifies routes.
+- `getGameUrl()` and `e2e/games/all-games-navigation.spec.ts` stay source-unchanged.
+- `BaseGame.ts`, `GameTimer.ts`, `ScoreManager.ts`, `PixiJSRenderer.ts`, `GameInitializer.ts`, score service, `src/lib/server/db/`, APIs, and auth remain production-unchanged.
+- Edit `CLAUDE.md`, not the `AGENTS.md` symlink.
+- Codecov project/patch targets are **90%** with **0%** threshold and missing-report failure.
 
 ## Load-Bearing Risks
 
-- **Thin-hazard tunneling:** the game, not the initializer, owns 1/120-second collision substeps.
-- **Frame-dependent score drift:** synchronize BaseGame score from accumulated distance/stars instead of awarding rounded points per frame.
-- **Double end/save:** the first collision sets outcome and delegates to BaseGame; inactive runs reject later updates/collisions.
-- **Random impossible patterns:** spawn one challenge family at a time; stars are optional and always placed on the opposite safe surface.
-- **Browser smoke flakiness:** the first floor spike is deterministic and requires no RNG/test-only mode.
-- **Mobile coordinate drift:** pointer input has no gameplay coordinates; fixed logical physics is CSS-scaled.
+- **Mover unfairness:** both resting rails must remain legal at both mover bounce extrema.
+- **Stringly catalog drift:** spawn, stars, collision, and rendering must consume the same closed descriptor table.
+- **Thin-hazard tunneling:** the regression uses an injected 8px spike that a single 0.1s end-position collision check would skip.
+- **Frame-dependent score drift:** synchronize BaseGame score to the pure accumulated target instead of awarding rounded points per frame.
+- **Focused-button double flip:** document keydown ignores button targets so native Space/Enter click is the only button activation.
+- **Terminal-copy drift:** collision and survival titles/outcome strings are tested independently.
+- **Debug/error fork:** use Pattern Pulse's `DOMElementNotFoundError` + `handleGameError` + `getGame()` handle shape; only the rAF loop comes from Evader.
+- **Double end/save:** first collision delegates once to BaseGame and inactive state stops later substeps.
 
 ---
 
-### Task 1: Add contracts, GameID/icon, and the single production scorer
+### Task 1: Define the closed contracts, safe mover bounds, GameID/icon, and scorer
 
 **Files:**
 - Modify: `src/lib/games.ts`
@@ -62,36 +65,31 @@
 - Create: `src/lib/games/gravity-flip/scoring.ts`
 - Create: `src/lib/games/gravity-flip/scoring.test.ts`
 - Test: `src/lib/games.test.ts`
+- Reuse unchanged: `src/lib/games/shared/utils.ts` (`rectOverlap`)
 
 **Interfaces:**
-- Produces: `GameID.GRAVITY_FLIP`, the `🌗` icon mapping, `GRAVITY_FLIP_RULES`, `GravityFlipConfig`, state/entity/stats/data types, `createGravityFlipConfig()`, and `calculateGravityFlipScore()`.
-- The active `GAMES` record is deliberately deferred until Task 5 creates the route.
+- Produces `GameID.GRAVITY_FLIP`, icon mapping, `GravityFlipHazardKind`, `GRAVITY_FLIP_RULES`, `GRAVITY_FLIP_HAZARD_CATALOG`, `GravityFlipConfig`, state/stats/data types, `createGravityFlipConfig()`, `getGravityFlipMoverBounds()`, and `calculateGravityFlipScore()`.
+- The active `GAMES` record stays deferred until Task 5 creates the route.
 
-- [ ] **Step 1: Add the compile-safe GameID/icon seam without registering an active game**
+- [ ] **Step 1: Add compile-safe GameID/icon without activating the route**
 
-In `src/lib/games.ts`, add:
+In `src/lib/games.ts` add:
 
 ```ts
-export enum GameID {
-    // existing members...
-    PATTERN_PULSE = 'pattern_pulse',
-    GRAVITY_FLIP = 'gravity_flip',
-}
+GRAVITY_FLIP = 'gravity_flip',
 ```
 
-and add the exhaustive icon-map entry:
+and the exhaustive icon entry:
 
 ```ts
 [GameID.GRAVITY_FLIP]: '🌗',
 ```
 
-Do **not** add a `GAMES` record yet; the route-invariant test would correctly fail before Task 5 creates `/gravity-flip`.
-
-Add a narrow pre-registration test to `src/lib/games.test.ts`:
+Add this pre-registration test to `src/lib/games.test.ts`:
 
 ```ts
 describe('Gravity Flip identifier', () => {
-    it('reserves the game id and icon before route registration', () => {
+    it('reserves the id/icon before route registration', () => {
         expect(GameID.GRAVITY_FLIP).toBe('gravity_flip')
         expect(getGameIcon(GameID.GRAVITY_FLIP)).toBe('🌗')
         expect(getGameById(GameID.GRAVITY_FLIP)).toBeUndefined()
@@ -105,11 +103,11 @@ Run:
 bun run test:run src/lib/games.test.ts
 ```
 
-Expected: PASS with Gravity Flip still absent from `GAMES`.
+Expected: PASS.
 
-- [ ] **Step 2: Create the Gravity Flip contracts and production-rule source**
+- [ ] **Step 2: Create the contracts, rule source, and closed descriptor table**
 
-Create `src/lib/games/gravity-flip/types.ts`:
+Create `src/lib/games/gravity-flip/types.ts` with these load-bearing definitions:
 
 ```ts
 import type {
@@ -126,6 +124,25 @@ export type GravityFlipHazardKind =
     | 'floor-gap'
     | 'ceiling-gap'
     | 'mover'
+
+export type GravityFlipHazardSurface = 'floor' | 'ceiling' | null
+export type GravityFlipHazardShape = 'spike' | 'gap' | 'mover'
+
+export interface GravityFlipHazardDescriptor {
+    surface: GravityFlipHazardSurface
+    shape: GravityFlipHazardShape
+    hasStar: boolean
+}
+
+export const GRAVITY_FLIP_HAZARD_CATALOG: Readonly<
+    Record<GravityFlipHazardKind, GravityFlipHazardDescriptor>
+> = {
+    'floor-spike': { surface: 'floor', shape: 'spike', hasStar: true },
+    'ceiling-spike': { surface: 'ceiling', shape: 'spike', hasStar: true },
+    'floor-gap': { surface: 'floor', shape: 'gap', hasStar: true },
+    'ceiling-gap': { surface: 'ceiling', shape: 'gap', hasStar: true },
+    mover: { surface: null, shape: 'mover', hasStar: false },
+}
 
 export const GRAVITY_FLIP_RULES = {
     duration: 60,
@@ -149,120 +166,60 @@ export const GRAVITY_FLIP_RULES = {
     gapHeight: 18,
     moverSize: 40,
     moverVerticalSpeed: 180,
+    moverRailClearance: 28,
     starRadius: 10,
 } as const
+```
 
-export interface GravityFlipConfig extends BaseGameConfig {
-    canvasWidth: number
-    canvasHeight: number
-    corridorInset: number
-    playerX: number
-    playerSize: number
-    gravityAcceleration: number
-    maxVerticalSpeed: number
-    maxPhysicsStep: number
-    initialWorldSpeed: number
-    finalWorldSpeed: number
-    initialChallengeSpacing: number
-    finalChallengeSpacing: number
-    moverUnlockSeconds: number
-    spawnOffsetX: number
-    spikeWidth: number
-    spikeHeight: number
-    gapWidth: number
-    gapHeight: number
-    moverSize: number
-    moverVerticalSpeed: number
-    starRadius: number
-    rng: () => number
-}
+`GravityFlipConfig` contains the same configurable fields plus `rng: () => number`. `createGravityFlipConfig()` copies from `GRAVITY_FLIP_RULES`, sets BaseGame fields (`achievementIntegration: true`, `pausable: false`, `resettable: true`), defaults `rng: Math.random`, then applies overrides.
 
-export function createGravityFlipConfig(
-    overrides: Partial<GravityFlipConfig> = {}
-): GravityFlipConfig {
-    return {
-        duration: GRAVITY_FLIP_RULES.duration,
-        achievementIntegration: true,
-        pausable: false,
-        resettable: true,
-        canvasWidth: GRAVITY_FLIP_RULES.canvasWidth,
-        canvasHeight: GRAVITY_FLIP_RULES.canvasHeight,
-        corridorInset: GRAVITY_FLIP_RULES.corridorInset,
-        playerX: GRAVITY_FLIP_RULES.playerX,
-        playerSize: GRAVITY_FLIP_RULES.playerSize,
-        gravityAcceleration: GRAVITY_FLIP_RULES.gravityAcceleration,
-        maxVerticalSpeed: GRAVITY_FLIP_RULES.maxVerticalSpeed,
-        maxPhysicsStep: GRAVITY_FLIP_RULES.maxPhysicsStep,
-        initialWorldSpeed: GRAVITY_FLIP_RULES.initialWorldSpeed,
-        finalWorldSpeed: GRAVITY_FLIP_RULES.finalWorldSpeed,
-        initialChallengeSpacing: GRAVITY_FLIP_RULES.initialChallengeSpacing,
-        finalChallengeSpacing: GRAVITY_FLIP_RULES.finalChallengeSpacing,
-        moverUnlockSeconds: GRAVITY_FLIP_RULES.moverUnlockSeconds,
-        spawnOffsetX: GRAVITY_FLIP_RULES.spawnOffsetX,
-        spikeWidth: GRAVITY_FLIP_RULES.spikeWidth,
-        spikeHeight: GRAVITY_FLIP_RULES.spikeHeight,
-        gapWidth: GRAVITY_FLIP_RULES.gapWidth,
-        gapHeight: GRAVITY_FLIP_RULES.gapHeight,
-        moverSize: GRAVITY_FLIP_RULES.moverSize,
-        moverVerticalSpeed: GRAVITY_FLIP_RULES.moverVerticalSpeed,
-        starRadius: GRAVITY_FLIP_RULES.starRadius,
-        rng: Math.random,
-        ...overrides,
+Add the pure mover-bound helper:
+
+```ts
+export function getGravityFlipMoverBounds(config: GravityFlipConfig): {
+    minY: number
+    maxY: number
+} {
+    const clearance = Math.max(config.playerSize, config.moverRailClearance)
+    const minY = config.corridorInset + clearance
+    const maxY =
+        config.canvasHeight -
+        config.corridorInset -
+        clearance -
+        config.moverSize
+    if (maxY < minY) {
+        throw new RangeError('Gravity Flip mover bounds have no safe corridor')
     }
-}
-
-export interface GravityFlipPlayer {
-    x: number
-    y: number
-    velocityY: number
-    size: number
-}
-
-export interface GravityFlipHazard {
-    id: string
-    kind: GravityFlipHazardKind
-    x: number
-    y: number
-    width: number
-    height: number
-    verticalVelocity: number
-}
-
-export interface GravityFlipStar {
-    id: string
-    x: number
-    y: number
-    radius: number
-}
-
-export interface GravityFlipState extends BaseGameState {
-    outcome: GravityFlipOutcome
-    gravity: GravityDirection
-    player: GravityFlipPlayer
-    hazards: GravityFlipHazard[]
-    stars: GravityFlipStar[]
-    distance: number
-    starsCollected: number
-    flips: number
-    worldSpeed: number
-}
-
-export interface GravityFlipStats extends BaseGameStats {
-    outcome: GravityFlipOutcome
-    distance: number
-    starsCollected: number
-    flips: number
-}
-
-export interface GravityFlipGameData {
-    distance: number
-    starsCollected: number
-    flips: number
-    survivedFullRun: boolean
+    return { minY, maxY }
 }
 ```
 
-- [ ] **Step 3: Write RED scoring tests**
+Keep the existing state/entity/data shapes from the spec. Do not add a separate catalog class or registry.
+
+- [ ] **Step 3: Lock catalog completeness and mover rail safety**
+
+Add tests alongside the Task 2 game tests or in `scoring.test.ts` only if keeping Task 1 test count minimal. The preferred home is `GravityFlipGame.test.ts` in Task 2, but freeze the exact assertion now:
+
+```ts
+expect(Object.keys(GRAVITY_FLIP_HAZARD_CATALOG).sort()).toEqual([
+    'ceiling-gap',
+    'ceiling-spike',
+    'floor-gap',
+    'floor-spike',
+    'mover',
+])
+```
+
+and the mover-bound expectation will be:
+
+```ts
+expect(getGravityFlipMoverBounds(createGravityFlipConfig())).toEqual({
+    minY: 64,
+    maxY: 216,
+})
+```
+
+- [ ] **Step 4: Write RED scorer tests**
 
 Create `src/lib/games/gravity-flip/scoring.test.ts`:
 
@@ -277,12 +234,11 @@ describe('calculateGravityFlipScore', () => {
         [{ distancePx: 500, starsCollected: 0 }, 100],
         [{ distancePx: 1250, starsCollected: 2 }, 750],
         [{ distancePx: 8000, starsCollected: 5 }, 2850],
-        [{ distancePx: 17000, starsCollected: 8 }, 5400],
     ])('scores %o as %i', (input, expected) => {
         expect(calculateGravityFlipScore(input)).toBe(expected)
     })
 
-    it('clamps negative/non-finite progress to zero', () => {
+    it('clamps invalid progress', () => {
         expect(
             calculateGravityFlipScore({
                 distancePx: Number.NaN,
@@ -301,7 +257,7 @@ bun run test:run src/lib/games/gravity-flip/scoring.test.ts
 
 Expected: FAIL because `scoring.ts` does not exist.
 
-- [ ] **Step 4: Implement the scorer**
+- [ ] **Step 5: Implement the single scorer**
 
 Create `src/lib/games/gravity-flip/scoring.ts`:
 
@@ -321,8 +277,7 @@ export function calculateGravityFlipScore({
     const safeStars = Number.isFinite(starsCollected)
         ? Math.max(0, Math.floor(starsCollected))
         : 0
-    const distancePoints = Math.floor(safeDistance / 50) * 10
-    return distancePoints + safeStars * 250
+    return Math.floor(safeDistance / 50) * 10 + safeStars * 250
 }
 ```
 
@@ -335,7 +290,7 @@ bun run typecheck
 
 Expected: PASS / zero Astro-check errors.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/lib/games.ts src/lib/games.test.ts src/lib/games/gravity-flip/types.ts src/lib/games/gravity-flip/scoring.ts src/lib/games/gravity-flip/scoring.test.ts
@@ -344,7 +299,7 @@ git commit -m "feat(gravity-flip): add contracts and scoring"
 
 ---
 
-### Task 2: Implement BaseGame gravity motion, difficulty ramp, and frame-stable score
+### Task 2: Implement BaseGame motion, collision-safe substeps, and frame-stable score
 
 **Files:**
 - Create: `src/lib/games/gravity-flip/GravityFlipGame.ts`
@@ -353,66 +308,36 @@ git commit -m "feat(gravity-flip): add contracts and scoring"
 - Reuse unchanged: `src/lib/games/core/GameTimer.ts`
 
 **Interfaces:**
-- Consumes Task 1 config/types/scorer and `GameID.GRAVITY_FLIP`.
-- Produces `GravityFlipGame`, `flipGravity(): boolean`, `getConfig()`, gravity/player/distance/world-speed state, terminal `survived` handling, stats/data, and internal collision-safe substeps.
-- Task 3 adds hazards/stars without changing these public APIs.
+- Consumes Task 1 contracts/scorer.
+- Produces `GravityFlipGame`, `flipGravity(): boolean`, `getConfig()`, motion/distance/world-speed state, `survived` timeout behavior, and the substep update loop.
+- Task 3 adds catalog spawn/collision without changing the public API.
 
-- [ ] **Step 1: Write RED motion/flip tests**
+- [ ] **Step 1: Write RED gravity/velocity/score-partition tests**
 
-Create `src/lib/games/gravity-flip/GravityFlipGame.test.ts` with fake timers so BaseGame time progression is real:
+Use fake timers and an achievement-disabled config:
 
 ```ts
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { GravityFlipGame } from './GravityFlipGame'
-import { createGravityFlipConfig } from './types'
-
-function createGame() {
+function createGame(overrides: Partial<GravityFlipConfig> = {}) {
     return new GravityFlipGame(
-        createGravityFlipConfig({ achievementIntegration: false, rng: () => 0 })
+        createGravityFlipConfig({
+            achievementIntegration: false,
+            rng: () => 0,
+            ...overrides,
+        })
     )
 }
+```
 
-describe('GravityFlipGame motion', () => {
-    beforeEach(() => {
-        vi.useFakeTimers()
-        vi.setSystemTime(new Date('2026-08-20T00:00:00Z'))
-    })
+Cover:
 
-    afterEach(() => vi.useRealTimers())
-
-    it('starts on the floor with downward gravity', () => {
-        const game = createGame()
-        const state = game.getState()
-        expect(state.gravity).toBe('down')
-        expect(state.player.x).toBe(150)
-        expect(state.player.velocityY).toBe(0)
-        expect(state.player.y).toBeCloseTo(320 - 36 - 14)
-    })
-
-    it('rejects idle flips and preserves velocity across an active flip', () => {
-        const game = createGame()
-        expect(game.flipGravity()).toBe(false)
-        game.start()
-        game.update(0.1)
-        const before = game.getState().player.velocityY
-        expect(game.flipGravity()).toBe(true)
-        const after = game.getState()
-        expect(after.gravity).toBe('up')
-        expect(after.flips).toBe(1)
-        expect(after.player.velocityY).toBe(before)
-    })
-
-    it('produces the same distance score for equivalent frame partitions', () => {
-        const a = createGame()
-        const b = createGame()
-        a.start()
-        b.start()
-        a.update(0.1)
-        for (let i = 0; i < 10; i++) b.update(0.01)
-        expect(a.getState().distance).toBeCloseTo(b.getState().distance, 5)
-        expect(a.getState().score).toBe(b.getState().score)
-    })
-})
+```ts
+it('starts floor-resting with downward gravity and zero velocity')
+it('flipGravity reverses direction, increments flips, and preserves velocityY')
+it('rejects flips before start and after end')
+it('clamps player to the floor/ceiling rails')
+it('ramps world speed from 220 toward 360 from BaseGame elapsed time')
+it('produces the same distance score for 10x0.01s and 1x0.1s updates')
+it('timeout marks survived before BaseGame end')
 ```
 
 Run:
@@ -421,81 +346,30 @@ Run:
 bun run test:run src/lib/games/gravity-flip/GravityFlipGame.test.ts
 ```
 
-Expected: FAIL because `GravityFlipGame.ts` does not exist.
+Expected: FAIL because the game class does not exist.
 
-- [ ] **Step 2: Implement the BaseGame shell and state**
+- [ ] **Step 2: Implement the BaseGame shell**
 
-Create `GravityFlipGame.ts` with this class shape:
+The constructor uses:
 
 ```ts
-import { BaseGame } from '@/lib/games/core/BaseGame'
-import type { BaseGameCallbacks } from '@/lib/games/core/types'
-import { GameID } from '@/lib/games'
-import { clamp } from '@/lib/games/shared/utils'
-import { calculateGravityFlipScore } from './scoring'
-import {
-    createGravityFlipConfig,
-    type GravityFlipConfig,
-    type GravityFlipState,
-    type GravityFlipStats,
-} from './types'
-
-export class GravityFlipGame extends BaseGame<
-    GravityFlipState,
-    GravityFlipConfig,
-    GravityFlipStats
-> {
-    constructor(
-        config: GravityFlipConfig = createGravityFlipConfig(),
-        callbacks: BaseGameCallbacks = {}
-    ) {
-        super(GameID.GRAVITY_FLIP, config, callbacks, {
-            basePoints: 0,
-            timeBonus: false,
-        })
-    }
-
-    createInitialState(): GravityFlipState {
-        const floorY =
-            this.config.canvasHeight -
-            this.config.corridorInset -
-            this.config.playerSize / 2
-        return {
-            score: 0,
-            timeRemaining: this.config.duration,
-            isActive: false,
-            isPaused: false,
-            isGameOver: false,
-            gameStarted: false,
-            outcome: 'playing',
-            gravity: 'down',
-            player: {
-                x: this.config.playerX,
-                y: floorY,
-                velocityY: 0,
-                size: this.config.playerSize,
-            },
-            hazards: [],
-            stars: [],
-            distance: 0,
-            starsCollected: 0,
-            flips: 0,
-            worldSpeed: this.config.initialWorldSpeed,
-        }
-    }
-
-    render(): void {}
-    cleanup(): void {}
-
-    getConfig(): GravityFlipConfig {
-        return { ...this.config }
-    }
-}
+super(GameID.GRAVITY_FLIP, config, callbacks, {
+    basePoints: 0,
+    timeBonus: false,
+})
 ```
 
-- [ ] **Step 3: Implement flip input and internal substeps**
+Initial player center positions:
 
-Add:
+```ts
+const half = this.config.playerSize / 2
+const floorY =
+    this.config.canvasHeight - this.config.corridorInset - half
+```
+
+Initial state has `gravity: 'down'`, `velocityY: 0`, empty hazards/stars, zero distance/flips/stars, and `worldSpeed: initialWorldSpeed`.
+
+`flipGravity()` is:
 
 ```ts
 flipGravity(): boolean {
@@ -503,11 +377,17 @@ flipGravity(): boolean {
         return false
     }
     this.state.gravity = this.state.gravity === 'down' ? 'up' : 'down'
-    this.state.flips++
+    this.state.flips += 1
     this.emitStateChange()
     return true
 }
+```
 
+Do not alter `velocityY`.
+
+- [ ] **Step 3: Implement the internal substep update and score synchronization**
+
+```ts
 update(deltaTime: number): void {
     if (
         !this.state.isActive ||
@@ -521,100 +401,38 @@ update(deltaTime: number): void {
     let remaining = Math.min(deltaTime, 0.1)
     while (remaining > 0 && this.state.isActive) {
         const step = Math.min(remaining, this.config.maxPhysicsStep)
-        this.stepPlayer(step)
-        const moved = this.state.worldSpeed * step
-        this.state.distance += moved
+        this.stepPhysics(step)
         remaining -= step
     }
-    this.syncDifficulty()
     this.syncScore()
     this.emitStateChange()
 }
 ```
 
-Player integration:
+`stepPhysics()` derives elapsed progress from `getTimerStatus().elapsedTime`, updates world speed, applies acceleration/velocity/Y clamp, and accumulates:
 
 ```ts
-private stepPlayer(step: number): void {
-    const direction = this.state.gravity === 'down' ? 1 : -1
-    this.state.player.velocityY = clamp(
-        this.state.player.velocityY +
-            direction * this.config.gravityAcceleration * step,
-        -this.config.maxVerticalSpeed,
-        this.config.maxVerticalSpeed
-    )
-    this.state.player.y += this.state.player.velocityY * step
-
-    const half = this.state.player.size / 2
-    const ceilingY = this.config.corridorInset + half
-    const floorY = this.config.canvasHeight - this.config.corridorInset - half
-    if (this.state.player.y <= ceilingY) {
-        this.state.player.y = ceilingY
-        this.state.player.velocityY = 0
-    } else if (this.state.player.y >= floorY) {
-        this.state.player.y = floorY
-        this.state.player.velocityY = 0
-    }
-}
+this.state.distance += this.state.worldSpeed * step
 ```
 
-Difficulty/score synchronization:
+`syncScore()` calls `calculateGravityFlipScore()` and adds only a positive delta to BaseGame:
 
 ```ts
-private elapsedSeconds(): number {
-    return Math.max(0, this.config.duration - this.state.timeRemaining)
-}
-
-private progress(): number {
-    return clamp(this.elapsedSeconds() / this.config.duration, 0, 1)
-}
-
-private syncDifficulty(): void {
-    const p = this.progress()
-    this.state.worldSpeed =
-        this.config.initialWorldSpeed +
-        (this.config.finalWorldSpeed - this.config.initialWorldSpeed) * p
-}
-
-private syncScore(): void {
-    const target = calculateGravityFlipScore({
-        distancePx: this.state.distance,
-        starsCollected: this.state.starsCollected,
-    })
-    if (target > this.state.score) {
-        this.addScore(target - this.state.score, 'gravity_flip_progress')
-    }
-}
+const target = calculateGravityFlipScore({
+    distancePx: this.state.distance,
+    starsCollected: this.state.starsCollected,
+})
+const delta = target - this.state.score
+if (delta > 0) this.addScore(delta, 'gravity_flip_progress')
 ```
 
-- [ ] **Step 4: Add survival/stats/data lifecycle and regression tests**
+- [ ] **Step 4: Implement terminal stats/data and survival timeout**
 
-Add to the class:
+`getGameStats()` returns BaseGame-compatible final score/time plus `outcome`, floored `distance`, `starsCollected`, and `flips`.
+
+`getGameData()` returns:
 
 ```ts
-protected handleTimeUp(): void {
-    if (this.state.isActive) {
-        this.state.outcome = 'survived'
-        this.syncScore()
-    }
-    super.handleTimeUp()
-}
-
-getGameStats(): GravityFlipStats {
-    return {
-        finalScore: this.state.score,
-        timeElapsed: Math.max(
-            0,
-            this.config.duration - this.state.timeRemaining
-        ),
-        gameCompleted: this.state.isGameOver,
-        outcome: this.state.outcome,
-        distance: Math.floor(this.state.distance),
-        starsCollected: this.state.starsCollected,
-        flips: this.state.flips,
-    }
-}
-
 protected getGameData(): Record<string, unknown> {
     return {
         distance: Math.floor(this.state.distance),
@@ -625,153 +443,126 @@ protected getGameData(): Record<string, unknown> {
 }
 ```
 
-Extend the test file with:
+Override timeout only to label the result:
 
 ```ts
-it('ramps speed from 220 toward 360 using BaseGame time', () => {
-    const game = createGame()
-    game.start()
-    expect(game.getState().worldSpeed).toBe(220)
-    vi.advanceTimersByTime(30_000)
-    game.update(1 / 60)
-    expect(game.getState().worldSpeed).toBeCloseTo(290)
-})
-
-it('marks a timer-complete run as survived', async () => {
-    const game = createGame()
-    game.start()
-    vi.advanceTimersByTime(60_000)
-    await Promise.resolve()
-    expect(game.getState().outcome).toBe('survived')
-    expect(game.getState().isGameOver).toBe(true)
-})
+protected handleTimeUp(): void {
+    this.state.outcome = 'survived'
+    super.handleTimeUp()
+}
 ```
 
-Run:
+- [ ] **Step 5: Run focused tests and commit**
 
 ```bash
 bun run test:run src/lib/games/gravity-flip/GravityFlipGame.test.ts src/lib/games/gravity-flip/scoring.test.ts
-```
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
+bun run typecheck
 git add src/lib/games/gravity-flip/GravityFlipGame.ts src/lib/games/gravity-flip/GravityFlipGame.test.ts
-git commit -m "feat(gravity-flip): add gravity runner physics"
+git commit -m "feat(gravity-flip): add gravity motion"
 ```
 
 ---
 
-### Task 3: Add the bounded challenge stream, stars, collision, and reset lifecycle
+### Task 3: Add descriptor-driven challenge spawn, mover-safe bounds, stars, and collision
 
 **Files:**
 - Modify: `src/lib/games/gravity-flip/GravityFlipGame.ts`
 - Modify: `src/lib/games/gravity-flip/GravityFlipGame.test.ts`
-- Reuse unchanged: `src/lib/games/shared/utils.ts` (`clamp`, `rectOverlap`)
+- Reuse unchanged: `src/lib/games/shared/utils.ts`
 
 **Interfaces:**
-- Preserves Task 2 public API.
-- Adds private one-at-a-time challenge generation and state-owned `hazards[]` / `stars[]` semantics.
-- First generated challenge is always `floor-spike`; random mover eligibility begins at 15 elapsed seconds.
+- Consumes `GRAVITY_FLIP_HAZARD_CATALOG` and `getGravityFlipMoverBounds()`.
+- Produces the complete five-kind challenge runtime with no string parsing.
 
-- [ ] **Step 1: Write RED first-challenge, collision, and star tests**
+- [ ] **Step 1: Write RED catalog and safety tests**
 
-Add tests that lock the product contract without exposing generator internals:
+Add:
 
 ```ts
-it('spawns a deterministic floor spike and safe-side star on start', () => {
-    const game = createGame()
-    game.start()
-    expect(game.getState().hazards).toHaveLength(1)
-    expect(game.getState().hazards[0].kind).toBe('floor-spike')
-    expect(game.getState().stars).toHaveLength(1)
-    expect(game.getState().stars[0].y).toBeLessThan(160)
-})
-
-it('ends once when the first floor spike reaches an unflipped player', async () => {
-    const game = createGame()
-    game.start()
-    for (let i = 0; i < 50 && game.getState().isActive; i++) {
-        game.update(0.1)
-    }
-    await Promise.resolve()
-    expect(game.getState().outcome).toBe('collision')
-    expect(game.getState().isGameOver).toBe(true)
-})
-
-it('collects an opposite-surface star once after a timely flip', () => {
-    const game = createGame()
-    game.start()
-    expect(game.flipGravity()).toBe(true)
-    for (let i = 0; i < 50 && game.getState().starsCollected === 0; i++) {
-        game.update(0.1)
-    }
-    expect(game.getState().starsCollected).toBe(1)
-    expect(game.getState().score).toBeGreaterThanOrEqual(250)
+it('has exactly one descriptor for all five closed hazard kinds', () => {
+    expect(Object.keys(GRAVITY_FLIP_HAZARD_CATALOG).sort()).toEqual([
+        'ceiling-gap',
+        'ceiling-spike',
+        'floor-gap',
+        'floor-spike',
+        'mover',
+    ])
 })
 ```
 
-Run and expect RED because Task 2 does not spawn entities.
-
-- [ ] **Step 2: Add private generation counters and deterministic first challenge**
-
-Add class fields:
+Lock mover safety using the same `rectOverlap` helper as production:
 
 ```ts
-private nextEntityId = 0
-private distanceUntilNextChallengePx = 0
-```
+it('keeps a rail-resting player disjoint from mover at both extrema', () => {
+    const config = createGravityFlipConfig()
+    const { minY, maxY } = getGravityFlipMoverBounds(config)
+    expect({ minY, maxY }).toEqual({ minY: 64, maxY: 216 })
 
-Reset them in constructor completion and `onGameReset()` through one helper:
-
-```ts
-private resetGeneration(): void {
-    this.nextEntityId = 0
-    this.distanceUntilNextChallengePx = this.config.initialChallengeSpacing
-}
-
-protected onGameReset(): void {
-    this.resetGeneration()
-}
-
-protected onGameStart(): void {
-    if (this.state.hazards.length === 0) {
-        this.spawnSurfaceChallenge('floor-spike')
+    const half = config.playerSize / 2
+    const playerX = config.playerX - half
+    const ceilingPlayer = {
+        x: playerX,
+        y: config.corridorInset,
+        width: config.playerSize,
+        height: config.playerSize,
     }
-    this.emitStateChange()
-}
+    const floorPlayer = {
+        x: playerX,
+        y: config.canvasHeight - config.corridorInset - config.playerSize,
+        width: config.playerSize,
+        height: config.playerSize,
+    }
+    const moverAtTop = {
+        x: playerX,
+        y: minY,
+        width: config.moverSize,
+        height: config.moverSize,
+    }
+    const moverAtBottom = { ...moverAtTop, y: maxY }
+
+    expect(rectOverlap(ceilingPlayer, moverAtTop)).toBe(false)
+    expect(rectOverlap(floorPlayer, moverAtBottom)).toBe(false)
+})
 ```
 
-Call `resetGeneration()` in the constructor body after `super(...)` returns.
-
-Use monotonic local IDs:
+Also add tests for:
 
 ```ts
-private entityId(prefix: 'hazard' | 'star'): string {
-    return `${prefix}-${this.nextEntityId++}`
-}
+it('fresh start always authors floor-spike first')
+it('does not select mover before 15 seconds')
+it('can select mover after 15 seconds')
+it('places a star on the opposite surface only when descriptor.hasStar')
+it('floor gap kills only while resting on floor; ceiling is safe')
+it('ceiling gap kills only while resting on ceiling; floor is safe')
+it('mover clamps/reverses at both safe bounds')
+it('overlapping lethal records still end once')
 ```
 
-Do not use global/random IDs; deterministic tests only need run-local identity.
+- [ ] **Step 2: Implement one descriptor-driven surface spawn path**
 
-- [ ] **Step 3: Implement surface challenge creation and safe-side stars**
-
-Use `spawnX = canvasWidth + spawnOffsetX`. For surface challenges:
+Do not use `startsWith`/`endsWith`.
 
 ```ts
-private spawnSurfaceChallenge(
-    kind: Exclude<GravityFlipHazardKind, 'mover'>
-): void {
-    const isFloor = kind.startsWith('floor')
-    const isGap = kind.endsWith('gap')
-    const width = isGap ? this.config.gapWidth : this.config.spikeWidth
-    const height = isGap ? this.config.gapHeight : this.config.spikeHeight
+private spawnChallenge(kind: GravityFlipHazardKind): void {
+    const descriptor = GRAVITY_FLIP_HAZARD_CATALOG[kind]
+    if (descriptor.shape === 'mover') {
+        this.spawnMover(kind)
+        return
+    }
+
+    const width =
+        descriptor.shape === 'gap'
+            ? this.config.gapWidth
+            : this.config.spikeWidth
+    const height =
+        descriptor.shape === 'gap'
+            ? this.config.gapHeight
+            : this.config.spikeHeight
     const x = this.config.canvasWidth + this.config.spawnOffsetX
-    const y = isFloor
-        ? this.config.canvasHeight - this.config.corridorInset - height
-        : this.config.corridorInset
+    const y =
+        descriptor.surface === 'floor'
+            ? this.config.canvasHeight - this.config.corridorInset - height
+            : this.config.corridorInset
 
     this.state.hazards.push({
         id: this.entityId('hazard'),
@@ -783,165 +574,106 @@ private spawnSurfaceChallenge(
         verticalVelocity: 0,
     })
 
-    const halfPlayer = this.config.playerSize / 2
-    const safeY = isFloor
-        ? this.config.corridorInset + halfPlayer
-        : this.config.canvasHeight - this.config.corridorInset - halfPlayer
-    this.state.stars.push({
-        id: this.entityId('star'),
-        x: x + width / 2,
-        y: safeY,
-        radius: this.config.starRadius,
-    })
+    if (descriptor.hasStar && descriptor.surface) {
+        this.spawnOppositeSurfaceStar(x + width / 2, descriptor.surface)
+    }
 }
 ```
 
-Mover creation:
+`spawnOppositeSurfaceStar()` maps the descriptor surface to the opposite rail center; it does not inspect the kind string.
+
+- [ ] **Step 3: Implement safe mover creation/bounce**
 
 ```ts
-private spawnMover(): void {
-    const size = this.config.moverSize
+private spawnMover(kind: 'mover'): void {
+    const { minY, maxY } = getGravityFlipMoverBounds(this.config)
+    const y = (minY + maxY) / 2
     this.state.hazards.push({
         id: this.entityId('hazard'),
-        kind: 'mover',
+        kind,
         x: this.config.canvasWidth + this.config.spawnOffsetX,
-        y: this.config.canvasHeight / 2 - size / 2,
-        width: size,
-        height: size,
+        y,
+        width: this.config.moverSize,
+        height: this.config.moverSize,
         verticalVelocity: this.config.moverVerticalSpeed,
     })
 }
 ```
 
-- [ ] **Step 4: Implement rising spacing and the five-item random catalog**
-
-Add:
+For each mover substep:
 
 ```ts
-private challengeSpacing(): number {
-    const p = this.progress()
-    return (
-        this.config.initialChallengeSpacing +
-        (this.config.finalChallengeSpacing -
-            this.config.initialChallengeSpacing) *
-            p
-    )
-}
-
-private spawnRandomChallenge(): void {
-    const surfaceKinds = [
-        'floor-spike',
-        'ceiling-spike',
-        'floor-gap',
-        'ceiling-gap',
-    ] as const
-    const kinds: readonly GravityFlipHazardKind[] =
-        this.elapsedSeconds() >= this.config.moverUnlockSeconds
-            ? [...surfaceKinds, 'mover']
-            : surfaceKinds
-    const rawIndex = Math.floor(this.config.rng() * kinds.length)
-    const kind = kinds[Math.max(0, Math.min(kinds.length - 1, rawIndex))]
-    if (kind === 'mover') this.spawnMover()
-    else this.spawnSurfaceChallenge(kind)
+const { minY, maxY } = getGravityFlipMoverBounds(this.config)
+hazard.y += hazard.verticalVelocity * step
+if (hazard.y <= minY) {
+    hazard.y = minY
+    hazard.verticalVelocity = Math.abs(hazard.verticalVelocity)
+} else if (hazard.y >= maxY) {
+    hazard.y = maxY
+    hazard.verticalVelocity = -Math.abs(hazard.verticalVelocity)
 }
 ```
 
-In each physics substep, after computing `moved`:
+- [ ] **Step 4: Dispatch collision from descriptor shape/surface**
 
 ```ts
-this.distanceUntilNextChallengePx -= moved
-while (this.distanceUntilNextChallengePx <= 0) {
-    this.spawnRandomChallenge()
-    this.distanceUntilNextChallengePx += this.challengeSpacing()
-}
-```
-
-Add tests with injected RNG `() => 0.999` proving no mover before 15 seconds and mover eligibility after advancing BaseGame fake time past 15 seconds. Assert kinds/outcomes rather than RNG call counts.
-
-- [ ] **Step 5: Move entities and implement collisions with shared AABB reuse**
-
-Import `rectOverlap` from `shared/utils` and create one player rect:
-
-```ts
-private playerRect() {
-    const half = this.state.player.size / 2
-    return {
-        x: this.state.player.x - half,
-        y: this.state.player.y - half,
-        width: this.state.player.size,
-        height: this.state.player.size,
+private collidesWithHazard(hazard: GravityFlipHazard): boolean {
+    const descriptor = GRAVITY_FLIP_HAZARD_CATALOG[hazard.kind]
+    switch (descriptor.shape) {
+        case 'gap':
+            return this.collidesWithGap(hazard, descriptor.surface)
+        case 'spike':
+        case 'mover':
+            return rectOverlap(this.playerRect(), this.hazardRect(hazard))
     }
 }
 ```
 
-For every substep:
+`collidesWithGap()` requires non-null surface and checks X overlap plus rail contact derived from `descriptor.surface`.
 
-1. subtract `state.worldSpeed * step` from hazard/star X;
-2. bounce movers between `corridorInset` and `canvasHeight - corridorInset - height` by clamping Y and reversing `verticalVelocity`;
-3. remove entities fully left of the logical canvas;
-4. collect intersecting stars using their bounding square;
-5. test hazards.
+- [ ] **Step 5: Add the non-vacuous substep regression**
 
-Surface gaps use X overlap plus surface contact:
+The test must create a hazard narrower than one clamped outer-frame displacement:
 
 ```ts
-private gapHitsPlayer(hazard: GravityFlipHazard): boolean {
-    const player = this.playerRect()
-    const overlapsX =
-        player.x < hazard.x + hazard.width &&
-        player.x + player.width > hazard.x
-    if (!overlapsX) return false
+it('collides with an 8px spike that a single 0.1s end-position check would skip', () => {
+    const game = createGame({
+        canvasWidth: 200,
+        spawnOffsetX: 0,
+        playerX: 150,
+        spikeWidth: 8,
+        initialWorldSpeed: 360,
+        finalWorldSpeed: 360,
+    })
 
-    const half = this.state.player.size / 2
-    const ceilingY = this.config.corridorInset + half
-    const floorY = this.config.canvasHeight - this.config.corridorInset - half
-    return hazard.kind === 'floor-gap'
-        ? Math.abs(this.state.player.y - floorY) < 0.5
-        : Math.abs(this.state.player.y - ceilingY) < 0.5
-}
+    game.start()
+    expect(game.getState().hazards[0]).toMatchObject({
+        kind: 'floor-spike',
+        x: 200,
+        width: 8,
+    })
+
+    game.update(0.1)
+
+    expect(game.getState().outcome).toBe('collision')
+    expect(game.getState().isGameOver).toBe(true)
+})
 ```
 
-Spikes and movers use `rectOverlap(this.playerRect(), hazardRect)`.
+Why this is load-bearing: a single 0.1s move at 360 px/s shifts the 8px hazard 36px from `[200,208]` to `[164,172]`, leaving it just beyond a player ending at X=164. Internal 1/120s checks encounter the crossing.
 
-- [ ] **Step 6: Add idempotent collision termination and score synchronization**
-
-```ts
-private failRun(): void {
-    if (!this.state.isActive || this.state.outcome !== 'playing') return
-    this.state.outcome = 'collision'
-    this.syncScore()
-    this.emitStateChange()
-    void this.end()
-}
-```
-
-Stop the substep loop immediately after collision. Add tests for:
-
-- a thin spike still collides when `update(0.1)` is used (proves substeps are load-bearing);
-- a floor gap does not kill a player resting on the ceiling;
-- the same gap does kill a floor-resting player;
-- mover Y reverses at both bounds;
-- overlapping lethal records still result in one end state;
-- `reset()` clears hazards/stars and the next `start()` recreates `hazard-0` as the authored floor spike.
-
-Run:
+- [ ] **Step 6: Run focused gates and commit**
 
 ```bash
-bun run test:run src/lib/games/gravity-flip/GravityFlipGame.test.ts src/lib/games/gravity-flip/scoring.test.ts
-```
-
-Expected: PASS.
-
-- [ ] **Step 7: Commit**
-
-```bash
+bun run test:run src/lib/games/gravity-flip/GravityFlipGame.test.ts
+bun run typecheck
 git add src/lib/games/gravity-flip/GravityFlipGame.ts src/lib/games/gravity-flip/GravityFlipGame.test.ts
-git commit -m "feat(gravity-flip): add hazards and stars"
+git commit -m "feat(gravity-flip): add safe challenge catalog"
 ```
 
 ---
 
-### Task 4: Add the simple two-layer Pixi renderer
+### Task 4: Add the two-layer Pixi renderer with descriptor shape dispatch
 
 **Files:**
 - Create: `src/lib/games/gravity-flip/GravityFlipRenderer.ts`
@@ -949,183 +681,272 @@ git commit -m "feat(gravity-flip): add hazards and stars"
 - Reuse unchanged: `src/lib/games/renderers/PixiJSRenderer.ts`
 
 **Interfaces:**
-- Consumes `GravityFlipState`, `GravityFlipConfig`, and fixed logical coordinates.
-- Produces `GravityFlipRenderer` and `createGravityFlipRendererConfig(config, container)`.
-- Renderer does not own gameplay input; Task 5 attaches pointer input to `app.canvas`.
+- Consumes game state plus `GRAVITY_FLIP_HAZARD_CATALOG`.
+- Produces the fixed 800×320 canvas renderer and `createGravityFlipRendererConfig()`.
 
-- [ ] **Step 1: Write RED setup/render/cleanup tests**
+- [ ] **Step 1: Write RED renderer lifecycle/dispatch tests**
 
-Use the repository's existing Pixi renderer mock pattern and assert behavior, not Pixi internals:
-
-```ts
-it('creates one static corridor layer and one dynamic scene layer', async () => {
-    const renderer = new GravityFlipRenderer(
-        createGravityFlipRendererConfig(createGravityFlipConfig(), '#mount')
-    )
-    await renderer.initialize()
-    expect(renderer.getStage()?.children).toHaveLength(2)
-})
-
-it('redraws the dynamic scene for gravity direction and entities', async () => {
-    // render a state with one floor spike, one gap, one mover, and one star;
-    // assert dynamic Graphics.clear() is called and geometry methods are used.
-})
-
-it('destroys both graphics layers and the Pixi app on cleanup', async () => {
-    // initialize → cleanup → assert canvas/layers are released.
-})
-```
-
-Run and expect RED because the renderer does not exist.
-
-- [ ] **Step 2: Implement renderer setup and fixed logical config**
+Cover:
 
 ```ts
-import * as PIXI from 'pixi.js'
-import {
-    PixiJSRenderer,
-    type PixiJSRendererConfig,
-} from '@/lib/games/renderers/PixiJSRenderer'
-import type { GravityFlipConfig, GravityFlipState } from './types'
-
-export interface GravityFlipRendererConfig extends PixiJSRendererConfig {
-    corridorInset: number
-}
-
-export function createGravityFlipRendererConfig(
-    config: GravityFlipConfig,
-    container: string
-): GravityFlipRendererConfig {
-    return {
-        type: 'canvas',
-        container,
-        width: config.canvasWidth,
-        height: config.canvasHeight,
-        responsive: false,
-        backgroundColor: 0x020617,
-        antialias: true,
-        corridorInset: config.corridorInset,
-    }
-}
-
-export class GravityFlipRenderer extends PixiJSRenderer {
-    private corridorGraphic: PIXI.Graphics | null = null
-    private sceneGraphic: PIXI.Graphics | null = null
-
-    async setup(): Promise<void> {
-        await super.setup()
-        this.corridorGraphic = this.createGraphics()
-        this.sceneGraphic = this.createGraphics()
-        this.addToStage(this.corridorGraphic)
-        this.addToStage(this.sceneGraphic)
-        this.drawCorridor()
-    }
-}
+it('creates one corridor layer and one scene layer')
+it('draws spike, gap, and mover by descriptor.shape')
+it('does not use kind prefix/suffix parsing')
+it('renders player and stars from state')
+it('cleans both graphics and Pixi app idempotently')
 ```
 
-`drawCorridor()` draws the dark playfield, faint vertical guide lines, and top/bottom cyan rails once.
-
-- [ ] **Step 3: Implement one dynamic redraw path**
-
-`renderGame()` type-checks the state, clears `sceneGraphic`, and draws everything from current state. Keep shape ownership in this file only:
-
-```ts
-protected renderGame(state: unknown): void {
-    if (!this.sceneGraphic || !this.isGravityFlipState(state)) return
-    this.sceneGraphic.clear()
-    this.drawPlayer(state)
-    for (const hazard of state.hazards) this.drawHazard(hazard)
-    for (const star of state.stars) this.drawStar(star.x, star.y, star.radius)
-}
-```
-
-Use these visual contracts:
-
-- player: 28px neon diamond plus a short accent chevron toward active gravity;
-- spikes: 3 triangle teeth inside the hazard AABB;
-- gap: background-colored rectangle over the relevant rail plus bright edge caps;
-- mover: glowing outlined orb within its AABB;
-- star: explicit 10-point alternating-radius polygon.
-
-A local star helper is enough:
-
-```ts
-private starPoints(cx: number, cy: number, outer: number): number[] {
-    const points: number[] = []
-    const inner = outer * 0.45
-    for (let i = 0; i < 10; i++) {
-        const radius = i % 2 === 0 ? outer : inner
-        const angle = -Math.PI / 2 + (Math.PI * i) / 5
-        points.push(cx + Math.cos(angle) * radius)
-        points.push(cy + Math.sin(angle) * radius)
-    }
-    return points
-}
-```
-
-Do not add textures, spritesheets, filters, particle emitters, or per-entity display-object maps.
-
-- [ ] **Step 4: Implement cleanup**
-
-Destroy the two owned graphics, null them, then call `super.cleanup()` exactly once:
-
-```ts
-cleanup(): void {
-    this.corridorGraphic?.destroy()
-    this.sceneGraphic?.destroy()
-    this.corridorGraphic = null
-    this.sceneGraphic = null
-    super.cleanup()
-}
-```
+For shape coverage, render one state containing all five kinds and spy on private drawing helpers only through observable Graphics operations or narrowly exposed protected test seams already used by renderer tests; do not add a production registry.
 
 Run:
 
 ```bash
 bun run test:run src/lib/games/gravity-flip/GravityFlipRenderer.test.ts
+```
+
+Expected: FAIL because renderer does not exist.
+
+- [ ] **Step 2: Implement fixed Pixi configuration**
+
+```ts
+export function createGravityFlipRendererConfig(
+    config: GravityFlipConfig
+): PixiJSRendererConfig {
+    return {
+        type: 'canvas',
+        container: '#gravity-flip-canvas',
+        width: config.canvasWidth,
+        height: config.canvasHeight,
+        responsive: false,
+        backgroundColor: 0x020817,
+        antialias: true,
+    }
+}
+```
+
+`setup()` calls `super.setup()`, creates `corridorGraphic` and `sceneGraphic`, adds both to stage, then draws the static corridor once.
+
+- [ ] **Step 3: Implement full dynamic redraw and catalog shape switch**
+
+```ts
+for (const hazard of state.hazards) {
+    const descriptor = GRAVITY_FLIP_HAZARD_CATALOG[hazard.kind]
+    switch (descriptor.shape) {
+        case 'spike':
+            this.drawSpike(hazard, descriptor.surface)
+            break
+        case 'gap':
+            this.drawGap(hazard, descriptor.surface)
+            break
+        case 'mover':
+            this.drawMover(hazard)
+            break
+    }
+}
+```
+
+No `startsWith`, `endsWith`, regex, or second shape map.
+
+Render stars as a small polygon and player as a neon diamond/arrow. Color is supplemental; HUD carries text gravity state.
+
+- [ ] **Step 4: Cleanup and focused verification**
+
+Destroy the two Graphics instances before `super.cleanup()`.
+
+Run:
+
+```bash
+bun run test:run src/lib/games/gravity-flip/GravityFlipRenderer.test.ts src/lib/games/gravity-flip/GravityFlipGame.test.ts
 bun run typecheck
 ```
 
-Expected: PASS / zero typecheck errors.
-
-- [ ] **Step 5: Commit**
+Then commit:
 
 ```bash
 git add src/lib/games/gravity-flip/GravityFlipRenderer.ts src/lib/games/gravity-flip/GravityFlipRenderer.test.ts
-git commit -m "feat(gravity-flip): add Pixi renderer"
+git commit -m "feat(gravity-flip): add pixi renderer"
 ```
 
 ---
 
-### Task 5: Wire the initializer and create the route before catalog activation
+### Task 5: Add current-pattern initializer, accessible input, outcome copy, and route
 
 **Files:**
 - Create: `src/lib/games/gravity-flip/initFramework.ts`
 - Create: `src/lib/games/gravity-flip/initFramework.test.ts`
 - Create: `src/pages/gravity-flip/index.astro`
 - Modify: `src/pages/game-board-markup.test.ts`
+- Reuse unchanged: `src/lib/games/core/errors.ts`
+- Reuse unchanged: `src/lib/games/pattern-pulse/initFramework.ts`
+- Reuse unchanged: `src/lib/games/evader/initFramework.ts`
 
 **Interfaces:**
-- Consumes Tasks 1–4.
-- Produces one initialized game/renderer/rAF handle, page/HUD/result DOM contract, keyboard + canvas pointer + native button input, and the `/gravity-flip` route.
-- The active `GAMES` record remains deferred until Task 6, after this route exists.
+- Produces `initGravityFlipGameFramework()` and handle `{ game, renderer, getGame, getState, cleanup }`.
+- The page assigns `window.gravityFlipGame = handle`.
 
-- [ ] **Step 1: Create the page shell first so route validation can never observe an active missing page**
+- [ ] **Step 1: Write RED initializer contract tests**
 
-`src/pages/gravity-flip/index.astro` uses:
+Cover these exact behaviors:
+
+```ts
+it('reports missing #gravity-flip-container with DOMElementNotFoundError/handleGameError')
+it('cleans renderer and returns undefined when renderer initialization fails')
+it('returns getGame() and getState() on the handle')
+it('starts exactly one rAF loop and uses it for update + render')
+it('Space/ArrowUp/ArrowDown flip while active')
+it('ignores repeat/modifier/editable keyboard targets')
+it('ignores document shortcuts when event.target is a button')
+it('canvas pointerdown and #flip-btn click use flipGravity()')
+it('Reset returns HUD to floor/zero idle state')
+it('collision shows GRAVITY LOST and Collision')
+it('timeout shows RUN COMPLETE and Survived')
+it('Play Again immediately starts a fresh run')
+it('cleanup cancels rAF, removes listeners, destroys renderer/game once')
+it('forwards achievement/challenge completion payloads')
+```
+
+For focused-button behavior, dispatch a bubbling Space keydown from `#flip-btn` and assert no flip from the document listener, then dispatch its click and assert exactly one flip.
+
+- [ ] **Step 2: Implement Pattern Pulse-style DOM/error and handle seams**
+
+Imports include:
+
+```ts
+import {
+    DOMElementNotFoundError,
+    handleGameError,
+} from '@/lib/games/core/errors'
+```
+
+Handle:
+
+```ts
+export interface GravityFlipInitResult {
+    game: GravityFlipGame
+    renderer: GravityFlipRenderer
+    getGame: () => GravityFlipGame
+    getState: () => ReturnType<GravityFlipGame['getState']>
+    cleanup: () => void
+}
+```
+
+Missing required root:
+
+```ts
+const container = document.getElementById('gravity-flip-container')
+if (!container) {
+    handleGameError(
+        new DOMElementNotFoundError('gravity-flip-container'),
+        'GravityFlip'
+    )
+    return undefined
+}
+```
+
+Renderer initialization failure reports through `handleGameError`, cleans the renderer, and returns `undefined`, matching Pattern Pulse rather than inventing a console-only path.
+
+Do **not** assign `window.gravityFlipGame` inside this module.
+
+- [ ] **Step 3: Add Evader-style local rAF loop**
+
+```ts
+let frameId: number | null = null
+let lastUpdateTime = Date.now()
+
+const frame = () => {
+    const now = Date.now()
+    const deltaSeconds = Math.min((now - lastUpdateTime) / 1000, 0.1)
+    lastUpdateTime = now
+
+    const state = game.getState()
+    if (state.isActive && !state.isPaused) {
+        game.update(deltaSeconds)
+    }
+    renderer.render(game.getState())
+    frameId = requestAnimationFrame(frame)
+}
+frameId = requestAnimationFrame(frame)
+```
+
+Cleanup cancels `frameId` before renderer/game destruction.
+
+- [ ] **Step 4: Add local editable/button keyboard filtering**
+
+Copy the Pattern Pulse shape locally; do not add a shared input module:
+
+```ts
+function isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false
+    return (
+        target.isContentEditable ||
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+    )
+}
+```
+
+Document handler:
+
+```ts
+const onKeyDown = (event: KeyboardEvent): void => {
+    if (
+        event.repeat ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        isEditableTarget(event.target) ||
+        event.target instanceof HTMLButtonElement
+    ) {
+        return
+    }
+
+    if (![' ', 'Spacebar', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+        return
+    }
+    if (game.flipGravity()) event.preventDefault()
+}
+```
+
+Attach `click` on `#flip-btn` and `pointerdown` on the Pixi canvas to the same `game.flipGravity()` call.
+
+- [ ] **Step 5: Implement terminal copy and deliberate Play Again semantics**
+
+Outcome helpers are local:
+
+```ts
+function outcomeTitle(outcome: GravityFlipOutcome): string {
+    return outcome === 'survived' ? 'RUN COMPLETE' : 'GRAVITY LOST'
+}
+
+function outcomeLabel(outcome: GravityFlipOutcome): string {
+    return outcome === 'survived' ? 'Survived' : 'Collision'
+}
+```
+
+End callback always writes `#game-over-title`, `#final-outcome`, score/distance/stars/flips, then shows overlay.
+
+Play Again handler must include this comment and behavior:
+
+```ts
+const playAgainHandler = (): void => {
+    hideOverlay()
+    // BaseGame.start() auto-resets a completed run and immediately starts it.
+    // Do not change Play Again to reset-only: Gravity Flip's browser/user flow
+    // expects the next run to be active as soon as this button is pressed.
+    game.start()
+}
+```
+
+- [ ] **Step 6: Create the Astro page and let the page own the debug global**
+
+Use `GamePage` with:
 
 ```astro
----
-import GamePage from '@/components/games/GamePage.astro'
-import Button from '@/components/ui/Button.astro'
-import Card from '@/components/ui/Card.astro'
-import Badge from '@/components/ui/Badge.astro'
----
-
 <GamePage
   gameId="gravity-flip"
   title="Gravity Flip"
-  description="Flip between floor and ceiling gravity to dodge hazards and collect stars for 60 seconds."
+  description="Flip gravity to dodge hazards and collect stars for 60 seconds."
   icon="🌗"
   initialTime={60}
   showPause={false}
@@ -1133,227 +954,79 @@ import Badge from '@/components/ui/Badge.astro'
   showReset={true}
   overlayTitle="GRAVITY LOST"
 >
-  <div slot="game-board" id="gravity-flip-container" class="space-y-4">
-    <div id="gravity-flip-canvas" class="overflow-hidden rounded-xl"></div>
-    <div class="flex justify-center">
-      <Button id="flip-btn" type="button" variant="primary">Flip Gravity</Button>
-    </div>
-  </div>
-
-  <div slot="additional-stats" class="grid grid-cols-2 gap-3 text-sm">
-    <div>Gravity <span id="gravity-direction">FLOOR ↓</span></div>
-    <div>Distance <span id="distance-traveled">0</span>m</div>
-    <div>Stars <span id="stars-collected">0</span></div>
-    <div>Flips <span id="flip-count">0</span></div>
-    <div>Speed <span id="world-speed">220</span></div>
-  </div>
-
-  <div slot="game-info">
-    <Card variant="glass" class="p-6 space-y-3 text-sm">
-      <div>Flip before spikes or gaps reach your current surface.</div>
-      <div>Stars appear on the opposite safe surface and are optional.</div>
-      <div class="flex gap-2"><Badge variant="outline">Space</Badge><Badge variant="outline">↑ / ↓</Badge><span>Flip gravity</span></div>
-      <div>Tap/click the playfield or use the Flip Gravity button on touch devices.</div>
-    </Card>
-  </div>
-
-  <div slot="final-stats" class="space-y-2">
-    <div id="final-outcome">Collision</div>
-    <div>Distance: <span id="final-distance">0</span>m</div>
-    <div>Stars: <span id="final-stars">0</span></div>
-    <div>Flips: <span id="final-flips">0</span></div>
-  </div>
-</GamePage>
-
-<style>
-  #gravity-flip-canvas :global(canvas) {
-    display: block;
-    width: min(800px, 92vw);
-    max-width: 100%;
-    height: auto;
-    touch-action: manipulation;
-  }
-</style>
-
-<script>
-  import { initGravityFlipGameFramework } from '@/lib/games/gravity-flip/initFramework'
-
-  let handle: Awaited<ReturnType<typeof initGravityFlipGameFramework>> | undefined
-  const init = async () => {
-    handle = await initGravityFlipGameFramework()
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true })
-  } else {
-    void init()
-  }
-  window.addEventListener('beforeunload', () => handle?.cleanup(), { once: true })
-</script>
 ```
 
-Keep the `<script>` at page root, outside `GamePage`, per the current component contract.
+Board IDs:
 
-- [ ] **Step 2: Freeze the page contract in markup tests**
+```html
+<div id="gravity-flip-container">
+  <div id="gravity-flip-canvas"></div>
+  <button id="flip-btn" type="button">Flip Gravity</button>
+</div>
+```
 
-In `src/pages/game-board-markup.test.ts`, load `gravityFlipMarkup`, add `'gravity-flip'` to the `games` array, and add:
+Include HUD/final IDs from the spec and CSS:
+
+```css
+#gravity-flip-canvas :global(canvas) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  touch-action: manipulation;
+}
+```
+
+Page-root script:
 
 ```ts
-describe('Gravity Flip page markup', () => {
-    it('keeps the canvas mount, accessible flip button, and root initializer', () => {
-        expect(gravityFlipMarkup).toContain('id="gravity-flip-container"')
-        expect(gravityFlipMarkup).toContain('id="gravity-flip-canvas"')
-        expect(gravityFlipMarkup).toContain('id="flip-btn"')
-        expect(gravityFlipMarkup).toContain('id="gravity-direction"')
-        expect(gravityFlipMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initGravityFlipGameFramework/
-        )
-    })
+import { initGravityFlipGameFramework } from '@/lib/games/gravity-flip/initFramework'
+
+document.addEventListener('DOMContentLoaded', () => {
+    initGravityFlipGameFramework()
+        .then(handle => {
+            if (handle) {
+                ;(
+                    window as Window & { gravityFlipGame?: typeof handle }
+                ).gravityFlipGame = handle
+            }
+        })
+        .catch(error => {
+            console.error('Gravity Flip failed to initialize', error)
+        })
 })
 ```
 
-Run:
+- [ ] **Step 7: Lock page structure**
 
-```bash
-bun run test:run src/pages/game-board-markup.test.ts src/lib/games.test.ts
-```
-
-Expected: PASS. `getGameById(GRAVITY_FLIP)` still returns undefined until Task 6.
-
-- [ ] **Step 3: Write RED initializer input/lifecycle tests**
-
-Create jsdom tests that install the exact required DOM IDs and mock the renderer. Lock these behaviors:
+In `src/pages/game-board-markup.test.ts`, add Gravity Flip to the game list and assert:
 
 ```ts
-it('starts one rAF loop and advances/render only through that loop')
-it('Space/ArrowUp/ArrowDown flip while active and ignore key repeat')
-it('ignores modifier chords and editable targets')
-it('canvas pointerdown and #flip-btn use the same flip API')
-it('Reset clears the run and restores FLOOR / zero HUD')
-it('end shows collision/survival final stats and Play Again starts a fresh run')
-it('cleanup cancels rAF, removes listeners, destroys game/renderer, and is idempotent')
-it('forwards BaseGame achievement and challenge completion payloads')
+expect(gravityFlipMarkup).toContain('id="gravity-flip-container"')
+expect(gravityFlipMarkup).toContain('id="gravity-flip-canvas"')
+expect(gravityFlipMarkup).toContain('id="flip-btn"')
+expect(gravityFlipMarkup).toMatch(
+    /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initGravityFlipGameFramework/
+)
 ```
-
-For keyboard assertions, dispatch on `document`; for pointer input dispatch against the renderer canvas; for editable filtering dispatch a bubbling keydown from an `<input>`.
-
-Run and expect RED because `initFramework.ts` does not exist.
-
-- [ ] **Step 4: Implement the initializer with one rAF loop**
-
-Create `initFramework.ts` with a small handle:
-
-```ts
-export interface GravityFlipInitResult {
-    game: GravityFlipGame
-    renderer: GravityFlipRenderer
-    cleanup: () => void
-    getState: () => ReturnType<GravityFlipGame['getState']>
-}
-```
-
-Initialization order:
-
-1. require `#gravity-flip-container` and `#gravity-flip-canvas`;
-2. create/initialize `GravityFlipRenderer`;
-3. create `GravityFlipGame` with enhanced BaseGame callbacks;
-4. attach achievement/challenge `end` listener;
-5. attach Start/Reset/Play Again/Flip/keyboard/canvas-pointer handlers;
-6. start exactly one rAF loop;
-7. render initial state;
-8. expose the returned handle as `window.gravityFlipGame`.
-
-The loop follows the existing local pattern:
-
-```ts
-let frameId: number | null = null
-let lastTime = performance.now()
-const frame = (now: number) => {
-    const delta = Math.min(Math.max(0, now - lastTime) / 1000, 0.1)
-    lastTime = now
-    const state = game.getState()
-    if (state.isActive && !state.isPaused) game.update(delta)
-    renderer.render(game.getState())
-    frameId = requestAnimationFrame(frame)
-}
-frameId = requestAnimationFrame(frame)
-```
-
-Do not create a second interval/ticker for gameplay.
-
-- [ ] **Step 5: Implement one shared flip action and keyboard filters**
-
-```ts
-const editable = (target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) return false
-    const tag = target.tagName
-    return (
-        tag === 'INPUT' ||
-        tag === 'TEXTAREA' ||
-        tag === 'SELECT' ||
-        target.isContentEditable
-    )
-}
-
-const flip = () => game.flipGravity()
-const onKeyDown = (event: KeyboardEvent) => {
-    if (
-        event.repeat ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.altKey ||
-        editable(event.target) ||
-        ![' ', 'Spacebar', 'ArrowUp', 'ArrowDown'].includes(event.key)
-    ) {
-        return
-    }
-    if (flip()) event.preventDefault()
-}
-```
-
-Attach `onKeyDown` to `document`, `flip` to `#flip-btn` click, and a pointer handler to `renderer.getApp()?.canvas`.
-
-- [ ] **Step 6: Implement HUD, results, Play Again, and cleanup**
-
-State callback updates:
-
-```text
-#gravity-direction  FLOOR ↓ / CEILING ↑
-#distance-traveled floor(distance / 10) / 10
-#stars-collected   starsCollected
-#flip-count        flips
-#world-speed       floor(worldSpeed)
-```
-
-End callback updates `#game-over-title`, `#final-score`, `#final-outcome`, `#final-distance`, `#final-stars`, `#final-flips`, and removes `hidden` from `#game-over-overlay`.
-
-Button behavior:
-
-- Start → `game.start()` and hide Start while active;
-- Reset → `game.reset()`, hide overlay, show Start;
-- Play Again → hide overlay and call `game.start()`; BaseGame auto-resets the completed run;
-- Flip → `game.flipGravity()`.
-
-Cleanup is guarded by a boolean and cancels rAF before removing listeners / renderer / game.
 
 Run:
 
 ```bash
 bun run test:run src/lib/games/gravity-flip/initFramework.test.ts src/pages/game-board-markup.test.ts
 bun run typecheck
+bun run format:check
 ```
 
-Expected: PASS / zero typecheck errors.
-
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src/lib/games/gravity-flip/initFramework.ts src/lib/games/gravity-flip/initFramework.test.ts src/pages/gravity-flip/index.astro src/pages/game-board-markup.test.ts
-git commit -m "feat(gravity-flip): wire page and controls"
+git commit -m "feat(gravity-flip): add page and input wiring"
 ```
 
 ---
 
-### Task 6: Activate the catalog entry, achievements, browser journey, and repository gates
+### Task 6: Register the game, achievements, browser journey, docs, and repository gates
 
 **Files:**
 - Modify: `src/lib/games.ts`
@@ -1364,13 +1037,19 @@ git commit -m "feat(gravity-flip): wire page and controls"
 - Modify: `e2e/games/play-coverage.spec.ts`
 - Modify: `CLAUDE.md`
 - Verify unchanged: `e2e/games/all-games-navigation.spec.ts`
-- Verify unchanged: `AGENTS.md` symlink
+- Verify unchanged: `src/lib/games/core/BaseGame.ts`
+- Verify unchanged: `src/lib/games/core/GameTimer.ts`
+- Verify unchanged: `src/lib/games/core/ScoreManager.ts`
+- Verify unchanged: `src/lib/games/core/GameInitializer.ts`
+- Verify unchanged: `src/lib/games/renderers/PixiJSRenderer.ts`
+- Verify unchanged: `src/lib/services/scoreService.ts`
+- Verify unchanged: `src/pages/api/`
+- Verify unchanged: `src/lib/server/db/`
 
 **Interfaces:**
-- Consumes the complete route/runtime from Tasks 1–5.
-- Produces the active Gravity Flip catalog card, standard score/achievement typing, four achievements, one real browser lose/restart/input journey, and repository documentation.
+- Completes HPA-73 platform integration. No new architecture seam is introduced.
 
-- [ ] **Step 1: Activate the exact registry entry now that `/gravity-flip` exists**
+- [ ] **Step 1: Activate the exact registry entry now that the route exists**
 
 Add to `GAMES`:
 
@@ -1378,51 +1057,22 @@ Add to `GAMES`:
 {
     id: GameID.GRAVITY_FLIP,
     name: 'Gravity Flip',
-    description: 'Flip gravity to dodge corridor hazards and collect stars',
+    description:
+        'Flip gravity to dodge hazards and collect stars in a one-minute precision run',
     category: 'action',
     maxPlayers: 1,
     estimatedDuration: '1 minute',
     difficulty: 'medium',
-    tags: ['gravity', 'runner', 'reflex', 'single-player', 'timing'],
+    tags: ['gravity', 'runner', 'precision', 'single-player', 'action'],
     isActive: true,
     organism: { shape: 'spiral', color: 'magenta' },
     depth: 'mid',
-},
+}
 ```
 
-Replace Task 1's temporary identifier test with an exact registration test:
+Replace the Task 1 pre-registration test with an exact active-entry assertion and verify `getGameUrl(GameID.GRAVITY_FLIP) === '/gravity-flip'`.
 
-```ts
-describe('Gravity Flip registration', () => {
-    it('has the exact active registry entry and route', () => {
-        expect(GameID.GRAVITY_FLIP).toBe('gravity_flip')
-        expect(getGameIcon(GameID.GRAVITY_FLIP)).toBe('🌗')
-        expect(getGameUrl(GameID.GRAVITY_FLIP)).toBe('/gravity-flip')
-        expect(getGameById(GameID.GRAVITY_FLIP)).toMatchObject({
-            name: 'Gravity Flip',
-            category: 'action',
-            estimatedDuration: '1 minute',
-            difficulty: 'medium',
-            isActive: true,
-            organism: { shape: 'spiral', color: 'magenta' },
-            depth: 'mid',
-        })
-        expect(
-            GAMES.filter(game => game.id === GameID.GRAVITY_FLIP)
-        ).toHaveLength(1)
-    })
-})
-```
-
-Run:
-
-```bash
-bun run test:run src/lib/games.test.ts
-```
-
-Expected: PASS including the existing “route exists for every game” invariant.
-
-- [ ] **Step 2: Add canonical shared game-data typing**
+- [ ] **Step 2: Add canonical game-data typing**
 
 In `src/lib/games/shared/types.ts`:
 
@@ -1431,9 +1081,9 @@ export type GravityFlipGameData =
     import('../gravity-flip/types').GravityFlipGameData
 ```
 
-Add `| GravityFlipGameData` to `GameData`. Import it into `src/lib/achievements.ts` and add it to `AchievementCheckData` beside the other game-local aliases.
+Add it to `GameData` and to the achievement check union in `src/lib/achievements.ts`.
 
-- [ ] **Step 3: Add four lean achievements and RED/GREEN tests**
+- [ ] **Step 3: Add four achievements; First Flip must inspect flips**
 
 Add:
 
@@ -1441,152 +1091,138 @@ Add:
 {
     id: 'gravity_flip_welcome',
     name: 'First Flip',
-    description: 'Score your first points in Gravity Flip',
+    description: 'Flip gravity for the first time.',
     logo: '🌗',
     gameId: GameID.GRAVITY_FLIP,
-    condition: { type: 'score_threshold', threshold: 1 },
+    condition: {
+        type: 'in_game',
+        check: (gameData: GravityFlipGameData) => gameData.flips >= 1,
+    },
     rarity: AchievementRarity.COMMON,
 },
 {
-    id: 'gravity_flip_star_chaser',
-    name: 'Star Chaser',
-    description: 'Collect 5 stars in one Gravity Flip run',
+    id: 'gravity_flip_star_catcher',
+    name: 'Star Catcher',
+    description: 'Collect 5 stars in one Gravity Flip run.',
     logo: '⭐',
     gameId: GameID.GRAVITY_FLIP,
     condition: {
         type: 'in_game',
-        check: (data: GravityFlipGameData) => data.starsCollected >= 5,
+        check: (gameData: GravityFlipGameData) =>
+            gameData.starsCollected >= 5,
     },
     rarity: AchievementRarity.RARE,
 },
 {
-    id: 'gravity_flip_long_haul',
-    name: 'Long Haul',
-    description: 'Travel 8,000 pixels in one Gravity Flip run',
-    logo: '🚀',
+    id: 'gravity_flip_dancer',
+    name: 'Gravity Dancer',
+    description: 'Flip gravity at least 20 times in one run.',
+    logo: '🔄',
     gameId: GameID.GRAVITY_FLIP,
     condition: {
         type: 'in_game',
-        check: (data: GravityFlipGameData) => data.distance >= 8000,
+        check: (gameData: GravityFlipGameData) => gameData.flips >= 20,
     },
     rarity: AchievementRarity.RARE,
 },
 {
-    id: 'gravity_flip_survivor',
-    name: 'Gravity Master',
-    description: 'Survive the full 60-second Gravity Flip run',
-    logo: '🏆',
+    id: 'gravity_flip_full_orbit',
+    name: 'Full Orbit',
+    description: 'Survive the full Gravity Flip run.',
+    logo: '🪐',
     gameId: GameID.GRAVITY_FLIP,
     condition: {
         type: 'in_game',
-        check: (data: GravityFlipGameData) => data.survivedFullRun,
+        check: (gameData: GravityFlipGameData) =>
+            gameData.survivedFullRun,
     },
     rarity: AchievementRarity.EPIC,
 },
 ```
 
-In `achievements.test.ts`, assert exact IDs/game ID and threshold boundaries (`4→false/5→true`, `7999→false/8000→true`, survived false/true).
+Achievement tests must explicitly prove the review regression:
 
-Run:
+```ts
+expect(firstFlip.condition.check?.({
+    distance: 1000,
+    starsCollected: 0,
+    flips: 0,
+    survivedFullRun: false,
+}, 200)).toBe(false)
 
-```bash
-bun run test:run src/lib/achievements.test.ts src/lib/games.test.ts
+expect(firstFlip.condition.check?.({
+    distance: 0,
+    starsCollected: 0,
+    flips: 1,
+    survivedFullRun: false,
+}, 0)).toBe(true)
 ```
 
-Expected: PASS.
+Distance score must not unlock **First Flip**.
 
-- [ ] **Step 4: Add one real browser lose/restart/input journey**
+- [ ] **Step 4: Add one deterministic browser lose/restart/input journey**
 
-Append to `e2e/games/play-coverage.spec.ts`:
+In `e2e/games/play-coverage.spec.ts`:
 
 ```ts
 test.describe('Gravity Flip', () => {
-    test('renders, loses to the authored first spike, restarts, and flips by button/keyboard', async ({
+    test('loses to the authored spike, restarts, and flips once per input', async ({
         page,
     }) => {
         await page.goto('/gravity-flip')
         await expectVisibleGameSurface(page, '#gravity-flip-canvas canvas')
         await expect(page.locator('#gravity-direction')).toHaveText('FLOOR ↓')
-        await expect(page.locator('#score')).toHaveText('0')
 
         await startGameWhenReady(page)
 
-        // The first challenge is deliberately a floor spike. No input is a
-        // deterministic real loss, not a test-only forced state.
+        // No flip: deterministic authored floor spike must end this run.
         await expect(page.locator('#game-over-overlay')).not.toHaveClass(
             /hidden/,
             { timeout: 8000 }
         )
-        await expect(page.locator('#final-outcome')).toHaveText(/Collision/i)
+        await expect(page.locator('#game-over-title')).toHaveText('GRAVITY LOST')
+        await expect(page.locator('#final-outcome')).toHaveText('Collision')
 
         await page.locator('#play-again-btn').click()
+        await expect(page.locator('#start-btn')).toHaveCSS('display', 'none')
         await expect(page.locator('#gravity-direction')).toHaveText('FLOOR ↓')
 
         await page.locator('#flip-btn').click()
         await expect(page.locator('#gravity-direction')).toHaveText('CEILING ↑')
 
+        // Move focus away from #flip-btn so document Space owns this action.
+        await page.locator('#gravity-flip-canvas').click()
         await page.keyboard.press('Space')
         await expect(page.locator('#gravity-direction')).toHaveText('FLOOR ↓')
     })
 })
 ```
 
-Run:
+Browser coverage remains collision-only; survival copy is covered deterministically in unit/integration tests without a 60-second E2E wait.
 
-```bash
-bun run test:e2e -- e2e/games/play-coverage.spec.ts
-```
+- [ ] **Step 5: Update CLAUDE.md only for the new game**
 
-Expected: Gravity Flip journey passes together with existing game smoke tests.
+Update game count/list, add the Gravity Flip renderer/game note, and preserve the debug contract `window.gameNameGame.getGame()`. Do not edit the `AGENTS.md` symlink separately.
 
-- [ ] **Step 5: Update repository game documentation without touching the symlink**
+- [ ] **Step 6: Run focused + full repository gates**
 
-In `CLAUDE.md`, add Gravity Flip to the active game list/catalog documentation with:
-
-```text
-Gravity Flip — /gravity-flip — action — 1 minute — PixiJS/BaseGame
-```
-
-Do not edit `AGENTS.md` directly. Verify it remains the existing symlink after the change.
-
-- [ ] **Step 6: Run focused and full verification**
-
-Focused:
+Run fresh:
 
 ```bash
 bun run test:run src/lib/games/gravity-flip src/lib/games.test.ts src/lib/achievements.test.ts src/pages/game-board-markup.test.ts
-bun run test:e2e -- e2e/games/play-coverage.spec.ts e2e/games/all-games-navigation.spec.ts
-```
-
-Repository gates:
-
-```bash
-bun run test:run
 bun run typecheck
 bun run lint
 bun run format:check
 bun run build
+bun run test:e2e -- e2e/games/play-coverage.spec.ts e2e/games/all-games-navigation.spec.ts
 bun run test:coverage
 ```
 
-Then verify remote Codecov project + patch statuses both meet the configured 90% / 0%-threshold blocking gate. Do not replace the remote patch result with a local aggregate-coverage claim.
+Expected: all commands exit 0; remote Codecov project and patch statuses must meet 90% / threshold 0.
 
-- [ ] **Step 7: Verify scope boundary**
+- [ ] **Step 7: Verify scope boundaries in the final diff**
 
-The implementation diff may add/modify only the Gravity Flip game/page/tests plus:
-
-```text
-src/lib/games.ts
-src/lib/games.test.ts
-src/lib/games/shared/types.ts
-src/lib/achievements.ts
-src/lib/achievements.test.ts
-src/pages/game-board-markup.test.ts
-e2e/games/play-coverage.spec.ts
-CLAUDE.md
-```
-
-Confirm these remain production-unchanged:
+Confirm these remain source-unchanged:
 
 ```text
 src/lib/games/core/BaseGame.ts
@@ -1596,15 +1232,31 @@ src/lib/games/core/GameInitializer.ts
 src/lib/games/renderers/PixiJSRenderer.ts
 src/lib/services/scoreService.ts
 src/pages/api/
-src/server/db/
+src/lib/server/db/
 e2e/games/all-games-navigation.spec.ts
 ```
+
+No package, migration, schema, shared physics/input/runner framework, Daily mode, seed system, or generic generator should appear.
 
 - [ ] **Step 8: Commit**
 
 ```bash
 git add src/lib/games.ts src/lib/games.test.ts src/lib/games/shared/types.ts src/lib/achievements.ts src/lib/achievements.test.ts e2e/games/play-coverage.spec.ts CLAUDE.md
-git commit -m "feat(gravity-flip): integrate game with Cetus"
+git commit -m "feat(gravity-flip): register game and achievements"
 ```
 
-The complete HPA-73 implementation remains one PR. Do not split platform integration into a second PR.
+## Plan Self-Review Checklist
+
+Before implementation starts, verify this document against the spec:
+
+- [ ] Every hazard kind has exactly one descriptor row.
+- [ ] No planned production path parses hazard kind strings.
+- [ ] Default mover bounds are 64..216 and rail AABBs are disjoint at extrema.
+- [ ] Thin-hazard regression uses injected 8px width and would be skipped by a single 0.1s endpoint test.
+- [ ] First Flip checks `flips >= 1`, not score.
+- [ ] Focused button keyboard is ignored by the document handler.
+- [ ] Collision and survival presentation strings are both asserted.
+- [ ] Initializer returns `getGame()` and page owns global assignment.
+- [ ] Play Again calls `game.start()` and has the explanatory source comment.
+- [ ] Unchanged DB path is `src/lib/server/db/`.
+- [ ] One implementation PR only; no shared framework or backend expansion.
