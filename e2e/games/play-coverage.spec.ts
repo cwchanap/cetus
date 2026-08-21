@@ -1280,6 +1280,8 @@ test.describe('Mine Grid', () => {
 test.describe('Pattern Pulse', () => {
     test('completes one random sequence and accepts a numeric shortcut', async ({
         page,
+    }: {
+        page: Page
     }) => {
         await page.goto('/pattern-pulse')
         await expect(page.locator('#pattern-pulse-board')).toBeVisible()

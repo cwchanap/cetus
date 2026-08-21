@@ -219,6 +219,10 @@ export class PatternPulseGame extends BaseGame<
         }
     }
 
+    // Begin a full playback pass of the current sequence. Resets to the first
+    // cue, switches to the 'watch' phase, and schedules the first cue after a
+    // short pre-playback delay. The watch-to-input transition happens inside
+    // playNextCue once every cue has been shown.
     private beginPlayback(): void {
         this.clearScheduled()
         this.playbackIndex = 0
@@ -232,6 +236,13 @@ export class PatternPulseGame extends BaseGame<
         )
     }
 
+    // Play the cue at playbackIndex, or hand off to beginInput when the whole
+    // sequence has been shown. Each cue lights its pad (activePad set), then
+    // schedules a step to clear it after pulseMs, which in turn schedules the
+    // next cue after pulseGapMs. Invariant: only one timeout is ever pending —
+    // schedule() clears any prior timeout first — and every scheduled step
+    // re-checks isActive/isGameOver before touching state, so an end or pause
+    // during playback cancels cleanly with no stray callbacks mutating state.
     private playNextCue(): void {
         if (!this.state.isActive || this.state.isGameOver) {
             return
