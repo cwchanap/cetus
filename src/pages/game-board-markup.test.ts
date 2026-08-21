@@ -44,6 +44,7 @@ const games = [
     'satellite-sync',
     'ice-slide',
     'mine-grid',
+    'pattern-pulse',
 ]
 
 describe('Game board page markup', () => {
@@ -135,12 +136,31 @@ describe('Ice Slide Daily and Expedition challenge markup', () => {
     })
 })
 
+const patternPulseMarkup = readFileSync(
+    resolve(process.cwd(), 'src/pages/pattern-pulse/index.astro'),
+    'utf-8'
+)
+
 describe('Mine Grid page markup', () => {
     it('keeps the two-container board and root-level initializer', () => {
         expect(mineGridMarkup).toContain('id="mine-grid-container"')
         expect(mineGridMarkup).toContain('id="mine-grid-board"')
         expect(mineGridMarkup).toMatch(
             /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initMineGridGameFramework/
+        )
+    })
+})
+
+describe('Pattern Pulse page markup', () => {
+    it('keeps the static pad board and root-level initializer', () => {
+        expect(patternPulseMarkup).toContain('id="pattern-pulse-container"')
+        expect(patternPulseMarkup).toContain('id="pattern-pulse-board"')
+        expect(
+            patternPulseMarkup.match(/data-pattern-pad="[0-3]"/g)
+        ).toHaveLength(4)
+        expect(patternPulseMarkup).toContain('id="pattern-status"')
+        expect(patternPulseMarkup).toMatch(
+            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initPatternPulseGameFramework/
         )
     })
 })
