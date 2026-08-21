@@ -1,0 +1,150 @@
+---
+import GamePage from '@/components/games/GamePage.astro'
+import Badge from '@/components/ui/Badge.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+---
+
+<GamePage
+  gameId="gravity-flip"
+  title="Gravity Flip"
+  description="Flip gravity to dodge hazards and collect stars for 60 seconds."
+  icon="🌗"
+  initialTime={60}
+  showPause={false}
+  showEnd={false}
+  showReset={true}
+  overlayTitle="GRAVITY LOST"
+>
+  <div
+    slot="game-board"
+    id="gravity-flip-container"
+    class="w-[min(800px,calc(100vw-2rem))]"
+  >
+    <div
+      id="gravity-flip-canvas"
+      class="overflow-hidden rounded-lg bg-black/30"
+      role="img"
+      aria-label="Gravity Flip game board"
+    >
+    </div>
+  </div>
+
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">
+      Gravity: <span id="gravity-direction">FLOOR ↓</span>
+    </span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">
+      Distance: <span id="distance-traveled">0</span>
+    </span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Stars: <span id="stars-collected">0</span></span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Flips: <span id="flip-count">0</span></span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">
+      Speed: <span id="world-speed">220</span>
+    </span>
+  </Badge>
+
+  <div slot="controls">
+    <Card variant="glass" class="p-6">
+      <div class="flex flex-col items-center space-y-4">
+        <div class="flex flex-wrap justify-center gap-2">
+          <Button id="start-btn" type="button" variant="primary">
+            Start Game
+          </Button>
+          <Button
+            id="end-btn"
+            type="button"
+            variant="outline"
+            style="display: none;">End Game</Button
+          >
+          <Button id="reset-btn" type="button" variant="outline">
+            Reset
+          </Button>
+        </div>
+        <Button
+          id="flip-btn"
+          type="button"
+          variant="primary"
+          size="lg"
+          aria-label="Flip gravity"
+        >
+          FLIP GRAVITY
+        </Button>
+      </div>
+    </Card>
+  </div>
+
+  <div slot="game-info" class="space-y-6">
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ HOW TO PLAY
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink">
+        <p>Auto-run through the corridor while gravity pulls toward a rail.</p>
+        <p>Flip gravity to avoid spikes, gaps, and moving hazards.</p>
+        <p>Collect stars for bonus points, then survive the full minute.</p>
+      </div>
+    </Card>
+
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SCORING
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink">
+        <p>Distance earns points as the world scrolls.</p>
+        <p>Each collected star adds 250 points.</p>
+        <p>A collision ends the run immediately.</p>
+      </div>
+    </Card>
+  </div>
+
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Outcome: <span id="final-outcome" class="text-cetus-accent">—</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Distance: <span id="final-distance" class="text-cetus-accent-2">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Stars: <span id="final-stars" class="text-cetus-accent-3">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Flips: <span id="final-flips" class="text-cetus-accent">0</span>
+    </div>
+  </div>
+</GamePage>
+
+<script>
+  import { initGravityFlipGameFramework } from '@/lib/games/gravity-flip/initFramework'
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initGravityFlipGameFramework()
+      .then(handle => {
+        if (handle) {
+          ;(
+            window as Window & { gravityFlipGame?: typeof handle }
+          ).gravityFlipGame = handle
+        }
+      })
+      .catch(error => {
+        console.error('Gravity Flip failed to initialize', error)
+      })
+  })
+</script>
+
+<style>
+  #gravity-flip-canvas :global(canvas) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    touch-action: manipulation;
+  }
+</style>
