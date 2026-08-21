@@ -367,10 +367,27 @@ describe('Game registry organism/depth fields', () => {
     })
 })
 
-describe('Gravity Flip identifier', () => {
-    it('reserves the id/icon before route registration', () => {
+describe('Gravity Flip registration', () => {
+    it('has the exact active registry entry', () => {
         expect(GameID.GRAVITY_FLIP).toBe('gravity_flip')
+        expect(getGameById(GameID.GRAVITY_FLIP)).toMatchObject({
+            id: GameID.GRAVITY_FLIP,
+            name: 'Gravity Flip',
+            description:
+                'Flip gravity to dodge hazards and collect stars in a one-minute precision run',
+            category: 'action',
+            maxPlayers: 1,
+            estimatedDuration: '1 minute',
+            difficulty: 'medium',
+            tags: ['gravity', 'runner', 'precision', 'single-player', 'action'],
+            isActive: true,
+            organism: { shape: 'spiral', color: 'magenta' },
+            depth: 'mid',
+        })
         expect(getGameIcon(GameID.GRAVITY_FLIP)).toBe('🌗')
-        expect(getGameById(GameID.GRAVITY_FLIP)).toBeUndefined()
+        expect(getGameUrl(GameID.GRAVITY_FLIP)).toBe('/gravity-flip')
+        expect(
+            GAMES.filter(game => game.id === GameID.GRAVITY_FLIP)
+        ).toHaveLength(1)
     })
 })

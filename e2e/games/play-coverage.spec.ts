@@ -1323,3 +1323,47 @@ test.describe('Pattern Pulse', () => {
         await expect(page.locator('#sequence-length')).toHaveText('3')
     })
 })
+
+test.describe('Gravity Flip', () => {
+    test('loses to the authored spike and Play Again re-arms a fresh run', async ({
+        page,
+    }) => {
+        await page.goto('/gravity-flip')
+        await expectVisibleGameSurface(page, '#gravity-flip-canvas canvas')
+        await expect(page.locator('#gravity-direction')).toHaveText('FLOOR ↓')
+
+        await startGameWhenReady(page)
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/,
+            { timeout: 8000 }
+        )
+        await expect(page.locator('#game-over-title')).toHaveText(
+            'GRAVITY LOST'
+        )
+        await expect(page.locator('#final-outcome')).toHaveText('Collision')
+
+        await page.locator('#play-again-btn').click()
+        await expect(page.locator('#start-btn')).toHaveCSS('display', 'none')
+        await expect(page.locator('#gravity-direction')).toHaveText('FLOOR ↓')
+
+        await expect
+            .poll(() =>
+                page.evaluate(() =>
+                    Boolean(
+                        (
+                            window as Window & {
+                                gravityFlipGame?: {
+                                    getGame(): {
+                                        getState(): { isActive: boolean }
+                                    }
+                                }
+                            }
+                        ).gravityFlipGame
+                            ?.getGame()
+                            .getState().isActive
+                    )
+                )
+            )
+            .toBe(true)
+    })
+})

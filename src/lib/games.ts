@@ -296,6 +296,20 @@ export const GAMES: Game[] = [
         organism: { shape: 'chain', color: 'magenta' },
         depth: 'shallow',
     },
+    {
+        id: GameID.GRAVITY_FLIP,
+        name: 'Gravity Flip',
+        description:
+            'Flip gravity to dodge hazards and collect stars in a one-minute precision run',
+        category: 'action',
+        maxPlayers: 1,
+        estimatedDuration: '1 minute',
+        difficulty: 'medium',
+        tags: ['gravity', 'runner', 'precision', 'single-player', 'action'],
+        isActive: true,
+        organism: { shape: 'spiral', color: 'magenta' },
+        depth: 'mid',
+    },
 ]
 
 // Helper functions

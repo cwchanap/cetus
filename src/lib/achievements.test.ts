@@ -1265,3 +1265,32 @@ describe('Pattern Pulse achievements', () => {
         expect(check({ completedRounds: 2, mistakes: 0 }, 0)).toBe(false)
     })
 })
+
+describe('Gravity Flip achievements', () => {
+    it('First Flip requires a real flip', () => {
+        const firstFlip = getAchievementById('gravity_flip_welcome')!
+        expect(
+            firstFlip.condition.check?.(
+                {
+                    distance: 1000,
+                    starsCollected: 0,
+                    flips: 0,
+                    survivedFullRun: false,
+                },
+                200
+            )
+        ).toBe(false)
+
+        expect(
+            firstFlip.condition.check?.(
+                {
+                    distance: 0,
+                    starsCollected: 0,
+                    flips: 1,
+                    survivedFullRun: false,
+                },
+                0
+            )
+        ).toBe(true)
+    })
+})
