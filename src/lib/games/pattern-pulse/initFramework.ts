@@ -239,12 +239,18 @@ export async function initPatternPulseGameFramework(): Promise<
     listen(playAgainButton, 'click', resetHandler)
 
     // The shortcut listens on `document`; the game stays the final phase
-    // authority because `pressPad` gates on the input phase.
+    // authority because `pressPad` gates on the input phase. Auto-repeated
+    // keydown events (held keys) are ignored so a held pad cannot consume
+    // multiple sequence positions or inflate the speed bonus.
     const keyboardHandler: EventListener = event => {
         if (isEditableTarget(event.target)) {
             return
         }
-        const pad = shortcutToPad((event as KeyboardEvent).key)
+        const keyboardEvent = event as KeyboardEvent
+        if (keyboardEvent.repeat) {
+            return
+        }
+        const pad = shortcutToPad(keyboardEvent.key)
         if (pad === null) {
             return
         }
