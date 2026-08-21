@@ -366,3 +366,11 @@ describe('Game registry organism/depth fields', () => {
         expect(getDepth(GameID.MEMORY_MATRIX)).toBe('abyssal')
     })
 })
+
+describe('Gravity Flip identifier', () => {
+    it('reserves the id/icon before route registration', () => {
+        expect(GameID.GRAVITY_FLIP).toBe('gravity_flip')
+        expect(getGameIcon(GameID.GRAVITY_FLIP)).toBe('🌗')
+        expect(getGameById(GameID.GRAVITY_FLIP)).toBeUndefined()
+    })
+})
