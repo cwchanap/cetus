@@ -146,6 +146,7 @@ export async function initPatternPulseGameFramework(): Promise<
         setText('completed-rounds', String(state.completedRounds))
         setText('streak', String(state.streak))
         setText('mistakes', String(state.mistakes))
+        setText('time-remaining', String(state.timeRemaining))
         setText('pattern-status', statusText(state))
     }
 

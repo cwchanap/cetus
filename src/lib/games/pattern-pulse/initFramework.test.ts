@@ -230,6 +230,9 @@ describe('initPatternPulseGameFramework', () => {
     it('Reset restores the idle presentation mid-run', async () => {
         handle = await initPatternPulseGameFramework()
         await startRun(handle!)
+        expect(document.getElementById('time-remaining')).toHaveTextContent(
+            '58'
+        )
 
         document.getElementById('reset-btn')!.click()
 
@@ -238,6 +241,9 @@ describe('initPatternPulseGameFramework', () => {
             isActive: false,
             gameStarted: false,
         })
+        expect(document.getElementById('time-remaining')).toHaveTextContent(
+            '60'
+        )
         expect(document.getElementById('pattern-status')).toHaveTextContent(
             'READY'
         )
