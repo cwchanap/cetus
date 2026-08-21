@@ -1560,9 +1560,21 @@ Confirm there is no new package, migration, schema, shared physics/input/runner 
 
 - [ ] **Step 9: Commit**
 
+Stage the always-required paths:
+
 ```bash
 git add src/lib/games.ts src/lib/games.test.ts src/lib/organisms.test.ts src/lib/games/shared/types.ts src/lib/achievements.ts src/lib/achievements.test.ts e2e/games/play-coverage.spec.ts CLAUDE.md
-git add docs/superpowers/specs/2026-08-20-gravity-flip-design.md  # only if tuning changed it
+```
+
+If the manual-play checkpoint changed tuning, also stage the exact files that changed, for example:
+
+```bash
+git add src/lib/games/gravity-flip/types.ts src/lib/games/gravity-flip/GravityFlipGame.test.ts docs/superpowers/specs/2026-08-20-gravity-flip-design.md
+```
+
+Then commit:
+
+```bash
 git commit -m "feat(gravity-flip): register game and achievements"
 ```
 
