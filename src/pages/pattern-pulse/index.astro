@@ -156,7 +156,7 @@ import Badge from '@/components/ui/Badge.astro'
       background-color 80ms ease,
       box-shadow 80ms ease;
   }
-  .pattern-pulse-pad:hover {
+  .pattern-pulse-pad[aria-disabled='false']:hover {
     background: color-mix(in srgb, var(--cetus-accent) 18%, transparent);
     border-color: color-mix(in srgb, var(--cetus-accent) 50%, transparent);
   }

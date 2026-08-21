@@ -151,6 +151,27 @@ describe('initPatternPulseGameFramework', () => {
         expect(handle?.game.getState().inputIndex).toBe(1)
     })
 
+    it('ignores auto-repeated numeric keydown events during input', async () => {
+        handle = await initPatternPulseGameFramework()
+        handle!.game.start()
+        vi.advanceTimersByTime(4_000)
+        expect(handle!.game.getState().phase).toBe('input')
+
+        const inputIndexBefore = handle!.game.getState().inputIndex
+        const mistakesBefore = handle!.game.getState().mistakes
+
+        document.dispatchEvent(
+            new KeyboardEvent('keydown', {
+                key: '1',
+                repeat: true,
+                bubbles: true,
+            })
+        )
+
+        expect(handle!.game.getState().inputIndex).toBe(inputIndexBefore)
+        expect(handle!.game.getState().mistakes).toBe(mistakesBefore)
+    })
+
     it('ignores numeric shortcuts from an editable target', async () => {
         const input = document.createElement('input')
         document.body.appendChild(input)
