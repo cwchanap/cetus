@@ -285,6 +285,36 @@ describe('Mine Grid registration', () => {
     })
 })
 
+describe('Pattern Pulse registration', () => {
+    it('has the exact active registry entry', () => {
+        expect(GameID.PATTERN_PULSE).toBe('pattern_pulse')
+        expect(getGameById(GameID.PATTERN_PULSE)).toMatchObject({
+            id: GameID.PATTERN_PULSE,
+            name: 'Pattern Pulse',
+            description:
+                'Memorize and repeat an accelerating four-pad signal sequence',
+            category: 'puzzle',
+            maxPlayers: 1,
+            estimatedDuration: '1 minute',
+            difficulty: 'medium',
+            tags: [
+                'memory',
+                'sequence',
+                'timing',
+                'single-player',
+                'cognitive',
+            ],
+            isActive: true,
+            organism: { shape: 'chain', color: 'magenta' },
+            depth: 'shallow',
+        })
+        expect(getGameIcon(GameID.PATTERN_PULSE)).toBe('🔁')
+        expect(
+            GAMES.filter(game => game.id === GameID.PATTERN_PULSE)
+        ).toHaveLength(1)
+    })
+})
+
 describe('getGameUrl route derivation', () => {
     it('replaces underscores with hyphens and prefixes a slash', () => {
         expect(getGameUrl('satellite_sync')).toBe('/satellite-sync')

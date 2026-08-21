@@ -117,6 +117,10 @@ export type IceSlideGameData = import('../ice-slide/types').IceSlideGameData
 // Mine Grid-specific game data (canonical definition in mine-grid/types.ts)
 export type MineGridGameData = import('../mine-grid/types').MineGridGameData
 
+// Pattern Pulse-specific game data (canonical definition in pattern-pulse/types.ts)
+export type PatternPulseGameData =
+    import('../pattern-pulse/types').PatternPulseGameData
+
 // Union type for all game data
 export type GameData =
     | TetrisGameData
@@ -135,6 +139,7 @@ export type GameData =
     | SatelliteSyncGameData
     | IceSlideGameData
     | MineGridGameData
+    | PatternPulseGameData
 
 // Common game stats returned from games
 export interface GameStats {

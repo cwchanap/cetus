@@ -12,6 +12,7 @@ import type {
     SatelliteSyncGameData,
     IceSlideGameData,
     MineGridGameData,
+    PatternPulseGameData,
     GameHistoryEntry,
 } from './games/shared/types'
 
@@ -36,6 +37,7 @@ export type AchievementCheckData =
     | SatelliteSyncGameData
     | IceSlideGameData
     | MineGridGameData
+    | PatternPulseGameData
     | Record<string, unknown>
 
 export interface Achievement {
@@ -1507,6 +1509,54 @@ export const ACHIEVEMENTS: Achievement[] = [
             threshold: 5000,
         },
         rarity: AchievementRarity.LEGENDARY,
+    },
+
+    // Pattern Pulse achievements
+    {
+        id: 'pattern_pulse_welcome',
+        name: 'First Pulse',
+        description: 'Complete your first Pattern Pulse sequence.',
+        logo: '🔁',
+        gameId: GameID.PATTERN_PULSE,
+        condition: { type: 'score_threshold', threshold: 1 },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'pattern_pulse_streak_3',
+        name: 'In Sync',
+        description: 'Complete 3 Pattern Pulse sequences in a row.',
+        logo: '⚡',
+        gameId: GameID.PATTERN_PULSE,
+        condition: {
+            type: 'in_game',
+            check: (data: PatternPulseGameData) => data.maxStreak >= 3,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'pattern_pulse_sequence_8',
+        name: 'Long Memory',
+        description: 'Complete a Pattern Pulse sequence of length 8.',
+        logo: '🧠',
+        gameId: GameID.PATTERN_PULSE,
+        condition: {
+            type: 'in_game',
+            check: (data: PatternPulseGameData) => data.longestSequence >= 8,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'pattern_pulse_perfect',
+        name: 'Clean Signal',
+        description: 'Complete at least 3 sequences without a mistake.',
+        logo: '✨',
+        gameId: GameID.PATTERN_PULSE,
+        condition: {
+            type: 'in_game',
+            check: (data: PatternPulseGameData) =>
+                data.completedRounds >= 3 && data.mistakes === 0,
+        },
+        rarity: AchievementRarity.RARE,
     },
 ]
 
