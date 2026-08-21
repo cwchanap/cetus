@@ -13,6 +13,7 @@ import type {
     IceSlideGameData,
     MineGridGameData,
     PatternPulseGameData,
+    GravityFlipGameData,
     GameHistoryEntry,
 } from './games/shared/types'
 
@@ -38,6 +39,7 @@ export type AchievementCheckData =
     | IceSlideGameData
     | MineGridGameData
     | PatternPulseGameData
+    | GravityFlipGameData
     | Record<string, unknown>
 
 export interface Achievement {
@@ -1557,6 +1559,55 @@ export const ACHIEVEMENTS: Achievement[] = [
                 data.completedRounds >= 3 && data.mistakes === 0,
         },
         rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'gravity_flip_welcome',
+        name: 'First Flip',
+        description: 'Flip gravity for the first time.',
+        logo: '🌗',
+        gameId: GameID.GRAVITY_FLIP,
+        condition: {
+            type: 'in_game',
+            check: (gameData: GravityFlipGameData) => gameData.flips >= 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'gravity_flip_star_catcher',
+        name: 'Star Catcher',
+        description: 'Collect 5 stars in one Gravity Flip run.',
+        logo: '⭐',
+        gameId: GameID.GRAVITY_FLIP,
+        condition: {
+            type: 'in_game',
+            check: (gameData: GravityFlipGameData) =>
+                gameData.starsCollected >= 5,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'gravity_flip_dancer',
+        name: 'Gravity Dancer',
+        description: 'Flip gravity at least 20 times in one run.',
+        logo: '🔄',
+        gameId: GameID.GRAVITY_FLIP,
+        condition: {
+            type: 'in_game',
+            check: (gameData: GravityFlipGameData) => gameData.flips >= 20,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'gravity_flip_full_orbit',
+        name: 'Full Orbit',
+        description: 'Survive the full Gravity Flip run.',
+        logo: '🪐',
+        gameId: GameID.GRAVITY_FLIP,
+        condition: {
+            type: 'in_game',
+            check: (gameData: GravityFlipGameData) => gameData.survivedFullRun,
+        },
+        rarity: AchievementRarity.EPIC,
     },
 ]
 

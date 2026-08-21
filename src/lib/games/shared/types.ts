@@ -121,6 +121,9 @@ export type MineGridGameData = import('../mine-grid/types').MineGridGameData
 export type PatternPulseGameData =
     import('../pattern-pulse/types').PatternPulseGameData
 
+export type GravityFlipGameData =
+    import('../gravity-flip/types').GravityFlipGameData
+
 // Union type for all game data
 export type GameData =
     | TetrisGameData
@@ -140,6 +143,7 @@ export type GameData =
     | IceSlideGameData
     | MineGridGameData
     | PatternPulseGameData
+    | GravityFlipGameData
 
 // Common game stats returned from games
 export interface GameStats {
