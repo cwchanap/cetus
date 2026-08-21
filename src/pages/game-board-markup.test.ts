@@ -26,6 +26,10 @@ const mineGridMarkup = readFileSync(
     resolve(process.cwd(), 'src/pages/mine-grid/index.astro'),
     'utf-8'
 )
+const gravityFlipMarkup = readFileSync(
+    resolve(process.cwd(), 'src/pages/gravity-flip/index.astro'),
+    'utf-8'
+)
 
 const games = [
     'tetris',
@@ -45,6 +49,7 @@ const games = [
     'ice-slide',
     'mine-grid',
     'pattern-pulse',
+    'gravity-flip',
 ]
 
 describe('Game board page markup', () => {
@@ -161,6 +166,33 @@ describe('Pattern Pulse page markup', () => {
         expect(patternPulseMarkup).toContain('id="pattern-status"')
         expect(patternPulseMarkup).toMatch(
             /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initPatternPulseGameFramework/
+        )
+    })
+})
+
+describe('Gravity Flip page markup', () => {
+    it('keeps stable board controls and root-level initializer', () => {
+        for (const id of [
+            'gravity-flip-container',
+            'gravity-flip-canvas',
+            'flip-btn',
+            'gravity-direction',
+            'distance-traveled',
+            'stars-collected',
+            'flip-count',
+            'world-speed',
+            'final-outcome',
+            'final-distance',
+            'final-stars',
+            'final-flips',
+            'start-btn',
+            'end-btn',
+            'reset-btn',
+        ]) {
+            expect(gravityFlipMarkup).toContain(`id="${id}"`)
+        }
+        expect(gravityFlipMarkup).toMatch(
+            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initGravityFlipGameFramework/
         )
     })
 })
