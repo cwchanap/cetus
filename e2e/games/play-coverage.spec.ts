@@ -1276,3 +1276,48 @@ test.describe('Mine Grid', () => {
         ).toHaveCount(64)
     })
 })
+
+test.describe('Pattern Pulse', () => {
+    test('completes one random sequence and accepts a numeric shortcut', async ({
+        page,
+    }) => {
+        await page.goto('/pattern-pulse')
+        await expect(page.locator('#pattern-pulse-board')).toBeVisible()
+        await startGameWhenReady(page)
+
+        const readState = () =>
+            page.evaluate(() => {
+                const handle = (
+                    window as Window & {
+                        patternPulseGame?: {
+                            getState: () => {
+                                phase: string
+                                sequence: number[]
+                                inputIndex: number
+                            }
+                        }
+                    }
+                ).patternPulseGame
+                if (!handle) {
+                    throw new Error('Pattern Pulse debug handle not ready')
+                }
+                return handle.getState()
+            })
+
+        await expect.poll(async () => (await readState()).phase).toBe('input')
+        const first = (await readState()).sequence
+        for (const pad of first) {
+            await page.locator(`[data-pattern-pad="${pad}"]`).click()
+        }
+        await expect(page.locator('#completed-rounds')).toHaveText('1')
+
+        await expect.poll(async () => (await readState()).phase).toBe('input')
+        const second = (await readState()).sequence
+        await page.keyboard.press(String(second[0] + 1))
+        await expect.poll(async () => (await readState()).inputIndex).toBe(1)
+
+        await page.locator('#reset-btn').click()
+        await expect(page.locator('#pattern-status')).toHaveText('READY')
+        await expect(page.locator('#sequence-length')).toHaveText('3')
+    })
+})
