@@ -48,12 +48,7 @@ Gravity Flip uses `timeBonus: false`; distance and stars are the complete score.
 
 ### PixiJSRenderer with two redraw layers
 
-Continuous movement belongs on canvas. `GravityFlipRenderer` uses a fixed 800×320 logical canvas with:
-
-- one static corridor/background layer;
-- one dynamic scene layer cleared and redrawn each render.
-
-The entity count is tiny. Per-entity maps, pooling, textures, and sprite infrastructure are unnecessary.
+Continuous movement belongs on canvas. `GravityFlipRenderer` uses a fixed 800×320 logical canvas with one static corridor/background layer and one dynamic scene layer cleared/redrawn each render. Entity count is tiny; per-entity maps, pooling, textures, and sprite infrastructure are unnecessary.
 
 ### Game-local requestAnimationFrame loop
 
@@ -74,8 +69,6 @@ The game, not the initializer, owns collision-safe internal substeps. Do not int
 Production uses `Math.random`; tests inject `rng: () => number`, matching Pattern Pulse's narrow deterministic seam. Time progression remains explicit through `update(deltaSeconds)` and BaseGame's timer, so no clock abstraction is added.
 
 ## Fixed Gameplay Rules
-
-### Run and world
 
 | Rule | Value |
 |---|---:|
@@ -103,9 +96,7 @@ The production constants live once in `GRAVITY_FLIP_RULES` in `types.ts`. Page/i
 type GravityDirection = 'down' | 'up'
 ```
 
-The player begins resting on the floor with downward gravity and zero vertical velocity.
-
-`flipGravity()` accepts input only while active/not paused/not over, changes `down ↔ up`, increments `flips`, and preserves vertical velocity.
+The player begins resting on the floor with downward gravity and zero vertical velocity. `flipGravity()` accepts input only while active/not paused/not over, changes `down ↔ up`, increments `flips`, and preserves vertical velocity.
 
 Each physics substep applies acceleration in the active gravity direction, clamps vertical speed to ±700 px/s, advances Y, then clamps the player against the ceiling/floor surfaces. Contact with a solid surface zeroes vertical velocity.
 
@@ -154,18 +145,11 @@ const GRAVITY_FLIP_HAZARD_CATALOG: Record<
 }
 ```
 
-Spawn selection/geometry, star placement, collision dispatch, and renderer shape dispatch all use this table. Production code must not classify kinds with `startsWith`, `endsWith`, substring checks, or duplicated kind-to-shape/surface maps.
+Challenge eligibility, spawn geometry, star placement, collision dispatch, and renderer shape dispatch all use this table. Production code must not classify kinds with `startsWith`, `endsWith`, regexes, substring checks, or a second kind-to-shape/surface table.
 
-The first challenge of every fresh run is always `floor-spike`, spawned beyond the right edge. After that:
+The first challenge of every fresh run is always `floor-spike`, spawned beyond the right edge. After that, pre-15-second selection uses catalog entries whose descriptor shape is not `mover`; at/after 15 seconds all five rows are eligible. One challenge is spawned per spacing interval. Spike/gap rows put one star on the opposite safe surface; movers do not carry a star. Challenges never intentionally compose multiple lethal patterns.
 
-- before 15 elapsed seconds, eligible catalog entries are those whose descriptor shape is not `mover`;
-- at/after 15 seconds, all five catalog entries are eligible;
-- one challenge is spawned per spacing interval;
-- spike/gap challenges place one star on the opposite safe surface;
-- movers do not carry a star;
-- challenges do not intentionally combine multiple simultaneous lethal patterns.
-
-The deterministic random order comes from the insertion order of the one catalog object; there is no second kind-classification table. This is private Gravity Flip content logic, not a generic generator.
+The deterministic random order is the insertion order of this single catalog object. This remains private Gravity Flip content logic, not a generic generator.
 
 ### Spike semantics
 
@@ -173,11 +157,11 @@ Spikes use conservative AABBs over their rendered triangle cluster. Pixel-perfec
 
 ### Gap semantics
 
-A gap is a lethal missing segment in one corridor surface. The player still uses the same top/bottom clamp; if the player's horizontal hit box overlaps a gap while touching that gap's catalog surface, the run ends. There is no separate fall-out-of-world simulation.
+A gap is a lethal missing segment in one corridor surface. If the player's horizontal hit box overlaps a gap while touching that gap's descriptor surface, the run ends. There is no separate fall-out-of-world simulation.
 
 ### Moving hazard safety invariant
 
-A mover scrolls left with the world and bounces vertically only inside the interior corridor. Its top-left Y bounds are derived from explicit rules:
+Mover top-left Y bounds are derived from explicit rules:
 
 ```ts
 minY = corridorInset + moverRailClearance
@@ -187,26 +171,26 @@ maxY = canvasHeight
      - moverSize
 ```
 
-With v1 values the range is `[64, 216]`. A ceiling-resting player occupies Y `[36, 64]`; a floor-resting player occupies Y `[256, 284]`. Cetus `rectOverlap` uses exclusive edge semantics, so touching at Y=64 or Y=256 is not overlap. Resting on either rail is therefore always a legal response to a mover.
+With v1 values this is `[64, 216]`. A ceiling-resting player occupies Y `[36,64]`; a floor-resting player occupies Y `[256,284]`. Cetus `rectOverlap` uses exclusive edge semantics, so touching at Y=64 or Y=256 is not overlap. Resting on either rail is therefore always legal.
 
 `getGravityFlipMoverBounds(config)` is the single production helper for these bounds. `spawnMover()` starts within them and mover updates clamp/reverse against them. Tests lock both extrema against the same `rectOverlap` primitive used by gameplay.
 
 ### Stars
 
-Every spike/gap challenge places one optional star on the opposite catalog surface at the same challenge X. Star collection uses the same conservative rectangle-overlap style (star diameter bounds vs player AABB), removes the star once, and increments `starsCollected` once. Stars are never required to survive and never influence hazard generation.
+Every spike/gap challenge places one optional star on the opposite descriptor surface at the same challenge X. Star collection uses conservative diameter-AABB vs player-AABB overlap, removes a star once, and increments `starsCollected` once. Stars are never required to survive and never affect generation.
 
 ## Collision-Safe Substeps
 
-`update(deltaTime)` ignores non-positive/non-finite deltas and inactive/paused runs. For a valid delta it processes:
+`update(deltaTime)` ignores non-positive/non-finite deltas and inactive/paused runs. For a valid delta:
 
 ```ts
 remaining = Math.min(deltaTime, 0.1)
 step = Math.min(remaining, maxPhysicsStep) // 1/120 s
 ```
 
-Each substep advances player physics, world distance, hazard/mover X/Y, off-screen cleanup, star collection, lethal collision, and challenge-spacing accumulation. The loop continues until `remaining` is exhausted or the run ends.
+Each substep advances player physics, distance, hazard/mover X/Y, off-screen cleanup, star collection, lethal collision, and challenge-spacing accumulation. The loop stops when time is consumed or the run ends.
 
-The regression proving substeps is intentionally smaller than production hazard dimensions. A test config uses:
+The substep regression uses an intentionally thin test hazard:
 
 ```ts
 spikeWidth: 8
@@ -217,24 +201,32 @@ initialWorldSpeed: 360
 finalWorldSpeed: 360
 ```
 
-The 28px player occupies X `[136,164]`. The first 8px spike starts at `[164,172]`, touching but not overlapping under exclusive AABB semantics. A hypothetical single 0.1-second endpoint move shifts it 36px to `[128,136]`, again only edge-touching and therefore missing the collision entirely. At 1/120-second increments the spike passes through the player's X interval and collision is detected. Default catalog sizes remain unchanged.
+The 28px player occupies X `[136,164]`. The spike starts `[164,172]`, touching but not overlapping under exclusive AABB semantics. A hypothetical single 0.1-second endpoint move shifts it 36px to `[128,136]`, again edge-touching only. At 1/120-second increments the spike crosses the player's interval and collision is detected. Default catalog sizes remain unchanged.
 
 ## Challenge Scheduling
 
-`GravityFlipGame` keeps two small private runtime fields outside submitted state:
+`GravityFlipGame` keeps only two small private runtime fields outside submitted state:
 
 ```ts
 private distanceSinceChallenge = 0
-private challengeCount = 0
+private entitySequence = 0
 ```
 
-`onGameStart()` spawns `floor-spike`, sets `challengeCount = 1`, and resets the spacing accumulator. Every substep adds `worldSpeed * step` to `distanceSinceChallenge`. Once it reaches the current interpolated spacing, subtract that spacing and spawn one eligible catalog entry selected by injected RNG. Because a 1/120-second step travels only a few pixels while spacing is at least 400px, one spawn check per substep is sufficient.
+A local helper supplies deterministic IDs:
 
-Reset clears both private fields. No generic spawn scheduler is introduced.
+```ts
+private entityId(prefix: 'hazard' | 'star'): string {
+  return `${prefix}-${this.entitySequence++}`
+}
+```
+
+`onGameStart()` resets both fields, then authors the first `floor-spike`, producing `hazard-0`. Every substep adds `worldSpeed * step` to `distanceSinceChallenge`. Once it reaches interpolated spacing, subtract that spacing and spawn one eligible catalog entry from one RNG read. At a 1/120-second step the travel is only a few pixels while spacing is at least 400px, so one spawn check per substep is sufficient.
+
+Reset clears both fields. No unused challenge counter or generic spawn scheduler is introduced.
 
 ## Scoring
 
-`calculateGravityFlipScore()` in `scoring.ts` is the **only production scoring formula**:
+`calculateGravityFlipScore()` in `scoring.ts` is the only production scoring formula:
 
 ```text
 distancePoints = floor(distancePx / 50) * 10
@@ -242,9 +234,7 @@ starPoints     = starsCollected * 250
 score          = distancePoints + starPoints
 ```
 
-`GravityFlipGame` tracks precise floating-point distance. After each accepted update it calculates the target total and adds only the positive delta through BaseGame's score manager. This makes score independent of frame partitioning and prevents per-frame rounding drift.
-
-There is no collision penalty and no BaseGame time bonus.
+`GravityFlipGame` tracks precise floating-point distance and adds only the positive delta between this pure target score and BaseGame's current score. This makes score independent of frame partitioning. There is no collision penalty or BaseGame time bonus.
 
 ## Terminal Outcomes and Presentation
 
@@ -252,25 +242,11 @@ There is no collision penalty and no BaseGame time bonus.
 type GravityFlipOutcome = 'playing' | 'collision' | 'survived'
 ```
 
-### Collision
+On collision, set `outcome='collision'`, synchronize score once, and call `void this.end()`. BaseGame marks the run inactive synchronously, so overlapping hazards cannot submit twice.
 
-The first lethal collision sets `outcome='collision'`, synchronizes score once, and calls `void this.end()`. BaseGame marks the run inactive synchronously, so later substeps/collisions cannot submit twice.
+Collision presentation is **`GRAVITY LOST` / `Collision`**.
 
-Presentation:
-
-- title: **`GRAVITY LOST`**
-- outcome text: **`Collision`**
-
-### Survived
-
-`handleTimeUp()` sets `outcome='survived'` before delegating to BaseGame's normal timeout path. It does not save separately.
-
-Presentation:
-
-- title: **`RUN COMPLETE`**
-- outcome text: **`Survived`**
-
-The page's static overlay title is only a fallback; the initializer always sets `#game-over-title` and `#final-outcome` from the actual terminal outcome. Initializer tests cover both strings. The browser happy-path remains the deterministic collision/restart journey; it does not wait 60 seconds for a survival smoke test.
+`handleTimeUp()` sets `outcome='survived'` before delegating to BaseGame's normal timeout end path. Survival presentation is **`RUN COMPLETE` / `Survived`**. The initializer always writes `#game-over-title` and `#final-outcome`; the page's static overlay title is only fallback copy. Browser smoke remains collision-only; survival copy is unit-tested rather than waiting 60 seconds in Playwright.
 
 ## State, Stats, and Submitted Data
 
@@ -361,70 +337,38 @@ CLAUDE.md
 
 No `BaseGame`, `GameTimer`, `ScoreManager`, `PixiJSRenderer`, `GameInitializer`, score service, API, `src/lib/server/db/`, or auth production change is planned.
 
-## `GravityFlipGame.ts`
+## Component Responsibilities
 
-Responsibilities:
+### `GravityFlipGame.ts`
 
-- BaseGame lifecycle integration;
-- gravity/player physics with 1/120-second substeps;
-- distance/world-speed ramp and frame-stable score sync;
-- first authored challenge plus distance-based challenge scheduling;
-- five-kind catalog eligibility/descriptor-driven spawn;
-- mover-safe travel bounds and bounce;
-- descriptor-driven spike/gap/mover collision;
-- opposite-surface star creation/collection;
-- collision/survival outcomes and submitted data.
+Owns BaseGame lifecycle, player physics/substeps, distance/world-speed ramp, score synchronization, first challenge plus distance spacing, catalog selection/spawn, safe mover bounds/bounce, descriptor-driven collision, star collection, terminal outcomes, and submitted data. It never parses hazard kind strings.
 
-The game does not parse hazard kind strings.
+### `GravityFlipRenderer.ts`
 
-## `GravityFlipRenderer.ts`
+Uses fixed 800×320 logical coordinates and `responsive: false`; CSS scales the canvas visually. It owns one static corridor graphic and one dynamic scene graphic. Every hazard render looks up `GRAVITY_FLIP_HAZARD_CATALOG[hazard.kind]` and switches on `descriptor.shape`. No textures/assets or second shape map.
 
-The renderer uses fixed 800×320 logical coordinates and `responsive: false`; CSS scales the canvas visually on narrow screens.
+### `initFramework.ts`
 
-It owns one static corridor graphic and one dynamic scene graphic. For each hazard it looks up `GRAVITY_FLIP_HAZARD_CATALOG[hazard.kind]` and switches on `descriptor.shape` to draw spike/gap/mover geometry. It never uses prefix/suffix classification.
+The initializer follows current Pattern Pulse lifecycle/error/debug seams plus Evader's local rAF loop:
 
-No textures or external assets are required.
+1. require `#gravity-flip-container`; report missing DOM with `DOMElementNotFoundError` + `handleGameError`;
+2. initialize the renderer with the same error/cleanup convention;
+3. create one game and one rAF loop;
+4. wire Start, Reset, Play Again, HUD/result, achievement/challenge payloads, keyboard, canvas pointer, and native flip button;
+5. return `{ game, renderer, getGame, getState, cleanup }`;
+6. never assign a global itself.
 
-## `initFramework.ts`
+The Astro page assigns the returned handle to `window.gravityFlipGame`, matching `window.gameNameGame.getGame()` debugging.
 
-The initializer follows the **current Pattern Pulse lifecycle/error/debug shape plus Evader's local rAF loop**:
-
-1. require `#gravity-flip-container` / canvas mount; missing required DOM is reported with `DOMElementNotFoundError` + `handleGameError`;
-2. initialize the renderer with the same `handleGameError` cleanup path;
-3. create exactly one game and one rAF loop;
-4. wire Start, Reset, Play Again, HUD/result presentation, achievements/challenges;
-5. wire keyboard, canvas pointer, and native flip-button input;
-6. return a handle containing `game`, `renderer`, `getGame()`, `getState()`, and idempotent `cleanup()`;
-7. **do not** assign a global inside the initializer.
-
-The Astro page receives the handle and assigns:
-
-```ts
-window.gravityFlipGame = handle
-```
-
-This matches the repository debug contract `window.gameNameGame.getGame()`.
-
-### Play Again is intentionally start, not reset-only
-
-`Play Again` hides the overlay and calls `game.start()`. BaseGame automatically resets a completed run before starting it. This differs intentionally from reset-only handlers in games whose Play Again returns to an idle screen. A source comment must freeze that reason so a later cleanup does not change the behavior.
+Play Again intentionally hides the overlay and calls `game.start()`: BaseGame resets a completed run and immediately starts it. The source implementation must comment that this is intentional so it is not replaced by reset-only behavior.
 
 ## Input and Accessibility
 
-One action has equivalent inputs:
+Equivalent input paths are keyboard `Space`/`ArrowUp`/`ArrowDown`, `pointerdown` on the canvas, and native `#flip-btn` click.
 
-- keyboard: `Space`, `ArrowUp`, `ArrowDown`;
-- mouse/pen/touch: `pointerdown` on the canvas;
-- accessible control: native `#flip-btn` button.
+The document keyboard listener ignores repeat, Ctrl/Meta/Alt, editable targets using Pattern Pulse's local shape, and all button targets. When `#flip-btn` is focused, native Enter/Space activation owns the action; document keydown must not flip first and then allow the native click to flip again. No shared input helper or swipe recognizer is added.
 
-The document keyboard listener ignores:
-
-- repeated keydown events;
-- Ctrl/Meta/Alt chords;
-- editable targets using the same local `isEditableTarget` shape as Pattern Pulse;
-- **button targets**. When `#flip-btn` is focused, native Enter/Space activation owns the action so document keydown cannot flip once and the resulting native click flip again.
-
-No shared input helper, swipe recognizer, or custom focus manager is added.
+The HUD includes textual `FLOOR ↓` / `CEILING ↑` gravity state, so direction is not communicated by color alone.
 
 ## Page Contract
 
@@ -456,63 +400,30 @@ Stable IDs:
 - `#final-stars`
 - `#final-flips`
 
-The page-root `<script>` initializes outside `GamePage` slots and assigns the returned handle to `window.gravityFlipGame`.
+The page-root script initializes outside `GamePage` slots and assigns the returned handle to `window.gravityFlipGame`.
 
-## Platform Integration
+## Platform Integration and Achievements
 
-Add `GameID.GRAVITY_FLIP = 'gravity_flip'`, route `/gravity-flip`, icon `🌗`, and one active action-game registry entry. Create the route before activating the registry record because `games.test.ts` validates every active route.
+Add `GameID.GRAVITY_FLIP = 'gravity_flip'`, route `/gravity-flip`, icon `🌗`, and one active action-game registry entry. Create the route before activating `GAMES`. `getGameUrl()` stays unchanged and already derives `/gravity-flip`.
 
-`getGameUrl()` stays unchanged; underscore-to-hyphen derivation already yields `/gravity-flip`.
+Four achievements are sufficient:
 
-### Achievements
-
-Four achievements are enough for v1:
-
-1. **First Flip** (`gravity_flip_welcome`) — in-game check `flips >= 1`. Distance score alone must never award it.
+1. **First Flip** (`gravity_flip_welcome`) — in-game check `flips >= 1`; distance score alone must not award it.
 2. **Star Catcher** — `starsCollected >= 5`.
 3. **Gravity Dancer** — `flips >= 20`.
 4. **Full Orbit** — `survivedFullRun === true`.
 
-`GravityFlipGameData` is added to the shared game-data/achievement typing. No achievement framework changes are needed.
+`GravityFlipGameData` joins the shared game-data/achievement typing; no achievement framework change is required.
 
 ## Testing Strategy
 
-### Pure/unit tests
+Unit/integration coverage locks scorer/frame partitioning, initial state and preserved velocity, world-speed/spacing ramp, exact five-row catalog, first authored floor spike, one RNG read per random challenge, mover unlock timing, mover bounds `[64,216]`, rail non-overlap at extrema, descriptor-driven stars/collision/rendering, the non-vacuous X=164/8px substep regression, collision idempotence, reset/restart, survived timeout, input filtering including focused button, both terminal-copy variants, Pattern Pulse-style error/getGame handle behavior, and First Flip `0 → false / 1 → true`.
 
-Cover:
-
-- scorer boundaries and frame-partition independence;
-- initial floor state and preserved velocity through flips;
-- world-speed/spacing ramp;
-- exact five-row descriptor catalog coverage;
-- first authored floor spike and mover unlock timing;
-- mover bounds `[64,216]` and rail-resting non-overlap at both extrema;
-- descriptor-driven star placement and gap/spike/mover collision;
-- **non-vacuous** 1/120-second regression using an injected 8px spike starting at X=164 and skipped by a single 0.1s endpoint check;
-- collision idempotence, reset/restart, timeout-survived outcome;
-- renderer dispatch by descriptor shape and cleanup;
-- keyboard editable/repeat/modifier/button-target filtering;
-- pointer/button routes to the same `flipGravity()` method;
-- collision and survival overlay strings;
-- Pattern Pulse-style missing-DOM/error cleanup and `getGame()` handle;
-- First Flip checks `flips` directly (0 false / 1 true).
-
-### Playwright
-
-One deterministic browser journey is sufficient:
-
-1. load `/gravity-flip` and wait for the visible canvas;
-2. start without flipping and lose to the authored first floor spike;
-3. assert overlay + `Collision` result;
-4. Play Again and assert a new run is active/floor state reset;
-5. click `#flip-btn` once and observe ceiling gravity;
-6. blur the focused button without clicking the canvas, then use Space and observe one further flip.
-
-The catalog-navigation suite remains source-unchanged and picks up the active registry entry automatically.
+One Playwright journey loads the real canvas, starts without flipping, loses to the deterministic first floor spike, asserts collision UI, Play Again immediately starts a fresh run, flips with the button, blurs it, then flips once with Space. The catalog-navigation suite remains source-unchanged.
 
 ## Verification Gates
 
-Implementation must run:
+Implementation must run fresh:
 
 ```bash
 bun run test:run src/lib/games/gravity-flip src/lib/games.test.ts src/lib/achievements.test.ts src/pages/game-board-markup.test.ts
@@ -528,4 +439,4 @@ Codecov project and patch targets remain 90% with zero threshold leniency.
 
 ## Scope Boundaries
 
-HPA-73 remains one implementation PR. It does not add packages, a shared runner/physics/input framework, GameInitializer adoption, seeded/Daily play, backend/schema/API changes, a level editor, or a generic hazard generator. The review changes strengthen only Gravity Flip's existing local contracts.
+HPA-73 remains one implementation PR. It does not add packages, a shared runner/physics/input framework, GameInitializer adoption, seeded/Daily play, backend/schema/API changes, a level editor, or a generic hazard generator.
