@@ -238,6 +238,8 @@ With initial defaults this is `[64, 216]`. A ceiling-resting 28px player occupie
 
 The formula must also remain correct when player size changes. With `playerSize: 40`, the clearance becomes 40 and mover bounds become `[76, 204]`; the resting-player AABBs still only edge-touch the mover. Unit tests lock both the default and non-default-player-size cases.
 
+`moverRailClearance` may be tuned above the player size to create extra visual/gameplay margin, but it may never reduce clearance below the player body because the helper always takes `Math.max(playerSize, moverRailClearance)`.
+
 `getGravityFlipMoverBounds(config)` is the single production helper for these bounds. `spawnMover()` starts inside them and mover updates clamp/reverse against them. If a test supplies a physically impossible config where `maxY < minY`, the helper may throw a `RangeError`; normal catalog dispatch does not require defensive descriptor throws or null guards.
 
 ### Stars
