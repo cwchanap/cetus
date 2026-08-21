@@ -154,18 +154,18 @@ const GRAVITY_FLIP_HAZARD_CATALOG: Record<
 }
 ```
 
-Spawn geometry, star placement, collision dispatch, and renderer shape dispatch all use this table. Production code must not classify kinds with `startsWith`, `endsWith`, substring checks, or duplicated kind lists.
+Spawn selection/geometry, star placement, collision dispatch, and renderer shape dispatch all use this table. Production code must not classify kinds with `startsWith`, `endsWith`, substring checks, or duplicated kind-to-shape/surface maps.
 
 The first challenge of every fresh run is always `floor-spike`, spawned beyond the right edge. After that:
 
-- before 15 elapsed seconds, choose from the four spike/gap kinds;
-- at/after 15 seconds, `mover` joins the same small list;
+- before 15 elapsed seconds, eligible catalog entries are those whose descriptor shape is not `mover`;
+- at/after 15 seconds, all five catalog entries are eligible;
 - one challenge is spawned per spacing interval;
 - spike/gap challenges place one star on the opposite safe surface;
 - movers do not carry a star;
 - challenges do not intentionally combine multiple simultaneous lethal patterns.
 
-This is private Gravity Flip content logic, not a generic generator.
+The deterministic random order comes from the insertion order of the one catalog object; there is no second kind-classification table. This is private Gravity Flip content logic, not a generic generator.
 
 ### Spike semantics
 
@@ -187,13 +187,13 @@ maxY = canvasHeight
      - moverSize
 ```
 
-With v1 values the range is `[64, 216]`. A ceiling-resting player occupies Y `[36, 64]`; a floor-resting player occupies Y `[256, 284]`. At either mover extremum the AABBs may touch at an edge but do not overlap. Resting on either rail is therefore always a legal response to a mover.
+With v1 values the range is `[64, 216]`. A ceiling-resting player occupies Y `[36, 64]`; a floor-resting player occupies Y `[256, 284]`. Cetus `rectOverlap` uses exclusive edge semantics, so touching at Y=64 or Y=256 is not overlap. Resting on either rail is therefore always a legal response to a mover.
 
-`getGravityFlipMoverBounds(config)` is the single production helper for these bounds. `spawnMover()` starts within them and mover updates clamp/reverse against them. Tests lock both extrema against the same rectangle-overlap primitive used by gameplay.
+`getGravityFlipMoverBounds(config)` is the single production helper for these bounds. `spawnMover()` starts within them and mover updates clamp/reverse against them. Tests lock both extrema against the same `rectOverlap` primitive used by gameplay.
 
 ### Stars
 
-Every spike/gap challenge places one optional star on the opposite catalog surface at the same challenge X. Stars are never required to survive and never influence hazard generation.
+Every spike/gap challenge places one optional star on the opposite catalog surface at the same challenge X. Star collection uses the same conservative rectangle-overlap style (star diameter bounds vs player AABB), removes the star once, and increments `starsCollected` once. Stars are never required to survive and never influence hazard generation.
 
 ## Collision-Safe Substeps
 
@@ -204,9 +204,33 @@ remaining = Math.min(deltaTime, 0.1)
 step = Math.min(remaining, maxPhysicsStep) // 1/120 s
 ```
 
-Each substep advances player physics, world distance, hazards/movers, star collection, collisions, cleanup/spawning, and then continues until `remaining` is exhausted or the run ends.
+Each substep advances player physics, world distance, hazard/mover X/Y, off-screen cleanup, star collection, lethal collision, and challenge-spacing accumulation. The loop continues until `remaining` is exhausted or the run ends.
 
-The regression proving substeps is intentionally smaller than production hazard dimensions. A test config uses `spikeWidth: 8`, `canvasWidth: 200`, `spawnOffsetX: 0`, and constant `worldSpeed: 360`; a single 0.1-second end-position check would skip the spike, while 1/120-second steps collide with it. Default catalog sizes are unchanged.
+The regression proving substeps is intentionally smaller than production hazard dimensions. A test config uses:
+
+```ts
+spikeWidth: 8
+canvasWidth: 164
+spawnOffsetX: 0
+playerX: 150
+initialWorldSpeed: 360
+finalWorldSpeed: 360
+```
+
+The 28px player occupies X `[136,164]`. The first 8px spike starts at `[164,172]`, touching but not overlapping under exclusive AABB semantics. A hypothetical single 0.1-second endpoint move shifts it 36px to `[128,136]`, again only edge-touching and therefore missing the collision entirely. At 1/120-second increments the spike passes through the player's X interval and collision is detected. Default catalog sizes remain unchanged.
+
+## Challenge Scheduling
+
+`GravityFlipGame` keeps two small private runtime fields outside submitted state:
+
+```ts
+private distanceSinceChallenge = 0
+private challengeCount = 0
+```
+
+`onGameStart()` spawns `floor-spike`, sets `challengeCount = 1`, and resets the spacing accumulator. Every substep adds `worldSpeed * step` to `distanceSinceChallenge`. Once it reaches the current interpolated spacing, subtract that spacing and spawn one eligible catalog entry selected by injected RNG. Because a 1/120-second step travels only a few pixels while spacing is at least 400px, one spawn check per substep is sufficient.
+
+Reset clears both private fields. No generic spawn scheduler is introduced.
 
 ## Scoring
 
@@ -344,7 +368,8 @@ Responsibilities:
 - BaseGame lifecycle integration;
 - gravity/player physics with 1/120-second substeps;
 - distance/world-speed ramp and frame-stable score sync;
-- five-kind catalog selection and descriptor-driven spawn;
+- first authored challenge plus distance-based challenge scheduling;
+- five-kind catalog eligibility/descriptor-driven spawn;
 - mover-safe travel bounds and bounce;
 - descriptor-driven spike/gap/mover collision;
 - opposite-surface star creation/collection;
@@ -463,7 +488,7 @@ Cover:
 - first authored floor spike and mover unlock timing;
 - mover bounds `[64,216]` and rail-resting non-overlap at both extrema;
 - descriptor-driven star placement and gap/spike/mover collision;
-- **non-vacuous** 1/120-second regression using an injected 8px spike skipped by an end-position-only 0.1s update;
+- **non-vacuous** 1/120-second regression using an injected 8px spike starting at X=164 and skipped by a single 0.1s endpoint check;
 - collision idempotence, reset/restart, timeout-survived outcome;
 - renderer dispatch by descriptor shape and cleanup;
 - keyboard editable/repeat/modifier/button-target filtering;
@@ -481,7 +506,7 @@ One deterministic browser journey is sufficient:
 3. assert overlay + `Collision` result;
 4. Play Again and assert a new run is active/floor state reset;
 5. click `#flip-btn` once and observe ceiling gravity;
-6. use Space away from the focused flip button and observe one further flip.
+6. blur the focused button without clicking the canvas, then use Space and observe one further flip.
 
 The catalog-navigation suite remains source-unchanged and picks up the active registry entry automatically.
 
