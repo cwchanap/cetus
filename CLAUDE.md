@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cetus is a sci-fi themed single-player gaming platform built with Astro and Tailwind CSS. The platform features 17 fully implemented interactive games: Tetris Challenge, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, Sudoku, Bejeweled, Path Navigator, Evader, 2048, Snake, Circuit Hacker, Satellite Sync, Ice Slide, Mine Grid, and Pattern Pulse. Features include user authentication, score tracking, comprehensive achievement system with 4 rarity tiers, and a modern neon-styled design with holographic effects and animated backgrounds.
+Cetus is a sci-fi-themed single-player gaming platform built with Astro and Tailwind CSS. The platform features 17 fully implemented interactive games: Tetris Challenge, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, Sudoku, Bejeweled, Path Navigator, Evader, 2048, Snake, Circuit Hacker, Satellite Sync, Ice Slide, Mine Grid, and Pattern Pulse. Features include user authentication, score tracking, comprehensive achievement system with 4 rarity tiers, and a modern neon-styled design with holographic effects and animated backgrounds.
 
 ## Development Commands
 
