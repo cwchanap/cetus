@@ -245,4 +245,145 @@ describe('PatternPulseGame', () => {
             maxStreak: 1,
         })
     })
+
+    it('exposes no-op update and render methods', () => {
+        const game = new PatternPulseGame(
+            createPatternPulseConfig({ rng: () => 0 })
+        )
+        expect(() => game.update(0.016)).not.toThrow()
+        expect(() => game.render()).not.toThrow()
+        const config = game.getConfig()
+        expect(config.duration).toBe(60)
+        expect(config.initialSequenceLength).toBe(3)
+        expect(config.mistakeLimit).toBe(3)
+    })
+
+    it('logs an error when end() rejects during the mistake-limit path', async () => {
+        const game = new PatternPulseGame(
+            createPatternPulseConfig({
+                initialSequenceLength: 1,
+                rng: () => 0,
+            })
+        )
+        game.on('end', () => {
+            throw new Error('end listener error')
+        })
+        const consoleError = vi
+            .spyOn(console, 'error')
+            .mockImplementation(() => {})
+
+        game.start()
+        advanceToInput(game)
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+            game.pressPad(1)
+            if (attempt < 2) {
+                vi.advanceTimersByTime(PATTERN_PULSE_TIMING.feedbackMs)
+                advanceToInput(game)
+            }
+        }
+
+        // Flush microtasks for the async end() to reject and .catch to fire
+        for (let i = 0; i < 10; i++) {
+            await Promise.resolve()
+        }
+
+        expect(consoleError).toHaveBeenCalledWith(
+            'PatternPulseGame end failed (mistakes)',
+            expect.any(Error)
+        )
+        consoleError.mockRestore()
+    })
+
+    it('no-ops playNextCue when it fires after the game ends', async () => {
+        const game = new PatternPulseGame(
+            createPatternPulseConfig({ rng: () => 0 })
+        )
+        game.start()
+        // playNextCue is scheduled after prePlaybackDelayMs; end before it fires
+        await game.end()
+        expect(game.getState().isGameOver).toBe(true)
+        expect(game.getState().activePad).toBeNull()
+
+        vi.advanceTimersByTime(PATTERN_PULSE_TIMING.prePlaybackDelayMs)
+        // playNextCue guard returns without setting activePad
+        expect(game.getState().isGameOver).toBe(true)
+        expect(game.getState().activePad).toBeNull()
+    })
+
+    it('no-ops scheduled pad-clear callback that fires after the game ends', async () => {
+        const game = new PatternPulseGame(
+            createPatternPulseConfig({ rng: () => 0 })
+        )
+        game.start()
+        // Advance to first cue active (pad lit, clear callback scheduled)
+        vi.advanceTimersByTime(PATTERN_PULSE_TIMING.prePlaybackDelayMs)
+        expect(game.getState().activePad).toBe(0)
+
+        // End while the pulseMs clear callback is pending
+        await game.end()
+        expect(game.getState().isGameOver).toBe(true)
+
+        // The pulseMs callback fires and should no-op (activePad stays lit)
+        vi.advanceTimersByTime(PATTERN_PULSE_TIMING.initialPulseMs)
+        expect(game.getState().isGameOver).toBe(true)
+        expect(game.getState().activePad).toBe(0)
+    })
+
+    it('no-ops scheduled pulse-gap callback that fires after the game ends', async () => {
+        const game = new PatternPulseGame(
+            createPatternPulseConfig({ rng: () => 0 })
+        )
+        game.start()
+        // Advance past prePlaybackDelayMs and pulseMs so the pulseGapMs
+        // callback is the only pending timeout
+        vi.advanceTimersByTime(PATTERN_PULSE_TIMING.prePlaybackDelayMs)
+        vi.advanceTimersByTime(PATTERN_PULSE_TIMING.initialPulseMs)
+        expect(game.getState().activePad).toBeNull()
+
+        // End while the pulseGapMs callback is pending
+        await game.end()
+        expect(game.getState().isGameOver).toBe(true)
+
+        // The pulseGapMs callback fires and should no-op
+        vi.advanceTimersByTime(PATTERN_PULSE_TIMING.pulseGapMs)
+        expect(game.getState().isGameOver).toBe(true)
+        expect(game.getState().activePad).toBeNull()
+    })
+
+    it('beginInput is a no-op when the game is not active', () => {
+        const game = new PatternPulseGame(
+            createPatternPulseConfig({ rng: () => 0 })
+        )
+        const beginInput = (
+            game as unknown as { beginInput: () => void }
+        ).beginInput.bind(game)
+        // Game is idle; beginInput should return without changing phase
+        beginInput()
+        expect(game.getState().phase).toBe('idle')
+    })
+
+    it('forwards state changes via the onStateChange callback', () => {
+        const onStateChange = vi.fn()
+        const game = new PatternPulseGame(
+            createPatternPulseConfig({ rng: () => 0 }),
+            { onStateChange }
+        )
+        game.start()
+        expect(onStateChange).toHaveBeenCalled()
+        expect(onStateChange).toHaveBeenLastCalledWith(
+            expect.objectContaining({ phase: 'watch' })
+        )
+    })
+
+    it('cleanup clears scheduled timeouts without error', () => {
+        const game = new PatternPulseGame(
+            createPatternPulseConfig({ rng: () => 0 })
+        )
+        game.start()
+        // Schedule a timeout via normal gameplay
+        vi.advanceTimersByTime(PATTERN_PULSE_TIMING.prePlaybackDelayMs)
+        // cleanup should clear the pending timeout
+        expect(() => game.cleanup()).not.toThrow()
+    })
 })
