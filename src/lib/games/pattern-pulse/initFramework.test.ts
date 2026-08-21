@@ -385,4 +385,119 @@ describe('initPatternPulseGameFramework', () => {
         expect(gameDestroy).toHaveBeenCalledTimes(1)
         expect(handle!.game.getState().gameStarted).toBe(false)
     })
+
+    it('starts the game when the start button is clicked', async () => {
+        handle = await initPatternPulseGameFramework()
+        expect(handle!.game.getState().isActive).toBe(false)
+
+        document.getElementById('start-btn')!.click()
+
+        expect(handle!.game.getState().isActive).toBe(true)
+        expect(handle!.game.getState().phase).toBe('watch')
+        expect(document.getElementById('start-btn')).toHaveStyle({
+            display: 'none',
+        })
+    })
+
+    it('fails cleanly when the renderer cannot initialize', async () => {
+        const consoleError = vi
+            .spyOn(console, 'error')
+            .mockImplementation(() => {})
+        document.getElementById('pattern-pulse-board')?.remove()
+
+        expect(await initPatternPulseGameFramework()).toBeUndefined()
+        expect(consoleError).toHaveBeenCalled()
+        consoleError.mockRestore()
+    })
+
+    it('handles a missing reset button gracefully', async () => {
+        document.getElementById('reset-btn')?.remove()
+        document.getElementById('play-again-btn')?.remove()
+
+        handle = await initPatternPulseGameFramework()
+        expect(handle).toBeDefined()
+        // Start button still works
+        handle!.game.start()
+        expect(handle!.game.getState().isActive).toBe(true)
+    })
+
+    it('ignores numeric shortcuts from textarea and select elements', async () => {
+        const textarea = document.createElement('textarea')
+        const select = document.createElement('select')
+        document.body.appendChild(textarea)
+        document.body.appendChild(select)
+
+        handle = await initPatternPulseGameFramework()
+        handle!.game.start()
+        vi.advanceTimersByTime(4_000)
+        expect(handle!.game.getState().phase).toBe('input')
+
+        const inputIndexBefore = handle!.game.getState().inputIndex
+        const mistakesBefore = handle!.game.getState().mistakes
+
+        textarea.dispatchEvent(
+            new KeyboardEvent('keydown', { key: '1', bubbles: true })
+        )
+        select.dispatchEvent(
+            new KeyboardEvent('keydown', { key: '1', bubbles: true })
+        )
+
+        expect(handle!.game.getState().inputIndex).toBe(inputIndexBefore)
+        expect(handle!.game.getState().mistakes).toBe(mistakesBefore)
+    })
+
+    it('routes numeric shortcuts 1-4 and ignores non-numeric keys', async () => {
+        handle = await initPatternPulseGameFramework()
+        handle!.game.start()
+        vi.advanceTimersByTime(4_000)
+        expect(handle!.game.getState().phase).toBe('input')
+
+        const stateBefore = { ...handle!.game.getState() }
+
+        // Keys '1', '2', '3', '4' map to pads 0, 1, 2, 3
+        for (const key of ['1', '2', '3', '4']) {
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', { key, bubbles: true })
+            )
+        }
+
+        const stateAfter = { ...handle!.game.getState() }
+        // At least one of inputIndex or mistakes should have changed
+        const changed =
+            stateAfter.inputIndex !== stateBefore.inputIndex ||
+            stateAfter.mistakes !== stateBefore.mistakes
+        expect(changed).toBe(true)
+
+        // Non-numeric key → shortcutToPad returns null → no-op
+        const idxBefore = handle!.game.getState().inputIndex
+        const misBefore = handle!.game.getState().mistakes
+        document.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'a', bubbles: true })
+        )
+        expect(handle!.game.getState().inputIndex).toBe(idxBefore)
+        expect(handle!.game.getState().mistakes).toBe(misBefore)
+    })
+
+    it('shows timeout overlay when the game timer expires', async () => {
+        handle = await initPatternPulseGameFramework()
+        handle!.game.start()
+
+        // Advance past the full 60-second duration
+        vi.advanceTimersByTime(60_000)
+        await settleEnd()
+
+        expect(handle!.game.getState()).toMatchObject({
+            outcome: 'timeout',
+            isGameOver: true,
+        })
+        expect(document.getElementById('game-over-title')).toHaveTextContent(
+            'TIME UP!'
+        )
+        expect(document.getElementById('final-outcome')).toHaveTextContent(
+            'Timeout'
+        )
+        expect(document.getElementById('pattern-status')).toHaveTextContent(
+            'TIME'
+        )
+    })
 })

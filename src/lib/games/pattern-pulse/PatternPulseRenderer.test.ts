@@ -123,4 +123,63 @@ describe('PatternPulseRenderer', () => {
             document.querySelectorAll('button[data-pattern-pad]')
         ).toHaveLength(4)
     })
+
+    it('rejects initialization when the board is missing', async () => {
+        board.remove()
+        renderer = new PatternPulseRenderer()
+        await expect(renderer.initialize()).rejects.toThrow(
+            /pattern-pulse-board/
+        )
+    })
+
+    it('rejects initialization when pad count is not four', async () => {
+        board.querySelector('[data-pattern-pad="3"]')?.remove()
+        renderer = new PatternPulseRenderer()
+        await expect(renderer.initialize()).rejects.toThrow(
+            /exactly four pad buttons/
+        )
+    })
+
+    it('ignores clicks on non-Element targets, non-pad elements, and invalid pad values', async () => {
+        renderer = new PatternPulseRenderer()
+        const onPad = vi.fn()
+        renderer.setPadPressCallback(onPad)
+        await renderer.initialize()
+        renderer.render(inputState())
+
+        // Non-Element target (Text node)
+        const text = document.createTextNode('hello')
+        board.appendChild(text)
+        text.dispatchEvent(new Event('click', { bubbles: true }))
+        expect(onPad).not.toHaveBeenCalled()
+
+        // Non-pad element inside the board
+        const div = document.createElement('div')
+        board.appendChild(div)
+        div.click()
+        expect(onPad).not.toHaveBeenCalled()
+
+        // Button with invalid pad value
+        const invalidButton = document.createElement('button')
+        invalidButton.dataset.patternPad = '5'
+        board.appendChild(invalidButton)
+        invalidButton.click()
+        expect(onPad).not.toHaveBeenCalled()
+    })
+
+    it('ignores render calls with non-PatternPulseState objects', async () => {
+        renderer = new PatternPulseRenderer()
+        await renderer.initialize()
+        renderer.render(inputState())
+
+        // Render with invalid state — should not crash or change pads
+        renderer.render({} as PatternPulseState)
+        renderer.render(null as unknown as PatternPulseState)
+
+        const pad = board.querySelector<HTMLButtonElement>(
+            '[data-pattern-pad="0"]'
+        )!
+        // Previous render's attributes remain unchanged
+        expect(pad).toHaveAttribute('aria-disabled', 'false')
+    })
 })
