@@ -1232,3 +1232,36 @@ describe('Ice Slide achievements', () => {
         ).toBe(false)
     })
 })
+
+describe('Pattern Pulse achievements', () => {
+    it('pattern_pulse_welcome: awards at score >= 1', () => {
+        const achievement = getAchievementById('pattern_pulse_welcome')
+        expect(achievement).toBeDefined()
+        expect(achievement?.condition).toMatchObject({
+            type: 'score_threshold',
+            threshold: 1,
+        })
+    })
+
+    it('pattern_pulse_streak_3: awards when maxStreak >= 3', () => {
+        const check = getAchievementById('pattern_pulse_streak_3')!.condition
+            .check!
+        expect(check({ maxStreak: 3 }, 0)).toBe(true)
+        expect(check({ maxStreak: 2 }, 0)).toBe(false)
+    })
+
+    it('pattern_pulse_sequence_8: awards when longestSequence >= 8', () => {
+        const check = getAchievementById('pattern_pulse_sequence_8')!.condition
+            .check!
+        expect(check({ longestSequence: 8 }, 0)).toBe(true)
+        expect(check({ longestSequence: 7 }, 0)).toBe(false)
+    })
+
+    it('pattern_pulse_perfect: requires 3 rounds and zero mistakes', () => {
+        const check = getAchievementById('pattern_pulse_perfect')!.condition
+            .check!
+        expect(check({ completedRounds: 3, mistakes: 0 }, 0)).toBe(true)
+        expect(check({ completedRounds: 3, mistakes: 1 }, 0)).toBe(false)
+        expect(check({ completedRounds: 2, mistakes: 0 }, 0)).toBe(false)
+    })
+})

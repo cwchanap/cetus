@@ -281,6 +281,20 @@ export const GAMES: Game[] = [
         organism: { shape: 'lattice', color: 'green' },
         depth: 'abyssal',
     },
+    {
+        id: GameID.PATTERN_PULSE,
+        name: 'Pattern Pulse',
+        description:
+            'Memorize and repeat an accelerating four-pad signal sequence',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '1 minute',
+        difficulty: 'medium',
+        tags: ['memory', 'sequence', 'timing', 'single-player', 'cognitive'],
+        isActive: true,
+        organism: { shape: 'chain', color: 'magenta' },
+        depth: 'shallow',
+    },
 ]
 
 // Helper functions
