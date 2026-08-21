@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { rectOverlap } from '@/lib/games/shared/utils'
 import { GravityFlipGame } from './GravityFlipGame'
-import { createGravityFlipConfig, type GravityFlipConfig } from './types'
+import {
+    GRAVITY_FLIP_HAZARD_CATALOG,
+    createGravityFlipConfig,
+    getGravityFlipMoverBounds,
+    type GravityFlipConfig,
+} from './types'
 
 function createGame(overrides: Partial<GravityFlipConfig> = {}) {
     return new GravityFlipGame(
@@ -12,10 +18,351 @@ function createGame(overrides: Partial<GravityFlipConfig> = {}) {
     )
 }
 
+function expectRailsDisjointFromMover(config: GravityFlipConfig): void {
+    const { minY, maxY } = getGravityFlipMoverBounds(config)
+    const playerLeft = config.playerX - config.playerSize / 2
+    const ceilingPlayer = {
+        x: playerLeft,
+        y: config.corridorInset,
+        width: config.playerSize,
+        height: config.playerSize,
+    }
+    const floorPlayer = {
+        x: playerLeft,
+        y: config.canvasHeight - config.corridorInset - config.playerSize,
+        width: config.playerSize,
+        height: config.playerSize,
+    }
+    const moverAtTop = {
+        x: playerLeft,
+        y: minY,
+        width: config.moverSize,
+        height: config.moverSize,
+    }
+    const moverAtBottom = { ...moverAtTop, y: maxY }
+
+    expect(rectOverlap(ceilingPlayer, moverAtTop)).toBe(false)
+    expect(rectOverlap(floorPlayer, moverAtBottom)).toBe(false)
+}
+
 describe('GravityFlipGame', () => {
     afterEach(() => {
         vi.restoreAllMocks()
         vi.useRealTimers()
+    })
+
+    it('has exactly one descriptor for all five kinds', () => {
+        expect(Object.keys(GRAVITY_FLIP_HAZARD_CATALOG).sort()).toEqual([
+            'ceiling-gap',
+            'ceiling-spike',
+            'floor-gap',
+            'floor-spike',
+            'mover',
+        ])
+    })
+
+    it('keeps default rail-resting player disjoint from mover extrema', () => {
+        const config = createGravityFlipConfig()
+        expect(getGravityFlipMoverBounds(config)).toEqual({
+            minY: 64,
+            maxY: 216,
+        })
+        expectRailsDisjointFromMover(config)
+    })
+
+    it('derives mover clearance from a larger player body', () => {
+        const config = createGravityFlipConfig({ playerSize: 40 })
+        expect(getGravityFlipMoverBounds(config)).toEqual({
+            minY: 76,
+            maxY: 204,
+        })
+        expectRailsDisjointFromMover(config)
+    })
+
+    it('fresh start authors floor-spike first with stable hazard-0 id', () => {
+        const game = createGame()
+        game.start()
+
+        expect(game.getState().hazards[0]).toMatchObject({
+            id: 'hazard-0',
+            kind: 'floor-spike',
+            x: 880,
+        })
+        game.destroy()
+    })
+
+    it('waits the simulation-time interpolated spacing before the next spawn', () => {
+        const game = createGame({
+            duration: 10,
+            playerX: -1000,
+            initialWorldSpeed: 100,
+            finalWorldSpeed: 100,
+            initialChallengeSpacing: 100,
+            finalChallengeSpacing: 50,
+        })
+        game.start()
+
+        for (let i = 0; i < 9; i++) {
+            game.update(0.1)
+        }
+        expect(game.getState().hazards).toHaveLength(1)
+
+        game.update(0.1)
+        expect(game.getState().hazards).toHaveLength(2)
+        game.destroy()
+    })
+
+    it('reads RNG exactly once per random challenge', () => {
+        const rng = vi.fn(() => 0)
+        const game = createGame({
+            rng,
+            playerX: -1000,
+            initialWorldSpeed: 500,
+            finalWorldSpeed: 500,
+            initialChallengeSpacing: 50,
+            finalChallengeSpacing: 50,
+        })
+        game.start()
+
+        expect(rng).not.toHaveBeenCalled()
+        game.update(0.1)
+
+        expect(game.getState().hazards).toHaveLength(2)
+        expect(rng).toHaveBeenCalledTimes(1)
+        game.destroy()
+    })
+
+    it('does not select mover before 15 simulated seconds', () => {
+        const game = createGame({
+            rng: () => 0.999,
+            playerX: -1000,
+        })
+        game.start()
+
+        for (let i = 0; i < 149; i++) {
+            game.update(0.1)
+        }
+
+        expect(
+            game.getState().hazards.some(({ kind }) => kind === 'mover')
+        ).toBe(false)
+        game.destroy()
+    })
+
+    it('can select mover after 15 simulated seconds', () => {
+        const game = createGame({
+            rng: () => 0.999,
+            playerX: -1000,
+            initialWorldSpeed: 100,
+            finalWorldSpeed: 100,
+            initialChallengeSpacing: 50,
+            finalChallengeSpacing: 50,
+        })
+        game.start()
+
+        for (let i = 0; i < 156; i++) {
+            game.update(0.1)
+        }
+
+        expect(
+            game.getState().hazards.some(({ kind }) => kind === 'mover')
+        ).toBe(true)
+        game.destroy()
+    })
+
+    it('puts a star on the opposite surface when the surface descriptor hasStar', () => {
+        const game = createGame({
+            rng: () => 0.75,
+            playerX: -1000,
+            initialWorldSpeed: 500,
+            finalWorldSpeed: 500,
+            initialChallengeSpacing: 50,
+            finalChallengeSpacing: 50,
+        })
+        game.start()
+        game.update(0.1)
+
+        expect(game.getState().hazards).toContainEqual(
+            expect.objectContaining({ kind: 'ceiling-gap', x: 880 })
+        )
+        expect(game.getState().stars).toContainEqual(
+            expect.objectContaining({
+                id: 'star-3',
+                x: 925,
+                y: 270,
+            })
+        )
+        game.destroy()
+    })
+
+    it('collects an overlapping star once', () => {
+        const game = createGame({
+            initialWorldSpeed: 0,
+            finalWorldSpeed: 0,
+        })
+        game.start()
+
+        expect(game.getState().stars).toHaveLength(1)
+        const star = game.getState().stars[0]
+        if (!star) {
+            game.destroy()
+            return
+        }
+        star.x = game.getState().player.x
+        star.y = game.getState().player.y
+
+        game.update(0.01)
+        expect(game.getState().starsCollected).toBe(1)
+        expect(game.getState().stars).toHaveLength(0)
+
+        game.update(0.01)
+        expect(game.getState().starsCollected).toBe(1)
+        game.destroy()
+    })
+
+    it('floor/ceiling gaps only kill on their typed surface using configured tolerance', () => {
+        const config = {
+            gapRailTolerance: 2,
+            gravityAcceleration: 0,
+            initialWorldSpeed: 0,
+            finalWorldSpeed: 0,
+        }
+        const baseConfig = createGravityFlipConfig(config)
+        const half = baseConfig.playerSize / 2
+        const ceilingY = baseConfig.corridorInset + half
+        const floorY = baseConfig.canvasHeight - baseConfig.corridorInset - half
+        const cases = [
+            {
+                kind: 'floor-gap' as const,
+                playerY: floorY - 1.75,
+                lethal: true,
+            },
+            { kind: 'floor-gap' as const, playerY: ceilingY, lethal: false },
+            {
+                kind: 'ceiling-gap' as const,
+                playerY: ceilingY + 1.75,
+                lethal: true,
+            },
+            { kind: 'ceiling-gap' as const, playerY: floorY, lethal: false },
+        ]
+
+        for (const { kind, playerY, lethal } of cases) {
+            const game = createGame(config)
+            game.start()
+            const state = game.getState()
+            expect(state.hazards).toHaveLength(1)
+            const hazard = state.hazards[0]
+            if (!hazard) {
+                game.destroy()
+                return
+            }
+            hazard.kind = kind
+            hazard.x = state.player.x
+            hazard.width = baseConfig.gapWidth
+            hazard.height = baseConfig.gapHeight
+            state.player.y = playerY
+
+            game.update(0.01)
+            expect(game.getState().outcome).toBe(
+                lethal ? 'collision' : 'playing'
+            )
+            game.destroy()
+        }
+    })
+
+    it('mover clamps/reverses at both safe bounds', () => {
+        const config = {
+            rng: () => 0.999,
+            playerX: -1000,
+            moverUnlockSeconds: 0,
+            initialWorldSpeed: 100,
+            finalWorldSpeed: 100,
+            initialChallengeSpacing: 10,
+            finalChallengeSpacing: 10,
+        }
+        const game = createGame(config)
+        game.start()
+        game.update(0.1)
+
+        const mover = game
+            .getState()
+            .hazards.find(({ kind }) => kind === 'mover')
+        expect(mover).toBeDefined()
+        if (!mover) {
+            game.destroy()
+            return
+        }
+        const bounds = getGravityFlipMoverBounds(
+            createGravityFlipConfig(config)
+        )
+        mover.y = bounds.minY - 1
+        mover.verticalVelocity = -180
+        game.update(createGravityFlipConfig(config).maxPhysicsStep)
+        expect(mover).toMatchObject({
+            y: bounds.minY,
+            verticalVelocity: 180,
+        })
+
+        mover.y = bounds.maxY + 1
+        mover.verticalVelocity = 180
+        game.update(createGravityFlipConfig(config).maxPhysicsStep)
+        expect(mover).toMatchObject({
+            y: bounds.maxY,
+            verticalVelocity: -180,
+        })
+        game.destroy()
+    })
+
+    it('overlapping lethal records still end once', () => {
+        const game = createGame({
+            initialWorldSpeed: 0,
+            finalWorldSpeed: 0,
+        })
+        game.start()
+        const state = game.getState()
+        expect(state.hazards).toHaveLength(1)
+        const hazard = state.hazards[0]
+        if (!hazard) {
+            game.destroy()
+            return
+        }
+        hazard.x = state.player.x
+        state.hazards.push({ ...hazard, id: 'hazard-overlap' })
+        const end = vi.spyOn(game, 'end')
+
+        game.update(0.01)
+
+        expect(game.getState()).toMatchObject({
+            outcome: 'collision',
+            isGameOver: true,
+            isActive: false,
+        })
+        expect(end).toHaveBeenCalledTimes(1)
+        game.destroy()
+    })
+
+    it('collides with an 8px spike that a single 0.1s endpoint check would skip', () => {
+        const game = createGame({
+            canvasWidth: 164,
+            spawnOffsetX: 0,
+            playerX: 150,
+            spikeWidth: 8,
+            initialWorldSpeed: 360,
+            finalWorldSpeed: 360,
+        })
+
+        game.start()
+        expect(game.getState().hazards[0]).toMatchObject({
+            kind: 'floor-spike',
+            x: 164,
+            width: 8,
+        })
+
+        game.update(0.1)
+
+        expect(game.getState().outcome).toBe('collision')
+        expect(game.getState().isGameOver).toBe(true)
+        game.destroy()
     })
 
     it('starts floor-resting with downward gravity and zero velocity', () => {
@@ -117,7 +464,7 @@ describe('GravityFlipGame', () => {
     })
 
     it('ramps from 220 toward 360 by repeated update calls without advancing Date', () => {
-        const game = createGame()
+        const game = createGame({ playerX: -1000 })
         game.start()
 
         expect(game.getState().worldSpeed).toBe(220)
