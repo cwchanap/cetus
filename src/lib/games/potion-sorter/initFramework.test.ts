@@ -390,6 +390,45 @@ describe('initPotionSorterGameFramework', () => {
         expect(undoButton.dataset.deadEnd).toBe('false')
     })
 
+    it('disables Undo immediately on timeout while score submission is still pending', async () => {
+        // Regression: onStateChange must sync the Undo button so it does not
+        // stay enabled (or dead-end-emphasized) during the await between
+        // handleTimeUp's emitStateChange and onEnd running after saveFinalScore.
+        let resolveFetch!: (value: Response) => void
+        const pendingScore = new Promise<Response>(resolve => {
+            resolveFetch = resolve
+        })
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockReturnValue(pendingScore) as unknown as typeof fetch
+        )
+
+        handle = await initPotionSorterGameFramework()
+        handle!.game.start()
+
+        playMoves(MEDIUM_DEAD_END)
+        const undoButton = document.getElementById(
+            'undo-btn'
+        ) as HTMLButtonElement
+        expect(undoButton.disabled).toBe(false)
+        expect(undoButton.dataset.deadEnd).toBe('true')
+
+        vi.advanceTimersByTime(300_000)
+
+        // Assert before the score submission resolves — no awaiting settleEnd.
+        expect(handle!.game.getState().result).toBe('timeout')
+        expect(undoButton.disabled).toBe(true)
+        expect(undoButton.dataset.deadEnd).toBe('false')
+
+        // Let the pending score submission complete so onEnd can run and
+        // cleanup finishes without leaking rejected promises.
+        resolveFetch({
+            ok: true,
+            json: async () => ({ newAchievements: [] }),
+        } as Response)
+        await settleEnd()
+    })
+
     it('keeps Undo disabled across game over and an idle difficulty change', async () => {
         handle = await initPotionSorterGameFramework()
         handle!.game.start()

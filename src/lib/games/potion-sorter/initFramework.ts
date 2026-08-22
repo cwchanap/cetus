@@ -165,6 +165,7 @@ export async function initPotionSorterGameFramework(): Promise<
             const potionSorterState = state as PotionSorterState
             renderer.render(potionSorterState)
             syncHud(potionSorterState)
+            syncUndoButton()
         },
         onScoreUpdate: (score: number) => {
             setText('score', String(score))
