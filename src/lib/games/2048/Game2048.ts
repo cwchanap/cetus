@@ -210,7 +210,9 @@ export class Game2048 extends BaseGame<
 
         // Check for game over (no moves remaining)
         if (!canMove(this.state.board)) {
-            this.end().catch(err => console.error('Game2048 end failed', err))
+            this.end().catch((err: unknown) =>
+                console.error('Game2048 end failed', err)
+            )
         }
 
         return result

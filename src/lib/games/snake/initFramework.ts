@@ -4,6 +4,7 @@ import { SnakeRenderer, createSnakeRendererConfig } from './SnakeRenderer'
 import type { SnakeConfig, SnakeStats, Direction } from './types'
 import type {
     BaseGameCallbacks,
+    BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
 } from '@/lib/games/core/types'
@@ -71,18 +72,18 @@ export async function initSnakeGameFramework(
     // Enhanced callbacks with UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
-        onStateChange: state => {
+        onStateChange: (state: BaseGameState) => {
             updateUI(state as ReturnType<SnakeGame['getState']>)
             customCallbacks?.onStateChange?.(state)
         },
-        onScoreUpdate: score => {
+        onScoreUpdate: (score: number) => {
             const scoreEl = document.getElementById('score')
             if (scoreEl) {
                 scoreEl.textContent = String(score)
             }
             customCallbacks?.onScoreUpdate?.(score)
         },
-        onTimeUpdate: time => {
+        onTimeUpdate: (time: number) => {
             const timeEl = document.getElementById('time-remaining')
             if (timeEl) {
                 timeEl.textContent = `${time}s`

@@ -79,7 +79,7 @@ export class PatternPulseGame extends BaseGame<
                 this.state.outcome = 'mistakes'
                 this.state.phase = 'ended'
                 this.emitStateChange()
-                void this.end().catch(error =>
+                void this.end().catch((error: unknown) =>
                     console.error(
                         'PatternPulseGame end failed (mistakes)',
                         error

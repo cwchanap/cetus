@@ -169,7 +169,7 @@ export class CircuitHackerGame {
             this.getStats()
         ) as unknown
         if (result && typeof (result as Promise<void>).catch === 'function') {
-            void (result as Promise<void>).catch(err => {
+            void (result as Promise<void>).catch((err: unknown) => {
                 // eslint-disable-next-line no-console
                 console.error('onSolved callback rejected:', err)
             })

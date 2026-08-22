@@ -46,7 +46,7 @@ export class SatelliteSyncGame {
                 timeBonus: true,
             },
             achievementIntegration: false,
-            onScoreUpdate: score => {
+            onScoreUpdate: (score: number) => {
                 this.state.score = score
                 this.callbacks.onScoreUpdate(score)
             },

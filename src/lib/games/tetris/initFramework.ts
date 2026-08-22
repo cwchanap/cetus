@@ -5,6 +5,7 @@ import { drawNextPiece } from './utils'
 import type { TetrisConfig, TetrisStats, Piece } from './types'
 import type {
     BaseGameCallbacks,
+    BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
 } from '@/lib/games/core/types'
@@ -92,13 +93,13 @@ export async function initTetrisGameFramework(
     // Enhanced callbacks with UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
-        onStateChange: state => {
+        onStateChange: (state: BaseGameState) => {
             const tetrisState = state as ReturnType<TetrisGame['getState']>
             updateUI(tetrisState)
             drawNextPiecePreview(tetrisState.nextPiece)
             customCallbacks?.onStateChange?.(state)
         },
-        onScoreUpdate: score => {
+        onScoreUpdate: (score: number) => {
             const scoreEl = document.getElementById('score')
             if (scoreEl) {
                 scoreEl.textContent = String(score)

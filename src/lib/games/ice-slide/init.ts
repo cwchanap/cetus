@@ -570,10 +570,10 @@ export async function initializeIceSlide(
             onHazard: () => {
                 callbacks.onHazard()
             },
-            onScoreUpdate: score => {
+            onScoreUpdate: (score: number) => {
                 callbacks.onScoreUpdate(score)
             },
-            onTimeUpdate: seconds => {
+            onTimeUpdate: (seconds: number) => {
                 callbacks.onTimeUpdate(seconds)
                 setText('time-remaining', formatTime(seconds))
             },

@@ -11,6 +11,7 @@ import {
 } from './types'
 import type {
     BaseGameCallbacks,
+    BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
 } from '@/lib/games/core/types'
@@ -151,15 +152,15 @@ export async function initMineGridGameFramework(): Promise<
     }
 
     const enhancedCallbacks: BaseGameCallbacks = {
-        onStateChange: state => {
+        onStateChange: (state: BaseGameState) => {
             const mineGridState = state as MineGridState
             renderer.render(mineGridState)
             syncHud(mineGridState)
         },
-        onScoreUpdate: score => {
+        onScoreUpdate: (score: number) => {
             setText('score', String(score))
         },
-        onTimeUpdate: timeRemaining => {
+        onTimeUpdate: (timeRemaining: number) => {
             setText('time-remaining', String(timeRemaining))
         },
         onStart: () => {

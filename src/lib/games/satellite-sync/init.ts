@@ -176,11 +176,11 @@ export async function initializeSatelliteSync(
                 lastFrame = 0
                 rafId = requestAnimationFrame(loop)
             },
-            onTimeUpdate: t => {
+            onTimeUpdate: (t: number) => {
                 setText('time-remaining', t.toString())
                 callbacks.onTimeUpdate(t)
             },
-            onScoreUpdate: sc => {
+            onScoreUpdate: (sc: number) => {
                 setText('score', sc.toString())
                 callbacks.onScoreUpdate(sc)
             },

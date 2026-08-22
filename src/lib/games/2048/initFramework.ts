@@ -8,6 +8,7 @@ import type { Game2048Config, Game2048Stats } from './frameworkTypes'
 import { type Direction } from './types'
 import type {
     BaseGameCallbacks,
+    BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
 } from '@/lib/games/core/types'
@@ -90,7 +91,7 @@ export async function init2048GameFramework(
     // Enhanced callbacks with UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
-        onStateChange: state => {
+        onStateChange: (state: BaseGameState) => {
             const gameState = state as ReturnType<Game2048['getState']>
             updateMaxTileDisplay(gameState.maxTile)
             if (gameState.won && !prevWon) {
@@ -105,7 +106,7 @@ export async function init2048GameFramework(
             }
             customCallbacks?.onStateChange?.(state)
         },
-        onScoreUpdate: score => {
+        onScoreUpdate: (score: number) => {
             updateScoreDisplay(score)
             customCallbacks?.onScoreUpdate?.(score)
         },
@@ -334,7 +335,9 @@ function setupButtonHandlers(
     }
 
     const endHandler = () => {
-        game.end().catch(err => console.error('Game2048 end failed', err))
+        game.end().catch((err: unknown) =>
+            console.error('Game2048 end failed', err)
+        )
     }
 
     const resetHandler = () => {

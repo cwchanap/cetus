@@ -221,7 +221,9 @@ export class SudokuGame extends BaseGame<
             this.state.isComplete = true
             this.state.needsRedraw = true
             this.emitStateChange()
-            this.end().catch(err => console.error('Sudoku end failed', err))
+            this.end().catch((err: unknown) =>
+                console.error('Sudoku end failed', err)
+            )
             return
         }
 

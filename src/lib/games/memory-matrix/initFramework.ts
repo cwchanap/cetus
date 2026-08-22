@@ -7,6 +7,7 @@ import { MemoryMatrixRenderer } from './MemoryMatrixRenderer'
 import type { MemoryMatrixConfig, MemoryMatrixStats } from './frameworkTypes'
 import type {
     BaseGameCallbacks,
+    BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
 } from '@/lib/games/core/types'
@@ -65,18 +66,18 @@ export async function initMemoryMatrixGameFramework(
     // Enhanced callbacks with UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
-        onStateChange: state => {
+        onStateChange: (state: BaseGameState) => {
             renderer.render(state)
             customCallbacks?.onStateChange?.(state)
         },
-        onScoreUpdate: score => {
+        onScoreUpdate: (score: number) => {
             const el = document.getElementById('game-score')
             if (el) {
                 el.textContent = score.toString()
             }
             customCallbacks?.onScoreUpdate?.(score)
         },
-        onTimeUpdate: time => {
+        onTimeUpdate: (time: number) => {
             const el = document.getElementById('game-time')
             if (el) {
                 el.textContent = formatTime(time)

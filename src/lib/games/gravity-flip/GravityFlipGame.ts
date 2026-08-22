@@ -202,7 +202,7 @@ export class GravityFlipGame extends BaseGame<
             if (this.collidesWithHazard(hazard)) {
                 this.state.outcome = 'collision'
                 this.syncScore()
-                this.end().catch(error =>
+                this.end().catch((error: unknown) =>
                     console.error('GravityFlip end failed', error)
                 )
                 return

@@ -589,7 +589,7 @@ export class BubbleShooterGame extends BaseGame<
         this.reconcileNextBubbleColor()
 
         if (this.checkGameOverCondition(constants)) {
-            this.end().catch(error =>
+            this.end().catch((error: unknown) =>
                 console.error('BubbleShooter end failed', error)
             )
             return true
