@@ -3,6 +3,7 @@ import GamePage from '@/components/games/GamePage.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
 import Card from '@/components/ui/Card.astro'
+import { GRAVITY_FLIP_STAR_POINTS } from '@/lib/games/gravity-flip/scoring'
 ---
 
 <GamePage
@@ -24,10 +25,9 @@ import Card from '@/components/ui/Card.astro'
     <div
       id="gravity-flip-canvas"
       class="overflow-hidden rounded-lg bg-black/30"
-      role="img"
-      aria-label="Gravity Flip game board"
     >
     </div>
+    <p id="gravity-flip-status" class="sr-only" aria-live="polite"></p>
   </div>
 
   <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
@@ -94,7 +94,7 @@ import Card from '@/components/ui/Card.astro'
       </h3>
       <div class="space-y-2 text-sm text-cetus-ink">
         <p>Distance earns points as the world scrolls.</p>
-        <p>Each collected star adds 250 points.</p>
+        <p>Each collected star adds {GRAVITY_FLIP_STAR_POINTS} points.</p>
         <p>A collision ends the run immediately.</p>
       </div>
     </Card>

@@ -1354,13 +1354,18 @@ test.describe('Gravity Flip', () => {
                             window as Window & {
                                 gravityFlipGame?: {
                                     getGame(): {
-                                        getState(): { isActive: boolean }
+                                        getState(): {
+                                            gameStarted: boolean
+                                        }
                                     }
                                 }
                             }
                         ).gravityFlipGame
                             ?.getGame()
-                            .getState().isActive
+                            .getState().gameStarted &&
+                            document
+                                .getElementById('game-over-overlay')
+                                ?.classList.contains('hidden')
                     )
                 )
             )
