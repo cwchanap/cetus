@@ -18,6 +18,7 @@ export default tseslint.config(
       '.worktrees/',
       'coverage/',
       'db/',
+      '.superpowers/',
       'public/',
       '*.config.js',
       '*.config.mjs',

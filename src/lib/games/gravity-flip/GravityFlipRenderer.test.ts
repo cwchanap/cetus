@@ -54,7 +54,11 @@ import {
     createGravityFlipRendererConfig,
     GravityFlipRenderer,
 } from './GravityFlipRenderer'
-import { createGravityFlipConfig, type GravityFlipState } from './types'
+import {
+    GRAVITY_FLIP_RULES,
+    createGravityFlipConfig,
+    type GravityFlipState,
+} from './types'
 
 type MockGraphics = {
     clear: ReturnType<typeof vi.fn>
@@ -110,18 +114,21 @@ function makeState(): GravityFlipState {
                 id: 'floor-gap',
                 kind: 'floor-gap',
                 x: 300,
-                y: 262,
-                width: 90,
-                height: 18,
+                y:
+                    GRAVITY_FLIP_RULES.canvasHeight -
+                    GRAVITY_FLIP_RULES.corridorInset -
+                    GRAVITY_FLIP_RULES.gapHeight,
+                width: GRAVITY_FLIP_RULES.gapWidth,
+                height: GRAVITY_FLIP_RULES.gapHeight,
                 verticalVelocity: 0,
             },
             {
                 id: 'ceiling-gap',
                 kind: 'ceiling-gap',
                 x: 400,
-                y: 36,
-                width: 90,
-                height: 18,
+                y: GRAVITY_FLIP_RULES.corridorInset,
+                width: GRAVITY_FLIP_RULES.gapWidth,
+                height: GRAVITY_FLIP_RULES.gapHeight,
                 verticalVelocity: 0,
             },
             {
@@ -176,6 +183,7 @@ describe('GravityFlipRenderer', () => {
             container: '#gravity-flip-canvas',
             width: 800,
             height: 320,
+            corridorInset: 36,
             responsive: false,
             backgroundColor: 0x020817,
             antialias: true,
@@ -185,6 +193,22 @@ describe('GravityFlipRenderer', () => {
         expect(app.stage.addChild).toHaveBeenNthCalledWith(1, graphicAt(0))
         expect(app.stage.addChild).toHaveBeenNthCalledWith(2, graphicAt(1))
         expect(graphicAt(0).rect).toHaveBeenCalled()
+    })
+
+    it('draws the corridor using the configured inset', async () => {
+        const gameConfig = createGravityFlipConfig({ corridorInset: 48 })
+        renderer = new GravityFlipRenderer(
+            createGravityFlipRendererConfig(gameConfig)
+        )
+        await renderer.initialize()
+
+        const corridor = graphicAt(0)
+        expect(corridor.rect).toHaveBeenCalledWith(0, 0, 800, 48)
+        expect(corridor.rect).toHaveBeenCalledWith(0, 272, 800, 48)
+        expect(corridor.moveTo).toHaveBeenCalledWith(0, 48)
+        expect(corridor.lineTo).toHaveBeenCalledWith(800, 48)
+        expect(corridor.moveTo).toHaveBeenCalledWith(0, 272)
+        expect(corridor.lineTo).toHaveBeenCalledWith(800, 272)
     })
 
     it('draws spike, gap, and mover by descriptor.shape', async () => {
@@ -213,8 +237,60 @@ describe('GravityFlipRenderer', () => {
         const scene = graphicAt(1)
         expect(scene.moveTo.mock.calls).toContainEqual([100, 284])
         expect(scene.moveTo.mock.calls).toContainEqual([200, 36])
-        expect(scene.lineTo.mock.calls).toContainEqual([390, 280])
-        expect(scene.lineTo.mock.calls).toContainEqual([490, 36])
+    })
+
+    it('erases floor and ceiling gaps through their typed surfaces', async () => {
+        renderer = new GravityFlipRenderer(
+            createGravityFlipRendererConfig(createGravityFlipConfig())
+        )
+        await renderer.initialize()
+
+        const state = makeState()
+        renderer.render(state)
+
+        const scene = graphicAt(1)
+        const floorGap = state.hazards.find(
+            hazard => hazard.kind === 'floor-gap'
+        )!
+        const ceilingGap = state.hazards.find(
+            hazard => hazard.kind === 'ceiling-gap'
+        )!
+        expect(scene.rect).toHaveBeenCalledWith(
+            floorGap.x,
+            floorGap.y,
+            floorGap.width,
+            GRAVITY_FLIP_RULES.canvasHeight - floorGap.y
+        )
+        expect(scene.rect).toHaveBeenCalledWith(
+            ceilingGap.x,
+            0,
+            ceilingGap.width,
+            ceilingGap.y + ceilingGap.height
+        )
+        expect(
+            scene.fill.mock.calls.filter(call => call[0]?.color === 0x020817)
+        ).toEqual([
+            [{ color: 0x020817, alpha: 1 }],
+            [{ color: 0x020817, alpha: 1 }],
+        ])
+        const floorRailY = floorGap.y + floorGap.height
+        const ceilingRailY = ceilingGap.y
+        expect(scene.moveTo.mock.calls).not.toContainEqual([
+            floorGap.x,
+            floorRailY,
+        ])
+        expect(scene.lineTo.mock.calls).not.toContainEqual([
+            floorGap.x + floorGap.width,
+            floorRailY,
+        ])
+        expect(scene.moveTo.mock.calls).not.toContainEqual([
+            ceilingGap.x,
+            ceilingRailY,
+        ])
+        expect(scene.lineTo.mock.calls).not.toContainEqual([
+            ceilingGap.x + ceilingGap.width,
+            ceilingRailY,
+        ])
     })
 
     it('renders player and stars', async () => {
