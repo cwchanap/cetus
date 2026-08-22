@@ -79,6 +79,21 @@ describe('GravityFlipGame', () => {
         expectRailsDisjointFromMover(config)
     })
 
+    it('rejects non-finite or non-positive maxPhysicsStep without stepping', () => {
+        for (const maxPhysicsStep of [0, -1 / 120, Number.NaN, Infinity]) {
+            const game = createGame({ maxPhysicsStep })
+            game.start()
+
+            game.update(0.1)
+
+            expect(game.getState()).toMatchObject({
+                isActive: true,
+                distance: 0,
+            })
+            game.destroy()
+        }
+    })
+
     it('fresh start authors floor-spike first with stable hazard-0 id', () => {
         const game = createGame()
         game.start()

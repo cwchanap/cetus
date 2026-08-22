@@ -79,19 +79,15 @@ function canvas(): HTMLCanvasElement {
     )!
 }
 
-async function settleEnd(): Promise<void> {
-    for (let i = 0; i < 4; i++) {
-        await Promise.resolve()
-    }
-}
-
 describe('initGravityFlipGameFramework', () => {
     let handle: Awaited<ReturnType<typeof initGravityFlipGameFramework>>
     let rafCallbacks: FrameRequestCallback[]
+    let eventReturnValueSpy: { mockRestore: () => void } | undefined
 
     beforeEach(() => {
         setupDOM()
         rafCallbacks = []
+        eventReturnValueSpy = undefined
         vi.clearAllMocks()
         vi.useFakeTimers()
         vi.stubGlobal(
@@ -116,6 +112,8 @@ describe('initGravityFlipGameFramework', () => {
     })
 
     afterEach(() => {
+        eventReturnValueSpy?.mockRestore()
+        eventReturnValueSpy = undefined
         handle?.cleanup()
         vi.useRealTimers()
         vi.unstubAllGlobals()
@@ -171,8 +169,16 @@ describe('initGravityFlipGameFramework', () => {
         rafCallbacks[0](0)
 
         expect(updateSpy).toHaveBeenCalledTimes(1)
+        expect(updateSpy).toHaveBeenLastCalledWith(0)
         expect(renderSpy).toHaveBeenCalledTimes(initialRenderCount + 1)
         expect(requestAnimationFrame).toHaveBeenCalledTimes(2)
+
+        rafCallbacks[1](16)
+
+        expect(updateSpy).toHaveBeenLastCalledWith(0.016)
+        expect(handle!.game.getState().distance).toBeGreaterThan(0)
+        expect(renderSpy).toHaveBeenCalledTimes(initialRenderCount + 2)
+        expect(requestAnimationFrame).toHaveBeenCalledTimes(3)
     })
 
     it('Space/ArrowUp/ArrowDown flip while active', async () => {
@@ -305,20 +311,20 @@ describe('initGravityFlipGameFramework', () => {
     it('collision shows GRAVITY LOST / Collision', async () => {
         handle = await initGravityFlipGameFramework()
         handle!.game.start()
-        const state = handle!.game.getState()
-        const gameState = handle!.game as unknown as {
-            state: typeof state
+
+        // The authored opening floor-spike reaches the floor-resting idle
+        // player deterministically; drive the public update loop until it does.
+        for (let i = 0; i < 100 && handle!.game.getState().isActive; i++) {
+            handle!.game.update(0.1)
         }
-        gameState.state.hazards[0].x = state.player.x
 
-        handle!.game.update(1 / 120)
-        await settleEnd()
-
+        await vi.waitFor(() =>
+            expect(document.getElementById('final-outcome')).toHaveTextContent(
+                'Collision'
+            )
+        )
         expect(document.getElementById('game-over-title')).toHaveTextContent(
             'GRAVITY LOST'
-        )
-        expect(document.getElementById('final-outcome')).toHaveTextContent(
-            'Collision'
         )
     })
 
@@ -327,10 +333,10 @@ describe('initGravityFlipGameFramework', () => {
         handle!.game.start()
 
         vi.advanceTimersByTime(60_000)
-        await settleEnd()
-
-        expect(document.getElementById('game-over-title')).toHaveTextContent(
-            'RUN COMPLETE'
+        await vi.waitFor(() =>
+            expect(
+                document.getElementById('game-over-title')
+            ).toHaveTextContent('RUN COMPLETE')
         )
         expect(document.getElementById('final-outcome')).toHaveTextContent(
             'Survived'
@@ -361,19 +367,14 @@ describe('initGravityFlipGameFramework', () => {
         handle!.game.start()
         const event = new Event('beforeunload', { cancelable: true })
         const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
-        const returnValueSetter = vi.spyOn(
-            Event.prototype,
-            'returnValue',
-            'set'
-        )
+        eventReturnValueSpy = vi.spyOn(Event.prototype, 'returnValue', 'set')
 
         window.dispatchEvent(event)
 
         expect(preventDefaultSpy).toHaveBeenCalledTimes(1)
-        expect(returnValueSetter).toHaveBeenCalledWith(
+        expect(eventReturnValueSpy).toHaveBeenCalledWith(
             'You have a game in progress. Are you sure you want to leave?'
         )
-        returnValueSetter.mockRestore()
     })
 
     it('idle/ended run beforeunload does not block', async () => {

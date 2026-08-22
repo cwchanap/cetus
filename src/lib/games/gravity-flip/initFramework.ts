@@ -134,10 +134,27 @@ export async function initGravityFlipGameFramework(): Promise<
         setText('time-remaining', String(state.timeRemaining))
     }
 
+    const announce = (message: string): void => {
+        setText('gravity-flip-status', message)
+    }
+
+    let lastAnnouncedGravity: GravityFlipState['gravity'] | null = null
+
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: state => {
             const gravityFlipState = state as GravityFlipState
             syncHud(gravityFlipState)
+            if (
+                lastAnnouncedGravity !== null &&
+                gravityFlipState.gravity !== lastAnnouncedGravity
+            ) {
+                announce(
+                    gravityFlipState.gravity === 'down'
+                        ? 'Gravity pulling to the floor'
+                        : 'Gravity pulling to the ceiling'
+                )
+            }
+            lastAnnouncedGravity = gravityFlipState.gravity
         },
         onScoreUpdate: score => setText('score', String(score)),
         onTimeUpdate: timeRemaining =>
@@ -156,6 +173,11 @@ export async function initGravityFlipGameFramework(): Promise<
             setText('final-stars', String(gravityFlipStats.starsCollected))
             setText('final-flips', String(gravityFlipStats.flips))
             showOverlay()
+            announce(
+                gravityFlipStats.outcome === 'survived'
+                    ? 'Run complete. You survived the full minute.'
+                    : 'Collision. Run ended.'
+            )
         },
     }
 
@@ -252,12 +274,16 @@ export async function initGravityFlipGameFramework(): Promise<
     setStartVisible(true)
 
     let frameId: number | null = null
-    let lastUpdateTime = Date.now()
+    let lastFrameTime: number | null = null
 
-    const frame = (): void => {
-        const now = Date.now()
-        const deltaSeconds = Math.min((now - lastUpdateTime) / 1000, 0.1)
-        lastUpdateTime = now
+    const frame = (timestamp: number): void => {
+        // Derive the delta from the rAF timestamp (monotonic); the first
+        // frame has no previous sample, so it steps zero.
+        const deltaSeconds =
+            lastFrameTime === null
+                ? 0
+                : Math.min((timestamp - lastFrameTime) / 1000, 0.1)
+        lastFrameTime = timestamp
         const state = game.getState()
         if (state.isActive && !state.isPaused) {
             game.update(deltaSeconds)

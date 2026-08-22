@@ -83,7 +83,9 @@ export class GravityFlipGame extends BaseGame<
             !this.state.isActive ||
             this.state.isPaused ||
             !Number.isFinite(deltaTime) ||
-            deltaTime <= 0
+            deltaTime <= 0 ||
+            !Number.isFinite(this.config.maxPhysicsStep) ||
+            this.config.maxPhysicsStep <= 0
         ) {
             return
         }
@@ -148,6 +150,10 @@ export class GravityFlipGame extends BaseGame<
     }
 
     private stepPhysics(step: number): void {
+        // Substep order: (1) time progression + vertical physics, (2) world
+        // movement, (3) collection, (4) collision, (5) spawning. Collisions
+        // must be checked before spawnIfSpacingReached so a hazard spawned
+        // this substep is not tested against the pre-spawn player position.
         this.elapsedSimSeconds = Math.min(
             this.config.duration,
             this.elapsedSimSeconds + step
@@ -196,7 +202,9 @@ export class GravityFlipGame extends BaseGame<
             if (this.collidesWithHazard(hazard)) {
                 this.state.outcome = 'collision'
                 this.syncScore()
-                void this.end()
+                this.end().catch(error =>
+                    console.error('GravityFlip end failed', error)
+                )
                 return
             }
         }
