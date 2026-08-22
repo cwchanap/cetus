@@ -186,11 +186,12 @@ describe('Gravity Flip page markup', () => {
             'final-stars',
             'final-flips',
             'start-btn',
-            'end-btn',
             'reset-btn',
         ]) {
             expect(gravityFlipMarkup).toContain(`id="${id}"`)
         }
+        expect(gravityFlipMarkup).not.toContain('id="end-btn"')
+        expect(gravityFlipMarkup).toContain('id="world-speed">—</span>')
         expect(gravityFlipMarkup).toMatch(
             /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initGravityFlipGameFramework/
         )

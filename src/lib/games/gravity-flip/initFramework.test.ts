@@ -57,9 +57,8 @@ function setupDOM(): void {
         <span id="distance-traveled">0</span>
         <span id="stars-collected">0</span>
         <span id="flip-count">0</span>
-        <span id="world-speed">220</span>
+        <span id="world-speed">—</span>
         <button id="start-btn" type="button">Start</button>
-        <button id="end-btn" type="button">End</button>
         <button id="reset-btn" type="button">Reset</button>
         <button id="flip-btn" type="button">Flip</button>
         <div id="game-over-overlay" class="hidden">
@@ -160,18 +159,19 @@ describe('initGravityFlipGameFramework', () => {
         expect(handle!.getState()).toEqual(handle!.game.getState())
     })
 
-    it('starts exactly one rAF update/render loop', async () => {
+    it('starts exactly one rAF update/render loop without state-change rendering', async () => {
         handle = await initGravityFlipGameFramework()
         const updateSpy = vi.spyOn(handle!.game, 'update')
         const renderSpy = vi.spyOn(handle!.renderer, 'render')
+        const initialRenderCount = renderSpy.mock.calls.length
 
         expect(requestAnimationFrame).toHaveBeenCalledTimes(1)
         handle!.game.start()
-        renderSpy.mockClear()
+        expect(renderSpy).toHaveBeenCalledTimes(initialRenderCount)
         rafCallbacks[0](0)
 
         expect(updateSpy).toHaveBeenCalledTimes(1)
-        expect(renderSpy).toHaveBeenCalledTimes(1)
+        expect(renderSpy).toHaveBeenCalledTimes(initialRenderCount + 1)
         expect(requestAnimationFrame).toHaveBeenCalledTimes(2)
     })
 

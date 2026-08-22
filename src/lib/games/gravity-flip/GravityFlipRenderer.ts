@@ -11,11 +11,19 @@ import {
     type GravityFlipStar,
 } from './types'
 
-const CORRIDOR_INSET = 36
+export interface GravityFlipRendererConfig extends PixiJSRendererConfig {
+    corridorInset: number
+}
 
 export class GravityFlipRenderer extends PixiJSRenderer {
+    private gravityFlipConfig: GravityFlipRendererConfig
     private corridorGraphic: PIXI.Graphics | null = null
     private sceneGraphic: PIXI.Graphics | null = null
+
+    constructor(config: GravityFlipRendererConfig) {
+        super(config)
+        this.gravityFlipConfig = config
+    }
 
     async setup(): Promise<void> {
         await super.setup()
@@ -98,24 +106,25 @@ export class GravityFlipRenderer extends PixiJSRenderer {
             return
         }
 
-        const width = this.config.width ?? 800
-        const height = this.config.height ?? 320
+        const width = this.gravityFlipConfig.width ?? 800
+        const height = this.gravityFlipConfig.height ?? 320
+        const { corridorInset } = this.gravityFlipConfig
 
         this.corridorGraphic.clear()
         this.corridorGraphic.rect(0, 0, width, height).fill({ color: 0x020817 })
         this.corridorGraphic
-            .rect(0, 0, width, CORRIDOR_INSET)
+            .rect(0, 0, width, corridorInset)
             .fill({ color: 0x0f172a, alpha: 0.95 })
         this.corridorGraphic
-            .rect(0, height - CORRIDOR_INSET, width, CORRIDOR_INSET)
+            .rect(0, height - corridorInset, width, corridorInset)
             .fill({ color: 0x0f172a, alpha: 0.95 })
         this.corridorGraphic
-            .moveTo(0, CORRIDOR_INSET)
-            .lineTo(width, CORRIDOR_INSET)
+            .moveTo(0, corridorInset)
+            .lineTo(width, corridorInset)
             .stroke({ color: 0x22d3ee, width: 2, alpha: 0.8 })
         this.corridorGraphic
-            .moveTo(0, height - CORRIDOR_INSET)
-            .lineTo(width, height - CORRIDOR_INSET)
+            .moveTo(0, height - corridorInset)
+            .lineTo(width, height - corridorInset)
             .stroke({ color: 0x22d3ee, width: 2, alpha: 0.8 })
     }
 
@@ -147,15 +156,17 @@ export class GravityFlipRenderer extends PixiJSRenderer {
             return
         }
 
-        const railY = surface === 'floor' ? hazard.y + hazard.height : hazard.y
+        const height = this.gravityFlipConfig.height ?? 320
+        const eraseY = surface === 'floor' ? hazard.y : 0
+        const eraseHeight =
+            surface === 'floor' ? height - hazard.y : hazard.y + hazard.height
 
         this.sceneGraphic
-            .rect(hazard.x, hazard.y, hazard.width, hazard.height)
-            .fill({ color: 0x020817, alpha: 0.98 })
-        this.sceneGraphic
-            .moveTo(hazard.x, railY)
-            .lineTo(hazard.x + hazard.width, railY)
-            .stroke({ color: 0x67e8f9, width: 2, alpha: 0.9 })
+            .rect(hazard.x, eraseY, hazard.width, eraseHeight)
+            .fill({
+                color: this.gravityFlipConfig.backgroundColor ?? 0x020817,
+                alpha: 1,
+            })
     }
 
     private drawMover(hazard: GravityFlipHazard): void {
@@ -211,12 +222,13 @@ export class GravityFlipRenderer extends PixiJSRenderer {
 
 export function createGravityFlipRendererConfig(
     config: GravityFlipConfig
-): PixiJSRendererConfig {
+): GravityFlipRendererConfig {
     return {
         type: 'canvas',
         container: '#gravity-flip-canvas',
         width: config.canvasWidth,
         height: config.canvasHeight,
+        corridorInset: config.corridorInset,
         responsive: false,
         backgroundColor: 0x020817,
         antialias: true,

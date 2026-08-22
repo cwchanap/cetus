@@ -137,7 +137,6 @@ export async function initGravityFlipGameFramework(): Promise<
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: state => {
             const gravityFlipState = state as GravityFlipState
-            renderer.render(gravityFlipState)
             syncHud(gravityFlipState)
         },
         onScoreUpdate: score => setText('score', String(score)),
