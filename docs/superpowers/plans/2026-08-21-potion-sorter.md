@@ -4,7 +4,7 @@
 
 **Goal:** Add Potion Sorter, a 3–8 minute authored liquid-sorting puzzle with Easy/Medium/Hard boards, standard top-run pours, multi-step Undo, move/time scoring, accessible desktop/mobile controls, achievements, and the existing Cetus score/leaderboard flow.
 
-**Architecture:** `PotionSorterGame` extends `BaseGame` and owns selection, legal-pour application, cumulative move accounting, private Undo snapshots, difficulty switching, solve/timeout lifecycle, and score submission. `puzzle.ts` and `scoring.ts` keep rules pure; `PotionSorterRenderer` extends `DOMRenderer` and renders a small semantic button grid into Astro-owned `#potion-sorter-board`. Three authored presets are source-controlled and validated by concrete test-only solution paths, so no procedural generator or production solver is added.
+**Architecture:** `PotionSorterGame` extends `BaseGame` and owns selection, legal-pour application, cumulative move accounting, private Undo snapshots, difficulty switching, solve/timeout lifecycle, and score submission. `puzzle.ts` and `scoring.ts` keep rules pure; `PotionSorterRenderer` extends `DOMRenderer` and renders a small semantic button grid into Astro-owned `#potion-sorter-board`. Three authored presets are source-controlled and validated by exact test-only solution paths, so no procedural generator or production solver is added.
 
 **Tech Stack:** Astro 5 + TypeScript, Tailwind CSS 4, existing BaseGame/DOMRenderer framework, Vitest/jsdom, Playwright, existing Turso/Kysely score path.
 
@@ -17,10 +17,11 @@
 - ID **`potion_sorter`**, route **`/potion-sorter`**, title **`Potion Sorter`**, icon **`🧪`**.
 - Fixed tube capacity: **4**.
 - Easy: **3 colors / 5 tubes / 180s / move target 10 / completion base 1,000**.
-- Medium: **5 colors / 7 tubes / 300s / move target 16 / completion base 2,000**.
-- Hard: **7 colors / 9 tubes / 480s / move target 22 / completion base 3,000**.
+- Medium: **5 colors / 7 tubes / 300s / move target 20 / completion base 2,000**.
+- Hard: **7 colors / 9 tubes / 480s / move target 28 / completion base 3,000**.
 - Every preset has exactly two empty tubes and exactly four layers of each active color.
 - Preset arrays are ordered **bottom to top**.
+- Easy remains the cyclic tutorial board. Medium and Hard are distinct mixed-stack authored boards.
 - Standard pour: destination must be empty or top-match; move the maximum contiguous source top run that fits.
 - Invalid actions never increment `movesMade` and never create Undo history.
 - `movesMade` is cumulative across Undo and never decrements.
@@ -35,12 +36,18 @@ finalScore = completionBase + moveBonus + speedBonus
 
 - Timeout score is **0**.
 - BaseGame scoring uses `timeBonus: false`; `calculatePotionSorterScore()` is the only production scoring implementation.
+- Reference full-time scores are **2,300 / 4,300 / 6,520** for Easy/Medium/Hard.
+- Medium's arithmetic maximum is **5,100** even at impossible zero moves, so the **5,500** legendary threshold is Hard-only.
 - Use existing protected `BaseGame.setDuration()` for idle difficulty changes; **do not modify BaseGame/GameTimer**.
 - Use `BaseGame + DOMRenderer`; no PixiJS, drag physics, audio, procedural generation, production solver, hints, generic puzzle framework, DB/schema/API changes, or new score path.
+- Runtime cloning occurs only in `createInitialState()`, pre-pour Undo snapshot creation, and immutable `pourPotion()`; `levels.ts` exports literals only.
 - Renderer liquid layers must use glyphs as well as color: cyan `▲`, magenta `●`, amber `◆`, lime `✦`, violet `⬢`, coral `■`, azure `✚`.
 - Tube activation uses native `<button>` click/Enter/Space; no document-level gameplay keyboard handler.
-- Hard mode may wrap nine tubes over multiple visual rows on narrow screens; logical order remains tube index order.
-- Create `/potion-sorter` in the same task that activates `GameID.POTION_SORTER`, preserving the route/registry invariant.
+- Play Again uses the same reset handler as Reset and returns to idle; it does **not** auto-start.
+- `GamePage` must use `showPause={false}`, `showEnd={false}`, and `initialTime={300}`.
+- Keep default `GameControls`; put `#undo-btn` in `slot="game-info"` beside difficulty controls. Do not add `showUndo` or fork the full controls slot.
+- Hard mode wraps nine tubes over multiple visual rows on narrow screens; logical order remains tube index order.
+- Add `GameID.POTION_SORTER` + icon before runtime code, but keep `getGameById(GameID.POTION_SORTER) === undefined` until Task 5 creates the route and active catalog object.
 - `getGameUrl()` stays unchanged.
 - `src/pages/index.astro` stays source-unchanged because home count/cards derive from `GAMES`.
 - `e2e/games/all-games-navigation.spec.ts` stays source-unchanged and derives coverage from `GAMES`.
@@ -50,11 +57,14 @@ finalScore = completionBase + moveBonus + speedBonus
 
 ## Load-Bearing Risks
 
-- **Preset mutation:** clone authored tubes into state and before Undo; no runtime path may mutate `POTION_SORTER_PRESETS`.
-- **Vacuous authored-content tests:** every preset gets a concrete legal solution replay, not only shape/count assertions.
+- **Preset mutation:** Start → pour → Undo → Reset must leave `POTION_SORTER_PRESETS.easy.initialTubes` byte-for-byte equal to the authored literal.
+- **Vacuous authored-content tests:** every preset gets an exact 10/20/28-pour legal solution replay, not only shape/count assertions.
 - **Undo score gaming:** cumulative moves remain unchanged by Undo; re-performing a pour counts another move.
+- **Dead achievement payload:** solved and timeout tests must assert the full submitted `PotionSorterGameData`; timeout explicitly submits `solved: false`.
 - **Nested DOM focus loss:** renderer rebuilds tube buttons but restores focus by `data-tube-index`.
 - **Color-only state:** every liquid layer renders a distinct glyph and every tube has an authoritative text `aria-label`.
+- **Wrong shared chrome:** markup tests freeze no Pause/End, 300-second initial timer, and a game-specific `#undo-btn`.
+- **Mobile hard-board density:** Playwright uses a 375×812 viewport and proves wrapping plus no document overflow.
 - **Timeout/save race:** reuse BaseGame lifecycle/run guard; no second network guard.
 
 ---
@@ -68,7 +78,7 @@ finalScore = completionBase + moveBonus + speedBonus
 
 **Interfaces:**
 - Produces: `PotionColor`, `PotionTube`, `PotionSorterDifficulty`, `PotionSorterResult`, `PotionSorterActionResult`, `PotionSorterPreset`, `PotionSorterConfig`, state/stats/game-data contracts, `POTION_TUBE_CAPACITY`, and `POTION_SORTER_PRESETS`.
-- Later tasks consume presets by difficulty and must clone `initialTubes` before mutation.
+- Later tasks consume presets by difficulty and clone `initialTubes` only when live mutable ownership is required.
 
 - [ ] **Step 1: Create the closed contracts**
 
@@ -139,14 +149,14 @@ export interface PotionSorterGameData {
 }
 ```
 
-- [ ] **Step 2: Add the exact authored presets**
+- [ ] **Step 2: Add the exact authored preset literals**
 
 ```ts
 // src/lib/games/potion-sorter/levels.ts
 import {
     POTION_TUBE_CAPACITY,
-    type PotionSorterPreset,
     type PotionSorterDifficulty,
+    type PotionSorterPreset,
 } from './types'
 
 export const POTION_SORTER_PRESETS: Record<
@@ -171,14 +181,14 @@ export const POTION_SORTER_PRESETS: Record<
         difficulty: 'medium',
         duration: 300,
         capacity: POTION_TUBE_CAPACITY,
-        moveTarget: 16,
+        moveTarget: 20,
         completionBase: 2_000,
         initialTubes: [
-            ['cyan', 'magenta', 'amber', 'lime'],
-            ['magenta', 'amber', 'lime', 'violet'],
-            ['amber', 'lime', 'violet', 'cyan'],
-            ['lime', 'violet', 'cyan', 'magenta'],
-            ['violet', 'cyan', 'magenta', 'amber'],
+            ['magenta', 'magenta', 'amber', 'cyan'],
+            ['amber', 'violet', 'violet', 'cyan'],
+            ['lime', 'lime', 'amber', 'cyan'],
+            ['violet', 'violet', 'cyan', 'lime'],
+            ['magenta', 'magenta', 'lime', 'amber'],
             [],
             [],
         ],
@@ -187,16 +197,16 @@ export const POTION_SORTER_PRESETS: Record<
         difficulty: 'hard',
         duration: 480,
         capacity: POTION_TUBE_CAPACITY,
-        moveTarget: 22,
+        moveTarget: 28,
         completionBase: 3_000,
         initialTubes: [
-            ['cyan', 'magenta', 'amber', 'lime'],
-            ['magenta', 'amber', 'lime', 'violet'],
-            ['amber', 'lime', 'violet', 'coral'],
-            ['lime', 'violet', 'coral', 'azure'],
-            ['violet', 'coral', 'azure', 'cyan'],
-            ['coral', 'azure', 'cyan', 'magenta'],
-            ['azure', 'cyan', 'magenta', 'amber'],
+            ['cyan', 'magenta', 'cyan', 'magenta'],
+            ['amber', 'amber', 'amber', 'azure'],
+            ['lime', 'lime', 'coral', 'magenta'],
+            ['violet', 'violet', 'lime', 'cyan'],
+            ['coral', 'coral', 'coral', 'violet'],
+            ['azure', 'violet', 'magenta', 'cyan'],
+            ['azure', 'azure', 'amber', 'lime'],
             [],
             [],
         ],
@@ -204,9 +214,11 @@ export const POTION_SORTER_PRESETS: Record<
 }
 ```
 
-- [ ] **Step 3: Write RED authored-content tests using concrete solution paths**
+Do not add a clone helper, generator, reverse-authoring helper, or solution path to production.
 
-Create `levels.test.ts` with this test-only solution table:
+- [ ] **Step 3: Write RED authored-content tests with exact solution paths**
+
+Create `src/lib/games/potion-sorter/levels.test.ts` with:
 
 ```ts
 const SOLUTIONS = {
@@ -215,29 +227,31 @@ const SOLUTIONS = {
         [2, 0], [2, 3], [1, 2], [0, 1], [0, 3],
     ],
     medium: [
-        [0, 5], [4, 0], [3, 4], [2, 3], [1, 2], [1, 5],
-        [0, 1], [4, 0], [3, 4], [2, 3], [2, 5], [1, 2],
-        [0, 1], [4, 0], [3, 4], [3, 5],
+        [4, 6], [6, 5], [2, 6], [5, 2], [6, 5],
+        [0, 6], [2, 0], [5, 6], [0, 2], [6, 5],
+        [2, 0], [3, 6], [6, 4], [1, 5], [3, 5],
+        [1, 3], [2, 1], [4, 2], [0, 1], [4, 0],
     ],
     hard: [
-        [0, 7], [6, 0], [5, 6], [4, 5], [3, 4], [2, 3],
-        [1, 2], [1, 7], [0, 1], [6, 0], [5, 6], [4, 5],
-        [3, 4], [2, 3], [2, 7], [1, 2], [0, 1], [6, 0],
-        [5, 6], [4, 5], [3, 4], [3, 7],
+        [0, 7], [7, 8], [0, 7], [8, 0], [7, 8], [0, 7], [0, 8],
+        [8, 0], [7, 8], [0, 7], [8, 0], [7, 8], [5, 7], [8, 7],
+        [0, 8], [7, 0], [8, 7], [3, 0], [6, 3], [2, 7], [5, 7],
+        [4, 5], [2, 4], [3, 2], [5, 3], [1, 5], [6, 1], [6, 5],
     ],
 } satisfies Record<PotionSorterDifficulty, Array<[number, number]>>
 ```
 
-Tests must assert for each preset:
+For each preset assert:
 
 ```ts
 expect(preset.initialTubes.filter(tube => tube.length === 0)).toHaveLength(2)
 expect(preset.initialTubes.every(tube => tube.length <= preset.capacity)).toBe(true)
+expect(SOLUTIONS[difficulty]).toHaveLength(preset.moveTarget)
 ```
 
-Count all liquids and assert each active color appears exactly `capacity` times. Then replay every `[source, destination]` through `pourPotion()` from Task 2 and assert the final state satisfies `isPotionSorterSolved()` and the path length equals `preset.moveTarget`.
+Flatten all liquids and assert every active color occurs exactly four times. Also assert Medium and Hard every non-empty tube is mixed (`new Set(tube).size > 1`) so they cannot silently regress to the scaled cyclic template.
 
-The import of missing `./puzzle` is the intentional RED state for this task boundary.
+Replay every pair through `pourPotion()` from Task 2 and assert every step is legal and the final state satisfies `isPotionSorterSolved()`.
 
 Run:
 
@@ -245,11 +259,11 @@ Run:
 bun run test:run src/lib/games/potion-sorter/levels.test.ts
 ```
 
-Expected: FAIL because `puzzle.ts` is not implemented yet.
+Expected: FAIL because `puzzle.ts` does not exist yet.
 
-- [ ] **Step 4: Commit the contracts/presets even though the cross-task solution test remains RED**
+- [ ] **Step 4: Commit only the green contracts/presets**
 
-Commit only `types.ts` and `levels.ts` now; keep `levels.test.ts` uncommitted until Task 2 turns it green, so every commit remains green/type-checkable.
+Keep `levels.test.ts` uncommitted until Task 2 turns it green.
 
 ```bash
 git add src/lib/games/potion-sorter/types.ts src/lib/games/potion-sorter/levels.ts
@@ -273,25 +287,42 @@ git commit -m "feat(potion-sorter): add authored puzzle presets"
 
 - [ ] **Step 1: Write RED puzzle-rule tests**
 
-Cover these exact cases:
+Cover exact top-run and immutability behavior:
 
 ```ts
 expect(getTopRunLength(['cyan', 'magenta', 'magenta'])).toBe(2)
 expect(getTopRunLength([])).toBe(0)
 
-const original = [['cyan', 'magenta', 'magenta'], ['magenta'], []] as PotionTube[]
+const original = [
+    ['cyan', 'magenta', 'magenta'],
+    ['magenta'],
+    [],
+] as PotionTube[]
 const poured = pourPotion(original, 0, 1)
-expect(poured?.layersMoved).toBe(2)
-expect(poured?.tubes).toEqual([['cyan'], ['magenta', 'magenta', 'magenta'], []])
-expect(original).toEqual([['cyan', 'magenta', 'magenta'], ['magenta'], []])
 
+expect(poured?.layersMoved).toBe(2)
+expect(poured?.tubes).toEqual([
+    ['cyan'],
+    ['magenta', 'magenta', 'magenta'],
+    [],
+])
+expect(original).toEqual([
+    ['cyan', 'magenta', 'magenta'],
+    ['magenta'],
+    [],
+])
+```
+
+Invalid cases:
+
+```ts
 expect(pourPotion([['cyan'], ['magenta']], 0, 1)).toBeNull()
 expect(pourPotion([['cyan'], []], 0, 0)).toBeNull()
 expect(pourPotion([[], ['cyan']], 0, 1)).toBeNull()
 expect(pourPotion([['cyan'], ['cyan', 'cyan', 'cyan', 'cyan']], 0, 1)).toBeNull()
 ```
 
-Add a partial-capacity case where a two-layer top run can move only one layer into a three-full matching destination.
+Add a partial-capacity case where a two-layer top run moves only one layer into a three-full matching destination.
 
 Solved checks:
 
@@ -301,14 +332,11 @@ expect(isPotionSorterSolved([
     ['magenta', 'magenta', 'magenta', 'magenta'],
     [],
 ])).toBe(true)
-
 expect(isPotionSorterSolved([['cyan'], []])).toBe(false)
 expect(isPotionSorterSolved([])).toBe(false)
 ```
 
-Run and confirm RED.
-
-- [ ] **Step 2: Implement the minimal immutable puzzle helpers**
+- [ ] **Step 2: Implement the immutable helpers**
 
 ```ts
 // src/lib/games/potion-sorter/puzzle.ts
@@ -318,7 +346,9 @@ export function getTopRunLength(tube: PotionTube): number {
     if (tube.length === 0) return 0
     const top = tube[tube.length - 1]
     let count = 0
-    for (let i = tube.length - 1; i >= 0 && tube[i] === top; i--) count++
+    for (let i = tube.length - 1; i >= 0 && tube[i] === top; i--) {
+        count++
+    }
     return count
 }
 
@@ -336,14 +366,18 @@ export function pourPotion(
         destinationIndex < 0 ||
         sourceIndex >= tubes.length ||
         destinationIndex >= tubes.length
-    ) return null
+    ) {
+        return null
+    }
 
     const source = tubes[sourceIndex]
     const destination = tubes[destinationIndex]
     if (source.length === 0 || destination.length >= capacity) return null
 
     const top = source[source.length - 1]
-    if (destination.length > 0 && destination[destination.length - 1] !== top) return null
+    if (destination.length > 0 && destination[destination.length - 1] !== top) {
+        return null
+    }
 
     const layersMoved = Math.min(
         getTopRunLength(source),
@@ -371,20 +405,33 @@ export function isPotionSorterSolved(
 }
 ```
 
-Run `puzzle.test.ts` and `levels.test.ts`; both must pass, proving the three shipped layouts have concrete legal solutions.
+Run:
+
+```bash
+bun run test:run src/lib/games/potion-sorter/puzzle.test.ts src/lib/games/potion-sorter/levels.test.ts
+```
+
+Expected: PASS, including all exact authored solution replays.
 
 - [ ] **Step 3: Write RED scoring tests**
 
 ```ts
 const easy = POTION_SORTER_PRESETS.easy
+const medium = POTION_SORTER_PRESETS.medium
+const hard = POTION_SORTER_PRESETS.hard
+
 expect(calculatePotionSorterScore(easy, 180, 10, true)).toBe(2300)
+expect(calculatePotionSorterScore(medium, 300, 20, true)).toBe(4300)
+expect(calculatePotionSorterScore(hard, 480, 28, true)).toBe(6520)
+
 expect(calculatePotionSorterScore(easy, 100, 20, true)).toBe(1500)
 expect(calculatePotionSorterScore(easy, 100, 30, true)).toBe(1500)
 expect(calculatePotionSorterScore(easy, -5, 10, true)).toBe(1400)
 expect(calculatePotionSorterScore(easy, 180, 10, false)).toBe(0)
-```
 
-Run and confirm RED because `scoring.ts` is missing.
+// Arithmetic upper bound proves Perfect Mixture cannot be earned in Medium.
+expect(calculatePotionSorterScore(medium, 300, 0, true)).toBe(5100)
+```
 
 - [ ] **Step 4: Implement the single scorer**
 
@@ -417,65 +464,135 @@ Expected: all Task 1–2 tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/lib/games/potion-sorter/levels.test.ts src/lib/games/potion-sorter/puzzle.ts src/lib/games/potion-sorter/puzzle.test.ts src/lib/games/potion-sorter/scoring.ts src/lib/games/potion-sorter/scoring.test.ts
+git add src/lib/games/potion-sorter/levels.test.ts \
+  src/lib/games/potion-sorter/puzzle.ts \
+  src/lib/games/potion-sorter/puzzle.test.ts \
+  src/lib/games/potion-sorter/scoring.ts \
+  src/lib/games/potion-sorter/scoring.test.ts
 git commit -m "feat(potion-sorter): add pour rules and scoring"
 ```
 
 ---
 
-### Task 3: Implement the BaseGame runtime, Undo, difficulty, solve, and timeout lifecycle
+### Task 3: Add GameID/icon and implement runtime, Undo, difficulty, solve, timeout, and submitted data
 
 **Files:**
+- Modify: `src/lib/games.ts`
+- Modify: `src/lib/games.test.ts`
 - Create: `src/lib/games/potion-sorter/PotionSorterGame.ts`
 - Create: `src/lib/games/potion-sorter/PotionSorterGame.test.ts`
 - Reuse unchanged: `src/lib/games/core/BaseGame.ts`
 - Reuse unchanged: `src/lib/games/core/GameTimer.ts`
 
 **Interfaces:**
-- Consumes Task 1 presets/types and Task 2 puzzle/scoring helpers.
-- Produces `createPotionSorterConfig()`, `activateTube()`, `undo()`, `canUndo()`, `newGame()`, state/stats/game-data callbacks.
-- Temporarily use the literal cast `GameID.POTION_SORTER` only after Task 5 adds the enum member; keep Task 3 tests focused by adding the enum entry at the start of Task 3 **only if TypeScript requires it**, but do not activate the `GAMES` registry object until the route exists in Task 5. Preferred path: add the enum member + icon in Task 3, registry object in Task 5.
+- Produces `GameID.POTION_SORTER`, its exhaustive icon entry, `createPotionSorterConfig()`, `activateTube()`, `undo()`, `canUndo()`, `newGame()`, stats and submitted game data.
+- The active `GAMES` record remains deferred until Task 5 creates `/potion-sorter`.
 
-- [ ] **Step 1: Add `GameID.POTION_SORTER` and icon only, without a `GAMES` entry**
+- [ ] **Step 1: Add compile-safe GameID/icon without activating the catalog**
 
-Modify `src/lib/games.ts`:
+Add:
 
 ```ts
 POTION_SORTER = 'potion_sorter',
 ```
 
-and:
+and to `GAME_ICONS`:
 
 ```ts
 [GameID.POTION_SORTER]: '🧪',
 ```
 
-Do not add the active catalog object yet. Extend `src/lib/games.test.ts` only if its exhaustive icon/enum expectations require the new enum member.
+Add this temporary test exactly:
 
-Run the focused `src/lib/games.test.ts` suite and keep it green.
+```ts
+describe('Potion Sorter identifier', () => {
+    it('reserves the id/icon before route registration', () => {
+        expect(GameID.POTION_SORTER).toBe('potion_sorter')
+        expect(getGameIcon(GameID.POTION_SORTER)).toBe('🧪')
+        expect(getGameById(GameID.POTION_SORTER)).toBeUndefined()
+    })
+})
+```
+
+Run:
+
+```bash
+bun run test:run src/lib/games.test.ts
+```
+
+Expected: PASS. Do not add the `GAMES` object yet.
 
 - [ ] **Step 2: Write RED runtime tests**
 
-Use the Easy preset and verify:
+Use fake timers and explicit presets. Cover:
 
-1. initial state clones the authored board and reports Medium by default from `createPotionSorterConfig()`;
-2. `start()` enables actions;
-3. activating a non-empty tube returns `selected`, sets `selectedTubeIndex`, and emits state;
-4. activating it again returns `deselected`;
-5. activating an empty tube with no source returns `invalid`;
-6. invalid destination keeps the original selected source and does not increment moves;
-7. a legal pour returns `poured`, clears selection, increments `movesMade`, and makes `canUndo()` true;
-8. `undo()` restores the exact pre-pour tubes, increments `undosUsed`, clears selection, **does not decrement `movesMade`**, and empties history after the final undo;
-9. pour → undo → repeat the same pour yields `movesMade === 2`;
-10. `reset()` clears history/moves/undos and restores the exact authored board;
-11. `newGame('hard')` while idle updates duration/preset/state, while `newGame()` during an active run returns false;
-12. replay the Easy known solution through `activateTube()` and assert exactly one solve score/end path;
-13. timeout marks `result === 'timeout'`, leaves score 0, and rejects further tube/Undo actions;
-14. `getGameStats()` / submitted data preserve final elapsed time through the existing BaseGame timer snapshot.
+1. `createPotionSorterConfig()` defaults to Medium/300s.
+2. `createInitialState()` clones the preset into live `tubes`.
+3. `start()` enables actions.
+4. selecting a non-empty tube returns `selected`; selecting it again returns `deselected`.
+5. activating an empty tube with no source returns `invalid`.
+6. invalid destination keeps the source selected and does not increment moves/history.
+7. legal pour returns `poured`, clears selection, increments `movesMade`, and enables Undo.
+8. `undo()` restores the exact pre-pour tubes, increments `undosUsed`, clears selection, leaves `movesMade` unchanged, and can repeat until history is empty.
+9. pour → Undo → repeat the same pour yields `movesMade === 2`.
+10. `newGame('hard')` while idle changes preset/state/timer to Hard/480s; active-run changes return false.
+11. replay the exact Easy 10-pour solution and assert exactly one `puzzle_solved` score entry/end path.
+12. timeout marks `result === 'timeout'`, leaves score 0, and rejects later tube/Undo actions.
+13. final elapsed time uses the existing BaseGame timer snapshot.
+14. submitted data equals the exact closed contract on solve and timeout.
+15. Start → legal pour → Undo → Reset leaves the exported Easy preset literal unchanged.
+
+For the submitted data assertions, access the protected method the same way existing Mine Grid tests do:
+
+```ts
+const getGameData = () =>
+    (
+        game as unknown as {
+            getGameData: () => PotionSorterGameData
+        }
+    ).getGameData()
+```
+
+Immediate fake-timer Easy solve:
+
+```ts
+expect(getGameData()).toEqual({
+    difficulty: 'easy',
+    solved: true,
+    movesMade: 10,
+    undosUsed: 0,
+    elapsedSeconds: 0,
+})
+```
+
+Fresh Easy timeout after `180_000` ms:
+
+```ts
+expect(getGameData()).toEqual({
+    difficulty: 'easy',
+    solved: false,
+    movesMade: 0,
+    undosUsed: 0,
+    elapsedSeconds: 180,
+})
+```
+
+Preset-mutation freeze:
+
+```ts
+const easyLiteral = [
+    ['cyan', 'magenta', 'amber', 'cyan'],
+    ['magenta', 'amber', 'cyan', 'magenta'],
+    ['amber', 'cyan', 'magenta', 'amber'],
+    [],
+    [],
+]
+
+// start -> 0->3 -> undo -> reset
+expect(POTION_SORTER_PRESETS.easy.initialTubes).toEqual(easyLiteral)
+```
 
 - [ ] **Step 3: Implement the runtime**
-
-Core shape:
 
 ```ts
 export function createPotionSorterConfig(
@@ -524,15 +641,19 @@ export class PotionSorterGame extends BaseGame<
             result: 'playing',
         }
     }
+}
 ```
 
-`activateTube(index)` follows the spec's four-result contract. Before assigning a successful `pourPotion()` result, push:
+`activateTube(index)` follows the four-result spec contract. For a successful pour:
 
 ```ts
 this.history.push(this.state.tubes.map(tube => [...tube]))
+this.state.tubes = poured.tubes
+this.state.movesMade++
+this.state.selectedTubeIndex = null
 ```
 
-Then increment `movesMade`, clear selection, and if solved:
+If solved:
 
 ```ts
 this.state.result = 'solved'
@@ -551,18 +672,35 @@ void this.end().catch((err: unknown) =>
 )
 ```
 
-`undo()` restores the last snapshot, increments `undosUsed`, and leaves `movesMade` untouched.
+`undo()` pops a snapshot, increments `undosUsed`, clears selection, and never changes `movesMade`.
 
-`newGame(difficulty)` mirrors Mine Grid's same-instance difficulty path: reject active state, call `setDuration()`, set `config.preset`, then `reset()`.
+`newGame(difficulty)` rejects active runs, calls existing protected `setDuration(preset.duration)`, assigns `config.preset`, then `reset()`.
 
-`handleTimeUp()` sets `timeout`, clears selection, emits state, then delegates to `super.handleTimeUp()`.
+`handleTimeUp()` sets `result = 'timeout'`, clears selection, emits state, then delegates to `super.handleTimeUp()`.
 
-`onGameReset()` clears `history` and emits state.
+`onGameReset()` clears history and emits state.
 
-- [ ] **Step 4: Run focused runtime tests**
+`getGameData()` returns exactly:
+
+```ts
+return {
+    difficulty: this.state.difficulty,
+    solved: this.state.result === 'solved',
+    movesMade: this.state.movesMade,
+    undosUsed: this.state.undosUsed,
+    elapsedSeconds: Math.floor(this.getTimerStatus().elapsedTime),
+}
+```
+
+- [ ] **Step 4: Run focused runtime gates**
 
 ```bash
-bun run test:run src/lib/games/potion-sorter/PotionSorterGame.test.ts src/lib/games/potion-sorter/puzzle.test.ts src/lib/games/potion-sorter/scoring.test.ts src/lib/games/potion-sorter/levels.test.ts src/lib/games.test.ts
+bun run test:run \
+  src/lib/games.test.ts \
+  src/lib/games/potion-sorter/PotionSorterGame.test.ts \
+  src/lib/games/potion-sorter/puzzle.test.ts \
+  src/lib/games/potion-sorter/scoring.test.ts \
+  src/lib/games/potion-sorter/levels.test.ts
 bun run typecheck
 ```
 
@@ -571,7 +709,9 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/lib/games.ts src/lib/games.test.ts src/lib/games/potion-sorter/PotionSorterGame.ts src/lib/games/potion-sorter/PotionSorterGame.test.ts
+git add src/lib/games.ts src/lib/games.test.ts \
+  src/lib/games/potion-sorter/PotionSorterGame.ts \
+  src/lib/games/potion-sorter/PotionSorterGame.test.ts
 git commit -m "feat(potion-sorter): add game lifecycle and undo"
 ```
 
@@ -585,11 +725,12 @@ git commit -m "feat(potion-sorter): add game lifecycle and undo"
 - Create: `src/lib/games/potion-sorter/initFramework.ts`
 - Create: `src/lib/games/potion-sorter/initFramework.test.ts`
 - Reuse unchanged: `src/lib/games/renderers/DOMRenderer.ts`
-- Reuse patterns from: `src/lib/games/mine-grid/MineGridRenderer.ts`, `src/lib/games/mine-grid/initFramework.ts`
+- Reuse patterns from: `src/lib/games/mine-grid/MineGridRenderer.ts`, `src/lib/games/mine-grid/initFramework.ts`, `src/lib/games/pattern-pulse/initFramework.ts`
 
 **Interfaces:**
 - Renderer produces `setTubeActionCallback((index) => void)` and `createPotionSorterRendererConfig()`.
 - Initializer returns `{ game, renderer, getGame, getState, restart, cleanup }`.
+- `restart()` is the reset-to-idle handler; it does not auto-start.
 
 - [ ] **Step 1: Write RED renderer tests**
 
@@ -597,13 +738,13 @@ Set up `#potion-sorter-board`, initialize the renderer, render an Easy state, an
 
 - exactly five `button[data-tube-index]` elements;
 - tube 0 has four `.potion-layer` children in bottom-to-top DOM order;
-- each non-empty layer has `data-liquid`, glyph text, and `aria-hidden="true"`;
-- tube button `aria-label` contains human-readable liquid names;
-- selected tube has `aria-pressed="true"` and a selected data/class state;
-- a complete uniform capacity-4 tube gets a complete state;
-- clicking a nested layer delegates exactly one callback with the containing tube index;
-- focus on tube 2 survives a rerender;
-- `destroy()` removes the listener and clears only the dynamic board children via normal `DOMRenderer.cleanup()`.
+- each layer has `data-liquid`, glyph text, and `aria-hidden="true"`;
+- tube `aria-label` contains human-readable liquid names;
+- selected tube has `aria-pressed="true"` and a selected state attribute/class;
+- a uniform capacity-4 tube gets a complete state;
+- clicking a nested layer delegates exactly one callback with the parent tube index;
+- focus on tube 2 survives rerender;
+- `destroy()` removes the delegated listener and clears only dynamic board children via normal `DOMRenderer.cleanup()`.
 
 - [ ] **Step 2: Implement the renderer**
 
@@ -621,11 +762,11 @@ const LIQUID_VISUALS: Record<PotionColor, { label: string; glyph: string }> = {
 }
 ```
 
-Register exactly one stable delegated click handler in `setup()`. `renderGame()` clears/rebuilds dynamic tube buttons and restores focus by index. Do not use `innerHTML`.
+Register exactly one stable delegated click handler in `setup()`. `renderGame()` clears/rebuilds tube buttons and restores focus by index. Do not use `innerHTML`.
 
 - [ ] **Step 3: Write RED initializer tests**
 
-Build a jsdom page fixture with these stable IDs:
+Build a jsdom fixture with:
 
 ```text
 potion-sorter-container
@@ -655,23 +796,24 @@ final-time
 
 Test:
 
-- missing outer container reports existing DOM error path and returns undefined;
+- missing outer container reports the existing DOM error path and returns undefined;
 - one game/renderer instance is created;
 - Medium is selected initially;
-- Start hides/disables appropriate idle controls and starts the run;
-- difficulty buttons disable while active and call `newGame()` only while idle;
+- Start starts the run and disables difficulty controls;
+- difficulty buttons call `newGame()` only while idle;
 - tube click flows through `activateTube()`;
-- status live region gets selected / invalid / poured / undo copy;
-- Undo button is disabled with no history, enabled after a legal pour, and invokes `undo()`;
-- Reset restores idle presentation and current difficulty;
-- end overlay shows outcome/difficulty/score/moves/undos/time;
-- Play Again/restart returns to the current authored puzzle;
+- live region receives selected / invalid / poured / undo copy;
+- Undo is disabled with no history, enabled after a legal pour, and invokes `undo()`;
+- Reset restores idle presentation/current difficulty;
+- solve/timeout overlay shows outcome/difficulty/score/moves/undos/time;
+- **Play Again invokes the same reset handler as Reset, hides the overlay, leaves `state.isActive === false`, restores current board, and shows Start; it does not start the timer**;
+- after a completed run, clicking Start directly still works through BaseGame's existing completed-run reset branch;
 - active run sets beforeunload protection;
 - cleanup removes tracked listeners and is idempotent.
 
-- [ ] **Step 4: Implement `initFramework.ts` by adapting Mine Grid's listener/HUD helpers**
+- [ ] **Step 4: Implement the initializer by adapting current Mine Grid lifecycle**
 
-Keep one immutable `const game` and `const renderer`. Required presentation helpers:
+Keep one immutable `const game` and `const renderer`. Required helpers:
 
 ```ts
 setText(id, value)
@@ -683,6 +825,20 @@ syncHud(state)
 syncUndoButton()
 setStatus(message)
 resetPresentation()
+```
+
+The shared reset handler is the only Reset/Play Again implementation:
+
+```ts
+const resetHandler = (): void => {
+    game.reset()
+    renderer.render(game.getState())
+    syncHud(game.getState())
+    resetPresentation()
+}
+
+listen(document.getElementById('reset-btn'), 'click', resetHandler)
+listen(document.getElementById('play-again-btn'), 'click', resetHandler)
 ```
 
 Renderer callback:
@@ -712,14 +868,20 @@ Use the same achievement/challenge forwarding and `beforeunload` structure as Mi
 - [ ] **Step 5: Run focused DOM tests and commit**
 
 ```bash
-bun run test:run src/lib/games/potion-sorter/PotionSorterRenderer.test.ts src/lib/games/potion-sorter/initFramework.test.ts src/lib/games/potion-sorter/PotionSorterGame.test.ts
+bun run test:run \
+  src/lib/games/potion-sorter/PotionSorterRenderer.test.ts \
+  src/lib/games/potion-sorter/initFramework.test.ts \
+  src/lib/games/potion-sorter/PotionSorterGame.test.ts
 bun run typecheck
 ```
 
 Expected: PASS.
 
 ```bash
-git add src/lib/games/potion-sorter/PotionSorterRenderer.ts src/lib/games/potion-sorter/PotionSorterRenderer.test.ts src/lib/games/potion-sorter/initFramework.ts src/lib/games/potion-sorter/initFramework.test.ts
+git add src/lib/games/potion-sorter/PotionSorterRenderer.ts \
+  src/lib/games/potion-sorter/PotionSorterRenderer.test.ts \
+  src/lib/games/potion-sorter/initFramework.ts \
+  src/lib/games/potion-sorter/initFramework.test.ts
 git commit -m "feat(potion-sorter): add accessible DOM controls"
 ```
 
@@ -735,24 +897,37 @@ git commit -m "feat(potion-sorter): add accessible DOM controls"
 - Modify: `src/lib/games/shared/types.ts`
 - Modify: `src/lib/achievements.ts`
 - Modify: `src/lib/achievements.test.ts`
-- Modify: `src/lib/organisms.test.ts` if its total/zone fixtures are exhaustive
+- Modify: `src/lib/organisms.test.ts` only if its fixtures are exhaustive
 - Modify: `CLAUDE.md`
 - Verify unchanged symlink: `AGENTS.md`
 
 **Interfaces:**
-- Activates the already-added `GameID.POTION_SORTER` in `GAMES` only now that `/potion-sorter` exists.
+- Activates the already-reserved `GameID.POTION_SORTER` in `GAMES` only now that `/potion-sorter` exists.
+- Replaces the temporary `getGameById(GameID.POTION_SORTER) === undefined` assertion with active registry metadata assertions.
 - Adds `PotionSorterGameData` to the shared union and four achievements.
 
-- [ ] **Step 1: Create the page with Astro-owned structure**
+- [ ] **Step 1: Create the page with the exact shared-chrome contract**
 
-Use `GamePage` and include the stable IDs listed in Task 4. The board mount must be:
+Start with:
 
 ```astro
-<div
-  id="potion-sorter-container"
-  slot="game-board"
-  class="w-full"
+<GamePage
+  gameId="potion-sorter"
+  title="Potion Sorter"
+  description="Sort layered lab potions into matching tubes before time runs out"
+  icon="🧪"
+  showPause={false}
+  showEnd={false}
+  initialTime={300}
 >
+```
+
+Do **not** provide `slot="controls"`; keep default shared Start/Reset controls.
+
+Board mount:
+
+```astro
+<div id="potion-sorter-container" slot="game-board" class="w-full">
   <div
     id="potion-sorter-board"
     class="potion-sorter-board"
@@ -762,19 +937,41 @@ Use `GamePage` and include the stable IDs listed in Task 4. The board mount must
 </div>
 ```
 
-Provide Easy/Medium/Hard buttons with Medium initially `aria-pressed="true"`, Start/Reset/Undo controls, stats, How to Play/Scoring cards, and a hidden result overlay with final outcome/difficulty/score/moves/undos/time.
+In `slot="additional-stats"`, provide difficulty/moves/undos stats.
 
-Add scoped CSS for responsive tube wrapping. The hard board must not require horizontal page scrolling on a ~375px viewport. Liquid color selectors key off `data-liquid`; the glyph remains visible inside every layer.
+In `slot="game-info"`, create a game-specific card containing:
 
-The root-level script after `</GamePage>` calls `initPotionSorterGameFramework()` and cleans up on Astro navigation using the repository's existing page pattern.
+- Easy / Medium / Hard buttons with Medium `aria-pressed="true"` initially;
+- `#undo-btn`, initially disabled;
+- How to Play and Scoring cards.
 
-- [ ] **Step 2: Extend markup tests before registry activation**
+Do not add `showUndo` to `GamePage`/`GameControls`.
 
-In `src/pages/game-board-markup.test.ts`:
+Use the normal `final-stats` slot for outcome/difficulty/moves/undos/time; `GameOverlay` already owns `#play-again-btn` and final score.
 
-- read `src/pages/potion-sorter/index.astro`;
-- assert `potion-sorter-container`, `potion-sorter-board`, `undo-btn`, `potion-sorter-status`, difficulty buttons, and root-level initializer;
-- add `'potion-sorter'` to the `games` page list only after the file exists.
+Add responsive CSS so Hard's nine tubes wrap without horizontal document scrolling at 375px width. Liquid selectors key off `data-liquid`; glyphs remain visible.
+
+The root-level script after `</GamePage>` calls `initPotionSorterGameFramework()` using the current Astro page pattern.
+
+- [ ] **Step 2: Freeze markup before catalog activation**
+
+Update `src/pages/game-board-markup.test.ts` to read the new page and assert:
+
+```ts
+expect(potionSorterMarkup).toContain('id="potion-sorter-container"')
+expect(potionSorterMarkup).toContain('id="potion-sorter-board"')
+expect(potionSorterMarkup).toContain('id="undo-btn"')
+expect(potionSorterMarkup).toContain('id="potion-sorter-status"')
+expect(potionSorterMarkup).toContain('showPause={false}')
+expect(potionSorterMarkup).toContain('showEnd={false}')
+expect(potionSorterMarkup).toContain('initialTime={300}')
+expect(potionSorterMarkup).not.toContain('id="end-btn"')
+expect(potionSorterMarkup).toMatch(
+    /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initPotionSorterGameFramework/
+)
+```
+
+Also assert the Easy/Medium/Hard IDs and add `'potion-sorter'` to the `games` route list only after the page file exists.
 
 Run:
 
@@ -784,9 +981,9 @@ bun run test:run src/pages/game-board-markup.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 3: Activate the registry object and shared data**
+- [ ] **Step 3: Activate the catalog object and replace the temporary registry assertion**
 
-Add to `GAMES`:
+Add:
 
 ```ts
 {
@@ -804,6 +1001,20 @@ Add to `GAMES`:
 },
 ```
 
+Replace the temporary undefined assertion with:
+
+```ts
+const potionSorter = getGameById(GameID.POTION_SORTER)
+expect(potionSorter).toMatchObject({
+    name: 'Potion Sorter',
+    estimatedDuration: '3-8 minutes',
+    difficulty: 'medium',
+    isActive: true,
+})
+expect(getGameIcon(GameID.POTION_SORTER)).toBe('🧪')
+expect(getGameUrl(GameID.POTION_SORTER)).toBe('/potion-sorter')
+```
+
 In `shared/types.ts`:
 
 ```ts
@@ -811,32 +1022,38 @@ export type PotionSorterGameData =
     import('../potion-sorter/types').PotionSorterGameData
 ```
 
-and append `| PotionSorterGameData` to `GameData`.
+Append `| PotionSorterGameData` to `GameData`.
 
-Update exhaustive game/icon/organism tests to 19 games where they assert fixed counts.
+Update exhaustive game/icon/organism fixtures to 19 games only where the current tests require it. Do not change `src/pages/index.astro`.
 
-Do **not** modify `src/pages/index.astro`; it uses `games.length`.
+- [ ] **Step 4: Add four achievements with boundary tests**
 
-- [ ] **Step 4: Add the four achievements with focused tests**
-
-Follow the existing `GameID`-keyed achievement definitions and add:
+Add:
 
 - `First Formula` — COMMON — `score >= 1`;
 - `Clean Pour` — RARE — `gameData.solved === true && gameData.undosUsed === 0`;
 - `Master Chemist` — EPIC — `gameData.solved === true && gameData.difficulty === 'hard'`;
 - `Perfect Mixture` — LEGENDARY — `score >= 5500`.
 
-Tests must prove positive and negative boundaries, especially:
+Tests:
 
 ```text
-Clean Pour: solved + 0 undo => award; solved + 1 undo => no award
-Master Chemist: hard solved => award; medium solved => no award
-Perfect Mixture: 5499 => no award; 5500 => award
+First Formula: 0 => no; 1 => yes
+Clean Pour: solved + 0 Undo => yes; solved + 1 Undo => no; timeout + 0 Undo => no
+Master Chemist: Hard solved => yes; Medium solved => no; Hard timeout => no
+Perfect Mixture: 5499 => no; 5500 => yes
 ```
 
-- [ ] **Step 5: Update `CLAUDE.md` inventory and verify the symlink**
+The scorer test from Task 2 already proves Medium's arithmetic maximum is 5,100; do not add achievement-specific difficulty branching for Perfect Mixture.
 
-Change the overview from 18 to **19** games and add Potion Sorter to the game list, project tree, DOM-renderer note, and game-specific notes. Do not rewrite historical spec/plan counts.
+- [ ] **Step 5: Update inventory and verify the symlink**
+
+Update `CLAUDE.md` from 18 to **19** games and add Potion Sorter to:
+
+- overview game list;
+- `src/lib/games/` project tree;
+- DOM-renderer architecture note;
+- game-specific notes.
 
 Verify:
 
@@ -844,10 +1061,15 @@ Verify:
 test "$(readlink AGENTS.md)" = "CLAUDE.md"
 ```
 
-- [ ] **Step 6: Run integration tests and commit**
+- [ ] **Step 6: Run integration gates and commit**
 
 ```bash
-bun run test:run src/lib/games.test.ts src/lib/organisms.test.ts src/lib/achievements.test.ts src/pages/game-board-markup.test.ts src/lib/games/potion-sorter
+bun run test:run \
+  src/lib/games.test.ts \
+  src/lib/organisms.test.ts \
+  src/lib/achievements.test.ts \
+  src/pages/game-board-markup.test.ts \
+  src/lib/games/potion-sorter
 bun run typecheck
 bun run lint
 ```
@@ -855,26 +1077,41 @@ bun run lint
 Expected: PASS.
 
 ```bash
-git add src/pages/potion-sorter/index.astro src/pages/game-board-markup.test.ts src/lib/games.ts src/lib/games.test.ts src/lib/games/shared/types.ts src/lib/achievements.ts src/lib/achievements.test.ts src/lib/organisms.test.ts CLAUDE.md
+git add src/pages/potion-sorter/index.astro \
+  src/pages/game-board-markup.test.ts \
+  src/lib/games.ts src/lib/games.test.ts \
+  src/lib/games/shared/types.ts \
+  src/lib/achievements.ts src/lib/achievements.test.ts \
+  CLAUDE.md
+# Add src/lib/organisms.test.ts only if it actually changed.
 git commit -m "feat(potion-sorter): register game and page"
 ```
 
-If `src/lib/organisms.test.ts` does not require a change, omit it from `git add`; do not manufacture a count-only diff.
-
 ---
 
-### Task 6: Add one real browser journey and run full repository gates
+### Task 6: Add real browser journeys and run full repository gates
 
 **Files:**
 - Modify: `e2e/games/play-coverage.spec.ts`
 - Verify source-unchanged: `e2e/games/all-games-navigation.spec.ts`
 
 **Interfaces:**
-- Browser test uses the same Easy solution from Task 1; no test-only production hook for solving is added.
+- Browser solve reuses the Easy solution from Task 1; no test-only production solve hook is added.
+- A separate narrow-viewport check exercises Hard layout without solving it.
 
-- [ ] **Step 1: Add a Potion Sorter browser journey**
+- [ ] **Step 1: Add Easy Undo + clean solve + Play Again idle-reset journey**
 
-Navigate to `/potion-sorter`, select Easy, start, and click the concrete known solution pairs in order:
+Navigate to `/potion-sorter`, select Easy, and start.
+
+First exercise Undo:
+
+1. click tube `0`, then tube `3`;
+2. click `#undo-btn`;
+3. assert Moves remains `1` and Undos becomes `1`;
+4. assert the initial Easy tube contents are restored;
+5. click Reset and assert Moves/Undos return to `0` and the run is idle.
+
+Start again and solve with:
 
 ```ts
 const easySolution: Array<[number, number]> = [
@@ -888,28 +1125,61 @@ for (const [source, destination] of easySolution) {
 }
 ```
 
-Assert the result overlay reports solved, move count `10`, Easy difficulty, positive score, and elapsed time. Then click Play Again/Reset path and verify the board returns to the authored Easy layout with moves/undos reset.
+Assert:
 
-Also exercise Undo before the final solve in a separate short path or the same journey before restarting:
+- result overlay is visible and reports solved;
+- difficulty is Easy;
+- final moves is `10`;
+- final score is positive;
+- elapsed time is shown.
 
-1. start Easy;
-2. perform first legal pour `0 -> 3`;
-3. click Undo;
-4. assert moves remains `1`, undos becomes `1`, and the initial top-layer arrangement is restored;
-5. reset, then run the clean 10-move solve.
+Click `#play-again-btn` and assert:
 
-This browser test uses click/tap-equivalent input. Native keyboard semantics remain unit-covered because tubes are real buttons.
+- overlay is hidden;
+- Start is visible;
+- timer is not running/decrementing;
+- difficulty remains Easy;
+- moves/undos are `0`;
+- board is restored to the authored Easy literal.
 
-- [ ] **Step 2: Run focused browser coverage**
+This explicitly freezes **Play Again = Reset-to-idle**, not auto-start.
+
+- [ ] **Step 2: Add the 375×812 Hard wrapping/no-overflow check**
+
+Use a separate test:
+
+```ts
+await page.setViewportSize({ width: 375, height: 812 })
+await page.goto('/potion-sorter')
+await page.locator('#hard-btn').click()
+
+const tubes = page.locator('[data-tube-index]')
+await expect(tubes).toHaveCount(9)
+
+const firstBox = await tubes.nth(0).boundingBox()
+const lastBox = await tubes.nth(8).boundingBox()
+expect(firstBox).not.toBeNull()
+expect(lastBox).not.toBeNull()
+expect(lastBox!.y).toBeGreaterThan(firstBox!.y)
+
+const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth
+)
+expect(hasHorizontalOverflow).toBe(false)
+```
+
+This is a layout-only check; do not start/solve Hard in Playwright.
+
+- [ ] **Step 3: Run focused browser coverage**
 
 ```bash
 bun run test:e2e -- e2e/games/play-coverage.spec.ts
 bun run test:e2e -- e2e/games/all-games-navigation.spec.ts
 ```
 
-Expected: Potion Sorter journey passes and catalog navigation discovers `/potion-sorter` from `GAMES` without modifying the navigation spec.
+Expected: Potion Sorter browser journeys pass and catalog navigation discovers `/potion-sorter` from `GAMES` without modifying the navigation spec.
 
-- [ ] **Step 3: Run all final gates**
+- [ ] **Step 4: Run all final gates**
 
 ```bash
 bun run test:run
@@ -924,7 +1194,7 @@ bun run test:e2e -- e2e/games/all-games-navigation.spec.ts
 
 Expected: all pass; coverage remains above configured project/patch targets.
 
-- [ ] **Step 4: Scope audit**
+- [ ] **Step 5: Scope audit**
 
 Compare against merge-base and confirm there are **no** production changes in:
 
@@ -942,17 +1212,19 @@ src/pages/index.astro
 Also confirm:
 
 - no procedural generator or solver file exists;
+- no reverse-authoring helper ships in production;
 - no package/dependency change;
 - no new schema/migration;
+- no `showUndo`/shared controls API change;
 - `AGENTS.md` is still the `CLAUDE.md` symlink;
 - `all-games-navigation.spec.ts` remains source-unchanged.
 
-- [ ] **Step 5: Commit browser coverage/final formatting changes**
+- [ ] **Step 6: Commit browser coverage/final formatting changes**
 
 ```bash
 git add e2e/games/play-coverage.spec.ts
-# add only files changed by required formatting, if any
-git commit -m "test(potion-sorter): cover solve undo and replay"
+# Add only files changed by required formatting, if any.
+git commit -m "test(potion-sorter): cover solve undo replay and mobile wrap"
 ```
 
 ## Implementation Completion Checklist
@@ -960,18 +1232,25 @@ git commit -m "test(potion-sorter): cover solve undo and replay"
 Before marking HPA-72 done, verify:
 
 - [ ] Three authored presets exactly match the spec.
-- [ ] Test-only concrete solutions solve Easy/Medium/Hard with 10/16/22 pours.
+- [ ] Test-only exact solutions solve Easy/Medium/Hard with **10/20/28** pours.
+- [ ] Medium/Hard are mixed-stack boards, not scaled copies of Easy.
 - [ ] Standard contiguous top-run pour and partial-capacity behavior are locked.
 - [ ] Invalid pours are no-ops.
 - [ ] Undo is multi-step, cumulative-move-safe, and cleared by Reset.
+- [ ] Start → pour → Undo → Reset leaves preset constants unchanged.
 - [ ] Difficulty changes reuse one game instance and existing BaseGame duration support.
 - [ ] Solved score uses exactly one pure scorer; timeout scores 0.
+- [ ] Solved and timeout payloads match `PotionSorterGameData`; timeout has `solved: false`.
 - [ ] Renderer uses native tube buttons, delegated click, focus restore, glyph + color cues.
-- [ ] Mobile hard board wraps without horizontal page scrolling.
+- [ ] Play Again equals Reset-to-idle and does not auto-start.
+- [ ] `GamePage` uses `showPause={false}`, `showEnd={false}`, `initialTime={300}`; no End button renders.
+- [ ] Undo lives in game-info; shared `GameControls` is unchanged.
+- [ ] 375×812 Hard mode renders nine tubes across multiple rows with no horizontal document overflow.
 - [ ] Result UI shows difficulty, score, moves, Undos, elapsed time.
 - [ ] Existing BaseGame/ScoreManager flow submits scores/game data when logged in.
 - [ ] Potion Sorter is the 19th active catalog game with `🧪` icon.
-- [ ] Four achievements have boundary tests.
+- [ ] `GameID`/icon pre-registration test is replaced by active catalog assertions only after route creation.
+- [ ] Four achievements have boundary tests; 5,500 remains Hard-only because Medium max is 5,100.
 - [ ] `CLAUDE.md` is current and `AGENTS.md` stays a symlink.
 - [ ] Unit, coverage, typecheck, lint, format, build, play-coverage, and catalog-navigation gates are green.
 - [ ] No core runtime, backend, schema, PixiJS, generator, solver, or generic framework expansion slipped into scope.
