@@ -367,6 +367,44 @@ describe('initPotionSorterGameFramework', () => {
         )
     })
 
+    it('disables Undo and clears the dead-end flag when a run with history times out', async () => {
+        handle = await initPotionSorterGameFramework()
+        handle!.game.start()
+
+        playMoves(MEDIUM_DEAD_END)
+        vi.advanceTimersByTime(300_000)
+        await settleEnd()
+
+        expect(handle!.game.getState().result).toBe('timeout')
+        const undoButton = document.getElementById(
+            'undo-btn'
+        ) as HTMLButtonElement
+        expect(undoButton.disabled).toBe(true)
+        expect(undoButton.dataset.deadEnd).toBe('false')
+    })
+
+    it('keeps Undo disabled across game over and an idle difficulty change', async () => {
+        handle = await initPotionSorterGameFramework()
+        handle!.game.start()
+
+        playMoves(MEDIUM_DEAD_END)
+        vi.advanceTimersByTime(300_000)
+        await settleEnd()
+        document.getElementById('easy-btn')!.click()
+
+        expect(handle!.game.getState().difficulty).toBe('easy')
+        expect(
+            document.querySelectorAll(
+                '#potion-sorter-board button[data-tube-index]'
+            )
+        ).toHaveLength(5)
+        const undoButton = document.getElementById(
+            'undo-btn'
+        ) as HTMLButtonElement
+        expect(undoButton.disabled).toBe(true)
+        expect(undoButton.dataset.deadEnd).toBe('false')
+    })
+
     it('fills the result overlay with outcome, difficulty, score, moves, undos, and time', async () => {
         handle = await initPotionSorterGameFramework()
         document.getElementById('easy-btn')!.click()
