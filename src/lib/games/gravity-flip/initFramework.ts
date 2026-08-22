@@ -160,6 +160,11 @@ export async function initGravityFlipGameFramework(): Promise<
         onTimeUpdate: timeRemaining =>
             setText('time-remaining', String(timeRemaining)),
         onStart: () => {
+            // BaseGame.start() calls onStart before onGameStart emits the
+            // fresh (gravity: 'down') state. Clearing the baseline here keeps
+            // the live region silent on run initialization; announcements only
+            // fire for actual flips during the run.
+            lastAnnouncedGravity = null
             setStartVisible(false)
             hideOverlay()
         },
@@ -210,6 +215,17 @@ export async function initGravityFlipGameFramework(): Promise<
     const flipButton = document.getElementById('flip-btn')
     const playAgainButton = document.getElementById('play-again-btn')
     const canvas = renderer.getApp()?.canvas ?? null
+
+    // PixiJSRenderer uses autoDensity: true, which writes inline
+    // style.width/style.height in CSS pixels (e.g. "800px"/"320px"). On a
+    // narrow viewport the stylesheet max-width can shrink the width, but the
+    // inline height wins over CSS height: auto, stretching the canvas. Override
+    // both inline values so the canvas fills its container width and scales its
+    // height from the 800×320 intrinsic aspect ratio.
+    if (canvas) {
+        canvas.style.width = '100%'
+        canvas.style.height = 'auto'
+    }
 
     const startHandler: EventListener = () => game.start()
     const resetHandler: EventListener = () => {

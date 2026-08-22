@@ -50,6 +50,7 @@ function setupDOM(): void {
     document.body.innerHTML = `
         <div id="gravity-flip-container">
             <div id="gravity-flip-canvas"></div>
+            <p id="gravity-flip-status" aria-live="polite"></p>
         </div>
         <span id="score">0</span>
         <span id="time-remaining">60</span>
@@ -282,6 +283,17 @@ describe('initGravityFlipGameFramework', () => {
         expect(handle!.game.getState().flips).toBe(2)
     })
 
+    it('overrides Pixi inline canvas dimensions to preserve aspect ratio', async () => {
+        // PixiJSRenderer(autoDensity: true) writes inline width/height in CSS
+        // px. The initializer must override them so a narrow viewport shrinks
+        // the canvas uniformly instead of stretching it vertically.
+        handle = await initGravityFlipGameFramework()
+        const el = canvas()
+
+        expect(el.style.width).toBe('100%')
+        expect(el.style.height).toBe('auto')
+    })
+
     it('Reset restores floor/zero idle HUD', async () => {
         handle = await initGravityFlipGameFramework()
         handle!.game.start()
@@ -360,6 +372,26 @@ describe('initGravityFlipGameFramework', () => {
         expect(document.getElementById('game-over-overlay')).toHaveClass(
             'hidden'
         )
+    })
+
+    it('does not announce gravity baseline on replay after an upward run', async () => {
+        // Regression: lastAnnouncedGravity survived reset/replay. If the
+        // previous run ended while gravity was 'up', the new run's onGameStart
+        // emitted gravity 'down', which differed from the stale 'up' baseline
+        // and spuriously announced "Gravity pulling to the floor".
+        handle = await initGravityFlipGameFramework()
+        handle!.game.start()
+        handle!.game.flipGravity() // gravity -> 'up', lastAnnouncedGravity = 'up'
+        await handle!.game.end() // onEnd announces "Collision. Run ended."
+        const statusAfterEnd = document.getElementById(
+            'gravity-flip-status'
+        )!.textContent
+        document.getElementById('play-again-btn')!.click()
+
+        expect(handle!.game.getState().gravity).toBe('down')
+        expect(
+            document.getElementById('gravity-flip-status')!.textContent
+        ).toBe(statusAfterEnd)
     })
 
     it('active run beforeunload prevents navigation and sets returnValue', async () => {
