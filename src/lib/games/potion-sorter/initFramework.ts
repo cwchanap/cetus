@@ -181,6 +181,7 @@ export async function initPotionSorterGameFramework(): Promise<
             const potionSorterStats = stats as PotionSorterStats
             setStartVisible(true)
             setDifficultyButtonsDisabled(false)
+            syncUndoButton()
             setText('final-score', String(finalScore))
             setText('final-outcome', getOutcomeLabel(potionSorterStats.result))
             setText(
@@ -262,6 +263,7 @@ export async function initPotionSorterGameFramework(): Promise<
                 renderer.render(game.getState())
                 syncHud(game.getState())
                 resetPresentation()
+                syncUndoButton()
             }
         }
     for (const difficulty of ['easy', 'medium', 'hard'] as const) {
