@@ -16,6 +16,7 @@ Version 1 deliberately uses three authored puzzles rather than procedural genera
 - Keep individual runs in the requested 3–8 minute range through fixed 180/300/480 second caps and progressively denser authored boards.
 - Make the game fully usable with mouse, touch, and native keyboard activation.
 - Give Undo and Reset enough usability value without allowing Undo to erase the cost of prior moves.
+- Detect a board with no remaining legal pour and tell the player to Undo or Reset instead of leaving the run silently stuck.
 - Reward successful sorting, fewer legal pours, and faster completion through one pure scoring function.
 - Reuse the existing BaseGame timer, score, achievement, leaderboard, catalog, and run-staleness paths.
 - Keep authored puzzle content inspectable and cheap to test.
@@ -26,11 +27,12 @@ Version 1 intentionally does **not** include:
 
 - procedural or seeded puzzle generation;
 - a production puzzle solver or optimality checker;
+- automatic dead-end recovery, auto-solve, or automatic run termination on a dead end;
 - Daily/Expedition modes or persistent progression;
 - drag-and-drop pouring, gesture physics, or animated liquid simulation;
 - audio;
 - special tubes, blockers, frozen layers, or power-ups;
-- hints or auto-solve;
+- hints;
 - custom puzzle editors or user-created layouts;
 - a generic sorting-puzzle engine;
 - new database tables, score endpoints, leaderboard modes, or auth behavior;
@@ -43,6 +45,8 @@ Version 1 intentionally does **not** include:
 All v1 tubes have capacity **4**. A tube is represented as a `PotionColor[]` ordered **bottom to top**.
 
 ```ts
+export const POTION_TUBE_CAPACITY = 4 as const
+
 export type PotionColor =
     | 'cyan'
     | 'magenta'
@@ -55,7 +59,7 @@ export type PotionColor =
 export type PotionTube = PotionColor[]
 ```
 
-Each difficulty contains exactly one complete set of four layers for every active color plus two empty tubes.
+Each difficulty contains exactly one complete set of four layers for every active color plus two empty tubes. Capacity is a game-wide rule, not a per-difficulty configuration field.
 
 ### Legal pour
 
@@ -95,9 +99,9 @@ export type PotionSorterActionResult =
     | 'invalid'
 ```
 
-The initializer uses this result only for live-status copy. It does not duplicate game rules.
+The initializer uses this result only for live-status copy. It does not duplicate pour rules.
 
-### Solved state
+### Solved and dead-ended state
 
 The puzzle is solved when every non-empty tube is both:
 
@@ -105,6 +109,19 @@ The puzzle is solved when every non-empty tube is both:
 - uniform (`new Set(tube).size === 1`).
 
 Empty spare tubes are valid at completion.
+
+A **dead-ended** board is an unsolved board for which no source/destination pair produces a legal pour. `puzzle.ts` exposes one pure predicate:
+
+```ts
+export function hasLegalMove(
+    tubes: PotionTube[],
+    capacity?: number
+): boolean
+```
+
+Dead-end detection is advisory, not a fourth terminal result. A dead-ended run remains active so the player can use the existing multi-step Undo or Reset controls. After a successful pour, if the board is still unsolved and `hasLegalMove()` is false, the existing `#potion-sorter-status` live region announces **“No pours left — undo or reset.”** and `#undo-btn` receives a non-color-only emphasized state. Undo clears that emphasis when it restores a playable snapshot.
+
+This is intentionally not a solver: it only checks whether at least one immediate legal pour exists using the same local pour rules already required for gameplay.
 
 ## Authored Difficulty Presets
 
@@ -134,6 +151,8 @@ Bottom → top:
 ]
 ```
 
+The Easy state space is small enough for a test-only exhaustive traversal. The content test proves every reachable unsolved Easy state has at least one legal pour; there is no production search code.
+
 ### Medium — 5 colors
 
 Bottom → top:
@@ -160,6 +179,8 @@ The frozen 20-pour reference solution is:
     [1, 3], [2, 1], [4, 2], [0, 1], [4, 0],
 ]
 ```
+
+Medium can also reach a dead end. The content test freezes one short example, `3→5, 1→3, 4→6, 4→5`, and proves the resulting board is unsolved with no legal pour. This exists to protect the dead-end warning contract, not to reject the authored puzzle.
 
 ### Hard — 7 colors
 
@@ -192,6 +213,8 @@ The frozen 28-pour reference solution is:
 
 The hard board deliberately uses all seven mixed non-empty tubes and two empty staging tubes. Difficulty comes from more colors, more simultaneously mixed stacks, and more staging decisions rather than from a generator or special rules.
 
+Hard can dead-end after `1→7, 4→8`. The content test freezes that two-pour dead-end so the UI warning cannot silently regress while the board itself remains valid and solvable through the authored reference path.
+
 ## Undo and Reset Semantics
 
 ### Undo history
@@ -215,6 +238,8 @@ Undo:
 
 Keeping `movesMade` cumulative prevents a player from repeatedly pouring and undoing until only the final clean path remains in the score record. The puzzle remains forgiving, but mistakes still cost efficiency.
 
+Every history snapshot is taken immediately before a successful legal pour, so an Undo necessarily restores a board that had at least that pour available. The initializer therefore recomputes its dead-end presentation after Undo rather than storing a second deadlock state.
+
 ### Reset
 
 The existing BaseGame reset path is authoritative. Reset restores the current difficulty's authored board, clears selection/history/moves/undos/result, resets the timer, and returns to idle. The player presses Start again.
@@ -237,6 +262,7 @@ export type PotionSorterResult = 'playing' | 'solved' | 'timeout'
 
 - **Solved:** calculate and award the full score once, emit final state, then end.
 - **Timeout:** mark `timeout`, clear selection, emit final state, and end with score 0.
+- **Dead end:** keep the run active and explicitly direct the player to Undo or Reset.
 - **Reset / Play Again:** local lifecycle actions, not scored results.
 
 There is no manual End Game action in v1.
@@ -253,7 +279,7 @@ speedBonus = floor(max(0, remainingSeconds)) * 5
 finalScore = completionBase + moveBonus + speedBonus
 ```
 
-Timeouts receive **0**.
+Timeouts receive **0**. Dead ends are not scored because they are not terminal; Undo/Reset remain available.
 
 At the shipped reference move target with effectively no elapsed time, the **reference scores** are:
 
@@ -273,7 +299,6 @@ export type PotionSorterDifficulty = 'easy' | 'medium' | 'hard'
 export interface PotionSorterPreset {
     difficulty: PotionSorterDifficulty
     duration: number
-    capacity: 4
     moveTarget: number
     completionBase: number
     initialTubes: PotionTube[]
@@ -319,7 +344,9 @@ Potion Sorter is input-driven, has no continuous simulation, and renders fewer t
 
 `PotionSorterGame` extends `BaseGame`. `PotionSorterRenderer` extends `DOMRenderer`. The game's `update()` and `render()` methods are no-ops; page rendering occurs from `state-change`/BaseGame callbacks through the renderer.
 
-No changes are planned for `BaseGame.ts`, `GameTimer.ts`, `DOMRenderer.ts`, `GameInitializer.ts`, score services, APIs, or database schema.
+No changes are planned for `BaseGame.ts`, `GameTimer.ts`, `DOMRenderer.ts`, score services, APIs, or database schema.
+
+`src/lib/games/core/GameInitializer.ts` currently has no production importers. Potion Sorter does not adopt, refactor, or delete that dead/unused framework in HPA-72; it follows the custom initializer pattern used by the recent games. Any repository-wide initializer cleanup is a separate concern.
 
 ### Pure puzzle helpers
 
@@ -337,9 +364,13 @@ export function isPotionSorterSolved(
     tubes: PotionTube[],
     capacity?: number
 ): boolean
+export function hasLegalMove(
+    tubes: PotionTube[],
+    capacity?: number
+): boolean
 ```
 
-`pourPotion()` returns a new cloned tube layout for legal pours and `null` for invalid attempts. It never mutates its input.
+`pourPotion()` returns a new cloned tube layout for legal pours and `null` for invalid attempts. It never mutates its input. `hasLegalMove()` returns true as soon as any immediate source/destination pair yields a legal pour; it does not explore future states.
 
 There is no extra clone helper in `levels.ts`. Runtime cloning occurs only at the mutation boundaries that need ownership:
 
@@ -351,7 +382,7 @@ A runtime regression proves Start → pour → Undo → Reset leaves the exporte
 
 ### Authored levels
 
-`levels.ts` exports the three `POTION_SORTER_PRESETS` and nothing else. A test-only solution table lives in `levels.test.ts`; production does not ship solution paths, reverse-authoring helpers, or a solver.
+`levels.ts` exports the three `POTION_SORTER_PRESETS` and nothing else. A test-only solution/dead-end table lives in `levels.test.ts`; production does not ship solution paths, reverse-authoring helpers, or a solver.
 
 ### File structure
 
@@ -380,7 +411,7 @@ Platform integration also updates the existing registry, achievements, shared ga
 
 ### `types.ts`
 
-Defines the closed color/difficulty/result/action unions plus preset/config/state/stats/submitted-data contracts.
+Defines the closed color/difficulty/result/action unions plus preset/config/state/stats/submitted-data contracts. Tube capacity remains the module-level `POTION_TUBE_CAPACITY`; it is not repeated on each preset.
 
 ### `levels.ts`
 
@@ -388,7 +419,7 @@ Owns the exact three authored preset literals and their duration/move-target/com
 
 ### `puzzle.ts`
 
-Owns legal-pour rules and solved-state detection. It knows nothing about timers, score, DOM, Undo history, or achievements.
+Owns legal-pour rules, solved-state detection, and immediate legal-move detection. It knows nothing about timers, score, DOM, Undo history, or achievements.
 
 ### `scoring.ts`
 
@@ -409,6 +440,8 @@ Owns:
 - reset/history cleanup;
 - `getGameStats()` / `getGameData()` using BaseGame's preserved final timer status;
 - `state-change` emission after accepted selection, pour, Undo, reset, and timeout changes.
+
+Dead-end detection remains derived from the public tube state through the pure `hasLegalMove()` helper; `PotionSorterGame` does not add a redundant `deadlocked` field or terminal result.
 
 ### `PotionSorterRenderer.ts`
 
@@ -447,15 +480,18 @@ It:
 - wires Start and Reset from the default `GameControls` plus Play Again, Undo, and difficulty controls;
 - binds Play Again to the same reset handler as Reset;
 - forwards renderer tube activation to `game.activateTube(index)`;
+- after each successful pour derives whether the unsolved board has any legal move; a dead end announces “No pours left — undo or reset.” and emphasizes Undo;
+- after Undo recomputes/clears dead-end presentation rather than storing extra state;
 - updates score, time, difficulty, move count, Undo count/availability, selected state, and result overlay;
-- writes concise selection/invalid/pour/undo copy into `#potion-sorter-status` (`aria-live="polite"`);
+- writes concise selection/invalid/pour/undo/dead-end copy into `#potion-sorter-status` (`aria-live="polite"`);
 - disables difficulty controls while active;
 - disables Undo when no history is available or the run is inactive;
 - adds/removes `beforeunload` protection only while active;
 - forwards BaseGame achievement/challenge notifications;
+- immediately renders/synchronizes the initial idle Medium board before returning its handle;
 - exposes the same small debug/test handle shape used by recent games: `getGame()`, `getState()`, `restart()`, `cleanup()`.
 
-No keyboard listener is needed because tube buttons use native Enter/Space activation.
+The initializer keeps the small local `listen`/`setText`/presentation helpers used by the recent games. HPA-72 does **not** introduce `src/lib/games/shared/dom.ts`: extracting a shared API while migrating no existing consumer would add a one-consumer abstraction without reducing current duplication. No keyboard listener is needed because tube buttons use native Enter/Space activation.
 
 ## Page and Mobile Design
 
@@ -487,6 +523,8 @@ The page includes:
 - concise How to Play and Scoring copy;
 - result overlay with outcome, difficulty, score, moves, Undos, and elapsed time.
 
+`#undo-btn[data-dead-end='true']` receives an explicit border/text emphasis in addition to the live-region message. The emphasis does not rely on animation or color alone.
+
 The board uses responsive wrapping rather than horizontal scrolling. Nine hard-mode tubes must wrap onto additional rows at a 375×812 viewport while preserving logical index order. Tube order remains stable and spatial position has no game-rule meaning.
 
 Touch targets remain at least roughly 48 CSS pixels wide. There is no hover-only interaction and no drag requirement. The page's initializer `<script>` remains at page root after `</GamePage>`.
@@ -502,17 +540,11 @@ GameID.POTION_SORTER = 'potion_sorter'
 [GameID.POTION_SORTER]: '🧪'
 ```
 
-Before the route/catalog object exists, a focused registry test freezes:
+Task 3 adds only that compile-time identity plus focused ID/icon assertions. The active `GAMES` object remains deferred until Task 5 creates `/potion-sorter`, preserving the existing route-before-active-catalog invariant. There is no temporary `getGameById(...)=undefined` assertion to add and later delete.
 
-```ts
-expect(GameID.POTION_SORTER).toBe('potion_sorter')
-expect(getGameIcon(GameID.POTION_SORTER)).toBe('🧪')
-expect(getGameById(GameID.POTION_SORTER)).toBeUndefined()
-```
+This split is intentional: registering the active `GAMES` object before its route exists would create a locally broken catalog/navigation state. The enum itself may already be accepted by generic ID validation during intermediate branch commits, but those commits are not a shipped compatibility boundary and do not justify exposing a route-less active game.
 
-The active `GAMES` object is added only in the same task that creates `/potion-sorter`; that task replaces the temporary undefined expectation with the catalog metadata assertions. `getGameUrl()` already derives `/potion-sorter`; no helper change is required.
-
-Registry metadata:
+Registry metadata added with the route:
 
 - name: `Potion Sorter`
 - description: `Sort layered lab potions into matching tubes before time runs out`
@@ -526,7 +558,7 @@ Registry metadata:
 - depth: `mid`
 - icon: `🧪`
 
-The home page already derives catalog count/cards from `GAMES`, so no home-page implementation change is needed beyond registry activation.
+`getGameUrl()` already derives `/potion-sorter`; no helper change is required. The home page derives catalog count/cards from `GAMES`, so no home-page implementation change is needed beyond registry activation.
 
 ### Score/API/database
 
@@ -535,6 +567,10 @@ No schema or endpoint change is required. Existing score/API validation derives 
 ### Shared game data
 
 `src/lib/games/shared/types.ts` adds a canonical alias to `PotionSorterGameData` plus the `GameData` union member.
+
+### Organism partition
+
+Potion Sorter is authored as `{ shape: 'cluster', color: 'magenta' }` at `depth: 'mid'`. The current organism test freezes the depth partition at **6 shallow / 8 mid / 4 abyssal**. Registration therefore changes that exact fixture to **6 / 9 / 4** in the same task; this is not conditional.
 
 ## Achievements
 
@@ -559,7 +595,11 @@ Update `CLAUDE.md` from 18 to 19 implemented games, add the new game directory/r
 
 ### Authored puzzle correctness
 
-A typo could create an unsolvable or malformed board. Tests validate every color occurs exactly four times, every tube fits capacity, there are exactly two empty tubes, and replay the exact 10/20/28-pour legal solutions. No production solver is needed.
+A typo could create an unsolvable or malformed board. Tests validate every color occurs exactly four times, every tube length is at most `POTION_TUBE_CAPACITY`, there are exactly two empty tubes, and replay the exact 10/20/28-pour legal solutions. No production solver is needed.
+
+### Silent dead end
+
+Medium and Hard can reach unsolved states with no legal immediate pour; Hard has a two-pour example. Without a distinct signal, all later clicks look like ordinary invalid attempts while the timer continues. `hasLegalMove()` derives the condition after a successful pour, the live region tells the player to Undo or Reset, and Undo receives a visible emphasized state. The run stays active; no auto-recovery or terminal deadlock state is added.
 
 ### Preset mutation
 
@@ -575,7 +615,7 @@ Renderer rebuilds tube buttons but restores focus by `data-tube-index`.
 
 ### Mobile hard-board density
 
-Nine tubes are too wide for a single phone row. The board wraps while preserving logical indices. A Playwright 375×812 check selects Hard, asserts nine tubes exist, verifies the last tube is on a later visual row, and asserts `document.documentElement.scrollWidth <= document.documentElement.clientWidth`.
+Nine tubes are too wide for a single phone row. The board wraps while preserving logical indices. A Playwright 375×812 check selects Hard while idle, asserts nine tubes exist from the initializer's initial render, verifies the last tube is on a later visual row, and asserts `document.documentElement.scrollWidth <= document.documentElement.clientWidth`.
 
 ### Async score submission race
 
@@ -587,9 +627,12 @@ Focused tests cover:
 
 - top-run detection and exact legal/illegal pour semantics;
 - partial pours when destination capacity is smaller than the source top run;
+- `hasLegalMove()` true/false behavior without future-state search;
 - input immutability for pure puzzle helpers;
 - solved-state detection;
 - preset shape/color multiplicity and exact 10/20/28-pour known-solution replay;
+- exhaustive Easy reachable-state check proving no unsolved dead end;
+- concrete Medium four-pour and Hard two-pour dead-end fixtures;
 - scoring at timeout, reference move counts, over-target moves, remaining-time floors, and Medium's <5,500 arithmetic maximum;
 - selection/deselection/invalid destination behavior;
 - move counting, private Undo restoration, cumulative move cost, repeated Undo, reset cleanup;
@@ -598,11 +641,11 @@ Focused tests cover:
 - exact `PotionSorterGameData` on solved and timeout paths (`solved: false` on timeout);
 - idle difficulty changes using existing BaseGame duration support;
 - renderer delegation, focus restoration, glyph/non-color cues, labels, selected/complete state, and cleanup;
-- initializer DOM contract, Reset/Play Again equivalence, Start/Undo/difficulty wiring, live status, unload guard, and cleanup;
+- initializer DOM contract, immediate idle render, Reset/Play Again equivalence, Start/Undo/difficulty wiring, dead-end live copy/emphasis, unload guard, and cleanup;
 - `GamePage` props `showPause={false}`, `showEnd={false}`, `initialTime={300}`, `#undo-btn`, and absence of `#end-btn`;
-- registry pre-registration ID/icon/undefined contract, then route/catalog activation, shared game-data, achievements, and inventory updates;
-- Playwright Easy Undo + clean solve + Play Again idle reset;
-- Playwright 375×812 Hard wrapping/no-horizontal-overflow check;
+- GameID/icon reservation, then route/catalog activation, exact organism partition 6/9/4, shared game-data, achievements, and inventory updates;
+- Playwright Easy Undo + clean solve + Play Again idle reset with displayed time restored to 180;
+- Playwright 375×812 Hard wrapping/no-horizontal-overflow check before Start;
 - existing catalog navigation derived from `GAMES`.
 
 Final gates:
@@ -624,6 +667,7 @@ bun run test:e2e -- e2e/games/all-games-navigation.spec.ts
 - Easy/Medium/Hard use exactly the authored capacity-4 boards and 180/300/480 second timers above.
 - Medium and Hard are distinct mixed-stack boards with frozen legal 20/28-pour reference solutions; Easy remains the 10-pour tutorial board.
 - Legal pours move the contiguous top run onto an empty/matching destination; invalid pours are no-ops.
+- An unsolved board with no legal pour announces “No pours left — undo or reset.” and visibly emphasizes Undo without ending the run.
 - Mouse/touch click and native keyboard activation use the same tube action path.
 - Undo restores multiple prior successful pours but never decrements cumulative move count.
 - Reset and Play Again both restore the current authored puzzle to idle; Play Again does not auto-start.
@@ -633,5 +677,8 @@ bun run test:e2e -- e2e/games/all-games-navigation.spec.ts
 - `GamePage` hides Pause/End and initially renders the Medium 300-second timer.
 - Undo is game-specific sidebar UI rather than a shared GameControls fork.
 - Liquid layers have visible glyph cues in addition to color.
-- Hard mode wraps nine tubes without horizontal page overflow at 375px width.
+- Hard mode renders all nine tubes while idle and wraps without horizontal page overflow at 375px width.
+- Organism tests update the depth partition from 6/8/4 to 6/9/4.
+- `PotionSorterPreset` does not carry a redundant capacity field; the one game-wide capacity source is `POTION_TUBE_CAPACITY`.
+- No `shared/dom.ts` one-consumer abstraction is added; no existing initializer is migrated in HPA-72.
 - No procedural generator, production solver, PixiJS, drag physics, hint system, generic puzzle framework, or backend/schema/API work is added.
