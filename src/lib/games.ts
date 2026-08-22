@@ -270,6 +270,20 @@ export const GAMES: Game[] = [
         depth: 'mid',
     },
     {
+        id: GameID.POTION_SORTER,
+        name: 'Potion Sorter',
+        description:
+            'Sort layered lab potions into matching tubes before time runs out',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '3-8 minutes',
+        difficulty: 'medium',
+        tags: ['sorting', 'logic', 'puzzle', 'single-player', 'casual'],
+        isActive: true,
+        organism: { shape: 'cluster', color: 'magenta' },
+        depth: 'mid',
+    },
+    {
         id: GameID.MINE_GRID,
         name: 'Mine Grid',
         description:

@@ -50,6 +50,7 @@ const games = [
     'mine-grid',
     'pattern-pulse',
     'gravity-flip',
+    'potion-sorter',
 ]
 
 describe('Game board page markup', () => {
@@ -195,6 +196,38 @@ describe('Gravity Flip page markup', () => {
         expect(gravityFlipMarkup).toMatch(
             /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initGravityFlipGameFramework/
         )
+    })
+})
+
+const potionSorterMarkup = readFileSync(
+    resolve(process.cwd(), 'src/pages/potion-sorter/index.astro'),
+    'utf-8'
+)
+
+describe('Potion Sorter page markup', () => {
+    it('keeps the tube board, dead-end undo, HUD ids, and root-level initializer', () => {
+        expect(potionSorterMarkup).toContain('id="potion-sorter-container"')
+        expect(potionSorterMarkup).toContain('id="potion-sorter-board"')
+        expect(potionSorterMarkup).toContain('id="undo-btn"')
+        expect(potionSorterMarkup).toContain('data-dead-end="false"')
+        expect(potionSorterMarkup).toContain('id="potion-sorter-status"')
+        expect(potionSorterMarkup).toContain('showPause={false}')
+        expect(potionSorterMarkup).toContain('showEnd={false}')
+        expect(potionSorterMarkup).toContain('initialTime={300}')
+        expect(potionSorterMarkup).not.toContain('id="end-btn"')
+        expect(potionSorterMarkup).toMatch(
+            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initPotionSorterGameFramework/
+        )
+        for (const id of [
+            'easy-btn',
+            'medium-btn',
+            'hard-btn',
+            'difficulty',
+            'moves',
+            'undos',
+        ]) {
+            expect(potionSorterMarkup).toContain(`id="${id}"`)
+        }
     })
 })
 
