@@ -160,6 +160,8 @@ describe('Potion Sorter authored presets', () => {
         const queue: PotionTube[][] = [start]
         const seen = new Set([JSON.stringify(start)])
 
+        // BFS visits every board state reachable from the Easy preset and
+        // asserts each unsolved state still has a legal pour.
         while (queue.length > 0) {
             const tubes = queue.shift()
             if (!tubes) {

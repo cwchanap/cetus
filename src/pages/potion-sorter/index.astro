@@ -3,6 +3,14 @@ import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
+import { POTION_SORTER_PRESETS } from '@/lib/games/potion-sorter/levels'
+import { POTION_TUBE_CAPACITY } from '@/lib/games/potion-sorter/types'
+
+const MAX_TUBES = Math.max(
+  ...Object.values(POTION_SORTER_PRESETS).map(
+    preset => preset.initialTubes.length
+  )
+)
 ---
 
 <GamePage
@@ -15,11 +23,27 @@ import Button from '@/components/ui/Button.astro'
   initialTime={300}
 >
   <div id="potion-sorter-container" slot="game-board" class="w-full">
+    <!-- Static tube skeleton: PotionSorterRenderer updates these in place
+         (visibility, layers, state attributes) and never recreates them. -->
     <div
       id="potion-sorter-board"
       class="potion-sorter-board"
       aria-label="Potion tubes"
     >
+      {
+        Array.from({ length: MAX_TUBES }, (_, index) => (
+          <button
+            type="button"
+            class="potion-tube"
+            data-tube-index={index}
+            hidden
+          >
+            {Array.from({ length: POTION_TUBE_CAPACITY }).map(() => (
+              <span class="potion-layer" aria-hidden="true" />
+            ))}
+          </button>
+        ))
+      }
     </div>
     <p id="potion-sorter-status" class="sr-only" aria-live="polite"></p>
   </div>
@@ -167,8 +191,13 @@ import Button from '@/components/ui/Button.astro'
     margin-inline: auto;
   }
 
-  /* Tube buttons are created at runtime by PotionSorterRenderer; all visual
-     affordance lives here, keyed by the data attributes the renderer emits. */
+  /* Tube buttons are static Astro markup; PotionSorterRenderer only toggles
+     their hidden state and data attributes. All visual affordance lives here,
+     keyed by the data attributes the renderer emits. */
+  .potion-tube[hidden],
+  .potion-layer[hidden] {
+    display: none;
+  }
   .potion-tube {
     display: flex;
     flex-direction: column-reverse; /* tube array index 0 renders at the bottom */
