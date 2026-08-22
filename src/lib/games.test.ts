@@ -315,6 +315,16 @@ describe('Pattern Pulse registration', () => {
     })
 })
 
+describe('Potion Sorter stable ID and icon', () => {
+    it('has the reserved game ID', () => {
+        expect(GameID.POTION_SORTER).toBe('potion_sorter')
+    })
+
+    it('has the reserved icon', () => {
+        expect(getGameIcon(GameID.POTION_SORTER)).toBe('🧪')
+    })
+})
+
 describe('getGameUrl route derivation', () => {
     it('replaces underscores with hyphens and prefixes a slash', () => {
         expect(getGameUrl('satellite_sync')).toBe('/satellite-sync')
