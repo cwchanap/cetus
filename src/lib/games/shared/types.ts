@@ -124,6 +124,10 @@ export type PatternPulseGameData =
 export type GravityFlipGameData =
     import('../gravity-flip/types').GravityFlipGameData
 
+// Potion Sorter-specific game data (canonical definition in potion-sorter/types.ts)
+export type PotionSorterGameData =
+    import('../potion-sorter/types').PotionSorterGameData
+
 // Union type for all game data
 export type GameData =
     | TetrisGameData
@@ -144,6 +148,7 @@ export type GameData =
     | MineGridGameData
     | PatternPulseGameData
     | GravityFlipGameData
+    | PotionSorterGameData
 
 // Common game stats returned from games
 export interface GameStats {

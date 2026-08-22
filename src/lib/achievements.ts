@@ -14,6 +14,7 @@ import type {
     MineGridGameData,
     PatternPulseGameData,
     GravityFlipGameData,
+    PotionSorterGameData,
     GameHistoryEntry,
 } from './games/shared/types'
 
@@ -40,6 +41,7 @@ export type AchievementCheckData =
     | MineGridGameData
     | PatternPulseGameData
     | GravityFlipGameData
+    | PotionSorterGameData
     | Record<string, unknown>
 
 export interface Achievement {
@@ -1608,6 +1610,62 @@ export const ACHIEVEMENTS: Achievement[] = [
             check: (gameData: GravityFlipGameData) => gameData.survivedFullRun,
         },
         rarity: AchievementRarity.EPIC,
+    },
+
+    // Potion Sorter achievements
+    {
+        id: 'potion_sorter_welcome',
+        name: 'First Formula',
+        description: 'Score your first point in Potion Sorter.',
+        logo: '🧪',
+        gameId: GameID.POTION_SORTER,
+        condition: {
+            type: 'score_threshold',
+            threshold: 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'potion_sorter_clean_pour',
+        name: 'Clean Pour',
+        description: 'Solve a Potion Sorter rack without using Undo.',
+        logo: '🫗',
+        gameId: GameID.POTION_SORTER,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as PotionSorterGameData
+                return data.solved && data.undosUsed === 0
+            },
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'potion_sorter_master_chemist',
+        name: 'Master Chemist',
+        description: 'Solve a Potion Sorter rack on Hard difficulty.',
+        logo: '⚗️',
+        gameId: GameID.POTION_SORTER,
+        condition: {
+            type: 'in_game',
+            check: gameData => {
+                const data = gameData as PotionSorterGameData
+                return data.solved && data.difficulty === 'hard'
+            },
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: 'potion_sorter_perfect_mixture',
+        name: 'Perfect Mixture',
+        description: 'Score 5,500 points in Potion Sorter.',
+        logo: '🏆',
+        gameId: GameID.POTION_SORTER,
+        condition: {
+            type: 'score_threshold',
+            threshold: 5500,
+        },
+        rarity: AchievementRarity.LEGENDARY,
     },
 ]
 
