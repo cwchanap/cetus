@@ -32,9 +32,17 @@ const HARD_DEAD_END: Array<[number, number]> = [
 ]
 
 function setupDOM(): void {
+    // Mirrors the static skeleton rendered by src/pages/potion-sorter/index.astro.
+    const skeleton = Array.from({ length: 9 }, (_, index) =>
+        [
+            `<button type="button" class="potion-tube" data-tube-index="${index}" hidden>`,
+            '<span class="potion-layer" aria-hidden="true"></span>'.repeat(4),
+            '</button>',
+        ].join('')
+    ).join('')
     document.body.innerHTML = `
         <div id="potion-sorter-container">
-            <div id="potion-sorter-board" class="potion-sorter-board" aria-label="Potion tubes"></div>
+            <div id="potion-sorter-board" class="potion-sorter-board" aria-label="Potion tubes">${skeleton}</div>
             <p id="potion-sorter-status" aria-live="polite"></p>
         </div>
         <button id="start-btn" style="display: inline-flex">Start Game</button>
@@ -93,9 +101,16 @@ function playMoves(moves: Array<[number, number]>): void {
 function tubeLayers(index: number): string[] {
     return Array.from(
         document.querySelectorAll<HTMLElement>(
-            `#potion-sorter-board button[data-tube-index="${index}"] .potion-layer`
+            `#potion-sorter-board button[data-tube-index="${index}"] .potion-layer:not([hidden])`
         )
     ).map(layer => layer.getAttribute('data-liquid') ?? '')
+}
+
+// Static skeleton holds nine tubes; the renderer hides surplus ones.
+function visibleTubeCount(): number {
+    return document.querySelectorAll(
+        '#potion-sorter-board button[data-tube-index]:not([hidden])'
+    ).length
 }
 
 describe('initPotionSorterGameFramework', () => {
@@ -142,11 +157,7 @@ describe('initPotionSorterGameFramework', () => {
         expect(handle!.renderer.getContainer()).toBe(
             document.getElementById('potion-sorter-board')
         )
-        expect(
-            document.querySelectorAll(
-                '#potion-sorter-board button[data-tube-index]'
-            )
-        ).toHaveLength(7)
+        expect(visibleTubeCount()).toBe(7)
     })
 
     it('renders the idle Medium board and HUD before Start', async () => {
@@ -157,11 +168,7 @@ describe('initPotionSorterGameFramework', () => {
             isActive: false,
             gameStarted: false,
         })
-        expect(
-            document.querySelectorAll(
-                '#potion-sorter-board button[data-tube-index]'
-            )
-        ).toHaveLength(7)
+        expect(visibleTubeCount()).toBe(7)
         expect(
             document.getElementById('medium-btn')!.getAttribute('aria-pressed')
         ).toBe('true')
@@ -393,11 +400,7 @@ describe('initPotionSorterGameFramework', () => {
         document.getElementById('easy-btn')!.click()
 
         expect(handle!.game.getState().difficulty).toBe('easy')
-        expect(
-            document.querySelectorAll(
-                '#potion-sorter-board button[data-tube-index]'
-            )
-        ).toHaveLength(5)
+        expect(visibleTubeCount()).toBe(5)
         const undoButton = document.getElementById(
             'undo-btn'
         ) as HTMLButtonElement
@@ -524,7 +527,9 @@ describe('initPotionSorterGameFramework', () => {
         expect(gameDestroy).toHaveBeenCalledTimes(1)
         expect(handle!.game.getState().isActive).toBe(false)
         expect(
-            document.getElementById('potion-sorter-board')!.children
-        ).toHaveLength(0)
+            document.querySelectorAll(
+                '#potion-sorter-board button[data-tube-index]'
+            )
+        ).toHaveLength(9)
     })
 })

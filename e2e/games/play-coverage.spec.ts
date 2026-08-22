@@ -1334,18 +1334,19 @@ test.describe('Potion Sorter', () => {
         [],
     ]
 
-    // The renderer appends .potion-layer spans in tube-array order (index 0
-    // renders at the bottom), so DOM order reads bottom→top per tube.
+    // The renderer keeps .potion-layer spans in tube-array order (index 0
+    // renders at the bottom), so DOM order reads bottom→top per tube. Static
+    // placeholder spans beyond a tube's fill are [hidden] and excluded.
     const readBoard = (page: Page) =>
         page.evaluate(() =>
             Array.from(
                 document.querySelectorAll(
-                    '#potion-sorter-board [data-tube-index]'
+                    '#potion-sorter-board [data-tube-index]:not([hidden])'
                 )
             ).map(tube =>
-                Array.from(tube.querySelectorAll('.potion-layer')).map(
-                    layer => layer.getAttribute('data-liquid') ?? ''
-                )
+                Array.from(
+                    tube.querySelectorAll('.potion-layer:not([hidden])')
+                ).map(layer => layer.getAttribute('data-liquid') ?? '')
             )
         )
 

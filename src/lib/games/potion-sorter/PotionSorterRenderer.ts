@@ -41,24 +41,22 @@ export class PotionSorterRenderer extends DOMRenderer {
             return
         }
 
-        const focusIndex = this.captureFocusIndex(boardElement)
-
-        while (boardElement.firstChild) {
-            boardElement.removeChild(boardElement.firstChild)
-        }
-
-        rawState.tubes.forEach((tube, index) => {
-            boardElement.appendChild(
-                this.createTubeButton(tube, index, rawState)
-            )
+        const buttons = boardElement.querySelectorAll<HTMLButtonElement>(
+            'button[data-tube-index]'
+        )
+        buttons.forEach((button, index) => {
+            const tube = rawState.tubes[index]
+            if (tube) {
+                this.updateTubeButton(button, tube, index, rawState)
+            } else {
+                button.hidden = true
+            }
         })
-
-        this.restoreFocus(boardElement, focusIndex)
     }
 
     cleanup(): void {
+        // Tubes are static Astro markup; DOMRenderer.cleanup would wipe them.
         this.removeEventListener('click', this.clickHandler)
-        super.cleanup()
     }
 
     private isPotionSorterState(value: unknown): value is PotionSorterState {
@@ -69,69 +67,37 @@ export class PotionSorterRenderer extends DOMRenderer {
         )
     }
 
-    private captureFocusIndex(boardElement: HTMLElement): number | null {
-        const activeElement = document.activeElement
-        if (!(activeElement instanceof Element)) {
-            return null
-        }
-        if (!boardElement.contains(activeElement)) {
-            return null
-        }
-        const focusedButton = activeElement.closest<HTMLButtonElement>(
-            'button[data-tube-index]'
-        )
-        if (!focusedButton) {
-            return null
-        }
-        const index = Number(focusedButton.dataset.tubeIndex)
-        return Number.isInteger(index) ? index : null
-    }
-
-    private restoreFocus(
-        boardElement: HTMLElement,
-        focusIndex: number | null
-    ): void {
-        if (focusIndex === null) {
-            return
-        }
-        const buttonToFocus = boardElement.querySelector<HTMLButtonElement>(
-            `button[data-tube-index="${focusIndex}"]`
-        )
-        buttonToFocus?.focus()
-    }
-
-    private createTubeButton(
+    private updateTubeButton(
+        button: HTMLButtonElement,
         tube: PotionTube,
         index: number,
         state: PotionSorterState
-    ): HTMLButtonElement {
+    ): void {
+        button.hidden = false
         const selected = state.selectedTubeIndex === index
-        const button = document.createElement('button')
-        button.type = 'button'
-        button.classList.add('potion-tube')
         button.dataset.tubeIndex = String(index)
         button.dataset.selected = String(selected)
         button.dataset.complete = String(
             tube.length === POTION_TUBE_CAPACITY && new Set(tube).size === 1
         )
-        if (selected) {
-            button.setAttribute('aria-pressed', 'true')
-        }
+        button.setAttribute('aria-pressed', String(selected))
         button.setAttribute('aria-label', this.getTubeLabel(index, tube))
 
-        for (const color of tube) {
-            button.appendChild(this.createLayerSpan(color))
-        }
-        return button
-    }
-
-    private createLayerSpan(color: PotionColor): HTMLSpanElement {
-        const layer = document.createElement('span')
-        layer.className = 'potion-layer'
-        layer.dataset.liquid = color
-        layer.textContent = LIQUID_VISUALS[color].glyph
-        layer.setAttribute('aria-hidden', 'true')
-        return layer
+        const layers = button.querySelectorAll<HTMLSpanElement>('.potion-layer')
+        layers.forEach((layer, layerIndex) => {
+            const color = tube[layerIndex]
+            if (color) {
+                layer.hidden = false
+                if (layer.dataset.liquid !== color) {
+                    layer.dataset.liquid = color
+                    layer.textContent = LIQUID_VISUALS[color].glyph
+                }
+            } else {
+                layer.hidden = true
+                delete layer.dataset.liquid
+                layer.textContent = ''
+            }
+        })
     }
 
     private getTubeLabel(index: number, tube: PotionTube): string {

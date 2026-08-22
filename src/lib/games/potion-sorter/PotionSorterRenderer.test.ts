@@ -8,8 +8,16 @@ import { POTION_SORTER_PRESETS } from './levels'
 import type { PotionSorterState } from './types'
 
 function setupDOM(): void {
+    // Mirrors the static skeleton rendered by src/pages/potion-sorter/index.astro.
+    const skeleton = Array.from({ length: 9 }, (_, index) =>
+        [
+            `<button type="button" class="potion-tube" data-tube-index="${index}" hidden>`,
+            '<span class="potion-layer" aria-hidden="true"></span>'.repeat(4),
+            '</button>',
+        ].join('')
+    ).join('')
     document.body.innerHTML = `
-        <div id="potion-sorter-board" class="potion-sorter-board" aria-label="Potion tubes"></div>
+        <div id="potion-sorter-board" class="potion-sorter-board" aria-label="Potion tubes">${skeleton}</div>
     `
 }
 
@@ -49,16 +57,36 @@ describe('PotionSorterRenderer', () => {
         document.body.replaceChildren()
     })
 
-    it('renders five tube buttons for the Easy preset', () => {
+    it('shows five of the nine static tube buttons for the Easy preset', () => {
         renderer.render(makeState())
 
-        const buttons = document.querySelectorAll<HTMLButtonElement>(
-            `${boardSelector} button[data-tube-index]`
+        const buttons = Array.from(
+            document.querySelectorAll<HTMLButtonElement>(
+                `${boardSelector} button[data-tube-index]`
+            )
         )
-        expect(buttons).toHaveLength(5)
+        expect(buttons).toHaveLength(9)
+        expect(buttons.map(button => button.dataset.tubeIndex)).toEqual([
+            '0',
+            '1',
+            '2',
+            '3',
+            '4',
+            '5',
+            '6',
+            '7',
+            '8',
+        ])
         expect(
-            Array.from(buttons).map(button => button.dataset.tubeIndex)
+            buttons
+                .filter(button => !button.hidden)
+                .map(button => button.dataset.tubeIndex)
         ).toEqual(['0', '1', '2', '3', '4'])
+        // Empty tube 4: all placeholder layers hidden, no liquid data.
+        const emptyLayers = document.querySelectorAll(
+            `${boardSelector} button[data-tube-index="4"] .potion-layer[hidden]`
+        )
+        expect(emptyLayers).toHaveLength(4)
     })
 
     it('renders four potion layers on tube 0 in bottom-to-top order', () => {
@@ -122,7 +150,7 @@ describe('PotionSorterRenderer', () => {
         )!
         expect(tube1.getAttribute('aria-pressed')).toBe('true')
         expect(tube1.dataset.selected).toBe('true')
-        expect(tube0.hasAttribute('aria-pressed')).toBe(false)
+        expect(tube0.getAttribute('aria-pressed')).toBe('false')
         expect(tube0.dataset.selected).toBe('false')
     })
 
@@ -165,23 +193,19 @@ describe('PotionSorterRenderer', () => {
         expect(onTubeAction).toHaveBeenCalledWith(0)
     })
 
-    it('restores focus to the same tube index after a rerender', () => {
+    it('keeps focus on the focused tube across rerenders', () => {
         renderer.render(makeState())
-        const originalTube2 = document.querySelector<HTMLButtonElement>(
+        const tube2 = document.querySelector<HTMLButtonElement>(
             `${boardSelector} button[data-tube-index="2"]`
         )!
-        originalTube2.focus()
+        tube2.focus()
 
         renderer.render(makeState({ selectedTubeIndex: 2 }))
 
-        const newTube2 = document.querySelector<HTMLButtonElement>(
-            `${boardSelector} button[data-tube-index="2"]`
-        )!
-        expect(newTube2).not.toBe(originalTube2)
-        expect(document.activeElement).toBe(newTube2)
+        expect(document.activeElement).toBe(tube2)
     })
 
-    it('destroy removes the click listener and clears dynamic board children', () => {
+    it('destroy removes the click listener and keeps the static board', () => {
         const onTubeAction = vi.fn()
         renderer.setTubeActionCallback(onTubeAction)
         renderer.render(makeState())
@@ -194,6 +218,8 @@ describe('PotionSorterRenderer', () => {
 
         fireEvent.click(tube0)
         expect(onTubeAction).not.toHaveBeenCalled()
-        expect(board.children).toHaveLength(0)
+        expect(board.querySelectorAll('button[data-tube-index]')).toHaveLength(
+            9
+        )
     })
 })
