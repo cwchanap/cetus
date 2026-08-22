@@ -58,7 +58,7 @@ export abstract class BaseGame<
             gameId,
             scoringConfig,
             achievementIntegration: config.achievementIntegration,
-            onScoreUpdate: score => {
+            onScoreUpdate: (score: number) => {
                 this.updateScore(score)
             },
         })
@@ -275,7 +275,7 @@ export abstract class BaseGame<
      * Handle time up event
      */
     protected handleTimeUp(): void {
-        this.end().catch(err =>
+        this.end().catch((err: unknown) =>
             console.error('BaseGame handleTimeUp end failed', err)
         )
     }

@@ -11,6 +11,7 @@ import { drawBubbleOnCanvas, pixiColorToHex } from './utils'
 import type { BubbleShooterConfig, BubbleShooterStats } from './types'
 import type {
     BaseGameCallbacks,
+    BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
 } from '@/lib/games/core/types'
@@ -140,7 +141,7 @@ export async function initBubbleShooterGameFramework(
     // Enhanced callbacks with UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
-        onStateChange: state => {
+        onStateChange: (state: BaseGameState) => {
             const bsState = state as ReturnType<BubbleShooterGame['getState']>
             updateUI(bsState)
 
@@ -161,7 +162,7 @@ export async function initBubbleShooterGameFramework(
 
             customCallbacks?.onStateChange?.(state)
         },
-        onScoreUpdate: score => {
+        onScoreUpdate: (score: number) => {
             const scoreEl = document.getElementById('score')
             if (scoreEl) {
                 scoreEl.textContent = String(score)
@@ -354,7 +355,9 @@ function setupButtonHandlers(
 
     const startHandler = () => game.start()
     const endHandler = () => {
-        game.end().catch(err => console.error('BubbleShooter end failed', err))
+        game.end().catch((err: unknown) =>
+            console.error('BubbleShooter end failed', err)
+        )
     }
 
     const pauseHandler = () => {

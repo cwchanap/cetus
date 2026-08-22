@@ -4,6 +4,7 @@ import { ReflexRenderer, createReflexRendererConfig } from './ReflexRenderer'
 import type { ReflexConfig, ReflexStats } from './frameworkTypes'
 import type {
     BaseGameCallbacks,
+    BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
 } from '@/lib/games/core/types'
@@ -79,19 +80,19 @@ export async function initReflexGameFramework(
     // Enhanced callbacks with UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
-        onStateChange: state => {
+        onStateChange: (state: BaseGameState) => {
             const reflexState = state as ReturnType<ReflexGame['getState']>
             updateLiveStats(reflexState)
             customCallbacks?.onStateChange?.(state)
         },
-        onScoreUpdate: score => {
+        onScoreUpdate: (score: number) => {
             const scoreEl = document.getElementById('score')
             if (scoreEl) {
                 scoreEl.textContent = score.toString()
             }
             customCallbacks?.onScoreUpdate?.(score)
         },
-        onTimeUpdate: timeRemaining => {
+        onTimeUpdate: (timeRemaining: number) => {
             const timeEl = document.getElementById('time-remaining')
             if (timeEl) {
                 timeEl.textContent = timeRemaining.toString()

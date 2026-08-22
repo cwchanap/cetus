@@ -11,6 +11,7 @@ import {
 } from './types'
 import type {
     BaseGameCallbacks,
+    BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
 } from '@/lib/games/core/types'
@@ -141,7 +142,7 @@ export async function initGravityFlipGameFramework(): Promise<
     let lastAnnouncedGravity: GravityFlipState['gravity'] | null = null
 
     const enhancedCallbacks: BaseGameCallbacks = {
-        onStateChange: state => {
+        onStateChange: (state: BaseGameState) => {
             const gravityFlipState = state as GravityFlipState
             syncHud(gravityFlipState)
             if (
@@ -156,8 +157,8 @@ export async function initGravityFlipGameFramework(): Promise<
             }
             lastAnnouncedGravity = gravityFlipState.gravity
         },
-        onScoreUpdate: score => setText('score', String(score)),
-        onTimeUpdate: timeRemaining =>
+        onScoreUpdate: (score: number) => setText('score', String(score)),
+        onTimeUpdate: (timeRemaining: number) =>
             setText('time-remaining', String(timeRemaining)),
         onStart: () => {
             // BaseGame.start() calls onStart before onGameStart emits the

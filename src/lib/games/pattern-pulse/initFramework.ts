@@ -8,6 +8,7 @@ import {
 } from './types'
 import type {
     BaseGameCallbacks,
+    BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
 } from '@/lib/games/core/types'
@@ -156,15 +157,15 @@ export async function initPatternPulseGameFramework(): Promise<
     }
 
     const enhancedCallbacks: BaseGameCallbacks = {
-        onStateChange: state => {
+        onStateChange: (state: BaseGameState) => {
             const patternPulseState = state as PatternPulseState
             renderer.render(patternPulseState)
             syncHud(patternPulseState)
         },
-        onScoreUpdate: score => {
+        onScoreUpdate: (score: number) => {
             setText('score', String(score))
         },
-        onTimeUpdate: timeRemaining => {
+        onTimeUpdate: (timeRemaining: number) => {
             setText('time-remaining', String(timeRemaining))
         },
         onStart: () => {

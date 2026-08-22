@@ -1,6 +1,7 @@
 import { GameID } from '@/lib/games'
 import type {
     BaseGameCallbacks,
+    BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
 } from '@/lib/games/core/types'
@@ -58,18 +59,18 @@ export async function initBejeweledGame(
     // Enhance callbacks to wire up rendering + UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
-        onStateChange: state => {
+        onStateChange: (state: BaseGameState) => {
             renderer.render(state)
             customCallbacks?.onStateChange?.(state)
         },
-        onScoreUpdate: score => {
+        onScoreUpdate: (score: number) => {
             const scoreEl = document.getElementById('score')
             if (scoreEl) {
                 scoreEl.textContent = String(score)
             }
             customCallbacks?.onScoreUpdate?.(score)
         },
-        onTimeUpdate: time => {
+        onTimeUpdate: (time: number) => {
             const timeEl = document.getElementById('time-remaining')
             if (timeEl) {
                 timeEl.textContent = String(time)

@@ -4,6 +4,7 @@ import { EvaderRenderer, createEvaderRendererConfig } from './EvaderRenderer'
 import type { EvaderConfig, EvaderStats } from './frameworkTypes'
 import type {
     BaseGameCallbacks,
+    BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
 } from '@/lib/games/core/types'
@@ -92,19 +93,19 @@ export async function initEvaderGameFramework(
     // Enhanced callbacks with UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
-        onStateChange: state => {
+        onStateChange: (state: BaseGameState) => {
             const evaderState = state as ReturnType<EvaderGame['getState']>
             updateLiveStats(evaderState)
             customCallbacks?.onStateChange?.(state)
         },
-        onScoreUpdate: score => {
+        onScoreUpdate: (score: number) => {
             const scoreEl = document.getElementById('score')
             if (scoreEl) {
                 scoreEl.textContent = score.toString()
             }
             customCallbacks?.onScoreUpdate?.(score)
         },
-        onTimeUpdate: timeRemaining => {
+        onTimeUpdate: (timeRemaining: number) => {
             const timeEl = document.getElementById('time-remaining')
             if (timeEl) {
                 timeEl.textContent = timeRemaining.toString()

@@ -83,14 +83,14 @@ export async function initPathNavigatorGameFramework(
     // Enhanced callbacks with UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
-        onScoreUpdate: score => {
+        onScoreUpdate: (score: number) => {
             const scoreEl = document.getElementById('score')
             if (scoreEl) {
                 scoreEl.textContent = String(score)
             }
             customCallbacks?.onScoreUpdate?.(score)
         },
-        onTimeUpdate: timeRemaining => {
+        onTimeUpdate: (timeRemaining: number) => {
             const timeEl = document.getElementById('time-remaining')
             if (timeEl) {
                 timeEl.textContent = String(timeRemaining)

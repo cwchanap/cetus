@@ -116,7 +116,7 @@ export async function initializeCircuitHackerGame(
                     callbacks.onStart()
                     render()
                 },
-                onTimeUpdate: t => callbacks.onTimeUpdate(t),
+                onTimeUpdate: (t: number) => callbacks.onTimeUpdate(t),
                 onRotation: n => {
                     callbacks.onRotation(n)
                     render()
