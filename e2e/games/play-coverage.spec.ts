@@ -1324,6 +1324,138 @@ test.describe('Pattern Pulse', () => {
     })
 })
 
+test.describe('Potion Sorter', () => {
+    // Authored Easy preset, bottom→top per tube (levels.ts easy).
+    const EASY_INITIAL_TUBES = [
+        ['cyan', 'magenta', 'amber', 'cyan'],
+        ['magenta', 'amber', 'cyan', 'magenta'],
+        ['amber', 'cyan', 'magenta', 'amber'],
+        [],
+        [],
+    ]
+
+    // The renderer appends .potion-layer spans in tube-array order (index 0
+    // renders at the bottom), so DOM order reads bottom→top per tube.
+    const readBoard = (page: Page) =>
+        page.evaluate(() =>
+            Array.from(
+                document.querySelectorAll(
+                    '#potion-sorter-board [data-tube-index]'
+                )
+            ).map(tube =>
+                Array.from(tube.querySelectorAll('.potion-layer')).map(
+                    layer => layer.getAttribute('data-liquid') ?? ''
+                )
+            )
+        )
+
+    // Difficulty listeners attach inside the async init, so retry until the
+    // HUD difficulty reflects the selection (same pattern as Sudoku).
+    const selectDifficulty = async (page: Page, label: string) => {
+        await expect(async () => {
+            await page.locator(`#${label.toLowerCase()}-btn`).click()
+            await expect(page.locator('#difficulty')).toHaveText(label, {
+                timeout: 500,
+            })
+        }).toPass({ timeout: 10000 })
+    }
+
+    test('Easy pour+undo restores the board, Reset idles, solve shows overlay, Play Again resets', async ({
+        page,
+    }) => {
+        await page.goto('/potion-sorter')
+        await expect(page.locator('#potion-sorter-board')).toBeVisible()
+        await selectDifficulty(page, 'Easy')
+
+        await startGameWhenReady(page)
+
+        // One pour, then undo it: moves stay cumulative, board restores.
+        await page.locator('[data-tube-index="0"]').click()
+        await page.locator('[data-tube-index="3"]').click()
+        await page.locator('#undo-btn').click()
+        await expect(page.locator('#moves')).toHaveText('1')
+        await expect(page.locator('#undos')).toHaveText('1')
+        expect(await readBoard(page)).toEqual(EASY_INITIAL_TUBES)
+
+        // Reset returns to idle with the exact Easy duration showing.
+        await page.locator('#reset-btn').click()
+        await expect(page.locator('#moves')).toHaveText('0')
+        await expect(page.locator('#undos')).toHaveText('0')
+        await expect(page.locator('#start-btn')).toBeVisible()
+        await expect(page.locator('#time-remaining')).toHaveText('180')
+
+        // The authored Easy preset solves in exactly these 10 pours.
+        await startGameWhenReady(page)
+        const easySolution: Array<[number, number]> = [
+            [0, 3],
+            [2, 0],
+            [1, 2],
+            [1, 3],
+            [0, 1],
+            [2, 0],
+            [2, 3],
+            [1, 2],
+            [0, 1],
+            [0, 3],
+        ]
+        for (const [source, destination] of easySolution) {
+            await page.locator(`[data-tube-index="${source}"]`).click()
+            await page.locator(`[data-tube-index="${destination}"]`).click()
+        }
+
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/
+        )
+        await expect(page.locator('#final-difficulty')).toHaveText('Easy')
+        await expect(page.locator('#final-moves')).toHaveText('10')
+        const finalScore = Number(
+            await page.locator('#final-score').textContent()
+        )
+        expect(finalScore).toBeGreaterThan(0)
+        await expect(page.locator('#final-time')).toHaveText(/^\d{2}:\d{2}$/)
+
+        // Play Again = Reset-to-idle: exact 180 on the clock, no racy
+        // "timer is not decrementing" assertion.
+        await page.locator('#play-again-btn').click()
+        await expect(page.locator('#game-over-overlay')).toHaveClass(/hidden/)
+        await expect(page.locator('#start-btn')).toBeVisible()
+        await expect(page.locator('#time-remaining')).toHaveText('180')
+        await expect(page.locator('#difficulty')).toHaveText('Easy')
+        await expect(page.locator('#easy-btn')).toHaveAttribute(
+            'aria-pressed',
+            'true'
+        )
+        await expect(page.locator('#moves')).toHaveText('0')
+        await expect(page.locator('#undos')).toHaveText('0')
+        expect(await readBoard(page)).toEqual(EASY_INITIAL_TUBES)
+    })
+
+    test('Hard renders nine wrapped idle tubes at 375×812 without overflow', async ({
+        page,
+    }) => {
+        await page.setViewportSize({ width: 375, height: 812 })
+        await page.goto('/potion-sorter')
+        await selectDifficulty(page, 'Hard')
+
+        const tubes = page.locator('[data-tube-index]')
+        await expect(tubes).toHaveCount(9)
+
+        const firstBox = await tubes.nth(0).boundingBox()
+        const lastBox = await tubes.nth(8).boundingBox()
+        expect(firstBox).not.toBeNull()
+        expect(lastBox).not.toBeNull()
+        expect(lastBox!.y).toBeGreaterThan(firstBox!.y)
+
+        expect(
+            await page.evaluate(
+                () =>
+                    document.documentElement.scrollWidth >
+                    document.documentElement.clientWidth
+            )
+        ).toBe(false)
+    })
+})
+
 test.describe('Gravity Flip', () => {
     test('loses to the authored spike and Play Again re-arms a fresh run', async ({
         page,

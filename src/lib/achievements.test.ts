@@ -13,6 +13,7 @@ import {
 } from './achievements'
 import { GameID } from './games'
 import type { MineGridGameData } from './games/mine-grid/types'
+import type { PotionSorterGameData } from './games/potion-sorter/types'
 import { checkAndAwardAchievements } from './services/achievementService'
 
 // Mock the database queries so checkAndAwardAchievements can be exercised
@@ -1292,5 +1293,118 @@ describe('Gravity Flip achievements', () => {
                 0
             )
         ).toBe(true)
+    })
+})
+
+describe('Potion Sorter achievements', () => {
+    const baseData: PotionSorterGameData = {
+        difficulty: 'medium',
+        solved: false,
+        movesMade: 0,
+        undosUsed: 0,
+        elapsedSeconds: 0,
+    }
+
+    it('registers all four Potion Sorter achievements with their threshold metadata', () => {
+        const list = getAchievementsByGame(GameID.POTION_SORTER)
+        expect(list.map(achievement => achievement.id)).toEqual([
+            'potion_sorter_welcome',
+            'potion_sorter_clean_pour',
+            'potion_sorter_master_chemist',
+            'potion_sorter_perfect_mixture',
+        ])
+        expect(
+            getAchievementById('potion_sorter_welcome')?.condition.threshold
+        ).toBe(1)
+        expect(
+            getAchievementById('potion_sorter_perfect_mixture')?.condition
+                .threshold
+        ).toBe(5500)
+    })
+
+    it('clean pour requires a solved run with zero undos', () => {
+        const check = getAchievementById('potion_sorter_clean_pour')!.condition
+            .check!
+        expect(check({ ...baseData, solved: true, undosUsed: 0 }, 0)).toBe(true)
+        expect(check({ ...baseData, solved: true, undosUsed: 1 }, 0)).toBe(
+            false
+        )
+        expect(check({ ...baseData, solved: false, undosUsed: 0 }, 0)).toBe(
+            false
+        )
+    })
+
+    it('master chemist requires a solved hard run', () => {
+        const check = getAchievementById('potion_sorter_master_chemist')!
+            .condition.check!
+        expect(
+            check({ ...baseData, difficulty: 'hard', solved: true }, 0)
+        ).toBe(true)
+        expect(
+            check({ ...baseData, difficulty: 'medium', solved: true }, 0)
+        ).toBe(false)
+        expect(
+            check({ ...baseData, difficulty: 'hard', solved: false }, 0)
+        ).toBe(false)
+    })
+
+    describe('checkAndAwardAchievements threshold evaluation', () => {
+        beforeEach(() => {
+            vi.clearAllMocks()
+            mockHasUserEarnedAchievement.mockResolvedValue(false)
+            mockAwardAchievement.mockResolvedValue(true)
+        })
+
+        it('potion_sorter_welcome is not awarded below its threshold (score 0)', async () => {
+            const result = await checkAndAwardAchievements(
+                'user123',
+                GameID.POTION_SORTER,
+                0
+            )
+            expect(result).not.toContain('potion_sorter_welcome')
+            expect(mockAwardAchievement).not.toHaveBeenCalledWith(
+                'user123',
+                'potion_sorter_welcome'
+            )
+        })
+
+        it('potion_sorter_welcome is awarded at its exact threshold (score 1)', async () => {
+            const result = await checkAndAwardAchievements(
+                'user123',
+                GameID.POTION_SORTER,
+                1
+            )
+            expect(result).toContain('potion_sorter_welcome')
+            expect(mockAwardAchievement).toHaveBeenCalledWith(
+                'user123',
+                'potion_sorter_welcome'
+            )
+        })
+
+        it('potion_sorter_perfect_mixture is not awarded below its threshold (score 5499)', async () => {
+            const result = await checkAndAwardAchievements(
+                'user123',
+                GameID.POTION_SORTER,
+                5499
+            )
+            expect(result).not.toContain('potion_sorter_perfect_mixture')
+            expect(mockAwardAchievement).not.toHaveBeenCalledWith(
+                'user123',
+                'potion_sorter_perfect_mixture'
+            )
+        })
+
+        it('potion_sorter_perfect_mixture is awarded at its exact threshold (score 5500)', async () => {
+            const result = await checkAndAwardAchievements(
+                'user123',
+                GameID.POTION_SORTER,
+                5500
+            )
+            expect(result).toContain('potion_sorter_perfect_mixture')
+            expect(mockAwardAchievement).toHaveBeenCalledWith(
+                'user123',
+                'potion_sorter_perfect_mixture'
+            )
+        })
     })
 })

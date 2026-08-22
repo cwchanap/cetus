@@ -315,6 +315,27 @@ describe('Pattern Pulse registration', () => {
     })
 })
 
+describe('Potion Sorter stable ID and icon', () => {
+    it('has the reserved game ID', () => {
+        expect(GameID.POTION_SORTER).toBe('potion_sorter')
+    })
+
+    it('has the reserved icon', () => {
+        expect(getGameIcon(GameID.POTION_SORTER)).toBe('🧪')
+    })
+
+    it('has the active registry entry and page route', () => {
+        const potionSorter = getGameById(GameID.POTION_SORTER)
+        expect(potionSorter).toMatchObject({
+            name: 'Potion Sorter',
+            estimatedDuration: '3-8 minutes',
+            difficulty: 'medium',
+            isActive: true,
+        })
+        expect(getGameUrl(GameID.POTION_SORTER)).toBe('/potion-sorter')
+    })
+})
+
 describe('getGameUrl route derivation', () => {
     it('replaces underscores with hyphens and prefixes a slash', () => {
         expect(getGameUrl('satellite_sync')).toBe('/satellite-sync')

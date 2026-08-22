@@ -41,6 +41,7 @@ export enum GameID {
     MINE_GRID = 'mine_grid',
     PATTERN_PULSE = 'pattern_pulse',
     GRAVITY_FLIP = 'gravity_flip',
+    POTION_SORTER = 'potion_sorter',
 }
 
 // Game system types
@@ -269,6 +270,20 @@ export const GAMES: Game[] = [
         depth: 'mid',
     },
     {
+        id: GameID.POTION_SORTER,
+        name: 'Potion Sorter',
+        description:
+            'Sort layered lab potions into matching tubes before time runs out',
+        category: 'puzzle',
+        maxPlayers: 1,
+        estimatedDuration: '3-8 minutes',
+        difficulty: 'medium',
+        tags: ['sorting', 'logic', 'puzzle', 'single-player', 'casual'],
+        isActive: true,
+        organism: { shape: 'cluster', color: 'magenta' },
+        depth: 'mid',
+    },
+    {
         id: GameID.MINE_GRID,
         name: 'Mine Grid',
         description:
@@ -376,6 +391,7 @@ const GAME_ICONS: Record<GameID, string> = {
     [GameID.MINE_GRID]: '💣',
     [GameID.PATTERN_PULSE]: '🔁',
     [GameID.GRAVITY_FLIP]: '🌗',
+    [GameID.POTION_SORTER]: '🧪',
 }
 
 // Game icon helper function

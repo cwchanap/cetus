@@ -1,0 +1,257 @@
+---
+import GamePage from '@/components/games/GamePage.astro'
+import Card from '@/components/ui/Card.astro'
+import Badge from '@/components/ui/Badge.astro'
+import Button from '@/components/ui/Button.astro'
+---
+
+<GamePage
+  gameId="potion-sorter"
+  title="Potion Sorter"
+  description="Sort layered lab potions into matching tubes before time runs out"
+  icon="🧪"
+  showPause={false}
+  showEnd={false}
+  initialTime={300}
+>
+  <div id="potion-sorter-container" slot="game-board" class="w-full">
+    <div
+      id="potion-sorter-board"
+      class="potion-sorter-board"
+      aria-label="Potion tubes"
+    >
+    </div>
+    <p id="potion-sorter-status" class="sr-only" aria-live="polite"></p>
+  </div>
+
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono"
+      >Difficulty: <span id="difficulty">Medium</span></span
+    >
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Moves: <span id="moves">0</span></span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Undos: <span id="undos">0</span></span>
+  </Badge>
+
+  <div slot="game-info" class="space-y-6">
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ DIFFICULTY
+      </h3>
+      <div class="grid grid-cols-3 gap-2">
+        <Button
+          id="easy-btn"
+          variant="outline"
+          size="sm"
+          aria-pressed="false"
+          class="potion-sorter-difficulty hover-glow-cyan">Easy</Button
+        >
+        <Button
+          id="medium-btn"
+          variant="outline"
+          size="sm"
+          aria-pressed="true"
+          class="potion-sorter-difficulty hover-glow-cyan">Medium</Button
+        >
+        <Button
+          id="hard-btn"
+          variant="outline"
+          size="sm"
+          aria-pressed="false"
+          class="potion-sorter-difficulty hover-glow-cyan">Hard</Button
+        >
+      </div>
+      <div class="mt-2">
+        <Button
+          id="undo-btn"
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled
+          data-dead-end="false">Undo</Button
+        >
+      </div>
+      <p class="mt-3 text-xs text-cetus-ink-muted">
+        Undo reverses your last pour. When no legal pour remains, Undo is
+        highlighted — use it to back out of a dead end.
+      </p>
+    </Card>
+
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ HOW TO PLAY
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink">
+        <p>Select a tube, then select a second tube to pour its top liquid.</p>
+        <p>Pour only onto an empty tube or a matching top liquid.</p>
+        <p>Stack four layers of one liquid into a tube to complete it.</p>
+        <p>Complete every tube before the timer runs out.</p>
+      </div>
+    </Card>
+
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SCORING
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink">
+        <p>
+          Solving banks the completion base: Easy 1,000 / Medium 2,000 / Hard
+          3,000.
+        </p>
+        <p>Finish under twice the move target for 40 points per unused move.</p>
+        <p>Each second remaining on the clock adds 5 points.</p>
+        <p>Timing out scores zero.</p>
+      </div>
+    </Card>
+  </div>
+
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Outcome: <span id="final-outcome" class="text-cetus-accent">—</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Difficulty:
+      <span id="final-difficulty" class="text-cetus-accent-3">Medium</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Moves: <span id="final-moves" class="text-cetus-accent-2">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Undos: <span id="final-undos" class="text-cetus-accent-2">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Time: <span id="final-time" class="text-cetus-accent">00:00</span>
+    </div>
+  </div>
+</GamePage>
+
+<script>
+  import { initPotionSorterGameFramework } from '@/lib/games/potion-sorter/initFramework'
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initPotionSorterGameFramework()
+      .then(handle => {
+        if (handle) {
+          ;(
+            window as Window & { potionSorterGame?: typeof handle }
+          ).potionSorterGame = handle
+        }
+      })
+      .catch(error => {
+        console.error('Potion Sorter failed to initialize', error)
+      })
+  })
+</script>
+
+<style is:global>
+  /* Selected difficulty mirrors Button.astro's `primary` variant (same
+     contract as Mine Grid): `aria-pressed` drives both a11y state and
+     styling, so initFramework only toggles the attribute. */
+  @reference "../../styles/global.css";
+  .potion-sorter-difficulty[aria-pressed='true'] {
+    @apply border-0 bg-gradient-to-r from-[var(--cetus-btn-from)] to-[var(--cetus-btn-to)] text-white shadow-lg shadow-cetus-accent-2/25 hover:from-cetus-accent hover:to-cetus-accent-2;
+  }
+
+  /* Board: flex-wrap keeps DOM order (tube index) reading left→right,
+     top→bottom, and lets nine tubes wrap to two rows at 375px. */
+  .potion-sorter-board {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 36rem;
+    margin-inline: auto;
+  }
+
+  /* Tube buttons are created at runtime by PotionSorterRenderer; all visual
+     affordance lives here, keyed by the data attributes the renderer emits. */
+  .potion-tube {
+    display: flex;
+    flex-direction: column-reverse; /* tube array index 0 renders at the bottom */
+    flex: 0 1 3.5rem;
+    min-width: 3rem; /* ≥48px touch target */
+    height: 11.5rem;
+    padding: 0.25rem;
+    gap: 2px;
+    border-radius: 0.5rem 0.5rem 1.25rem 1.25rem;
+    border: 1px solid color-mix(in srgb, var(--cetus-accent) 35%, transparent);
+    background: color-mix(in srgb, var(--cetus-accent) 6%, transparent);
+    cursor: pointer;
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.15s ease;
+  }
+  .potion-tube:hover {
+    border-color: var(--cetus-accent);
+  }
+  .potion-tube:focus-visible {
+    outline: 2px solid var(--cetus-accent);
+    outline-offset: 2px;
+  }
+  .potion-tube[data-selected='true'] {
+    border-color: var(--cetus-accent-2);
+    box-shadow: 0 0 16px
+      color-mix(in srgb, var(--cetus-accent-2) 40%, transparent);
+    transform: translateY(-4px);
+  }
+  .potion-tube[data-complete='true'] {
+    border-color: var(--cetus-accent-3);
+    box-shadow: 0 0 12px
+      color-mix(in srgb, var(--cetus-accent-3) 35%, transparent);
+  }
+
+  /* Liquid layers: `data-liquid` keys the color; the glyph textContent
+     (▲ ● ◆ ✦ ⬢ ■ ✚) stays visible as the layer's marker. */
+  .potion-layer {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+    line-height: 1;
+    color: #06131f;
+  }
+  .potion-layer[data-liquid='cyan'] {
+    background: #22d3ee;
+  }
+  .potion-layer[data-liquid='magenta'] {
+    background: #e879f9;
+  }
+  .potion-layer[data-liquid='amber'] {
+    background: #fbbf24;
+  }
+  .potion-layer[data-liquid='lime'] {
+    background: #a3e635;
+  }
+  .potion-layer[data-liquid='violet'] {
+    background: #a78bfa;
+  }
+  .potion-layer[data-liquid='coral'] {
+    background: #fb7185;
+  }
+  .potion-layer[data-liquid='azure'] {
+    background: #60a5fa;
+  }
+
+  /* Dead-end emphasis: initFramework toggles data-dead-end. */
+  #undo-btn[data-dead-end='true'] {
+    border-width: 2px;
+    font-weight: 700;
+    text-decoration: underline;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .potion-tube {
+      transition: none;
+    }
+    .potion-tube[data-selected='true'] {
+      transform: none;
+    }
+  }
+</style>
