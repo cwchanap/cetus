@@ -124,6 +124,7 @@ Structural v1 contracts:
 | Initial gate state | Cyan on all four lanes |
 | First drone | Lane 1 / Magenta |
 | Random drone signal | never equals selected lane's gate at spawn |
+| Drone X semantics | horizontal center in logical canvas pixels |
 | BaseGame time bonus | disabled |
 | Crash score penalty | none |
 
@@ -228,9 +229,12 @@ interface SignalSwitchDrone {
     id: string
     laneIndex: number
     signal: SignalSwitchSignal
+    /** Horizontal center in logical canvas pixels. */
     x: number
 }
 ```
+
+`x` is always the drone's horizontal **center**, matching the center-position convention used by Gravity Flip's moving player. Movement and crossing compare this center directly with `gateX`. The renderer derives the body left edge as `x - droneWidth / 2` and centers the signal marker at `x`; no code may reinterpret `x` as the body's left edge.
 
 Private runtime state:
 
@@ -277,12 +281,12 @@ Update order:
 
 1. advance simulation time;
 2. derive lane count, speed, and spawn interval;
-3. move drones right;
+3. move drone centers right;
 4. resolve drones whose center crossed the gate during this step;
 5. if still active, advance capped spawn readiness and create at most one drone;
 6. emit one final state change.
 
-Crossing uses:
+Crossing uses the center coordinate:
 
 ```ts
 const crossedGate = previousX < gateX && nextX >= gateX
@@ -391,14 +395,14 @@ Dynamic layer:
 
 - gate beam/marker for each active lane;
 - Circle/Triangle/Diamond marker geometry;
-- drone body plus matching marker;
+- each drone body drawn from `drone.x - droneWidth / 2` with its signal marker centered at `drone.x`;
 - dim overlay for locked lanes.
 
 Lane centers derive from `canvasHeight / maxLanes`; there are no four authored Y constants.
 
-Renderer visual colors are exhaustive over the signal union, but renderer never resolves collisions, mutates gates, scores, or schedules drones.
+Renderer visual colors are exhaustive over the signal union, but renderer never resolves collisions, mutates gates, scores, or schedules drones. `SignalSwitchRendererConfig` receives `droneWidth` and `droneHeight` from the game config so renderer geometry uses the same size authority as crossing/spawn tests.
 
-`createSignalSwitchRendererConfig()` targets `#signal-switch-canvas`, logical 800×360, `responsive:false`, and the same page-level CSS scaling approach as Gravity Flip.
+`createSignalSwitchRendererConfig()` targets `#signal-switch-canvas`, logical 800×360, passes `gateX`, `maxLanes`, `droneWidth`, and `droneHeight`, sets `responsive:false`, and uses the same page-level CSS scaling approach as Gravity Flip.
 
 ## Initializer and Input
 
@@ -413,6 +417,8 @@ Renderer visual colors are exhaustive over the signal union, but renderer never 
 - one rAF loop;
 - return `game`, `renderer`, `getGame()`, `getState()`, idempotent `cleanup()`;
 - Astro page owns `window.signalSwitchGame` assignment.
+
+The Astro page wraps `initSignalSwitchGameFramework()` in `document.addEventListener('DOMContentLoaded', ...)`, matching the existing Gravity Flip and Potion Sorter page lifecycle rather than calling the initializer at module top level.
 
 ### Controls
 
@@ -465,7 +471,7 @@ Route: **`/signal-switch`**
 
 Game ID: `signal_switch`; icon: `🚦`.
 
-Shallow placement changes organism counts from **6 / 9 / 4** to **7 / 9 / 4**. The prior last shallow specimen is Pattern Pulse (`chain/magenta`), so `lattice/teal` preserves the adjacent shape+color invariant.
+Shallow placement changes organism counts from **6 / 9 / 4** to **7 / 9 / 4**. Keep `lattice/teal`, but insert the `GAMES` row **immediately after `GameID.EVADER` and before `GameID.SNAKE`**. `getGamesByDepth()` preserves registry order within each depth, so this places Signal Switch between shallow Evader (`spiral/teal`) and later shallow Pattern Pulse (`chain/magenta`). Pattern Pulse remains the last shallow entry, leaving the shallow→mid boundary as Pattern Pulse (`chain/magenta`) → Tetris (`lattice/teal`) and preserving the existing no-adjacent-identical-shape+color invariant. Appending Signal Switch to the end of `GAMES` is explicitly incorrect because it would become the last shallow entry immediately before Tetris and produce `lattice/teal` → `lattice/teal`.
 
 Create the route before adding this active row because `games.test.ts` verifies every active game has a corresponding Astro route.
 
@@ -507,11 +513,12 @@ Cover:
 - gate cycle order and inactive/locked rejection;
 - 30s/60s lane unlocks with an unreachable test gate so traffic cannot end the ramp test;
 - speed/cadence interpolation;
-- one-frame before→beyond gate crossing;
+- one-frame before→beyond gate-center crossing;
 - match scoring/combo and mismatch integrity reset;
 - final integrity ending exactly once;
 - timeout outcome `survived`;
 - random spawns only in free active lanes;
+- **free-lane selection with at least two free candidates** (`startingLaneCount: 3`, Lane 1 occupied, RNG `0.99` selects the last of lanes 2/3);
 - random signal differs from current selected gate;
 - all-busy traffic uses zero RNG and holds one ready spawn;
 - freeing one congested lane creates one random spawn, not a burst;
@@ -521,15 +528,15 @@ Terminal tests stub `ScoreManager.saveFinalScore()` so callback timing does not 
 
 ### Renderer
 
-Verify setup/config, static/dynamic layers, active gates/drones, locked-lane overlay, and distinct Circle/Triangle/Diamond geometry.
+Verify setup/config, static/dynamic layers, active gates/drones, locked-lane overlay, distinct Circle/Triangle/Diamond geometry, and the shared center-coordinate contract: a 32px drone at `x=64` draws its body from `48` while its marker remains centered at `64`.
 
 ### Initializer
 
-With jsdom + fake rAF verify missing-container error, idle HUD, delegated buttons, keys 1–4 and guards, lane unlock enablement, live-region announcements, failure/survival copy, Reset, Play Again, unload warning, and idempotent cleanup.
+With jsdom + fake rAF verify missing-container error, idle HUD, delegated buttons, keys 1–4 and guards, lane unlock enablement, live-region announcements, failure/survival copy, Reset, Play Again, unload warning, idempotent cleanup, and page bootstrap through the established `DOMContentLoaded` wrapper.
 
 ### Registry/markup/achievements
 
-Extend existing suites for route, GameID/icon, organism counts 7/9/4, shared game-data union, four lane buttons, no Pause/End, 90-second page time, and four achievements.
+Extend existing suites for route, GameID/icon, organism counts 7/9/4, shared game-data union, four lane buttons, no Pause/End, 90-second page time, the `DOMContentLoaded` initializer wrapper, and four achievements. Keep the Signal Switch `GAMES` row immediately after Evader so the existing organism adjacency suite stays green.
 
 ### Browser smoke
 
