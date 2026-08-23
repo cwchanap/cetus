@@ -326,6 +326,20 @@ export const GAMES: Game[] = [
         organism: { shape: 'spiral', color: 'magenta' },
         depth: 'mid',
     },
+    {
+        id: GameID.SIGNAL_SWITCH,
+        name: 'Signal Switch',
+        description:
+            'Switch lane gates to match incoming drone signals before impact',
+        category: 'action',
+        maxPlayers: 1,
+        estimatedDuration: '1-2 minutes',
+        difficulty: 'medium',
+        tags: ['timing', 'reflex', 'lanes', 'single-player', 'signals'],
+        isActive: true,
+        organism: { shape: 'lattice', color: 'ice' },
+        depth: 'shallow',
+    },
 ]
 
 // Helper functions

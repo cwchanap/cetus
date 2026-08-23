@@ -419,3 +419,19 @@ describe('Signal Switch stable ID and icon', () => {
         expect(getGameIcon(GameID.SIGNAL_SWITCH)).toBe('🚦')
     })
 })
+
+describe('Signal Switch registration', () => {
+    it('has the exact active registry entry and page route', () => {
+        expect(getGameById(GameID.SIGNAL_SWITCH)).toMatchObject({
+            id: GameID.SIGNAL_SWITCH,
+            name: 'Signal Switch',
+            category: 'action',
+            estimatedDuration: '1-2 minutes',
+            difficulty: 'medium',
+            isActive: true,
+            organism: { shape: 'lattice', color: 'ice' },
+            depth: 'shallow',
+        })
+        expect(getGameUrl(GameID.SIGNAL_SWITCH)).toBe('/signal-switch')
+    })
+})

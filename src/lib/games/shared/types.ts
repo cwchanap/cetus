@@ -128,6 +128,10 @@ export type GravityFlipGameData =
 export type PotionSorterGameData =
     import('../potion-sorter/types').PotionSorterGameData
 
+// Signal Switch-specific game data (canonical definition in signal-switch/types.ts)
+export type SignalSwitchGameData =
+    import('../signal-switch/types').SignalSwitchGameData
+
 // Union type for all game data
 export type GameData =
     | TetrisGameData
@@ -149,6 +153,7 @@ export type GameData =
     | PatternPulseGameData
     | GravityFlipGameData
     | PotionSorterGameData
+    | SignalSwitchGameData
 
 // Common game stats returned from games
 export interface GameStats {
