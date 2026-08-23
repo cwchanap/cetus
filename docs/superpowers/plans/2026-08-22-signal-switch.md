@@ -4,7 +4,7 @@
 
 **Goal:** Add Signal Switch, a 90-second lane-management game where players cycle laser gates to match incoming drone signals, preserve combo, survive three integrity strikes, and reuse the existing Cetus score/leaderboard flow.
 
-**Architecture:** `SignalSwitchGame` extends `BaseGame` and owns gates, one-drone-per-lane traffic, center-X gate crossing, integrity/combo/scoring, and simulation-time difficulty. `SignalSwitchRenderer` extends `PixiJSRenderer` with one static lane layer and one redrawn dynamic layer. A game-local initializer owns one rAF loop and native Astro controls. No shared traffic/lane/runner/spawn framework is added.
+**Architecture:** `SignalSwitchGame` extends `BaseGame` and owns gates, one-drone-per-lane traffic, center-X gate crossing, integrity/combo/scoring, and simulation-time difficulty. `SignalSwitchRenderer` extends `PixiJSRenderer` with one static lane layer and one redrawn dynamic layer. A game-local initializer owns one rAF loop and native Astro controls. No shared traffic/lane/runner/spawn framework is added; the only cross-game cleanup is extracting an already-identical editable-target predicate when HPA-71 becomes its third consumer.
 
 **Tech Stack:** Astro 5, TypeScript, PixiJS 8, Tailwind 4, existing BaseGame/PixiJSRenderer framework, Vitest/jsdom, Playwright, existing Turso/Kysely score path.
 
