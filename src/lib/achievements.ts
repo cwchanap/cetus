@@ -15,6 +15,7 @@ import type {
     PatternPulseGameData,
     GravityFlipGameData,
     PotionSorterGameData,
+    SignalSwitchGameData,
     GameHistoryEntry,
 } from './games/shared/types'
 
@@ -42,6 +43,7 @@ export type AchievementCheckData =
     | PatternPulseGameData
     | GravityFlipGameData
     | PotionSorterGameData
+    | SignalSwitchGameData
     | Record<string, unknown>
 
 export interface Achievement {
@@ -1666,6 +1668,58 @@ export const ACHIEVEMENTS: Achievement[] = [
             threshold: 5500,
         },
         rarity: AchievementRarity.LEGENDARY,
+    },
+
+    // Signal Switch achievements
+    {
+        id: 'signal_switch_first_clearance',
+        name: 'First Clearance',
+        description: 'Score 100 points in Signal Switch.',
+        logo: '🚦',
+        gameId: GameID.SIGNAL_SWITCH,
+        condition: {
+            type: 'score_threshold',
+            threshold: 100,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'signal_switch_streak',
+        name: 'Signal Streak',
+        description: 'Reach a combo of 10 in a single Signal Switch run.',
+        logo: '🔗',
+        gameId: GameID.SIGNAL_SWITCH,
+        condition: {
+            type: 'in_game',
+            check: (gameData: SignalSwitchGameData) => gameData.maxCombo >= 10,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'signal_switch_clean_shift',
+        name: 'Clean Shift',
+        description: 'Survive a full Signal Switch run without a single crash.',
+        logo: '🛡️',
+        gameId: GameID.SIGNAL_SWITCH,
+        condition: {
+            type: 'in_game',
+            check: (gameData: SignalSwitchGameData) =>
+                gameData.survivedFullRun && gameData.crashes === 0,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'signal_switch_traffic_controller',
+        name: 'Traffic Controller',
+        description: 'Guide 40 drones through safely and survive the full run.',
+        logo: '🏆',
+        gameId: GameID.SIGNAL_SWITCH,
+        condition: {
+            type: 'in_game',
+            check: (gameData: SignalSwitchGameData) =>
+                gameData.survivedFullRun && gameData.safePasses >= 40,
+        },
+        rarity: AchievementRarity.EPIC,
     },
 ]
 

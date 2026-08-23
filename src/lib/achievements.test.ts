@@ -14,6 +14,7 @@ import {
 import { GameID } from './games'
 import type { MineGridGameData } from './games/mine-grid/types'
 import type { PotionSorterGameData } from './games/potion-sorter/types'
+import type { SignalSwitchGameData } from './games/signal-switch/types'
 import { checkAndAwardAchievements } from './services/achievementService'
 
 // Mock the database queries so checkAndAwardAchievements can be exercised
@@ -1406,5 +1407,74 @@ describe('Potion Sorter achievements', () => {
                 'potion_sorter_perfect_mixture'
             )
         })
+    })
+})
+
+describe('Signal Switch achievements', () => {
+    const baseData: SignalSwitchGameData = {
+        safePasses: 0,
+        crashes: 0,
+        maxCombo: 0,
+        integrityRemaining: 3,
+        survivedFullRun: false,
+    }
+
+    it('registers all four Signal Switch achievements with their threshold metadata', () => {
+        const list = getAchievementsByGame(GameID.SIGNAL_SWITCH)
+        expect(list.map(achievement => achievement.id)).toEqual([
+            'signal_switch_first_clearance',
+            'signal_switch_streak',
+            'signal_switch_clean_shift',
+            'signal_switch_traffic_controller',
+        ])
+        expect(
+            getAchievementById('signal_switch_first_clearance')?.condition
+                .threshold
+        ).toBe(100)
+    })
+
+    it('signal streak requires a combo of 10 or more', () => {
+        const check = getAchievementById('signal_switch_streak')!.condition
+            .check!
+        expect(check({ ...baseData, maxCombo: 10 }, 0)).toBe(true)
+        expect(check({ ...baseData, maxCombo: 9 }, 0)).toBe(false)
+    })
+
+    it('clean shift requires a survived full run with zero crashes (background-timeout guard)', () => {
+        const check = getAchievementById('signal_switch_clean_shift')!.condition
+            .check!
+        expect(
+            check({ ...baseData, survivedFullRun: true, crashes: 0 }, 0)
+        ).toBe(true)
+        expect(
+            check({ ...baseData, survivedFullRun: true, crashes: 1 }, 0)
+        ).toBe(false)
+        // Zero-pass guard: a background timeout ends the run without any
+        // drones processed, so survivedFullRun is false even with no crashes.
+        expect(
+            check(
+                {
+                    ...baseData,
+                    survivedFullRun: false,
+                    safePasses: 0,
+                    crashes: 0,
+                },
+                0
+            )
+        ).toBe(false)
+    })
+
+    it('traffic controller requires 40 safe passes across a survived run', () => {
+        const check = getAchievementById('signal_switch_traffic_controller')!
+            .condition.check!
+        expect(
+            check({ ...baseData, survivedFullRun: true, safePasses: 40 }, 0)
+        ).toBe(true)
+        expect(
+            check({ ...baseData, survivedFullRun: true, safePasses: 39 }, 0)
+        ).toBe(false)
+        expect(
+            check({ ...baseData, survivedFullRun: false, safePasses: 40 }, 0)
+        ).toBe(false)
     })
 })

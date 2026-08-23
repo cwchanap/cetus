@@ -51,6 +51,7 @@ const games = [
     'pattern-pulse',
     'gravity-flip',
     'potion-sorter',
+    'signal-switch',
 ]
 
 describe('Game board page markup', () => {
