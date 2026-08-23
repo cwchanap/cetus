@@ -1,91 +1,72 @@
 # Signal Switch — Design Spec
 
-- **Linear issue:** [HPA-71 — Minigame: Signal Switch](https://linear.app/cwchanap/issue/HPA-71/minigame-signal-switch)
+- **Linear issue:** HPA-71 — Minigame: Signal Switch
 - **Date:** 2026-08-22
 - **Status:** Planning draft, reviewed for implementation
 
 ## Overview
 
-Signal Switch is a short real-time lane-management game. Colored drones travel left-to-right toward laser gates. Each lane owns one switchable gate. Before a drone reaches its gate, the player cycles that lane until its signal matches the incoming drone.
+Signal Switch is a 90-second real-time lane-management game. Drones travel left-to-right toward one switchable laser gate per lane. Each drone carries one of three signal identities; before the drone center reaches the gate, the player cycles that lane until the gate signal matches the drone.
 
-Version 1 is one **90-second** run. It starts with two lanes, unlocks a third lane at 30 seconds and a fourth at 60 seconds of simulated gameplay, and continuously raises drone speed while shortening spawn cadence. A safe pass scores and extends combo. A mismatch removes one of three integrity points and resets combo. Losing all integrity ends the run; surviving until BaseGame's countdown reaches zero completes it.
+The run starts with two lanes, unlocks a third lane at 30 seconds and a fourth at 60 seconds of **simulated gameplay time**, raises drone speed from 140 to 240 px/s, and shortens the requested spawn interval from 3.2 to 1.1 seconds. A safe pass scores and extends combo. A mismatch removes one of three integrity points and resets combo. Losing all integrity ends the run; BaseGame timeout completes it.
 
-The implementation stays local to existing Cetus seams. `BaseGame` owns run timing, completed-run reset, score saving, stale-save protection, achievements, and challenge updates. `SignalSwitchGame` owns gates, drones, lane occupancy, crossing resolution, integrity, combo, and simulation-time difficulty. `SignalSwitchRenderer` owns only the Pixi lane scene. A local initializer owns one requestAnimationFrame loop and the static Astro lane controls.
-
-There is no shared lane engine, generic spawner, physics engine, new persistence path, schema/API work, or reusable input framework in HPA-71.
+The architecture stays local and deliberately small: `SignalSwitchGame` extends `BaseGame`, `SignalSwitchRenderer` extends `PixiJSRenderer`, and one game-local initializer owns a single requestAnimationFrame loop plus DOM controls. No shared lane/traffic/spawn/runner framework is introduced.
 
 ## Why HPA-71 Is Next
 
-Recent standalone-minigame work moved down the authored backlog sequence: HPA-75 Mine Grid, HPA-74 Pattern Pulse, HPA-73 Gravity Flip, then HPA-72 Potion Sorter. HPA-71 is still open, has no blocking relations, and has no existing GitHub implementation PR or branch. It is therefore the next actionable standalone Cetus minigame.
-
-HPA-70 Rhythm Reactor and HPA-68 Asteroid Drift remain later backlog items.
+Recent standalone-minigame work moved down the backlog sequence: HPA-75 Mine Grid, HPA-74 Pattern Pulse, HPA-73 Gravity Flip, then HPA-72 Potion Sorter. HPA-71 remains open and unblocked, so it is the next standalone minigame slice. HPA-70 Rhythm Reactor and HPA-68 Asteroid Drift remain later backlog items.
 
 ## Product Goals
 
-- Make the core loop obvious: **read drone → switch that lane → preserve combo**.
-- Start with one deterministic teaching interaction: Lane 1 is Cyan and the first drone is Magenta.
-- Raise pressure through lane count, speed, and cadence rather than difficulty modes.
-- Keep traffic playable by construction: at most one unresolved drone per lane.
-- Make every normal random spawn actionable: its signal differs from that lane's gate state at spawn.
-- Support keyboard and touch through the same `cycleGate(laneIndex)` API.
-- Never rely on color alone; Cyan/Magenta/Amber are also Circle/Triangle/Diamond.
-- Reuse existing score, leaderboard/progress, achievement, GamePage, unload-warning, and stale-run lifecycle behavior.
-- Use one injected `rng: () => number` seam for deterministic tests.
-- Keep v1 tuning independent from architecture so manual play can adjust constants cheaply.
+- Make the loop immediately legible: **read drone → cycle that lane → preserve combo**.
+- Teach one interaction deterministically: Lane 1 starts Cyan and the first drone is Magenta.
+- Increase pressure through lanes, speed, and cadence rather than difficulty modes.
+- Keep traffic fair by construction: at most one unresolved drone per lane.
+- Ensure every random spawn needs action: its signal differs from that lane's gate when spawned.
+- Preserve actual cadence headroom during the two-lane opening instead of saturating lane capacity immediately.
+- Support keyboard and touch through one `cycleGate(laneIndex)` API.
+- Never rely on color alone; every signal also has stable glyph, shape name, and geometry.
+- Reuse existing score submission, leaderboard/progress, achievements, GamePage, unload warning, and stale-run lifecycle behavior.
+- Keep tuning cheap: balance values live in one rule source and tests derive expected tuning values from it.
 
 ## Non-Goals
 
 Version 1 does not include:
 
-- campaign levels, difficulty selection, Daily mode, seeds, replay, or resume-after-refresh;
-- generic traffic/lane/spawn/input/real-time frameworks;
-- a refactor of Gravity Flip into shared runner infrastructure;
-- drag gestures, canvas pointer-coordinate lane selection, or hit testing;
-- more than three signals or four lanes;
+- campaign levels, difficulty selection, Daily mode, seeds, replay, or refresh resume;
+- a generic lane, traffic, runner, input, animation-loop, or spawn framework;
+- GameInitializer adoption;
 - multiple unresolved drones in one lane;
-- special drones, shields, power-ups, bosses, upgrades, economy, or progression;
+- special drones, shields, power-ups, bosses, upgrades, or economy;
 - score penalties in addition to integrity loss;
 - pause or manual End Game controls;
+- canvas hit-testing for touch controls;
 - audio, haptics, particles, textures, or image assets;
-- database, API, auth, score-service, leaderboard, BaseGame, GameTimer, PixiJSRenderer, or GameInitializer changes.
+- database, API, auth, score-service, leaderboard, BaseGame, GameTimer, or PixiJSRenderer changes.
 
-## Approaches Considered
+## Architecture and Reuse
 
-### A. BaseGame + PixiJSRenderer + game-local rAF — selected
+### BaseGame remains the run authority
 
-This matches the proven Gravity Flip integration shape without sharing game-specific mechanics. BaseGame keeps lifecycle/persistence; Pixi handles continuous movement; the game model needs only a small `update(deltaSeconds)` loop.
+`SignalSwitchGame` extends `BaseGame`. BaseGame continues to own:
 
-### B. DOM/CSS lanes and transitions
-
-Static controls would be easy, but continuous drone motion would require synchronizing CSS transitions with gameplay crossing time or frequent DOM style mutation. Pixi already solves that problem in Cetus with less custom coordination.
-
-### C. Extract a generic runner/lane/spawn engine
-
-Gravity Flip and Signal Switch both animate entities, but the mechanics differ: fixed-X vertical physics/hazards versus lane gates/match resolution. Extracting now would create abstractions before two concrete consumers share meaningful behavior. HPA-71 copies conventions, not a framework.
-
-## Reuse Decisions
-
-### BaseGame remains run authority
-
-`SignalSwitchGame` extends `BaseGame`. BaseGame remains responsible for:
-
-- the authoritative 90-second `GameTimer`;
-- completed-run auto-reset on the next `start()`;
-- score accumulation/final submission;
+- the authoritative 90-second GameTimer;
+- completed-run reset on the next `start()`;
+- score accumulation and final submission;
 - final timer snapshots;
 - stale async-save suppression;
 - achievement/challenge result delivery.
 
-Signal Switch sets `timeBonus: false`. Only safe passes contribute score. No second timer, save path, or stale-run token is added.
+Signal Switch uses `timeBonus: false`. There is no second countdown or stale-run token.
 
 ### PixiJSRenderer owns only the moving board
 
-`SignalSwitchRenderer` uses a fixed **800×360** logical canvas with:
+`SignalSwitchRenderer` uses a fixed 800×360 logical canvas with:
 
 - one static background/lane layer;
-- one dynamic scene layer cleared and redrawn each frame.
+- one dynamic scene layer cleared/redrawn each frame.
 
-There are at most four drones and four gates. No sprites, object pools, textures, or generic entity renderer are needed.
+There are at most four drones and four gates, so sprites, pooling, textures, and a generic entity renderer are unnecessary.
 
 ### Game-local requestAnimationFrame loop
 
@@ -94,19 +75,23 @@ The initializer follows Gravity Flip:
 ```text
 requestAnimationFrame
 → compute monotonic rAF delta
-→ clamp outer delta to 0.1 s
+→ clamp outer delta to 0.1s
 → game.update(deltaSeconds)
 → renderer.render(game.getState())
 → request next frame
 ```
 
-Signal Switch does not need 1/120-second physics substeps. A crossing is detected from previous X to next X, so one accepted 0.1-second frame cannot tunnel past the gate.
+Signal Switch does not need Gravity Flip's 1/120-second physics substeps. Crossing is detected from previous center X to next center X, so a drone cannot tunnel past the gate regardless of the accepted step size.
 
-### Native Astro controls
+### Existing shared helpers
 
-Four buttons exist in Astro from first render. One `#gate-controls` delegated listener maps them to lanes. Desktop keys `1`–`4` call the same API. No canvas hit testing is required.
+Reuse `clamp` and `lerp` from `src/lib/games/shared/utils.ts`.
 
-## Structural Rules vs Tuning Defaults
+`isEditableTarget()` is already duplicated verbatim in Gravity Flip and Pattern Pulse. HPA-71 would create the third production copy, so implementation will extract this six-line pure predicate to `shared/utils.ts`, cover it in `shared/utils.test.ts`, and update those two existing initializers to import it. This is the only planned cross-game production refactor; it does not change behavior.
+
+Do **not** hoist `emitStateChange()` to BaseGame in HPA-71. Existing BaseGame subclasses redeclare private copies, so a base-class migration would touch many games. Signal Switch keeps one local private method and the plan defines it explicitly.
+
+## Structural Rules and Tuning Defaults
 
 Structural v1 contracts:
 
@@ -117,14 +102,11 @@ Structural v1 contracts:
 | Signals | Cyan Circle, Magenta Triangle, Amber Diamond |
 | Cycle | Cyan → Magenta → Amber → Cyan |
 | Starting integrity | 3 |
-| Maximum lanes | 4 |
-| Starting lanes | 2 |
-| Lane unlocks | lane 3 at 30s, lane 4 at 60s simulated time |
-| Lane occupancy | max 1 unresolved drone/lane |
-| Initial gate state | Cyan on all four lanes |
+| Lane unlock schedule | `[0, 0, 30, 60]` seconds |
+| Maximum unresolved traffic | 1 drone per lane |
+| Initial gate state | Cyan on every lane |
 | First drone | Lane 1 / Magenta |
-| Random drone signal | never equals selected lane's gate at spawn |
-| Drone X semantics | horizontal center in logical canvas pixels |
+| Random drone signal | differs from selected lane gate at spawn |
 | BaseGame time bonus | disabled |
 | Crash score penalty | none |
 
@@ -132,23 +114,50 @@ Initial tuning defaults:
 
 | Value | Initial default |
 |---|---:|
-| Drone spawn X | 64 px |
-| Gate X | 680 px |
+| Drone spawn center X | 64 px |
+| Gate center-crossing X | 680 px |
 | Drone size | 32 × 22 px |
 | Initial speed | 140 px/s |
 | Final speed | 240 px/s |
-| Initial spawn interval | 2.2 s |
-| Final spawn interval | 1.1 s |
+| Initial requested spawn interval | **3.2 s** |
+| Final requested spawn interval | 1.1 s |
 | Maximum accepted outer update | 0.1 s |
 | Base safe-pass points | 100 |
 | Combo step | +20 points/pass |
 | Combo bonus cap | 8 previous passes |
 
-Motion/run values live once in `SIGNAL_SWITCH_RULES`; scoring values live once in `scoring.ts`. Page/initializer/renderer code must not define competing gameplay values.
+Motion/run values live once in `SIGNAL_SWITCH_RULES`; scoring values live once in `scoring.ts`. Tests should import the rule source rather than restating tunable numbers.
 
-If manual play changes tuning, the implementation PR updates the constants, exact tests, and this design document together.
+### Spawn-capacity headroom
 
-## Signal Identity and Accessibility
+The earlier 2.2-second opening interval exactly saturated two-lane capacity:
+
+```text
+transitDistance = 680 - 64 = 616 px
+initialTransit = 616 / 140 = 4.4 s
+2-lane capacity interval = 4.4 / 2 = 2.2 s
+```
+
+That made the board permanently full from the opening and rendered cadence shortening inert while two lanes were the bottleneck. The reviewed initial interval is therefore **3.2 seconds**, giving useful headroom before lane 3 unlocks.
+
+For any representative point in a lane phase, the requested interval should remain greater than the lane-capacity interval:
+
+```text
+requestedSpawnInterval
+  > (gateX - droneSpawnX) / droneSpeed / activeLaneCount
+```
+
+A unit test checks this using `SIGNAL_SWITCH_RULES` at:
+
+- run start;
+- immediately before every positive lane-unlock threshold;
+- run end.
+
+With the reviewed defaults, the narrowest opening-phase headroom is still about 1.41× immediately before 30 seconds. This prevents a future tuning edit from silently making cadence inert again.
+
+## Signal Identity
+
+Signal order remains the cycling authority:
 
 ```ts
 export const SIGNAL_SWITCH_SIGNAL_ORDER = [
@@ -161,45 +170,79 @@ export type SignalSwitchSignal =
     (typeof SIGNAL_SWITCH_SIGNAL_ORDER)[number]
 ```
 
-| Signal | Glyph | Shape |
-|---|---|---|
-| Cyan | `●` | Circle |
-| Magenta | `▲` | Triangle |
-| Amber | `◆` | Diamond |
-
-`types.ts` exports signal order and display metadata (`label`, `glyph`). Renderer marker geometry dispatches on the same signal union. Controls show text such as **`Lane 2: ▲ Magenta`** so color is never the sole cue.
-
-## Lane and Gate Model
-
-All four gate states exist from initialization, but only active lanes accept input or traffic.
+All non-geometry metadata lives in one keyed catalog:
 
 ```ts
-interface SignalSwitchState extends BaseGameState {
-    outcome: 'playing' | 'systems-failed' | 'survived'
-    activeLaneCount: number
-    gateSignals: SignalSwitchSignal[]
-    drones: SignalSwitchDrone[]
-    integrity: number
-    safePasses: number
-    crashes: number
-    combo: number
-    maxCombo: number
-    droneSpeed: number
-    spawnInterval: number
+export const SIGNAL_SWITCH_SIGNALS: Readonly<
+    Record<
+        SignalSwitchSignal,
+        {
+            label: string
+            glyph: string
+            shapeName: 'Circle' | 'Triangle' | 'Diamond'
+            color: number
+        }
+    >
+> = {
+    cyan: {
+        label: 'Cyan',
+        glyph: '●',
+        shapeName: 'Circle',
+        color: 0x22d3ee,
+    },
+    magenta: {
+        label: 'Magenta',
+        glyph: '▲',
+        shapeName: 'Triangle',
+        color: 0xec4899,
+    },
+    amber: {
+        label: 'Amber',
+        glyph: '◆',
+        shapeName: 'Diamond',
+        color: 0xf59e0b,
+    },
 }
 ```
 
-`cycleGate(laneIndex)` returns `false` without mutation when:
+The renderer imports `color`; the initializer imports `label`, `glyph`, and `shapeName`. Only the renderer's Pixi path switch remains separate because geometry is executable drawing behavior, not metadata.
 
-- the run is inactive, paused, or over;
-- the index is not an integer 0–3;
-- the lane is not active yet.
+## Lane Model
 
-For valid input it advances one signal step, emits state change, and returns `true`. It never mutates drones, score, integrity, spawn timing, or another lane.
+Lane topology is one schedule, not four partly duplicated config fields:
+
+```ts
+export const SIGNAL_SWITCH_RULES = {
+    // ...
+    laneUnlockSeconds: [0, 0, 30, 60] as const,
+    // ...
+}
+
+interface SignalSwitchConfig extends BaseGameConfig {
+    laneUnlockSeconds: readonly number[]
+    // other motion fields...
+}
+```
+
+`maxLanes`, `startingLaneCount`, `lane3UnlockSeconds`, and `lane4UnlockSeconds` are **not** separate config fields.
+
+Active lane count derives from the schedule:
+
+```ts
+private activeLaneCountForElapsed(elapsedSeconds: number): number {
+    return this.config.laneUnlockSeconds.filter(
+        unlockAt => elapsedSeconds >= unlockAt
+    ).length
+}
+```
+
+Initial active lanes are therefore the count of zero-time entries, and total lanes are `laneUnlockSeconds.length`. All gate states exist from initialization, but only active lanes accept input or traffic.
+
+`cycleGate(laneIndex)` returns `false` without mutation when the run is inactive/paused/over, the index is not an integer, or the lane is not active. Valid input advances exactly one signal step and emits state change.
 
 ## Simulation Time and Difficulty
 
-BaseGame/GameTimer is the only authority on run expiration. Signal Switch separately tracks private simulation time:
+BaseGame/GameTimer remains the only authority on run expiration. Signal Switch separately tracks private simulation time:
 
 ```ts
 private elapsedSimSeconds = 0
@@ -208,19 +251,13 @@ private elapsedSimSeconds = 0
 Each accepted update derives:
 
 ```text
-progress = clamp(elapsedSimSeconds / 90, 0, 1)
-droneSpeed = lerp(140, 240, progress)
-spawnInterval = lerp(2.2, 1.1, progress)
-
-activeLaneCount =
-  elapsedSimSeconds >= 60 ? 4 :
-  elapsedSimSeconds >= 30 ? 3 :
-  2
+progress = clamp(elapsedSimSeconds / duration, 0, 1)
+droneSpeed = lerp(initialDroneSpeed, finalDroneSpeed, progress)
+spawnInterval = lerp(initialSpawnInterval, finalSpawnInterval, progress)
+activeLaneCount = count(laneUnlockSeconds <= elapsedSimSeconds)
 ```
 
-If rAF pauses in a background tab, returning never jumps the on-canvas simulation through unseen traffic/difficulty. BaseGame's real timer may still expire normally.
-
-An unlocked lane simply exposes its existing Cyan gate; no lane migration/reconstruction occurs.
+If rAF pauses in a background tab, returning does not jump through unseen traffic. BaseGame may still expire based on wall time.
 
 ## Drone Model and Fair Spawn Invariant
 
@@ -234,7 +271,7 @@ interface SignalSwitchDrone {
 }
 ```
 
-`x` is always the drone's horizontal **center**, matching the center-position convention used by Gravity Flip's moving player. Movement and crossing compare this center directly with `gateX`. The renderer derives the body left edge as `x - droneWidth / 2` and centers the signal marker at `x`; no code may reinterpret `x` as the body's left edge.
+`x` is always the horizontal **center**. Movement and crossing compare this center directly with `gateX`. Renderer body geometry derives its left edge as `x - droneWidth / 2` and centers the signal marker at `x`.
 
 Private runtime state:
 
@@ -245,80 +282,64 @@ private droneSequence = 0
 
 ### Deterministic first drone
 
-`onGameStart()` resets runtime counters and authors:
-
-```text
-drone-0
-laneIndex = 0
-signal = magenta
-x = droneSpawnX
-```
-
-The first drone consumes zero RNG and immediately teaches one Cyan→Magenta cycle.
+`onGameStart()` resets private counters and authors `drone-0` at lane index 0, Magenta, `x = droneSpawnX`. It consumes zero RNG.
 
 ### Random spawns
 
 A lane is eligible only if it is active and has no unresolved drone.
 
-If all active lanes are occupied, spawning is deferred and the accumulator stays capped at the current interval. Releasing a lane can therefore create at most one immediate spawn—never a catch-up burst.
+If all active lanes are occupied, spawning is deferred and readiness is capped at one current interval. Releasing a lane can therefore create at most one immediate spawn, never a catch-up burst.
 
-When a lane is free:
+For an actual random spawn:
 
 1. one RNG read chooses among free active lanes;
-2. that lane's current gate signal is removed from the signal candidates;
+2. the selected lane's current gate signal is removed from candidates;
 3. one RNG read chooses one of the remaining two signals;
 4. one drone is created at `droneSpawnX`.
 
-Thus a normal random drone is never already solved at spawn and same-lane conflicts are impossible by construction.
-
-Random spawning performs zero RNG reads while all lanes are busy and exactly two reads when a random drone is actually created.
+All-busy deferral consumes zero RNG. Every actual random spawn consumes exactly two reads.
 
 ## Update and Gate Crossing
 
-`update(deltaTime)` ignores non-positive/non-finite deltas and inactive/paused runs. Valid deltas clamp to 0.1 seconds.
+`update(deltaTime)` ignores non-positive/non-finite deltas and inactive/paused runs. Valid deltas clamp to `maxUpdateDelta`.
 
 Update order:
 
 1. advance simulation time;
-2. derive lane count, speed, and spawn interval;
+2. derive active lanes, speed, and spawn interval;
 3. move drone centers right;
-4. resolve drones whose center crossed the gate during this step;
+4. resolve every center crossing during the step;
 5. if still active, advance capped spawn readiness and create at most one drone;
 6. emit one final state change.
 
-Crossing uses the center coordinate:
+Crossing uses:
 
 ```ts
 const crossedGate = previousX < gateX && nextX >= gateX
 ```
 
-### Safe pass
+A matched crossing removes the drone, increments `safePasses` and combo, updates `maxCombo`, and awards the pure pass score. A mismatch removes the drone, increments crashes, resets combo, and removes one integrity without subtracting score.
 
-If `drone.signal === gateSignals[drone.laneIndex]` at crossing:
+When integrity reaches zero, set `outcome = 'systems-failed'` and call BaseGame `end()` once. BaseGame marks the run inactive synchronously before its save await, so later update work cannot double-end.
 
-- remove drone;
-- `safePasses += 1`;
-- `combo += 1`;
-- update `maxCombo`;
-- award `calculateSignalSwitchPassPoints(combo)`.
+## Local State-Change Method
 
-### Wrong gate
+Signal Switch explicitly defines the same local convention used by existing BaseGame subclasses:
 
-If signals differ:
+```ts
+private emitStateChange(): void {
+    if (this.callbacks.onStateChange) {
+        this.callbacks.onStateChange(this.getState())
+    }
+    this.emit('state-change', { state: this.getState() })
+}
+```
 
-- remove drone;
-- `crashes += 1`;
-- `combo = 0`;
-- `integrity -= 1`;
-- do not alter score.
-
-If integrity reaches zero, set `outcome='systems-failed'` and delegate once to `BaseGame.end()`. BaseGame marks the run inactive synchronously, so no later crossing/spawn in that update can cause a second end/save.
-
-Drones disappear at the gate. Explosion/debris/exit-animation state is out of scope.
+A BaseGame-wide migration is out of scope for HPA-71.
 
 ## Scoring
 
-`calculateSignalSwitchPassPoints(comboAfterPass)` is the only production formula:
+`calculateSignalSwitchPassPoints(comboAfterPass)` is the only production scoring formula:
 
 ```text
 safeCombo = max(1, floor(comboAfterPass))
@@ -326,15 +347,7 @@ bonusSteps = min(safeCombo - 1, 8)
 points = 100 + bonusSteps * 20
 ```
 
-| Combo after pass | Points |
-|---:|---:|
-| 1 | 100 |
-| 2 | 120 |
-| 5 | 180 |
-| 9 | 260 |
-| 20 | 260 |
-
-A crash resets combo before the next pass but does not subtract earned score. There is no BaseGame time bonus or final survival bonus.
+Combo 1 scores 100, combo 2 scores 120, combo 5 scores 180, and combo 9+ scores 260. Crashes reset combo but never remove earned score. There is no time or survival bonus.
 
 ## Outcomes and Submitted Data
 
@@ -345,27 +358,8 @@ type SignalSwitchOutcome =
     | 'survived'
 ```
 
-Integrity failure:
-
-- title: **`SIGNAL LOST`**
-- outcome: **`Systems failed`**
-
-Timeout sets `outcome='survived'` before delegating to BaseGame:
-
-- title: **`SHIFT COMPLETE`**
-- outcome: **`Survived`**
-
-Stats:
-
-```ts
-interface SignalSwitchStats extends BaseGameStats {
-    outcome: SignalSwitchOutcome
-    safePasses: number
-    crashes: number
-    maxCombo: number
-    integrityRemaining: number
-}
-```
+Failure presentation: **`SIGNAL LOST` / `Systems failed`**.
+Timeout presentation: **`SHIFT COMPLETE` / `Survived`**.
 
 Achievement-facing data:
 
@@ -379,7 +373,14 @@ interface SignalSwitchGameData {
 }
 ```
 
-`src/lib/games/shared/types.ts` re-exports the canonical game-local type and adds it to `GameData`.
+`survivedFullRun` deliberately rejects a zero-activity background-tab completion:
+
+```ts
+survivedFullRun:
+    state.outcome === 'survived' && state.safePasses > 0
+```
+
+This is a narrow guard against awarding the Clean Shift achievement to a run that timed out without processing a single drone. It does not attempt to build anti-cheat or synchronize simulation time to wall time.
 
 ## Renderer
 
@@ -388,69 +389,43 @@ interface SignalSwitchGameData {
 Static layer:
 
 - dark board background;
-- four horizontal lane separators;
+- horizontal lane separators derived from total lane count;
 - gate-zone guide around `gateX`.
 
 Dynamic layer:
 
 - gate beam/marker for each active lane;
-- Circle/Triangle/Diamond marker geometry;
-- each drone body drawn from `drone.x - droneWidth / 2` with its signal marker centered at `drone.x`;
+- signal marker geometry (circle/triangle/diamond);
+- drone body drawn from center X plus its centered signal marker;
 - dim overlay for locked lanes.
 
-Lane centers derive from `canvasHeight / maxLanes`; there are no four authored Y constants.
-
-Renderer visual colors are exhaustive over the signal union, but renderer never resolves collisions, mutates gates, scores, or schedules drones. `SignalSwitchRendererConfig` receives `droneWidth` and `droneHeight` from the game config so renderer geometry uses the same size authority as crossing/spawn tests.
-
-`createSignalSwitchRendererConfig()` targets `#signal-switch-canvas`, logical 800×360, passes `gateX`, `maxLanes`, `droneWidth`, and `droneHeight`, sets `responsive:false`, and uses the same page-level CSS scaling approach as Gravity Flip.
+Lane centers derive from `canvasHeight / laneUnlockSeconds.length`. Renderer config receives `gateX`, lane count, `droneWidth`, and `droneHeight` from game config. Renderer imports signal colors from `SIGNAL_SWITCH_SIGNALS`; it owns only the drawing-path switch.
 
 ## Initializer and Input
 
-`initSignalSwitchGameFramework()` follows current Gravity Flip/Pattern Pulse conventions:
+`initSignalSwitchGameFramework()` follows current Gravity Flip conventions:
 
-- required-container error through `DOMElementNotFoundError` + `handleGameError`;
+- required-container error through existing core error helpers;
 - destroy renderer on setup failure;
-- one `SignalSwitchGame` instance;
-- forward achievement/challenge results from game end;
-- track and remove DOM/window listeners;
+- one game instance;
+- forward achievement/challenge results;
+- tracked DOM/window listeners;
 - active-run `beforeunload` warning;
 - one rAF loop;
 - return `game`, `renderer`, `getGame()`, `getState()`, idempotent `cleanup()`;
-- Astro page owns `window.signalSwitchGame` assignment.
+- page owns `window.signalSwitchGame` assignment.
 
-The Astro page wraps `initSignalSwitchGameFramework()` in `document.addEventListener('DOMContentLoaded', ...)`, matching the existing Gravity Flip and Potion Sorter page lifecycle rather than calling the initializer at module top level.
+Four native Astro lane buttons are present from first render in a 2×2 layout. One delegated `#gate-controls` click listener calls `cycleGate`. Keys `1`–`4` call the same API.
 
-### Controls
+Keyboard handling imports the shared `isEditableTarget()` helper, ignores repeat/Ctrl/Meta/Alt and button targets, and calls `preventDefault()` only when a cycle succeeds.
 
-```text
-#gate-controls
-  button[data-signal-lane="0"]
-  button[data-signal-lane="1"]
-  button[data-signal-lane="2"]
-  button[data-signal-lane="3"]
-```
-
-One delegated click handler calls `cycleGate`.
-
-Buttons display current glyph/label and are disabled while the game is idle or their lane is locked. `aria-label` includes lane, color name, and shape name.
-
-Desktop `1`–`4` map to lanes 0–3. Document keydown ignores repeat, Ctrl/Meta/Alt, editable targets, and button targets. A successful keyboard cycle calls `preventDefault()`. Focused native Enter/Space therefore cannot double-trigger through the document handler.
-
-### HUD and announcements
-
-GamePage owns Score and Time. Signal Switch adds:
-
-- `#integrity` — `3 / 3`;
-- `#combo` — `0`;
-- `#safe-passes` — `0`;
-- `#lanes-online` — `2 / 4`;
-- `#drone-speed` — `140` initially.
-
-`#signal-switch-status` is `aria-live="polite"`. Announce only discrete lane unlocks, integrity loss, and terminal completion/failure. Gate-button text itself updates on gate changes, avoiding live-region spam every frame.
+The Astro page wraps initialization in `document.addEventListener('DOMContentLoaded', ...)`, matching Gravity Flip and Potion Sorter.
 
 ## Page and Catalog Registration
 
-Route: **`/signal-switch`**
+Route: `/signal-switch`
+
+Registry identity:
 
 ```ts
 {
@@ -464,108 +439,105 @@ Route: **`/signal-switch`**
     difficulty: 'medium',
     tags: ['timing', 'reflex', 'lanes', 'single-player', 'signals'],
     isActive: true,
-    organism: { shape: 'lattice', color: 'teal' },
+    organism: { shape: 'lattice', color: 'ice' },
     depth: 'shallow',
 }
 ```
 
-Game ID: `signal_switch`; icon: `🚦`.
+Signal Switch is appended normally to `GAMES`. `lattice/ice` avoids the earlier `lattice/teal` collision with first-mid Tetris, so no load-bearing array insertion point is required. Filtered catalog adjacency becomes Pattern Pulse (`chain/magenta`) → Signal Switch (`lattice/ice`) → Tetris (`lattice/teal`), which satisfies the existing exact shape+color adjacency invariant.
 
-Shallow placement changes organism counts from **6 / 9 / 4** to **7 / 9 / 4**. Keep `lattice/teal`, but insert the `GAMES` row **immediately after `GameID.EVADER` and before `GameID.SNAKE`**. `getGamesByDepth()` preserves registry order within each depth, so this places Signal Switch between shallow Evader (`spiral/teal`) and later shallow Pattern Pulse (`chain/magenta`). Pattern Pulse remains the last shallow entry, leaving the shallow→mid boundary as Pattern Pulse (`chain/magenta`) → Tetris (`lattice/teal`) and preserving the existing no-adjacent-identical-shape+color invariant. Appending Signal Switch to the end of `GAMES` is explicitly incorrect because it would become the last shallow entry immediately before Tetris and produce `lattice/teal` → `lattice/teal`.
+Create the route before adding the active row because `games.test.ts` verifies registered routes exist. Shallow/mid/abyssal counts become 7/9/4.
 
-Create the route before adding this active row because `games.test.ts` verifies every active game has a corresponding Astro route.
-
-`getGameUrl()` and `e2e/games/all-games-navigation.spec.ts` remain source-unchanged because both already derive behavior from the registry.
-
-`CLAUDE.md` updates the implemented game count 19→20 and documents the new module/debug handle. Do not edit the `AGENTS.md` symlink directly.
+`getGameUrl()` and the derived all-games navigation spec remain source-unchanged.
 
 ## Achievements
 
-Use the existing code-defined achievement system only:
+Use existing achievement machinery only:
 
 1. **First Clearance** — score threshold 100.
 2. **Signal Streak** — `maxCombo >= 10`.
 3. **Clean Shift** — `survivedFullRun && crashes === 0`.
 4. **Traffic Controller** — `survivedFullRun && safePasses >= 40`.
 
-No achievement-service changes are needed.
+Clean Shift cannot unlock from a zero-pass background completion because `survivedFullRun` already requires `safePasses > 0`.
 
 ## Reset, Play Again, and Cleanup
 
 - Start calls `game.start()`.
 - Reset calls `game.reset()`, renders/syncs idle state, hides overlay, and shows Start.
 - Play Again hides overlay and calls `game.start()`; BaseGame auto-resets a completed run and starts immediately.
-- Fresh/reset state restores four Cyan gates, integrity 3, two active lanes, zero score/stats, and zeroed simulation/spawn/ID counters.
-- The deterministic first drone appears only when the run starts, never while idle.
+- Reset restores Cyan gates, three integrity, lane schedule-derived initial lane count, zero score/stats, and private simulation/spawn/ID counters.
+- The deterministic teaching drone appears only on Start.
 - Cleanup cancels rAF, removes tracked listeners, unregisters end handling, destroys renderer, and destroys game exactly once.
 
 ## Testing Strategy
 
-### Pure scoring
+### Rules and scoring
 
-Lock combos 1, 2, 5, 9, above cap, and invalid/negative normalization.
+- Keep exact scoring literals because the score curve is product contract.
+- For balance/rule tests, derive expectations from `SIGNAL_SWITCH_RULES` instead of restating 140, 3.2, lane counts, canvas dimensions, or drone dimensions.
+- Add the phase-boundary headroom invariant described above.
 
 ### Game model
 
-Cover:
+Cover idle defaults, fixed teaching drone, gate cycle/rejection, schedule-derived 30s/60s lane unlocks, interpolation, one-frame center crossing, combo/integrity, final-integrity end once, timeout survival, multi-candidate free-lane RNG selection, non-matching generated signal, zero-RNG busy deferral, no catch-up burst, reset/ID restoration, and zero-pass `survivedFullRun === false`.
 
-- idle defaults and fixed first drone;
-- gate cycle order and inactive/locked rejection;
-- 30s/60s lane unlocks with an unreachable test gate so traffic cannot end the ramp test;
-- speed/cadence interpolation;
-- one-frame before→beyond gate-center crossing;
-- match scoring/combo and mismatch integrity reset;
-- final integrity ending exactly once;
-- timeout outcome `survived`;
-- random spawns only in free active lanes;
-- **free-lane selection with at least two free candidates** (`startingLaneCount: 3`, Lane 1 occupied, RNG `0.99` selects the last of lanes 2/3);
-- random signal differs from current selected gate;
-- all-busy traffic uses zero RNG and holds one ready spawn;
-- freeing one congested lane creates one random spawn, not a burst;
-- reset restores private counters and `drone-0` teaching spawn.
-
-Terminal tests stub `ScoreManager.saveFinalScore()` so callback timing does not depend on fetch.
+Terminal tests stub `ScoreManager.saveFinalScore()` so callbacks do not depend on fetch.
 
 ### Renderer
 
-Verify setup/config, static/dynamic layers, active gates/drones, locked-lane overlay, distinct Circle/Triangle/Diamond geometry, and the shared center-coordinate contract: a 32px drone at `x=64` draws its body from `48` while its marker remains centered at `64`.
+Verify setup/config, two layers, active gates/drones, locked-lane overlay, distinct signal geometries, catalog-derived colors, and center-coordinate body geometry.
 
-### Initializer
+### Shared editable target
 
-With jsdom + fake rAF verify missing-container error, idle HUD, delegated buttons, keys 1–4 and guards, lane unlock enablement, live-region announcements, failure/survival copy, Reset, Play Again, unload warning, idempotent cleanup, and page bootstrap through the established `DOMContentLoaded` wrapper.
+Add focused coverage in `shared/utils.test.ts`, then run Gravity Flip and Pattern Pulse initializer suites after replacing their local copies with the shared import.
 
-### Registry/markup/achievements
+### Initializer and markup
 
-Extend existing suites for route, GameID/icon, organism counts 7/9/4, shared game-data union, four lane buttons, no Pause/End, 90-second page time, the `DOMContentLoaded` initializer wrapper, and four achievements. Keep the Signal Switch `GAMES` row immediately after Evader so the existing organism adjacency suite stays green.
+With jsdom + fake rAF verify delegated buttons, keyboard guards, lane unlock enablement, live-region announcements, terminal copy, Reset, Play Again, unload warning, and idempotent cleanup.
+
+Markup coverage should avoid formatting-sensitive source strings. It must verify:
+
+```ts
+const readyIndex = signalSwitchMarkup.indexOf('DOMContentLoaded')
+const initCallIndex = signalSwitchMarkup.indexOf(
+    'initSignalSwitchGameFramework()'
+)
+expect(readyIndex).toBeGreaterThan(-1)
+expect(initCallIndex).toBeGreaterThan(readyIndex)
+```
+
+This catches a module-top-level init call while tolerating quote/style formatting.
 
 ### Browser smoke
 
-Use the real page controls plus the exposed debug handle only to advance simulation quickly:
+After the tuning checkpoint, add one real-control journey:
 
-1. open `/signal-switch` and assert idle integrity/lanes/buttons;
-2. Start;
-3. click Lane 1 once (Cyan→Magenta);
-4. repeatedly call `window.signalSwitchGame.game.update(0.1)` until the deterministic first drone passes;
-5. assert safe passes 1, combo 1, score 100, integrity 3;
-6. Reset and Start a fresh run, leaving every gate Cyan;
-7. repeatedly call `game.update(0.1)` in that **same run** until three generated non-Cyan crossings consume all integrity;
-8. assert `SIGNAL LOST / Systems failed`;
-9. Play Again and assert a fresh active run;
-10. at 375×812, assert the 2×2 lane controls are reachable and the canvas creates no horizontal overflow.
+1. open `/signal-switch` and assert idle controls;
+2. Start and click Lane 1 once;
+3. advance the exposed game model until the first safe pass;
+4. assert score/combo/integrity;
+5. Reset and Start with gates left Cyan;
+6. advance the same run until three mismatches end it;
+7. assert failure copy;
+8. Play Again and assert a clean active run;
+9. at 375×812, assert 2×2 controls remain reachable and no horizontal overflow occurs.
 
-Intercept `/api/scores` in the terminal browser test so overlay timing is deterministic. Do not wait 90 real seconds and do not add a production test-only API.
+Intercept `/api/scores` for terminal UI determinism. Do not wait 90 real seconds and do not add test-only production APIs.
 
 ## Manual-Play Tuning Checkpoint
 
-Before final implementation gates, answer:
+The checkpoint runs **immediately after the route/initializer task makes the game playable, before catalog/achievement registration and before final browser regression work**.
 
-1. Does the first Lane-1/Magenta drone leave enough discovery time?
-2. Are three lanes around 30s busier but readable?
-3. Are four lanes around 60s still readable at current speed/cadence?
-4. Can a late drone requiring two cycles still be handled comfortably?
+Answer:
+
+1. Does the first Lane-1/Magenta drone leave enough discovery time with the reviewed 3.2-second opening cadence?
+2. Are three lanes around 30 seconds busier but readable?
+3. Are four lanes around 60 seconds still readable?
+4. Can a late drone requiring two cycles be handled comfortably?
 5. Can a strong survival run reach 40 safe passes?
 
-If balance changes are needed, change rule/scoring constants and exact-value tests rather than architecture unless play reveals a genuine structural flaw.
+If tuning changes are needed, change only `SIGNAL_SWITCH_RULES`/scoring constants, affected behavior tests, and this spec, then rerun targeted game tests. Regression/registry work proceeds only after these defaults are accepted.
 
 ## Expected Production Surface
 
@@ -578,14 +550,21 @@ Create:
 - `src/lib/games/signal-switch/initFramework.ts`
 - `src/pages/signal-switch/index.astro`
 
-Modify:
+Modify for Signal Switch:
 
 - `src/lib/games.ts`
 - `src/lib/games/shared/types.ts`
 - `src/lib/achievements.ts`
 - `CLAUDE.md`
 
-Add/update tests beside the game plus existing registry, achievement, organism, markup, and Playwright suites.
+Narrow reuse cleanup required by the third editable-target consumer:
+
+- `src/lib/games/shared/utils.ts`
+- `src/lib/games/shared/utils.test.ts`
+- `src/lib/games/gravity-flip/initFramework.ts`
+- `src/lib/games/pattern-pulse/initFramework.ts`
+
+Add/update tests beside the game plus registry, achievement, organism, markup, Gravity Flip/Pattern Pulse initializer, and Playwright suites.
 
 Expected production-unchanged:
 
@@ -594,24 +573,22 @@ Expected production-unchanged:
 - `src/lib/games/core/ScoreManager.ts`
 - `src/lib/games/core/GameInitializer.ts`
 - `src/lib/games/renderers/PixiJSRenderer.ts`
-- `src/lib/games/shared/utils.ts`
 - `src/lib/services/scoreService.ts`
 - `src/lib/server/db/**`
 - `src/pages/api/**`
-- `src/lib/auth.ts`
-- `src/lib/auth-client.ts`
-- `e2e/games/all-games-navigation.spec.ts`
+- auth files;
+- `e2e/games/all-games-navigation.spec.ts`.
 
 ## Acceptance Mapping
 
-- **Home page card/link:** active `GAMES` entry with route/icon/duration/difficulty/organism metadata.
+- **Home page card/link:** active registry entry with route/icon/duration/difficulty/organism metadata.
 - **Start/play/lose/complete/restart:** BaseGame lifecycle + three-integrity failure + timeout survival + Play Again.
 - **Existing score submission:** BaseGame/ScoreManager final-save path.
-- **Desktop/mobile:** number keys + four native touch buttons + responsive Pixi canvas.
-- **Increasing speed/lane count:** simulation-time interpolation and 30s/60s unlocks.
-- **Safe-pass/combo scoring:** one pure pass scorer; crash resets combo.
-- **Wrong-gate consequence:** three-point integrity ends on the third crash.
+- **Desktop/mobile:** keys 1–4 + four native buttons + responsive Pixi canvas.
+- **Increasing pressure:** lane schedule plus speed/cadence interpolation with non-saturated opening headroom.
+- **Safe-pass/combo scoring:** one pure pass scorer.
+- **Wrong-gate consequence:** third mismatch ends the run.
 
 ## YAGNI Boundary
 
-HPA-71 ships the smallest complete Signal Switch loop. Do not add shared frameworks, procedural waves, difficulty menus, special drones, canvas touch-coordinate mapping, persistence, schema/API changes, audio/haptics, or generalized real-time infrastructure. Extract common infrastructure later only when at least two concrete games genuinely share it.
+HPA-71 ships the smallest complete Signal Switch loop. Do not add shared lane/traffic/spawn/runner systems, procedural waves, difficulty menus, special drones, canvas touch-coordinate mapping, persistence, schema/API changes, audio/haptics, generalized real-time infrastructure, or a BaseGame state-change migration. The only cross-game cleanup is the already-duplicated editable-target predicate now gaining a third consumer.
