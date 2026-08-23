@@ -5,6 +5,8 @@ import {
     createIceSlideExpeditionRunDefinition,
 } from '../../src/lib/games/ice-slide/expedition'
 import { parseGrid, slide } from '../../src/lib/games/ice-slide/physics'
+import { SIGNAL_SWITCH_RULES } from '../../src/lib/games/signal-switch/types'
+import { SIGNAL_SWITCH_BASE_PASS_POINTS } from '../../src/lib/games/signal-switch/scoring'
 import type {
     Direction,
     GridPosition,
@@ -1503,5 +1505,161 @@ test.describe('Gravity Flip', () => {
                 )
             )
             .toBe(true)
+    })
+})
+
+test.describe('Signal Switch', () => {
+    type SignalSwitchSnapshot = {
+        safePasses: number
+        combo: number
+        score: number
+        integrity: number
+        isGameOver: boolean
+    }
+
+    /**
+     * Bounded model advancement through the exposed debug handle: drives
+     * game.update(0.1) until either one safe pass or game over. The hard
+     * iteration cap sits well above the 90s run's ~900-step worst case.
+     */
+    async function advanceSignalSwitchRun(
+        page: Page,
+        stopOn: 'safe-pass' | 'game-over'
+    ): Promise<SignalSwitchSnapshot> {
+        return page.evaluate(stop => {
+            const game = (
+                window as Window & {
+                    signalSwitchGame?: {
+                        game: {
+                            update: (deltaSeconds: number) => void
+                            getState: () => SignalSwitchSnapshot
+                        }
+                    }
+                }
+            ).signalSwitchGame?.game
+            if (!game) {
+                throw new Error('Signal Switch debug handle not ready')
+            }
+            const MAX_UPDATES = 1000
+            for (let step = 0; step < MAX_UPDATES; step += 1) {
+                const state = game.getState()
+                if (
+                    stop === 'safe-pass'
+                        ? state.safePasses >= 1
+                        : state.isGameOver
+                ) {
+                    return state
+                }
+                game.update(0.1)
+            }
+            throw new Error(
+                `Signal Switch run never reached ${stop} within ${MAX_UPDATES} updates`
+            )
+        }, stopOn)
+    }
+
+    test('safe pass scores, Reset restarts clean, three mismatches fail, Play Again re-arms', async ({
+        page,
+    }) => {
+        await page.route('**/api/scores', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ success: true, newAchievements: [] }),
+            })
+        })
+
+        const totalLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.length
+        const startingLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.filter(
+            unlockAt => unlockAt <= 0
+        ).length
+
+        await page.goto('/signal-switch')
+        await expectVisibleGameSurface(page, '#signal-switch-canvas canvas')
+
+        // Idle HUD values derive from the frozen rules constants.
+        await expect(page.locator('#signal-switch-integrity')).toHaveText(
+            String(SIGNAL_SWITCH_RULES.startingIntegrity)
+        )
+        await expect(page.locator('#signal-switch-lanes')).toHaveText(
+            `${startingLanes} / ${totalLanes}`
+        )
+
+        // Teaching action: lane 1 opens Cyan, first drone arrives Magenta.
+        await startGameWhenReady(page)
+        await page.locator('[data-signal-lane="0"]').click()
+        await advanceSignalSwitchRun(page, 'safe-pass')
+
+        await expect(page.locator('#signal-switch-safe-passes')).toHaveText('1')
+        await expect(page.locator('#signal-switch-combo')).toHaveText('1')
+        await expect(page.locator('#score')).toHaveText(
+            String(SIGNAL_SWITCH_BASE_PASS_POINTS)
+        )
+        await expect(page.locator('#signal-switch-integrity')).toHaveText(
+            String(SIGNAL_SWITCH_RULES.startingIntegrity)
+        )
+
+        // Reset then Start; leaving every gate Cyan makes all generated
+        // drones mismatch (spawn excludes the lane's current signal), so the
+        // third crossing ends the run deterministically.
+        await page.locator('#reset-btn').click()
+        await startGameWhenReady(page)
+
+        const failed = await advanceSignalSwitchRun(page, 'game-over')
+        expect(failed.integrity).toBe(0)
+
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/
+        )
+        await expect(page.locator('#game-over-title')).toHaveText('SIGNAL LOST')
+        await expect(page.locator('#final-outcome')).toHaveText(
+            'Systems failed'
+        )
+        await expect(page.locator('#final-integrity')).toHaveText('0')
+
+        // Play Again starts a clean run immediately.
+        await page.locator('#play-again-btn').click()
+        await expect(page.locator('#game-over-overlay')).toHaveClass(/hidden/)
+        await expect(page.locator('#signal-switch-integrity')).toHaveText(
+            String(SIGNAL_SWITCH_RULES.startingIntegrity)
+        )
+        await expect(page.locator('#signal-switch-safe-passes')).toHaveText('0')
+        await expect(page.locator('[data-signal-lane="0"]')).toContainText(
+            'Cyan'
+        )
+    })
+
+    test('renders four reachable gates at 375×812 without horizontal overflow', async ({
+        page,
+    }) => {
+        await page.setViewportSize({ width: 375, height: 812 })
+        await page.goto('/signal-switch')
+
+        const totalLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.length
+        const gates = page.locator('#gate-controls [data-signal-lane]')
+        await expect(gates).toHaveCount(totalLanes)
+        for (let index = 0; index < totalLanes; index += 1) {
+            await expect(gates.nth(index)).toBeVisible()
+        }
+
+        expect(
+            await page.evaluate(
+                () => document.scrollingElement?.scrollWidth ?? Infinity
+            )
+        ).toBeLessThanOrEqual(375)
+
+        for (let index = 0; index < totalLanes; index += 1) {
+            const box = await gates.nth(index).boundingBox()
+            expect(box).not.toBeNull()
+            expect(box!.x).toBeGreaterThanOrEqual(0)
+            expect(box!.x + box!.width).toBeLessThanOrEqual(375)
+        }
+
+        const canvas = page.locator('#signal-switch-canvas canvas')
+        await expect(canvas).toBeVisible()
+        const canvasBox = await canvas.boundingBox()
+        expect(canvasBox).not.toBeNull()
+        expect(canvasBox!.width).toBeLessThanOrEqual(375)
+        expect(canvasBox!.height).toBeGreaterThan(0)
     })
 })
