@@ -16,6 +16,8 @@ export interface SignalSwitchRendererConfig extends PixiJSRendererConfig {
     droneHeight: number
 }
 
+const GATE_MARKER_RADIUS = 9
+
 export class SignalSwitchRenderer extends PixiJSRenderer {
     private signalConfig: SignalSwitchRendererConfig
     private laneGraphic: PIXI.Graphics | null = null
@@ -50,6 +52,20 @@ export class SignalSwitchRenderer extends PixiJSRenderer {
 
         this.sceneGraphic.clear()
         this.drawLockedLanes(state.activeLaneCount)
+
+        for (let lane = 0; lane < state.activeLaneCount; lane++) {
+            const signal = state.gateSignals[lane]
+            if (!signal) {
+                continue
+            }
+            this.drawSignalMarker(
+                this.sceneGraphic,
+                signal,
+                this.signalConfig.gateX,
+                this.laneCenterY(lane),
+                GATE_MARKER_RADIUS
+            )
+        }
 
         for (const drone of state.drones) {
             const y = this.laneCenterY(drone.laneIndex)

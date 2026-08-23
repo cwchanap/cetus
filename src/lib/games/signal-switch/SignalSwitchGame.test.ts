@@ -526,6 +526,9 @@ describe('SignalSwitchGame', () => {
 
         game.reset()
         const laneCount = SIGNAL_SWITCH_RULES.laneUnlockSeconds.length
+        const startingLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.filter(
+            unlockAt => unlockAt <= 0
+        ).length
         expect(game.getState()).toMatchObject({
             gateSignals: Array.from({ length: laneCount }, () => 'cyan'),
             integrity: SIGNAL_SWITCH_RULES.startingIntegrity,
@@ -536,7 +539,7 @@ describe('SignalSwitchGame', () => {
             maxCombo: 0,
             score: 0,
             outcome: 'playing',
-            activeLaneCount: 2,
+            activeLaneCount: startingLanes,
             isActive: false,
             isGameOver: false,
         })

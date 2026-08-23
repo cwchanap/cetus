@@ -205,6 +205,9 @@ export async function initSignalSwitchGameFramework(): Promise<
         onEnd: (finalScore: number, stats: BaseGameStats) => {
             const signalSwitchStats = stats as SignalSwitchStats
             setStartVisible(true)
+            // end() flips isActive without emitting a final state change, so
+            // re-sync here or active-lane buttons stay enabled after game over.
+            syncControls(game.getState())
             setText('game-over-title', outcomeTitle(signalSwitchStats.outcome))
             setText('final-outcome', outcomeLabel(signalSwitchStats.outcome))
             setText('final-score', String(finalScore))
