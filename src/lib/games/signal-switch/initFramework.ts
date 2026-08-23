@@ -1,13 +1,14 @@
-import { GravityFlipGame } from './GravityFlipGame'
+import { SignalSwitchGame } from './SignalSwitchGame'
 import {
-    createGravityFlipRendererConfig,
-    GravityFlipRenderer,
-} from './GravityFlipRenderer'
+    createSignalSwitchRendererConfig,
+    SignalSwitchRenderer,
+} from './SignalSwitchRenderer'
 import {
-    createGravityFlipConfig,
-    type GravityFlipOutcome,
-    type GravityFlipState,
-    type GravityFlipStats,
+    SIGNAL_SWITCH_SIGNALS,
+    createSignalSwitchConfig,
+    type SignalSwitchOutcome,
+    type SignalSwitchState,
+    type SignalSwitchStats,
 } from './types'
 import type {
     BaseGameCallbacks,
@@ -22,49 +23,56 @@ import {
 import { isEditableTarget } from '@/lib/games/shared/utils'
 import type { AchievementNotification } from '@/lib/achievements'
 
-export interface GravityFlipInitResult {
-    game: GravityFlipGame
-    renderer: GravityFlipRenderer
-    getGame: () => GravityFlipGame
-    getState: () => ReturnType<GravityFlipGame['getState']>
+export interface SignalSwitchInitResult {
+    game: SignalSwitchGame
+    renderer: SignalSwitchRenderer
+    getGame: () => SignalSwitchGame
+    getState: () => ReturnType<SignalSwitchGame['getState']>
     cleanup: () => void
 }
 
-function outcomeTitle(outcome: GravityFlipOutcome): string {
-    return outcome === 'survived' ? 'RUN COMPLETE' : 'GRAVITY LOST'
+const KEY_TO_LANE: Record<string, number> = {
+    '1': 0,
+    '2': 1,
+    '3': 2,
+    '4': 3,
 }
 
-function outcomeLabel(outcome: GravityFlipOutcome): string {
-    return outcome === 'survived' ? 'Survived' : 'Collision'
+function outcomeTitle(outcome: SignalSwitchOutcome): string {
+    return outcome === 'survived' ? 'SHIFT COMPLETE' : 'SIGNAL LOST'
 }
 
-export async function initGravityFlipGameFramework(): Promise<
-    GravityFlipInitResult | undefined
+function outcomeLabel(outcome: SignalSwitchOutcome): string {
+    return outcome === 'survived' ? 'Survived' : 'Systems failed'
+}
+
+export async function initSignalSwitchGameFramework(): Promise<
+    SignalSwitchInitResult | undefined
 > {
-    const container = document.getElementById('gravity-flip-container')
+    const container = document.getElementById('signal-switch-container')
     if (!container) {
         handleGameError(
-            new DOMElementNotFoundError('gravity-flip-container'),
-            'GravityFlip'
+            new DOMElementNotFoundError('signal-switch-container'),
+            'SignalSwitch'
         )
         return undefined
     }
 
-    const config = createGravityFlipConfig()
-    const renderer = new GravityFlipRenderer(
-        createGravityFlipRendererConfig(config)
+    const config = createSignalSwitchConfig()
+    const renderer = new SignalSwitchRenderer(
+        createSignalSwitchRendererConfig(config)
     )
     try {
         await renderer.initialize()
     } catch (error) {
         handleGameError(
             error instanceof Error ? error : new Error(String(error)),
-            'GravityFlip'
+            'SignalSwitch'
         )
         try {
             renderer.destroy()
         } catch (cleanupError) {
-            handleGameError(cleanupError, 'GravityFlip')
+            handleGameError(cleanupError, 'SignalSwitch')
         }
         return undefined
     }
@@ -111,72 +119,112 @@ export async function initGravityFlipGameFramework(): Promise<
         }
     }
 
-    const syncHud = (state: GravityFlipState): void => {
+    const totalLanes = config.laneUnlockSeconds.length
+
+    const syncHud = (state: SignalSwitchState): void => {
+        setText('signal-switch-integrity', String(state.integrity))
+        setText('signal-switch-combo', String(state.combo))
+        setText('signal-switch-safe-passes', String(state.safePasses))
         setText(
-            'gravity-direction',
-            state.gravity === 'down' ? 'FLOOR ↓' : 'CEILING ↑'
+            'signal-switch-lanes',
+            `${state.activeLaneCount} / ${totalLanes}`
         )
-        setText('distance-traveled', String(Math.floor(state.distance)))
-        setText('stars-collected', String(state.starsCollected))
-        setText('flip-count', String(state.flips))
-        setText('world-speed', String(Math.round(state.worldSpeed)))
+        setText('signal-switch-speed', String(Math.round(state.droneSpeed)))
         setText('score', String(state.score))
         setText('time-remaining', String(state.timeRemaining))
     }
 
-    const announce = (message: string): void => {
-        setText('gravity-flip-status', message)
+    const laneButtons = Array.from(
+        document.querySelectorAll<HTMLButtonElement>(
+            '#gate-controls [data-signal-lane]'
+        )
+    )
+
+    const syncControls = (state: SignalSwitchState): void => {
+        for (const button of laneButtons) {
+            const laneIndex = Number(button.dataset.signalLane)
+            const signal = state.gateSignals[laneIndex]
+            if (!signal) {
+                continue
+            }
+            const meta = SIGNAL_SWITCH_SIGNALS[signal]
+            button.textContent = `Lane ${laneIndex + 1}: ${meta.glyph} ${meta.label}`
+            button.disabled =
+                !state.isActive || laneIndex >= state.activeLaneCount
+            button.setAttribute(
+                'aria-label',
+                `Lane ${laneIndex + 1} gate, ${meta.label} ${meta.shapeName}`
+            )
+        }
     }
 
-    let lastAnnouncedGravity: GravityFlipState['gravity'] | null = null
+    const announce = (message: string): void => {
+        setText('signal-switch-status', message)
+    }
+
+    let lastAnnouncedLaneCount: number | null = null
+    let lastAnnouncedIntegrity: number | null = null
+
+    const trackAnnouncements = (state: SignalSwitchState): void => {
+        if (
+            lastAnnouncedLaneCount !== null &&
+            state.activeLaneCount > lastAnnouncedLaneCount
+        ) {
+            announce(`Lane ${state.activeLaneCount} online.`)
+        }
+        if (
+            lastAnnouncedIntegrity !== null &&
+            state.integrity < lastAnnouncedIntegrity
+        ) {
+            announce(`Integrity at ${state.integrity}.`)
+        }
+        lastAnnouncedLaneCount = state.activeLaneCount
+        lastAnnouncedIntegrity = state.integrity
+    }
 
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: (state: BaseGameState) => {
-            const gravityFlipState = state as GravityFlipState
-            syncHud(gravityFlipState)
-            if (
-                lastAnnouncedGravity !== null &&
-                gravityFlipState.gravity !== lastAnnouncedGravity
-            ) {
-                announce(
-                    gravityFlipState.gravity === 'down'
-                        ? 'Gravity pulling to the floor'
-                        : 'Gravity pulling to the ceiling'
-                )
-            }
-            lastAnnouncedGravity = gravityFlipState.gravity
+            const signalSwitchState = state as SignalSwitchState
+            syncHud(signalSwitchState)
+            syncControls(signalSwitchState)
+            trackAnnouncements(signalSwitchState)
         },
         onScoreUpdate: (score: number) => setText('score', String(score)),
         onTimeUpdate: (timeRemaining: number) =>
             setText('time-remaining', String(timeRemaining)),
         onStart: () => {
             // BaseGame.start() calls onStart before onGameStart emits the
-            // fresh (gravity: 'down') state. Clearing the baseline here keeps
-            // the live region silent on run initialization; announcements only
-            // fire for actual flips during the run.
-            lastAnnouncedGravity = null
+            // fresh opening state. Clearing the baselines here keeps the live
+            // region silent on run initialization; announcements only fire for
+            // actual unlocks and integrity loss during the run.
+            lastAnnouncedLaneCount = null
+            lastAnnouncedIntegrity = null
             setStartVisible(false)
             hideOverlay()
         },
         onEnd: (finalScore: number, stats: BaseGameStats) => {
-            const gravityFlipStats = stats as GravityFlipStats
+            const signalSwitchStats = stats as SignalSwitchStats
             setStartVisible(true)
-            setText('game-over-title', outcomeTitle(gravityFlipStats.outcome))
-            setText('final-outcome', outcomeLabel(gravityFlipStats.outcome))
+            setText('game-over-title', outcomeTitle(signalSwitchStats.outcome))
+            setText('final-outcome', outcomeLabel(signalSwitchStats.outcome))
             setText('final-score', String(finalScore))
-            setText('final-distance', String(gravityFlipStats.distance))
-            setText('final-stars', String(gravityFlipStats.starsCollected))
-            setText('final-flips', String(gravityFlipStats.flips))
+            setText('final-safe-passes', String(signalSwitchStats.safePasses))
+            setText('final-crashes', String(signalSwitchStats.crashes))
+            setText('final-max-combo', String(signalSwitchStats.maxCombo))
+            setText(
+                'final-integrity',
+                String(signalSwitchStats.integrityRemaining)
+            )
             showOverlay()
             announce(
-                gravityFlipStats.outcome === 'survived'
-                    ? 'Run complete. You survived the full minute.'
-                    : 'Collision. Run ended.'
+                signalSwitchStats.outcome === 'survived'
+                    ? 'Shift complete. You survived the full run.'
+                    : 'Signal lost. Systems failed.'
             )
         },
     }
 
-    const game = new GravityFlipGame(config, enhancedCallbacks)
+    const game = new SignalSwitchGame(config, enhancedCallbacks)
 
     const onGameEnd = (event: unknown): void => {
         const data = (event as { data?: unknown }).data as
@@ -202,16 +250,16 @@ export async function initGravityFlipGameFramework(): Promise<
 
     const startButton = document.getElementById('start-btn')
     const resetButton = document.getElementById('reset-btn')
-    const flipButton = document.getElementById('flip-btn')
     const playAgainButton = document.getElementById('play-again-btn')
+    const gateControls = document.getElementById('gate-controls')
     const canvas = renderer.getApp()?.canvas ?? null
 
     // PixiJSRenderer uses autoDensity: true, which writes inline
-    // style.width/style.height in CSS pixels (e.g. "800px"/"320px"). On a
-    // narrow viewport the stylesheet max-width can shrink the width, but the
-    // inline height wins over CSS height: auto, stretching the canvas. Override
-    // both inline values so the canvas fills its container width and scales its
-    // height from the 800×320 intrinsic aspect ratio.
+    // style.width/style.height in CSS pixels. On a narrow viewport the
+    // stylesheet max-width can shrink the width, but the inline height wins
+    // over CSS height: auto, stretching the canvas. Override both inline
+    // values so the canvas fills its container width and scales its height
+    // from the intrinsic aspect ratio.
     if (canvas) {
         canvas.style.width = '100%'
         canvas.style.height = 'auto'
@@ -222,18 +270,24 @@ export async function initGravityFlipGameFramework(): Promise<
         game.reset()
         renderer.render(game.getState())
         syncHud(game.getState())
+        syncControls(game.getState())
         hideOverlay()
         setStartVisible(true)
     }
-    const flipHandler: EventListener = () => {
-        game.flipGravity()
-    }
     const playAgainHandler: EventListener = () => {
         hideOverlay()
-        // BaseGame.start() auto-resets a completed run and immediately starts it.
-        // Do not change Play Again to reset-only: Gravity Flip expects the next
-        // run to be active as soon as this button is pressed.
+        // BaseGame.start() auto-resets a completed run and immediately starts
+        // it. Do not change Play Again to reset-only: Signal Switch expects
+        // the next run to be active as soon as this button is pressed.
         game.start()
+    }
+    const gateClickHandler: EventListener = event => {
+        const target = event.target instanceof Element ? event.target : null
+        const button = target?.closest('[data-signal-lane]')
+        if (!button) {
+            return
+        }
+        game.cycleGate(Number((button as HTMLElement).dataset.signalLane))
     }
     const keyboardHandler: EventListener = event => {
         const keyboardEvent = event as KeyboardEvent
@@ -247,14 +301,11 @@ export async function initGravityFlipGameFramework(): Promise<
         ) {
             return
         }
-        if (
-            ![' ', 'Spacebar', 'ArrowUp', 'ArrowDown'].includes(
-                keyboardEvent.key
-            )
-        ) {
+        const laneIndex = KEY_TO_LANE[keyboardEvent.key]
+        if (laneIndex === undefined) {
             return
         }
-        if (game.flipGravity()) {
+        if (game.cycleGate(laneIndex)) {
             keyboardEvent.preventDefault()
         }
     }
@@ -269,14 +320,14 @@ export async function initGravityFlipGameFramework(): Promise<
 
     listen(startButton, 'click', startHandler)
     listen(resetButton, 'click', resetHandler)
-    listen(flipButton, 'click', flipHandler)
     listen(playAgainButton, 'click', playAgainHandler)
-    listen(canvas, 'pointerdown', flipHandler)
+    listen(gateControls, 'click', gateClickHandler)
     listen(document, 'keydown', keyboardHandler)
     listen(window, 'beforeunload', beforeUnloadHandler)
 
     renderer.render(game.getState())
     syncHud(game.getState())
+    syncControls(game.getState())
     setStartVisible(true)
 
     let frameId: number | null = null

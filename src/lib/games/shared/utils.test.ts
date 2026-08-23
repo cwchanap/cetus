@@ -6,6 +6,7 @@ import {
     shuffleArray,
     clamp,
     lerp,
+    isEditableTarget,
     distance,
     rectOverlap,
     pointInRect,
@@ -106,6 +107,16 @@ describe('lerp', () => {
     it('should clamp t value', () => {
         expect(lerp(0, 100, 2)).toBe(100)
         expect(lerp(0, 100, -1)).toBe(0)
+    })
+})
+
+describe('isEditableTarget', () => {
+    it('recognizes form controls as editable keyboard targets', () => {
+        expect(isEditableTarget(document.createElement('input'))).toBe(true)
+        expect(isEditableTarget(document.createElement('textarea'))).toBe(true)
+        expect(isEditableTarget(document.createElement('select'))).toBe(true)
+        expect(isEditableTarget(document.createElement('div'))).toBe(false)
+        expect(isEditableTarget(null)).toBe(false)
     })
 })
 

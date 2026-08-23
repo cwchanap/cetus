@@ -60,6 +60,22 @@ export function lerp(start: number, end: number, t: number): number {
 }
 
 /**
+ * Check if an event target is an editable form control (or contenteditable
+ * element) whose keystrokes must not be hijacked by game keyboard shortcuts.
+ */
+export function isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) {
+        return false
+    }
+    return (
+        target.isContentEditable ||
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+    )
+}
+
+/**
  * Calculate distance between two points
  */
 export function distance(

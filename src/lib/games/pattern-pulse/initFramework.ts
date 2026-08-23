@@ -16,6 +16,7 @@ import {
     DOMElementNotFoundError,
     handleGameError,
 } from '@/lib/games/core/errors'
+import { isEditableTarget } from '@/lib/games/shared/utils'
 import type { AchievementNotification } from '@/lib/achievements'
 
 export interface PatternPulseInitResult {
@@ -25,18 +26,6 @@ export interface PatternPulseInitResult {
     getState: () => ReturnType<PatternPulseGame['getState']>
     restart: () => void
     cleanup: () => void
-}
-
-function isEditableTarget(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) {
-        return false
-    }
-    return (
-        target.isContentEditable ||
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement
-    )
 }
 
 function shortcutToPad(key: string): PatternPad | null {
