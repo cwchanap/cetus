@@ -4,7 +4,7 @@
 
 **Goal:** Ship HPA-70 as a deterministic 60-second four-lane visual rhythm minigame with keyboard/touch input, Pixi rendering, scoring, achievements, and existing Cetus score submission.
 
-**Architecture:** `RhythmReactorGame` extends `BaseGame`, owns an authored 86-note chart and simulation-time judgments, and uses one pure scoring module. `RhythmReactorRenderer` extends `PixiJSRenderer`; one game-local initializer owns one requestAnimationFrame loop and native Astro lane buttons. BaseGame remains the sole run timer/persistence/lifecycle authority; no audio or shared rhythm framework is added.
+**Architecture:** `RhythmReactorGame` extends `BaseGame`, owns a small authored chart plus simulation-time judgments, and uses one pure game-local scoring module. `RhythmReactorRenderer` extends `PixiJSRenderer`; one game-local initializer owns one requestAnimationFrame loop and native Astro lane buttons. BaseGame remains the sole run timer/persistence/lifecycle authority; no audio or shared rhythm framework is added.
 
 **Tech Stack:** Astro 5, TypeScript 6, BaseGame/GameTimer/ScoreManager, PixiJS 8, Tailwind 4, Vitest 3, Playwright 1.54, Bun 1.3.
 
@@ -14,15 +14,20 @@
 
 - One HPA-70 implementation PR; do not split this ticket across PRs.
 - 60-second fixed run; four lanes; keyboard `D/F/J/K`; touch via four native buttons.
-- Fixed 120 BPM visual grid (`0.5s` steps), first hit `2.0s`, last hit `57.5s`, exactly `86` notes.
-- Note approach time `2.0s`; Perfect `±0.080s`; Good `±0.160s`; boundaries are inclusive.
-- Initial stability `60`; Perfect `+4`; Good `+2`; miss `-6`; every 10th consecutive hit gets an additional `+5`; clamp `0..100`.
+- Structural chart model: fixed 120 BPM visual grid (`0.5s` steps), each step is one lane/rest, no chords, hit time derives from `firstHitTime + stepIndex * beatStepSeconds`.
+- First authored note stays Lane 1 and is visible at run start (`firstHitTimeSeconds === approachSeconds`).
+- Current authored data is WARMUP×2 + CORE×2 + SURGE×3, which derives 86 notes and last hit 57.5s. **Pattern bytes/repeats are tuning data until the Task 4 playable checkpoint**, not independent frozen constants.
+- Initial timing defaults: approach `2.0s`; Perfect `±0.080s`; Good `±0.160s`; boundaries inclusive.
+- Initial stability defaults: `60`; Perfect `+4`; Good `+2`; miss `-6`; every 10th consecutive hit gets `+5`; clamp `0..100`.
 - Stability never ends the run; BaseGame timeout is the normal completion condition.
-- Perfect base score `100`; Good base score `60`; multiplier adds `0.25×` per 10 combo and caps at `2.0×`; BaseGame time bonus is disabled.
+- Initial scoring defaults: Perfect `100`; Good `60`; multiplier adds `0.25×` per 10 combo and caps at `2.0×`; BaseGame time bonus disabled.
 - GamePage uses `showPause={false}`, `showEnd={false}`, `showReset={true}`.
+- Visible additional-stat badges are exactly Combo, Hits, Judgment, Stability; `#rhythm-reactor-status` is the accessible duplicate.
 - No audio/BGM/Web Audio, calibration, difficulty/song selection, random chart generation, chords/holds/slides, generic rhythm framework, canvas hit testing, DB/API/schema/auth changes, or core-runtime refactor.
-- `BaseGame.ts`, `GameTimer.ts`, `ScoreManager.ts`, `GameInitializer.ts`, `PixiJSRenderer.ts`, score service, API routes, and DB/schema remain production-unchanged.
-- Run the manual-play tuning checkpoint after Task 4 and before Task 5 freezes catalog/achievement thresholds.
+- `BaseGame.ts`, `GameTimer.ts`, `ScoreManager.ts`, `GameInitializer.ts`, `PixiJSRenderer.ts`, score service, API routes, DB/schema, and packages remain production-unchanged.
+- Follow Signal Switch's seams; do **not** import/extend Signal Switch game constants or scorer.
+- Reuse the existing exported identifier `isEditableTarget`; do not add another editable-target helper.
+- Run the manual-play tuning checkpoint after Task 4 and before Task 5 freezes chart content and achievement thresholds.
 
 ---
 
@@ -31,7 +36,7 @@
 ### New game-local production files
 
 - `src/lib/games/rhythm-reactor/types.ts` — rules, state/config/stats/data contracts, hit-result types.
-- `src/lib/games/rhythm-reactor/chart.ts` — three authored patterns and pure 86-note materializer.
+- `src/lib/games/rhythm-reactor/chart.ts` — three authored patterns, section repeats, pure chart materializer.
 - `src/lib/games/rhythm-reactor/scoring.ts` — hit score and weighted accuracy authority.
 - `src/lib/games/rhythm-reactor/RhythmReactorGame.ts` — BaseGame model, update/expiry/judgment/stability lifecycle.
 - `src/lib/games/rhythm-reactor/RhythmReactorRenderer.ts` — two-layer Pixi lane/note renderer.
@@ -49,17 +54,17 @@
 ### Existing files changed only when their contract becomes live
 
 - `src/lib/games.ts` — Task 2 adds stable ID/icon; Task 5 adds the active catalog row.
-- `src/lib/games.test.ts` — Task 5 freezes the active registration.
-- `src/lib/games/shared/types.ts` — Task 5 exports the canonical game-data type into `GameData`.
-- `src/lib/organisms.test.ts` — Task 5 changes the exact depth partition to `8 / 9 / 4`.
+- `src/lib/games.test.ts` — Task 5 freezes active registration.
+- `src/lib/games/shared/types.ts` — Task 5 exports canonical game-data type into `GameData`.
+- `src/lib/organisms.test.ts` — Task 5 changes exact depth partition to `8 / 9 / 4`.
 - `src/lib/achievements.ts` and `src/lib/achievements.test.ts` — Task 5 adds four game-local achievements.
-- `src/pages/game-board-markup.test.ts` — Task 4 freezes the Astro/bootstrap/control contract.
-- `e2e/games/play-coverage.spec.ts` — Task 6 adds playable + 375px proofs.
+- `src/pages/game-board-markup.test.ts` — Task 4 freezes Astro/bootstrap/HUD/control contract.
+- `e2e/games/play-coverage.spec.ts` — Task 6 adds deterministic playable + 375px proofs.
 - `CLAUDE.md` — Task 5 updates implemented-game count/list, project structure, renderer note, and game-specific note.
 
 ---
 
-### Task 1: Freeze chart, rules, and scoring contracts
+### Task 1: Define chart materialization, initial authored data, rules, and scoring
 
 **Files:**
 - Create: `src/lib/games/rhythm-reactor/types.ts`
@@ -70,65 +75,104 @@
 
 **Interfaces:**
 - Produces `RHYTHM_REACTOR_RULES`, `RhythmReactorLane`, `RhythmReactorJudgment`, `RhythmReactorNote`, `RhythmReactorConfig`, `RhythmReactorState`, `RhythmReactorStats`, `RhythmReactorGameData`, `RhythmReactorHitResult`, `createRhythmReactorConfig()`.
-- Produces `createRhythmReactorChart(): RhythmReactorNote[]`.
+- Produces `WARMUP_PATTERN`, `CORE_PATTERN`, `SURGE_PATTERN`, `RHYTHM_REACTOR_SECTIONS`, and `createRhythmReactorChart(): RhythmReactorNote[]`.
 - Produces `calculateRhythmReactorHitPoints(judgment, comboAfterHit): number` and `calculateRhythmReactorAccuracy(perfectHits, goodHits, misses): number`.
 
-- [ ] **Step 1: Write chart tests before the materializer**
+- [ ] **Step 1: Write exact authored-data + derived-materializer tests first**
 
-Create `chart.test.ts` with structural assertions instead of an 86-object snapshot:
+Create `chart.test.ts`. Freeze the current pattern values, repeat counts, and expanded lane sequence; derive aggregate count/last time rather than hard-coding `86` / `57.5` as separate contracts:
 
 ```ts
 import { describe, expect, it } from 'vitest'
 import {
     CORE_PATTERN,
+    RHYTHM_REACTOR_SECTIONS,
     SURGE_PATTERN,
     WARMUP_PATTERN,
     createRhythmReactorChart,
 } from './chart'
-import { RHYTHM_REACTOR_RULES } from './types'
+import {
+    RHYTHM_REACTOR_RULES,
+    type RhythmReactorLane,
+} from './types'
+
+type Step = RhythmReactorLane | null
+
+const expectedWarmup: readonly Step[] = [
+    0, null, 1, null, 2, null, 3, null,
+    0, 1, null, 2, null, 3, 1, 2,
+]
+const expectedCore: readonly Step[] = [
+    0, 1, null, 2, 3, null, 1, 2,
+    0, null, 3, 2, 1, null, 0, 3,
+]
+const expectedSurge: readonly Step[] = [
+    0, 1, 2, null, 3, 2, 1, 0,
+    1, 3, null, 2, 0, 3, 1, 2,
+]
+
+function repeat(pattern: readonly Step[], count: number): Step[] {
+    return Array.from({ length: count }, () => [...pattern]).flat()
+}
 
 describe('createRhythmReactorChart', () => {
-    it('materializes the frozen 86-note chart', () => {
-        const chart = createRhythmReactorChart()
-        expect(chart).toHaveLength(86)
-        expect(chart[0]).toMatchObject({
-            id: 'note-0',
-            laneIndex: 0,
-            hitTimeSeconds: 2,
-        })
-        expect(chart.at(-1)?.hitTimeSeconds).toBe(57.5)
-        expect(chart.every(note => note.laneIndex >= 0 && note.laneIndex <= 3)).toBe(true)
-        expect(chart.map(note => note.hitTimeSeconds)).toEqual(
-            [...chart].map(note => note.hitTimeSeconds).sort((a, b) => a - b)
-        )
-        expect(new Set(chart.map(note => note.hitTimeSeconds)).size).toBe(chart.length)
-        expect(RHYTHM_REACTOR_RULES.beatStepSeconds).toBe(0.5)
+    it('pins the current authored patterns and repeat counts', () => {
+        expect(WARMUP_PATTERN).toEqual(expectedWarmup)
+        expect(CORE_PATTERN).toEqual(expectedCore)
+        expect(SURGE_PATTERN).toEqual(expectedSurge)
+        expect(RHYTHM_REACTOR_SECTIONS.map(section => section.repeats)).toEqual([
+            2, 2, 3,
+        ])
     })
 
-    it('keeps the three authored source patterns and repeat counts explicit', () => {
-        expect(WARMUP_PATTERN).toHaveLength(16)
-        expect(CORE_PATTERN).toHaveLength(16)
-        expect(SURGE_PATTERN).toHaveLength(16)
-        expect(WARMUP_PATTERN.filter(step => step !== null)).toHaveLength(10)
-        expect(CORE_PATTERN.filter(step => step !== null)).toHaveLength(12)
-        expect(SURGE_PATTERN.filter(step => step !== null)).toHaveLength(14)
+    it('materializes exactly the lane sequence authored by those tables', () => {
+        const expectedSteps = [
+            ...repeat(expectedWarmup, 2),
+            ...repeat(expectedCore, 2),
+            ...repeat(expectedSurge, 3),
+        ]
+        const expectedLanes = expectedSteps.filter(
+            (step): step is RhythmReactorLane => step !== null
+        )
+        const chart = createRhythmReactorChart()
+
+        expect(chart.map(note => note.laneIndex)).toEqual(expectedLanes)
+        expect(chart).toHaveLength(expectedLanes.length)
+        expect(chart[0]).toMatchObject({ id: 'note-0', laneIndex: 0 })
+
+        const lastOccupiedStep = expectedSteps.findLastIndex(
+            step => step !== null
+        )
+        expect(chart[0].hitTimeSeconds).toBe(
+            RHYTHM_REACTOR_RULES.firstHitTimeSeconds
+        )
+        expect(chart.at(-1)?.hitTimeSeconds).toBe(
+            RHYTHM_REACTOR_RULES.firstHitTimeSeconds +
+                lastOccupiedStep * RHYTHM_REACTOR_RULES.beatStepSeconds
+        )
+        expect(
+            new Set(chart.map(note => note.hitTimeSeconds)).size
+        ).toBe(chart.length)
+        expect(
+            chart.every(note => note.laneIndex >= 0 && note.laneIndex <= 3)
+        ).toBe(true)
     })
 })
 ```
 
-- [ ] **Step 2: Run the chart test and verify RED**
+These exact data expectations are deliberately editable during the Task 4 tuning commit only. The materializer shape is already frozen.
 
-Run:
+- [ ] **Step 2: Run chart tests and verify RED**
 
 ```bash
 bun run test:run -- src/lib/games/rhythm-reactor/chart.test.ts
 ```
 
-Expected: FAIL because `chart.ts`/`types.ts` do not exist yet.
+Expected: FAIL because `chart.ts` / `types.ts` do not exist.
 
-- [ ] **Step 3: Implement the exact rule and chart contracts**
+- [ ] **Step 3: Implement central rules and chart data**
 
-In `types.ts`, define the central rules once:
+In `types.ts`:
 
 ```ts
 export const RHYTHM_REACTOR_RULES = {
@@ -169,12 +213,12 @@ export interface RhythmReactorHitResult {
 }
 ```
 
-Make `RhythmReactorConfig extends BaseGameConfig` include every numeric rule the game/renderer consumes. `createRhythmReactorConfig(overrides = {})` must return the frozen rules plus `achievementIntegration: true`, `pausable: false`, `resettable: true`.
+Make `RhythmReactorConfig extends BaseGameConfig` include every numeric rule consumed by game/renderer. `createRhythmReactorConfig(overrides = {})` returns the rule values plus `achievementIntegration: true`, `pausable: false`, `resettable: true`.
 
-In `chart.ts`, export the exact three 16-step patterns from the spec and materialize `[WARMUP×2, CORE×2, SURGE×3]`. Keep one global `stepIndex`; only non-null steps produce notes:
+In `chart.ts`, export the three exact patterns and section table from the spec. Keep one global `stepIndex`; only non-rest steps become notes:
 
 ```ts
-const sections = [
+export const RHYTHM_REACTOR_SECTIONS = [
     { pattern: WARMUP_PATTERN, repeats: 2 },
     { pattern: CORE_PATTERN, repeats: 2 },
     { pattern: SURGE_PATTERN, repeats: 3 },
@@ -184,8 +228,9 @@ export function createRhythmReactorChart(): RhythmReactorNote[] {
     const notes: RhythmReactorNote[] = []
     let stepIndex = 0
     let noteIndex = 0
-    for (const { pattern, repeats } of sections) {
-        for (let repeat = 0; repeat < repeats; repeat += 1) {
+
+    for (const { pattern, repeats } of RHYTHM_REACTOR_SECTIONS) {
+        for (let repeatIndex = 0; repeatIndex < repeats; repeatIndex += 1) {
             for (const laneIndex of pattern) {
                 if (laneIndex !== null) {
                     notes.push({
@@ -206,8 +251,6 @@ export function createRhythmReactorChart(): RhythmReactorNote[] {
 
 - [ ] **Step 4: Write scoring tests**
 
-Cover exact base values, multiplier edges, bad numeric combo normalization, and weighted accuracy:
-
 ```ts
 expect(calculateRhythmReactorHitPoints('perfect', 1)).toBe(100)
 expect(calculateRhythmReactorHitPoints('good', 9)).toBe(60)
@@ -221,9 +264,7 @@ expect(calculateRhythmReactorAccuracy(0, 0, 0)).toBe(0)
 expect(calculateRhythmReactorAccuracy(8, 4, 4)).toBeCloseTo(62.5)
 ```
 
-- [ ] **Step 5: Implement one scoring authority**
-
-In `scoring.ts`:
+- [ ] **Step 5: Implement one game-local scoring authority**
 
 ```ts
 export const RHYTHM_REACTOR_PERFECT_POINTS = 100
@@ -237,7 +278,10 @@ export function calculateRhythmReactorHitPoints(
     comboAfterHit: number
 ): number {
     if (judgment === 'miss') return 0
-    const combo = Math.max(1, Math.floor(Number.isFinite(comboAfterHit) ? comboAfterHit : 1))
+    const combo = Math.max(
+        1,
+        Math.floor(Number.isFinite(comboAfterHit) ? comboAfterHit : 1)
+    )
     const steps = Math.min(
         Math.floor(combo / RHYTHM_REACTOR_COMBO_STEP),
         RHYTHM_REACTOR_MAX_MULTIPLIER_STEPS
@@ -246,7 +290,9 @@ export function calculateRhythmReactorHitPoints(
         judgment === 'perfect'
             ? RHYTHM_REACTOR_PERFECT_POINTS
             : RHYTHM_REACTOR_GOOD_POINTS
-    return Math.floor(base * (1 + steps * RHYTHM_REACTOR_MULTIPLIER_STEP))
+    return Math.floor(
+        base * (1 + steps * RHYTHM_REACTOR_MULTIPLIER_STEP)
+    )
 }
 
 export function calculateRhythmReactorAccuracy(
@@ -261,7 +307,7 @@ export function calculateRhythmReactorAccuracy(
 }
 ```
 
-- [ ] **Step 6: Run Task 1 tests and typecheck**
+- [ ] **Step 6: Run Task 1 gates**
 
 ```bash
 bun run test:run -- \
@@ -270,9 +316,9 @@ bun run test:run -- \
 bun run typecheck
 ```
 
-Expected: both test files PASS; typecheck PASS.
+Expected: PASS.
 
-- [ ] **Step 7: Commit the pure contracts**
+- [ ] **Step 7: Commit pure contracts**
 
 ```bash
 git add src/lib/games/rhythm-reactor
@@ -291,7 +337,7 @@ git commit -m "feat(rhythm-reactor): add chart and scoring contracts"
 **Interfaces:**
 - Consumes Task 1 config/chart/scoring contracts.
 - Produces `RhythmReactorGame`, public `hitLane(laneIndex)`, and normal BaseGame `start/reset/end/getState/getGameStats` behavior.
-- Constructor seam for focused tests:
+- Constructor seam:
 
 ```ts
 constructor(
@@ -301,60 +347,65 @@ constructor(
 )
 ```
 
-- [ ] **Step 1: Add the failing stable-ID/model tests**
+- [ ] **Step 1: Write failing stable-ID/model tests**
 
-First add only the enum/icon expectations and game-model tests. The ID/icon change may exist before the active route because it does not make the game discoverable.
-
-Game tests must use tiny explicit charts where timing boundaries matter:
+Use tiny explicit charts for timing boundaries:
 
 ```ts
-const oneNote = [{ id: 'note-0', laneIndex: 0 as const, hitTimeSeconds: 2 }]
-const game = new RhythmReactorGame(createRhythmReactorConfig(), {}, oneNote)
+const oneNote = [
+    { id: 'note-0', laneIndex: 0 as const, hitTimeSeconds: 2 },
+]
+const game = new RhythmReactorGame(
+    createRhythmReactorConfig(),
+    {},
+    oneNote
+)
 game.start()
 game.update(1.92)
-expect(game.hitLane(0)).toMatchObject({ judgment: 'perfect', points: 100 })
+expect(game.hitLane(0)).toMatchObject({
+    judgment: 'perfect',
+    points: 100,
+})
 ```
 
 Required cases:
 
-- initial state contains the full 86-note cloned chart and stability 60;
-- exact `-0.080` and `+0.080` are Perfect;
-- values just outside Perfect through exact `±0.160` are Good;
-- values past `±0.160` are misses;
+- initial state clones `createRhythmReactorChart()` and uses configured initial stability;
+- exact `-perfectWindow` / `+perfectWindow` are Perfect;
+- just outside Perfect through exact `±goodWindow` are Good;
+- past Good window is a miss;
 - closest same-lane note is selected when two are near;
 - wrong/empty lane press registers exactly one miss and consumes no pending note;
-- overdue note automatically expires when `elapsed > hitTime + 0.160`;
+- overdue note expires only when `elapsed > hitTime + goodWindow`;
 - miss resets combo;
-- combo 10 applies the extra stability bonus on that hit;
-- stability clamps at 0 and 100 and reaching 0 does not end the game;
-- inactive/paused/invalid lane input returns `{ accepted: false, judgment: null, noteId: null, points: 0 }` with no mutation;
-- reset reconstructs the chart and all counters;
+- combo 10 applies extra stability on that successful hit;
+- stability clamps at 0/100 and zero does not end the run;
+- inactive/paused/invalid lane input returns `{ accepted: false, judgment: null, noteId: null, points: 0 }` without mutation;
+- reset reconstructs the chart and counters;
 - timeout converts every unresolved note into misses before final stats;
-- `getGameStats()` and `getGameData()` report hits/perfect/good/miss/maxCombo/accuracy/finalStability consistently.
+- stats/gameData report hits/perfect/good/miss/maxCombo/accuracy/finalStability consistently.
 
-- [ ] **Step 2: Run the model tests and verify RED**
+- [ ] **Step 2: Run model tests and verify RED**
 
 ```bash
 bun run test:run -- src/lib/games/rhythm-reactor/RhythmReactorGame.test.ts
 ```
 
-Expected: FAIL because the game/ID are not implemented.
+- [ ] **Step 3: Add stable ID + exhaustive icon entry only**
 
-- [ ] **Step 3: Add stable ID + icon without active registration**
-
-In `src/lib/games.ts` add:
+In `src/lib/games.ts`:
 
 ```ts
 RHYTHM_REACTOR = 'rhythm_reactor',
 ```
 
-and add an exhaustive icon mapping entry:
+and:
 
 ```ts
 [GameID.RHYTHM_REACTOR]: '🎵',
 ```
 
-Do **not** add the active `GAMES` object until Task 5, when `/rhythm-reactor` exists.
+Do not add the active `GAMES` object until Task 5, when the route exists. The enum/icon land together because `GAME_ICONS` is `Record<GameID, string>`.
 
 - [ ] **Step 4: Implement the BaseGame state machine**
 
@@ -367,9 +418,13 @@ export class RhythmReactorGame extends BaseGame<
     RhythmReactorStats
 > {
     private elapsedSimSeconds = 0
-    private readonly sourceChart: readonly RhythmReactorNote[]
+    private sourceChart: readonly RhythmReactorNote[] | undefined
 
-    constructor(config = createRhythmReactorConfig(), callbacks = {}, chart = createRhythmReactorChart()) {
+    constructor(
+        config = createRhythmReactorConfig(),
+        callbacks = {},
+        chart = createRhythmReactorChart()
+    ) {
         super(GameID.RHYTHM_REACTOR, config, callbacks, {
             basePoints: 0,
             timeBonus: false,
@@ -379,6 +434,7 @@ export class RhythmReactorGame extends BaseGame<
     }
 
     createInitialState(): RhythmReactorState {
+        const chart = this.sourceChart ?? createRhythmReactorChart()
         return {
             score: 0,
             timeRemaining: this.config.duration,
@@ -387,7 +443,7 @@ export class RhythmReactorGame extends BaseGame<
             isGameOver: false,
             gameStarted: false,
             elapsedSeconds: 0,
-            pendingNotes: this.sourceChart.map(note => ({ ...note })),
+            pendingNotes: chart.map(note => ({ ...note })),
             perfectHits: 0,
             goodHits: 0,
             misses: 0,
@@ -400,29 +456,24 @@ export class RhythmReactorGame extends BaseGame<
 }
 ```
 
-Because `BaseGame` calls `createInitialState()` during `super(...)`, do **not** read an uninitialized subclass field from that first call. Use one of these two safe implementations and lock it in the test:
-
-- make `createInitialState()` fall back to `createRhythmReactorChart()` until `sourceChart` exists, then reconstruct `state` once after the constructor assigns `sourceChart`; or
-- pass the chart through a config-owned immutable factory input only if it does not leak chart data into public tuning config.
-
-Prefer the first local fallback; do not refactor BaseGame.
+The fallback is required because `BaseGame` calls `createInitialState()` during `super(...)` before subclass fields are assigned. Keep this workaround local; do not refactor BaseGame.
 
 `update(deltaTime)`:
 
 1. guard inactive/paused/non-finite/non-positive;
 2. clamp to `maxUpdateDelta`;
-3. advance `elapsedSimSeconds` and `state.elapsedSeconds`;
+3. advance private and public simulation time;
 4. expire every note where `elapsed > hitTime + goodWindow`;
-5. emit exactly one state change for the update.
+5. emit one final state change.
 
 `hitLane()`:
 
-1. validate active state and lane index;
+1. validate active state and integer lane range;
 2. expire overdue notes once;
-3. choose the unresolved note in that lane with minimum absolute offset;
-4. no candidate within Good window → one stray-press miss, no note removal;
-5. matched note → remove, increment combo/maxCombo, classify inclusive Perfect/Good, apply clamped stability, add score using Task 1 scorer;
-6. emit once and return the exact `RhythmReactorHitResult`.
+3. choose same-lane unresolved note with minimum absolute offset;
+4. no candidate inside Good window → one stray-press miss, no note removal;
+5. matched note → remove, increment combo/maxCombo, classify inclusive Perfect/Good, apply clamped stability, add score through Task 1 scorer;
+6. emit once and return exact `RhythmReactorHitResult`.
 
 Keep private helpers local:
 
@@ -433,9 +484,9 @@ private applySuccessfulHit(judgment: 'perfect' | 'good'): number
 private emitStateChange(): void
 ```
 
-`registerMiss(count)` increases misses, resets combo, subtracts `count * missStabilityLoss` with one clamp, and sets `lastJudgment='miss'` when `count > 0`.
+`registerMiss(count)` increases misses, resets combo, subtracts `count * missStabilityLoss` with one clamp, and sets `lastJudgment='miss'` when count > 0.
 
-`handleTimeUp()` must settle all remaining notes before BaseGame captures final stats:
+Timeout settlement stays game-local:
 
 ```ts
 protected handleTimeUp(): void {
@@ -449,7 +500,7 @@ protected handleTimeUp(): void {
 }
 ```
 
-- [ ] **Step 5: Run the model/ID tests and typecheck**
+- [ ] **Step 5: Run model/ID gates**
 
 ```bash
 bun run test:run -- \
@@ -458,9 +509,9 @@ bun run test:run -- \
 bun run typecheck
 ```
 
-Expected: PASS; `getGameById(GameID.RHYTHM_REACTOR)` is still undefined until Task 5 and no test should falsely require registration yet.
+Expected: PASS. `getGameById(GameID.RHYTHM_REACTOR)` is still undefined until Task 5; do not add a throwaway “undefined” registration test.
 
-- [ ] **Step 6: Commit the model**
+- [ ] **Step 6: Commit model**
 
 ```bash
 git add src/lib/games.ts src/lib/games/rhythm-reactor
@@ -481,8 +532,6 @@ git commit -m "feat(rhythm-reactor): add rhythm game model"
 
 - [ ] **Step 1: Write renderer tests**
 
-Freeze only meaningful geometry/lifecycle contracts:
-
 ```ts
 const config = createRhythmReactorConfig()
 const rendererConfig = createRhythmReactorRendererConfig(config)
@@ -490,21 +539,21 @@ expect(rendererConfig).toMatchObject({
     width: 800,
     height: 420,
     laneCount: 4,
-    approachSeconds: 2,
-    noteSpawnY: 40,
-    hitLineY: 340,
+    approachSeconds: config.approachSeconds,
+    noteSpawnY: config.noteSpawnY,
+    hitLineY: config.hitLineY,
 })
 ```
 
 With Pixi graphics mocked like Signal Switch renderer tests, prove:
 
-- setup creates exactly one static lane graphic and one dynamic scene graphic;
-- static drawing makes four lane regions/separators and one hit line;
-- a note more than `approachSeconds` away is not drawn;
-- a note at `timeUntilHit === approachSeconds` is at `noteSpawnY`;
-- a note at `timeUntilHit === 0` is centered on `hitLineY`;
-- a late-but-still-pending note moves just past the hit line rather than being artificially frozen on it;
-- cleanup destroys local graphics and then base resources.
+- setup creates one static lane graphic + one dynamic scene graphic;
+- static drawing creates four lane regions/separators + one hit line;
+- note farther than `approachSeconds` is not drawn;
+- `timeUntilHit === approachSeconds` puts note at spawn Y;
+- `timeUntilHit === 0` centers note on hit line;
+- late-but-pending note moves past hit line instead of freezing;
+- cleanup destroys local graphics then base resources.
 
 - [ ] **Step 2: Run renderer test and verify RED**
 
@@ -512,14 +561,18 @@ With Pixi graphics mocked like Signal Switch renderer tests, prove:
 bun run test:run -- src/lib/games/rhythm-reactor/RhythmReactorRenderer.test.ts
 ```
 
-- [ ] **Step 3: Implement the two-layer renderer**
+- [ ] **Step 3: Implement two-layer renderer**
 
-Use one fixed logical board. No sprites/textures/pooling.
+Use fixed logical board; no sprites/textures/pooling.
 
 ```ts
-private noteY(note: RhythmReactorNote, elapsedSeconds: number): number {
+private noteY(
+    note: RhythmReactorNote,
+    elapsedSeconds: number
+): number {
     const timeUntilHit = note.hitTimeSeconds - elapsedSeconds
-    const progress = 1 - timeUntilHit / this.rhythmConfig.approachSeconds
+    const progress =
+        1 - timeUntilHit / this.rhythmConfig.approachSeconds
     return lerp(
         this.rhythmConfig.noteSpawnY,
         this.rhythmConfig.hitLineY,
@@ -528,24 +581,22 @@ private noteY(note: RhythmReactorNote, elapsedSeconds: number): number {
 }
 ```
 
-Do not clamp `progress` at 1; this allows the visible late Good window to pass the line naturally. Only draw unresolved notes where:
+Do not clamp progress at 1; the visible late Good window passes the line naturally. Only draw unresolved notes where:
 
 ```ts
 note.hitTimeSeconds - state.elapsedSeconds <= approachSeconds
 ```
 
-The game model already removes expired late notes.
+The game removes expired late notes. Lane position is primary identity; color is decoration only. Draw a simple stability/reactor indicator from `state.stability`; no particles/interactions.
 
-Use lane index/position as the primary identity. Colors are decoration only. Draw a simple stability bar/reactor indicator from `state.stability`; do not make it interactive or add particles.
-
-- [ ] **Step 4: Run renderer + game tests and typecheck**
+- [ ] **Step 4: Run renderer + model gates**
 
 ```bash
 bun run test:run -- src/lib/games/rhythm-reactor
 bun run typecheck
 ```
 
-- [ ] **Step 5: Commit the renderer**
+- [ ] **Step 5: Commit renderer**
 
 ```bash
 git add src/lib/games/rhythm-reactor/RhythmReactorRenderer.ts \
@@ -555,45 +606,53 @@ git commit -m "feat(rhythm-reactor): render falling beat lanes"
 
 ---
 
-### Task 4: Wire the playable Astro route, controls, lifecycle, and tuning checkpoint
+### Task 4: Wire playable Astro route, controls, lifecycle, visible HUD, and tuning checkpoint
 
 **Files:**
 - Create: `src/lib/games/rhythm-reactor/initFramework.ts`
 - Create: `src/lib/games/rhythm-reactor/initFramework.test.ts`
 - Create: `src/pages/rhythm-reactor/index.astro`
-- Modify: `src/pages/game-board-markup.test.ts` — add Rhythm Reactor static/bootstrap assertions.
+- Modify: `src/pages/game-board-markup.test.ts`
+- Conditional tuning-only modifications: `src/lib/games/rhythm-reactor/types.ts`, `chart.ts`, `chart.test.ts`, `scoring.ts`, `scoring.test.ts`, and the design/plan docs if the checkpoint changes documented defaults.
 
 **Interfaces:**
 - Produces `initRhythmReactorGameFramework(): Promise<RhythmReactorInitResult | undefined>`.
-- Produces debug handle shape with `game`, `renderer`, `getGame`, `getState`, `cleanup`.
-- Exposes page handle as `window.rhythmReactorGame` after async initialization.
+- Produces debug handle with `game`, `renderer`, `getGame`, `getState`, `cleanup`.
+- Exposes `window.rhythmReactorGame` after async initialization.
 
-- [ ] **Step 1: Write initializer and markup tests first**
+- [ ] **Step 1: Write initializer + markup tests first**
 
 Required initializer cases:
 
-- missing `#rhythm-reactor-container` fails through the existing game-error path;
+- missing `#rhythm-reactor-container` uses existing game-error path;
 - renderer setup failure destroys partial renderer and returns undefined;
 - four delegated buttons map `data-rhythm-lane="0..3"` to `hitLane()`;
-- `D/F/J/K` and lowercase equivalents use the same API;
-- key repeat, Ctrl/Meta/Alt, editable targets, and events originating from lane buttons are ignored;
-- Start hides Start and enables active lane buttons;
-- Reset returns idle 60s / hits 0 / misses 0 / stability 60, hides overlay, and disables lanes;
-- Play Again calls `game.start()` after game over and immediately starts a clean run;
+- `D/F/J/K` + lowercase equivalents use same API;
+- key repeat, Ctrl/Meta/Alt, `isEditableTarget(event.target)`, and events originating from lane buttons are ignored;
+- Start hides Start and enables lane buttons;
+- visible HUD synchronizes Combo / Hits / Judgment / Stability;
+- `#rhythm-reactor-status` receives judgment/completion announcements;
+- Reset returns idle `60` / Hits `0` / Stability `60` / Judgment `READY`, hides overlay, disables lanes;
+- Play Again calls `game.start()` after game over and starts clean run;
 - end callback fills score/hits/misses/perfect/good/max combo/accuracy/stability fields;
 - beforeunload warns only while active;
-- one rAF loop calls `game.update(delta)` and `renderer.render(state)` and clamps outer delta to `0.1`;
-- cleanup is idempotent, cancels rAF, removes tracked listeners, unsubscribes game end, destroys renderer/game.
+- one rAF calls `game.update(delta)` + `renderer.render(state)` and clamps outer delta to config max;
+- cleanup idempotently cancels rAF, removes listeners, unsubscribes end, destroys renderer/game.
 
-Markup test must read the Astro source and assert:
+Markup test asserts fixed route contract:
 
 ```ts
 expect(source).toContain('id="rhythm-reactor-controls"')
 expect(source.match(/data-rhythm-lane=/g)).toHaveLength(4)
+expect(source).toContain('id="rhythm-reactor-combo"')
+expect(source).toContain('id="rhythm-reactor-hits"')
+expect(source).toContain('id="rhythm-reactor-judgment"')
+expect(source).toContain('id="rhythm-reactor-stability"')
+expect(source).toContain('id="rhythm-reactor-status"')
 expect(source).toContain('showPause={false}')
 expect(source).toContain('showEnd={false}')
 expect(source).toContain('showReset={true}')
-const domReady = source.indexOf("DOMContentLoaded")
+const domReady = source.indexOf('DOMContentLoaded')
 const initCall = source.indexOf('initRhythmReactorGameFramework()')
 expect(domReady).toBeGreaterThanOrEqual(0)
 expect(initCall).toBeGreaterThan(domReady)
@@ -607,19 +666,18 @@ bun run test:run -- \
   src/pages/game-board-markup.test.ts
 ```
 
-- [ ] **Step 3: Build the complete Astro-owned route**
+- [ ] **Step 3: Build complete Astro-owned route**
 
-Use `GamePage`, `Badge`, `Button`, and `Card`. Required board/control IDs:
+Use `GamePage`, `Badge`, `Button`, `Card`. Required IDs:
 
 ```text
 #rhythm-reactor-container
 #rhythm-reactor-canvas
 #rhythm-reactor-status
-#rhythm-reactor-stability
 #rhythm-reactor-combo
 #rhythm-reactor-hits
-#rhythm-reactor-misses
 #rhythm-reactor-judgment
+#rhythm-reactor-stability
 #rhythm-reactor-controls
 [data-rhythm-lane="0..3"]
 #start-btn
@@ -634,7 +692,20 @@ Use `GamePage`, `Badge`, `Button`, and `Card`. Required board/control IDs:
 #final-stability
 ```
 
-Render button copy as `Lane 1 · D`, `Lane 2 · F`, `Lane 3 · J`, `Lane 4 · K`. Static idle text is `READY`, `60` stability, `0` combo/hits/misses. Keep all layout structure in Astro; TypeScript only changes text/disabled/display state.
+Render Combo, Hits, Judgment, and Stability as visible `slot="additional-stats"` badges, matching Signal Switch's HUD seam. Static idle values: Combo `0`, Hits `0`, Judgment `READY`, Stability from `RHYTHM_REACTOR_RULES.initialStability`.
+
+`#rhythm-reactor-status` is `sr-only` + `aria-live="polite"`; it duplicates the judgment accessibly, not replaces visible judgment.
+
+Button copy:
+
+```text
+Lane 1 · D
+Lane 2 · F
+Lane 3 · J
+Lane 4 · K
+```
+
+Keep all layout structure in Astro; TypeScript only changes text/disabled/display state.
 
 Page bootstrap:
 
@@ -643,14 +714,18 @@ document.addEventListener('DOMContentLoaded', () => {
   initRhythmReactorGameFramework()
     .then(handle => {
       if (handle) {
-        ;(window as Window & { rhythmReactorGame?: typeof handle }).rhythmReactorGame = handle
+        ;(
+          window as Window & { rhythmReactorGame?: typeof handle }
+        ).rhythmReactorGame = handle
       }
     })
-    .catch(error => console.error('Rhythm Reactor failed to initialize', error))
+    .catch(error => {
+      console.error('Rhythm Reactor failed to initialize', error)
+    })
 })
 ```
 
-- [ ] **Step 4: Implement the local initializer by following Signal Switch, not abstracting it**
+- [ ] **Step 4: Implement local initializer by following Signal Switch, not abstracting it**
 
 Key map:
 
@@ -663,24 +738,34 @@ const KEY_TO_LANE: Record<string, RhythmReactorLane> = {
 }
 ```
 
-Normalize `keyboardEvent.key.toLowerCase()`. Reuse `isEditableTarget()` from `shared/utils.ts`; do not create another helper.
+Normalize `keyboardEvent.key.toLowerCase()`. Import `isEditableTarget` from `shared/utils.ts` and call `isEditableTarget(keyboardEvent.target)`; no new helper.
 
-For every state callback:
+State sync:
 
 ```ts
-hits = state.perfectHits + state.goodHits
-judgment = state.lastJudgment?.toUpperCase() ?? 'READY'
+const hits = state.perfectHits + state.goodHits
+const judgment = state.lastJudgment?.toUpperCase() ?? 'READY'
+setText('rhythm-reactor-combo', String(state.combo))
+setText('rhythm-reactor-hits', String(hits))
+setText('rhythm-reactor-judgment', judgment)
+setText('rhythm-reactor-stability', String(state.stability))
 ```
 
-Accuracy final text uses `stats.accuracy.toFixed(1) + '%'`.
+Use `#rhythm-reactor-status` to announce `Perfect.`, `Good.`, `Miss.`, and final completion summary without narrating incoming notes.
 
-The rAF loop must be one owner:
+Final accuracy uses `stats.accuracy.toFixed(1) + '%'`.
+
+One rAF owner:
 
 ```ts
 const frame = (timestamp: number): void => {
-    const delta = lastFrameTime === null
-        ? 0
-        : Math.min((timestamp - lastFrameTime) / 1000, config.maxUpdateDelta)
+    const delta =
+        lastFrameTime === null
+            ? 0
+            : Math.min(
+                  (timestamp - lastFrameTime) / 1000,
+                  config.maxUpdateDelta
+              )
     lastFrameTime = timestamp
     const state = game.getState()
     if (state.isActive && !state.isPaused) game.update(delta)
@@ -689,71 +774,106 @@ const frame = (timestamp: number): void => {
 }
 ```
 
-Override Pixi inline canvas sizing exactly once after initialization:
+Normalize Pixi canvas inline size once:
 
 ```ts
 canvas.style.width = '100%'
 canvas.style.height = 'auto'
 ```
 
-- [ ] **Step 5: Run all local unit/markup gates**
+- [ ] **Step 5: Run local unit/markup gates**
 
 ```bash
-bun run test:run -- src/lib/games/rhythm-reactor src/pages/game-board-markup.test.ts
+bun run test:run -- \
+  src/lib/games/rhythm-reactor \
+  src/pages/game-board-markup.test.ts
 bun run typecheck
 bun run lint
 ```
 
-- [ ] **Step 6: Perform the mandatory manual-play tuning checkpoint**
+- [ ] **Step 6: Perform mandatory manual-play tuning checkpoint**
 
-Start the app:
+Run:
 
 ```bash
 bun run dev
 ```
 
-Open `http://localhost:4325/rhythm-reactor` and check all five frozen questions from the spec:
+Open `/rhythm-reactor` on desktop and a 375px viewport. Check:
 
-1. first Lane 1 note has the full 2.0s readable approach;
-2. ±80ms Perfect / ±160ms Good feels usable with both D/F/J/K and touch/click;
-3. final Surge density (max 2 hits/s) stays readable at desktop and 375px width;
-4. ordinary misses visibly reduce stability while a competent run can recover;
-5. note center visually meets the hit line at judgment time.
+1. **Opening readability:** first Lane 1 note is visible for full approach and DFJK is clear.
+2. **Timing feel:** initial Perfect/Good windows are usable on keyboard + touch.
+3. **Chart density:** Warmup → Core → Surge progression stays readable; Surge is not a visual wall.
+4. **Stability feel:** misses matter and a competent run can recover/trend upward.
+5. **Visual sync:** note center meets hit line at judgment time.
 
-If feel changes are needed, change only `RHYTHM_REACTOR_RULES` / scoring constants and their derived tests **now**. Do not add audio, calibration, difficulty, random generation, or a new timing subsystem.
+Allowed tuning knobs **at this checkpoint only**:
 
-Record the five PASS/adjusted results in the eventual PR description before Task 5 thresholds are treated as frozen.
+- `RHYTHM_REACTOR_RULES` timing/stability values;
+- scoring constants;
+- `WARMUP_PATTERN`, `CORE_PATTERN`, `SURGE_PATTERN` bytes;
+- `RHYTHM_REACTOR_SECTIONS` repeat counts;
+- achievement hit/combo floors only if chart tuning makes the documented defaults inappropriate.
 
-- [ ] **Step 7: Commit the first playable game**
+Chart edits must preserve:
+
+- 0.5s grid;
+- lane/rest-only steps, no chords;
+- first note Lane 1 and visible at t=0;
+- final note exits Good window before 60s.
+
+If chart data changes, update exact pattern/repeat/expanded-lane expectations in `chart.test.ts` in the same commit. Derive and record final note count + last hit time; do **not** preserve `86` / `57.5` merely to satisfy an old test.
+
+Before leaving this checkpoint, confirm the final chart makes the documented achievement defaults (initially 60 hits / combo 20) attainable. If thresholds must change, update this spec + plan now; Task 5 must receive exact final values, not invent them.
+
+Do not add audio, calibration, difficulty, random generation, or timing infrastructure to solve feel problems.
+
+- [ ] **Step 7: Commit first playable game + any bounded tuning**
 
 ```bash
-git add src/lib/games/rhythm-reactor/initFramework.ts \
-        src/lib/games/rhythm-reactor/initFramework.test.ts \
+git add src/lib/games/rhythm-reactor \
         src/pages/rhythm-reactor/index.astro \
         src/pages/game-board-markup.test.ts
+# If tuning changed documented defaults, also add the design/plan docs.
 git commit -m "feat(rhythm-reactor): wire playable rhythm route"
 ```
 
+Record the five PASS/adjusted outcomes plus final derived chart count/last-hit time in the PR description before Task 5.
+
 ---
 
-### Task 5: Register the live game, shared data, achievements, and repository docs
+### Task 5: Freeze post-tuning content, register live game, shared data, achievements, and repository docs
 
 **Files:**
-- Modify: `src/lib/games.ts` — append active Rhythm Reactor `GAMES` row after Signal Switch.
-- Modify: `src/lib/games.test.ts` — add exact registration/icon/URL assertions.
-- Modify: `src/lib/games/shared/types.ts` — canonical Rhythm Reactor game-data alias + `GameData` union member.
+- Verify: `src/lib/games/rhythm-reactor/chart.test.ts` — exact post-tuning patterns/repeats/expanded lanes are now frozen.
+- Modify: `src/lib/games.ts` — append active Rhythm Reactor row after Signal Switch.
+- Modify: `src/lib/games.test.ts` — exact registration/icon/URL assertions.
+- Modify: `src/lib/games/shared/types.ts` — canonical game-data alias + `GameData` member.
 - Modify: `src/lib/organisms.test.ts` — exact depth partition `8 / 9 / 4`.
 - Modify: `src/lib/achievements.ts` — four Rhythm Reactor achievements.
-- Modify: `src/lib/achievements.test.ts` — thresholds/data guards.
-- Modify: `CLAUDE.md` — 21-game list/count, rhythm-reactor folder, Pixi renderer list, game-specific note.
+- Modify: `src/lib/achievements.test.ts` — exact thresholds/data guards.
+- Modify: `CLAUDE.md` — 21-game list/count, folder, Pixi list, game-specific note.
 
 **Interfaces:**
 - Makes `GameID.RHYTHM_REACTOR` discoverable at `/rhythm-reactor`.
 - Makes `RhythmReactorGameData` available to achievements through shared typing.
+- Freezes the chart data that Task 4 proved playable before achievement thresholds become public contracts.
 
-- [ ] **Step 1: Add failing registration/shared-type/organism tests**
+- [ ] **Step 1: Verify the post-tuning chart freeze before registration**
 
-Registration expectation:
+```bash
+bun run test:run -- src/lib/games/rhythm-reactor/chart.test.ts
+```
+
+Inspect `createRhythmReactorChart()` once and confirm:
+
+- exact pattern/repeat/expanded-lane tests match the values just manually played;
+- final note exits its Good window before 60 seconds;
+- the final chart supports the exact achievement thresholds documented below.
+
+No chart pattern/repeat edits after this point unless a real bug is found.
+
+- [ ] **Step 2: Add failing registration/shared-type/organism tests**
 
 ```ts
 expect(GameID.RHYTHM_REACTOR).toBe('rhythm_reactor')
@@ -770,10 +890,12 @@ expect(getGameById(GameID.RHYTHM_REACTOR)).toMatchObject({
 })
 expect(getGameIcon(GameID.RHYTHM_REACTOR)).toBe('🎵')
 expect(getGameUrl(GameID.RHYTHM_REACTOR)).toBe('/rhythm-reactor')
-expect(GAMES.filter(game => game.id === GameID.RHYTHM_REACTOR)).toHaveLength(1)
+expect(
+    GAMES.filter(game => game.id === GameID.RHYTHM_REACTOR)
+).toHaveLength(1)
 ```
 
-Update the existing organism partition assertion only:
+Update only exact organism partition values:
 
 ```ts
 expect(getGamesByDepth('shallow')).toHaveLength(8)
@@ -781,11 +903,11 @@ expect(getGamesByDepth('mid')).toHaveLength(9)
 expect(getGamesByDepth('abyssal')).toHaveLength(4)
 ```
 
-Keep the adjacency regression unchanged; the new tail must satisfy it naturally.
+Keep adjacency regression unchanged.
 
-- [ ] **Step 2: Add failing achievement tests**
+- [ ] **Step 3: Add failing achievement tests**
 
-Freeze four definitions and their anti-vacuous conditions:
+Default reviewed thresholds are still:
 
 ```ts
 const achievements = getAchievementsByGame(GameID.RHYTHM_REACTOR)
@@ -797,14 +919,16 @@ expect(achievements.map(item => item.id)).toEqual([
 ])
 ```
 
-Then behaviorally prove:
+Behaviorally prove:
 
-- First Beat threshold is 100;
-- Chain Reaction fails at maxCombo 19 and passes at 20;
-- Precision Control fails with 59 hits even at 100% accuracy, fails at 60 hits/89.9%, passes at 60/90%;
-- Coolant Reserve fails with 59 hits or stability 89, passes at 60 hits/stability 90.
+- First Beat threshold 100;
+- Chain Reaction fails at maxCombo 19, passes at 20;
+- Precision Control fails at 59 hits even with 100% accuracy, fails at 60/89.9%, passes at 60/90%;
+- Coolant Reserve fails at 59 hits or stability 89, passes at 60 hits/stability 90.
 
-- [ ] **Step 3: Run the focused tests and verify RED**
+If Task 4 changed these exact thresholds, this step must use the already-updated exact values from the spec/plan; do not choose new thresholds in Task 5.
+
+- [ ] **Step 4: Run focused tests and verify RED**
 
 ```bash
 bun run test:run -- \
@@ -813,15 +937,16 @@ bun run test:run -- \
   src/lib/achievements.test.ts
 ```
 
-- [ ] **Step 4: Append the active catalog object**
+- [ ] **Step 5: Append active catalog object**
 
-In `GAMES`, after Signal Switch:
+After Signal Switch:
 
 ```ts
 {
     id: GameID.RHYTHM_REACTOR,
     name: 'Rhythm Reactor',
-    description: 'Hit falling reactor beats on time to build combo and keep the core stable',
+    description:
+        'Hit falling reactor beats on time to build combo and keep the core stable',
     category: 'action',
     maxPlayers: 1,
     estimatedDuration: '1 minute',
@@ -833,22 +958,18 @@ In `GAMES`, after Signal Switch:
 },
 ```
 
-Do not modify home-page code; the existing active-game catalog must surface it automatically.
+Do not modify home-page code; active catalog derives it.
 
-- [ ] **Step 5: Add canonical shared game-data typing**
-
-After Signal Switch in `src/lib/games/shared/types.ts`:
+- [ ] **Step 6: Add canonical shared game-data typing**
 
 ```ts
 export type RhythmReactorGameData =
     import('../rhythm-reactor/types').RhythmReactorGameData
 ```
 
-Append `| RhythmReactorGameData` to `GameData`. Do not duplicate the interface.
+Append `| RhythmReactorGameData` to `GameData`. Do not duplicate interface.
 
-- [ ] **Step 6: Add the four achievements**
-
-Use existing `score_threshold` / `in_game` types only:
+- [ ] **Step 7: Add four achievements using existing condition types**
 
 ```ts
 {
@@ -900,29 +1021,28 @@ Use existing `score_threshold` / `in_game` types only:
 },
 ```
 
-Import the canonical shared type using the same convention as adjacent recent games.
+If Task 4 approved different exact floors, substitute those already-documented numbers consistently in definition + tests. No new achievement condition type.
 
-- [ ] **Step 7: Update repository documentation without touching `AGENTS.md`**
+- [ ] **Step 8: Update repository docs**
 
-`CLAUDE.md` must say 21 implemented games and include Rhythm Reactor in the overview, `src/lib/games/rhythm-reactor/` in the tree, Rhythm Reactor among Pixi canvas games, and one game-specific note describing `BaseGame + PixiJS + authored visual chart + window.rhythmReactorGame`.
+`CLAUDE.md` must say 21 implemented games; add Rhythm Reactor to overview/list, `src/lib/games/rhythm-reactor/` to tree, Rhythm Reactor to Pixi canvas list, and game-specific note: `BaseGame + PixiJS + authored visual chart + window.rhythmReactorGame`.
 
-If `AGENTS.md` is still a symlink to `CLAUDE.md`, leave the symlink itself unchanged.
+If `AGENTS.md` is still a symlink to `CLAUDE.md`, leave symlink unchanged.
 
-- [ ] **Step 8: Run registration/achievement/navigation gates**
+- [ ] **Step 9: Run registration/achievement/navigation gates**
 
 ```bash
 bun run test:run -- \
   src/lib/games.test.ts \
   src/lib/organisms.test.ts \
-  src/lib/achievements.test.ts
+  src/lib/achievements.test.ts \
+  src/lib/games/rhythm-reactor/chart.test.ts
 bun run test:e2e -- e2e/games/all-games-navigation.spec.ts
 bun run typecheck
 bun run lint
 ```
 
-If the exact navigation spec path differs on the implementation branch, locate the existing `all-games-navigation.spec.ts` once and run that file; do not create a second navigation suite.
-
-- [ ] **Step 9: Commit registration**
+- [ ] **Step 10: Commit registration**
 
 ```bash
 git add src/lib/games.ts \
@@ -944,86 +1064,150 @@ git commit -m "feat(rhythm-reactor): register game and achievements"
 - No production files unless a failing gate reveals a real HPA-70 bug.
 
 **Interfaces:**
-- Consumes the public `window.rhythmReactorGame` handle from Task 4.
-- Uses public game methods only: `update`, `hitLane` indirectly through UI/keyboard, `getState`, and debug-only `end()` to avoid a real 60-second browser sleep.
+- Consumes `window.rhythmReactorGame` from Task 4.
+- Uses existing public methods `reset`, `start`, `update`, `getState`, and `end` through the debug handle.
+- Tests `hitLane()` through the actual delegated button and document keyboard event handlers; no direct `hitLane()` call in the E2E Perfect proof.
 
-- [ ] **Step 1: Add a bounded simulation helper to the Rhythm Reactor describe block**
+- [ ] **Step 1: Add one synchronous Perfect-input helper**
 
-Do not use real-time sleeps for note judgment. Advance the model through the existing debug handle:
+Do **not** advance in one `page.evaluate` and then return to Playwright for an 80ms-window click. Reset/start, exact advancement, and UI event dispatch all happen in one browser task so rAF cannot interleave:
 
 ```ts
-async function advanceRhythmTo(
+type RhythmInputKind = 'click' | 'keyboard'
+
+type RhythmSnapshot = {
+    elapsedSeconds: number
+    pendingNotes: Array<{
+        laneIndex: 0 | 1 | 2 | 3
+        hitTimeSeconds: number
+    }>
+    perfectHits: number
+    goodHits: number
+    misses: number
+    combo: number
+    score: number
+    stability: number
+    lastJudgment: 'perfect' | 'good' | 'miss' | null
+}
+
+async function performPerfectRhythmInput(
     page: Page,
-    targetSeconds: number
-): Promise<void> {
-    await page.evaluate(target => {
+    kind: RhythmInputKind
+): Promise<RhythmSnapshot> {
+    return page.evaluate(inputKind => {
         const game = (
             window as Window & {
                 rhythmReactorGame?: {
                     game: {
+                        reset(): void
+                        start(): void
                         update(deltaSeconds: number): void
-                        getState(): { elapsedSeconds: number }
+                        getState(): RhythmSnapshot
                     }
                 }
             }
         ).rhythmReactorGame?.game
-        if (!game) throw new Error('Rhythm Reactor debug handle not ready')
-
-        const MAX_STEPS = 700
-        for (let step = 0; step < MAX_STEPS; step += 1) {
-            if (game.getState().elapsedSeconds >= target - 1e-9) return
-            game.update(0.1)
+        if (!game) {
+            throw new Error('Rhythm Reactor debug handle not ready')
         }
-        throw new Error(`Rhythm Reactor did not reach ${target}s`)
-    }, targetSeconds)
+
+        // Re-anchor simulation at zero inside this synchronous browser task.
+        game.reset()
+        game.start()
+
+        let state = game.getState()
+        const note = state.pendingNotes[0]
+        if (!note) throw new Error('Rhythm Reactor chart has no first note')
+
+        while (state.elapsedSeconds < note.hitTimeSeconds - 1e-9) {
+            const remaining = note.hitTimeSeconds - state.elapsedSeconds
+            game.update(Math.min(0.1, remaining))
+            state = game.getState()
+        }
+
+        if (inputKind === 'click') {
+            const button = document.querySelector<HTMLButtonElement>(
+                `[data-rhythm-lane="${note.laneIndex}"]`
+            )
+            if (!button) throw new Error('Rhythm lane button not found')
+            button.click()
+        } else {
+            const keys = ['d', 'f', 'j', 'k'] as const
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: keys[note.laneIndex],
+                    bubbles: true,
+                })
+            )
+        }
+
+        const result = game.getState()
+        if (result.lastJudgment !== 'perfect') {
+            throw new Error(
+                `Expected Perfect, got ${result.lastJudgment ?? 'none'}`
+            )
+        }
+        return result
+    }, kind)
 }
 ```
 
-Because `2.0 / 0.1` is exact enough for the model tolerance, the first Lane 1 click/keypress should classify Perfect.
+This helper remains valid if Task 4 tunes first-hit time or lane data because it reads the first pending note. It adds no production pause/test API.
 
-- [ ] **Step 2: Add the main browser journey**
+- [ ] **Step 2: Add main browser journey**
 
-Test sequence:
+Route score save before any debug end:
+
+```ts
+await page.route('**/api/scores', async route => {
+    await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, newAchievements: [] }),
+    })
+})
+```
+
+Journey:
 
 ```text
 GET /rhythm-reactor
-→ canvas visible; four lane buttons visible; idle stability=60
-→ Start
-→ advance model to 2.0s
-→ click [data-rhythm-lane="0"]
-→ Hits=1, Combo=1, judgment=PERFECT, Score=100
-→ Reset
-→ Time=60, Hits=0, Misses=0, Stability=60, Start visible
-→ Start again
-→ advance to 2.0s
-→ keyboard D
-→ Hits=1, judgment=PERFECT
+→ canvas visible; four lane buttons visible
+→ visible Combo=0, Hits=0, Judgment=READY, Stability=initial value
+→ Start through #start-btn and prove run becomes active/buttons enable
+→ performPerfectRhythmInput('click')
+→ Hits=1, Combo=1, Judgment=PERFECT, Score=Perfect base points
+→ click #reset-btn
+→ Time=60, Hits=0, Combo=0, Judgment=READY, Stability=initial value, Start visible
+→ performPerfectRhythmInput('keyboard')
+→ Hits=1, Judgment=PERFECT
 → call debug handle game.end() and await overlay
 → final Hits=1 and overlay visible
-→ Play Again
-→ overlay hidden, Start hidden, Hits=0, Stability=60
+→ click Play Again
+→ overlay hidden, Start hidden, Hits=0, Judgment=READY, Stability=initial value
 ```
 
-Route `**/api/scores` to a successful stub before debug `end()` so this journey does not depend on auth/backend state.
+Do not reproduce timeout settlement here; Task 2 unit tests own that contract.
 
-- [ ] **Step 3: Add the 375×812 layout proof**
+- [ ] **Step 3: Add 375×812 layout proof**
 
-Set viewport `375×812`, load `/rhythm-reactor`, and assert:
+Set viewport `375×812`, load `/rhythm-reactor`, assert:
 
 - exactly four `[data-rhythm-lane]` buttons;
-- all four are visible and their bounding boxes are inside the 375px viewport;
+- all four visible and bounding boxes within 375px viewport;
+- all four additional-stat badges are visible/reachable;
 - `document.scrollingElement.scrollWidth <= 375`;
-- Pixi canvas is visible, width `<= 375`, height `> 0`.
+- Pixi canvas visible, width `<= 375`, height `> 0`.
 
-Do not freeze an exact CSS height or row count; only protect reachability/no-overflow.
+Do not freeze exact CSS height/row count.
 
-- [ ] **Step 4: Run the focused browser suite**
+- [ ] **Step 4: Run focused browser suite**
 
 ```bash
 bun run test:e2e -- e2e/games/play-coverage.spec.ts
 ```
 
-Expected: Rhythm Reactor tests and all existing game journeys PASS.
+Expected: Rhythm Reactor tests and all existing journeys PASS without timing-window sleeps.
 
 - [ ] **Step 5: Run final repository gates**
 
@@ -1037,13 +1221,13 @@ bun run test:e2e -- e2e/games/play-coverage.spec.ts
 bun run test:e2e -- e2e/games/all-games-navigation.spec.ts
 ```
 
-Before declaring completion, verify no accidental scope expansion:
+Scope check:
 
 ```bash
 git diff --name-only "$(git merge-base HEAD main)"...HEAD
 ```
 
-Expected production scope: only Rhythm Reactor-local files/page plus `games.ts`, shared game-data typing, achievements, and `CLAUDE.md`. No BaseGame/GameTimer/ScoreManager/GameInitializer/PixiJSRenderer/service/API/DB/schema/package changes.
+Expected production scope: Rhythm Reactor-local files/page plus `games.ts`, shared game-data typing, achievements, and `CLAUDE.md`. No BaseGame/GameTimer/ScoreManager/GameInitializer/PixiJSRenderer/service/API/DB/schema/package changes.
 
 - [ ] **Step 6: Commit browser coverage**
 
@@ -1052,24 +1236,30 @@ git add e2e/games/play-coverage.spec.ts
 git commit -m "test(rhythm-reactor): cover browser lifecycle and mobile layout"
 ```
 
-- [ ] **Step 7: Update the PR description with implementation evidence**
+- [ ] **Step 7: Update PR description with implementation evidence**
 
-After implementation, replace the planning-only PR summary with:
+Replace planning-only summary with:
 
-- final frozen tuning values;
-- the five manual-play checkpoint outcomes;
+- final post-checkpoint chart pattern/repeat values;
+- final derived note count and last-hit time;
+- final timing/stability/scoring + achievement thresholds;
+- five manual-play outcomes;
 - targeted/unit/E2E/full-gate results;
-- any approved scope deviation (otherwise explicitly say none);
-- confirmation that the ticket stayed one PR and no audio/core/backend subsystem was introduced.
+- any approved scope deviation, otherwise explicit none;
+- confirmation ticket stayed one PR and no audio/core/backend subsystem was introduced.
 
-Do not create a second implementation PR for HPA-70; continue on the same branch/PR.
+Do not create a second implementation PR for HPA-70.
 
 ---
 
 ## Plan Self-Review
 
-- **Spec coverage:** chart, timing windows, input, scoring, stability, timeout settlement, reset/replay, Pixi renderer, responsive route, registration, shared game data, achievements, browser proof, manual tuning, and final gates all map to Tasks 1–6.
-- **YAGNI check:** no audio, calibration, song/difficulty selector, chart loader/editor, procedural generation, special notes, early meltdown, shared rhythm engine, core change, or backend/schema work.
-- **Type consistency:** `RhythmReactorGameData` remains canonical in game `types.ts`; shared types alias it rather than duplicating it. Input always converges on `hitLane(laneIndex)`. Renderer derives position from `hitTimeSeconds` + `elapsedSeconds` rather than storing Y in note state.
-- **Single-PR check:** all six implementation slices belong to the same HPA-70 branch/PR; each task is an independently testable commit, not a separate PR.
-- **Placeholder scan:** no implementation decision is left TBD/TODO; the only implementation-time tuning permission is bounded to centralized constants at the explicit Task 4 manual checkpoint.
+- **Spec coverage:** chart materialization/content, tuning gate, timing windows, input, scoring, stability, timeout settlement, visible HUD, reset/replay, Pixi renderer, responsive route, registration, shared game data, achievements, deterministic browser proof, and final gates map to Tasks 1–6.
+- **Chart freeze:** Task 1 pins current authored bytes/repeats/expanded lanes but derives aggregate count/time. Task 4 is the only tuning window. Task 5 freezes the manually played post-tuning data before achievements.
+- **E2E timing:** Perfect input never crosses an evaluate/Playwright gap; advancement + event dispatch are synchronous and exact to the target note.
+- **YAGNI:** no audio, calibration, selector, chart loader/editor, procedural generation, special notes, early meltdown, shared rhythm engine, core change, backend/schema work, or new package.
+- **Type consistency:** `RhythmReactorGameData` remains canonical in game `types.ts`; shared types alias it. Input converges on `hitLane(laneIndex)`. Renderer derives Y from hit time + elapsed time.
+- **HUD consistency:** visible badge IDs are defined in spec, markup task, initializer tests, and E2E; live region is accessibility duplication.
+- **Single-PR:** all six implementation slices remain on HPA-70 PR #74.
+- **Risk check:** the plan explicitly mitigates narrow-window E2E races and unreadable surge density without loosening timing semantics or adding architecture.
+- **Placeholder scan:** no TBD/TODO. The only implementation-time flexibility is the explicitly bounded Task 4 tuning checkpoint.
