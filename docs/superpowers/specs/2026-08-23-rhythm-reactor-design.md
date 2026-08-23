@@ -22,7 +22,7 @@ No generic rhythm/chart/audio/input framework is introduced. “Follow/extend Si
 
 ## Review Resolution — 2026-08-23
 
-The planning review was checked against the current branch and repository. The architecture stays unchanged; five documentation/testability corrections are incorporated:
+The planning review was checked against the current branch and repository. The architecture stays unchanged; five review corrections are incorporated:
 
 1. **Perfect-hit browser proof:** accepted. A ±80ms assertion must not cross a `page.evaluate` → Playwright input gap while live rAF continues. The browser proof now starts/advances the game and dispatches the button click or keyboard event inside one synchronous `page.evaluate` task, using an exact final delta to the first pending note's hit time. No pause/debug API is added.
 2. **Chart tuning gate:** accepted. The 0.5-second materializer contract, four-lane/no-chord shape, hit-time derivation, and first-note visibility are structural. Pattern bytes and section repeat counts are **initial authored tuning data** and may change only at the Task 4 playable checkpoint. The currently derived 86-note / 57.5s values are not treated as independent sacred constants.
@@ -31,6 +31,11 @@ The planning review was checked against the current branch and repository. The a
 5. **Shared helper spelling:** normalized. Documentation refers to the exported identifier `isEditableTarget`; implementation calls it normally as `isEditableTarget(event.target)`.
 
 The risk section also explicitly covers timing-window E2E flake and unreadable chart density. No audio, calibration, GameInitializer adoption, core change, or shared rhythm framework is added.
+
+A final consistency pass also locks two details that were internally contradictory in the first draft:
+
+- timing-boundary unit tests must advance simulation in chunks no larger than `maxUpdateDelta`; a single `update(1.92)` cannot bypass the game's 0.1s clamp;
+- note Y uses direct linear arithmetic rather than shared `lerp`, because Cetus `lerp` clamps interpolation to `0..1` and would incorrectly pin a late-but-still-Good note on the hit line.
 
 ## Why HPA-70 Is Next
 
@@ -217,6 +222,8 @@ This mirrors Signal Switch: a background-tab return does not fast-forward throug
 
 No 1/120-second physics substeps are needed because note position is derived from hit time and simulation time rather than integrated velocity.
 
+Timing tests that need to advance more than one frame must call `update()` repeatedly with steps `<= maxUpdateDelta` and a final exact remainder; they must not assume a single large delta bypasses the clamp.
+
 ## Runtime Note Model
 
 ```ts
@@ -229,13 +236,15 @@ export interface RhythmReactorNote {
 
 `RhythmReactorState.pendingNotes` contains only unresolved chart notes. Notes do not have mutable `y` coordinates.
 
-The renderer derives position from:
+The renderer derives position with direct linear arithmetic:
 
 ```text
 timeUntilHit = note.hitTimeSeconds - state.elapsedSeconds
 progress = 1 - timeUntilHit / approachSeconds
-y = lerp(noteSpawnY, hitLineY, progress)
+y = noteSpawnY + (hitLineY - noteSpawnY) × progress
 ```
+
+Do **not** call the shared `lerp` helper for this coordinate. Cetus `lerp` clamps `t` into `0..1`; a note that is slightly late but still inside the Good window needs `progress > 1` so it visibly passes the hit line.
 
 A note is drawn only while it is within the approach horizon and has not been removed as hit/missed. This keeps note timing authoritative in one place and avoids a spawn accumulator entirely.
 
@@ -541,7 +550,7 @@ If Task 4 changes chart data, update the exact pattern/sequence expectations in 
 Use small explicit chart/config overrides where helpful. Cover:
 
 - initial state and cloned authored chart;
-- exact Perfect/Good inclusive boundaries;
+- exact Perfect/Good inclusive boundaries using repeated `update()` steps no larger than the configured clamp;
 - nearest same-lane pending note selection;
 - wrong/empty press miss without consuming a note;
 - automatic expiry after the Good window;
@@ -561,6 +570,7 @@ Cover:
 - static four-lane geometry and hit line;
 - only approach-window notes are drawn;
 - note Y reaches the hit line at hit time;
+- late-but-pending note moves beyond the hit line, proving direct interpolation is not clamped;
 - cleanup destroys local graphics then base renderer resources.
 
 ### Initializer/markup tests
@@ -628,7 +638,7 @@ Check the initial defaults:
 2. **Timing feel:** the initial ±80ms Perfect / ±160ms Good windows are strict but usable on both keyboard and touch.
 3. **Chart density:** Warmup → Core → Surge progression remains readable on a laptop and 375px viewport; the Surge pattern does not become a visual wall.
 4. **Stability feel:** ordinary misses lower the meter meaningfully without making recovery impossible; a competent run trends upward.
-5. **Visual sync:** note center reaches the rendered hit line at the exact model hit time.
+5. **Visual sync:** note center reaches the rendered hit line at the exact model hit time and late Good-window notes continue past it.
 
 If tuning changes are needed, the allowed knobs are deliberately bounded:
 
@@ -654,13 +664,19 @@ After this checkpoint, chart bytes/repeats and achievement thresholds are frozen
 
 **Risk:** even a valid 0.5-second chart can feel visually noisy; chart density is the primary visual-only difficulty knob.
 
-**Mitigation:** pattern bytes and repeat counts remain tuning data until the mandatory playable checkpoint. Tune data, not architecture; freeze exact pattern/expanded-lane tests only after the checkpoint.
+**Mitigation:** pattern bytes and repeat counts remain tuning data until the mandatory playable checkpoint. Exact pattern/expanded-lane tests exist from Task 1 but remain intentionally editable only during that checkpoint; after it passes, those values are frozen.
 
 ### Dual wall/simulation clocks
 
 **Risk:** a backgrounded tab may let BaseGame wall time finish while rAF-clamped simulation is behind.
 
 **Mitigation:** BaseGame remains run authority; Rhythm Reactor's one justified game-local timeout difference is settling every unresolved chart note as a miss before BaseGame captures final stats.
+
+### Renderer interpolation trap
+
+**Risk:** reusing shared `lerp` looks natural but clamps interpolation and would hide late-note travel past the hit line.
+
+**Mitigation:** use the explicit linear coordinate formula locally and lock the late-pending-note renderer test. No new shared math helper is justified.
 
 ### Audio scope creep
 
