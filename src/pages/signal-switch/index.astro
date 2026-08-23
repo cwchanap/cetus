@@ -9,6 +9,7 @@ import {
 } from '@/lib/games/signal-switch/types'
 import {
   SIGNAL_SWITCH_BASE_PASS_POINTS,
+  SIGNAL_SWITCH_COMBO_BONUS_CAP,
   SIGNAL_SWITCH_COMBO_STEP_POINTS,
 } from '@/lib/games/signal-switch/scoring'
 
@@ -16,6 +17,8 @@ const totalLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.length
 const startingLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.filter(
   unlockAt => unlockAt <= 0
 ).length
+const comboBonusMax =
+  SIGNAL_SWITCH_COMBO_BONUS_CAP * SIGNAL_SWITCH_COMBO_STEP_POINTS
 // Static pre-hydration markup: every gate starts on the deterministic Cyan
 // state; the initializer owns updates once hydrated.
 const { glyph: initialGlyph, label: initialLabel } = SIGNAL_SWITCH_SIGNALS.cyan
@@ -141,7 +144,8 @@ const { glyph: initialGlyph, label: initialLabel } = SIGNAL_SWITCH_SIGNALS.cyan
       <div class="space-y-2 text-sm text-cetus-ink">
         <p>Each safe pass earns {SIGNAL_SWITCH_BASE_PASS_POINTS} points.</p>
         <p>
-          Every combo step adds {SIGNAL_SWITCH_COMBO_STEP_POINTS} more points.
+          Each combo step adds {SIGNAL_SWITCH_COMBO_STEP_POINTS} more points, up
+          to a +{comboBonusMax} bonus.
         </p>
         <p>A mismatched signal costs integrity; at zero, systems fail.</p>
       </div>
