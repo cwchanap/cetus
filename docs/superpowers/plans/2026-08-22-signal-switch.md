@@ -942,6 +942,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 
 Delete the local helper from Gravity Flip and Pattern Pulse and import the shared function instead. Do not otherwise edit their keyboard behavior.
 
+This is a scope choice for the new third real consumer; do not infer permission to refactor their other initializer helpers.
+
 Run:
 
 ```bash
@@ -1405,7 +1407,7 @@ git commit -m "test(signal-switch): cover browser lifecycle and mobile layout"
 - [ ] All-busy congestion consumes zero RNG and cannot burst on release.
 - [ ] `SignalSwitchDrone.x` is center in spawn, movement, crossing, and renderer geometry.
 - [ ] Gate crossing uses previous/next center X and needs no physics substeps.
-- [ ] Local `emitStateChange()` is explicitly implemented; BaseGame is unchanged.
+- [ ] Local `emitStateChange()` is explicitly implemented; BaseGame is unchanged as a scope choice, not because sharing it is inherently undesirable.
 - [ ] Timeout outcome is `survived`, but zero-pass timeout submits `survivedFullRun: false`.
 - [ ] Three integrity failures end once.
 - [ ] `isEditableTarget()` has one shared implementation used by Gravity Flip, Pattern Pulse, and Signal Switch.
