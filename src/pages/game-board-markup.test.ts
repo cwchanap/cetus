@@ -204,6 +204,54 @@ const potionSorterMarkup = readFileSync(
     'utf-8'
 )
 
+const signalSwitchMarkup = readFileSync(
+    resolve(process.cwd(), 'src/pages/signal-switch/index.astro'),
+    'utf-8'
+)
+
+describe('Signal Switch page markup', () => {
+    it('keeps stable board, control, and final-stat ids with four lane gates', () => {
+        for (const id of [
+            'signal-switch-container',
+            'signal-switch-canvas',
+            'signal-switch-status',
+            'gate-controls',
+            'signal-switch-integrity',
+            'signal-switch-combo',
+            'signal-switch-safe-passes',
+            'signal-switch-lanes',
+            'signal-switch-speed',
+            'final-outcome',
+            'final-safe-passes',
+            'final-crashes',
+            'final-max-combo',
+            'final-integrity',
+            'start-btn',
+            'reset-btn',
+        ]) {
+            expect(signalSwitchMarkup).toContain(`id="${id}"`)
+        }
+        expect(
+            signalSwitchMarkup.match(/data-signal-lane="[0-3]"/g)
+        ).toHaveLength(4)
+        expect(signalSwitchMarkup).toContain('showPause={false}')
+        expect(signalSwitchMarkup).toContain('showEnd={false}')
+        expect(signalSwitchMarkup).not.toContain('id="end-btn"')
+        expect(signalSwitchMarkup).toMatch(
+            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initSignalSwitchGameFramework/
+        )
+    })
+
+    it('bootstraps the framework after DOMContentLoaded', () => {
+        const readyIndex = signalSwitchMarkup.indexOf('DOMContentLoaded')
+        const initCallIndex = signalSwitchMarkup.indexOf(
+            'initSignalSwitchGameFramework()'
+        )
+        expect(readyIndex).toBeGreaterThan(-1)
+        expect(initCallIndex).toBeGreaterThan(readyIndex)
+    })
+})
+
 describe('Potion Sorter page markup', () => {
     it('keeps the tube board, dead-end undo, HUD ids, and root-level initializer', () => {
         expect(potionSorterMarkup).toContain('id="potion-sorter-container"')

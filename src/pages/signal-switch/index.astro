@@ -1,0 +1,208 @@
+---
+import GamePage from '@/components/games/GamePage.astro'
+import Badge from '@/components/ui/Badge.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+import { SIGNAL_SWITCH_RULES } from '@/lib/games/signal-switch/types'
+import {
+  SIGNAL_SWITCH_BASE_PASS_POINTS,
+  SIGNAL_SWITCH_COMBO_STEP_POINTS,
+} from '@/lib/games/signal-switch/scoring'
+
+const totalLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.length
+const startingLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.filter(
+  unlockAt => unlockAt <= 0
+).length
+---
+
+<GamePage
+  gameId="signal-switch"
+  title="Signal Switch"
+  description="Switch each lane gate to match incoming drone signals before impact."
+  icon="🚦"
+  initialTime={SIGNAL_SWITCH_RULES.duration}
+  showPause={false}
+  showEnd={false}
+  showReset={true}
+  overlayTitle="SIGNAL LOST"
+>
+  <div
+    slot="game-board"
+    id="signal-switch-container"
+    class="w-full max-w-[800px]"
+  >
+    <div
+      id="signal-switch-canvas"
+      class="overflow-hidden rounded-lg bg-black/30"
+    >
+    </div>
+    <p id="signal-switch-status" class="sr-only" aria-live="polite"></p>
+  </div>
+
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">
+      Integrity: <span id="signal-switch-integrity"
+        >{SIGNAL_SWITCH_RULES.startingIntegrity}</span
+      >
+    </span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Combo: <span id="signal-switch-combo">0</span></span
+    >
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">
+      Safe passes: <span id="signal-switch-safe-passes">0</span>
+    </span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">
+      Lanes: <span id="signal-switch-lanes">{startingLanes} / {totalLanes}</span
+      >
+    </span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">
+      Speed: <span id="signal-switch-speed"
+        >{SIGNAL_SWITCH_RULES.initialDroneSpeed}</span
+      >
+    </span>
+  </Badge>
+
+  <div slot="controls">
+    <Card variant="glass" class="p-6">
+      <div class="flex flex-col items-center space-y-4">
+        <div class="flex flex-wrap justify-center gap-2">
+          <Button id="start-btn" type="button" variant="primary">
+            Start Game
+          </Button>
+          <Button id="reset-btn" type="button" variant="outline">
+            Reset
+          </Button>
+        </div>
+        <div
+          id="gate-controls"
+          role="group"
+          aria-label="Lane gates"
+          class="grid w-full grid-cols-2 gap-2"
+        >
+          <button type="button" data-signal-lane="0" class="gate-button"
+            >Lane 1</button
+          >
+          <button type="button" data-signal-lane="1" class="gate-button"
+            >Lane 2</button
+          >
+          <button type="button" data-signal-lane="2" class="gate-button"
+            >Lane 3</button
+          >
+          <button type="button" data-signal-lane="3" class="gate-button"
+            >Lane 4</button
+          >
+        </div>
+      </div>
+    </Card>
+  </div>
+
+  <div slot="game-info" class="space-y-6">
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ HOW TO PLAY
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink">
+        <p>Drones speed down four lanes toward your gate line.</p>
+        <p>Switch each lane's gate to match the incoming drone signal.</p>
+        <p>Lanes come online as the shift progresses — stay sharp.</p>
+        <p>Click a gate or press keys 1–4. Three crashes end the shift.</p>
+      </div>
+    </Card>
+
+    <Card variant="glass" class="p-6">
+      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
+        ▸ SCORING
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink">
+        <p>Each safe pass earns {SIGNAL_SWITCH_BASE_PASS_POINTS} points.</p>
+        <p>
+          Every combo step adds {SIGNAL_SWITCH_COMBO_STEP_POINTS} more points.
+        </p>
+        <p>A mismatched signal costs integrity; at zero, systems fail.</p>
+      </div>
+    </Card>
+  </div>
+
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Outcome: <span id="final-outcome" class="text-cetus-accent">—</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Safe passes: <span id="final-safe-passes" class="text-cetus-accent-2"
+        >0</span
+      >
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Crashes: <span id="final-crashes" class="text-cetus-accent-3">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Max combo: <span id="final-max-combo" class="text-cetus-accent">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Integrity remaining:
+      <span id="final-integrity" class="text-cetus-accent-2"
+        >{SIGNAL_SWITCH_RULES.startingIntegrity}</span
+      >
+    </div>
+  </div>
+</GamePage>
+
+<script>
+  import { initSignalSwitchGameFramework } from '@/lib/games/signal-switch/initFramework'
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initSignalSwitchGameFramework()
+      .then(handle => {
+        if (handle) {
+          ;(
+            window as Window & { signalSwitchGame?: typeof handle }
+          ).signalSwitchGame = handle
+        }
+      })
+      .catch(error => {
+        console.error('Signal Switch failed to initialize', error)
+      })
+  })
+</script>
+
+<style>
+  #signal-switch-canvas :global(canvas) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    touch-action: manipulation;
+  }
+  .gate-button {
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.875rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    color: var(--cetus-accent);
+    background: color-mix(in srgb, var(--cetus-accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cetus-accent) 25%, transparent);
+    transition:
+      background-color 80ms ease,
+      border-color 80ms ease;
+  }
+  .gate-button:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--cetus-accent) 18%, transparent);
+    border-color: color-mix(in srgb, var(--cetus-accent) 50%, transparent);
+  }
+  .gate-button:focus-visible {
+    outline: 2px solid var(--cetus-accent);
+    outline-offset: 2px;
+  }
+  .gate-button:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+</style>
