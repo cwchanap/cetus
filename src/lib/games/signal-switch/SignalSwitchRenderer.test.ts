@@ -78,6 +78,7 @@ function graphicAt(index: number): MockGraphics {
 }
 
 const MARKER_RADIUS = 7
+const GATE_MARKER_RADIUS = 9
 
 function makeState(): SignalSwitchState {
     return {
@@ -305,6 +306,132 @@ describe('SignalSwitchRenderer', () => {
         expect(scene.fill.mock.calls).toContainEqual([
             { color: SIGNAL_SWITCH_SIGNALS.amber.color, alpha: 0.9 },
         ])
+    })
+
+    it('draws the live gate signal for every active lane at gateX', async () => {
+        const gameConfig = createSignalSwitchConfig()
+        const laneHeight =
+            gameConfig.canvasHeight / gameConfig.laneUnlockSeconds.length
+        renderer = new SignalSwitchRenderer(
+            createSignalSwitchRendererConfig(gameConfig)
+        )
+        await renderer.initialize()
+
+        const state = makeState()
+        state.activeLaneCount = 2
+        state.drones = []
+        renderer.render(state)
+
+        const scene = graphicAt(1)
+
+        // Lane 0 gate is cyan: circle geometry at (gateX, lane center).
+        expect(scene.circle).toHaveBeenCalledWith(
+            gameConfig.gateX,
+            laneHeight * 0.5,
+            GATE_MARKER_RADIUS
+        )
+        // Lane 1 gate is magenta: triangle path at its lane center.
+        const magentaGateY = laneHeight * 1.5
+        expect(scene.moveTo.mock.calls).toContainEqual([
+            gameConfig.gateX,
+            magentaGateY - GATE_MARKER_RADIUS,
+        ])
+        expect(scene.lineTo.mock.calls).toContainEqual([
+            gameConfig.gateX + GATE_MARKER_RADIUS,
+            magentaGateY + GATE_MARKER_RADIUS,
+        ])
+        expect(scene.lineTo.mock.calls).toContainEqual([
+            gameConfig.gateX - GATE_MARKER_RADIUS,
+            magentaGateY + GATE_MARKER_RADIUS,
+        ])
+        expect(scene.lineTo.mock.calls).toContainEqual([
+            gameConfig.gateX,
+            magentaGateY - GATE_MARKER_RADIUS,
+        ])
+
+        expect(scene.fill.mock.calls).toContainEqual([
+            { color: SIGNAL_SWITCH_SIGNALS.cyan.color, alpha: 0.9 },
+        ])
+        expect(scene.fill.mock.calls).toContainEqual([
+            { color: SIGNAL_SWITCH_SIGNALS.magenta.color, alpha: 0.9 },
+        ])
+    })
+
+    it('redraws a lane gate with new geometry and color when its signal changes', async () => {
+        const gameConfig = createSignalSwitchConfig()
+        const laneHeight =
+            gameConfig.canvasHeight / gameConfig.laneUnlockSeconds.length
+        const gateY = laneHeight * 0.5
+        renderer = new SignalSwitchRenderer(
+            createSignalSwitchRendererConfig(gameConfig)
+        )
+        await renderer.initialize()
+
+        const state = makeState()
+        state.activeLaneCount = 1
+        state.drones = []
+        renderer.render(state)
+
+        const scene = graphicAt(1)
+
+        // Cyan gate draws a circle, not a triangle.
+        expect(
+            scene.circle.mock.calls.filter(
+                call =>
+                    call[0] === gameConfig.gateX &&
+                    call[1] === gateY &&
+                    call[2] === GATE_MARKER_RADIUS
+            )
+        ).toHaveLength(1)
+        expect(scene.moveTo.mock.calls).not.toContainEqual([
+            gameConfig.gateX,
+            gateY - GATE_MARKER_RADIUS,
+        ])
+
+        // Switching the same lane to magenta swaps in the triangle path
+        // with the magenta catalog color on the next render.
+        state.gateSignals[0] = 'magenta'
+        renderer.render(state)
+
+        expect(scene.moveTo.mock.calls).toContainEqual([
+            gameConfig.gateX,
+            gateY - GATE_MARKER_RADIUS,
+        ])
+        expect(scene.lineTo.mock.calls).toContainEqual([
+            gameConfig.gateX + GATE_MARKER_RADIUS,
+            gateY + GATE_MARKER_RADIUS,
+        ])
+        expect(scene.lineTo.mock.calls).toContainEqual([
+            gameConfig.gateX - GATE_MARKER_RADIUS,
+            gateY + GATE_MARKER_RADIUS,
+        ])
+        expect(scene.fill.mock.calls).toContainEqual([
+            { color: SIGNAL_SWITCH_SIGNALS.magenta.color, alpha: 0.9 },
+        ])
+    })
+
+    it('leaves locked lanes without any gate marker', async () => {
+        const gameConfig = createSignalSwitchConfig()
+        const laneHeight =
+            gameConfig.canvasHeight / gameConfig.laneUnlockSeconds.length
+        renderer = new SignalSwitchRenderer(
+            createSignalSwitchRendererConfig(gameConfig)
+        )
+        await renderer.initialize()
+
+        const state = makeState()
+        state.activeLaneCount = 2
+        state.drones = []
+        renderer.render(state)
+
+        const scene = graphicAt(1)
+        const markerYs = [
+            ...scene.circle.mock.calls.map(call => call[1]),
+            ...scene.moveTo.mock.calls.map(call => call[1]),
+        ]
+        for (const y of markerYs) {
+            expect(y).toBeLessThan(laneHeight * 2)
+        }
     })
 
     it('shades locked lanes with a translucent full-lane overlay', async () => {

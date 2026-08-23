@@ -480,6 +480,10 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('Reset restores idle HUD and controls', async () => {
+        const totalLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.length
+        const startingLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.filter(
+            unlockAt => unlockAt <= 0
+        ).length
         handle = await initSignalSwitchGameFramework()
         ;(
             handle!.game as unknown as { config: { gateX: number } }
@@ -508,7 +512,7 @@ describe('initSignalSwitchGameFramework', () => {
         ).toHaveTextContent(String(SIGNAL_SWITCH_RULES.startingIntegrity))
         expect(
             document.getElementById('signal-switch-lanes')
-        ).toHaveTextContent('2 / 4')
+        ).toHaveTextContent(`${startingLanes} / ${totalLanes}`)
         for (const button of laneButtons()) {
             expect(button.disabled).toBe(true)
         }
@@ -538,6 +542,11 @@ describe('initSignalSwitchGameFramework', () => {
         expect(document.getElementById('final-crashes')).toHaveTextContent(
             String(SIGNAL_SWITCH_RULES.startingIntegrity)
         )
+        // Terminal callback must re-sync controls: active-lane buttons are
+        // enabled during the run and would otherwise stay enabled.
+        for (const button of laneButtons()) {
+            expect(button.disabled).toBe(true)
+        }
     })
 
     it('timeout shows SHIFT COMPLETE / Survived', async () => {
@@ -557,6 +566,9 @@ describe('initSignalSwitchGameFramework', () => {
         expect(document.getElementById('final-outcome')).toHaveTextContent(
             'Survived'
         )
+        for (const button of laneButtons()) {
+            expect(button.disabled).toBe(true)
+        }
     })
 
     it('Play Again immediately starts a fresh run', async () => {

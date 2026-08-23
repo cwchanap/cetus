@@ -3,7 +3,10 @@ import GamePage from '@/components/games/GamePage.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
 import Card from '@/components/ui/Card.astro'
-import { SIGNAL_SWITCH_RULES } from '@/lib/games/signal-switch/types'
+import {
+  SIGNAL_SWITCH_RULES,
+  SIGNAL_SWITCH_SIGNALS,
+} from '@/lib/games/signal-switch/types'
 import {
   SIGNAL_SWITCH_BASE_PASS_POINTS,
   SIGNAL_SWITCH_COMBO_STEP_POINTS,
@@ -13,6 +16,9 @@ const totalLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.length
 const startingLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.filter(
   unlockAt => unlockAt <= 0
 ).length
+// Static pre-hydration markup: every gate starts on the deterministic Cyan
+// state; the initializer owns updates once hydrated.
+const { glyph: initialGlyph, label: initialLabel } = SIGNAL_SWITCH_SIGNALS.cyan
 ---
 
 <GamePage
@@ -86,17 +92,29 @@ const startingLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.filter(
           aria-label="Lane gates"
           class="grid w-full grid-cols-2 gap-2"
         >
-          <button type="button" data-signal-lane="0" class="gate-button"
-            >Lane 1</button
+          <button
+            type="button"
+            data-signal-lane="0"
+            class="gate-button"
+            disabled>Lane 1: {initialGlyph} {initialLabel}</button
           >
-          <button type="button" data-signal-lane="1" class="gate-button"
-            >Lane 2</button
+          <button
+            type="button"
+            data-signal-lane="1"
+            class="gate-button"
+            disabled>Lane 2: {initialGlyph} {initialLabel}</button
           >
-          <button type="button" data-signal-lane="2" class="gate-button"
-            >Lane 3</button
+          <button
+            type="button"
+            data-signal-lane="2"
+            class="gate-button"
+            disabled>Lane 3: {initialGlyph} {initialLabel}</button
           >
-          <button type="button" data-signal-lane="3" class="gate-button"
-            >Lane 4</button
+          <button
+            type="button"
+            data-signal-lane="3"
+            class="gate-button"
+            disabled>Lane 4: {initialGlyph} {initialLabel}</button
           >
         </div>
       </div>
