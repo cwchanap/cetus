@@ -42,6 +42,7 @@ export enum GameID {
     PATTERN_PULSE = 'pattern_pulse',
     GRAVITY_FLIP = 'gravity_flip',
     POTION_SORTER = 'potion_sorter',
+    SIGNAL_SWITCH = 'signal_switch',
 }
 
 // Game system types
@@ -392,6 +393,7 @@ const GAME_ICONS: Record<GameID, string> = {
     [GameID.PATTERN_PULSE]: '🔁',
     [GameID.GRAVITY_FLIP]: '🌗',
     [GameID.POTION_SORTER]: '🧪',
+    [GameID.SIGNAL_SWITCH]: '🚦',
 }
 
 // Game icon helper function
