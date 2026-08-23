@@ -27,6 +27,8 @@
 - `BaseGame.ts`, `GameTimer.ts`, `ScoreManager.ts`, `GameInitializer.ts`, `PixiJSRenderer.ts`, score service, API routes, DB/schema, and packages remain production-unchanged.
 - Follow Signal Switch's seams; do **not** import/extend Signal Switch game constants or scorer.
 - Reuse the existing exported identifier `isEditableTarget`; do not add another editable-target helper.
+- Timing tests that advance simulation must respect `maxUpdateDelta`; use repeated bounded steps plus an exact final remainder, never a single large update that the game clamps.
+- Note rendering must use direct linear arithmetic rather than shared `lerp`, because the shared helper clamps interpolation to `0..1` and would pin late-but-still-Good notes on the hit line.
 - Run the manual-play tuning checkpoint after Task 4 and before Task 5 freezes chart content and achievement thresholds.
 
 ---
@@ -349,19 +351,29 @@ constructor(
 
 - [ ] **Step 1: Write failing stable-ID/model tests**
 
-Use tiny explicit charts for timing boundaries:
+Use tiny explicit charts for timing boundaries. Because `update()` clamps every accepted delta to `maxUpdateDelta`, use a small helper for deterministic advancement rather than a single large update:
 
 ```ts
+function advanceGame(
+    game: RhythmReactorGame,
+    seconds: number,
+    maxStep = createRhythmReactorConfig().maxUpdateDelta
+): void {
+    let remaining = seconds
+    while (remaining > 1e-9) {
+        const step = Math.min(maxStep, remaining)
+        game.update(step)
+        remaining -= step
+    }
+}
+
 const oneNote = [
     { id: 'note-0', laneIndex: 0 as const, hitTimeSeconds: 2 },
 ]
-const game = new RhythmReactorGame(
-    createRhythmReactorConfig(),
-    {},
-    oneNote
-)
+const config = createRhythmReactorConfig()
+const game = new RhythmReactorGame(config, {}, oneNote)
 game.start()
-game.update(1.92)
+advanceGame(game, 1.92, config.maxUpdateDelta)
 expect(game.hitLane(0)).toMatchObject({
     judgment: 'perfect',
     points: 100,
@@ -371,7 +383,7 @@ expect(game.hitLane(0)).toMatchObject({
 Required cases:
 
 - initial state clones `createRhythmReactorChart()` and uses configured initial stability;
-- exact `-perfectWindow` / `+perfectWindow` are Perfect;
+- exact `-perfectWindow` / `+perfectWindow` are Perfect, reached with repeated bounded updates plus an exact final remainder;
 - just outside Perfect through exact `±goodWindow` are Good;
 - past Good window is a miss;
 - closest same-lane note is selected when two are near;
@@ -552,7 +564,7 @@ With Pixi graphics mocked like Signal Switch renderer tests, prove:
 - note farther than `approachSeconds` is not drawn;
 - `timeUntilHit === approachSeconds` puts note at spawn Y;
 - `timeUntilHit === 0` centers note on hit line;
-- late-but-pending note moves past hit line instead of freezing;
+- late-but-pending note has `y > hitLineY`, proving interpolation is not clamped;
 - cleanup destroys local graphics then base resources.
 
 - [ ] **Step 2: Run renderer test and verify RED**
@@ -563,7 +575,7 @@ bun run test:run -- src/lib/games/rhythm-reactor/RhythmReactorRenderer.test.ts
 
 - [ ] **Step 3: Implement two-layer renderer**
 
-Use fixed logical board; no sprites/textures/pooling.
+Use fixed logical board; no sprites/textures/pooling. Do **not** call shared `lerp` here: that helper clamps `t` to `0..1`, while a note inside the late Good window needs to travel just past the hit line.
 
 ```ts
 private noteY(
@@ -573,15 +585,14 @@ private noteY(
     const timeUntilHit = note.hitTimeSeconds - elapsedSeconds
     const progress =
         1 - timeUntilHit / this.rhythmConfig.approachSeconds
-    return lerp(
-        this.rhythmConfig.noteSpawnY,
-        this.rhythmConfig.hitLineY,
-        progress
+    return (
+        this.rhythmConfig.noteSpawnY +
+        (this.rhythmConfig.hitLineY - this.rhythmConfig.noteSpawnY) * progress
     )
 }
 ```
 
-Do not clamp progress at 1; the visible late Good window passes the line naturally. Only draw unresolved notes where:
+Only draw unresolved notes where:
 
 ```ts
 note.hitTimeSeconds - state.elapsedSeconds <= approachSeconds
@@ -805,7 +816,7 @@ Open `/rhythm-reactor` on desktop and a 375px viewport. Check:
 2. **Timing feel:** initial Perfect/Good windows are usable on keyboard + touch.
 3. **Chart density:** Warmup → Core → Surge progression stays readable; Surge is not a visual wall.
 4. **Stability feel:** misses matter and a competent run can recover/trend upward.
-5. **Visual sync:** note center meets hit line at judgment time.
+5. **Visual sync:** note center meets hit line at judgment time, and a late-but-still-Good note continues just beyond it rather than sticking to the line.
 
 Allowed tuning knobs **at this checkpoint only**:
 
@@ -1256,6 +1267,8 @@ Do not create a second implementation PR for HPA-70.
 
 - **Spec coverage:** chart materialization/content, tuning gate, timing windows, input, scoring, stability, timeout settlement, visible HUD, reset/replay, Pixi renderer, responsive route, registration, shared game data, achievements, deterministic browser proof, and final gates map to Tasks 1–6.
 - **Chart freeze:** Task 1 pins current authored bytes/repeats/expanded lanes but derives aggregate count/time. Task 4 is the only tuning window. Task 5 freezes the manually played post-tuning data before achievements.
+- **Unit timing:** boundary fixtures advance in repeated steps no larger than `maxUpdateDelta`; tests never accidentally rely on a large delta that production clamps.
+- **Renderer math:** note Y uses direct linear arithmetic so late Good-window notes can move past the hit line; shared clamped `lerp` is intentionally not reused for this coordinate.
 - **E2E timing:** Perfect input never crosses an evaluate/Playwright gap; advancement + event dispatch are synchronous and exact to the target note.
 - **YAGNI:** no audio, calibration, selector, chart loader/editor, procedural generation, special notes, early meltdown, shared rhythm engine, core change, backend/schema work, or new package.
 - **Type consistency:** `RhythmReactorGameData` remains canonical in game `types.ts`; shared types alias it. Input converges on `hitLane(laneIndex)`. Renderer derives Y from hit time + elapsed time.
