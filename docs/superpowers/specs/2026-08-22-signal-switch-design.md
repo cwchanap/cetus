@@ -12,6 +12,22 @@ The run starts with two lanes, unlocks a third lane at 30 seconds and a fourth a
 
 The architecture stays local and deliberately small: `SignalSwitchGame` extends `BaseGame`, `SignalSwitchRenderer` extends `PixiJSRenderer`, and one game-local initializer owns a single requestAnimationFrame loop plus DOM controls. No shared lane/traffic/spawn/runner framework is introduced.
 
+## Review Resolution — 2026-08-22
+
+The second design review was checked against current `main` and the planning branch. Findings F1–F7 and F9 were accepted; F8 was accepted in intent with a less brittle assertion than the review's bare substring suggestion.
+
+1. **Opening saturation:** initial requested spawn interval changes from 2.2s to **3.2s**. A rule-derived phase-boundary test now protects lane-capacity headroom.
+2. **Tuning coupling:** balance/display tests derive values from `SIGNAL_SWITCH_RULES`; the manual-play checkpoint moves immediately after the first playable route and before registry/achievement/E2E freezes.
+3. **Signal metadata:** label, glyph, shape name, and color collapse into one `SIGNAL_SWITCH_SIGNALS` keyed catalog. Pixi keeps only its geometry switch.
+4. **Lane topology:** `laneUnlockSeconds: [0, 0, 30, 60]` replaces `maxLanes`, `startingLaneCount`, `lane3UnlockSeconds`, and `lane4UnlockSeconds`.
+5. **State emission:** the plan now explicitly defines Signal Switch's local private `emitStateChange()`; a BaseGame-wide migration stays out of scope.
+6. **Organism:** use `lattice/ice` and append the row normally; no array-position coupling is needed.
+7. **Background timeout:** `survivedFullRun` requires `outcome === 'survived' && safePasses > 0`, preventing a zero-activity Clean Shift award.
+8. **Markup bootstrap test:** use token ordering (`DOMContentLoaded` exists and the initializer call follows it) instead of formatting-sensitive exact source text.
+9. **Editable-target guard:** extract the already-identical predicate to `shared/utils.ts` and update Gravity Flip + Pattern Pulse when Signal Switch becomes the third consumer. Other initializer helpers remain local.
+
+The core architecture remains unchanged: BaseGame + local simulation time + one game-local rAF + two-layer Pixi renderer, one implementation PR, and no shared traffic/lane/spawn framework.
+
 ## Why HPA-71 Is Next
 
 Recent standalone-minigame work moved down the backlog sequence: HPA-75 Mine Grid, HPA-74 Pattern Pulse, HPA-73 Gravity Flip, then HPA-72 Potion Sorter. HPA-71 remains open and unblocked, so it is the next standalone minigame slice. HPA-70 Rhythm Reactor and HPA-68 Asteroid Drift remain later backlog items.
