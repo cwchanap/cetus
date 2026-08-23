@@ -412,3 +412,10 @@ describe('Gravity Flip registration', () => {
         ).toHaveLength(1)
     })
 })
+
+describe('Signal Switch stable ID and icon', () => {
+    it('has the stable id and icon', () => {
+        expect(GameID.SIGNAL_SWITCH).toBe('signal_switch')
+        expect(getGameIcon(GameID.SIGNAL_SWITCH)).toBe('🚦')
+    })
+})
