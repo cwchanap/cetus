@@ -16,6 +16,7 @@ import type {
     GravityFlipGameData,
     PotionSorterGameData,
     SignalSwitchGameData,
+    RhythmReactorGameData,
     GameHistoryEntry,
 } from './games/shared/types'
 
@@ -44,6 +45,7 @@ export type AchievementCheckData =
     | GravityFlipGameData
     | PotionSorterGameData
     | SignalSwitchGameData
+    | RhythmReactorGameData
     | Record<string, unknown>
 
 export interface Achievement {
@@ -1718,6 +1720,54 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'in_game',
             check: (gameData: SignalSwitchGameData) =>
                 gameData.survivedFullRun && gameData.safePasses >= 40,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+
+    // Rhythm Reactor achievements
+    {
+        id: 'rhythm_reactor_first_beat',
+        name: 'First Beat',
+        description: 'Score 100 points in Rhythm Reactor.',
+        logo: '🎵',
+        gameId: GameID.RHYTHM_REACTOR,
+        condition: { type: 'score_threshold', threshold: 100 },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'rhythm_reactor_chain_reaction',
+        name: 'Chain Reaction',
+        description: 'Reach a combo of 20 in Rhythm Reactor.',
+        logo: '🔗',
+        gameId: GameID.RHYTHM_REACTOR,
+        condition: {
+            type: 'in_game',
+            check: (data: RhythmReactorGameData) => data.maxCombo >= 20,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'rhythm_reactor_precision_control',
+        name: 'Precision Control',
+        description: 'Finish with at least 90% weighted accuracy.',
+        logo: '🎯',
+        gameId: GameID.RHYTHM_REACTOR,
+        condition: {
+            type: 'in_game',
+            check: (data: RhythmReactorGameData) => data.accuracy >= 90,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+    {
+        id: 'rhythm_reactor_coolant_reserve',
+        name: 'Coolant Reserve',
+        description: 'Finish with at least 60 hits and 90 reactor stability.',
+        logo: '❄️',
+        gameId: GameID.RHYTHM_REACTOR,
+        condition: {
+            type: 'in_game',
+            check: (data: RhythmReactorGameData) =>
+                data.hits >= 60 && data.finalStability >= 90,
         },
         rarity: AchievementRarity.EPIC,
     },
