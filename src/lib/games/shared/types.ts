@@ -132,6 +132,10 @@ export type PotionSorterGameData =
 export type SignalSwitchGameData =
     import('../signal-switch/types').SignalSwitchGameData
 
+// Rhythm Reactor-specific game data (canonical definition in rhythm-reactor/types.ts)
+export type RhythmReactorGameData =
+    import('../rhythm-reactor/types').RhythmReactorGameData
+
 // Union type for all game data
 export type GameData =
     | TetrisGameData
@@ -154,6 +158,7 @@ export type GameData =
     | GravityFlipGameData
     | PotionSorterGameData
     | SignalSwitchGameData
+    | RhythmReactorGameData
 
 // Common game stats returned from games
 export interface GameStats {
