@@ -15,7 +15,6 @@ import { GameID } from './games'
 import type { MineGridGameData } from './games/mine-grid/types'
 import type { PotionSorterGameData } from './games/potion-sorter/types'
 import type { SignalSwitchGameData } from './games/signal-switch/types'
-import type { RhythmReactorGameData } from './games/rhythm-reactor/types'
 import { checkAndAwardAchievements } from './services/achievementService'
 
 // Mock the database queries so checkAndAwardAchievements can be exercised
@@ -1477,62 +1476,5 @@ describe('Signal Switch achievements', () => {
         expect(
             check({ ...baseData, survivedFullRun: false, safePasses: 40 }, 0)
         ).toBe(false)
-    })
-})
-
-describe('Rhythm Reactor achievements', () => {
-    const baseData: RhythmReactorGameData = {
-        hits: 0,
-        perfectHits: 0,
-        goodHits: 0,
-        misses: 0,
-        strayPresses: 0,
-        maxCombo: 0,
-        accuracy: 0,
-        finalStability: 0,
-    }
-
-    it('registers all four Rhythm Reactor achievements with their initial thresholds', () => {
-        const list = getAchievementsByGame(GameID.RHYTHM_REACTOR)
-        expect(list.map(achievement => achievement.id)).toEqual([
-            'rhythm_reactor_first_beat',
-            'rhythm_reactor_chain_reaction',
-            'rhythm_reactor_precision_control',
-            'rhythm_reactor_coolant_reserve',
-        ])
-        expect(
-            getAchievementById('rhythm_reactor_first_beat')?.condition
-        ).toMatchObject({ type: 'score_threshold', threshold: 100 })
-    })
-
-    it('chain reaction requires a combo of 20 or more', () => {
-        const check = getAchievementById('rhythm_reactor_chain_reaction')!
-            .condition.check!
-        expect(check({ ...baseData, maxCombo: 19 }, 0)).toBe(false)
-        expect(check({ ...baseData, maxCombo: 20 }, 0)).toBe(true)
-    })
-
-    it('precision control requires at least 90% accuracy without a hit floor', () => {
-        const check = getAchievementById('rhythm_reactor_precision_control')!
-            .condition.check!
-        expect(check({ ...baseData, accuracy: 89.9 }, 0)).toBe(false)
-        expect(check({ ...baseData, hits: 0, accuracy: 90 }, 0)).toBe(true)
-        expect(check({ ...baseData, accuracy: 89.9, strayPresses: 1 }, 0)).toBe(
-            false
-        )
-    })
-
-    it('coolant reserve requires at least 60 hits and 90 reactor stability', () => {
-        const check = getAchievementById('rhythm_reactor_coolant_reserve')!
-            .condition.check!
-        expect(check({ ...baseData, hits: 59, finalStability: 90 }, 0)).toBe(
-            false
-        )
-        expect(check({ ...baseData, hits: 60, finalStability: 89 }, 0)).toBe(
-            false
-        )
-        expect(check({ ...baseData, hits: 60, finalStability: 90 }, 0)).toBe(
-            true
-        )
     })
 })

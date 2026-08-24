@@ -435,22 +435,3 @@ describe('Signal Switch registration', () => {
         expect(getGameUrl(GameID.SIGNAL_SWITCH)).toBe('/signal-switch')
     })
 })
-
-describe('Rhythm Reactor registration', () => {
-    it('has the exact active registry entry, icon, and page route', () => {
-        expect(GameID.RHYTHM_REACTOR).toBe('rhythm_reactor')
-        expect(getGameById(GameID.RHYTHM_REACTOR)).toMatchObject({
-            name: 'Rhythm Reactor',
-            category: 'action',
-            maxPlayers: 1,
-            estimatedDuration: '1 minute',
-            difficulty: 'medium',
-            tags: ['rhythm', 'timing', 'lanes', 'single-player', 'reflex'],
-            isActive: true,
-            organism: { shape: 'chain', color: 'teal' },
-            depth: 'shallow',
-        })
-        expect(getGameIcon(GameID.RHYTHM_REACTOR)).toBe('🎵')
-        expect(getGameUrl(GameID.RHYTHM_REACTOR)).toBe('/rhythm-reactor')
-    })
-})

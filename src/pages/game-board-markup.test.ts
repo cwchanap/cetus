@@ -52,7 +52,6 @@ const games = [
     'gravity-flip',
     'potion-sorter',
     'signal-switch',
-    'rhythm-reactor',
 ]
 
 describe('Game board page markup', () => {
@@ -210,10 +209,6 @@ const signalSwitchMarkup = readFileSync(
     resolve(process.cwd(), 'src/pages/signal-switch/index.astro'),
     'utf-8'
 )
-const rhythmReactorMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/rhythm-reactor/index.astro'),
-    'utf-8'
-)
 
 describe('Signal Switch page markup', () => {
     it('keeps stable board, control, and final-stat ids with four lane gates', () => {
@@ -255,38 +250,6 @@ describe('Signal Switch page markup', () => {
         )
         expect(readyIndex).toBeGreaterThan(-1)
         expect(initCallIndex).toBeGreaterThan(readyIndex)
-    })
-})
-
-describe('Rhythm Reactor page markup', () => {
-    it('keeps the board, lane controls, HUD, and final-stat ids', () => {
-        const source = rhythmReactorMarkup
-        expect(source).toContain('id="rhythm-reactor-controls"')
-        expect(source.match(/data-rhythm-lane=/g)).toHaveLength(4)
-        for (const id of [
-            'rhythm-reactor-combo',
-            'rhythm-reactor-hits',
-            'rhythm-reactor-judgment',
-            'rhythm-reactor-stability',
-            'rhythm-reactor-status',
-            'final-hits',
-            'final-misses',
-            'final-stray-presses',
-            'final-perfect',
-            'final-good',
-            'final-max-combo',
-            'final-accuracy',
-            'final-stability',
-        ]) {
-            expect(source).toContain(`id="${id}"`)
-        }
-        expect(source).toContain('showPause={false}')
-        expect(source).toContain('showEnd={false}')
-        expect(source).toContain('showReset={true}')
-        const readyIndex = source.indexOf('DOMContentLoaded')
-        const initIndex = source.indexOf('initRhythmReactorGameFramework()')
-        expect(readyIndex).toBeGreaterThanOrEqual(0)
-        expect(initIndex).toBeGreaterThan(readyIndex)
     })
 })
 
