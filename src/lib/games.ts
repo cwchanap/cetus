@@ -341,6 +341,20 @@ export const GAMES: Game[] = [
         organism: { shape: 'lattice', color: 'ice' },
         depth: 'shallow',
     },
+    {
+        id: GameID.RHYTHM_REACTOR,
+        name: 'Rhythm Reactor',
+        description:
+            'Hit falling reactor beats on time to build combo and keep the core stable',
+        category: 'action',
+        maxPlayers: 1,
+        estimatedDuration: '1 minute',
+        difficulty: 'medium',
+        tags: ['rhythm', 'timing', 'lanes', 'single-player', 'reflex'],
+        isActive: true,
+        organism: { shape: 'chain', color: 'teal' },
+        depth: 'shallow',
+    },
 ]
 
 // Helper functions

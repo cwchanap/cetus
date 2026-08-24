@@ -52,7 +52,7 @@ describe('organism registry', () => {
     })
 
     it('partitions games into 7 / 9 / 4 by depth', () => {
-        expect(getGamesByDepth('shallow')).toHaveLength(7)
+        expect(getGamesByDepth('shallow')).toHaveLength(8)
         expect(getGamesByDepth('mid')).toHaveLength(9)
         expect(getGamesByDepth('abyssal')).toHaveLength(4)
         // no game is double-counted
