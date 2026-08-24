@@ -153,7 +153,9 @@ export async function initRhythmReactorGameFramework(): Promise<
             announce(
                 state.strayPresses > lastAnnouncedStrayPresses
                     ? 'Stray press.'
-                    : `${state.lastJudgment.toUpperCase()} hit.`
+                    : state.lastJudgment === 'miss'
+                      ? 'Miss.'
+                      : `${state.lastJudgment.toUpperCase()} hit.`
             )
         }
         lastJudgmentAnnouncement = announcementKey

@@ -344,6 +344,20 @@ describe('initRhythmReactorGameFramework', () => {
         expect(statusText()).toContain('complete')
     })
 
+    it('announces a note miss as "Miss." rather than "MISS hit."', async () => {
+        handle = await initRhythmReactorGameFramework()
+        handle!.game.start()
+        // First chart note hits at 2.0s with a 0.4s miss window; advance past
+        // 2.4s without hitting it so it auto-expires into a non-stray miss.
+        for (let index = 0; index < 25; index += 1) {
+            handle!.game.update(0.1)
+        }
+
+        expect(handle!.game.getState().misses).toBeGreaterThan(0)
+        expect(handle!.game.getState().strayPresses).toBe(0)
+        expect(statusText()).toBe('Miss.')
+    })
+
     it('reset restores idle HUD, controls, timer, and overlay', async () => {
         handle = await initRhythmReactorGameFramework()
         advanceToFirstNote(handle!)
