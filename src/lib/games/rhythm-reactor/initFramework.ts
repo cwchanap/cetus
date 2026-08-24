@@ -268,8 +268,16 @@ export async function initRhythmReactorGameFramework(): Promise<
             keyboardEvent.ctrlKey ||
             keyboardEvent.metaKey ||
             keyboardEvent.altKey ||
-            isEditableTarget(keyboardEvent.target) ||
-            keyboardEvent.target instanceof HTMLButtonElement
+            isEditableTarget(keyboardEvent.target)
+        ) {
+            return
+        }
+        // Enter/Space on a focused button synthesizes a click, which would
+        // double-fire lane hits through laneClickHandler. Lane keys (D/F/J/K)
+        // must stay reachable while a lane button holds focus.
+        if (
+            keyboardEvent.target instanceof HTMLButtonElement &&
+            (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ')
         ) {
             return
         }
