@@ -105,6 +105,10 @@ export class RhythmReactorGame extends BaseGame<
             return { accepted: false, judgment: null, points: 0 }
         }
 
+        // Judgment sequence: expire overdue notes first, then pick the nearest
+        // note inside this lane's miss window (each note is consumed at most
+        // once), apply inclusive perfect/good timing windows, or record a
+        // stray press when nothing qualifies.
         this.expireOverdueNotes()
 
         let candidateIndex = -1

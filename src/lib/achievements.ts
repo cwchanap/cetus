@@ -1742,7 +1742,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         gameId: GameID.RHYTHM_REACTOR,
         condition: {
             type: 'in_game',
-            check: (data: RhythmReactorGameData) => data.maxCombo >= 20,
+            check: (gameData: RhythmReactorGameData) => gameData.maxCombo >= 20,
         },
         rarity: AchievementRarity.RARE,
     },
@@ -1754,7 +1754,7 @@ export const ACHIEVEMENTS: Achievement[] = [
         gameId: GameID.RHYTHM_REACTOR,
         condition: {
             type: 'in_game',
-            check: (data: RhythmReactorGameData) => data.accuracy >= 90,
+            check: (gameData: RhythmReactorGameData) => gameData.accuracy >= 90,
         },
         rarity: AchievementRarity.EPIC,
     },
@@ -1766,8 +1766,8 @@ export const ACHIEVEMENTS: Achievement[] = [
         gameId: GameID.RHYTHM_REACTOR,
         condition: {
             type: 'in_game',
-            check: (data: RhythmReactorGameData) =>
-                data.hits >= 60 && data.finalStability >= 90,
+            check: (gameData: RhythmReactorGameData) =>
+                gameData.hits >= 60 && gameData.finalStability >= 90,
         },
         rarity: AchievementRarity.EPIC,
     },

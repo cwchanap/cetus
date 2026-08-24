@@ -240,7 +240,7 @@ describe('initRhythmReactorGameFramework', () => {
         expect(hitLane.mock.calls.map(([lane]) => lane)).toEqual([0, 1, 2, 3])
     })
 
-    it('ignores repeat, modifier, editable, and native-button keyboard events', async () => {
+    it('ignores repeat, modifier, and editable keyboard events', async () => {
         handle = await initRhythmReactorGameFramework()
         const hitLane = vi.spyOn(handle!.game, 'hitLane')
         handle!.game.start()
@@ -276,11 +276,31 @@ describe('initRhythmReactorGameFramework', () => {
                 })
             )
         }
+
+        expect(hitLane).not.toHaveBeenCalled()
+    })
+
+    it('routes lane keys past focused buttons but suppresses Enter/Space activation keys', async () => {
+        handle = await initRhythmReactorGameFramework()
+        const hitLane = vi.spyOn(handle!.game, 'hitLane')
+        hitLane.mockReturnValue({ accepted: true, judgment: 'miss', points: 0 })
+        handle!.game.start()
+
+        laneButtons()[0].focus()
         laneButtons()[0].dispatchEvent(
             new KeyboardEvent('keydown', { key: 'd', bubbles: true })
         )
+        laneButtons()[1].focus()
+        laneButtons()[1].dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+        )
+        laneButtons()[2].focus()
+        laneButtons()[2].dispatchEvent(
+            new KeyboardEvent('keydown', { key: ' ', bubbles: true })
+        )
 
-        expect(hitLane).not.toHaveBeenCalled()
+        expect(hitLane).toHaveBeenCalledTimes(1)
+        expect(hitLane).toHaveBeenCalledWith(0)
     })
 
     it('hides Start and enables lanes when a run starts', async () => {
