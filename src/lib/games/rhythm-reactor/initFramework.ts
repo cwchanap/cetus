@@ -140,17 +140,24 @@ export async function initRhythmReactorGameFramework(): Promise<
     }
 
     let lastJudgmentAnnouncement = ''
+    let lastAnnouncedStrayPresses = 0
     const trackAnnouncements = (state: RhythmReactorState): void => {
         if (!state.lastJudgment) {
             lastJudgmentAnnouncement = `${state.perfectHits}:${state.goodHits}:${state.misses}:${state.strayPresses}:`
+            lastAnnouncedStrayPresses = state.strayPresses
             return
         }
 
         const announcementKey = `${state.perfectHits}:${state.goodHits}:${state.misses}:${state.strayPresses}:${state.lastJudgment}`
         if (announcementKey !== lastJudgmentAnnouncement) {
-            announce(`${state.lastJudgment.toUpperCase()} hit.`)
+            announce(
+                state.strayPresses > lastAnnouncedStrayPresses
+                    ? 'Stray press.'
+                    : `${state.lastJudgment.toUpperCase()} hit.`
+            )
         }
         lastJudgmentAnnouncement = announcementKey
+        lastAnnouncedStrayPresses = state.strayPresses
     }
 
     const enhancedCallbacks: BaseGameCallbacks = {

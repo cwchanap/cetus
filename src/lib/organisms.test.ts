@@ -51,7 +51,7 @@ describe('organism registry', () => {
         expect(getDepth(GameID.REFLEX)).toBe('shallow')
     })
 
-    it('partitions games into 7 / 9 / 4 by depth', () => {
+    it('partitions games into 8 / 9 / 4 by depth', () => {
         expect(getGamesByDepth('shallow')).toHaveLength(8)
         expect(getGamesByDepth('mid')).toHaveLength(9)
         expect(getGamesByDepth('abyssal')).toHaveLength(4)
