@@ -16,7 +16,7 @@ export interface RhythmReactorRendererConfig extends PixiJSRendererConfig {
     hitLineY: number
 }
 
-const NOTE_HEIGHT = 18
+export const NOTE_HEIGHT = 18
 const STABILITY_X = 20
 const STABILITY_Y = 16
 const STABILITY_WIDTH = 100
@@ -130,10 +130,12 @@ export class RhythmReactorRenderer extends PixiJSRenderer {
         const laneWidth = width / this.rhythmConfig.laneCount
         const noteWidth = laneWidth * 0.55
         const x = note.laneIndex * laneWidth + (laneWidth - noteWidth) / 2
+        // noteY() returns the note CENTER so the visual center crosses the
+        // hit line at model hit time; draw the rect above by half its height.
         const y = this.noteY(note, elapsedSeconds)
 
         graphic
-            .roundRect(x, y, noteWidth, NOTE_HEIGHT, 6)
+            .roundRect(x, y - NOTE_HEIGHT / 2, noteWidth, NOTE_HEIGHT, 6)
             .fill({ color: 0xf472b6, alpha: 0.95 })
     }
 
@@ -155,6 +157,8 @@ export class RhythmReactorRenderer extends PixiJSRenderer {
         graphic.fill({ color: 0x34d399, alpha: 0.95 })
     }
 
+    // Returns the note CENTER y at the given elapsed time. At hit time the
+    // center equals hitLineY; callers offset by half the note height.
     private noteY(note: RhythmReactorNote, elapsedSeconds: number): number {
         const timeUntilHit = note.hitTimeSeconds - elapsedSeconds
         const progress = 1 - timeUntilHit / this.rhythmConfig.approachSeconds

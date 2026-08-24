@@ -52,6 +52,7 @@ vi.mock('pixi.js', () => {
 import { Application, Graphics } from 'pixi.js'
 import {
     createRhythmReactorRendererConfig,
+    NOTE_HEIGHT,
     RhythmReactorRenderer,
 } from './RhythmReactorRenderer'
 import { createRhythmReactorConfig } from './RhythmReactorGame'
@@ -209,11 +210,11 @@ describe('RhythmReactorRenderer', () => {
         )
 
         expect(graphicAt(1).roundRect.mock.calls[0]?.[1]).toBe(
-            config.noteSpawnY
+            config.noteSpawnY - NOTE_HEIGHT / 2
         )
     })
 
-    it('draws a note at hit time on the hit line', async () => {
+    it('draws a note at hit time centered on the hit line', async () => {
         const config = createRhythmReactorConfig()
         renderer = new RhythmReactorRenderer(
             createRhythmReactorRendererConfig(config)
@@ -227,7 +228,9 @@ describe('RhythmReactorRenderer', () => {
             })
         )
 
-        expect(graphicAt(1).roundRect.mock.calls[0]?.[1]).toBe(config.hitLineY)
+        const rectY = graphicAt(1).roundRect.mock.calls[0]?.[1]
+        expect(rectY).toBe(config.hitLineY - NOTE_HEIGHT / 2)
+        expect(rectY + NOTE_HEIGHT / 2).toBe(config.hitLineY)
     })
 
     it('lets a pending note in the late Miss window render below the hit line', async () => {
@@ -244,9 +247,8 @@ describe('RhythmReactorRenderer', () => {
             })
         )
 
-        expect(graphicAt(1).roundRect.mock.calls[0]?.[1]).toBeGreaterThan(
-            config.hitLineY
-        )
+        const rectY = graphicAt(1).roundRect.mock.calls[0]?.[1]
+        expect(rectY + NOTE_HEIGHT / 2).toBeGreaterThan(config.hitLineY)
     })
 
     it('draws the stability indicator from the current stability', async () => {

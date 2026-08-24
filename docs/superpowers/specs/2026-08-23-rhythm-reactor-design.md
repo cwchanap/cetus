@@ -361,7 +361,7 @@ Automatic note expiry occurs only after the wider Miss window:
 elapsedSeconds > hitTimeSeconds + missWindowSeconds
 ```
 
-The initializer ignores key repeat, Ctrl/Meta/Alt, editable targets, and keyboard events originating from native lane buttons. Enter/Space on a focused lane button still uses the button's native click path.
+The initializer ignores key repeat, Ctrl/Meta/Alt, and editable targets. Lane keys (`D`/`F`/`J`/`K`) are handled even when a native lane button has focus, so keyboard play stays reachable after a button press. Only `Enter`/`Space` on a focused lane button are suppressed, since the browser synthesizes a click for those and would otherwise double-fire lane hits through the delegated click handler.
 
 ## State and Feedback
 
