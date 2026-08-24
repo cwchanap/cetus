@@ -58,7 +58,7 @@ afterEach(() => {
 })
 
 describe('Rhythm Reactor identity and config', () => {
-    it('has a stable ID and icon without a catalog row', () => {
+    it('uses the expected stable ID and icon', () => {
         expect(GameID.RHYTHM_REACTOR).toBe('rhythm_reactor')
         expect(getGameIcon(GameID.RHYTHM_REACTOR)).toBe('🎵')
     })
