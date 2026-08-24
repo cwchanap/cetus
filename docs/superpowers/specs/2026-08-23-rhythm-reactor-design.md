@@ -6,95 +6,96 @@
 
 ## Overview
 
-Rhythm Reactor is a deterministic 60-second visual rhythm game. Notes descend through four lanes toward a fixed hit line. The player presses the matching lane at the right time using keyboard shortcuts or four native touch buttons. Accurate hits score points, extend combo, and stabilize the reactor; missed notes and stray presses break combo and reduce stability.
+Rhythm Reactor is a deterministic 60-second visual rhythm game. Notes descend through four lanes toward a fixed hit line. The player presses the matching lane using four native touch buttons or `D/F/J/K`. Accurate hits score points, build combo, and stabilize the reactor. Missed notes and unrelated presses break combo and reduce stability.
 
-Version 1 intentionally does **not** add music or an audio-synchronization subsystem. The beat chart is authored on a fixed 120 BPM visual grid and uses one game-local animation loop. This preserves the ticket's timing gameplay while keeping browser audio latency, asset loading, autoplay restrictions, calibration, and chart/audio synchronization out of scope.
+Version 1 intentionally does **not** add music or an audio-synchronization subsystem. The chart is authored on a fixed 120 BPM visual grid and runs from one game-local animation loop. Browser autoplay, decode/start latency, calibration, audio-clock ownership, and chart/audio coupling remain out of scope.
 
-The architecture follows the current Gravity Flip and Signal Switch seams:
+The architecture follows existing Cetus seams without coupling Rhythm Reactor to another game:
 
-- `RhythmReactorGame extends BaseGame` owns deterministic note/judgment/scoring state.
-- `RhythmReactorRenderer extends PixiJSRenderer` draws four lanes, the hit line, and falling notes.
+- `RhythmReactorGame extends BaseGame` owns chart state, judgments, combo, stability, and scoring calls.
+- `RhythmReactorRenderer extends PixiJSRenderer` draws four lanes, a hit line, notes, and a simple reactor indicator.
 - one game-local `requestAnimationFrame` loop advances simulation and renders.
 - four native Astro buttons plus `D/F/J/K` call the same `hitLane(laneIndex)` API.
-- BaseGame remains the timer, score-persistence, stale-run, achievement, reset, and end-of-run authority.
+- BaseGame remains the wall-clock timer, score-persistence, stale-run, reset, and end-of-run authority.
 
-No generic rhythm/chart/audio/input framework is introduced. “Follow/extend Signal Switch” means reuse its **shape and seams**, not import Signal Switch constants or scoring code; Rhythm Reactor keeps its own game-local rules and scorer.
+No generic rhythm/chart/audio/input framework is introduced. “Follow Signal Switch” means copy its architectural seam, not import its game-specific rules or scorer.
 
 ## Review Resolution — 2026-08-23
 
-The planning review was checked against the current branch and repository. The architecture stays unchanged; five review corrections are incorporated:
+Two planning reviews were checked against current `main` and PR #74. The architecture stays the same; the following corrections are now part of the implementation contract.
 
-1. **Perfect-hit browser proof:** accepted. A ±80ms assertion must not cross a `page.evaluate` → Playwright input gap while live rAF continues. The browser proof now starts/advances the game and dispatches the button click or keyboard event inside one synchronous `page.evaluate` task, using an exact final delta to the first pending note's hit time. No pause/debug API is added.
-2. **Chart tuning gate:** accepted. The 0.5-second materializer contract, four-lane/no-chord shape, hit-time derivation, and first-note visibility are structural. Pattern bytes and section repeat counts are **initial authored tuning data** and may change only at the Task 4 playable checkpoint. The currently derived 86-note / 57.5s values are not treated as independent sacred constants.
-3. **Chart-content freeze:** accepted. Tests pin the exact three pattern arrays and the expanded lane sequence. Note count and last-hit time are derived from that authored data. If the playable checkpoint changes the data, those exact expectations change in the same commit; Task 5 then treats the post-tuning values as frozen before achievement thresholds are registered.
-4. **Visible HUD contract:** accepted. The page uses `GamePage` additional-stat badges for Combo, Hits, Judgment, and Stability with fixed IDs. The `aria-live` node is an accessible duplicate for judgment/completion announcements, not the only judgment presentation.
-5. **Shared helper spelling:** normalized. Documentation refers to the exported identifier `isEditableTarget`; implementation calls it normally as `isEditableTarget(event.target)`.
+1. **Perfect-hit browser timing:** model advancement and delegated button/keyboard dispatch happen in one synchronous browser task. HUD text used to prove that hit is read before returning to Playwright, so live rAF cannot invalidate Combo/Judgment/Stability assertions afterward.
+2. **Chart tuning:** the 0.5-second four-lane/no-chord materializer is structural. Pattern bytes and repeat counts are authored tuning data until the Task 4 playable checkpoint. The current 86-note / 57.5-second values are derived defaults, not independent invariants.
+3. **Chart tests:** exact pattern arrays, repeat counts, and expanded lane sequence pin authored content. Separate data-independent tests protect the invariants that must survive tuning: Lane-1 opening, first-note visibility, strictly increasing beat-grid times, and final judgment completion before timeout.
+4. **Visible HUD:** `GamePage` additional-stat badges are fixed as Combo, Hits, Judgment, and Stability. `#rhythm-reactor-status` is the accessible duplicate, not the only judgment output.
+5. **Shared helper:** implementation reuses the existing exported `isEditableTarget` identifier.
+6. **Large update examples:** timing tests advance with repeated steps `<= maxUpdateDelta`; no example assumes one `update(1.92)` bypasses the game's clamp.
+7. **Late-note rendering:** note Y uses direct linear arithmetic rather than shared `lerp`, because Cetus `lerp` clamps interpolation to `0..1` and would pin a still-judgeable late note at the hit line.
+8. **One note, one note-miss:** the game has an explicit wider Miss window. A press within that window consumes the note exactly once as Perfect, Good, or Miss. Only presses with no same-lane note in the Miss window become `strayPresses`.
+9. **Chart in config:** the authored chart lives on `RhythmReactorConfig`, following Potion Sorter's config-owned authored content precedent. This removes the planned third constructor argument, subclass fallback, and post-`super()` state reassignment.
+10. **Shared markup gate:** Task 4 appends `rhythm-reactor` to the existing `game-board-markup.test.ts` `games` array as well as adding Rhythm-specific selectors.
+11. **Precision achievement:** the redundant 60-hit floor is removed. Production runs have no manual End action and timeout settles every unresolved chart note, so `accuracy >= 90` is already a full-chart requirement. Stray presses are also included in the accuracy denominator.
 
-The risk section also explicitly covers timing-window E2E flake and unreadable chart density. No audio, calibration, GameInitializer adoption, core change, or shared rhythm framework is added.
-
-A final consistency pass also locks two details that were internally contradictory in the first draft:
-
-- timing-boundary unit tests must advance simulation in chunks no larger than `maxUpdateDelta`; a single `update(1.92)` cannot bypass the game's 0.1s clamp;
-- note Y uses direct linear arithmetic rather than shared `lerp`, because Cetus `lerp` clamps interpolation to `0..1` and would incorrectly pin a late-but-still-Good note on the hit line.
+No audio, calibration, GameInitializer adoption, core change, package change, or shared rhythm framework is added.
 
 ## Why HPA-70 Is Next
 
-The standalone-minigame sequence has landed through HPA-71 Signal Switch. HPA-70 Rhythm Reactor is now In Progress for this planning/implementation PR, has no blockers or related dependencies, and is the next open ticket in that sequence. HPA-68 Asteroid Drift remains after it.
+The standalone-minigame sequence has landed through HPA-71 Signal Switch. HPA-70 Rhythm Reactor is In Progress on PR #74, has no blockers, and is the next open standalone game. HPA-68 Asteroid Drift remains later.
 
-The repository already contains the relevant reusable seams:
+Relevant existing seams:
 
-- Reflex measures reaction time but uses wall-clock object lifetimes; do not reuse that timing model.
-- Pattern Pulse provides recent native four-button + keyboard interaction patterns.
-- Gravity Flip and Signal Switch provide the current `BaseGame + PixiJSRenderer + game-local rAF` convention.
-- Signal Switch already extracted `isEditableTarget` to shared utils, so Rhythm Reactor reuses it without another cross-game refactor.
+- Reflex measures wall-clock reaction times but does not provide a reusable rhythm timing model.
+- Pattern Pulse provides native four-button + keyboard interaction patterns.
+- Gravity Flip and Signal Switch provide `BaseGame + PixiJSRenderer + game-local rAF` precedents.
+- Potion Sorter demonstrates authored content stored on game config and read by `createInitialState()`.
+- Signal Switch already extracted `isEditableTarget` to shared utils.
 
 ## Product Goals
 
-- Deliver a readable one-minute visual rhythm loop with no setup or difficulty selection.
-- Make the first note visible immediately when the run starts.
-- Use deterministic authored chart data so scoring and timing are fair and testable.
-- Reward timing quality and long successful streaks without a second score authority.
-- Make misses visibly destabilize the reactor while preserving the fixed 60-second round contract.
-- Support touch and keyboard through one lane-hit API.
+- Deliver an immediately readable one-minute visual rhythm loop.
+- Keep the first note visible from run start and teach Lane 1 / `D` first.
+- Use deterministic authored data so runs are fair and tests are exact.
+- Reward timing quality and sustained combo without a second score authority.
+- Make errors visibly destabilize the reactor while preserving the fixed 60-second run.
+- Prevent early/late human errors from counting twice against one chart note.
+- Keep stray key mashing distinguishable from actual chart misses.
+- Support keyboard and touch through one lane-hit API.
 - Keep all four touch controls reachable on a 375×812 viewport.
-- Give sighted players visible Combo, Hits, Judgment, and Stability feedback while keeping judgment announcements accessible.
-- Reuse the existing score submission, leaderboard/progress, achievements, GamePage, stale-run guard, and unload-warning behavior.
-- Keep tuning values and authored chart data easy to change at one explicit playable checkpoint before achievements/E2E thresholds freeze.
+- Show Combo, Hits, Judgment, and Stability visibly while duplicating judgment accessibly.
+- Reuse existing score submission, leaderboard/progress, achievements, GamePage, stale-run guard, and unload-warning behavior.
+- Keep authored density and tuning values adjustable at one explicit playable checkpoint before registration thresholds freeze.
 
 ## Non-Goals
 
 Version 1 does not include:
 
-- songs, BGM, sound effects, Web Audio synthesis, autoplay handling, or audio calibration;
-- BPM selection, difficulty selection, song selection, charts loaded from files, chart editors, or user-created charts;
+- songs, BGM, sound effects, Web Audio, autoplay handling, or latency calibration;
+- BPM/difficulty/song selection;
+- chart files, loaders, DSLs, editors, or user-created charts;
 - random/procedural beat generation;
-- simultaneous/chord notes, hold notes, slides, flicks, mines, power-ups, or special note types;
-- latency-offset settings or persisted calibration;
+- simultaneous/chord notes, holds, slides, flicks, mines, or special note types;
+- persisted offsets or calibration;
 - early reactor meltdown as a second end condition;
 - pause or manual End Game actions;
 - canvas hit-testing for touch;
-- generic rhythm, chart, spawn, animation-loop, input, or timing frameworks;
+- generic rhythm/chart/spawn/input/animation frameworks;
 - database, API, auth, leaderboard, score-service, BaseGame, GameTimer, ScoreManager, GameInitializer, or PixiJSRenderer changes.
 
 ## Approaches Considered
 
 ### A. Deterministic visual chart — chosen
 
-Use one authored visual beat chart, game-local simulation time, Pixi notes, native buttons, and no audio.
+Use a small authored data table, simulation-time judgment, Pixi notes, and native buttons.
 
-**Why:** smallest implementation, deterministic tests, no asset pipeline, no audio-latency ambiguity, and directly satisfies the ticket's falling-beat interaction.
+**Why:** smallest implementation, deterministic tests, no asset pipeline, and directly satisfies the falling-beat interaction.
 
-### B. Audio-backed rhythm chart — rejected for v1
+### B. Audio-backed chart — rejected for v1
 
-Bundle a music loop and synchronize notes to an audio clock.
-
-**Why not now:** this immediately introduces autoplay policy, decoding/start latency, audio-clock ownership, background behavior, calibration, and chart/audio asset coupling. Those are valid future product work but unnecessary to prove the minigame loop.
+An audio clock would introduce autoplay policy, decode/start latency, background behavior, calibration, and chart/audio asset coupling. Those are separate subsystems and are unnecessary for the first playable loop.
 
 ### C. Random note stream — rejected
 
-Generate lane/timing events during play.
-
-**Why not:** random timing feels more like reflex whack-a-mole than rhythm, creates run-to-run scoring variance, and complicates deterministic balance/E2E checks without adding meaningful v1 value.
+Random timing behaves more like reflex whack-a-mole, makes scores run-dependent, and makes balance/E2E harder without adding meaningful v1 value.
 
 ## Structural V1 Contracts
 
@@ -107,17 +108,18 @@ These do not change at the manual tuning checkpoint:
 | Keyboard lanes | `D`, `F`, `J`, `K` |
 | Logical canvas | 800 × 420 px |
 | Visual beat grid | 120 BPM / 0.5-second steps |
-| One step | one lane or rest; never a chord |
+| One chart step | one lane or rest; never a chord |
 | Hit-time formula | `firstHitTime + stepIndex × beatStepSeconds` |
+| First authored note | Lane 1 |
 | BaseGame time bonus | disabled |
 | Maximum accepted outer update | 0.1 s |
 | Stability at 0 | feedback only; run continues |
 
-The first authored note remains Lane 1 and must be visible at run start: `firstHitTimeSeconds === approachSeconds`. Pattern data may change at the tuning checkpoint, but this teaching/opening contract does not.
+The first authored note must be visible at run start: `firstHitTimeSeconds === approachSeconds`.
 
 ## Initial Tuning Defaults
 
-These are the implementation starting values and may be adjusted **only** at the Task 4 manual-play checkpoint before Task 5 freezes chart/achievement expectations:
+These values may be adjusted only at the Task 4 playable checkpoint before Task 5 freezes public thresholds/content:
 
 | Tuning value | Initial default |
 |---|---:|
@@ -125,20 +127,22 @@ These are the implementation starting values and may be adjusted **only** at the
 | Note approach time | 2.0 s |
 | Perfect window | ±0.080 s |
 | Good window | ±0.160 s |
+| Miss window | ±0.400 s |
 | Initial stability | 60 / 100 |
 | Perfect stability | +4 |
 | Good stability | +2 |
-| Miss stability | −6 |
+| Note miss stability | −6 |
+| Stray press stability | −6 |
 | Every 10th consecutive hit | additional +5 stability |
 | Perfect base score | 100 |
 | Good base score | 60 |
 | Combo multiplier | +0.25× each 10 combo, max 2.0× |
 
-Motion/judgment/stability values live once in `RHYTHM_REACTOR_RULES`. Scoring constants live once in `scoring.ts`. Tests import those sources rather than duplicating tuning values.
+`RHYTHM_REACTOR_RULES` owns motion/judgment/stability values. `scoring.ts` owns scoring constants. Tests import these sources instead of copying tunable values.
 
 ## Authored Beat Chart
 
-The chart uses one continuous 0.5-second step grid. A step contains either one lane index or a rest; v1 never emits simultaneous notes.
+The chart uses one continuous 0.5-second grid. A step is a lane index or rest.
 
 ```ts
 export type RhythmReactorLane = 0 | 1 | 2 | 3
@@ -159,11 +163,7 @@ export const SURGE_PATTERN: readonly ChartStep[] = [
     0, 1, 2, null, 3, 2, 1, 0,
     1, 3, null, 2, 0, 3, 1, 2,
 ]
-```
 
-Initial section repeats are:
-
-```ts
 export const RHYTHM_REACTOR_SECTIONS = [
     { pattern: WARMUP_PATTERN, repeats: 2 },
     { pattern: CORE_PATTERN, repeats: 2 },
@@ -171,44 +171,120 @@ export const RHYTHM_REACTOR_SECTIONS = [
 ] as const
 ```
 
-With the initial data this derives:
+The initial authored data derives:
 
 - 112 grid steps;
 - 86 notes;
 - first hit at 2.0s;
 - last hit at 57.5s;
-- maximum demand of 2 hits/second.
+- maximum authored demand of 2 hits/second.
 
-Those **86 / 57.5s values are derived descriptions of the current authored data**, not separate rules. The playable checkpoint may change pattern bytes or repeat counts. Any post-tuning chart must still satisfy:
+The playable checkpoint may change pattern bytes or repeat counts. Any final chart must still satisfy:
 
-- exactly four lane indices `0..3` plus rests;
-- no simultaneous notes because there is only one value per 0.5s step;
-- the first note is Lane 1 and visible at t=0;
-- chronological hit times use the single formula;
-- the final note exits the Good window before the 60-second timeout.
+- only lanes `0..3` and rests;
+- no simultaneous notes;
+- first note is Lane 1;
+- `firstHitTimeSeconds === approachSeconds`;
+- hit times are strictly increasing;
+- every hit-time gap is a positive whole number of beat steps;
+- the final note plus `missWindowSeconds` is strictly before the 60-second timeout.
 
-`createRhythmReactorChart()` is a tiny pure game-local materializer from these data tables. It assigns stable `note-0`, `note-1`, … IDs in chronological order. This is not a chart engine.
+`createRhythmReactorChart()` remains a tiny pure materializer. It assigns `note-0`, `note-1`, … in chronological order.
 
-### Chart test contract
+### Chart Test Contract
 
-`chart.test.ts` pins content compactly rather than snapshotting 86 objects:
+Tests intentionally separate authored-content locks from permanent structural invariants.
 
-1. exact `WARMUP_PATTERN`, `CORE_PATTERN`, and `SURGE_PATTERN` arrays;
-2. exact section repeat counts;
-3. `chart.map(note => note.laneIndex)` equals the lane sequence expanded from those expected pattern/repeat values;
-4. note count derives from the expanded non-rest sequence;
-5. first/last times derive from the first/last occupied step and the timing formula;
-6. chronological IDs/times, lane range, and unique hit times remain structural assertions.
+**Editable only during Task 4 tuning:**
 
-The exact pattern/repeat expectations are allowed to change only during the Task 4 manual tuning commit. Once that checkpoint passes, Task 5 treats them as frozen content and registers achievement thresholds against the final chart.
+- exact three pattern arrays;
+- exact section repeat counts;
+- exact expanded lane sequence.
+
+**Never hand-edited to match tuning output:**
+
+```ts
+expect(chart[0].laneIndex).toBe(0)
+expect(RHYTHM_REACTOR_RULES.firstHitTimeSeconds).toBe(
+    RHYTHM_REACTOR_RULES.approachSeconds
+)
+expect(
+    chart.at(-1)!.hitTimeSeconds + RHYTHM_REACTOR_RULES.missWindowSeconds
+).toBeLessThan(RHYTHM_REACTOR_RULES.duration)
+
+for (let index = 1; index < chart.length; index += 1) {
+    const gap = chart[index].hitTimeSeconds - chart[index - 1].hitTimeSeconds
+    expect(gap).toBeGreaterThan(0)
+    expect(gap / RHYTHM_REACTOR_RULES.beatStepSeconds).toBeCloseTo(
+        Math.round(gap / RHYTHM_REACTOR_RULES.beatStepSeconds),
+        10
+    )
+}
+```
+
+Also assert lane range, unique IDs, and exact expanded lane order. Aggregate note count derives from expected non-rest steps rather than an independent `86` literal.
+
+## Config and Dependency Shape
+
+`RhythmReactorConfig` owns the materialized chart, like Potion Sorter config owns its authored preset:
+
+```ts
+export interface RhythmReactorConfig extends BaseGameConfig {
+    canvasWidth: number
+    canvasHeight: number
+    laneCount: number
+    beatStepSeconds: number
+    firstHitTimeSeconds: number
+    approachSeconds: number
+    perfectWindowSeconds: number
+    goodWindowSeconds: number
+    missWindowSeconds: number
+    maxUpdateDelta: number
+    noteSpawnY: number
+    hitLineY: number
+    initialStability: number
+    perfectStabilityGain: number
+    goodStabilityGain: number
+    missStabilityLoss: number
+    strayStabilityLoss: number
+    comboStabilityInterval: number
+    comboStabilityBonus: number
+    chart: readonly RhythmReactorNote[]
+}
+```
+
+To avoid a `types.ts ↔ chart.ts` import cycle, `createRhythmReactorConfig()` lives beside the game in `RhythmReactorGame.ts`, matching Potion Sorter's existing placement:
+
+```ts
+export function createRhythmReactorConfig(
+    overrides: Partial<RhythmReactorConfig> = {}
+): RhythmReactorConfig {
+    return {
+        ...RHYTHM_REACTOR_RULES,
+        achievementIntegration: true,
+        pausable: false,
+        resettable: true,
+        chart: createRhythmReactorChart(),
+        ...overrides,
+    }
+}
+```
+
+Tests inject tiny charts with:
+
+```ts
+createRhythmReactorConfig({ chart: oneNote })
+```
+
+The game constructor has only config + callbacks. There is no third chart parameter, no subclass-field fallback during `super()`, and no second state construction after `super()`.
 
 ## Time Ownership
 
 ### BaseGame owns run duration
 
-BaseGame/GameTimer remains the authoritative 60-second wall-time run timer and the only component that can complete the run by timeout. Rhythm Reactor does not create a second countdown or timer interval.
+BaseGame/GameTimer remains the authoritative 60-second wall-clock timer and the only normal completion source.
 
-### Game-local simulation time owns visual/judgment position
+### Game-local simulation time owns chart position
 
 `RhythmReactorGame` keeps:
 
@@ -216,13 +292,11 @@ BaseGame/GameTimer remains the authoritative 60-second wall-time run timer and t
 private elapsedSimSeconds = 0
 ```
 
-The initializer's single rAF loop supplies monotonic deltas. `update(deltaSeconds)` ignores non-positive/non-finite values and clamps accepted outer delta to 0.1s before advancing simulation.
+The initializer supplies monotonic rAF deltas. `update(deltaSeconds)` ignores invalid/non-positive values and clamps each accepted outer delta to `maxUpdateDelta`.
 
-This mirrors Signal Switch: a background-tab return does not fast-forward through unseen gameplay in one huge physics step. If BaseGame times out while simulation is behind, the timeout finalizer marks every remaining chart note as missed before ending so final hit/miss/accuracy statistics remain complete.
+If a backgrounded tab lets BaseGame finish while rAF simulation is behind, `handleTimeUp()` resolves every remaining chart note as a note miss before delegating to BaseGame. Final chart statistics are therefore complete.
 
-No 1/120-second physics substeps are needed because note position is derived from hit time and simulation time rather than integrated velocity.
-
-Timing tests that need to advance more than one frame must call `update()` repeatedly with steps `<= maxUpdateDelta` and a final exact remainder; they must not assume a single large delta bypasses the clamp.
+Timing tests advance large durations with repeated bounded steps and a final exact remainder.
 
 ## Runtime Note Model
 
@@ -234,19 +308,19 @@ export interface RhythmReactorNote {
 }
 ```
 
-`RhythmReactorState.pendingNotes` contains only unresolved chart notes. Notes do not have mutable `y` coordinates.
+`state.pendingNotes` contains only unresolved chart notes. Notes do not store mutable Y.
 
-The renderer derives position with direct linear arithmetic:
+Renderer position is derived directly:
 
 ```text
-timeUntilHit = note.hitTimeSeconds - state.elapsedSeconds
+timeUntilHit = note.hitTimeSeconds - elapsedSeconds
 progress = 1 - timeUntilHit / approachSeconds
 y = noteSpawnY + (hitLineY - noteSpawnY) × progress
 ```
 
-Do **not** call the shared `lerp` helper for this coordinate. Cetus `lerp` clamps `t` into `0..1`; a note that is slightly late but still inside the Good window needs `progress > 1` so it visibly passes the hit line.
+Do not use shared `lerp` for note Y because it clamps `progress`. A still-pending note inside the late Miss window must travel below the hit line.
 
-A note is drawn only while it is within the approach horizon and has not been removed as hit/missed. This keeps note timing authoritative in one place and avoids a spawn accumulator entirely.
+A note is drawn only when it is inside the approach horizon and remains pending.
 
 ## Judgment Semantics
 
@@ -256,26 +330,38 @@ Public input API:
 hitLane(laneIndex: number): RhythmReactorHitResult
 ```
 
-The method rejects without mutation when the game is inactive/paused/over or `laneIndex` is not an integer in `0..3`.
+Inactive/paused/ended/invalid-lane input returns the rejected result without mutation.
 
 For a valid active press:
 
-1. expire any notes already past the Good window at the current simulation time;
-2. find the pending note in that lane with the smallest absolute timing offset;
-3. if no same-lane note is within the Good window, register one miss for the stray/early/late press without consuming a pending note;
-4. otherwise remove the matched note and classify it:
-   - `abs(offset) <= perfectWindowSeconds` → Perfect;
-   - `abs(offset) <= goodWindowSeconds` → Good.
+1. expire notes where `elapsedSeconds > hitTimeSeconds + missWindowSeconds`;
+2. find the pending same-lane note with smallest absolute timing offset **within** `missWindowSeconds`;
+3. if no such note exists, register one stray press without consuming a chart note;
+4. otherwise remove that note and classify by absolute offset:
+   - `<= perfectWindowSeconds` → Perfect;
+   - `<= goodWindowSeconds` → Good;
+   - `<= missWindowSeconds` → Miss.
 
-Boundary values are inclusive. A note expires automatically once:
+Perfect/Good increase combo and score. Miss consumes exactly one chart note, increments `misses` exactly once, resets combo, and reduces stability once.
+
+A stray press:
+
+- increments `strayPresses`;
+- consumes no chart note;
+- resets combo;
+- reduces stability by `strayStabilityLoss`;
+- sets `lastJudgment = 'miss'`;
+- earns no points.
+
+This gives common early/late errors one judgment rather than a stray miss followed by a second expiry miss. It also keeps four-key mashing costly without allowing `misses` to exceed chart-note count.
+
+Automatic note expiry occurs only after the wider Miss window:
 
 ```text
-elapsedSeconds > hitTimeSeconds + goodWindowSeconds
+elapsedSeconds > hitTimeSeconds + missWindowSeconds
 ```
 
-A wrong-lane or empty-lane press is intentionally a miss. This prevents four-key mashing from being a dominant strategy.
-
-The initializer ignores `KeyboardEvent.repeat`, modifier shortcuts, editable targets, and keyboard events originating from native lane buttons. Enter/Space activation on a focused lane button still works through the button's normal click event.
+The initializer ignores key repeat, Ctrl/Meta/Alt, editable targets, and keyboard events originating from native lane buttons. Enter/Space on a focused lane button still uses the button's native click path.
 
 ## State and Feedback
 
@@ -288,6 +374,7 @@ export interface RhythmReactorState extends BaseGameState {
     perfectHits: number
     goodHits: number
     misses: number
+    strayPresses: number
     combo: number
     maxCombo: number
     stability: number
@@ -295,47 +382,40 @@ export interface RhythmReactorState extends BaseGameState {
 }
 ```
 
-Derived hit count is `perfectHits + goodHits`.
+`hits = perfectHits + goodHits`.
 
-### Visible in-run HUD
+### Visible In-Run HUD
 
-Use the same `GamePage` `additional-stats` seam as Signal Switch. These four visible badges and IDs are part of the route contract:
+Use `GamePage` `additional-stats` for exactly four visible badges:
 
 | Badge | Element ID | Idle text |
 |---|---|---|
 | Combo | `#rhythm-reactor-combo` | `0` |
 | Hits | `#rhythm-reactor-hits` | `0` |
 | Judgment | `#rhythm-reactor-judgment` | `READY` |
-| Stability | `#rhythm-reactor-stability` | `60` initially |
+| Stability | `#rhythm-reactor-stability` | configured initial value |
 
-The renderer may also draw a simple reactor/stability indicator, but the visible DOM badge is authoritative for textual presentation/testing.
+`#rhythm-reactor-status` is `sr-only` + `aria-live="polite"` and duplicates judgment/completion announcements accessibly.
 
-`lastJudgment` is presentation state only; it does not schedule a timeout. The next state-changing hit/miss replaces it.
-
-`#rhythm-reactor-status` is an `aria-live="polite"` accessible duplicate for the latest judgment and completion summary. It is not the only place a sighted player can see the judgment.
-
-Miss count is still tracked in state and shown in the final overlay; it does not need a fifth in-run badge for v1.
+Misses and stray presses are tracked but reserved for the final summary to keep the in-run HUD compact.
 
 ## Stability
 
-Stability is a clamped `0..100` feedback meter, not a second end condition.
+Stability is clamped `0..100` and never ends the run.
 
 Initial defaults:
 
-- initial stability: 60;
 - Perfect: +4;
 - Good: +2;
-- each miss: −6;
-- on every 10th consecutive successful hit, add an additional +5;
-- clamp after each change.
+- note Miss: −6;
+- stray press: −6;
+- every 10th consecutive successful hit: additional +5.
 
-A miss resets combo to 0. Successful hits increase combo first, so the 10/20/30… combo milestone applies on that exact successful hit.
-
-Reaching 0 stability does **not** end the run in v1. The one-minute timer remains the sole normal completion condition.
+Both note Miss and stray press reset combo. A successful hit increments combo first, so the 10/20/30… stability milestone applies on that hit.
 
 ## Scoring and Accuracy
 
-`calculateRhythmReactorHitPoints(judgment, comboAfterHit)` is the only production scoring authority. It follows the same separation as Signal Switch's local scorer but does not import it.
+`calculateRhythmReactorHitPoints()` is the only production score formula.
 
 Initial base values:
 
@@ -350,120 +430,93 @@ multiplierSteps = min(floor(comboAfterHit / 10), 4)
 multiplier = 1.0 + multiplierSteps × 0.25
 ```
 
-With the initial defaults:
+Initial tiers are 1.0×, 1.25×, 1.5×, 1.75×, and 2.0×. Misses and strays never subtract earned score. BaseGame time bonus is disabled.
 
-- combo 1–9 → 1.0×;
-- combo 10–19 → 1.25×;
-- combo 20–29 → 1.5×;
-- combo 30–39 → 1.75×;
-- combo 40+ → 2.0×.
-
-Points are integer `floor(basePoints × multiplier)`.
-
-Misses never subtract previously earned score. BaseGame time bonus is disabled.
-
-Accuracy is weighted so Perfect timing matters:
+Weighted accuracy includes both chart misses and unrelated extra presses:
 
 ```text
-judgments = perfectHits + goodHits + misses
+judgments = perfectHits + goodHits + misses + strayPresses
 accuracy = judgments === 0
   ? 0
   : (perfectHits + goodHits × 0.5) / judgments × 100
 ```
 
-The final overlay rounds accuracy to one decimal place for presentation. The raw finite percentage is submitted in game data.
+This keeps `misses` semantically equal to missed chart notes while making mashing reduce accuracy.
+
+Final presentation rounds accuracy to one decimal place; submitted game data keeps the raw finite percentage.
 
 ## Timeout, Reset, and Replay
 
-`createRhythmReactorConfig()` uses:
-
-- `duration: 60`;
-- `achievementIntegration: true`;
-- `pausable: false`;
-- `resettable: true`.
+`createRhythmReactorConfig()` uses `duration: 60`, achievement integration, `pausable: false`, and `resettable: true`.
 
 ### Start
 
-`onGameStart()` resets private simulation time and emits the fresh state. The first chart note is already within the full approach horizon.
+`onGameStart()` resets simulation time and emits fresh state. The first note is visible for the full approach horizon.
 
 ### Timeout
 
-`handleTimeUp()` first resolves every remaining pending note as a miss, sets `elapsedSeconds` to 60, then delegates to BaseGame's timeout end path. This gives complete final stats even if the browser throttled rAF while hidden.
+`handleTimeUp()` converts every remaining `pendingNotes` entry into a note miss, clears the pending list, sets elapsed simulation to duration, emits state, then delegates to BaseGame. Stray presses are not synthesized at timeout.
 
-Timeout settlement is a game-model/unit-test contract. The browser journey does not need to wait 60 seconds or recreate this proof.
+Timeout settlement is a unit/model contract; browser E2E does not wait 60 real seconds.
 
 ### Reset
 
-Reset returns the game to idle with:
-
-- the full final authored chart restored;
-- score/hit/miss/combo cleared;
-- stability restored to the configured initial value;
-- time 60;
-- judgment badge `READY`;
-- controls disabled until Start;
-- overlay hidden.
+Reset restores the config-owned chart, score/counters, stability, 60-second timer, `READY` judgment, disabled lane controls, and hidden overlay.
 
 ### Play Again
 
-Play Again follows Signal Switch: calling `game.start()` after game over lets BaseGame auto-reset the completed run and immediately starts the new run. It is not reset-to-idle.
+Play Again calls `game.start()` after game over. BaseGame auto-resets the completed run and immediately starts the next one.
 
 GamePage uses `showPause={false}`, `showEnd={false}`, `showReset={true}`.
 
 ## Renderer
 
-`RhythmReactorRenderer` extends `PixiJSRenderer` with a fixed 800×420 logical canvas and two graphics layers:
+`RhythmReactorRenderer` uses fixed 800×420 logical dimensions and two graphics layers:
 
-1. static layer: dark board, four vertical lanes, lane separators, spawn/hit-line markings;
-2. dynamic layer: currently visible notes plus a simple stability/reactor indicator.
+1. static: board, four lanes/separators, spawn guide, hit line;
+2. dynamic: currently visible notes plus a simple stability/reactor indicator.
 
-Only a small approach-window subset of the final authored chart is visible at once. Sprite pooling, textures, particle systems, and custom scene graphs are unnecessary.
+No sprites, textures, pooling, particle system, or scene graph abstraction is needed.
 
-The renderer receives the config values required for lane geometry, approach time, spawn Y, and hit-line Y from `createRhythmReactorRendererConfig(config)`.
+Lane position and `D/F/J/K` labels are sufficient without color perception. Any color is decorative.
 
-Lane colors may differ for readability, but lane position and the `D/F/J/K` controls remain sufficient without color perception; gameplay does not require identifying notes by color.
-
-Pixi's auto-density canvas inline width/height is normalized exactly like Gravity Flip/Signal Switch so CSS can preserve aspect ratio on narrow screens.
+Pixi auto-density inline canvas sizing is normalized to `width: 100%` / `height: auto`, matching recent Pixi games.
 
 ## Controls and Accessibility
 
-The route renders four native buttons in one `#rhythm-reactor-controls` group:
+The route renders four native buttons inside `#rhythm-reactor-controls`:
 
 - Lane 1 — `D`;
 - Lane 2 — `F`;
 - Lane 3 — `J`;
 - Lane 4 — `K`.
 
-All buttons carry `data-rhythm-lane="0..3"`, remain disabled while idle/ended, and use one delegated click listener. Touch does not target the canvas.
+Buttons use `data-rhythm-lane="0..3"`, stay disabled while idle/ended, and share one delegated click listener. Touch does not use canvas hit-testing.
 
-Global keyboard handling maps case-insensitive `d/f/j/k` to the same lane indices and reuses `isEditableTarget`.
-
-The `#rhythm-reactor-status` live region announces the latest judgment and completion summary without attempting to announce every falling note.
-
-No custom arrow-key focus grid is added; buttons preserve native tab/Enter/Space behavior.
+Global keyboard handling lowercases the key and reuses `isEditableTarget`. No custom arrow-key focus behavior is added.
 
 ## Initializer and Lifecycle
 
 `initRhythmReactorGameFramework()` follows Signal Switch's local initializer structure:
 
-- locate the route container;
+- locate route container;
 - create config, renderer, and game;
-- track listeners for cleanup;
+- track DOM listeners;
 - wire score/time/state/end callbacks;
-- synchronize the four visible additional-stat badges;
-- wire Start, Reset, Play Again, delegated lane clicks, keyboard shortcuts, and `beforeunload`;
-- normalize Pixi canvas CSS sizing with `width: 100%` and `height: auto`;
-- run exactly one requestAnimationFrame loop;
-- expose a debug/test handle at `window.rhythmReactorGame` from the page;
-- cleanup cancels rAF, removes tracked listeners, unsubscribes game end, destroys renderer, then destroys game.
+- synchronize four visible HUD badges;
+- wire Start, Reset, Play Again, delegated lane clicks, keyboard, and `beforeunload`;
+- normalize Pixi canvas sizing;
+- run exactly one rAF loop;
+- expose `window.rhythmReactorGame` for the existing debug/E2E pattern;
+- cleanup cancels rAF, removes listeners, unsubscribes game-end, destroys renderer, then destroys game.
 
 No `GameInitializer` migration is included.
 
 ## Registration and Shared Data
 
-Implementation adds `GameID.RHYTHM_REACTOR = 'rhythm_reactor'` and the matching icon with the stable enum before the active catalog row is added. `GAME_ICONS` is exhaustive over `GameID`, so ID/icon land together.
+Task 2 adds `GameID.RHYTHM_REACTOR = 'rhythm_reactor'` and its exhaustive icon entry together. The active `GAMES` row waits until the route exists in Task 5.
 
-The active `GAMES` entry is added only when `/rhythm-reactor` exists:
+Final catalog entry:
 
 - name: Rhythm Reactor;
 - category: action;
@@ -473,24 +526,24 @@ The active `GAMES` entry is added only when `/rhythm-reactor` exists:
 - organism: `{ shape: 'chain', color: 'teal' }`;
 - depth: `shallow`.
 
-That changes the current depth partition from `7 / 9 / 4` to `8 / 9 / 4`; `organisms.test.ts` is updated explicitly. `ORGANISM_BY_GAME` remains derived from `GAMES`. Appending a `chain/teal` shallow specimen after Signal Switch's `lattice/ice` preserves the existing adjacent-shape+color invariant.
+This changes the depth partition from `7 / 9 / 4` to `8 / 9 / 4` and preserves the existing adjacent shape+color invariant after Signal Switch's `lattice/ice` entry.
 
-`RhythmReactorGameData` is exported from the game and added to `src/lib/games/shared/types.ts` for achievement typing.
+`RhythmReactorGameData` is canonical in game `types.ts` and is aliased into `src/lib/games/shared/types.ts`.
 
-No persistence schema or API payload shape changes are needed; existing generic gameData submission handles the added fields.
+No persistence schema/API change is needed.
 
 ## Achievement Set
 
-Initial achievement targets are:
+Initial targets, registered only after the Task 4 tuning checkpoint:
 
-1. **First Beat** — score at least 100 points. Common.
-2. **Chain Reaction** — reach max combo 20. Rare.
-3. **Precision Control** — finish with at least 60 hits and at least 90% weighted accuracy. Epic.
-4. **Coolant Reserve** — finish with at least 60 hits and final stability at least 90. Epic.
+1. **First Beat** — score at least 100. Common.
+2. **Chain Reaction** — max combo at least 20. Rare.
+3. **Precision Control** — weighted accuracy at least 90%. Epic.
+4. **Coolant Reserve** — at least 60 hits and final stability at least 90. Epic.
 
-These thresholds are intentionally registered **after** the playable chart checkpoint. If chart density is tuned, Task 4 may adjust the hit/combo floors in the same bounded tuning pass so the achievements remain meaningful and attainable; Task 5 then freezes the final exact values. No new achievement condition type is required.
+Precision Control intentionally has no hit floor. There is no normal manual-End path, and timeout settles the complete chart before submission, so a 90% production score already requires roughly 90% of the final chart's weighted judgments. `strayPresses` further lower that percentage.
 
-The default `hits >= 60` floors prevent accuracy/stability achievements from being awarded on tiny or debug-ended samples while remaining comfortably below the initial 86-note chart.
+Chain/hit floors that depend on final chart density remain tunable only during Task 4 and are frozen before Task 5 registration.
 
 ## Final Stats and Submitted Game Data
 
@@ -500,6 +553,7 @@ export interface RhythmReactorStats extends BaseGameStats {
     perfectHits: number
     goodHits: number
     misses: number
+    strayPresses: number
     maxCombo: number
     accuracy: number
     finalStability: number
@@ -510,17 +564,19 @@ export interface RhythmReactorGameData {
     perfectHits: number
     goodHits: number
     misses: number
+    strayPresses: number
     maxCombo: number
     accuracy: number
     finalStability: number
 }
 ```
 
-Final overlay displays the ticket-required fields plus Perfect/Good split and stability:
+Final overlay displays:
 
 - Score;
 - Hits;
-- Misses;
+- Misses (chart-note misses only);
+- Stray presses;
 - Perfect;
 - Good;
 - Max combo;
@@ -529,173 +585,135 @@ Final overlay displays the ticket-required fields plus Perfect/Good split and st
 
 ## Testing Strategy
 
-### Pure chart/scoring tests
+### Chart / Scoring
 
-Before the playable checkpoint, tests pin the **current authored data** but derive aggregate values:
+Cover:
 
-- exact three pattern arrays and section repeat counts;
-- exact expanded lane sequence;
-- note count derived from non-rest expanded steps;
-- first/last hit times derived from occupied step indices and rule constants;
-- chronological IDs/times;
-- lanes always 0..3;
-- no simultaneous hit times;
-- Perfect/Good base values and combo tiers from scoring constants;
-- weighted accuracy edge cases.
+- exact current pattern arrays, repeats, and expanded lanes;
+- lane range and unique IDs;
+- first note Lane 1;
+- first-hit equals approach duration;
+- strictly increasing hit times whose gaps are whole beat-step multiples;
+- final note + Miss window < run duration;
+- score tiers;
+- accuracy with chart misses and stray presses.
 
-If Task 4 changes chart data, update the exact pattern/sequence expectations in that same tuning commit. No later task changes them casually.
+### Game Model
 
-### Game-model tests
+Use `createRhythmReactorConfig({ chart: tinyChart })` for timing-focused tests. Cover:
 
-Use small explicit chart/config overrides where helpful. Cover:
-
-- initial state and cloned authored chart;
-- exact Perfect/Good inclusive boundaries using repeated `update()` steps no larger than the configured clamp;
-- nearest same-lane pending note selection;
-- wrong/empty press miss without consuming a note;
-- automatic expiry after the Good window;
-- miss resets combo;
-- every 10th hit stability bonus;
-- clamp stability to 0..100;
-- inactive/invalid input guards;
+- config-owned chart cloning;
+- Perfect/Good/Miss inclusive boundaries;
+- early/late Miss-window press consumes the note once;
+- no same-lane note in Miss window creates one `strayPresses` entry and consumes no note;
+- automatic expiry after the Miss window;
+- `misses <= chart.length` invariant;
+- misses/strays reset combo and reduce stability once;
+- successful combo/stability milestones;
+- stability clamp and non-terminal zero;
+- invalid/inactive input guards;
 - reset restoration;
-- timeout settles all remaining notes before final stats;
-- BaseGame score/time bonus behavior remains single-source.
+- timeout settles remaining notes;
+- stats/gameData/accuracy include `strayPresses` consistently.
 
-### Renderer tests
+### Renderer
 
-Cover:
+Cover fixed dimensions, two layers, approach-window filtering, hit-line position, late pending note moving past the hit line, and cleanup.
 
-- fixed 800×420 config;
-- static four-lane geometry and hit line;
-- only approach-window notes are drawn;
-- note Y reaches the hit line at hit time;
-- late-but-pending note moves beyond the hit line, proving direct interpolation is not clamped;
-- cleanup destroys local graphics then base renderer resources.
+### Initializer / Markup
 
-### Initializer/markup tests
+Cover four buttons, DFJK mapping, editable/modifier/repeat guards, visible badge IDs, live region, lifecycle controls, final-stat IDs, cleanup, DOMContentLoaded bootstrap, and mobile-safe canvas sizing.
 
-Cover:
+Also append `'rhythm-reactor'` to the existing `games` array in `src/pages/game-board-markup.test.ts` so the shared `GamePage` / `slot="game-board"` / no-`AppLayout` invariant covers the new route.
 
-- four buttons and D/F/J/K mapping;
-- delegated touch/click path calls `hitLane()`;
-- key repeat/modifier/`isEditableTarget` guards;
-- visible `#rhythm-reactor-combo`, `#rhythm-reactor-hits`, `#rhythm-reactor-judgment`, and `#rhythm-reactor-stability` badges;
-- `#rhythm-reactor-status` live-region duplication;
-- Start/Reset/Play Again state synchronization;
-- final overlay copy;
-- cleanup cancels rAF and listeners;
-- page waits for `DOMContentLoaded` before initialization;
-- no Pause or End Game controls;
-- canvas has mobile-safe sizing.
+### Browser Proof
 
-### Browser proof
-
-Add one Rhythm Reactor journey to `e2e/games/play-coverage.spec.ts`.
-
-The Perfect-hit helper must keep **model advancement and input dispatch in one synchronous browser task**. It uses public lifecycle/model methods through the existing debug handle; it does not add a pause API:
+The Perfect helper keeps model advancement, delegated event dispatch, and timing-sensitive HUD reads in one synchronous `page.evaluate` task:
 
 ```text
-page.evaluate(inputKind => {
-  game.reset()
-  game.start()
-  target = game.getState().pendingNotes[0].hitTimeSeconds
-  while elapsed < target:
-    game.update(min(0.1, target - elapsed))
-  if click:
-    matching [data-rhythm-lane] button.click()
-  if keyboard:
-    document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
-  assert/return state after synchronous handler
-})
+reset/start
+→ find first pending note
+→ bounded update loop with MAX_UPDATES
+→ exact final delta to note time
+→ button.click() OR document.dispatchEvent(keydown)
+→ read game state + Combo/Hits/Judgment/Stability/Score textContent
+→ return snapshot
 ```
 
-Because JavaScript rAF callbacks cannot interleave inside that synchronous task, the ±80ms Perfect assertion cannot race a live animation frame. The helper derives the target note/lane/key from state rather than hard-coding 2.0s/Lane 1, although the initial chart still satisfies the Lane-1 teaching contract.
+The helper must throw descriptively if `MAX_UPDATES` is exhausted.
 
-Browser journey:
+Playwright asserts the returned synchronous snapshot for timing-sensitive values. Locator assertions remain for non-racy idle, post-Reset, overlay, and post-Play-Again states.
 
-1. page renders canvas, four controls, and four visible HUD badges;
-2. Start button activates the normal route;
-3. synchronous helper proves the delegated **button** path records a Perfect hit and score;
-4. Reset returns to 60 / 0 hits / initial stability / `READY`;
-5. synchronous helper proves the **keyboard** path records a Perfect hit;
-6. use the debug handle's public `end()` only to expose the existing final overlay without sleeping 60 real seconds;
-7. Play Again immediately starts a clean run.
-
-Timeout settlement remains a unit/model proof, not a timing-sensitive E2E requirement.
-
-A second 375×812 proof verifies all four buttons and the Pixi canvas fit without horizontal overflow.
-
-`e2e/games/all-games-navigation.spec.ts` remains derived and receives no production-specific branch; it is run as a post-registration gate.
+A second 375×812 proof verifies controls, four badges, canvas reachability, and no horizontal overflow.
 
 ## Manual-Play Tuning Checkpoint
 
-Run after the route is playable and before registry/achievement/E2E thresholds are frozen.
+Run after Task 4 makes the route playable and before Task 5 registration.
 
-Check the initial defaults:
+Check:
 
-1. **Opening readability:** the first Lane 1 note is visible for the full approach and the D/F/J/K mapping is understandable before impact.
-2. **Timing feel:** the initial ±80ms Perfect / ±160ms Good windows are strict but usable on both keyboard and touch.
-3. **Chart density:** Warmup → Core → Surge progression remains readable on a laptop and 375px viewport; the Surge pattern does not become a visual wall.
-4. **Stability feel:** ordinary misses lower the meter meaningfully without making recovery impossible; a competent run trends upward.
-5. **Visual sync:** note center reaches the rendered hit line at the exact model hit time and late Good-window notes continue past it.
+1. first Lane-1 note / DFJK readability;
+2. Perfect/Good/Miss-window feel on keyboard and touch;
+3. Warmup → Core → Surge density, especially 375px;
+4. note Miss and stray-press stability penalties;
+5. visual note center crossing the hit line at model hit time.
 
-If tuning changes are needed, the allowed knobs are deliberately bounded:
+Allowed tuning knobs at this checkpoint only:
 
-- `RHYTHM_REACTOR_RULES` timing/stability values;
+- timing/stability values in `RHYTHM_REACTOR_RULES` including Miss window;
 - scoring constants;
-- `WARMUP_PATTERN`, `CORE_PATTERN`, `SURGE_PATTERN` bytes;
+- pattern bytes;
 - section repeat counts;
-- achievement hit/combo floors that depend on final chart density.
+- chart-density-dependent achievement floors.
 
-Any chart edit must preserve the structural chart invariants above and update the exact pattern + expanded-lane-sequence tests in the same commit. Record the final derived note count and last-hit time after the checkpoint. Do not add calibration, audio, difficulty modes, random generation, or a new timing subsystem to solve tuning issues.
+Any chart edit updates exact pattern/repeat/expanded-lane expectations in the same commit. The permanent structural invariant tests do not change merely to accommodate tuning output.
 
-After this checkpoint, chart bytes/repeats and achievement thresholds are frozen for Task 5/6 unless a real bug is found.
+After the checkpoint, record final derived note count/last-hit time and freeze chart + achievement values for Task 5/6.
 
 ## Risks and Mitigations
 
+### Double-counted human error
+
+**Risk:** treating an early press as a stray while leaving the note pending produces a second miss when the note expires.
+
+**Mitigation:** one explicit Miss window. A near early/late press consumes the note as a single Miss; only input with no note in that window is a stray press.
+
 ### Timing-window E2E flake
 
-**Risk:** a Perfect window is only ±80ms; advancing in `page.evaluate`, returning to Playwright, then clicking allows live rAF to move simulation time and makes the proof flaky.
+**Risk:** live rAF can move simulation after a synchronous Perfect hit and before multiple locator assertions.
 
-**Mitigation:** advance to the target and dispatch the click/keyboard event in the same synchronous `page.evaluate` task with an exact final delta. Do not loosen timing windows to make E2E pass.
+**Mitigation:** return timing-sensitive model + HUD text from the same synchronous browser task as the input. Do not loosen timing windows.
 
-### Unreadably dense authored surge
+### Unreadably dense Surge
 
-**Risk:** even a valid 0.5-second chart can feel visually noisy; chart density is the primary visual-only difficulty knob.
+**Risk:** visual-only difficulty is dominated by chart density.
 
-**Mitigation:** pattern bytes and repeat counts remain tuning data until the mandatory playable checkpoint. Exact pattern/expanded-lane tests exist from Task 1 but remain intentionally editable only during that checkpoint; after it passes, those values are frozen.
+**Mitigation:** keep pattern bytes/repeats tunable through the mandatory playable checkpoint, then freeze them.
 
 ### Dual wall/simulation clocks
 
-**Risk:** a backgrounded tab may let BaseGame wall time finish while rAF-clamped simulation is behind.
+**Risk:** background throttling can let BaseGame wall time finish while simulation is behind.
 
-**Mitigation:** BaseGame remains run authority; Rhythm Reactor's one justified game-local timeout difference is settling every unresolved chart note as a miss before BaseGame captures final stats.
-
-### Renderer interpolation trap
-
-**Risk:** reusing shared `lerp` looks natural but clamps interpolation and would hide late-note travel past the hit line.
-
-**Mitigation:** use the explicit linear coordinate formula locally and lock the late-pending-note renderer test. No new shared math helper is justified.
+**Mitigation:** BaseGame stays run authority; timeout resolves all remaining notes before final stats.
 
 ### Audio scope creep
 
-**Risk:** “rhythm” can invite an audio-clock/calibration subsystem during tuning.
+**Risk:** rhythm tuning can invite an audio/calibration subsystem.
 
-**Mitigation:** v1 remains visual-only. Poor feel is solved by bounded chart/rule tuning, not Web Audio or latency calibration.
+**Mitigation:** v1 remains visual-only; solve feel problems with bounded data/rule tuning.
 
 ## Scope Boundary
 
-Expected production additions during implementation are local to:
+Expected production additions:
 
 - `src/lib/games/rhythm-reactor/`;
 - `src/pages/rhythm-reactor/index.astro`;
 - stable ID/icon and later active row in `src/lib/games.ts`;
-- `src/lib/games/shared/types.ts`;
-- `src/lib/achievements.ts`;
+- shared game-data alias;
+- achievements;
 - `CLAUDE.md`.
 
-Expected test updates/additions are local game tests plus:
+Expected shared test updates:
 
 - `src/lib/games.test.ts`;
 - `src/lib/organisms.test.ts`;
@@ -703,4 +721,4 @@ Expected test updates/additions are local game tests plus:
 - `src/pages/game-board-markup.test.ts`;
 - `e2e/games/play-coverage.spec.ts`.
 
-BaseGame, GameTimer, ScoreManager, GameInitializer, PixiJSRenderer, shared input helpers, score service, APIs, DB/schema/auth, packages, and the derived all-games-navigation production logic remain unchanged.
+BaseGame, GameTimer, ScoreManager, GameInitializer, PixiJSRenderer, shared input helpers, score service, APIs, DB/schema/auth, packages, and navigation production logic remain unchanged.
