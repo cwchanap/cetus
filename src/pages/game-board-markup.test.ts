@@ -30,6 +30,10 @@ const gravityFlipMarkup = readFileSync(
     resolve(process.cwd(), 'src/pages/gravity-flip/index.astro'),
     'utf-8'
 )
+const asteroidDriftMarkup = readFileSync(
+    resolve(process.cwd(), 'src/pages/asteroid-drift/index.astro'),
+    'utf-8'
+)
 
 const games = [
     'tetris',
@@ -53,6 +57,7 @@ const games = [
     'potion-sorter',
     'signal-switch',
     'rhythm-reactor',
+    'asteroid-drift',
 ]
 
 describe('Game board page markup', () => {
@@ -198,6 +203,57 @@ describe('Gravity Flip page markup', () => {
         expect(gravityFlipMarkup).toMatch(
             /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initGravityFlipGameFramework/
         )
+    })
+})
+
+describe('Asteroid Drift page markup', () => {
+    it('keeps stable board, D-pad controls, and root-level initializer', () => {
+        for (const id of [
+            'asteroid-drift-container',
+            'asteroid-drift-canvas',
+            'asteroid-drift-status',
+            'orbs-collected',
+            'ship-speed',
+            'asteroid-drift-dpad',
+            'final-outcome',
+            'final-survival',
+            'final-orbs',
+            'start-btn',
+            'reset-btn',
+        ]) {
+            expect(asteroidDriftMarkup).toContain(`id="${id}"`)
+        }
+        const dpadButtons =
+            asteroidDriftMarkup.match(/<button[^>]*data-direction=[^>]*>/g) ??
+            []
+        expect(dpadButtons).toHaveLength(4)
+        for (const direction of ['up', 'left', 'down', 'right']) {
+            expect(dpadButtons.join('\n')).toContain(
+                `data-direction="${direction}"`
+            )
+        }
+        for (const button of dpadButtons) {
+            expect(button).toContain('type="button"')
+            expect(button).toContain('tabindex="-1"')
+            expect(button).toContain('aria-label=')
+        }
+        expect(asteroidDriftMarkup).toContain('slot="controls"')
+        expect(asteroidDriftMarkup).not.toContain('id="end-btn"')
+        expect(asteroidDriftMarkup).toContain('showPause={false}')
+        expect(asteroidDriftMarkup).toContain('showEnd={false}')
+        expect(asteroidDriftMarkup).toContain('showReset={true}')
+        expect(asteroidDriftMarkup).toMatch(
+            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initAsteroidDriftGameFramework/
+        )
+    })
+
+    it('bootstraps the framework after DOMContentLoaded', () => {
+        const readyIndex = asteroidDriftMarkup.indexOf('DOMContentLoaded')
+        const initCallIndex = asteroidDriftMarkup.indexOf(
+            'initAsteroidDriftGameFramework()'
+        )
+        expect(readyIndex).toBeGreaterThan(-1)
+        expect(initCallIndex).toBeGreaterThan(readyIndex)
     })
 })
 
