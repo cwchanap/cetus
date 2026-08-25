@@ -436,6 +436,13 @@ describe('Signal Switch registration', () => {
     })
 })
 
+describe('Asteroid Drift stable ID and icon', () => {
+    it('has the stable id and icon', () => {
+        expect(GameID.ASTEROID_DRIFT).toBe('asteroid_drift')
+        expect(getGameIcon(GameID.ASTEROID_DRIFT)).toBe('☄️')
+    })
+})
+
 describe('Rhythm Reactor registration', () => {
     it('has the exact active registry entry, icon, and page route', () => {
         expect(GameID.RHYTHM_REACTOR).toBe('rhythm_reactor')
