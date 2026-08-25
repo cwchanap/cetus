@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship HPA-68 as a 90-second momentum-driven asteroid-dodging minigame with keyboard/touch controls, fair increasing traffic, energy-orb risk/reward, Pixi rendering, achievements, and the existing Cetus score/progress flow.
+**Goal:** Ship HPA-68 as a 90-second momentum-driven asteroid-dodging minigame with fair increasing traffic, finite energy-orb risk/reward, keyboard/touch input, Pixi rendering, achievements, and the existing Cetus score/progress flow.
 
-**Architecture:** `AsteroidDriftGame` extends `BaseGame` and owns game-local fixed-step thrust physics, simulation-time difficulty/spawn accumulators, collision, and orb lifecycle. BaseGame/GameTimer remain the only wall-clock survival-time authority. `spawning.ts` owns pure finite asteroid/orb placement plus the all-edge off-arena predicate; `scoring.ts` owns arithmetic; `AsteroidDriftRenderer` extends `PixiJSRenderer`; one custom initializer owns held input, one game rAF loop, HUD/overlay integration, and cleanup. Reuse existing geometry/input helpers only; do not extract an Evader/Gravity Flip/general arcade framework.
+**Architecture:** `AsteroidDriftGame` extends `BaseGame` and owns game-local fixed-step thrust physics, simulated-survival scoring, difficulty/spawn accumulators, collision, despawn, and orb lifecycle. BaseGame/GameTimer own the visible wall-clock countdown and timeout delivery, while simulation time is the anti-farming score authority. `spawning.ts` owns finite asteroid/orb placement plus one all-edge off-arena predicate; `scoring.ts` owns arithmetic; `AsteroidDriftRenderer` extends `PixiJSRenderer`; one custom initializer owns held input, one game rAF loop, HUD/overlay integration, and cleanup. No shared arcade framework is added.
 
 **Tech Stack:** Astro 5, TypeScript 6, BaseGame/GameTimer/ScoreManager, PixiJS 8, Tailwind 4, Vitest 3, Playwright 1.54, Bun 1.3.
 
@@ -12,31 +12,21 @@
 
 ## Global Constraints
 
-- One HPA-68 implementation PR. Continue implementation on this planning branch/PR; do not split the ticket into follow-up implementation PRs.
-- Fixed 90-second run; asteroid collision or BaseGame timeout are the only normal end paths.
-- **Clock ownership:** `BaseGame/GameTimer` owns displayed/submitted survival seconds and timeout; private `elapsedSimSeconds` owns only clamped physics difficulty/spawn progression.
-- Momentum is normalized thrust + exponential drag + max-speed clamp. No instant grid/direct-position movement.
-- Model input is four held directions with independent keyboard/touch source sets.
-- `update()` clamps one incoming frame to `0.1s` and substeps by at most `1/120s`.
-- Per-substep ordering is simulation time → player → asteroid movement/despawn → orb aging → collision → orb collection → spawning.
-- Asteroids despawn on **all four edges** only after their centers pass the arena expanded by `asteroidSpawnPadding + asteroid.radius`; bodies exactly on the expanded boundary remain active.
-- Collision beats orb collection if both happen in one substep.
-- Collision starts BaseGame's async end path with a Gravity Flip-shaped `.catch(...)` and returns before orb/spawn work; score-save rejection must not become unhandled.
-- First asteroid is deterministic, RNG-free, enters from the right at center Y, and provides the browser-test idle-loss path.
-- Random asteroid interval ramps `1.35s → 0.45s`; base speed `140 → 240px/s`; radius `18..36`; jitter ±15%; random traffic begins only after the opening grace.
-- A random spawn edge is eligible only when player center is at least `190px` from that edge. No random rejection loop.
-- At 24 active asteroids, consume zero RNG and cap accumulated spawn debt at one current interval. Exited asteroids release capacity.
-- At most one orb exists. Orb placement scans eight authored anchors once from one RNG-selected starting index and skips the attempt if none is safe.
-- Orb defaults: 4-second attempt cadence, 7-second active-simulation lifetime, 12px radius, ≥150px from player, and ≥`70 + asteroid.radius + orbRadius` from every asteroid.
-- Scoring is `floor(clamp(survivalSeconds, 0, 90)) * 10 + floor(max(orbsCollected, 0)) * 250`; game passes config score values to the pure scorer; BaseGame time bonus is disabled.
-- `GamePage`: `initialTime={90}`, `showPause={false}`, `showEnd={false}`, `showReset={true}` with one explicit custom `slot="controls"` containing Start/Reset + D-pad.
-- D-pad buttons use `data-direction`, `aria-label`, and `tabindex="-1"`; pointerdown releases implicit pointer capture defensively and pointerup/leave/cancel release held touch input.
-- The initializer `<script>` is page-root content **after `</GamePage>`**. `game-board-markup.test.ts` locks that placement and adds `'asteroid-drift'` to its hardcoded generic wrapper sweep when Task 4 creates the page.
-- Catalog identity: action / medium / `1-2 minutes` / shallow / `{ shape: 'spiral', color: 'amber' }`; depth fixture becomes `9 / 9 / 4`.
-- No shared movement/physics/spawn/survival framework, ECS, physics dependency, textures/audio, seeded run system, health/shields/boost/weapons, near-miss/combo/distance score, difficulty selector, pause/manual End, joystick/canvas hit-testing, backend/API/DB/schema/auth work, package additions, or changes to Evader/Gravity Flip.
-- `BaseGame.ts`, `GameTimer.ts`, `ScoreManager.ts`, `GameInitializer.ts`, `PixiJSRenderer.ts`, score service, API/DB/auth, and `e2e/games/all-games-navigation.spec.ts` remain source-unchanged.
-- Import `circleOverlap` and point `distance` from `@/lib/games/shared/geometry`; import `clamp`, `lerp`, and `isEditableTarget` from `@/lib/games/shared/utils`. Do not use `geometry.ts`'s duplicate clamp/lerp exports.
-- Run mandatory manual-play tuning after Task 4 and before Task 5 freezes registration/achievement thresholds.
+- One HPA-68 PR from planning through implementation.
+- Implement the exact initial `ASTEROID_DRIFT_RULES` block from the spec in Task 1. After that, `types.ts` is the production constants authority; do not maintain a duplicate numeric rules table in this plan.
+- BaseGame/GameTimer own displayed countdown and timeout delivery. `elapsedSimSeconds` owns scored survival and difficulty progression.
+- Timer expiry is a full survival only when simulated time is within one `maxUpdateDelta` of duration; otherwise outcome is `expired`, score/data remain simulation-based, and `survivedFullRun` is false.
+- Movement is normalized thrust + exponential drag + max-speed clamp with one outer delta clamp and fixed substeps.
+- Collision is checked before orb collection.
+- Random asteroid placement and orb placement are finite; no rejection/random retry loops.
+- Asteroids despawn on all four sides with the single padded-arena predicate from the spec.
+- Asteroid/orb capacity paths cannot bank burst debt.
+- Score formula shape is survival points + orb points; its two point constants are tunable at the mandatory Task 4 checkpoint.
+- Renderer collision-bearing extents derive from model radii; no independent hull/asteroid/orb size constants.
+- One custom `slot="controls"`; D-pad is intentionally game-local for this second use. Do not refactor GamePage/GameControls or create `GameDpad.astro` in HPA-68.
+- Initializer script lives after `</GamePage>` and the route enters the hardcoded page-markup wrapper sweep in Task 4.
+- No changes to BaseGame, GameTimer, ScoreManager, GameInitializer, PixiJSRenderer, Evader, Gravity Flip, score service, API/DB/auth/schema/packages, or `e2e/games/all-games-navigation.spec.ts`.
+- Import `circleOverlap`/point `distance` from `@/lib/games/shared/geometry`; import `clamp`/`lerp`/`isEditableTarget` from `@/lib/games/shared/utils`.
 
 ---
 
@@ -44,12 +34,12 @@
 
 ### New production
 
-- `src/lib/games/asteroid-drift/types.ts` — constants, config/entities/state/stats/data, config factory.
-- `src/lib/games/asteroid-drift/spawning.ts` — pure eligible-edge asteroid creation, all-edge off-arena predicate, and finite orb-anchor scan.
-- `src/lib/games/asteroid-drift/scoring.ts` — single score arithmetic authority.
-- `src/lib/games/asteroid-drift/AsteroidDriftGame.ts` — BaseGame lifecycle, held input, fixed-step motion, despawn/spawn accumulators, collision/orbs.
-- `src/lib/games/asteroid-drift/AsteroidDriftRenderer.ts` — two-layer Pixi primitive renderer.
-- `src/lib/games/asteroid-drift/initFramework.ts` — callbacks, D-pad/keyboard, one game rAF, cleanup/debug handle.
+- `src/lib/games/asteroid-drift/types.ts` — rules/config/entities/state/stats/data.
+- `src/lib/games/asteroid-drift/spawning.ts` — edge eligibility, asteroid materialization, all-edge despawn predicate, finite orb-anchor scan.
+- `src/lib/games/asteroid-drift/scoring.ts` — pure score arithmetic.
+- `src/lib/games/asteroid-drift/AsteroidDriftGame.ts` — BaseGame model, fixed-step movement, simulated survival, spawning/collision/orbs.
+- `src/lib/games/asteroid-drift/AsteroidDriftRenderer.ts` — two-layer Pixi renderer.
+- `src/lib/games/asteroid-drift/initFramework.ts` — callbacks, input, one game rAF, cleanup/debug handle.
 - `src/pages/asteroid-drift/index.astro` — playable route.
 
 ### New tests
@@ -60,35 +50,20 @@
 - `src/lib/games/asteroid-drift/AsteroidDriftRenderer.test.ts`
 - `src/lib/games/asteroid-drift/initFramework.test.ts`
 
-### Existing files changed only when contract becomes live
+### Existing files
 
-- `src/lib/games.ts` — Task 2 stable GameID/icon; Task 5 active catalog row.
-- `src/lib/games.test.ts` — ID/icon then final registration.
-- `src/lib/games/shared/types.ts` — Task 5 canonical game-data alias + union.
-- `src/lib/organisms.test.ts` — Task 5 `9 / 9 / 4`.
-- `src/lib/achievements.ts`, `src/lib/achievements.test.ts` — Task 5 four achievements.
-- `src/pages/game-board-markup.test.ts` — Task 4 direct route/bootstrap assertions **and** mandatory hardcoded `games` wrapper-sweep entry.
-- `e2e/games/play-coverage.spec.ts` — Task 6 deterministic loss/replay/mobile controls.
-- `CLAUDE.md` — Task 5 22-game/project tree/debug handle docs.
-
-### Required source-unchanged surfaces
-
-- `src/lib/games/core/BaseGame.ts`
-- `src/lib/games/core/GameTimer.ts`
-- `src/lib/games/core/ScoreManager.ts`
-- `src/lib/games/core/GameInitializer.ts`
-- `src/lib/games/renderers/PixiJSRenderer.ts`
-- `src/lib/games/evader/**`
-- `src/lib/games/gravity-flip/**`
-- `src/lib/services/scoreService.ts`
-- `src/lib/server/db/**`
-- `src/pages/api/**`
-- auth/package/schema surfaces
-- `e2e/games/all-games-navigation.spec.ts`
+- `src/lib/games.ts` — Task 2 stable ID/icon; Task 5 active row.
+- `src/lib/games.test.ts` — ID/icon then registration.
+- `src/lib/games/shared/types.ts` — canonical game-data alias + union.
+- `src/lib/organisms.test.ts` — final depth count.
+- `src/lib/achievements.ts`, `src/lib/achievements.test.ts` — four achievements.
+- `src/pages/game-board-markup.test.ts` — Task 4 route/bootstrap/D-pad/wrapper sweep.
+- `e2e/games/play-coverage.spec.ts` — deterministic collision/replay/mobile proof.
+- `CLAUDE.md` — game tree/debug handle count/docs.
 
 ---
 
-## Task 1: Rules, finite spawn policy, and pure score
+## Task 1: Rules, finite spawn/despawn policy, and pure score
 
 **Files**
 - Create: `src/lib/games/asteroid-drift/types.ts`
@@ -97,9 +72,12 @@
 - Create: `src/lib/games/asteroid-drift/scoring.ts`
 - Create: `src/lib/games/asteroid-drift/scoring.test.ts`
 
-- [ ] **1.1 Write RED rule and score tests**
+**Interfaces**
+- Produces `ASTEROID_DRIFT_RULES`, `AsteroidDriftConfig`, entity/state/stats/data/outcome/input types, and `createAsteroidDriftConfig()`.
+- Produces `eligibleAsteroidSpawnEdges()`, `createIntroAsteroid()`, `createRandomAsteroid()`, `isAsteroidOffArena()`, `ASTEROID_DRIFT_ORB_ANCHORS`, `findEnergyOrbSpawn()`.
+- Produces `calculateAsteroidDriftScore()`.
 
-`scoring.test.ts`:
+- [ ] **1.1 Write RED score tests without copying tuning values into the plan**
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -108,59 +86,69 @@ import { calculateAsteroidDriftScore } from './scoring'
 
 const config = createAsteroidDriftConfig()
 
-it('scores completed survival seconds plus orb bonuses', () => {
-    expect(calculateAsteroidDriftScore({ survivalSeconds: 0, orbsCollected: 0 }, config)).toBe(0)
-    expect(calculateAsteroidDriftScore({ survivalSeconds: 12.99, orbsCollected: 2 }, config)).toBe(620)
-    expect(calculateAsteroidDriftScore({ survivalSeconds: 90, orbsCollected: 10 }, config)).toBe(3400)
+it('scores whole simulated seconds plus orb bonuses', () => {
+    expect(
+        calculateAsteroidDriftScore(
+            { survivalSeconds: 12.99, orbsCollected: 2 },
+            config
+        )
+    ).toBe(
+        12 * config.survivalPointsPerSecond + 2 * config.orbPoints
+    )
 })
 
 it('clamps survival and normalizes orb count', () => {
-    expect(calculateAsteroidDriftScore({ survivalSeconds: -5, orbsCollected: -2 }, config)).toBe(0)
-    expect(calculateAsteroidDriftScore({ survivalSeconds: 999, orbsCollected: 1.9 }, config)).toBe(1150)
+    expect(
+        calculateAsteroidDriftScore(
+            { survivalSeconds: -5, orbsCollected: -2 },
+            config
+        )
+    ).toBe(0)
+    expect(
+        calculateAsteroidDriftScore(
+            { survivalSeconds: config.duration + 99, orbsCollected: 1.9 },
+            config
+        )
+    ).toBe(
+        config.duration * config.survivalPointsPerSecond + config.orbPoints
+    )
 })
 
-it('uses supplied config point values', () => {
+it('uses supplied point values', () => {
     const tuned = createAsteroidDriftConfig({
         duration: 10,
         survivalPointsPerSecond: 2,
         orbPoints: 7,
     })
-    expect(calculateAsteroidDriftScore({ survivalSeconds: 10, orbsCollected: 3 }, tuned)).toBe(41)
+    expect(
+        calculateAsteroidDriftScore(
+            { survivalSeconds: 10, orbsCollected: 3 },
+            tuned
+        )
+    ).toBe(41)
 })
-```
-
-`spawning.test.ts` also pins structural rules:
-
-```ts
-expect(ASTEROID_DRIFT_RULES.duration).toBe(90)
-expect(ASTEROID_DRIFT_RULES.maxUpdateDelta).toBe(0.1)
-expect(ASTEROID_DRIFT_RULES.maxPhysicsStep).toBe(1 / 120)
-expect(ASTEROID_DRIFT_RULES.asteroidInitialInterval).toBeGreaterThan(
-    ASTEROID_DRIFT_RULES.asteroidFinalInterval
-)
-expect(ASTEROID_DRIFT_RULES.asteroidInitialSpeed).toBeLessThan(
-    ASTEROID_DRIFT_RULES.asteroidFinalSpeed
-)
 ```
 
 Run:
 
 ```bash
-bun run test:run -- \
-  src/lib/games/asteroid-drift/scoring.test.ts \
-  src/lib/games/asteroid-drift/spawning.test.ts
+bun run test:run -- src/lib/games/asteroid-drift/scoring.test.ts
 ```
 
-Expected RED: modules do not exist.
+Expected RED: module does not exist.
 
-- [ ] **1.2 Implement canonical types/rules/config factory**
+- [ ] **1.2 Implement the spec's canonical rules/types/config**
 
-Use BaseGame contracts and define:
+Transcribe the exact `ASTEROID_DRIFT_RULES` block from the linked spec into `types.ts` once. Define:
 
 ```ts
 export type AsteroidDriftDirection = 'up' | 'down' | 'left' | 'right'
 export type AsteroidDriftInputSource = 'keyboard' | 'touch'
-export type AsteroidDriftOutcome = 'playing' | 'collision' | 'survived'
+export type AsteroidDriftOutcome =
+    | 'playing'
+    | 'collision'
+    | 'survived'
+    | 'expired'
 
 export interface AsteroidDriftPlayer {
     x: number
@@ -208,9 +196,7 @@ export interface AsteroidDriftGameData {
 }
 ```
 
-`AsteroidDriftConfig extends BaseGameConfig` and contains every `ASTEROID_DRIFT_RULES` field plus `rng: () => number`.
-
-Factory:
+`AsteroidDriftConfig extends BaseGameConfig` contains every rule plus `rng: () => number`.
 
 ```ts
 export function createAsteroidDriftConfig(
@@ -227,9 +213,9 @@ export function createAsteroidDriftConfig(
 }
 ```
 
-No second rules object, entity classes, or registry.
+- [ ] **1.3 Write RED finite asteroid/edge/despawn tests**
 
-- [ ] **1.3 Write RED deterministic intro and eligible-edge tests**
+Cover:
 
 ```ts
 const config = createAsteroidDriftConfig({ rng: () => 0 })
@@ -241,25 +227,30 @@ const player = {
     radius: config.playerRadius,
 }
 
-expect(createIntroAsteroid('asteroid-0', config)).toEqual({
+expect(createIntroAsteroid('asteroid-0', config)).toMatchObject({
     id: 'asteroid-0',
-    x: config.canvasWidth + config.asteroidSpawnPadding + config.introAsteroidRadius,
     y: config.canvasHeight / 2,
     velocityX: -config.asteroidInitialSpeed,
     velocityY: 0,
     radius: config.introAsteroidRadius,
 })
 
-const nearLeft = eligibleAsteroidSpawnEdges({ ...player, x: 20 }, config)
-expect(nearLeft).not.toContain('left')
-expect(nearLeft.length).toBeGreaterThan(0)
+expect(
+    eligibleAsteroidSpawnEdges({ ...player, x: 20 }, config)
+).not.toContain('left')
 ```
 
-Sweep default center/four near-corner player positions and assert at least one eligible edge. Add one invalid test config with `asteroidSafeEdgeDistance` larger than both dimensions and assert random materialization throws instead of silently using an unsafe edge.
+Also prove:
 
-- [ ] **1.4 Implement finite asteroid creation and all-edge despawn predicate**
+- center/corner-like default player positions always leave an eligible edge;
+- invalid test config with no eligible edge throws;
+- random spawn starts fully outside its selected edge and velocity points inward;
+- radius and speed stay inside config-derived bounds;
+- invalid RNG samples remain finite/in-range;
+- each exact expanded boundary is still active;
+- one epsilon beyond left/right/top/bottom expanded boundaries is off-arena.
 
-`spawning.ts` imports `clamp`/`lerp` from `@/lib/games/shared/utils` and `distance` from `@/lib/games/shared/geometry`, then exports:
+- [ ] **1.4 Implement finite asteroid helpers**
 
 ```ts
 export type AsteroidSpawnEdge = 'top' | 'right' | 'bottom' | 'left'
@@ -283,30 +274,13 @@ export function createRandomAsteroid(
 
 export function isAsteroidOffArena(
     asteroid: AsteroidDriftAsteroid,
-    config: Pick<
-        AsteroidDriftConfig,
-        'canvasWidth' | 'canvasHeight' | 'asteroidSpawnPadding'
-    >
+    config: AsteroidDriftConfig
 ): boolean
 ```
 
-`isAsteroidOffArena()` is one four-edge rule:
+`spawning.ts` imports point `distance` from `shared/geometry` and `clamp`/`lerp` from `shared/utils`.
 
-```ts
-const margin = config.asteroidSpawnPadding + asteroid.radius
-return (
-    asteroid.x < -margin ||
-    asteroid.x > config.canvasWidth + margin ||
-    asteroid.y < -margin ||
-    asteroid.y > config.canvasHeight + margin
-)
-```
-
-Use strict inequalities. A spawn whose center is exactly at `width + margin`, `-margin`, `height + margin`, or the top expanded boundary is still active and can move inward.
-
-Eligible edges use player distance to each boundary and `asteroidSafeEdgeDistance` exactly.
-
-Clamp RNG samples through one helper to `[0, 1)`:
+Clamp each RNG sample through one finite helper:
 
 ```ts
 function unitSample(rng: () => number): number {
@@ -316,54 +290,13 @@ function unitSample(rng: () => number): number {
 }
 ```
 
-`createRandomAsteroid()` performs one finite materialization:
+`createRandomAsteroid()` performs one finite edge/radius/coordinate/target/speed materialization with no retry loop.
 
-1. clamp progress 0..1;
-2. resolve eligible edges, throw if empty;
-3. choose one eligible edge;
-4. choose radius in min..max;
-5. choose along-edge coordinate inside radius-safe bounds;
-6. place center fully outside by `spawnPadding + radius`;
-7. choose an interior target inside the target inset rectangle;
-8. normalize spawn→target;
-9. derive base speed by `lerp(initial, final, progress)` plus bounded ±jitter;
-10. return straight-line velocity.
+`isAsteroidOffArena()` is exactly the strict padded-bounds predicate from the spec; no second offscreen rule exists in the game class.
 
-No RNG retry loop.
+- [ ] **1.5 Add finite orb-anchor policy**
 
-- [ ] **1.5 Add structural random-spawn + despawn tests**
-
-Using deterministic sample streams, assert:
-
-- near-left player never gets left edge;
-- center is fully outside chosen edge;
-- velocity points inward;
-- radius remains `18..36`;
-- speed magnitude stays in ramped `0.85..1.15` bound at progress 0 and 1;
-- injected `NaN`, negative, and `1` samples remain finite/in-range;
-- an asteroid exactly on each expanded spawn boundary is **not** off-arena;
-- an asteroid one epsilon beyond left/right/top/bottom expanded bounds is off-arena.
-
-Prefer geometry outcomes over exact incidental RNG call counts.
-
-- [ ] **1.6 Add finite authored-anchor orb placement**
-
-Export exact anchors:
-
-```ts
-export const ASTEROID_DRIFT_ORB_ANCHORS = [
-    { x: 0.16, y: 0.18 },
-    { x: 0.5, y: 0.14 },
-    { x: 0.84, y: 0.18 },
-    { x: 0.12, y: 0.5 },
-    { x: 0.88, y: 0.5 },
-    { x: 0.16, y: 0.82 },
-    { x: 0.5, y: 0.86 },
-    { x: 0.84, y: 0.82 },
-] as const
-```
-
-Signature:
+Export the exact eight `ASTEROID_DRIFT_ORB_ANCHORS` from the spec and:
 
 ```ts
 export function findEnergyOrbSpawn(
@@ -373,24 +306,11 @@ export function findEnergyOrbSpawn(
 ): { x: number; y: number } | null
 ```
 
-Consume one RNG sample for `startIndex`, scan exactly eight positions cyclically, and accept the first candidate satisfying:
+Consume one RNG sample for starting index, scan exactly eight cyclic positions, and return the first point meeting player and asteroid clearances. Tests cover player-near skip, asteroid-near skip, wraparound selection, and all-blocked null.
 
-```ts
-distance(candidate, player) >= config.orbPlayerMinDistance
-```
+- [ ] **1.6 Implement pure scorer**
 
-and for every asteroid:
-
-```ts
-distance(candidate, asteroid) >=
-    config.orbAsteroidClearance + asteroid.radius + config.orbRadius
-```
-
-Tests: player-near skips; asteroid-near skips; all blocked returns null; no random retry.
-
-- [ ] **1.7 Implement pure scorer**
-
-`scoring.ts` imports `clamp` from `@/lib/games/shared/utils`.
+`scoring.ts` imports `clamp` from `shared/utils`:
 
 ```ts
 export function calculateAsteroidDriftScore(
@@ -418,7 +338,7 @@ export function calculateAsteroidDriftScore(
 }
 ```
 
-- [ ] **1.8 Run Task 1 gates and commit**
+- [ ] **1.7 Run Task 1 gates and commit**
 
 ```bash
 bun run test:run -- src/lib/games/asteroid-drift
@@ -439,8 +359,12 @@ git commit -m "feat(asteroid-drift): add rules spawning and scoring"
 **Files**
 - Create: `src/lib/games/asteroid-drift/AsteroidDriftGame.ts`
 - Create: `src/lib/games/asteroid-drift/AsteroidDriftGame.test.ts`
-- Modify: `src/lib/games.ts` — stable GameID/icon only in this task.
-- Modify: `src/lib/games.test.ts` — stable ID/icon lock only; active row waits for Task 5.
+- Modify: `src/lib/games.ts` — stable ID/icon only.
+- Modify: `src/lib/games.test.ts` — ID/icon lock only.
+
+**Interfaces**
+- Produces `AsteroidDriftGame`, `pressDirection()`, `releaseDirection()`, `pressedDirections`, stats/game-data lifecycle.
+- Uses Task 1 spawning/scoring contracts.
 
 - [ ] **2.1 Add stable ID/icon without active catalog row**
 
@@ -448,48 +372,40 @@ git commit -m "feat(asteroid-drift): add rules spawning and scoring"
 ASTEROID_DRIFT = 'asteroid_drift',
 ```
 
-and:
-
 ```ts
 [GameID.ASTEROID_DRIFT]: '☄️',
 ```
 
-Test only:
+Tests:
 
 ```ts
 expect(GameID.ASTEROID_DRIFT).toBe('asteroid_drift')
 expect(getGameIcon(GameID.ASTEROID_DRIFT)).toBe('☄️')
 ```
 
-Do not add a temporary `getGameById(...) === undefined` test.
+Do not add a temporary inactive catalog row or `getGameById(...) === undefined` test.
 
-- [ ] **2.2 Write RED initial-state and independent-input tests**
+- [ ] **2.2 Write RED idle/input tests**
 
-Create a helper with deterministic RNG. Idle state must include center `(400, 240)`, zero velocity/score/orbs/entities, time 90, outcome `playing`.
+Idle state derives its center/time/radius from config and has zero score, velocity, asteroids, orbs, and outcome `playing`. After start, exactly one intro asteroid exists.
 
-After `start()`, exactly one intro asteroid exists.
-
-Public API:
+Public input API:
 
 ```ts
 pressDirection(
     direction: AsteroidDriftDirection,
     source: AsteroidDriftInputSource = 'keyboard'
 ): void
-
 releaseDirection(
     direction: AsteroidDriftDirection,
     source: AsteroidDriftInputSource = 'keyboard'
 ): void
-
 get pressedDirections(): Set<AsteroidDriftDirection>
 ```
 
-Prove keyboard-right + touch-up union, and same-direction held by both sources remains active until both release.
+Prove keyboard+touch union and same-direction two-source release independence.
 
-- [ ] **2.3 Implement BaseGame shell/private runtime state**
-
-`AsteroidDriftGame.ts` imports `circleOverlap` from `@/lib/games/shared/geometry`, `clamp`/`lerp` from `@/lib/games/shared/utils`, and the spawning helpers including `isAsteroidOffArena`.
+- [ ] **2.3 Implement BaseGame shell/private runtime**
 
 ```ts
 export class AsteroidDriftGame extends BaseGame<
@@ -516,19 +432,19 @@ export class AsteroidDriftGame extends BaseGame<
 }
 ```
 
-`onGameStart()` resets private runtime, sets asteroid accumulator to `-openingRandomSpawnGrace`, pushes deterministic intro, emits state. `onGameReset()`/`onGameEnd()` clear held sets/private accumulators. No timer is created.
+`onGameStart()` resets private runtime, offsets asteroid accumulation by opening grace, pushes intro asteroid, and emits state. Reset/end clear held input/private accumulators. No game-local timer exists.
 
-- [ ] **2.4 TDD movement behavior**
+- [ ] **2.4 TDD movement**
 
-Tests:
+Prove:
 
-1. right held for 0.1s produces positive X velocity/movement;
-2. release then update preserves positive but reduced velocity;
-3. up+right final speed approximately equals right-only for equal duration (diagonal normalization);
-4. sustained thrust never exceeds `maxPlayerSpeed`;
-5. boundary clamp keeps center inside radius bounds and zeroes only outward component.
+1. held right creates positive velocity/position;
+2. release preserves reduced positive velocity;
+3. diagonal normalization does not increase acceleration magnitude;
+4. sustained thrust never exceeds max speed;
+5. boundary clamp keeps the circle inside and clears only outward velocity.
 
-Implement axes:
+Input axes:
 
 ```ts
 const directions = this.getActiveDirections()
@@ -539,27 +455,25 @@ const inputX = inputLength > 0 ? rawX / inputLength : 0
 const inputY = inputLength > 0 ? rawY / inputLength : 0
 ```
 
-Then thrust, exponential drag, magnitude clamp, integration, and wall response exactly as spec.
+Then thrust, exponential drag, speed-magnitude clamp, integration, and wall response exactly as the spec.
 
-- [ ] **2.5 Write RED fixed-step/collision/despawn/difficulty-spawn tests**
+- [ ] **2.5 Write RED fixed-step/collision/despawn/capacity tests**
 
 Pin:
 
-- inactive/paused/non-finite/non-positive update does nothing;
-- `update(5)` advances at most 0.1 sim seconds worth of motion/difficulty;
-- a fast asteroid crossing the player's circle during one 0.1s outer frame is caught by `1/120s` substeps;
-- no random asteroid appears before opening grace;
-- the deterministic intro body can pass left of the expanded arena and is removed;
-- a test asteroid with positive X velocity can pass right of the expanded arena and is removed by the same predicate;
-- after filling to `maxAsteroids`, moving at least one body off-arena lowers active count below the cap so capacity reopens;
-- observable spawned asteroid speed/cadence move from initial toward final as clamped sim time progresses;
-- capacity path consumes zero RNG and cannot accumulate multi-spawn burst debt.
+- inactive/paused/non-finite/non-positive update is inert;
+- one oversized update advances at most one outer-clamp worth of simulation;
+- a fast crossing asteroid is caught by fixed substeps;
+- random traffic waits for opening grace;
+- intro can leave left and be removed;
+- a positive-X test asteroid can leave right and be removed by the same predicate;
+- filling to max then moving a body off-arena lowers active count and reopens capacity;
+- full capacity consumes zero spawn RNG and cannot bank a multi-spawn burst;
+- observed random traffic gets denser/faster as simulated progress increases.
 
-Do not expose private clocks just for tests; use small config overrides and observable state/RNG spies.
+Use config-derived expectations and observable state; do not expose private clocks for tests.
 
 - [ ] **2.6 Implement update/substep/collision/despawn/spawn**
-
-`update()`:
 
 ```ts
 update(deltaTime: number): void {
@@ -583,9 +497,9 @@ update(deltaTime: number): void {
 }
 ```
 
-`stepPhysics()` preserves spec ordering. Asteroid movement updates position, then filters with `!isAsteroidOffArena(asteroid, this.config)` before collision/orb checks. This is the only asteroid-removal predicate.
+`stepPhysics()` follows the spec order. Clamp `elapsedSimSeconds` to duration. Move then filter asteroids only through `isAsteroidOffArena()`.
 
-Collision uses shared `circleOverlap`; on hit:
+Collision:
 
 ```ts
 this.state.outcome = 'collision'
@@ -596,129 +510,117 @@ void this.end().catch((error: unknown) =>
 return
 ```
 
-The return occurs before orb collection and spawn accumulation for that substep. Do not `await` inside physics and do not leave the promise uncaught.
+Return before orb collection/spawning; do not await physics.
 
-Random spawn:
+Asteroid capacity uses one interval-capped accumulator and no catch-up loop.
+
+- [ ] **2.7 Add orb lifecycle/debt TDD**
+
+With small config durations/cadences, prove:
+
+- at most one orb;
+- valid attempt creates age-0 orb;
+- blocked attempt resets the attempt cadence;
+- while an orb exists, accumulator is capped at one interval and no second spawn occurs;
+- collection resets accumulator to zero and does not instant-respawn;
+- expiry resets accumulator to zero and does not instant-respawn;
+- contact collects exactly once;
+- same-step asteroid+orb contact loses before collection;
+- collision end is called once and rejected async end/save is caught.
+
+Implementation policy:
 
 ```ts
-this.asteroidSpawnAccumulator += step
-const interval = this.currentAsteroidSpawnInterval()
-if (this.state.asteroids.length >= this.config.maxAsteroids) {
-    this.asteroidSpawnAccumulator = Math.min(
-        this.asteroidSpawnAccumulator,
-        interval
+if (this.state.energyOrb) {
+    this.orbSpawnAccumulator = Math.min(
+        this.orbSpawnAccumulator + step,
+        this.config.orbSpawnInterval
     )
-} else if (this.asteroidSpawnAccumulator >= interval) {
-    this.asteroidSpawnAccumulator -= interval
-    this.state.asteroids.push(
-        createRandomAsteroid(
-            this.entityId('asteroid'),
-            this.state.player,
-            this.currentProgress(),
-            this.config
-        )
-    )
+} else {
+    this.orbSpawnAccumulator += step
+    if (this.orbSpawnAccumulator >= this.config.orbSpawnInterval) {
+        this.orbSpawnAccumulator = 0
+        // one finite findEnergyOrbSpawn() attempt
+    }
 }
 ```
 
-No catch-up `while` loop.
+Set `orbSpawnAccumulator = 0` whenever the current orb is collected or expires.
 
-- [ ] **2.7 Add orb lifecycle + collision-end TDD**
+- [ ] **2.8 Make simulation the score authority and close background farming**
 
-With short test cadence, prove:
-
-- at most one orb;
-- valid attempt creates age 0 orb;
-- invalid finite-anchor attempt remains null and resets cadence;
-- lifetime expiration removes orb;
-- circle contact removes/increments exactly once;
-- same-step asteroid+orb contact yields collision and no orb award;
-- collision invokes end once and a rejected async end/save path is caught rather than surfacing as an unhandled rejection.
-
-Orb age/spawn cadence use active simulation steps; submitted survival score does not.
-
-- [ ] **2.8 Freeze wall-clock survival scoring vs simulation difficulty**
-
-Add private helper:
+Private survival helper:
 
 ```ts
 private survivalSeconds(): number {
     if (this.state.outcome === 'survived') {
         return this.config.duration
     }
-    return clamp(this.getTimerStatus().elapsedTime, 0, this.config.duration)
+    return clamp(this.elapsedSimSeconds, 0, this.config.duration)
 }
 ```
 
-This uses BaseGame's live/final timer snapshot while active/collision; the survived special case handles GameTimer's already-stopped completion callback before BaseGame final snapshot exists.
+`syncScore()` calls the Task 1 scorer using `survivalSeconds()` and orb count, adding only positive delta.
 
-`syncScore()`:
-
-```ts
-const target = calculateAsteroidDriftScore(
-    {
-        survivalSeconds: this.survivalSeconds(),
-        orbsCollected: this.state.orbsCollected,
-    },
-    this.config
-)
-const delta = target - this.state.score
-if (delta > 0) {
-    this.addScore(delta, 'asteroid_drift_progress')
-}
-```
-
-Use Vitest fake timers to prove:
-
-1. advancing only `game.update()` without wall time can increase difficulty/motion but **not survival score**;
-2. advancing fake wall time by 3 seconds + timer ticks yields 30 survival points even if physics was advanced in smaller/clamped slices;
-3. collision at that point preserves 3-second score;
-4. timeout scores exactly duration × survival points.
-
-This is the regression protecting single timer ownership.
-
-- [ ] **2.9 Implement timeout/stats/data/reset**
+Timer completion:
 
 ```ts
 protected handleTimeUp(): void {
-    this.state.outcome = 'survived'
+    const simulated = clamp(
+        this.elapsedSimSeconds,
+        0,
+        this.config.duration
+    )
+    const completedSimulation =
+        simulated >= this.config.duration - this.config.maxUpdateDelta
+
+    this.state.outcome = completedSimulation ? 'survived' : 'expired'
     this.syncScore()
     super.handleTimeUp()
 }
 ```
 
-`getGameStats()` uses `getTimerStatus().elapsedTime` after BaseGame final snapshot, except survived returns duration if needed; `getGameData()` returns canonical wall-clock survival, orbs, and `survivedFullRun`.
+Tests use a short custom duration:
 
-Reset/start clears outcome/entities/orb/velocity/input/private simulation/spawn state.
+1. advancing `game.update()` advances survival score even if wall time is unchanged;
+2. collision preserves the simulated seconds actually played;
+3. simulate to within one `maxUpdateDelta` of duration, then fire timer completion: outcome `survived`, full-duration score/data, `survivedFullRun=true`;
+4. **anti-farm regression:** start, advance fake wall timer to completion without calling `game.update()`: outcome `expired`, survival score/data remain 0, `survivedFullRun=false`;
+5. a partially simulated timeout returns partial simulated survival and cannot earn full-run data.
 
-- [ ] **2.10 Run Task 2 gates + commit**
+Only the two timeout delivery tests need fake timers. Delete the previous wall-clock-vs-sim synchronization suite; there is no Date.now-based scoring path anymore.
+
+- [ ] **2.9 Stats/data/reset**
+
+`getGameStats()` and `getGameData()` both use the same `survivalSeconds()` authority. `survivedFullRun` is `outcome === 'survived'`.
+
+Reset/start clears outcome/entities/orb/velocity/input/simulation/spawn state.
+
+- [ ] **2.10 Run Task 2 gates and commit**
 
 ```bash
-bun run test:run -- \
-  src/lib/games/asteroid-drift \
-  src/lib/games.test.ts
+bun run test:run -- src/lib/games/asteroid-drift src/lib/games.test.ts
 bun run typecheck
 ```
 
+Expected PASS.
+
 ```bash
-git add \
-  src/lib/games.ts \
-  src/lib/games.test.ts \
-  src/lib/games/asteroid-drift
+git add src/lib/games.ts src/lib/games.test.ts src/lib/games/asteroid-drift
 git commit -m "feat(asteroid-drift): add momentum game model"
 ```
 
 ---
 
-## Task 3: Two-layer Pixi renderer
+## Task 3: Two-layer Pixi renderer with collision-honest geometry
 
 **Files**
 - Create: `src/lib/games/asteroid-drift/AsteroidDriftRenderer.ts`
 - Create: `src/lib/games/asteroid-drift/AsteroidDriftRenderer.test.ts`
 
-- [ ] **3.1 Write RED renderer-layer tests**
+- [ ] **3.1 Write RED layer/lifecycle tests**
 
-Follow current Pixi mocks. Setup must create two Asteroid Drift-owned `PIXI.Graphics` layers in order: static background, dynamic entities. Rendering twice must not rebuild static background every frame; dynamic layer clears/redraws.
+Follow current Pixi mocks. Setup creates exactly two Asteroid Drift-owned Graphics layers in order: static background, dynamic entities. Static background is drawn once; dynamic layer clears/redraws.
 
 - [ ] **3.2 Implement renderer config/setup**
 
@@ -738,22 +640,25 @@ export function createAsteroidDriftRendererConfig(
 }
 ```
 
-Background draws dark board/border plus a short fixed authored star-dot list once. Renderer never calls RNG and owns no ticker.
+Background is deterministic and consumes no RNG. Renderer owns no ticker.
 
-- [ ] **3.3 Add non-color-only entity geometry**
+- [ ] **3.3 Lock collision-bearing visual extents**
 
-Tests/implementation lock structure rather than visual pixel values:
+Renderer tests inspect recorded Graphics arguments rather than only asserting that shapes exist.
 
-- triangular ship hull + center/engine line; heading from `atan2(vy, vx)`, right when near-stationary;
-- asteroid outer circle + at least two crater marks;
-- energy orb ring + diamond/cross geometry;
-- invalid/non-Asteroid state is ignored safely.
+For a fixture state:
 
-Dynamic order: orb → asteroids → ship. Collision remains model circle geometry, not rendered triangle/craters.
+- every local ship hull vertex must satisfy `Math.hypot(x, y) <= player.radius`;
+- asteroid outer `circle(...)` call uses exactly `asteroid.radius`;
+- orb outer ring `circle(...)` call uses exactly `energyOrb.radius`;
+- crater marks/inner orb decoration stay within their owning radius;
+- no independent production constant determines collision-bearing visual size.
 
-- [ ] **3.4 Cleanup and gates**
+Also lock triangular/heading geometry, crater decoration, orb diamond/cross identity, and safe ignore of invalid state.
 
-Destroy local graphics/null refs and follow current Pixi renderer cleanup convention exactly once.
+Dynamic order remains orb → asteroids → ship. Model circle collision remains authoritative.
+
+- [ ] **3.4 Cleanup/gates/commit**
 
 ```bash
 bun run test:run -- \
@@ -770,48 +675,39 @@ git commit -m "feat(asteroid-drift): add Pixi renderer"
 
 ---
 
-## Task 4: One initializer + native controls + playable route
+## Task 4: Initializer, native controls, playable route, and tuning
 
 **Files**
 - Create: `src/lib/games/asteroid-drift/initFramework.ts`
 - Create: `src/lib/games/asteroid-drift/initFramework.test.ts`
 - Create: `src/pages/asteroid-drift/index.astro`
-- Modify: `src/pages/game-board-markup.test.ts` — direct Asteroid Drift assertions **and** hardcoded `games` wrapper-sweep entry.
+- Modify: `src/pages/game-board-markup.test.ts`
 
-- [ ] **4.1 Write RED route markup/bootstrap tests and register the route in the markup sweep**
+- [ ] **4.1 Write RED route/bootstrap/wrapper tests**
 
-At module scope, load the new page source like the neighboring pages:
+Load `asteroidDriftMarkup` at module scope and add `'asteroid-drift'` to the existing hardcoded `games` wrapper array immediately when the route is introduced.
 
-```ts
-const asteroidDriftMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/asteroid-drift/index.astro'),
-    'utf-8'
-)
-```
-
-Add `'asteroid-drift'` to the existing hardcoded `games` array in this same Task 4 RED change. This is mandatory when the page exists; do not defer it to catalog registration because the wrapper sweep is route-based, not registry-derived.
-
-Exact IDs:
+Require IDs:
 
 ```text
-#asteroid-drift-container
-#asteroid-drift-canvas
-#asteroid-drift-status
-#orbs-collected
-#ship-speed
-#asteroid-drift-dpad
-#final-outcome
-#final-survival
-#final-orbs
+asteroid-drift-container
+asteroid-drift-canvas
+asteroid-drift-status
+orbs-collected
+ship-speed
+asteroid-drift-dpad
+final-outcome
+final-survival
+final-orbs
 ```
 
 Assert:
 
-- four native `button[data-direction]` values `up`, `left`, `down`, `right`;
-- all four D-pad buttons contain `tabindex="-1"`;
-- page source contains `slot="controls"` and no `id="end-btn"`;
-- `showPause={false}`, `showEnd={false}`, `showReset={true}`;
-- initializer is page-root content after GamePage closes:
+- four native `button[data-direction]` values up/left/down/right;
+- all four carry `tabindex="-1"` and an accessible label;
+- explicit `slot="controls"` exists;
+- no `end-btn`; Pause/End false, Reset true;
+- initializer script is page-root content after `</GamePage>`:
 
 ```ts
 expect(asteroidDriftMarkup).toMatch(
@@ -819,112 +715,62 @@ expect(asteroidDriftMarkup).toMatch(
 )
 ```
 
-Also keep the ordering assertion:
+- `DOMContentLoaded` occurs before `initAsteroidDriftGameFramework()`.
 
-```ts
-const readyIndex = asteroidDriftMarkup.indexOf('DOMContentLoaded')
-const initIndex = asteroidDriftMarkup.indexOf(
-    'initAsteroidDriftGameFramework()'
-)
-expect(readyIndex).toBeGreaterThanOrEqual(0)
-expect(initIndex).toBeGreaterThan(readyIndex)
-```
+- [ ] **4.2 Create Astro route/custom controls**
 
-These are formatting-tolerant contract checks, not quote/whitespace snapshots.
+Use GamePage with game ID/title/icon, spec-derived initial time, no Pause/End, Reset enabled, and initial collision overlay title.
 
-- [ ] **4.2 Create Astro route with explicit custom controls**
-
-```astro
-<GamePage
-  gameId="asteroid-drift"
-  title="Asteroid Drift"
-  description="Thrust through an asteroid field, collect energy orbs, and survive for 90 seconds."
-  icon="☄️"
-  initialTime={90}
-  showPause={false}
-  showEnd={false}
-  showReset={true}
-  overlayTitle="SHIP LOST"
->
-```
-
-Game board: Pixi mount + polite live region. Additional badges: Orbs and rounded Speed only. Final stats: outcome/survival/orbs.
-
-Controls must use an explicit custom slot rather than default `GameControls`:
+Use explicit:
 
 ```astro
 <div slot="controls">
-  <!-- Start/Reset plus cross-shaped D-pad -->
+  <!-- Start/Reset + #asteroid-drift-dpad -->
 </div>
 ```
 
-Use existing `Button.astro` for Start/Reset. The four held-pointer D-pad controls are native `<button type="button">` elements with `data-direction="up|left|down|right"`, `aria-label="Thrust …"`, and `tabindex="-1"`, matching Evader's pointer D-pad treatment. Keep them inside `#asteroid-drift-dpad`.
+Start/Reset use existing Button. The four held-pointer D-pad controls are native buttons with `data-direction`, `aria-label`, `tabindex="-1"`, and `touch-action: none`.
 
-Scoring copy derives displayed point values from imported `ASTEROID_DRIFT_RULES` rather than repeating literals.
+Do **not** modify GamePage/GameControls to pass children through. This is the second D-pad copy; extraction is deferred until a third real consumer.
 
-Canvas CSS:
+Scoring copy reads values from `ASTEROID_DRIFT_RULES` rather than literals.
 
-```css
-#asteroid-drift-canvas :global(canvas) {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  touch-action: manipulation;
-}
-```
+Canvas remains non-interactive gameplay-wise and scales with `max-width: 100%; height: auto`.
 
-D-pad buttons use `touch-action: none` locally; canvas has no gameplay pointer handler.
+Close `</GamePage>` before the initializer script.
 
-Close `</GamePage>` before the initializer `<script>`. Do not place the script in a named slot: `GamePage.astro` documents that Astro drops scripts rendered through slots.
-
-- [ ] **4.3 Write RED initializer lifecycle/HUD tests**
+- [ ] **4.3 Write RED initializer/HUD/result tests**
 
 Verify:
 
-- missing container returns `undefined` through current error helper;
-- one game/renderer, initial idle render/HUD;
-- start hides Start/overlay;
-- state callback syncs orbs/speed/score/time;
-- collision overlay title `SHIP LOST`, outcome `Collision`, final stats;
-- timeout title `DRIFT COMPLETE`, outcome `Survived`;
-- Play Again starts fresh active run;
-- Reset returns idle + visible Start;
-- achievement/challenge globals receive end event results;
+- missing root returns undefined through current error path;
+- initial idle render/HUD;
+- Start hides overlay/start appropriately;
+- state callbacks sync orbs/speed/score/time;
+- collision result `SHIP LOST` / `Collision`;
+- survived result `DRIFT COMPLETE` / `Survived`;
+- expired result `DRIFT ENDED` / `Expired`, with partial simulated survival;
+- Play Again starts a fresh active run;
+- Reset restores idle;
+- achievements/challenges forward from end event;
 - cleanup is idempotent.
 
-- [ ] **4.4 Implement tracked listeners + keyboard mapping**
+- [ ] **4.4 Implement keyboard mapping**
 
-Import `isEditableTarget` from `@/lib/games/shared/utils`.
+Import `isEditableTarget` from shared utils. Map arrows/WASD to four directions. Keydown ignores modifier combos/editable targets/unrelated keys and only presses while active. Keyup releases mapped keyboard direction even after game end.
 
-```ts
-const KEY_TO_DIRECTION: Readonly<Record<string, AsteroidDriftDirection>> = {
-    ArrowUp: 'up',
-    ArrowDown: 'down',
-    ArrowLeft: 'left',
-    ArrowRight: 'right',
-    w: 'up', W: 'up',
-    s: 'down', S: 'down',
-    a: 'left', A: 'left',
-    d: 'right', D: 'right',
-}
-```
+- [ ] **4.5 Implement Evader-shaped independent pointer D-pad locally**
 
-Keydown ignores ctrl/meta/alt, editable targets, unrelated keys; when active, presses normalized direction + prevents default. Repeated keydown is harmless set insertion; no special repeat branch needed. Keyup releases any mapped keyboard direction even just after a collision so held input cannot leak.
+For each D-pad button:
 
-- [ ] **4.5 Implement independent pointer-held D-pad**
+- pointerdown: prevent default, add active class, `releasePointerCapture(pointerId)` inside try/catch, press touch direction only while active;
+- pointerup/leave/cancel: prevent default, remove active class, release touch direction.
 
-Each `button[data-direction]` is already `tabindex="-1"` in page markup. Listener behavior copies Evader locally:
+Tests cover touch diagonal, keyboard+touch same-direction ownership, pointercancel, pre-start no latent input, and harmless pointer-capture failure.
 
-- pointerdown: prevent default, active class, defensively call `button.releasePointerCapture(event.pointerId)` inside `try/catch`, press touch direction only when active;
-- pointerup/leave/cancel: prevent default, clear class, release touch direction.
+No pointermove/virtual joystick abstraction.
 
-Tests: touch diagonal; keyboard+touch same direction survives one-source release; pointercancel releases; pre-start press leaves no latent movement; `releasePointerCapture` failure is harmless.
-
-No pointermove/joystick abstraction.
-
-- [ ] **4.6 Add exactly one game rAF + responsive inline canvas override**
-
-After renderer init:
+- [ ] **4.6 Add one game rAF and responsive canvas override**
 
 ```ts
 const canvas = renderer.getApp()?.canvas ?? null
@@ -934,43 +780,16 @@ if (canvas) {
 }
 ```
 
-One loop driven by monotonic rAF timestamp, first frame delta 0, next deltas capped 0.1, calls `game.update()` only while active/unpaused, then renderer render, then schedules exactly one successor.
+One rAF loop uses monotonic timestamps, first delta zero, subsequent outer delta bounded by config, updates only active/unpaused game, renders, schedules one successor. No game-local interval/Pixi ticker.
 
-Asteroid Drift initializer must not call `setInterval` or register a Pixi ticker. BaseGame/GameTimer's existing timer interval is not replaced.
+- [ ] **4.7 Add bounded live/beforeunload/debug integration**
 
-- [ ] **4.7 Add bounded accessibility/beforeunload/debug integration + root bootstrap**
+Announce only start, orb collection, collision, full completion, and incomplete expiry. Beforeunload only while active. Expose `window.asteroidDriftGame` from the page-root DOMContentLoaded bootstrap.
 
-Live announcements only:
-
-- start: `Drift started. Avoid asteroids and collect energy orbs.`
-- orb count increase: `Energy orb collected. N total.`
-- collision: `Collision. Run ended.`
-- completion: `Drift complete. You survived the full 90 seconds.`
-
-Beforeunload only while active.
-
-After the closing `</GamePage>` tag, page-root bootstrap is:
-
-```ts
-document.addEventListener('DOMContentLoaded', () => {
-  initAsteroidDriftGameFramework()
-    .then(handle => {
-      if (handle) {
-        ;(window as Window & { asteroidDriftGame?: typeof handle }).asteroidDriftGame = handle
-      }
-    })
-    .catch(error => {
-      console.error('Asteroid Drift failed to initialize', error)
-    })
-})
-```
-
-- [ ] **4.8 Run playable gates + commit**
+- [ ] **4.8 Run playable gates and commit**
 
 ```bash
-bun run test:run -- \
-  src/lib/games/asteroid-drift \
-  src/pages/game-board-markup.test.ts
+bun run test:run -- src/lib/games/asteroid-drift src/pages/game-board-markup.test.ts
 bun run typecheck
 bun run lint
 ```
@@ -984,32 +803,38 @@ git add \
 git commit -m "feat(asteroid-drift): add playable route and controls"
 ```
 
-- [ ] **4.9 Mandatory manual-play tuning checkpoint**
+- [ ] **4.9 Mandatory manual tuning checkpoint**
 
-Play desktop + 375×812 and answer:
+Play desktop + 375×812 and answer all six:
 
-1. ~3-second idle intro collision readable/dodgeable?
-2. momentum noticeable but correction comfortable?
-3. edge-biased orbs voluntary risk without unsafe spawn?
-4. 60–90s traffic hard but readable?
-5. D-pad diagonals/release comfortable on touch?
+1. Is the opening idle collision readable/dodgeable?
+2. Is momentum noticeable without frustrating correction?
+3. Do edge-biased orbs create voluntary risk without unsafe placement?
+4. During late traffic, did any death feel effectively unavoidable rather than earned?
+5. Can D-pad diagonals and release work comfortably on touch?
+6. After a strong run, did score reward both survival and orb collection rather than only one channel?
 
-Only these feel values may change: acceleration/drag/max speed; asteroid radius/interval/speed/jitter; orb cadence/lifetime/player distance/asteroid clearance. Do not change duration, score formula, deterministic intro structure, finite spawn/despawn algorithms, lifecycle/clock ownership, or architecture.
+Allowed tuning values are exactly the categories listed in the spec, including `survivalPointsPerSecond` and `orbPoints`.
 
-If tuned, update direct tests + spec/plan values and commit on same PR:
+If tuning is needed, update **only**:
+
+- `src/lib/games/asteroid-drift/types.ts`;
+- direct tests that derive/assert those values;
+- the spec's `ASTEROID_DRIFT_RULES` constants block and score-balance note.
+
+Do **not** update this implementation plan to mirror tuning numbers. Do not change duration, finite algorithms, anti-farming completion rule, lifecycle, or architecture during tuning.
+
+Commit only if values actually change:
 
 ```bash
 git add src/lib/games/asteroid-drift \
-        docs/superpowers/specs/2026-08-24-asteroid-drift-design.md \
-        docs/superpowers/plans/2026-08-24-asteroid-drift.md
+        docs/superpowers/specs/2026-08-24-asteroid-drift-design.md
 git commit -m "chore(asteroid-drift): tune gameplay defaults"
 ```
 
-No empty tuning commit.
-
 ---
 
-## Task 5: Catalog, shared data, achievements, repo metadata
+## Task 5: Catalog, shared data, achievements, and repo metadata
 
 **Files**
 - Modify: `src/lib/games.ts`
@@ -1020,7 +845,7 @@ No empty tuning commit.
 - Modify: `src/lib/achievements.test.ts`
 - Modify: `CLAUDE.md`
 
-`src/pages/game-board-markup.test.ts` was already changed in Task 4 when the route became real. Do not defer or duplicate that route-array edit here.
+`game-board-markup.test.ts` was already updated in Task 4; do not defer/duplicate that edit here.
 
 - [ ] **5.1 Write RED final registration/depth tests**
 
@@ -1038,9 +863,9 @@ expect(getGameById(GameID.ASTEROID_DRIFT)).toMatchObject({
 expect(getGameUrl(GameID.ASTEROID_DRIFT)).toBe('/asteroid-drift')
 ```
 
-Depth becomes exactly 9/9/4. Keep current generic adjacency invariant; no insertion-position test.
+Depth becomes exactly `9 / 9 / 4`. Keep the existing generic adjacency invariant.
 
-- [ ] **5.2 Append active catalog row**
+- [ ] **5.2 Add active catalog row**
 
 ```ts
 {
@@ -1059,20 +884,20 @@ Depth becomes exactly 9/9/4. Keep current generic adjacency invariant; no insert
 },
 ```
 
-Do not alter `getGameUrl()` or add registry machinery.
+Do not alter URL machinery or add a registry abstraction.
 
-- [ ] **5.3 Add canonical shared data alias**
+- [ ] **5.3 Add canonical shared game-data alias**
 
 ```ts
 export type AsteroidDriftGameData =
     import('../asteroid-drift/types').AsteroidDriftGameData
 ```
 
-Add once to `GameData`. If achievements keeps its own imported/check union, reference this canonical type rather than redefining shape.
+Add it once to `GameData`; achievement checks use the canonical type rather than restating the shape.
 
 - [ ] **5.4 Write RED tests for exactly four achievements**
 
-IDs:
+Expected IDs:
 
 ```ts
 [
@@ -1083,44 +908,24 @@ IDs:
 ]
 ```
 
-Conditions after tuning:
+Conditions:
 
-- First Charge: `orbsCollected >= 1` — Common;
-- Energy Runner: `orbsCollected >= 6` — Rare;
-- Long Haul: `survivalSeconds >= 60` — Rare;
-- Deep Space Ace: `survivedFullRun && orbsCollected >= 10` — Epic.
+- First Charge: `orbsCollected >= 1`;
+- Energy Runner: `orbsCollected >= 6`;
+- Long Haul: `survivalSeconds >= 60`;
+- Deep Space Ace: `survivedFullRun && orbsCollected >= 10`.
 
-Negative boundaries: 0, 5, 59, and `{ survivedFullRun: false, orbsCollected: 10 }`.
+Include negative boundaries and an explicit background-style data case `{ survivalSeconds: 0, survivedFullRun: false }` proving it cannot satisfy Long Haul/Deep Space Ace.
 
-- [ ] **5.5 Add achievements using current in-game machinery**
+- [ ] **5.5 Add current-machinery achievement definitions**
 
-Cast/use canonical `AsteroidDriftGameData`; no achievement service/schema changes.
+Use `AsteroidDriftGameData`; no achievement service/schema changes.
 
-Example:
+- [ ] **5.6 Update CLAUDE.md**
 
-```ts
-{
-    id: 'asteroid_drift_deep_space_ace',
-    name: 'Deep Space Ace',
-    description: 'Survive the full drift and collect at least 10 energy orbs.',
-    logo: '🌠',
-    gameId: GameID.ASTEROID_DRIFT,
-    condition: {
-        type: 'in_game',
-        check: gameData => {
-            const data = gameData as AsteroidDriftGameData
-            return data.survivedFullRun && data.orbsCollected >= 10
-        },
-    },
-    rarity: AchievementRarity.EPIC,
-}
-```
+Update implemented-game count/tree/Pixi notes/debug handle. Preserve `AGENTS.md` symlink; do not replace it.
 
-- [ ] **5.6 Finish `CLAUDE.md`**
-
-Update `CLAUDE.md` 21→22 implemented games, game tree/Pixi notes, and `window.asteroidDriftGame`. Preserve existing `AGENTS.md` symlink; do not replace it.
-
-- [ ] **5.7 Run registration gates + commit**
+- [ ] **5.7 Run gates and commit**
 
 ```bash
 bun run test:run -- \
@@ -1146,54 +951,35 @@ git commit -m "feat(asteroid-drift): register game and achievements"
 
 ---
 
-## Task 6: Deterministic browser/mobile coverage + final gates
+## Task 6: Browser/mobile regression and final gates
 
 **Files**
 - Modify: `e2e/games/play-coverage.spec.ts`
 - Verify source-unchanged: `e2e/games/all-games-navigation.spec.ts`
 
-- [ ] **6.1 Add deterministic idle-collision → Play Again journey**
+- [ ] **6.1 Add deterministic intro-collision → Play Again journey**
 
-Intercept existing score endpoint like adjacent game journeys. Steps:
+Intercept the score endpoint like adjacent journeys. Open `/asteroid-drift`, assert idle state, start, provide no movement, wait for the deterministic intro collision, assert `SHIP LOST`/inactive/final stats, click Play Again, and assert a fresh active centered run.
 
-1. open `/asteroid-drift`;
-2. assert idle time 90/orbs 0/speed 0/canvas;
-3. Start;
-4. send no movement;
-5. wait for deterministic intro collision using a geometry-derived upper bound;
-6. assert overlay `SHIP LOST`, outcome `Collision`, final orbs 0, handle inactive/game-over;
-7. Play Again;
-8. assert overlay hidden, fresh active state, score/orbs 0, centered zero-velocity player, fresh intro path.
+Derive the collision wait from imported `ASTEROID_DRIFT_RULES`; do not use a fixed long sleep or test-only collision API.
 
-No test-only collision API/seed query.
+- [ ] **6.2 Add 375×812 D-pad/momentum proof**
 
-- [ ] **6.2 Derive browser wait from intro contract**
+Assert no horizontal overflow, positive responsive canvas height, and all four D-pad buttons visible/in viewport.
 
-```ts
-import { ASTEROID_DRIFT_RULES } from '../../src/lib/games/asteroid-drift/types'
+Use actual pointer events:
 
-const introStartX =
-    ASTEROID_DRIFT_RULES.canvasWidth +
-    ASTEROID_DRIFT_RULES.asteroidSpawnPadding +
-    ASTEROID_DRIFT_RULES.introAsteroidRadius
-const playerX = ASTEROID_DRIFT_RULES.canvasWidth / 2
-const contactDistance =
-    ASTEROID_DRIFT_RULES.playerRadius +
-    ASTEROID_DRIFT_RULES.introAsteroidRadius
-const introCollisionSeconds =
-    (introStartX - playerX - contactDistance) /
-    ASTEROID_DRIFT_RULES.asteroidInitialSpeed
-```
+1. Start.
+2. Hold right long enough to observe positive X velocity/position through debug handle.
+3. Release right; held-right disappears while velocity remains briefly positive, proving momentum.
+4. Hold up+right; debug handle reports both directions.
+5. Release both cleanly.
 
-Use a modest margin such as `Math.ceil((introCollisionSeconds + 2) * 1000)`, not a long fixed sleep.
+Do not freeze exact pixel positions/device-pixel intrinsic canvas dimensions.
 
-- [ ] **6.3 Add 375×812 reachability/D-pad proof**
+- [ ] **6.3 Keep background anti-farm at unit level**
 
-Before navigation set 375×812. Assert document scroll width ≤375; canvas width ≤375 and positive height; four D-pad buttons visible/inside viewport.
-
-Start then use actual pointer events on right button, observe positive X velocity/position after real rAF frames via debug handle; pointerup and verify no held-right direction while velocity remains briefly positive (momentum). Hold up+right via pointer events, verify both directions, release cleanly.
-
-Do not freeze pixel-perfect positions or intrinsic device-pixel canvas size.
+Do not add a slow 90-second browser background-tab test. Task 2 owns the deterministic fake-timer regression that timeout without simulation becomes `expired` with no free survival score/full-run data. Browser E2E focuses real interaction/layout.
 
 - [ ] **6.4 Run targeted gates**
 
@@ -1224,9 +1010,7 @@ bun run test:e2e -- \
   e2e/games/all-games-navigation.spec.ts
 ```
 
-`all-games-navigation.spec.ts` should discover the active catalog route without source edits.
-
-- [ ] **6.6 Verify no prohibited scope drift**
+- [ ] **6.6 Verify scope**
 
 ```bash
 git diff --exit-code main...HEAD -- \
@@ -1245,7 +1029,7 @@ git diff --exit-code main...HEAD -- \
 git diff --name-only main...HEAD
 ```
 
-Changed production scope should be Asteroid Drift local files/page + `games.ts` + shared game-data alias + achievements + catalog/docs only; no package/schema/auth additions.
+Changed production scope should remain Asteroid Drift-local files/page + game catalog/shared-data/achievements/docs only. No GamePage/GameControls/D-pad abstraction change.
 
 - [ ] **6.7 Commit browser coverage**
 
@@ -1258,24 +1042,21 @@ git commit -m "test(asteroid-drift): cover browser lifecycle and mobile controls
 
 ## Final Implementation PR Checklist
 
-- [ ] HPA-68 stays one PR from planning through implementation.
-- [ ] `BaseGame/GameTimer` is the only wall-clock survival-time authority; `elapsedSimSeconds` drives only clamped physics difficulty/spawns.
-- [ ] Game uses `BaseGame + PixiJSRenderer + one initializer-owned game rAF`; no second game ticker/timer exists.
-- [ ] Movement is normalized thrust + exponential drag + speed clamp.
-- [ ] Outer 0.1s clamp and `1/120s` substeps have non-vacuous tests.
-- [ ] `isAsteroidOffArena()` handles left/right/top/bottom with one strict padded-boundary predicate; exited bodies release active capacity.
-- [ ] Intro asteroid remains deterministic/RNG-free and browser idle-loss remains valid after tuning.
-- [ ] Random edge fairness prevents player-adjacent edge materialization without retries.
-- [ ] Capacity path consumes zero RNG, cannot bank burst debt, and resumes after off-arena exits.
-- [ ] Orb placement uses one RNG start sample + one finite eight-anchor scan per attempt.
-- [ ] Collision is checked before orb collection and uses a caught fire-and-forget BaseGame `end()` path.
-- [ ] One pure score function owns wall-clock survival/orb arithmetic; BaseGame time bonus stays off.
-- [ ] No health/shield/boost/weapons/near-miss/combo/difficulty/audio/textures/seeded-run system.
-- [ ] `circleOverlap`/`distance` come from shared geometry; `clamp`/`lerp`/`isEditableTarget` come from shared utils.
-- [ ] Keyboard/touch held sets are independent; D-pad buttons are `tabindex="-1"`; pointerup/leave/cancel and pointer-capture release semantics match the plan.
-- [ ] GamePage has one explicit custom controls slot, no Pause/manual End, and Reset/Play Again produce fresh state.
-- [ ] Initializer script is after `</GamePage>` and `game-board-markup.test.ts` includes `asteroid-drift` in its hardcoded wrapper sweep in Task 4.
-- [ ] Catalog is action/medium/1–2 minutes/shallow spiral-amber; depth fixture 9/9/4.
-- [ ] Exactly four achievements derive only from canonical game data.
-- [ ] BaseGame/timer/score/initializer/Pixi core, Evader, Gravity Flip, score service, DB/API/auth/packages, all-games-navigation source remain unchanged.
-- [ ] Targeted/full unit, coverage, typecheck, lint, format, build, play coverage, and catalog navigation all pass.
+- [ ] One HPA-68 PR.
+- [ ] GameTimer owns visible deadline; simulation time owns scored survival/difficulty.
+- [ ] Background timeout without simulation ends `expired`, cannot earn free survival score, Long Haul, or Deep Space Ace.
+- [ ] Healthy near-complete simulation rounds to full duration using only `maxUpdateDelta` tolerance.
+- [ ] Momentum, outer clamp, and fixed substeps have non-vacuous tests.
+- [ ] Intro remains deterministic/RNG-free.
+- [ ] Fair edge selection is finite; all-edge despawn releases capacity.
+- [ ] Orb placement is one finite anchor scan; active/removed orbs cannot bank spawn debt.
+- [ ] Collision precedes orb collection and async end is caught.
+- [ ] Renderer ship/asteroid/orb extents derive directly from model radii.
+- [ ] Task 4 tuning evaluates unavoidable deaths and survival-vs-orb score balance; point constants may tune there.
+- [ ] `types.ts` is production rules authority; plan does not mirror tuned numbers.
+- [ ] Second local D-pad copy is deliberate; no GamePage/GameControls/GameDpad refactor.
+- [ ] Root-level Astro bootstrap and hardcoded wrapper sweep are locked.
+- [ ] Catalog is action/medium/1–2 minutes/shallow spiral-amber; final depth fixture 9/9/4.
+- [ ] Exactly four achievements use canonical simulation-based data.
+- [ ] Core runtime, Evader, Gravity Flip, backend/schema/auth/packages, and all-games-navigation source remain unchanged.
+- [ ] Targeted/full unit, coverage, typecheck, lint, format, build, play coverage, and catalog navigation pass.
