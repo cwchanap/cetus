@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { ASTEROID_DRIFT_RULES } from '../../src/lib/games/asteroid-drift/types'
 import { ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS } from '../../src/lib/games/ice-slide/test-fixtures'
 import {
     ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS,
@@ -1976,5 +1977,275 @@ test.describe('Rhythm Reactor', () => {
         expect(canvasBox).not.toBeNull()
         expect(canvasBox!.width).toBeLessThanOrEqual(375)
         expect(canvasBox!.height).toBeGreaterThan(0)
+    })
+})
+
+type AsteroidDriftSnapshot = {
+    isActive: boolean
+    outcome: string
+    asteroids: number
+    orbsCollected: number
+    held: string[]
+    player: {
+        x: number
+        y: number
+        velocityX: number
+        velocityY: number
+    }
+}
+
+/**
+ * Read the live run through the window.asteroidDriftGame debug handle.
+ * Throws while the async init is still pending so expect.poll retries
+ * until the handle exists.
+ */
+async function readAsteroidDrift(page: Page): Promise<AsteroidDriftSnapshot> {
+    return page.evaluate(() => {
+        const handle = (
+            window as Window & {
+                asteroidDriftGame?: {
+                    getState: () => {
+                        isActive: boolean
+                        outcome: string
+                        asteroids: unknown[]
+                        orbsCollected: number
+                        player: {
+                            x: number
+                            y: number
+                            velocityX: number
+                            velocityY: number
+                        }
+                    }
+                    getGame: () => { pressedDirections: Set<string> }
+                }
+            }
+        ).asteroidDriftGame
+        if (!handle) {
+            throw new Error('Asteroid Drift debug handle not ready')
+        }
+        const state = handle.getState()
+        return {
+            isActive: state.isActive,
+            outcome: state.outcome,
+            asteroids: state.asteroids.length,
+            orbsCollected: state.orbsCollected,
+            held: Array.from(handle.getGame().pressedDirections),
+            player: state.player,
+        }
+    })
+}
+
+/**
+ * The RNG-free intro asteroid spawns past the right edge at center Y and
+ * reaches a stationary centered player after travelling (half canvas +
+ * spawn offset) px at the initial speed. Padding covers frame pacing and
+ * the rAF-clock vs simulation-clock skew.
+ */
+const ASTEROID_DRIFT_INTRO_TRAVEL_SECONDS =
+    (ASTEROID_DRIFT_RULES.canvasWidth / 2 +
+        ASTEROID_DRIFT_RULES.asteroidSpawnPadding +
+        ASTEROID_DRIFT_RULES.introAsteroidRadius) /
+    ASTEROID_DRIFT_RULES.asteroidInitialSpeed
+
+test.describe('Asteroid Drift', () => {
+    test('idle ship waits centered, the deterministic intro asteroid ends the run, and Play Again restarts fresh', async ({
+        page,
+    }) => {
+        let scoresRequests = 0
+        let scoresBody: Record<string, unknown> = {}
+        await page.route('**/api/scores', async route => {
+            scoresRequests += 1
+            scoresBody = JSON.parse(route.request().postData() ?? '{}')
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ success: true, newAchievements: [] }),
+            })
+        })
+
+        await page.goto('/asteroid-drift')
+        await expectVisibleGameSurface(page, '#asteroid-drift-canvas canvas')
+        await expect(page.locator('#score')).toHaveText('0')
+        await expect(page.locator('#orbs-collected')).toHaveText('0')
+        await expect(page.locator('#time-remaining')).toHaveText(
+            String(ASTEROID_DRIFT_RULES.duration)
+        )
+
+        // Idle: run inactive, arena empty, ship centered at rest.
+        await expect
+            .poll(async () => (await readAsteroidDrift(page)).isActive, {
+                timeout: 10000,
+            })
+            .toBe(false)
+        const idle = await readAsteroidDrift(page)
+        expect(idle.asteroids).toBe(0)
+        expect(idle.player.x).toBe(ASTEROID_DRIFT_RULES.canvasWidth / 2)
+        expect(idle.player.y).toBe(ASTEROID_DRIFT_RULES.canvasHeight / 2)
+        expect(idle.player.velocityX).toBe(0)
+
+        await startGameWhenReady(page)
+        const started = await readAsteroidDrift(page)
+        expect(started.isActive).toBe(true)
+        // Only the deterministic intro asteroid exists at the opening.
+        expect(started.asteroids).toBe(1)
+
+        // No movement input: the intro asteroid wins the run.
+        await expect
+            .poll(
+                async () => {
+                    const state = await readAsteroidDrift(page)
+                    return !state.isActive && state.outcome === 'collision'
+                },
+                {
+                    timeout: Math.ceil(
+                        (ASTEROID_DRIFT_INTRO_TRAVEL_SECONDS + 5) * 1000
+                    ),
+                }
+            )
+            .toBe(true)
+
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/
+        )
+        await expect(page.locator('#game-over-title')).toHaveText('SHIP LOST')
+        await expect(page.locator('#final-outcome')).toHaveText('Collision')
+        await expect(page.locator('#final-orbs')).toHaveText('0')
+        const finalScore = Number(
+            await page.locator('#final-score').textContent()
+        )
+        const finalSurvival = Number(
+            await page.locator('#final-survival').textContent()
+        )
+        expect(finalScore).toBeGreaterThan(0)
+        expect(finalSurvival).toBeGreaterThan(0)
+        expect(finalSurvival).toBeLessThan(ASTEROID_DRIFT_RULES.duration)
+
+        await expect.poll(() => scoresRequests, { timeout: 10000 }).toBe(1)
+        expect(scoresBody).toMatchObject({
+            gameId: 'asteroid_drift',
+            gameData: { survivedFullRun: false },
+        })
+        expect(scoresBody.score).toBeGreaterThan(0)
+
+        // Play Again immediately arms a fresh, active, centered run.
+        await page.locator('#play-again-btn').click()
+        await expect(page.locator('#game-over-overlay')).toHaveClass(/hidden/)
+        await expect(page.locator('#start-btn')).toHaveCSS('display', 'none')
+        await expect
+            .poll(
+                async () => {
+                    const state = await readAsteroidDrift(page)
+                    return (
+                        state.isActive &&
+                        state.asteroids === 1 &&
+                        state.player.x ===
+                            ASTEROID_DRIFT_RULES.canvasWidth / 2 &&
+                        state.player.velocityX === 0
+                    )
+                },
+                { timeout: 5000 }
+            )
+            .toBe(true)
+    })
+})
+
+test.describe('Asteroid Drift (mobile)', () => {
+    // isMobile + hasTouch flip the pointer/hover media features so the
+    // touch D-pad (hidden for fine pointers) renders like on a phone.
+    test.use({
+        viewport: { width: 375, height: 812 },
+        isMobile: true,
+        hasTouch: true,
+    })
+
+    test('D-pad pointer holds thrust with momentum at 375×812', async ({
+        page,
+    }) => {
+        await page.goto('/asteroid-drift')
+
+        // No horizontal overflow on the narrow viewport.
+        expect(
+            await page.evaluate(
+                () =>
+                    document.documentElement.scrollWidth <=
+                    document.documentElement.clientWidth
+            )
+        ).toBe(true)
+
+        // All four D-pad buttons are visible and inside the viewport.
+        const dpad = page.locator('#asteroid-drift-dpad')
+        await expect(dpad).toBeVisible()
+        await expect(dpad.locator('button[data-direction]')).toHaveCount(4)
+        const buttonCenter = async (direction: string) => {
+            const button = dpad.locator(`[data-direction="${direction}"]`)
+            await expect(button).toBeVisible()
+            const box = await button.boundingBox()
+            expect(box).not.toBeNull()
+            expect(box!.x).toBeGreaterThanOrEqual(0)
+            expect(box!.y).toBeGreaterThanOrEqual(0)
+            expect(box!.x + box!.width).toBeLessThanOrEqual(375)
+            expect(box!.y + box!.height).toBeLessThanOrEqual(812)
+            return { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 }
+        }
+
+        // Responsive canvas: CSS width fits the viewport and height scales
+        // from the intrinsic aspect ratio (no frozen pixel dimensions).
+        const canvas = page.locator('#asteroid-drift-canvas canvas')
+        await expect(canvas).toBeVisible()
+        const canvasBox = await canvas.boundingBox()
+        expect(canvasBox).not.toBeNull()
+        expect(canvasBox!.width).toBeLessThanOrEqual(375)
+        expect(canvasBox!.height).toBeGreaterThan(0)
+
+        await startGameWhenReady(page)
+
+        // Real pointer input via CDP touch dispatch: press-and-hold sends
+        // genuine pointerdown/pointerup events, including simultaneous
+        // multi-point holds a single mouse cannot express.
+        const client = await page.context().newCDPSession(page)
+        const touchPress = (points: Array<{ x: number; y: number }>) =>
+            client.send('Input.dispatchTouchEvent', {
+                type: 'touchStart',
+                touchPoints: points,
+            })
+        const touchRelease = () =>
+            client.send('Input.dispatchTouchEvent', {
+                type: 'touchEnd',
+                touchPoints: [],
+            })
+
+        // Hold right: velocity and position turn positive.
+        await touchPress([await buttonCenter('right')])
+        await expect
+            .poll(async () => (await readAsteroidDrift(page)).player.x, {
+                timeout: 5000,
+            })
+            .toBeGreaterThan(ASTEROID_DRIFT_RULES.canvasWidth / 2)
+
+        // Release right: the held direction disappears immediately while
+        // momentum keeps the velocity briefly positive.
+        await touchRelease()
+        const momentum = await readAsteroidDrift(page)
+        expect(momentum.held).not.toContain('right')
+        expect(momentum.player.velocityX).toBeGreaterThan(0)
+
+        // Diagonal: up+right held together reports both directions.
+        await touchPress([
+            await buttonCenter('up'),
+            await buttonCenter('right'),
+        ])
+        await expect
+            .poll(async () => (await readAsteroidDrift(page)).held.sort(), {
+                timeout: 5000,
+            })
+            .toEqual(['right', 'up'])
+
+        // Release both cleanly.
+        await touchRelease()
+        await expect
+            .poll(async () => (await readAsteroidDrift(page)).held, {
+                timeout: 5000,
+            })
+            .toEqual([])
     })
 })
