@@ -30,7 +30,7 @@ Asteroid Drift should reuse existing seams, not existing game rules.
 - `EvaderGame` already demonstrates independent keyboard/touch held input and a native pointer D-pad, but its movement is direct velocity assignment and its object spawning is wall-clock `setInterval`. Reworking Evader would couple two distinct games and still not provide the required momentum/fair-spawn behavior.
 - `GravityFlipGame` demonstrates the better continuous-game shape: `BaseGame`, game-local simulation time for physics/difficulty, a 0.1s outer delta clamp, fixed substeps, injected RNG, game-local score synchronization, and one initializer-owned rAF loop.
 - Recent Pixi games show that one game-local `PixiJSRenderer` subclass is enough. No scene engine, ECS, physics package, or asset pipeline is required.
-- `shared/geometry.ts` already provides `circleOverlap` and `distance`; existing shared helpers provide `clamp`, `lerp`, and `isEditableTarget`.
+- Reuse `circleOverlap` and point `distance` from `src/lib/games/shared/geometry.ts`; reuse `clamp`, `lerp`, and `isEditableTarget` from `src/lib/games/shared/utils.ts`. Do not import the duplicate `clamp`/`lerp` exports from `geometry.ts` in Asteroid Drift.
 - `BaseGame`/`GameTimer` already own wall-clock duration, final timer snapshots, score submission, achievements, run guards, reset/start lifecycle, and callbacks. Asteroid Drift must not create a second survival-time authority.
 
 ## Approach
@@ -202,7 +202,7 @@ Every substep uses this order:
 
 1. advance `elapsedSimSeconds`;
 2. integrate player;
-3. move/despawn asteroids;
+3. move asteroids and remove bodies that are fully beyond the padded arena on any edge;
 4. age/expire current orb;
 5. check asteroid collision;
 6. collect orb if still alive;
@@ -210,7 +210,7 @@ Every substep uses this order:
 
 Collision intentionally precedes orb collection. If both contacts occur in one substep, the run is lost and the orb is not awarded.
 
-Ship/asteroid and ship/orb contact use existing `circleOverlap`; spawn clearance uses existing `distance`.
+Ship/asteroid and ship/orb contact use `circleOverlap` from `shared/geometry.ts`; spawn clearance uses its point `distance`. Physics/scoring interpolation and bounds use `clamp`/`lerp` from `shared/utils.ts`.
 
 ## Deterministic opening asteroid
 
@@ -246,6 +246,22 @@ A spawn performs a finite sequence:
 No rejection/random retry loop exists. Invalid test-only configuration that yields zero eligible edges should throw rather than silently violate the fair-edge rule.
 
 At `maxAsteroids`, no RNG is consumed. Spawn debt is capped at one current interval so capacity release can spawn promptly but never bursts through accumulated debt.
+
+### All-edge despawn
+
+Straight-line asteroids can leave through any edge, so removal must not copy Gravity Flip's one-way left-edge predicate. `spawning.ts` owns a pure `isAsteroidOffArena(asteroid, config)` helper. A body is removed only after its center is strictly beyond the padded center bounds for its own radius:
+
+```ts
+const margin = config.asteroidSpawnPadding + asteroid.radius
+return (
+    asteroid.x < -margin ||
+    asteroid.x > config.canvasWidth + margin ||
+    asteroid.y < -margin ||
+    asteroid.y > config.canvasHeight + margin
+)
+```
+
+A newly materialized asteroid whose center is exactly on one of those expanded spawn boundaries remains active and can travel inward. The same predicate handles the deterministic left-going intro body and random bodies that later exit left, right, top, or bottom. This release is load-bearing for `maxAsteroids`: exited bodies must reduce active capacity so late-run traffic and orb clearance continue to work.
 
 ## Energy orb placement
 
@@ -300,7 +316,7 @@ No distance/speed/near-miss/combo/multiplier score exists in v1.
 - Start creates a fresh active run through BaseGame and adds the deterministic intro asteroid.
 - Reset returns to idle centered zero-score state.
 - Timeout sets outcome `survived`, synchronizes the exact-duration score, then delegates to BaseGame.
-- Asteroid collision sets outcome `collision`, synchronizes current wall-clock survival score, and calls `end()` once.
+- Asteroid collision sets outcome `collision`, synchronizes current wall-clock survival score, starts the existing async end path as `void this.end().catch((error: unknown) => console.error('AsteroidDrift end failed', error))`, and returns immediately before orb/spawn work. The catch mirrors Gravity Flip and prevents a score-save rejection from becoming an unhandled promise rejection.
 - End/reset clears held input.
 - No game-local interval/timeout/ticker exists.
 
@@ -326,11 +342,12 @@ Desktop:
 - Arrow keys + WASD;
 - keydown presses a direction, keyup releases it;
 - Ctrl/Meta/Alt combinations are ignored;
-- `isEditableTarget()` prevents gameplay input from stealing editable controls.
+- `isEditableTarget()` from `shared/utils.ts` prevents gameplay input from stealing editable controls.
 
 Mobile/pointer:
 
-- four native Astro buttons form a compact D-pad;
+- four native Astro buttons form a compact D-pad inside the page's explicit `<div slot="controls">` together with Start/Reset;
+- each D-pad button has `data-direction`, an `aria-label`, and `tabindex="-1"`, matching Evader's pointer-control treatment while keyboard movement remains available through WASD/arrows;
 - `pointerdown` presses;
 - `pointerup`, `pointerleave`, and `pointercancel` release;
 - implicit pointer capture is released in the same defensive pattern as Evader so touch slide-off can release;
@@ -356,7 +373,9 @@ Route: `/asteroid-drift`.
 
 Visible additional badges are only Orbs and rounded ship speed. Existing GamePage score/time remain authoritative. Final stats show outcome, survival seconds, and orb count.
 
-Controls contain Start/Reset plus D-pad. Play Again follows BaseGame's completed-run start behavior and immediately begins a fresh run, matching recent continuous games.
+Controls use an explicit `slot="controls"` containing Start/Reset plus the four-button D-pad so the page does not fall back to the default `GameControls`. Play Again follows BaseGame's completed-run start behavior and immediately begins a fresh run, matching recent continuous games.
+
+The initializer `<script>` is page-root content **after `</GamePage>`**, not inside any GamePage slot. `GamePage.astro` documents that slotted scripts are dropped during Astro SSR. `game-board-markup.test.ts` must lock this with a formatting-tolerant `/<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initAsteroidDriftGameFramework/` assertion plus the DOMContentLoaded-before-init check. When the route is created in Task 4, add `'asteroid-drift'` to that test file's hardcoded `games` array immediately so the generic GamePage-wrapper sweep includes the new page.
 
 ## Catalog and achievements
 
@@ -396,7 +415,7 @@ No extra persisted metric is introduced.
 - wire BaseGame callbacks to HUD/overlay/status;
 - forward end-event achievements/challenges;
 - map keyboard/D-pad events to direction API;
-- wire Start, Reset, Play Again;
+- wire Start, Reset, Play Again inside the page's custom controls surface;
 - own exactly one rAF loop using monotonic rAF timestamps;
 - render idle state;
 - apply responsive canvas inline sizing;
@@ -415,6 +434,7 @@ Lock structural behavior:
 - deterministic intro is RNG-free;
 - player-near edge is excluded while valid alternatives remain;
 - random asteroid starts fully outside selected edge and travels inward;
+- all-edge off-arena predicate keeps bodies at the exact padded spawn boundary and removes only after they pass the expanded bounds;
 - radius/speed remain within ramped bounds;
 - invalid RNG samples are clamped safely;
 - max-active model path consumes zero RNG and caps debt;
@@ -432,11 +452,14 @@ Cover:
 - independent keyboard/touch sets;
 - intro creation;
 - 0.1s outer clamp + non-vacuous fixed-step anti-tunneling collision;
+- intro body despawns after exiting left and a right-going body despawns after exiting right;
+- active asteroid count can fall below `maxAsteroids` after exits, reopening spawn capacity without a burst;
 - spawn interval/speed progression;
 - capacity/no-burst behavior;
 - orb create/expire/collect;
 - collision-before-orb ordering;
 - collision outcome and score preservation;
+- collision's async `end()` rejection is caught rather than left unhandled;
 - timeout exact 90s score;
 - BaseGame wall-clock survival vs simulation-clock difficulty distinction;
 - reset/start cleanup;
@@ -444,7 +467,9 @@ Cover:
 
 ### Renderer/initializer
 
-Pin static-vs-dynamic layers, non-color-only primitive identity, responsive canvas override, exactly one game rAF path, listener cleanup, editable-target keyboard gating, D-pad pointer release semantics, HUD/overlay/replay behavior, and no duplicate integration loops.
+Pin static-vs-dynamic layers, non-color-only primitive identity, responsive canvas override, exactly one game rAF path, listener cleanup, editable-target keyboard gating, custom `slot="controls"`, D-pad `tabindex="-1"` + pointer-capture release semantics, root-level post-`</GamePage>` bootstrap, HUD/overlay/replay behavior, and no duplicate integration loops.
+
+`src/pages/game-board-markup.test.ts` also adds `'asteroid-drift'` to its hardcoded generic GamePage-wrapper route array in the same Task 4 change that creates the route.
 
 ### Browser
 
@@ -489,4 +514,4 @@ HPA-68 does **not** add:
 
 ## Definition of done
 
-HPA-68 is complete when `/asteroid-drift` is keyboard/touch playable; movement is momentum-based/frame-stable; increasing edge traffic and collision work; orbs follow finite safe/risky placement; survival score uses BaseGame wall-clock time while simulation time only drives difficulty; reset/replay/submission work through existing lifecycle; catalog/data/achievements are registered; targeted/full unit, coverage, type, lint, format, build, Playwright and catalog-navigation gates pass; and the work remains one HPA-68 PR without unrelated framework/backend changes.
+HPA-68 is complete when `/asteroid-drift` is keyboard/touch playable; movement is momentum-based/frame-stable; increasing edge traffic, all-edge despawn, and collision work; orbs follow finite safe/risky placement; survival score uses BaseGame wall-clock time while simulation time only drives difficulty; reset/replay/submission work through existing lifecycle; catalog/data/achievements are registered; targeted/full unit, coverage, type, lint, format, build, Playwright and catalog-navigation gates pass; and the work remains one HPA-68 PR without unrelated framework/backend changes.
