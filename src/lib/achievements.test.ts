@@ -16,6 +16,7 @@ import type { MineGridGameData } from './games/mine-grid/types'
 import type { PotionSorterGameData } from './games/potion-sorter/types'
 import type { SignalSwitchGameData } from './games/signal-switch/types'
 import type { RhythmReactorGameData } from './games/rhythm-reactor/types'
+import type { AsteroidDriftGameData } from './games/asteroid-drift/types'
 import { checkAndAwardAchievements } from './services/achievementService'
 
 // Mock the database queries so checkAndAwardAchievements can be exercised
@@ -1534,5 +1535,81 @@ describe('Rhythm Reactor achievements', () => {
         expect(check({ ...baseData, hits: 60, finalStability: 90 }, 0)).toBe(
             true
         )
+    })
+})
+
+describe('Asteroid Drift achievements', () => {
+    const baseData: AsteroidDriftGameData = {
+        survivalSeconds: 0,
+        orbsCollected: 0,
+        survivedFullRun: false,
+    }
+
+    it('registers exactly the four Asteroid Drift achievements with their rarities', () => {
+        const list = getAchievementsByGame(GameID.ASTEROID_DRIFT)
+        expect(list.map(achievement => achievement.id)).toEqual([
+            'asteroid_drift_first_charge',
+            'asteroid_drift_energy_runner',
+            'asteroid_drift_long_haul',
+            'asteroid_drift_deep_space_ace',
+        ])
+        expect(list.map(achievement => achievement.rarity)).toEqual([
+            AchievementRarity.COMMON,
+            AchievementRarity.RARE,
+            AchievementRarity.RARE,
+            AchievementRarity.EPIC,
+        ])
+    })
+
+    it('first charge requires at least one orb', () => {
+        const check = getAchievementById('asteroid_drift_first_charge')!
+            .condition.check!
+        expect(check({ ...baseData, orbsCollected: 0 }, 0)).toBe(false)
+        expect(check({ ...baseData, orbsCollected: 1 }, 0)).toBe(true)
+    })
+
+    it('energy runner requires at least six orbs', () => {
+        const check = getAchievementById('asteroid_drift_energy_runner')!
+            .condition.check!
+        expect(check({ ...baseData, orbsCollected: 5 }, 0)).toBe(false)
+        expect(check({ ...baseData, orbsCollected: 6 }, 0)).toBe(true)
+    })
+
+    it('long haul requires at least 60 simulated survival seconds', () => {
+        const check = getAchievementById('asteroid_drift_long_haul')!.condition
+            .check!
+        expect(check({ ...baseData, survivalSeconds: 59.9 }, 0)).toBe(false)
+        expect(check({ ...baseData, survivalSeconds: 60 }, 0)).toBe(true)
+    })
+
+    it('deep space ace requires a full run and at least 10 orbs', () => {
+        const check = getAchievementById('asteroid_drift_deep_space_ace')!
+            .condition.check!
+        expect(
+            check({ ...baseData, survivedFullRun: true, orbsCollected: 9 }, 0)
+        ).toBe(false)
+        expect(
+            check({ ...baseData, survivedFullRun: false, orbsCollected: 10 }, 0)
+        ).toBe(false)
+        expect(
+            check({ ...baseData, survivedFullRun: true, orbsCollected: 10 }, 0)
+        ).toBe(true)
+    })
+
+    it('a background-style run earns neither Long Haul nor Deep Space Ace', () => {
+        // Wall-clock expiry in a hidden tab: no simulated survival, no full-run
+        // qualification — even a high orb count cannot unlock Deep Space Ace.
+        const backgroundRun: AsteroidDriftGameData = {
+            survivalSeconds: 0,
+            orbsCollected: 12,
+            survivedFullRun: false,
+        }
+        const longHaul = getAchievementById('asteroid_drift_long_haul')!
+            .condition.check!
+        const deepSpaceAce = getAchievementById(
+            'asteroid_drift_deep_space_ace'
+        )!.condition.check!
+        expect(longHaul(backgroundRun, 0)).toBe(false)
+        expect(deepSpaceAce(backgroundRun, 0)).toBe(false)
     })
 })

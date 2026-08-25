@@ -17,6 +17,7 @@ import type {
     PotionSorterGameData,
     SignalSwitchGameData,
     RhythmReactorGameData,
+    AsteroidDriftGameData,
     GameHistoryEntry,
 } from './games/shared/types'
 
@@ -46,6 +47,7 @@ export type AchievementCheckData =
     | PotionSorterGameData
     | SignalSwitchGameData
     | RhythmReactorGameData
+    | AsteroidDriftGameData
     | Record<string, unknown>
 
 export interface Achievement {
@@ -1768,6 +1770,61 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'in_game',
             check: (gameData: RhythmReactorGameData) =>
                 gameData.hits >= 60 && gameData.finalStability >= 90,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+
+    // Asteroid Drift achievements
+    {
+        id: 'asteroid_drift_first_charge',
+        name: 'First Charge',
+        description: 'Collect your first energy orb in Asteroid Drift.',
+        logo: '☄️',
+        gameId: GameID.ASTEROID_DRIFT,
+        condition: {
+            type: 'in_game',
+            check: (gameData: AsteroidDriftGameData) =>
+                gameData.orbsCollected >= 1,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'asteroid_drift_energy_runner',
+        name: 'Energy Runner',
+        description: 'Collect 6 energy orbs in a single Asteroid Drift run.',
+        logo: '⚡',
+        gameId: GameID.ASTEROID_DRIFT,
+        condition: {
+            type: 'in_game',
+            check: (gameData: AsteroidDriftGameData) =>
+                gameData.orbsCollected >= 6,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'asteroid_drift_long_haul',
+        name: 'Long Haul',
+        description: 'Survive at least 60 simulated seconds of the drift.',
+        logo: '⏳',
+        gameId: GameID.ASTEROID_DRIFT,
+        condition: {
+            type: 'in_game',
+            check: (gameData: AsteroidDriftGameData) =>
+                gameData.survivalSeconds >= 60,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'asteroid_drift_deep_space_ace',
+        name: 'Deep Space Ace',
+        description:
+            'Complete the full drift with at least 10 energy orbs collected.',
+        logo: '🏆',
+        gameId: GameID.ASTEROID_DRIFT,
+        condition: {
+            type: 'in_game',
+            check: (gameData: AsteroidDriftGameData) =>
+                gameData.survivedFullRun && gameData.orbsCollected >= 10,
         },
         rarity: AchievementRarity.EPIC,
     },
