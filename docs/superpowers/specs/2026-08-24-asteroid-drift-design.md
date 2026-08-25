@@ -6,7 +6,9 @@
 
 ## Goal
 
-Add a fast **90-second** space-dodging minigame where the player pilots a momentum-driven ship, avoids increasingly dense asteroid traffic, and diverts toward temporary energy orbs for bonus score. A collision ends the run immediately; surviving the BaseGame timer completes it. Existing Cetus score, achievement, leaderboard/progress, and stale-run handling remain authoritative.
+Add a fast **90-second** space-dodging minigame where the player pilots a momentum-driven ship, avoids increasingly dense asteroid traffic, and diverts toward temporary energy orbs for bonus score. Asteroid collision ends the run immediately. A normal foreground run that simulates the full duration completes successfully.
+
+The existing Cetus score, achievement, leaderboard/progress, stale-run, and BaseGame lifecycle machinery remains authoritative.
 
 ## Product contract
 
@@ -16,36 +18,31 @@ HPA-68 requires:
 - momentum-based movement rather than instant/grid movement;
 - asteroids entering from screen edges with increasing density;
 - energy orbs in safe-but-risky positions that encourage movement;
-- score from survival time plus orb collection;
+- score from survival plus orb collection;
 - immediate loss on asteroid collision;
 - desktop and mobile controls;
 - normal catalog/home-page/restart/progress integration.
 
-V1 fixes the duration at 90 seconds and keeps one ruleset/difficulty.
+V1 fixes one 90-second ruleset. No difficulty selector or progression system is added.
 
-## Repository findings
+## Repository reuse
 
-Asteroid Drift should reuse existing seams, not existing game rules.
+Asteroid Drift follows existing seams without turning them into a framework.
 
-- `EvaderGame` already demonstrates independent keyboard/touch held input and a native pointer D-pad, but its movement is direct velocity assignment and its object spawning is wall-clock `setInterval`. Reworking Evader would couple two distinct games and still not provide the required momentum/fair-spawn behavior.
-- `GravityFlipGame` demonstrates the better continuous-game shape: `BaseGame`, game-local simulation time for physics/difficulty, a 0.1s outer delta clamp, fixed substeps, injected RNG, game-local score synchronization, and one initializer-owned rAF loop.
-- Recent Pixi games show that one game-local `PixiJSRenderer` subclass is enough. No scene engine, ECS, physics package, or asset pipeline is required.
-- Reuse `circleOverlap` and point `distance` from `src/lib/games/shared/geometry.ts`; reuse `clamp`, `lerp`, and `isEditableTarget` from `src/lib/games/shared/utils.ts`. Do not import the duplicate `clamp`/`lerp` exports from `geometry.ts` in Asteroid Drift.
-- `BaseGame`/`GameTimer` already own wall-clock duration, final timer snapshots, score submission, achievements, run guards, reset/start lifecycle, and callbacks. Asteroid Drift must not create a second survival-time authority.
+- **Gravity Flip shape:** `BaseGame`, game-local simulation time, outer delta clamp, fixed substeps, injected RNG, caught fire-and-forget `end()`, game-local Pixi renderer, and initializer-owned rAF.
+- **Evader input:** independent keyboard/touch held sets plus defensive `releasePointerCapture()` for held pointer controls.
+- **Shared geometry:** import `circleOverlap` and point `distance` from `src/lib/games/shared/geometry.ts`.
+- **Shared utilities:** import `clamp`, `lerp`, and `isEditableTarget` from `src/lib/games/shared/utils.ts`. Do not use the duplicate `clamp`/`lerp` exports from `geometry.ts`.
+- **BaseGame/GameTimer:** keep countdown, timeout delivery, score submission, achievements, stale-run guard, reset/start lifecycle, callbacks, and final save flow unchanged.
+- **GamePage:** use the existing custom `slot="controls"` contract and keep the initializer script at page root after `</GamePage>`.
 
-## Approach
+Rejected:
 
-### Chosen: standalone `BaseGame + PixiJSRenderer` with game-local physics
+- reskin/refactor Evader — its direct movement and interval spawner conflict with the two defining mechanics;
+- generic arcade/physics/spawn framework — one new circle-collision game does not justify it;
+- GamePage/GameControls refactor — although `GameControls.astro` has a child slot, `GamePage.astro` currently chooses either the complete custom controls slot or `GameControls`. Changing that shared seam would require migration/review across existing custom-control games and is outside HPA-68.
 
-Create a small `asteroid-drift` module containing contracts, pure spawn policy, scorer, model, renderer, and initializer. Copy only the established seams from Gravity Flip and the held-input interaction pattern from Evader.
-
-### Rejected: generalize/re-skin Evader
-
-Evader's direct movement and interval spawner are the opposite of the new game's two defining mechanics. Refactoring a shipped game first adds work without reducing HPA-68 complexity.
-
-### Rejected: generic arcade/physics/spawn framework
-
-One circle-collision arcade game does not justify a movement framework, entity system, collision world, generic spawn scheduler, or new dependency. Extract later only if another game independently needs the same contracts.
+The Asteroid Drift D-pad is therefore intentionally the **second local D-pad copy**. If a third game needs the same held-pointer D-pad, consider extracting a focused `GameDpad.astro` then; do not pre-build it now.
 
 ## Architecture
 
@@ -56,7 +53,7 @@ Astro page / native D-pad / keyboard
       initFramework.ts
       - DOM callbacks
       - held-input mapping
-      - exactly one rAF loop
+      - exactly one game rAF
       - cleanup / debug handle
           |             |
           v             v
@@ -70,9 +67,9 @@ scoring.ts           + dynamic primitives
 
 No production file outside the game module changes until stable ID/icon and final catalog/data/achievement registration become live.
 
-## Initial rule values
+## Initial rules
 
-`types.ts` owns one `ASTEROID_DRIFT_RULES` object:
+Before implementation, this block is the frozen planning source. Once Task 1 creates `types.ts`, `ASTEROID_DRIFT_RULES` becomes the production authority. Tuning updates `types.ts`, its direct tests, and this block; the implementation plan does not maintain a third copy.
 
 ```ts
 export const ASTEROID_DRIFT_RULES = {
@@ -109,20 +106,22 @@ export const ASTEROID_DRIFT_RULES = {
     orbAsteroidClearance: 70,
 
     survivalPointsPerSecond: 10,
-    orbPoints: 250,
+    orbPoints: 100,
 } as const
 ```
 
-The manual-play checkpoint may tune movement, asteroid, and orb feel values before Task 5. Duration, score formula, finite spawn algorithms, input/lifecycle rules, and architecture are structural rather than tuning knobs.
+The initial score economy intentionally makes orbs meaningful without making survival a rounding error: a full 90-second run with the Deep Space Ace threshold of 10 orbs starts at **900 survival + 1,000 orb = 1,900**, so orbs are about 53% of that strong-run total. The Task 4 tuning checkpoint may adjust both point constants if play shows that split is wrong.
 
 ## State and contracts
-
-Game-local types:
 
 ```ts
 export type AsteroidDriftDirection = 'up' | 'down' | 'left' | 'right'
 export type AsteroidDriftInputSource = 'keyboard' | 'touch'
-export type AsteroidDriftOutcome = 'playing' | 'collision' | 'survived'
+export type AsteroidDriftOutcome =
+    | 'playing'
+    | 'collision'
+    | 'survived'
+    | 'expired'
 
 export interface AsteroidDriftPlayer {
     x: number
@@ -150,11 +149,11 @@ export interface AsteroidDriftOrb {
 }
 ```
 
-`AsteroidDriftState` extends `BaseGameState` with `outcome`, `player`, `asteroids`, `energyOrb: AsteroidDriftOrb | null`, and `orbsCollected`.
+`AsteroidDriftState` extends `BaseGameState` with `outcome`, `player`, `asteroids`, `energyOrb`, and `orbsCollected`.
 
-Simulation-only fields remain private on `AsteroidDriftGame`: `elapsedSimSeconds`, asteroid/orb spawn accumulators, entity sequence, and keyboard/touch held-direction sets. They are not persisted or submitted.
+Private runtime fields remain game-local: `elapsedSimSeconds`, asteroid/orb spawn accumulators, entity sequence, and independent keyboard/touch held-direction sets.
 
-Canonical achievement data is intentionally small:
+Canonical submitted/achievement data stays small:
 
 ```ts
 export interface AsteroidDriftGameData {
@@ -164,108 +163,123 @@ export interface AsteroidDriftGameData {
 }
 ```
 
-## Two clocks, two responsibilities
+## Time ownership and anti-farming rule
 
-This game deliberately has two notions of elapsed time, but only one is player-visible/scoring time:
+Asteroid Drift deliberately distinguishes **wall deadline** from **scored survival**.
 
-- **BaseGame/GameTimer wall clock** owns the 90-second run, displayed time, timeout, final timer snapshot, and `survivalSeconds` used for score/stats/achievement data.
-- **`elapsedSimSeconds`** advances only by clamped physics substeps and owns asteroid difficulty progression/spawn ramping. It exists so a throttled/background frame cannot inject a giant physics jump.
+- `BaseGame/GameTimer` owns the 90-second countdown, visible time, timeout delivery, and save lifecycle.
+- `elapsedSimSeconds` advances only through clamped physics substeps and owns difficulty progression **and scored survival**.
 
-For an active/collision run, survival seconds come from `getTimerStatus().elapsedTime` (floored by the existing GameTimer). For a successful timeout, survival is exactly `config.duration`. Never derive submitted survival score from `elapsedSimSeconds`.
+This is necessary because browsers may suspend `requestAnimationFrame` in a hidden tab while `GameTimer` continues to advance from `Date.now()`. Awarding score directly from wall elapsed time would let a player background the tab and receive survival score without simulating asteroid risk.
+
+`elapsedSimSeconds` is clamped to `0..duration`. Normal score/data use that value.
+
+At wall-clock timeout, classify completion using one existing tolerance rather than a new tuning constant:
+
+```ts
+const simulated = clamp(this.elapsedSimSeconds, 0, this.config.duration)
+const completedSimulation =
+    simulated >= this.config.duration - this.config.maxUpdateDelta
+
+this.state.outcome = completedSimulation ? 'survived' : 'expired'
+```
+
+`survivalSeconds()` returns `config.duration` only for `outcome === 'survived'`; otherwise it returns clamped `elapsedSimSeconds`.
+
+Consequences:
+
+- a healthy foreground run within one outer-frame clamp of 90 seconds gets exactly 90 survival seconds;
+- a hidden/background run whose timer expires with little/no simulated play gets only the simulation it actually completed, `outcome: 'expired'`, and `survivedFullRun: false`;
+- a heavily janked device receives partial survival credit rather than free wall-clock credit;
+- no `visibilitychange` pause path or second timer is introduced.
+
+`survivedFullRun` is true only for `outcome === 'survived'`.
 
 ## Player movement
 
 The ship starts centered with zero velocity. Each physics substep:
 
 1. union keyboard/touch held directions;
-2. turn opposing directions into signed x/y input;
+2. convert opposing directions to signed x/y input;
 3. normalize diagonal input;
-4. add `thrustAcceleration * step` to velocity;
+4. apply `thrustAcceleration * step`;
 5. apply frame-rate-independent drag with `Math.exp(-dragPerSecond * step)`;
 6. clamp velocity magnitude to `maxPlayerSpeed`;
 7. integrate position;
-8. clamp the ship center inside the arena by `playerRadius`;
-9. when a boundary is crossed, zero only the velocity component pointing farther outside.
+8. clamp center inside the arena by `playerRadius`;
+9. zero only the velocity component pointing farther outside when a wall is reached.
 
-The ship therefore coasts after release but remains correctable. V1 has no boost, rotation control, health, shield, dash, fuel, or weapons.
+The ship coasts after release but remains correctable. No boost, dash, health, shield, fuel, weapons, or rotation control.
 
 ## Physics stepping and ordering
 
-`update(deltaSeconds)` follows the recent continuous-game pattern:
+`update(deltaSeconds)`:
 
-- ignore inactive/paused/non-finite/non-positive deltas;
-- clamp one incoming frame to `maxUpdateDelta = 0.1`;
-- subdivide into at most `1/120s` physics steps;
-- after stepping, synchronize score and emit state.
+- ignores inactive/paused/non-finite/non-positive deltas;
+- clamps one incoming frame to `maxUpdateDelta`;
+- subdivides into at most `maxPhysicsStep` physics steps;
+- synchronizes score and emits state after stepping.
 
 Every substep uses this order:
 
-1. advance `elapsedSimSeconds`;
+1. advance `elapsedSimSeconds` up to `duration`;
 2. integrate player;
-3. move asteroids and remove bodies that are fully beyond the padded arena on any edge;
+3. move and despawn asteroids;
 4. age/expire current orb;
 5. check asteroid collision;
 6. collect orb if still alive;
-7. advance asteroid/orb spawn accumulators and attempt spawning.
+7. advance spawn accumulators and attempt spawning.
 
 Collision intentionally precedes orb collection. If both contacts occur in one substep, the run is lost and the orb is not awarded.
 
-Ship/asteroid and ship/orb contact use `circleOverlap` from `shared/geometry.ts`; spawn clearance uses its point `distance`. Physics/scoring interpolation and bounds use `clamp`/`lerp` from `shared/utils.ts`.
-
 ## Deterministic opening asteroid
 
-The first hazard is deterministic and consumes no RNG.
+`onGameStart()` creates one RNG-free asteroid outside the right edge at center Y using the intro radius and initial speed. With the initial values it reaches the centered idle player in about three seconds.
 
-At `onGameStart()`, create one asteroid fully outside the right edge at center Y, radius 26, moving horizontally left at the initial asteroid speed. The player starts at arena center. With the default geometry this produces an idle collision after roughly three seconds, giving a readable first lesson and a deterministic browser loss path.
-
-Random asteroid accumulation starts at `-openingRandomSpawnGrace`, so random traffic cannot obscure that opening lesson.
+Random asteroid accumulation starts at `-openingRandomSpawnGrace`, so the opening lesson and browser loss path remain deterministic.
 
 ## Random asteroid spawning
 
 Difficulty progress is `clamp(elapsedSimSeconds / duration, 0, 1)`.
 
-- interval ramps linearly `1.35s → 0.45s`;
-- base speed ramps `140 → 240 px/s`;
-- radius varies `18..36px`;
-- speed gets bounded ±15% jitter;
-- asteroids travel straight and do not bounce/home/collide with each other.
+One finite random materialization:
 
-### Edge fairness
+1. resolve eligible edges;
+2. choose one edge with injected RNG;
+3. choose radius and along-edge coordinate;
+4. place the center outside by `asteroidSpawnPadding + radius`;
+5. choose one target inside the target-inset rectangle;
+6. normalize spawn→target;
+7. apply ramped speed plus bounded jitter.
 
-An edge is eligible only when the player's center is at least `asteroidSafeEdgeDistance` from it. With the default 800×480 arena and 190px threshold, at least one edge is always eligible.
+An edge is eligible only when the player's center is at least `asteroidSafeEdgeDistance` from it. No rejection/random retry loop exists. Invalid test configuration with zero eligible edges throws.
 
-A spawn performs a finite sequence:
-
-1. choose one eligible edge using injected `rng`;
-2. choose radius and an along-edge coordinate within radius-safe bounds;
-3. place the center fully off-screen by `asteroidSpawnPadding + radius`;
-4. choose a target inside the arena's `asteroidTargetInset` rectangle;
-5. normalize spawn→target;
-6. apply ramped speed plus bounded jitter.
-
-No rejection/random retry loop exists. Invalid test-only configuration that yields zero eligible edges should throw rather than silently violate the fair-edge rule.
-
-At `maxAsteroids`, no RNG is consumed. Spawn debt is capped at one current interval so capacity release can spawn promptly but never bursts through accumulated debt.
+At `maxAsteroids`, consume zero RNG and cap asteroid spawn debt at one current interval. There is no catch-up spawn loop.
 
 ### All-edge despawn
 
-Straight-line asteroids can leave through any edge, so removal must not copy Gravity Flip's one-way left-edge predicate. `spawning.ts` owns a pure `isAsteroidOffArena(asteroid, config)` helper. A body is removed only after its center is strictly beyond the padded center bounds for its own radius:
+`spawning.ts` owns one pure predicate:
 
 ```ts
-const margin = config.asteroidSpawnPadding + asteroid.radius
-return (
-    asteroid.x < -margin ||
-    asteroid.x > config.canvasWidth + margin ||
-    asteroid.y < -margin ||
-    asteroid.y > config.canvasHeight + margin
-)
+export function isAsteroidOffArena(
+    asteroid: AsteroidDriftAsteroid,
+    config: AsteroidDriftConfig
+): boolean {
+    const margin = config.asteroidSpawnPadding + asteroid.radius
+    return (
+        asteroid.x < -margin ||
+        asteroid.x > config.canvasWidth + margin ||
+        asteroid.y < -margin ||
+        asteroid.y > config.canvasHeight + margin
+    )
+}
 ```
 
-A newly materialized asteroid whose center is exactly on one of those expanded spawn boundaries remains active and can travel inward. The same predicate handles the deterministic left-going intro body and random bodies that later exit left, right, top, or bottom. This release is load-bearing for `maxAsteroids`: exited bodies must reduce active capacity so late-run traffic and orb clearance continue to work.
+Strict comparison means a newly spawned body exactly on an expanded boundary remains active. The same predicate handles left/right/top/bottom exits and is load-bearing for capacity release and orb clearance.
 
-## Energy orb placement
+## Energy orb placement and cadence
 
-At most one orb exists. Eight authored edge-biased normalized anchors pull the ship away from passive center camping:
+At most one orb exists. Eight authored normalized edge-biased anchors keep placement finite:
 
 ```ts
 export const ASTEROID_DRIFT_ORB_ANCHORS = [
@@ -280,238 +294,199 @@ export const ASTEROID_DRIFT_ORB_ANCHORS = [
 ] as const
 ```
 
-Each spawn attempt:
+Each attempt consumes one RNG sample for the starting anchor, scans all eight once cyclically, and accepts the first candidate that is:
 
-1. consumes one RNG sample for a starting anchor index;
-2. scans all eight anchors once in cyclic order;
-3. accepts the first at least `orbPlayerMinDistance` from the player and at least `orbAsteroidClearance + asteroid.radius + orbRadius` from every active asteroid;
-4. returns no orb if none is currently valid.
+- at least `orbPlayerMinDistance` from the player; and
+- at least `orbAsteroidClearance + asteroid.radius + orbRadius` from every active asteroid.
 
-A failed attempt waits until the next full `orbSpawnInterval`; no same-frame retry. An orb expires after seven active simulation seconds. Collection removes it and increments `orbsCollected` once.
+If none is valid, the attempt ends and the next attempt waits a full interval.
+
+Accumulator behavior is explicit:
+
+- while an orb exists, the accumulator may advance but is capped at one `orbSpawnInterval`; no spawn attempt runs;
+- collection **or expiry** removes the orb and resets the accumulator to `0`;
+- when no orb exists and the interval is reached, perform exactly one finite spawn attempt and reset the accumulator to `0` whether the attempt succeeds or is blocked.
+
+Therefore no orb debt can create an immediate replacement after collection/expiry and no same-frame retry loop exists.
 
 ## Scoring
 
 One pure scorer owns all arithmetic:
 
 ```text
-score = floor(survivalSeconds) * 10 + orbsCollected * 250
+score = floor(survivalSeconds) * survivalPointsPerSecond
+      + floor(orbsCollected) * orbPoints
 ```
 
 Rules:
 
-- survival is clamped `0..90`;
-- orb count is non-negative integer;
-- the game passes current config point values to the scorer so test/tuning overrides cannot diverge from the model;
+- survival is clamped `0..duration` and comes from simulated survival as described above;
+- orb count is normalized to a non-negative integer;
+- current config point values are passed to the scorer;
 - BaseGame time bonus is disabled;
-- score is monotonic and synchronized only by positive delta through `addScore()`;
-- collision keeps all earned score;
-- successful timeout scores exactly 90 survival seconds.
+- score only moves upward through positive `addScore()` delta;
+- collision/expiry retain score already earned.
 
-No distance/speed/near-miss/combo/multiplier score exists in v1.
+The formula shape is structural. `survivalPointsPerSecond` and `orbPoints` are tuning values until the Task 4 manual checkpoint is complete.
 
 ## Lifecycle and outcomes
 
-`AsteroidDriftGame` extends `BaseGame` with `pausable: false`, `resettable: true`, and time bonus off.
+`AsteroidDriftGame` uses `pausable: false`, `resettable: true`, BaseGame time bonus off.
 
-- Start creates a fresh active run through BaseGame and adds the deterministic intro asteroid.
-- Reset returns to idle centered zero-score state.
-- Timeout sets outcome `survived`, synchronizes the exact-duration score, then delegates to BaseGame.
-- Asteroid collision sets outcome `collision`, synchronizes current wall-clock survival score, starts the existing async end path as `void this.end().catch((error: unknown) => console.error('AsteroidDrift end failed', error))`, and returns immediately before orb/spawn work. The catch mirrors Gravity Flip and prevents a score-save rejection from becoming an unhandled promise rejection.
+- Start resets private runtime and creates the deterministic intro asteroid.
+- Reset returns to centered zero-score idle state.
+- Timer completion classifies `survived` vs `expired` from simulation completion, synchronizes score, then delegates to BaseGame.
+- Collision sets `outcome: 'collision'`, synchronizes score, starts the existing async end path as caught fire-and-forget, and returns before orb/spawn work:
+
+```ts
+void this.end().catch((error: unknown) =>
+    console.error('AsteroidDrift end failed', error)
+)
+```
+
 - End/reset clears held input.
 - No game-local interval/timeout/ticker exists.
 
-The normal run has no Pause or manual End action.
-
 ## Renderer
 
-`AsteroidDriftRenderer` extends `PixiJSRenderer` and uses two game-local graphics layers:
+`AsteroidDriftRenderer` extends `PixiJSRenderer` with two local layers:
 
-1. static background — dark field, border, fixed authored star dots drawn once;
-2. dynamic entities — cleared/redrawn for orb, asteroids, and ship.
+1. static background — dark field, border, fixed authored star dots;
+2. dynamic entities — orb, asteroids, ship.
 
-The player is a non-color-only triangular ship whose visual heading derives from velocity with `atan2`; when nearly stationary it points right. Collision remains model-owned circle geometry. Asteroids are outlined circles with crater marks. Energy orbs use a double-ring/diamond treatment so identity is not color-only.
+Visual collision honesty is a contract, not a tuning detail:
 
-No textures, sprite sheets, particle system, filters, or asset pipeline are added.
+- every ship hull vertex is derived from `player.radius` and remains at distance `<= player.radius` from the model center;
+- asteroid outer circle radius is exactly `asteroid.radius`; crater marks remain inside it;
+- energy-orb outer ring radius is exactly `orb.radius`; inner diamond/cross decoration remains inside it;
+- no independent visual-size constants exist for these collision-bearing extents.
 
-As in Gravity Flip, override Pixi auto-density inline canvas sizing to `width: 100%` / `height: auto` so 800×480 remains responsive. The non-interactive canvas uses `touch-action: manipulation`; gameplay touch lives on native buttons.
+The ship points along velocity with `atan2`, or right when nearly stationary. Collision remains model-owned circle geometry.
+
+No textures, sprite sheets, filters, particle system, or asset pipeline.
+
+Pixi auto-density inline sizing is overridden to `width: 100%` / `height: auto` as in Gravity Flip.
 
 ## Controls and accessibility
 
 Desktop:
 
 - Arrow keys + WASD;
-- keydown presses a direction, keyup releases it;
-- Ctrl/Meta/Alt combinations are ignored;
-- `isEditableTarget()` from `shared/utils.ts` prevents gameplay input from stealing editable controls.
+- keydown presses, keyup releases;
+- Ctrl/Meta/Alt combinations ignored;
+- editable targets ignored through `isEditableTarget()`.
 
 Mobile/pointer:
 
-- four native Astro buttons form a compact D-pad inside the page's explicit `<div slot="controls">` together with Start/Reset;
-- each D-pad button has `data-direction`, an `aria-label`, and `tabindex="-1"`, matching Evader's pointer-control treatment while keyboard movement remains available through WASD/arrows;
-- `pointerdown` presses;
-- `pointerup`, `pointerleave`, and `pointercancel` release;
-- implicit pointer capture is released in the same defensive pattern as Evader so touch slide-off can release;
-- keyboard/touch held sets are independent, so releasing one source cannot cancel the other;
-- multi-direction input naturally supports diagonals.
+- explicit custom `slot="controls"` contains Start/Reset and a four-button native D-pad;
+- D-pad buttons use `data-direction`, `aria-label`, and `tabindex="-1"`;
+- pointerdown presses and defensively releases implicit pointer capture;
+- pointerup/leave/cancel release;
+- keyboard/touch held sets are independent;
+- diagonal input is supported by simultaneous directions.
 
 No canvas hit-testing or virtual joystick.
 
-A polite `aria-live` node announces start, orb collection, collision, and full completion only—not every frame/spawn.
+A polite live region announces start, orb collection, collision, full completion, and incomplete expiry only—not frames/spawns.
 
-## Page and HUD
+## Page and results
 
 Route: `/asteroid-drift`.
 
-`GamePage`:
+`GamePage` uses `initialTime={90}`, no Pause, no manual End, Reset enabled.
 
-- `initialTime={90}`;
-- `showPause={false}`;
-- `showEnd={false}`;
-- `showReset={true}`;
-- collision title `SHIP LOST`;
-- successful timeout title changed by initializer to `DRIFT COMPLETE`.
+Result copy:
 
-Visible additional badges are only Orbs and rounded ship speed. Existing GamePage score/time remain authoritative. Final stats show outcome, survival seconds, and orb count.
+- collision: `SHIP LOST` / `Collision`;
+- qualifying full simulation: `DRIFT COMPLETE` / `Survived`;
+- wall timer expired before enough simulation: `DRIFT ENDED` / `Expired`.
 
-Controls use an explicit `slot="controls"` containing Start/Reset plus the four-button D-pad so the page does not fall back to the default `GameControls`. Play Again follows BaseGame's completed-run start behavior and immediately begins a fresh run, matching recent continuous games.
+Visible additional stats are Orbs and rounded ship speed. Existing GamePage score/time remain authoritative. Final stats show outcome, simulated survival seconds, and orb count.
 
-The initializer `<script>` is page-root content **after `</GamePage>`**, not inside any GamePage slot. `GamePage.astro` documents that slotted scripts are dropped during Astro SSR. `game-board-markup.test.ts` must lock this with a formatting-tolerant `/<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initAsteroidDriftGameFramework/` assertion plus the DOMContentLoaded-before-init check. When the route is created in Task 4, add `'asteroid-drift'` to that test file's hardcoded `games` array immediately so the generic GamePage-wrapper sweep includes the new page.
+Initializer script lives after `</GamePage>`; `game-board-markup.test.ts` locks that placement and adds `asteroid-drift` to its hardcoded GamePage wrapper sweep when Task 4 creates the page.
 
 ## Catalog and achievements
 
-Stable ID/icon:
+Stable identity:
 
 ```ts
 GameID.ASTEROID_DRIFT = 'asteroid_drift'
 icon = '☄️'
 ```
 
-Catalog row:
+Catalog:
 
-- name `Asteroid Drift`;
-- category `action`;
-- duration `1-2 minutes`;
-- difficulty `medium`;
-- tags `asteroid`, `space`, `survival`, `single-player`, `momentum`;
+- action;
+- `1-2 minutes`;
+- medium;
+- tags: asteroid, space, survival, single-player, momentum;
 - organism `{ shape: 'spiral', color: 'amber' }`;
-- depth `shallow`.
+- shallow depth.
 
-Depth fixture changes from `8 / 9 / 4` to `9 / 9 / 4`.
+Depth fixture becomes `9 / 9 / 4`.
 
-After the manual tuning checkpoint, freeze exactly four achievements:
+After tuning, freeze exactly four achievements:
 
-1. **First Charge** — collect ≥1 orb — Common.
-2. **Energy Runner** — collect ≥6 orbs — Rare.
-3. **Long Haul** — survive ≥60 wall-clock seconds — Rare.
-4. **Deep Space Ace** — survive full 90s and collect ≥10 orbs — Epic.
+1. **First Charge** — collect at least 1 orb — Common.
+2. **Energy Runner** — collect at least 6 orbs — Rare.
+3. **Long Haul** — simulate at least 60 survival seconds — Rare.
+4. **Deep Space Ace** — `survivedFullRun` and at least 10 orbs — Epic.
 
-No extra persisted metric is introduced.
+Backgrounding cannot earn Long Haul or Deep Space Ace because their data comes from simulated survival/full-run qualification.
 
-## Initializer responsibilities
+## Risks and tuning focus
 
-`initFramework.ts` owns integration only:
+### Late-run fairness
 
-- create default config/game/renderer;
-- wire BaseGame callbacks to HUD/overlay/status;
-- forward end-event achievements/challenges;
-- map keyboard/D-pad events to direction API;
-- wire Start, Reset, Play Again inside the page's custom controls surface;
-- own exactly one rAF loop using monotonic rAF timestamps;
-- render idle state;
-- apply responsive canvas inline sizing;
-- add/remove beforeunload guard while active;
-- expose `window.asteroidDriftGame` for existing debug/E2E style;
-- clean tracked listeners, rAF, renderer, and game exactly once.
+Fair-edge spawning prevents immediate player-edge ambushes, but it does not mathematically guarantee an escape corridor when multiple independent asteroids converge. That is acceptable for v1 only if manual play shows deaths remain readable and avoidable enough for an arcade survival game. Do not add pathfinding/fair-gap generation unless the checkpoint demonstrates a real problem.
 
-No second rAF, `setInterval`, Pixi ticker callback, or canvas movement listener is introduced by Asteroid Drift. BaseGame's existing `GameTimer` interval remains the sole wall-clock timer.
+### Score balance
 
-## Testing strategy
+Orb bonuses are the skill/risk channel, but survival must remain material. Initial values target roughly equal survival/orb contribution around a strong 10-orb full run. Tune point constants if the run feels like only orb collection matters or, conversely, orb risk is not worth taking.
 
-### Pure spawning/scoring
+### Background/jank divergence
 
-Lock structural behavior:
+Wall time can advance faster than simulation when the page is hidden or heavily throttled. The `expired` classification and simulation-based survival score intentionally prevent free leaderboard/achievement credit rather than adding visibility pause machinery.
 
-- deterministic intro is RNG-free;
-- player-near edge is excluded while valid alternatives remain;
-- random asteroid starts fully outside selected edge and travels inward;
-- all-edge off-arena predicate keeps bodies at the exact padded spawn boundary and removes only after they pass the expanded bounds;
-- radius/speed remain within ramped bounds;
-- invalid RNG samples are clamped safely;
-- max-active model path consumes zero RNG and caps debt;
-- orb anchors reject player/asteroid proximity;
-- all-blocked anchors return null after one finite scan;
-- scorer clamps survival/orb inputs and uses supplied score config.
+## Mandatory manual checkpoint
 
-### Game model
+After the playable Task 4 route and before catalog/achievement values are frozen, test desktop + 375×812:
 
-Cover:
-
-- idle centered zero-velocity state;
-- held acceleration, diagonal normalization, coasting/drag, max-speed clamp;
-- wall clamp/outward-velocity cancellation;
-- independent keyboard/touch sets;
-- intro creation;
-- 0.1s outer clamp + non-vacuous fixed-step anti-tunneling collision;
-- intro body despawns after exiting left and a right-going body despawns after exiting right;
-- active asteroid count can fall below `maxAsteroids` after exits, reopening spawn capacity without a burst;
-- spawn interval/speed progression;
-- capacity/no-burst behavior;
-- orb create/expire/collect;
-- collision-before-orb ordering;
-- collision outcome and score preservation;
-- collision's async `end()` rejection is caught rather than left unhandled;
-- timeout exact 90s score;
-- BaseGame wall-clock survival vs simulation-clock difficulty distinction;
-- reset/start cleanup;
-- stats/game data.
-
-### Renderer/initializer
-
-Pin static-vs-dynamic layers, non-color-only primitive identity, responsive canvas override, exactly one game rAF path, listener cleanup, editable-target keyboard gating, custom `slot="controls"`, D-pad `tabindex="-1"` + pointer-capture release semantics, root-level post-`</GamePage>` bootstrap, HUD/overlay/replay behavior, and no duplicate integration loops.
-
-`src/pages/game-board-markup.test.ts` also adds `'asteroid-drift'` to its hardcoded generic GamePage-wrapper route array in the same Task 4 change that creates the route.
-
-### Browser
-
-Extend `e2e/games/play-coverage.spec.ts`:
-
-1. load route and start;
-2. provide no movement and deterministically collide with intro asteroid;
-3. assert `SHIP LOST` + final stats/inactive state;
-4. Play Again and assert fresh active run;
-5. at 375×812, assert no horizontal overflow and exercise real D-pad pointer press/release/diagonal state.
-
-Keep `e2e/games/all-games-navigation.spec.ts` source unchanged; it should discover the active catalog route automatically and remains a required gate.
-
-## Manual tuning checkpoint
-
-After playable Task 4 and before registration/achievements, manually test desktop + 375×812:
-
-1. Is the ~3s opening idle collision readable/dodgeable?
+1. Is the ~3-second opening idle collision readable and dodgeable?
 2. Does release preserve noticeable momentum without frustrating correction?
-3. Do edge-biased orbs create voluntary risk without spawning on player/hazard?
-4. Is 60–90s traffic harder but still readable?
+3. Do edge-biased orbs create voluntary risk without unsafe placement?
+4. During 60–90s traffic, did any death feel effectively unavoidable rather than earned?
 5. Can the native D-pad create diagonals and release cleanly on touch?
+6. After a strong run, does the score feel like it rewarded both survival and orb collection rather than only one channel?
 
-If needed, tune only movement/asteroid/orb feel constants and their direct tests/docs. Do not widen architecture or change the score/lifecycle contract.
+Allowed tuning values:
+
+- acceleration, drag, max player speed;
+- asteroid radius/interval/speed/jitter;
+- orb cadence/lifetime/player distance/asteroid clearance;
+- `survivalPointsPerSecond` and `orbPoints`.
+
+Do not tune duration, finite spawn/despawn algorithms, timeout/full-run qualification, input/lifecycle architecture, or the score formula shape.
 
 ## Scope boundaries
 
 HPA-68 does **not** add:
 
 - shared movement/physics/spawn/survival framework;
+- `GameDpad.astro` or GamePage/GameControls migration;
 - ECS or physics dependency;
 - texture/sprite/audio pipeline;
-- procedural levels/seed identity;
+- seeded/procedural run identity;
 - health/shield/boost/fuel/weapons/bosses/destruction;
 - near-miss/combo/distance/speed scoring;
-- difficulty selection/upgrades;
-- pause/manual End;
-- touch joystick/canvas gameplay hit-testing;
+- difficulty selector/upgrades;
+- manual pause/End;
+- visibility-change pause behavior;
+- joystick/canvas gameplay hit-testing;
 - backend/API/DB/schema/auth/leaderboard changes;
 - changes to BaseGame/GameTimer/ScoreManager/GameInitializer/PixiJSRenderer;
 - changes to Evader or Gravity Flip.
 
 ## Definition of done
 
-HPA-68 is complete when `/asteroid-drift` is keyboard/touch playable; movement is momentum-based/frame-stable; increasing edge traffic, all-edge despawn, and collision work; orbs follow finite safe/risky placement; survival score uses BaseGame wall-clock time while simulation time only drives difficulty; reset/replay/submission work through existing lifecycle; catalog/data/achievements are registered; targeted/full unit, coverage, type, lint, format, build, Playwright and catalog-navigation gates pass; and the work remains one HPA-68 PR without unrelated framework/backend changes.
+HPA-68 is complete when `/asteroid-drift` is keyboard/touch playable; movement is momentum-based and fixed-step; increasing edge traffic and all-edge despawn work; orb placement/cadence are finite; collision feels visually honest; score and achievements accrue from simulated survival rather than background wall time; full-run qualification is not farmable by hiding the tab; reset/replay/submission use existing lifecycle; catalog/data/achievements are registered; manual tuning addresses fairness and score split; targeted/full unit, coverage, type, lint, format, build, Playwright, and catalog-navigation gates pass; and the work remains one HPA-68 PR without unrelated framework/backend changes.
