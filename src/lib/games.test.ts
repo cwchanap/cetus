@@ -443,6 +443,35 @@ describe('Asteroid Drift stable ID and icon', () => {
     })
 })
 
+describe('Asteroid Drift registration', () => {
+    it('has the exact active registry entry and page route', () => {
+        expect(getGameById(GameID.ASTEROID_DRIFT)).toMatchObject({
+            id: GameID.ASTEROID_DRIFT,
+            name: 'Asteroid Drift',
+            description:
+                'Thrust through an asteroid field, collect energy orbs, and survive the drift',
+            category: 'action',
+            maxPlayers: 1,
+            estimatedDuration: '1-2 minutes',
+            difficulty: 'medium',
+            tags: [
+                'asteroid',
+                'space',
+                'survival',
+                'single-player',
+                'momentum',
+            ],
+            isActive: true,
+            organism: { shape: 'spiral', color: 'amber' },
+            depth: 'shallow',
+        })
+        expect(getGameUrl(GameID.ASTEROID_DRIFT)).toBe('/asteroid-drift')
+        expect(
+            GAMES.filter(game => game.id === GameID.ASTEROID_DRIFT)
+        ).toHaveLength(1)
+    })
+})
+
 describe('Rhythm Reactor registration', () => {
     it('has the exact active registry entry, icon, and page route', () => {
         expect(GameID.RHYTHM_REACTOR).toBe('rhythm_reactor')

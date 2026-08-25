@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Cetus is a sci-fi-themed single-player gaming platform built with Astro and Tailwind CSS. The platform features 21 fully implemented interactive games: Tetris Challenge, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, Sudoku, Bejeweled, Path Navigator, Evader, 2048, Snake, Circuit Hacker, Satellite Sync, Ice Slide, Mine Grid, Pattern Pulse, Gravity Flip, Potion Sorter, Signal Switch, and Rhythm Reactor. Features include user authentication, score tracking, comprehensive achievement system with 4 rarity tiers, and a modern neon-styled design with holographic effects and animated backgrounds.
+Cetus is a sci-fi-themed single-player gaming platform built with Astro and Tailwind CSS. The platform features 22 fully implemented interactive games: Tetris Challenge, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex Coin Collection, Sudoku, Bejeweled, Path Navigator, Evader, 2048, Snake, Circuit Hacker, Satellite Sync, Ice Slide, Mine Grid, Pattern Pulse, Gravity Flip, Potion Sorter, Signal Switch, Rhythm Reactor, and Asteroid Drift. Features include user authentication, score tracking, comprehensive achievement system with 4 rarity tiers, and a modern neon-styled design with holographic effects and animated backgrounds.
 
 ## Development Commands
 
@@ -124,7 +124,8 @@ src/
 │       ├── pattern-pulse/ # Pattern Pulse implementation
 │       ├── potion-sorter/ # Potion Sorter implementation
 │       ├── signal-switch/ # Signal Switch implementation
-│       └── rhythm-reactor/ # Rhythm Reactor implementation
+│       ├── rhythm-reactor/ # Rhythm Reactor implementation
+│       └── asteroid-drift/ # Asteroid Drift implementation
 ├── pages/
 │   ├── api/          # API routes (auth, scores)
 │   ├── login/        # Authentication pages
@@ -163,7 +164,7 @@ Each game follows: `types.ts` → `game.ts` → `renderer.ts` → `utils.ts`
 
 **Renderer Architecture**:
 - **DOM-based**: Memory Matrix uses direct DOM manipulation with card grid; Mine Grid uses direct DOM manipulation with a Minesweeper-style grid; Pattern Pulse uses direct DOM manipulation with a four-pad memory-sequence grid; Potion Sorter uses direct DOM manipulation with a wrapping tube grid
-- **PixiJS Canvas**: Tetris, Reflex, Bejeweled, Path Navigator, Evader, Snake, Circuit Hacker, Satellite Sync, Signal Switch, and Rhythm Reactor use canvas rendering
+- **PixiJS Canvas**: Tetris, Reflex, Bejeweled, Path Navigator, Evader, Snake, Circuit Hacker, Satellite Sync, Signal Switch, Rhythm Reactor, and Asteroid Drift use canvas rendering
 - **Text-based**: Quick Math doesn't require visual renderer
 
 **Game-Specific Notes**:
@@ -182,6 +183,7 @@ Each game follows: `types.ts` → `game.ts` → `renderer.ts` → `utils.ts`
 - **Potion Sorter**: BaseGame + DOMRenderer liquid-sort puzzle with authored presets, undo, and dead-end detection; exposes a `window.potionSorterGame` debug handle
 - **Signal Switch**: BaseGame + PixiJS canvas lane-gate reflex game — switch gates to match incoming drone signals before impact; exposes a `window.signalSwitchGame` debug handle
 - **Rhythm Reactor**: BaseGame + PixiJS + authored visual chart + `window.rhythmReactorGame`
+- **Asteroid Drift**: BaseGame + PixiJS canvas momentum survival game — thrust through asteroids, collect energy orbs, and survive a 90-second drift; exposes a `window.asteroidDriftGame` debug handle
 
 **Critical Astro-TypeScript Integration Pattern**:
 All game HTML structure must be in Astro components - TypeScript only manipulates dynamic content:
@@ -283,7 +285,7 @@ Comprehensive sci-fi design system:
 5. Ensure mobile compatibility with touch/mouse event handling
 6. Implement proper game state transitions and button state management
 7. Integrate with achievement system for automatic progress tracking
-8. All 21 games are fully implemented - focus on bug fixes and features
+8. All 22 games are fully implemented - focus on bug fixes and features
 9. Test canvas functionality across devices (mobile/desktop)
 10. Use game debug objects: `window.gameNameGame.getGame()` for debugging
 11. Consider using Core Game Framework (BaseGame, BaseRenderer) for new games or refactoring
@@ -305,10 +307,10 @@ Comprehensive sci-fi design system:
 - **Security**: CSRF protection, secure sessions, environment variables
 - **Achievement System**: Code-based achievement definitions with 4 rarity tiers and automatic checking
 - **Score Integration**: All games use centralized score service with achievement notifications
-- **Game Count**: 21 fully implemented games (Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, Sudoku, Bejeweled, Path Navigator, Evader, 2048, Snake, Circuit Hacker, Satellite Sync, Ice Slide, Mine Grid, Pattern Pulse, Gravity Flip, Potion Sorter, Signal Switch, Rhythm Reactor)
+- **Game Count**: 22 fully implemented games (Tetris, Bubble Shooter, Memory Matrix, Quick Math, Word Scramble, Reflex, Sudoku, Bejeweled, Path Navigator, Evader, 2048, Snake, Circuit Hacker, Satellite Sync, Ice Slide, Mine Grid, Pattern Pulse, Gravity Flip, Potion Sorter, Signal Switch, Rhythm Reactor, Asteroid Drift)
 - **DOM vs Canvas**: Understand renderer types - DOM-based (Memory Matrix, Mine Grid, Pattern Pulse, Potion Sorter) vs PixiJS Canvas (most games)
 - **Debug Access**: Games expose debugging via `window.gameNameGame` for development inspection
-- **Framework Patterns**: 18 of 21 games use `BaseGame` (framework-native). Circuit Hacker, Satellite Sync, and Ice Slide intentionally use a handle-based pattern (`createRunGuard` + manual `saveGameScore`) suited to their multi-phase/custom-state-machine game loops — this is a blessed pattern, not a migration debt.
+- **Framework Patterns**: 19 of 22 games use `BaseGame` (framework-native). Circuit Hacker, Satellite Sync, and Ice Slide intentionally use a handle-based pattern (`createRunGuard` + manual `saveGameScore`) suited to their multi-phase/custom-state-machine game loops — this is a blessed pattern, not a migration debt.
 - **GameInitializer**: `GameInitializer.ts` in the core framework currently has no production game importers; do not delete or migrate it here.
 - **Core Framework**: Unified game framework available in `src/lib/games/core/` for consistent game architecture
 

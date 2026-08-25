@@ -356,6 +356,20 @@ export const GAMES: Game[] = [
         organism: { shape: 'chain', color: 'teal' },
         depth: 'shallow',
     },
+    {
+        id: GameID.ASTEROID_DRIFT,
+        name: 'Asteroid Drift',
+        description:
+            'Thrust through an asteroid field, collect energy orbs, and survive the drift',
+        category: 'action',
+        maxPlayers: 1,
+        estimatedDuration: '1-2 minutes',
+        difficulty: 'medium',
+        tags: ['asteroid', 'space', 'survival', 'single-player', 'momentum'],
+        isActive: true,
+        organism: { shape: 'spiral', color: 'amber' },
+        depth: 'shallow',
+    },
 ]
 
 // Helper functions

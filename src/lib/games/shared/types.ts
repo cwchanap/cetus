@@ -136,6 +136,10 @@ export type SignalSwitchGameData =
 export type RhythmReactorGameData =
     import('../rhythm-reactor/types').RhythmReactorGameData
 
+// Asteroid Drift-specific game data (canonical definition in asteroid-drift/types.ts)
+export type AsteroidDriftGameData =
+    import('../asteroid-drift/types').AsteroidDriftGameData
+
 // Union type for all game data
 export type GameData =
     | TetrisGameData
@@ -159,6 +163,7 @@ export type GameData =
     | PotionSorterGameData
     | SignalSwitchGameData
     | RhythmReactorGameData
+    | AsteroidDriftGameData
 
 // Common game stats returned from games
 export interface GameStats {
