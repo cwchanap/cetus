@@ -576,6 +576,31 @@ describe('initAsteroidDriftGameFramework', () => {
             }).not.toThrow()
             expect(handle!.game.pressedDirections).toEqual(new Set())
         })
+
+        it('window blur releases held keyboard and touch directions', async () => {
+            handle = await initAsteroidDriftGameFramework()
+            handle!.game.start()
+
+            // Hold a keyboard direction and a touch direction. A keyup is
+            // not guaranteed to reach the document if the player switches
+            // tabs while holding a key, so blur must release both sources.
+            document.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowUp',
+                    bubbles: true,
+                })
+            )
+            fireEvent.pointerDown(dpadButton('left'))
+            expect(handle!.game.pressedDirections).toEqual(
+                new Set(['up', 'left'])
+            )
+            expect(dpadButton('left')).toHaveClass('active')
+
+            window.dispatchEvent(new Event('blur'))
+
+            expect(handle!.game.pressedDirections).toEqual(new Set())
+            expect(dpadButton('left')).not.toHaveClass('active')
+        })
     })
 
     describe('D-pad pointer controls', () => {
