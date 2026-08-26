@@ -301,6 +301,27 @@ export async function initAsteroidDriftGameFramework(): Promise<
         game.releaseDirection(direction, 'keyboard')
     }
 
+    // A keyup is not guaranteed to reach the document if the player holds
+    // a movement key, switches tabs/windows, then releases it while the
+    // page is unfocused. On return the held direction would persist with
+    // no key physically held and the ship would resume thrusting. Blur
+    // releases every direction from both sources and clears the active
+    // D-pad classes for symmetry. Kept local — no shared input framework.
+    const blurHandler: EventListener = () => {
+        for (const direction of [
+            'up',
+            'down',
+            'left',
+            'right',
+        ] as AsteroidDriftDirection[]) {
+            game.releaseDirection(direction, 'keyboard')
+            game.releaseDirection(direction, 'touch')
+        }
+        for (const button of dpadButtons) {
+            button.classList.remove('active')
+        }
+    }
+
     // Touch/pointer D-pad, copied Evader-shaped: pointerdown presses (gated
     // on an active run so no latent input survives a pre-start press) and
     // defensively releases the implicit pointer capture touch pointers get,
@@ -364,6 +385,7 @@ export async function initAsteroidDriftGameFramework(): Promise<
     listen(playAgainButton, 'click', playAgainHandler)
     listen(document, 'keydown', keyboardDownHandler)
     listen(document, 'keyup', keyboardUpHandler)
+    listen(window, 'blur', blurHandler)
     listen(window, 'beforeunload', beforeUnloadHandler)
 
     renderer.render(game.getState())
