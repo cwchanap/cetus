@@ -17,6 +17,7 @@ import type { PotionSorterGameData } from './games/potion-sorter/types'
 import type { SignalSwitchGameData } from './games/signal-switch/types'
 import type { RhythmReactorGameData } from './games/rhythm-reactor/types'
 import type { AsteroidDriftGameData } from './games/asteroid-drift/types'
+import type { ChromaticTideGameData } from './games/chromatic-tide/types'
 import { checkAndAwardAchievements } from './services/achievementService'
 
 // Mock the database queries so checkAndAwardAchievements can be exercised
@@ -1611,5 +1612,92 @@ describe('Asteroid Drift achievements', () => {
         )!.condition.check!
         expect(longHaul(backgroundRun, 0)).toBe(false)
         expect(deepSpaceAce(backgroundRun, 0)).toBe(false)
+    })
+})
+
+describe('Chromatic Tide achievements', () => {
+    const baseData: ChromaticTideGameData = {
+        cleared: false,
+        movesUsed: 22,
+        capturedCells: 80,
+        initialCapturedCells: 1,
+        secondsRemaining: 0,
+    }
+    const checkFor = (id: string) => {
+        const check = getAchievementById(id)?.condition.check
+        expect(check).toBeDefined()
+        return check ?? (() => false)
+    }
+
+    it('registers exactly the four achievements with their rarities', () => {
+        const list = getAchievementsByGame(GameID.CHROMATIC_TIDE)
+        expect(list.map(achievement => achievement.id)).toEqual([
+            'chromatic_tide_first_tide',
+            'chromatic_tide_current_reader',
+            'chromatic_tide_rapid_bloom',
+            'chromatic_tide_master_palette',
+        ])
+        expect(list.map(achievement => achievement.name)).toEqual([
+            'First Tide',
+            'Current Reader',
+            'Rapid Bloom',
+            'Master Palette',
+        ])
+        expect(list.map(achievement => achievement.rarity)).toEqual([
+            AchievementRarity.COMMON,
+            AchievementRarity.RARE,
+            AchievementRarity.RARE,
+            AchievementRarity.EPIC,
+        ])
+    })
+
+    it('First Tide requires a cleared board', () => {
+        const check = checkFor('chromatic_tide_first_tide')
+        expect(check({ ...baseData, cleared: false }, 0)).toBe(false)
+        expect(check({ ...baseData, cleared: true }, 0)).toBe(true)
+    })
+
+    it('Current Reader accepts 17 moves and rejects 18 moves', () => {
+        const check = checkFor('chromatic_tide_current_reader')
+        expect(check({ ...baseData, cleared: true, movesUsed: 17 }, 0)).toBe(
+            true
+        )
+        expect(check({ ...baseData, cleared: true, movesUsed: 18 }, 0)).toBe(
+            false
+        )
+    })
+
+    it('Rapid Bloom accepts 45 remaining seconds and rejects 44', () => {
+        const check = checkFor('chromatic_tide_rapid_bloom')
+        expect(
+            check({ ...baseData, cleared: true, secondsRemaining: 44 }, 0)
+        ).toBe(false)
+        expect(
+            check({ ...baseData, cleared: true, secondsRemaining: 45 }, 0)
+        ).toBe(true)
+    })
+
+    it('Master Palette accepts 15 moves and rejects 16 moves', () => {
+        const check = checkFor('chromatic_tide_master_palette')
+        expect(check({ ...baseData, cleared: true, movesUsed: 15 }, 0)).toBe(
+            true
+        )
+        expect(check({ ...baseData, cleared: true, movesUsed: 16 }, 0)).toBe(
+            false
+        )
+    })
+
+    it('an uncleared timeout earns no clear-only achievement', () => {
+        const timeoutData: ChromaticTideGameData = {
+            ...baseData,
+            cleared: false,
+            movesUsed: 10,
+            secondsRemaining: 45,
+        }
+        const achievements = getAchievementsByGame(GameID.CHROMATIC_TIDE)
+        expect(achievements).toHaveLength(4)
+        for (const achievement of achievements) {
+            expect(achievement.condition.check!(timeoutData, 0)).toBe(false)
+        }
     })
 })

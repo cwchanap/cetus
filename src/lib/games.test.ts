@@ -451,6 +451,26 @@ describe('Chromatic Tide stable ID and icon', () => {
     })
 })
 
+describe('Chromatic Tide registration', () => {
+    it('has the exact active registry entry after Asteroid Drift', () => {
+        expect(getGameById(GameID.CHROMATIC_TIDE)).toMatchObject({
+            name: 'Chromatic Tide',
+            description:
+                'Shift your territory color and flood the whole board before time runs out',
+            category: 'strategy',
+            estimatedDuration: '1-2 minutes',
+            difficulty: 'medium',
+            isActive: true,
+            organism: { shape: 'frond', color: 'teal' },
+            depth: 'mid',
+        })
+        expect(GAMES.at(-1)?.id).toBe(GameID.CHROMATIC_TIDE)
+        expect(
+            GAMES.filter(game => game.id === GameID.CHROMATIC_TIDE)
+        ).toHaveLength(1)
+    })
+})
+
 describe('Asteroid Drift registration', () => {
     it('has the exact active registry entry and page route', () => {
         expect(getGameById(GameID.ASTEROID_DRIFT)).toMatchObject({

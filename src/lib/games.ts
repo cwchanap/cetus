@@ -371,6 +371,20 @@ export const GAMES: Game[] = [
         organism: { shape: 'spiral', color: 'amber' },
         depth: 'shallow',
     },
+    {
+        id: GameID.CHROMATIC_TIDE,
+        name: 'Chromatic Tide',
+        description:
+            'Shift your territory color and flood the whole board before time runs out',
+        category: 'strategy',
+        maxPlayers: 1,
+        estimatedDuration: '1-2 minutes',
+        difficulty: 'medium',
+        tags: ['strategy', 'color', 'flood', 'single-player', 'timed'],
+        isActive: true,
+        organism: { shape: 'frond', color: 'teal' },
+        depth: 'mid',
+    },
 ]
 
 // Helper functions

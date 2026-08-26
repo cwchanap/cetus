@@ -229,7 +229,7 @@ export async function initChromaticTideGameFramework(): Promise<
     const playAgainButton = document.getElementById('play-again-btn')
 
     const startHandler: EventListener = () => game.start()
-    const resetHandler: EventListener = () => {
+    const resetHandler = (): void => {
         game.reset()
         const state = game.getState()
         renderer.render(state)
