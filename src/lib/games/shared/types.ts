@@ -140,6 +140,10 @@ export type RhythmReactorGameData =
 export type AsteroidDriftGameData =
     import('../asteroid-drift/types').AsteroidDriftGameData
 
+// Chromatic Tide-specific game data (canonical definition in chromatic-tide/types.ts)
+export type ChromaticTideGameData =
+    import('../chromatic-tide/types').ChromaticTideGameData
+
 // Union type for all game data
 export type GameData =
     | TetrisGameData
@@ -164,6 +168,7 @@ export type GameData =
     | SignalSwitchGameData
     | RhythmReactorGameData
     | AsteroidDriftGameData
+    | ChromaticTideGameData
 
 // Common game stats returned from games
 export interface GameStats {

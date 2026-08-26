@@ -18,6 +18,7 @@ import type {
     SignalSwitchGameData,
     RhythmReactorGameData,
     AsteroidDriftGameData,
+    ChromaticTideGameData,
     GameHistoryEntry,
 } from './games/shared/types'
 
@@ -48,6 +49,7 @@ export type AchievementCheckData =
     | SignalSwitchGameData
     | RhythmReactorGameData
     | AsteroidDriftGameData
+    | ChromaticTideGameData
     | Record<string, unknown>
 
 export interface Achievement {
@@ -1825,6 +1827,60 @@ export const ACHIEVEMENTS: Achievement[] = [
             type: 'in_game',
             check: (gameData: AsteroidDriftGameData) =>
                 gameData.survivedFullRun && gameData.orbsCollected >= 10,
+        },
+        rarity: AchievementRarity.EPIC,
+    },
+
+    // Chromatic Tide achievements
+    {
+        id: 'chromatic_tide_first_tide',
+        name: 'First Tide',
+        description: 'Clear a Chromatic Tide board.',
+        logo: '🌊',
+        gameId: GameID.CHROMATIC_TIDE,
+        condition: {
+            type: 'in_game',
+            check: (gameData: ChromaticTideGameData) => gameData.cleared,
+        },
+        rarity: AchievementRarity.COMMON,
+    },
+    {
+        id: 'chromatic_tide_current_reader',
+        name: 'Current Reader',
+        description: 'Clear a Chromatic Tide board in 17 moves or fewer.',
+        logo: '🧭',
+        gameId: GameID.CHROMATIC_TIDE,
+        condition: {
+            type: 'in_game',
+            check: (gameData: ChromaticTideGameData) =>
+                gameData.cleared && gameData.movesUsed <= 17,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'chromatic_tide_rapid_bloom',
+        name: 'Rapid Bloom',
+        description:
+            'Clear a Chromatic Tide board with at least 45 seconds remaining.',
+        logo: '⚡',
+        gameId: GameID.CHROMATIC_TIDE,
+        condition: {
+            type: 'in_game',
+            check: (gameData: ChromaticTideGameData) =>
+                gameData.cleared && gameData.secondsRemaining >= 45,
+        },
+        rarity: AchievementRarity.RARE,
+    },
+    {
+        id: 'chromatic_tide_master_palette',
+        name: 'Master Palette',
+        description: 'Clear a Chromatic Tide board in 15 moves or fewer.',
+        logo: '🎨',
+        gameId: GameID.CHROMATIC_TIDE,
+        condition: {
+            type: 'in_game',
+            check: (gameData: ChromaticTideGameData) =>
+                gameData.cleared && gameData.movesUsed <= 15,
         },
         rarity: AchievementRarity.EPIC,
     },
