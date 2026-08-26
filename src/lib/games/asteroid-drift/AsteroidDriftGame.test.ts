@@ -754,6 +754,49 @@ describe('AsteroidDriftGame', () => {
             })
             game.destroy()
         })
+
+        it('stops physics once the simulation reaches the duration', () => {
+            const game = createGame({ duration: 2 })
+            game.start()
+
+            // Drive the simulation to its full duration. The sim clock
+            // clamps at config.duration; the run is still active because
+            // handleTimeUp (independent GameTimer clock) has not fired.
+            advance(game, 2.5)
+            expect(game.getState().isActive).toBe(true)
+
+            // Place a lethal asteroid on the player after the sim clock
+            // is full. Without capping substeps by the remaining sim
+            // budget, a subsequent update would still step physics and
+            // flip a survived run to collision before handleTimeUp runs.
+            const player = game.getState().player
+            game.getState().asteroids.push({
+                id: 'asteroid-killer',
+                x: player.x,
+                y: player.y,
+                velocityX: 0,
+                velocityY: 0,
+                radius: 18,
+            })
+
+            game.update(0.1)
+            expect(game.getState().outcome).toBe('playing')
+            expect(game.getState().isActive).toBe(true)
+
+            // The authoritative survival path: handleTimeUp classifies
+            // the full simulation as survived, not collision.
+            ;(
+                game as unknown as {
+                    handleTimeUp: () => void
+                }
+            ).handleTimeUp()
+            expect(game.getState()).toMatchObject({
+                outcome: 'survived',
+                isGameOver: true,
+                isActive: false,
+            })
+            game.destroy()
+        })
     })
 
     describe('reset lifecycle', () => {
