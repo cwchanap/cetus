@@ -1,0 +1,189 @@
+---
+import GamePage from '@/components/games/GamePage.astro'
+import Badge from '@/components/ui/Badge.astro'
+import Button from '@/components/ui/Button.astro'
+import Card from '@/components/ui/Card.astro'
+---
+
+<GamePage
+  gameId="chromatic-tide"
+  title="Chromatic Tide"
+  description="Shift your territory color and flood the whole board before time runs out"
+  icon="🌈"
+  showPause={false}
+  showEnd={false}
+  initialTime={90}
+>
+  <div
+    slot="game-board"
+    id="chromatic-tide-container"
+    class="w-[min(560px,calc(100vw-2rem))] space-y-4"
+  >
+    <div
+      id="chromatic-tide-board"
+      class="grid w-full aspect-square gap-px sm:gap-1"
+      aria-hidden="true"
+    >
+    </div>
+    <p id="chromatic-tide-status" class="sr-only" aria-live="polite"></p>
+
+    <div
+      id="chromatic-tide-colors"
+      class="grid grid-cols-2 gap-2 sm:grid-cols-5"
+      aria-label="Choose territory color"
+    >
+      <Button
+        data-tide-color="teal"
+        type="button"
+        aria-pressed="false"
+        disabled
+        class="chromatic-tide-color">1 Teal</Button
+      >
+      <Button
+        data-tide-color="amber"
+        type="button"
+        aria-pressed="false"
+        disabled
+        class="chromatic-tide-color">2 Amber</Button
+      >
+      <Button
+        data-tide-color="magenta"
+        type="button"
+        aria-pressed="false"
+        disabled
+        class="chromatic-tide-color">3 Magenta</Button
+      >
+      <Button
+        data-tide-color="ice"
+        type="button"
+        aria-pressed="false"
+        disabled
+        class="chromatic-tide-color">4 Ice</Button
+      >
+      <Button
+        data-tide-color="green"
+        type="button"
+        aria-pressed="false"
+        disabled
+        class="chromatic-tide-color">5 Green</Button
+      >
+    </div>
+  </div>
+
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Moves: <span id="moves">0</span></span>
+  </Badge>
+  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+    <span class="font-mono">Captured: <span id="captured">0 / 144</span></span>
+  </Badge>
+
+  <div slot="game-info" class="space-y-6">
+    <Card variant="glass" class="p-6">
+      <h3 class="mb-4 font-mono text-sm tracking-wide text-cetus-accent">
+        ▸ HOW TO PLAY
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink">
+        <p>Your territory begins in the top-left corner.</p>
+        <p>Choose a new color to absorb matching cells along its edge.</p>
+        <p>Flood all 144 cells before the 90-second tide expires.</p>
+        <p>Use the color buttons or number keys 1–5.</p>
+      </div>
+    </Card>
+
+    <Card variant="glass" class="p-6">
+      <h3 class="mb-4 font-mono text-sm tracking-wide text-cetus-accent">
+        ▸ SCORING
+      </h3>
+      <div class="space-y-2 text-sm text-cetus-ink">
+        <p>Earn points for every new cell captured.</p>
+        <p>Clear efficiently for a move bonus.</p>
+        <p>Remaining time adds to a completed board's score.</p>
+      </div>
+    </Card>
+  </div>
+
+  <div slot="final-stats">
+    <div class="text-lg text-cetus-ink">
+      Outcome: <span id="final-outcome" class="text-cetus-accent">—</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Moves: <span id="final-moves" class="text-cetus-accent-2">0</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Captured:
+      <span id="final-captured" class="text-cetus-accent-3">0 / 144</span>
+    </div>
+    <div class="text-lg text-cetus-ink">
+      Time: <span id="final-time" class="text-cetus-accent">00:00</span>
+    </div>
+  </div>
+</GamePage>
+
+<script>
+  import { initChromaticTideGameFramework } from '@/lib/games/chromatic-tide/initFramework'
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initChromaticTideGameFramework()
+      .then(handle => {
+        if (handle) {
+          ;(
+            window as Window & { chromaticTideGame?: typeof handle }
+          ).chromaticTideGame = handle
+        }
+      })
+      .catch(error => {
+        console.error('Chromatic Tide failed to initialize', error)
+      })
+  })
+</script>
+
+<style is:global>
+  @reference "../../styles/global.css";
+
+  .chromatic-tide-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 0.125rem;
+    color: rgb(3 10 20 / 82%);
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1;
+    text-shadow: 0 1px 1px rgb(255 255 255 / 30%);
+  }
+
+  @media (min-width: 640px) {
+    .chromatic-tide-cell {
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+    }
+  }
+
+  .chromatic-tide-cell[data-color='teal'] {
+    background: #1fe3c0;
+  }
+  .chromatic-tide-cell[data-color='amber'] {
+    background: #f2b33d;
+  }
+  .chromatic-tide-cell[data-color='magenta'] {
+    background: #ff3d8a;
+  }
+  .chromatic-tide-cell[data-color='ice'] {
+    background: #6fe3ff;
+  }
+  .chromatic-tide-cell[data-color='green'] {
+    background: #5dff9f;
+  }
+  .chromatic-tide-cell[data-captured='true'] {
+    border-color: white;
+    box-shadow:
+      inset 0 0 0 1px rgb(3 10 20 / 70%),
+      0 0 6px rgb(255 255 255 / 55%);
+  }
+
+  .chromatic-tide-color[aria-pressed='true'] {
+    @apply border-0 bg-gradient-to-r from-[var(--cetus-btn-from)] to-[var(--cetus-btn-to)] text-white shadow-lg shadow-cetus-accent-2/25 hover:from-cetus-accent hover:to-cetus-accent-2;
+  }
+</style>
