@@ -1,0 +1,461 @@
+# Chromatic Tide Design
+
+**Linear:** HPA-633 — Minigame: Chromatic Tide
+
+**Status:** Planning contract for one HPA-633 PR.
+
+## Goal
+
+Add a compact **90-second turn-based strategy game** where the player grows one connected territory across an 8×8 five-color board. The player chooses a new color, the whole owned territory changes to that color, and every orthogonally connected cell of that color is absorbed. Clear the board before time expires; fewer moves and faster clears score better.
+
+Chromatic Tide intentionally fills a catalog gap rather than adding another recent action/timing game. Cetus currently has many puzzle/action games but only one registered `strategy` game. The new game adds a low-input, decision-heavy loop that works equally well with mouse, keyboard, and touch.
+
+The existing Cetus BaseGame, timer, score submission, achievement, stale-run, catalog, and progress machinery remains authoritative.
+
+## Product contract
+
+HPA-633 requires:
+
+- one 8×8 board with five named colors;
+- territory anchored at the top-left cell;
+- one color choice per move;
+- fixed-point orthogonal flood expansion after every accepted choice;
+- the current territory color cannot be selected again;
+- a 90-second countdown and immediate successful completion when all 64 cells are owned;
+- partial progress score on timeout;
+- move-efficiency and remaining-time bonuses only for completed boards;
+- five visible mouse/touch controls plus keyboard keys `1`–`5` through the same game API;
+- visible/accessibility cues that do not require color perception alone;
+- normal catalog, achievements, score/progress, replay, and mobile integration.
+
+V1 has one ruleset. There is no difficulty selector, move-limit loss, campaign, daily seed, solver, hint system, AI opponent, persistence schema, API, auth, or database work.
+
+## Why no move-limit failure
+
+A strict move cap sounds natural for a flood-fill game, but it creates a second product problem: every random board would need either a solver-backed solvability guarantee or a constructive generator with a proven bound. That is unnecessary machinery for this hobby-project slice.
+
+Instead:
+
+- every run is bounded by the existing 90-second timer;
+- every accepted choice counts as a move;
+- clearing in fewer moves improves score and achievements;
+- timeout keeps legitimate partial progress;
+- board generation stays finite and simple.
+
+This preserves the strategic incentive without coupling v1 to an optimizer.
+
+## Repository reuse
+
+Chromatic Tide follows existing seams without turning them into a framework.
+
+- **Mine Grid model shape:** event-driven `BaseGame` subclass, timer owned by BaseGame, direct state-change callbacks, caught fire-and-forget `end()`, and no game-local animation loop.
+- **Mine Grid DOM shape:** focused `DOMRenderer`, page-owned visual CSS, initializer-owned DOM wiring/HUD/final overlay, and a page-root bootstrap script after `</GamePage>`.
+- **Shared grid helpers:** use `createGrid`/`inBounds` from `src/lib/games/shared/grid.ts` where useful. Flood traversal remains game-local because the shared module intentionally contains generic structural operations, not game rules.
+- **Shared input guard:** use `isEditableTarget` from `src/lib/games/shared/utils.ts` before handling number keys.
+- **BaseGame/GameTimer:** keep countdown, timeout delivery, score persistence, achievements, stale-run guard, reset/start lifecycle, callbacks, and final save flow unchanged.
+- **GamePage:** keep default Start/Reset controls with `showPause={false}` and `showEnd={false}`. The five color buttons live with the board rather than replacing shared controls.
+
+Rejected:
+
+- Pixi rendering — the board has no animation/physics requirement; DOM gives simpler accessibility and testing;
+- generic flood-fill/grid-game framework — there is one consumer and the rule is tiny;
+- adding orthogonal traversal to `shared/grid.ts` — the generic helpers do not need to know capture/recolor semantics;
+- a seeded/daily board service — not needed for a casual v1;
+- a move-limit validator/solver — scoring already rewards efficient play without making generation a search problem.
+
+## Architecture
+
+```text
+Astro page / color buttons / keys 1-5
+                  |
+                  v
+          initFramework.ts
+          - DOM callbacks
+          - one chooseColor() input path
+          - HUD / overlay
+          - listener cleanup
+             |          |
+             v          v
+   ChromaticTideGame  ChromaticTideRenderer
+      (BaseGame)         (DOMRenderer)
+          |
+          v
+       board.ts  <---- pure finite board + flood rules
+       scoring.ts <---- pure score arithmetic
+```
+
+There is no game-local `requestAnimationFrame`, interval, timeout, worker, persistence layer, or network call.
+
+## Frozen v1 rules
+
+Before implementation this block is the numeric planning authority. Task 1 copies it into `types.ts` as `CHROMATIC_TIDE_RULES`; after that, `types.ts` is the production authority. A deliberate tuning checkpoint may adjust score/achievement thresholds, but it must update tests and this spec in the same PR.
+
+```ts
+export const CHROMATIC_TIDE_RULES = {
+    duration: 90,
+    rows: 8,
+    cols: 8,
+    progressPointsPerCell: 10,
+    completionBonus: 500,
+    efficiencyReferenceMoves: 28,
+    efficiencyPointsPerMove: 25,
+    timePointsPerSecond: 2,
+} as const
+
+export const CHROMATIC_TIDE_PALETTE = [
+    'teal',
+    'amber',
+    'magenta',
+    'ice',
+    'green',
+] as const
+```
+
+The palette names intentionally match existing Cetus theme vocabulary, but the game does not import or couple to organism metadata.
+
+## State and public contracts
+
+```ts
+export type ChromaticTideColor =
+    (typeof CHROMATIC_TIDE_PALETTE)[number]
+
+export type ChromaticTideOutcome = 'playing' | 'cleared' | 'timeout'
+
+export interface ChromaticTideCell {
+    color: ChromaticTideColor
+    captured: boolean
+}
+
+export type ChromaticTideBoard = ChromaticTideCell[][]
+
+export interface ChromaticTideState extends BaseGameState {
+    outcome: ChromaticTideOutcome
+    board: ChromaticTideBoard
+    territoryColor: ChromaticTideColor
+    movesUsed: number
+    capturedCells: number
+    initialCapturedCells: number
+}
+
+export interface ChromaticTideStats extends BaseGameStats {
+    outcome: ChromaticTideOutcome
+    movesUsed: number
+    capturedCells: number
+    initialCapturedCells: number
+    secondsRemaining: number
+}
+
+export interface ChromaticTideGameData {
+    cleared: boolean
+    movesUsed: number
+    capturedCells: number
+    initialCapturedCells: number
+    secondsRemaining: number
+}
+```
+
+`ChromaticTideConfig extends BaseGameConfig` with the frozen rules plus `rng: () => number`.
+
+The only player-action method is:
+
+```ts
+chooseColor(color: ChromaticTideColor): boolean
+```
+
+It returns `true` only when a choice is accepted and therefore counts as one move.
+
+## Finite board generation
+
+`board.ts` owns board materialization. Generation is deliberately bounded and consumes exactly `rows * cols` RNG samples.
+
+For each cell:
+
+1. read one injected RNG sample;
+2. normalize non-finite/out-of-range values into the unit interval without retrying;
+3. map the sample to one of the five palette entries;
+4. create `{ color, captured: false }`.
+
+After all cells are created, guard the single degenerate case that would begin already solved: if every cell equals the top-left color, recolor only the bottom-right cell to the next palette color. This consumes no extra RNG.
+
+Then mark the initial connected top-left territory. No rejection loop, quality retry, solver, or seeded service is added.
+
+A random board can be easier or harder than another random board. That is acceptable for this casual v1; a future ranked/daily mode would be the correct place to introduce a shared deterministic board identity.
+
+## Initial territory
+
+The initial territory is the maximal orthogonally connected component matching `board[0][0].color` and containing `(0, 0)`.
+
+`markInitialTerritory(board)` returns a cloned board and does not mutate its input. It:
+
+1. marks `(0, 0)` captured;
+2. runs the same fixed-point flood primitive with the starting color;
+3. returns the board with the complete starting component captured.
+
+The game stores that count as `initialCapturedCells`. Initial cells do not create score simply for starting a run.
+
+## Flood semantics
+
+`floodChromaticTideBoard(board, targetColor)` is pure: it clones the board and returns the next board.
+
+Algorithm:
+
+1. recolor every already captured cell to `targetColor`;
+2. enqueue every captured position;
+3. repeatedly inspect orthogonal neighbors;
+4. when an uncaptured neighbor has `targetColor`, mark it captured and enqueue it;
+5. stop when the queue is exhausted.
+
+Marking on enqueue prevents duplicate work. With a fixed 8×8 board, traversal is bounded by 64 cells.
+
+Diagonal adjacency never captures directly. A newly captured target-color cell can expose more target-color cells in the same move, so one choice always resolves to a fixed point before state is emitted.
+
+The helper must not mutate the supplied board. This keeps model tests simple and prevents renderer references from observing half-applied moves.
+
+## Player action ordering
+
+`ChromaticTideGame.chooseColor(color)` rejects the action when:
+
+- the game is inactive, paused, or over;
+- `outcome !== 'playing'`;
+- `color` is not in the palette at runtime;
+- `color === territoryColor`.
+
+An accepted choice uses this exact order:
+
+1. run the pure flood helper;
+2. increment `movesUsed` once;
+3. replace the board;
+4. update `territoryColor` and `capturedCells`;
+5. if all cells are captured, set `outcome = 'cleared'`;
+6. synchronize score from the pure scorer using the live BaseGame timer status;
+7. emit one state change;
+8. if cleared, call `end()` as caught fire-and-forget.
+
+Choosing a different color that happens to capture zero new cells is still a legal move and increments `movesUsed`. That is a strategic mistake, not an invalid UI action.
+
+## Scoring
+
+One pure scorer owns all arithmetic.
+
+For an unfinished run:
+
+```text
+gainedCells = max(0, capturedCells - initialCapturedCells)
+score = gainedCells * progressPointsPerCell
+```
+
+For a cleared run:
+
+```text
+score = totalCells * progressPointsPerCell
+      + completionBonus
+      + max(0, efficiencyReferenceMoves - movesUsed)
+          * efficiencyPointsPerMove
+      + floor(secondsRemaining) * timePointsPerSecond
+```
+
+Normalization rules:
+
+- counts are finite non-negative integers;
+- captured/initial counts are clamped to `0..rows*cols`;
+- `initialCapturedCells <= capturedCells` after normalization;
+- `secondsRemaining` is clamped to `0..duration`;
+- completion scoring uses the full board-cell base rather than `total - initial` so completed boards have a comparable baseline regardless of the random starting component;
+- BaseGame generic time bonus is disabled;
+- the model applies only positive score deltas through `addScore()`.
+
+Because time/move bonuses appear only after `cleared`, the canonical score never decreases as the timer runs down.
+
+## Timer and lifecycle
+
+`ChromaticTideGame` uses `duration: 90`, `pausable: false`, `resettable: true`, and BaseGame time bonus off.
+
+- `createInitialState()` generates a fresh finite board from the configured RNG and records its initial territory.
+- `start()` uses the existing BaseGame timer; no additional clock exists.
+- `update()` is a no-op because gameplay is event-driven.
+- successful board completion sets `cleared`, synchronizes score, emits state, and invokes `void this.end().catch(...)`.
+- `handleTimeUp()` sets `timeout`, synchronizes partial progress, emits state, then delegates to `super.handleTimeUp()`.
+- `reset()` creates a fresh board through BaseGame's normal `createInitialState()` path and resets score/timer.
+- `getGameStats()` and `getGameData()` read `getTimerStatus()` so end-of-run seconds are taken from BaseGame's final timer snapshot.
+- `cleanup()` has no model-owned external resource.
+
+There is no independent failure condition beyond timeout.
+
+## DOM renderer
+
+`ChromaticTideRenderer` extends `DOMRenderer` and renders only the board. Controls remain stable Astro markup outside the renderer.
+
+Each of 64 cells is a non-interactive element with:
+
+- `role="gridcell"`;
+- `data-row` / `data-col`;
+- `data-color="teal|amber|magenta|ice|green"`;
+- `data-captured="true|false"`;
+- an `aria-label` containing row, column, color name, and whether the cell belongs to the territory.
+
+The renderer also shows a small `1`–`5` palette index inside each cell. Color therefore is not the only visual encoding. Captured cells receive a stronger border/inset treatment through page CSS.
+
+The board element keeps `role="grid"` and `aria-label="Chromatic Tide board"` in Astro markup. The renderer sets 8×8 grid tracks and replaces child cells on state render.
+
+No event delegation belongs in the board renderer because cells are not player controls.
+
+## Controls and initializer
+
+The page renders five stable `Button.astro` controls with `data-tide-color` values and visible text such as `1 Teal`, `2 Amber`, etc.
+
+`initFramework.ts` owns one local `chooseColor(color)` adapter. Both input modes call it:
+
+- button click reads the button's `data-tide-color`;
+- keyboard `1`–`5` maps by palette index after `isEditableTarget(event.target)` rejects typing contexts.
+
+After every state change the initializer:
+
+- renders the board;
+- updates score/time via existing callbacks;
+- updates `moves` and `captured` HUD values;
+- marks the current color control `aria-pressed="true"` and disables it;
+- enables the other four controls only while the run is active and outcome is `playing`.
+
+The initializer also owns Start/Reset/Play Again listeners, final overlay text, achievement/challenge notifications, `beforeunload`, idempotent cleanup, and a debug handle consistent with recent games:
+
+```ts
+window.chromaticTideGame = handle
+```
+
+There is no rAF loop.
+
+## Page layout
+
+`src/pages/chromatic-tide/index.astro` uses `GamePage` with:
+
+- `gameId="chromatic-tide"`;
+- `initialTime={90}`;
+- `showPause={false}`;
+- `showEnd={false}`;
+- a responsive square board capped around the Mine Grid footprint;
+- color buttons immediately below the board so touch users do not need to move to a side panel;
+- stats for Moves and Captured;
+- How to Play and Scoring cards;
+- final stats for Outcome, Moves, Captured, and Time.
+
+The bootstrap `<script>` stays at page root after `</GamePage>`, matching the repository's hardcoded page-markup test contract.
+
+## Catalog identity
+
+Register:
+
+```ts
+GameID.CHROMATIC_TIDE = 'chromatic_tide'
+```
+
+Catalog row:
+
+- name: `Chromatic Tide`;
+- category: `strategy`;
+- estimated duration: `1-2 minutes`;
+- difficulty: `medium`;
+- icon: `🌈`;
+- organism: `{ shape: 'frond', color: 'teal' }`;
+- depth: `abyssal`.
+
+Adding it at the end of `GAMES` yields depth counts **9 shallow / 9 mid / 5 abyssal**. The previous abyssal tail is Mine Grid (`lattice` + `green`), so the new `frond` + `teal` identity preserves the adjacent shape+color invariant.
+
+## Achievement contract
+
+Use existing `in_game` achievement checks against canonical `ChromaticTideGameData`:
+
+1. **First Tide** — clear a board. Common.
+2. **Current Reader** — clear in `<= 24` moves. Rare.
+3. **Rapid Bloom** — clear with `>= 30` seconds remaining. Rare.
+4. **Master Palette** — clear in `<= 18` moves and with `>= 20` seconds remaining. Epic.
+
+The exact efficiency/time thresholds are tuning values at the implementation checkpoint; the achievement shapes are structural.
+
+No score-threshold welcome achievement is used because a partial timeout can legitimately score without clearing.
+
+## Browser coverage
+
+`e2e/games/play-coverage.spec.ts` gets focused Chromatic Tide coverage rather than a new spec framework.
+
+Desktop path:
+
+1. open `/chromatic-tide` and start;
+2. read the debug state;
+3. in the Playwright process, use the exported pure flood helper to choose the color with the largest immediate gain;
+4. click the corresponding real color button;
+5. repeat until cleared, with a hard test bound of 64 accepted moves;
+6. assert the completion overlay/stats;
+7. Play Again, assert a fresh idle board, start again, and prove one keyboard choice increments moves.
+
+The greedy choice always captures at least one boundary cell while the board is incomplete: a connected rectangular grid has an uncaptured cell orthogonally adjacent to the captured region, and choosing that boundary color captures at least that cell. Therefore the test bound is at most the number of initially uncaptured cells, never a search/solver.
+
+Mobile path:
+
+- use the existing/mobile-sized viewport;
+- start the game;
+- tap one non-current color control;
+- assert `movesUsed === 1`, responsive board visibility, and the selected/current-control state.
+
+This proves the real control path without introducing a production solver or deterministic seed service.
+
+## Testing contract
+
+Unit tests cover:
+
+- exactly finite RNG consumption and degenerate-board repair;
+- initial orthogonal component discovery;
+- diagonal non-capture;
+- fixed-point chain capture;
+- pure/non-mutating board helpers;
+- runtime-invalid/current-color rejection;
+- legal zero-gain moves counting once;
+- completion ordering and single end path;
+- timeout partial score;
+- score normalization and completion bonuses;
+- renderer cell metadata and 1–5 non-color encoding;
+- initializer click/keyboard/editable-target/cleanup/restart behavior;
+- catalog ID/icon/strategy row/depth count and adjacency invariant;
+- canonical game-data alias and achievements.
+
+The implementation checkpoint runs targeted tests while iterating, then the repository gates:
+
+```bash
+bun run test:run
+bun run typecheck
+bun run lint
+bun run build
+bun run test:e2e -- e2e/games/play-coverage.spec.ts
+```
+
+## Non-goals
+
+HPA-633 does **not** add:
+
+- difficulty presets;
+- a hard move cap;
+- optimal-move calculation;
+- solver/hints;
+- daily/seeded competition;
+- campaign progression;
+- animations requiring rAF;
+- audio;
+- multiplayer;
+- new persistence/API/DB/auth contracts;
+- generic grid/flood/input/control frameworks;
+- BaseGame/GameTimer/GamePage/DOMRenderer refactors.
+
+## Acceptance criteria
+
+HPA-633 is complete when:
+
+- `/chromatic-tide` can be started, played, cleared, timed out, reset, and replayed through existing GamePage controls;
+- every accepted color choice resolves the full orthogonal flood before state emission;
+- the current color is a no-op/rejected action while a different zero-gain color still counts as a move;
+- generation is finite and does not produce an already-cleared starting board;
+- partial and completion scores follow the pure formula and never decrease;
+- mouse/touch and keys `1`–`5` share the same game action path;
+- board/control semantics do not rely on hue alone;
+- catalog, organism depth, canonical game data, achievements, and score/progress integration pass existing contracts;
+- focused desktop/mobile Playwright coverage passes;
+- no shared framework or backend/schema work is introduced;
+- the entire design + implementation ships in one HPA-633 PR.
