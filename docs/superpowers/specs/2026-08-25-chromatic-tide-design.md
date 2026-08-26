@@ -393,6 +393,7 @@ Recommended board markup:
   <div
     id="chromatic-tide-colors"
     class="grid grid-cols-2 gap-2 sm:grid-cols-5"
+    role="group"
     aria-label="Choose territory color"
   >
     <!-- five Button.astro controls -->

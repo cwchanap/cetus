@@ -2299,6 +2299,8 @@ test.describe('Chromatic Tide', () => {
                 state.board,
                 state.territoryColor
             )
+            // Astro's development toolbar intercepts the fifth button's center
+            // at this viewport; this offset still clicks the real color control.
             await page
                 .locator(`[data-tide-color="${color}"]`)
                 .click({ position: { x: 8, y: 20 } })

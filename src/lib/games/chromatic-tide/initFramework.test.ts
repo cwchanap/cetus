@@ -16,7 +16,7 @@ function setupDOM(): void {
         <div id="chromatic-tide-container">
             <div id="chromatic-tide-board" aria-hidden="true"></div>
             <p id="chromatic-tide-status" class="sr-only" aria-live="polite"></p>
-            <div id="chromatic-tide-colors">
+            <div id="chromatic-tide-colors" role="group" aria-label="Choose territory color">
                 <button data-tide-color="teal" aria-pressed="false">1 Teal</button>
                 <button data-tide-color="amber" aria-pressed="false">2 Amber</button>
                 <button data-tide-color="magenta" aria-pressed="false">3 Magenta</button>
@@ -40,6 +40,12 @@ function setupDOM(): void {
             <span id="final-time">00:00</span>
         </div>
     `
+}
+
+async function settleEnd(): Promise<void> {
+    for (let index = 0; index < 10; index += 1) {
+        await Promise.resolve()
+    }
 }
 
 function colorButtons(): HTMLButtonElement[] {
@@ -257,6 +263,63 @@ describe('initChromaticTideGameFramework', () => {
         ).toHaveTextContent(
             'Board cleared. Territory amber, 144 of 144 captured, 1 move.'
         )
+    })
+
+    it('shows timeout copy, retains partial score, and restores idle controls when time expires', async () => {
+        vi.useFakeTimers()
+        const samples = Array.from({ length: 144 }, (_, index) =>
+            index === 0 ? 0 : index === 1 || index === 12 ? 0.2 : 0.4
+        )
+        let sampleIndex = 0
+        vi.mocked(Math.random).mockImplementation(
+            () => samples[sampleIndex++] ?? 0.4
+        )
+        handle = await initChromaticTideGameFramework()
+        document.getElementById('start-btn')!.click()
+        buttonFor('amber').click()
+        const partialScore = handle!.game.getState().score
+
+        expect(partialScore).toBeGreaterThan(0)
+        expect(handle!.game.getState().outcome).toBe('playing')
+
+        await vi.advanceTimersByTimeAsync(90_000)
+        await settleEnd()
+
+        expect(handle!.game.getState()).toMatchObject({
+            outcome: 'timeout',
+            score: partialScore,
+            isActive: false,
+            isGameOver: true,
+        })
+        expect(document.getElementById('game-over-title')).toHaveTextContent(
+            'TIME UP!'
+        )
+        expect(document.getElementById('final-outcome')).toHaveTextContent(
+            'Timeout'
+        )
+        expect(
+            document.getElementById('chromatic-tide-status')
+        ).toHaveTextContent('Time expired.')
+        expect(colorButtons().every(button => button.disabled)).toBe(true)
+        expect(document.getElementById('start-btn')).toHaveStyle({
+            display: 'inline-flex',
+        })
+    })
+
+    it('keeps non-timeout placeholders when a playing run ends', async () => {
+        handle = await initChromaticTideGameFramework()
+        document.getElementById('start-btn')!.click()
+
+        await handle!.game.end()
+
+        expect(handle!.game.getState().outcome).toBe('playing')
+        expect(document.getElementById('game-over-title')).toHaveTextContent(
+            'GAME OVER!'
+        )
+        expect(document.getElementById('final-outcome')).toHaveTextContent('—')
+        expect(
+            document.getElementById('chromatic-tide-status')
+        ).not.toHaveTextContent('Time expired.')
     })
 
     it('forwards achievement and challenge notifications from end events', async () => {

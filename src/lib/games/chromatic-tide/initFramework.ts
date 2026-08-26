@@ -180,9 +180,14 @@ export async function initChromaticTideGameFramework(): Promise<
             )
             setText('final-time', formatTime(tideStats.timeElapsed))
             showOverlay()
+            const outcomeAnnouncement = getOutcomeAnnouncement(
+                tideStats.outcome
+            )
             setText(
                 'chromatic-tide-status',
-                `${getOutcomeAnnouncement(tideStats.outcome)} ${stateSummary(state)}`
+                [outcomeAnnouncement, stateSummary(state)]
+                    .filter(Boolean)
+                    .join(' ')
             )
         },
     }
@@ -326,15 +331,36 @@ function formatTime(seconds: number): string {
 }
 
 function getOutcomeTitle(outcome: ChromaticTideStats['outcome']): string {
-    return outcome === 'cleared' ? 'TIDE COMPLETE!' : 'TIME UP!'
+    switch (outcome) {
+        case 'cleared':
+            return 'TIDE COMPLETE!'
+        case 'timeout':
+            return 'TIME UP!'
+        case 'playing':
+            return 'GAME OVER!'
+    }
 }
 
 function getOutcomeLabel(outcome: ChromaticTideStats['outcome']): string {
-    return outcome === 'cleared' ? 'Cleared' : 'Timeout'
+    switch (outcome) {
+        case 'cleared':
+            return 'Cleared'
+        case 'timeout':
+            return 'Timeout'
+        case 'playing':
+            return '—'
+    }
 }
 
 function getOutcomeAnnouncement(
     outcome: ChromaticTideStats['outcome']
 ): string {
-    return outcome === 'cleared' ? 'Board cleared.' : 'Time expired.'
+    switch (outcome) {
+        case 'cleared':
+            return 'Board cleared.'
+        case 'timeout':
+            return 'Time expired.'
+        case 'playing':
+            return ''
+    }
 }

@@ -283,6 +283,13 @@ describe('Chromatic Tide page markup', () => {
         expect(boardTag).toBeDefined()
         expect(boardTag).not.toContain('role="grid"')
         expect(boardTag).toContain('aria-hidden="true"')
+
+        const colorsTag = chromaticTideMarkup.match(
+            /<div[^>]*id="chromatic-tide-colors"[^>]*>/
+        )?.[0]
+        expect(colorsTag).toBeDefined()
+        expect(colorsTag).toContain('role="group"')
+        expect(colorsTag).toContain('aria-label="Choose territory color"')
     })
 })
 
