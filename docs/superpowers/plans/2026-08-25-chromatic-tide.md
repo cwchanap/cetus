@@ -637,7 +637,7 @@ Pin:
 - First Tide requires clear;
 - Current Reader: clear and `movesUsed <= 17`, with 17/18 boundary;
 - Master Palette: clear and `movesUsed <= 15`, with 15/16 boundary;
-- Rapid Bloom: clear and the **Task 3 tuned** remaining-time threshold, with exact below/at boundary;
+- Rapid Bloom: clear and `secondsRemaining >= 45`, with 44/45 boundary;
 - uncleared/timeout payload earns no clear-only achievement regardless of favorable numbers.
 
 ## 4.5 Add four typed achievements
@@ -646,7 +646,7 @@ Use canonical `ChromaticTideGameData`.
 
 - **First Tide** — clear. Common.
 - **Current Reader** — `cleared && movesUsed <= 17`. Rare.
-- **Rapid Bloom** — `cleared && secondsRemaining >= <Task 3 tuned value>`. Rare.
+- **Rapid Bloom** — `cleared && secondsRemaining >= 45`. Rare.
 - **Master Palette** — `cleared && movesUsed <= 15`. Epic.
 
 Do not add an arbitrary second time requirement to Master Palette; Rapid Bloom owns speed and Master Palette owns exceptional move efficiency.
@@ -821,7 +821,7 @@ The 12×12 board remains presentational/hidden from the accessibility tree; it d
 - [ ] V1 is 12×12 / five colors / 90s; no difficulty framework.
 - [ ] Task 1 reproduces deterministic calibration before production constants are treated as frozen.
 - [ ] `efficiencyReferenceMoves = 22`, Rare move threshold `17`, Epic move threshold `15` are tied to calibration rather than guesswork.
-- [ ] Rapid Bloom seconds threshold is intentionally deferred to Task 3 human timing, not inferred from board simulation.
+- [x] Rapid Bloom seconds threshold is 45 remaining seconds, frozen from Task 3 human play rather than board simulation.
 - [ ] Production `board.ts` has no greedy/solver API; test driver lives in `test-fixtures.ts`.
 - [ ] Normal generation and degenerate all-one repair both have tests.
 - [ ] Local clone choice explicitly acknowledges `deepCloneGrid()` and rejects JSON round-trip for this hot path.

@@ -456,10 +456,10 @@ Move thresholds come from the deterministic 12×12 greedy baseline:
 
 1. **First Tide** — clear a board. Common.
 2. **Current Reader** — clear in `<= 17` moves. Rare. This is around the lower quartile of the deterministic greedy baseline.
-3. **Rapid Bloom** — clear with a tuned remaining-time threshold. Rare. The numeric seconds threshold is deliberately **not frozen in planning**, because board simulation cannot measure human decision speed.
+3. **Rapid Bloom** — clear with `secondsRemaining >= 45`. Rare. Frozen after Task 3 human play: a 19-move greedy-length clear at about 2–3 seconds per decision finishes near 45 seconds remaining. Deliberate observation is slower; this threshold rewards fast, efficient play rather than a board-sim guess.
 4. **Master Palette** — clear in `<= 15` moves. Epic. This is around the lower 5% of the deterministic greedy baseline.
 
-Task 3's manual checkpoint plays at least five real boards on desktop and phone, records clear times/moves, and freezes the Rapid Bloom seconds threshold before Task 4 adds achievements. It may adjust the move thresholds only if human play shows the greedy baseline is materially misleading; any change must update the calibration assertions/spec/tests together.
+Task 3's manual checkpoint played real desktop and phone boards. Move thresholds were not changed: human play did not contradict the seeded greedy baseline. Rapid Bloom is frozen at **45 remaining seconds** before Task 4 adds achievements.
 
 Do not combine Master Palette with an arbitrary time threshold: keep the Epic condition focused on exceptional move efficiency, while Rapid Bloom owns speed.
 
