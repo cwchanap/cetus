@@ -443,6 +443,14 @@ describe('Asteroid Drift stable ID and icon', () => {
     })
 })
 
+describe('Chromatic Tide stable ID and icon', () => {
+    it('has the stable id, icon, and derived route', () => {
+        expect(GameID.CHROMATIC_TIDE).toBe('chromatic_tide')
+        expect(getGameIcon(GameID.CHROMATIC_TIDE)).toBe('🌈')
+        expect(getGameUrl(GameID.CHROMATIC_TIDE)).toBe('/chromatic-tide')
+    })
+})
+
 describe('Asteroid Drift registration', () => {
     it('has the exact active registry entry and page route', () => {
         expect(getGameById(GameID.ASTEROID_DRIFT)).toMatchObject({
