@@ -6,103 +6,114 @@
 
 ## Goal
 
-Add a compact **90-second turn-based strategy game** where the player grows one connected territory across an 8×8 five-color board. The player chooses a new color, the whole owned territory changes to that color, and every orthogonally connected cell of that color is absorbed. Clear the board before time expires; fewer moves and faster clears score better.
+Add **Chromatic Tide**, a compact 90-second turn-based strategy game where the player grows one connected territory across a five-color board. Choosing a new color recolors the whole owned territory and absorbs every orthogonally connected target-color cell reachable from it. Clear the board before time expires; efficient clears score better.
 
-Chromatic Tide intentionally fills a catalog gap rather than adding another recent action/timing game. Cetus already has many puzzle/action games but only one registered `strategy` game. This adds a low-input, decision-heavy loop that works equally well with mouse, keyboard, and touch.
-
-The existing Cetus BaseGame, timer, score submission, achievement, stale-run, catalog, and progress machinery remains authoritative.
+The game intentionally adds a low-input strategy loop without physics, animation infrastructure, backend work, or a new framework. Existing Cetus BaseGame, timer, score submission, achievements, catalog, and progress machinery remain authoritative.
 
 ## Product contract
 
-HPA-633 requires:
+V1 is deliberately one ruleset:
 
-- one 8×8 board with five named colors;
+- **12×12 board** (144 cells);
+- **five named colors**: teal, amber, magenta, ice, green;
 - territory anchored at the top-left cell;
-- one color choice per move;
-- fixed-point orthogonal flood expansion after every accepted choice;
-- the current territory color cannot be selected again;
-- a 90-second countdown and immediate successful completion when all 64 cells are owned;
-- partial progress score on timeout;
-- move-efficiency and remaining-time bonuses only for completed boards;
-- five visible mouse/touch controls plus keyboard keys `1`–`5` through the same game API;
-- visible/accessibility cues that do not require color perception alone;
-- normal catalog, achievements, score/progress, replay, homepage navigation, and mobile integration.
-
-V1 has one ruleset. There is no difficulty selector, move-limit loss, campaign, daily seed, solver, hint system, AI opponent, persistence schema, API, auth, or database work.
-
-## Why no move-limit failure
-
-A strict move cap creates a second product problem: every random board would need either a solver-backed solvability/optimality guarantee or a constructive generator with a proven bound. That is unnecessary machinery for this hobby-project slice.
-
-Instead:
-
-- every run is bounded by the existing 90-second timer;
-- every accepted choice counts as a move;
-- clearing in fewer moves improves score and achievements;
+- every accepted non-current color choice is one move;
+- the current color action is a rejected/no-op move, but its button remains enabled and visibly `aria-pressed="true"` while playing;
+- each accepted choice resolves the full orthogonal fixed-point flood before state emission;
+- 90-second BaseGame countdown;
+- clear all 144 cells to complete;
 - timeout keeps legitimate partial progress;
-- board generation stays finite and simple.
+- move efficiency and remaining time improve completed-run score;
+- five visible mouse/touch controls plus keyboard `1`–`5` through the same `chooseColor()` API;
+- visible board state does not rely on hue alone;
+- screen-reader status follows the repository's existing polite live-region convention.
 
-This preserves the strategic incentive without coupling v1 to an optimizer.
+There is no difficulty selector, move-limit loss, campaign, Daily seed, production solver/hints, AI, persistence schema, API, auth, or database work.
 
-## Repository reuse
+## Why 12×12 instead of the original 8×8
+
+The original planning numbers were not just untuned; they made the strategic layer nearly inert. A planning-side reproduction of the intended finite generator + greedy immediate-gain driver over deterministic seeded boards showed the 8×8 game clustering around roughly 11–15 greedy moves. Under the old `efficiencyReferenceMoves: 28`, `<=24`, and `<=18` thresholds, essentially every clear received the same efficiency reward and the Rare/Epic move achievements stopped discriminating.
+
+Board size is the cheapest legitimate tuning knob because palette size is already a product/control contract: five colors map to five buttons, keys `1`–`5`, five labels, and five local CSS values.
+
+A 12×12 board keeps the same mechanics and mobile-friendly control count while producing a healthier greedy baseline. The implementation must reproduce the baseline with the repository's `createSeededRng()` before treating these planning values as production authority.
+
+For the fixed seed family `chromatic-tide-calibration:<index>`, a 512-board planning calibration produced approximately:
+
+```text
+p10 16 moves
+p50 19 moves
+p90 22 moves
+<=17 moves: ~24%
+<=15 moves: ~5%
+```
+
+Task 1 pins this deterministic baseline in unit coverage. If the TypeScript implementation materially disagrees, stop and reconcile board-generation/flood semantics or update this design deliberately; do not silently retune around a bug.
+
+## Reuse decisions
 
 Chromatic Tide follows existing seams without turning them into a framework.
 
-- **Mine Grid model shape:** event-driven `BaseGame` subclass, timer owned by BaseGame, direct state-change callbacks, caught fire-and-forget `end()`, and no game-local animation loop.
-- **Mine Grid DOM shape:** focused `DOMRenderer`, page-owned visual CSS, initializer-owned DOM wiring/HUD/final overlay, and a page-root bootstrap script after `</GamePage>`.
-- **Shared grid helpers:** use `createGrid` and `inBounds` from `src/lib/games/shared/grid.ts`. Keep `cloneBoard()` local because shared `cloneGrid()` is intentionally shallow and would share `ChromaticTideCell` objects.
-- **Flood rule ownership:** do not reuse Mine Grid's 8-direction mine reveal or Circuit Hacker's wire connectivity. Chromatic Tide capture is a different orthogonal, recoloring fixed-point rule and remains in `board.ts`.
-- **Finite RNG policy:** normalize/clamp one sample per cell without retrying, matching the finite style used by Asteroid Drift rather than a rejection loop.
-- **Shared input guard:** use `isEditableTarget` from `src/lib/games/shared/utils.ts` before handling number keys.
-- **BaseGame/GameTimer:** keep countdown, timeout delivery, score persistence, achievements, stale-run guard, reset/start lifecycle, callbacks, and final save flow unchanged.
-- **GamePage:** keep default Start/Reset controls with `showPause={false}` and `showEnd={false}`. The five color buttons live with the board rather than replacing shared controls.
-- **Game data:** `GameType` already aliases `GameID`; adding the enum member is sufficient. No server/API/schema edit is needed.
-- **Catalog navigation:** `e2e/games/all-games-navigation.spec.ts` derives its targets from active `GAMES`; HPA-633 must run it after registration but must not modify it.
-- **Button attributes:** `Button.astro` already forwards native button attributes, so `data-tide-color` needs no shared Button change.
+- **BaseGame / GameTimer / score lifecycle:** reuse unchanged.
+- **Mine Grid lifecycle shape:** event-driven BaseGame subclass, local initializer, DOM renderer, caught fire-and-forget `end()`, no game-local rAF.
+- **GamePage:** use named slots exactly; there is no default slot.
+- **Shared grid:** reuse `createGrid()` and `inBounds()` where useful.
+- **Flood rule:** keep local to Chromatic Tide. Mine Grid's mine reveal and Circuit Hacker's wire connectivity are different rules.
+- **Grid cloning:** keep a local `cloneBoard()` using row/cell map-spread. `shared/grid.ts` has both shallow `cloneGrid()` and JSON-based `deepCloneGrid()`; the local clone is intentionally cheaper and exactly deep enough for `{ color, captured }` cells.
+- **RNG normalization:** copy the tiny clamp-not-retry semantics used by Asteroid Drift's private `unitSample()`. Do not refactor that private helper or add a shared numeric utility in this ticket.
+- **Keyboard guard:** reuse `isEditableTarget()`.
+- **Test-only greedy driver:** place it in `src/lib/games/chromatic-tide/test-fixtures.ts`, matching the existing Ice Slide test-fixture precedent. Production `board.ts` has no solver/heuristic export.
+- **Screen-reader status:** reuse the existing `<p class="sr-only" aria-live="polite">` pattern used by recent games.
+- **Catalog navigation:** run existing `all-games-navigation.spec.ts` unchanged; its targets derive from active `GAMES`.
+- **Button attributes:** `Button.astro` already forwards native button attributes, so `data-tide-color`/`aria-pressed` need no component change.
 
 Rejected:
 
-- Pixi rendering — the board has no animation/physics requirement; DOM gives simpler accessibility and testing;
-- generic flood-fill/grid-game framework — there is one consumer and the rule is tiny;
-- adding orthogonal traversal to `shared/grid.ts` — shared grid stays structural rather than owning game-specific capture/recolor semantics;
-- a seeded/daily board service — not needed for a casual v1;
-- a move-limit validator/solver — scoring already rewards efficient play without making generation a search problem.
+- Pixi — no animation/physics need;
+- shared flood/grid-game framework — one consumer and a small rule;
+- extracting Asteroid Drift's private RNG helper — unnecessary cross-game refactor;
+- JSON `deepCloneGrid()` in the hot flood path — broader/slower than the exact cell clone needed;
+- production greedy/solver API — browser/calibration driving is test-only;
+- move-limit generator/solver — score and achievements provide the efficiency incentive without generation search.
 
 ## Architecture
 
 ```text
-Astro page / color buttons / keys 1-5
+Astro page / five buttons / keys 1-5
                   |
                   v
           initFramework.ts
-          - DOM callbacks
-          - one chooseColor() input path
-          - HUD / overlay
-          - listener cleanup
+          - DOM listeners
+          - chooseColor() adapter
+          - HUD / live status / overlay
+          - cleanup
              |          |
              v          v
    ChromaticTideGame  ChromaticTideRenderer
       (BaseGame)         (DOMRenderer)
           |
-          v
-       board.ts   <---- finite board, local flood, greedy selector
-       scoring.ts <---- pure score arithmetic
+          +----> board.ts    pure generation + flood
+          +----> scoring.ts  pure score arithmetic
+
+Tests / Playwright only
+          |
+          +----> test-fixtures.ts greedy immediate-gain driver
 ```
 
-There is no game-local `requestAnimationFrame`, interval, timeout, worker, persistence layer, or network call.
+No game-local rAF, interval, worker, persistence layer, or network call is added.
 
-## Frozen v1 rules
+## Frozen core rules
 
-Before implementation this block is the numeric planning authority. Task 1 copies it into `types.ts` as `CHROMATIC_TIDE_RULES`; after that, `types.ts` is the production authority. A deliberate tuning checkpoint may adjust score/achievement thresholds, but it must update tests and this spec in the same PR.
+After Task 1 reproduces the deterministic calibration baseline, `types.ts` becomes the production authority for these constants:
 
 ```ts
 export const CHROMATIC_TIDE_RULES = {
     duration: 90,
-    rows: 8,
-    cols: 8,
+    rows: 12,
+    cols: 12,
     progressPointsPerCell: 10,
     completionBonus: 500,
-    efficiencyReferenceMoves: 28,
+    efficiencyReferenceMoves: 22,
     efficiencyPointsPerMove: 25,
     timePointsPerSecond: 2,
 } as const
@@ -116,9 +127,9 @@ export const CHROMATIC_TIDE_PALETTE = [
 ] as const
 ```
 
-The palette names intentionally match existing Cetus theme vocabulary, but the game does not import or couple to organism metadata.
+The palette is intentionally frozen at five. Board size is also frozen for v1 once Task 1 calibration passes; no runtime difficulty setting is introduced.
 
-## State and contracts
+## State and data contracts
 
 ```ts
 export type ChromaticTideColor =
@@ -159,38 +170,39 @@ export interface ChromaticTideGameData {
 }
 ```
 
-`ChromaticTideConfig extends BaseGameConfig` with the frozen rules plus `rng: () => number`.
+`ChromaticTideConfig extends BaseGameConfig` with the frozen rules and injected `rng: () => number`.
 
-The only player-action method is:
+The only gameplay mutation API is:
 
 ```ts
 chooseColor(color: ChromaticTideColor): boolean
 ```
 
-It returns `true` only when a choice is accepted and therefore counts as one move.
+It returns `true` only for an accepted non-current choice that counts as one move.
 
 ## Finite board generation
 
-`board.ts` owns board materialization. Generation is deliberately bounded and consumes exactly `rows * cols` RNG samples.
+`board.ts` owns materialization. Generation performs exactly `rows * cols` RNG calls — **144 calls in v1** — with no rejection loop.
 
 For each cell:
 
 1. read one injected RNG sample;
-2. normalize non-finite/out-of-range values into the unit interval without retrying;
-3. map the sample to one of the five palette entries;
+2. normalize non-finite/out-of-range values into `[0, 1)` with the same clamp semantics as Asteroid Drift's private `unitSample()`;
+3. map the sample to one of five palette entries;
 4. create `{ color, captured: false }`.
 
-After all cells are created, guard the single degenerate case that would begin already solved: if every cell equals the top-left color, recolor only the bottom-right cell to the next palette color. This consumes no extra RNG.
+After all cells are created, guard the degenerate already-solved case: if every cell equals the top-left color, recolor the bottom-right cell to the next palette color. This consumes no extra RNG.
 
-Then mark the initial connected top-left territory. No rejection loop, quality retry, solver, or seeded service is added.
+Tests must cover both:
 
-A random board can be easier or harder than another random board. That is acceptable for this casual v1; a future ranked/daily mode would be the correct place to introduce deterministic board identity.
+- the degenerate `rng = () => 0` repair case; and
+- a normal varied deterministic input so ordinary generation is not left untested.
 
-## Initial territory and cloning
+Then mark the initial top-left connected component. No quality retry, solver, seeded production service, or random rejection loop is added.
 
-The initial territory is the maximal orthogonally connected component matching `board[0][0].color` and containing `(0, 0)`.
+## Cloning and initial territory
 
-`markInitialTerritory(board)` returns a deep-enough local clone and does not mutate its input. `cloneBoard()` remains in `board.ts` as:
+Keep the exact local clone:
 
 ```ts
 function cloneBoard(board: ChromaticTideBoard): ChromaticTideBoard {
@@ -198,40 +210,27 @@ function cloneBoard(board: ChromaticTideBoard): ChromaticTideBoard {
 }
 ```
 
-Do not use shared `cloneGrid()` for this model; its shallow row copy would retain shared cell-object references.
+This is deliberate even though `deepCloneGrid()` exists: JSON round-tripping every flood is unnecessary for two-field plain cells, while shallow `cloneGrid()` would alias cell objects.
 
-`markInitialTerritory()`:
-
-1. clones the board;
-2. marks `(0, 0)` captured;
-3. runs the same fixed-point flood primitive with the starting color;
-4. returns the complete starting component captured.
-
-The game stores that count as `initialCapturedCells`. Initial cells do not create score simply for starting a run.
+`markInitialTerritory(board)` clones, marks `(0, 0)`, and resolves the full orthogonally connected component matching the starting color. The returned initial territory count is stored as `initialCapturedCells`; those free starting cells do not generate score.
 
 ## Flood semantics
 
-`floodChromaticTideBoard(board, targetColor)` is pure: it clones the board and returns the next board.
+`floodChromaticTideBoard(board, targetColor)` is pure and returns a cloned next board:
 
-Algorithm:
-
-1. recolor every already captured cell to `targetColor`;
+1. recolor every captured cell to `targetColor`;
 2. enqueue every captured position;
-3. repeatedly inspect orthogonal neighbors;
-4. when an uncaptured neighbor has `targetColor`, mark it captured and enqueue it;
-5. stop when the queue is exhausted.
+3. inspect only up/down/left/right neighbors;
+4. capture and enqueue each uncaptured neighbor whose color matches `targetColor`;
+5. continue until the queue drains.
 
-Marking on enqueue prevents duplicate work. With a fixed 8×8 board, traversal is bounded by 64 cells.
+Mark-on-enqueue prevents duplicate work. Traversal is bounded by 144 cells. Diagonals never capture directly.
 
-Diagonal adjacency never captures directly. A newly captured target-color cell can expose more target-color cells in the same move, so one choice always resolves to a fixed point before state is emitted.
+## Greedy progress proof and calibration driver
 
-The helper must not mutate the supplied board.
+The production module does **not** expose a solver.
 
-## Greedy progress invariant
-
-The browser clear path relies on a load-bearing property that belongs in unit coverage, not only Playwright.
-
-Export one pure selector from `board.ts`:
+`test-fixtures.ts` exports a test-only immediate-gain selector:
 
 ```ts
 export function selectGreedyChromaticTideColor(
@@ -240,54 +239,29 @@ export function selectGreedyChromaticTideColor(
 ): ChromaticTideColor
 ```
 
-It evaluates the four non-current colors with `floodChromaticTideBoard()` and returns the color producing the largest captured count, breaking ties by palette order.
+It evaluates the four non-current colors through the production flood helper and returns the color with the largest immediate captured count, tie-breaking by palette order.
 
-For every valid incomplete rectangular board whose captured cells form the connected top-left territory:
+`board.test.ts` proves the load-bearing invariant on several injected boards:
 
-- at least one uncaptured cell is orthogonally adjacent to the captured region;
-- that boundary cell has a non-current color, because all captured cells share `territoryColor` after each move;
-- choosing that boundary color captures at least one additional cell;
-- therefore the greedy selector strictly increases `countCapturedCells()` while incomplete;
-- repeating it clears in at most the number of initially uncaptured cells.
+- while an incomplete valid territory exists, at least one uncaptured orthogonal boundary cell exists;
+- its color differs from the current territory color;
+- selecting that boundary color captures at least one new cell;
+- therefore the greedy selector strictly progresses and clears in at most the initially uncaptured-cell count.
 
-`board.test.ts` must pin this property over several injected fixtures, including irregular territory boundaries and zero-gain alternative colors. Playwright then imports this already-unit-proven selector instead of maintaining a separate greedy implementation.
-
-This is still not an optimal-move solver; it only selects the best immediate capture among five fixed colors for deterministic test driving.
-
-## Player action ordering
-
-`ChromaticTideGame.chooseColor(color)` rejects the action when:
-
-- the game is inactive, paused, or over;
-- `outcome !== 'playing'`;
-- `color` is not in the palette at runtime;
-- `color === territoryColor`.
-
-An accepted choice uses this exact order:
-
-1. run the pure flood helper;
-2. increment `movesUsed` once;
-3. replace the board;
-4. update `territoryColor` and `capturedCells`;
-5. if all cells are captured, set `outcome = 'cleared'`;
-6. synchronize score from the pure scorer using the live BaseGame timer status;
-7. emit one state change;
-8. if cleared, call `end()` as caught fire-and-forget.
-
-Choosing a different color that happens to capture zero new cells is still a legal move and increments `movesUsed`. That is a strategic mistake, not an invalid UI action.
+The same test-only helper drives deterministic seeded calibration and Playwright. It is not optimal-move logic and has no production caller.
 
 ## Scoring
 
-One pure scorer owns all arithmetic.
+One pure scorer owns arithmetic.
 
-For an unfinished run:
+Unfinished run:
 
 ```text
 gainedCells = max(0, capturedCells - initialCapturedCells)
 score = gainedCells * progressPointsPerCell
 ```
 
-For a cleared run:
+Cleared run:
 
 ```text
 score = totalCells * progressPointsPerCell
@@ -297,99 +271,138 @@ score = totalCells * progressPointsPerCell
       + floor(secondsRemaining) * timePointsPerSecond
 ```
 
-Normalization rules:
+Normalization:
 
-- counts are finite non-negative integers;
-- captured/initial counts are clamped to `0..rows*cols`;
+- finite non-negative integer counts;
+- capture counts clamp to `0..144`;
 - `initialCapturedCells <= capturedCells` after normalization;
-- `secondsRemaining` is clamped to `0..duration`;
-- completion scoring uses the full board-cell base rather than `total - initial` so completed boards have a comparable baseline regardless of the random starting component;
+- seconds clamp to `0..90`;
+- completion uses the full 144-cell base for comparable clears despite different starting components;
 - BaseGame generic time bonus is disabled;
-- the model applies only positive score deltas through `addScore()`.
+- the model only applies positive score deltas through `addScore()`.
 
-Because time/move bonuses appear only after `cleared`, the canonical score never decreases as the timer runs down.
+With a 12×12 board and `efficiencyReferenceMoves: 22`, typical greedy clears no longer receive a near-constant move bonus: the p50 baseline is around 19, p10 around 16, and p90 around 22. Human play may beat or trail greedy; Task 3 validates feel before achievements are registered.
 
-## Timer, lifecycle, stats, and achievement data
+## Model lifecycle and BaseGame data surfaces
 
-`ChromaticTideGame` uses `duration: 90`, `pausable: false`, `resettable: true`, and BaseGame time bonus off.
+`ChromaticTideGame` uses BaseGame's timer and lifecycle only.
 
-- `createInitialState()` generates a fresh finite board from configured RNG and records its initial territory.
-- `start()` uses the existing BaseGame timer; no additional clock exists.
-- `update()` is a no-op because gameplay is event-driven.
-- successful board completion sets `cleared`, synchronizes score, emits state, and invokes `void this.end().catch(...)`.
-- `handleTimeUp()` sets `timeout`, synchronizes partial progress, emits state, then delegates to `super.handleTimeUp()`.
-- `reset()` creates a fresh board through BaseGame's normal `createInitialState()` path and resets score/timer.
-- `cleanup()` has no model-owned external resource.
+- `createInitialState()` materializes a fresh board and records initial capture count.
+- `update()` is a no-op.
+- accepted `chooseColor()` floods, increments one move, updates territory/capture count, synchronizes score, emits once, then ends if cleared.
+- `handleTimeUp()` sets timeout, synchronizes partial score, emits, then delegates to `super.handleTimeUp()`.
+- reset uses the normal BaseGame initial-state path.
+- model cleanup owns no external resource.
 
-Use the existing two BaseGame data surfaces correctly:
+Use the existing two data surfaces correctly:
 
 ```ts
 getGameStats(): ChromaticTideStats
 protected override getGameData(): Record<string, unknown>
 ```
 
-`getGameStats()` owns overlay/reporting fields. The protected `getGameData()` override is the persistence/achievement hook called by `BaseGame.end()` and must return the canonical `ChromaticTideGameData` fields. Both read `getTimerStatus()` so end-of-run seconds come from BaseGame's final timer snapshot. Do not add a second public game-data method.
+`getGameStats()` is reporting/overlay data. Protected `getGameData()` is the save/achievement hook used by `BaseGame.end()` and must return the canonical game-data fields. Both use `getTimerStatus()` so final seconds come from BaseGame's final timer snapshot. Do not add a third/public game-data API.
 
-## DOM renderer
+## Renderer and accessibility
 
-`ChromaticTideRenderer` extends `DOMRenderer` and renders only the board. Controls remain stable Astro markup outside the renderer.
+The board is **presentational**, not an ARIA grid widget. Do not emit `role="grid"` or 144 `role="gridcell"` nodes.
 
-Each of 64 cells is a non-interactive element with:
+`ChromaticTideRenderer` extends `DOMRenderer` and renders plain cell `<div>` elements with:
 
-- `role="gridcell"`;
 - `data-row` / `data-col`;
-- `data-color="teal|amber|magenta|ice|green"`;
-- `data-captured="true|false"`;
-- an `aria-label` containing row, column, color name, and whether the cell belongs to the territory.
+- `data-color`;
+- `data-captured`;
+- visible palette index `1`–`5`.
 
-The renderer also shows a small `1`–`5` palette index inside each cell. Color therefore is not the only visual encoding. Captured cells receive a stronger border/inset treatment through page CSS.
+The numeric index is the visual non-hue encoding. Page CSS adds captured-border treatment.
 
-The board element keeps `role="grid"` and `aria-label="Chromatic Tide board"` in Astro markup. The renderer sets 8×8 grid tracks and replaces child cells on state render.
+The board container is marked `aria-hidden="true"` because its 144 visual cells are not interactive controls and do not form a usable nonvisual widget. Instead the page provides:
 
-No event delegation belongs in the board renderer because cells are not player controls.
+```astro
+<p id="chromatic-tide-status" class="sr-only" aria-live="polite"></p>
+```
+
+The initializer updates it after accepted moves and lifecycle transitions, e.g.:
+
+```text
+Territory teal, 23 of 144 captured, 7 moves.
+```
+
+This matches the repository's existing live-region convention and avoids malformed/noisy ARIA grid semantics.
 
 ## Controls and initializer
 
-The page renders five stable `Button.astro` controls with `data-tide-color` values and visible text such as `1 Teal`, `2 Amber`, etc.
+The page renders five stable `Button.astro` controls with `data-tide-color` and visible labels such as `1 Teal`.
 
-`initFramework.ts` owns one local `chooseColor(color)` adapter. Both input modes call it:
+Both click/touch and keyboard `1`–`5` call one local adapter that invokes `game.chooseColor()`; number keys are ignored for editable targets via `isEditableTarget()`.
 
-- button click reads the button's `data-tide-color`;
-- keyboard `1`–`5` maps by palette index after `isEditableTarget(event.target)` rejects typing contexts.
+Control-state rule:
 
-After every state change the initializer:
+- idle / ended: all five disabled;
+- active + playing: all five enabled;
+- current territory color: `aria-pressed="true"` and selected styling;
+- other colors: `aria-pressed="false"`.
 
-- renders the board;
-- updates score/time via existing callbacks;
-- updates `moves` and `captured` HUD values;
-- marks the current color control `aria-pressed="true"` and disables it;
-- enables the other four controls only while the run is active and outcome is `playing`.
+The current button deliberately stays enabled so keyboard/assistive-technology users can reach the selected state. Activating it is a harmless model-level no-op because `chooseColor(currentColor)` returns `false` and does not increment moves.
 
-The initializer also owns Start/Reset/Play Again listeners, final overlay text, achievement/challenge notifications, `beforeunload`, idempotent cleanup, and a debug handle consistent with recent games:
+Initializer responsibilities remain local:
 
-```ts
-window.chromaticTideGame = handle
+- Start / Reset / Play Again;
+- board render;
+- Moves / Captured HUD;
+- status live region;
+- score/time callbacks;
+- final overlay;
+- achievement/challenge notification forwarding;
+- before-unload active-run guard;
+- idempotent cleanup;
+- debug handle `window.chromaticTideGame`.
+
+No rAF/ticker/interval is added.
+
+## GamePage named slots and route layout
+
+`GamePage.astro` has named slots and no default slot. The route must wire them explicitly:
+
+```astro
+<GamePage ...>
+  <div slot="game-board" id="chromatic-tide-container">...</div>
+  <Badge slot="additional-stats">...</Badge>
+  <div slot="game-info">...</div>
+  <div slot="final-stats">...</div>
+</GamePage>
 ```
 
-There is no rAF loop.
+The board/control cluster lives in `slot="game-board"`; otherwise Astro content would be dropped at SSR.
 
-## Page layout and color treatment
+Recommended board markup:
 
-`src/pages/chromatic-tide/index.astro` uses `GamePage` with:
+```astro
+<div
+  slot="game-board"
+  id="chromatic-tide-container"
+  class="w-[min(560px,calc(100vw-2rem))] space-y-4"
+>
+  <div
+    id="chromatic-tide-board"
+    class="grid w-full aspect-square gap-px sm:gap-1"
+    aria-hidden="true"
+  ></div>
+  <p id="chromatic-tide-status" class="sr-only" aria-live="polite"></p>
 
-- `gameId="chromatic-tide"`;
-- `initialTime={90}`;
-- `showPause={false}`;
-- `showEnd={false}`;
-- a responsive square board capped around the Mine Grid footprint;
-- five color buttons immediately below the board;
-- stats for Moves and Captured;
-- How to Play and Scoring cards;
-- final stats for Outcome, Moves, Captured, and Time.
+  <div
+    id="chromatic-tide-colors"
+    class="grid grid-cols-2 gap-2 sm:grid-cols-5"
+    aria-label="Choose territory color"
+  >
+    <!-- five Button.astro controls -->
+  </div>
+</div>
+```
 
-The bootstrap `<script>` stays at page root after `</GamePage>`, matching the repository's hardcoded page-markup contract.
+The responsive two-column phone layout prevents named controls from overflowing; do not hide/clip overflow to mask a layout defect.
 
-Page-local color CSS copies the existing organism palette values without importing organism types or adding global tokens:
+Page-local CSS copies the existing organism palette values without importing organism metadata or creating new global tokens:
 
 ```text
 teal    #1fe3c0
@@ -399,17 +412,21 @@ ice     #6fe3ff
 green   #5dff9f
 ```
 
-The control row must remain within the phone viewport. The mobile browser proof fails on horizontal overflow rather than hiding it with clipping.
+The bootstrap script remains at page root after `</GamePage>`.
 
-## Page-markup contract
+## Markup contract
 
-`src/pages/game-board-markup.test.ts` has a hardcoded `games` array used by the generic GamePage-wrapper sweep. HPA-633 must explicitly append:
+`src/pages/game-board-markup.test.ts` must do both:
 
-```ts
-'chromatic-tide',
-```
+1. append `'chromatic-tide'` to the existing hardcoded GamePage-wrapper sweep; and
+2. add dedicated assertions pinning:
+   - `slot="game-board"` on the Chromatic Tide container;
+   - route GamePage ID/time/flags;
+   - board/status/control IDs;
+   - five `data-tide-color` controls;
+   - bootstrap script after `</GamePage>`.
 
-The dedicated Chromatic Tide describe block additionally pins the root bootstrap position, GamePage flags/time, board IDs, and five `data-tide-color` controls. Merely adding a dedicated describe block without extending the shared `games` array is insufficient.
+Source-string ID assertions alone are insufficient because unslotted markup can exist in source while rendering nothing.
 
 ## Catalog identity
 
@@ -421,86 +438,124 @@ GameID.CHROMATIC_TIDE = 'chromatic_tide'
 
 Catalog row:
 
-- name: `Chromatic Tide`;
-- category: `strategy`;
-- estimated duration: `1-2 minutes`;
-- difficulty: `medium`;
-- icon: `🌈`;
-- organism: `{ shape: 'frond', color: 'teal' }`;
-- depth: `mid`.
+- name `Chromatic Tide`;
+- category `strategy`;
+- estimated duration `1-2 minutes`;
+- difficulty `medium`;
+- icon `🌈`;
+- organism `{ shape: 'frond', color: 'teal' }`;
+- depth `mid`.
 
-Depth is a product-fit choice, not a balancing/count choice. `Mid-water` is described as “Focused sessions. A few minutes in.” while `Abyssal` is “Long and absorbing.” A 90-second strategy run fits Mid-water better, and Gravity Flip already establishes that a one-minute game can live there.
+Depth remains a product-fit choice: Mid-water's focused-session description fits a 90-second strategy run better than Abyssal's long-session description. Final counts are **9 shallow / 10 mid / 4 abyssal** and adjacency remains valid.
 
-Adding Chromatic Tide as Mid-water yields depth counts **9 shallow / 10 mid / 4 abyssal**. Within the depth-ordered catalog, the current Mid-water tail is Gravity Flip (`spiral` + `magenta`); appending `frond` + `teal` preserves the adjacent shape+color invariant.
+## Achievement calibration contract
 
-## Achievement contract
+Achievement *shapes* are fixed; thresholds are not all sourced the same way.
 
-Use existing `in_game` achievement checks against canonical `ChromaticTideGameData`:
+Move thresholds come from the deterministic 12×12 greedy baseline:
 
 1. **First Tide** — clear a board. Common.
-2. **Current Reader** — clear in `<= 24` moves. Rare.
-3. **Rapid Bloom** — clear with `>= 30` seconds remaining. Rare.
-4. **Master Palette** — clear in `<= 18` moves and with `>= 20` seconds remaining. Epic.
+2. **Current Reader** — clear in `<= 17` moves. Rare. This is around the lower quartile of the deterministic greedy baseline.
+3. **Rapid Bloom** — clear with a tuned remaining-time threshold. Rare. The numeric seconds threshold is deliberately **not frozen in planning**, because board simulation cannot measure human decision speed.
+4. **Master Palette** — clear in `<= 15` moves. Epic. This is around the lower 5% of the deterministic greedy baseline.
 
-The exact efficiency/time thresholds are tuning values at the implementation checkpoint; the achievement shapes are structural.
+Task 3's manual checkpoint plays at least five real boards on desktop and phone, records clear times/moves, and freezes the Rapid Bloom seconds threshold before Task 4 adds achievements. It may adjust the move thresholds only if human play shows the greedy baseline is materially misleading; any change must update the calibration assertions/spec/tests together.
 
-No score-threshold welcome achievement is used because a partial timeout can legitimately score without clearing.
+Do not combine Master Palette with an arbitrary time threshold: keep the Epic condition focused on exceptional move efficiency, while Rapid Bloom owns speed.
 
 ## Browser coverage
 
-`e2e/games/play-coverage.spec.ts` gets focused Chromatic Tide coverage rather than a new spec framework.
+`e2e/games/play-coverage.spec.ts` imports the test-only greedy selector from `test-fixtures.ts`.
 
 Desktop path:
 
-1. open `/chromatic-tide` and start;
-2. read the debug state;
-3. call exported `selectGreedyChromaticTideColor()` in the Playwright process;
-4. click the corresponding real color button;
-5. repeat until cleared, with a hard bound equal to the initial uncaptured-cell count;
-6. assert the completion overlay/stats;
-7. Play Again, assert a fresh idle board, start again, and prove one keyboard choice increments moves.
+1. visit `/chromatic-tide` and Start;
+2. read debug state;
+3. choose the greedy test color;
+4. click the real named button;
+5. repeat with hard bound `144 - initialCapturedCells`;
+6. assert cleared overlay / `144 / 144`;
+7. Play Again, Start, and prove one numbered keyboard choice increments moves.
 
-The greedy progress guarantee is unit-proven in `board.test.ts`; Playwright does not carry the proof itself.
+The greedy strict-progress proof belongs to unit tests, so a browser failure is treated as integration/model drift rather than fixed by raising the loop bound.
 
 Mobile path:
 
-- use the suite's phone-sized viewport;
-- start the game;
-- assert board/control cluster does not overflow horizontally;
-- tap one non-current color control;
-- assert `movesUsed === 1`, board visibility, and selected/current-control state.
+- phone viewport;
+- board remains visible and sufficiently large;
+- five controls fit with no horizontal overflow;
+- current button is reachable and `aria-pressed="true"`, not disabled;
+- tap a non-current button and assert Moves becomes `1`;
+- live-region text updates to the new territory/captured/move summary.
 
-After catalog registration, also run the existing derived homepage navigation spec:
+After catalog registration also run, unchanged:
 
 ```bash
 bun run test:e2e -- e2e/games/all-games-navigation.spec.ts
 ```
 
-Do not edit that spec; adding the active `GAMES` row automatically makes `/chromatic-tide` part of its navigation target list.
+## Risks and mitigations
+
+### Difficulty / threshold calibration is wrong
+
+**Risk:** The game technically works but move scoring/achievements are trivial or impossible.
+
+**Mitigation:** Task 1 reproduces a deterministic 12×12 seeded greedy distribution before freezing production constants. Move thresholds are tied to that baseline. Human-time achievement threshold is deferred to Task 3 real play instead of guessed from board simulation.
+
+### Named-slot wiring drops the board
+
+**Risk:** GamePage has no default slot, so unslotted board markup silently disappears while source-string ID tests still pass.
+
+**Mitigation:** Route contract explicitly uses `slot="game-board"`; dedicated markup test pins that exact attribute in addition to the generic wrapper sweep.
+
+### Greedy flood invariant regresses
+
+**Risk:** Browser clear stalls and hides a board/flood defect behind a long loop.
+
+**Mitigation:** Several unit fixtures prove strict progress/bounded clear; Playwright reuses the same test-only selector.
+
+### Catalog registration breaks homepage navigation
+
+**Risk:** Direct route coverage passes while the real specimen card is broken.
+
+**Mitigation:** run unchanged `all-games-navigation.spec.ts`, derived from active `GAMES`.
+
+### Five named controls overflow phones
+
+**Risk:** controls are unusable on narrow screens.
+
+**Mitigation:** responsive 2-column phone / 5-column wider layout, manual check, and real `scrollWidth` browser assertions. No overflow clipping workaround.
+
+### Presentational board becomes noisy/malformed for assistive technology
+
+**Risk:** hundreds of fake gridcells or verbose labels create unusable semantics.
+
+**Mitigation:** board stays presentational/`aria-hidden`; one polite live status region communicates territory/capture/move changes, while the five actual controls remain reachable and named.
 
 ## Testing contract
 
-Unit tests cover:
+Unit coverage includes:
 
-- exactly finite RNG consumption and degenerate-board repair;
-- initial orthogonal component discovery;
+- normal finite 144-sample generation;
+- all-one-color deterministic repair without extra RNG;
+- non-finite/out-of-range sample normalization;
+- initial orthogonal component;
 - diagonal non-capture;
-- fixed-point chain capture;
-- pure/non-mutating board helpers and deep-enough local cloning;
-- greedy selector strict-progress property and bounded clear over several fixtures;
-- runtime-invalid/current-color rejection;
-- legal zero-gain moves counting once;
-- completion ordering and single end path;
-- timeout partial score;
-- protected `getGameData()` achievement payload and public stats fields;
-- score normalization and completion bonuses;
-- renderer cell metadata and 1–5 non-color encoding;
-- initializer click/keyboard/editable-target/cleanup/restart behavior;
-- page-markup dedicated assertions plus hardcoded wrapper-array membership;
-- catalog ID/icon/strategy row/depth count and adjacency invariant;
-- canonical game-data alias and achievements.
+- fixed-point flood;
+- source-board immutability and exact local clone behavior;
+- greedy strict-progress fixtures;
+- deterministic 12×12 calibration baseline;
+- score normalization/completion arithmetic;
+- current-color no-op and zero-gain non-current move;
+- completion/timeout/reset lifecycle;
+- public stats and protected game-data payload;
+- renderer data attributes/visible palette index without ARIA-grid roles;
+- initializer live region, enabled pressed current control, keyboard/click parity, cleanup/replay;
+- markup named-slot membership + wrapper sweep;
+- catalog/depth/adjacency;
+- canonical game data + achievements.
 
-The implementation checkpoint runs targeted tests while iterating, then the repository gates:
+Final gates:
 
 ```bash
 bun run test:run
@@ -511,57 +566,35 @@ bun run test:e2e -- e2e/games/play-coverage.spec.ts
 bun run test:e2e -- e2e/games/all-games-navigation.spec.ts
 ```
 
-## Risks and mitigations
-
-### Greedy flood invariant drifts
-
-**Risk:** A future flood/recolor regression could make the browser clear helper stall or turn a model defect into a slow Playwright failure.
-
-**Mitigation:** `board.test.ts` owns several deterministic strict-progress fixtures and proves repeated greedy selection clears in at most the initially uncaptured-cell count. Playwright imports the same selector.
-
-### Catalog registration breaks homepage navigation
-
-**Risk:** The active `GAMES` row can render a specimen that links incorrectly or points at a route that does not satisfy the normal page contract, while play-coverage still passes by visiting the route directly.
-
-**Mitigation:** Keep `all-games-navigation.spec.ts` production-unchanged and run it after registration; its targets are derived from `GAMES` and it clicks the actual homepage specimen card.
-
-### Five named controls overflow narrow phones
-
-**Risk:** Five labels such as `1 Teal` can overflow a single row at phone width even if the board itself is responsive.
-
-**Mitigation:** The page may use a responsive wrapping/grid arrangement, but never hide overflow. The mobile browser path explicitly fails when the board/control cluster exceeds viewport width.
-
 ## Non-goals
 
-HPA-633 does **not** add:
+HPA-633 does not add:
 
 - difficulty presets;
-- a hard move cap;
-- optimal-move calculation or production solver/hints;
-- daily/seeded competition;
-- campaign progression;
-- animations requiring rAF;
-- audio;
-- multiplayer;
-- new persistence/API/DB/auth contracts;
-- generic grid/flood/input/control frameworks;
+- hard move cap;
+- production optimal solver/hints;
+- seeded/Daily competition;
+- campaign;
+- rAF/Pixi animation machinery;
+- audio/multiplayer;
+- persistence/API/DB/auth changes;
+- generic flood/grid/input/control framework;
 - BaseGame/GameTimer/GamePage/DOMRenderer refactors.
 
 ## Acceptance criteria
 
 HPA-633 is complete when:
 
-- `/chromatic-tide` can be started, played, cleared, timed out, reset, and replayed through existing GamePage controls;
-- every accepted color choice resolves the full orthogonal flood before state emission;
-- the current color is a no-op/rejected action while a different zero-gain color still counts as a move;
-- generation is finite and does not produce an already-cleared starting board;
-- the greedy selector's strict-progress/bounded-clear property is unit-proven;
-- partial and completion scores follow the pure formula and never decrease;
-- mouse/touch and keys `1`–`5` share the same game action path;
-- board/control semantics do not rely on hue alone and the five controls do not overflow the phone viewport;
-- `getGameStats()` feeds final presentation while protected `getGameData()` supplies the achievement/save payload;
-- `game-board-markup.test.ts` includes Chromatic Tide in both dedicated assertions and the shared GamePage wrapper sweep;
-- catalog uses Strategy / Mid-water / frond+teal with depth counts 9 / 10 / 4;
-- focused desktop/mobile play coverage and derived homepage navigation coverage pass;
-- no shared framework or backend/schema work is introduced;
-- the entire design + implementation ships in one HPA-633 PR.
+- the 12×12 / five-color / 90-second ruleset can start, play, clear, timeout, reset, and replay;
+- board generation consumes exactly 144 samples and never retries;
+- flood semantics are pure, orthogonal, fixed-point, and bounded;
+- deterministic calibration demonstrates a meaningful move spread and the registered move thresholds match it;
+- current color is a model no-op but remains a reachable pressed control while playing;
+- partial/completion scoring follows the pure formula and remains monotonic;
+- visible board uses 1–5 non-hue encoding and screen-reader updates use the polite status region rather than fake grid semantics;
+- GamePage content uses required named slots, with `slot="game-board"` pinned by tests;
+- protected `getGameData()` supplies achievement/save data and public `getGameStats()` supplies reporting;
+- catalog is Strategy / Mid-water / frond+teal with 9 / 10 / 4 depth counts;
+- desktop/mobile play coverage and unchanged homepage navigation coverage pass;
+- no shared framework or backend/schema scope is introduced;
+- design + implementation ship in the same HPA-633 PR.
