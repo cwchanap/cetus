@@ -4,7 +4,7 @@
 
 **Goal:** Ship HPA-633 as a 90-second 8×8 five-color flood-fill strategy minigame with finite random boards, fixed-point territory expansion, move/time efficiency scoring, keyboard/touch controls, DOM rendering, achievements, and the existing Cetus score/progress flow.
 
-**Architecture:** `ChromaticTideGame` extends `BaseGame` and owns only event-driven run state and lifecycle. `board.ts` owns finite board creation plus pure fixed-point flood traversal, and `scoring.ts` owns all arithmetic. `ChromaticTideRenderer` extends `DOMRenderer` and renders non-interactive cells; one initializer owns stable color buttons, keys `1`–`5`, HUD/overlay integration, notification forwarding, and cleanup. BaseGame/GameTimer remain the only timer/save lifecycle and no shared flood/grid/control framework is added.
+**Architecture:** `ChromaticTideGame` extends `BaseGame` and owns only event-driven run state and lifecycle. `board.ts` owns finite board creation, deep-enough local cloning, pure fixed-point flood traversal, and the unit-proven greedy selector used by browser tests; `scoring.ts` owns all arithmetic. `ChromaticTideRenderer` extends `DOMRenderer` and renders non-interactive cells; one initializer owns stable color buttons, keys `1`–`5`, HUD/overlay integration, notification forwarding, and cleanup. BaseGame/GameTimer remain the only timer/save lifecycle and no shared flood/grid/control framework is added.
 
 **Tech Stack:** Astro 5, TypeScript 6, BaseGame/GameTimer/ScoreManager, DOMRenderer, Tailwind 4, Vitest 3, Playwright 1.54, Bun 1.3.
 
@@ -16,21 +16,29 @@
 - V1 is exactly one 8×8 / five-color / 90-second ruleset. No difficulty selector.
 - Copy the frozen numeric rules from the spec into `types.ts` in Task 1. After that, `types.ts` is the production constants authority.
 - Board generation consumes exactly `rows * cols` RNG samples and never retries; only an all-one-color board is repaired deterministically by changing bottom-right to the next palette color.
+- Use `createGrid` and `inBounds` from `@/lib/games/shared/grid`; keep `cloneBoard()` local because shared `cloneGrid()` would share cell objects.
 - Initial territory is the complete orthogonally connected top-left component. Diagonals never connect directly.
+- Flood/capture logic stays in `src/lib/games/chromatic-tide/board.ts`; do not reuse Mine Grid's 8-direction reveal, Circuit Hacker's wire connectivity, or add a shared orthogonal-flood helper.
 - Every accepted non-current color counts as one move, including a zero-gain choice. The current color is rejected without a move.
 - Flood resolution reaches a fixed point before one state change is emitted.
-- No hard move-limit loss, solver, hints, seeded/daily service, campaign, AI, persistence, API, auth, or database work.
+- The greedy selector is a pure immediate-gain helper, not an optimal solver. `board.test.ts` must prove strict progress on incomplete valid boards used as deterministic fixtures.
+- No hard move-limit loss, solver/hints, seeded/daily service, campaign, AI, persistence, API, auth, or database work.
 - BaseGame/GameTimer own countdown, timeout delivery, stale-run protection, score submission, achievements, reset/start, and final save flow.
 - BaseGame generic time bonus is disabled. `scoring.ts` owns progress/completion/move/time arithmetic.
 - Incomplete score is gained cells only; completed score uses the full 64-cell base plus completion/move/time bonuses so random starting territory does not reduce the completion baseline.
-- Use `createGrid`/`inBounds` from `@/lib/games/shared/grid` where helpful; keep flood/capture semantics local.
+- Model score synchronization uses the Asteroid Drift-style positive delta to the pure target; do not duplicate arithmetic in the game class.
 - Use `isEditableTarget` from `@/lib/games/shared/utils` for number-key handling.
 - Use `DOMRenderer`; do not add Pixi, rAF, intervals, workers, or animation infrastructure.
 - Board cells are not controls. Stable Astro color buttons and keys `1`–`5` both call `game.chooseColor()`.
 - Board/control presentation cannot rely on hue alone: cells expose palette indices and labels; controls show both number and color name.
-- Initializer script lives after `</GamePage>` and the new route enters the existing page-markup contract test.
-- Catalog identity is `GameID.CHROMATIC_TIDE`, icon `🌈`, organism `{ shape: 'frond', color: 'teal' }`, depth `abyssal`; final depth counts are 9 / 9 / 5.
-- No changes to BaseGame, GameTimer, ScoreManager, GamePage, DOMRenderer, shared grid semantics, score service, API/DB/auth/schema/packages, or `e2e/games/all-games-navigation.spec.ts`.
+- Copy the existing organism palette hex values locally into page CSS; do not import `OrganismColor` or add global color tokens.
+- Initializer script lives after `</GamePage>`.
+- `src/pages/game-board-markup.test.ts` must append `'chromatic-tide'` to its hardcoded `games` wrapper-sweep array in addition to a dedicated Chromatic Tide describe block.
+- Catalog identity is `GameID.CHROMATIC_TIDE`, icon `🌈`, organism `{ shape: 'frond', color: 'teal' }`, depth `mid`; final depth counts are 9 / 10 / 4.
+- `GameType` already aliases `GameID`; do not touch server DB/API/schema types for the new ID.
+- `Button.astro` already forwards native HTML button attributes; do not modify it for `data-tide-color`.
+- Do not edit `e2e/games/all-games-navigation.spec.ts`; it derives targets from `GAMES`. Run it in the final gate.
+- No changes to BaseGame, GameTimer, ScoreManager, GamePage, DOMRenderer, shared grid semantics, score service, API/DB/auth/schema/packages, or derived navigation test implementation.
 
 ---
 
@@ -39,12 +47,12 @@
 ### New production
 
 - `src/lib/games/chromatic-tide/types.ts` — frozen rules, palette, config, cell/board/state/stats/data types.
-- `src/lib/games/chromatic-tide/board.ts` — finite random materialization, initial territory, pure fixed-point flood, captured count.
+- `src/lib/games/chromatic-tide/board.ts` — finite random materialization, local deep clone, initial territory, pure fixed-point flood, captured count, immediate-gain greedy selector.
 - `src/lib/games/chromatic-tide/scoring.ts` — pure monotonic score target.
-- `src/lib/games/chromatic-tide/ChromaticTideGame.ts` — BaseGame model and one `chooseColor()` action.
+- `src/lib/games/chromatic-tide/ChromaticTideGame.ts` — BaseGame model and one `chooseColor()` action; public stats plus protected achievement/save payload.
 - `src/lib/games/chromatic-tide/ChromaticTideRenderer.ts` — DOM board cells and semantic metadata.
 - `src/lib/games/chromatic-tide/initFramework.ts` — start/reset/replay, color buttons, keyboard, HUD/overlay, notifications, cleanup.
-- `src/pages/chromatic-tide/index.astro` — responsive playable route and page CSS.
+- `src/pages/chromatic-tide/index.astro` — responsive playable route and page-local palette CSS.
 
 ### New tests
 
@@ -59,15 +67,15 @@
 - `src/lib/games.ts` — stable ID/icon first, then final active catalog row.
 - `src/lib/games.test.ts` — ID/icon/registration coverage.
 - `src/lib/games/shared/types.ts` — canonical `ChromaticTideGameData` alias + `GameData` union member.
-- `src/lib/organisms.test.ts` — final 9 / 9 / 5 depth count.
+- `src/lib/organisms.test.ts` — final 9 / 10 / 4 depth count and existing adjacency invariant.
 - `src/lib/achievements.ts`, `src/lib/achievements.test.ts` — four in-game achievements.
-- `src/pages/game-board-markup.test.ts` — route/bootstrap/controls/wrapper contract.
-- `e2e/games/play-coverage.spec.ts` — real desktop clear/replay/keyboard and mobile control coverage.
-- `CLAUDE.md` — game tree/debug handle/catalog count documentation if the current file tracks them.
+- `src/pages/game-board-markup.test.ts` — dedicated route/bootstrap/controls assertions plus explicit hardcoded wrapper-array membership.
+- `e2e/games/play-coverage.spec.ts` — real desktop clear/replay/keyboard and mobile control coverage using the exported greedy selector.
+- `CLAUDE.md` — game tree/debug handle/catalog count documentation only if current sections enumerate them.
 
 ---
 
-## Task 1: Freeze rules, finite board semantics, and pure scoring
+## Task 1: Freeze rules, finite board semantics, greedy progress, and pure scoring
 
 **Files**
 - Create: `src/lib/games/chromatic-tide/types.ts`
@@ -78,35 +86,35 @@
 
 **Interfaces**
 - Produces `CHROMATIC_TIDE_RULES`, `CHROMATIC_TIDE_PALETTE`, `ChromaticTideColor`, board/state/stats/data types, `ChromaticTideConfig`, and `createChromaticTideConfig()`.
-- Produces `createChromaticTideBoard()`, `markInitialTerritory()`, `floodChromaticTideBoard()`, and `countCapturedCells()`.
+- Produces `createChromaticTideBoard()`, `markInitialTerritory()`, `floodChromaticTideBoard()`, `countCapturedCells()`, and `selectGreedyChromaticTideColor()`.
 - Produces `calculateChromaticTideScore()`.
-- Task 2 consumes all three modules without redefining constants or traversal.
+- Task 2 consumes the pure board/scoring APIs. Task 5 imports `selectGreedyChromaticTideColor()` rather than defining its own selection rule.
 
 - [ ] **1.1 Write RED finite-generation and flood tests**
 
-Start `board.test.ts` with exact behavioral examples rather than snapshotting random boards:
+Create `board.test.ts`:
 
 ```ts
 import { describe, expect, it, vi } from 'vitest'
 import {
+    countCapturedCells,
     createChromaticTideBoard,
     floodChromaticTideBoard,
-    countCapturedCells,
+    markInitialTerritory,
+    selectGreedyChromaticTideColor,
 } from './board'
 import {
     CHROMATIC_TIDE_PALETTE,
     createChromaticTideConfig,
     type ChromaticTideBoard,
+    type ChromaticTideColor,
 } from './types'
 
-function cell(
-    color: (typeof CHROMATIC_TIDE_PALETTE)[number],
-    captured = false
-) {
+function cell(color: ChromaticTideColor, captured = false) {
     return { color, captured }
 }
 
-it('consumes exactly one RNG sample per cell and repairs all-one-color input without retrying', () => {
+it('consumes exactly one RNG sample per cell and repairs an all-one-color board without retrying', () => {
     const rng = vi.fn(() => 0)
     const config = createChromaticTideConfig()
     const board = createChromaticTideBoard(config, rng)
@@ -153,7 +161,7 @@ Expected RED: the modules do not exist.
 
 - [ ] **1.2 Implement the canonical types/config**
 
-Copy the spec's exact rules and palette into `types.ts`:
+Create `types.ts`:
 
 ```ts
 import type {
@@ -241,11 +249,11 @@ export function createChromaticTideConfig(
 }
 ```
 
-Do not add a palette/config registry or difficulty type.
+Do not add a difficulty type, palette registry, or organism-type import.
 
-- [ ] **1.3 Implement finite pure board helpers**
+- [ ] **1.3 Implement finite pure board helpers with local deep cloning**
 
-Use existing grid helpers but keep rule semantics local:
+Create `board.ts` using only structural shared helpers:
 
 ```ts
 import { createGrid, inBounds } from '@/lib/games/shared/grid'
@@ -258,6 +266,13 @@ import {
 } from './types'
 
 type Position = { row: number; col: number }
+
+const ORTHOGONAL_DELTAS = [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+] as const
 
 function normalizePaletteIndex(sample: number): number {
     const unit = Number.isFinite(sample)
@@ -279,30 +294,120 @@ export function countCapturedCells(board: ChromaticTideBoard): number {
 }
 ```
 
+Do not use shared `cloneGrid()` here: Chromatic Tide cells are mutable objects during pure-copy construction, and shallow row copies would retain aliases.
+
 `createChromaticTideBoard(config, rng = config.rng)` must:
 
-1. build `rows × cols` with exactly one `rng()` call per cell;
-2. repair only the all-start-color degenerate case at bottom-right with the next palette entry;
-3. return `markInitialTerritory(board)`.
+1. use `createGrid(config.rows, config.cols, () => ...)`;
+2. call `rng()` exactly once from that per-cell factory;
+3. map normalized samples into `CHROMATIC_TIDE_PALETTE`;
+4. repair only the all-top-left-color case by recoloring bottom-right to the next palette color with no extra RNG;
+5. return `markInitialTerritory(board)`.
 
-Implement one internal neighbor list:
+`floodChromaticTideBoard()` clones first, recolors all captured cells, seeds a queue with all captured positions, marks matching uncaptured orthogonal neighbors captured when enqueuing, and returns only after the queue drains.
 
-```ts
-const ORTHOGONAL_DELTAS = [
-    [-1, 0],
-    [1, 0],
-    [0, -1],
-    [0, 1],
-] as const
+`markInitialTerritory()` clones, clears any incoming capture flags defensively for test fixtures, marks `(0, 0)` captured, then uses the same fixed-point rule with the starting color.
+
+Run:
+
+```bash
+bun run test:run -- src/lib/games/chromatic-tide/board.test.ts
 ```
 
-`floodChromaticTideBoard()` clones first, recolors all captured cells, seeds a queue with all captured positions, marks matching uncaptured neighbors captured when enqueuing, and returns only after the queue drains.
+Expected: the finite/flood tests pass.
 
-`markInitialTerritory()` clones, marks only `(0, 0)` captured, then invokes the same fixed-point logic with its start color.
+- [ ] **1.4 Add RED greedy strict-progress fixtures**
 
-Run the board tests and keep the source pure—no BaseGame imports in `board.ts`.
+Pin the browser-driving invariant at unit level. Use multiple explicit boards, not random property tooling.
 
-- [ ] **1.4 Write RED score normalization/completion tests**
+Example fixtures:
+
+```ts
+const fixtures: ChromaticTideBoard[] = [
+    [
+        [cell('teal', true), cell('amber'), cell('green')],
+        [cell('teal', true), cell('amber'), cell('magenta')],
+        [cell('ice'), cell('green'), cell('magenta')],
+    ],
+    [
+        [cell('amber', true), cell('amber', true), cell('ice'), cell('green')],
+        [cell('teal'), cell('amber', true), cell('ice'), cell('magenta')],
+        [cell('teal'), cell('green'), cell('green'), cell('magenta')],
+        [cell('ice'), cell('ice'), cell('teal'), cell('teal')],
+    ],
+]
+```
+
+For each fixture, repeatedly:
+
+```ts
+let board = fixture.map(row => row.map(candidate => ({ ...candidate })))
+let current = board[0][0].color
+const total = board.length * board[0].length
+const initiallyUncaptured = total - countCapturedCells(board)
+let steps = 0
+
+while (countCapturedCells(board) < total) {
+    const before = countCapturedCells(board)
+    const color = selectGreedyChromaticTideColor(board, current)
+    const next = floodChromaticTideBoard(board, color)
+    const after = countCapturedCells(next)
+
+    expect(color).not.toBe(current)
+    expect(after).toBeGreaterThan(before)
+
+    board = next
+    current = color
+    steps++
+}
+
+expect(steps).toBeLessThanOrEqual(initiallyUncaptured)
+```
+
+Also include one fixture where at least one legal non-current color has zero immediate gain, proving the selector still finds a boundary color with positive gain.
+
+Run the test and expect RED because the selector does not exist yet.
+
+- [ ] **1.5 Implement `selectGreedyChromaticTideColor()`**
+
+Add to `board.ts`:
+
+```ts
+export function selectGreedyChromaticTideColor(
+    board: ChromaticTideBoard,
+    territoryColor: ChromaticTideColor
+): ChromaticTideColor {
+    const candidates = CHROMATIC_TIDE_PALETTE.filter(
+        color => color !== territoryColor
+    )
+    let best = candidates[0]
+    let bestCaptured = -1
+
+    for (const color of candidates) {
+        const captured = countCapturedCells(
+            floodChromaticTideBoard(board, color)
+        )
+        if (captured > bestCaptured) {
+            best = color
+            bestCaptured = captured
+        }
+    }
+
+    return best
+}
+```
+
+Palette iteration provides deterministic tie-breaking. Do not add look-ahead, BFS over move sequences, or an optimal-move solver.
+
+Run:
+
+```bash
+bun run test:run -- src/lib/games/chromatic-tide/board.test.ts
+```
+
+Expected: strict-progress fixtures pass.
+
+- [ ] **1.6 Write RED score normalization/completion tests**
 
 Create `scoring.test.ts`:
 
@@ -351,13 +456,18 @@ it('uses the full board baseline plus efficiency and time only on clear', () => 
 })
 ```
 
-Also prove negative/non-finite counts normalize safely, capture never exceeds total cells, initial capture never exceeds captured, excess moves produce zero efficiency bonus, and seconds clamp to `0..duration`.
+Also prove:
 
-- [ ] **1.5 Implement `calculateChromaticTideScore()`**
+- negative/non-finite counts normalize safely;
+- capture never exceeds total cells;
+- initial capture never exceeds captured;
+- excess moves produce zero efficiency bonus;
+- seconds clamp to `0..duration`;
+- unfinished time/move changes do not alter progress score.
 
-Use a small finite-integer helper local to `scoring.ts`; do not add a shared numeric-normalization utility for one scorer.
+- [ ] **1.7 Implement `calculateChromaticTideScore()`**
 
-Canonical shape:
+Create `scoring.ts` with one local finite-integer normalization helper and:
 
 ```ts
 export interface ChromaticTideScoreInput {
@@ -371,6 +481,8 @@ export interface ChromaticTideScoreInput {
 
 Normalize inputs, calculate `gainedCells`, return progress-only score when `!cleared`, otherwise return full board base + completion + non-negative reference-move bonus + floored remaining-time bonus.
 
+Do not add a shared numeric utility for one scorer.
+
 Run:
 
 ```bash
@@ -381,7 +493,7 @@ bun run test:run -- \
 
 Expected: PASS.
 
-- [ ] **1.6 Commit the pure rules slice**
+- [ ] **1.8 Commit the pure rules slice**
 
 ```bash
 git add src/lib/games/chromatic-tide/{types.ts,board.ts,board.test.ts,scoring.ts,scoring.test.ts}
@@ -401,6 +513,7 @@ git commit -m "feat(chromatic-tide): add board and scoring rules"
 **Interfaces**
 - Produces stable `GameID.CHROMATIC_TIDE = 'chromatic_tide'` and icon `🌈`; the active `GAMES` row waits for Task 4.
 - Produces `ChromaticTideGame`, whose only gameplay mutation API is `chooseColor(color): boolean`.
+- `getGameStats()` is the public reporting surface; protected `getGameData()` is the BaseGame save/achievement payload hook.
 - Task 3 constructs this class directly and renders its `ChromaticTideState`.
 
 - [ ] **2.1 Add the stable ID/icon with focused RED/GREEN tests**
@@ -411,13 +524,13 @@ In `games.ts`, add:
 CHROMATIC_TIDE = 'chromatic_tide',
 ```
 
-and to the exhaustive `GAME_ICONS` record:
+and to `GAME_ICONS`:
 
 ```ts
 [GameID.CHROMATIC_TIDE]: '🌈',
 ```
 
-Do **not** add the active `GAMES` row yet. Extend the existing `games.test.ts` ID/icon assertions to pin:
+Do **not** add the active `GAMES` row yet. Extend `games.test.ts`:
 
 ```ts
 expect(GameID.CHROMATIC_TIDE).toBe('chromatic_tide')
@@ -425,11 +538,11 @@ expect(getGameIcon(GameID.CHROMATIC_TIDE)).toBe('🌈')
 expect(getGameUrl(GameID.CHROMATIC_TIDE)).toBe('/chromatic-tide')
 ```
 
-Run the focused games tests.
+Do not touch `src/lib/server/db/types.ts`; `GameType` already follows `GameID`.
 
 - [ ] **2.2 Write RED model action/lifecycle tests**
 
-Use RNG-only fixtures rather than adding a production board-injection seam. A one-move clear can be built from 63 teal samples plus one amber sample:
+Use RNG-only fixtures rather than adding a production board-injection seam:
 
 ```ts
 function rngForPaletteIndices(indices: number[]): () => number {
@@ -440,10 +553,7 @@ function rngForPaletteIndices(indices: number[]): () => number {
     }
 }
 
-const almostClear = [
-    ...Array(63).fill(0),
-    1,
-]
+const almostClear = [...Array(63).fill(0), 1]
 ```
 
 Cover:
@@ -454,23 +564,28 @@ Cover:
 - selecting amber on the 63+1 board captures cell 64, sets `cleared`, scores completion exactly once, and triggers one end path;
 - actions after completion are rejected;
 - reset returns score/moves/outcome to idle state and consumes a fresh board through normal `createInitialState()`;
-- stats/data expose cleared/moves/captured/initial/remaining values.
+- `getGameStats()` exposes overlay/reporting fields;
+- the protected achievement payload contains `cleared`, `movesUsed`, `capturedCells`, `initialCapturedCells`, `secondsRemaining` rather than `{}`.
 
-For timeout without weakening production visibility, define a test-only subclass inside the test file:
+For timeout, define a test-only subclass:
 
 ```ts
 class TestChromaticTideGame extends ChromaticTideGame {
     expireForTest(): void {
         this.handleTimeUp()
     }
+
+    gameDataForTest(): Record<string, unknown> {
+        return this.getGameData()
+    }
 }
 ```
 
-Prove timeout sets `outcome: 'timeout'`, keeps only partial progress score, and reaches the BaseGame end path.
+Use the same pattern as Mine Grid's tests: expose the protected hook only from the test subclass/cast. Prove timeout sets `outcome: 'timeout'`, keeps only partial progress score, and reaches the BaseGame end path.
 
 - [ ] **2.3 Implement `ChromaticTideGame` minimally**
 
-Skeleton:
+Create the class:
 
 ```ts
 import { BaseGame } from '@/lib/games/core/BaseGame'
@@ -481,7 +596,6 @@ import {
     createChromaticTideConfig,
     type ChromaticTideColor,
     type ChromaticTideConfig,
-    type ChromaticTideGameData,
     type ChromaticTideState,
     type ChromaticTideStats,
 } from './types'
@@ -527,7 +641,18 @@ export class ChromaticTideGame extends BaseGame<
     }
 ```
 
-`chooseColor()` must runtime-check palette membership with `CHROMATIC_TIDE_PALETTE.includes(...)`, reject current/inactive states, apply one pure flood, increment one move, update state, classify clear, synchronize score, emit state, and call:
+`chooseColor()` must:
+
+1. reject inactive/paused/game-over/non-playing state;
+2. runtime-check palette membership with `CHROMATIC_TIDE_PALETTE.includes(...)`;
+3. reject the current color without moving;
+4. apply one pure flood;
+5. increment moves exactly once;
+6. update board/current/captured fields;
+7. set `outcome = 'cleared'` when captured equals `rows * cols`;
+8. synchronize score;
+9. emit one state change;
+10. if cleared, call:
 
 ```ts
 void this.end().catch((error: unknown) =>
@@ -535,9 +660,28 @@ void this.end().catch((error: unknown) =>
 )
 ```
 
-Use one private `synchronizeScore()` that calculates the canonical target from current state plus `Math.floor(this.getTimerStatus().currentTime)`, then only `addScore(target - state.score, 'tide_progress')` when positive.
+Use one private `synchronizeScore()`:
 
-Implement:
+```ts
+private synchronizeScore(): void {
+    const target = calculateChromaticTideScore(
+        {
+            cleared: this.state.outcome === 'cleared',
+            capturedCells: this.state.capturedCells,
+            initialCapturedCells: this.state.initialCapturedCells,
+            movesUsed: this.state.movesUsed,
+            secondsRemaining: this.getTimerStatus().currentTime,
+        },
+        this.config
+    )
+    const delta = target - this.state.score
+    if (delta > 0) {
+        this.addScore(delta, 'tide_progress')
+    }
+}
+```
+
+Implement event-driven stubs:
 
 ```ts
 update(_deltaTime: number): void {}
@@ -547,9 +691,40 @@ cleanup(): void {}
 
 `handleTimeUp()` sets timeout, synchronizes score, emits state, then calls `super.handleTimeUp()`.
 
-`getGameStats()` and `getGameData()` read the final/live timer status rather than copying `state.timeRemaining` into persisted data.
+- [ ] **2.4 Implement public stats and the protected BaseGame payload hook explicitly**
 
-- [ ] **2.4 Run model + identity tests**
+Do **not** add a second public `getGameData()`-style API. Implement exactly:
+
+```ts
+getGameStats(): ChromaticTideStats {
+    const timer = this.getTimerStatus()
+    return {
+        finalScore: this.state.score,
+        timeElapsed: Math.floor(timer.elapsedTime),
+        gameCompleted: this.state.outcome === 'cleared',
+        outcome: this.state.outcome,
+        movesUsed: this.state.movesUsed,
+        capturedCells: this.state.capturedCells,
+        initialCapturedCells: this.state.initialCapturedCells,
+        secondsRemaining: Math.floor(timer.currentTime),
+    }
+}
+
+protected override getGameData(): Record<string, unknown> {
+    const timer = this.getTimerStatus()
+    return {
+        cleared: this.state.outcome === 'cleared',
+        movesUsed: this.state.movesUsed,
+        capturedCells: this.state.capturedCells,
+        initialCapturedCells: this.state.initialCapturedCells,
+        secondsRemaining: Math.floor(timer.currentTime),
+    }
+}
+```
+
+`BaseGame.end()` calls this protected hook during score saving/achievement evaluation, so the test must prove it contains the canonical data fields.
+
+- [ ] **2.5 Run model + identity tests**
 
 ```bash
 bun run test:run -- \
@@ -561,16 +736,18 @@ bun run test:run -- \
 
 Expected: PASS with no network/backend changes.
 
-- [ ] **2.5 Commit the model slice**
+- [ ] **2.6 Commit the model slice**
 
 ```bash
-git add src/lib/games.ts src/lib/games.test.ts src/lib/games/chromatic-tide/ChromaticTideGame.ts src/lib/games/chromatic-tide/ChromaticTideGame.test.ts
+git add src/lib/games.ts src/lib/games.test.ts \
+  src/lib/games/chromatic-tide/ChromaticTideGame.ts \
+  src/lib/games/chromatic-tide/ChromaticTideGame.test.ts
 git commit -m "feat(chromatic-tide): add game model"
 ```
 
 ---
 
-## Task 3: DOM renderer, controls, initializer, and playable route
+## Task 3: DOM renderer, controls, initializer, playable route, and wrapper contract
 
 **Files**
 - Create: `src/lib/games/chromatic-tide/ChromaticTideRenderer.ts`
@@ -583,8 +760,8 @@ git commit -m "feat(chromatic-tide): add game model"
 **Interfaces**
 - Produces `ChromaticTideRenderer` and `createChromaticTideRendererConfig()` targeting `#chromatic-tide-board`.
 - Produces `ChromaticTideInitResult` with `game`, `renderer`, `getGame`, `getState`, `restart`, and idempotent `cleanup`.
-- Page exports the browser debug handle as `window.chromaticTideGame`.
-- Task 5 browser coverage consumes that handle and real `[data-tide-color]` controls.
+- Page exports `window.chromaticTideGame`.
+- Task 5 consumes that debug handle and real `[data-tide-color]` controls.
 
 - [ ] **3.1 Write RED renderer semantics tests**
 
@@ -611,7 +788,9 @@ Use `DOMRenderer` without board event listeners:
 ```ts
 export class ChromaticTideRenderer extends DOMRenderer {
     protected override renderGame(state: unknown): void {
-        if (!isChromaticTideState(state) || !this.container) return
+        if (!isChromaticTideState(state) || !this.container) {
+            return
+        }
 
         this.container.style.gridTemplateColumns =
             `repeat(${state.board[0]?.length ?? 0}, 1fr)`
@@ -641,20 +820,22 @@ export class ChromaticTideRenderer extends DOMRenderer {
 }
 ```
 
-Keep `colorLabel()` local. Do not add board click handlers or renderer state caches.
+Keep `isChromaticTideState()` and `colorLabel()` local. Do not add board click handlers, renderer state caches, or shared renderer changes.
 
 - [ ] **3.3 Write RED initializer interaction/cleanup tests**
 
-Build the same minimal DOM IDs used by `GamePage` plus:
+Build the minimal GamePage IDs plus:
 
 ```html
 <div id="chromatic-tide-container">
   <div id="chromatic-tide-board"></div>
-  <button data-tide-color="teal">1 Teal</button>
-  <button data-tide-color="amber">2 Amber</button>
-  <button data-tide-color="magenta">3 Magenta</button>
-  <button data-tide-color="ice">4 Ice</button>
-  <button data-tide-color="green">5 Green</button>
+  <div id="chromatic-tide-colors">
+    <button data-tide-color="teal">1 Teal</button>
+    <button data-tide-color="amber">2 Amber</button>
+    <button data-tide-color="magenta">3 Magenta</button>
+    <button data-tide-color="ice">4 Ice</button>
+    <button data-tide-color="green">5 Green</button>
+  </div>
 </div>
 ```
 
@@ -698,27 +879,31 @@ Required local helpers:
 - `resetPresentation()`;
 - one `chooseColor(color)` that calls `game.chooseColor(color)`.
 
-The click handler resolves the closest button with `[data-tide-color]`, validates membership in `CHROMATIC_TIDE_PALETTE`, then calls the adapter.
+The click handler resolves the closest `[data-tide-color]` button, validates membership in `CHROMATIC_TIDE_PALETTE`, then calls the adapter.
 
 Keyboard handler:
 
 ```ts
 const keyHandler: EventListener = event => {
     const keyboardEvent = event as KeyboardEvent
-    if (isEditableTarget(keyboardEvent.target)) return
+    if (isEditableTarget(keyboardEvent.target)) {
+        return
+    }
     const index = Number(keyboardEvent.key) - 1
     const color = CHROMATIC_TIDE_PALETTE[index]
-    if (color) chooseColor(color)
+    if (color) {
+        chooseColor(color)
+    }
 }
 ```
 
-Enhanced callbacks render/sync on state change, update score/time text, manage Start/control state, and populate final overlay. Forward `end` achievement/challenge notifications exactly as Mine Grid does; do not make a shared helper in this ticket.
+Enhanced callbacks render/sync on state change, update score/time text, manage Start/control state, and populate final overlay. Forward `end` achievement/challenge notifications exactly as Mine Grid does; do not extract a shared helper.
 
 Use the existing before-unload guard while `game.getState().isActive`.
 
 No rAF/ticker/interval belongs in this initializer.
 
-- [ ] **3.5 Create the Astro route**
+- [ ] **3.5 Create the Astro route with phone-safe controls and local palette colors**
 
 Use `GamePage` with default Start/Reset controls:
 
@@ -734,10 +919,13 @@ Use `GamePage` with default Start/Reset controls:
 >
 ```
 
-Inside `slot="game-board"` render a responsive board wrapper plus five stable buttons immediately underneath:
+Inside `slot="game-board"`:
 
 ```astro
-<div id="chromatic-tide-container" class="w-[min(560px,calc(100vw-2rem))] space-y-4">
+<div
+  id="chromatic-tide-container"
+  class="w-[min(560px,calc(100vw-2rem))] space-y-4 overflow-x-hidden"
+>
   <div
     id="chromatic-tide-board"
     class="grid w-full aspect-square gap-1"
@@ -745,7 +933,11 @@ Inside `slot="game-board"` render a responsive board wrapper plus five stable bu
     aria-label="Chromatic Tide board"
   ></div>
 
-  <div id="chromatic-tide-colors" class="grid grid-cols-5 gap-2" aria-label="Choose territory color">
+  <div
+    id="chromatic-tide-colors"
+    class="grid grid-cols-2 gap-2 sm:grid-cols-5"
+    aria-label="Choose territory color"
+  >
     <Button data-tide-color="teal" type="button">1 Teal</Button>
     <Button data-tide-color="amber" type="button">2 Amber</Button>
     <Button data-tide-color="magenta" type="button">3 Magenta</Button>
@@ -755,9 +947,26 @@ Inside `slot="game-board"` render a responsive board wrapper plus five stable bu
 </div>
 ```
 
-Add `Moves` and `Captured` additional stats, How to Play/Scoring cards, and final stats IDs used by the initializer.
+The responsive two-column phone layout avoids forcing five named labels into one narrow row; `sm:grid-cols-5` restores the compact row on wider screens. The mobile E2E still asserts actual overflow rather than trusting classes.
 
-Page CSS owns `data-color` background/border tokens and a stronger `[data-captured='true']` treatment. Keep the numeric cell text visible enough that hue is not the only encoding. Use existing Cetus CSS variables/Tailwind; no new design tokens.
+Add `Moves` and `Captured` stats, How to Play/Scoring cards, and final stats IDs used by the initializer.
+
+Copy the existing organism palette hexes locally into page CSS:
+
+```css
+.chromatic-tide-cell[data-color='teal'],
+[data-tide-color='teal'] { --tide-color: #1fe3c0; }
+.chromatic-tide-cell[data-color='amber'],
+[data-tide-color='amber'] { --tide-color: #f2b33d; }
+.chromatic-tide-cell[data-color='magenta'],
+[data-tide-color='magenta'] { --tide-color: #ff3d8a; }
+.chromatic-tide-cell[data-color='ice'],
+[data-tide-color='ice'] { --tide-color: #6fe3ff; }
+.chromatic-tide-cell[data-color='green'],
+[data-tide-color='green'] { --tide-color: #5dff9f; }
+```
+
+Use `--tide-color` for background/border accents while preserving visible numeric cell text and named button text. Do not import organism types or add CSS tokens globally.
 
 After `</GamePage>`:
 
@@ -769,24 +978,46 @@ After `</GamePage>`:
     initChromaticTideGameFramework()
       .then(handle => {
         if (handle) {
-          ;(window as Window & { chromaticTideGame?: typeof handle }).chromaticTideGame = handle
+          ;(window as Window & {
+            chromaticTideGame?: typeof handle
+          }).chromaticTideGame = handle
         }
       })
-      .catch(error => console.error('Chromatic Tide failed to initialize', error))
+      .catch(error =>
+        console.error('Chromatic Tide failed to initialize', error)
+      )
   })
 </script>
 ```
 
-- [ ] **3.6 Extend the page-markup contract instead of creating a new structural test**
+- [ ] **3.6 Extend both parts of the hardcoded page-markup contract**
 
-Update `src/pages/game-board-markup.test.ts` in the same pattern as recent game routes. Pin at least:
+First append the route to the existing top-level `games` array in `src/pages/game-board-markup.test.ts`:
 
-- root bootstrap script occurs after `</GamePage>`;
-- `gameId="chromatic-tide"` and `initialTime={90}`;
-- board wrapper IDs;
-- five `data-tide-color` controls;
-- `showPause={false}` / `showEnd={false}`;
-- new route participates in any hardcoded GamePage wrapper sweep already in this file.
+```ts
+const games = [
+    // existing entries...
+    'asteroid-drift',
+    'chromatic-tide',
+]
+```
+
+This makes the generic `Game pages use GamePage wrapper` loop load `src/pages/chromatic-tide/index.astro`. Do not only add a dedicated describe block.
+
+Then add a dedicated Chromatic Tide markup block that pins:
+
+```ts
+expect(chromaticTideMarkup).toContain('gameId="chromatic-tide"')
+expect(chromaticTideMarkup).toContain('initialTime={90}')
+expect(chromaticTideMarkup).toContain('showPause={false}')
+expect(chromaticTideMarkup).toContain('showEnd={false}')
+expect(chromaticTideMarkup).toContain('id="chromatic-tide-board"')
+expect(chromaticTideMarkup).toContain('id="chromatic-tide-colors"')
+expect(chromaticTideMarkup.match(/data-tide-color=/g)).toHaveLength(5)
+expect(chromaticTideMarkup).toMatch(
+    /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initChromaticTideGameFramework/
+)
+```
 
 Run:
 
@@ -799,7 +1030,7 @@ bun run test:run -- \
 
 Expected: PASS.
 
-- [ ] **3.7 Manual tuning checkpoint before freezing achievement thresholds**
+- [ ] **3.7 Manual tuning/layout checkpoint before freezing achievement thresholds**
 
 Run:
 
@@ -807,15 +1038,18 @@ Run:
 bun run dev
 ```
 
-Play at least five boards with mouse and one narrow/mobile viewport. Record only development observations, not a new telemetry system. Check:
+Play at least five boards with mouse and one narrow/mobile viewport. Record development observations only; do not add telemetry.
 
-- 8×8 cells and five buttons fit without horizontal scrolling;
+Check:
+
+- 8×8 cells fit without horizontal scrolling;
+- the **board plus five named controls** fits without horizontal overflow at phone width;
 - a typical clear is comfortably under 90 seconds but still rewards thinking;
-- `efficiencyReferenceMoves: 28`, `24`-move achievement, `18`-move achievement, `30s`/`20s` time thresholds are plausible rather than accidental;
-- completion score remains roughly in the intended low-thousands range and partial score feels subordinate to a clear;
+- `efficiencyReferenceMoves: 28`, `24`-move achievement, `18`-move achievement, `30s`/`20s` time thresholds are plausible;
+- completion score stays in the intended low-thousands range and partial score remains subordinate to a clear;
 - numbered cells and named controls remain understandable without relying only on hue.
 
-If tuning is necessary, change only the numeric constants/achievement thresholds, their direct tests, and the frozen rules/achievement section of the spec. Do not add difficulty presets or a solver in response to tuning.
+If tuning is necessary, change only numeric rules/achievement thresholds, direct tests, and the frozen rules/achievement section of the spec. Do not add difficulty presets or a solver.
 
 - [ ] **3.8 Commit the playable route slice**
 
@@ -831,7 +1065,7 @@ git commit -m "feat(chromatic-tide): add playable DOM route"
 
 ---
 
-## Task 4: Catalog, canonical game data, organisms, and achievements
+## Task 4: Catalog, canonical game data, Mid-water identity, and achievements
 
 **Files**
 - Modify: `src/lib/games.ts`
@@ -840,16 +1074,17 @@ git commit -m "feat(chromatic-tide): add playable DOM route"
 - Modify: `src/lib/organisms.test.ts`
 - Modify: `src/lib/achievements.ts`
 - Modify: `src/lib/achievements.test.ts`
-- Modify: `CLAUDE.md` only where the current document enumerates game modules/debug handles/counts
+- Modify: `CLAUDE.md` only where current factual lists require it
 
 **Interfaces**
 - Makes Chromatic Tide discoverable as the second registered strategy game.
 - Makes `ChromaticTideGameData` part of canonical achievement/game-data typing.
-- Adds four achievements using the Task 3 tuned thresholds.
+- Registers Mid-water / frond / teal and updates the exact depth count to 9 / 10 / 4.
+- Adds four achievements using Task 3's tuned thresholds.
 
 - [ ] **4.1 Write RED catalog/organism expectations**
 
-Extend existing tests to assert the full row:
+Extend existing tests:
 
 ```ts
 expect(getGameById(GameID.CHROMATIC_TIDE)).toMatchObject({
@@ -859,13 +1094,29 @@ expect(getGameById(GameID.CHROMATIC_TIDE)).toMatchObject({
     difficulty: 'medium',
     isActive: true,
     organism: { shape: 'frond', color: 'teal' },
-    depth: 'abyssal',
+    depth: 'mid',
 })
 ```
 
-Update the organism depth assertion from 9 / 9 / 4 to **9 / 9 / 5**. Do not weaken the existing adjacent shape+color loop.
+Update `src/lib/organisms.test.ts` from:
 
-- [ ] **4.2 Activate the final catalog row**
+```ts
+expect(getGamesByDepth('shallow')).toHaveLength(9)
+expect(getGamesByDepth('mid')).toHaveLength(9)
+expect(getGamesByDepth('abyssal')).toHaveLength(4)
+```
+
+to:
+
+```ts
+expect(getGamesByDepth('shallow')).toHaveLength(9)
+expect(getGamesByDepth('mid')).toHaveLength(10)
+expect(getGamesByDepth('abyssal')).toHaveLength(4)
+```
+
+Do not weaken the existing adjacent shape+color loop. The depth-ordered Mid-water tail becomes Gravity Flip (`spiral`/`magenta`) → Chromatic Tide (`frond`/`teal`), which remains distinct.
+
+- [ ] **4.2 Activate the final catalog row as Mid-water**
 
 Append to `GAMES`:
 
@@ -882,11 +1133,11 @@ Append to `GAMES`:
     tags: ['strategy', 'colors', 'territory', 'single-player', 'flood'],
     isActive: true,
     organism: { shape: 'frond', color: 'teal' },
-    depth: 'abyssal',
+    depth: 'mid',
 },
 ```
 
-Do not reorder old games solely to balance depth or category counts.
+Do not select Abyssal merely to balance counts. Mid-water's existing product note (“Focused sessions. A few minutes in.”) fits this 90-second strategy game; Abyssal is for “Long and absorbing” sessions.
 
 - [ ] **4.3 Add canonical game-data alias/union member**
 
@@ -897,11 +1148,11 @@ export type ChromaticTideGameData =
     import('../chromatic-tide/types').ChromaticTideGameData
 ```
 
-and add it to `GameData`. Keep the canonical interface only in `chromatic-tide/types.ts`.
+Add it to `GameData`. Keep the canonical interface only in `chromatic-tide/types.ts`.
 
 - [ ] **4.4 Write RED achievement checks**
 
-Add tests that retrieve the four IDs and call their `in_game` checks with data immediately below/at each boundary. Required IDs:
+Add tests that retrieve the four IDs and call their `in_game` checks with data immediately below/at each boundary:
 
 ```text
 chromatic_tide_first_tide
@@ -973,11 +1224,11 @@ Import/use canonical `ChromaticTideGameData` and append:
 },
 ```
 
-If Task 3 legitimately tuned the thresholds, use the tuned values consistently here/tests/spec rather than keeping two versions.
+If Task 3 legitimately tuned thresholds, use the tuned values consistently here/tests/spec rather than keeping two versions.
 
 - [ ] **4.6 Update repository guidance only where factual lists changed**
 
-Inspect `CLAUDE.md`; update only existing game/module/debug-handle/count lists that would otherwise become stale. Do not add a second design narrative—the spec and this plan already own HPA-633 decisions.
+Inspect `CLAUDE.md`; update only existing game/module/debug-handle/count lists that would otherwise become stale. Do not add a second design narrative.
 
 - [ ] **4.7 Run integration unit/type gates**
 
@@ -1004,61 +1255,33 @@ git commit -m "feat(chromatic-tide): integrate catalog and achievements"
 
 ---
 
-## Task 5: Real browser proof and final repository gates
+## Task 5: Real browser proof, homepage navigation, and final repository gates
 
 **Files**
 - Modify: `e2e/games/play-coverage.spec.ts`
+- Do **not** modify: `e2e/games/all-games-navigation.spec.ts`
 - Modify prior HPA-633 files only for defects found by browser/repository verification; do not broaden scope.
 
 **Interfaces**
 - Proves the real Astro route, controls, BaseGame end/replay lifecycle, and mobile layout.
-- No new generic Playwright helper unless an existing helper already naturally supports this route.
+- Reuses the Task 1 exported greedy selector whose strict-progress property is already unit-proven.
+- Proves the actual homepage specimen navigation through the existing `GAMES`-derived navigation spec.
 
-- [ ] **5.1 Add pure greedy test helper in the existing play-coverage spec**
+- [ ] **5.1 Import the unit-proven greedy selector; do not redefine it in Playwright**
 
-Import the production palette/flood/count contracts:
+In `e2e/games/play-coverage.spec.ts`:
 
 ```ts
 import {
     CHROMATIC_TIDE_PALETTE,
-    type ChromaticTideColor,
     type ChromaticTideState,
 } from '../../src/lib/games/chromatic-tide/types'
-import {
-    countCapturedCells,
-    floodChromaticTideBoard,
-} from '../../src/lib/games/chromatic-tide/board'
+import { selectGreedyChromaticTideColor } from '../../src/lib/games/chromatic-tide/board'
 ```
 
-Add a test-only selector:
-
-```ts
-function bestChromaticTideColor(
-    state: Pick<ChromaticTideState, 'board' | 'territoryColor'>
-): ChromaticTideColor {
-    const candidates = CHROMATIC_TIDE_PALETTE.filter(
-        color => color !== state.territoryColor
-    )
-    let best = candidates[0]
-    let bestCaptured = -1
-    for (const color of candidates) {
-        const captured = countCapturedCells(
-            floodChromaticTideBoard(state.board, color)
-        )
-        if (captured > bestCaptured) {
-            best = color
-            bestCaptured = captured
-        }
-    }
-    return best
-}
-```
-
-This is test selection logic over production pure rules, not a production solver.
+No second `bestChromaticTideColor()` implementation belongs in E2E. The browser spec is only a caller of the already-unit-proven pure rule.
 
 - [ ] **5.2 Add desktop clear + replay + keyboard coverage**
-
-Test shape:
 
 ```ts
 test('plays Chromatic Tide through a real clear and replay', async ({ page }) => {
@@ -1066,17 +1289,35 @@ test('plays Chromatic Tide through a real clear and replay', async ({ page }) =>
     await startGameWhenReady(page)
     await expectVisibleGameSurface(page, '#chromatic-tide-board')
 
-    for (let move = 0; move < 64; move++) {
+    const initialCaptured = await page.evaluate(() => {
+        const handle = (window as Window & {
+            chromaticTideGame?: { getState: () => ChromaticTideState }
+        }).chromaticTideGame
+        if (!handle) {
+            throw new Error('Chromatic Tide debug handle not ready')
+        }
+        return handle.getState().capturedCells
+    })
+    const maxMoves = 64 - initialCaptured
+
+    for (let move = 0; move < maxMoves; move++) {
         const state = await page.evaluate(() => {
             const handle = (window as Window & {
                 chromaticTideGame?: { getState: () => ChromaticTideState }
             }).chromaticTideGame
-            if (!handle) throw new Error('Chromatic Tide debug handle not ready')
+            if (!handle) {
+                throw new Error('Chromatic Tide debug handle not ready')
+            }
             return handle.getState()
         })
-        if (state.outcome === 'cleared') break
+        if (state.outcome === 'cleared') {
+            break
+        }
 
-        const color = bestChromaticTideColor(state)
+        const color = selectGreedyChromaticTideColor(
+            state.board,
+            state.territoryColor
+        )
         await page.locator(`[data-tide-color="${color}"]`).click()
     }
 
@@ -1099,43 +1340,61 @@ test('plays Chromatic Tide through a real clear and replay', async ({ page }) =>
 })
 ```
 
-The greedy rule captures at least one boundary cell per accepted move while incomplete, so 64 is a hard sanity bound. If the loop reaches the bound without clearing, treat it as a model/renderer/debug-state defect; do not raise the bound or add a production solver.
+Do not raise the bound if it fails; the Task 1 strict-progress test says a valid model must clear within the initially uncaptured-cell count.
 
 - [ ] **5.3 Add focused mobile control/layout proof**
 
-Use the suite's established mobile pattern (or `page.setViewportSize` if that is the local convention). At roughly phone width:
+Use the suite's established phone-sized viewport. At roughly 375px width:
 
 1. visit/start `/chromatic-tide`;
-2. assert board width fits viewport and is visibly at least 250px;
+2. assert the board is visible and at least 250px wide;
 3. read current color from debug state;
 4. tap one different real color button;
 5. assert Moves becomes `1` and the newly current button is disabled/`aria-pressed="true"`;
-6. assert no horizontal overflow from the board/control cluster.
+6. compute the board/control cluster bounding box and document `scrollWidth <= clientWidth` / no page horizontal overflow.
 
-Do not duplicate the full clear on mobile.
+Example overflow assertion:
 
-- [ ] **5.4 Run targeted browser coverage**
+```ts
+const overflow = await page.evaluate(() => ({
+    documentWidth: document.documentElement.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth,
+    controlsWidth:
+        document.getElementById('chromatic-tide-colors')?.scrollWidth ?? 0,
+    controlsClientWidth:
+        document.getElementById('chromatic-tide-colors')?.clientWidth ?? 0,
+}))
+expect(overflow.documentWidth).toBeLessThanOrEqual(overflow.viewportWidth)
+expect(overflow.controlsWidth).toBeLessThanOrEqual(
+    overflow.controlsClientWidth
+)
+```
+
+Do not hide overflow merely to satisfy the assertion; fix the responsive control layout if this fails.
+
+- [ ] **5.4 Run targeted Chromatic Tide/browser coverage**
 
 ```bash
+bun run test:run -- src/lib/games/chromatic-tide/board.test.ts
 bun run test:e2e -- e2e/games/play-coverage.spec.ts
 ```
 
-Expected: Chromatic Tide desktop and mobile paths pass with existing games unchanged.
+Expected: the fast unit progress proof and real desktop/mobile route pass.
 
-- [ ] **5.5 Run the full required repository gates**
+- [ ] **5.5 Run all final repository and catalog-navigation gates**
+
+Run the complete required set:
 
 ```bash
 bun run test:run
 bun run typecheck
 bun run lint
 bun run build
-```
-
-Then rerun the targeted browser spec once after any fix:
-
-```bash
 bun run test:e2e -- e2e/games/play-coverage.spec.ts
+bun run test:e2e -- e2e/games/all-games-navigation.spec.ts
 ```
+
+The last command is load-bearing after Task 4: `all-games-navigation.spec.ts` derives `NAV_TARGETS` from active `GAMES`, visits the actual homepage specimen card, and will automatically include Chromatic Tide. Do not edit the spec.
 
 Fix only HPA-633 regressions. Do not opportunistically refactor shared game infrastructure while closing the ticket.
 
@@ -1147,31 +1406,63 @@ At desktop and narrow width, verify:
 - current color is visibly selected/disabled;
 - keys `1`–`5` work and do not fire while typing in editable UI;
 - board numbers/color names keep the game understandable without color alone;
+- five named color controls do not overflow the phone viewport;
 - score never decreases during a live run;
 - timeout retains partial progress and does not show a successful clear;
-- route appears in the catalog as Strategy / Abyssal and loads from its generated URL.
+- route appears in the catalog as Strategy / Mid-water and loads from its generated URL/homepage specimen.
 
 - [ ] **5.7 Commit browser proof/final fixes**
 
 ```bash
 git add e2e/games/play-coverage.spec.ts
-git add src/lib/games/chromatic-tide src/pages/chromatic-tide src/lib/games.ts src/lib/games.test.ts src/lib/games/shared/types.ts src/lib/organisms.test.ts src/lib/achievements.ts src/lib/achievements.test.ts src/pages/game-board-markup.test.ts CLAUDE.md
+git add src/lib/games/chromatic-tide src/pages/chromatic-tide \
+  src/lib/games.ts src/lib/games.test.ts src/lib/games/shared/types.ts \
+  src/lib/organisms.test.ts src/lib/achievements.ts \
+  src/lib/achievements.test.ts src/pages/game-board-markup.test.ts CLAUDE.md
 git commit -m "test(chromatic-tide): prove browser gameplay"
 ```
+
+Do not add `e2e/games/all-games-navigation.spec.ts` because HPA-633 only runs it; it does not change it.
+
+---
+
+## Risks and Mitigations
+
+### Greedy flood invariant regresses
+
+**Failure mode:** The browser clear loop stalls or burns a slow E2E run because capture/recolor semantics stopped guaranteeing progress.
+
+**Plan:** Task 1 owns explicit deterministic unit fixtures. Every incomplete fixture must have a non-current choice that increases capture; `selectGreedyChromaticTideColor()` must strictly increase capture and repeated choices must clear within the initially uncaptured-cell count. Task 5 imports that same selector.
+
+### Catalog row does not navigate from the homepage
+
+**Failure mode:** Direct `/chromatic-tide` Playwright passes, but the actual specimen card or generated URL path is broken after registration.
+
+**Plan:** Task 5 runs `e2e/games/all-games-navigation.spec.ts` unchanged. Because its targets derive from active `GAMES`, the new row becomes part of the existing homepage integration automatically.
+
+### Five named controls overflow a phone
+
+**Failure mode:** `1 Teal`-style labels force horizontal overflow even though the 8×8 board itself is responsive.
+
+**Plan:** Task 3 uses a two-column phone grid and five columns on wider screens. Task 3's manual checkpoint and Task 5's browser assertion both fail on actual horizontal overflow.
 
 ---
 
 ## Self-review checklist
 
-Before marking HPA-633 ready for implementation/review, verify this plan against the spec:
+Before implementation/review completion, verify:
 
-- [ ] Every product contract has an owning task: board/rules/scoring (Task 1), model/lifecycle (Task 2), controls/render/page (Task 3), catalog/achievements (Task 4), browser proof (Task 5).
-- [ ] There is no move-limit failure, solver, seeded service, difficulty framework, rAF, Pixi, API/DB/auth work, or shared flood/control framework hiding in a task.
-- [ ] `chooseColor()` is the single action API used by clicks and keys.
-- [ ] Board helpers are pure/non-mutating and generation is fixed-work with exactly 64 RNG samples for v1.
+- [ ] Every product contract has an owning task: board/rules/scoring/greedy proof (Task 1), model/lifecycle/save payload (Task 2), controls/render/page/wrapper sweep (Task 3), catalog/achievements (Task 4), browser/homepage proof (Task 5).
+- [ ] There is no move-limit failure, optimal solver, seeded service, difficulty framework, rAF, Pixi, API/DB/auth work, or shared flood/control framework hiding in a task.
+- [ ] `chooseColor()` is the single player-action API used by clicks and keys.
+- [ ] Board helpers are pure/non-mutating; local `cloneBoard()` copies cell objects; generation is fixed-work with exactly 64 RNG samples for v1.
+- [ ] Greedy strict progress is unit-proven over multiple fixtures before Playwright uses the selector.
 - [ ] Score target is monotonic: incomplete time does not affect score; completion-only bonuses are applied once before end.
+- [ ] `getGameStats()` is public reporting and `protected override getGameData()` is the BaseGame achievement/save hook.
 - [ ] `ChromaticTideGameData` names exactly match achievement checks: `cleared`, `movesUsed`, `capturedCells`, `initialCapturedCells`, `secondsRemaining`.
-- [ ] Catalog identity/depth count matches the spec: `chromatic_tide`, `🌈`, frond/teal, abyssal, 9 / 9 / 5.
-- [ ] Page controls expose five named/numbered choices and board cells expose non-color information.
-- [ ] Browser clear uses real buttons and production pure board rules, not a hidden production test/solver API.
+- [ ] `game-board-markup.test.ts` explicitly appends `'chromatic-tide'` to the hardcoded `games` array and has dedicated markup assertions.
+- [ ] Page controls expose five named/numbered choices, board cells expose non-color information, and local palette CSS reuses existing organism hexes without new tokens.
+- [ ] Catalog identity matches the spec: `chromatic_tide`, `🌈`, Strategy, Mid-water, frond/teal, depth counts 9 / 10 / 4.
+- [ ] Browser clear uses real buttons plus the production pure greedy selector, not a hidden production test/optimal solver API.
+- [ ] Final gates run both `play-coverage.spec.ts` and unchanged `all-games-navigation.spec.ts`.
 - [ ] Implementation remains one HPA-633 PR.
