@@ -26,6 +26,31 @@ function cloneBoard(board: ChromaticTideBoard): ChromaticTideBoard {
     return board.map(row => row.map(cell => ({ ...cell })))
 }
 
+function floodOrthogonalTerritory(
+    board: ChromaticTideBoard,
+    queue: Array<{ row: number; col: number }>,
+    territoryColor: ChromaticTideColor
+): void {
+    for (let queueIndex = 0; queueIndex < queue.length; queueIndex++) {
+        const { row, col } = queue[queueIndex]
+        for (const [rowDelta, colDelta] of ORTHOGONAL_DELTAS) {
+            const nextRow = row + rowDelta
+            const nextCol = col + colDelta
+            if (!inBounds(board, nextRow, nextCol)) {
+                continue
+            }
+
+            const neighbor = board[nextRow][nextCol]
+            if (neighbor.captured || neighbor.color !== territoryColor) {
+                continue
+            }
+
+            neighbor.captured = true
+            queue.push({ row: nextRow, col: nextCol })
+        }
+    }
+}
+
 export function createChromaticTideBoard(
     rng: () => number
 ): ChromaticTideBoard {
@@ -64,25 +89,7 @@ export function markInitialTerritory(
     const territoryColor = result[0][0].color
     const queue: Array<{ row: number; col: number }> = [{ row: 0, col: 0 }]
     result[0][0].captured = true
-
-    for (let queueIndex = 0; queueIndex < queue.length; queueIndex++) {
-        const { row, col } = queue[queueIndex]
-        for (const [rowDelta, colDelta] of ORTHOGONAL_DELTAS) {
-            const nextRow = row + rowDelta
-            const nextCol = col + colDelta
-            if (!inBounds(result, nextRow, nextCol)) {
-                continue
-            }
-
-            const neighbor = result[nextRow][nextCol]
-            if (neighbor.captured || neighbor.color !== territoryColor) {
-                continue
-            }
-
-            neighbor.captured = true
-            queue.push({ row: nextRow, col: nextCol })
-        }
-    }
+    floodOrthogonalTerritory(result, queue, territoryColor)
 
     return result
 }
@@ -105,24 +112,7 @@ export function floodChromaticTideBoard(
         }
     }
 
-    for (let queueIndex = 0; queueIndex < queue.length; queueIndex++) {
-        const { row, col } = queue[queueIndex]
-        for (const [rowDelta, colDelta] of ORTHOGONAL_DELTAS) {
-            const nextRow = row + rowDelta
-            const nextCol = col + colDelta
-            if (!inBounds(result, nextRow, nextCol)) {
-                continue
-            }
-
-            const neighbor = result[nextRow][nextCol]
-            if (neighbor.captured || neighbor.color !== targetColor) {
-                continue
-            }
-
-            neighbor.captured = true
-            queue.push({ row: nextRow, col: nextCol })
-        }
-    }
+    floodOrthogonalTerritory(result, queue, targetColor)
 
     return result
 }
