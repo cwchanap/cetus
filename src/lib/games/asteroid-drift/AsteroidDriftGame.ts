@@ -96,7 +96,20 @@ export class AsteroidDriftGame extends BaseGame<
 
         let remaining = Math.min(deltaTime, this.config.maxUpdateDelta)
         while (remaining > 0 && this.state.isActive) {
-            const step = Math.min(remaining, this.config.maxPhysicsStep)
+            // The simulation clock is authoritative for survival: once it
+            // reaches config.duration, no further substeps may run, or a
+            // collision in a post-duration frame could flip a survived run
+            // to collision before handleTimeUp (independent GameTimer
+            // clock) classifies the outcome.
+            const simBudget = this.config.duration - this.elapsedSimSeconds
+            if (simBudget <= 0) {
+                break
+            }
+            const step = Math.min(
+                remaining,
+                this.config.maxPhysicsStep,
+                simBudget
+            )
             this.stepPhysics(step)
             remaining -= step
         }
