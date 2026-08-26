@@ -1,5 +1,10 @@
 import { test, expect, type Page } from '@playwright/test'
 import { ASTEROID_DRIFT_RULES } from '../../src/lib/games/asteroid-drift/types'
+import { selectGreedyChromaticTideColor } from '../../src/lib/games/chromatic-tide/test-fixtures'
+import {
+    CHROMATIC_TIDE_PALETTE,
+    type ChromaticTideState,
+} from '../../src/lib/games/chromatic-tide/types'
 import { ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS } from '../../src/lib/games/ice-slide/test-fixtures'
 import {
     ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS,
@@ -2247,5 +2252,143 @@ test.describe('Asteroid Drift (mobile)', () => {
                 timeout: 5000,
             })
             .toEqual([])
+    })
+})
+
+async function readChromaticTide(page: Page): Promise<ChromaticTideState> {
+    return page.evaluate(() => {
+        const handle = (
+            window as Window & {
+                chromaticTideGame?: {
+                    getState: () => ChromaticTideState
+                }
+            }
+        ).chromaticTideGame
+        if (!handle) {
+            throw new Error('Chromatic Tide debug handle not ready')
+        }
+        return handle.getState()
+    })
+}
+
+test.describe('Chromatic Tide', () => {
+    test('greedy clicks clear the board, Play Again resets, and a number key moves', async ({
+        page,
+    }) => {
+        await page.route('**/api/scores', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ success: true, newAchievements: [] }),
+            })
+        })
+        await page.goto('/chromatic-tide')
+        await expectVisibleGameSurface(page, '#chromatic-tide-board')
+        await startGameWhenReady(page)
+
+        const started = await readChromaticTide(page)
+        const initialCapturedCells = started.initialCapturedCells
+        const maxMoves = 144 - initialCapturedCells
+
+        for (let move = 0; move < maxMoves; move += 1) {
+            const state = await readChromaticTide(page)
+            if (state.outcome === 'cleared') {
+                break
+            }
+            const color = selectGreedyChromaticTideColor(
+                state.board,
+                state.territoryColor
+            )
+            await page
+                .locator(`[data-tide-color="${color}"]`)
+                .click({ position: { x: 8, y: 20 } })
+        }
+
+        await expect
+            .poll(async () => (await readChromaticTide(page)).outcome)
+            .toBe('cleared')
+        await expect(page.locator('#game-over-overlay')).toBeVisible()
+        await expect(page.locator('#final-outcome')).toHaveText('Cleared')
+        await expect(page.locator('#final-captured')).toHaveText('144 / 144')
+        await expect(page.locator('#captured')).toHaveText('144 / 144')
+
+        await page.locator('#play-again-btn').click()
+        await expect(page.locator('#game-over-overlay')).toHaveClass(/hidden/)
+        await expect(page.locator('#start-btn')).toBeVisible()
+        const replay = await readChromaticTide(page)
+        expect(replay.isActive).toBe(false)
+        expect(replay.outcome).toBe('playing')
+        expect(replay.movesUsed).toBe(0)
+        expect(replay.capturedCells).toBe(replay.initialCapturedCells)
+        expect(replay.capturedCells).toBeLessThan(144)
+        await expect(page.locator('#captured')).toHaveText(
+            `${replay.capturedCells} / 144`
+        )
+
+        await startGameWhenReady(page)
+        const restarted = await readChromaticTide(page)
+        const keyboardColorIndex = CHROMATIC_TIDE_PALETTE.findIndex(
+            color => color !== restarted.territoryColor
+        )
+        expect(keyboardColorIndex).toBeGreaterThanOrEqual(0)
+        await page.keyboard.press(String(keyboardColorIndex + 1))
+        await expect(page.locator('#moves')).toHaveText('1')
+    })
+})
+
+test.describe('Chromatic Tide (mobile)', () => {
+    test.use({
+        viewport: { width: 375, height: 812 },
+        isMobile: true,
+        hasTouch: true,
+    })
+
+    test('supports touch, live status, and a non-overflowing phone layout', async ({
+        page,
+    }) => {
+        await page.goto('/chromatic-tide')
+        await startGameWhenReady(page)
+        await expectVisibleGameSurface(page, '#chromatic-tide-board')
+
+        const status = page.locator('#chromatic-tide-status')
+        await expect(status).toHaveCount(1)
+        await expect(status).toHaveAttribute('aria-live', 'polite')
+
+        const started = await readChromaticTide(page)
+        const currentButton = page.locator(
+            `[data-tide-color="${started.territoryColor}"]`
+        )
+        await expect(currentButton).toBeEnabled()
+        await expect(currentButton).toHaveAttribute('aria-pressed', 'true')
+
+        const nextColor = CHROMATIC_TIDE_PALETTE.find(
+            color => color !== started.territoryColor
+        )
+        expect(nextColor).toBeDefined()
+        const nextButton = page.locator(`[data-tide-color="${nextColor}"]`)
+        await nextButton.tap()
+
+        await expect(page.locator('#moves')).toHaveText('1')
+        await expect(nextButton).toBeEnabled()
+        await expect(nextButton).toHaveAttribute('aria-pressed', 'true')
+        await expect(status).toContainText(`Territory ${nextColor}`)
+        await expect(status).toContainText(/, \d+ of 144 captured, 1 move\./)
+
+        const overflow = await page.evaluate(() => ({
+            documentWidth: document.documentElement.scrollWidth,
+            viewportWidth: document.documentElement.clientWidth,
+            controlsWidth:
+                document.getElementById('chromatic-tide-colors')?.scrollWidth ??
+                0,
+            controlsClientWidth:
+                document.getElementById('chromatic-tide-colors')?.clientWidth ??
+                0,
+        }))
+        expect(overflow.documentWidth).toBeLessThanOrEqual(
+            overflow.viewportWidth
+        )
+        expect(overflow.controlsWidth).toBeLessThanOrEqual(
+            overflow.controlsClientWidth
+        )
     })
 })
