@@ -474,6 +474,7 @@ Skeleton:
     <div
       id="chromatic-tide-colors"
       class="grid grid-cols-2 gap-2 sm:grid-cols-5"
+      role="group"
       aria-label="Choose territory color"
     >
       <Button data-tide-color="teal" type="button" aria-pressed="false">1 Teal</Button>
