@@ -170,7 +170,7 @@ export interface ChromaticTideGameData {
 }
 ```
 
-`ChromaticTideConfig extends BaseGameConfig` with the frozen rules and injected `rng: () => number`.
+`ChromaticTideConfig extends BaseGameConfig` with injected `rng: () => number`. Frozen board and scoring constants stay on `CHROMATIC_TIDE_RULES` and are not part of the overridable config surface.
 
 The only gameplay mutation API is:
 
