@@ -20,17 +20,19 @@ function cell(color: ChromaticTideColor, captured: boolean = false) {
 }
 
 describe('Chromatic Tide canonical config', () => {
-    it('provides the frozen rules and framework defaults with overridable RNG', () => {
+    it('provides BaseGame defaults plus rng without copying frozen board or scoring rules', () => {
         const rng = () => 0.5
         const config = createChromaticTideConfig({ rng })
 
         expect(config).toEqual({
-            ...CHROMATIC_TIDE_RULES,
+            duration: CHROMATIC_TIDE_RULES.duration,
             achievementIntegration: true,
             pausable: false,
             resettable: true,
             rng,
         })
+        expect(config).not.toHaveProperty('rows')
+        expect(config).not.toHaveProperty('completionBonus')
     })
 })
 

@@ -59,13 +59,6 @@ export interface ChromaticTideGameData {
 }
 
 export interface ChromaticTideConfig extends BaseGameConfig {
-    rows: number
-    cols: number
-    progressPointsPerCell: number
-    completionBonus: number
-    efficiencyReferenceMoves: number
-    efficiencyPointsPerMove: number
-    timePointsPerSecond: number
     rng: () => number
 }
 
@@ -73,7 +66,7 @@ export function createChromaticTideConfig(
     overrides: Partial<ChromaticTideConfig> = {}
 ): ChromaticTideConfig {
     return {
-        ...CHROMATIC_TIDE_RULES,
+        duration: CHROMATIC_TIDE_RULES.duration,
         achievementIntegration: true,
         pausable: false,
         resettable: true,
