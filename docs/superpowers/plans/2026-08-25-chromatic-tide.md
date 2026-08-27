@@ -819,19 +819,19 @@ The 12×12 board remains presentational/hidden from the accessibility tree; it d
 
 # Self-review checklist
 
-- [ ] V1 is 12×12 / five colors / 90s; no difficulty framework.
-- [ ] Task 1 reproduces deterministic calibration before production constants are treated as frozen.
-- [ ] `efficiencyReferenceMoves = 22`, Rare move threshold `17`, Epic move threshold `15` are tied to calibration rather than guesswork.
+- [x] V1 is 12×12 / five colors / 90s; no difficulty framework.
+- [x] Task 1 reproduces deterministic calibration before production constants are treated as frozen.
+- [x] `efficiencyReferenceMoves = 22`, Rare move threshold `17`, Epic move threshold `15` are tied to calibration rather than guesswork.
 - [x] Rapid Bloom seconds threshold is 45 remaining seconds, frozen from Task 3 human play rather than board simulation.
-- [ ] Production `board.ts` has no greedy/solver API; test driver lives in `test-fixtures.ts`.
-- [ ] Normal generation and degenerate all-one repair both have tests.
-- [ ] Local clone choice explicitly acknowledges `deepCloneGrid()` and rejects JSON round-trip for this hot path.
-- [ ] RNG normalizer explicitly mirrors private Asteroid Drift semantics without a shared refactor.
-- [ ] Current color is enabled + pressed while active; model-level no-op prevents move counting.
-- [ ] Board has no grid/gridcell ARIA roles; status uses repository live-region convention.
-- [ ] Route uses named slots and dedicated test pins `slot="game-board"`.
-- [ ] Markup wrapper sweep explicitly includes `'chromatic-tide'`.
-- [ ] Catalog is Strategy / Mid-water / frond+teal with 9 / 10 / 4 counts.
-- [ ] Final gates run both play coverage and unchanged all-games navigation.
-- [ ] No shared framework/backend/schema/refactor entered scope.
-- [ ] Entire design + implementation remains one HPA-633 PR.
+- [x] Production `board.ts` has no greedy/solver API; test driver lives in `test-fixtures.ts`.
+- [x] Normal generation and degenerate all-one repair both have tests.
+- [x] Local clone choice explicitly acknowledges `deepCloneGrid()` and rejects JSON round-trip for this hot path.
+- [x] RNG normalizer explicitly mirrors private Asteroid Drift semantics without a shared refactor.
+- [x] Current color is enabled + pressed while active; model-level no-op prevents move counting.
+- [x] Board has no grid/gridcell ARIA roles; status uses repository live-region convention.
+- [x] Route uses named slots and dedicated test pins `slot="game-board"`.
+- [x] Markup wrapper sweep explicitly includes `'chromatic-tide'`.
+- [x] Catalog is Strategy / Mid-water / frond+teal with 9 / 10 / 4 counts.
+- [x] Final gates run both play coverage and unchanged all-games navigation.
+- [x] No shared framework/backend/schema/refactor entered scope.
+- [x] Entire design + implementation remains one HPA-633 PR.
