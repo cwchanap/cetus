@@ -15,7 +15,7 @@ import {
 } from './board'
 import { selectGreedyChromaticTideColor } from './test-fixtures'
 
-function cell(color: ChromaticTideColor, captured = false) {
+function cell(color: ChromaticTideColor, captured: boolean = false) {
     return { color, captured }
 }
 
