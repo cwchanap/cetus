@@ -87,8 +87,14 @@ export async function initBubbleShooterGameFramework(
     // Style the canvas only after successful initialization
     const app = renderer.getApp()
     if (app) {
-        app.canvas.style.border = '2px solid rgba(6, 182, 212, 0.5)'
-        app.canvas.style.borderRadius = '8px'
+        app.canvas.style.display = 'block'
+        app.canvas.style.width = '100%'
+        app.canvas.style.height = 'auto'
+        app.canvas.tabIndex = 0
+        app.canvas.setAttribute(
+            'aria-label',
+            'Aim and fire bubbles at matching clusters'
+        )
     }
 
     // Unified helper for the current/next bubble preview canvases.
@@ -317,7 +323,7 @@ function showGameOver(finalScore: number, stats: BubbleShooterStats): void {
 
     if (startBtn) {
         startBtn.style.display = 'inline-flex'
-        startBtn.textContent = 'Start'
+        startBtn.textContent = 'Begin the dive'
     }
     if (endBtn) {
         endBtn.style.display = 'none'
@@ -370,16 +376,11 @@ function setupButtonHandlers(
         syncPauseUI(game)
     }
 
-    const resetHandler = () => {
-        clearPreviews()
-        game.reset()
-        resetButtonVisibility()
-    }
-
     const restartHandler = () => {
         clearPreviews()
         game.reset()
         resetButtonVisibility()
+        game.start()
     }
 
     const resumeHandler = () => {
@@ -390,7 +391,7 @@ function setupButtonHandlers(
     startBtn?.addEventListener('click', startHandler)
     endBtn?.addEventListener('click', endHandler)
     pauseBtn?.addEventListener('click', pauseHandler)
-    resetBtn?.addEventListener('click', resetHandler)
+    resetBtn?.addEventListener('click', restartHandler)
     restartBtn?.addEventListener('click', restartHandler)
     resumeBtn?.addEventListener('click', resumeHandler)
 
@@ -398,7 +399,7 @@ function setupButtonHandlers(
         startBtn?.removeEventListener('click', startHandler)
         endBtn?.removeEventListener('click', endHandler)
         pauseBtn?.removeEventListener('click', pauseHandler)
-        resetBtn?.removeEventListener('click', resetHandler)
+        resetBtn?.removeEventListener('click', restartHandler)
         restartBtn?.removeEventListener('click', restartHandler)
         resumeBtn?.removeEventListener('click', resumeHandler)
     }
@@ -411,14 +412,16 @@ function syncPauseUI(game: BubbleShooterGame): void {
 
     if (state.isPaused) {
         if (pauseBtn) {
-            pauseBtn.textContent = 'Resume'
+            pauseBtn.textContent = '▶'
+            pauseBtn.setAttribute('aria-label', 'Resume')
         }
         if (pauseOverlay) {
             pauseOverlay.classList.remove('hidden')
         }
     } else {
         if (pauseBtn) {
-            pauseBtn.textContent = 'Pause'
+            pauseBtn.textContent = 'Ⅱ'
+            pauseBtn.setAttribute('aria-label', 'Pause')
         }
         if (pauseOverlay) {
             pauseOverlay.classList.add('hidden')
@@ -436,13 +439,14 @@ function resetButtonVisibility(): void {
     const pauseBtn = document.getElementById('pause-btn')
     if (startBtn) {
         startBtn.style.display = 'inline-flex'
-        startBtn.textContent = 'Start'
+        startBtn.textContent = 'Begin the dive'
     }
     if (endBtn) {
         endBtn.style.display = 'none'
     }
     if (pauseBtn) {
-        pauseBtn.textContent = 'Pause'
+        pauseBtn.textContent = 'Ⅱ'
+        pauseBtn.setAttribute('aria-label', 'Pause')
     }
     const overlay = document.getElementById('game-over-overlay')
     if (overlay) {
@@ -475,8 +479,11 @@ function setupCanvasControls(
         }
 
         const rect = canvas.getBoundingClientRect()
-        const pointerX = e.clientX - rect.left
-        const pointerY = e.clientY - rect.top
+        const config = game.getConfig()
+        const pointerX =
+            (e.clientX - rect.left) * (config.gameWidth / rect.width)
+        const pointerY =
+            (e.clientY - rect.top) * (config.gameHeight / rect.height)
 
         const aimFromY = state.currentBubble
             ? state.currentBubble.y
@@ -512,6 +519,34 @@ function setupCanvasControls(
 
 function setupKeyboardControls(game: BubbleShooterGame): () => void {
     const keydownHandler = (e: KeyboardEvent) => {
+        if (
+            e.target instanceof HTMLElement &&
+            e.target.closest('input, textarea, select, [contenteditable=true]')
+        ) {
+            return
+        }
+        const pausePanel = document.getElementById('pause-overlay')
+        if (
+            document.querySelector('dialog[open]') &&
+            (pausePanel?.classList.contains('hidden') || pausePanel?.inert)
+        ) {
+            return
+        }
+        const state = game.getState()
+        if (state.isActive && !state.isPaused && !state.isGameOver) {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault()
+                game.setAimAngle(
+                    state.aimAngle + (e.key === 'ArrowLeft' ? -0.06 : 0.06)
+                )
+            } else if (
+                e.code === 'Space' &&
+                !(e.target instanceof HTMLButtonElement)
+            ) {
+                e.preventDefault()
+                game.shoot()
+            }
+        }
         if (e.key === 'p' || e.key === 'P') {
             const state = game.getState()
             if (!state.isActive || state.isGameOver) {

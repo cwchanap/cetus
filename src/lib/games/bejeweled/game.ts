@@ -119,7 +119,7 @@ export class BejeweledGame extends BaseGame<
     }
 
     cleanup(): void {
-        // Nothing special to cleanup in game logic
+        this.state.isActive = false
     }
 
     // Renderer bridge
@@ -175,6 +175,10 @@ export class BejeweledGame extends BaseGame<
             return
         }
 
+        // A reset replaces this state object. Discard pending animation work
+        // after a restart, timeout or navigation instead of scoring a stale run.
+        const runState = this.state
+        const current = () => this.state === runState && this.state.isActive
         const SWAP_MS = 500
         const CLEAR_MS = 1000
 
@@ -187,10 +191,16 @@ export class BejeweledGame extends BaseGame<
         this.state.isAnimating = true
         this.emitStateChange()
         await this.animator?.animateSwap(a, b, this.getState(), SWAP_MS)
+        if (!current()) {
+            return
+        }
 
         if (wouldMatches.length === 0) {
             // Invalid move: animate back and restore selection to the second cell
             await this.animator?.animateSwapBack(a, b, this.getState(), SWAP_MS)
+            if (!current()) {
+                return
+            }
             this.state.isAnimating = false
             this.state.selected = b
             this.emitStateChange()
@@ -225,11 +235,15 @@ export class BejeweledGame extends BaseGame<
 
             // Animate annihilation effect for all matched cells
             const allCells = matches.flatMap(m => m.positions)
+            this.emitStateChange()
             await this.animator?.animateClear(
                 allCells,
                 this.getState(),
                 CLEAR_MS
             )
+            if (!current()) {
+                return
+            }
 
             const { removed, largest } = removeMatches(grid, matches)
             this.largestMatch = Math.max(this.largestMatch, largest)

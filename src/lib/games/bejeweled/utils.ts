@@ -95,6 +95,43 @@ export const findMatches = sharedFindMatches
 export const removeMatches = sharedRemoveMatches
 export const dropJewels = applyGravity
 
+export function findLegalSwap(
+    grid: (JewelType | null)[][],
+    minMatch = 3
+): [Position, Position] | null {
+    const copy = cloneGrid(grid)
+    for (let row = 0; row < copy.length; row++) {
+        for (let col = 0; col < copy[row].length; col++) {
+            const a = { row, col }
+            for (const b of [
+                { row, col: col + 1 },
+                { row: row + 1, col },
+            ]) {
+                if (
+                    !inBounds(copy.length, copy[row].length, b) ||
+                    !copy[row][col] ||
+                    !copy[b.row][b.col]
+                ) {
+                    continue
+                }
+                swap(copy, a, b)
+                const legal = findMatches(copy, minMatch).some(match =>
+                    match.positions.some(
+                        p =>
+                            (p.row === a.row && p.col === a.col) ||
+                            (p.row === b.row && p.col === b.col)
+                    )
+                )
+                swap(copy, a, b)
+                if (legal) {
+                    return [a, b]
+                }
+            }
+        }
+    }
+    return null
+}
+
 export function refillGrid(
     grid: (JewelType | null)[][],
     jewelTypes: JewelType[] = JEWEL_TYPES

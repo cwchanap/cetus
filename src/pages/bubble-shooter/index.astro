@@ -1,153 +1,1180 @@
 ---
-import GamePage from '@/components/games/GamePage.astro'
-import Card from '@/components/ui/Card.astro'
-import Badge from '@/components/ui/Badge.astro'
-import Button from '@/components/ui/Button.astro'
+import AppLayout from '@/layouts/AppLayout.astro'
+import AchievementAward from '@/components/AchievementAward.astro'
+import ChallengeComplete from '@/components/ChallengeComplete.astro'
 import { DEFAULT_BUBBLE_SHOOTER_CONFIG } from '@/lib/games/bubble-shooter/BubbleShooterGame'
-const rowAddInterval = DEFAULT_BUBBLE_SHOOTER_CONFIG.rowAddInterval
+const { rowAddInterval, shooterY, bubbleRadius, gameHeight } =
+  DEFAULT_BUBBLE_SHOOTER_CONFIG
+const limitPercent = ((shooterY - bubbleRadius * 5) / gameHeight) * 100
+const user = Astro.locals.user
 ---
 
-<GamePage
-  gameId="bubble-shooter"
-  title="Bubble Shooter"
-  description="Match 3 or more bubbles of the same color to clear them"
-  icon="🫧"
-  overlayButtonId="restart-btn"
-  showTime={false}
+<AppLayout
+  title="Bubble Shooter — Cetus"
+  description="A drifting colony of coloured orbs. Match three, bank off the glass, and keep the colony above the collection limit."
+  includeFooter={false}
+  data-field-plate
 >
-  <!-- Board mount + pause overlay -->
-  <div slot="game-board">
-    <div class="relative">
-      <div
-        id="game-container"
-        class="border-2 border-cetus-hairline bg-black/50 rounded-lg"
-        style="width: 600px; height: 800px;"
+  <header slot="header" class="plate-header plate-width">
+    <a class="wordmark" href="/" aria-label="Cetus home"
+      ><span class="brand-orb" aria-hidden="true"></span>Cetus</a
+    >
+    <nav aria-label="Primary">
+      <a href="/#games" class="micro">← Catalogue</a>
+      <a href={user ? '/profile' : '/login'} class="account micro"
+        ><span aria-hidden="true"
+          >{user ? user.name.slice(0, 2).toUpperCase() : '↗'}</span
+        >{user ? 'Your log' : 'Sign in'}</a
       >
-      </div>
+    </nav>
+  </header>
 
-      <!-- Pause Overlay -->
-      <div
-        id="pause-overlay"
-        class="absolute inset-0 bg-black/80 rounded-lg flex items-center justify-center hidden"
-      >
-        <div class="text-center">
-          <h3
-            class="text-3xl font-mono font-bold text-cetus-accent mb-4 cetus-wordmark"
-            style="font-family: var(--cetus-display-font);"
-          >
-            PAUSED
-          </h3>
-          <Button id="resume-btn" variant="primary">Resume</Button>
-        </div>
+  <div class="plate-width field-plate" data-signed-in={Boolean(user)}>
+    <div class="title-row">
+      <div>
+        <p class="micro accent eyebrow">Pl. II — Mid-water · 200–1 000 m</p><h1>
+          Bubble Shooter
+        </h1>
+      </div>
+      <div class="tools">
+        <button
+          type="button"
+          class="icon-button"
+          data-sheet="help"
+          aria-label="How it plays"
+          title="How it plays">?</button
+        >
+        <button
+          type="button"
+          class="icon-button"
+          data-sheet="log"
+          aria-label="Field log"
+          title="Field log">▤</button
+        >
+        <button
+          type="button"
+          id="pause-btn"
+          class="icon-button"
+          aria-label="Pause"
+          title="Pause (P)"
+          disabled>Ⅱ</button
+        >
       </div>
     </div>
-  </div>
 
-  <!-- Additional stat: bubbles remaining -->
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
-    <span class="font-mono">Bubbles: <span id="bubbles-remaining">0</span></span
-    >
-  </Badge>
+    <div class="hud" aria-label="Dive statistics">
+      <div class="score-stat">
+        <div class="micro">Score</div><div id="score">0</div>
+      </div>
+      <div class="small-stats">
+        <div>
+          <div class="micro">Best</div><div class="stat-value" data-best>—</div>
+        </div>
+        <div>
+          <div class="micro">Released</div><div
+            id="bubbles-popped"
+            class="stat-value ice"
+          >
+            0
+          </div>
+        </div>
+        <div>
+          <div class="micro">Chain</div><div class="stat-value">
+            ×<span id="largest-combo">0</span>
+          </div>
+        </div>
+      </div>
+      <div class="gauge">
+        <div class="gauge-label micro">
+          <span>Distance to collection limit</span><span
+            id="gauge-label"
+            class="accent">Clear</span
+          >
+        </div>
+        <div
+          id="colony-gauge"
+          class="gauge-track"
+          role="meter"
+          aria-label="Colony proximity to collection limit"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+        >
+          <div id="gauge-fill"></div>
+        </div>
+        <p class="micro growth-note">
+          The colony grows a row every {rowAddInterval} shots
+        </p>
+      </div>
+    </div>
 
-  <!-- Sidebar -->
-  <div slot="game-info">
-    <!-- Current Bubble -->
-    <Card variant="glass" class="p-6">
-      <h3
-        class="font-mono text-sm tracking-wide text-cetus-accent mb-4 text-center"
-      >
-        ▸ CURRENT BUBBLE
-      </h3>
-      <div class="flex justify-center">
+    <div class="play-area">
+      <div class="plate-frame">
+        <span class="corner top-left" aria-hidden="true"></span><span
+          class="corner top-right"
+          aria-hidden="true"></span>
+        <span class="corner bottom-left" aria-hidden="true"></span><span
+          class="corner bottom-right"
+          aria-hidden="true"></span>
+        <div class="board-wrap">
+          <div
+            id="game-container"
+            role="group"
+            aria-label="Bubble Shooter playfield"
+          >
+          </div>
+          <div
+            class="collection-limit"
+            style={`top:${limitPercent}%`}
+            aria-hidden="true"
+          >
+            <span>Collection limit</span>
+          </div>
+        </div>
+      </div>
+      <div class="bubble-tray">
         <canvas
           id="current-bubble"
           width="64"
           height="64"
-          class="rounded-full shadow-lg"></canvas>
-      </div>
-    </Card>
-
-    <!-- Next Bubble -->
-    <Card variant="glass" class="p-6">
-      <h3
-        class="font-mono text-sm tracking-wide text-purple-400 mb-4 text-center"
-      >
-        ▸ NEXT BUBBLE
-      </h3>
-      <div class="flex justify-center">
+          role="img"
+          aria-label="Bubble in hand"></canvas>
         <canvas
           id="next-bubble"
           width="48"
           height="48"
-          class="rounded-full shadow-lg"></canvas>
+          role="img"
+          aria-label="Next bubble"></canvas>
+        <span class="micro">In hand · Next</span>
+        <button
+          type="button"
+          id="end-btn"
+          class="tray-action"
+          style="display:none">End dive</button
+        >
       </div>
-    </Card>
-
-    <!-- Controls Guide -->
-    <Card variant="glass" class="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ CONTROLS
-      </h3>
-      <div class="space-y-2 text-sm">
-        <div class="flex justify-between">
-          <span class="text-cetus-ink-muted">Aim:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">Mouse</Badge>
-        </div>
-        <div class="flex justify-between">
-          <span class="text-cetus-ink-muted">Shoot:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">Click</Badge>
-        </div>
-        <div class="flex justify-between">
-          <span class="text-cetus-ink-muted">Pause:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">P</Badge>
-        </div>
-      </div>
-    </Card>
-
-    <!-- Game Rules -->
-    <Card variant="glass" class="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-purple-400 mb-4">
-        ▸ RULES
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>• Match 3+ bubbles of the same color</p>
-        <p>• Disconnected bubbles fall after a match</p>
-        <p>• New row appears every {rowAddInterval} shots</p>
-        <p>• Game ends when bubbles reach the danger zone</p>
-        <p>• Accuracy counts shots that clear bubbles</p>
-      </div>
-    </Card>
+      <p class="micro controls-hint">
+        Point to aim · Click or tap to fire · P to pause
+      </p>
+    </div>
   </div>
 
-  <!-- Custom overlay stats -->
-  <div slot="final-stats">
-    <div class="text-lg text-cetus-ink">
-      Bubbles Popped: <span id="final-bubbles-popped" class="text-cetus-accent"
-        >0</span
+  <Fragment slot="notifications">
+    <dialog id="field-sheet" class="field-sheet" aria-labelledby="sheet-title">
+      <section id="intro-panel" data-panel="intro">
+        <div class="sheet-kicker">
+          <span class="micro accent">Pl. II · Specimen notes</span><span
+            class="micro">Orb · Ice</span
+          >
+        </div>
+        <h2 id="sheet-title" tabindex="-1">Bubble Shooter</h2>
+        <p class="description">
+          A drifting colony of coloured orbs. Three of one pigment, touching,
+          and they release. Bank off the glass to reach what you cannot see
+          straight on.
+        </p>
+        <ol class="method-list">
+          <li>Point to aim. Click or tap the plate to fire.</li>
+          <li>The colony grows a row every <em>{rowAddInterval} shots.</em></li>
+          <li>It ends when the colony reaches the collection limit.</li>
+        </ol>
+        <div class="record-line">
+          <span class="micro">{user ? 'Your best' : 'Best this visit'}</span
+          ><span class="mono" data-best>—</span>
+        </div>
+        <p id="game-error" class="error-message hidden" role="alert">
+          The plate could not be loaded. Refresh the page to try again.
+        </p>
+        <button type="button" id="start-btn" class="primary-action" disabled
+          >Loading the plate…</button
+        >
+        <button type="button" class="secondary-action" data-sheet="log"
+          >Field log</button
+        >
+        <a class="exit-link micro" href="/#games">← Back to catalogue</a>
+      </section>
+
+      <section
+        id="pause-overlay"
+        class="hidden"
+        data-panel="pause"
+        aria-labelledby="pause-title"
       >
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Shots Fired: <span id="final-shots" class="text-cetus-accent">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Accuracy: <span id="final-accuracy" class="text-cetus-accent-3">0%</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Largest Combo: <span id="final-combo" class="text-cetus-accent-2">0</span>
-    </div>
-  </div>
-</GamePage>
+        <p class="micro accent">Dive held</p><h2 id="pause-title">Paused</h2>
+        <p class="description">
+          The colony can wait. Pick up where you left off.
+        </p>
+        <div class="record-line">
+          <span class="micro">Current score</span><span
+            id="pause-score"
+            class="mono">0</span
+          >
+        </div>
+        <button type="button" id="resume-btn" class="primary-action"
+          >Continue</button
+        >
+        <button type="button" id="reset-btn" class="secondary-action"
+          >Abandon &amp; restart</button
+        >
+        <p class="micro controls-hint">
+          P resume · Point to aim · Click to fire
+        </p>
+      </section>
+
+      <section
+        id="game-over-overlay"
+        class="hidden"
+        data-panel="results"
+        aria-labelledby="results-title"
+      >
+        <div class="sheet-kicker">
+          <span class="micro accent">Dive record · Pl. II</span><span
+            id="personal-best"
+            class="micro accent hidden">Personal best</span
+          >
+        </div>
+        <h2 id="results-title">The colony held</h2>
+        <div class="result-score">
+          <span class="micro">Score</span><div id="final-score">0</div>
+        </div>
+        <dl class="result-rows">
+          <div>
+            <dt>Specimens released</dt><dd id="final-bubbles-popped">0</dd>
+          </div>
+          <div>
+            <dt>Largest chain</dt><dd class="accent">
+              ×<span id="final-combo">0</span>
+            </dd>
+          </div>
+          <div><dt>Shots fired</dt><dd id="final-shots">0</dd></div>
+          <div><dt>On target</dt><dd id="final-accuracy">0%</dd></div>
+        </dl>
+        <div class="field-note">
+          <span class="micro">Field note</span><p>
+            Release a cluster at its roots. Everything hanging below it falls,
+            buying you room for the next shot.
+          </p>
+        </div>
+        <p class="micro neighbours-label">Neighbouring plates</p>
+        <div class="neighbours">
+          <a href="/tetris"
+            ><span class="micro accent">Pl. I</span>Tetris Challenge</a
+          ><a href="/snake"><span class="micro accent">Pl. XII</span>Snake</a><a
+            href="/ice-slide"
+            ><span class="micro accent">Pl. XV</span>Ice Slide</a
+          >
+        </div>
+        <button type="button" id="restart-btn" class="primary-action"
+          >Dive again</button
+        >
+        <button type="button" class="secondary-action" data-sheet="log"
+          >Field log</button
+        >
+      </section>
+
+      <section class="hidden" data-panel="help" aria-labelledby="help-title">
+        <div class="sheet-kicker">
+          <span class="micro accent">Method</span><button
+            type="button"
+            class="close-button"
+            data-close
+            aria-label="Close help">Close ×</button
+          >
+        </div>
+        <h2 id="help-title">How it plays</h2>
+        <ol class="method-list">
+          <li>
+            Move your pointer to aim. Click or tap to fire towards that point.
+          </li>
+          <li>
+            Match three or more orbs of one pigment. Any bubbles left without a
+            connection to the ceiling fall too.
+          </li>
+          <li>Bank a shot off the glass to reach around a cluster.</li>
+          <li>
+            A new row arrives every {rowAddInterval} shots. Keep the colony above
+            the collection limit.
+          </li>
+        </ol>
+        <p class="micro controls-hint">← → aim · Space fire · P pause</p>
+        <button type="button" class="primary-action" data-close>Got it</button>
+      </section>
+
+      <section class="hidden" data-panel="log" aria-labelledby="log-title">
+        <div class="sheet-kicker">
+          <span class="micro accent">Field log</span><button
+            type="button"
+            class="close-button"
+            data-close
+            aria-label="Close field log">Close ×</button
+          >
+        </div>
+        <h2 id="log-title">Your dive record</h2>
+        <div class="record-line">
+          <span class="micro">{user ? 'Your best' : 'Best this visit'}</span
+          ><span class="mono" data-best>—</span>
+        </div>
+        <p class="micro neighbours-label">Dives this visit</p>
+        <p id="empty-log" class="description">
+          Nothing logged yet — your first dive gets a line here.
+        </p>
+        <ol id="recent-dives" class="result-rows"></ol>
+        <p class="description">
+          {
+            user
+              ? 'Your saved scores and achievements are in your profile.'
+              : 'Sign in to save scores and earn achievements.'
+          }
+        </p>
+        <a class="exit-link micro" href={user ? '/profile' : '/login'}
+          >{user ? 'View profile ↗' : 'Sign in ↗'}</a
+        >
+        <button type="button" class="primary-action" data-close
+          >Back to the plate</button
+        >
+      </section>
+      <AchievementAward />
+      <ChallengeComplete />
+    </dialog>
+  </Fragment>
+</AppLayout>
 
 <script>
-  import { initBubbleShooterGameFramework } from '@/lib/games/bubble-shooter/initFramework'
+  import {
+    initBubbleShooterGameFramework,
+    type BubbleShooterInitResult,
+  } from '@/lib/games/bubble-shooter/initFramework'
+  import { DEFAULT_BUBBLE_SHOOTER_CONFIG } from '@/lib/games/bubble-shooter/BubbleShooterGame'
+  import type {
+    BubbleShooterState,
+    BubbleShooterStats,
+  } from '@/lib/games/bubble-shooter/types'
+  import { getUserBestScore } from '@/lib/services/scoreService'
+  import { GameID } from '@/lib/games'
 
-  // Initialize game when page loads
-  document.addEventListener('DOMContentLoaded', async () => {
+  const sheet = document.querySelector<HTMLDialogElement>('#field-sheet')!
+  const pauseButton = document.querySelector<HTMLButtonElement>('#pause-btn')!
+  const startButton = document.querySelector<HTMLButtonElement>('#start-btn')!
+  const panels = [...sheet.querySelectorAll<HTMLElement>('[data-panel]')]
+  const awardOverlay = document.getElementById('achievement-award-overlay')!
+  const challengeOverlay = document.getElementById(
+    'challenge-complete-overlay'
+  )!
+  let handle: BubbleShooterInitResult | undefined
+  let currentPanel = 'intro'
+  let returnPanel = 'intro'
+  let resumeAfterSheet = false
+  let best: number | null = null
+  let visitBest = 0
+  let diveCount = 0
+
+  const showSheet = (name: string) => {
+    currentPanel = name
+    panels.forEach(panel =>
+      panel.classList.toggle('hidden', panel.dataset.panel !== name)
+    )
+    const heading = sheet.querySelector<HTMLElement>(
+      `[data-panel="${name}"] h2`
+    )!
+    sheet.setAttribute('aria-labelledby', heading.id)
+    if (!sheet.open) {
+      sheet.showModal()
+    }
+    heading.setAttribute('tabindex', '-1')
+    heading.focus()
+  }
+  const closeSheet = () => {
+    sheet.close()
+    currentPanel = ''
+    pauseButton.textContent = 'Ⅱ'
+    pauseButton.setAttribute('aria-label', 'Pause')
+    handle?.renderer.getApp()?.canvas.focus()
+  }
+  const syncBest = () => {
+    document.querySelectorAll('[data-best]').forEach(element => {
+      element.textContent = best === null ? '—' : best.toLocaleString()
+    })
+  }
+  const closeInfo = () => {
+    if (resumeAfterSheet) {
+      resumeAfterSheet = false
+      handle?.game.resume()
+    } else if (returnPanel) {
+      showSheet(returnPanel)
+    } else {
+      closeSheet()
+    }
+  }
+  document
+    .querySelectorAll<HTMLButtonElement>('[data-sheet]')
+    .forEach(button => {
+      button.addEventListener('click', () => {
+        returnPanel = currentPanel
+        const state = handle?.getState()
+        resumeAfterSheet = Boolean(state?.isActive && !state.isPaused)
+        if (resumeAfterSheet) {
+          handle?.game.pause()
+        }
+        showSheet(button.dataset.sheet!)
+      })
+    })
+  sheet
+    .querySelectorAll('[data-close]')
+    .forEach(button => button.addEventListener('click', closeInfo))
+  sheet.addEventListener('cancel', event => {
+    event.preventDefault()
+    if (panels.some(panel => panel.inert)) {
+      return
+    }
+    if (currentPanel === 'help' || currentPanel === 'log') {
+      closeInfo()
+    } else if (currentPanel === 'pause') {
+      handle?.game.resume()
+    }
+  })
+  showSheet('intro')
+
+  // Reward queues can advance after the player has already begun another dive.
+  const rewardObserver = new MutationObserver(() => {
+    const activeReward = !challengeOverlay.classList.contains('hidden')
+      ? challengeOverlay
+      : awardOverlay.style.display === 'flex'
+        ? awardOverlay
+        : null
+    const wasBlocked = panels[0].inert
+    if (activeReward && !sheet.open) {
+      handle?.game.pause()
+    }
+    panels.forEach(panel => {
+      panel.inert = Boolean(activeReward)
+    })
+    if (activeReward) {
+      activeReward.querySelector<HTMLElement>('[data-card], button')?.focus()
+    } else if (wasBlocked && sheet.open) {
+      showSheet(currentPanel)
+    }
+  })
+  rewardObserver.observe(awardOverlay, {
+    attributes: true,
+    attributeFilter: ['style'],
+  })
+  rewardObserver.observe(challengeOverlay, {
+    attributes: true,
+    attributeFilter: ['class'],
+  })
+
+  const initialize = async () => {
     try {
-      await initBubbleShooterGameFramework()
-      console.log('Bubble Shooter game initialized successfully')
+      handle = await initBubbleShooterGameFramework(
+        {
+          colors: [0x6fe3ff, 0xffc24a, 0xff3d8a],
+          backgroundColor: 0x08161e,
+        },
+        {
+          onStart: () => {
+            closeSheet()
+            pauseButton.disabled = false
+            document.getElementById('score')!.textContent = '0'
+          },
+          onPause: () => {
+            document.getElementById('pause-score')!.textContent =
+              document.getElementById('score')!.textContent
+            showSheet('pause')
+          },
+          onResume: closeSheet,
+          onStateChange: state => {
+            const s = state as BubbleShooterState
+            document.getElementById('bubbles-popped')!.textContent = String(
+              s.bubblesPopped
+            )
+            document.getElementById('largest-combo')!.textContent = String(
+              s.largestCombo
+            )
+            const { shooterY, bubbleRadius } = DEFAULT_BUBBLE_SHOOTER_CONFIG
+            const lowest = s.grid.reduce(
+              (max, row) => Math.max(max, ...row.map(b => b?.y ?? 0)),
+              0
+            )
+            const percent = Math.min(
+              100,
+              Math.round((lowest / (shooterY - bubbleRadius * 5)) * 100)
+            )
+            const color =
+              percent > 86 ? '#ff3d8a' : percent > 62 ? '#ffc24a' : '#22f5d0'
+            const fill = document.getElementById('gauge-fill')!
+            fill.style.width = `${percent}%`
+            fill.style.background = color
+            const label = document.getElementById('gauge-label')!
+            label.textContent =
+              percent > 86 ? 'Critical' : percent > 62 ? 'Closing' : 'Clear'
+            label.style.color = color
+            document
+              .getElementById('colony-gauge')!
+              .setAttribute('aria-valuenow', String(percent))
+            if (!s.gameStarted) {
+              document.getElementById('score')!.textContent = '0'
+              pauseButton.disabled = true
+              startButton.textContent = 'Begin the dive'
+              showSheet('intro')
+            }
+          },
+          onEnd: (score, stats) => {
+            const s = stats as BubbleShooterStats
+            pauseButton.disabled = true
+            document
+              .getElementById('personal-best')!
+              .classList.toggle('hidden', score <= (best ?? 0))
+            visitBest = Math.max(visitBest, score)
+            best = Math.max(best ?? 0, visitBest)
+            syncBest()
+            document.getElementById('empty-log')!.classList.add('hidden')
+            const row = document.createElement('li')
+            const label = document.createElement('span')
+            label.textContent = `Dive ${++diveCount} · ${Math.round(s.accuracy)}% on target · ×${s.largestCombo}`
+            const value = document.createElement('span')
+            value.className = 'mono'
+            value.textContent = score.toLocaleString()
+            row.append(label, value)
+            document.getElementById('recent-dives')!.prepend(row)
+            showSheet('results')
+          },
+        }
+      )
+      if (!handle) {
+        throw new Error('Renderer unavailable')
+      }
+      startButton.disabled = false
+      startButton.textContent = 'Begin the dive'
+      if (
+        document.querySelector<HTMLElement>('.field-plate')!.dataset
+          .signedIn === 'true'
+      ) {
+        const savedBest = await getUserBestScore(GameID.BUBBLE_SHOOTER)
+        best =
+          savedBest === null && visitBest === 0
+            ? null
+            : Math.max(savedBest ?? 0, visitBest)
+      } else {
+        best = visitBest
+      }
+      syncBest()
     } catch (error) {
-      console.error('Failed to initialize Bubble Shooter game:', error)
+      console.error('Failed to load Bubble Shooter:', error)
+      document.getElementById('game-error')!.classList.remove('hidden')
+      startButton.textContent = 'Plate unavailable'
+    }
+  }
+  void initialize()
+  window.addEventListener('pagehide', event => {
+    if (!event.persisted) {
+      rewardObserver.disconnect()
+      handle?.cleanup()
     }
   })
 </script>
+
+<style>
+  @font-face {
+    font-family: 'Field Newsreader';
+    src: url('/fonts/field-plate/newsreader.woff2') format('woff2');
+    font-weight: 300 400;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Field Sans';
+    src: url('/fonts/field-plate/plex-sans.woff2') format('woff2');
+    font-weight: 400 600;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Field Mono';
+    src: url('/fonts/field-plate/plex-mono.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+  }
+  :global(body[data-field-plate]) {
+    background: #04060a;
+    color: #eaf6ff;
+    font-family: 'Field Sans', sans-serif;
+  }
+  :global(body[data-field-plate]::after) {
+    background-image: radial-gradient(
+      rgba(234, 246, 255, 0.055) 0.5px,
+      transparent 0.5px
+    );
+    background-size: 4px 4px;
+    opacity: 0.5;
+  }
+  .plate-width {
+    width: min(100%, 1000px);
+    margin: 0 auto;
+    padding-inline: 24px;
+  }
+  .plate-header {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 22px;
+    padding-bottom: 17px;
+  }
+  .plate-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 24px;
+    right: 24px;
+    height: 4px;
+    border-top: 1px solid #2e3e49;
+    border-bottom: 1px solid #26333d;
+  }
+  .wordmark {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font:
+      400 23px/1 'Field Newsreader',
+      serif;
+  }
+  .brand-orb {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #2e3e49;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+  }
+  .brand-orb::after {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #ff3d8a;
+  }
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .micro,
+  .mono,
+  button {
+    font-family: 'Field Mono', monospace;
+  }
+  .micro {
+    font-size: 9px;
+    line-height: 1.5;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8a98a6;
+  }
+  .mono {
+    font-size: 13px;
+  }
+  .accent {
+    color: #22f5d0;
+  }
+  .ice {
+    color: #6fe3ff;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  a:hover {
+    color: #22f5d0;
+  }
+  button,
+  .account {
+    border: 1px solid #26333d;
+    border-radius: 2px;
+    background: #0a1219;
+    color: #a7b4bd;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    opacity: 0.45;
+    cursor: wait;
+  }
+  button:hover:not(:disabled) {
+    border-color: #22f5d0;
+    color: #eaf6ff;
+  }
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid #22f5d0;
+    outline-offset: 4px;
+  }
+  .account {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 11px 4px 4px;
+  }
+  .account span {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #22f5d0;
+    color: #04060a;
+    letter-spacing: 0;
+  }
+  .title-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    padding-block: 16px 14px;
+  }
+  .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+  }
+  h1,
+  h2 {
+    font-family: 'Field Newsreader', serif;
+    font-weight: 400;
+    line-height: 1.05;
+  }
+  h1 {
+    font-size: clamp(28px, 4vw, 38px);
+    margin-top: 6px;
+  }
+  h2 {
+    font-size: 36px;
+    font-weight: 300;
+    margin-top: 12px;
+  }
+  #results-title {
+    font-size: 32px;
+  }
+  #pause-title,
+  #help-title,
+  #log-title {
+    font-size: 28px;
+  }
+  h2:focus {
+    outline: none;
+  }
+  .tools {
+    display: flex;
+    gap: 6px;
+  }
+  .icon-button {
+    width: 44px;
+    height: 44px;
+    font-size: 14px;
+  }
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 18px 34px;
+    padding-block: 14px;
+    border-block: 1px solid #26333d;
+  }
+  .score-stat {
+    min-width: 130px;
+  }
+  #score,
+  #final-score {
+    font:
+      400 54px/1 'Field Newsreader',
+      serif;
+  }
+  .small-stats {
+    display: flex;
+    gap: 22px;
+    padding-bottom: 6px;
+  }
+  .stat-value {
+    font:
+      15px 'Field Mono',
+      monospace;
+    margin-top: 4px;
+  }
+  .gauge {
+    flex: 1 1 220px;
+    min-width: 190px;
+    padding-bottom: 4px;
+  }
+  .gauge-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .gauge-track {
+    position: relative;
+    height: 7px;
+    margin-top: 7px;
+    border: 1px solid #26333d;
+    background: #0a1219;
+  }
+  .gauge-track::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    left: 78%;
+    width: 1px;
+    background: #ff3d8a;
+  }
+  #gauge-fill {
+    height: 100%;
+    width: 0;
+    background: #22f5d0;
+    transition: width 0.18s linear;
+  }
+  .growth-note {
+    color: #22f5d0;
+    margin-top: 7px;
+    font-size: 8px;
+  }
+  .growth-note::before {
+    content: '';
+    display: inline-block;
+    vertical-align: middle;
+    width: 5px;
+    height: 5px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: #ff3d8a;
+  }
+  .play-area {
+    width: min(100%, 452px);
+    margin: 18px auto 0;
+    padding-bottom: 40px;
+  }
+  .plate-frame {
+    position: relative;
+    padding: 10px;
+    border: 1px solid #2e3e49;
+    background: #0a1219;
+  }
+  .corner {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border-color: #22f5d0;
+    border-style: solid;
+    border-width: 0;
+  }
+  .top-left {
+    top: 4px;
+    left: 4px;
+    border-top-width: 1px;
+    border-left-width: 1px;
+  }
+  .top-right {
+    top: 4px;
+    right: 4px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+  }
+  .bottom-left {
+    bottom: 4px;
+    left: 4px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+  }
+  .bottom-right {
+    bottom: 4px;
+    right: 4px;
+    border-bottom-width: 1px;
+    border-right-width: 1px;
+  }
+  .board-wrap {
+    position: relative;
+  }
+  .board-wrap::after {
+    content: '';
+    position: absolute;
+    width: 15.33%;
+    height: 5.75%;
+    left: 42.335%;
+    bottom: 7.5%;
+    border: 1px solid #eaf6ff33;
+    border-bottom: 0;
+    border-radius: 100% 100% 0 0;
+    pointer-events: none;
+  }
+  #game-container {
+    width: 100%;
+    aspect-ratio: 3/4;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 35px, #a7d9ee08 35px 36px),
+      repeating-linear-gradient(90deg, transparent 0 35px, #a7d9ee08 35px 36px),
+      linear-gradient(#12303f, #0a1c26 60%, #07141c);
+  }
+  #game-container :global(canvas) {
+    display: block;
+    width: 100% !important;
+    height: auto !important;
+    cursor: crosshair;
+  }
+  .collection-limit {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    border-top: 1px dashed #aa503d;
+    background: rgba(228, 105, 78, 0.04);
+    pointer-events: none;
+  }
+  .collection-limit span {
+    position: absolute;
+    right: 7px;
+    bottom: 100%;
+    margin-bottom: 3px;
+    font:
+      7px 'Field Mono',
+      monospace;
+    color: #e4694e;
+    text-transform: uppercase;
+  }
+  .bubble-tray {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 10px;
+    padding: 9px 12px;
+    border: 1px solid #26333d;
+    background: #0a1219;
+  }
+  #current-bubble {
+    width: 40px;
+    height: 40px;
+  }
+  #next-bubble {
+    width: 22px;
+    height: 22px;
+  }
+  .bubble-tray .micro {
+    font-size: 8px;
+  }
+  .tray-action {
+    margin-left: auto;
+    min-height: 40px;
+    padding-inline: 12px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .controls-hint {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 8px;
+  }
+  .field-sheet {
+    margin: auto;
+    width: min(430px, calc(100% - 40px));
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    padding: 26px;
+    background: #0a1219;
+    color: #eaf6ff;
+    border: 1px solid #2e3e49;
+    font-family: 'Field Sans', sans-serif;
+  }
+  .field-sheet::backdrop {
+    background: rgba(2, 4, 8, 0.9);
+  }
+  .field-sheet .hidden {
+    display: none;
+  }
+  .sheet-kicker {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .description {
+    margin-top: 12px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: #a7b4bd;
+    text-wrap: pretty;
+  }
+  .method-list {
+    display: grid;
+    gap: 9px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #1c2730;
+    list-style: none;
+    counter-reset: method;
+  }
+  .method-list li {
+    display: block;
+    padding-left: 23px;
+    position: relative;
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+  .method-list li::before {
+    counter-increment: method;
+    content: counter(method, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 2px;
+    font:
+      10px/1.5 'Field Mono',
+      monospace;
+    color: #22f5d0;
+  }
+  .record-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 11px 13px;
+    border: 1px solid #1c2730;
+    background: #04060a;
+  }
+  .primary-action,
+  .secondary-action {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+  }
+  .primary-action {
+    min-height: 54px;
+    margin-top: 18px;
+    background: #22f5d0;
+    color: #04060a;
+    font-size: 12px;
+    font-weight: 600;
+    border-color: #2e3e49;
+  }
+  .primary-action:hover:not(:disabled) {
+    background: #5dffe0;
+    color: #04060a;
+  }
+  .secondary-action {
+    min-height: 46px;
+    margin-top: 8px;
+    background: transparent;
+    font-size: 11px;
+  }
+  .close-button {
+    min-height: 36px;
+    padding-inline: 12px;
+    font-size: 10px;
+    text-transform: uppercase;
+  }
+  .exit-link {
+    display: block;
+    margin-top: 16px;
+    text-align: center;
+  }
+  .result-score {
+    padding-block: 18px 14px;
+    border-bottom: 1px solid #2e3e49;
+  }
+  .result-rows > div,
+  .result-rows :global(li) {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding-block: 10px;
+    border-bottom: 1px solid #1c2730;
+    font-size: 13px;
+    color: #a7b4bd;
+  }
+  .result-rows dd {
+    font-family: 'Field Mono', monospace;
+    color: #eaf6ff;
+  }
+  .result-rows dd.accent {
+    color: #22f5d0;
+  }
+  .field-note {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-left: 2px solid #ff3d8a;
+    background: #04060a;
+  }
+  .field-note p {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-top: 5px;
+  }
+  .neighbours-label {
+    margin-top: 18px;
+  }
+  .neighbours {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 9px;
+  }
+  .neighbours a {
+    padding: 9px;
+    border: 1px solid #26333d;
+    font:
+      14px/1.2 'Field Newsreader',
+      serif;
+  }
+  .neighbours span {
+    display: block;
+    margin-bottom: 5px;
+  }
+  .error-message {
+    color: #ff94bd;
+    margin-top: 12px;
+  }
+  @media (max-width: 540px) {
+    .plate-width {
+      padding-inline: 16px;
+    }
+    .plate-header::after {
+      left: 16px;
+      right: 16px;
+    }
+    nav {
+      gap: 10px;
+    }
+    .title-row {
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .eyebrow {
+      font-size: 8px;
+    }
+    .icon-button {
+      width: 40px;
+      height: 40px;
+    }
+    .hud {
+      gap: 14px 22px;
+    }
+    .score-stat {
+      min-width: 80px;
+    }
+    .small-stats {
+      flex: 1;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .gauge {
+      flex-basis: 100%;
+    }
+    .field-sheet {
+      padding: 22px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #gauge-fill {
+      transition: none;
+    }
+  }
+</style>

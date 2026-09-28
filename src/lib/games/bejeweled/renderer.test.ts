@@ -15,6 +15,7 @@ vi.mock('pixi.js', () => {
             'rect',
             'clear',
             'circle',
+            'poly',
         ]) {
             g[m] = vi.fn(() => g)
         }
@@ -52,6 +53,7 @@ vi.mock('pixi.js', () => {
         Application: vi.fn(makeApp),
         Container: vi.fn(makeContainer),
         Graphics: vi.fn(makeGraphics),
+        FillGradient: vi.fn(() => ({ destroy: vi.fn() })),
         Rectangle: vi.fn((x: number, y: number, w: number, h: number) => ({
             x,
             y,
@@ -411,6 +413,39 @@ describe('BejeweledRenderer', () => {
     })
 
     describe('animation integration', () => {
+        it('freezes an animation while paused and cancels it on restart', async () => {
+            let frame!: FrameRequestCallback
+            vi.mocked(requestAnimationFrame).mockImplementation(cb => {
+                frame = cb
+                return 1
+            })
+            renderer = new BejeweledRenderer({
+                type: 'canvas',
+                container: '#bejeweled-test-container',
+            })
+            await renderer.initialize()
+            const done = vi.fn()
+            const pending = renderer
+                .animateSwap(
+                    { row: 0, col: 0 },
+                    { row: 0, col: 1 },
+                    makeBejeweledState()
+                )
+                .then(done)
+            renderer.setPaused(true)
+            frame(1000)
+            await Promise.resolve()
+            expect(done).not.toHaveBeenCalled()
+            renderer.setPaused(false)
+            frame(1010)
+            await Promise.resolve()
+            expect(done).not.toHaveBeenCalled()
+            renderer.cancelAnimations()
+            frame(1020)
+            await pending
+            expect(done).toHaveBeenCalledOnce()
+        })
+
         it('animateSwap: animate callback runs until t >= 1', async () => {
             let animateFn: FrameRequestCallback = () => {}
             vi.mocked(requestAnimationFrame).mockImplementation(cb => {
@@ -480,6 +515,32 @@ describe('BejeweledRenderer', () => {
     })
 
     describe('pointerdown handler', () => {
+        it('uses the dragged pair even when a different adjacent gem was selected', async () => {
+            renderer = new BejeweledRenderer({
+                type: 'canvas',
+                container: '#bejeweled-test-container',
+            })
+            await renderer.initialize()
+            const click = vi.fn()
+            renderer.setCellClickCallback(click)
+            renderer.render(
+                makeBejeweledState({ selected: { row: 0, col: 0 } })
+            )
+            const app = vi.mocked(Application).mock.results[0].value
+            const handler = (name: string) =>
+                app.stage.on.mock.calls.find(
+                    (call: unknown[]) => call[0] === name
+                )![1]
+            handler('pointerdown')({ global: { x: 320, y: 85 } })
+            expect(click).not.toHaveBeenCalled()
+            handler('pointerup')({ global: { x: 475, y: 85 } })
+            expect(click.mock.calls).toEqual([
+                [0, 0],
+                [0, 1],
+                [0, 2],
+            ])
+        })
+
         it('should invoke onCellClick when clicking inside grid', async () => {
             renderer = new BejeweledRenderer({
                 type: 'canvas',
@@ -504,6 +565,10 @@ describe('BejeweledRenderer', () => {
 
             // Simulate a click at (100, 100) — within a 3x3 grid on 640x480
             onCall![1]({ global: { x: 100, y: 100 } })
+            const up = appInst.stage.on.mock.calls.find(
+                (c: unknown[]) => c[0] === 'pointerup'
+            )
+            up![1]({ global: { x: 100, y: 100 } })
             expect(cb).toHaveBeenCalled()
         })
 

@@ -59,7 +59,9 @@ const themeInitScript = `
     {...props}
   >
     <!-- Header Navigation -->
-    <Navigation navigation={navigation} />
+    <slot name="header">
+      <Navigation navigation={navigation} />
+    </slot>
 
     <!-- Main Content -->
     <main class="relative z-10">
@@ -69,11 +71,10 @@ const themeInitScript = `
     <!-- Footer (conditional) -->
     {includeFooter && <Footer />}
 
-    <!-- Achievement Award Component -->
-    <AchievementAward />
-
-    <!-- Challenge Complete Component -->
-    <ChallengeComplete />
+    <slot name="notifications">
+      <AchievementAward />
+      <ChallengeComplete />
+    </slot>
 
     <script>
       // Add some interactive effects using pure DOM manipulation

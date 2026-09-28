@@ -118,7 +118,7 @@ export class BubbleShooterRenderer extends PixiJSRenderer {
         graphic.fill(bubble.color)
 
         graphic.circle(bubble.x, bubble.y, radius)
-        graphic.stroke({ width: 2, color: 0xffffff })
+        graphic.stroke({ width: 1, color: bubble.color, alpha: 0.5 })
 
         graphic.circle(
             bubble.x - radius * 0.3,
@@ -141,7 +141,7 @@ export class BubbleShooterRenderer extends PixiJSRenderer {
         graphic.fill(bubble.color)
 
         graphic.circle(bubble.x, bubble.y, radius)
-        graphic.stroke({ width: 3, color: 0xffffff })
+        graphic.stroke({ width: 1, color: bubble.color, alpha: 0.5 })
 
         graphic.circle(
             bubble.x - radius * 0.3,
@@ -160,31 +160,14 @@ export class BubbleShooterRenderer extends PixiJSRenderer {
         }
 
         const aimLineGraphic = this.createGraphics()
-        const length = 80
-        const endX = shooter.x + Math.cos(aimAngle) * length
-        const endY = shooter.y + Math.sin(aimAngle) * length
-
-        aimLineGraphic.moveTo(shooter.x, shooter.y)
-        aimLineGraphic.lineTo(endX, endY)
-        aimLineGraphic.stroke({ width: 2, color: 0xffffff, alpha: 0.7 })
-
-        const arrowSize = 10
-        const arrowAngle = 0.5
-        const leftX =
-            endX + Math.cos(aimAngle + Math.PI - arrowAngle) * arrowSize
-        const leftY =
-            endY + Math.sin(aimAngle + Math.PI - arrowAngle) * arrowSize
-        const rightX =
-            endX + Math.cos(aimAngle + Math.PI + arrowAngle) * arrowSize
-        const rightY =
-            endY + Math.sin(aimAngle + Math.PI + arrowAngle) * arrowSize
-
-        aimLineGraphic.poly([
-            { x: endX, y: endY },
-            { x: leftX, y: leftY },
-            { x: rightX, y: rightY },
-        ])
-        aimLineGraphic.fill({ color: 0xffffff, alpha: 0.7 })
+        // A short dotted guide shows direction without promising a landing cell.
+        for (let distance = 30; distance <= 180; distance += 14) {
+            const x = shooter.x + Math.cos(aimAngle) * distance
+            const y = shooter.y + Math.sin(aimAngle) * distance
+            aimLineGraphic.moveTo(x, y)
+            aimLineGraphic.circle(x, y, 1.5)
+            aimLineGraphic.fill({ color: 0xeaf6ff, alpha: 0.45 })
+        }
 
         this.uiContainer.addChild(aimLineGraphic)
         this.bubbleGraphics.push(aimLineGraphic)
@@ -200,7 +183,7 @@ export class BubbleShooterRenderer extends PixiJSRenderer {
         graphic.fill(projectile.color)
 
         graphic.circle(projectile.x, projectile.y, radius)
-        graphic.stroke({ width: 2, color: 0xffffff })
+        graphic.stroke({ width: 1, color: projectile.color, alpha: 0.5 })
 
         graphic.circle(
             projectile.x - radius * 0.3,
@@ -251,6 +234,7 @@ export function createBubbleShooterRendererConfig(
         width: gameConfig.gameWidth,
         height: gameConfig.gameHeight,
         responsive: false,
+        transparent: true,
         backgroundColor: gameConfig.backgroundColor,
         antialias: true,
         bubbleRadius: gameConfig.bubbleRadius,

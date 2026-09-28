@@ -78,6 +78,7 @@ export async function initBejeweledGame(
             customCallbacks?.onTimeUpdate?.(time)
         },
         onStart: () => {
+            renderer.cancelAnimations()
             const startBtn = document.getElementById(
                 'start-btn'
             ) as HTMLButtonElement | null
@@ -94,7 +95,16 @@ export async function initBejeweledGame(
             }
             customCallbacks?.onStart?.()
         },
+        onPause: () => {
+            renderer.setPaused(true)
+            customCallbacks?.onPause?.()
+        },
+        onResume: () => {
+            renderer.setPaused(false)
+            customCallbacks?.onResume?.()
+        },
         onEnd: (finalScore: number, stats: BaseGameStats) => {
+            renderer.cancelAnimations()
             const startBtn = document.getElementById(
                 'start-btn'
             ) as HTMLButtonElement | null
@@ -177,6 +187,7 @@ export async function initBejeweledGame(
                     overlay.classList.add('hidden')
                 }
                 game.reset()
+                game.start()
             },
             { signal }
         )
