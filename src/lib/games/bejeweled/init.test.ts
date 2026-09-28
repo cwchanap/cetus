@@ -39,6 +39,8 @@ vi.mock('./renderer', () => ({
         initialize: vi.fn().mockResolvedValue(undefined),
         render: vi.fn(),
         cleanup: vi.fn(),
+        cancelAnimations: vi.fn(),
+        setPaused: vi.fn(),
         setCellClickCallback: vi.fn(),
     })),
 }))
@@ -285,7 +287,7 @@ describe('initBejeweledGame', () => {
             expect(gameInstance.end).toHaveBeenCalled()
         })
 
-        it('clicking play-again-btn should reset and hide overlay', async () => {
+        it('clicking play-again-btn should reset, start, and hide overlay', async () => {
             const { BejeweledGame } = await import('./game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
@@ -296,6 +298,7 @@ describe('initBejeweledGame', () => {
             const gameInstance = vi.mocked(BejeweledGame).mock.results[0].value
             document.getElementById('play-again-btn')!.click()
             expect(gameInstance.reset).toHaveBeenCalled()
+            expect(gameInstance.start).toHaveBeenCalled()
             expect(overlay.classList.contains('hidden')).toBe(true)
         })
     })

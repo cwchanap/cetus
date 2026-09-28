@@ -26,6 +26,15 @@ export class BejeweledRenderer
     private cellPadding: number
     private lastState?: BejeweledState
     private overlayLayer: PIXI.Container | null = null
+    private paused = false
+    private animationVersion = 0
+    private dragOrigin: Position | null = null
+    private cursor: Position | null = null
+    private hint: Position[] = []
+    private glyphs = false
+    private pace: 'swift' | 'measured' = 'swift'
+    private reducedMotion = false
+    private gradients = new Map<JewelType, PIXI.FillGradient>()
 
     constructor(config: BejeweledRendererConfig) {
         super(config)
@@ -52,13 +61,70 @@ export class BejeweledRenderer
                 return
             }
             // Disable input during animations
-            if (state.isAnimating) {
+            if (state.isAnimating || this.paused || e.button > 0) {
                 return
             }
             const { row, col } = this.mapPointToCell(x, y, state)
             if (row >= 0 && col >= 0 && row < state.rows && col < state.cols) {
-                this.onCellClick?.(row, col)
+                this.dragOrigin = { row, col }
+                this.hint = []
+                app.canvas.focus()
             }
+        })
+
+        app.canvas.style.touchAction = 'none'
+        app.canvas.tabIndex = 0
+        app.canvas.setAttribute('role', 'application')
+        app.canvas.setAttribute(
+            'aria-label',
+            'Bejeweled board, 8 by 8 gems. Arrow keys to move, Enter to select and swap.'
+        )
+        const release = (event: PIXI.FederatedPointerEvent) => {
+            const origin = this.dragOrigin
+            this.dragOrigin = null
+            const state = this.lastState
+            if (!origin || !state || state.isAnimating || this.paused) {
+                return
+            }
+            const target = this.mapPointToCell(
+                event.global.x,
+                event.global.y,
+                state
+            )
+            if (
+                target.row < 0 ||
+                target.col < 0 ||
+                target.row >= state.rows ||
+                target.col >= state.cols
+            ) {
+                return
+            }
+            const distance =
+                Math.abs(target.row - origin.row) +
+                Math.abs(target.col - origin.col)
+            if (distance > 1) {
+                return
+            }
+            this.cursor = target
+            if (distance === 0) {
+                this.onCellClick?.(target.row, target.col)
+                return
+            }
+            if (
+                state.selected?.row !== origin.row ||
+                state.selected?.col !== origin.col
+            ) {
+                if (state.selected) {
+                    this.onCellClick?.(state.selected.row, state.selected.col)
+                }
+                this.onCellClick?.(origin.row, origin.col)
+            }
+            this.onCellClick?.(target.row, target.col)
+        }
+        app.stage.on('pointerup', release)
+        app.stage.on('pointerupoutside', release)
+        app.stage.on('pointercancel', () => {
+            this.dragOrigin = null
         })
 
         // Create overlay layer for animations (always on top)
@@ -110,15 +176,11 @@ export class BejeweledRenderer
                 this.addToStage(bg)
 
                 if (jewel) {
-                    const color = JEWEL_COLORS[jewel as JewelType]
-                    const g = this.createGraphics()
-                    const inset = this.cellPadding
-                    const radius = (cellSize - inset * 2) / 2
-                    const cx = x + cellSize / 2
-                    const cy = y + cellSize / 2
-                    g.circle(cx, cy, radius)
-                    g.fill({ color, alpha: 1 })
-                    g.stroke({ width: 2, color: 0xffffff, alpha: 0.1 })
+                    const g = this.drawGem(
+                        jewel,
+                        (cellSize - this.cellPadding * 2) / 2
+                    )
+                    g.position.set(x + cellSize / 2, y + cellSize / 2)
                     this.addToStage(g)
                 }
 
@@ -139,6 +201,23 @@ export class BejeweledRenderer
                     hl.stroke({ width: 3, color: 0x00e5ff, alpha: 0.9 })
                     this.addToStage(hl)
                 }
+            }
+        }
+
+        for (const [cells, color] of [
+            [this.hint, 0x6fe3ff],
+            [this.cursor ? [this.cursor] : [], 0xeaf6ff],
+        ] as const) {
+            for (const cell of cells) {
+                const outline = this.createGraphics()
+                outline.rect(
+                    offsetX + cell.col * cellSize + 4,
+                    offsetY + cell.row * cellSize + 4,
+                    cellSize - 8,
+                    cellSize - 8
+                )
+                outline.stroke({ width: 2, color, alpha: 0.9 })
+                this.addToStage(outline)
             }
         }
 
@@ -187,8 +266,8 @@ export class BejeweledRenderer
 
         const layout = this.computeLayout(state)
         const r = (layout.cellSize - this.cellPadding * 2) / 2
-        const colorA = JEWEL_COLORS[state.grid[a.row][a.col] as JewelType]
-        const colorB = JEWEL_COLORS[state.grid[b.row][b.col] as JewelType]
+        const typeA = state.grid[a.row][a.col] as JewelType
+        const typeB = state.grid[b.row][b.col] as JewelType
         const [ax, ay] = this.cellCenter(a.row, a.col, layout)
         const [bx, by] = this.cellCenter(b.row, b.col, layout)
 
@@ -198,30 +277,29 @@ export class BejeweledRenderer
         this.overlayLayer.addChild(coverA, coverB)
 
         // Moving jewels
-        const gA = this.createGraphics()
-        gA.circle(0, 0, r)
-        gA.fill({ color: colorA, alpha: 1 })
-        gA.stroke({ width: 2, color: 0xffffff, alpha: 0.12 })
+        const gA = this.drawGem(typeA, r)
         gA.position.set(ax, ay)
 
-        const gB = this.createGraphics()
-        gB.circle(0, 0, r)
-        gB.fill({ color: colorB, alpha: 1 })
-        gB.stroke({ width: 2, color: 0xffffff, alpha: 0.12 })
+        const gB = this.drawGem(typeB, r)
         gB.position.set(bx, by)
 
         this.overlayLayer.addChild(gA, gB)
 
-        await this.animate(durationMs, t => {
-            gA.position.set(lerp(ax, bx, t), lerp(ay, by, t))
-            gB.position.set(lerp(bx, ax, t), lerp(by, ay, t))
-        })
+        await this.animate(
+            this.reducedMotion
+                ? 0
+                : durationMs * (this.pace === 'swift' ? 0.24 : 0.48),
+            t => {
+                gA.position.set(lerp(ax, bx, t), lerp(ay, by, t))
+                gB.position.set(lerp(bx, ax, t), lerp(by, ay, t))
+            }
+        )
 
         // Cleanup
-        this.overlayLayer.removeChild(gA)
-        this.overlayLayer.removeChild(gB)
-        this.overlayLayer.removeChild(coverA)
-        this.overlayLayer.removeChild(coverB)
+        this.overlayLayer?.removeChild(gA)
+        this.overlayLayer?.removeChild(gB)
+        this.overlayLayer?.removeChild(coverA)
+        this.overlayLayer?.removeChild(coverB)
     }
 
     public async animateSwapBack(
@@ -255,38 +333,39 @@ export class BejeweledRenderer
             if (!jewelType) {
                 continue
             }
-            const color = JEWEL_COLORS[jewelType]
             const [cx, cy] = this.cellCenter(row, col, layout)
 
             const cover = this.drawCellBackground(row, col, layout)
             covers.push(cover)
             this.overlayLayer.addChild(cover)
 
-            const g = this.createGraphics()
-            g.circle(0, 0, r)
-            g.fill({ color, alpha: 1 })
-            g.stroke({ width: 2, color: 0xffffff, alpha: 0.12 })
+            const g = this.drawGem(jewelType, r)
             g.position.set(cx, cy)
             this.overlayLayer.addChild(g)
             jewels.push(g)
         }
 
         // Fade and scale out
-        await this.animate(durationMs, t => {
-            const alpha = 1 - t
-            const scale = 1 - 0.8 * t // 1 -> 0.2
-            for (const g of jewels) {
-                g.alpha = alpha
-                g.scale.set(scale)
+        await this.animate(
+            this.reducedMotion
+                ? 0
+                : durationMs * (this.pace === 'swift' ? 0.24 : 0.48),
+            t => {
+                const alpha = 1 - t
+                const scale = 1 - 0.8 * t // 1 -> 0.2
+                for (const g of jewels) {
+                    g.alpha = alpha
+                    g.scale.set(scale)
+                }
             }
-        })
+        )
 
         // Cleanup
         for (const g of jewels) {
-            this.overlayLayer.removeChild(g)
+            this.overlayLayer?.removeChild(g)
         }
         for (const c of covers) {
-            this.overlayLayer.removeChild(c)
+            this.overlayLayer?.removeChild(c)
         }
     }
 
@@ -344,16 +423,176 @@ export class BejeweledRenderer
         return bg
     }
 
+    setPaused(paused: boolean): void {
+        this.paused = paused
+        this.dragOrigin = null
+    }
+
+    cancelAnimations(): void {
+        this.animationVersion++
+        this.paused = false
+        this.hint = []
+        this.cursor = null
+        this.overlayLayer?.removeChildren()
+    }
+
+    setPreferences(
+        pace: 'swift' | 'measured',
+        glyphs: boolean,
+        reducedMotion: boolean
+    ): void {
+        this.pace = pace
+        this.glyphs = glyphs
+        this.reducedMotion = reducedMotion
+        if (this.lastState && !this.lastState.isAnimating) {
+            this.render(this.lastState)
+        }
+    }
+
+    showHint(cells: Position[]): void {
+        this.hint = cells
+        if (this.lastState) {
+            this.render(this.lastState)
+        }
+    }
+
+    moveCursor(rowDelta: number, colDelta: number): void {
+        const state = this.lastState
+        if (!state || state.isAnimating || this.paused) {
+            return
+        }
+        const cursor = this.cursor ?? state.selected ?? { row: 0, col: 0 }
+        this.cursor = {
+            row: Math.max(0, Math.min(state.rows - 1, cursor.row + rowDelta)),
+            col: Math.max(0, Math.min(state.cols - 1, cursor.col + colDelta)),
+        }
+        const { row, col } = this.cursor
+        this.getApp()?.canvas.setAttribute(
+            'aria-label',
+            `Bejeweled board. Row ${row + 1}, column ${col + 1}, ${state.grid[row][col]} gem. Enter to select or swap.`
+        )
+        this.render(state)
+    }
+
+    selectCursor(): void {
+        const cell = this.cursor ?? { row: 0, col: 0 }
+        this.hint = []
+        this.onCellClick?.(cell.row, cell.col)
+    }
+
+    private drawGem(type: JewelType, radius: number): PIXI.Graphics {
+        const color = JEWEL_COLORS[type]
+        let gradient = this.gradients.get(type)
+        if (!gradient) {
+            const darker =
+                (Math.round(((color >> 16) & 255) * 0.75) << 16) |
+                (Math.round(((color >> 8) & 255) * 0.75) << 8) |
+                Math.round((color & 255) * 0.75)
+            gradient = new PIXI.FillGradient({
+                type: 'linear',
+                start: { x: 0, y: 0 },
+                end: { x: 1, y: 1 },
+                colorStops: [
+                    { offset: 0, color },
+                    { offset: 1, color: darker },
+                ],
+            })
+            this.gradients.set(type, gradient)
+        }
+        const g = this.createGraphics()
+        g.roundRect(-radius, -radius, radius * 2, radius * 2, radius * 0.3)
+        g.fill(gradient)
+        g.stroke({ width: 1, color: 0xeaf6ff, alpha: 0.32 })
+        g.poly([
+            -radius * 0.5,
+            -radius * 0.55,
+            radius * 0.15,
+            -radius * 0.55,
+            -radius * 0.5,
+            radius * 0.12,
+        ])
+        g.fill({ color: 0xffffff, alpha: 0.4 })
+        if (this.glyphs) {
+            const r = radius * 0.36
+            if (type === 'blue') {
+                g.circle(0, 0, r)
+            } else if (type === 'yellow') {
+                g.rect(-r, -r, r * 2, r * 2)
+            } else if (type === 'green') {
+                g.poly([0, -r, r, r, -r, r])
+            } else if (type === 'red') {
+                g.poly([0, -r, r, 0, 0, r, -r, 0])
+            } else if (type === 'purple') {
+                g.poly([
+                    0,
+                    -r,
+                    r * 0.3,
+                    -r * 0.3,
+                    r,
+                    0,
+                    r * 0.3,
+                    r * 0.3,
+                    0,
+                    r,
+                    -r * 0.3,
+                    r * 0.3,
+                    -r,
+                    0,
+                    -r * 0.3,
+                    -r * 0.3,
+                ])
+            } else {
+                g.poly([
+                    -r,
+                    0,
+                    -r / 2,
+                    -r,
+                    r / 2,
+                    -r,
+                    r,
+                    0,
+                    r / 2,
+                    r,
+                    -r / 2,
+                    r,
+                ])
+            }
+            g.fill({ color: 0x04060a, alpha: 0.85 })
+        }
+        return g
+    }
+
+    cleanup(): void {
+        this.cancelAnimations()
+        this.overlayLayer = null
+        super.cleanup()
+        this.gradients.forEach(gradient => gradient.destroy())
+        this.gradients.clear()
+    }
+
     private animate(
         durationMs: number,
         step: (t: number) => void
     ): Promise<void> {
+        const version = this.animationVersion
         return new Promise(resolve => {
-            const start = performance.now()
+            let previous = performance.now()
+            let elapsed = 0
             const frame = (now: number) => {
-                const t = Math.min(1, (now - start) / durationMs)
-                step(t)
-                if (t < 1) {
+                if (version !== this.animationVersion) {
+                    resolve()
+                    return
+                }
+                if (!this.paused) {
+                    elapsed += now - previous
+                }
+                previous = now
+                const t =
+                    durationMs === 0 ? 1 : Math.min(1, elapsed / durationMs)
+                if (!this.paused) {
+                    step(t)
+                }
+                if (t < 1 || this.paused) {
                     requestAnimationFrame(frame)
                 } else {
                     resolve()

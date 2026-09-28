@@ -64,6 +64,43 @@ describe('BejeweledGame special achievements logic', () => {
         game.destroy()
     })
 
+    it.each(['reset', 'end', 'destroy'] as const)(
+        'discards a pending swap after %s',
+        async action => {
+            let finish!: () => void
+            animator.animateSwap.mockImplementationOnce(
+                () =>
+                    new Promise<void>(resolve => {
+                        finish = resolve
+                    })
+            )
+            const match = {
+                type: 'red' as const,
+                positions: [
+                    { row: 0, col: 0 },
+                    { row: 0, col: 1 },
+                    { row: 0, col: 2 },
+                ],
+            }
+            vi.spyOn(utils, 'findMatches').mockReturnValue([match])
+            game.clickCell(0, 0)
+            game.clickCell(0, 1)
+            if (action === 'reset') {
+                game.reset()
+                game.start()
+            } else if (action === 'end') {
+                await game.end()
+            } else {
+                game.destroy()
+            }
+            const state = structuredClone(game.getState())
+            finish()
+            await flushMicrotasks()
+            expect(game.getState()).toEqual(state)
+            expect(animator.animateClear).not.toHaveBeenCalled()
+        }
+    )
+
     it('detects clearing 5 gems in a straight line (horizontal)', async () => {
         // Create a deterministic sequence: valid move prediction, then one cascade with 5-in-a-row, then stop
         const fiveRun: Position[] = [

@@ -310,26 +310,151 @@ async function performPerfectRhythmInput(
 /* eslint-enable curly */
 
 test.describe('Bubble Shooter', () => {
-    test('renders, starts, accepts a shot, and shows end-game overlay', async ({
+    test('keeps queued rewards visible when a new dive starts between awards', async ({
         page,
     }) => {
-        await page.goto('/bubble-shooter')
-        await expectVisibleGameSurface(page, '#game-container canvas')
-        await expect(page.locator('#current-bubble')).toBeVisible()
-        await expect(page.locator('#next-bubble')).toBeVisible()
-        await expect(page.locator('#score')).toHaveText('0')
-
-        await startGameWhenReady(page)
-        await expect(page.locator('#end-btn')).toBeVisible()
-
-        await clickGameSurface(page, '#game-container canvas')
-
-        await page.locator('#end-btn').click()
-        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
-            /hidden/
+        await page.clock.install()
+        await page.route('**/api/scores', route =>
+            route.fulfill({
+                json: {
+                    success: true,
+                    newAchievements: ['First specimen', 'Second specimen'].map(
+                        (name, index) => ({
+                            id: `review-award-${index}`,
+                            name,
+                            description: 'Achievement queue regression check',
+                            icon: '🫧',
+                            rarity: 'common',
+                        })
+                    ),
+                },
+            })
         )
-        await expect(page.locator('#final-score')).toBeVisible()
+        await page.goto('/bubble-shooter')
+        await startGameWhenReady(page)
+        await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
+        await page.locator('#end-btn').click()
+        const award = page.locator('#achievement-award-overlay')
+        const card = award.getByRole('button', { name: 'Dismiss achievement' })
+        await expect(card).toContainText('First specimen')
+        await expect(page.locator('#game-over-overlay')).toHaveJSProperty(
+            'inert',
+            true
+        )
+        // Control the entrance, exit and queue delays so replay happens in the
+        // gap between awards, even when the browser worker is busy.
+        await page.clock.runFor(1000)
+        await card.press('Enter')
+        await page.clock.runFor(500)
+        await expect(award).toBeHidden()
+
+        await page.locator('#restart-btn').click()
+        await expect(page.locator('#field-sheet')).toBeHidden()
+        await page.clock.runFor(1000)
+        await expect(card).toContainText('Second specimen')
+        await expect(card).toBeVisible()
+        await expect(page.locator('#pause-overlay')).toHaveJSProperty(
+            'inert',
+            true
+        )
+        await page.keyboard.press('p')
+        await page.keyboard.press('Escape')
+        await expect(page.locator('#field-sheet')).toBeVisible()
+        await expect(card).toBeVisible()
+        await page.clock.runFor(1000)
+        await card.press('Enter')
+        await page.clock.runFor(500)
+        await expect(award).toBeHidden()
+        await expect(page.locator('#pause-overlay')).toHaveJSProperty(
+            'inert',
+            false
+        )
+        await page.locator('#resume-btn').click()
+        await expect(page.locator('#field-sheet')).toBeHidden()
+        await expect(page.locator('#score')).toHaveText('0')
     })
+
+    for (const width of [1000, 390]) {
+        test(`field plate plays, pauses, logs and replays at ${width}px`, async ({
+            page,
+        }) => {
+            await page.setViewportSize({ width, height: 1000 })
+            await page.goto('/bubble-shooter')
+            await expectVisibleGameSurface(page, '#game-container canvas')
+            const sheet = page.locator('#field-sheet')
+            await expect(sheet).toBeVisible()
+            await expect(page.locator('#start-btn')).toBeEnabled()
+            await expect(page.locator('#intro-panel')).toContainText('5 shots')
+            await page.locator('#intro-panel [data-sheet="log"]').click()
+            await expect(page.locator('#empty-log')).toBeVisible()
+            await page.keyboard.press('Escape')
+            await expect(page.locator('#intro-panel')).toBeVisible()
+
+            await startGameWhenReady(page)
+            await expect(sheet).not.toBeVisible()
+            await expect(page.locator('#end-btn')).toBeVisible()
+            const canvas = page.locator('#game-container canvas')
+            const box = await canvas.boundingBox()
+            expect(box!.width).toBeLessThan(width)
+            expect(box!.width / box!.height).toBeCloseTo(3 / 4, 2)
+            expect(
+                await page.evaluate(() => document.documentElement.scrollWidth)
+            ).toBeLessThanOrEqual(width)
+
+            await page
+                .getByRole('button', { name: 'Pause', exact: true })
+                .click()
+            await expect(page.locator('#pause-overlay')).toBeVisible()
+            await page.keyboard.press('Tab')
+            expect(
+                await sheet.evaluate(element =>
+                    element.contains(document.activeElement)
+                )
+            ).toBe(true)
+            await page.keyboard.press('p')
+            await expect(sheet).not.toBeVisible()
+            await page
+                .getByRole('button', { name: 'Pause', exact: true })
+                .click()
+            await page.keyboard.press('Escape')
+            await expect(sheet).not.toBeVisible()
+            await expect(
+                page.getByRole('button', { name: 'Pause', exact: true })
+            ).toBeVisible()
+            await page.getByRole('button', { name: 'How it plays' }).click()
+            await expect(page.locator('[data-panel="help"]')).toBeVisible()
+            await page.keyboard.press('p')
+            await expect(sheet).toBeVisible()
+            await page.keyboard.press('Escape')
+            await expect(sheet).not.toBeVisible()
+
+            await clickGameSurface(page, '#game-container canvas')
+            await page
+                .getByRole('button', { name: 'Pause', exact: true })
+                .click()
+            await page
+                .getByRole('button', { name: 'Abandon & restart' })
+                .click()
+            await expect(sheet).not.toBeVisible()
+            await expect(page.locator('#score')).toHaveText('0')
+            await clickGameSurface(page, '#game-container canvas')
+            await page.locator('#end-btn').click()
+            await expect(page.locator('#game-over-overlay')).toBeVisible()
+            await expect(page.locator('#final-shots')).toHaveText('1')
+            await page.locator('#game-over-overlay [data-sheet="log"]').click()
+            await expect(page.locator('#recent-dives li')).toHaveCount(1)
+            await page.keyboard.press('Escape')
+            await expect(page.locator('#game-over-overlay')).toBeVisible()
+            await page.locator('#restart-btn').click()
+            await expect(sheet).not.toBeVisible()
+            await expect(canvas).toHaveCount(1)
+            await expect(page.locator('#score')).toHaveText('0')
+            await page.keyboard.press('ArrowLeft')
+            await page.keyboard.press('Space')
+            await page.locator('#end-btn').click()
+            await expect(page.locator('#final-shots')).toHaveText('1')
+        })
+    }
 })
 
 test.describe('Memory Matrix', () => {
@@ -429,18 +554,274 @@ test.describe('Sudoku', () => {
 })
 
 test.describe('Bejeweled', () => {
-    test('starts and shows end-game overlay when ended', async ({ page }) => {
+    async function readHint(page: Page): Promise<number[]> {
+        await page.locator('#hint-btn').click()
+        return (await page.locator('#board-notice').innerText())
+            .match(/\d+/g)!
+            .map(value => Number(value) - 1)
+    }
+
+    async function clickGem(page: Page, row: number, col: number) {
+        const box = (await page
+            .locator('#bejeweled-container canvas')
+            .boundingBox())!
+        await page.mouse.click(
+            box.x + ((col + 0.5) * box.width) / 8,
+            box.y + ((row + 0.5) * box.height) / 8
+        )
+    }
+
+    test('a hint clears an old selection before the marked pair is tapped', async ({
+        page,
+    }) => {
+        await page.clock.install()
+        await page.goto('/bejeweled')
+        await page.locator('#start-btn').click()
+        await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
+        const [row, col, targetRow, targetCol] = await readHint(page)
+        const [selectedRow, selectedCol] = [
+            [row + 1, col],
+            [row - 1, col],
+            [row, col + 1],
+            [row, col - 1],
+        ].find(
+            ([r, c]) =>
+                r >= 0 &&
+                r < 8 &&
+                c >= 0 &&
+                c < 8 &&
+                !(r === targetRow && c === targetCol)
+        )!
+        await clickGem(page, selectedRow, selectedCol)
+        await readHint(page)
+        await clickGem(page, row, col)
+        await expect(page.locator('#cascade-label')).toHaveText('Idle')
+        await expect(page.locator('#moves')).toHaveText('0')
+        await clickGem(page, targetRow, targetCol)
+        await page.clock.runFor(5000)
+        await expect(page.locator('#moves')).toHaveText('1')
+        await expect
+            .poll(async () => Number(await page.locator('#score').innerText()))
+            .toBeGreaterThan(0)
+    })
+
+    for (const savedBest of [10000, 0, null]) {
+        test(`personal-best badge waits for the saved record (${savedBest ?? 'unavailable'})`, async ({
+            page,
+        }) => {
+            let releaseBest!: () => void
+            const pendingBest = new Promise<void>(resolve => {
+                releaseBest = resolve
+            })
+            // Exercise the signed-in UI with fixture responses, without creating an account.
+            await page.route('**/bejeweled', async route => {
+                const response = await route.fetch()
+                const body = (await response.text()).replace(
+                    'data-signed-in="false"',
+                    'data-signed-in="true"'
+                )
+                await route.fulfill({ response, body })
+            })
+            await page.route('**/api/scores/best?*', async route => {
+                await pendingBest
+                await route.fulfill({
+                    status: savedBest === null ? 503 : 200,
+                    json: { bestScore: savedBest },
+                })
+            })
+            await page.route('**/api/challenges', route =>
+                route.fulfill({
+                    json: {
+                        challenges: [],
+                        xp: 0,
+                        level: 1,
+                        xpProgress: 0,
+                        xpToNextLevel: 100,
+                        streak: 0,
+                    },
+                })
+            )
+            await page.route('**/api/scores', route =>
+                route.fulfill({ json: { success: true } })
+            )
+            await page.goto('/bejeweled')
+            await page.locator('#start-btn').click()
+            const [row, col, targetRow, targetCol] = await readHint(page)
+            await clickGem(page, row, col)
+            await clickGem(page, targetRow, targetCol)
+            await expect
+                .poll(async () =>
+                    Number(await page.locator('#score').innerText())
+                )
+                .toBeGreaterThan(0)
+            await expect(page.locator('#hint-btn')).toBeEnabled()
+            await page.locator('#pause-btn').click()
+            await page.locator('#end-btn').click()
+            await expect(page.locator('#game-over-overlay')).toBeVisible()
+            await expect(page.locator('#personal-best')).toBeHidden()
+            await expect(page.locator('[data-best]').first()).toHaveText('—')
+            const score = Number(await page.locator('#final-score').innerText())
+            const responseFinished = page.waitForResponse(
+                '**/api/scores/best?*'
+            )
+            releaseBest()
+            await responseFinished
+            // The account refresh follows the best-score response, including its failure path.
+            await expect(page.locator('#account-label')).toHaveText('LV 1')
+            await expect(page.locator('[data-best]').first()).toHaveText(
+                savedBest === null
+                    ? '—'
+                    : Math.max(savedBest, score).toLocaleString()
+            )
+            if (savedBest === 0) {
+                await expect(page.locator('#personal-best')).toBeVisible()
+            } else {
+                await expect(page.locator('#personal-best')).toBeHidden()
+            }
+        })
+    }
+
+    test('keyboard hints score, pause freezes the timer, and replay starts a fresh dive', async ({
+        page,
+    }) => {
+        const errors: string[] = []
+        page.on('pageerror', error => errors.push(error.message))
+        await page.clock.install()
         await page.goto('/bejeweled')
         await expectVisibleGameSurface(page, '#bejeweled-container canvas')
-        await expect(page.locator('#score')).toHaveText('0')
-
-        await startGameWhenReady(page)
-        await expect(page.locator('#end-btn')).toBeVisible()
-
-        await page.locator('#end-btn').click()
-        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
-            /hidden/
+        await page.locator('#start-btn').click()
+        const canvas = page.locator('#bejeweled-container canvas')
+        await expect(canvas).toBeFocused()
+        await canvas.press('h')
+        const coordinates = (await page.locator('#board-notice').innerText())
+            .match(/\d+/g)!
+            .map(Number)
+        const [row, col, targetRow] = coordinates
+        for (let r = 1; r < row; r++) {
+            await canvas.press('ArrowDown')
+        }
+        for (let c = 1; c < col; c++) {
+            await canvas.press('ArrowRight')
+        }
+        await canvas.press('Enter')
+        await canvas.press(targetRow !== row ? 'ArrowDown' : 'ArrowRight')
+        await canvas.press('Enter')
+        await expect(page.locator('#moves')).toHaveText('1')
+        await expect
+            .poll(async () => Number(await page.locator('#score').innerText()))
+            .toBeGreaterThan(0)
+        await expect(page.locator('#hint-btn')).toBeEnabled()
+        await canvas.press('p')
+        await expect(page.locator('#pause-panel')).toBeVisible()
+        const time = await page.locator('#time-remaining').innerText()
+        await page.clock.runFor(5000)
+        await expect(page.locator('#time-remaining')).toHaveText(time)
+        await page
+            .getByRole('button', { name: 'Measured', exact: true })
+            .click()
+        await page.locator('#glyphs-btn').click()
+        await expect(page.locator('#glyphs-btn')).toHaveAttribute(
+            'aria-pressed',
+            'true'
         )
+        await page.locator('#motion-btn').click()
+        await page.locator('#sound-btn').click()
+        await page.locator('#resume-btn').click()
+        await expect(page.locator('#field-sheet')).not.toBeVisible()
+        await canvas.press('p')
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#game-over-overlay')).toBeVisible()
+        await expect(page.locator('#final-moves')).toHaveText('1')
+        await page.locator('#play-again-btn').click()
+        await expect(page.locator('#field-sheet')).not.toBeVisible()
+        await expect(page.locator('#score')).toHaveText('0')
+        await expect(page.locator('#moves')).toHaveText('0')
+        await page.clock.fastForward(61000)
+        await expect(page.locator('#game-over-overlay')).toBeVisible()
+        await expect(page.locator('#time-remaining')).toHaveText('0')
+        expect(errors).toEqual([])
+    })
+
+    test('drag swaps score on a narrow screen and the field sheets remain usable', async ({
+        page,
+    }, testInfo) => {
+        await page.setViewportSize({ width: 390, height: 844 })
+        await page.goto('/bejeweled')
+        await expect(page.locator('#start-btn')).toBeEnabled()
+        await expect(page.locator('#intro-panel img')).toHaveCount(3)
+        expect(
+            await page
+                .locator('#intro-panel img')
+                .evaluateAll(images =>
+                    images.every(
+                        image => (image as HTMLImageElement).naturalWidth > 0
+                    )
+                )
+        ).toBe(true)
+        await page.screenshot({
+            path: testInfo.outputPath('bejeweled-mobile-intro.png'),
+        })
+        await page
+            .locator('#intro-panel')
+            .getByRole('button', { name: 'Field log', exact: true })
+            .click()
+        await expect(page.locator('section[data-panel="log"]')).toBeVisible()
+        await expect(
+            page.locator('section[data-panel="log"] a[href="/login"]')
+        ).toBeVisible()
+        await page.getByRole('button', { name: 'Close field log' }).click()
+        await page.locator('#start-btn').click()
+        await page.locator('#hint-btn').click()
+        const [row, col, targetRow, targetCol] = (
+            await page.locator('#board-notice').innerText()
+        )
+            .match(/\d+/g)!
+            .map(Number)
+        const canvas = page.locator('#bejeweled-container canvas')
+        const box = (await canvas.boundingBox())!
+        const x = box.x + ((col - 0.5) * box.width) / 8
+        const y = box.y + ((row - 0.5) * box.height) / 8
+        await page.mouse.move(x, y)
+        await page.mouse.down()
+        await page.mouse.move(
+            box.x + ((targetCol - 0.5) * box.width) / 8,
+            box.y + ((targetRow - 0.5) * box.height) / 8,
+            { steps: 5 }
+        )
+        await page.mouse.up()
+        await expect(page.locator('#moves')).toHaveText('1')
+        await expect
+            .poll(async () => Number(await page.locator('#score').innerText()))
+            .toBeGreaterThan(0)
+        await expect(page.locator('#hint-btn')).toBeEnabled()
+        await page.screenshot({
+            path: testInfo.outputPath('bejeweled-mobile-board.png'),
+        })
+        await expect(page.locator('#board-notice')).toHaveText(
+            'Drag a gem onto its neighbour'
+        )
+        await page
+            .getByRole('button', { name: 'How it plays', exact: true })
+            .click()
+        await expect(page.locator('section[data-panel="help"]')).toBeVisible()
+        await page.keyboard.press('Escape')
+        await expect(page.locator('#field-sheet')).not.toBeVisible()
+        await page
+            .getByRole('button', { name: "Today's commission", exact: true })
+            .click()
+        await expect(page.locator('#commission-status')).toContainText(
+            'Sign in'
+        )
+        await page.keyboard.press('Escape')
+        await page.locator('#pause-btn').click()
+        await page.locator('#reset-btn').click()
+        await expect(page.locator('#moves')).toHaveText('0')
+        await page.setViewportSize({ width: 320, height: 740 })
+        expect(
+            await page.evaluate(
+                () => document.documentElement.scrollWidth <= innerWidth
+            )
+        ).toBe(true)
     })
 })
 

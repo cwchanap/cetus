@@ -4,6 +4,7 @@ import {
     isAdjacent,
     cloneGrid,
     findMatches,
+    findLegalSwap,
     refillGrid,
     swap,
     generateInitialGrid,
@@ -12,6 +13,26 @@ import {
 import { type JewelType } from './types'
 
 describe('Bejeweled Utils', () => {
+    it('finds a legal hint without changing the board and handles boards without moves', () => {
+        const grid: (JewelType | null)[][] = [
+            ['red', 'blue', 'red'],
+            ['green', 'red', 'yellow'],
+            ['blue', 'green', 'purple'],
+        ]
+        const before = cloneGrid(grid)
+        const move = findLegalSwap(grid)
+        expect(grid).toEqual(before)
+        expect(move).not.toBeNull()
+        swap(before, move![0], move![1])
+        expect(findMatches(before).length).toBeGreaterThan(0)
+        expect(
+            findLegalSwap([
+                ['red', 'blue'],
+                ['green', 'yellow'],
+            ])
+        ).toBeNull()
+        expect(findLegalSwap([])).toBeNull()
+    })
     describe('randomChoice', () => {
         it('should return an element from the array', () => {
             const arr = ['a', 'b', 'c'] as const

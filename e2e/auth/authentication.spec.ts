@@ -131,8 +131,20 @@ test.describe('Authentication System', () => {
         for (const gamePage of gamePages) {
             await page.goto(gamePage)
 
-            // Click login button
-            await page.getByRole('button', { name: 'Login' }).first().click()
+            if (gamePage === '/bubble-shooter') {
+                await page
+                    .locator('#intro-panel')
+                    .getByRole('button', { name: 'Field log', exact: true })
+                    .click()
+                await page
+                    .getByRole('link', { name: 'Sign in ↗', exact: true })
+                    .click()
+            } else {
+                await page
+                    .getByRole('button', { name: 'Login' })
+                    .first()
+                    .click()
+            }
             await expect(page).toHaveURL('/login')
             await expect(
                 page.getByRole('heading', { name: 'PLAYER LOGIN' })

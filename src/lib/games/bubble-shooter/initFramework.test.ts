@@ -40,7 +40,7 @@ vi.mock('./BubbleShooterGame', () => ({
         shoot: vi.fn(),
         update: vi.fn(),
         markRendered: vi.fn(),
-        getConfig: vi.fn(() => ({})),
+        getConfig: vi.fn(() => ({ gameWidth: 600, gameHeight: 800 })),
         getConstantsView: vi.fn(() => ({})),
     })),
     DEFAULT_BUBBLE_SHOOTER_CONFIG: {
@@ -78,6 +78,7 @@ vi.mock('./BubbleShooterRenderer', () => ({
             getApp: vi.fn(() => ({
                 canvas: {
                     style: {},
+                    setAttribute: vi.fn(),
                     parentNode: null,
                     addEventListener: vi.fn(
                         (
@@ -93,6 +94,8 @@ vi.mock('./BubbleShooterRenderer', () => ({
                     getBoundingClientRect: vi.fn(() => ({
                         left: 0,
                         top: 0,
+                        width: 300,
+                        height: 400,
                     })),
                 },
             })),
@@ -431,23 +434,25 @@ describe('initBubbleShooterGameFramework', () => {
             expect(gameMock.resume).toHaveBeenCalled()
         })
 
-        it('clicking reset-btn calls game.reset and hides overlay', async () => {
+        it('abandon and restart clears the run and starts again', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
             const overlay = document.getElementById('game-over-overlay')!
             overlay.classList.remove('hidden')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             document.getElementById('reset-btn')!.click()
-            expect(gameMock.reset).toHaveBeenCalled()
+            expect(gameMock.reset).toHaveBeenCalledBefore(gameMock.start)
+            expect(gameMock.start).toHaveBeenCalledOnce()
             expect(overlay.classList.contains('hidden')).toBe(true)
         })
 
-        it('clicking restart-btn calls game.reset', async () => {
+        it('dive again clears the run and starts again', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             document.getElementById('restart-btn')!.click()
-            expect(gameMock.reset).toHaveBeenCalled()
+            expect(gameMock.reset).toHaveBeenCalledBefore(gameMock.start)
+            expect(gameMock.start).toHaveBeenCalledOnce()
         })
 
         it('clicking resume-btn calls game.resume', async () => {
@@ -460,7 +465,7 @@ describe('initBubbleShooterGameFramework', () => {
     })
 
     describe('canvas aim/shoot handlers', () => {
-        it('pointermove calls game.setAimAngle when active', async () => {
+        it('maps pointer coordinates on a scaled canvas to game coordinates', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
             const { BubbleShooterRenderer } = await import(
                 './BubbleShooterRenderer'
@@ -490,7 +495,9 @@ describe('initBubbleShooterGameFramework', () => {
             listeners['pointermove']?.[0]?.(
                 new MouseEvent('pointermove', { clientX: 100, clientY: 100 })
             )
-            expect(gameMock.setAimAngle).toHaveBeenCalled()
+            expect(gameMock.setAimAngle).toHaveBeenCalledWith(
+                Math.atan2(200 - 700, 200 - 300)
+            )
         })
 
         it('pointerdown aims before shooting', async () => {
@@ -1009,7 +1016,8 @@ describe('initBubbleShooterGameFramework', () => {
             document.getElementById('resume-btn')!.click()
             const pauseBtn = document.getElementById('pause-btn')!
             const pauseOverlay = document.getElementById('pause-overlay')!
-            expect(pauseBtn.textContent).toBe('Resume')
+            expect(pauseBtn.textContent).toBe('▶')
+            expect(pauseBtn.getAttribute('aria-label')).toBe('Resume')
             expect(pauseOverlay.classList.contains('hidden')).toBe(false)
         })
     })

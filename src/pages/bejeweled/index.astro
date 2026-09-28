@@ -1,62 +1,1739 @@
 ---
-import GamePage from '@/components/games/GamePage.astro'
-import Card from '@/components/ui/Card.astro'
+import AppLayout from '@/layouts/AppLayout.astro'
+import AchievementAward from '@/components/AchievementAward.astro'
+import ChallengeComplete from '@/components/ChallengeComplete.astro'
+const user = Astro.locals.user
+const instructions = [
+  {
+    image: 'swap',
+    alt: 'A gem swapping down to complete a line of three',
+    label: 'Swap into three',
+  },
+  {
+    image: 'cascade',
+    alt: 'A ladder of three gems growing with each link of the chain',
+    label: 'Chains multiply · ×2 ×3',
+  },
+  { image: 'timer', alt: 'A sixty-second dial', label: 'Sixty seconds' },
+]
+const neighbours = [
+  { href: '/tetris', number: 'I', name: 'Tetris Challenge', color: '#22f5d0' },
+  {
+    href: '/bubble-shooter',
+    number: 'II',
+    name: 'Bubble Shooter',
+    color: '#6fe3ff',
+  },
+  {
+    href: '/memory-matrix',
+    number: 'IV',
+    name: 'Memory Matrix',
+    color: '#ffc24a',
+  },
+]
 ---
 
-<GamePage
-  gameId="bejeweled"
-  title="Bejeweled"
-  description="Swap adjacent gems to make matches and rack up points before time runs out"
-  icon="💎"
-  overlayTitle="TIME UP"
-  showPause={false}
-  showReset={false}
+<AppLayout
+  title="Bejeweled — Cetus"
+  description="Swap into three. Let the chains multiply. Sixty seconds in the shallows."
+  includeFooter={false}
+  data-field-plate
 >
-  <!-- Board: bejeweled canvas container -->
-  <div slot="game-board">
-    <div
-      id="bejeweled-container"
-      class="border-2 border-cetus-hairline bg-black/50 rounded-lg"
-      style="width: 480px; height: 480px;"
+  <header slot="header" class="plate-header plate-width">
+    <a class="wordmark" href="/" aria-label="Cetus home"
+      ><span class="brand-orb" aria-hidden="true"></span>Cetus</a
     >
+    <nav aria-label="Primary">
+      <a href="/#games" class="micro">← Catalogue</a>
+      <a href={user ? '/profile' : '/login'} class="account micro"
+        ><span aria-hidden="true"
+          >{user ? user.name.slice(0, 2).toUpperCase() : '↗'}</span
+        ><span id="account-label">{user ? 'Your log' : 'Sign in'}</span></a
+      >
+    </nav>
+  </header>
+  <div class="plate-width field-plate" data-signed-in={Boolean(user)}>
+    <div class="title-row">
+      <div>
+        <p class="micro accent eyebrow">Pl. III — Shallow · 0–200 m</p><h1>
+          Bejeweled
+        </h1>
+      </div>
+      <div class="tools">
+        <button
+          class="icon-button"
+          data-sheet="commission"
+          aria-label="Today's commission"
+          title="Today's commission">💎</button
+        >
+        <button
+          class="icon-button"
+          data-sheet="help"
+          aria-label="How it plays"
+          title="How it plays">?</button
+        >
+        <button
+          class="icon-button"
+          data-sheet="log"
+          aria-label="Field log"
+          title="Field log">▤</button
+        >
+        <button
+          class="icon-button"
+          id="pause-btn"
+          aria-label="Pause"
+          title="Pause (P)"
+          disabled>Ⅱ</button
+        >
+      </div>
+    </div>
+    <div class="hud" aria-label="Dive statistics">
+      <div class="score-stat">
+        <div class="micro">Score</div><div id="score" class="large-stat">0</div>
+      </div>
+      <div class="time-stat">
+        <div class="micro">Time left</div><div
+          id="time-remaining"
+          class="large-stat accent"
+        >
+          60
+        </div><progress
+          id="time-fill"
+          max="60"
+          value="60"
+          aria-label="Time remaining"></progress>
+      </div>
+      <div class="small-stats">
+        <div>
+          <div class="micro">Best</div><div class="stat-value" data-best>—</div>
+        </div>
+        <div>
+          <div class="micro">Moves</div><div class="stat-value" id="moves">
+            0
+          </div>
+        </div>
+      </div>
+      <div class="cascade">
+        <div class="cascade-label micro">
+          <span>Cascade</span><span id="cascade-label">Idle</span>
+        </div>
+        <div id="cascade-pips" aria-hidden="true">
+          {Array.from({ length: 8 }, () => <span />)}
+        </div>
+        <div class="micro chain-note">
+          Best chain this run · <span id="max-combo" class="amber">×0</span>
+        </div>
+      </div>
+    </div>
+    <div class="play-area">
+      <div class="plate-frame">
+        <span class="corner top-left" aria-hidden="true"></span><span
+          class="corner top-right"
+          aria-hidden="true"></span><span
+          class="corner bottom-left"
+          aria-hidden="true"></span><span
+          class="corner bottom-right"
+          aria-hidden="true"></span>
+        <div id="bejeweled-container" aria-label="Bejeweled playfield"></div>
+      </div>
+      <div class="board-tray">
+        <p class="micro" id="board-notice" role="status">
+          Drag a gem onto its neighbour
+        </p><button
+          id="hint-btn"
+          class="tray-action"
+          title="Show a legal swap (H)"
+          disabled>✦ Hint</button
+        >
+      </div>
+      <p class="micro controls-hint">
+        Tap to select · Drag to swap · Arrows + Enter
+      </p>
     </div>
   </div>
-
-  <!-- Sidebar -->
-  <div slot="game-info">
-    <!-- How to Play -->
-    <Card variant="glass" class="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ HOW TO PLAY
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>• Click two adjacent gems to swap them.</p>
-        <p>• Form a line of 3 or more matching gems to score.</p>
-        <p>• Matches may cascade for combo points.</p>
-        <p>• You have 60 seconds—maximize your score!</p>
-      </div>
-    </Card>
-  </div>
-</GamePage>
-
+  <Fragment slot="notifications">
+    <dialog id="field-sheet" aria-labelledby="intro-title">
+      <section id="intro-panel" data-panel="intro">
+        <div class="sheet-kicker">
+          <span class="micro accent">Pl. III · Specimen notes</span><span
+            class="micro">Cluster · Six pigments</span
+          >
+        </div>
+        <h2 id="intro-title">Bejeweled</h2>
+        <div class="instructions">
+          {
+            instructions.map((item, i) => (
+              <figure>
+                <>
+                  <img
+                    src={`/images/bejeweled/${item.image}.png`}
+                    alt={item.alt}
+                    width="150"
+                    height="100"
+                  />
+                  <figcaption class:list={['micro', { amber: i === 1 }]}>
+                    <span class:list={['accent', { amber: i === 1 }]}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    {item.label}
+                  </figcaption>
+                </>
+              </figure>
+            ))
+          }
+        </div>
+        <div class="record-line">
+          <span class="micro">{user ? 'Your best' : 'Best this visit'}</span
+          ><span class="mono" data-best>—</span>
+        </div>
+        <p id="game-error" class="error-message hidden" role="alert">
+          The plate could not be loaded. Refresh to try again.
+        </p>
+        <button id="start-btn" class="primary-action" disabled
+          >Loading the plate…</button
+        >
+        <div class="action-pair">
+          <button class="secondary-action" data-sheet="log">Field log</button
+          ><button class="secondary-action" data-sheet="help">? Method</button>
+        </div>
+      </section>
+      <section id="pause-panel" data-panel="pause" class="hidden">
+        <p class="micro accent">Dive held</p><h2 id="pause-title">Paused</h2>
+        <p class="micro settings-label">Pace</p>
+        <div class="action-pair" role="group" aria-label="Animation pace">
+          <button class="secondary-action" data-pace="swift" aria-pressed="true"
+            >Swift</button
+          ><button
+            class="secondary-action"
+            data-pace="measured"
+            aria-pressed="false">Measured</button
+          >
+        </div>
+        <p class="setting-note">
+          Swift keeps swaps and cascades brief. Both paces give you sixty
+          seconds.
+        </p>
+        <div class="settings">
+          <button id="glyphs-btn" aria-pressed="false"
+            ><span>Pigment glyphs</span><span class="micro" data-state>Off</span
+            ></button
+          >
+          <button id="sound-btn" aria-pressed="true"
+            ><span>Sound</span><span class="micro" data-state>On</span></button
+          >
+          <button id="motion-btn" aria-pressed="false"
+            ><span>Reduced motion</span><span class="micro" data-state>Off</span
+            ></button
+          >
+        </div>
+        <button id="resume-btn" class="primary-action">Continue</button>
+        <button id="reset-btn" class="secondary-action"
+          >Abandon &amp; restart</button
+        >
+        <button id="end-btn" class="exit-action micro" style="display:none"
+          >End dive</button
+        >
+        <p class="micro controls-hint">
+          P resume · Arrows move · Enter select · H hint
+        </p>
+      </section>
+      <section id="game-over-overlay" data-panel="results" class="hidden">
+        <div class="sheet-kicker">
+          <span class="micro">Dive record · Pl. III</span><span
+            id="personal-best"
+            class="micro new-best hidden">Personal best</span
+          >
+        </div>
+        <h2 id="results-title">The tide turns</h2>
+        <div class="result-score">
+          <div>
+            <span class="micro">Score</span><div
+              id="final-score"
+              class="large-stat"
+            >
+              0
+            </div>
+          </div><div>
+            <span class="micro">Per move</span><div
+              id="per-move"
+              class="stat-value ice"
+            >
+              —
+            </div>
+          </div>
+        </div>
+        <dl class="result-rows">
+          <div><dt>Moves made</dt><dd id="final-moves">0</dd></div><div>
+            <dt>Best chain</dt><dd id="final-combo" class="amber">×0</dd>
+          </div><div>
+            <dt>Largest match</dt><dd id="final-largest">0</dd>
+          </div><div><dt>Matches cleared</dt><dd id="final-matches">0</dd></div>
+        </dl>
+        <div class="field-note">
+          <span class="micro">Field note</span><p>
+            Work near the roots of a cluster. Falling gems can turn one match
+            into a chain.
+          </p>
+        </div>
+        <p class="micro settings-label">Neighbouring plates</p>
+        <div class="neighbours">
+          {
+            neighbours.map(item => (
+              <a href={item.href}>
+                <span class="micro accent">Pl. {item.number}</span>
+                {item.name}
+              </a>
+            ))
+          }
+        </div>
+        <button id="play-again-btn" class="primary-action">Dive again</button
+        ><button class="secondary-action" data-sheet="log">Field log</button>
+      </section>
+      <section data-panel="help" class="hidden">
+        <div class="sheet-kicker">
+          <span class="micro accent">Method</span><button
+            class="close-button"
+            data-close
+            aria-label="Close help">Close ×</button
+          >
+        </div>
+        <h2 id="help-title" class="sr-only">How it plays</h2>
+        <div class="instructions">
+          {
+            instructions.map((item, i) => (
+              <figure>
+                <>
+                  <img
+                    src={`/images/bejeweled/${item.image}.png`}
+                    alt={item.alt}
+                    width="150"
+                    height="100"
+                  />
+                  <figcaption class:list={['micro', { amber: i === 1 }]}>
+                    <span class:list={['accent', { amber: i === 1 }]}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    {item.label}
+                  </figcaption>
+                </>
+              </figure>
+            ))
+          }
+        </div>
+        <dl class="result-rows method-rows">
+          <div><dt>A swap holds</dt><dd>Only if it makes 3+</dd></div><div>
+            <dt>Each chain link</dt><dd class="amber">Raises the multiplier</dd>
+          </div><div><dt>✦ Hint</dt><dd>Marks one legal swap</dd></div>
+        </dl>
+        <p class="micro controls-hint">
+          Arrows move · Enter select · H hint · P pause
+        </p><button class="primary-action" data-close>Got it</button>
+      </section>
+      <section data-panel="log" class="hidden">
+        <div class="sheet-kicker">
+          <div>
+            <p class="micro accent">Field log</p><h2 id="log-title">
+              Your dive record
+            </h2>
+          </div><button
+            class="close-button"
+            data-close
+            aria-label="Close field log">Close ×</button
+          >
+        </div>
+        <div id="xp-panel" class="record-box hidden">
+          <div class="micro">
+            <span id="xp-label"></span><span id="xp-next"></span>
+          </div><progress
+            id="xp-fill"
+            max="100"
+            value="0"
+            aria-label="Level progress"></progress><div class="record-line">
+            <span class="micro">Challenge streak</span><span
+              class="mono amber"
+              id="streak"></span>
+          </div>
+        </div>
+        <div class="log-stats">
+          <div>
+            <span class="micro">Best</span><strong data-best>—</strong>
+          </div><div>
+            <span class="micro">Dives this visit</span><strong id="visit-count"
+              >0</strong
+            >
+          </div><div>
+            <span class="micro">Chain this visit</span><strong
+              class="amber"
+              id="visit-chain">×0</strong
+            >
+          </div>
+        </div>
+        <p class="micro settings-label">Dives this visit</p><p
+          id="empty-log"
+          class="description"
+        >
+          Nothing logged yet — your first dive gets a line here.
+        </p><ol id="recent-dives" class="result-rows"></ol>
+        <p class="micro settings-label">Top divers · All time</p><p
+          id="leaderboard-status"
+          class="description"
+        >
+          Loading the field log…
+        </p><ol id="leaderboard" class="result-rows"></ol>
+        <a class="exit-link micro" href={user ? '/profile' : '/login'}
+          >{
+            user
+              ? 'Saved scores & achievements ↗'
+              : 'Sign in to save scores ↗'
+          }</a
+        ><button class="primary-action" data-close>Back to the plate</button>
+      </section>
+      <section data-panel="commission" class="hidden">
+        <div class="sheet-kicker">
+          <span class="micro amber">Today's commission</span><button
+            class="close-button"
+            data-close
+            aria-label="Close commission">Close ×</button
+          >
+        </div>
+        <h2 id="commission-title">In the shallows</h2><p
+          id="commission-status"
+          class="description"
+        >
+          {
+            user
+              ? 'Loading today’s commissions…'
+              : 'Sign in to track daily commissions and earn XP.'
+          }
+        </p><div id="commissions"></div>
+        {
+          !user && (
+            <a class="exit-link micro" href="/login">
+              Sign in ↗
+            </a>
+          )
+        }<button class="primary-action" data-close>Back to the plate</button>
+      </section>
+      <AchievementAward /><ChallengeComplete />
+    </dialog>
+    <template id="commission-template"
+      ><article class="commission-card">
+        <div class="commission-heading">
+          <span data-icon></span><h3 data-name></h3><span
+            class="mono amber"
+            data-xp></span>
+        </div><p class="description" data-description></p><progress
+          max="100"
+          value="0"
+          aria-label="Commission progress"></progress><p
+          class="micro"
+          data-progress
+        >
+        </p>
+      </article></template
+    >
+  </Fragment>
+</AppLayout>
 <script>
   import {
     initBejeweledGame,
     type BejeweledInitResult,
   } from '@/lib/games/bejeweled/init'
+  import type {
+    BejeweledState,
+    BejeweledStats,
+  } from '@/lib/games/bejeweled/types'
+  import { findLegalSwap } from '@/lib/games/bejeweled/utils'
+  import { getUserBestScore } from '@/lib/services/scoreService'
+  import { GameID } from '@/lib/games'
+  import type { UserChallengeProgress } from '@/lib/challenges'
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  const sheet = document.querySelector<HTMLDialogElement>('#field-sheet')!
+  const panels = [...sheet.querySelectorAll<HTMLElement>('[data-panel]')]
+  const startButton = document.querySelector<HTMLButtonElement>('#start-btn')!
+  const pauseButton = document.querySelector<HTMLButtonElement>('#pause-btn')!
+  const hintButton = document.querySelector<HTMLButtonElement>('#hint-btn')!
+  const signedIn =
+    document.querySelector<HTMLElement>('.field-plate')!.dataset.signedIn ===
+    'true'
+  const setText = (id: string, value: string | number) => {
+    document.getElementById(id)!.textContent = String(value)
+  }
+  let handle: BejeweledInitResult | undefined
+  let currentPanel = 'intro'
+  let returnPanel = 'intro'
+  let resumeAfterSheet = false
+  let savedBest: number | null = signedIn ? null : 0
+  let visitBest = 0
+  let lastResult: { score: number; previousBest: number } | null = null
+  let visits = 0
+  let visitChain = 0
+  let pace: 'swift' | 'measured' = 'swift'
+  let glyphs = false
+  let sound = true
+  let reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
+  let audio: AudioContext | undefined
+  const controller = new AbortController()
+  const { signal } = controller
+
+  const syncBest = () => {
+    const best = savedBest === null ? null : Math.max(savedBest, visitBest)
+    document.querySelectorAll('[data-best]').forEach(el => {
+      el.textContent = best === null ? '—' : best.toLocaleString()
+    })
+    document
+      .getElementById('personal-best')!
+      .classList.toggle(
+        'hidden',
+        savedBest === null ||
+          lastResult === null ||
+          lastResult.score <= Math.max(savedBest, lastResult.previousBest)
+      )
+  }
+  const showSheet = (panel: string) => {
+    currentPanel = panel
+    panels.forEach(el =>
+      el.classList.toggle('hidden', el.dataset.panel !== panel)
+    )
+    sheet.dataset.panel = panel
+    sheet.setAttribute(
+      'aria-labelledby',
+      `${panel === 'intro' ? 'intro' : panel}-title`
+    )
+    if (!sheet.open) {
+      sheet.showModal()
+    }
+    const heading = sheet.querySelector<HTMLElement>(
+      `[data-panel="${panel}"] h2`
+    )!
+    heading.tabIndex = -1
+    heading.focus()
+  }
+  const closeSheet = () => {
+    sheet.close()
+    currentPanel = ''
+    handle?.renderer.getApp()?.canvas.focus()
+  }
+  const closeInfo = () => {
+    if (resumeAfterSheet) {
+      resumeAfterSheet = false
+      handle?.game.resume()
+    } else if (returnPanel) {
+      showSheet(returnPanel)
+    } else {
+      closeSheet()
+    }
+  }
+  const refreshAccount = async () => {
+    if (!signedIn) {
+      return
+    }
     try {
-      const _result: BejeweledInitResult | undefined = await initBejeweledGame()
-
-      // Wire restart button (overlay) just in case
-      document
-        .getElementById('play-again-btn')
-        ?.addEventListener('click', () => {
-          // Overlay handled in init, game.reset() is called there
-        })
-    } catch (error) {
-      console.error('Failed to initialize Bejeweled game:', error)
+      const response = await fetch('/api/challenges', { signal })
+      if (!response.ok) {
+        throw new Error('Challenges unavailable')
+      }
+      const data: {
+        challenges: UserChallengeProgress[]
+        xp: number
+        level: number
+        xpProgress: number
+        xpToNextLevel: number
+        streak: number
+      } = await response.json()
+      setText('account-label', `LV ${data.level}`)
+      setText('xp-label', `Level ${data.level} · ${data.xp} XP`)
+      setText('xp-next', `${data.xpToNextLevel} to next level`)
+      setText('streak', `${data.streak} days`)
+      document.getElementById('xp-panel')!.classList.remove('hidden')
+      document.querySelector<HTMLProgressElement>('#xp-fill')!.value =
+        data.xpProgress
+      const available = data.challenges.filter(
+        c => !c.gameId || c.gameId === GameID.BEJEWELED
+      )
+      setText(
+        'commission-status',
+        available.length
+          ? 'Complete a dive to record your progress.'
+          : 'No Bejeweled commissions today. Explore the catalogue for today’s challenges.'
+      )
+      const container = document.getElementById('commissions')!
+      container.replaceChildren()
+      available.forEach(challenge => {
+        const fragment = document
+          .querySelector<HTMLTemplateElement>('#commission-template')!
+          .content.cloneNode(true) as DocumentFragment
+        fragment.querySelector('[data-icon]')!.textContent = challenge.icon
+        fragment.querySelector('[data-name]')!.textContent = challenge.name
+        fragment.querySelector('[data-xp]')!.textContent =
+          `+${challenge.xpReward} XP`
+        fragment.querySelector('[data-description]')!.textContent =
+          challenge.description
+        fragment.querySelector('progress')!.value = Math.min(
+          100,
+          (challenge.currentValue / challenge.targetValue) * 100
+        )
+        fragment.querySelector('[data-progress]')!.textContent =
+          challenge.completed
+            ? 'Completed'
+            : `${challenge.currentValue} / ${challenge.targetValue}`
+        container.append(fragment)
+      })
+    } catch {
+      if (!signal.aborted) {
+        setText(
+          'commission-status',
+          'Commissions are unavailable. Open this panel again to retry.'
+        )
+      }
+    }
+  }
+  const refreshLeaderboard = async () => {
+    try {
+      const response = await fetch(
+        '/api/leaderboard?gameId=bejeweled&limit=5',
+        { signal }
+      )
+      if (!response.ok) {
+        throw new Error('Leaderboard unavailable')
+      }
+      const data: {
+        leaderboard: Array<{ rank: number; name: string; score: number }>
+      } = await response.json()
+      const list = document.getElementById('leaderboard')!
+      list.replaceChildren()
+      data.leaderboard.forEach(entry => {
+        const row = document.createElement('li')
+        const name = document.createElement('span')
+        name.textContent = `${entry.rank}. ${entry.name}`
+        const score = document.createElement('span')
+        score.className = 'mono'
+        score.textContent = entry.score.toLocaleString()
+        row.append(name, score)
+        list.append(row)
+      })
+      setText(
+        'leaderboard-status',
+        data.leaderboard.length ? '' : 'No recorded dives yet.'
+      )
+    } catch {
+      if (!signal.aborted) {
+        setText(
+          'leaderboard-status',
+          'The leaderboard is unavailable. Open the field log again to retry.'
+        )
+      }
+    }
+  }
+  document.querySelectorAll<HTMLButtonElement>('[data-sheet]').forEach(button =>
+    button.addEventListener(
+      'click',
+      () => {
+        returnPanel = currentPanel
+        const state = handle?.game.getState()
+        resumeAfterSheet = Boolean(state?.isActive && !state.isPaused)
+        if (resumeAfterSheet) {
+          handle?.game.pause()
+        }
+        showSheet(button.dataset.sheet!)
+        if (currentPanel === 'log') {
+          void refreshLeaderboard()
+          void refreshAccount()
+        }
+        if (currentPanel === 'commission') {
+          void refreshAccount()
+        }
+      },
+      { signal }
+    )
+  )
+  sheet
+    .querySelectorAll('[data-close]')
+    .forEach(button => button.addEventListener('click', closeInfo, { signal }))
+  sheet.addEventListener(
+    'cancel',
+    event => {
+      event.preventDefault()
+      if (panels.some(panel => panel.inert)) {
+        return
+      }
+      if (['help', 'log', 'commission'].includes(currentPanel)) {
+        closeInfo()
+      } else if (currentPanel === 'pause') {
+        handle?.game.resume()
+      }
+    },
+    { signal }
+  )
+  const awards = document.getElementById('achievement-award-overlay')!
+  const challenges = document.getElementById('challenge-complete-overlay')!
+  const rewardObserver = new MutationObserver(() => {
+    const active = !challenges.classList.contains('hidden')
+      ? challenges
+      : awards.style.display === 'flex'
+        ? awards
+        : null
+    const wasBlocked = panels[0].inert
+    if (active && !sheet.open) {
+      handle?.game.pause()
+    }
+    panels.forEach(panel => {
+      panel.inert = Boolean(active)
+    })
+    if (active) {
+      active.querySelector<HTMLElement>('[data-card], button')?.focus()
+    } else if (wasBlocked && sheet.open) {
+      showSheet(currentPanel)
     }
   })
+  rewardObserver.observe(awards, {
+    attributes: true,
+    attributeFilter: ['style'],
+  })
+  rewardObserver.observe(challenges, {
+    attributes: true,
+    attributeFilter: ['class'],
+  })
+
+  const preferences = () => {
+    handle?.renderer.setPreferences(pace, glyphs, reducedMotion)
+    document
+      .querySelectorAll<HTMLButtonElement>('[data-pace]')
+      .forEach(button =>
+        button.setAttribute(
+          'aria-pressed',
+          String(button.dataset.pace === pace)
+        )
+      )
+    for (const [id, value] of [
+      ['glyphs-btn', glyphs],
+      ['sound-btn', sound],
+      ['motion-btn', reducedMotion],
+    ] as const) {
+      const button = document.getElementById(id)!
+      button.setAttribute('aria-pressed', String(value))
+      button.querySelector('[data-state]')!.textContent = value ? 'On' : 'Off'
+    }
+  }
+  document.querySelectorAll<HTMLButtonElement>('[data-pace]').forEach(button =>
+    button.addEventListener(
+      'click',
+      () => {
+        pace = button.dataset.pace as typeof pace
+        preferences()
+      },
+      { signal }
+    )
+  )
+  document.getElementById('glyphs-btn')!.addEventListener(
+    'click',
+    () => {
+      glyphs = !glyphs
+      preferences()
+    },
+    { signal }
+  )
+  document.getElementById('sound-btn')!.addEventListener(
+    'click',
+    () => {
+      sound = !sound
+      preferences()
+    },
+    { signal }
+  )
+  document.getElementById('motion-btn')!.addEventListener(
+    'click',
+    () => {
+      reducedMotion = !reducedMotion
+      preferences()
+    },
+    { signal }
+  )
+  pauseButton.addEventListener('click', () => handle?.game.pause(), { signal })
+  document
+    .getElementById('resume-btn')!
+    .addEventListener('click', () => handle?.game.resume(), { signal })
+  document.getElementById('reset-btn')!.addEventListener(
+    'click',
+    () => {
+      handle?.renderer.cancelAnimations()
+      handle?.game.reset()
+      handle?.game.start()
+    },
+    { signal }
+  )
+  const hint = () => {
+    const state = handle?.game.getState()
+    if (!state?.isActive || state.isPaused || state.isAnimating) {
+      return
+    }
+    if (state.selected) {
+      handle!.game.clickCell(state.selected.row, state.selected.col)
+    }
+    const move = findLegalSwap(state.grid)
+    handle!.renderer.showHint(move ?? [])
+    setText(
+      'board-notice',
+      move
+        ? `Swap row ${move[0].row + 1}, column ${move[0].col + 1} with row ${move[1].row + 1}, column ${move[1].col + 1}`
+        : 'No legal swaps — pause to start a fresh dive'
+    )
+  }
+  hintButton.addEventListener('click', hint, { signal })
+  document.addEventListener(
+    'keydown',
+    event => {
+      if (
+        (event.target as HTMLElement).closest(
+          'input, textarea, select, [contenteditable]'
+        )
+      ) {
+        return
+      }
+      if (panels.some(panel => panel.inert)) {
+        return
+      }
+      if (event.key.toLowerCase() === 'p') {
+        if (currentPanel === 'pause') {
+          event.preventDefault()
+          handle?.game.resume()
+        } else if (!sheet.open) {
+          event.preventDefault()
+          handle?.game.pause()
+        }
+        return
+      }
+      if (sheet.open) {
+        return
+      }
+      if (event.key.toLowerCase() === 'h') {
+        event.preventDefault()
+        hint()
+        return
+      }
+      if (event.target !== handle?.renderer.getApp()?.canvas) {
+        return
+      }
+      const delta = {
+        ArrowUp: [-1, 0],
+        ArrowDown: [1, 0],
+        ArrowLeft: [0, -1],
+        ArrowRight: [0, 1],
+      }[event.key]
+      if (delta) {
+        event.preventDefault()
+        handle?.renderer.moveCursor(delta[0], delta[1])
+      } else if (event.key === 'Enter' || event.code === 'Space') {
+        event.preventDefault()
+        handle?.renderer.selectCursor()
+      }
+    },
+    { signal }
+  )
+  const blip = () => {
+    if (!sound) {
+      return
+    }
+    try {
+      audio ??= new AudioContext()
+      void audio.resume().catch(() => {})
+      const oscillator = audio.createOscillator(),
+        gain = audio.createGain()
+      oscillator.type = 'triangle'
+      oscillator.frequency.value = 540
+      gain.gain.setValueAtTime(0.035, audio.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.14)
+      oscillator.connect(gain)
+      gain.connect(audio.destination)
+      oscillator.start()
+      oscillator.stop(audio.currentTime + 0.14)
+    } catch {
+      /* Audio may be unavailable in the browser. */
+    }
+  }
+  const setTime = (time: number) => {
+    document.querySelector<HTMLProgressElement>('#time-fill')!.value = time
+    document
+      .getElementById('time-remaining')!
+      .classList.toggle('urgent', time <= 10)
+  }
+  showSheet('intro')
+  const initialize = async () => {
+    try {
+      handle = await initBejeweledGame(
+        {},
+        {
+          onStart: () => {
+            closeSheet()
+            pauseButton.disabled = false
+            hintButton.disabled = false
+            setText('score', 0)
+            setText('time-remaining', 60)
+            setTime(60)
+            setText('board-notice', 'Drag a gem onto its neighbour')
+          },
+          onPause: () => showSheet('pause'),
+          onResume: closeSheet,
+          onTimeUpdate: setTime,
+          onScoreUpdate: score => {
+            if (score > 0) {
+              blip()
+            }
+          },
+          onStateChange: state => {
+            const s = state as BejeweledState
+            setText(
+              'board-notice',
+              s.isAnimating
+                ? 'Chain in motion'
+                : 'Drag a gem onto its neighbour'
+            )
+            setText('moves', s.movesMade)
+            setText(
+              'cascade-label',
+              s.combo > 0
+                ? `×${s.combo} chain`
+                : s.isAnimating
+                  ? 'Swapping'
+                  : 'Idle'
+            )
+            setText(
+              'max-combo',
+              `×${handle?.game.getGameStats().maxCombo ?? 0}`
+            )
+            document
+              .querySelectorAll('#cascade-pips span')
+              .forEach((pip, i) => pip.classList.toggle('active', i < s.combo))
+            hintButton.disabled = !s.isActive || s.isAnimating
+          },
+          onEnd: (score, stats) => {
+            const s = stats as BejeweledStats
+            pauseButton.disabled = true
+            hintButton.disabled = true
+            lastResult = { score, previousBest: visitBest }
+            visitBest = Math.max(visitBest, score)
+            syncBest()
+            setText('final-moves', s.movesMade)
+            setText('final-combo', `×${s.maxCombo}`)
+            setText('final-largest', s.largestMatch)
+            setText('final-matches', s.totalMatches)
+            setText(
+              'per-move',
+              s.movesMade ? Math.round(score / s.movesMade) : '—'
+            )
+            setText(
+              'results-title',
+              s.maxCombo >= 3 ? 'A chain reaction' : 'The tide turns'
+            )
+            visits++
+            visitChain = Math.max(visitChain, s.maxCombo)
+            setText('visit-count', visits)
+            setText('visit-chain', `×${visitChain}`)
+            document.getElementById('empty-log')!.classList.add('hidden')
+            const row = document.createElement('li'),
+              label = document.createElement('span'),
+              value = document.createElement('span')
+            label.textContent = `Dive ${visits} · ${s.movesMade} moves · ×${s.maxCombo}`
+            value.className = 'mono'
+            value.textContent = score.toLocaleString()
+            row.append(label, value)
+            document.getElementById('recent-dives')!.prepend(row)
+            showSheet('results')
+            void refreshAccount()
+          },
+        },
+        {
+          width: 640,
+          height: 640,
+          responsive: false,
+          gridPadding: 0,
+          cellPadding: 12.8,
+          backgroundColor: 0x070b16,
+        }
+      )
+      preferences()
+      startButton.disabled = false
+      startButton.textContent = 'Begin the dive'
+      if (signedIn) {
+        savedBest = await getUserBestScore(GameID.BEJEWELED)
+      }
+      syncBest()
+      void refreshAccount()
+    } catch (error) {
+      console.error('Failed to initialize Bejeweled:', error)
+      document.getElementById('game-error')!.classList.remove('hidden')
+      startButton.textContent = 'Plate unavailable'
+    }
+  }
+  void initialize()
+  window.addEventListener(
+    'pagehide',
+    event => {
+      if (event.persisted) {
+        handle?.game.pause()
+        return
+      }
+      controller.abort()
+      rewardObserver.disconnect()
+      handle?.cleanup()
+      void audio?.close()
+    },
+    { signal }
+  )
 </script>
+<style>
+  @font-face {
+    font-family: 'Field Newsreader';
+    src: url('/fonts/field-plate/newsreader.woff2') format('woff2');
+    font-weight: 300 400;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Field Sans';
+    src: url('/fonts/field-plate/plex-sans.woff2') format('woff2');
+    font-weight: 400 600;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Field Mono';
+    src: url('/fonts/field-plate/plex-mono.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+  }
+  :global(body[data-field-plate]) {
+    background: #04060a;
+    color: #eaf6ff;
+    font-family: 'Field Sans', sans-serif;
+  }
+  :global(body[data-field-plate]::after) {
+    background-image: radial-gradient(
+      rgba(234, 246, 255, 0.055) 0.5px,
+      transparent 0.5px
+    );
+    background-size: 4px 4px;
+    opacity: 0.5;
+  }
+  .plate-width {
+    width: min(100%, 1000px);
+    margin: 0 auto;
+    padding-inline: 24px;
+  }
+  .plate-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding-block: 22px 17px;
+    position: relative;
+  }
+  .plate-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 24px;
+    right: 24px;
+    height: 4px;
+    border-top: 1px solid #2e3e49;
+    border-bottom: 1px solid #26333d;
+  }
+  .wordmark {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font:
+      400 23px/1 'Field Newsreader',
+      serif;
+  }
+  .brand-orb {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #2e3e49;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+  }
+  .brand-orb::after {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #22f5d0;
+  }
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  a:hover {
+    color: #22f5d0;
+  }
+  .micro,
+  .mono,
+  button {
+    font-family: 'Field Mono', monospace;
+  }
+  .micro {
+    font-size: 9px;
+    line-height: 1.5;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8a98a6;
+  }
+  .mono {
+    font-size: 13px;
+  }
+  .accent {
+    color: #22f5d0;
+  }
+  .amber {
+    color: #ffc24a;
+  }
+  .ice {
+    color: #6fe3ff;
+  }
+  .urgent {
+    color: #ff3d8a;
+  }
+  button,
+  .account {
+    border: 1px solid #26333d;
+    border-radius: 2px;
+    background: #0a1219;
+    color: #a7b4bd;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  button:hover:not(:disabled) {
+    border-color: #22f5d0;
+    color: #eaf6ff;
+  }
+  a:focus-visible,
+  button:focus-visible,
+  :global(#bejeweled-container canvas:focus-visible) {
+    outline: 2px solid #22f5d0;
+    outline-offset: 3px;
+  }
+  .account {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 11px 4px 4px;
+  }
+  .account > span:first-child {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #22f5d0;
+    color: #04060a;
+    letter-spacing: 0;
+  }
+  .title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    padding-block: 16px 14px;
+  }
+  .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+  }
+  h1,
+  h2 {
+    font-family: 'Field Newsreader', serif;
+    font-weight: 400;
+    line-height: 1.05;
+  }
+  h1 {
+    font-size: clamp(28px, 4vw, 38px);
+    margin-top: 6px;
+  }
+  h2 {
+    font-size: 36px;
+    font-weight: 300;
+    margin-top: 12px;
+  }
+  h2:focus {
+    outline: none;
+  }
+  #pause-title,
+  #log-title,
+  #commission-title {
+    font-size: 28px;
+  }
+  #results-title {
+    font-size: 32px;
+  }
+  .tools {
+    display: flex;
+    gap: 6px;
+  }
+  .icon-button {
+    width: 44px;
+    height: 44px;
+    font-size: 14px;
+  }
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 18px 34px;
+    padding-block: 14px;
+    border-block: 1px solid #26333d;
+  }
+  .score-stat {
+    min-width: 120px;
+  }
+  .time-stat {
+    min-width: 104px;
+  }
+  .large-stat {
+    font:
+      400 clamp(38px, 6.5vw, 52px) / 1 'Field Newsreader',
+      serif;
+    letter-spacing: -0.01em;
+  }
+  progress {
+    display: block;
+    width: 100%;
+    height: 7px;
+    border: 1px solid #26333d;
+    background: #0a1219;
+    appearance: none;
+  }
+  progress::-webkit-progress-bar {
+    background: #0a1219;
+  }
+  progress::-webkit-progress-value {
+    background: #22f5d0;
+  }
+  progress::-moz-progress-bar {
+    background: #22f5d0;
+  }
+  #time-fill {
+    height: 4px;
+    margin-top: 6px;
+  }
+  .small-stats {
+    display: flex;
+    gap: 22px;
+    padding-bottom: 6px;
+  }
+  .stat-value {
+    font:
+      15px 'Field Mono',
+      monospace;
+    margin-top: 4px;
+  }
+  .cascade {
+    flex: 1 1 200px;
+    min-width: 180px;
+    padding-bottom: 4px;
+  }
+  .cascade-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  #cascade-pips {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+  }
+  #cascade-pips span {
+    height: 7px;
+    flex: 1;
+    border: 1px solid #26333d;
+    background: #0a1219;
+  }
+  #cascade-pips span.active {
+    background: #ffc24a;
+    border-color: #ffc24a;
+  }
+  .chain-note {
+    margin-top: 7px;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+  }
+  .play-area {
+    width: min(100%, 472px);
+    margin: 18px auto 0;
+    padding-bottom: 40px;
+  }
+  .plate-frame {
+    position: relative;
+    padding: 10px;
+    border: 1px solid #2e3e49;
+    background: #0a1219;
+  }
+  .corner {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border-color: #22f5d0;
+    border-style: solid;
+    border-width: 0;
+  }
+  .top-left {
+    top: 4px;
+    left: 4px;
+    border-top-width: 1px;
+    border-left-width: 1px;
+  }
+  .top-right {
+    top: 4px;
+    right: 4px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+  }
+  .bottom-left {
+    bottom: 4px;
+    left: 4px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+  }
+  .bottom-right {
+    bottom: 4px;
+    right: 4px;
+    border-bottom-width: 1px;
+    border-right-width: 1px;
+  }
+  #bejeweled-container {
+    width: 100%;
+    aspect-ratio: 1;
+    background: #070b16;
+  }
+  #bejeweled-container :global(canvas) {
+    display: block;
+    width: 100% !important;
+    height: auto !important;
+    cursor: pointer;
+  }
+  .board-tray {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    padding: 9px 12px;
+    border: 1px solid #26333d;
+    background: #0a1219;
+  }
+  #board-notice {
+    flex: 1;
+    min-width: 0;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+  .tray-action {
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .controls-hint {
+    margin-top: 8px;
+    text-align: center;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+  }
+  #field-sheet {
+    margin: auto;
+    width: min(430px, calc(100% - 40px));
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    padding: 26px;
+    border: 1px solid #2e3e49;
+    background: #0a1219;
+    color: #eaf6ff;
+    font-family: 'Field Sans', sans-serif;
+  }
+  #field-sheet::backdrop {
+    background: rgba(2, 4, 8, 0.9);
+  }
+  #field-sheet[data-panel='log'] {
+    width: min(490px, calc(100% - 40px));
+  }
+  #field-sheet[data-panel='results'] {
+    width: min(470px, calc(100% - 40px));
+  }
+  #field-sheet[data-panel='commission'] {
+    border-color: #ffc24a;
+  }
+  #field-sheet .hidden {
+    display: none;
+  }
+  .sheet-kicker {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .sheet-kicker .micro {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+  }
+  .instructions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #1c2730;
+  }
+  .instructions figure {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin: 0;
+  }
+  .instructions img {
+    flex: 0 0 auto;
+    width: 150px;
+    height: 100px;
+    object-fit: contain;
+    border: 1px solid #1c2730;
+    background: #04060a;
+  }
+  .instructions figcaption {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    flex: 1;
+    min-width: 0;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+  .record-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 11px 13px;
+    border: 1px solid #1c2730;
+    background: #04060a;
+  }
+  .primary-action,
+  .secondary-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+  }
+  .primary-action {
+    min-height: 54px;
+    margin-top: 18px;
+    background: #22f5d0;
+    color: #04060a;
+    font-size: 12px;
+    font-weight: 600;
+    border-color: #22f5d0;
+  }
+  .primary-action:hover:not(:disabled) {
+    background: #5dffe0;
+    color: #04060a;
+  }
+  .secondary-action {
+    min-height: 46px;
+    margin-top: 8px;
+    background: transparent;
+    font-size: 11px;
+  }
+  .action-pair {
+    display: flex;
+    gap: 8px;
+  }
+  .action-pair > button {
+    flex: 1;
+  }
+  .action-pair > button[aria-pressed='true'] {
+    border-color: #22f5d0;
+    background: #22f5d014;
+    color: #22f5d0;
+  }
+  .close-button {
+    min-height: 36px;
+    padding-inline: 12px;
+    font-size: 10px;
+    text-transform: uppercase;
+  }
+  .description {
+    margin-top: 12px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #a7b4bd;
+    text-wrap: pretty;
+  }
+  .description:empty {
+    display: none;
+  }
+  .setting-note {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #8a98a6;
+  }
+  .settings-label {
+    margin-top: 18px;
+  }
+  .settings {
+    margin-top: 16px;
+    border-top: 1px solid #1c2730;
+  }
+  .settings button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 48px;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid #1c2730;
+    background: transparent;
+    text-align: left;
+    font:
+      13.5px 'Field Sans',
+      sans-serif;
+    color: #eaf6ff;
+  }
+  .exit-action {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    min-height: 36px;
+    margin-top: 8px;
+  }
+  .exit-link {
+    display: block;
+    text-align: center;
+    margin-top: 16px;
+  }
+  .result-score {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    padding-block: 18px 14px;
+    border-bottom: 1px solid #2e3e49;
+  }
+  .result-score > div:last-child {
+    padding-bottom: 7px;
+  }
+  .result-rows > div,
+  .result-rows :global(li) {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding-block: 10px;
+    border-bottom: 1px solid #1c2730;
+    font-size: 13px;
+    color: #a7b4bd;
+  }
+  .result-rows dd {
+    font-family: 'Field Mono', monospace;
+    color: #eaf6ff;
+  }
+  .result-rows dd.amber {
+    color: #ffc24a;
+  }
+  .method-rows {
+    margin-top: 16px;
+  }
+  .method-rows dd {
+    font-size: 10px;
+    text-align: right;
+    text-transform: uppercase;
+  }
+  .field-note {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-left: 2px solid #ffc24a;
+    background: #04060a;
+  }
+  .field-note p {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-top: 5px;
+  }
+  .new-best {
+    padding: 7px;
+    border: 2px solid #ff3d8a;
+    color: #ff3d8a;
+    transform: rotate(-3deg);
+  }
+  .neighbours {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 9px;
+  }
+  .neighbours a {
+    padding: 9px;
+    border: 1px solid #26333d;
+    background: #04060a;
+    font:
+      13px/1.15 'Field Newsreader',
+      serif;
+  }
+  .neighbours .micro {
+    display: block;
+    margin-block: 7px 2px;
+    font-size: 8px;
+  }
+  .neighbour-art {
+    height: 34px;
+    border: 1px solid #1c2730;
+    background: linear-gradient(#0e2b3a, #060f16);
+    display: grid;
+    place-items: center;
+  }
+  .neighbour-art span {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+  }
+  .log-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .log-stats > div,
+  .record-box {
+    padding: 12px;
+    border: 1px solid #1c2730;
+    background: #04060a;
+  }
+  .log-stats .micro {
+    font-size: 8px;
+  }
+  .log-stats strong {
+    display: block;
+    font:
+      24px/1.1 'Field Newsreader',
+      serif;
+    margin-top: 4px;
+  }
+  .record-box {
+    margin-top: 18px;
+  }
+  .record-box > .micro {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .record-box progress {
+    margin-top: 9px;
+  }
+  .record-box .record-line {
+    border: 0;
+    padding: 0;
+  }
+  .commission-card {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #1c2730;
+  }
+  .commission-heading {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+  }
+  .commission-heading h3 {
+    flex: 1;
+    font:
+      19px 'Field Newsreader',
+      serif;
+  }
+  .commission-card progress {
+    margin-block: 16px 8px;
+  }
+  .error-message {
+    margin-top: 12px;
+    color: #ff94bd;
+  }
+  @media (max-width: 540px) {
+    .plate-width {
+      padding-inline: 16px;
+    }
+    .plate-header::after {
+      left: 16px;
+      right: 16px;
+    }
+    nav {
+      gap: 10px;
+    }
+    .eyebrow {
+      font-size: 8px;
+    }
+    .hud {
+      gap: 16px 22px;
+    }
+    .score-stat {
+      min-width: 70px;
+    }
+    .time-stat {
+      min-width: 80px;
+    }
+    .small-stats {
+      gap: 18px;
+    }
+    .cascade {
+      flex-basis: 100%;
+    }
+    #field-sheet {
+      padding: 22px;
+    }
+    .instructions img {
+      width: clamp(96px, 35vw, 150px);
+      height: auto;
+      aspect-ratio: 3/2;
+    }
+    .instructions figure {
+      gap: 10px;
+    }
+    .instructions figcaption {
+      gap: 6px;
+      font-size: 9px;
+    }
+    .sheet-kicker {
+      align-items: flex-start;
+    }
+    .sheet-kicker .micro {
+      font-size: 8px;
+    }
+    .tools {
+      gap: 6px;
+    }
+    .icon-button {
+      width: 40px;
+      height: 40px;
+    }
+    .board-tray {
+      gap: 8px;
+    }
+    #board-notice {
+      font-size: 9px;
+    }
+  }
+</style>
