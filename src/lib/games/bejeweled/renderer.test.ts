@@ -773,3 +773,201 @@ describe('BejeweledRenderer', () => {
         })
     })
 })
+
+describe('BejeweledRenderer drag release guards', () => {
+    let container: HTMLElement
+    let renderer: BejeweledRenderer
+
+    beforeEach(() => {
+        container = document.createElement('div')
+        container.id = 'bejeweled-test-container'
+        document.body.appendChild(container)
+        vi.clearAllMocks()
+        vi.stubGlobal('requestAnimationFrame', vi.fn())
+        vi.stubGlobal('performance', { now: vi.fn().mockReturnValue(0) })
+    })
+
+    afterEach(() => {
+        try {
+            renderer?.destroy()
+        } catch {
+            /* ignore */
+        }
+        document.body.removeChild(container)
+        vi.unstubAllGlobals()
+    })
+
+    async function setup() {
+        renderer = new BejeweledRenderer({
+            type: 'canvas',
+            container: '#bejeweled-test-container',
+        })
+        await renderer.initialize()
+        const click = vi.fn()
+        renderer.setCellClickCallback(click)
+        renderer.render(makeBejeweledState())
+        const app = vi.mocked(Application).mock.results[0].value
+        const handler = (name: string) =>
+            app.stage.on.mock.calls.find(
+                (call: unknown[]) => call[0] === name
+            )![1]
+        return { click, handler }
+    }
+
+    it('ignores pointerup without a prior pointerdown', async () => {
+        const { click, handler } = await setup()
+        handler('pointerup')({ global: { x: 100, y: 100 } })
+        expect(click).not.toHaveBeenCalled()
+    })
+
+    it('ignores a release landing outside the grid', async () => {
+        const { click, handler } = await setup()
+        handler('pointerdown')({ global: { x: 100, y: 100 } })
+        handler('pointerup')({ global: { x: -100, y: -100 } })
+        expect(click).not.toHaveBeenCalled()
+    })
+
+    it('ignores a release more than one cell away', async () => {
+        const { click, handler } = await setup()
+        handler('pointerdown')({ global: { x: 100, y: 100 } }) // (0,0)
+        handler('pointerup')({ global: { x: 500, y: 300 } }) // (1,2)
+        expect(click).not.toHaveBeenCalled()
+    })
+
+    it('clears the pending drag on pointercancel', async () => {
+        const { click, handler } = await setup()
+        handler('pointerdown')({ global: { x: 100, y: 100 } })
+        handler('pointercancel')({})
+        handler('pointerup')({ global: { x: 250, y: 85 } })
+        expect(click).not.toHaveBeenCalled()
+    })
+
+    it('taps the cell when the drag ends where it started', async () => {
+        const { click, handler } = await setup()
+        handler('pointerdown')({ global: { x: 100, y: 100 } })
+        handler('pointerup')({ global: { x: 120, y: 110 } }) // same cell
+        expect(click).toHaveBeenCalledTimes(1)
+        expect(click).toHaveBeenCalledWith(0, 0)
+    })
+})
+
+describe('BejeweledRenderer keyboard cursor, hints, and preferences', () => {
+    let container: HTMLElement
+    let renderer: BejeweledRenderer
+
+    beforeEach(() => {
+        container = document.createElement('div')
+        container.id = 'bejeweled-test-container'
+        document.body.appendChild(container)
+        vi.clearAllMocks()
+        vi.stubGlobal('requestAnimationFrame', vi.fn())
+        vi.stubGlobal('performance', { now: vi.fn().mockReturnValue(0) })
+    })
+
+    afterEach(() => {
+        try {
+            renderer?.destroy()
+        } catch {
+            /* ignore */
+        }
+        document.body.removeChild(container)
+        vi.unstubAllGlobals()
+    })
+
+    async function setup() {
+        renderer = new BejeweledRenderer({
+            type: 'canvas',
+            container: '#bejeweled-test-container',
+        })
+        await renderer.initialize()
+        const click = vi.fn()
+        renderer.setCellClickCallback(click)
+        renderer.render(makeBejeweledState())
+        return { click }
+    }
+
+    it('moveCursor moves the cursor, announces the cell, and redraws', async () => {
+        await setup()
+        expect(() => renderer.moveCursor(1, 0)).not.toThrow()
+        const label = renderer.getApp().canvas.getAttribute('aria-label')
+        expect(label).toContain('Row 2, column 1')
+        // Cursor stays clamped inside the board.
+        renderer.moveCursor(-5, -5)
+        expect(renderer.getApp().canvas.getAttribute('aria-label')).toContain(
+            'Row 1, column 1'
+        )
+    })
+
+    it('moveCursor is ignored while animating or paused', async () => {
+        await setup()
+        const before = renderer.getApp().canvas.getAttribute('aria-label')
+        renderer.render(makeBejeweledState({ isAnimating: true }))
+        renderer.moveCursor(1, 0)
+        expect(renderer.getApp().canvas.getAttribute('aria-label')).toBe(before)
+    })
+
+    it('showHint redraws with hint outlines', async () => {
+        await setup()
+        expect(() =>
+            renderer.showHint([
+                { row: 0, col: 0 },
+                { row: 1, col: 1 },
+            ])
+        ).not.toThrow()
+    })
+
+    it('selectCursor taps the current cursor cell', async () => {
+        const { click } = await setup()
+        renderer.moveCursor(1, 0)
+        renderer.selectCursor()
+        expect(click).toHaveBeenCalledWith(1, 0)
+    })
+
+    it('setPreferences redraws the idle board with glyph shapes', async () => {
+        await setup()
+        expect(() =>
+            renderer.setPreferences('swift', true, false)
+        ).not.toThrow()
+        // All six jewel types in the fixture grid exercise every glyph shape.
+        renderer.render(makeBejeweledState())
+        expect(Graphics).toHaveBeenCalled()
+    })
+
+    it('animateSwap honors swift pace and reduced motion', async () => {
+        let animateFn: FrameRequestCallback = () => {}
+        vi.mocked(requestAnimationFrame).mockImplementation(cb => {
+            animateFn = cb
+            return 1
+        })
+        const mockPerf = { now: vi.fn() }
+        vi.stubGlobal('performance', mockPerf)
+        await setup()
+
+        const state = makeBejeweledState()
+
+        // Swift pace shortens the swap duration.
+        renderer.setPreferences('swift', false, false)
+        mockPerf.now.mockReturnValue(0)
+        const swift = renderer.animateSwap(
+            { row: 0, col: 0 },
+            { row: 0, col: 1 },
+            state,
+            100
+        )
+        mockPerf.now.mockReturnValue(50)
+        animateFn(50)
+        await swift
+
+        // Reduced motion snaps the swap to its end immediately.
+        renderer.setPreferences('measured', false, true)
+        const snapped = renderer.animateSwap(
+            { row: 0, col: 0 },
+            { row: 0, col: 1 },
+            state,
+            100
+        )
+        mockPerf.now.mockReturnValue(60)
+        animateFn(60)
+        await expect(snapped).resolves.toBeUndefined()
+    })
+})
