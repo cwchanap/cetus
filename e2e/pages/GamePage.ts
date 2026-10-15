@@ -29,37 +29,30 @@ export class GamePage {
 }
 
 export class TetrisPage extends GamePage {
+    // Field plate chrome: the intro sheet carries the title, the dive is
+    // gated behind #start-btn, and the header links home via "← Catalogue"
+    // instead of a Home nav link.
     readonly gameTitle: Locator
-    readonly scoreDisplay: Locator
-    readonly levelDisplay: Locator
-    readonly linesDisplay: Locator
+    readonly fieldSheet: Locator
+    readonly pausePanel: Locator
     readonly startButton: Locator
     readonly pauseButton: Locator
     readonly resumeButton: Locator
     readonly endGameButton: Locator
     readonly resetButton: Locator
-    readonly controlsSection: Locator
-    readonly statisticsSection: Locator
-    readonly nextPieceSection: Locator
+    readonly catalogueLink: Locator
 
     constructor(page: Page) {
         super(page)
-        this.gameTitle = page.getByRole('heading', { name: 'TETRIS CHALLENGE' })
-        this.scoreDisplay = page.locator('text=Score:').locator('..')
-        this.levelDisplay = page.locator('text=Level:').locator('..')
-        this.linesDisplay = page.locator('text=Lines:').locator('..')
+        this.gameTitle = page.locator('#intro-title')
+        this.fieldSheet = page.locator('#field-sheet')
+        this.pausePanel = page.locator('#pause-panel')
         this.startButton = page.locator('#start-btn')
         this.pauseButton = page.locator('#pause-btn')
-        this.resumeButton = page.locator('#pause-btn') // Same button, changes text
+        this.resumeButton = page.locator('#resume-btn')
         this.endGameButton = page.locator('#end-btn')
         this.resetButton = page.locator('#reset-btn')
-        this.controlsSection = page.getByRole('heading', { name: 'CONTROLS' })
-        this.statisticsSection = page.getByRole('heading', {
-            name: 'STATISTICS',
-        })
-        this.nextPieceSection = page.getByRole('heading', {
-            name: 'NEXT PIECE',
-        })
+        this.catalogueLink = page.getByRole('link', { name: '← Catalogue' })
     }
 
     async goto() {
@@ -84,6 +77,10 @@ export class TetrisPage extends GamePage {
 
     async resetGame() {
         await this.resetButton.click()
+    }
+
+    async navigateToHome() {
+        await this.catalogueLink.click()
     }
 }
 
