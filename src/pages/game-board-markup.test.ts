@@ -40,17 +40,13 @@ const chromaticTideMarkup = readFileSync(
 )
 
 const games = [
-    'tetris',
-    'bubble-shooter',
     'memory-matrix',
     'quick-math',
     'word-scramble',
     'reflex',
     'sudoku',
-    'bejeweled',
     'path-navigator',
     'evader',
-    '2048',
     'snake',
     'circuit-hacker',
     'satellite-sync',
@@ -64,6 +60,8 @@ const games = [
     'asteroid-drift',
     'chromatic-tide',
 ]
+
+const fieldPlateGames = ['tetris', 'bubble-shooter', 'bejeweled', '2048']
 
 describe('Game board page markup', () => {
     it('keeps Reflex and Evader default boards visible before start', () => {
@@ -79,11 +77,11 @@ describe('Game board page markup', () => {
 
 describe('Bubble Shooter rules copy', () => {
     it('sources rowAddInterval from config and reflects Tasks 4-6 mechanics', () => {
-        expect(bubbleShooterMarkup).toContain(
-            'DEFAULT_BUBBLE_SHOOTER_CONFIG.rowAddInterval'
+        expect(bubbleShooterMarkup).toMatch(
+            /\{\s*rowAddInterval[^}]*\}\s*=\s*DEFAULT_BUBBLE_SHOOTER_CONFIG/
         )
         expect(bubbleShooterMarkup).toContain(
-            'Disconnected bubbles fall after a match'
+            'connection to the ceiling fall too'
         )
         expect(bubbleShooterMarkup).not.toContain(
             'New row appears after each shot'
@@ -420,6 +418,24 @@ describe('Game pages use GamePage wrapper', () => {
             expect(src).toContain('slot="game-board"')
             // Should NOT import AppLayout directly anymore
             expect(src).not.toMatch(/import AppLayout/)
+        })
+    }
+})
+
+describe('Field plate game pages', () => {
+    for (const game of fieldPlateGames) {
+        it(`${game} uses AppLayout with the field plate chrome`, () => {
+            const src = readFileSync(
+                resolve(process.cwd(), `src/pages/${game}/index.astro`),
+                'utf-8'
+            )
+            expect(src).toMatch(/import AppLayout/)
+            expect(src).toContain('data-field-plate')
+            expect(src).toContain('slot="header"')
+            expect(src).toContain('plate-header')
+            expect(src).toContain('slot="notifications"')
+            // Field plate pages replaced the shared GamePage chrome
+            expect(src).not.toContain('GamePage')
         })
     }
 })
