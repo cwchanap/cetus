@@ -24,33 +24,28 @@ test.describe('Complete Game Session User Journey', () => {
             timeout: 10000,
         })
 
-        // Play Tetris briefly
+        // Play Tetris briefly. The field plate gates the dive behind the
+        // intro sheet; starting closes the sheet and enables header pause.
+        await expect(tetrisPage.startButton).toBeEnabled({ timeout: 10000 })
         await tetrisPage.startGame()
-        // Wait for game to start - start button should be hidden, end button visible
-        await expect(tetrisPage.startButton).toBeHidden({ timeout: 5000 })
-        await expect(tetrisPage.endGameButton).toBeVisible({ timeout: 5000 })
-        await expect(page.locator('#pieces-count')).toHaveText('1', {
-            timeout: 5000,
-        })
+        await expect(tetrisPage.fieldSheet).not.toBeVisible()
+        await expect(tetrisPage.pauseButton).toBeEnabled()
 
         // Test pause/resume functionality
         await tetrisPage.pauseGame()
-        // Wait for button text to update after pause (use trim to handle whitespace)
-        await expect(tetrisPage.pauseButton).toContainText('Resume', {
-            timeout: 3000,
-        })
+        await expect(tetrisPage.pausePanel).toBeVisible()
         await tetrisPage.resumeGame()
-        await expect(tetrisPage.pauseButton).toContainText('Pause', {
-            timeout: 3000,
-        })
+        await expect(tetrisPage.fieldSheet).not.toBeVisible()
 
-        // Reset Tetris game to return to initial state
+        // Reset Tetris game to return to a fresh run
+        await tetrisPage.pauseGame()
         await tetrisPage.resetGame()
-        await expect(tetrisPage.startButton).toBeVisible()
+        await expect(tetrisPage.fieldSheet).not.toBeVisible()
 
-        // Navigate back to homepage
+        // Navigate back to homepage (field plate headers link to the
+        // catalogue anchor)
         await tetrisPage.navigateToHome()
-        await expect(page).toHaveURL('/')
+        await expect(page).toHaveURL('/#games')
         await expect(homePage.catalogSection).toBeVisible()
 
         // Navigate to Quick Math game

@@ -139,6 +139,17 @@ test.describe('Authentication System', () => {
                 await page
                     .getByRole('link', { name: 'Sign in ↗', exact: true })
                     .click()
+            } else if (gamePage === '/tetris') {
+                // Field plate headers sit behind the intro sheet; sign in
+                // from the field log panel instead
+                await page
+                    .locator('#intro-panel')
+                    .getByRole('button', { name: 'Field log', exact: true })
+                    .click()
+                await page
+                    .locator('[data-panel="log"]')
+                    .getByRole('link', { name: /sign in/i })
+                    .click()
             } else {
                 await page
                     .getByRole('button', { name: 'Login' })
@@ -177,10 +188,18 @@ test.describe('Authentication System', () => {
         for (const pagePath of pages) {
             await page.goto(pagePath)
 
-            // Login button should be present (indicating user is not logged in)
-            await expect(
-                page.getByRole('button', { name: 'Login' }).first()
-            ).toBeVisible()
+            // Login entry should be present (indicating user is not logged in)
+            if (pagePath === '/tetris') {
+                // Field plate pages show signed-out state via the header
+                // account link
+                await expect(
+                    page.getByRole('link', { name: 'Sign in', exact: true })
+                ).toBeVisible()
+            } else {
+                await expect(
+                    page.getByRole('button', { name: 'Login' }).first()
+                ).toBeVisible()
+            }
         }
     })
 })
