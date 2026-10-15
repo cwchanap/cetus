@@ -87,53 +87,45 @@ export function getMaxTile(board: Board): number {
  */
 export function getTileColor(value: number): number {
     const colors: Record<number, number> = {
-        2: 0x1a1a2e,
-        4: 0x16213e,
-        8: 0x0f3460,
-        16: 0x533483,
-        32: 0x7b2cbf,
-        64: 0xe94560,
-        128: 0xff6b6b,
-        256: 0xffd93d,
-        512: 0x6bcb77,
-        1024: 0x4d96ff,
-        2048: 0x00ffff,
+        2: 0x12222e,
+        4: 0x16323e,
+        8: 0x0f4c4c,
+        16: 0x127063,
+        32: 0x1aa88f,
+        64: 0x22f5d0,
+        128: 0x6fe3ff,
+        256: 0xb8f1ff,
+        512: 0xffc24a,
+        1024: 0xff9a3d,
+        2048: 0xff3d8a,
     }
-    // For values > 2048, use magenta (legendary)
-    return colors[value] ?? 0xff00ff
+    return colors[value] ?? 0xeaf6ff
 }
 
 /**
  * Get tile text color based on value (hex format for PixiJS)
  */
 export function getTileTextColor(value: number): number {
-    // Dark text for light backgrounds (128, 256, 512, 2048)
-    const darkTextValues = [128, 256, 512, 2048]
-    if (darkTextValues.includes(value)) {
-        return 0x1a1a2e
-    }
-    // Cyan text for dark backgrounds (2, 4)
-    if (value <= 4) {
-        return 0x00ffff
-    }
-    // White text for everything else
-    return 0xffffff
+    return value === 2 ? 0xa7b4bd : value < 32 ? 0xeaf6ff : 0x04060a
 }
 
 /**
  * Get font size based on tile value (for large numbers)
  */
-export function getTileFontSize(value: number): number {
-    if (value < 100) {
-        return 36
-    }
-    if (value < 1000) {
-        return 30
-    }
-    if (value < 10000) {
-        return 24
-    }
-    return 20
+export function getTileFontSize(
+    value: number,
+    size = GAME_CONSTANTS.TILE_SIZE
+): number {
+    return Math.round(
+        size *
+            (value < 100
+                ? 0.46
+                : value < 1000
+                  ? 0.38
+                  : value < 10000
+                    ? 0.3
+                    : 0.24)
+    )
 }
 
 /**

@@ -92,6 +92,7 @@ describe('TetrisGame', () => {
                 triples: 0,
                 tetrises: 0,
                 consecutiveLineClears: 0,
+                maxConsecutiveLineClears: 0,
             })
         })
 
@@ -125,6 +126,62 @@ describe('TetrisGame', () => {
             expect(config.boardHeight).toBe(DEFAULT_TETRIS_CONFIG.boardHeight)
             expect(config.blockSize).toBe(DEFAULT_TETRIS_CONFIG.blockSize)
         })
+    })
+
+    it('holds once per placement, restores orientation, and preserves the queue on a hold swap', () => {
+        game.start()
+        const first = game.getState().currentPiece!
+        const canonical = DEFAULT_TETRIS_CONFIG.pieces[first.type].shape
+        const next = game.getState().queue[0]
+        game.rotate()
+        game.holdPiece()
+        expect(game.getState().heldPiece!.shape).toEqual(canonical)
+        expect(game.getState().currentPiece).toBe(next)
+        expect(game.getState().queue).toHaveLength(3)
+        expect(game.getState().stats.pieces).toBe(0)
+        const heldState = game.getState()
+        game.holdPiece()
+        expect(game.getState()).toEqual(heldState)
+        game.hardDrop()
+        expect(game.getState().stats.pieces).toBe(1)
+        expect(game.getState().holdUsed).toBe(false)
+        const queue = game.getState().queue
+        game.holdPiece()
+        expect(game.getState().currentPiece!.shape).toEqual(canonical)
+        expect(game.getState().queue).toBe(queue)
+        expect(game.getState().stats.pieces).toBe(1)
+        game.reset()
+        expect(game.getState().heldPiece).toBeNull()
+        expect(game.getState().holdUsed).toBe(false)
+    })
+
+    it('applies a starting-level change to the next dive, not the current progression', () => {
+        game.start()
+        game.setStartingLevel(10)
+        // @ts-expect-error - configure a line-clear fixture
+        game.state.lines = 9
+        // @ts-expect-error - configure a line-clear fixture
+        game.state.currentPiece = makePiece({ x: 9, y: 18, shape: [[1]] })
+        fillBoardRows(19, 20, 9)
+        game.hardDrop()
+        expect(game.getState().level).toBe(2)
+        game.reset()
+        game.start()
+        expect(game.getState().level).toBe(10)
+        expect(game.getState().dropInterval).toBe(550)
+    })
+
+    it('keeps the longest clear streak after a placement without a clear', () => {
+        game.start()
+        for (let i = 0; i < 2; i++) {
+            // @ts-expect-error - configure a line-clear fixture
+            game.state.currentPiece = makePiece({ x: 9, y: 18, shape: [[1]] })
+            fillBoardRows(19, 20, 9)
+            game.hardDrop()
+        }
+        game.hardDrop()
+        expect(game.getGameStats().consecutiveLineClears).toBe(0)
+        expect(game.getGameStats().maxConsecutiveLineClears).toBe(2)
     })
 
     describe('piece generation', () => {
@@ -173,11 +230,13 @@ describe('TetrisGame', () => {
             expect(game.getState().nextPiece).not.toBeNull()
         })
 
-        it('should increment piece stats', () => {
+        it('counts only placed pieces, not the newly spawned form', () => {
             activateForLogic()
             const before = game.getState().stats.pieces
             // @ts-expect-error - accessing protected method for testing
             game.spawnPiece()
+            expect(game.getState().stats.pieces).toBe(before)
+            game.hardDrop()
             expect(game.getState().stats.pieces).toBe(before + 1)
         })
 
@@ -625,6 +684,7 @@ describe('TetrisGame', () => {
 
         it('should expose achievement-relevant game data', () => {
             game.start()
+            game.hardDrop()
             // @ts-expect-error - getGameData is protected
             const data = game.getGameData()
             expect(data).toHaveProperty('doubles')

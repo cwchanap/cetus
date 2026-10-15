@@ -63,6 +63,8 @@ vi.mock('pixi.js', () => {
         Assets: { load: vi.fn().mockResolvedValue({}) },
         Text: vi.fn(() => ({
             text: '',
+            alpha: 1,
+            position: { set: vi.fn() },
             destroy: vi.fn(),
             anchor: { set: vi.fn() },
         })),
@@ -73,7 +75,7 @@ vi.mock('pixi.js', () => {
 
 import { BejeweledRenderer } from './renderer'
 import type { BejeweledState } from './types'
-import { Application } from 'pixi.js'
+import { Application, Graphics, Text } from 'pixi.js'
 
 function makeBejeweledState(
     overrides: Partial<BejeweledState> = {}
@@ -343,6 +345,78 @@ describe('BejeweledRenderer', () => {
     })
 
     describe('animateClear', () => {
+        it('shows earned points and expanding rings, pauses them, and cleans up on cancellation', async () => {
+            let frames: FrameRequestCallback[] = []
+            vi.mocked(requestAnimationFrame).mockImplementation(cb => {
+                frames.push(cb)
+                return 1
+            })
+            const frame = (time: number) => {
+                const pending = frames
+                frames = []
+                pending.forEach(cb => cb(time))
+            }
+            renderer = new BejeweledRenderer({
+                type: 'canvas',
+                container: '#bejeweled-test-container',
+            })
+            await renderer.initialize()
+            const clear = renderer.animateClear(
+                [{ row: 0, col: 0 }],
+                makeBejeweledState({ combo: 3 }),
+                1000,
+                90
+            )
+            expect(Text).toHaveBeenCalledWith(
+                expect.objectContaining({ text: '+90  ×3' })
+            )
+            const pop = vi.mocked(Text).mock.results.at(-1)!.value
+            frame(60)
+            const ring = vi
+                .mocked(Graphics)
+                .mock.results.map(result => result.value)
+                .find(graphic => graphic.circle.mock.calls.length > 0)
+            expect(ring).toBeDefined()
+            const radius = ring.circle.mock.lastCall[2]
+            const position = pop.position.set.mock.lastCall
+            renderer.setPaused(true)
+            frame(1060)
+            expect(pop.position.set.mock.lastCall).toEqual(position)
+            expect(ring.circle.mock.lastCall[2]).toBe(radius)
+            renderer.setPaused(false)
+            frame(1120)
+            expect(pop.position.set.mock.lastCall[1]).toBeLessThan(position[1])
+            expect(ring.circle.mock.lastCall[2]).toBeGreaterThan(radius)
+            renderer.cancelAnimations()
+            frame(1130)
+            await clear
+            expect(pop.destroy).toHaveBeenCalledOnce()
+            expect(ring.destroy).toHaveBeenCalledOnce()
+        })
+
+        it('skips decorative clear effects with reduced motion', async () => {
+            vi.mocked(requestAnimationFrame).mockImplementation(cb => {
+                cb(16)
+                return 1
+            })
+            renderer = new BejeweledRenderer({
+                type: 'canvas',
+                container: '#bejeweled-test-container',
+            })
+            await renderer.initialize()
+            renderer.setPreferences('swift', false, true)
+            await renderer.animateClear(
+                [{ row: 0, col: 0 }],
+                makeBejeweledState({ combo: 1 }),
+                1000,
+                30
+            )
+            expect(Text).not.toHaveBeenCalled()
+            for (const graphic of vi.mocked(Graphics).mock.results) {
+                expect(graphic.value.circle).not.toHaveBeenCalled()
+            }
+        })
+
         it('should resolve immediately when cells array is empty', async () => {
             renderer = new BejeweledRenderer({
                 type: 'canvas',

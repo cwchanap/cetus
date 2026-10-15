@@ -59,6 +59,7 @@ vi.mock('pixi.js', () => {
         Graphics: vi.fn(makeGraphics),
         Text: vi.fn(makeText),
         TextStyle: vi.fn(() => ({})),
+        BlurFilter: vi.fn(() => ({ destroy: vi.fn() })),
         Assets: { load: vi.fn() },
     }
 })
@@ -67,7 +68,7 @@ import {
     Game2048Renderer,
     createGame2048RendererConfig,
 } from './Game2048Renderer'
-import { DEFAULT_GAME2048_CONFIG } from './Game2048'
+import { Game2048, DEFAULT_GAME2048_CONFIG } from './Game2048'
 import type { Game2048State } from './frameworkTypes'
 import type { Animation } from './types'
 import { createEmptyBoard } from './utils'
@@ -97,6 +98,9 @@ function makeState(board = createEmptyBoard()): Game2048State {
         lastMoveAnimations: [],
         tileIdCounter: 0,
         needsRedraw: true,
+        undosLeft: 1,
+        undosUsed: 0,
+        stuck: false,
     }
 }
 
@@ -387,6 +391,74 @@ describe('Game2048Renderer', () => {
 
             renderer.cleanup()
         })
+    })
+
+    it('slides original values, then replaces them with the merged tile', async () => {
+        const renderer = new Game2048Renderer(makeConfig())
+        await renderer.initialize()
+        const game = new Game2048()
+        game.start()
+        const previous = makeState()
+        previous.board[0][0] = {
+            id: 'a',
+            value: 2,
+            position: { row: 0, col: 0 },
+        }
+        previous.board[0][1] = {
+            id: 'b',
+            value: 2,
+            position: { row: 0, col: 1 },
+        }
+        ;(game as unknown as { state: Game2048State }).state = previous
+        const before = game.getState()
+        const move = game.move('left')
+        const createTile = vi.spyOn(
+            renderer as unknown as {
+                createTileSprite: (
+                    value: number,
+                    position: { row: number; col: number }
+                ) => unknown
+            },
+            'createTileSprite'
+        )
+        const frames: FrameRequestCallback[] = []
+        vi.stubGlobal(
+            'requestAnimationFrame',
+            (frame: FrameRequestCallback) => {
+                frames.push(frame)
+                return frames.length
+            }
+        )
+        const playing = renderer.playAnimations(
+            move.animations,
+            game.getState(),
+            before
+        )
+        expect(createTile.mock.calls.map(call => call[0])).toEqual([2, 2])
+        vi.mocked(performance.now).mockReturnValue(1000)
+        frames.splice(0).forEach(frame => frame(1000))
+        await Promise.resolve()
+        await Promise.resolve()
+        expect(createTile.mock.calls.map(call => call[0])).toContain(4)
+        renderer.cancelAnimations()
+        frames.splice(0).forEach(frame => frame(1000))
+        await playing
+        renderer.cleanup()
+        game.destroy()
+    })
+
+    it('reduced motion draws the final board without requesting animation frames', async () => {
+        const renderer = new Game2048Renderer(makeConfig())
+        await renderer.initialize()
+        renderer.setReducedMotion(true)
+        const board = createEmptyBoard()
+        board[0][0] = { id: 'a', value: 4, position: { row: 0, col: 0 } }
+        await renderer.playAnimations(
+            [{ type: 'merge', tileId: 'a', to: { row: 0, col: 0 }, value: 4 }],
+            makeState(board)
+        )
+        expect(requestAnimationFrame).not.toHaveBeenCalled()
+        renderer.cleanup()
     })
 
     describe('playAnimations - intermediate frames', () => {

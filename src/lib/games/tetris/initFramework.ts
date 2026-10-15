@@ -23,6 +23,7 @@ export interface TetrisInitResult {
     restart: () => void
     getState: () => ReturnType<TetrisGame['getState']>
     endGame: () => Promise<void>
+    setPreferences: (ghost: boolean, glyphs: boolean) => void
 }
 
 export async function initTetrisGameFramework(
@@ -70,24 +71,31 @@ export async function initTetrisGameFramework(
         return undefined
     }
 
-    // Style the canvas only after successful initialization
-    const app = renderer.getApp()
-    if (app) {
-        app.canvas.style.border = '2px solid rgba(6, 182, 212, 0.5)'
-        app.canvas.style.borderRadius = '8px'
+    const canvas = renderer.getApp()?.canvas
+    if (canvas) {
+        canvas.tabIndex = 0
+        canvas.setAttribute('role', 'application')
+        canvas.setAttribute(
+            'aria-label',
+            'Tetris board, 10 by 20. Arrow keys to move and rotate, Space to hard drop, C to hold.'
+        )
     }
-
-    // Track the last-drawn next piece so we only redraw the preview on change
-    let lastDrawnNextPiece: Piece | null = null
-    const drawNextPiecePreview = (piece: Piece | null) => {
-        if (!nextCtx || !nextCanvas) {
-            return
+    const holdCanvas = document.getElementById(
+        'hold-canvas'
+    ) as HTMLCanvasElement | null
+    const holdCtx = holdCanvas?.getContext('2d') ?? null
+    let lastQueue: Piece[] | null = null
+    let lastHeld: Piece | null | undefined
+    let glyphs = false
+    const drawPreviews = (state: ReturnType<TetrisGame['getState']>) => {
+        if (nextCtx && nextCanvas && state.queue !== lastQueue) {
+            drawNextPiece(state.queue, nextCtx, nextCanvas, glyphs)
+            lastQueue = state.queue
         }
-        if (piece === lastDrawnNextPiece) {
-            return
+        if (holdCtx && holdCanvas && state.heldPiece !== lastHeld) {
+            drawNextPiece(state.heldPiece, holdCtx, holdCanvas, glyphs)
+            lastHeld = state.heldPiece
         }
-        lastDrawnNextPiece = piece
-        drawNextPiece(piece, nextCtx, nextCanvas)
     }
 
     // Enhanced callbacks with UI updates
@@ -96,7 +104,7 @@ export async function initTetrisGameFramework(
         onStateChange: (state: BaseGameState) => {
             const tetrisState = state as ReturnType<TetrisGame['getState']>
             updateUI(tetrisState)
-            drawNextPiecePreview(tetrisState.nextPiece)
+            drawPreviews(tetrisState)
             customCallbacks?.onStateChange?.(state)
         },
         onScoreUpdate: (score: number) => {
@@ -205,7 +213,7 @@ export async function initTetrisGameFramework(
 
     // Initial render + next piece preview
     renderer.render(game.getState())
-    drawNextPiecePreview(game.getState().nextPiece)
+    drawPreviews(game.getState())
 
     return {
         game,
@@ -220,11 +228,19 @@ export async function initTetrisGameFramework(
             game.destroy()
         },
         restart: () => {
-            lastDrawnNextPiece = null
+            lastQueue = null
             game.reset()
         },
         getState: () => game.getState(),
         endGame: () => game.end(),
+        setPreferences: (ghost, showGlyphs) => {
+            glyphs = showGlyphs
+            renderer.setPreferences(ghost, glyphs)
+            renderer.render({ ...game.getState(), needsRedraw: true })
+            lastQueue = null
+            lastHeld = undefined
+            drawPreviews(game.getState())
+        },
     }
 }
 
@@ -256,7 +272,7 @@ function showGameOver(finalScore: number, stats: TetrisStats): void {
 
     if (startBtn) {
         startBtn.style.display = 'inline-flex'
-        startBtn.textContent = 'Start'
+        startBtn.textContent = 'Begin the dive'
     }
     if (endBtn) {
         endBtn.style.display = 'none'
@@ -295,34 +311,18 @@ function setupButtonHandlers(game: TetrisGame): () => void {
     const endHandler = () => game.end()
 
     const pauseHandler = () => {
-        const state = game.getState()
-        if (state.isPaused) {
+        if (game.getState().isPaused) {
             game.resume()
-            if (pauseBtn) {
-                pauseBtn.textContent = 'Pause'
-            }
         } else {
             game.pause()
-            if (pauseBtn) {
-                pauseBtn.textContent = 'Resume'
-            }
         }
     }
-
     const resetHandler = () => {
         game.reset()
-        resetButtonVisibility()
+        game.start()
     }
-
-    const restartHandler = () => {
-        game.reset()
-        resetButtonVisibility()
-    }
-
-    const playAgainHandler = () => {
-        game.reset()
-        resetButtonVisibility()
-    }
+    const restartHandler = resetHandler
+    const playAgainHandler = resetHandler
 
     startBtn?.addEventListener('click', startHandler)
     endBtn?.addEventListener('click', endHandler)
@@ -341,75 +341,44 @@ function setupButtonHandlers(game: TetrisGame): () => void {
     }
 }
 
-function resetButtonVisibility(): void {
-    const startBtn = document.getElementById(
-        'start-btn'
-    ) as HTMLButtonElement | null
-    const endBtn = document.getElementById(
-        'end-btn'
-    ) as HTMLButtonElement | null
-    const pauseBtn = document.getElementById('pause-btn')
-    if (startBtn) {
-        startBtn.style.display = 'inline-flex'
-        startBtn.textContent = 'Start'
-    }
-    if (endBtn) {
-        endBtn.style.display = 'none'
-    }
-    if (pauseBtn) {
-        pauseBtn.textContent = 'Pause'
-    }
-    const overlay = document.getElementById('game-over-overlay')
-    if (overlay) {
-        overlay.classList.add('hidden')
-    }
-}
-
 function setupKeyboardControls(game: TetrisGame): () => void {
     const keydownHandler = (e: KeyboardEvent) => {
+        if (e.defaultPrevented) {
+            return
+        }
         const state = game.getState()
         if (!state.gameStarted || state.isGameOver) {
             return
         }
 
-        switch (e.key) {
-            case 'ArrowLeft':
-                e.preventDefault()
-                game.moveLeft()
-                break
-            case 'ArrowRight':
-                e.preventDefault()
-                game.moveRight()
-                break
-            case 'ArrowDown':
-                e.preventDefault()
-                game.softDrop()
-                break
-            case 'ArrowUp':
-                e.preventDefault()
-                game.rotate()
-                break
-            case ' ':
-                e.preventDefault()
-                game.hardDrop()
-                break
-            case 'p':
-            case 'P': {
-                e.preventDefault()
-                const pauseBtn = document.getElementById('pause-btn')
-                if (state.isPaused) {
-                    game.resume()
-                    if (pauseBtn) {
-                        pauseBtn.textContent = 'Pause'
-                    }
-                } else {
-                    game.pause()
-                    if (pauseBtn) {
-                        pauseBtn.textContent = 'Resume'
-                    }
-                }
-                break
-            }
+        const target = e.target as HTMLElement | null
+        if (target?.closest('input, textarea, select, [contenteditable]')) {
+            return
+        }
+        const dialog = document.querySelector<HTMLDialogElement>('dialog[open]')
+        if (dialog) {
+            return
+        }
+        if (e.key.toLowerCase() === 'p') {
+            e.preventDefault()
+            game.pause()
+            return
+        }
+        if (target !== document.querySelector('#tetris-container canvas')) {
+            return
+        }
+        const actions: Record<string, () => void> = {
+            ArrowLeft: () => game.moveLeft(),
+            ArrowRight: () => game.moveRight(),
+            ArrowDown: () => game.softDrop(),
+            ArrowUp: () => game.rotate(),
+            ' ': () => game.hardDrop(),
+            c: () => game.holdPiece(),
+            C: () => game.holdPiece(),
+        }
+        if (actions[e.key]) {
+            e.preventDefault()
+            actions[e.key]()
         }
     }
 

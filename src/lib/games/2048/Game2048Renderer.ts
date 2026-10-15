@@ -21,6 +21,20 @@ export class Game2048Renderer extends PixiJSRenderer {
     private boardContainer: PIXI.Container | null = null
     private tilesContainer: PIXI.Container | null = null
     private tileSprites: Map<string, PIXI.Container> = new Map()
+    private glowFilter: PIXI.BlurFilter | null = null
+    private reducedMotion = false
+    private animationVersion = 0
+
+    setReducedMotion(value: boolean): void {
+        if (value) {
+            this.cancelAnimations()
+        }
+        this.reducedMotion = value
+    }
+
+    cancelAnimations(): void {
+        this.animationVersion++
+    }
 
     constructor(config: Game2048RendererConfig) {
         super(config)
@@ -58,10 +72,16 @@ export class Game2048Renderer extends PixiJSRenderer {
      */
     async playAnimations(
         animations: Animation[],
-        state: Game2048State
+        state: Game2048State,
+        previousState: Game2048State = state
     ): Promise<void> {
-        // Draw tiles at their final positions first
-        this.drawTiles(state)
+        if (this.reducedMotion) {
+            this.render(state)
+            return
+        }
+        const version = this.animationVersion
+        // Slide the original tiles before replacing a pair with its sum.
+        this.drawTiles(previousState)
 
         const moveAnimations = animations.filter(a => a.type === 'move')
         const mergeAnimations = animations.filter(a => a.type === 'merge')
@@ -71,11 +91,25 @@ export class Game2048Renderer extends PixiJSRenderer {
             this.animateTileMove(anim.tileId, anim.from!, anim.to)
         )
         await Promise.all(movePromises)
+        if (version !== this.animationVersion) {
+            return
+        }
+
+        this.drawTiles(state)
+        for (const animation of spawnAnimations) {
+            const sprite = this.tileSprites.get(animation.tileId)
+            if (sprite) {
+                sprite.alpha = 0
+            }
+        }
 
         const mergePromises = mergeAnimations.map(anim =>
             this.animateTileMerge(anim.tileId, anim.to, anim.value!)
         )
         await Promise.all(mergePromises)
+        if (version !== this.animationVersion) {
+            return
+        }
 
         const spawnPromises = spawnAnimations.map(anim =>
             this.animateTileSpawn(anim.tileId, anim.to)
@@ -97,12 +131,6 @@ export class Game2048Renderer extends PixiJSRenderer {
         )
     }
 
-    private getBoardDimensions(): { width: number; height: number } {
-        const { tileSize, gap } = this.rendererConfig
-        const size = GAME_CONSTANTS.BOARD_SIZE * (tileSize + gap) + gap
-        return { width: size, height: size }
-    }
-
     private drawBoard(): void {
         if (!this.boardContainer) {
             return
@@ -110,26 +138,23 @@ export class Game2048Renderer extends PixiJSRenderer {
 
         // Destroy previously rendered children to prevent Pixi resource
         // buildup during long sessions (drawBoard recreates Graphics every render).
-        for (const child of this.boardContainer.children) {
-            child.destroy()
+        for (const child of [...this.boardContainer.children]) {
+            child.destroy({ children: true })
         }
         this.boardContainer.removeChildren()
 
         const { BOARD_SIZE } = GAME_CONSTANTS
-        const { tileSize, gap, boardBgColor, cellColor } = this.rendererConfig
+        const { tileSize, gap, cellColor } = this.rendererConfig
         const gridGraphic = this.createGraphics()
-
-        const { width, height } = this.getBoardDimensions()
-        gridGraphic.roundRect(0, 0, width, height, 8)
-        gridGraphic.fill(boardBgColor)
 
         for (let row = 0; row < BOARD_SIZE; row++) {
             for (let col = 0; col < BOARD_SIZE; col++) {
                 const x = col * (tileSize + gap) + gap
                 const y = row * (tileSize + gap) + gap
 
-                gridGraphic.roundRect(x, y, tileSize, tileSize, 6)
-                gridGraphic.fill(cellColor)
+                gridGraphic.roundRect(x, y, tileSize, tileSize, tileSize * 0.1)
+                gridGraphic.fill({ color: cellColor, alpha: 0.9 })
+                gridGraphic.stroke({ width: 1, color: 0x1a2a3a, alpha: 0.6 })
             }
         }
 
@@ -150,25 +175,32 @@ export class Game2048Renderer extends PixiJSRenderer {
         container.pivot.set(tileSize / 2, tileSize / 2)
 
         const background = this.createGraphics()
-        background.roundRect(0, 0, tileSize, tileSize, 6)
+        background.roundRect(0, 0, tileSize, tileSize, tileSize * 0.1)
         background.fill(getTileColor(value))
+        background.stroke({ width: 1, color: 0xeaf6ff, alpha: 0.14 })
 
-        // Glow effect for higher values
-        if (value >= 128) {
-            background.roundRect(-2, -2, tileSize + 4, tileSize + 4, 8)
-            background.fill({ color: getTileColor(value), alpha: 0.3 })
+        if (value >= 2048) {
+            this.glowFilter ??= new PIXI.BlurFilter({
+                strength: 11,
+                quality: 4,
+            })
+            const glow = this.createGraphics()
+            glow.roundRect(0, 0, tileSize, tileSize, tileSize * 0.1)
+            glow.fill(getTileColor(value))
+            glow.filters = [this.glowFilter]
+            container.addChild(glow)
         }
 
         container.addChild(background)
 
         const text = this.createText(value.toString(), {
-            fontFamily: 'Inter, Arial, sans-serif',
-            fontSize: getTileFontSize(value),
-            fontWeight: 'bold',
+            fontFamily: 'Field Display, Georgia, serif',
+            fontSize: getTileFontSize(value, tileSize),
+            fontWeight: '500',
             fill: getTileTextColor(value),
         })
         text.anchor.set(0.5)
-        text.position.set(tileSize / 2, tileSize / 2)
+        text.position.set(tileSize / 2, tileSize * 0.53)
         container.addChild(text)
 
         return container
@@ -181,8 +213,8 @@ export class Game2048Renderer extends PixiJSRenderer {
 
         // Destroy previously rendered tile containers to prevent Pixi
         // resource buildup (drawTiles recreates sprites every render).
-        for (const child of this.tilesContainer.children) {
-            child.destroy()
+        for (const child of [...this.tilesContainer.children]) {
+            child.destroy({ children: true })
         }
         this.tilesContainer.removeChildren()
         this.tileSprites.clear()
@@ -226,8 +258,13 @@ export class Game2048Renderer extends PixiJSRenderer {
             sprite.position.set(startX, startY)
 
             const startTime = performance.now()
+            const version = this.animationVersion
 
             const animate = () => {
+                if (version !== this.animationVersion) {
+                    resolve()
+                    return
+                }
                 const elapsed = performance.now() - startTime
                 const progress = Math.min(elapsed / duration, 1)
                 const eased = 1 - (1 - progress) * (1 - progress)
@@ -262,9 +299,14 @@ export class Game2048Renderer extends PixiJSRenderer {
             }
 
             const startTime = performance.now()
+            const version = this.animationVersion
             const originalScale = 1
 
             const animate = () => {
+                if (version !== this.animationVersion) {
+                    resolve()
+                    return
+                }
                 const elapsed = performance.now() - startTime
                 const progress = Math.min(elapsed / duration, 1)
 
@@ -305,8 +347,13 @@ export class Game2048Renderer extends PixiJSRenderer {
             sprite.scale.set(0.5)
 
             const startTime = performance.now()
+            const version = this.animationVersion
 
             const animate = () => {
+                if (version !== this.animationVersion) {
+                    resolve()
+                    return
+                }
                 const elapsed = performance.now() - startTime
                 const progress = Math.min(elapsed / duration, 1)
                 const eased = 1 - Math.pow(1 - progress, 3)
@@ -328,6 +375,7 @@ export class Game2048Renderer extends PixiJSRenderer {
     }
 
     cleanup(): void {
+        this.cancelAnimations()
         this.tileSprites.clear()
         if (this.tilesContainer) {
             this.tilesContainer.destroy({ children: true })
@@ -337,6 +385,8 @@ export class Game2048Renderer extends PixiJSRenderer {
             this.boardContainer.destroy({ children: true })
             this.boardContainer = null
         }
+        this.glowFilter?.destroy()
+        this.glowFilter = null
         super.cleanup()
     }
 }
@@ -351,6 +401,7 @@ export function createGame2048RendererConfig(
         width: gameConfig.gameWidth,
         height: gameConfig.gameHeight,
         responsive: false,
+        transparent: true,
         backgroundColor: gameConfig.backgroundColor,
         antialias: true,
         tileSize: gameConfig.tileSize,

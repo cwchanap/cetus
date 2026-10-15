@@ -16,6 +16,9 @@ export interface Game2048State extends BaseGameState {
     lastMoveAnimations: Animation[]
     tileIdCounter: number
     needsRedraw: boolean
+    undosLeft: number
+    undosUsed: number
+    stuck: boolean
 }
 
 // Extended config for 2048 (extends BaseGameConfig)
@@ -29,6 +32,7 @@ export interface Game2048Config extends BaseGameConfig {
     backgroundColor: number
     boardBgColor: number
     cellColor: number
+    undos: number
 }
 
 // Extended stats for 2048 (extends BaseGameStats)
@@ -37,4 +41,5 @@ export interface Game2048Stats extends BaseGameStats {
     moveCount: number
     mergeCount: number
     won: boolean
+    undosUsed: number
 }

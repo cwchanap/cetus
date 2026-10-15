@@ -59,6 +59,7 @@ vi.mock('pixi.js', () => {
         Graphics: vi.fn(makeGraphics),
         Text: vi.fn(makeText),
         TextStyle: vi.fn(() => ({})),
+        BlurFilter: vi.fn(() => ({ destroy: vi.fn() })),
         Assets: { load: vi.fn() },
     }
 })
@@ -249,7 +250,7 @@ describe('init2048GameFramework', () => {
         })
     })
 
-    describe('touch controls', () => {
+    describe('pointer controls', () => {
         beforeEach(async () => {
             result = await init2048GameFramework()
             result!.game.start()
@@ -262,14 +263,10 @@ describe('init2048GameFramework', () => {
             const container = document.getElementById('game-2048-container')!
 
             container.dispatchEvent(
-                new TouchEvent('touchstart', {
-                    touches: [{ clientX: 100, clientY: 100 } as Touch],
-                })
+                new MouseEvent('pointerdown', { clientX: 100, clientY: 100 })
             )
             container.dispatchEvent(
-                new TouchEvent('touchend', {
-                    changedTouches: [{ clientX: 250, clientY: 105 } as Touch],
-                })
+                new MouseEvent('pointerup', { clientX: 250, clientY: 105 })
             )
 
             expect(moveSpy).toHaveBeenCalledWith('right')
@@ -282,14 +279,10 @@ describe('init2048GameFramework', () => {
             const container = document.getElementById('game-2048-container')!
 
             container.dispatchEvent(
-                new TouchEvent('touchstart', {
-                    touches: [{ clientX: 100, clientY: 100 } as Touch],
-                })
+                new MouseEvent('pointerdown', { clientX: 100, clientY: 100 })
             )
             container.dispatchEvent(
-                new TouchEvent('touchend', {
-                    changedTouches: [{ clientX: 105, clientY: 103 } as Touch],
-                })
+                new MouseEvent('pointerup', { clientX: 105, clientY: 103 })
             )
 
             expect(moveSpy).not.toHaveBeenCalled()
@@ -297,6 +290,55 @@ describe('init2048GameFramework', () => {
     })
 
     describe('end game', () => {
+        it('shows local results once before saving and ignores a late save after replay', async () => {
+            let resolveSave!: (response: Response) => void
+            vi.mocked(fetch).mockImplementationOnce(
+                () => new Promise(resolve => (resolveSave = resolve))
+            )
+            const onFinish = vi.fn()
+            const onEnd = vi.fn()
+            const showAchievementAward = vi.fn()
+            vi.stubGlobal('showAchievementAward', showAchievementAward)
+            result = await init2048GameFramework({}, { onFinish, onEnd })
+            result!.game.start()
+            result!.game.addScore(32)
+
+            const saving = result!.endGame()
+            expect(onFinish).toHaveBeenCalledExactlyOnceWith(
+                32,
+                expect.objectContaining({ finalScore: 32, gameCompleted: true })
+            )
+            expect(onEnd).not.toHaveBeenCalled()
+            expect(
+                document
+                    .getElementById('game-over-overlay')!
+                    .classList.contains('hidden')
+            ).toBe(false)
+            await result!.endGame()
+            expect(onFinish).toHaveBeenCalledTimes(1)
+
+            result!.restart()
+            resolveSave(
+                new Response(
+                    JSON.stringify({ newAchievements: [{ id: 'late-award' }] })
+                )
+            )
+            await saving
+            expect(onEnd).not.toHaveBeenCalled()
+            expect(onFinish).toHaveBeenCalledTimes(1)
+            expect(showAchievementAward).not.toHaveBeenCalled()
+            expect(result!.getState()).toMatchObject({
+                score: 0,
+                isActive: true,
+                isGameOver: false,
+            })
+            expect(
+                document
+                    .getElementById('game-over-overlay')!
+                    .classList.contains('hidden')
+            ).toBe(true)
+        })
+
         it('shows the overlay and submits the score', async () => {
             result = await init2048GameFramework()
             result!.game.start()
@@ -379,7 +421,7 @@ describe('init2048GameFramework', () => {
             result!.restart()
 
             const state = result!.game.getState()
-            expect(state.gameStarted).toBe(false)
+            expect(state.gameStarted).toBe(true)
             expect(state.score).toBe(0)
             expect(overlay.classList.contains('hidden')).toBe(true)
         })
@@ -657,7 +699,7 @@ describe('init2048GameFramework', () => {
         })
     })
 
-    describe('touch controls — additional directions', () => {
+    describe('pointer controls — additional directions', () => {
         beforeEach(async () => {
             result = await init2048GameFramework()
             result!.game.start()
@@ -669,14 +711,10 @@ describe('init2048GameFramework', () => {
                 .mockReturnValue(NO_MOVE_RESULT)
             const container = document.getElementById('game-2048-container')!
             container.dispatchEvent(
-                new TouchEvent('touchstart', {
-                    touches: [{ clientX: 250, clientY: 100 } as Touch],
-                })
+                new MouseEvent('pointerdown', { clientX: 250, clientY: 100 })
             )
             container.dispatchEvent(
-                new TouchEvent('touchend', {
-                    changedTouches: [{ clientX: 100, clientY: 105 } as Touch],
-                })
+                new MouseEvent('pointerup', { clientX: 100, clientY: 105 })
             )
             expect(moveSpy).toHaveBeenCalledWith('left')
         })
@@ -687,14 +725,10 @@ describe('init2048GameFramework', () => {
                 .mockReturnValue(NO_MOVE_RESULT)
             const container = document.getElementById('game-2048-container')!
             container.dispatchEvent(
-                new TouchEvent('touchstart', {
-                    touches: [{ clientX: 100, clientY: 250 } as Touch],
-                })
+                new MouseEvent('pointerdown', { clientX: 100, clientY: 250 })
             )
             container.dispatchEvent(
-                new TouchEvent('touchend', {
-                    changedTouches: [{ clientX: 105, clientY: 100 } as Touch],
-                })
+                new MouseEvent('pointerup', { clientX: 105, clientY: 100 })
             )
             expect(moveSpy).toHaveBeenCalledWith('up')
         })
@@ -705,44 +739,37 @@ describe('init2048GameFramework', () => {
                 .mockReturnValue(NO_MOVE_RESULT)
             const container = document.getElementById('game-2048-container')!
             container.dispatchEvent(
-                new TouchEvent('touchstart', {
-                    touches: [{ clientX: 100, clientY: 100 } as Touch],
-                })
+                new MouseEvent('pointerdown', { clientX: 100, clientY: 100 })
             )
             container.dispatchEvent(
-                new TouchEvent('touchend', {
-                    changedTouches: [{ clientX: 105, clientY: 250 } as Touch],
-                })
+                new MouseEvent('pointerup', { clientX: 105, clientY: 250 })
             )
             expect(moveSpy).toHaveBeenCalledWith('down')
         })
 
-        it('ignores slow swipes', async () => {
+        it('accepts deliberate slow drags', async () => {
             const moveSpy = vi
                 .spyOn(result!.game, 'move')
                 .mockReturnValue(NO_MOVE_RESULT)
             const container = document.getElementById('game-2048-container')!
             vi.useFakeTimers()
             container.dispatchEvent(
-                new TouchEvent('touchstart', {
-                    touches: [{ clientX: 100, clientY: 100 } as Touch],
-                })
+                new MouseEvent('pointerdown', { clientX: 100, clientY: 100 })
             )
             vi.advanceTimersByTime(400)
             container.dispatchEvent(
-                new TouchEvent('touchend', {
-                    changedTouches: [{ clientX: 250, clientY: 105 } as Touch],
-                })
+                new MouseEvent('pointerup', { clientX: 250, clientY: 105 })
             )
             vi.useRealTimers()
-            expect(moveSpy).not.toHaveBeenCalled()
+            expect(moveSpy).toHaveBeenCalledWith('right')
         })
 
-        it('prevents default on touchmove', async () => {
+        it('prevents default on pointerdown', async () => {
             result = await init2048GameFramework()
             const container = document.getElementById('game-2048-container')!
-            const event = new TouchEvent('touchmove', {
-                touches: [{ clientX: 100, clientY: 100 } as Touch],
+            const event = new MouseEvent('pointerdown', {
+                clientX: 100,
+                clientY: 100,
                 cancelable: true,
             })
             const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
@@ -750,15 +777,15 @@ describe('init2048GameFramework', () => {
             expect(preventDefaultSpy).toHaveBeenCalled()
         })
 
-        it('setupTouchControls returns a no-op cleanup when the container is missing', async () => {
-            // Remove the container before init so setupTouchControls hits the
+        it('setupPointerControls returns a no-op cleanup when the container is missing', async () => {
+            // Remove the container before init so setupPointerControls hits the
             // no-container early return. The init itself checks the container
             // first and would bail, so we init first, then remove the container
             // and re-init with a fresh instance to exercise the guard.
             result = await init2048GameFramework()
             // Remove the container and create a new instance; the init's own
             // container check (line 43) will return undefined before reaching
-            // setupTouchControls. So instead, directly test the guard by
+            // setupPointerControls. So instead, directly test the guard by
             // removing the container after init and calling cleanup.
             document.getElementById('game-2048-container')!.remove()
             // cleanup should still work even though the container is gone.
@@ -814,7 +841,7 @@ describe('init2048GameFramework', () => {
             document
                 .getElementById('reset-btn')!
                 .dispatchEvent(new MouseEvent('click', { bubbles: true }))
-            expect(result!.game.getState().gameStarted).toBe(false)
+            expect(result!.game.getState().gameStarted).toBe(true)
             expect(overlay.classList.contains('hidden')).toBe(true)
         })
 
@@ -826,7 +853,7 @@ describe('init2048GameFramework', () => {
             document
                 .getElementById('restart-btn')!
                 .dispatchEvent(new MouseEvent('click', { bubbles: true }))
-            expect(result!.game.getState().gameStarted).toBe(false)
+            expect(result!.game.getState().gameStarted).toBe(true)
             expect(overlay.classList.contains('hidden')).toBe(true)
         })
     })

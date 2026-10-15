@@ -315,7 +315,8 @@ export class BejeweledRenderer
     public async animateClear(
         cells: Position[],
         state: BejeweledState,
-        durationMs: number = 1000
+        durationMs: number = 1000,
+        points: number = 0
     ): Promise<void> {
         const app = this.getApp()
         if (!app || !this.overlayLayer || cells.length === 0) {
@@ -327,6 +328,7 @@ export class BejeweledRenderer
 
         const covers: PIXI.Graphics[] = []
         const jewels: PIXI.Graphics[] = []
+        const rings: { graphic: PIXI.Graphics; color: number }[] = []
 
         for (const { row, col } of cells) {
             const jewelType = state.grid[row][col] as JewelType | null
@@ -343,6 +345,43 @@ export class BejeweledRenderer
             g.position.set(cx, cy)
             this.overlayLayer.addChild(g)
             jewels.push(g)
+
+            if (!this.reducedMotion) {
+                const ring = this.createGraphics()
+                ring.position.set(cx, cy)
+                this.overlayLayer.addChild(ring)
+                rings.push({ graphic: ring, color: JEWEL_COLORS[jewelType] })
+            }
+        }
+
+        if (points > 0 && !this.reducedMotion) {
+            const pop = this.createText(
+                `+${points}${state.combo > 1 ? `  ×${state.combo}` : ''}`,
+                {
+                    fontFamily: 'Field Mono, monospace',
+                    fontWeight: '600',
+                    fontSize: state.combo > 1 ? 26 : 19,
+                    fill: state.combo > 1 ? 0xffc24a : 0xeaf6ff,
+                }
+            )
+            pop.anchor.set(0.5)
+            const [x, y] = this.cellCenter(
+                cells.reduce((sum, cell) => sum + cell.row, 0) / cells.length,
+                cells.reduce((sum, cell) => sum + cell.col, 0) / cells.length,
+                layout
+            )
+            pop.position.set(x, y)
+            this.overlayLayer.addChild(pop)
+            // Let the label outlive the clear without delaying the next swap.
+            void this.animate(this.pace === 'swift' ? 435 : 870, t => {
+                pop.visible = !this.reducedMotion
+                pop.alpha = 1 - t
+                pop.position.set(x, y - t * 46)
+            }).then(() => {
+                if (!pop.destroyed) {
+                    pop.destroy()
+                }
+            })
         }
 
         // Fade and scale out
@@ -357,15 +396,31 @@ export class BejeweledRenderer
                     g.alpha = alpha
                     g.scale.set(scale)
                 }
+                for (const { graphic, color } of rings) {
+                    graphic.visible = !this.reducedMotion
+                    graphic.alpha = alpha
+                    graphic.clear()
+                    graphic.circle(0, 0, r * (1 + t * 1.6))
+                    graphic.stroke({ width: 2 * alpha, color })
+                }
             }
         )
 
         // Cleanup
         for (const g of jewels) {
-            this.overlayLayer?.removeChild(g)
+            if (!g.destroyed) {
+                g.destroy()
+            }
         }
         for (const c of covers) {
-            this.overlayLayer?.removeChild(c)
+            if (!c.destroyed) {
+                c.destroy()
+            }
+        }
+        for (const { graphic } of rings) {
+            if (!graphic.destroyed) {
+                graphic.destroy()
+            }
         }
     }
 

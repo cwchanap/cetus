@@ -31,7 +31,7 @@ export const DEFAULT_GAME2048_CONFIG: Game2048Config = {
     // the countdown timer is given an effectively infinite duration.
     duration: Number.MAX_SAFE_INTEGER,
     achievementIntegration: true,
-    pausable: false,
+    pausable: true,
     resettable: true,
     // Game2048Config (rendering + input)
     tileSize: GAME_CONSTANTS.TILE_SIZE,
@@ -40,9 +40,10 @@ export const DEFAULT_GAME2048_CONFIG: Game2048Config = {
     gameHeight: 410,
     animationDuration: GAME_CONSTANTS.ANIMATION_DURATION,
     swipeThreshold: GAME_CONSTANTS.SWIPE_THRESHOLD,
-    backgroundColor: 0x0f172a,
-    boardBgColor: 0x1e293b,
-    cellColor: 0x334155,
+    backgroundColor: 0x070b16,
+    boardBgColor: 0x070b16,
+    cellColor: 0x0b1020,
+    undos: 1,
 }
 
 export class Game2048 extends BaseGame<
@@ -50,6 +51,8 @@ export class Game2048 extends BaseGame<
     Game2048Config,
     Game2048Stats
 > {
+    private history: Array<{ state: Game2048State; points: number }> = []
+
     constructor(
         config: Partial<Game2048Config> = {},
         callbacks: BaseGameCallbacks = {},
@@ -88,10 +91,14 @@ export class Game2048 extends BaseGame<
             lastMoveAnimations: [],
             tileIdCounter: 0,
             needsRedraw: true,
+            undosLeft: this.config.undos,
+            undosUsed: 0,
+            stuck: false,
         }
     }
 
     protected onGameStart(): void {
+        this.history = []
         // Spawn the initial tiles
         for (let i = 0; i < GAME_CONSTANTS.INITIAL_TILES; i++) {
             const spawn = this.spawnTile(
@@ -107,6 +114,7 @@ export class Game2048 extends BaseGame<
     }
 
     protected onGameReset(): void {
+        this.history = []
         this.emitStateChange()
     }
 
@@ -122,6 +130,17 @@ export class Game2048 extends BaseGame<
         // No internal loops to tear down
     }
 
+    override async end(): Promise<void> {
+        if (!this.state.isActive) {
+            return
+        }
+        // BaseGame freezes the run before awaiting persistence. Publish that
+        // state now so the player can see results and restart during the save.
+        const saving = super.end()
+        this.emitStateChange()
+        await saving
+    }
+
     getGameStats(): Game2048Stats {
         const timerStatus = this.getTimerStatus()
         return {
@@ -132,16 +151,16 @@ export class Game2048 extends BaseGame<
             moveCount: this.state.moveCount,
             mergeCount: this.state.mergeCount,
             won: this.state.won,
+            undosUsed: this.state.undosUsed,
         }
     }
 
     protected getGameData(): Record<string, unknown> {
-        // GameData contract established in Task 3.5:
-        // { maxTile, moves, merges }
         return {
             maxTile: this.state.maxTile,
             moves: this.state.moveCount,
             merges: this.state.mergeCount,
+            undosUsed: this.state.undosUsed,
         }
     }
 
@@ -169,6 +188,14 @@ export class Game2048 extends BaseGame<
         const result = this.computeMove(this.state.board, direction)
         if (!result.moved) {
             return result
+        }
+
+        if (this.state.undosLeft > 0) {
+            this.history.push({
+                state: { ...this.state, board: cloneBoard(this.state.board) },
+                points: result.scoreGained,
+            })
+            this.history = this.history.slice(-this.state.undosLeft)
         }
 
         // Apply the slid/merged board
@@ -206,10 +233,11 @@ export class Game2048 extends BaseGame<
             this.state.won = true
         }
 
+        this.state.stuck = !canMove(this.state.board)
         this.emitStateChange()
 
         // Check for game over (no moves remaining)
-        if (!canMove(this.state.board)) {
+        if (this.state.stuck && !this.canUndo() && !this.state.isPaused) {
             this.end().catch((err: unknown) =>
                 console.error('Game2048 end failed', err)
             )
@@ -220,6 +248,52 @@ export class Game2048 extends BaseGame<
 
     getConfig(): Game2048Config {
         return { ...this.config }
+    }
+
+    setUndos(undos: number): void {
+        if ([0, 1, 3].includes(undos)) {
+            this.config.undos = undos
+        }
+    }
+
+    canUndo(): boolean {
+        return (
+            this.state.isActive &&
+            !this.state.isGameOver &&
+            this.state.undosLeft > 0 &&
+            this.history.length > 0
+        )
+    }
+
+    undo(): boolean {
+        if (!this.canUndo() || this.state.isPaused) {
+            return false
+        }
+        const previous = this.history.pop()!
+        const { board, maxTile, moveCount, mergeCount, won, tileIdCounter } =
+            previous.state
+        Object.assign(this.state, {
+            board,
+            maxTile,
+            moveCount,
+            mergeCount,
+            won,
+            tileIdCounter,
+            stuck: false,
+            lastMoveAnimations: [],
+            needsRedraw: true,
+        })
+        this.state.undosLeft--
+        this.state.undosUsed++
+        this.subtractScore(previous.points, 'undo')
+        this.emitStateChange()
+        return true
+    }
+
+    legalDirections(): Direction[] {
+        return (['left', 'right', 'up', 'down'] as const).filter(
+            direction => this.computeMove(this.state.board, direction).moved
+        )
     }
 
     getBoard(): Board {

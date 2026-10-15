@@ -139,6 +139,7 @@ export class TetrisGame extends BaseGame<
     }
 
     createInitialState(): TetrisState {
+        const queue = Array.from({ length: 3 }, () => this.generateNextPiece())
         return {
             // BaseGameState fields
             score: 0,
@@ -154,8 +155,13 @@ export class TetrisGame extends BaseGame<
                 null
             ),
             currentPiece: null,
-            nextPiece: this.generateNextPiece(),
+            nextPiece: queue[0],
+            queue,
+            heldPiece: null,
+            holdUsed: false,
+            clearedRows: [],
             level: this.config.startingLevel,
+            startLevel: this.config.startingLevel,
             lines: 0,
             dropTime: 0,
             dropInterval: this.computeDropInterval(this.config.startingLevel),
@@ -166,6 +172,7 @@ export class TetrisGame extends BaseGame<
                 triples: 0,
                 tetrises: 0,
                 consecutiveLineClears: 0,
+                maxConsecutiveLineClears: 0,
             },
             needsRedraw: true,
         }
@@ -238,6 +245,7 @@ export class TetrisGame extends BaseGame<
             triples: this.state.stats.triples,
             tetrises: this.state.stats.tetrises,
             consecutiveLineClears: this.state.stats.consecutiveLineClears,
+            maxConsecutiveLineClears: this.state.stats.maxConsecutiveLineClears,
         }
     }
 
@@ -293,6 +301,36 @@ export class TetrisGame extends BaseGame<
         this.hardDropPiece()
     }
 
+    holdPiece(): void {
+        if (
+            !this.state.isActive ||
+            this.state.isPaused ||
+            this.state.holdUsed ||
+            !this.state.currentPiece
+        ) {
+            return
+        }
+        const held = this.state.heldPiece
+        const type = this.state.currentPiece.type
+        this.state.heldPiece = {
+            type,
+            shape: deepClone(this.config.pieces[type].shape),
+            color: this.config.pieces[type].color,
+            x: 0,
+            y: 0,
+        }
+        this.spawnPiece(held)
+        this.state.holdUsed = true
+        this.state.dropTime = Date.now()
+        this.emitStateChange()
+    }
+
+    setStartingLevel(level: number): void {
+        if ([1, 5, 10].includes(level)) {
+            this.config.startingLevel = level
+        }
+    }
+
     /**
      * Get config for renderer / external consumers
      */
@@ -320,8 +358,8 @@ export class TetrisGame extends BaseGame<
         }
     }
 
-    private spawnPiece(): void {
-        this.state.currentPiece = this.state.nextPiece
+    private spawnPiece(held: Piece | null = null): void {
+        this.state.currentPiece = held ?? this.state.nextPiece
         if (this.state.currentPiece) {
             this.state.currentPiece.x = Math.floor(
                 (this.config.boardWidth -
@@ -331,8 +369,13 @@ export class TetrisGame extends BaseGame<
             this.state.currentPiece.y = 0
         }
 
-        this.state.nextPiece = this.generateNextPiece()
-        this.state.stats.pieces++
+        if (!held) {
+            this.state.queue = [
+                ...this.state.queue.slice(1),
+                this.generateNextPiece(),
+            ]
+            this.state.nextPiece = this.state.queue[0]
+        }
 
         // Check for game over — newly spawned piece collides immediately
         if (
@@ -437,6 +480,11 @@ export class TetrisGame extends BaseGame<
             this.state.board,
             this.getConstantsView()
         )
+        this.state.stats.pieces++
+        this.state.holdUsed = false
+        this.state.clearedRows = this.state.board.flatMap((row, index) =>
+            row.every(cell => cell !== null) ? [index] : []
+        )
 
         // Check for completed lines
         const linesCleared = clearLines(
@@ -465,6 +513,10 @@ export class TetrisGame extends BaseGame<
     private updateStats(linesCleared: number): void {
         if (linesCleared > 0) {
             this.state.stats.consecutiveLineClears++
+            this.state.stats.maxConsecutiveLineClears = Math.max(
+                this.state.stats.maxConsecutiveLineClears,
+                this.state.stats.consecutiveLineClears
+            )
         }
 
         switch (linesCleared) {
@@ -485,7 +537,7 @@ export class TetrisGame extends BaseGame<
 
     private updateLevel(): void {
         const newLevel =
-            Math.floor(this.state.lines / 10) + this.config.startingLevel
+            Math.floor(this.state.lines / 10) + this.state.startLevel
         if (newLevel > this.state.level) {
             this.state.level = newLevel
             this.state.dropInterval = this.computeDropInterval(this.state.level)

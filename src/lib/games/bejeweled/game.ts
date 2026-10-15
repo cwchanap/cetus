@@ -43,7 +43,7 @@ export class BejeweledGame extends BaseGame<
             callbacks,
             scoringConfig ?? {
                 basePoints: config.pointsPerJewel,
-                timeBonus: true,
+                timeBonus: false,
             }
         )
     }
@@ -235,22 +235,22 @@ export class BejeweledGame extends BaseGame<
 
             // Animate annihilation effect for all matched cells
             const allCells = matches.flatMap(m => m.positions)
+            const { removed } = removeMatches(cloneGrid(grid), matches)
+            const points = removed * this.config.pointsPerJewel * currentCombo
             this.emitStateChange()
             await this.animator?.animateClear(
                 allCells,
                 this.getState(),
-                CLEAR_MS
+                CLEAR_MS,
+                points
             )
             if (!current()) {
                 return
             }
 
-            const { removed, largest } = removeMatches(grid, matches)
+            const { largest } = removeMatches(grid, matches)
             this.largestMatch = Math.max(this.largestMatch, largest)
 
-            const comboMultiplier = currentCombo
-            const points =
-                removed * this.config.pointsPerJewel * comboMultiplier
             if (points > 0) {
                 this.addScore(points, 'match_clear')
             }

@@ -1,157 +1,1999 @@
 ---
-import GamePage from '@/components/games/GamePage.astro'
-import Card from '@/components/ui/Card.astro'
-import Badge from '@/components/ui/Badge.astro'
+import AppLayout from '@/layouts/AppLayout.astro'
+import AchievementAward from '@/components/AchievementAward.astro'
+import ChallengeComplete from '@/components/ChallengeComplete.astro'
+const user = Astro.locals.user
+const instructions = [
+  {
+    image: 'slide',
+    alt: 'All tiles slide to the left',
+    label: 'Swipe · Every tile slides',
+  },
+  {
+    image: 'merge',
+    alt: 'Two tiles marked 2 join into a tile marked 4',
+    label: 'Equals join · 2 + 2 = 4',
+  },
+  {
+    image: 'goal',
+    alt: 'The pink 2048 tile',
+    label: 'Reach 2048 · Then keep going',
+  },
+]
+const neighbours = [
+  { href: '/tetris', number: 'I', name: 'Tetris Challenge', color: '#22f5d0' },
+  { href: '/bejeweled', number: 'III', name: 'Bejeweled', color: '#ff3d8a' },
+  { href: '/sudoku', number: 'VIII', name: 'Sudoku', color: '#ffc24a' },
+]
+const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
 ---
 
-<GamePage
-  gameId="2048"
-  title="2048"
-  description="Slide tiles and combine matching numbers to reach 2048"
-  icon="🎯"
-  overlayButtonId="restart-btn"
-  showScore={false}
-  showTime={false}
-  showPause={false}
+<AppLayout
+  title="2048 — Cetus"
+  description="Slide the tiles. Join equals. Reach 2048, then keep diving."
+  includeFooter={false}
+  data-field-plate
 >
-  <!-- Board: 2048 tile grid + win notification -->
-  <div slot="game-board">
-    <div class="relative">
-      <div
-        id="game-2048-container"
-        class="border-2 border-cetus-hairline bg-slate-900/50 rounded-lg touch-none"
-        style="width: 410px; height: 410px;"
-      >
-      </div>
-
-      <!-- Win Notification -->
-      <div
-        id="win-notification"
-        class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-cetus-accent/90 text-white px-6 py-4 rounded-lg text-center z-50"
-      >
-        <div class="text-2xl font-bold mb-2">🎉 You reached 2048!</div>
-        <div class="text-sm">Keep playing to reach higher scores!</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Additional stat badges (score-display / max-tile-display use game-specific IDs) -->
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
-    <span class="font-mono">Score: <span id="score-display">0</span></span>
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
-    <span class="font-mono"
-      >Best Tile: <span id="max-tile-display">0</span></span
+  <header slot="header" class="plate-header plate-width">
+    <a class="wordmark" href="/" aria-label="Cetus home"
+      ><span class="brand-orb" aria-hidden="true"></span>Cetus</a
     >
-  </Badge>
+    <nav aria-label="Primary">
+      <a href="/#games" class="micro">← Catalogue</a>
+      <a href={user ? '/profile' : '/login'} class="account micro"
+        ><span aria-hidden="true"
+          >{user ? user.name.slice(0, 2).toUpperCase() : '↗'}</span
+        ><span id="account-label">{user ? 'Your log' : 'Sign in'}</span></a
+      >
+    </nav>
+  </header>
 
-  <!-- Sidebar -->
-  <div slot="game-info">
-    <!-- Controls Guide -->
-    <Card variant="glass" class="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ CONTROLS
-      </h3>
-      <div class="space-y-2 text-sm">
-        <div class="flex justify-between">
-          <span class="text-cetus-ink-muted">Slide Up:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">↑ / W</Badge>
-        </div>
-        <div class="flex justify-between">
-          <span class="text-cetus-ink-muted">Slide Down:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">↓ / S</Badge>
-        </div>
-        <div class="flex justify-between">
-          <span class="text-cetus-ink-muted">Slide Left:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">← / A</Badge>
-        </div>
-        <div class="flex justify-between">
-          <span class="text-cetus-ink-muted">Slide Right:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">→ / D</Badge>
-        </div>
-        <div class="mt-4 pt-4 border-t border-cetus-hairline">
-          <span class="text-cetus-ink-muted">Mobile:</span>
-          <span class="text-cetus-accent ml-2">Swipe to move</span>
-        </div>
+  <div class="plate-width field-plate" data-signed-in={Boolean(user)}>
+    <div class="title-row">
+      <div>
+        <p class="micro accent eyebrow">Pl. XII — Mid-water · 200–1 000 m</p><h1
+        >
+          2048
+        </h1>
       </div>
-    </Card>
-
-    <!-- How to Play -->
-    <Card variant="glass" class="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ HOW TO PLAY
-      </h3>
-      <div class="space-y-3 text-sm text-cetus-ink-muted">
-        <p>Use arrow keys or swipe to slide all tiles in one direction.</p>
-        <p>
-          When two tiles with the same number touch, they merge into one with
-          double the value.
-        </p>
-        <p>
-          Reach the <span class="text-cetus-accent font-bold">2048</span> tile to
-          win!
-        </p>
-        <p class="text-xs text-cetus-ink-muted">
-          You can continue playing after reaching 2048.
-        </p>
-      </div>
-    </Card>
-
-    <!-- Tile Guide -->
-    <Card variant="glass" class="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ TILE PROGRESSION
-      </h3>
-      <div class="flex flex-wrap gap-2 text-xs font-mono">
-        <span class="px-2 py-1 rounded bg-slate-800 text-cetus-accent">2</span>
-        <span class="px-2 py-1 rounded bg-slate-700 text-cetus-accent">4</span>
-        <span class="px-2 py-1 rounded bg-blue-900 text-white">8</span>
-        <span class="px-2 py-1 rounded bg-purple-900 text-white">16</span>
-        <span class="px-2 py-1 rounded bg-purple-700 text-white">32</span>
-        <span class="px-2 py-1 rounded bg-red-600 text-white">64</span>
-        <span class="px-2 py-1 rounded bg-red-400 text-slate-900">128</span>
-        <span class="px-2 py-1 rounded bg-yellow-400 text-slate-900">256</span>
-        <span class="px-2 py-1 rounded bg-green-500 text-slate-900">512</span>
-        <span class="px-2 py-1 rounded bg-blue-400 text-white">1024</span>
-        <span class="px-2 py-1 rounded bg-cyan-400 text-slate-900 font-bold"
-          >2048</span
+      <div class="tools">
+        <button
+          class="icon-button"
+          data-sheet="commission"
+          aria-label="Today's commission"
+          title="Today's commission">⭐</button
+        >
+        <button
+          class="icon-button"
+          data-sheet="help"
+          aria-label="How it plays"
+          title="How it plays">?</button
+        >
+        <button
+          class="icon-button"
+          id="pause-btn"
+          aria-label="Pause"
+          title="Pause (P)"
+          disabled>Ⅱ</button
         >
       </div>
-    </Card>
+    </div>
+    <div class="hud" aria-label="Dive statistics">
+      <div class="score-stat">
+        <span class="micro">Score</span><strong id="score-display">0</strong>
+      </div>
+      <div class="best-stat">
+        <span class="micro">Best</span><strong data-best>—</strong>
+      </div>
+      <div class="ascent">
+        <div class="record-line">
+          <span class="micro">Ascent</span><span
+            id="next-target"
+            class="micro accent">Next · 64</span
+          >
+        </div>
+        <div class="ladder" aria-label="Highest tile milestones">
+          {
+            ladder.map(value => (
+              <span
+                data-milestone={value}
+                title={String(value)}
+                aria-label={String(value)}
+              />
+            ))
+          }
+        </div>
+      </div>
+    </div>
+    <div class="play-area">
+      <div class="board-frame">
+        <i aria-hidden="true"></i><i aria-hidden="true"></i><i
+          aria-hidden="true"></i><i aria-hidden="true"></i>
+        <div id="game-2048-container"></div><div
+          id="merge-feedback"
+          class="mono"
+          aria-hidden="true"
+        >
+        </div>
+      </div>
+      <div class="board-footer">
+        <p id="board-warning" class="micro amber"></p><button
+          id="undo-btn"
+          class="undo-button"
+          title="Step back one move (U)"
+          disabled>↶ Undo · <span id="undos-left">1</span></button
+        >
+      </div>
+      <p
+        id="game-status"
+        class="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+      </p>
+    </div>
   </div>
-
-  <!-- Custom overlay stats -->
-  <div slot="final-stats">
-    <div class="text-lg text-cetus-ink">
-      Score: <span id="custom-final-score" class="text-cetus-accent">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Max Tile: <span id="final-max-tile" class="text-cetus-accent">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Moves: <span id="final-moves" class="text-cetus-accent">0</span>
-    </div>
-  </div>
-</GamePage>
+  <Fragment slot="notifications">
+    <dialog id="field-sheet" data-panel="intro" aria-labelledby="intro-title">
+      <section data-panel="intro">
+        <div class="sheet-kicker">
+          <span class="micro accent">Pl. XII · Specimen notes</span><span
+            class="micro">Cluster · Powers of two</span
+          >
+        </div>
+        <h2 id="intro-title">2048</h2>
+        <div class="instructions">
+          {
+            instructions.map((item, i) => (
+              <figure>
+                <>
+                  <canvas
+                    class="rule-figure"
+                    data-fig={item.image}
+                    width="300"
+                    height="200"
+                    role="img"
+                    aria-label={item.alt}
+                  />
+                  <figcaption class:list={['micro', { urgent: i === 2 }]}>
+                    <span class:list={['accent', { urgent: i === 2 }]}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    {item.label}
+                  </figcaption>
+                </>
+              </figure>
+            ))
+          }
+        </div>
+        <div class="best-box">
+          <span class="micro">Your best</span><span class="mono" data-best
+            >—</span
+          >
+        </div>
+        <p id="load-status" class="description" role="status">
+          Preparing the plate…
+        </p>
+        <button id="start-btn" class="primary-action" disabled
+          >Begin the dive</button
+        >
+        <div class="sheet-actions">
+          <button class="secondary-action" data-sheet="log">Field log</button
+          ><button class="secondary-action" data-sheet="help">? Method</button>
+        </div>
+      </section>
+      <section data-panel="pause" id="pause-panel" class="hidden">
+        <p class="micro accent">Dive held</p><h2 id="pause-title">Paused</h2>
+        <p class="micro settings-label">Undos per dive</p><div
+          class="undo-choices"
+          role="group"
+          aria-label="Undos per dive"
+        >
+          {
+            [0, 1, 3].map((value, i) => (
+              <button data-undos={value} aria-pressed={value === 1}>
+                {['None', 'One', 'Three'][i]}
+              </button>
+            ))
+          }
+        </div>
+        <p class="description">
+          Applies next dive. Undos used are noted in the field log.
+        </p>
+        <div class="settings">
+          <button id="sound-btn" aria-pressed="true"
+            ><span>Sound</span><span id="sound-state" class="micro">On</span
+            ></button
+          ><button id="motion-btn" aria-pressed="false"
+            ><span>Reduced motion</span><span id="motion-state" class="micro"
+              >Off</span
+            ></button
+          >
+        </div>
+        <button id="resume-btn" class="primary-action">Continue</button><button
+          class="secondary-action"
+          data-sheet="log">Field log</button
+        ><button id="reset-btn" class="secondary-action"
+          >Abandon & restart</button
+        ><button id="end-btn" class="text-action">End dive</button>
+      </section>
+      <section data-panel="win" class="hidden">
+        <div class="win-tile">2048</div><p class="micro urgent settings-label">
+          Specimen of record
+        </p><h2 id="win-title">The deep gave it up</h2><p
+          id="win-line"
+          class="micro description"
+        >
+        </p>
+        <button id="keep-playing-btn" class="primary-action"
+          >Keep diving → 4096</button
+        ><button data-end class="secondary-action">Surface & log it</button>
+      </section>
+      <section data-panel="stuck" class="hidden">
+        <p class="micro amber">No moves left</p><h2 id="stuck-title">
+          The bed has set
+        </h2><p class="description">
+          You have an undo left — step back and try another direction.
+        </p>
+        <button id="undo-stuck-btn" class="primary-action"
+          >↶ Undo last move</button
+        ><button data-end class="secondary-action">End the dive</button>
+      </section>
+      <section data-panel="results" id="game-over-overlay" class="hidden">
+        <span id="personal-best" class="best-stamp hidden">Personal best</span
+        ><p class="micro">Dive record · Pl. XII</p><h2 id="results-title">
+          The bed set early
+        </h2>
+        <div class="result-heading">
+          <div id="final-max-tile" class="result-tile">2</div><div>
+            <span class="micro">Score</span><strong id="custom-final-score"
+              >0</strong
+            >
+          </div>
+        </div>
+        <dl class="result-rows">
+          <div><dt>Moves made</dt><dd id="final-moves">0</dd></div><div>
+            <dt>Merges</dt><dd id="final-merges">0</dd>
+          </div><div>
+            <dt>Points per move</dt><dd id="points-per-move" class="ice">—</dd>
+          </div><div><dt>Undos used</dt><dd id="final-undos">0</dd></div><div>
+            <dt>Previous best</dt><dd id="previous-best">0</dd>
+          </div>
+        </dl>
+        <div class="field-note">
+          <span class="micro">Field note</span><p id="result-advice"></p>
+        </div><p class="micro settings-label">Neighbouring plates</p>
+        <div class="neighbours">
+          {
+            neighbours.map(item => (
+              <a href={item.href}>
+                <span class="neighbour-art" aria-hidden="true">
+                  <span style={`background:${item.color}`} />
+                </span>
+                <span class="micro accent">Pl. {item.number}</span>
+                {item.name}
+              </a>
+            ))
+          }
+        </div>
+        <button id="restart-btn" class="primary-action">Dive again</button
+        ><button class="secondary-action" data-sheet="log">Field log</button>
+      </section>
+      <section data-panel="help" class="hidden">
+        <div class="sheet-kicker">
+          <span class="micro accent">Method</span><button
+            class="close-button"
+            data-close
+            aria-label="Close help">Close ×</button
+          >
+        </div><h2 id="help-title" class="sr-only">How it plays</h2>
+        <div class="instructions">
+          {
+            instructions.map((item, i) => (
+              <figure>
+                <>
+                  <canvas
+                    class="rule-figure"
+                    data-fig={item.image}
+                    width="300"
+                    height="200"
+                    role="img"
+                    aria-label={item.alt}
+                  />
+                  <figcaption class:list={['micro', { urgent: i === 2 }]}>
+                    <span class:list={['accent', { urgent: i === 2 }]}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    {item.label}
+                  </figcaption>
+                </>
+              </figure>
+            ))
+          }
+        </div>
+        <dl class="result-rows method-rows">
+          <div><dt>A merge scores</dt><dd>The new tile’s value</dd></div><div>
+            <dt>Each tile</dt><dd>Joins once per move</dd>
+          </div>
+        </dl>
+        <p class="micro settings-label">Controls · Touch / Keys</p><dl
+          class="result-rows method-rows"
+        >
+          <div><dt>Swipe the plate to slide</dt><dd>← ↑ ↓ →</dd></div><div>
+            <dt>Also move with</dt><dd>W A S D</dd>
+          </div><div><dt>Step back one move</dt><dd>U</dd></div><div>
+            <dt>Pause the dive</dt><dd>P</dd>
+          </div>
+        </dl><button class="primary-action" data-close>Got it</button>
+      </section>
+      <section data-panel="log" class="hidden">
+        <div class="sheet-kicker">
+          <div>
+            <p class="micro accent">Field log</p><h2 id="log-title">
+              Your dive record
+            </h2>
+          </div><button
+            class="close-button"
+            data-close
+            aria-label="Close field log">Close ×</button
+          >
+        </div>
+        <div id="xp-panel" class="record-box hidden">
+          <div class="micro">
+            <span id="xp-label"></span><span id="xp-next"></span>
+          </div><progress
+            id="xp-fill"
+            max="100"
+            value="0"
+            aria-label="Level progress"></progress><div class="record-line">
+            <span class="micro">Challenge streak</span><span
+              class="mono amber"
+              id="streak"></span>
+          </div>
+        </div>
+        <div class="log-stats">
+          <div>
+            <span class="micro">Best</span><strong data-best>—</strong>
+          </div><div>
+            <span class="micro">Dives this visit</span><strong id="visit-count"
+              >0</strong
+            >
+          </div><div>
+            <span class="micro">Highest tile this visit</span><strong
+              class="amber"
+              id="visit-tile">0</strong
+            >
+          </div>
+        </div>
+        <p class="micro settings-label">Dives this visit</p><p
+          id="empty-log"
+          class="description"
+        >
+          Nothing logged yet — your first dive gets a line here.
+        </p><ol id="recent-dives" class="result-rows"></ol>
+        <p class="micro settings-label">Top divers · All time</p><p
+          id="leaderboard-status"
+          class="description"
+        >
+          Loading the field log…
+        </p><ol id="leaderboard" class="result-rows"></ol>
+        <a class="exit-link micro" href={user ? '/profile' : '/login'}
+          >{
+            user
+              ? 'Saved scores & achievements ↗'
+              : 'Sign in to save scores ↗'
+          }</a
+        ><button class="primary-action" data-close>Back to the plate</button>
+      </section>
+      <section data-panel="commission" class="hidden">
+        <div class="sheet-kicker">
+          <span class="micro amber">Today's commission</span><button
+            class="close-button"
+            data-close
+            aria-label="Close commission">Close ×</button
+          >
+        </div>
+        <h2 id="commission-title">In mid-water</h2><p
+          id="commission-status"
+          class="description"
+        >
+          {
+            user
+              ? 'Loading today’s commissions…'
+              : 'Sign in to track daily commissions and earn XP.'
+          }
+        </p><div id="commissions"></div>
+        {
+          !user && (
+            <a class="exit-link micro" href="/login">
+              Sign in ↗
+            </a>
+          )
+        }<button class="primary-action" data-close>Back to the plate</button>
+      </section>
+      <AchievementAward /><ChallengeComplete />
+    </dialog>
+    <template id="commission-template"
+      ><article class="commission-card">
+        <div class="commission-heading">
+          <span data-icon></span><h3 data-name></h3><span
+            class="mono amber"
+            data-xp></span>
+        </div><p class="description" data-description></p><progress
+          max="100"
+          value="0"
+          aria-label="Commission progress"></progress><p
+          class="micro"
+          data-progress
+        >
+        </p>
+      </article></template
+    >
+  </Fragment>
+</AppLayout>
 
 <script>
-  import { init2048GameFramework } from '@/lib/games/2048/initFramework'
+  import {
+    init2048GameFramework,
+    type Game2048InitResult,
+  } from '@/lib/games/2048/initFramework'
+  import type { Game2048State } from '@/lib/games/2048/frameworkTypes'
+  import { getTileColor, getTileTextColor } from '@/lib/games/2048/utils'
+  import { getUserBestScore } from '@/lib/services/scoreService'
+  import { GameID } from '@/lib/games'
+  import type { UserChallengeProgress } from '@/lib/challenges'
 
-  // Initialize game when page loads. All button/keyboard/touch wiring is
-  // handled inside the framework initializer.
-  document.addEventListener('DOMContentLoaded', async () => {
+  const sheet = document.querySelector<HTMLDialogElement>('#field-sheet')!
+  const panels = [...sheet.querySelectorAll<HTMLElement>('[data-panel]')]
+  const startButton = document.querySelector<HTMLButtonElement>('#start-btn')!
+  const pauseButton = document.querySelector<HTMLButtonElement>('#pause-btn')!
+  const undoButton = document.querySelector<HTMLButtonElement>('#undo-btn')!
+  const signedIn =
+    document.querySelector<HTMLElement>('.field-plate')!.dataset.signedIn ===
+    'true'
+  const setText = (id: string, value: string | number) => {
+    document.getElementById(id)!.textContent = String(value)
+  }
+  const hex = (value: number) => '#' + value.toString(16).padStart(6, '0')
+  let handle: Game2048InitResult | undefined
+  let currentPanel = 'intro'
+  let returnPanel = 'intro'
+  let resumeAfterSheet = false
+  let savedBest: number | null = signedIn ? null : 0
+  let visitBest = 0
+  let lastResult: { score: number; previousBest: number } | null = null
+  let visits = 0
+  let visitTile = 0
+  let previousScore = 0
+  let previousMax = 0
+  let previousWon = false
+  let previousUndosUsed = 0
+  let sound = true
+  let reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
+  let audio: AudioContext | undefined
+  const controller = new AbortController()
+  const { signal } = controller
+  const syncBest = () => {
+    const best = savedBest === null ? null : Math.max(savedBest, visitBest)
+    document.querySelectorAll('[data-best]').forEach(el => {
+      el.textContent = best === null ? '—' : best.toLocaleString()
+    })
+    setText(
+      'previous-best',
+      savedBest === null
+        ? '—'
+        : Math.max(savedBest, lastResult?.previousBest ?? 0).toLocaleString()
+    )
+    document
+      .getElementById('personal-best')!
+      .classList.toggle(
+        'hidden',
+        savedBest === null ||
+          lastResult === null ||
+          lastResult.score <= Math.max(savedBest, lastResult.previousBest)
+      )
+  }
+  const showSheet = (panel: string) => {
+    currentPanel = panel
+    panels.forEach(el =>
+      el.classList.toggle('hidden', el.dataset.panel !== panel)
+    )
+    sheet.dataset.panel = panel
+    sheet.setAttribute(
+      'aria-labelledby',
+      `${panel === 'intro' ? 'intro' : panel}-title`
+    )
+    if (!sheet.open) {
+      sheet.showModal()
+    }
+    const heading = sheet.querySelector<HTMLElement>(
+      `:scope > [data-panel="${panel}"] h2`
+    )!
+    heading.tabIndex = -1
+    heading.focus({ preventScroll: true })
+    sheet.scrollTop = 0
+  }
+  const closeSheet = () => {
+    sheet.close()
+    currentPanel = ''
+    handle?.renderer.getApp()?.canvas.focus({ preventScroll: true })
+  }
+  const closeInfo = () => {
+    if (resumeAfterSheet) {
+      resumeAfterSheet = false
+      handle?.game.resume()
+    } else if (returnPanel) {
+      showSheet(returnPanel)
+    } else {
+      closeSheet()
+    }
+  }
+  const refreshAccount = async () => {
+    if (!signedIn) {
+      return
+    }
     try {
-      const gameInstance = await init2048GameFramework()
+      const response = await fetch('/api/challenges', { signal })
+      if (!response.ok) {
+        throw new Error('Challenges unavailable')
+      }
+      const data: {
+        challenges: UserChallengeProgress[]
+        xp: number
+        level: number
+        xpProgress: number
+        xpToNextLevel: number
+        streak: number
+      } = await response.json()
+      setText('account-label', `LV ${data.level}`)
+      setText('xp-label', `Level ${data.level} · ${data.xp} XP`)
+      setText('xp-next', `${data.xpToNextLevel} to next level`)
+      setText('streak', `${data.streak} days`)
+      document.getElementById('xp-panel')!.classList.remove('hidden')
+      document.querySelector<HTMLProgressElement>('#xp-fill')!.value =
+        data.xpProgress
+      const available = data.challenges.filter(
+        c => !c.gameId || c.gameId === GameID.GAME_2048
+      )
+      setText(
+        'commission-status',
+        available.length
+          ? 'Complete a dive to record your progress.'
+          : 'No 2048 commissions today. Explore the catalogue for today’s challenges.'
+      )
+      const container = document.getElementById('commissions')!
+      container.replaceChildren()
+      available.forEach(challenge => {
+        const fragment = document
+          .querySelector<HTMLTemplateElement>('#commission-template')!
+          .content.cloneNode(true) as DocumentFragment
+        fragment.querySelector('[data-icon]')!.textContent = challenge.icon
+        fragment.querySelector('[data-name]')!.textContent = challenge.name
+        fragment.querySelector('[data-xp]')!.textContent =
+          `+${challenge.xpReward} XP`
+        fragment.querySelector('[data-description]')!.textContent =
+          challenge.description
+        fragment.querySelector('progress')!.value = Math.min(
+          100,
+          (challenge.currentValue / challenge.targetValue) * 100
+        )
+        fragment.querySelector('[data-progress]')!.textContent =
+          challenge.completed
+            ? 'Completed'
+            : `${challenge.currentValue} / ${challenge.targetValue}`
+        container.append(fragment)
+      })
+    } catch {
+      if (!signal.aborted) {
+        setText(
+          'commission-status',
+          'Commissions are unavailable. Open this panel again to retry.'
+        )
+      }
+    }
+  }
+  const refreshLeaderboard = async () => {
+    try {
+      const response = await fetch('/api/leaderboard?gameId=2048&limit=5', {
+        signal,
+      })
+      if (!response.ok) {
+        throw new Error('Leaderboard unavailable')
+      }
+      const data: {
+        leaderboard: Array<{ rank: number; name: string; score: number }>
+      } = await response.json()
+      const list = document.getElementById('leaderboard')!
+      list.replaceChildren()
+      data.leaderboard.forEach(entry => {
+        const row = document.createElement('li')
+        const name = document.createElement('span')
+        name.textContent = `${entry.rank}. ${entry.name}`
+        const score = document.createElement('span')
+        score.className = 'mono'
+        score.textContent = entry.score.toLocaleString()
+        row.append(name, score)
+        list.append(row)
+      })
+      setText(
+        'leaderboard-status',
+        data.leaderboard.length ? '' : 'No recorded dives yet.'
+      )
+    } catch {
+      if (!signal.aborted) {
+        setText(
+          'leaderboard-status',
+          'The leaderboard is unavailable. Open the field log again to retry.'
+        )
+      }
+    }
+  }
 
-      if (!gameInstance) {
-        console.error('Failed to initialize 2048 game')
+  document.querySelectorAll<HTMLButtonElement>('[data-sheet]').forEach(button =>
+    button.addEventListener(
+      'click',
+      () => {
+        returnPanel = currentPanel
+        const state = handle?.getState()
+        resumeAfterSheet = Boolean(state?.isActive && !state.isPaused)
+        if (resumeAfterSheet) {
+          handle?.game.pause()
+        }
+        showSheet(button.dataset.sheet!)
+        if (currentPanel === 'log') {
+          void refreshLeaderboard()
+          void refreshAccount()
+        }
+        if (currentPanel === 'commission') {
+          void refreshAccount()
+        }
+      },
+      { signal }
+    )
+  )
+  document
+    .querySelectorAll('[data-close]')
+    .forEach(button => button.addEventListener('click', closeInfo, { signal }))
+  pauseButton.addEventListener('click', () => handle?.game.pause(), { signal })
+  document
+    .getElementById('resume-btn')!
+    .addEventListener('click', () => handle?.game.resume(), { signal })
+  const finish = () => {
+    void handle?.endGame()
+  }
+  document
+    .querySelectorAll('[data-end]')
+    .forEach(button => button.addEventListener('click', finish, { signal }))
+  document.getElementById('keep-playing-btn')!.addEventListener(
+    'click',
+    () => {
+      if (handle?.getState().stuck) {
+        if (handle.game.canUndo()) {
+          showSheet('stuck')
+        } else {
+          finish()
+        }
+      } else {
+        handle?.game.resume()
+      }
+    },
+    { signal }
+  )
+  const undo = () => {
+    if (handle?.undo()) {
+      handle.renderer.getApp()?.canvas.focus({ preventScroll: true })
+    }
+  }
+  undoButton.addEventListener('click', undo, { signal })
+  document.getElementById('undo-stuck-btn')!.addEventListener(
+    'click',
+    () => {
+      handle?.game.resume()
+      undo()
+    },
+    { signal }
+  )
+  document.querySelectorAll<HTMLButtonElement>('[data-undos]').forEach(button =>
+    button.addEventListener(
+      'click',
+      () => {
+        const value = Number(button.dataset.undos)
+        handle?.game.setUndos(value)
+        document
+          .querySelectorAll<HTMLButtonElement>('[data-undos]')
+          .forEach(el =>
+            el.setAttribute(
+              'aria-pressed',
+              String(Number(el.dataset.undos) === value)
+            )
+          )
+      },
+      { signal }
+    )
+  )
+  const syncPreferences = () => {
+    setText('sound-state', sound ? 'On' : 'Off')
+    setText('motion-state', reducedMotion ? 'On' : 'Off')
+    document
+      .getElementById('sound-btn')!
+      .setAttribute('aria-pressed', String(sound))
+    document
+      .getElementById('motion-btn')!
+      .setAttribute('aria-pressed', String(reducedMotion))
+    sheet.dataset.reducedMotion = String(reducedMotion)
+    handle?.renderer.setReducedMotion(reducedMotion)
+    if (handle && reducedMotion) {
+      handle.renderer.render(handle.getState())
+    }
+  }
+  document.getElementById('sound-btn')!.addEventListener(
+    'click',
+    () => {
+      sound = !sound
+      syncPreferences()
+    },
+    { signal }
+  )
+  document.getElementById('motion-btn')!.addEventListener(
+    'click',
+    () => {
+      reducedMotion = !reducedMotion
+      syncPreferences()
+    },
+    { signal }
+  )
+  document.addEventListener(
+    'keydown',
+    event => {
+      if (panels.some(panel => panel.inert)) {
         return
       }
-
-      // Expose game instance for debugging
-      ;(window as any).game2048 = gameInstance
-    } catch (error) {
-      console.error('Failed to initialize 2048 game:', error)
+      if (event.key.toLowerCase() === 'p' && currentPanel === 'pause') {
+        event.preventDefault()
+        handle?.game.resume()
+      }
+    },
+    { signal }
+  )
+  sheet.addEventListener(
+    'cancel',
+    event => {
+      event.preventDefault()
+      if (panels.some(panel => panel.inert)) {
+        return
+      }
+      if (['help', 'log', 'commission'].includes(currentPanel)) {
+        closeInfo()
+      } else if (currentPanel === 'pause') {
+        handle?.game.resume()
+      }
+    },
+    { signal }
+  )
+  document.addEventListener(
+    'visibilitychange',
+    () => {
+      if (
+        document.hidden &&
+        handle?.getState().isActive &&
+        !handle.getState().isPaused
+      ) {
+        handle.game.pause()
+      }
+    },
+    { signal }
+  )
+  const awards = document.getElementById('achievement-award-overlay')!
+  const challenges = document.getElementById('challenge-complete-overlay')!
+  const rewardObserver = new MutationObserver(() => {
+    const active = !challenges.classList.contains('hidden')
+      ? challenges
+      : awards.style.display === 'flex'
+        ? awards
+        : null
+    const wasBlocked = panels[0].inert
+    if (active && !sheet.open) {
+      handle?.game.pause()
+    }
+    panels.forEach(panel => (panel.inert = Boolean(active)))
+    if (active) {
+      active.querySelector<HTMLElement>('[data-card], button')?.focus()
+    } else if (wasBlocked && sheet.open) {
+      showSheet(currentPanel)
     }
   })
+  rewardObserver.observe(awards, {
+    attributes: true,
+    attributeFilter: ['style'],
+  })
+  rewardObserver.observe(challenges, {
+    attributes: true,
+    attributeFilter: ['class'],
+  })
+  const blip = () => {
+    if (!sound) {
+      return
+    }
+    try {
+      audio ??= new AudioContext()
+      void audio.resume()
+      const oscillator = audio.createOscillator(),
+        gain = audio.createGain()
+      oscillator.type = 'triangle'
+      oscillator.frequency.value = 420
+      gain.gain.setValueAtTime(0.035, audio.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.12)
+      oscillator.connect(gain)
+      gain.connect(audio.destination)
+      oscillator.start()
+      oscillator.stop(audio.currentTime + 0.12)
+    } catch {
+      /* Audio may be unavailable. */
+    }
+  }
+  const tile = (
+    context: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    value: number
+  ) => {
+    context.beginPath()
+    context.roundRect(x - size / 2, y - size / 2, size, size, size * 0.1)
+    context.fillStyle = hex(getTileColor(value))
+    if (value >= 2048) {
+      context.shadowColor = context.fillStyle
+      context.shadowBlur = 22
+    }
+    context.fill()
+    context.shadowBlur = 0
+    context.strokeStyle = 'rgba(234,246,255,.14)'
+    context.stroke()
+    context.fillStyle = hex(getTileTextColor(value))
+    context.font = `500 ${Math.round(size * (value < 100 ? 0.46 : 0.3))}px "Field Display", serif`
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.fillText(String(value), x, y + size * 0.03)
+  }
+  const paintFigures = () =>
+    document
+      .querySelectorAll<HTMLCanvasElement>('.rule-figure')
+      .forEach(canvas => {
+        const c = canvas.getContext('2d')!
+        c.clearRect(0, 0, 300, 200)
+        if (canvas.dataset.fig === 'goal') {
+          tile(c, 150, 100, 112, 2048)
+          return
+        }
+        for (const y of [52, 148]) {
+          for (let col = 0; col < 4; col++) {
+            c.beginPath()
+            c.roundRect(42 + col * 56 - 24, y - 24, 48, 48, 5)
+            c.fillStyle = '#0b1020'
+            c.fill()
+            c.strokeStyle = '#1a2a3a'
+            c.stroke()
+          }
+        }
+        tile(c, 98, 52, 48, 2)
+        tile(c, 210, 52, 48, canvas.dataset.fig === 'slide' ? 8 : 2)
+        tile(c, 42, 148, 48, canvas.dataset.fig === 'slide' ? 2 : 4)
+        if (canvas.dataset.fig === 'slide') {
+          tile(c, 98, 148, 48, 8)
+        }
+        c.fillStyle = '#22f5d0'
+        c.font = '600 18px "Field Mono",monospace'
+        c.textAlign = 'center'
+        c.fillText('◂', 150, 100)
+        if (canvas.dataset.fig === 'merge') {
+          c.fillText('+4', 98, 148)
+        }
+      })
+  showSheet('intro')
+  syncBest()
+  if (signedIn) {
+    void getUserBestScore(GameID.GAME_2048)
+      .then(score => {
+        savedBest = score
+        syncBest()
+      })
+      .catch(() => {
+        setText(
+          'load-status',
+          'Your saved best is unavailable. You can still play.'
+        )
+      })
+  }
+  const initialize = async () => {
+    try {
+      await document.fonts.load('500 40px "Field Display"')
+      paintFigures()
+      handle = await init2048GameFramework(
+        {
+          tileSize: 142.5,
+          gap: 14,
+          gameWidth: 640,
+          gameHeight: 640,
+          animationDuration: 110,
+        },
+        {
+          onStart: () => {
+            closeSheet()
+            previousScore = 0
+            previousMax = 0
+            previousWon = false
+            previousUndosUsed = 0
+            pauseButton.disabled = false
+            document.getElementById('merge-feedback')!.textContent = ''
+            setText(
+              'game-status',
+              'Dive started. Use arrow keys or swipe to slide.'
+            )
+          },
+          onPause: () => showSheet('pause'),
+          onResume: closeSheet,
+          onStateChange: state => {
+            const s = state as Game2048State
+            const next = [64, 128, 256, 512, 1024, 2048, 4096].find(
+              value => value > s.maxTile
+            )
+            setText('next-target', next ? `Next · ${next}` : 'Beyond the chart')
+            document
+              .querySelectorAll<HTMLElement>('[data-milestone]')
+              .forEach(el => {
+                const value = Number(el.dataset.milestone),
+                  reached = s.maxTile >= value
+                el.style.background = reached
+                  ? hex(getTileColor(value))
+                  : 'transparent'
+                el.style.borderColor = reached
+                  ? hex(getTileColor(value))
+                  : value === next
+                    ? '#22f5d0'
+                    : '#26333d'
+                el.setAttribute(
+                  'aria-label',
+                  `${value}${reached ? ', reached' : ''}`
+                )
+              })
+            const free = s.board.flat().filter(value => !value).length
+            const directions = handle?.game.legalDirections() ?? []
+            const arrow = { left: '◂', right: '▸', up: '▴', down: '▾' }
+            setText(
+              'board-warning',
+              !s.isActive
+                ? ''
+                : directions.length === 1
+                  ? `One way out ${arrow[directions[0]]}`
+                  : free <= 2
+                    ? `${free} cell${free === 1 ? '' : 's'} free`
+                    : ''
+            )
+            document
+              .getElementById('board-warning')!
+              .classList.toggle('urgent', directions.length === 1)
+            setText('undos-left', s.undosLeft)
+            undoButton.disabled = !handle?.game.canUndo() || s.isPaused
+            undoButton.style.visibility =
+              s.undosLeft + s.undosUsed > 0 ? 'visible' : 'hidden'
+            const gain = s.score - previousScore
+            if (gain > 0) {
+              const feedback = document.getElementById('merge-feedback')!
+              feedback.textContent = `+${gain}`
+              feedback.getAnimations().forEach(animation => animation.cancel())
+              feedback.animate(
+                reducedMotion
+                  ? [{ opacity: 1 }, { opacity: 1 }]
+                  : [
+                      { opacity: 1, transform: 'translate(-50%,0)' },
+                      { opacity: 0, transform: 'translate(-50%,-50px)' },
+                    ],
+                { duration: 900 }
+              )
+              blip()
+            }
+            if (s.maxTile >= 64 && s.maxTile > previousMax) {
+              setText(
+                'game-status',
+                `New highest tile: ${s.maxTile}. Score ${s.score}.`
+              )
+            }
+            if (s.undosUsed > previousUndosUsed) {
+              setText('game-status', `Move undone. ${s.undosLeft} undos left.`)
+            }
+            previousUndosUsed = s.undosUsed
+            previousScore = s.score
+            previousMax = s.maxTile
+            document
+              .querySelectorAll('[data-best]')
+              .forEach(
+                el =>
+                  (el.textContent =
+                    savedBest === null
+                      ? '—'
+                      : String(Math.max(savedBest, visitBest, s.score)))
+              )
+            if (s.won && !previousWon && s.isActive) {
+              handle?.game.pause()
+              setText(
+                'win-line',
+                `${s.score} points · ${s.moveCount} move${s.moveCount === 1 ? '' : 's'}`
+              )
+              showSheet('win')
+            } else if (s.stuck && handle?.game.canUndo() && s.isActive) {
+              handle.game.pause()
+              showSheet('stuck')
+            }
+            previousWon = s.won
+          },
+          onFinish: (score, s) => {
+            pauseButton.disabled = true
+            undoButton.disabled = true
+            lastResult = { score, previousBest: visitBest }
+            visitBest = Math.max(visitBest, score)
+            syncBest()
+            setText('final-merges', s.mergeCount)
+            setText(
+              'points-per-move',
+              s.moveCount ? Math.round(score / s.moveCount) : '—'
+            )
+            setText('final-undos', s.undosUsed)
+            document
+              .getElementById('final-undos')!
+              .classList.toggle('amber', s.undosUsed > 0)
+            const finalTile = document.getElementById('final-max-tile')!
+            finalTile.style.background = hex(getTileColor(s.maxTile))
+            finalTile.style.color = hex(getTileTextColor(s.maxTile))
+            finalTile.style.fontSize =
+              s.maxTile < 100 ? '32px' : s.maxTile < 1000 ? '27px' : '21px'
+            setText(
+              'results-title',
+              s.maxTile >= 2048
+                ? 'A specimen of record'
+                : s.maxTile >= 512
+                  ? 'Deep, not deep enough'
+                  : 'The bed set early'
+            )
+            setText(
+              'result-advice',
+              s.maxTile >= 2048
+                ? 'A specimen of record. Past 2048 the board gets tight fast — keep the largest tile pinned in one corner and never slide away from it.'
+                : s.maxTile >= 512
+                  ? 'Close. Runs usually break when the big tile leaves its corner. Favour two directions and only use the third when forced.'
+                  : 'Pick a corner and keep your largest tile there. Sliding toward it every move builds a descending chain instead of scattered pairs.'
+            )
+            visits++
+            visitTile = Math.max(visitTile, s.maxTile)
+            setText('visit-count', visits)
+            setText('visit-tile', visitTile)
+            document.getElementById('empty-log')!.classList.add('hidden')
+            const row = document.createElement('li'),
+              detail = document.createElement('span'),
+              points = document.createElement('span')
+            detail.textContent = `Tile ${s.maxTile} · ${s.moveCount} moves${s.undosUsed ? ` · ${s.undosUsed} undo` : ''}`
+            points.textContent = String(score)
+            points.className = 'mono'
+            row.append(detail, points)
+            document.getElementById('recent-dives')!.prepend(row)
+            setText(
+              'game-status',
+              `Dive over. Score ${score}, highest tile ${s.maxTile}.`
+            )
+            showSheet('results')
+          },
+          onEnd: () => {
+            void refreshAccount()
+          },
+        }
+      )
+      if (!handle) {
+        throw new Error('Renderer unavailable')
+      }
+      ;(window as Window & { game2048?: Game2048InitResult }).game2048 = handle
+      syncPreferences()
+      startButton.disabled = false
+      setText('load-status', '')
+    } catch (error) {
+      setText(
+        'load-status',
+        'The plate could not start. Reload the page to try again.'
+      )
+      console.error(error)
+    }
+  }
+  void initialize()
+  window.addEventListener(
+    'pagehide',
+    () => {
+      controller.abort()
+      rewardObserver.disconnect()
+      handle?.cleanup()
+      void audio?.close()
+    },
+    { once: true }
+  )
 </script>
+<style>
+  :global(#field-sheet[data-reduced-motion='true'] *),
+  :global(#field-sheet[data-reduced-motion='true'] *::before),
+  :global(#field-sheet[data-reduced-motion='true'] *::after) {
+    animation: none !important;
+    transition: none !important;
+  }
+  dialog h2:focus {
+    outline: none;
+  }
+  @font-face {
+    font-family: 'Field Display';
+    src: url('/fonts/field-plate/newsreader.woff2') format('woff2');
+    font-weight: 300 600;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Field Sans';
+    src: url('/fonts/field-plate/plex-sans.woff2') format('woff2');
+    font-weight: 400 600;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Field Mono';
+    src: url('/fonts/field-plate/plex-mono.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+  }
+  :global(body[data-field-plate]) {
+    background: #04060a;
+    color: #eaf6ff;
+    font-family: 'Field Sans', sans-serif;
+  }
+  :global(body[data-field-plate]::after) {
+    background-image: radial-gradient(
+      rgba(234, 246, 255, 0.055) 0.5px,
+      transparent 0.5px
+    );
+    background-size: 4px 4px;
+    opacity: 0.5;
+  }
+  .plate-width {
+    width: min(100%, 1000px);
+    margin: auto;
+    padding-inline: 24px;
+  }
+  .plate-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding-block: 22px 18px;
+    position: relative;
+  }
+  .plate-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 24px;
+    right: 24px;
+    height: 4px;
+    border-top: 1px solid #2e3e49;
+    border-bottom: 1px solid #26333d;
+  }
+  .wordmark {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font:
+      400 23px/1 'Field Display',
+      serif;
+  }
+  .brand-orb {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #2e3e49;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+  }
+  .brand-orb::after {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #22f5d0;
+  }
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  a:hover {
+    color: #22f5d0;
+  }
+  .micro,
+  .mono,
+  button {
+    font-family: 'Field Mono', monospace;
+  }
+  .micro {
+    font-size: 9px;
+    line-height: 1.5;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8a98a6;
+  }
+  .mono {
+    font-size: 13px;
+  }
+  .accent {
+    color: #22f5d0;
+  }
+  .amber {
+    color: #ffc24a;
+  }
+  .ice {
+    color: #6fe3ff;
+  }
+  .urgent {
+    color: #ff3d8a;
+  }
+  button,
+  .account {
+    border: 1px solid #26333d;
+    border-radius: 2px;
+    background: #0a1219;
+    color: #a7b4bd;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  button:hover:not(:disabled) {
+    border-color: #22f5d0;
+    color: #eaf6ff;
+  }
+  a:focus-visible,
+  button:focus-visible,
+  :global(#game-2048-container canvas:focus-visible) {
+    outline: 2px solid #22f5d0;
+    outline-offset: 3px;
+  }
+  .account {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 11px 4px 4px;
+  }
+  .account > span:first-child {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #22f5d0;
+    color: #04060a;
+    letter-spacing: 0;
+  }
+  .field-plate {
+    padding-bottom: 40px;
+  }
+  .title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    padding-block: 16px 14px;
+  }
+  .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+  }
+  h1,
+  h2 {
+    font-family: 'Field Display', serif;
+    font-weight: 400;
+    line-height: 1.05;
+    margin: 0;
+  }
+  h1 {
+    font-size: clamp(28px, 4vw, 38px);
+    margin-top: 6px;
+  }
+  h2 {
+    font-size: 28px;
+    margin-top: 8px;
+  }
+  p {
+    margin: 0;
+  }
+  .tools {
+    display: flex;
+    gap: 6px;
+  }
+  .icon-button {
+    width: 44px;
+    height: 44px;
+    font-size: 16px;
+  }
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 18px 34px;
+    padding: 14px 0;
+    border-block: 1px solid #26333d;
+  }
+  .score-stat {
+    min-width: 120px;
+  }
+  nav > .micro {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    color: #a7b4bd;
+  }
+  nav > .account {
+    letter-spacing: 0.1em;
+  }
+  .score-stat > span,
+  .best-stat > span {
+    display: block;
+  }
+  .score-stat > span {
+    letter-spacing: 0.28em;
+  }
+  .score-stat strong {
+    font:
+      400 clamp(38px, 6.5vw, 52px) / 1 'Field Display',
+      serif;
+    letter-spacing: -0.01em;
+  }
+  .best-stat {
+    padding-bottom: 6px;
+  }
+  .best-stat strong {
+    display: block;
+    margin-top: 4px;
+    font:
+      15px 'Field Mono',
+      monospace;
+  }
+  .ascent {
+    flex: 1 1 230px;
+    min-width: 200px;
+    padding-bottom: 4px;
+  }
+  .ascent .micro {
+    font-size: 9px;
+  }
+  .ascent #next-target {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+  .record-line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .ladder {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .ladder span {
+    flex: 1;
+    height: 6px;
+    border: 1px solid #26333d;
+  }
+  .ladder span:first-child {
+    border-color: #22f5d0;
+  }
+  .play-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 18px;
+  }
+  .board-frame {
+    position: relative;
+    width: min(100%, 472px);
+    padding: 10px;
+    border: 1px solid #2e3e49;
+    background: #0a1219;
+  }
+  .board-frame > i {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border-color: #22f5d0;
+    border-style: solid;
+    border-width: 0;
+    pointer-events: none;
+  }
+  .board-frame > i:nth-child(1) {
+    top: 4px;
+    left: 4px;
+    border-left-width: 1px;
+    border-top-width: 1px;
+  }
+  .board-frame > i:nth-child(2) {
+    top: 4px;
+    right: 4px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+  }
+  .board-frame > i:nth-child(3) {
+    bottom: 4px;
+    left: 4px;
+    border-left-width: 1px;
+    border-bottom-width: 1px;
+  }
+  .board-frame > i:nth-child(4) {
+    bottom: 4px;
+    right: 4px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+  }
+  #game-2048-container {
+    aspect-ratio: 1;
+    background: linear-gradient(#0b1426, #070b16);
+    touch-action: none;
+    cursor: grab;
+  }
+  :global(#game-2048-container canvas) {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    touch-action: none;
+  }
+  .board-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: min(100%, 472px);
+    min-height: 44px;
+    margin-top: 10px;
+  }
+  #board-warning {
+    flex: 1;
+    min-width: 0;
+    letter-spacing: 0.12em;
+  }
+  .undo-button {
+    min-height: 44px;
+    padding: 0 14px;
+    background: transparent;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  #merge-feedback {
+    position: absolute;
+    top: 46%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    color: #22f5d0;
+    font-size: 21px;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  dialog {
+    position: fixed;
+    inset: 0;
+    width: calc(100% - 40px);
+    max-width: 430px;
+    max-height: calc(100dvh - 40px);
+    margin: auto;
+    padding: 26px;
+    border: 1px solid #2e3e49;
+    background: #0a1219;
+    color: #eaf6ff;
+    overflow: auto;
+    font-family: 'Field Sans', sans-serif;
+  }
+  dialog::backdrop {
+    background: rgba(2, 4, 8, 0.9);
+  }
+  dialog[data-panel='pause'],
+  dialog[data-panel='help'],
+  dialog[data-panel='commission'] {
+    max-width: 410px;
+    padding: 24px;
+  }
+  dialog[data-panel='win'],
+  dialog[data-panel='stuck'] {
+    max-width: 400px;
+    padding: 24px;
+  }
+  dialog[data-panel='win'] {
+    text-align: center;
+    border-color: #ff3d8a;
+    padding-block: 28px;
+  }
+  dialog[data-panel='stuck'],
+  dialog[data-panel='commission'] {
+    border-color: #ffc24a;
+  }
+  dialog[data-panel='results'] {
+    max-width: 470px;
+  }
+  dialog[data-panel='log'] {
+    max-width: 490px;
+  }
+  .sheet-kicker {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .sheet-kicker > span:last-child {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+  }
+  #intro-title {
+    font-size: 36px;
+    font-weight: 300;
+    margin-top: 12px;
+  }
+  .instructions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #1c2730;
+  }
+  figure {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin: 0;
+  }
+  .rule-figure {
+    flex: 0 0 auto;
+    width: 150px;
+    height: 100px;
+    border: 1px solid #1c2730;
+    background: #04060a;
+  }
+  figcaption {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    min-width: 0;
+    font-size: 10px !important;
+    letter-spacing: 0.1em !important;
+    color: #a7b4bd !important;
+  }
+  figcaption.urgent {
+    color: #ff3d8a !important;
+  }
+  figcaption > span {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+  }
+  .best-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 11px 13px;
+    border: 1px solid #1c2730;
+    background: #04060a;
+  }
+  .primary-action,
+  .secondary-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    text-transform: uppercase;
+  }
+  .primary-action {
+    min-height: 54px;
+    margin-top: 18px;
+    border-color: #22f5d0;
+    background: #22f5d0;
+    color: #04060a;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+  }
+  .primary-action:hover:not(:disabled) {
+    background: #5dffe0;
+    border-color: #5dffe0;
+    color: #04060a;
+  }
+  .secondary-action {
+    min-height: 44px;
+    margin-top: 8px;
+    background: transparent;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+  }
+  .sheet-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .sheet-actions .secondary-action {
+    min-height: 46px;
+  }
+  .sheet-actions .secondary-action:last-child {
+    width: auto;
+    flex-shrink: 0;
+    padding-inline: 18px;
+  }
+  .text-action {
+    display: block;
+    margin: 12px auto 0;
+    border: 0;
+    background: none;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    min-height: 32px;
+  }
+  .description {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #a7b4bd;
+    margin-top: 10px;
+    text-wrap: pretty;
+  }
+  #load-status:empty {
+    display: none;
+  }
+  .settings-label {
+    margin-top: 18px;
+  }
+  .undo-choices {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .undo-choices button {
+    flex: 1;
+    min-height: 44px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: transparent;
+  }
+  .undo-choices button[aria-pressed='true'] {
+    background: #22f5d0;
+    border-color: #22f5d0;
+    color: #04060a;
+  }
+  .settings {
+    display: flex;
+    flex-direction: column;
+    margin-top: 16px;
+    border-top: 1px solid #1c2730;
+  }
+  .settings button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid #1c2730;
+    background: transparent;
+    text-align: left;
+  }
+  .settings button > span:first-child {
+    font:
+      13.5px 'Field Sans',
+      sans-serif;
+    color: #eaf6ff;
+  }
+  .win-tile {
+    display: grid;
+    place-items: center;
+    width: 108px;
+    height: 108px;
+    margin: auto;
+    border-radius: 14px;
+    background: #ff3d8a;
+    color: #04060a;
+    font:
+      500 38px 'Field Display',
+      serif;
+    box-shadow: 0 0 44px #ff3d8a73;
+  }
+  #win-title {
+    font-size: 30px;
+    font-weight: 300;
+  }
+  #stuck-title {
+    font-size: 27px;
+  }
+  #results-title {
+    font-size: 32px;
+    font-weight: 300;
+    margin-top: 9px;
+  }
+  .best-stamp {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    padding: 7px 12px;
+    border: 2px solid #ff3d8a;
+    border-radius: 2px;
+    font:
+      600 10px 'Field Mono',
+      monospace;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #ff3d8a;
+    transform: rotate(-3deg);
+  }
+  .result-heading {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-top: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #2e3e49;
+  }
+  .result-heading strong {
+    display: block;
+    font:
+      48px/1 'Field Display',
+      serif;
+  }
+  .result-tile {
+    display: grid;
+    place-items: center;
+    flex: 0 0 76px;
+    height: 76px;
+    border-radius: 10px;
+    font:
+      500 32px 'Field Display',
+      serif;
+  }
+  .result-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .result-rows > div,
+  .result-rows :global(li) {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #1c2730;
+    font-size: 13px;
+  }
+  .result-rows dt,
+  .result-rows :global(li > span:first-child) {
+    color: #a7b4bd;
+  }
+  .result-rows dd {
+    margin: 0;
+    font:
+      13px 'Field Mono',
+      monospace;
+  }
+  .result-rows dd.ice {
+    color: #6fe3ff;
+  }
+  .result-rows dd.amber {
+    color: #ffc24a;
+  }
+  #previous-best,
+  #final-undos {
+    color: #a7b4bd;
+  }
+  #final-undos.amber {
+    color: #ffc24a;
+  }
+  .method-rows {
+    margin-top: 16px;
+  }
+  .method-rows dd {
+    font-size: 11px;
+    text-transform: uppercase;
+    text-align: right;
+  }
+  .field-note {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-left: 2px solid #ff3d8a;
+    background: #04060a;
+  }
+  .field-note p {
+    margin-top: 5px;
+    font-size: 13px;
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+  .neighbours {
+    display: flex;
+    gap: 8px;
+    margin-top: 9px;
+  }
+  .neighbours > a {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid #26333d;
+    background: #04060a;
+    padding: 8px;
+    font:
+      14px 'Field Display',
+      serif;
+  }
+  .neighbours .micro {
+    display: block;
+    font-size: 8px;
+    margin-block: 6px;
+  }
+  .neighbour-art {
+    display: grid;
+    height: 34px;
+    border: 1px solid #1c2730;
+    place-items: center;
+    background: linear-gradient(#0e2b3a, #060f16);
+  }
+  .neighbour-art > span {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+  }
+  .close-button {
+    min-height: 36px;
+    padding: 0 13px;
+    font-size: 10px;
+    background: transparent;
+    text-transform: uppercase;
+  }
+  #log-title {
+    font-size: 26px;
+    margin-top: 7px;
+  }
+  .record-box {
+    margin-top: 18px;
+    padding: 14px;
+    border: 1px solid #1c2730;
+    background: #04060a;
+  }
+  .record-box > .micro {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .record-box .record-line {
+    margin-top: 14px;
+  }
+  progress {
+    display: block;
+    width: 100%;
+    height: 7px;
+    margin-top: 9px;
+    appearance: none;
+    border: 1px solid #26333d;
+    background: #0a1219;
+  }
+  progress::-webkit-progress-bar {
+    background: #0a1219;
+  }
+  progress::-webkit-progress-value {
+    background: #22f5d0;
+  }
+  progress::-moz-progress-bar {
+    background: #22f5d0;
+  }
+  .log-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .log-stats > div {
+    padding: 12px;
+    border: 1px solid #1c2730;
+    background: #04060a;
+  }
+  .log-stats .micro {
+    font-size: 8.5px;
+  }
+  .log-stats strong {
+    display: block;
+    margin-top: 4px;
+    font:
+      24px/1.1 'Field Display',
+      serif;
+  }
+  .exit-link {
+    display: block;
+    margin-top: 18px;
+    color: #22f5d0;
+  }
+  :global(.commission-card) {
+    margin-top: 18px;
+  }
+  :global(.commission-heading) {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+  }
+  :global(.commission-heading h3) {
+    flex: 1;
+    font:
+      19px 'Field Display',
+      serif;
+  }
+  :global(.commission-card progress::-webkit-progress-value) {
+    background: #ffc24a;
+  }
+  .hidden {
+    display: none !important;
+  }
+  @media (max-width: 480px) {
+    .plate-width {
+      padding-inline: 16px;
+    }
+    .plate-header::after {
+      left: 16px;
+      right: 16px;
+    }
+    .eyebrow {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+    }
+    .hud {
+      gap: 18px;
+    }
+    .ascent {
+      min-width: 170px;
+    }
+    .board-frame {
+      padding: 8px;
+    }
+    dialog {
+      padding: 20px;
+      width: calc(100% - 24px);
+      max-height: calc(100dvh - 24px);
+    }
+    .rule-figure {
+      width: 120px;
+      height: 80px;
+    }
+    figure {
+      gap: 10px;
+    }
+    figcaption {
+      gap: 6px;
+      font-size: 9px !important;
+    }
+    .sheet-kicker {
+      gap: 8px;
+    }
+    .sheet-kicker > span {
+      font-size: 8px !important;
+    }
+    .best-stamp {
+      font-size: 8px;
+      right: 12px;
+      padding: 5px 7px;
+    }
+    .log-stats > div {
+      padding: 9px;
+    }
+  }
+</style>

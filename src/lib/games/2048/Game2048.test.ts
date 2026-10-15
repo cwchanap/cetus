@@ -297,7 +297,9 @@ describe('Game2048', () => {
     })
 
     describe('game over detection', () => {
-        it('ends the game when no moves remain after a move', async () => {
+        it('ends the game when no moves and no undos remain', async () => {
+            game.setUndos(0)
+            game.reset()
             game.start()
             // Board with exactly one movable tile; after the move, force
             // canMove to report no moves remaining.
@@ -343,7 +345,7 @@ describe('Game2048', () => {
             expect(stats.gameCompleted).toBe(false)
         })
 
-        it('getGameData returns the { maxTile, moves, merges } contract', () => {
+        it('getGameData includes gameplay and undo statistics', () => {
             game.start()
             setBoard(game, createEmptyBoard())
             const board = game.getBoard()
@@ -362,7 +364,88 @@ describe('Game2048', () => {
                 maxTile: 4,
                 moves: 1,
                 merges: 1,
+                undosUsed: 0,
             })
+        })
+    })
+
+    describe('undo', () => {
+        it('restores the exact board and score, including after a no-op', () => {
+            game.start()
+            setBoard(game, createEmptyBoard())
+            const board = game.getBoard()
+            board[0][0] = makeTile('a', 2, 0, 0)
+            board[0][1] = makeTile('b', 2, 0, 1)
+            const before = structuredClone(game.getState())
+            expect(game.move('up').moved).toBe(false)
+            expect(game.canUndo()).toBe(false)
+            game.move('left')
+            expect(game.getState().score).toBe(4)
+            game.pause()
+            expect(game.undo()).toBe(false)
+            expect(game.move('right').moved).toBe(false)
+            game.resume()
+            expect(game.undo()).toBe(true)
+            expect(game.getState()).toMatchObject({
+                board: before.board,
+                score: before.score,
+                moveCount: before.moveCount,
+                mergeCount: before.mergeCount,
+                maxTile: before.maxTile,
+                tileIdCounter: before.tileIdCounter,
+                undosLeft: 0,
+                undosUsed: 1,
+            })
+            expect(game.getScoreManager().getScore()).toBe(0)
+            expect(game.undo()).toBe(false)
+        })
+
+        it('applies the selected budget next dive and never replenishes spent undos', () => {
+            game.start()
+            game.setUndos(3)
+            expect(game.getState().undosLeft).toBe(1)
+            game.reset()
+            game.start()
+            const snapshots = []
+            for (let i = 0; i < 3; i++) {
+                snapshots.push(structuredClone(game.getState()))
+                game.move(game.legalDirections()[0])
+            }
+            for (let i = 2; i >= 0; i--) {
+                expect(game.undo()).toBe(true)
+                expect(game.getState().board).toEqual(snapshots[i].board)
+                expect(game.getState().score).toBe(snapshots[i].score)
+            }
+            expect(game.getState()).toMatchObject({
+                undosLeft: 0,
+                undosUsed: 3,
+            })
+            game.move(game.legalDirections()[0])
+            expect(game.canUndo()).toBe(false)
+            game.reset()
+            expect(game.getState()).toMatchObject({
+                undosLeft: 3,
+                undosUsed: 0,
+            })
+            expect(game.canUndo()).toBe(false)
+        })
+
+        it('keeps a stuck dive recoverable until its undo is used', () => {
+            game.start()
+            setBoard(game, createEmptyBoard())
+            game.getBoard()[0][1] = makeTile('a', 2, 0, 1)
+            vi.mocked(canMove).mockReturnValue(false)
+            game.move('left')
+            expect(game.getState()).toMatchObject({
+                stuck: true,
+                isActive: true,
+                isGameOver: false,
+            })
+            expect(fetch).not.toHaveBeenCalled()
+            expect(game.undo()).toBe(true)
+            expect(game.getState().stuck).toBe(false)
+            game.move('left')
+            expect(game.getState().isGameOver).toBe(true)
         })
     })
 

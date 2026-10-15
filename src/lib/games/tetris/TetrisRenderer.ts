@@ -5,6 +5,7 @@ import {
     type PixiJSRendererConfig,
 } from '@/lib/games/renderers/PixiJSRenderer'
 import type { TetrisState, TetrisConfig, Piece } from './types'
+import { checkCollision } from './utils'
 
 export interface TetrisRendererConfig extends PixiJSRendererConfig {
     boardWidth: number
@@ -17,8 +18,10 @@ export class TetrisRenderer extends PixiJSRenderer {
     private tetrisConfig: TetrisRendererConfig
     private boardContainer: PIXI.Container | null = null
     private uiContainer: PIXI.Container | null = null
-    private blockGraphics: PIXI.Graphics[] = []
+    private blockElements: (PIXI.Graphics | PIXI.Text)[] = []
     private gridGraphic: PIXI.Graphics | null = null
+    private ghost = true
+    private glyphs = false
 
     constructor(config: TetrisRendererConfig) {
         super(config)
@@ -59,8 +62,28 @@ export class TetrisRenderer extends PixiJSRenderer {
 
         // Draw current piece
         if (state.currentPiece) {
+            if (this.ghost && state.isActive) {
+                const piece = state.currentPiece
+                let y = piece.y
+                while (
+                    !checkCollision(piece.x, y + 1, piece.shape, state.board, {
+                        BOARD_WIDTH: this.tetrisConfig.boardWidth,
+                        BOARD_HEIGHT: this.tetrisConfig.boardHeight,
+                    })
+                ) {
+                    y++
+                }
+                if (y !== piece.y) {
+                    this.drawPiece({ ...piece, y }, true)
+                }
+            }
             this.drawPiece(state.currentPiece)
         }
+    }
+
+    setPreferences(ghost: boolean, glyphs: boolean): void {
+        this.ghost = ghost
+        this.glyphs = glyphs
     }
 
     private isTetrisState(state: unknown): state is TetrisState {
@@ -85,7 +108,7 @@ export class TetrisRenderer extends PixiJSRenderer {
         }
 
         this.gridGraphic = this.createGraphics()
-        this.gridGraphic.alpha = 0.3
+        this.gridGraphic.alpha = 0.05
 
         const { boardWidth, boardHeight, blockSize, gridColor } =
             this.tetrisConfig
@@ -108,24 +131,60 @@ export class TetrisRenderer extends PixiJSRenderer {
         this.uiContainer.addChild(this.gridGraphic)
     }
 
-    private drawBlock(x: number, y: number, color: number): void {
+    private drawBlock(
+        x: number,
+        y: number,
+        color: number,
+        ghost = false,
+        type?: string
+    ): void {
         if (!this.boardContainer) {
             return
         }
 
         const blockGraphic = this.createGraphics()
         const { blockSize } = this.tetrisConfig
-
-        // Draw main block
-        blockGraphic.rect(x, y, blockSize, blockSize)
-        blockGraphic.fill(color)
-
-        // Draw white border
-        blockGraphic.rect(x, y, blockSize, blockSize)
-        blockGraphic.stroke({ width: 1, color: 0xffffff })
-
         this.boardContainer.addChild(blockGraphic)
-        this.blockGraphics.push(blockGraphic)
+        this.blockElements.push(blockGraphic)
+
+        if (ghost) {
+            blockGraphic.rect(
+                x + 1.75,
+                y + 1.75,
+                blockSize - 3.5,
+                blockSize - 3.5
+            )
+            blockGraphic.stroke({ width: 1.5, color: 0xeaf6ff, alpha: 0.5 })
+        } else {
+            blockGraphic
+                .rect(x + 1, y + 1, blockSize - 2, blockSize - 2)
+                .fill(color)
+            blockGraphic
+                .rect(x + 1, y + 1, blockSize - 2, blockSize * 0.14)
+                .fill({ color: 0xffffff, alpha: 0.28 })
+            blockGraphic
+                .rect(
+                    x + 1,
+                    y + blockSize - 1 - blockSize * 0.14,
+                    blockSize - 2,
+                    blockSize * 0.14
+                )
+                .fill({ color: 0x04060a, alpha: 0.3 })
+            blockGraphic
+                .rect(x + 1.5, y + 1.5, blockSize - 3, blockSize - 3)
+                .stroke({ width: 1, color: 0x04060a, alpha: 0.55 })
+            if (this.glyphs && type) {
+                const label = this.createText(type, {
+                    fontFamily: 'Field Mono, monospace',
+                    fontSize: blockSize * 0.5,
+                    fill: 0x04060a,
+                })
+                label.anchor.set(0.5)
+                label.position.set(x + blockSize / 2, y + blockSize / 2)
+                this.boardContainer.addChild(label)
+                this.blockElements.push(label)
+            }
+        }
     }
 
     private drawBoard(board: (number | null)[][]): void {
@@ -141,14 +200,14 @@ export class TetrisRenderer extends PixiJSRenderer {
         }
     }
 
-    private drawPiece(piece: Piece): void {
+    private drawPiece(piece: Piece, ghost = false): void {
         const { blockSize } = this.tetrisConfig
         for (let row = 0; row < piece.shape.length; row++) {
             for (let col = 0; col < piece.shape[row].length; col++) {
                 if (piece.shape[row][col]) {
                     const x = (piece.x + col) * blockSize
                     const y = (piece.y + row) * blockSize
-                    this.drawBlock(x, y, piece.color)
+                    this.drawBlock(x, y, piece.color, ghost, piece.type)
                 }
             }
         }
@@ -160,10 +219,10 @@ export class TetrisRenderer extends PixiJSRenderer {
         }
 
         // Destroy block graphics objects
-        this.blockGraphics.forEach(graphic => {
-            graphic.destroy()
+        this.blockElements.forEach(element => {
+            element.destroy({ children: true })
         })
-        this.blockGraphics = []
+        this.blockElements = []
     }
 
     cleanup(): void {
@@ -192,6 +251,7 @@ export function createTetrisRendererConfig(
         width: gameConfig.gameWidth,
         height: gameConfig.gameHeight,
         responsive: false,
+        transparent: true,
         backgroundColor: gameConfig.backgroundColor,
         antialias: true,
         boardWidth: gameConfig.boardWidth,

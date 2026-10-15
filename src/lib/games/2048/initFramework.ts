@@ -26,11 +26,17 @@ export interface Game2048InitResult {
     restart: () => void
     getState: () => ReturnType<Game2048['getState']>
     endGame: () => Promise<void>
+    undo: () => boolean
+}
+
+interface Game2048Callbacks extends BaseGameCallbacks {
+    /** Local results are ready; onEnd still runs after score persistence. */
+    onFinish?: (score: number, stats: Game2048Stats) => void
 }
 
 export async function init2048GameFramework(
     customConfig?: Partial<Game2048Config>,
-    customCallbacks?: BaseGameCallbacks
+    customCallbacks?: Game2048Callbacks
 ): Promise<Game2048InitResult | undefined> {
     const container = document.getElementById('game-2048-container')
     if (!container) {
@@ -74,25 +80,41 @@ export async function init2048GameFramework(
     // Style the canvas only after successful initialization
     const app = renderer.getApp()
     if (app) {
-        app.canvas.style.border = '2px solid rgba(6, 182, 212, 0.5)'
-        app.canvas.style.borderRadius = '8px'
         app.canvas.style.display = 'block'
+        app.canvas.style.width = '100%'
+        app.canvas.style.height = 'auto'
+        app.canvas.tabIndex = 0
+        app.canvas.setAttribute('role', 'application')
+        app.canvas.setAttribute(
+            'aria-label',
+            '2048 board, 4 by 4. Arrow keys or swipe to slide all tiles.'
+        )
     }
 
     // Track whether the player has already been notified of reaching 2048 so
     // we only show the win notification once (on the false -> true transition).
     let prevWon = false
+    let prevGameOver = false
 
     // Animation queue state (declared before callbacks so the onStateChange
     // closure can guard against rendering during move animations).
     let isAnimating = false
     let pendingDirection: Direction | null = null
+    let generation = 0
+    const resetMotion = () => {
+        generation++
+        renderer.cancelAnimations()
+        isAnimating = false
+        pendingDirection = null
+    }
 
     // Enhanced callbacks with UI updates
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
         onStateChange: (state: BaseGameState) => {
             const gameState = state as ReturnType<Game2048['getState']>
+            const justFinished = gameState.isGameOver && !prevGameOver
+            prevGameOver = gameState.isGameOver
             updateMaxTileDisplay(gameState.maxTile)
             if (gameState.won && !prevWon) {
                 showWinNotification()
@@ -105,19 +127,24 @@ export async function init2048GameFramework(
                 renderer.render(game.getState())
             }
             customCallbacks?.onStateChange?.(state)
+            if (justFinished) {
+                const stats = game.getGameStats()
+                showGameOver(gameState.score, stats)
+                customCallbacks?.onFinish?.(gameState.score, stats)
+            }
         },
         onScoreUpdate: (score: number) => {
             updateScoreDisplay(score)
             customCallbacks?.onScoreUpdate?.(score)
         },
         onStart: () => {
+            resetMotion()
             swapStartEndButtons(true)
             hideOverlay()
+            app?.canvas.focus({ preventScroll: true })
             customCallbacks?.onStart?.()
         },
         onEnd: (finalScore: number, stats: BaseGameStats) => {
-            const gameStats = stats as Game2048Stats
-            showGameOver(finalScore, gameStats)
             customCallbacks?.onEnd?.(finalScore, stats)
         },
     }
@@ -153,7 +180,7 @@ export async function init2048GameFramework(
     // Event-driven move handler with animation orchestration
     const handleMove = async (direction: Direction): Promise<void> => {
         const state = game.getState()
-        if (!state.gameStarted || state.isGameOver) {
+        if (!state.isActive || state.isPaused || state.isGameOver) {
             return
         }
 
@@ -163,6 +190,7 @@ export async function init2048GameFramework(
         }
 
         isAnimating = true
+        const moveGeneration = generation
 
         try {
             const result = game.move(direction)
@@ -170,7 +198,8 @@ export async function init2048GameFramework(
                 if (result.animations.length > 0) {
                     await renderer.playAnimations(
                         result.animations,
-                        game.getState()
+                        game.getState(),
+                        state
                     )
                 } else {
                     renderer.render(game.getState())
@@ -179,25 +208,41 @@ export async function init2048GameFramework(
         } catch (err) {
             console.error('handleMove error', err)
         } finally {
-            isAnimating = false
+            if (moveGeneration === generation) {
+                isAnimating = false
 
-            const nextDirection = pendingDirection
-            pendingDirection = null
-            const currentState = game.getState()
-            if (
-                nextDirection &&
-                currentState.gameStarted &&
-                !currentState.isGameOver
-            ) {
-                void handleMove(nextDirection)
+                const nextDirection = pendingDirection
+                pendingDirection = null
+                const currentState = game.getState()
+                if (
+                    nextDirection &&
+                    currentState.gameStarted &&
+                    !currentState.isPaused &&
+                    !currentState.isGameOver
+                ) {
+                    void handleMove(nextDirection)
+                }
             }
         }
     }
 
     // Set up controls
     const cleanupButtonHandlers = setupButtonHandlers(game, renderer)
-    const cleanupKeyboardControls = setupKeyboardControls(handleMove)
-    const cleanupTouchControls = setupTouchControls(
+    const undo = () => {
+        if (!game.canUndo() || game.getState().isPaused) {
+            return false
+        }
+        if (isAnimating) {
+            resetMotion()
+        }
+        return game.undo()
+    }
+    const cleanupKeyboardControls = setupKeyboardControls(
+        handleMove,
+        game,
+        undo
+    )
+    const cleanupPointerControls = setupPointerControls(
         handleMove,
         config.swipeThreshold
     )
@@ -210,23 +255,23 @@ export async function init2048GameFramework(
         game,
         renderer,
         cleanup: () => {
+            resetMotion()
             cleanupButtonHandlers()
             cleanupKeyboardControls()
-            cleanupTouchControls()
+            cleanupPointerControls()
             cleanupUnloadWarning()
             game.off('end', onGameEnd)
             renderer.cleanup()
             game.destroy()
         },
         restart: () => {
-            isAnimating = false
-            pendingDirection = null
+            resetMotion()
             game.reset()
-            renderer.render(game.getState())
-            resetButtonVisibility()
+            game.start()
         },
         getState: () => game.getState(),
         endGame: () => game.end(),
+        undo,
     }
 }
 
@@ -311,11 +356,6 @@ function showGameOver(finalScore: number, stats: Game2048Stats): void {
     }
 }
 
-function resetButtonVisibility(): void {
-    swapStartEndButtons(false)
-    hideOverlay()
-}
-
 function setupButtonHandlers(
     game: Game2048,
     renderer: Game2048Renderer
@@ -341,15 +381,15 @@ function setupButtonHandlers(
     }
 
     const resetHandler = () => {
+        renderer.cancelAnimations()
         game.reset()
-        renderer.render(game.getState())
-        resetButtonVisibility()
+        game.start()
     }
 
     const restartHandler = () => {
+        renderer.cancelAnimations()
         game.reset()
-        renderer.render(game.getState())
-        resetButtonVisibility()
+        game.start()
     }
 
     startBtn?.addEventListener('click', startHandler)
@@ -366,7 +406,9 @@ function setupButtonHandlers(
 }
 
 function setupKeyboardControls(
-    handleMove: (direction: Direction) => void
+    handleMove: (direction: Direction) => void,
+    game: Game2048,
+    undo: () => boolean
 ): () => void {
     const directionMap: Record<string, Direction> = {
         ArrowLeft: 'left',
@@ -384,6 +426,29 @@ function setupKeyboardControls(
     }
 
     const keydownHandler = (e: KeyboardEvent) => {
+        if (
+            e.defaultPrevented ||
+            document.querySelector('dialog[open]') ||
+            (e.target instanceof Element &&
+                e.target.closest(
+                    'input, textarea, select, [contenteditable="true"]'
+                ))
+        ) {
+            return
+        }
+        if (e.key.toLowerCase() === 'p' && game.getState().isActive) {
+            e.preventDefault()
+            game.pause()
+            return
+        }
+        if (document.activeElement?.tagName !== 'CANVAS') {
+            return
+        }
+        if (e.key.toLowerCase() === 'u') {
+            e.preventDefault()
+            undo()
+            return
+        }
         const direction = directionMap[e.key]
         if (direction) {
             e.preventDefault()
@@ -398,7 +463,7 @@ function setupKeyboardControls(
     }
 }
 
-function setupTouchControls(
+function setupPointerControls(
     handleMove: (direction: Direction) => void,
     swipeThreshold: number
 ): () => void {
@@ -407,64 +472,52 @@ function setupTouchControls(
         return () => {}
     }
 
-    let touchStartX = 0
-    let touchStartY = 0
-    let touchStartTime = 0
-
-    const touchStartHandler = (e: TouchEvent) => {
-        const touch = e.touches[0]
-        touchStartX = touch.clientX
-        touchStartY = touch.clientY
-        touchStartTime = Date.now()
+    let gesture: { id: number; x: number; y: number } | null = null
+    const pointerDown = (event: PointerEvent) => {
+        if (event.button !== 0 || event.isPrimary === false || gesture) {
+            return
+        }
+        gesture = { id: event.pointerId, x: event.clientX, y: event.clientY }
+        container.setPointerCapture?.(event.pointerId)
+        container.querySelector('canvas')?.focus({ preventScroll: true })
+        event.preventDefault()
     }
-
-    const touchEndHandler = (e: TouchEvent) => {
-        const touch = e.changedTouches[0]
-        const deltaX = touch.clientX - touchStartX
-        const deltaY = touch.clientY - touchStartY
-        const deltaTime = Date.now() - touchStartTime
-
-        // Only register fast swipes
-        if (deltaTime > 300) {
+    const pointerUp = (event: PointerEvent) => {
+        if (!gesture || gesture.id !== event.pointerId) {
             return
         }
-
-        const absX = Math.abs(deltaX)
-        const absY = Math.abs(deltaY)
-
-        if (absX < swipeThreshold && absY < swipeThreshold) {
+        const deltaX = event.clientX - gesture.x
+        const deltaY = event.clientY - gesture.y
+        gesture = null
+        if (container.hasPointerCapture?.(event.pointerId)) {
+            container.releasePointerCapture(event.pointerId)
+        }
+        if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < swipeThreshold) {
             return
         }
-
         const direction: Direction =
-            absX > absY
+            Math.abs(deltaX) > Math.abs(deltaY)
                 ? deltaX > 0
                     ? 'right'
                     : 'left'
                 : deltaY > 0
                   ? 'down'
                   : 'up'
-
-        e.preventDefault()
+        event.preventDefault()
         void handleMove(direction)
     }
-
-    const touchMoveHandler = (e: TouchEvent) => {
-        e.preventDefault()
+    const pointerCancel = () => {
+        gesture = null
     }
-
-    container.addEventListener('touchstart', touchStartHandler, {
-        passive: false,
-    })
-    container.addEventListener('touchend', touchEndHandler, { passive: false })
-    container.addEventListener('touchmove', touchMoveHandler, {
-        passive: false,
-    })
-
+    container.addEventListener('pointerdown', pointerDown)
+    container.addEventListener('pointerup', pointerUp)
+    container.addEventListener('pointercancel', pointerCancel)
+    container.addEventListener('lostpointercapture', pointerCancel)
     return () => {
-        container.removeEventListener('touchstart', touchStartHandler)
-        container.removeEventListener('touchend', touchEndHandler)
-        container.removeEventListener('touchmove', touchMoveHandler)
+        container.removeEventListener('pointerdown', pointerDown)
+        container.removeEventListener('pointerup', pointerUp)
+        container.removeEventListener('pointercancel', pointerCancel)
+        container.removeEventListener('lostpointercapture', pointerCancel)
     }
 }
 

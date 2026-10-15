@@ -549,6 +549,66 @@ test.describe('Sudoku', () => {
 })
 
 test.describe('Bejeweled', () => {
+    test('countdown warnings color both the number and the bar', async ({
+        page,
+    }) => {
+        await page.clock.install()
+        await page.goto('/bejeweled')
+        await expect(page.locator('#start-btn')).toBeEnabled()
+        await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
+        await page.locator('#start-btn').click()
+        for (const [remaining, color] of [
+            [21, 'rgb(34, 245, 208)'],
+            [20, 'rgb(255, 194, 74)'],
+            [10, 'rgb(255, 61, 138)'],
+        ] as const) {
+            const current = Number(
+                await page.locator('#time-remaining').innerText()
+            )
+            await page.clock.fastForward((current - remaining) * 1000)
+            await expect(page.locator('#time-remaining')).toHaveText(
+                String(remaining)
+            )
+            await expect(page.locator('#time-remaining')).toHaveCSS(
+                'color',
+                color
+            )
+            await expect(page.locator('#time-fill')).toHaveCSS('color', color)
+        }
+        await page.locator('#pause-btn').click()
+        await page.locator('#reset-btn').click()
+        await expect(page.locator('#time-remaining')).toHaveCSS(
+            'color',
+            'rgb(34, 245, 208)'
+        )
+        await expect(page.locator('#time-fill')).toHaveCSS(
+            'color',
+            'rgb(34, 245, 208)'
+        )
+    })
+
+    test('scrolling a narrow sheet does not hide the next panel header', async ({
+        page,
+    }) => {
+        await page.setViewportSize({ width: 320, height: 568 })
+        await page.goto('/bejeweled')
+        await page
+            .locator('#intro-panel')
+            .getByRole('button', { name: '? Method' })
+            .click()
+        await page.getByRole('button', { name: 'Got it', exact: true }).click()
+        const sheet = page.locator('#field-sheet')
+        await expect.poll(() => sheet.evaluate(el => el.scrollTop)).toBe(0)
+        await expect(page.locator('#intro-title')).toBeFocused()
+        await page.locator('#start-btn').click()
+        await page.locator('#pause-btn').click()
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#game-over-overlay')).toBeVisible()
+        await expect.poll(() => sheet.evaluate(el => el.scrollTop)).toBe(0)
+        await expect(page.locator('#results-title')).toBeFocused()
+        await expect(page.locator('.neighbour-art')).toHaveCount(3)
+    })
+
     async function readHint(page: Page): Promise<number[]> {
         await page.locator('#hint-btn').click()
         return (await page.locator('#board-notice').innerText())
@@ -565,6 +625,36 @@ test.describe('Bejeweled', () => {
             box.y + ((row + 0.5) * box.height) / 8
         )
     }
+
+    test('a match shows the field-plate cascade cues', async ({
+        page,
+    }, testInfo) => {
+        await page.clock.install()
+        await page.goto('/bejeweled')
+        await page.locator('#start-btn').click()
+        await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
+        const [row, col, targetRow, targetCol] = await readHint(page)
+        await clickGem(page, row, col)
+        await clickGem(page, targetRow, targetCol)
+        await page.clock.runFor(200)
+        await expect(page.locator('#cascade-label')).toHaveText('×1 chain')
+        await expect(page.locator('#cascade-label')).toHaveCSS(
+            'color',
+            'rgb(34, 245, 208)'
+        )
+        await expect(page.locator('#cascade-pips span')).toHaveCount(5)
+        await expect(page.locator('#cascade-pips span').first()).toHaveCSS(
+            'background-color',
+            'rgb(34, 245, 208)'
+        )
+        await page.clock.runFor(80)
+        await page.screenshot({
+            path: testInfo.outputPath('bejeweled-clear-feedback.png'),
+        })
+        await page.clock.resume()
+        await expect(page.locator('#cascade-label')).toHaveText('Idle')
+        await expect(page.locator('#cascade-pips .active')).toHaveCount(0)
+    })
 
     test('a hint clears an old selection before the marked pair is tapped', async ({
         page,
@@ -593,7 +683,7 @@ test.describe('Bejeweled', () => {
         await expect(page.locator('#cascade-label')).toHaveText('Idle')
         await expect(page.locator('#moves')).toHaveText('0')
         await clickGem(page, targetRow, targetCol)
-        await page.clock.runFor(5000)
+        await page.clock.resume()
         await expect(page.locator('#moves')).toHaveText('1')
         await expect
             .poll(async () => Number(await page.locator('#score').innerText()))
