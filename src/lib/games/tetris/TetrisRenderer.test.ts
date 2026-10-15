@@ -53,7 +53,11 @@ vi.mock('pixi.js', () => {
         Container: vi.fn(makeContainer),
         Graphics: vi.fn(makeGraphics),
         Assets: { load: vi.fn() },
-        Text: vi.fn(),
+        Text: vi.fn(() => ({
+            anchor: { set: vi.fn() },
+            position: { set: vi.fn() },
+            destroy: vi.fn(),
+        })),
         Sprite: vi.fn(),
         Texture: { EMPTY: {} },
     }
@@ -62,7 +66,7 @@ vi.mock('pixi.js', () => {
 import { TetrisRenderer, createTetrisRendererConfig } from './TetrisRenderer'
 import { DEFAULT_TETRIS_CONFIG } from './TetrisGame'
 import type { TetrisState, Piece } from './types'
-import { Graphics, Container } from 'pixi.js'
+import { Graphics, Container, Text } from 'pixi.js'
 
 function makeRenderer(): TetrisRenderer {
     const config = createTetrisRendererConfig(
@@ -99,6 +103,11 @@ function makeState(overrides: Partial<TetrisState> = {}): TetrisState {
         board,
         currentPiece: null,
         nextPiece: makePiece(),
+        queue: [makePiece(), makePiece(), makePiece()],
+        heldPiece: null,
+        holdUsed: false,
+        clearedRows: [],
+        startLevel: 1,
         level: 1,
         lines: 0,
         dropTime: 0,
@@ -110,6 +119,7 @@ function makeState(overrides: Partial<TetrisState> = {}): TetrisState {
             triples: 0,
             tetrises: 0,
             consecutiveLineClears: 0,
+            maxConsecutiveLineClears: 0,
         },
         needsRedraw: true,
         ...overrides,
@@ -152,6 +162,25 @@ describe('TetrisRenderer', () => {
     })
 
     describe('render', () => {
+        it('renders form letters as container children and releases them on redraw', async () => {
+            const renderer = makeRenderer()
+            await renderer.initialize()
+            renderer.setPreferences(false, true)
+            renderer.render(makeState({ currentPiece: makePiece() }))
+            const labels = vi
+                .mocked(Text)
+                .mock.results.map(result => result.value)
+            expect(labels).toHaveLength(4)
+            const board = vi.mocked(Container).mock.results[0].value
+            for (const label of labels) {
+                expect(board.addChild).toHaveBeenCalledWith(label)
+            }
+            renderer.render(makeState())
+            for (const label of labels) {
+                expect(label.destroy).toHaveBeenCalled()
+            }
+            renderer.cleanup()
+        })
         it('does nothing when needsRedraw is false', async () => {
             const renderer = makeRenderer()
             await renderer.initialize()
@@ -183,7 +212,17 @@ describe('TetrisRenderer', () => {
             const piece = makePiece({ x: 3, y: 5 })
             vi.mocked(Graphics).mockClear()
             renderer.render(makeState({ currentPiece: piece }))
-            // I-piece has 4 filled cells → 4 Graphics objects
+            // Four active cells and four landing-outline cells.
+            expect(vi.mocked(Graphics)).toHaveBeenCalledTimes(8)
+            const ghost = vi.mocked(Graphics).mock.results[0].value
+            expect(ghost.stroke).toHaveBeenCalledWith({
+                width: 1.5,
+                color: 0xeaf6ff,
+                alpha: 0.5,
+            })
+            renderer.setPreferences(false, false)
+            vi.mocked(Graphics).mockClear()
+            renderer.render(makeState({ currentPiece: piece }))
             expect(vi.mocked(Graphics)).toHaveBeenCalledTimes(4)
             renderer.cleanup()
         })

@@ -118,7 +118,7 @@ const neighbours = [
           <span>Cascade</span><span id="cascade-label">Idle</span>
         </div>
         <div id="cascade-pips" aria-hidden="true">
-          {Array.from({ length: 8 }, () => <span />)}
+          {Array.from({ length: 5 }, () => <span />)}
         </div>
         <div class="micro chain-note">
           Best chain this run · <span id="max-combo" class="amber">×0</span>
@@ -280,6 +280,9 @@ const neighbours = [
           {
             neighbours.map(item => (
               <a href={item.href}>
+                <span class="neighbour-art" aria-hidden="true">
+                  <span style={{ background: item.color }} />
+                </span>
                 <span class="micro accent">Pl. {item.number}</span>
                 {item.name}
               </a>
@@ -504,10 +507,11 @@ const neighbours = [
       sheet.showModal()
     }
     const heading = sheet.querySelector<HTMLElement>(
-      `[data-panel="${panel}"] h2`
+      `:scope > [data-panel="${panel}"] h2`
     )!
     heading.tabIndex = -1
-    heading.focus()
+    heading.focus({ preventScroll: true })
+    sheet.scrollTop = 0
   }
   const closeSheet = () => {
     sheet.close()
@@ -852,10 +856,12 @@ const neighbours = [
     }
   }
   const setTime = (time: number) => {
-    document.querySelector<HTMLProgressElement>('#time-fill')!.value = time
-    document
-      .getElementById('time-remaining')!
-      .classList.toggle('urgent', time <= 10)
+    const bar = document.querySelector<HTMLProgressElement>('#time-fill')!
+    bar.value = time
+    for (const el of [bar, document.getElementById('time-remaining')!]) {
+      el.classList.toggle('amber', time <= 20 && time > 10)
+      el.classList.toggle('urgent', time <= 10)
+    }
   }
   showSheet('intro')
   const initialize = async () => {
@@ -901,6 +907,9 @@ const neighbours = [
               'max-combo',
               `×${handle?.game.getGameStats().maxCombo ?? 0}`
             )
+            const cascadeLabel = document.getElementById('cascade-label')!
+            cascadeLabel.classList.toggle('accent', s.combo > 0 && s.combo < 3)
+            cascadeLabel.classList.toggle('amber', s.combo >= 3)
             document
               .querySelectorAll('#cascade-pips span')
               .forEach((pip, i) => pip.classList.toggle('active', i < s.combo))
@@ -1212,16 +1221,17 @@ const neighbours = [
     height: 7px;
     border: 1px solid #26333d;
     background: #0a1219;
+    color: #22f5d0;
     appearance: none;
   }
   progress::-webkit-progress-bar {
     background: #0a1219;
   }
   progress::-webkit-progress-value {
-    background: #22f5d0;
+    background: currentColor;
   }
   progress::-moz-progress-bar {
-    background: #22f5d0;
+    background: currentColor;
   }
   #time-fill {
     height: 4px;
@@ -1254,14 +1264,16 @@ const neighbours = [
     margin-top: 8px;
   }
   #cascade-pips span {
-    height: 7px;
+    height: 8px;
     flex: 1;
     border: 1px solid #26333d;
-    background: #0a1219;
+    background: transparent;
   }
   #cascade-pips span.active {
+    background: #22f5d0;
+  }
+  #cascade-pips span.active:nth-child(n + 3) {
     background: #ffc24a;
-    border-color: #ffc24a;
   }
   .chain-note {
     margin-top: 7px;

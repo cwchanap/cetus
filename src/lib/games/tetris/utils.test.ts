@@ -358,6 +358,7 @@ describe('Tetris Utils', () => {
                 lineWidth: 0,
                 fillRect: vi.fn(),
                 strokeRect: vi.fn(),
+                fillText: vi.fn(),
             } as unknown as CanvasRenderingContext2D
 
             mockCanvas = {
@@ -369,8 +370,8 @@ describe('Tetris Utils', () => {
         it('should handle null piece', () => {
             drawNextPiece(null, mockContext, mockCanvas)
 
-            // Should not call any drawing methods when piece is null
-            expect(mockContext.fillRect).not.toHaveBeenCalled()
+            expect(mockContext.fillRect).toHaveBeenCalledWith(0, 0, 120, 120)
+            expect(mockContext.fillText).toHaveBeenCalledWith('—', 60, 60)
         })
 
         it('should draw piece on canvas', () => {
@@ -388,7 +389,11 @@ describe('Tetris Utils', () => {
             expect(mockContext.strokeRect).toHaveBeenCalled()
         })
 
-        it('should set correct fill style for piece color', () => {
+        it('should use the piece color beneath the bevel', () => {
+            const fills: string[] = []
+            vi.mocked(mockContext.fillRect).mockImplementation(() => {
+                fills.push(String(mockContext.fillStyle))
+            })
             const piece: Piece = {
                 type: 'O',
                 x: 0,
@@ -399,7 +404,7 @@ describe('Tetris Utils', () => {
 
             drawNextPiece(piece, mockContext, mockCanvas)
 
-            expect(mockContext.fillStyle).toBe('#ff0000')
+            expect(fills).toContain('#ff0000')
         })
 
         it('should center piece on canvas', () => {
@@ -416,8 +421,8 @@ describe('Tetris Utils', () => {
 
             drawNextPiece(piece, mockContext, mockCanvas)
 
-            // Should call fillRect for each block and strokeRect for borders
-            expect(mockContext.fillRect).toHaveBeenCalledTimes(5) // 1 clear + 4 blocks
+            // The top-left block starts one pixel inside a centered 52px form.
+            expect(mockContext.fillRect).toHaveBeenCalledWith(35, 35, 24, 24)
             expect(mockContext.strokeRect).toHaveBeenCalledTimes(4) // 4 borders
         })
     })

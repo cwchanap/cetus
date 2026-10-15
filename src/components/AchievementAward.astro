@@ -308,11 +308,8 @@ const classes = cn(
       // Show overlay
       this.overlay.style.display = 'flex'
 
-      // Animate in
-      await this.animateIn()
-
-      // Wait for user interaction or timeout
-      await this.waitForDismiss()
+      // Accept dismissal during the entrance animation too.
+      await Promise.all([this.animateIn(), this.waitForDismiss()])
 
       // Animate out
       await this.animateOut()

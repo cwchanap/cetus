@@ -17,7 +17,7 @@ import { GAME_CONSTANTS, type Tile } from './types'
 
 describe('getTileTextColor', () => {
     it('should return dark color for 512 (not covered in game.test.ts)', () => {
-        expect(getTileTextColor(512)).toBe(0x1a1a2e)
+        expect(getTileTextColor(512)).toBe(0x04060a)
     })
 })
 

@@ -39,6 +39,7 @@ export interface TetrisLineStats {
     triples: number
     tetrises: number
     consecutiveLineClears: number
+    maxConsecutiveLineClears: number
 }
 
 // Extended state for Tetris game (extends BaseGameState)
@@ -46,7 +47,12 @@ export interface TetrisState extends BaseGameState {
     board: (number | null)[][]
     currentPiece: Piece | null
     nextPiece: Piece | null
+    queue: Piece[]
+    heldPiece: Piece | null
+    holdUsed: boolean
+    clearedRows: number[]
     level: number
+    startLevel: number
     lines: number
     dropTime: number
     dropInterval: number
@@ -81,4 +87,5 @@ export interface TetrisStats extends BaseGameStats {
     triples: number
     tetrises: number
     consecutiveLineClears: number
+    maxConsecutiveLineClears: number
 }

@@ -78,6 +78,7 @@ export interface BejeweledAnimator {
     animateClear(
         cells: Position[],
         state: BejeweledState,
-        durationMs?: number
+        durationMs?: number,
+        points?: number
     ): Promise<void>
 }

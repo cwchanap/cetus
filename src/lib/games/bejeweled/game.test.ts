@@ -64,6 +64,82 @@ describe('BejeweledGame special achievements logic', () => {
         game.destroy()
     })
 
+    it.each([0, 30])(
+        'keeps only %i earned points when ending early',
+        async points => {
+            game.addScore(points, 'match_clear')
+            vi.spyOn(
+                game.getScoreManager(),
+                'saveFinalScore'
+            ).mockResolvedValue({
+                success: true,
+            })
+            game.pause()
+            expect(game.getTimerStatus().currentTime).toBeGreaterThan(0)
+
+            await game.end()
+
+            expect(game.getState()).toMatchObject({
+                score: points,
+                isGameOver: true,
+            })
+            expect(game.getScoreManager().getScore()).toBe(points)
+        }
+    )
+
+    it('passes the actual unique-cell score and cascade multiplier to clear feedback', async () => {
+        const first = [
+            {
+                type: 'red' as const,
+                positions: [
+                    { row: 0, col: 1 },
+                    { row: 1, col: 1 },
+                    { row: 2, col: 1 },
+                ],
+            },
+            {
+                type: 'red' as const,
+                positions: [
+                    { row: 1, col: 0 },
+                    { row: 1, col: 1 },
+                    { row: 1, col: 2 },
+                ],
+            },
+        ]
+        vi.spyOn(utils, 'findMatches')
+            .mockReturnValueOnce(first)
+            .mockReturnValueOnce(first)
+            .mockReturnValueOnce([
+                {
+                    type: 'blue',
+                    positions: [
+                        { row: 3, col: 0 },
+                        { row: 3, col: 1 },
+                        { row: 3, col: 2 },
+                    ],
+                },
+            ])
+            .mockReturnValue([])
+        game.clickCell(0, 0)
+        game.clickCell(0, 1)
+        await vi.waitFor(() => expect(game.getState().isAnimating).toBe(false))
+        expect(animator.animateClear).toHaveBeenNthCalledWith(
+            1,
+            expect.any(Array),
+            expect.objectContaining({ combo: 1 }),
+            1000,
+            50
+        )
+        expect(animator.animateClear).toHaveBeenNthCalledWith(
+            2,
+            expect.any(Array),
+            expect.objectContaining({ combo: 2 }),
+            1000,
+            60
+        )
+        expect(game.getState().score).toBe(110)
+    })
+
     it.each(['reset', 'end', 'destroy'] as const)(
         'discards a pending swap after %s',
         async action => {

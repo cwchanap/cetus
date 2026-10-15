@@ -25,7 +25,7 @@ export function checkCollision(
     y: number,
     shape: number[][],
     board: (number | null)[][],
-    constants: GameConstants
+    constants: Pick<GameConstants, 'BOARD_WIDTH' | 'BOARD_HEIGHT'>
 ): boolean {
     for (let row = 0; row < shape.length; row++) {
         for (let col = 0; col < shape[row].length; col++) {
@@ -89,41 +89,56 @@ export function clearLines(
 }
 
 export function drawNextPiece(
-    piece: Piece | null,
+    piece: Piece | Piece[] | null,
     ctx: CanvasRenderingContext2D,
-    canvas: HTMLCanvasElement
+    canvas: HTMLCanvasElement,
+    glyphs = false
 ): void {
-    if (!piece) {
+    const pieces = Array.isArray(piece) ? piece : piece ? [piece] : []
+    ctx.fillStyle = '#070b16'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    if (!pieces.length) {
+        ctx.fillStyle = '#eaf6ff2e'
+        ctx.font = '500 15px "Field Mono", monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('—', canvas.width / 2, canvas.height / 2)
         return
     }
-
-    // Clear canvas
-    ctx.fillStyle = '#000'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    // Calculate center position
-    const blockSize = 20
-    const pieceWidth = piece.shape[0].length * blockSize
-    const pieceHeight = piece.shape.length * blockSize
-    const offsetX = (canvas.width - pieceWidth) / 2
-    const offsetY = (canvas.height - pieceHeight) / 2
-
-    // Draw piece
-    ctx.fillStyle = pixiColorToHex(piece.color)
-
-    for (let row = 0; row < piece.shape.length; row++) {
-        for (let col = 0; col < piece.shape[row].length; col++) {
-            if (piece.shape[row][col]) {
-                const x = offsetX + col * blockSize
-                const y = offsetY + row * blockSize
-
-                ctx.fillRect(x, y, blockSize, blockSize)
-
-                // Add border
-                ctx.strokeStyle = '#fff'
+    const slotHeight = canvas.height / pieces.length
+    pieces.forEach((p, index) => {
+        const size = index === 0 ? 26 : 20
+        const ox = (canvas.width - p.shape[0].length * size) / 2
+        const oy = index * slotHeight + (slotHeight - p.shape.length * size) / 2
+        p.shape.forEach((row, r) =>
+            row.forEach((cell, col) => {
+                if (!cell) {
+                    return
+                }
+                const x = ox + col * size + 1,
+                    y = oy + r * size + 1
+                ctx.fillStyle = pixiColorToHex(p.color)
+                ctx.fillRect(x, y, size - 2, size - 2)
+                ctx.fillStyle = 'rgba(255,255,255,0.28)'
+                ctx.fillRect(x, y, size - 2, size * 0.14)
+                ctx.fillStyle = 'rgba(4,6,10,0.3)'
+                ctx.fillRect(
+                    x,
+                    y + size - 2 - size * 0.14,
+                    size - 2,
+                    size * 0.14
+                )
+                ctx.strokeStyle = 'rgba(4,6,10,0.55)'
                 ctx.lineWidth = 1
-                ctx.strokeRect(x, y, blockSize, blockSize)
-            }
-        }
-    }
+                ctx.strokeRect(x + 0.5, y + 0.5, size - 3, size - 3)
+                if (glyphs) {
+                    ctx.fillStyle = '#04060acc'
+                    ctx.font = `600 ${Math.round(size * 0.5)}px "Field Mono", monospace`
+                    ctx.textAlign = 'center'
+                    ctx.textBaseline = 'middle'
+                    ctx.fillText(p.type, x + size / 2 - 1, y + size / 2)
+                }
+            })
+        )
+    })
 }
