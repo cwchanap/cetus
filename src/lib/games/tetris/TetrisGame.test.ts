@@ -695,6 +695,27 @@ describe('TetrisGame', () => {
             expect(data).toHaveProperty('level')
             expect(data.piecesPlaced).toBeGreaterThanOrEqual(1)
         })
+
+        it('submits the max clear streak, not the reset current streak', () => {
+            game.start()
+            for (let i = 0; i < 4; i++) {
+                // @ts-expect-error - configure a line-clear fixture
+                game.state.currentPiece = makePiece({
+                    x: 9,
+                    y: 18,
+                    shape: [[1]],
+                })
+                fillBoardRows(19, 20, 9)
+                game.hardDrop()
+            }
+            // A quiet placement resets the live streak, not the recorded max
+            game.hardDrop()
+            // @ts-expect-error - getGameData is protected
+            const data = game.getGameData()
+            expect(game.getState().stats.consecutiveLineClears).toBe(0)
+            expect(game.getState().stats.maxConsecutiveLineClears).toBe(4)
+            expect(data.consecutiveLineClears).toBe(4)
+        })
     })
 
     describe('markRendered', () => {
