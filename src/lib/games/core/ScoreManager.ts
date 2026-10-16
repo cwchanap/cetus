@@ -118,11 +118,14 @@ export class ScoreManager extends GameEventEmitter {
     }
 
     /**
-     * Save final score (with achievement integration if enabled)
+     * Save final score (with achievement integration if enabled).
+     * Callers that already captured the run's score should pass it via
+     * `score`; otherwise the current score is read at call time.
      */
     async saveFinalScore(
         gameData?: Record<string, unknown>,
-        isStale?: () => boolean
+        isStale?: () => boolean,
+        score: number = this.currentScore
     ): Promise<{
         success: boolean
         newAchievements?: string[]
@@ -145,7 +148,7 @@ export class ScoreManager extends GameEventEmitter {
                     },
                     body: JSON.stringify({
                         gameId: this.config.gameId,
-                        score: this.currentScore,
+                        score,
                         gameData,
                     }),
                 })
@@ -164,7 +167,7 @@ export class ScoreManager extends GameEventEmitter {
                 // Use the simple save method
                 await saveGameScore(
                     this.config.gameId,
-                    this.currentScore,
+                    score,
                     undefined,
                     undefined,
                     undefined,

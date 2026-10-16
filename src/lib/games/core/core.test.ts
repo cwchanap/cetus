@@ -1352,6 +1352,127 @@ describe('BaseGame stale-run guard', () => {
         vi.unstubAllGlobals()
     })
 
+    it('saves the completed run payload when onEnd starts a new run synchronously', async () => {
+        // onEnd/onGameEnd run before the save is built, so a callback that
+        // replays synchronously would otherwise reset the score and game
+        // data that get POSTed — the finished run's snapshot must be used.
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: [] }),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+            protected getGameData(): Record<string, unknown> {
+                return { marker: this.scoreManager.getScore() }
+            }
+        }
+
+        const onEnd = vi.fn()
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: true,
+                pausable: false,
+                resettable: true,
+            },
+            { onEnd }
+        )
+        onEnd.mockImplementation(() => game.start())
+
+        game.start()
+        game.addScore(500)
+        await game.end()
+
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        const body = JSON.parse(
+            (fetchMock.mock.calls[0][1] as RequestInit).body as string
+        )
+        expect(body.score).toBe(500)
+        expect(body.gameData).toMatchObject({ marker: 500 })
+        expect(game.getState()).toMatchObject({
+            isActive: true,
+            isGameOver: false,
+        })
+
+        game.destroy()
+        vi.unstubAllGlobals()
+    })
+
+    it('saves the completed run payload when onEnd resets synchronously', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: [] }),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+            protected getGameData(): Record<string, unknown> {
+                return { marker: this.scoreManager.getScore() }
+            }
+        }
+
+        const onEnd = vi.fn()
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: true,
+                pausable: false,
+                resettable: true,
+            },
+            { onEnd }
+        )
+        onEnd.mockImplementation(() => game.reset())
+
+        game.start()
+        game.addScore(500)
+        await game.end()
+
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        const body = JSON.parse(
+            (fetchMock.mock.calls[0][1] as RequestInit).body as string
+        )
+        expect(body.score).toBe(500)
+        expect(body.gameData).toMatchObject({ marker: 500 })
+
+        game.destroy()
+        vi.unstubAllGlobals()
+    })
+
     it('does not emit an extra end event when restarting a completed run', async () => {
         // Regression: previously start() on a completed run called
         // resetInternal() -> timer.reset() -> timer.stop(), whose

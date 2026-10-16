@@ -186,6 +186,10 @@ export abstract class BaseGame<
         // Get final stats
         const finalStats = this.getGameStats()
         const finalScore = this.scoreManager.getScore()
+        // Snapshot the achievement payload now — onEnd/onGameEnd run next
+        // and may synchronously start or reset a run, replacing the state
+        // and score these read. The save must post the finished run's data.
+        const finalGameData = this.getGameData()
 
         // Publish local completion before awaiting the score save so a
         // stalled /api/scores request cannot leave a finished run without
@@ -200,8 +204,9 @@ export abstract class BaseGame<
 
         // Save score
         const saveResult = await this.scoreManager.saveFinalScore(
-            this.getGameData(),
-            () => this.runGuard.isStale(runId)
+            finalGameData,
+            () => this.runGuard.isStale(runId),
+            finalScore
         )
 
         // Keep emitting the structured end event even for a stale run, but
