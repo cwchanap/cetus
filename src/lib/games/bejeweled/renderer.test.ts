@@ -227,6 +227,43 @@ describe('BejeweledRenderer', () => {
             expect(appInst.stage.removeChildren).toHaveBeenCalled()
         })
 
+        it('should destroy every stage child even as destroy shrinks children', async () => {
+            renderer = new BejeweledRenderer({
+                type: 'canvas',
+                container: '#bejeweled-test-container',
+            })
+            await renderer.initialize()
+
+            const MockApp = vi.mocked(Application)
+            const appInst = MockApp.mock.results[0].value
+
+            // Pixi removes a child from stage.children when it is destroyed,
+            // so destroying while iterating the live array skips entries.
+            const children: { destroy: ReturnType<typeof vi.fn> }[] = []
+            for (let i = 0; i < 5; i++) {
+                const child = {
+                    destroy: vi.fn(() => {
+                        const idx = children.indexOf(child)
+                        if (idx >= 0) {
+                            children.splice(idx, 1)
+                        }
+                    }),
+                }
+                children.push(child)
+            }
+            const stage = appInst.stage as unknown as {
+                children: { destroy: () => void }[]
+            }
+            stage.children = children
+            const originals = [...children]
+
+            renderer.clearStage()
+
+            for (const child of originals) {
+                expect(child.destroy).toHaveBeenCalledOnce()
+            }
+        })
+
         it('should draw cell backgrounds for all cells (addToStage called per cell)', async () => {
             renderer = new BejeweledRenderer({
                 type: 'canvas',
