@@ -799,7 +799,11 @@ const neighbours = [
   document.addEventListener(
     'keydown',
     event => {
-      if (isEditableTarget(event.target)) {
+      if (
+        isEditableTarget(event.target) ||
+        event.target instanceof HTMLButtonElement ||
+        event.target instanceof HTMLAnchorElement
+      ) {
         return
       }
       if (panels.some(panel => panel.inert)) {

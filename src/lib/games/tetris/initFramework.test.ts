@@ -363,6 +363,38 @@ describe('initTetrisGameFramework', () => {
         }
     })
 
+    it('leaves Space and Enter to focused controls instead of driving the board', async () => {
+        result = await initTetrisGameFramework()
+        const game = vi.mocked(TetrisGame).mock.results[0].value
+        const instance = lastInstance()
+        instance.state.gameStarted = true
+
+        // A focused button owns Space/Enter; the page handler must not
+        // hard-drop or swallow the keydown.
+        const pauseBtn = document.getElementById('pause-btn')!
+        const event = new KeyboardEvent('keydown', {
+            key: ' ',
+            bubbles: true,
+            cancelable: true,
+        })
+        pauseBtn.dispatchEvent(event)
+        expect(event.defaultPrevented).toBe(false)
+        expect(game.hardDrop).not.toHaveBeenCalled()
+
+        const anchor = document.createElement('a')
+        anchor.href = '/profile'
+        document.body.appendChild(anchor)
+        anchor.dispatchEvent(
+            new KeyboardEvent('keydown', {
+                key: ' ',
+                bubbles: true,
+                cancelable: true,
+            })
+        )
+        expect(game.hardDrop).not.toHaveBeenCalled()
+        anchor.remove()
+    })
+
     it('ignores keys while a dialog is open or the game has not started', async () => {
         result = await initTetrisGameFramework()
         const game = vi.mocked(TetrisGame).mock.results[0].value
