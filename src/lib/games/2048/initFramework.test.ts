@@ -88,6 +88,7 @@ function setupDOM(): void {
         <h2 id="game-over-title">Game Over</h2>
         <div id="win-notification" class="hidden"></div>
         <button id="start-btn" style="display:inline-flex">Start</button>
+        <button id="pause-btn">Pause</button>
         <button id="end-btn" style="display:none">End</button>
         <button id="reset-btn">Reset</button>
         <button id="restart-btn">Restart</button>
@@ -225,6 +226,37 @@ describe('init2048GameFramework', () => {
             )
 
             expect(moveSpy).not.toHaveBeenCalled()
+        })
+
+        it('leaves keys to focused buttons and links instead of driving the board', async () => {
+            const moveSpy = vi
+                .spyOn(result!.game, 'move')
+                .mockReturnValue(NO_MOVE_RESULT)
+
+            // A focused button owns its keys; the page handler must not
+            // move the board or swallow the keydown.
+            const pauseBtn = document.getElementById('pause-btn')!
+            pauseBtn.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'ArrowLeft',
+                    bubbles: true,
+                    cancelable: true,
+                })
+            )
+            expect(moveSpy).not.toHaveBeenCalled()
+
+            const anchor = document.createElement('a')
+            anchor.href = '/profile'
+            document.body.appendChild(anchor)
+            anchor.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                    key: 'a',
+                    bubbles: true,
+                    cancelable: true,
+                })
+            )
+            expect(moveSpy).not.toHaveBeenCalled()
+            anchor.remove()
         })
 
         it('does not move before the game starts', async () => {

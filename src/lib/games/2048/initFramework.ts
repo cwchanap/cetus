@@ -420,7 +420,9 @@ function setupKeyboardControls(
         if (
             e.defaultPrevented ||
             document.querySelector('dialog[open]') ||
-            isEditableTarget(e.target)
+            isEditableTarget(e.target) ||
+            e.target instanceof HTMLButtonElement ||
+            e.target instanceof HTMLAnchorElement
         ) {
             return
         }
