@@ -352,7 +352,11 @@ function setupKeyboardControls(game: TetrisGame): () => void {
             return
         }
 
-        if (isEditableTarget(e.target)) {
+        if (
+            isEditableTarget(e.target) ||
+            e.target instanceof HTMLButtonElement ||
+            e.target instanceof HTMLAnchorElement
+        ) {
             return
         }
         const dialog = document.querySelector<HTMLDialogElement>('dialog[open]')
