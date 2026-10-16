@@ -236,7 +236,7 @@ export class BejeweledRenderer
         if (!app) {
             return
         }
-        for (const child of app.stage.children ?? []) {
+        for (const child of [...(app.stage.children ?? [])]) {
             if (child !== this.overlayLayer) {
                 child.destroy()
             }
