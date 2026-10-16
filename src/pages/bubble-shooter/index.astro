@@ -360,12 +360,16 @@ const user = Astro.locals.user
   const challengeOverlay = document.getElementById(
     'challenge-complete-overlay'
   )!
+  const signedIn =
+    document.querySelector<HTMLElement>('.field-plate')!.dataset.signedIn ===
+    'true'
   let handle: BubbleShooterInitResult | undefined
   let currentPanel = 'intro'
   let returnPanel = 'intro'
   let resumeAfterSheet = false
-  let best: number | null = null
+  let savedBest: number | null = signedIn ? null : 0
   let visitBest = 0
+  let lastResult: { score: number; previousBest: number } | null = null
   let diveCount = 0
 
   const showSheet = (name: string) => {
@@ -391,9 +395,18 @@ const user = Astro.locals.user
     handle?.renderer.getApp()?.canvas.focus()
   }
   const syncBest = () => {
+    const best = savedBest === null ? null : Math.max(savedBest, visitBest)
     document.querySelectorAll('[data-best]').forEach(element => {
       element.textContent = best === null ? '—' : best.toLocaleString()
     })
+    document
+      .getElementById('personal-best')!
+      .classList.toggle(
+        'hidden',
+        savedBest === null ||
+          lastResult === null ||
+          lastResult.score <= Math.max(savedBest, lastResult.previousBest)
+      )
   }
   const closeInfo = () => {
     if (resumeAfterSheet) {
@@ -521,11 +534,8 @@ const user = Astro.locals.user
           onEnd: (score, stats) => {
             const s = stats as BubbleShooterStats
             pauseButton.disabled = true
-            document
-              .getElementById('personal-best')!
-              .classList.toggle('hidden', score <= (best ?? 0))
+            lastResult = { score, previousBest: visitBest }
             visitBest = Math.max(visitBest, score)
-            best = Math.max(best ?? 0, visitBest)
             syncBest()
             document.getElementById('empty-log')!.classList.add('hidden')
             const row = document.createElement('li')
@@ -545,17 +555,8 @@ const user = Astro.locals.user
       }
       startButton.disabled = false
       startButton.textContent = 'Begin the dive'
-      if (
-        document.querySelector<HTMLElement>('.field-plate')!.dataset
-          .signedIn === 'true'
-      ) {
-        const savedBest = await getUserBestScore(GameID.BUBBLE_SHOOTER)
-        best =
-          savedBest === null && visitBest === 0
-            ? null
-            : Math.max(savedBest ?? 0, visitBest)
-      } else {
-        best = visitBest
+      if (signedIn) {
+        savedBest = await getUserBestScore(GameID.BUBBLE_SHOOTER)
       }
       syncBest()
     } catch (error) {
