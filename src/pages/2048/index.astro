@@ -1082,14 +1082,19 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
             )
             showSheet('results')
           },
-          onEnd: () => {
-            void refreshAccount()
-          },
         }
       )
       if (!handle) {
         throw new Error('Renderer unavailable')
       }
+      // onEnd fires before the score save resolves, so account state (XP,
+      // challenge labels) refreshes off the post-save structured end event.
+      // The event.data guard skips bare end events forwarded from the timer.
+      handle.game.on('end', event => {
+        if (event.data) {
+          void refreshAccount()
+        }
+      })
       ;(window as Window & { game2048?: Game2048InitResult }).game2048 = handle
       syncPreferences()
       startButton.disabled = false

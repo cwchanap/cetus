@@ -1054,11 +1054,20 @@ describe('BaseGame stale-run guard', () => {
         vi.unstubAllGlobals()
     })
 
-    it('skips onEnd callback and onGameEnd hook when the run is stale', async () => {
-        const fetchMock = vi.fn().mockResolvedValue({
-            ok: true,
-            json: () => Promise.resolve({ newAchievements: ['first_win'] }),
-        })
+    it('invokes onEnd/onGameEnd while the score save is still pending', async () => {
+        let resolveFetch!: (response: {
+            ok: boolean
+            json: () => Promise<{ newAchievements: string[] }>
+        }) => void
+        const fetchMock = vi.fn().mockImplementation(
+            () =>
+                new Promise<{
+                    ok: boolean
+                    json: () => Promise<{ newAchievements: string[] }>
+                }>(resolve => {
+                    resolveFetch = resolve
+                })
+        )
         vi.stubGlobal('fetch', fetchMock)
 
         const onEnd = vi.fn()
@@ -1096,25 +1105,39 @@ describe('BaseGame stale-run guard', () => {
             },
             { onEnd }
         )
+        const endEvents: Array<{ data: { newAchievements?: string[] } }> = []
+        game.on('end', e => endEvents.push(e as any))
 
         game.start()
         const endPromise = game.end()
-        game.reset()
+
+        // Local completion publishes at freeze time — before the save — so
+        // results/replay UI does not wait on a stalled /api/scores request.
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onGameEndCalled).toBe(true)
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        expect(endEvents.filter(e => e.data && 'score' in e.data)).toHaveLength(
+            0
+        )
+
+        resolveFetch({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+        })
         await endPromise
 
-        // Pins the spec decision: the entire post-await callback chain is
-        // suppressed for a stale run, not just the achievement payload, so
-        // DOM-mutating end-of-run side effects do not leak into the new run.
-        expect(onEnd).not.toHaveBeenCalled()
-        expect(onGameEndCalled).toBe(false)
+        // The structured end event lands after the save and carries the
+        // save-derived reward payload.
+        const structuredEnds = endEvents.filter(
+            e => e.data && 'score' in e.data
+        )
+        expect(structuredEnds).toHaveLength(1)
+        expect(structuredEnds[0].data.newAchievements).toEqual(['first_win'])
 
         vi.unstubAllGlobals()
     })
 
-    it('skips onEnd/onGameEnd when start() races with end() (Play Again path)', async () => {
-        // Logically equivalent to the reset() race above, but asserts the
-        // literal "Play Again" path: start() also advances the run guard,
-        // so a pending end() from the previous run must be suppressed.
+    it('still invokes onEnd/onGameEnd when the run goes stale during the save', async () => {
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
             json: () => Promise.resolve({ newAchievements: ['first_win'] }),
@@ -1156,14 +1179,108 @@ describe('BaseGame stale-run guard', () => {
             },
             { onEnd }
         )
+        const endEvents: Array<{
+            data: { newAchievements?: string[]; challengeUpdates?: unknown }
+        }> = []
+        game.on('end', e => endEvents.push(e as any))
+
+        game.start()
+        const endPromise = game.end()
+
+        // Pins the spec decision: local end-of-run callbacks already ran
+        // synchronously at freeze time, so a run that goes stale during the
+        // save cannot suppress them.
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onGameEndCalled).toBe(true)
+
+        game.reset()
+        await endPromise
+
+        // The save POST still happened, the structured end event still
+        // emitted, and only its save-derived reward payload is suppressed.
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        const structuredEnds = endEvents.filter(
+            e => e.data && 'score' in e.data
+        )
+        expect(structuredEnds).toHaveLength(1)
+        expect(structuredEnds[0].data.newAchievements).toBeUndefined()
+        expect(structuredEnds[0].data.challengeUpdates).toBeUndefined()
+
+        vi.unstubAllGlobals()
+    })
+
+    it('still invokes onEnd/onGameEnd for the ended run when start() races with end() (Play Again path)', async () => {
+        // Logically equivalent to the reset() race above, but asserts the
+        // literal "Play Again" path: start() also advances the run guard,
+        // so the pending end() from the previous run goes stale. Its local
+        // callbacks already fired at freeze time, so only the save-derived
+        // end-event payload is suppressed — never the callbacks.
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const onEnd = vi.fn()
+        let onGameEndCalls = 0
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+            protected onGameEnd(): void {
+                onGameEndCalls++
+            }
+        }
+
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: true,
+                pausable: false,
+                resettable: true,
+            },
+            { onEnd }
+        )
+        const endEvents: Array<{
+            data: { newAchievements?: string[]; challengeUpdates?: unknown }
+        }> = []
+        game.on('end', e => endEvents.push(e as any))
 
         game.start()
         const endPromise = game.end()
         game.start() // "Play Again" — advances run guard, stale-ifies end()
         await endPromise
 
-        expect(onEnd).not.toHaveBeenCalled()
-        expect(onGameEndCalled).toBe(false)
+        // The ended run's local callbacks ran exactly once at freeze time;
+        // the new run is unaffected.
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onGameEndCalls).toBe(1)
+        expect(game.getState()).toMatchObject({
+            isActive: true,
+            isGameOver: false,
+        })
+        const structuredEnds = endEvents.filter(
+            e => e.data && 'score' in e.data
+        )
+        expect(structuredEnds).toHaveLength(1)
+        expect(structuredEnds[0].data.newAchievements).toBeUndefined()
+        expect(structuredEnds[0].data.challengeUpdates).toBeUndefined()
 
         vi.unstubAllGlobals()
     })

@@ -30,7 +30,11 @@ export interface Game2048InitResult {
 }
 
 interface Game2048Callbacks extends BaseGameCallbacks {
-    /** Local results are ready; onEnd still runs after score persistence. */
+    /**
+     * Local results are ready (fires when the game-over state publishes).
+     * onEnd also runs before the score save resolves — save-dependent work
+     * belongs on the game's structured 'end' event instead.
+     */
     onFinish?: (score: number, stats: Game2048Stats) => void
 }
 
