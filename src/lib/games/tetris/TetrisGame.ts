@@ -9,7 +9,13 @@ import type {
     Piece,
     GameConstants,
 } from './types'
-import { rotateMatrix, checkCollision, placePiece, clearLines } from './utils'
+import {
+    rotateMatrix,
+    checkCollision,
+    placePiece,
+    clearLines,
+    getDropDistance,
+} from './utils'
 import { hexToPixiColor } from '@/lib/games/shared/types'
 import {
     create2DArray,
@@ -111,7 +117,7 @@ export const DEFAULT_TETRIS_CONFIG: TetrisConfig = {
 }
 
 // Points awarded per number of simultaneously cleared lines (index = lines)
-const LINE_CLEAR_BASE_SCORE = [0, 40, 100, 300, 1200]
+export const LINE_CLEAR_BASE_SCORE = [0, 40, 100, 300, 1200]
 
 export class TetrisGame extends BaseGame<
     TetrisState,
@@ -450,19 +456,14 @@ export class TetrisGame extends BaseGame<
             return
         }
 
-        let rowsDropped = 0
-        while (
-            !checkCollision(
-                this.state.currentPiece.x,
-                this.state.currentPiece.y + 1,
-                this.state.currentPiece.shape,
-                this.state.board,
-                this.getConstantsView()
-            )
-        ) {
-            this.state.currentPiece.y++
-            rowsDropped++
-        }
+        const rowsDropped = getDropDistance(
+            this.state.currentPiece.x,
+            this.state.currentPiece.y,
+            this.state.currentPiece.shape,
+            this.state.board,
+            this.getConstantsView()
+        )
+        this.state.currentPiece.y += rowsDropped
         if (rowsDropped > 0) {
             this.addScore(rowsDropped * 2, 'hard_drop')
         }

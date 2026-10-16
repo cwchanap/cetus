@@ -16,6 +16,7 @@ import {
     DOMElementNotFoundError,
     handleGameError,
 } from '@/lib/games/core/errors'
+import { isEditableTarget } from '@/lib/games/shared/utils'
 
 import { type AchievementNotification } from '@/lib/achievements'
 
@@ -29,18 +30,9 @@ export interface Game2048InitResult {
     undo: () => boolean
 }
 
-interface Game2048Callbacks extends BaseGameCallbacks {
-    /**
-     * Local results are ready (fires when the game-over state publishes).
-     * onEnd also runs before the score save resolves — save-dependent work
-     * belongs on the game's structured 'end' event instead.
-     */
-    onFinish?: (score: number, stats: Game2048Stats) => void
-}
-
 export async function init2048GameFramework(
     customConfig?: Partial<Game2048Config>,
-    customCallbacks?: Game2048Callbacks
+    customCallbacks?: BaseGameCallbacks
 ): Promise<Game2048InitResult | undefined> {
     const container = document.getElementById('game-2048-container')
     if (!container) {
@@ -98,7 +90,6 @@ export async function init2048GameFramework(
     // Track whether the player has already been notified of reaching 2048 so
     // we only show the win notification once (on the false -> true transition).
     let prevWon = false
-    let prevGameOver = false
 
     // Animation queue state (declared before callbacks so the onStateChange
     // closure can guard against rendering during move animations).
@@ -117,8 +108,6 @@ export async function init2048GameFramework(
         ...customCallbacks,
         onStateChange: (state: BaseGameState) => {
             const gameState = state as ReturnType<Game2048['getState']>
-            const justFinished = gameState.isGameOver && !prevGameOver
-            prevGameOver = gameState.isGameOver
             updateMaxTileDisplay(gameState.maxTile)
             if (gameState.won && !prevWon) {
                 showWinNotification()
@@ -131,11 +120,6 @@ export async function init2048GameFramework(
                 renderer.render(game.getState())
             }
             customCallbacks?.onStateChange?.(state)
-            if (justFinished) {
-                const stats = game.getGameStats()
-                showGameOver(gameState.score, stats)
-                customCallbacks?.onFinish?.(gameState.score, stats)
-            }
         },
         onScoreUpdate: (score: number) => {
             updateScoreDisplay(score)
@@ -148,7 +132,10 @@ export async function init2048GameFramework(
             app?.canvas.focus({ preventScroll: true })
             customCallbacks?.onStart?.()
         },
+        // Fires the moment the run ends, before the score save resolves —
+        // save-dependent work belongs on the structured 'end' event.
         onEnd: (finalScore: number, stats: BaseGameStats) => {
+            showGameOver(finalScore, stats as Game2048Stats)
             customCallbacks?.onEnd?.(finalScore, stats)
         },
     }
@@ -433,19 +420,13 @@ function setupKeyboardControls(
         if (
             e.defaultPrevented ||
             document.querySelector('dialog[open]') ||
-            (e.target instanceof Element &&
-                e.target.closest(
-                    'input, textarea, select, [contenteditable="true"]'
-                ))
+            isEditableTarget(e.target)
         ) {
             return
         }
         if (e.key.toLowerCase() === 'p' && game.getState().isActive) {
             e.preventDefault()
             game.pause()
-            return
-        }
-        if (document.activeElement?.tagName !== 'CANVAS') {
             return
         }
         if (e.key.toLowerCase() === 'u') {

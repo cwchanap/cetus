@@ -227,6 +227,23 @@ export class BejeweledRenderer
         }
     }
 
+    // Destroy stage children on full redraws — every move, hint, cursor
+    // move and preference change re-renders the whole grid, and detaching
+    // without destroying leaked those Graphics. The overlay layer persists;
+    // renderGame re-adds it on top.
+    clearStage(): void {
+        const app = this.getApp()
+        if (!app) {
+            return
+        }
+        for (const child of app.stage.children ?? []) {
+            if (child !== this.overlayLayer) {
+                child.destroy()
+            }
+        }
+        super.clearStage()
+    }
+
     private mapPointToCell(
         x: number,
         y: number,
@@ -295,11 +312,11 @@ export class BejeweledRenderer
             }
         )
 
-        // Cleanup
-        this.overlayLayer?.removeChild(gA)
-        this.overlayLayer?.removeChild(gB)
-        this.overlayLayer?.removeChild(coverA)
-        this.overlayLayer?.removeChild(coverB)
+        // Cleanup — destroy so repeated swaps do not leak Graphics
+        for (const g of [gA, gB, coverA, coverB]) {
+            this.overlayLayer?.removeChild(g)
+            g.destroy()
+        }
     }
 
     public async animateSwapBack(
@@ -488,7 +505,9 @@ export class BejeweledRenderer
         this.paused = false
         this.hint = []
         this.cursor = null
-        this.overlayLayer?.removeChildren()
+        for (const child of this.overlayLayer?.removeChildren() ?? []) {
+            child.destroy()
+        }
     }
 
     setPreferences(

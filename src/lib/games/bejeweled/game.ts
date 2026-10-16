@@ -220,18 +220,6 @@ export class BejeweledGame extends BaseGame<
         while (matches.length > 0) {
             currentCombo += 1
             this.state.combo = currentCombo
-            this.maxCombo = Math.max(this.maxCombo, currentCombo)
-            this.totalMatches += matches.length
-
-            // Detect if any match forms a straight line of 5 or more
-            if (!this.straightFiveAchieved) {
-                for (const m of matches) {
-                    if (this.isStraightRunAtLeast(m.positions, 5)) {
-                        this.straightFiveAchieved = true
-                        break
-                    }
-                }
-            }
 
             // Animate annihilation effect for all matched cells
             const allCells = matches.flatMap(m => m.positions)
@@ -246,6 +234,19 @@ export class BejeweledGame extends BaseGame<
             )
             if (!current()) {
                 return
+            }
+
+            // Count a step's stats only once it commits, so a run ended
+            // mid-cascade does not post stats its score never received.
+            this.maxCombo = Math.max(this.maxCombo, currentCombo)
+            this.totalMatches += matches.length
+            if (!this.straightFiveAchieved) {
+                for (const m of matches) {
+                    if (this.isStraightRunAtLeast(m.positions, 5)) {
+                        this.straightFiveAchieved = true
+                        break
+                    }
+                }
             }
 
             const { largest } = removeMatches(grid, matches)

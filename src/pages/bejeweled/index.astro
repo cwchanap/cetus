@@ -447,6 +447,7 @@ const neighbours = [
     BejeweledStats,
   } from '@/lib/games/bejeweled/types'
   import { findLegalSwap } from '@/lib/games/bejeweled/utils'
+  import { isEditableTarget } from '@/lib/games/shared/utils'
   import { getUserBestScore } from '@/lib/services/scoreService'
   import { GameID } from '@/lib/games'
   import type { UserChallengeProgress } from '@/lib/challenges'
@@ -798,11 +799,7 @@ const neighbours = [
   document.addEventListener(
     'keydown',
     event => {
-      if (
-        (event.target as HTMLElement).closest(
-          'input, textarea, select, [contenteditable]'
-        )
-      ) {
+      if (isEditableTarget(event.target)) {
         return
       }
       if (panels.some(panel => panel.inert)) {
@@ -824,9 +821,6 @@ const neighbours = [
       if (event.key.toLowerCase() === 'h') {
         event.preventDefault()
         hint()
-        return
-      }
-      if (event.target !== handle?.renderer.getApp()?.canvas) {
         return
       }
       const delta = {
@@ -993,6 +987,15 @@ const neighbours = [
     }
   }
   void initialize()
+  document.addEventListener(
+    'visibilitychange',
+    () => {
+      if (document.hidden) {
+        handle?.game.pause()
+      }
+    },
+    { signal }
+  )
   window.addEventListener(
     'pagehide',
     event => {

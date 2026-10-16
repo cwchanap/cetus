@@ -498,6 +498,7 @@ const neighbours = [
     type TetrisInitResult,
   } from '@/lib/games/tetris/initFramework'
   import type { TetrisState, TetrisStats } from '@/lib/games/tetris/types'
+  import { LINE_CLEAR_BASE_SCORE } from '@/lib/games/tetris/TetrisGame'
   import { getUserBestScore } from '@/lib/services/scoreService'
   import { GameID } from '@/lib/games'
   import type { UserChallengeProgress } from '@/lib/challenges'
@@ -1037,7 +1038,7 @@ const neighbours = [
             const count = s.lines - lastLines
             if (count > 0) {
               const feedback = document.getElementById('line-feedback')!
-              feedback.textContent = `${['', 'Single', 'Double', 'Triple', 'Tetris'][count]} +${[0, 40, 100, 300, 1200][count] * s.level}`
+              feedback.textContent = `${['', 'Single', 'Double', 'Triple', 'Tetris'][count]} +${(LINE_CLEAR_BASE_SCORE[count] ?? 0) * s.level}`
               feedback.classList.toggle('amber', count === 4)
               feedback.getAnimations().forEach(a => a.cancel())
               feedback.animate(

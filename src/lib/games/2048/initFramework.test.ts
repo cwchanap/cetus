@@ -295,29 +295,27 @@ describe('init2048GameFramework', () => {
             vi.mocked(fetch).mockImplementationOnce(
                 () => new Promise(resolve => (resolveSave = resolve))
             )
-            const onFinish = vi.fn()
             const onEnd = vi.fn()
             const showAchievementAward = vi.fn()
             vi.stubGlobal('showAchievementAward', showAchievementAward)
-            result = await init2048GameFramework({}, { onFinish, onEnd })
+            result = await init2048GameFramework({}, { onEnd })
             result!.game.start()
             result!.game.addScore(32)
 
             const saving = result!.endGame()
-            expect(onFinish).toHaveBeenCalledExactlyOnceWith(
+            // onEnd is a local end-of-run signal: it fires at freeze time,
+            // before the pending score save resolves.
+            expect(onEnd).toHaveBeenCalledExactlyOnceWith(
                 32,
                 expect.objectContaining({ finalScore: 32, gameCompleted: true })
             )
-            // onEnd is a local end-of-run signal: it fires at freeze time,
-            // before the pending score save resolves.
-            expect(onEnd).toHaveBeenCalledTimes(1)
             expect(
                 document
                     .getElementById('game-over-overlay')!
                     .classList.contains('hidden')
             ).toBe(false)
             await result!.endGame()
-            expect(onFinish).toHaveBeenCalledTimes(1)
+            expect(onEnd).toHaveBeenCalledTimes(1)
 
             result!.restart()
             resolveSave(
@@ -329,7 +327,6 @@ describe('init2048GameFramework', () => {
             // The late save does not re-run local callbacks; only the
             // save-derived end-event payload is suppressed for the stale run.
             expect(onEnd).toHaveBeenCalledTimes(1)
-            expect(onFinish).toHaveBeenCalledTimes(1)
             expect(showAchievementAward).not.toHaveBeenCalled()
             expect(result!.getState()).toMatchObject({
                 score: 0,

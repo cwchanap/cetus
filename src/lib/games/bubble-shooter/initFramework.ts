@@ -19,6 +19,7 @@ import {
     DOMElementNotFoundError,
     handleGameError,
 } from '@/lib/games/core/errors'
+import { isEditableTarget } from '@/lib/games/shared/utils'
 
 import { type AchievementNotification } from '@/lib/achievements'
 
@@ -519,10 +520,7 @@ function setupCanvasControls(
 
 function setupKeyboardControls(game: BubbleShooterGame): () => void {
     const keydownHandler = (e: KeyboardEvent) => {
-        if (
-            e.target instanceof HTMLElement &&
-            e.target.closest('input, textarea, select, [contenteditable=true]')
-        ) {
+        if (isEditableTarget(e.target)) {
             return
         }
         const pausePanel = document.getElementById('pause-overlay')

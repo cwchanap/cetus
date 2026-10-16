@@ -7,11 +7,40 @@ import {
     placePiece,
     clearLines,
     drawNextPiece,
+    getDropDistance,
 } from './utils'
 import { GAME_CONSTANTS } from './TetrisGame'
 import type { Piece } from './types'
 
 describe('Tetris Utils', () => {
+    describe('getDropDistance', () => {
+        it('returns the rows until collision', () => {
+            const board: (number | null)[][] = Array.from({ length: 20 }, () =>
+                Array(10).fill(null)
+            )
+            board[15][0] = 1
+            expect(
+                getDropDistance(0, 0, [[1]], board, {
+                    BOARD_WIDTH: 10,
+                    BOARD_HEIGHT: 20,
+                })
+            ).toBe(14)
+        })
+
+        it('returns 0 when the piece already rests on the board', () => {
+            const board: (number | null)[][] = Array.from({ length: 20 }, () =>
+                Array(10).fill(null)
+            )
+            board[1][0] = 1
+            expect(
+                getDropDistance(0, 0, [[1]], board, {
+                    BOARD_WIDTH: 10,
+                    BOARD_HEIGHT: 20,
+                })
+            ).toBe(0)
+        })
+    })
+
     describe('hexToPixiColor', () => {
         it('should convert hex color to PIXI color number', () => {
             expect(hexToPixiColor('#ffffff')).toBe(0xffffff)

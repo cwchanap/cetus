@@ -363,7 +363,7 @@ describe('initTetrisGameFramework', () => {
         }
     })
 
-    it('ignores keys while a dialog is open or focus is outside the board', async () => {
+    it('ignores keys while a dialog is open or the game has not started', async () => {
         result = await initTetrisGameFramework()
         const game = vi.mocked(TetrisGame).mock.results[0].value
         const instance = lastInstance()
@@ -378,11 +378,15 @@ describe('initTetrisGameFramework', () => {
         expect(game.moveLeft).not.toHaveBeenCalled()
         dialog.remove()
 
-        // Focus outside the board canvas: movement keys are ignored.
+        // Movement keys work page-wide; no board focus required.
         document.body.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })
+            new KeyboardEvent('keydown', {
+                key: 'ArrowLeft',
+                bubbles: true,
+                cancelable: true,
+            })
         )
-        expect(game.moveLeft).not.toHaveBeenCalled()
+        expect(game.moveLeft).toHaveBeenCalledTimes(1)
 
         // Not started: even the pause key is ignored.
         instance.state.gameStarted = false
