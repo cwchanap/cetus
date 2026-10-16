@@ -255,7 +255,7 @@ export class TetrisGame extends BaseGame<
             doubles: stats.doubles,
             triples: stats.triples,
             tetrises: stats.tetrises,
-            consecutiveLineClears: stats.consecutiveLineClears,
+            consecutiveLineClears: stats.maxConsecutiveLineClears,
             piecesPlaced: stats.pieces,
             level: this.state.level,
             lines: this.state.lines,
