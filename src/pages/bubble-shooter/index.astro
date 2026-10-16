@@ -388,8 +388,8 @@ const user = Astro.locals.user
     heading.focus()
   }
   const closeSheet = () => {
-    sheet.close()
     currentPanel = ''
+    sheet.close()
     pauseButton.textContent = 'Ⅱ'
     pauseButton.setAttribute('aria-label', 'Pause')
     handle?.renderer.getApp()?.canvas.focus()
@@ -443,6 +443,13 @@ const user = Astro.locals.user
       closeInfo()
     } else if (currentPanel === 'pause') {
       handle?.game.resume()
+    }
+  })
+  // A second Escape makes the browser's close watcher force-close the dialog
+  // (non-cancelable), bypassing closeSheet — reopen the panel it stranded.
+  sheet.addEventListener('close', () => {
+    if (currentPanel) {
+      showSheet(currentPanel)
     }
   })
   showSheet('intro')
