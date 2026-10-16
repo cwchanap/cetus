@@ -52,6 +52,24 @@ export function checkCollision(
     return false
 }
 
+/**
+ * Rows a piece can still fall before colliding — shared by hard-drop
+ * scoring and the renderer's ghost-piece outline.
+ */
+export function getDropDistance(
+    x: number,
+    y: number,
+    shape: number[][],
+    board: (number | null)[][],
+    constants: Pick<GameConstants, 'BOARD_WIDTH' | 'BOARD_HEIGHT'>
+): number {
+    let distance = 0
+    while (!checkCollision(x, y + distance + 1, shape, board, constants)) {
+        distance++
+    }
+    return distance
+}
+
 export function placePiece(
     piece: Piece,
     board: (number | null)[][],

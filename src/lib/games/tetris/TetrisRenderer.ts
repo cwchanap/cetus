@@ -5,7 +5,7 @@ import {
     type PixiJSRendererConfig,
 } from '@/lib/games/renderers/PixiJSRenderer'
 import type { TetrisState, TetrisConfig, Piece } from './types'
-import { checkCollision } from './utils'
+import { getDropDistance } from './utils'
 
 export interface TetrisRendererConfig extends PixiJSRendererConfig {
     boardWidth: number
@@ -64,17 +64,18 @@ export class TetrisRenderer extends PixiJSRenderer {
         if (state.currentPiece) {
             if (this.ghost && state.isActive) {
                 const piece = state.currentPiece
-                let y = piece.y
-                while (
-                    !checkCollision(piece.x, y + 1, piece.shape, state.board, {
+                const drop = getDropDistance(
+                    piece.x,
+                    piece.y,
+                    piece.shape,
+                    state.board,
+                    {
                         BOARD_WIDTH: this.tetrisConfig.boardWidth,
                         BOARD_HEIGHT: this.tetrisConfig.boardHeight,
-                    })
-                ) {
-                    y++
-                }
-                if (y !== piece.y) {
-                    this.drawPiece({ ...piece, y }, true)
+                    }
+                )
+                if (drop > 0) {
+                    this.drawPiece({ ...piece, y: piece.y + drop }, true)
                 }
             }
             this.drawPiece(state.currentPiece)

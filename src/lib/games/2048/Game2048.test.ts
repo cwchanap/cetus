@@ -294,6 +294,20 @@ describe('Game2048', () => {
             game.move('left')
             expect(game.getState().won).toBe(true)
         })
+
+        it('keeps won true after undoing the winning move', () => {
+            game.start()
+            setBoard(game, createEmptyBoard())
+            const board = game.getBoard()
+            board[0][0] = makeTile('a', 1024, 0, 0)
+            board[0][1] = makeTile('b', 1024, 0, 1)
+
+            game.move('left') // -> won, 2048
+            expect(game.getState().won).toBe(true)
+
+            expect(game.undo()).toBe(true)
+            expect(game.getState().won).toBe(true)
+        })
     })
 
     describe('game over detection', () => {

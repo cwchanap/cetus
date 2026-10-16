@@ -574,9 +574,16 @@ const user = Astro.locals.user
   }
   void initialize()
   window.addEventListener('pagehide', event => {
-    if (!event.persisted) {
-      rewardObserver.disconnect()
-      handle?.cleanup()
+    if (event.persisted) {
+      handle?.game.pause()
+      return
+    }
+    rewardObserver.disconnect()
+    handle?.cleanup()
+  })
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      handle?.game.pause()
     }
   })
 </script>

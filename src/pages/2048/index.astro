@@ -438,7 +438,10 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
     init2048GameFramework,
     type Game2048InitResult,
   } from '@/lib/games/2048/initFramework'
-  import type { Game2048State } from '@/lib/games/2048/frameworkTypes'
+  import type {
+    Game2048State,
+    Game2048Stats,
+  } from '@/lib/games/2048/frameworkTypes'
   import { getTileColor, getTileTextColor } from '@/lib/games/2048/utils'
   import { getUserBestScore } from '@/lib/services/scoreService'
   import { GameID } from '@/lib/games'
@@ -1037,7 +1040,8 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
             }
             previousWon = s.won
           },
-          onFinish: (score, s) => {
+          onEnd: (score, stats) => {
+            const s = stats as Game2048Stats
             pauseButton.disabled = true
             undoButton.disabled = true
             lastResult = { score, previousBest: visitBest }

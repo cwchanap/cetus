@@ -270,14 +270,15 @@ export class Game2048 extends BaseGame<
             return false
         }
         const previous = this.history.pop()!
-        const { board, maxTile, moveCount, mergeCount, won, tileIdCounter } =
+        // won is intentionally not restored: reaching 2048 is permanent for
+        // the run, so undoing past the win cannot re-trigger the win flow.
+        const { board, maxTile, moveCount, mergeCount, tileIdCounter } =
             previous.state
         Object.assign(this.state, {
             board,
             maxTile,
             moveCount,
             mergeCount,
-            won,
             tileIdCounter,
             stuck: false,
             lastMoveAnimations: [],

@@ -13,6 +13,7 @@ import {
     DOMElementNotFoundError,
     handleGameError,
 } from '@/lib/games/core/errors'
+import { isEditableTarget } from '@/lib/games/shared/utils'
 
 import { type AchievementNotification } from '@/lib/achievements'
 
@@ -351,8 +352,7 @@ function setupKeyboardControls(game: TetrisGame): () => void {
             return
         }
 
-        const target = e.target as HTMLElement | null
-        if (target?.closest('input, textarea, select, [contenteditable]')) {
+        if (isEditableTarget(e.target)) {
             return
         }
         const dialog = document.querySelector<HTMLDialogElement>('dialog[open]')
@@ -362,9 +362,6 @@ function setupKeyboardControls(game: TetrisGame): () => void {
         if (e.key.toLowerCase() === 'p') {
             e.preventDefault()
             game.pause()
-            return
-        }
-        if (target !== document.querySelector('#tetris-container canvas')) {
             return
         }
         const actions: Record<string, () => void> = {
