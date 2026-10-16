@@ -515,8 +515,8 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
     sheet.scrollTop = 0
   }
   const closeSheet = () => {
-    sheet.close()
     currentPanel = ''
+    sheet.close()
     handle?.renderer.getApp()?.canvas.focus({ preventScroll: true })
   }
   const closeInfo = () => {
@@ -771,6 +771,17 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
     },
     { signal }
   )
+  // A second Escape makes the browser's close watcher force-close the dialog
+  // (non-cancelable), bypassing closeSheet — reopen the panel it stranded.
+  sheet.addEventListener(
+    'close',
+    () => {
+      if (currentPanel) {
+        showSheet(currentPanel)
+      }
+    },
+    { signal }
+  )
   document.addEventListener(
     'visibilitychange',
     () => {
@@ -893,17 +904,13 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
   showSheet('intro')
   syncBest()
   if (signedIn) {
-    void getUserBestScore(GameID.GAME_2048)
-      .then(score => {
-        savedBest = score
-        syncBest()
-      })
-      .catch(() => {
-        setText(
-          'load-status',
-          'Your saved best is unavailable. You can still play.'
-        )
-      })
+    // getUserBestScore collapses failures and "no score yet" to a resolved
+    // null (see scoreService), so there is no rejection path to handle; null
+    // keeps the unknown-best rendering ("—", no personal-best badge).
+    void getUserBestScore(GameID.GAME_2048).then(score => {
+      savedBest = score
+      syncBest()
+    })
   }
   const initialize = async () => {
     try {
@@ -1000,7 +1007,10 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
               )
             }
             if (s.undosUsed > previousUndosUsed) {
-              setText('game-status', `Move undone. ${s.undosLeft} undos left.`)
+              setText(
+                'game-status',
+                `Move undone. ${s.undosLeft} undo${s.undosLeft === 1 ? '' : 's'} left.`
+              )
             }
             previousUndosUsed = s.undosUsed
             previousScore = s.score
@@ -1071,7 +1081,7 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
             const row = document.createElement('li'),
               detail = document.createElement('span'),
               points = document.createElement('span')
-            detail.textContent = `Tile ${s.maxTile} · ${s.moveCount} moves${s.undosUsed ? ` · ${s.undosUsed} undo` : ''}`
+            detail.textContent = `Tile ${s.maxTile} · ${s.moveCount} move${s.moveCount === 1 ? '' : 's'}${s.undosUsed ? ` · ${s.undosUsed} undo${s.undosUsed === 1 ? '' : 's'}` : ''}`
             points.textContent = String(score)
             points.className = 'mono'
             row.append(detail, points)
@@ -1110,13 +1120,17 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
   void initialize()
   window.addEventListener(
     'pagehide',
-    () => {
+    event => {
+      if (event.persisted) {
+        handle?.game.pause()
+        return
+      }
       controller.abort()
       rewardObserver.disconnect()
       handle?.cleanup()
       void audio?.close()
     },
-    { once: true }
+    { signal }
   )
 </script>
 <style>

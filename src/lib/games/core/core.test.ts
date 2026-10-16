@@ -1168,6 +1168,75 @@ describe('BaseGame stale-run guard', () => {
         vi.unstubAllGlobals()
     })
 
+    it('still saves and emits end when onEnd/onGameEnd throw', async () => {
+        // The callbacks run before the save now, so a throwing page callback
+        // must not take down persistence or the structured end event.
+        const consoleSpy = vi
+            .spyOn(console, 'error')
+            .mockImplementation(() => {})
+        vi.mocked(saveGameScore).mockClear()
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+            protected onGameEnd(): void {
+                throw new Error('hook exploded')
+            }
+        }
+
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                achievementIntegration: false,
+                pausable: false,
+                resettable: true,
+            },
+            {
+                onEnd: () => {
+                    throw new Error('callback exploded')
+                },
+            }
+        )
+        const endEvents: Array<{ data: { score?: number } }> = []
+        game.on('end', e => endEvents.push(e as any))
+
+        game.start()
+        await expect(game.end()).resolves.toBeUndefined()
+
+        expect(vi.mocked(saveGameScore)).toHaveBeenCalledTimes(1)
+        const structuredEnds = endEvents.filter(
+            e => e.data && 'score' in e.data
+        )
+        expect(structuredEnds).toHaveLength(1)
+        expect(
+            consoleSpy.mock.calls.filter(call =>
+                String(call[0]).includes('onEnd')
+            )
+        ).toHaveLength(1)
+        expect(
+            consoleSpy.mock.calls.filter(call =>
+                String(call[0]).includes('onGameEnd')
+            )
+        ).toHaveLength(1)
+
+        consoleSpy.mockRestore()
+    })
+
     it('still invokes onEnd/onGameEnd when the run goes stale during the save', async () => {
         // Fixture carries both reward fields so suppression is observable —
         // an empty payload would make the toBeUndefined asserts vacuous.

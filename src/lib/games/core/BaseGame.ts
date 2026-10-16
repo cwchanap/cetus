@@ -195,12 +195,19 @@ export abstract class BaseGame<
         // stalled /api/scores request cannot leave a finished run without
         // its results sheet and replay control. These callbacks can never
         // be "stale" — they run before the await, and a run can only go
-        // stale while the save is in flight.
+        // stale while the save is in flight. Each is isolated so a throwing
+        // page callback cannot skip persistence or the structured end event.
         const runId = this.runGuard.current()
-        if (this.callbacks.onEnd) {
-            this.callbacks.onEnd(finalScore, finalStats)
+        try {
+            this.callbacks.onEnd?.(finalScore, finalStats)
+        } catch (err) {
+            console.error('BaseGame onEnd callback failed', err)
         }
-        this.onGameEnd(finalScore, finalStats)
+        try {
+            this.onGameEnd(finalScore, finalStats)
+        } catch (err) {
+            console.error('BaseGame onGameEnd hook failed', err)
+        }
 
         // Save score
         const saveResult = await this.scoreManager.saveFinalScore(

@@ -573,8 +573,8 @@ const neighbours = [
     sheet.scrollTop = 0
   }
   const closeSheet = () => {
-    sheet.close()
     currentPanel = ''
+    sheet.close()
     handle?.renderer.getApp()?.canvas.focus()
   }
   const closeInfo = () => {
@@ -723,6 +723,17 @@ const neighbours = [
         closeInfo()
       } else if (currentPanel === 'pause') {
         handle?.game.resume()
+      }
+    },
+    { signal }
+  )
+  // A second Escape makes the browser's close watcher force-close the dialog
+  // (non-cancelable), bypassing closeSheet — reopen the panel it stranded.
+  sheet.addEventListener(
+    'close',
+    () => {
+      if (currentPanel) {
+        showSheet(currentPanel)
       }
     },
     { signal }
