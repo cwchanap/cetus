@@ -308,7 +308,9 @@ describe('init2048GameFramework', () => {
                 32,
                 expect.objectContaining({ finalScore: 32, gameCompleted: true })
             )
-            expect(onEnd).not.toHaveBeenCalled()
+            // onEnd is a local end-of-run signal: it fires at freeze time,
+            // before the pending score save resolves.
+            expect(onEnd).toHaveBeenCalledTimes(1)
             expect(
                 document
                     .getElementById('game-over-overlay')!
@@ -324,7 +326,9 @@ describe('init2048GameFramework', () => {
                 )
             )
             await saving
-            expect(onEnd).not.toHaveBeenCalled()
+            // The late save does not re-run local callbacks; only the
+            // save-derived end-event payload is suppressed for the stale run.
+            expect(onEnd).toHaveBeenCalledTimes(1)
             expect(onFinish).toHaveBeenCalledTimes(1)
             expect(showAchievementAward).not.toHaveBeenCalled()
             expect(result!.getState()).toMatchObject({

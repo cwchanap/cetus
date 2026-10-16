@@ -948,7 +948,6 @@ const neighbours = [
             row.append(label, value)
             document.getElementById('recent-dives')!.prepend(row)
             showSheet('results')
-            void refreshAccount()
           },
         },
         {
@@ -960,6 +959,14 @@ const neighbours = [
           backgroundColor: 0x070b16,
         }
       )
+      // onEnd fires before the score save resolves, so account state (XP,
+      // challenge labels) refreshes off the post-save structured end event.
+      // The event.data guard skips bare end events forwarded from the timer.
+      handle.game.on('end', event => {
+        if (event.data) {
+          void refreshAccount()
+        }
+      })
       preferences()
       startButton.disabled = false
       startButton.textContent = 'Begin the dive'

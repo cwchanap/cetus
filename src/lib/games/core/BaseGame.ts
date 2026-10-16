@@ -187,13 +187,27 @@ export abstract class BaseGame<
         const finalStats = this.getGameStats()
         const finalScore = this.scoreManager.getScore()
 
-        // Save score
+        // Publish local completion before awaiting the score save so a
+        // stalled /api/scores request cannot leave a finished run without
+        // its results sheet and replay control. These callbacks can never
+        // be "stale" — they run before the await, and a run can only go
+        // stale while the save is in flight.
         const runId = this.runGuard.current()
+        if (this.callbacks.onEnd) {
+            this.callbacks.onEnd(finalScore, finalStats)
+        }
+        this.onGameEnd(finalScore, finalStats)
+
+        // Save score
         const saveResult = await this.scoreManager.saveFinalScore(
             this.getGameData(),
             () => this.runGuard.isStale(runId)
         )
 
+        // Keep emitting the structured end event even for a stale run, but
+        // suppress the save-derived reward payload so achievements and
+        // challenge updates from a discarded run do not leak into a newer
+        // run that started during the await.
         this.emit('end', {
             score: finalScore,
             stats: finalStats,
@@ -204,18 +218,6 @@ export abstract class BaseGame<
                 ? undefined
                 : saveResult.challengeUpdates,
         })
-
-        // Suppress end-of-run callbacks for discarded runs so stale score/stat
-        // updates do not leak into a newer run that started during the await.
-        if (this.runGuard.isStale(runId)) {
-            return
-        }
-
-        if (this.callbacks.onEnd) {
-            this.callbacks.onEnd(finalScore, finalStats)
-        }
-
-        this.onGameEnd(finalScore, finalStats)
     }
 
     /**

@@ -133,7 +133,8 @@ export class ScoreManager extends GameEventEmitter {
                 // Use the enhanced save method that checks achievements.
                 // Note: isStale is intentionally not forwarded here. This branch
                 // always POSTs the score; staleness is guarded by the caller
-                // (BaseGame.end suppresses newAchievements/onEnd/onGameEnd when
+                // (BaseGame.end suppresses the save-derived payload —
+                // newAchievements and challengeUpdates — when the run is
                 // stale). The non-integration branch forwards isStale to
                 // saveGameScore because its callbacks (onSuccess/onError) are
                 // the only suppression point.
