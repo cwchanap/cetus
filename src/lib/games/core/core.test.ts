@@ -1055,15 +1055,34 @@ describe('BaseGame stale-run guard', () => {
     })
 
     it('invokes onEnd/onGameEnd while the score save is still pending', async () => {
+        const challengeUpdates = {
+            completedChallenges: [
+                {
+                    id: 'c1',
+                    name: 'x',
+                    description: 'x',
+                    icon: 'x',
+                    xpReward: 10,
+                },
+            ],
+            xpEarned: 10,
+            levelUp: false,
+        }
         let resolveFetch!: (response: {
             ok: boolean
-            json: () => Promise<{ newAchievements: string[] }>
+            json: () => Promise<{
+                newAchievements: string[]
+                challengeUpdates: typeof challengeUpdates
+            }>
         }) => void
         const fetchMock = vi.fn().mockImplementation(
             () =>
                 new Promise<{
                     ok: boolean
-                    json: () => Promise<{ newAchievements: string[] }>
+                    json: () => Promise<{
+                        newAchievements: string[]
+                        challengeUpdates: typeof challengeUpdates
+                    }>
                 }>(resolve => {
                     resolveFetch = resolve
                 })
@@ -1105,7 +1124,12 @@ describe('BaseGame stale-run guard', () => {
             },
             { onEnd }
         )
-        const endEvents: Array<{ data: { newAchievements?: string[] } }> = []
+        const endEvents: Array<{
+            data: {
+                newAchievements?: string[]
+                challengeUpdates?: typeof challengeUpdates
+            }
+        }> = []
         game.on('end', e => endEvents.push(e as any))
 
         game.start()
@@ -1122,25 +1146,50 @@ describe('BaseGame stale-run guard', () => {
 
         resolveFetch({
             ok: true,
-            json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+            json: () =>
+                Promise.resolve({
+                    newAchievements: ['first_win'],
+                    challengeUpdates,
+                }),
         })
         await endPromise
 
         // The structured end event lands after the save and carries the
-        // save-derived reward payload.
+        // save-derived reward payload for a non-stale run.
         const structuredEnds = endEvents.filter(
             e => e.data && 'score' in e.data
         )
         expect(structuredEnds).toHaveLength(1)
         expect(structuredEnds[0].data.newAchievements).toEqual(['first_win'])
+        expect(structuredEnds[0].data.challengeUpdates).toEqual(
+            challengeUpdates
+        )
 
         vi.unstubAllGlobals()
     })
 
     it('still invokes onEnd/onGameEnd when the run goes stale during the save', async () => {
+        // Fixture carries both reward fields so suppression is observable —
+        // an empty payload would make the toBeUndefined asserts vacuous.
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
-            json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+            json: () =>
+                Promise.resolve({
+                    newAchievements: ['first_win'],
+                    challengeUpdates: {
+                        completedChallenges: [
+                            {
+                                id: 'c1',
+                                name: 'x',
+                                description: 'x',
+                                icon: 'x',
+                                xpReward: 10,
+                            },
+                        ],
+                        xpEarned: 10,
+                        levelUp: false,
+                    },
+                }),
         })
         vi.stubGlobal('fetch', fetchMock)
 
@@ -1216,9 +1265,27 @@ describe('BaseGame stale-run guard', () => {
         // so the pending end() from the previous run goes stale. Its local
         // callbacks already fired at freeze time, so only the save-derived
         // end-event payload is suppressed — never the callbacks.
+        // Fixture carries both reward fields so suppression is observable —
+        // an empty payload would make the toBeUndefined asserts vacuous.
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
-            json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+            json: () =>
+                Promise.resolve({
+                    newAchievements: ['first_win'],
+                    challengeUpdates: {
+                        completedChallenges: [
+                            {
+                                id: 'c1',
+                                name: 'x',
+                                description: 'x',
+                                icon: 'x',
+                                xpReward: 10,
+                            },
+                        ],
+                        xpEarned: 10,
+                        levelUp: false,
+                    },
+                }),
         })
         vi.stubGlobal('fetch', fetchMock)
 
