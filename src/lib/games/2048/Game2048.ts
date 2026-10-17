@@ -220,8 +220,12 @@ export class Game2048 extends BaseGame<
         // callers (renderer/init) see the final board, not the pre-spawn one.
         result.board = this.state.board
 
-        // Update max tile
-        this.state.maxTile = getMaxTile(this.state.board)
+        // Update max tile — a run-wide peak, so an undo that lowered the
+        // board's max cannot reduce it on the next move.
+        this.state.maxTile = Math.max(
+            this.state.maxTile,
+            getMaxTile(this.state.board)
+        )
 
         this.state.lastMoveAnimations = result.animations
         this.state.needsRedraw = true
@@ -270,13 +274,13 @@ export class Game2048 extends BaseGame<
             return false
         }
         const previous = this.history.pop()!
-        // won is intentionally not restored: reaching 2048 is permanent for
-        // the run, so undoing past the win cannot re-trigger the win flow.
-        const { board, maxTile, moveCount, mergeCount, tileIdCounter } =
-            previous.state
+        // won and maxTile are intentionally not restored: both are permanent
+        // for the run — undoing past the win cannot re-trigger the win flow,
+        // and undoing past a milestone tile cannot lower the reported peak
+        // used by getGameData()/getGameStats() for tile achievements.
+        const { board, moveCount, mergeCount, tileIdCounter } = previous.state
         Object.assign(this.state, {
             board,
-            maxTile,
             moveCount,
             mergeCount,
             tileIdCounter,
