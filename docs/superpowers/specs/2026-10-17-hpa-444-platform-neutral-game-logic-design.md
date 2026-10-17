@@ -96,7 +96,7 @@ The current score-context upgrader already handles:
 
 Extend that machinery with the `platform` column rather than adding an unrelated migration runner.
 
-The legacy `hasCompleteGameScoresContextColumns()` meaning stays unchanged: it continues to answer only whether `mode`, `competition_key`, `ruleset_version`, and `game_data_json` exist. Platform readiness is checked separately at the write path so leaderboard isolation semantics do not accidentally change.
+The legacy `hasCompleteGameScoresContextColumns()` meaning stays unchanged: it continues to answer only whether `mode`, `competition_key`, `ruleset_version`, and `game_data_json` exist, preserving leaderboard isolation semantics. Add `platform` as a fifth inspected/migrated capability, but do not create a second platform-ready predicate or error code. Before every score insert (scoped or unscoped), invoke the existing cached `ensureGameScoresContextSchema()`; a missing `platform` column then fails at the insert itself and maps to the generic `SCORE_WRITE_FAILED` path, never `SCORE_CONTEXT_UNAVAILABLE`.
 
 ### Reuse browser boundaries instead of eliminating browser APIs everywhere
 
@@ -113,6 +113,7 @@ HPA-447 already defines the future package split. The lint boundary should refle
 - all `init*.ts` files;
 - game renderers (`renderer.ts`, `*Renderer.ts`, and `src/lib/games/renderers/**`);
 - `BaseRenderer`, `RendererFactory`, and `GameInitializer`;
+- `ice-slide/daily-leaderboard.ts` (web-only leaderboard fetch, DOM-row construction and panel controller; do not move/refactor it in Phase 0);
 - tests/specs.
 
 The rule is a guardrail for the extraction boundary, not a ban on browser APIs in the web application.
@@ -146,7 +147,7 @@ Add one flat-config override for `src/lib/games/**/*.ts` with:
 'no-restricted-globals': ['error', 'window', 'document']
 ```
 
-Exclude the browser-owned files listed above plus tests/specs. Keep the exclusion pattern structural (`init*.ts`, renderer patterns, named core web helpers) rather than enumerating all 23 games.
+Exclude the browser-owned files listed above plus tests/specs. Keep the exclusion pattern structural (`init*.ts`, renderer patterns, named core web helpers) with one explicit `ice-slide/daily-leaderboard.ts` exception rather than enumerating all 23 games. If the final audit discovers another web-only helper with an unexpected filename, classify its ownership before adding a narrow exclusion; do not suppress browser globals in actual game logic.
 
 Do not ban `globalThis`: it is the portable host-global API needed by timers.
 
@@ -200,7 +201,7 @@ Add `submitScore?: ScoreSubmitter` to `ScoreManagerConfig` and remove its direct
 
 `ScoreManager` uses the injected/default submitter for the achievement-enabled path and forwards the same submitter through `saveGameScore()` for the non-integration path. The current BaseGame stale-run policy stays intact: a completed score is still submitted, while save-derived reward payload is suppressed if the run becomes stale while the request is in flight.
 
-Use `ScoreSubmissionResult` as the typed transport result rather than reconstructing a second response shape. This also removes the current untyped-JSON seam in the direct-fetch branch.
+Use `ScoreSubmissionResult` as the typed transport result rather than reconstructing a second response shape. This also removes the current untyped-JSON seam in the direct-fetch branch. Explicitly fix the existing declared-type mismatch: `ScoreManager.saveFinalScore()` currently promises `newAchievements?: string[]` although the API returns `AchievementNotification[]` objects. Update the declared return type and inspect the emitted `BaseGame.end()` reward payload and its listeners for typecheck-only fixes; no runtime payload conversion or behavior change.
 
 Do **not** add an API-client class or teach `ScoreManager` about base URLs, cookies, headers, iOS, or Android.
 
@@ -266,7 +267,7 @@ Update:
 
 - `scripts/init-db.sql`;
 - `better-auth_migrations/2025-07-06-schema-consolidation.sql`;
-- `src/lib/server/db/types.ts`;
+- `src/lib/server/db/types.ts` (`GameScoresTable.platform: ColumnType<string, string | undefined, string>`; only the existing production insert populates it explicitly);
 - `src/lib/server/db/game-score-schema-files.test.ts`.
 
 ### Live additive schema upgrade
@@ -277,9 +278,9 @@ Extend `src/lib/server/db/game-score-context.ts` rather than creating a second m
 - add `platform TEXT NOT NULL DEFAULT 'web'` with the same concurrent-migrator tolerance as the existing columns;
 - include platform readiness in the cache/refresh decision so a process with complete context columns but an old table still upgrades once;
 - keep `hasCompleteGameScoresContextColumns()` scoped to the four contextual columns;
-- expose/check platform readiness separately before score insertion.
+- make `ensureGameScoresContextSchema()` inspect/add `platform` even when the four context columns are already present, and retain the existing cache/single-flight and concurrent-migrator behavior.
 
-If platform readiness cannot be confirmed, the write fails through the existing score-write failure path; do not silently insert an untagged row.
+Call `ensureGameScoresContextSchema()` unconditionally before *all* score inserts; preserve the existing `SCORE_CONTEXT_UNAVAILABLE` guard only when a contextual score has incomplete/unknown context columns. Do **not** add a separate platform-ready check. Always include `platform` in the insert: if the migration failed and the column is absent, SQLite rejects the write, which is handled as the generic `SCORE_WRITE_FAILED` error. Never emit `SCORE_CONTEXT_UNAVAILABLE` for a platform-only migration failure, and never silently insert an untagged row.
 
 ### Single write path
 
@@ -300,7 +301,7 @@ Keep these invariants:
 - BaseGame still publishes local completion before awaiting persistence;
 - Circuit Hacker, Satellite Sync, and Ice Slide still surface score errors through their current page callbacks;
 - Ice Slide keeps Daily/Expedition context exactly as today;
-- the server continues to return `SCORE_CONTEXT_UNAVAILABLE` only for the existing contextual-schema failure case;
+- the server continues to return `SCORE_CONTEXT_UNAVAILABLE` only for the existing contextual-schema failure case; platform-column insert failures use the generic score-write error path;
 - platform metadata does not affect score acceptance, score value, achievements, challenges, or ranking.
 
 ## Test strategy
@@ -357,7 +358,8 @@ Handle-game initializer tests:
 DB/schema tests:
 
 - both schema DDL files include `platform` with `web` default;
-- lazy migration adds platform to an old `game_scores` table;
+- lazy migration adds platform to an old `game_scores` table and existing rows read back `web`;
+- if adding platform fails, an unscoped insert reports a generic score-write error rather than `SCORE_CONTEXT_UNAVAILABLE`;
 - direct score persistence stores the passed platform;
 - existing context/schema tests remain green.
 
