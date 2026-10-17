@@ -405,11 +405,13 @@ describe('Game2048', () => {
                 score: before.score,
                 moveCount: before.moveCount,
                 mergeCount: before.mergeCount,
-                maxTile: before.maxTile,
                 tileIdCounter: before.tileIdCounter,
                 undosLeft: 0,
                 undosUsed: 1,
             })
+            // maxTile is a run-wide peak: the move merged a 4, so the peak
+            // survives the undo even though the restored board's max is lower
+            expect(game.getState().maxTile).toBe(4)
             expect(game.getScoreManager().getScore()).toBe(0)
             expect(game.undo()).toBe(false)
         })
@@ -442,6 +444,35 @@ describe('Game2048', () => {
                 undosUsed: 0,
             })
             expect(game.canUndo()).toBe(false)
+        })
+
+        it('keeps maxTile as a run-wide peak across undo', async () => {
+            game.start()
+            setBoard(game, createEmptyBoard())
+            const board = game.getBoard()
+            board[0][0] = makeTile('a', 1024, 0, 0)
+            board[0][1] = makeTile('b', 1024, 0, 1)
+
+            game.move('left') // merge -> 2048
+            expect(game.getState().maxTile).toBe(2048)
+
+            // Undo restores the two 1024s but must not lower the peak
+            expect(game.undo()).toBe(true)
+            expect(game.getState().maxTile).toBe(2048)
+
+            // The next move must not recompute the peak downward either
+            game.move('down')
+            expect(game.getState().maxTile).toBe(2048)
+
+            // Achievement contract and results still report the peak
+            await game.end()
+            expect(game.getGameStats().maxTile).toBe(2048)
+            const gameData = (
+                game as unknown as {
+                    getGameData: () => Record<string, unknown>
+                }
+            ).getGameData()
+            expect(gameData.maxTile).toBe(2048)
         })
 
         it('keeps a stuck dive recoverable until its undo is used', () => {
