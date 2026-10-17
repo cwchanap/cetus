@@ -18,8 +18,8 @@
 - `submitScore(scoreData)` stays the canonical default web transport and keeps the current relative `/api/scores` fetch.
 - Extend `SaveScoreOptions`; do not add another positional argument to the public `saveGameScore()` helper.
 - Circuit Hacker, Satellite Sync, and Ice Slide stay on their blessed handle + `createRunGuard` architecture.
-- Browser globals remain allowed in renderers, `GameInitializer`, and `init*.ts` files.
-- `hasCompleteGameScoresContextColumns()` must continue to mean exactly the four Ice Slide context columns; platform readiness is separate.
+- Browser globals remain allowed in renderers, `GameInitializer`, `init*.ts`, and the explicitly web-owned `ice-slide/daily-leaderboard.ts` helper.
+- `hasCompleteGameScoresContextColumns()` must continue to mean exactly the four Ice Slide context columns. Add platform as a fifth migrator capability; do not introduce a separate platform-ready gate. Use unconditional schema ensure before writes and the existing generic DB-error path if platform insertion fails.
 - No platform filtering, platform leaderboard, platform index, UI label, or stats screen in HPA-444.
 - Preserve score values, achievement/challenge behavior, run-guard behavior, Ice Slide generation output, and all current web controls.
 - No art/SFX work.
@@ -195,6 +195,7 @@ Exclude:
 - `src/lib/games/core/BaseRenderer.ts`;
 - `src/lib/games/core/RendererFactory.ts`;
 - `src/lib/games/core/GameInitializer.ts`;
+- `src/lib/games/ice-slide/daily-leaderboard.ts` (existing web-only controller/DOM builder, no move in this ticket);
 - `**/*.test.ts` / `**/*.spec.ts`.
 
 Keep `globalThis` allowed.
@@ -205,7 +206,7 @@ Run:
 bun run lint
 ```
 
-Expected: no restricted-global errors in game logic and no mass false-positive cleanup in web-owned initializers/renderers.
+Expected: no restricted-global errors in game logic and no mass false-positive cleanup in web-owned initializers/renderers/`daily-leaderboard.ts`. Keep any further exceptions narrow and based on actual web-only ownership.
 
 ---
 
@@ -295,7 +296,7 @@ submitScore?: ScoreSubmitter
 
 Store the selected submitter once in the manager, defaulting to the existing `scoreService.submitScore`.
 
-For `achievementIntegration: true`, call that submitter with the same score data that the old direct fetch body used. Return the typed `ScoreSubmissionResult` fields consumed by `BaseGame.end()`.
+For `achievementIntegration: true`, call that submitter with the same score data that the old direct fetch body used. Return the typed `ScoreSubmissionResult` fields consumed by `BaseGame.end()`. Correct `ScoreManager.saveFinalScore()`'s declared `newAchievements?: string[]` to the API's actual `AchievementNotification[]` shape (use the existing `ScoreSubmissionResult` type). Audit `BaseGame.end()`'s emitted `newAchievements` payload and typed init-framework listeners; treat any TypeScript fixes as a declared-type correction, **not** a runtime data transformation.
 
 For `achievementIntegration: false`, keep `saveGameScore()` as the browser-notification/callback wrapper, but include the same selected submitter in its options.
 
@@ -413,14 +414,15 @@ In `game-score-context.ts`:
 - reuse `addColumnToleratingConcurrentMigrator()`;
 - make cache/refresh logic notice an otherwise-complete old schema that lacks platform;
 - keep `hasCompleteGameScoresContextColumns()` checking **only** the four existing context columns;
-- expose/use a separate platform-ready check at score-write time.
+- use the existing `ensureGameScoresContextSchema()` before every insert in Task 3.6, without a separate platform-ready predicate, return code, or migrator.
 
 Add focused migration coverage for an old table without platform:
 
 - first ensure adds it;
 - existing rows read back `web`;
 - a concurrent second migrator is tolerated by the same established mechanism;
-- existing context completeness/fail-closed tests keep their meaning.
+- existing context completeness/fail-closed tests keep their meaning;
+- if platform migration fails, an unscoped score insert fails via the generic `SCORE_WRITE_FAILED` path, **not** `SCORE_CONTEXT_UNAVAILABLE`.
 
 Do not rename/rebuild the migration subsystem in this ticket.
 
@@ -432,7 +434,7 @@ Modify:
 - `better-auth_migrations/2025-07-06-schema-consolidation.sql`;
 - `GameScoresTable` in `src/lib/server/db/types.ts`.
 
-Use the same non-null `web` default in both SQL sources.
+Use the same non-null `web` default in both SQL sources. Type the Kysely field as `platform: ColumnType<string, string | undefined, string>` so the one production `NewGameScore` constructor remains the sole explicit writer; the database default also supports omitted platform in direct test inserts.
 
 Run GREEN schema/migrator tests.
 
@@ -465,7 +467,7 @@ saveGameScoreWithAchievements(
 )
 ```
 
-Before insert, ensure the platform schema capability is known/present. Add `platform` to the existing `NewGameScore` object.
+Call `ensureGameScoresContextSchema()` **unconditionally** before every score insert, contextual or not. Retain the existing four-column context-completeness guard only for contextual submissions. Add `platform` to the existing `NewGameScore` object and let an insert against a table still missing the column fail naturally as `SCORE_WRITE_FAILED`; do not return `SCORE_CONTEXT_UNAVAILABLE` for a platform-only failure or add a separate readiness check.
 
 Keep all existing context handling and stats updates in that same function.
 
@@ -525,6 +527,7 @@ Allowed hits must be confined to:
 - `init*.ts`;
 - renderers;
 - `GameInitializer` / renderer core helpers;
+- `ice-slide/daily-leaderboard.ts`, which is web-owned DOM/controller code;
 - tests/spec fixtures where browser behavior is intentionally tested.
 
 If a hit remains in a game class, generator, shared helper, or portable core file, fix it before proceeding. Do not weaken the ESLint exclusions to hide a real logic-layer dependency.
@@ -571,7 +574,7 @@ Before moving the PR out of draft implementation state, verify:
 
 - [ ] Five game-logic timer owners use `globalThis`.
 - [ ] Ice Slide generator/expedition logic has no `import.meta.env` read.
-- [ ] ESLint blocks `window`/`document` in shared-intent game logic and allows browser-owned init/renderers.
+- [ ] ESLint blocks `window`/`document` in shared-intent game logic and allows browser-owned init/renderers/`ice-slide/daily-leaderboard.ts`.
 - [ ] `ScoreSubmitter` is injectable through `saveGameScore()` and `ScoreManager`.
 - [ ] Circuit Hacker, Satellite Sync, and Ice Slide forward an injected submitter without architecture changes.
 - [ ] Default web score transport still posts to `/api/scores` through the existing service.
