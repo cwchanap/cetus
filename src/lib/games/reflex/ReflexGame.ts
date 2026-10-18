@@ -196,8 +196,8 @@ export class ReflexGame extends BaseGame<
         const clickTime = Date.now()
         const reactionTime = clickTime - clickedObject.spawnTime
 
-        let pointsAwarded = 0
-        let reason = ''
+        let pointsAwarded: number
+        let reason: string
 
         if (clickedObject.type === 'coin') {
             pointsAwarded = this.config.pointsForCoin

@@ -47,13 +47,8 @@ let challenges: UserChallengeProgress[] = []
 let xp = 0
 let level = 1
 let challengeStreak = 0
-let xpProgress: ReturnType<typeof getXPProgress> = {
-  progress: 0,
-  nextLevelXP: 100,
-  currentLevelXP: 0,
-  currentLevel: 1,
-}
-let resetIn = getSecondsUntilMidnightUTC()
+let xpProgress: ReturnType<typeof getXPProgress>
+let resetIn: number
 let loadError: string | null = null
 
 try {
@@ -96,7 +91,7 @@ const gameHistoryData = await getUserGameHistoryPaginated(
 // Calculate pagination pages to display
 const totalPages = gameHistoryData.totalPages
 const maxPagesToShow = 7
-let pagesToShow: number[] = []
+let pagesToShow: number[]
 
 if (totalPages <= maxPagesToShow) {
   pagesToShow = Array.from({ length: totalPages }, (_, i) => i + 1)

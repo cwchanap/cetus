@@ -177,7 +177,7 @@ export class EvaderGame extends BaseGame<
             }
 
             if (rectOverlap(playerRect, objRect)) {
-                let points = 0
+                let points: number
                 const historyEntry: GameHistoryEntry = {
                     type: obj.type,
                     points: 0,
