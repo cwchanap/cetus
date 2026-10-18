@@ -2,6 +2,7 @@ import { db } from './client'
 import { sql } from 'kysely'
 import type { AchievementCheckData } from '../../achievements'
 import { GameID } from '../../games'
+import type { ScorePlatform } from '../validations'
 import type {
     NewGameScore,
     NewUserStats,
@@ -668,14 +669,21 @@ export async function saveGameScore(
     userId: string,
     gameId: string,
     score: number,
-    context?: PersistedScoreContext
+    context?: PersistedScoreContext,
+    platform: ScorePlatform = 'web'
 ): Promise<SaveGameScoreResult> {
     try {
-        if (context) {
-            const state = await ensureGameScoresContextSchema()
+        if (context || platform !== 'web') {
+            const state = await ensureGameScoresContextSchema(
+                platform !== 'web' ? { requirePlatform: true } : undefined
+            )
+            // The context-completeness guard applies only when context is
+            // present: a failed platform migration must never turn a web
+            // write into SCORE_CONTEXT_UNAVAILABLE.
             if (
-                !state.known ||
-                !hasCompleteGameScoresContextColumns(state.capabilities)
+                context &&
+                (!state.known ||
+                    !hasCompleteGameScoresContextColumns(state.capabilities))
             ) {
                 return {
                     success: false,
@@ -688,6 +696,10 @@ export async function saveGameScore(
             user_id: userId,
             game_id: gameId,
             score,
+        }
+
+        if (platform !== 'web') {
+            newScore.platform = platform
         }
 
         if (context) {
@@ -728,10 +740,17 @@ export async function saveGameScoreWithAchievements(
     gameId: string,
     score: number,
     gameData?: unknown,
-    context?: PersistedScoreContext
+    context?: PersistedScoreContext,
+    platform: ScorePlatform = 'web'
 ): Promise<SaveGameScoreWithAchievementsResult> {
     try {
-        const saveResult = await saveGameScore(userId, gameId, score, context)
+        const saveResult = await saveGameScore(
+            userId,
+            gameId,
+            score,
+            context,
+            platform
+        )
         if (!saveResult.success) {
             return {
                 success: false,

@@ -47,6 +47,7 @@ describe('Database Queries', () => {
                 competitionKey: true,
                 rulesetVersion: true,
                 gameDataJson: true,
+                platform: true,
                 scopedIndex: true,
             },
         })
@@ -192,6 +193,7 @@ describe('Database Queries', () => {
                     competitionKey: true,
                     rulesetVersion: false,
                     gameDataJson: true,
+                    platform: true,
                     scopedIndex: false,
                 },
             })
@@ -218,6 +220,7 @@ describe('Database Queries', () => {
                     competitionKey: true,
                     rulesetVersion: true,
                     gameDataJson: true,
+                    platform: true,
                     scopedIndex: true,
                 },
             })

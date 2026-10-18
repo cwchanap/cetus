@@ -188,6 +188,45 @@ describe('server validations', () => {
         })
     })
 
+    describe('scoreSubmissionSchema platform', () => {
+        const base = { gameId: GameID.TETRIS, score: 100 }
+
+        it('defaults omitted platform to web', () => {
+            const result = scoreSubmissionSchema.parse(base)
+            expect(result.platform).toBe('web')
+        })
+
+        it.each(['web', 'ios', 'android'] as const)(
+            'accepts explicit %s platform',
+            platform => {
+                const result = scoreSubmissionSchema.safeParse({
+                    ...base,
+                    platform,
+                })
+                expect(result.success).toBe(true)
+                if (result.success) {
+                    expect(result.data.platform).toBe(platform)
+                }
+            }
+        )
+
+        it('rejects unsupported platform values', () => {
+            const result = scoreSubmissionSchema.safeParse({
+                ...base,
+                platform: 'winphone',
+            })
+            expect(result.success).toBe(false)
+        })
+
+        it('rejects non-string platform values', () => {
+            const result = scoreSubmissionSchema.safeParse({
+                ...base,
+                platform: 42,
+            })
+            expect(result.success).toBe(false)
+        })
+    })
+
     describe('profileUpdateSchema', () => {
         it('normalizes whitespace and case', () => {
             const result = profileUpdateSchema.safeParse({

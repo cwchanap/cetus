@@ -72,6 +72,7 @@ export interface GameScoresTable {
         string | null | undefined,
         string | null
     >
+    platform: ColumnType<string, string | undefined, string>
     created_at: ColumnType<Date, never, never> // DEFAULT CURRENT_TIMESTAMP
 }
 

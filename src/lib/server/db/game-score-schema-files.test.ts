@@ -44,9 +44,23 @@ describe.each(schemaFiles)('%s', schemaPath => {
                 'competition_key',
                 'ruleset_version',
                 'game_data_json',
+                'platform',
                 'created_at',
             ])
         )
+
+        // Fresh rows that omit platform must be labeled web by the DDL
+        // default, so pre-platform callers stay correct after migration.
+        await client.execute('CREATE TABLE user (id TEXT PRIMARY KEY)')
+        await client.execute(`INSERT INTO user (id) VALUES ('u1')`)
+        await client.execute(
+            `INSERT INTO game_scores (user_id, game_id, score)
+             VALUES ('u1', 'tetris', 100)`
+        )
+        const insertedRow = await client.execute(
+            "SELECT platform FROM game_scores WHERE user_id = 'u1'"
+        )
+        expect(String(insertedRow.rows[0].platform)).toBe('web')
 
         const index = await client.execute(
             'PRAGMA index_info(idx_game_scores_scoped_ranking)'

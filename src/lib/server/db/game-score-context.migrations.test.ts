@@ -69,13 +69,15 @@ describe('ensureGameScoresContextSchema', () => {
                 'competition_key',
                 'ruleset_version',
                 'game_data_json',
+                'platform',
             ])
         )
 
         const rows = await sql<{
             score: number
             mode: string | null
-        }>`SELECT score, mode FROM game_scores`.execute(db)
-        expect(rows.rows).toEqual([{ score: 123, mode: null }])
+            platform: string
+        }>`SELECT score, mode, platform FROM game_scores`.execute(db)
+        expect(rows.rows).toEqual([{ score: 123, mode: null, platform: 'web' }])
     })
 })
