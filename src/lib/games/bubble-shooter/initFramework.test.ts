@@ -300,9 +300,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('returns undefined when renderer initialization fails', async () => {
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             vi.mocked(BubbleShooterRenderer).mockImplementationOnce(
                 () =>
                     ({
@@ -330,9 +329,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('calls renderer.initialize', async () => {
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
             const rendererInstance = vi.mocked(BubbleShooterRenderer).mock
                 .results[0].value
@@ -340,9 +338,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('renders the initial state', async () => {
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
             const rendererInstance = vi.mocked(BubbleShooterRenderer).mock
                 .results[0].value
@@ -380,9 +377,8 @@ describe('initBubbleShooterGameFramework', () => {
 
         it('cleanup cancels render loop and destroys game/renderer', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             const rendererMock = vi.mocked(BubbleShooterRenderer).mock
@@ -467,9 +463,8 @@ describe('initBubbleShooterGameFramework', () => {
     describe('canvas aim/shoot handlers', () => {
         it('maps pointer coordinates on a scaled canvas to game coordinates', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             const rendererInstance = vi.mocked(BubbleShooterRenderer).mock
@@ -502,9 +497,8 @@ describe('initBubbleShooterGameFramework', () => {
 
         it('pointerdown aims before shooting', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             const rendererInstance = vi.mocked(BubbleShooterRenderer).mock
@@ -672,8 +666,7 @@ describe('initBubbleShooterGameFramework', () => {
                 .mocked(gameMock.on)
                 .mock.calls.find((call: any[]) => call[0] === 'end')
             const onGameEnd = onGameEndCall?.[1] as
-                | ((...args: unknown[]) => unknown)
-                | undefined
+                ((...args: unknown[]) => unknown) | undefined
 
             if (onGameEnd) {
                 onGameEnd({
@@ -694,8 +687,7 @@ describe('initBubbleShooterGameFramework', () => {
                 .mocked(gameMock.on)
                 .mock.calls.find((call: any[]) => call[0] === 'end')
             const onGameEnd = onGameEndCall?.[1] as
-                | ((...args: unknown[]) => unknown)
-                | undefined
+                ((...args: unknown[]) => unknown) | undefined
             expect(() => onGameEnd?.({ data: {} })).not.toThrow()
         })
     })
@@ -730,9 +722,8 @@ describe('initBubbleShooterGameFramework', () => {
     describe('render loop', () => {
         it('renders when needsRedraw is true', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             const rendererMock = vi.mocked(BubbleShooterRenderer).mock
@@ -753,9 +744,8 @@ describe('initBubbleShooterGameFramework', () => {
 
         it('does not render when needsRedraw is false', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             const rendererMock = vi.mocked(BubbleShooterRenderer).mock
@@ -831,9 +821,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('renderer error cleanup paths', () => {
         it('removes the canvas and cleans up the renderer when initialize fails with a mounted canvas', async () => {
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             const parent = document.createElement('div')
             const canvas = document.createElement('canvas')
             parent.appendChild(canvas)
@@ -854,9 +843,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('swallows errors thrown during renderer cleanup after init failure', async () => {
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             const parent = document.createElement('div')
             const canvas = document.createElement('canvas')
             parent.appendChild(canvas)
@@ -1024,9 +1012,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('canvas controls edge cases', () => {
         it('returns a no-op cleanup when the renderer has no canvas', async () => {
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             vi.mocked(BubbleShooterRenderer).mockImplementationOnce(
                 () =>
                     ({
@@ -1045,9 +1032,8 @@ describe('initBubbleShooterGameFramework', () => {
 
         it('pointermove ignores input when the game is not active', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             const rendererInstance = vi.mocked(BubbleShooterRenderer).mock
@@ -1073,9 +1059,8 @@ describe('initBubbleShooterGameFramework', () => {
 
         it('pointermove aims from the shooter when currentBubble is null', async () => {
             const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { BubbleShooterRenderer } = await import(
-                './BubbleShooterRenderer'
-            )
+            const { BubbleShooterRenderer } =
+                await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             const rendererInstance = vi.mocked(BubbleShooterRenderer).mock

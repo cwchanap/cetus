@@ -6,11 +6,7 @@ import type {
 
 export type PatternPad = 0 | 1 | 2 | 3
 export type PatternPulsePhase =
-    | 'idle'
-    | 'watch'
-    | 'input'
-    | 'feedback'
-    | 'ended'
+    'idle' | 'watch' | 'input' | 'feedback' | 'ended'
 export type PatternPulseOutcome = 'playing' | 'timeout' | 'mistakes'
 export type PatternPulseFeedback = 'correct' | 'wrong' | null
 

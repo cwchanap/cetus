@@ -554,9 +554,8 @@ describe('Extended Database Queries', () => {
             }
             vi.mocked(db.updateTable).mockReturnValue(mockUpdateQuery as any)
 
-            const { checkAndAwardAchievements } = await import(
-                '@/lib/services/achievementService'
-            )
+            const { checkAndAwardAchievements } =
+                await import('@/lib/services/achievementService')
             vi.mocked(checkAndAwardAchievements).mockResolvedValue([
                 'first_win',
             ])
@@ -627,9 +626,8 @@ describe('Extended Database Queries', () => {
             }
             vi.mocked(db.updateTable).mockReturnValue(mockUpdateQuery as any)
 
-            const { checkInGameAchievements } = await import(
-                '@/lib/services/achievementService'
-            )
+            const { checkInGameAchievements } =
+                await import('@/lib/services/achievementService')
             vi.mocked(checkInGameAchievements).mockResolvedValue([
                 'in_game_ace',
             ])

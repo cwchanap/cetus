@@ -132,9 +132,7 @@ export type IceSlideMode = 'campaign' | 'daily' | 'expedition'
 export type IceSlideDifficulty = 'tutorial' | 'easy' | 'medium' | 'hard'
 
 export type IceSlideObjectiveId =
-    | 'collect_all_crystals'
-    | 'no_falls'
-    | 'no_reset'
+    'collect_all_crystals' | 'no_falls' | 'no_reset'
 
 export type BoardTransform =
     | 'identity'

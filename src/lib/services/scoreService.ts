@@ -9,9 +9,7 @@ import type { GameData } from '@/lib/games/shared/types'
 import type { ScoreSubmissionContext } from '@/lib/server/validations'
 
 export type ScoreSubmissionPublicErrorCode =
-    | 'SCORE_CONTEXT_UNAVAILABLE'
-    | 'UNAUTHENTICATED'
-    | 'NETWORK_ERROR'
+    'SCORE_CONTEXT_UNAVAILABLE' | 'UNAUTHENTICATED' | 'NETWORK_ERROR'
 
 export interface ScoreSubmissionResult {
     success: boolean

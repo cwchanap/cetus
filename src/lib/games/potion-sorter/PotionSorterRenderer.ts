@@ -62,8 +62,8 @@ export class PotionSorterRenderer extends DOMRenderer {
     private isPotionSorterState(value: unknown): value is PotionSorterState {
         return Boolean(
             value &&
-                typeof value === 'object' &&
-                Array.isArray((value as PotionSorterState).tubes)
+            typeof value === 'object' &&
+            Array.isArray((value as PotionSorterState).tubes)
         )
     }
 

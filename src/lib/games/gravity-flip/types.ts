@@ -7,11 +7,7 @@ import type {
 export type GravityDirection = 'down' | 'up'
 export type GravityFlipOutcome = 'playing' | 'collision' | 'survived'
 export type GravityFlipHazardKind =
-    | 'floor-spike'
-    | 'ceiling-spike'
-    | 'floor-gap'
-    | 'ceiling-gap'
-    | 'mover'
+    'floor-spike' | 'ceiling-spike' | 'floor-gap' | 'ceiling-gap' | 'mover'
 
 export type GravityFlipHazardDescriptor =
     | {

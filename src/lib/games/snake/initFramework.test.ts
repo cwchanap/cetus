@@ -546,8 +546,7 @@ describe('initSnakeGameFramework', () => {
                 .mocked(gameMock.on)
                 .mock.calls.find((call: unknown[]) => call[0] === 'end')
             const onGameEnd = onGameEndCall?.[1] as
-                | ((...args: unknown[]) => unknown)
-                | undefined
+                ((...args: unknown[]) => unknown) | undefined
 
             if (onGameEnd) {
                 onGameEnd({
@@ -570,8 +569,7 @@ describe('initSnakeGameFramework', () => {
                 .mocked(gameMock.on)
                 .mock.calls.find((call: unknown[]) => call[0] === 'end')
             const onGameEnd = onGameEndCall?.[1] as
-                | ((...args: unknown[]) => unknown)
-                | undefined
+                ((...args: unknown[]) => unknown) | undefined
 
             if (onGameEnd) {
                 expect(() => onGameEnd({ data: {} })).not.toThrow()
@@ -587,8 +585,7 @@ describe('initSnakeGameFramework', () => {
                 .mocked(gameMock.on)
                 .mock.calls.find((call: unknown[]) => call[0] === 'end')
             const onGameEnd = onGameEndCall?.[1] as
-                | ((...args: unknown[]) => unknown)
-                | undefined
+                ((...args: unknown[]) => unknown) | undefined
 
             if (onGameEnd) {
                 expect(() =>

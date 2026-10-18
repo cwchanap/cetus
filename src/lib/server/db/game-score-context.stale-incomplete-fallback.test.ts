@@ -18,12 +18,10 @@ describe('inspectAndMigrate - stale incomplete cached state', () => {
 
         const { sql } = await import('kysely')
         const { db } = await import('@/lib/server/db/client')
-        const { ensureGameScoresContextSchema } = await import(
-            './game-score-context'
-        )
-        const { getGameLeaderboard, isGameLeaderboardAvailable } = await import(
-            './queries'
-        )
+        const { ensureGameScoresContextSchema } =
+            await import('./game-score-context')
+        const { getGameLeaderboard, isGameLeaderboardAvailable } =
+            await import('./queries')
 
         // Start with a legacy schema (no score-context columns).
         await sql`DROP TABLE IF EXISTS game_scores`.execute(db)

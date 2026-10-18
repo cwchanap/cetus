@@ -86,9 +86,9 @@ export class PatternPulseRenderer extends DOMRenderer {
     private isPatternPulseState(value: unknown): value is PatternPulseState {
         return Boolean(
             value &&
-                typeof value === 'object' &&
-                Array.isArray((value as PatternPulseState).sequence) &&
-                typeof (value as PatternPulseState).phase === 'string'
+            typeof value === 'object' &&
+            Array.isArray((value as PatternPulseState).sequence) &&
+            typeof (value as PatternPulseState).phase === 'string'
         )
     }
 }

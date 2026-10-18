@@ -977,8 +977,7 @@ describe('initializeIceSlide', () => {
             (_id, _score, success, error) => {
                 onSuccess = success as ((result: unknown) => void) | undefined
                 onError = error as
-                    | ((error: string, result?: unknown) => void)
-                    | undefined
+                    ((error: string, result?: unknown) => void) | undefined
                 return Promise.resolve()
             }
         )
@@ -1240,9 +1239,8 @@ describe('initializeIceSlide', () => {
     })
 
     it('shows mission-complete overlay and submits on full win', async () => {
-        const { cloneGrid, findStart, parseGrid, slide } = await import(
-            './physics'
-        )
+        const { cloneGrid, findStart, parseGrid, slide } =
+            await import('./physics')
         const { ICE_SLIDE_LEVELS } = await import('./levels')
         const { DIRECTION_DELTA } = await import('./types')
 

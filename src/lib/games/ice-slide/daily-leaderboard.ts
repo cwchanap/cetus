@@ -16,10 +16,7 @@ export interface DailyLeaderboardResponse {
 }
 
 export type DailyLeaderboardPanelState =
-    | 'loading'
-    | 'empty'
-    | 'unavailable'
-    | 'rows'
+    'loading' | 'empty' | 'unavailable' | 'rows'
 
 export interface DailyLeaderboardElements {
     panel: HTMLElement

@@ -148,8 +148,7 @@ describe('initializeSatelliteSync', () => {
 
         expect(saveGameScore).toHaveBeenCalledTimes(1)
         const opts = vi.mocked(saveGameScore).mock.calls[0][5] as
-            | { isStale: () => boolean }
-            | undefined
+            { isStale: () => boolean } | undefined
         expect(opts?.isStale).toBeTypeOf('function')
         expect(opts!.isStale()).toBe(false)
 

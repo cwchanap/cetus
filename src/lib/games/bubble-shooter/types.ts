@@ -35,8 +35,7 @@ export interface GridPosition {
 // nearest unoccupied row-zero cell (no anchor). 'bubble' snaps to a neighbor
 // of the collided anchor bubble.
 export type ProjectileImpact =
-    | { kind: 'ceiling' }
-    | { kind: 'bubble'; anchor: GridPosition }
+    { kind: 'ceiling' } | { kind: 'bubble'; anchor: GridPosition }
 
 // Stats passed to onGameOver callback
 export interface BubbleShooterEndGameStats {

@@ -8,9 +8,8 @@ vi.mock('@/lib/server/db/queries', () => ({
     updateUserPreferences: vi.fn(),
 }))
 
-const { getUserPreferences, updateUserPreferences } = await import(
-    '@/lib/server/db/queries'
-)
+const { getUserPreferences, updateUserPreferences } =
+    await import('@/lib/server/db/queries')
 
 describe('Settings API', () => {
     const mockUserId = 'test-user-123'
