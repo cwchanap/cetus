@@ -13,7 +13,7 @@ export class GameTimer extends GameEventEmitter {
     private startTime: number = 0
     private pausedTime: number = 0
     private totalPausedDuration: number = 0
-    private intervalId: number | null = null
+    private intervalId: ReturnType<typeof setInterval> | null = null
     private isRunning: boolean = false
     private isPaused: boolean = false
 
@@ -39,7 +39,7 @@ export class GameTimer extends GameEventEmitter {
         this.isRunning = true
         this.isPaused = false
 
-        this.intervalId = window.setInterval(() => {
+        this.intervalId = globalThis.setInterval(() => {
             this.tick()
         }, 1000)
 
@@ -76,7 +76,7 @@ export class GameTimer extends GameEventEmitter {
         this.totalPausedDuration += Date.now() - this.pausedTime
         this.isPaused = false
 
-        this.intervalId = window.setInterval(() => {
+        this.intervalId = globalThis.setInterval(() => {
             this.tick()
         }, 1000)
 
