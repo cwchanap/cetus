@@ -2104,9 +2104,9 @@ test.describe('Gravity Flip', () => {
                         ).gravityFlipGame
                             ?.getGame()
                             .getState().gameStarted &&
-                            document
-                                .getElementById('game-over-overlay')
-                                ?.classList.contains('hidden')
+                        document
+                            .getElementById('game-over-overlay')
+                            ?.classList.contains('hidden')
                     )
                 )
             )

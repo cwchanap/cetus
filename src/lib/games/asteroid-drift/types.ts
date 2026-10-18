@@ -88,10 +88,7 @@ export function createAsteroidDriftConfig(
 export type AsteroidDriftDirection = 'up' | 'down' | 'left' | 'right'
 export type AsteroidDriftInputSource = 'keyboard' | 'touch'
 export type AsteroidDriftOutcome =
-    | 'playing'
-    | 'collision'
-    | 'survived'
-    | 'expired'
+    'playing' | 'collision' | 'survived' | 'expired'
 
 export interface AsteroidDriftPlayer {
     x: number

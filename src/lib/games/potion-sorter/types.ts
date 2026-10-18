@@ -7,21 +7,12 @@ import type {
 export const POTION_TUBE_CAPACITY = 4 as const
 
 export type PotionColor =
-    | 'cyan'
-    | 'magenta'
-    | 'amber'
-    | 'lime'
-    | 'violet'
-    | 'coral'
-    | 'azure'
+    'cyan' | 'magenta' | 'amber' | 'lime' | 'violet' | 'coral' | 'azure'
 export type PotionTube = PotionColor[]
 export type PotionSorterDifficulty = 'easy' | 'medium' | 'hard'
 export type PotionSorterResult = 'playing' | 'solved' | 'timeout'
 export type PotionSorterActionResult =
-    | 'selected'
-    | 'deselected'
-    | 'poured'
-    | 'invalid'
+    'selected' | 'deselected' | 'poured' | 'invalid'
 
 export interface PotionSorterPreset {
     difficulty: PotionSorterDifficulty

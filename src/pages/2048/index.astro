@@ -380,9 +380,7 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
         </p><ol id="leaderboard" class="result-rows"></ol>
         <a class="exit-link micro" href={user ? '/profile' : '/login'}
           >{
-            user
-              ? 'Saved scores & achievements ↗'
-              : 'Sign in to save scores ↗'
+            user ? 'Saved scores & achievements ↗' : 'Sign in to save scores ↗'
           }</a
         ><button class="primary-action" data-close>Back to the plate</button>
       </section>

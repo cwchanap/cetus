@@ -27,8 +27,8 @@ export class ChromaticTideRenderer extends DOMRenderer {
     private isChromaticTideState(state: unknown): state is ChromaticTideState {
         return Boolean(
             state &&
-                typeof state === 'object' &&
-                Array.isArray((state as ChromaticTideState).board)
+            typeof state === 'object' &&
+            Array.isArray((state as ChromaticTideState).board)
         )
     }
 

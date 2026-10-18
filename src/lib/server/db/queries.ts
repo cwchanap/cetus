@@ -87,8 +87,7 @@ export function ensureUserStatsSchema(): Promise<void> {
 
 // Lazy-cached dynamic imports to avoid repeated resolution
 let _achievementService:
-    | typeof import('../../services/achievementService')
-    | null = null
+    typeof import('../../services/achievementService') | null = null
 async function getAchievementService() {
     if (!_achievementService) {
         _achievementService = await import('../../services/achievementService')

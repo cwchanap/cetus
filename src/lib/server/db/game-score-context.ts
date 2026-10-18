@@ -9,12 +9,10 @@ export interface PersistedScoreContext {
 }
 
 export type SaveGameScoreFailureCode =
-    | 'SCORE_CONTEXT_UNAVAILABLE'
-    | 'SCORE_WRITE_FAILED'
+    'SCORE_CONTEXT_UNAVAILABLE' | 'SCORE_WRITE_FAILED'
 
 export type SaveGameScoreResult =
-    | { success: true }
-    | { success: false; code: SaveGameScoreFailureCode }
+    { success: true } | { success: false; code: SaveGameScoreFailureCode }
 
 export type SaveGameScoreWithAchievementsResult =
     | { success: true; newAchievements: string[] }

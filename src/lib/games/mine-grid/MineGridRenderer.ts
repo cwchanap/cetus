@@ -84,8 +84,8 @@ export class MineGridRenderer extends DOMRenderer {
     private isMineGridState(state: unknown): state is MineGridState {
         return Boolean(
             state &&
-                typeof state === 'object' &&
-                Array.isArray((state as MineGridState).board)
+            typeof state === 'object' &&
+            Array.isArray((state as MineGridState).board)
         )
     }
 

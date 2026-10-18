@@ -12,9 +12,7 @@ import type {
 } from '@/lib/server/validations'
 
 export type ScoreSubmissionPublicErrorCode =
-    | 'SCORE_CONTEXT_UNAVAILABLE'
-    | 'UNAUTHENTICATED'
-    | 'NETWORK_ERROR'
+    'SCORE_CONTEXT_UNAVAILABLE' | 'UNAUTHENTICATED' | 'NETWORK_ERROR'
 
 export interface ScoreSubmissionResult {
     success: boolean

@@ -87,8 +87,7 @@ function setupDOM() {
 
 describe('initPathNavigatorGameFramework', () => {
     let instance:
-        | Awaited<ReturnType<typeof initPathNavigatorGameFramework>>
-        | undefined
+        Awaited<ReturnType<typeof initPathNavigatorGameFramework>> | undefined
 
     beforeEach(() => {
         setupDOM()

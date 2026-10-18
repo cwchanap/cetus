@@ -77,9 +77,8 @@ describe.each(CASES)(
         it(`tolerates another process adding ${column} between inspection and ALTER`, async () => {
             const { sql } = await import('kysely')
             const { db } = await import('@/lib/server/db/client')
-            const { ensureGameScoresContextSchema } = await import(
-                './game-score-context'
-            )
+            const { ensureGameScoresContextSchema } =
+                await import('./game-score-context')
 
             await sql`DROP TABLE IF EXISTS game_scores`.execute(db)
             await sql`
