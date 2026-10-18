@@ -118,7 +118,6 @@ export function createSignalSwitchConfig(
 ): SignalSwitchConfig {
     return {
         ...SIGNAL_SWITCH_RULES,
-        achievementIntegration: true,
         pausable: false,
         resettable: true,
         rng: Math.random,

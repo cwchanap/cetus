@@ -57,7 +57,7 @@ export abstract class BaseGame<
         this.scoreManager = new ScoreManager({
             gameId,
             scoringConfig,
-            achievementIntegration: config.achievementIntegration,
+            submitScore: config.submitScore,
             onScoreUpdate: (score: number) => {
                 this.updateScore(score)
             },
@@ -212,7 +212,6 @@ export abstract class BaseGame<
         // Save score
         const saveResult = await this.scoreManager.saveFinalScore(
             finalGameData,
-            () => this.runGuard.isStale(runId),
             finalScore
         )
 

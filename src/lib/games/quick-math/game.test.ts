@@ -22,7 +22,6 @@ describe('QuickMath Framework Implementation', () => {
 
         const config: QuickMathConfig = {
             duration: 60,
-            achievementIntegration: true,
             pausable: false,
             resettable: true,
             pointsPerCorrectAnswer: 20,
@@ -169,7 +168,6 @@ describe('QuickMath Framework Implementation', () => {
     it('should support subtraction operation', () => {
         const config = {
             duration: 60,
-            achievementIntegration: false,
             pausable: true,
             resettable: true,
             pointsPerCorrectAnswer: 10,
@@ -195,7 +193,6 @@ describe('QuickMath Framework Implementation', () => {
     it('should pause and resume correctly', () => {
         const pausedConfig = {
             duration: 60,
-            achievementIntegration: false,
             pausable: true,
             resettable: true,
             pointsPerCorrectAnswer: 10,
@@ -250,7 +247,6 @@ describe('QuickMath Framework Implementation', () => {
 
         const achievConfig = {
             duration: 60,
-            achievementIntegration: true,
             pausable: false,
             resettable: true,
             pointsPerCorrectAnswer: 10,
@@ -282,7 +278,6 @@ describe('QuickMath Framework Implementation', () => {
 describe('QuickMathFrameworkGame achievement flags', () => {
     const baseConfig: QuickMathConfig = {
         duration: 60,
-        achievementIntegration: true,
         pausable: true,
         resettable: true,
         pointsPerCorrectAnswer: 20,

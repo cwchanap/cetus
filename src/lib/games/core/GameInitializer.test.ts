@@ -3,6 +3,10 @@ import { GameInitializer } from './GameInitializer'
 import { BaseGame } from './BaseGame'
 import { BaseRenderer } from './BaseRenderer'
 import { GameID } from '@/lib/games'
+import {
+    AchievementRarity,
+    type AchievementNotification,
+} from '@/lib/achievements'
 import type {
     BaseGameCallbacks,
     BaseGameState,
@@ -13,7 +17,13 @@ import type {
 // Mock the scoreService
 vi.mock('@/lib/services/scoreService', () => ({
     saveGameScore: vi.fn().mockResolvedValue(undefined),
+    submitScore: vi.fn().mockResolvedValue({
+        success: true,
+        newAchievements: [],
+    }),
 }))
+
+import { submitScore } from '@/lib/services/scoreService'
 
 // Concrete BaseGame implementation for testing
 class TestGame extends BaseGame {
@@ -85,7 +95,6 @@ describe('GameInitializer', () => {
             ) => TestRenderer,
             gameConfig: {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: true,
                 resettable: true,
             },
@@ -133,7 +142,6 @@ describe('GameInitializer', () => {
                 ) => NoContainerRenderer,
                 gameConfig: {
                     duration: 60,
-                    achievementIntegration: false,
                     pausable: true,
                     resettable: true,
                 },
@@ -385,11 +393,17 @@ describe('GameInitializer', () => {
             const showAchievementAward = vi.fn()
             vi.stubGlobal('showAchievementAward', showAchievementAward)
 
-            const fetchMock = vi.fn().mockResolvedValue({
-                ok: true,
-                json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+            const firstWin: AchievementNotification = {
+                id: 'first_win',
+                name: 'First Win',
+                description: 'Won the first run',
+                icon: '🏆',
+                rarity: AchievementRarity.COMMON,
+            }
+            vi.mocked(submitScore).mockResolvedValueOnce({
+                success: true,
+                newAchievements: [firstWin],
             })
-            vi.stubGlobal('fetch', fetchMock)
 
             const achInitializer = new GameInitializer<TestGame, TestRenderer>({
                 gameId: GameID.TETRIS,
@@ -401,7 +415,6 @@ describe('GameInitializer', () => {
                 ) => TestRenderer,
                 gameConfig: {
                     duration: 60,
-                    achievementIntegration: true,
                     pausable: false,
                     resettable: false,
                 },
@@ -416,7 +429,7 @@ describe('GameInitializer', () => {
             game.start()
             await game.end()
 
-            expect(showAchievementAward).toHaveBeenCalledWith(['first_win'])
+            expect(showAchievementAward).toHaveBeenCalledWith([firstWin])
         })
     })
 
@@ -482,7 +495,6 @@ describe('GameInitializer', () => {
                 ) => TestRenderer,
                 gameConfig: {
                     duration: 60,
-                    achievementIntegration: false,
                     pausable: true,
                     resettable: true,
                 },
@@ -506,7 +518,6 @@ describe('GameInitializer', () => {
                 ) => TestRenderer,
                 gameConfig: {
                     duration: 60,
-                    achievementIntegration: false,
                     pausable: true,
                     resettable: true,
                 },

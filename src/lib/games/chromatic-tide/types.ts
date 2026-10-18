@@ -67,7 +67,6 @@ export function createChromaticTideConfig(
 ): ChromaticTideConfig {
     return {
         duration: CHROMATIC_TIDE_RULES.duration,
-        achievementIntegration: true,
         pausable: false,
         resettable: true,
         rng: Math.random,

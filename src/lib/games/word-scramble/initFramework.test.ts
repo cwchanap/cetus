@@ -1,10 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { initWordScrambleGameFramework } from './initFramework'
 import type { WordScrambleStats } from './frameworkTypes'
+import {
+    AchievementRarity,
+    type AchievementNotification,
+} from '@/lib/achievements'
 
 vi.mock('@/lib/services/scoreService', () => ({
-    saveGameScore: vi.fn().mockResolvedValue({ success: true }),
+    // Implementation-backed so vi.restoreAllMocks() in beforeEach restores
+    // to a working default instead of an implementation-less mock.
+    saveGameScore: vi.fn(async () => ({ success: true })),
+    submitScore: vi.fn(async () => ({
+        success: true,
+        newAchievements: [],
+    })),
 }))
+
+import { submitScore } from '@/lib/services/scoreService'
 
 function setupDOM() {
     document.body.innerHTML = `
@@ -369,14 +381,17 @@ describe('initWordScrambleGameFramework', () => {
         })
 
         it('should call showAchievementAward when achievements are earned', async () => {
-            const fetchSpy = vi
-                .spyOn(globalThis, 'fetch')
-                .mockResolvedValueOnce({
-                    ok: true,
-                    json: async () => ({
-                        newAchievements: ['word_master'],
-                    }),
-                } as Response)
+            const wordMaster: AchievementNotification = {
+                id: 'word_master',
+                name: 'Word Master',
+                description: 'Unscrambled many words',
+                icon: '📖',
+                rarity: AchievementRarity.RARE,
+            }
+            vi.mocked(submitScore).mockResolvedValueOnce({
+                success: true,
+                newAchievements: [wordMaster],
+            })
 
             const showAchievementAward = vi.fn()
             vi.stubGlobal('showAchievementAward', showAchievementAward)
@@ -386,10 +401,9 @@ describe('initWordScrambleGameFramework', () => {
 
             await instance!.endGame()
 
-            expect(fetchSpy).toHaveBeenCalled()
-            expect(showAchievementAward).toHaveBeenCalledWith(['word_master'])
+            expect(submitScore).toHaveBeenCalledTimes(1)
+            expect(showAchievementAward).toHaveBeenCalledWith([wordMaster])
 
-            fetchSpy.mockRestore()
             vi.unstubAllGlobals()
         })
     })

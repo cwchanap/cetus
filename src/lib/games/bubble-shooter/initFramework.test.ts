@@ -4,6 +4,10 @@ import { initBubbleShooterGameFramework } from './initFramework'
 // Mock score service
 vi.mock('@/lib/services/scoreService', () => ({
     saveGameScore: vi.fn().mockResolvedValue({ success: true }),
+    submitScore: vi.fn().mockResolvedValue({
+        success: true,
+        newAchievements: [],
+    }),
 }))
 
 // Mock BubbleShooterGame
@@ -45,7 +49,6 @@ vi.mock('./BubbleShooterGame', () => ({
     })),
     DEFAULT_BUBBLE_SHOOTER_CONFIG: {
         duration: Number.MAX_SAFE_INTEGER,
-        achievementIntegration: true,
         pausable: true,
         resettable: true,
         bubbleRadius: 20,

@@ -11,7 +11,6 @@ import { BejeweledRenderer, type BejeweledRendererConfig } from './renderer'
 
 const DEFAULT_CONFIG: BejeweledConfig = {
     duration: 60,
-    achievementIntegration: true,
     pausable: true,
     resettable: true,
     rows: 8,

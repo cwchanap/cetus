@@ -30,7 +30,6 @@ export const DEFAULT_GAME2048_CONFIG: Game2048Config = {
     // BaseGameConfig — 2048 is turn-based and runs until no moves remain, so
     // the countdown timer is given an effectively infinite duration.
     duration: Number.MAX_SAFE_INTEGER,
-    achievementIntegration: true,
     pausable: true,
     resettable: true,
     // Game2048Config (rendering + input)

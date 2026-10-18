@@ -97,7 +97,6 @@ export const DEFAULT_TETRIS_CONFIG: TetrisConfig = {
     // BaseGameConfig — Tetris runs until the board fills, so the countdown
     // timer is given an effectively infinite duration and never completes.
     duration: Number.MAX_SAFE_INTEGER,
-    achievementIntegration: true,
     pausable: true,
     resettable: true,
     // TetrisConfig

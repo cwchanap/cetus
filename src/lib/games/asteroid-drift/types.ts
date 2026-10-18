@@ -78,7 +78,6 @@ export function createAsteroidDriftConfig(
 ): AsteroidDriftConfig {
     return {
         ...ASTEROID_DRIFT_RULES,
-        achievementIntegration: true,
         pausable: false,
         resettable: true,
         rng: Math.random,

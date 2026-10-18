@@ -15,7 +15,6 @@ export type InputSource = 'keyboard' | 'touch'
 export const DEFAULT_EVADER_CONFIG: EvaderConfig = {
     // BaseGameConfig — Evader is a 60-second countdown game.
     duration: 60,
-    achievementIntegration: true,
     pausable: true,
     resettable: true,
     // EvaderConfig

@@ -12,7 +12,6 @@ import {
 function createGame(overrides: Partial<AsteroidDriftConfig> = {}) {
     return new AsteroidDriftGame(
         createAsteroidDriftConfig({
-            achievementIntegration: false,
             rng: () => 0,
             ...overrides,
         })
@@ -58,7 +57,6 @@ describe('AsteroidDriftGame', () => {
     describe('idle and start state', () => {
         it('derives idle center/time/radius from config with zeroed runtime', () => {
             const config = createAsteroidDriftConfig({
-                achievementIntegration: false,
                 duration: 42,
                 canvasWidth: 600,
                 canvasHeight: 400,
@@ -271,9 +269,7 @@ describe('AsteroidDriftGame', () => {
         })
 
         it('advances at most one outer-clamp worth of simulation per update', () => {
-            const config = createAsteroidDriftConfig({
-                achievementIntegration: false,
-            })
+            const config = createAsteroidDriftConfig({})
             const game = new AsteroidDriftGame(config)
             game.start()
 
@@ -670,7 +666,6 @@ describe('AsteroidDriftGame', () => {
             const onEnd = vi.fn()
             const game = new AsteroidDriftGame(
                 createAsteroidDriftConfig({
-                    achievementIntegration: false,
                     duration: 2,
                     rng: () => 0,
                 }),
@@ -708,7 +703,6 @@ describe('AsteroidDriftGame', () => {
             vi.useFakeTimers()
             const game = new AsteroidDriftGame(
                 createAsteroidDriftConfig({
-                    achievementIntegration: false,
                     duration: 2,
                     rng: () => 0,
                 })

@@ -19,7 +19,6 @@ export interface ClickResult {
 export const DEFAULT_REFLEX_CONFIG: ReflexConfig = {
     // BaseGameConfig — Reflex is a 60-second countdown game.
     duration: 60,
-    achievementIntegration: true,
     pausable: true,
     resettable: true,
     // ReflexConfig

@@ -785,6 +785,177 @@ describe('Score Service', () => {
             expect(onError).toHaveBeenCalledWith('Network error occurred')
         })
     })
+
+    describe('saveGameScore injected transport', () => {
+        it('routes the exact score data through an injected submitter and returns its result to onSuccess', async () => {
+            const submitter = vi.fn().mockResolvedValue({
+                success: true,
+                newAchievements: [],
+            })
+            const onSuccess = vi.fn()
+            const onError = vi.fn()
+            global.fetch = vi.fn()
+
+            await saveGameScore(
+                GameID.TETRIS,
+                100,
+                onSuccess,
+                onError,
+                { elapsedSeconds: 12, totalMoves: 34 },
+                {
+                    submitScore: submitter,
+                    context: {
+                        mode: 'daily',
+                        competitionKey: 'ice-slide:daily:2026-08-01:g1:r1',
+                        rulesetVersion: 1,
+                    },
+                }
+            )
+
+            expect(submitter).toHaveBeenCalledTimes(1)
+            expect(submitter).toHaveBeenCalledWith({
+                gameId: GameID.TETRIS,
+                score: 100,
+                gameData: { elapsedSeconds: 12, totalMoves: 34 },
+                context: {
+                    mode: 'daily',
+                    competitionKey: 'ice-slide:daily:2026-08-01:g1:r1',
+                    rulesetVersion: 1,
+                },
+            })
+            expect(global.fetch).not.toHaveBeenCalled()
+            expect(onSuccess).toHaveBeenCalledWith({
+                success: true,
+                newAchievements: [],
+            })
+            expect(onError).not.toHaveBeenCalled()
+        })
+
+        it('short-circuits before the injected submitter for zero and negative scores', async () => {
+            const submitter = vi.fn()
+            global.fetch = vi.fn()
+
+            await saveGameScore(
+                GameID.TETRIS,
+                0,
+                undefined,
+                undefined,
+                undefined,
+                { submitScore: submitter }
+            )
+            await saveGameScore(
+                GameID.TETRIS,
+                -5,
+                undefined,
+                undefined,
+                undefined,
+                { submitScore: submitter }
+            )
+
+            expect(submitter).not.toHaveBeenCalled()
+            expect(global.fetch).not.toHaveBeenCalled()
+        })
+
+        it('suppresses callbacks and reward notifications for a stale run after the injected transport resolves', async () => {
+            const submitter = vi.fn().mockResolvedValue({
+                success: true,
+                newAchievements: [{ id: 'x', name: 'X' }],
+                challengeUpdates: {
+                    completedChallenges: [
+                        {
+                            id: 'c',
+                            name: 'C',
+                            description: 'C',
+                            icon: 'i',
+                            xpReward: 10,
+                        },
+                    ],
+                    xpEarned: 10,
+                    levelUp: false,
+                },
+            })
+            const onSuccess = vi.fn()
+            const onError = vi.fn()
+            mockWindow.showAchievementAward = vi.fn()
+            mockWindow.showChallengeComplete = vi.fn()
+
+            await saveGameScore(
+                GameID.TETRIS,
+                100,
+                onSuccess,
+                onError,
+                undefined,
+                { submitScore: submitter, isStale: () => true }
+            )
+
+            // The transport still runs; only save-derived rewards are suppressed.
+            expect(submitter).toHaveBeenCalledTimes(1)
+            expect(onSuccess).not.toHaveBeenCalled()
+            expect(onError).not.toHaveBeenCalled()
+            expect(mockWindow.showAchievementAward).not.toHaveBeenCalled()
+            expect(mockWindow.showChallengeComplete).not.toHaveBeenCalled()
+        })
+
+        it('suppresses onError for a stale run when the injected transport reports failure', async () => {
+            const submitter = vi.fn().mockResolvedValue({
+                success: false,
+                error: 'Failed to save score',
+            })
+            const onError = vi.fn()
+
+            await saveGameScore(
+                GameID.TETRIS,
+                100,
+                undefined,
+                onError,
+                undefined,
+                { submitScore: submitter, isStale: () => true }
+            )
+
+            expect(submitter).toHaveBeenCalledTimes(1)
+            expect(onError).not.toHaveBeenCalled()
+        })
+
+        it('reports injected transport failures through onError with the structured result', async () => {
+            const failure = {
+                success: false,
+                error: 'You must be logged in to save scores',
+                code: 'UNAUTHENTICATED',
+            } as const
+            const submitter = vi.fn().mockResolvedValue(failure)
+            const onSuccess = vi.fn()
+            const onError = vi.fn()
+
+            await saveGameScore(
+                GameID.TETRIS,
+                100,
+                onSuccess,
+                onError,
+                undefined,
+                { submitScore: submitter }
+            )
+
+            expect(onSuccess).not.toHaveBeenCalled()
+            expect(onError).toHaveBeenCalledWith(
+                'You must be logged in to save scores',
+                failure
+            )
+        })
+
+        it('keeps the default fetch transport when no submitter is injected', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () =>
+                    Promise.resolve({ success: true, newAchievements: [] }),
+            })
+            const onSuccess = vi.fn()
+
+            await saveGameScore(GameID.TETRIS, 100, onSuccess)
+
+            expect(global.fetch).toHaveBeenCalledTimes(1)
+            expect(onSuccess).toHaveBeenCalled()
+        })
+    })
 })
 
 describe('getUserGameHistory - non-ok response', () => {

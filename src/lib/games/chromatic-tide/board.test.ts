@@ -26,7 +26,6 @@ describe('Chromatic Tide canonical config', () => {
 
         expect(config).toEqual({
             duration: CHROMATIC_TIDE_RULES.duration,
-            achievementIntegration: true,
             pausable: false,
             resettable: true,
             rng,

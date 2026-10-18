@@ -19,7 +19,6 @@ export function createMineGridConfig(
     const preset = MINE_GRID_PRESETS[difficulty]
     return {
         duration: preset.duration,
-        achievementIntegration: true,
         pausable: false,
         resettable: true,
         preset,

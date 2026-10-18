@@ -11,7 +11,6 @@ import {
 function createGame(overrides: Partial<GravityFlipConfig> = {}) {
     return new GravityFlipGame(
         createGravityFlipConfig({
-            achievementIntegration: false,
             rng: () => 0,
             ...overrides,
         })
@@ -451,7 +450,6 @@ describe('GravityFlipGame', () => {
         const onStateChange = vi.fn()
         const game = new GravityFlipGame(
             createGravityFlipConfig({
-                achievementIntegration: false,
                 rng: () => 0,
             }),
             { onStateChange }
@@ -532,7 +530,6 @@ describe('GravityFlipGame', () => {
         const onEnd = vi.fn()
         const game = new GravityFlipGame(
             createGravityFlipConfig({
-                achievementIntegration: false,
                 duration: 1,
                 rng: () => 0,
             }),

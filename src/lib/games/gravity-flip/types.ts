@@ -93,7 +93,6 @@ export function createGravityFlipConfig(
 ): GravityFlipConfig {
     return {
         ...GRAVITY_FLIP_RULES,
-        achievementIntegration: true,
         pausable: false,
         resettable: true,
         rng: Math.random,

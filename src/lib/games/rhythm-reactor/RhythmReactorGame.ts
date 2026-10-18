@@ -23,7 +23,6 @@ export function createRhythmReactorConfig(
 ): RhythmReactorConfig {
     return {
         ...RHYTHM_REACTOR_RULES,
-        achievementIntegration: true,
         pausable: false,
         resettable: true,
         chart: createRhythmReactorChart(),

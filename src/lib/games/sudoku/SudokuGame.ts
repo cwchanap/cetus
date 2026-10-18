@@ -23,7 +23,6 @@ const DIFFICULTY_POINTS: Record<'easy' | 'medium' | 'hard', number> = {
 // completes). Elapsed time is read via getTimerStatus().elapsedTime.
 export const DEFAULT_SUDOKU_CONFIG: SudokuConfig = {
     duration: Number.MAX_SAFE_INTEGER,
-    achievementIntegration: true,
     pausable: true,
     resettable: true,
     difficulty: 'medium',
