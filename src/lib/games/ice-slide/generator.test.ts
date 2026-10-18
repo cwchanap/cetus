@@ -340,7 +340,6 @@ describe('ice-slide expedition generation: orbit keys', () => {
 
 describe('ice-slide expedition generation: fallback after 64 attempts', () => {
     it('uses a deterministic fallback with bounded candidate attempts', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
         const validateMock = vi.mocked(validateIceSlideStageQuality)
         validateMock.mockImplementation(
             (
@@ -380,10 +379,9 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
             expect(fallbackCalls).toBeLessThanOrEqual(3)
             expect(result.stage.transform).toBe('identity')
             expect(result.stage.mutationIds[0]).toMatch(/^fallback:/)
-            expect(warn).toHaveBeenCalledTimes(1)
+            expect(result.rejectionCounts).toEqual({ unsolvable: 64 })
         } finally {
             validateMock.mockRestore()
-            warn.mockRestore()
         }
     })
 
@@ -409,7 +407,6 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
     })
 
     it('pins the exact accepted fallback id for a frozen seed', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
         const validateMock = vi.mocked(validateIceSlideStageQuality)
         validateMock.mockImplementation(
             (
@@ -440,12 +437,10 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
             ])
         } finally {
             validateMock.mockRestore()
-            warn.mockRestore()
         }
     })
 
-    it('warns only in development, never in production', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    it('reports fallback outcomes via usedFallback and rejectionCounts', () => {
         const validateMock = vi.mocked(validateIceSlideStageQuality)
         validateMock.mockImplementation(
             (
@@ -462,34 +457,22 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
                 return realValidate(candidate, constraints)
             }
         )
-        const fallbackInput = {
-            seed: 'ice-slide:hpa-489:v1:fallback:easy',
-            stageNumber: 1,
-            difficulty: 'easy',
-        } as const
-
         try {
-            vi.stubEnv('DEV', true)
-            expect(() =>
-                createIceSlideExpeditionStage(fallbackInput)
-            ).not.toThrow()
-            expect(warn).toHaveBeenCalledTimes(1)
+            const result = createIceSlideExpeditionStage({
+                seed: 'ice-slide:hpa-489:v1:fallback:easy',
+                stageNumber: 1,
+                difficulty: 'easy',
+            })
 
-            warn.mockClear()
-            vi.stubEnv('DEV', false)
-            expect(() =>
-                createIceSlideExpeditionStage(fallbackInput)
-            ).not.toThrow()
-            expect(warn).not.toHaveBeenCalled()
+            expect(result.usedFallback).toBe(true)
+            expect(result.attempts).toBe(64)
+            expect(result.rejectionCounts).toEqual({ unsolvable: 64 })
         } finally {
-            vi.unstubAllEnvs()
             validateMock.mockRestore()
-            warn.mockRestore()
         }
     })
 
     it('rejects an all-infeasible objective set with bounded retry and fallback', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
         const validateMock = vi.mocked(validateIceSlideStageQuality)
         validateMock.mockImplementation(
             (
@@ -519,17 +502,14 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
                     difficulty: 'easy',
                 })
             ).toThrow(/has no valid generated candidate or fallback/)
-            expect(warn).not.toHaveBeenCalled()
         } finally {
             validateMock.mockRestore()
-            warn.mockRestore()
         }
     })
 })
 
 describe('ice-slide expedition generation: forced materialization collisions', () => {
     it('rejects all 64 candidates by collision and completes via the real fallback', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
         const templatesMock = vi.mocked(getIceSlideTemplatesByDifficulty)
         const validateMock = vi.mocked(validateIceSlideStageQuality)
         templatesMock.mockImplementation(() => [COLLISION_TRAP_TEMPLATE])
@@ -568,12 +548,10 @@ describe('ice-slide expedition generation: forced materialization collisions', (
         } finally {
             templatesMock.mockRestore()
             validateMock.mockRestore()
-            warn.mockRestore()
         }
     })
 
     it('produces byte-identical traces across repeated forced-fallback runs', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
         const templatesMock = vi.mocked(getIceSlideTemplatesByDifficulty)
         templatesMock.mockImplementation(() => [COLLISION_TRAP_TEMPLATE])
 
@@ -588,10 +566,8 @@ describe('ice-slide expedition generation: forced materialization collisions', (
 
             expect(first.usedFallback).toBe(true)
             expect(JSON.stringify(second)).toBe(JSON.stringify(first))
-            expect(warn).toHaveBeenCalledTimes(2)
         } finally {
             templatesMock.mockRestore()
-            warn.mockRestore()
         }
     })
 })
