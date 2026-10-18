@@ -18,11 +18,11 @@ The July ticket still matches the current tree, with a few important details tha
 
 - `GameTimer`, `EvaderGame`, `ReflexGame`, `MemoryMatrixGame`, and Circuit Hacker logic still call `window.setInterval` / `window.setTimeout`.
 - `ice-slide/generator.ts` still reads `import.meta.env.DEV` to decide whether a deterministic fallback warning is emitted.
-- `ScoreManager` has two persistence paths: the achievement-enabled branch calls `fetch('/api/scores')` directly, while the non-integration branch calls `saveGameScore()`.
+- `ScoreManager.saveFinalScore()` currently has two branches, but its only production caller is `BaseGame.end()`, and all BaseGame games enable the direct-fetch branch. Satellite Sync uses a `ScoreManager` only for in-game scoring and submits separately from its initializer.
 - `scoreService.submitScore()` is already the canonical object-shaped transport call and is the only helper that should continue to own the default relative `/api/scores` request.
 - Circuit Hacker, Satellite Sync, and Ice Slide intentionally use handle-style initializers plus `createRunGuard` and manual `saveGameScore()` calls. They are not BaseGame migration debt.
 - `game_scores` already has a lazy additive schema upgrader for the optional score-context columns used by Ice Slide Daily/Expedition. The new `platform` column should reuse that established capability/migration seam rather than introduce another migration framework.
-- Renderers, `GameInitializer`, and every `init*.ts` file are web-owned boundaries in the later HPA-447 package split. Browser globals remain valid there.
+- Renderers, `GameInitializer`, and every `init*.ts` file are web-owned boundaries in the later HPA-447 package split. Browser globals remain valid there. `shared/utils.ts:isEditableTarget()` also uses `HTMLElement`, but only web initializers consume it; track this known future-extraction move rather than disguising it as portable.
 
 ## Product / architecture contract
 
@@ -30,10 +30,10 @@ After HPA-444:
 
 1. Shared-intent game logic does not directly reference `window`, `document`, `import.meta.env`, or a hard-coded API URL.
 2. Browser-specific code remains in renderers and initializers; this ticket does not try to make those files React Native compatible.
-3. A `ScoreSubmitter` function is the only new score transport dependency. There is no DI container, repository class, API-client package, or service locator.
+3. A `ScoreSubmitter` function is the only new score transport dependency. `BaseGameConfig.submitScore` makes injection reachable from every BaseGame subclass without per-game rewrites. There is no DI container, repository class, API-client package, or service locator.
 4. Web keeps the current default transport: `scoreService.submitScore()` performs `fetch('/api/scores')`.
-5. Tests and later mobile callers can inject another submitter without replacing global `fetch` or importing browser UI.
-6. Every accepted score request is persisted with `platform = 'web' | 'ios' | 'android'`; omitted platform defaults to `web` at the API validation boundary.
+5. Tests and future mobile game hosts can inject another submitter into portable BaseGame logic without replacing global `fetch` or importing browser UI. Current browser-owned handle initializers remain unchanged; a future mobile initializer will pass its submitter directly to `saveGameScore()`.
+6. Every accepted score is attributable to `platform = 'web' | 'ios' | 'android'`; omitted platform defaults to `web` at the API boundary. Web inserts omit the column and rely on `TEXT NOT NULL DEFAULT 'web'` once present (including retroactive labeling of historical rows when upgraded). Explicit iOS/Android writes migrate and store their platform before insertion.
 7. Platform is metadata only in this task. Existing leaderboards, personal bests, history, achievements, challenges, and stats continue to combine all platforms.
 
 ## Non-goals
@@ -44,6 +44,7 @@ Do **not** add any of the following in HPA-444:
 - `@cetus/games`, `@cetus/shared`, or `@cetus/api-client`;
 - Expo, React Native, Skia, mobile screens, or mobile auth/session transport;
 - a generic dependency-injection framework;
+- optional submitter bags in the three existing web-only handle initializers;
 - a second score service or second database insert path;
 - platform-specific leaderboard/stat filters or a platform index;
 - renderer or initializer rewrites merely to remove browser APIs;
@@ -80,23 +81,18 @@ This preserves the repository's existing decision that `saveGameScore()` should 
 
 ### Reuse the current handle-game boundary
 
-Circuit Hacker, Satellite Sync, and Ice Slide stay handle-based. Their initializers accept a small optional dependency bag containing `submitScore?: ScoreSubmitter`, then pass it through the existing `SaveScoreOptions` object together with `isStale` and (for Ice Slide) score context.
-
-Do not create a shared initializer/dependencies framework for three call sites.
+Circuit Hacker, Satellite Sync, and Ice Slide stay handle-based. Their existing **web-owned** initializers continue calling `saveGameScore()` without new dependencies. The `SaveScoreOptions.submitScore` seam is sufficient for a future platform-specific initializer; do not introduce unused web-initializer dependency bags or a shared initializer framework.
 
 ### Reuse the existing `game_scores` additive schema machinery
 
-The current score-context upgrader already handles:
+The score-context upgrader already handles schema inspection, additive `ALTER TABLE`, Vercel concurrency, and cached/single-flight probes. Add the platform capability to this machinery, but **do not run it for every web score**.
 
-- schema capability inspection;
-- additive `ALTER TABLE` operations;
-- concurrent Vercel instances racing the same column addition;
-- cached/single-flight probing;
-- safe retry semantics.
+- The existing four-column `hasCompleteGameScoresContextColumns()` remains unchanged to preserve scoped-leaderboard isolation.
+- Ordinary unscoped `web` inserts keep the current direct-to-insert path and omit `platform`. Once the column exists, the SQLite default records `web`; adding the column later retrospectively labels all older rows `web`.
+- Explicit `ios`/`android` inserts invoke the migrator and include the platform value; migration/insert failures use the generic `SCORE_WRITE_FAILED` path, never `SCORE_CONTEXT_UNAVAILABLE`.
+- Contextual `web` inserts keep the existing context ensure; platform-only migration failures must not disable a context-ready web submission. Cover that case as a regression. Do not create another migration framework or a new outward-facing error code.
 
-Extend that machinery with the `platform` column rather than adding an unrelated migration runner.
-
-The legacy `hasCompleteGameScoresContextColumns()` meaning stays unchanged: it continues to answer only whether `mode`, `competition_key`, `ruleset_version`, and `game_data_json` exist, preserving leaderboard isolation semantics. Add `platform` as a fifth inspected/migrated capability, but do not create a second platform-ready predicate or error code. Before every score insert (scoped or unscoped), invoke the existing cached `ensureGameScoresContextSchema()`; a missing `platform` column then fails at the insert itself and maps to the generic `SCORE_WRITE_FAILED` path, never `SCORE_CONTEXT_UNAVAILABLE`.
+This retains HPA-444's platform-persistence requirement while preventing an unrelated platform schema upgrade from gating all existing unscoped web games.
 
 ### Reuse browser boundaries instead of eliminating browser APIs everywhere
 
@@ -122,22 +118,11 @@ The rule is a guardrail for the extraction boundary, not a ban on browser APIs i
 
 ### Timers
 
-Replace the five game-logic timer calls with `globalThis` equivalents:
+Replace the five game-logic timer calls with `globalThis.setInterval` / `globalThis.setTimeout`.
 
-```ts
-globalThis.setInterval(...)
-globalThis.setTimeout(...)
-```
+The five receiving fields currently use `number | null`. Because the project's Node types can make host-global timers return `NodeJS.Timeout`, update each field to the matching `ReturnType<typeof setInterval> | null` or `ReturnType<typeof setTimeout> | null` and run `bun run typecheck` immediately after the edits. The affected logic owners are `core/GameTimer.ts`, `evader/EvaderGame.ts`, `reflex/ReflexGame.ts`, `memory-matrix/MemoryMatrixGame.ts`, and `circuit-hacker/game.ts`.
 
-Touched production logic:
-
-- `src/lib/games/core/GameTimer.ts`
-- `src/lib/games/evader/EvaderGame.ts`
-- `src/lib/games/reflex/ReflexGame.ts`
-- `src/lib/games/memory-matrix/MemoryMatrixGame.ts`
-- `src/lib/games/circuit-hacker/game.ts`
-
-No timing cadence, pause/resume behavior, cleanup behavior, or timer ownership changes.
+Do not inject clocks or change timing, cleanup, pause/resume, or gameplay cadence.
 
 ### ESLint boundary
 
@@ -153,26 +138,9 @@ Do not ban `globalThis`: it is the portable host-global API needed by timers.
 
 ## Ice Slide environment dependency
 
-`createIceSlideExpeditionStage()` is deterministic game logic, but its fallback diagnostic currently reads Astro/Vite environment state.
+`ice-slide/generator.ts` currently emits a development-only fallback `console.warn` behind `import.meta.env.DEV`. The pure generator already returns `usedFallback` and `rejectionCounts`, and the expedition validator reports fallback diagnostics from those fields. Remove **only** the redundant DEV-gated warning and its environment-dependent test expectations.
 
-Move the environment read to `ice-slide/init.ts` and thread a plain boolean through the existing pure generation path:
-
-```ts
-createIceSlideExpeditionRunDefinition(seed, {
-    warnOnGenerationFallback: import.meta.env.DEV,
-})
-```
-
-The run builder forwards that boolean to each generated stage; the generator emits its existing sanitized warning only when the boolean is true.
-
-Rules:
-
-- default is `false` for direct production/test/script calls;
-- generated rows, objectives, signatures, run keys, RNG forks, attempt counts, and fallback selection must be identical regardless of the flag;
-- keep the current warning payload and hashed seed; never log the raw seed;
-- do not inject a logger or create an environment service.
-
-This keeps the generator portable while leaving environment knowledge in the web initializer.
+Keep fallback selection, rejection counters, generated stages, RNG and hashes unchanged. Do not thread an environment boolean through `generator.ts`, `expedition.ts`, and `init.ts`; do not add an environment service.
 
 ## Score transport injection
 
@@ -195,35 +163,15 @@ Everything after submission remains unchanged:
 - success/error callbacks;
 - public error-code handling.
 
-### `ScoreManager`
+### `ScoreManager` and `BaseGame`
 
-Add `submitScore?: ScoreSubmitter` to `ScoreManagerConfig` and remove its direct `fetch('/api/scores')` branch.
+Add `submitScore?: ScoreSubmitter` to both `BaseGameConfig` and `ScoreManagerConfig`. `BaseGame` forwards `config.submitScore` when constructing the manager, so a subclass can accept `new TetrisGame({ submitScore })` without edits to every game.
 
-`ScoreManager` uses the injected/default submitter for the achievement-enabled path and forwards the same submitter through `saveGameScore()` for the non-integration path. The current BaseGame stale-run policy stays intact: a completed score is still submitted, while save-derived reward payload is suppressed if the run becomes stale while the request is in flight.
+`ScoreManager.saveFinalScore()` has one production caller, `BaseGame.end()`. Replace its two branches with one `this.submitScore({ gameId, score, gameData })` call returning typed `ScoreSubmissionResult` (and the existing caught-error `success: false` behavior). Delete the unused `achievementIntegration` flag from both configs and all game config literals/types; let typecheck identify references. Remove the unused `isStale` argument from `saveFinalScore()`: `BaseGame.end()` remains responsible for suppressing stale reward payload **after** persistence, while local end events still fire before the await.
 
-Use `ScoreSubmissionResult` as the typed transport result rather than reconstructing a second response shape. This also removes the current untyped-JSON seam in the direct-fetch branch. Explicitly fix the existing declared-type mismatch: `ScoreManager.saveFinalScore()` currently promises `newAchievements?: string[]` although the API returns `AchievementNotification[]` objects. Update the declared return type and inspect the emitted `BaseGame.end()` reward payload and its listeners for typecheck-only fixes; no runtime payload conversion or behavior change.
+Remove the unused `saveGameScore` import from core `ScoreManager`. Fix its incorrect declared `newAchievements?: string[]` to the API's actual `AchievementNotification[]` through `ScoreSubmissionResult` without modifying runtime payloads. Replace the structural duplicate `ChallengeUpdates` in `core/types.ts` with a type alias to `NonNullable<ScoreSubmissionResult['challengeUpdates']>`; audit `BaseGame.end()` and its listeners with typecheck.
 
-Do **not** add an API-client class or teach `ScoreManager` about base URLs, cookies, headers, iOS, or Android.
-
-### Handle-style games
-
-Add only a local optional dependency bag to each initializer:
-
-```ts
-interface <Game>Dependencies {
-    submitScore?: ScoreSubmitter
-}
-```
-
-Affected initializers:
-
-- `circuit-hacker/init.ts`
-- `satellite-sync/init.ts`
-- `ice-slide/init.ts`
-
-Each initializer passes `dependencies.submitScore` through `SaveScoreOptions`. All current callback ordering, run guards, score context, retry semantics, overlays, and achievement events stay unchanged.
-
-The default web call sites pass no dependencies and therefore keep using the existing web transport.
+The three handle-game **web** initializers do not change. They retain their `saveGameScore()` and `createRunGuard` behavior. No API-client class, DI framework, mobile initializer, or new per-game constructor is needed.
 
 ## Platform request contract
 
@@ -272,23 +220,21 @@ Update:
 
 ### Live additive schema upgrade
 
-Extend `src/lib/server/db/game-score-context.ts` rather than creating a second migrator:
+Extend `src/lib/server/db/game-score-context.ts` with inspection and concurrent-safe addition of `platform TEXT NOT NULL DEFAULT 'web'`; preserve the cached/single-flight ensure and existing four-column context-completeness semantics.
 
-- inspect whether `platform` exists;
-- add `platform TEXT NOT NULL DEFAULT 'web'` with the same concurrent-migrator tolerance as the existing columns;
-- include platform readiness in the cache/refresh decision so a process with complete context columns but an old table still upgrades once;
-- keep `hasCompleteGameScoresContextColumns()` scoped to the four contextual columns;
-- make `ensureGameScoresContextSchema()` inspect/add `platform` even when the four context columns are already present, and retain the existing cache/single-flight and concurrent-migrator behavior.
+Do **not** call the schema ensure unconditionally from `saveGameScore()`. It runs only for contextual scores (as today) and explicit non-`web` platforms. A failed platform upgrade must not turn a context-ready web score into `SCORE_CONTEXT_UNAVAILABLE`, nor affect an unscoped web insert. An explicit mobile-platform insert must fail with `SCORE_WRITE_FAILED` rather than silently mislabeling itself as `web`.
 
-Call `ensureGameScoresContextSchema()` unconditionally before *all* score inserts; preserve the existing `SCORE_CONTEXT_UNAVAILABLE` guard only when a contextual score has incomplete/unknown context columns. Do **not** add a separate platform-ready check. Always include `platform` in the insert: if the migration failed and the column is absent, SQLite rejects the write, which is handled as the generic `SCORE_WRITE_FAILED` error. Never emit `SCORE_CONTEXT_UNAVAILABLE` for a platform-only migration failure, and never silently insert an untagged row.
+The `game_scores.platform` field is `ColumnType<string, string | undefined, string>`, allowing the existing single insert site to omit it for web (DB default) and set it for mobile. No platform index, CHECK constraint, second DB write function, or platform-ready public code.
 
 ### Single write path
 
-Keep `saveGameScoreWithAchievements()` delegating exactly once to `saveGameScore()`.
+Keep `saveGameScoreWithAchievements()` delegating exactly once to `saveGameScore()`. The API passes its validated/defaulted platform through the existing write path.
 
-The API passes the validated platform down that path and `saveGameScore()` adds it to the existing `NewGameScore` object. Do not add a mobile-specific insert function or duplicate the stats/favorite-game side effects.
+- `web`: omit `platform` from the insert object; do not start a schema upgrade on an otherwise-unscoped score.
+- `ios`/`android`: call the existing additive ensure and insert an explicit `platform` only after it is available; fail with `SCORE_WRITE_FAILED` if upgrade/insertion fails.
+- Any score with `context`: preserve the existing context-availability guard, including `SCORE_CONTEXT_UNAVAILABLE` only for incomplete contextual columns.
 
-Existing leaderboard/history/best-score reads require no platform predicate in HPA-444.
+All existing stats, achievements, challenges, best scores, leaderboards, and score acceptance remain unchanged.
 
 ## Error and lifecycle behavior
 
@@ -301,7 +247,7 @@ Keep these invariants:
 - BaseGame still publishes local completion before awaiting persistence;
 - Circuit Hacker, Satellite Sync, and Ice Slide still surface score errors through their current page callbacks;
 - Ice Slide keeps Daily/Expedition context exactly as today;
-- the server continues to return `SCORE_CONTEXT_UNAVAILABLE` only for the existing contextual-schema failure case; platform-column insert failures use the generic score-write error path;
+- the server continues to return `SCORE_CONTEXT_UNAVAILABLE` only for incomplete contextual-schema cases; explicit iOS/Android platform upgrade/insert failures use `SCORE_WRITE_FAILED`; unscoped web scores bypass that migration;
 - platform metadata does not affect score acceptance, score value, achievements, challenges, or ranking.
 
 ## Test strategy
@@ -314,32 +260,13 @@ Keep these invariants:
 
 ### Ice Slide
 
-Update generator/expedition tests so fallback diagnostics are controlled by an explicit boolean rather than `vi.stubEnv`:
-
-- default/false does not warn;
-- true warns with the same sanitized payload;
-- true vs false yields the same generated stage/run.
-
-Initializer coverage verifies the web boundary supplies `import.meta.env.DEV`; no other game-logic file may read it.
+Remove the `import.meta.env.DEV`-gated generator fallback warning, and replace only its environment-dependent test with assertions on the existing `usedFallback` and `rejectionCounts` return fields. Keep all generator/expedition tests and the validator passing with exactly the same deterministic outputs.
 
 ### Score transport
 
-`scoreService.test.ts`:
+`scoreService.test.ts`: injected submitter receives exact payload; default fetch, stale-run suppression, callbacks and notifications stay unchanged.
 
-- injected submitter receives the exact `ScoreData` object;
-- default path still reaches the existing fetch transport;
-- stale suppression and callback/notification behavior are unchanged.
-
-`core.test.ts`:
-
-- achievement-enabled `ScoreManager` uses an injected submitter and never requires global fetch;
-- non-integration `ScoreManager` forwards the same submitter to `saveGameScore()`;
-- success/failure/reward payload behavior stays typed and unchanged.
-
-Handle-game initializer tests:
-
-- Circuit Hacker, Satellite Sync, and Ice Slide forward an injected submitter;
-- their existing stale-run and Ice Slide context assertions remain green.
+`core.test.ts`: assert the injected submitter is reachable through a representative `BaseGame` game, called exactly once without a global fetch mock; verify failure result and stale-reward suppression. Assert the single `ScoreManager` path returns the typed `newAchievements` object array. Delete obsolete tests of the removed no-integration branch. Current Circuit Hacker, Satellite Sync and Ice Slide initializer tests remain as regression coverage, without new dependency bags.
 
 ### Platform
 
@@ -359,8 +286,9 @@ DB/schema tests:
 
 - both schema DDL files include `platform` with `web` default;
 - lazy migration adds platform to an old `game_scores` table and existing rows read back `web`;
-- if adding platform fails, an unscoped insert reports a generic score-write error rather than `SCORE_CONTEXT_UNAVAILABLE`;
-- direct score persistence stores the passed platform;
+- an unscoped web score inserts successfully on an old table even if platform migration would fail, with no pre-insert platform upgrade;
+- existing contextual web scores retain their behavior if only platform migration fails;
+- an explicit `ios` / `android` score forces a migration and stores its value (or fails generically), never falling back to `web`;
 - existing context/schema tests remain green.
 
 ### Final gate
@@ -384,10 +312,10 @@ bun run validate:ice-slide-expedition
 
 HPA-444 is complete when:
 
-- intended shared game logic has no direct `window`, `document`, `import.meta.env`, or hard-coded API URL dependency;
+- intended shared game logic has no direct `window`, `document`, `import.meta.env`, or hard-coded API URL dependency; the known DOM-only `shared/utils.ts:isEditableTarget()` helper is tracked as an HPA-447 extraction caveat;
 - the lint boundary prevents those browser globals from returning to game logic;
 - score persistence can be driven by an injected `ScoreSubmitter` while web defaults behave exactly as before;
-- Circuit Hacker, Satellite Sync, and Ice Slide forward that dependency without changing their blessed handle architecture;
-- `/api/scores` validates/defaults platform and every persisted score has a platform value;
+- BaseGame forwards the injected submitter to its ScoreManager; browser-owned Circuit Hacker, Satellite Sync, and Ice Slide initializers remain unchanged;
+- `/api/scores` validates/defaults platform; explicit mobile scores persist their value, and web scores are labeled `web` by the column default (including historical rows after migration);
 - no platform-specific product behavior or package/mobile architecture is introduced early;
 - targeted tests, full unit tests, typecheck, lint, Ice Slide validation, and Playwright all pass.
