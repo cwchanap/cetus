@@ -18,24 +18,38 @@ const CASES = [
         column: 'mode',
         alterSql: 'ALTER TABLE game_scores ADD COLUMN mode TEXT',
         alterRegex: /add\s+column\s+"?mode"?/i,
+        // Nullable additive columns leave pre-existing rows with NULL.
+        expectedHistoricalValue: null as string | null,
     },
     {
         capability: 'competitionKey' as const,
         column: 'competition_key',
         alterSql: 'ALTER TABLE game_scores ADD COLUMN competition_key TEXT',
         alterRegex: /add\s+column\s+"?competition_key"?/i,
+        expectedHistoricalValue: null as string | null,
     },
     {
         capability: 'rulesetVersion' as const,
         column: 'ruleset_version',
         alterSql: 'ALTER TABLE game_scores ADD COLUMN ruleset_version INTEGER',
         alterRegex: /add\s+column\s+"?ruleset_version"?/i,
+        expectedHistoricalValue: null as string | null,
     },
     {
         capability: 'gameDataJson' as const,
         column: 'game_data_json',
         alterSql: 'ALTER TABLE game_scores ADD COLUMN game_data_json TEXT',
         alterRegex: /add\s+column\s+"?game_data_json"?/i,
+        expectedHistoricalValue: null as string | null,
+    },
+    {
+        capability: 'platform' as const,
+        column: 'platform',
+        alterSql:
+            "ALTER TABLE game_scores ADD COLUMN platform TEXT NOT NULL DEFAULT 'web'",
+        alterRegex: /add\s+column\s+"?platform"?/i,
+        // platform is NOT NULL DEFAULT 'web': historical rows must read web.
+        expectedHistoricalValue: 'web' as string | null,
     },
 ]
 
@@ -48,7 +62,7 @@ beforeEach(async () => {
 
 describe.each(CASES)(
     'ensureGameScoresContextSchema - concurrent migrator ($capability)',
-    ({ capability, column, alterSql, alterRegex }) => {
+    ({ capability, column, alterSql, alterRegex, expectedHistoricalValue }) => {
         it(`tolerates another process adding ${column} between inspection and ALTER`, async () => {
             const { sql } = await import('kysely')
             const { db } = await import('@/lib/server/db/client')
@@ -115,7 +129,8 @@ describe.each(CASES)(
             )
 
             // The row written before migration must be preserved, with the
-            // concurrently-added column defaulting to null.
+            // concurrently-added column defaulting per its DDL (NULL for the
+            // contextual columns, 'web' for the NOT NULL DEFAULT platform).
             const rows = await sql<{
                 score: number
             }>`SELECT score, ${sql.raw(column)} AS col FROM game_scores`.execute(
@@ -123,7 +138,9 @@ describe.each(CASES)(
             )
             expect(rows.rows).toHaveLength(1)
             expect(rows.rows[0].score).toBe(123)
-            expect((rows.rows[0] as Record<string, unknown>).col).toBeNull()
+            expect((rows.rows[0] as Record<string, unknown>).col).toBe(
+                expectedHistoricalValue
+            )
 
             expect(injectedConcurrentAdd).toBe(true)
             expect(state.capabilities[capability]).toBe(true)

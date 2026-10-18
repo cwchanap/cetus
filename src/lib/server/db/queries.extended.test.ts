@@ -89,6 +89,7 @@ const COMPLETE_CAPABILITIES = {
         competitionKey: true,
         rulesetVersion: true,
         gameDataJson: true,
+        platform: true,
         scopedIndex: true,
     },
 } as const

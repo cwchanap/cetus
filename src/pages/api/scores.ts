@@ -34,7 +34,7 @@ export const POST: APIRoute = async ({ request }) => {
             return badRequestResponse(validation.error)
         }
 
-        const { gameId, score, gameData, context } = validation.data
+        const { gameId, score, gameData, context, platform } = validation.data
         if (!isGameId(gameId)) {
             return badRequestResponse('Invalid game ID')
         }
@@ -75,7 +75,8 @@ export const POST: APIRoute = async ({ request }) => {
             validatedGameId,
             score,
             gameData,
-            persistedContext
+            persistedContext,
+            platform
         )
 
         if (!result.success) {

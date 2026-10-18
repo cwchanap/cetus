@@ -6,7 +6,10 @@ import type { GameType } from '@/lib/server/db/types'
 import { type AchievementNotification } from '@/lib/achievements'
 import { getGameById, type GameID } from '@/lib/games'
 import type { GameData } from '@/lib/games/shared/types'
-import type { ScoreSubmissionContext } from '@/lib/server/validations'
+import type {
+    ScorePlatform,
+    ScoreSubmissionContext,
+} from '@/lib/server/validations'
 
 export type ScoreSubmissionPublicErrorCode =
     'SCORE_CONTEXT_UNAVAILABLE' | 'UNAUTHENTICATED' | 'NETWORK_ERROR'
@@ -35,6 +38,7 @@ export interface ScoreData {
     score: number
     gameData?: GameData | Record<string, unknown>
     context?: ScoreSubmissionContext
+    platform?: ScorePlatform
 }
 
 /**

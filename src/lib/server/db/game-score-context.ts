@@ -27,6 +27,8 @@ export interface GameScoresContextCapabilities {
     competitionKey: boolean
     rulesetVersion: boolean
     gameDataJson: boolean
+    /** Platform metadata column (NOT NULL DEFAULT 'web'), additive only. */
+    platform: boolean
     scopedIndex: boolean
 }
 
@@ -78,6 +80,7 @@ async function inspectCapabilities(): Promise<GameScoresContextCapabilities> {
         competitionKey: names.has('competition_key'),
         rulesetVersion: names.has('ruleset_version'),
         gameDataJson: names.has('game_data_json'),
+        platform: names.has('platform'),
         scopedIndex: indexes.rows.some(row => row.name === INDEX_NAME),
     }
 }
@@ -111,6 +114,18 @@ const MISSING_COLUMN_DEFINITIONS = [
         add: () =>
             sql`
                 ALTER TABLE game_scores ADD COLUMN game_data_json TEXT
+            `.execute(db),
+    },
+    {
+        // Kept LAST: contextual columns must all be in place before the
+        // unrelated platform column is attempted, so a platform-only failure
+        // can never block contextual web writes (they stay 'web'-labeled by
+        // the DDL default and never reference the column).
+        capability: 'platform' as const,
+        columnName: 'platform',
+        add: () =>
+            sql`
+                ALTER TABLE game_scores ADD COLUMN platform TEXT NOT NULL DEFAULT 'web'
             `.execute(db),
     },
 ]
@@ -194,7 +209,10 @@ async function inspectAndMigrate(): Promise<GameScoresContextState> {
         let capabilities = await inspectCapabilities()
         cachedState = { known: true, capabilities }
 
-        if (!hasCompleteGameScoresContextColumns(capabilities)) {
+        if (
+            !hasCompleteGameScoresContextColumns(capabilities) ||
+            !capabilities.platform
+        ) {
             await addMissingColumns(capabilities)
             capabilities = await inspectCapabilities()
             cachedState = { known: true, capabilities }
@@ -222,13 +240,19 @@ async function inspectAndMigrate(): Promise<GameScoresContextState> {
     }
 }
 
-export function ensureGameScoresContextSchema(): Promise<GameScoresContextState> {
+export function ensureGameScoresContextSchema(
+    options: { requirePlatform?: boolean } = {}
+): Promise<GameScoresContextState> {
     const cachedCapabilities =
         cachedState?.known === true ? cachedState.capabilities : null
 
     if (
         cachedCapabilities &&
         hasCompleteGameScoresContextColumns(cachedCapabilities) &&
+        // A cached snapshot without platform is not "migrated" for callers
+        // that need the column: they must re-run the (idempotent) migration
+        // instead of taking the fast path and failing on insert.
+        (!options.requirePlatform || cachedCapabilities.platform) &&
         (cachedCapabilities.scopedIndex || Date.now() < nextIndexRetryAt)
     ) {
         return Promise.resolve(cachedState as GameScoresContextState)

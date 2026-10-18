@@ -116,8 +116,68 @@ describe('POST /api/scores', () => {
             'tetris',
             5000,
             undefined,
-            undefined
+            undefined,
+            'web'
         )
+    })
+
+    it('forwards an explicit platform to persistence', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
+        const { getGameById } = await import('@/lib/games')
+        vi.mocked(getGameById).mockReturnValue(mockGame)
+        vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
+            success: true,
+            newAchievements: [],
+        })
+
+        const request = new Request('http://localhost:4321/api/scores', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                gameId: 'tetris',
+                score: 5000,
+                platform: 'ios',
+            }),
+        })
+
+        const response = await POST({ request } as any)
+
+        expect(response.status).toBe(200)
+        expect(saveGameScoreWithAchievements).toHaveBeenCalledWith(
+            'user-123',
+            'tetris',
+            5000,
+            undefined,
+            undefined,
+            'ios'
+        )
+    })
+
+    it('returns 400 for an unsupported platform and never reaches persistence', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
+        const { getGameById } = await import('@/lib/games')
+        vi.mocked(getGameById).mockReturnValue(mockGame)
+
+        const request = new Request('http://localhost:4321/api/scores', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                gameId: 'tetris',
+                score: 5000,
+                platform: 'windows',
+            }),
+        })
+
+        const response = await POST({ request } as any)
+        const result = await response.json()
+
+        expect(response.status).toBe(400)
+        expect(saveGameScoreWithAchievements).not.toHaveBeenCalled()
+        expect(result.error).toBeDefined()
     })
 
     it('should return 401 for unauthenticated user', async () => {
@@ -284,7 +344,8 @@ describe('POST /api/scores', () => {
             'tetris',
             5000,
             undefined,
-            undefined
+            undefined,
+            'web'
         )
     })
 
@@ -500,7 +561,8 @@ describe('POST /api/scores', () => {
                 competitionKey: 'daily:route',
                 rulesetVersion: 1,
                 gameDataJson: '{"elapsedSeconds":12,"totalMoves":34}',
-            }
+            },
+            'web'
         )
         expect(updateChallengeProgress).toHaveBeenCalledWith(
             'user-123',
@@ -611,7 +673,8 @@ describe('POST /api/scores', () => {
                     mode: 'daily',
                     competitionKey: 'ice-slide:daily:2026-08-12:g1:r1',
                     rulesetVersion: 1,
-                })
+                }),
+                'web'
             )
         })
 

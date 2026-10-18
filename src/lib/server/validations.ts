@@ -30,6 +30,11 @@ export const scoreContextSchema = z
 
 export type ScoreSubmissionContext = z.infer<typeof scoreContextSchema>
 
+/** Platform a score was submitted from; defaults to 'web' when omitted. */
+export const scorePlatformSchema = z.enum(['web', 'ios', 'android'])
+
+export type ScorePlatform = z.infer<typeof scorePlatformSchema>
+
 function addContextualGameDataIssues(
     data: Record<string, unknown>,
     ctx: z.RefinementCtx
@@ -73,6 +78,7 @@ export const scoreSubmissionSchema = z
             }),
         gameData: z.record(z.string(), z.unknown()).optional(),
         context: scoreContextSchema.optional(),
+        platform: scorePlatformSchema.optional().default('web'),
     })
     .superRefine((data, ctx) => {
         if (data.context && data.gameData) {

@@ -718,3 +718,75 @@ describe('Contextual write side effects (integration)', () => {
         ])
     })
 })
+
+// ─── Platform metadata (integration) ─────────────────────────────────────────
+
+describe('platform metadata (integration)', () => {
+    it('persists web, ios, and android platforms and defaults omitted rows to web', async () => {
+        await seedUser('p-web', 'Web Player')
+        await seedUser('p-ios', 'iOS Player')
+        await seedUser('p-android', 'Android Player')
+
+        // Unscoped web write: omits the platform column entirely.
+        await expect(saveGameScore('p-web', 'tetris', 100)).resolves.toEqual({
+            success: true,
+        })
+        // Non-web writes lazily add the platform column first.
+        await expect(
+            saveGameScore('p-ios', 'tetris', 200, undefined, 'ios')
+        ).resolves.toEqual({ success: true })
+        await expect(
+            saveGameScore('p-android', 'tetris', 300, undefined, 'android')
+        ).resolves.toEqual({ success: true })
+
+        // A row written after migration that omits platform reads the DDL
+        // default, matching historical rows upgraded in place.
+        await sql`
+            INSERT INTO game_scores (user_id, game_id, score)
+            VALUES ('p-web', 'tetris', 50)
+        `.execute(db)
+
+        const rows = await sql<{
+            user_id: string
+            score: number
+            platform: string
+        }>`
+            SELECT user_id, score, platform
+            FROM game_scores
+            ORDER BY user_id, score
+        `.execute(db)
+        expect(rows.rows).toEqual([
+            { user_id: 'p-android', score: 300, platform: 'android' },
+            { user_id: 'p-ios', score: 200, platform: 'ios' },
+            { user_id: 'p-web', score: 50, platform: 'web' },
+            { user_id: 'p-web', score: 100, platform: 'web' },
+        ])
+    })
+
+    it('keeps user-stats delegation unchanged for non-web platform writes', async () => {
+        await seedUser('p-stats', 'Stats Player')
+        await seedUserStats('p-stats')
+
+        await expect(
+            saveGameScore('p-stats', 'snake', 400, undefined, 'ios')
+        ).resolves.toEqual({ success: true })
+
+        const stats = await sql<{
+            total_games_played: number
+            total_score: number
+            favorite_game: string | null
+        }>`
+            SELECT total_games_played, total_score, favorite_game
+            FROM user_stats
+            WHERE user_id = 'p-stats'
+        `.execute(db)
+        // saveGameScore calls getUserStats (distinct game count = 1) then
+        // upserts total_games_played = 1 + 1 = 2 — same delegation as web
+        // writes (see the contextual write side effects test above).
+        expect(stats.rows[0]).toEqual({
+            total_games_played: 2,
+            total_score: 400,
+            favorite_game: 'snake',
+        })
+    })
+})

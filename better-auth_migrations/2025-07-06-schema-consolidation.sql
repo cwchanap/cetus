@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS "game_scores" (
     "competition_key" TEXT,
     "ruleset_version" INTEGER,
     "game_data_json" TEXT,
+    "platform" TEXT NOT NULL DEFAULT 'web',
     "created_at" DATE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
