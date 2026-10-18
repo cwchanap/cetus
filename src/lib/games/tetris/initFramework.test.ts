@@ -245,19 +245,19 @@ describe('initTetrisGameFramework', () => {
     it('exposes the game, renderer, and run controls', async () => {
         result = await initTetrisGameFramework()
         const game = lastInstance()
-        expect(result.game).toBeDefined()
-        expect(result.renderer).toBeDefined()
-        expect(result.getState()).toBe(game.state)
+        expect(result!.game).toBeDefined()
+        expect(result!.renderer).toBeDefined()
+        expect(result!.getState()).toBe(game.state)
 
-        await result.endGame()
+        await result!.endGame()
         expect(game.state).toBeDefined()
 
-        result.restart()
+        result!.restart()
         expect(
             vi.mocked(TetrisGame).mock.results.at(-1)!.value.reset
         ).toHaveBeenCalled()
 
-        result.setPreferences(false, true)
+        result!.setPreferences(false, true)
         expect(
             vi.mocked(TetrisRenderer).mock.results[0].value.setPreferences
         ).toHaveBeenCalledWith(false, true)
@@ -266,7 +266,7 @@ describe('initTetrisGameFramework', () => {
     it('cleans up game, renderer, and listeners', async () => {
         result = await initTetrisGameFramework()
         const game = vi.mocked(TetrisGame).mock.results[0].value
-        result.cleanup()
+        result!.cleanup()
         expect(game.off).toHaveBeenCalledWith('end', expect.any(Function))
         expect(game.destroy).toHaveBeenCalled()
         expect(
@@ -278,17 +278,17 @@ describe('initTetrisGameFramework', () => {
     it('forwards onEnd to the game-over overlay', async () => {
         result = await initTetrisGameFramework()
         const { callbacks } = lastInstance().callbacksRef
-        callbacks.onEnd(4200, {
+        callbacks.onEnd!(4200, {
             level: 7,
             lines: 42,
             pieces: 100,
             tetrises: 4,
         } as never)
         const overlay = document.getElementById('game-over-overlay')
-        expect(overlay.classList.contains('hidden')).toBe(false)
-        expect(document.getElementById('final-score').textContent).toBe('4200')
-        expect(document.getElementById('final-tetrises').textContent).toBe('4')
-        expect(document.getElementById('start-btn').style.display).toBe(
+        expect(overlay!.classList.contains('hidden')).toBe(false)
+        expect(document.getElementById('final-score')!.textContent).toBe('4200')
+        expect(document.getElementById('final-tetrises')!.textContent).toBe('4')
+        expect(document.getElementById('start-btn')!.style.display).toBe(
             'inline-flex'
         )
     })
@@ -298,25 +298,25 @@ describe('initTetrisGameFramework', () => {
         const game = vi.mocked(TetrisGame).mock.results[0].value
         const instance = lastInstance()
 
-        document.getElementById('start-btn').click()
+        document.getElementById('start-btn')!.click()
         expect(game.start).toHaveBeenCalled()
 
-        document.getElementById('end-btn').click()
+        document.getElementById('end-btn')!.click()
         expect(game.end).toHaveBeenCalled()
 
         instance.state.gameStarted = true
-        document.getElementById('pause-btn').click()
+        document.getElementById('pause-btn')!.click()
         expect(game.pause).toHaveBeenCalled()
 
         instance.state.isPaused = true
-        document.getElementById('pause-btn').click()
+        document.getElementById('pause-btn')!.click()
         expect(game.resume).toHaveBeenCalled()
 
-        document.getElementById('reset-btn').click()
+        document.getElementById('reset-btn')!.click()
         expect(game.reset).toHaveBeenCalled()
         expect(game.start).toHaveBeenCalledTimes(2)
 
-        document.getElementById('play-again-btn').click()
+        document.getElementById('play-again-btn')!.click()
         expect(game.reset).toHaveBeenCalledTimes(2)
     })
 
@@ -351,7 +351,7 @@ describe('initTetrisGameFramework', () => {
             [' ', game.hardDrop],
             ['c', game.holdPiece],
         ] as const) {
-            canvas.dispatchEvent(
+            canvas!.dispatchEvent(
                 new KeyboardEvent('keydown', {
                     key,
                     bubbles: true,
