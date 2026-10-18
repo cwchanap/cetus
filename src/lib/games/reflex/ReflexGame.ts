@@ -40,7 +40,7 @@ export class ReflexGame extends BaseGame<
     ReflexConfig,
     ReflexStats
 > {
-    private spawnTimerId: number | null = null
+    private spawnTimerId: ReturnType<typeof setInterval> | null = null
 
     constructor(
         config: Partial<ReflexConfig> = {},
@@ -351,7 +351,7 @@ export class ReflexGame extends BaseGame<
             return
         }
 
-        this.spawnTimerId = window.setInterval(() => {
+        this.spawnTimerId = globalThis.setInterval(() => {
             if (
                 !this.state.isActive ||
                 this.state.isPaused ||

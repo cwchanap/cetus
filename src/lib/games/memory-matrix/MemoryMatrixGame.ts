@@ -36,7 +36,7 @@ export class MemoryMatrixGame extends BaseGame<
     MemoryMatrixConfig,
     MemoryMatrixStats
 > {
-    private matchTimeoutId: number | null = null
+    private matchTimeoutId: ReturnType<typeof setTimeout> | null = null
 
     constructor(
         config: Partial<MemoryMatrixConfig> = {},
@@ -175,7 +175,7 @@ export class MemoryMatrixGame extends BaseGame<
         if (this.state.flippedCards.length === 2) {
             this.state.isProcessing = true
             this.state.totalAttempts++
-            this.matchTimeoutId = window.setTimeout(() => {
+            this.matchTimeoutId = globalThis.setTimeout(() => {
                 this.checkForMatch()
             }, this.config.flipDelay)
         }

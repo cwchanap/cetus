@@ -21,7 +21,7 @@ export class CircuitHackerGame {
     private rng: () => number
     private state: CircuitHackerState
     private puzzle: GeneratedPuzzle | null = null
-    private timer: number | null = null
+    private timer: ReturnType<typeof setInterval> | null = null
 
     constructor(
         config: CircuitHackerConfig,
@@ -107,7 +107,7 @@ export class CircuitHackerGame {
         this.callbacks.onGameStart()
         this.callbacks.onTimeUpdate(this.state.timeRemaining)
 
-        this.timer = window.setInterval(() => {
+        this.timer = globalThis.setInterval(() => {
             if (!this.state.isGameActive) {
                 return
             }

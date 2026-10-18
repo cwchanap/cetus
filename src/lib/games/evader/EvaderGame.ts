@@ -37,7 +37,7 @@ export class EvaderGame extends BaseGame<
     EvaderConfig,
     EvaderStats
 > {
-    private spawnTimerId: number | null = null
+    private spawnTimerId: ReturnType<typeof setInterval> | null = null
     // Track keyboard and touch inputs separately so releasing one source
     // (e.g. the D-pad) doesn't drop a key still physically held by the other
     // (e.g. the keyboard). Both feed getActiveDirections() via union.
@@ -326,7 +326,7 @@ export class EvaderGame extends BaseGame<
             return
         }
 
-        this.spawnTimerId = window.setInterval(() => {
+        this.spawnTimerId = globalThis.setInterval(() => {
             if (
                 !this.state.isActive ||
                 this.state.isPaused ||
