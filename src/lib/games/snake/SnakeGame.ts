@@ -24,7 +24,6 @@ import {
 export const DEFAULT_SNAKE_CONFIG: SnakeConfig = {
     // BaseGameConfig
     duration: 60,
-    achievementIntegration: true,
     pausable: true,
     resettable: true,
     // SnakeConfig

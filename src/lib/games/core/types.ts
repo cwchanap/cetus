@@ -1,5 +1,10 @@
 // Core types for the unified game framework
 
+import type {
+    ScoreSubmissionResult,
+    ScoreSubmitter,
+} from '@/lib/services/scoreService'
+
 export interface BaseGameState {
     score: number
     timeRemaining: number
@@ -11,9 +16,10 @@ export interface BaseGameState {
 
 export interface BaseGameConfig {
     duration: number // in seconds
-    achievementIntegration: boolean
     pausable: boolean
     resettable: boolean
+    /** Transport override for the end-of-run score save; defaults to scoreService. */
+    submitScore?: ScoreSubmitter
 }
 
 export interface ScoringConfig {
@@ -39,18 +45,9 @@ export interface BaseGameStats {
     gameCompleted: boolean
 }
 
-export interface ChallengeUpdates {
-    completedChallenges: Array<{
-        id: string
-        name: string
-        description: string
-        icon: string
-        xpReward: number
-    }>
-    xpEarned: number
-    levelUp: boolean
-    newLevel?: number
-}
+export type ChallengeUpdates = NonNullable<
+    ScoreSubmissionResult['challengeUpdates']
+>
 
 // Event system types
 export type GameEventType =

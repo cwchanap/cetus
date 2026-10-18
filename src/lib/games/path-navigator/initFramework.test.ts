@@ -4,6 +4,10 @@ import { initPathNavigatorGameFramework } from './initFramework'
 // Mock score service (used by BaseGame saveFinalScore fallback path)
 vi.mock('@/lib/services/scoreService', () => ({
     saveGameScore: vi.fn().mockResolvedValue({ success: true }),
+    submitScore: vi.fn().mockResolvedValue({
+        success: true,
+        newAchievements: [],
+    }),
 }))
 
 // Mock pixi.js so the renderer can initialize in jsdom

@@ -18,7 +18,6 @@ function createConfig(
         minMatch: number
         pointsPerJewel: number
         duration: number
-        achievementIntegration: boolean
         pausable: boolean
         resettable: boolean
     }> = {}
@@ -37,7 +36,6 @@ function createConfig(
         minMatch: 3,
         pointsPerJewel: 10,
         duration: 60,
-        achievementIntegration: false,
         pausable: true,
         resettable: true,
         ...overrides,
@@ -469,7 +467,6 @@ describe('BejeweledGame ?? JEWEL_TYPES fallback (lines 57, 97, 246)', () => {
             minMatch: 3,
             pointsPerJewel: 10,
             duration: 60,
-            achievementIntegration: false,
             pausable: true,
             resettable: true,
         }
@@ -495,7 +492,6 @@ describe('BejeweledGame ?? JEWEL_TYPES fallback (lines 57, 97, 246)', () => {
             minMatch: 3,
             pointsPerJewel: 10,
             duration: 60,
-            achievementIntegration: false,
             pausable: true,
             resettable: true,
         }

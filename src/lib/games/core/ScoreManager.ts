@@ -1,12 +1,18 @@
 import { GameEventEmitter } from './EventEmitter'
-import { saveGameScore } from '@/lib/services/scoreService'
+import {
+    submitScore,
+    type ScoreData,
+    type ScoreSubmissionResult,
+    type ScoreSubmitter,
+} from '@/lib/services/scoreService'
 import type { GameID } from '@/lib/games'
-import type { ScoringConfig, ChallengeUpdates } from './types'
+import type { ScoringConfig } from './types'
 
 export interface ScoreManagerConfig {
     gameId: GameID
     scoringConfig: ScoringConfig
-    achievementIntegration: boolean
+    /** Transport override; defaults to scoreService's browser transport. */
+    submitScore?: ScoreSubmitter
     onScoreUpdate?: (score: number) => void
 }
 
@@ -118,63 +124,25 @@ export class ScoreManager extends GameEventEmitter {
     }
 
     /**
-     * Save final score (with achievement integration if enabled).
+     * Save final score.
      * Callers that already captured the run's score should pass it via
      * `score`; otherwise the current score is read at call time.
+     * Post-request reward suppression is owned by BaseGame.end().
      */
     async saveFinalScore(
         gameData?: Record<string, unknown>,
-        isStale?: () => boolean,
         score: number = this.currentScore
-    ): Promise<{
-        success: boolean
-        newAchievements?: string[]
-        challengeUpdates?: ChallengeUpdates
-    }> {
+    ): Promise<ScoreSubmissionResult> {
         try {
-            if (this.config.achievementIntegration) {
-                // Use the enhanced save method that checks achievements.
-                // Note: isStale is intentionally not forwarded here. This branch
-                // always POSTs the score; staleness is guarded by the caller
-                // (BaseGame.end suppresses the save-derived payload —
-                // newAchievements and challengeUpdates — when the run is
-                // stale). The non-integration branch forwards isStale to
-                // saveGameScore because its callbacks (onSuccess/onError) are
-                // the only suppression point.
-                const response = await fetch('/api/scores', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        gameId: this.config.gameId,
-                        score,
-                        gameData,
-                    }),
-                })
-
-                if (response.ok) {
-                    const result = await response.json()
-                    return {
-                        success: true,
-                        newAchievements: result.newAchievements,
-                        challengeUpdates: result.challengeUpdates,
-                    }
-                } else {
-                    return { success: false }
-                }
-            } else {
-                // Use the simple save method
-                await saveGameScore(
-                    this.config.gameId,
-                    score,
-                    undefined,
-                    undefined,
-                    undefined,
-                    { isStale }
-                )
-                return { success: true }
+            const submit = this.config.submitScore ?? submitScore
+            const data: ScoreData = {
+                gameId: this.config.gameId,
+                score,
             }
+            if (gameData !== undefined) {
+                data.gameData = gameData
+            }
+            return await submit(data)
         } catch (error) {
             console.error('[ScoreManager] Failed to save score:', error)
             return { success: false }

@@ -37,9 +37,16 @@ export interface ScoreData {
     context?: ScoreSubmissionContext
 }
 
+/**
+ * Transport seam for score submission: the browser default POSTs to
+ * /api/scores; other hosts can inject their own transport.
+ */
+export type ScoreSubmitter = (data: ScoreData) => Promise<ScoreSubmissionResult>
+
 export interface SaveScoreOptions {
     isStale?: () => boolean
     context?: ScoreSubmissionContext
+    submitScore?: ScoreSubmitter
 }
 
 export interface GameHistoryEntry {
@@ -130,7 +137,8 @@ export async function saveGameScore(
         if (options?.context !== undefined) {
             scoreData.context = options.context
         }
-        const result = await submitScore(scoreData)
+        const submit = options?.submitScore ?? submitScore
+        const result = await submit(scoreData)
 
         if (options?.isStale?.()) {
             return

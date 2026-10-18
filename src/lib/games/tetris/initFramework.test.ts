@@ -59,7 +59,6 @@ vi.mock('./TetrisGame', () => {
         TetrisGame,
         DEFAULT_TETRIS_CONFIG: {
             duration: Number.MAX_SAFE_INTEGER,
-            achievementIntegration: true,
             pausable: true,
             resettable: true,
         },

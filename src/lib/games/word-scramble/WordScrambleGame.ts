@@ -13,7 +13,6 @@ import { generateId } from '@/lib/games/shared/utils'
 
 export const DEFAULT_WORD_SCRAMBLE_CONFIG: WordScrambleConfig = {
     duration: 60,
-    achievementIntegration: true,
     pausable: false,
     resettable: true,
     pointsPerWord: {

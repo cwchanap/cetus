@@ -4,6 +4,10 @@ import { initSnakeGameFramework } from './initFramework'
 // Mock score service
 vi.mock('@/lib/services/scoreService', () => ({
     saveGameScore: vi.fn().mockResolvedValue({ success: true }),
+    submitScore: vi.fn().mockResolvedValue({
+        success: true,
+        newAchievements: [],
+    }),
 }))
 
 // Mock SnakeGame
@@ -38,7 +42,6 @@ vi.mock('./SnakeGame', () => ({
     })),
     DEFAULT_SNAKE_CONFIG: {
         duration: 60,
-        achievementIntegration: true,
         pausable: true,
         resettable: true,
         gridWidth: 20,

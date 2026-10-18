@@ -38,7 +38,6 @@ export const MINE_GRID_PRESETS: Record<MineGridDifficulty, MineGridPreset> = {
 
 export interface MineGridConfig {
     duration: number
-    achievementIntegration: boolean
     pausable: boolean
     resettable: boolean
     preset: MineGridPreset

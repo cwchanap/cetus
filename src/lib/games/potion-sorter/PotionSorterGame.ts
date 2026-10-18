@@ -19,7 +19,6 @@ export function createPotionSorterConfig(
     const preset = POTION_SORTER_PRESETS[difficulty]
     return {
         duration: preset.duration,
-        achievementIntegration: true,
         pausable: false,
         resettable: true,
         preset,

@@ -24,7 +24,6 @@ export const DEFAULT_BUBBLE_SHOOTER_CONFIG: BubbleShooterConfig = {
     // BaseGameConfig — Bubble Shooter runs until bubbles reach the bottom,
     // so the countdown timer is given an effectively infinite duration.
     duration: Number.MAX_SAFE_INTEGER,
-    achievementIntegration: true,
     pausable: true,
     resettable: true,
     // BubbleShooterConfig

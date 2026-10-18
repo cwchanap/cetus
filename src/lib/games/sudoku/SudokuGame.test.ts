@@ -6,6 +6,10 @@ import type { SudokuCell } from './types'
 // Mock the score service so ScoreManager.saveFinalScore doesn't hit network
 vi.mock('@/lib/services/scoreService', () => ({
     saveGameScore: vi.fn().mockResolvedValue({ success: true }),
+    submitScore: vi.fn().mockResolvedValue({
+        success: true,
+        newAchievements: [],
+    }),
 }))
 
 // Helper to find the first non-given cell in a game's grid
@@ -507,7 +511,6 @@ describe('SudokuGame', () => {
         it('should have correct defaults', () => {
             expect(DEFAULT_SUDOKU_CONFIG.pausable).toBe(true)
             expect(DEFAULT_SUDOKU_CONFIG.resettable).toBe(true)
-            expect(DEFAULT_SUDOKU_CONFIG.achievementIntegration).toBe(true)
             expect(DEFAULT_SUDOKU_CONFIG.difficulty).toBe('medium')
         })
     })

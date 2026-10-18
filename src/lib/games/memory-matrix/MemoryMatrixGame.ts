@@ -21,7 +21,6 @@ import {
 export const DEFAULT_MEMORY_MATRIX_CONFIG: MemoryMatrixConfig = {
     // BaseGameConfig
     duration: CONSTANTS.GAME_DURATION,
-    achievementIntegration: true,
     pausable: false,
     resettable: true,
     // MemoryMatrixConfig

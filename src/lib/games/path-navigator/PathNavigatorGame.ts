@@ -22,7 +22,6 @@ import {
 export const DEFAULT_PATH_NAVIGATOR_CONFIG: PathNavigatorConfig = {
     // BaseGameConfig
     duration: 60, // 60 seconds
-    achievementIntegration: true,
     pausable: true,
     resettable: true,
     // PathNavigatorConfig

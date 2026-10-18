@@ -32,7 +32,6 @@ function makeGame(
 ): { game: TestChromaticTideGame; onStateChange: ReturnType<typeof vi.fn> } {
     const game = new TestChromaticTideGame(
         createChromaticTideConfig({
-            achievementIntegration: false,
             rng: oneMoveClearRng(),
             ...overrides,
         }),

@@ -9,6 +9,10 @@ import type { Position, Card } from './types'
 // Mock the score service so ScoreManager.saveFinalScore doesn't hit network
 vi.mock('@/lib/services/scoreService', () => ({
     saveGameScore: vi.fn().mockResolvedValue({ success: true }),
+    submitScore: vi.fn().mockResolvedValue({
+        success: true,
+        newAchievements: [],
+    }),
 }))
 
 // Helper function to build a map of shapes to their board positions

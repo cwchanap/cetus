@@ -30,7 +30,6 @@ export function createPatternPulseConfig(
 ): PatternPulseConfig {
     return {
         duration: 60,
-        achievementIntegration: true,
         pausable: false,
         resettable: true,
         initialSequenceLength: 3,

@@ -3,14 +3,8 @@ import { GameEventEmitter } from '../core/EventEmitter'
 import { GameTimer } from '../core/GameTimer'
 import { ScoreManager } from '../core/ScoreManager'
 import { BaseGame } from './BaseGame'
+import type { AchievementNotification } from '@/lib/achievements'
 import { GameID } from '@/lib/games'
-
-// Mock the scoreService
-vi.mock('@/lib/services/scoreService', () => ({
-    saveGameScore: vi.fn().mockResolvedValue(undefined),
-}))
-
-import { saveGameScore } from '@/lib/services/scoreService'
 
 describe('Game Framework Core', () => {
     describe('GameEventEmitter', () => {
@@ -204,7 +198,6 @@ describe('Game Framework Core', () => {
             scoreManager = new ScoreManager({
                 gameId: GameID.TETRIS,
                 scoringConfig: { basePoints: 10, timeBonus: true },
-                achievementIntegration: false,
             })
         })
 
@@ -244,7 +237,6 @@ describe('Game Framework Core', () => {
             const noBonusConfig = new ScoreManager({
                 gameId: GameID.TETRIS,
                 scoringConfig: { basePoints: 10, timeBonus: false },
-                achievementIntegration: false,
             })
             const noBonus = noBonusConfig.calculateTimeBonus(10)
             expect(noBonus).toBe(0)
@@ -285,7 +277,6 @@ describe('Game Framework Core', () => {
                     timeBonus: true,
                     bonusMultiplier: 1,
                 },
-                achievementIntegration: false,
                 onScoreUpdate,
             })
             sm.addPoints(50, 'test')
@@ -302,79 +293,71 @@ describe('Game Framework Core', () => {
             expect(scoreManager.getScore()).toBe(0) // no bonus when time is 0
         })
 
-        it('should save final score without achievement integration', async () => {
-            scoreManager.addPoints(100)
-            const result = await scoreManager.saveFinalScore()
-            expect(result.success).toBe(true)
-            expect(saveGameScore).toHaveBeenCalledWith(
-                GameID.TETRIS,
-                100,
-                undefined,
-                undefined,
-                undefined,
-                { isStale: undefined }
-            )
-        })
-
-        it('should forward isStale to saveGameScore in the non-integration branch', async () => {
-            scoreManager.addPoints(100)
-            const isStale = () => true
-            const result = await scoreManager.saveFinalScore(undefined, isStale)
-            expect(result.success).toBe(true)
-            expect(saveGameScore).toHaveBeenCalledWith(
-                GameID.TETRIS,
-                100,
-                undefined,
-                undefined,
-                undefined,
-                { isStale }
-            )
-        })
-
-        it('should save final score with achievement integration using fetch', async () => {
-            const fetchMock = vi.fn().mockResolvedValue({
-                ok: true,
-                json: () => Promise.resolve({ newAchievements: ['first_win'] }),
+        it('submits the frozen final payload through an injected submitter', async () => {
+            const achievement = {
+                id: 'first_win',
+                name: 'First Win',
+                description: 'Won the first run',
+                icon: '🏆',
+                rarity: 'common',
+            }
+            const submitter = vi.fn().mockResolvedValue({
+                success: true,
+                newAchievements: [achievement],
             })
-            vi.stubGlobal('fetch', fetchMock)
-
             const sm = new ScoreManager({
                 gameId: GameID.TETRIS,
                 scoringConfig: { basePoints: 10, timeBonus: false },
-                achievementIntegration: true,
+                submitScore: submitter,
             })
             sm.addPoints(200)
+
             const result = await sm.saveFinalScore({ level: 5 })
 
             expect(result.success).toBe(true)
-            expect(result.newAchievements).toEqual(['first_win'])
-
-            vi.unstubAllGlobals()
+            expect(result.newAchievements).toEqual([achievement])
+            expect(submitter).toHaveBeenCalledTimes(1)
+            expect(submitter).toHaveBeenCalledWith({
+                gameId: GameID.TETRIS,
+                score: 200,
+                gameData: { level: 5 },
+            })
         })
 
-        it('should return success false when fetch returns not ok', async () => {
-            const fetchMock = vi.fn().mockResolvedValue({
-                ok: false,
-            })
-            vi.stubGlobal('fetch', fetchMock)
-
+        it('returns the typed failure result from the injected submitter', async () => {
+            const failure = {
+                success: false,
+                error: 'You must be logged in to save scores',
+                code: 'UNAUTHENTICATED',
+            } as const
+            const submitter = vi.fn().mockResolvedValue(failure)
             const sm = new ScoreManager({
                 gameId: GameID.TETRIS,
                 scoringConfig: { basePoints: 10, timeBonus: false },
-                achievementIntegration: true,
+                submitScore: submitter,
             })
-            const result = await sm.saveFinalScore()
-            expect(result.success).toBe(false)
 
-            vi.unstubAllGlobals()
+            const result = await sm.saveFinalScore()
+
+            expect(result).toEqual(failure)
         })
 
-        it('should return success false when save throws', async () => {
-            vi.mocked(saveGameScore).mockRejectedValueOnce(
-                new Error('DB error')
-            )
-            const result = await scoreManager.saveFinalScore()
+        it('returns success false when the injected submitter throws', async () => {
+            const consoleSpy = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
+            const submitter = vi.fn().mockRejectedValue(new Error('DB error'))
+            const sm = new ScoreManager({
+                gameId: GameID.TETRIS,
+                scoringConfig: { basePoints: 10, timeBonus: false },
+                submitScore: submitter,
+            })
+
+            const result = await sm.saveFinalScore()
+
             expect(result.success).toBe(false)
+
+            consoleSpy.mockRestore()
         })
     })
 
@@ -483,6 +466,15 @@ describe('Game Framework Core', () => {
 
 // Tests for BaseGame default hook implementations
 describe('BaseGame default hooks', () => {
+    // Default transport for tests that end a game without injecting a
+    // submitter; individual tests reassign global.fetch as needed.
+    beforeEach(() => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ success: true, newAchievements: [] }),
+        })
+    })
+
     // Minimal concrete subclass that uses base-class hook implementations
     class MinimalGame extends BaseGame {
         createInitialState() {
@@ -540,7 +532,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 10,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: true,
             },
@@ -562,7 +553,6 @@ describe('BaseGame default hooks', () => {
         vi.useFakeTimers()
         const game = new TimingGame(GameID.QUICK_MATH, {
             duration: 2,
-            achievementIntegration: false,
             pausable: false,
             resettable: true,
         })
@@ -579,7 +569,6 @@ describe('BaseGame default hooks', () => {
     it('changes duration only while idle and resets the visible timer state', () => {
         const game = new TimingGame(GameID.QUICK_MATH, {
             duration: 10,
-            achievementIntegration: false,
             pausable: false,
             resettable: true,
         })
@@ -596,7 +585,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: true,
                 resettable: true,
             },
@@ -611,7 +599,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: true,
                 resettable: true,
             },
@@ -633,7 +620,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: true,
             },
@@ -650,7 +636,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: true,
             },
@@ -665,7 +650,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: true,
             },
@@ -685,7 +669,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: true,
             },
@@ -720,7 +703,6 @@ describe('BaseGame default hooks', () => {
         const sm = new ScoreManager({
             gameId: GameID.TETRIS,
             scoringConfig: { basePoints: 10, timeBonus: false },
-            achievementIntegration: false,
         })
         const stats = sm.getStats()
         expect(stats.averagePointsPerAction).toBe(0)
@@ -747,7 +729,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 2,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: false,
             },
@@ -769,7 +750,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 1,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: false,
             },
@@ -787,7 +767,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: false,
             },
@@ -806,7 +785,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: true,
                 resettable: false,
             },
@@ -824,7 +802,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: false,
             },
@@ -842,7 +819,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: false,
             },
@@ -867,7 +843,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: true,
                 resettable: true,
             },
@@ -897,7 +872,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: true,
                 resettable: true,
             },
@@ -916,7 +890,6 @@ describe('BaseGame default hooks', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: true,
                 resettable: false,
             },
@@ -980,13 +953,14 @@ describe('BaseGame stale-run guard', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: true,
                 pausable: false,
                 resettable: true,
             },
             {}
         )
-        const endEvents: Array<{ data: { newAchievements?: string[] } }> = []
+        const endEvents: Array<{
+            data: { newAchievements?: AchievementNotification[] }
+        }> = []
         game.on('end', e => endEvents.push(e as any))
 
         game.start()
@@ -1031,13 +1005,14 @@ describe('BaseGame stale-run guard', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: true,
                 pausable: false,
                 resettable: true,
             },
             {}
         )
-        const endEvents: Array<{ data: { newAchievements?: string[] } }> = []
+        const endEvents: Array<{
+            data: { newAchievements?: AchievementNotification[] }
+        }> = []
         game.on('end', e => endEvents.push(e as any))
 
         game.start()
@@ -1118,7 +1093,6 @@ describe('BaseGame stale-run guard', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: true,
                 pausable: false,
                 resettable: true,
             },
@@ -1126,7 +1100,7 @@ describe('BaseGame stale-run guard', () => {
         )
         const endEvents: Array<{
             data: {
-                newAchievements?: string[]
+                newAchievements?: AchievementNotification[]
                 challengeUpdates?: typeof challengeUpdates
             }
         }> = []
@@ -1174,7 +1148,10 @@ describe('BaseGame stale-run guard', () => {
         const consoleSpy = vi
             .spyOn(console, 'error')
             .mockImplementation(() => {})
-        vi.mocked(saveGameScore).mockClear()
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ success: true, newAchievements: [] }),
+        })
 
         class MiniGame extends BaseGame {
             createInitialState() {
@@ -1202,7 +1179,6 @@ describe('BaseGame stale-run guard', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: true,
             },
@@ -1218,7 +1194,7 @@ describe('BaseGame stale-run guard', () => {
         game.start()
         await expect(game.end()).resolves.toBeUndefined()
 
-        expect(vi.mocked(saveGameScore)).toHaveBeenCalledTimes(1)
+        expect(global.fetch).toHaveBeenCalledTimes(1)
         const structuredEnds = endEvents.filter(
             e => e.data && 'score' in e.data
         )
@@ -1291,14 +1267,16 @@ describe('BaseGame stale-run guard', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: true,
                 pausable: false,
                 resettable: true,
             },
             { onEnd }
         )
         const endEvents: Array<{
-            data: { newAchievements?: string[]; challengeUpdates?: unknown }
+            data: {
+                newAchievements?: AchievementNotification[]
+                challengeUpdates?: unknown
+            }
         }> = []
         game.on('end', e => endEvents.push(e as any))
 
@@ -1387,14 +1365,16 @@ describe('BaseGame stale-run guard', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: true,
                 pausable: false,
                 resettable: true,
             },
             { onEnd }
         )
         const endEvents: Array<{
-            data: { newAchievements?: string[]; challengeUpdates?: unknown }
+            data: {
+                newAchievements?: AchievementNotification[]
+                challengeUpdates?: unknown
+            }
         }> = []
         game.on('end', e => endEvents.push(e as any))
 
@@ -1458,7 +1438,6 @@ describe('BaseGame stale-run guard', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: true,
                 pausable: false,
                 resettable: true,
             },
@@ -1519,7 +1498,6 @@ describe('BaseGame stale-run guard', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: true,
                 pausable: false,
                 resettable: true,
             },
@@ -1576,7 +1554,6 @@ describe('BaseGame stale-run guard', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: false,
                 pausable: false,
                 resettable: false,
             },
@@ -1640,7 +1617,6 @@ describe('BaseGame stale-run guard', () => {
             GameID.QUICK_MATH,
             {
                 duration: 60,
-                achievementIntegration: true,
                 pausable: false,
                 resettable: true,
             },
@@ -1653,6 +1629,173 @@ describe('BaseGame stale-run guard', () => {
         expect(onEnd).toHaveBeenCalledTimes(1)
         expect(onGameEndCalled).toBe(true)
 
+        vi.unstubAllGlobals()
+    })
+
+    it('submits through the BaseGameConfig-injected submitter with the frozen end payload and no global fetch', async () => {
+        const achievement = {
+            id: 'first_win',
+            name: 'First Win',
+            description: 'Won the first run',
+            icon: '🏆',
+            rarity: 'common',
+        }
+        const injectedSubmitter = vi.fn().mockResolvedValue({
+            success: true,
+            newAchievements: [achievement],
+        })
+        const fetchMock = vi.fn()
+        vi.stubGlobal('fetch', fetchMock)
+        const onEnd = vi.fn()
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+            protected getGameData(): Record<string, unknown> {
+                return { marker: this.scoreManager.getScore() }
+            }
+        }
+
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                pausable: false,
+                resettable: true,
+                submitScore: injectedSubmitter,
+            },
+            { onEnd }
+        )
+        const endEvents: Array<{
+            data: { newAchievements?: AchievementNotification[] }
+        }> = []
+        game.on('end', e => endEvents.push(e as any))
+
+        game.start()
+        game.addScore(500)
+        const endPromise = game.end()
+
+        // Local completion publishes before the save resolves, and the
+        // injected transport — not global fetch — carried the request.
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(injectedSubmitter).toHaveBeenCalledTimes(1)
+        expect(fetchMock).not.toHaveBeenCalled()
+
+        await endPromise
+
+        // The finished run's frozen score and game data are what got posted.
+        expect(injectedSubmitter).toHaveBeenCalledWith({
+            gameId: GameID.QUICK_MATH,
+            score: 500,
+            gameData: { marker: 500 },
+        })
+        const structuredEnds = endEvents.filter(
+            e => e.data && 'score' in e.data
+        )
+        expect(structuredEnds).toHaveLength(1)
+        expect(structuredEnds[0].data.newAchievements).toEqual([achievement])
+
+        game.destroy()
+        vi.unstubAllGlobals()
+    })
+
+    it('suppresses save-derived end-event rewards for a stale run when the transport is injected', async () => {
+        const injectedSubmitter = vi.fn().mockResolvedValue({
+            success: true,
+            newAchievements: [
+                {
+                    id: 'first_win',
+                    name: 'First Win',
+                    description: 'Won the first run',
+                    icon: '🏆',
+                    rarity: 'common',
+                },
+            ],
+            challengeUpdates: {
+                completedChallenges: [
+                    {
+                        id: 'c1',
+                        name: 'x',
+                        description: 'x',
+                        icon: 'x',
+                        xpReward: 10,
+                    },
+                ],
+                xpEarned: 10,
+                levelUp: false,
+            },
+        })
+        const fetchMock = vi.fn()
+        vi.stubGlobal('fetch', fetchMock)
+
+        class MiniGame extends BaseGame {
+            createInitialState() {
+                return {
+                    score: 0,
+                    timeRemaining: 60,
+                    isActive: false,
+                    isPaused: false,
+                    isGameOver: false,
+                    gameStarted: false,
+                }
+            }
+            update() {}
+            render() {}
+            cleanup() {}
+            getGameStats() {
+                return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+            }
+        }
+
+        const game = new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                pausable: false,
+                resettable: true,
+                submitScore: injectedSubmitter,
+            },
+            {}
+        )
+        const endEvents: Array<{
+            data: {
+                newAchievements?: AchievementNotification[]
+                challengeUpdates?: unknown
+            }
+        }> = []
+        game.on('end', e => endEvents.push(e as any))
+
+        game.start()
+        const endPromise = game.end()
+        game.reset()
+        await endPromise
+
+        // The injected transport still carried the request exactly once;
+        // only the save-derived reward payload is suppressed.
+        expect(injectedSubmitter).toHaveBeenCalledTimes(1)
+        expect(fetchMock).not.toHaveBeenCalled()
+        const structuredEnds = endEvents.filter(
+            e => e.data && 'score' in e.data
+        )
+        expect(structuredEnds).toHaveLength(1)
+        expect(structuredEnds[0].data.newAchievements).toBeUndefined()
+        expect(structuredEnds[0].data.challengeUpdates).toBeUndefined()
+
+        game.destroy()
         vi.unstubAllGlobals()
     })
 })

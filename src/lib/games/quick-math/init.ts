@@ -11,7 +11,6 @@ import type { BaseGameCallbacks, BaseGameStats } from '@/lib/games/core/types'
 // Default configuration for Quick Math
 const DEFAULT_CONFIG: QuickMathConfig = {
     duration: 60, // 60 seconds
-    achievementIntegration: true,
     pausable: false,
     resettable: true,
     pointsPerCorrectAnswer: 20,
