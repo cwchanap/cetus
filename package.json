@@ -17,6 +17,7 @@
     "test:watch": "vitest --watch",
     "validate:ice-slide-expedition": "bun scripts/validate-ice-slide-expedition.ts",
     "test:e2e": "playwright test",
+    "e2e:db:init": "bun run scripts/init-e2e-db.ts",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
