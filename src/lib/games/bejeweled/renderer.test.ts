@@ -926,21 +926,23 @@ describe('BejeweledRenderer keyboard cursor, hints, and preferences', () => {
     it('moveCursor moves the cursor, announces the cell, and redraws', async () => {
         await setup()
         expect(() => renderer.moveCursor(1, 0)).not.toThrow()
-        const label = renderer.getApp().canvas.getAttribute('aria-label')
+        const label = renderer.getApp()!.canvas.getAttribute('aria-label')
         expect(label).toContain('Row 2, column 1')
         // Cursor stays clamped inside the board.
         renderer.moveCursor(-5, -5)
-        expect(renderer.getApp().canvas.getAttribute('aria-label')).toContain(
+        expect(renderer.getApp()!.canvas.getAttribute('aria-label')).toContain(
             'Row 1, column 1'
         )
     })
 
     it('moveCursor is ignored while animating or paused', async () => {
         await setup()
-        const before = renderer.getApp().canvas.getAttribute('aria-label')
+        const before = renderer.getApp()!.canvas.getAttribute('aria-label')
         renderer.render(makeBejeweledState({ isAnimating: true }))
         renderer.moveCursor(1, 0)
-        expect(renderer.getApp().canvas.getAttribute('aria-label')).toBe(before)
+        expect(renderer.getApp()!.canvas.getAttribute('aria-label')).toBe(
+            before
+        )
     })
 
     it('showHint redraws with hint outlines', async () => {
