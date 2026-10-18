@@ -6,7 +6,9 @@
  *
  * - unscoped web inserts never depend on the platform migration,
  * - contextual web writes stay usable when adding the unrelated platform
- *   column fails (never SCORE_CONTEXT_UNAVAILABLE),
+ *   column fails (never SCORE_CONTEXT_UNAVAILABLE) — both when the
+ *   context columns already exist and when they are added in the same
+ *   migration pass that fails on platform,
  * - non-web writes fail loudly (SCORE_WRITE_FAILED) instead of silently
  *   falling back to 'web',
  * - cached capability snapshots without platform are not treated as migrated
@@ -222,6 +224,42 @@ describe('platform writes with failing platform migration', () => {
 
             // Complete contextual columns remain usable: the unrelated
             // platform failure must not surface as SCORE_CONTEXT_UNAVAILABLE.
+            expect(result).toEqual({ success: true })
+
+            const { sql } = await import('kysely')
+            const { db } = await import('@/lib/server/db/client')
+            const rows = await sql<{
+                mode: string | null
+                competition_key: string | null
+            }>`SELECT mode, competition_key FROM game_scores`.execute(db)
+            expect(rows.rows).toEqual([
+                { mode: 'daily', competition_key: 'daily:2026-08-01' },
+            ])
+        } finally {
+            alterFailureMode = null
+        }
+    })
+
+    it('preserves contextual web writes when context columns migrate but the platform ALTER fails in the same pass', async () => {
+        await installAlterFailureHook()
+        alterFailureMode = 'platform'
+        try {
+            await setupBaseTables()
+            // Legacy table: all four context columns are added by this
+            // migration pass, and only the trailing platform ALTER fails.
+            await createBareGameScoresTable()
+
+            const { saveGameScore } = await import('./queries')
+
+            const result = await saveGameScore('u1', 'tetris', 200, {
+                mode: 'daily',
+                competitionKey: 'daily:2026-08-01',
+                rulesetVersion: 1,
+                gameDataJson: null,
+            })
+
+            // The context columns now exist, so the snapshot cached before
+            // the pass must not turn this write into SCORE_CONTEXT_UNAVAILABLE.
             expect(result).toEqual({ success: true })
 
             const { sql } = await import('kysely')

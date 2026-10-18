@@ -118,18 +118,6 @@ const MISSING_COLUMN_DEFINITIONS = [
                 ALTER TABLE game_scores ADD COLUMN game_data_json TEXT
             `.execute(db),
     },
-    {
-        // Kept LAST: contextual columns must all be in place before the
-        // unrelated platform column is attempted, so a platform-only failure
-        // can never block contextual web writes (they stay 'web'-labeled by
-        // the DDL default and never reference the column).
-        capability: 'platform' as const,
-        columnName: 'platform',
-        add: () =>
-            sql`
-                ALTER TABLE game_scores ADD COLUMN platform TEXT NOT NULL DEFAULT 'web'
-            `.execute(db),
-    },
 ]
 
 /**
@@ -172,6 +160,37 @@ async function addMissingColumns(
     }
 }
 
+/**
+ * The platform column is additive score metadata unrelated to context
+ * completeness: contextual web writes never reference it and stay
+ * 'web'-labeled by the DDL default. Its ALTER therefore runs isolated
+ * from the context columns — a platform-only failure must never block
+ * contextual web writes or downgrade the cached capability snapshot.
+ * Non-web callers force a re-attempt via requirePlatform.
+ */
+async function addPlatformColumnBestEffort(
+    capabilities: GameScoresContextCapabilities
+): Promise<GameScoresContextCapabilities> {
+    if (capabilities.platform) {
+        return capabilities
+    }
+
+    try {
+        await addColumnToleratingConcurrentMigrator(
+            () =>
+                sql`
+                    ALTER TABLE game_scores ADD COLUMN platform TEXT NOT NULL DEFAULT 'web'
+                `.execute(db),
+            'platform'
+        )
+    } catch (error) {
+        console.warn('[game-score-context] platform migration failed:', error)
+        return capabilities
+    }
+
+    return { ...capabilities, platform: true }
+}
+
 async function createScopedIndexIfDue(
     capabilities: GameScoresContextCapabilities
 ): Promise<GameScoresContextCapabilities> {
@@ -211,14 +230,14 @@ async function inspectAndMigrate(): Promise<GameScoresContextState> {
         let capabilities = await inspectCapabilities()
         cachedState = { known: true, capabilities }
 
-        if (
-            !hasCompleteGameScoresContextColumns(capabilities) ||
-            !capabilities.platform
-        ) {
+        if (!hasCompleteGameScoresContextColumns(capabilities)) {
             await addMissingColumns(capabilities)
             capabilities = await inspectCapabilities()
             cachedState = { known: true, capabilities }
         }
+
+        capabilities = await addPlatformColumnBestEffort(capabilities)
+        cachedState = { known: true, capabilities }
 
         capabilities = await createScopedIndexIfDue(capabilities)
         cachedState = { known: true, capabilities }
