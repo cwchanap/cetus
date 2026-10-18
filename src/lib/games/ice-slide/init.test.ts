@@ -1768,11 +1768,16 @@ describe('initializeIceSlide', () => {
                     })
                 )
             }
-            await vi.waitFor(() => {
-                expect(handle.getGame()?.getState().levelIndex).toBeGreaterThan(
-                    stage.levelIndex
-                )
-            })
+            await vi.waitFor(
+                () => {
+                    expect(
+                        handle.getGame()?.getState().levelIndex
+                    ).toBeGreaterThan(stage.levelIndex)
+                },
+                // Full stage-solution processing can exceed the 1s default
+                // under CI load with coverage instrumentation.
+                { timeout: 5000 }
+            )
             // No-op for the final clear (status is won, input never locked).
             document.getElementById('stage-clear-continue-btn')?.click()
             const next = handle.getGame()!.getState()
@@ -1783,11 +1788,14 @@ describe('initializeIceSlide', () => {
                 stage = next
                 continue
             }
-            await vi.waitFor(() => {
-                expect(
-                    vi.mocked(setupPixiJS).mock.calls.length
-                ).toBeGreaterThan(callsAfterStart)
-            })
+            await vi.waitFor(
+                () => {
+                    expect(
+                        vi.mocked(setupPixiJS).mock.calls.length
+                    ).toBeGreaterThan(callsAfterStart)
+                },
+                { timeout: 5000 }
+            )
             break
         }
         handle.cleanup()
