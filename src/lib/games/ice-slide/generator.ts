@@ -1,4 +1,4 @@
-import { createSeededRng, hashString32Hex } from '../shared/seeded-rng'
+import { createSeededRng } from '../shared/seeded-rng'
 import { ICE_SLIDE_OBJECTIVE_IDS } from './objectives'
 import {
     validateIceSlideStageQuality,
@@ -280,18 +280,6 @@ export function createIceSlideExpeditionStage(input: {
         const objectiveId = stageRng
             .fork(`fallback:${fallback.id}:objective`)
             .pick(eligibleObjectives)
-
-        if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
-            console.warn('Ice Slide Expedition generation fallback', {
-                stageNumber: input.stageNumber,
-                difficulty: input.difficulty,
-                seedHash: hashString32Hex(input.seed),
-                attempts: ICE_SLIDE_EXPEDITION_MAX_ATTEMPTS,
-                rejectionCounts: { ...rejectionCounts },
-                fallbackId: fallback.id,
-            })
-        }
 
         return {
             stage: buildStage({
