@@ -54,6 +54,26 @@ export default tseslint.config(
     },
   },
   {
+    // Portable game logic must stay free of browser globals; DOM access
+    // belongs to the init/renderer web boundaries excluded below.
+    files: ['src/lib/games/**/*.ts'],
+    ignores: [
+      '**/init*.ts',
+      '**/renderer.ts',
+      '**/*Renderer.ts',
+      'src/lib/games/renderers/**',
+      'src/lib/games/core/BaseRenderer.ts',
+      'src/lib/games/core/RendererFactory.ts',
+      'src/lib/games/core/GameInitializer.ts',
+      '**/*.test.ts',
+      '**/*.spec.ts',
+      'src/lib/games/ice-slide/daily-leaderboard.ts',
+    ],
+    rules: {
+      'no-restricted-globals': ['error', 'window', 'document'],
+    },
+  },
+  {
     files: ['**/*.astro'],
     languageOptions: {
       parser: astroParser,
