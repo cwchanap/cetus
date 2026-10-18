@@ -12,44 +12,55 @@ vi.mock('@/lib/server/db/client', async () => {
 // its SQL column name. The concurrent-migrator recovery path must re-inspect
 // the schema after a "duplicate column name" failure and match the actual SQL
 // column name, not the camelCase capability key.
-const CASES = [
+const CASES: {
+    capability:
+        | 'mode'
+        | 'competitionKey'
+        | 'rulesetVersion'
+        | 'gameDataJson'
+        | 'platform'
+    column: string
+    alterSql: string
+    alterRegex: RegExp
+    expectedHistoricalValue: string | null
+}[] = [
     {
-        capability: 'mode' as const,
+        capability: 'mode',
         column: 'mode',
         alterSql: 'ALTER TABLE game_scores ADD COLUMN mode TEXT',
         alterRegex: /add\s+column\s+"?mode"?/i,
         // Nullable additive columns leave pre-existing rows with NULL.
-        expectedHistoricalValue: null as string | null,
+        expectedHistoricalValue: null,
     },
     {
-        capability: 'competitionKey' as const,
+        capability: 'competitionKey',
         column: 'competition_key',
         alterSql: 'ALTER TABLE game_scores ADD COLUMN competition_key TEXT',
         alterRegex: /add\s+column\s+"?competition_key"?/i,
-        expectedHistoricalValue: null as string | null,
+        expectedHistoricalValue: null,
     },
     {
-        capability: 'rulesetVersion' as const,
+        capability: 'rulesetVersion',
         column: 'ruleset_version',
         alterSql: 'ALTER TABLE game_scores ADD COLUMN ruleset_version INTEGER',
         alterRegex: /add\s+column\s+"?ruleset_version"?/i,
-        expectedHistoricalValue: null as string | null,
+        expectedHistoricalValue: null,
     },
     {
-        capability: 'gameDataJson' as const,
+        capability: 'gameDataJson',
         column: 'game_data_json',
         alterSql: 'ALTER TABLE game_scores ADD COLUMN game_data_json TEXT',
         alterRegex: /add\s+column\s+"?game_data_json"?/i,
-        expectedHistoricalValue: null as string | null,
+        expectedHistoricalValue: null,
     },
     {
-        capability: 'platform' as const,
+        capability: 'platform',
         column: 'platform',
         alterSql:
             "ALTER TABLE game_scores ADD COLUMN platform TEXT NOT NULL DEFAULT 'web'",
         alterRegex: /add\s+column\s+"?platform"?/i,
         // platform is NOT NULL DEFAULT 'web': historical rows must read web.
-        expectedHistoricalValue: 'web' as string | null,
+        expectedHistoricalValue: 'web',
     },
 ]
 

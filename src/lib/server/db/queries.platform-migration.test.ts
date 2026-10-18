@@ -120,6 +120,26 @@ async function createContextualGameScoresTable(): Promise<void> {
 }
 
 /**
+ * Scoped ranking index predating the platform deploy: capabilities then
+ * inspect as scopedIndex: true even while platform is still missing.
+ */
+async function createScopedRankingIndex(): Promise<void> {
+    const { sql } = await import('kysely')
+    const { db } = await import('@/lib/server/db/client')
+
+    await sql`
+        CREATE INDEX idx_game_scores_scoped_ranking
+        ON game_scores (
+            game_id,
+            mode,
+            competition_key,
+            score DESC,
+            created_at ASC
+        )
+    `.execute(db)
+}
+
+/**
  * Injected ALTER failures are controlled by a single shared executor hook:
  * the mocked client module (and its executor) survives vi.resetModules(), so
  * per-test interceptors would leak into later tests. Each test sets
@@ -237,6 +257,10 @@ describe('platform writes with failing platform migration', () => {
         }
     })
 
+    // Note: this table has no scoped index, so the pre-existing fast-path
+    // condition (scopedIndex || index-retry due) already bypasses the fast
+    // path independently of the requirePlatform guard. The dedicated
+    // guard-pinning scenario (scoped index present) is the final test below.
     it('does not treat a cached snapshot without platform as migrated for a later non-web write', async () => {
         await installAlterFailureHook()
         alterFailureMode = 'platform'
@@ -255,6 +279,49 @@ describe('platform writes with failing platform migration', () => {
             // Phase 2: the transient failure clears. The non-web write must
             // re-run the migration (bypassing the cached fast path), add the
             // column, and persist the row with its real platform.
+            alterFailureMode = null
+
+            expect(
+                await saveGameScore('u1', 'tetris', 300, undefined, 'ios')
+            ).toEqual({ success: true })
+
+            const { sql } = await import('kysely')
+            const { db } = await import('@/lib/server/db/client')
+            const rows = await sql<{ platform: string }>`
+                SELECT platform FROM game_scores WHERE user_id = 'u1'
+            `.execute(db)
+            expect(rows.rows).toEqual([{ platform: 'ios' }])
+        } finally {
+            alterFailureMode = null
+        }
+    })
+
+    // Pins the requirePlatform guard in ensureGameScoresContextSchema: with
+    // the scoped index already present, the pre-existing fast-path condition
+    // (scopedIndex || index-retry due) passes on its own, so only
+    // requirePlatform can force re-migration of a cached
+    // scopedIndex: true + platform: false snapshot. Without the guard, every
+    // non-web write on such an instance fails with SCORE_WRITE_FAILED until
+    // the instance recycles.
+    it('bypasses a cached scoped-index snapshot without platform for a non-web write', async () => {
+        await installAlterFailureHook()
+        alterFailureMode = 'platform'
+        try {
+            await setupBaseTables()
+            await createContextualGameScoresTable()
+            await createScopedRankingIndex()
+
+            const { saveGameScore } = await import('./queries')
+
+            // Phase 1: the platform ALTER fails transiently after inspection,
+            // so the cached snapshot reads scopedIndex: true + platform: false.
+            expect(
+                await saveGameScore('u1', 'tetris', 300, undefined, 'ios')
+            ).toEqual({ success: false, code: 'SCORE_WRITE_FAILED' })
+
+            // Phase 2: the failure clears. The guard must bypass the cached
+            // fast path so the idempotent migration re-runs and the write
+            // succeeds with its real platform.
             alterFailureMode = null
 
             expect(
