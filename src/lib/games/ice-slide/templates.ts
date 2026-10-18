@@ -915,7 +915,8 @@ export function assertValidIceSlideTemplateCatalog(
         } catch (error) {
             throw new RangeError(
                 `fallback ${fallback.id} rows contain an unplayable glyph: ` +
-                    (error instanceof Error ? error.message : String(error))
+                    (error instanceof Error ? error.message : String(error)),
+                { cause: error }
             )
         }
     }

@@ -1391,7 +1391,7 @@ export async function getAchievementStatistics(): Promise<
         )
 
         unearnedAchievements.forEach(achievement => {
-            let totalPlayers = 0
+            let totalPlayers: number
             if (achievement.gameId === 'global') {
                 totalPlayers = globalPlayers
             } else {
