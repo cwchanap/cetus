@@ -66,6 +66,10 @@ jobs:
       - name: 🗄️ Ensure database path
         run: mkdir -p db
 
+      - name: 🗄️ Initialize database schema
+        # better-auth >= 1.3 no longer auto-creates its tables on startup
+        run: sqlite3 db/db.sqlite < scripts/init-db.sql
+
       - name: 🎭 Install Playwright Browsers
         run: bunx playwright install --with-deps
 

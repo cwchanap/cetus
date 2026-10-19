@@ -59,7 +59,9 @@ export async function setupPixiJS(
         while (container.firstChild) {
             container.removeChild(container.firstChild)
         }
-        throw new Error(`Failed to initialize PixiJS: ${error}`)
+        throw new Error(`Failed to initialize PixiJS: ${error}`, {
+            cause: error,
+        })
     }
 }
 
