@@ -40,13 +40,15 @@ export type GameScoresContextState =
     | { known: false }
 
 const INDEX_NAME = 'idx_game_scores_scoped_ranking'
-const INDEX_RETRY_MIN_MS = 60_000
-const INDEX_RETRY_MAX_MS = 3_600_000
+const RETRY_MIN_MS = 60_000
+const RETRY_MAX_MS = 3_600_000
 
 let cachedState: GameScoresContextState | null = null
 let schemaPromise: Promise<GameScoresContextState> | null = null
-let indexRetryDelayMs = INDEX_RETRY_MIN_MS
+let indexRetryDelayMs = RETRY_MIN_MS
 let nextIndexRetryAt = 0
+let platformRetryDelayMs = RETRY_MIN_MS
+let nextPlatformRetryAt = 0
 
 export function hasCompleteGameScoresContextColumns(
     capabilities: GameScoresContextCapabilities
@@ -164,12 +166,18 @@ async function addMissingColumns(
  * 'web'-labeled by the DDL default. Its ALTER therefore runs isolated
  * from the context columns — a platform-only failure must never block
  * contextual web writes or downgrade the cached capability snapshot.
- * Non-web callers force a re-attempt via requirePlatform.
+ *
+ * A failed attempt backs off like the scoped-index retry so probes that
+ * miss the fast path for other reasons don't keep re-running (and warning
+ * on) a stuck ALTER. Callers that actually need the column — non-web
+ * writes via requirePlatform — bypass the backoff: their insert fails
+ * without it, so each attempt is their chance to recover.
  */
 async function addPlatformColumnBestEffort(
-    capabilities: GameScoresContextCapabilities
+    capabilities: GameScoresContextCapabilities,
+    force: boolean
 ): Promise<GameScoresContextCapabilities> {
-    if (capabilities.platform) {
+    if (capabilities.platform || (!force && Date.now() < nextPlatformRetryAt)) {
         return capabilities
     }
 
@@ -183,9 +191,13 @@ async function addPlatformColumnBestEffort(
         )
     } catch (error) {
         console.warn('[game-score-context] platform migration failed:', error)
+        nextPlatformRetryAt = Date.now() + platformRetryDelayMs
+        platformRetryDelayMs = Math.min(platformRetryDelayMs * 2, RETRY_MAX_MS)
         return capabilities
     }
 
+    platformRetryDelayMs = RETRY_MIN_MS
+    nextPlatformRetryAt = 0
     return { ...capabilities, platform: true }
 }
 
@@ -212,18 +224,20 @@ async function createScopedIndexIfDue(
             )
         `.execute(db)
 
-        indexRetryDelayMs = INDEX_RETRY_MIN_MS
+        indexRetryDelayMs = RETRY_MIN_MS
         nextIndexRetryAt = 0
         return { ...capabilities, scopedIndex: true }
     } catch (error) {
         console.warn('[game-score-context] index creation failed:', error)
         nextIndexRetryAt = Date.now() + indexRetryDelayMs
-        indexRetryDelayMs = Math.min(indexRetryDelayMs * 2, INDEX_RETRY_MAX_MS)
+        indexRetryDelayMs = Math.min(indexRetryDelayMs * 2, RETRY_MAX_MS)
         return capabilities
     }
 }
 
-async function inspectAndMigrate(): Promise<GameScoresContextState> {
+async function inspectAndMigrate(
+    options: { requirePlatform?: boolean } = {}
+): Promise<GameScoresContextState> {
     try {
         let capabilities = await inspectCapabilities()
         cachedState = { known: true, capabilities }
@@ -234,7 +248,10 @@ async function inspectAndMigrate(): Promise<GameScoresContextState> {
             cachedState = { known: true, capabilities }
         }
 
-        capabilities = await addPlatformColumnBestEffort(capabilities)
+        capabilities = await addPlatformColumnBestEffort(
+            capabilities,
+            options.requirePlatform === true
+        )
         cachedState = { known: true, capabilities }
 
         capabilities = await createScopedIndexIfDue(capabilities)
@@ -278,7 +295,7 @@ export function ensureGameScoresContextSchema(
     }
 
     if (!schemaPromise) {
-        schemaPromise = inspectAndMigrate().finally(() => {
+        schemaPromise = inspectAndMigrate(options).finally(() => {
             schemaPromise = null
         })
     }
