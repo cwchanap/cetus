@@ -622,7 +622,15 @@ export async function initializeIceSlide(
                 let run: IceSlideRunDefinition
                 try {
                     const seed = createExpeditionSeed()
-                    run = createIceSlideExpeditionRunDefinition(seed)
+                    run = createIceSlideExpeditionRunDefinition(seed, {
+                        onFallback: info => {
+                            // eslint-disable-next-line no-console
+                            console.warn(
+                                'Ice Slide Expedition generation fallback',
+                                info
+                            )
+                        },
+                    })
                     retryRun = cloneIceSlideRunDefinition(run)
                 } catch (error) {
                     failRun(error)

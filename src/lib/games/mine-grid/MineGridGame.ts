@@ -1,5 +1,6 @@
 import { BaseGame } from '@/lib/games/core/BaseGame'
 import type { BaseGameCallbacks } from '@/lib/games/core/types'
+import type { ScoreSubmitter } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { createGrid, findCells } from '@/lib/games/shared/grid'
 import { getFloodRevealPositions, placeMines } from './board'
@@ -14,7 +15,8 @@ import {
 
 export function createMineGridConfig(
     difficulty: MineGridDifficulty = 'medium',
-    rng?: () => number
+    rng?: () => number,
+    submitScore?: ScoreSubmitter
 ): MineGridConfig {
     const preset = MINE_GRID_PRESETS[difficulty]
     return {
@@ -23,6 +25,7 @@ export function createMineGridConfig(
         resettable: true,
         preset,
         rng,
+        submitScore,
     }
 }
 

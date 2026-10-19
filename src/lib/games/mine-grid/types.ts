@@ -1,4 +1,8 @@
-import type { BaseGameState, BaseGameStats } from '@/lib/games/core/types'
+import type {
+    BaseGameConfig,
+    BaseGameState,
+    BaseGameStats,
+} from '@/lib/games/core/types'
 
 export type MineGridDifficulty = 'easy' | 'medium' | 'hard'
 export type MineGridResult = 'playing' | 'cleared' | 'mine' | 'timeout'
@@ -36,10 +40,7 @@ export const MINE_GRID_PRESETS: Record<MineGridDifficulty, MineGridPreset> = {
     },
 }
 
-export interface MineGridConfig {
-    duration: number
-    pausable: boolean
-    resettable: boolean
+export interface MineGridConfig extends BaseGameConfig {
     preset: MineGridPreset
     rng?: () => number
 }

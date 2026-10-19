@@ -12,7 +12,10 @@ import type {
 } from '@/lib/server/validations'
 
 export type ScoreSubmissionPublicErrorCode =
-    'SCORE_CONTEXT_UNAVAILABLE' | 'UNAUTHENTICATED' | 'NETWORK_ERROR'
+    | 'SCORE_CONTEXT_UNAVAILABLE'
+    | 'UNAUTHENTICATED'
+    | 'NETWORK_ERROR'
+    | 'TRANSPORT_UNAVAILABLE'
 
 export interface ScoreSubmissionResult {
     success: boolean
@@ -51,6 +54,7 @@ export interface SaveScoreOptions {
     isStale?: () => boolean
     context?: ScoreSubmissionContext
     submitScore?: ScoreSubmitter
+    platform?: ScorePlatform
 }
 
 export interface GameHistoryEntry {
@@ -66,6 +70,17 @@ export interface GameHistoryEntry {
 export async function submitScore(
     scoreData: ScoreData
 ): Promise<ScoreSubmissionResult> {
+    // The default transport is a relative fetch — only a DOM host gives
+    // fetch a base URL to resolve '/api/scores' against. Non-DOM hosts must
+    // inject a ScoreSubmitter; failing fast here turns a missing transport
+    // into an explicit error instead of a generic network failure.
+    if (typeof document === 'undefined') {
+        return {
+            success: false,
+            error: 'Score submission requires a browser host; non-web hosts must inject a ScoreSubmitter transport',
+            code: 'TRANSPORT_UNAVAILABLE',
+        }
+    }
     try {
         const response = await fetch('/api/scores', {
             method: 'POST',
@@ -141,8 +156,14 @@ export async function saveGameScore(
         if (options?.context !== undefined) {
             scoreData.context = options.context
         }
-        const submit = options?.submitScore ?? submitScore
-        const result = await submit(scoreData)
+        if (options?.platform !== undefined) {
+            scoreData.platform = options.platform
+        }
+        // Invoke the injected submitter as a method of the options object so
+        // a host-supplied method keeps a defined `this`.
+        const result = await (options?.submitScore
+            ? options.submitScore(scoreData)
+            : submitScore(scoreData))
 
         if (options?.isStale?.()) {
             return

@@ -1,4 +1,4 @@
-import { createSeededRng } from '../shared/seeded-rng'
+import { createSeededRng, hashString32Hex } from '../shared/seeded-rng'
 import { ICE_SLIDE_OBJECTIVE_IDS } from './objectives'
 import {
     validateIceSlideStageQuality,
@@ -30,6 +30,18 @@ export type IceSlideGenerationRejectionReason =
     | IceSlideStageRejectionReason
     | 'materialization_collision'
     | 'insufficient_objective_options'
+
+/** Observability payload reported when generation falls back to a template board. */
+export interface IceSlideFallbackInfo {
+    stageNumber: number
+    difficulty: IceSlideTemplateDifficulty
+    seedHash: string
+    attempts: number
+    rejectionCounts: Readonly<
+        Partial<Record<IceSlideGenerationRejectionReason, number>>
+    >
+    fallbackId: string
+}
 
 export interface IceSlideGeneratedStage {
     stage: IceSlideStageDefinition
@@ -130,6 +142,13 @@ export function createIceSlideExpeditionStage(input: {
     stageNumber: number
     difficulty: IceSlideTemplateDifficulty
     existingCanonicalKeys?: ReadonlySet<string>
+    /**
+     * Host-provided observability hook: invoked once when generation falls
+     * back to a template board after exhausting candidate attempts. Portable
+     * by injection — the host decides whether and where to report (e.g.
+     * console.warn at the web boundary).
+     */
+    onFallback?: (info: IceSlideFallbackInfo) => void
 }): IceSlideGeneratedStage {
     if (input.seed.length === 0) {
         throw new RangeError('seed must be non-empty')
@@ -280,6 +299,15 @@ export function createIceSlideExpeditionStage(input: {
         const objectiveId = stageRng
             .fork(`fallback:${fallback.id}:objective`)
             .pick(eligibleObjectives)
+
+        input.onFallback?.({
+            stageNumber: input.stageNumber,
+            difficulty: input.difficulty,
+            seedHash: hashString32Hex(input.seed),
+            attempts: ICE_SLIDE_EXPEDITION_MAX_ATTEMPTS,
+            rejectionCounts: { ...rejectionCounts },
+            fallbackId: fallback.id,
+        })
 
         return {
             stage: buildStage({

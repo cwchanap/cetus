@@ -4,6 +4,7 @@ import type {
     ScoreSubmissionResult,
     ScoreSubmitter,
 } from '@/lib/services/scoreService'
+import type { ScorePlatform } from '@/lib/server/validations'
 
 export interface BaseGameState {
     score: number
@@ -20,6 +21,13 @@ export interface BaseGameConfig {
     resettable: boolean
     /** Transport override for the end-of-run score save; defaults to scoreService. */
     submitScore?: ScoreSubmitter
+    /**
+     * Platform label placed on ScoreData for the end-of-run save. Web hosts
+     * can omit it (the API defaults to 'web'); non-web hosts should set it so
+     * a transport that forwards ScoreData verbatim attributes the score
+     * correctly.
+     */
+    platform?: ScorePlatform
 }
 
 export interface ScoringConfig {

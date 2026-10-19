@@ -8,6 +8,11 @@ const schemaFiles = [
     'better-auth_migrations/2025-07-06-schema-consolidation.sql',
 ] as const
 
+// The platform column ships as its own dated migration rather than an
+// in-place edit of the consolidation file.
+const platformMigrationFile =
+    'better-auth_migrations/2026-10-19-game-scores-platform.sql'
+
 function extractGameScoresDdl(source: string): string {
     const table = source.match(
         /CREATE TABLE IF NOT EXISTS\s+"?game_scores"?\s*\([\s\S]*?\n\);/i
@@ -33,6 +38,32 @@ describe.each(schemaFiles)('%s', schemaPath => {
 
         await client.executeMultiple(extractGameScoresDdl(source))
 
+        // Apply the dated platform migration when the base DDL predates the
+        // column (SQLite has no ADD COLUMN IF NOT EXISTS; the runtime
+        // migrator makes the same existence check before its ALTER).
+        // Existing rows without the column must backfill to 'web' via the
+        // column default.
+        await client.execute('CREATE TABLE user (id TEXT PRIMARY KEY)')
+        await client.execute(`INSERT INTO user (id) VALUES ('u1')`)
+        await client.execute(
+            `INSERT INTO game_scores (user_id, game_id, score)
+             VALUES ('u1', 'tetris', 100)`
+        )
+        const preColumns = await client.execute(
+            'PRAGMA table_info(game_scores)'
+        )
+        if (!preColumns.rows.some(row => row.name === 'platform')) {
+            const migrationSql = await readFile(
+                resolve(process.cwd(), platformMigrationFile),
+                'utf8'
+            )
+            const statements = migrationSql
+                .split('\n')
+                .filter(line => !line.trimStart().startsWith('--'))
+                .join('\n')
+            await client.executeMultiple(statements)
+        }
+
         const columns = await client.execute('PRAGMA table_info(game_scores)')
         expect(columns.rows.map(row => String(row.name))).toEqual(
             expect.arrayContaining([
@@ -49,16 +80,19 @@ describe.each(schemaFiles)('%s', schemaPath => {
             ])
         )
 
-        // Fresh rows that omit platform must be labeled web by the DDL
-        // default, so pre-platform callers stay correct after migration.
-        await client.execute('CREATE TABLE user (id TEXT PRIMARY KEY)')
-        await client.execute(`INSERT INTO user (id) VALUES ('u1')`)
+        // The pre-migration row backfills to 'web', and fresh rows that omit
+        // platform are labeled web by the DDL default, so pre-platform
+        // callers stay correct after migration.
+        const backfilledRow = await client.execute(
+            "SELECT platform FROM game_scores WHERE user_id = 'u1'"
+        )
+        expect(String(backfilledRow.rows[0].platform)).toBe('web')
         await client.execute(
             `INSERT INTO game_scores (user_id, game_id, score)
-             VALUES ('u1', 'tetris', 100)`
+             VALUES ('u1', 'snake', 50)`
         )
         const insertedRow = await client.execute(
-            "SELECT platform FROM game_scores WHERE user_id = 'u1'"
+            "SELECT platform FROM game_scores WHERE game_id = 'snake'"
         )
         expect(String(insertedRow.rows[0].platform)).toBe('web')
 

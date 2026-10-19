@@ -6,6 +6,7 @@ import {
     type ScoreSubmitter,
 } from '@/lib/services/scoreService'
 import type { GameID } from '@/lib/games'
+import type { ScorePlatform } from '@/lib/server/validations'
 import type { ScoringConfig } from './types'
 
 export interface ScoreManagerConfig {
@@ -13,6 +14,8 @@ export interface ScoreManagerConfig {
     scoringConfig: ScoringConfig
     /** Transport override; defaults to scoreService's browser transport. */
     submitScore?: ScoreSubmitter
+    /** Platform label forwarded on ScoreData for the end-of-run save. */
+    platform?: ScorePlatform
     onScoreUpdate?: (score: number) => void
 }
 
@@ -134,15 +137,21 @@ export class ScoreManager extends GameEventEmitter {
         score: number = this.currentScore
     ): Promise<ScoreSubmissionResult> {
         try {
-            const submit = this.config.submitScore ?? submitScore
             const data: ScoreData = {
                 gameId: this.config.gameId,
                 score,
             }
+            if (this.config.platform !== undefined) {
+                data.platform = this.config.platform
+            }
             if (gameData !== undefined) {
                 data.gameData = gameData
             }
-            return await submit(data)
+            // Invoke the injected submitter as a method of the config object
+            // so a host-supplied method keeps a defined `this`.
+            return await (this.config.submitScore
+                ? this.config.submitScore(data)
+                : submitScore(data))
         } catch (error) {
             console.error('[ScoreManager] Failed to save score:', error)
             return { success: false }

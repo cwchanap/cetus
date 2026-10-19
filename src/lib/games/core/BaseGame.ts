@@ -58,6 +58,7 @@ export abstract class BaseGame<
             gameId,
             scoringConfig,
             submitScore: config.submitScore,
+            platform: config.platform,
             onScoreUpdate: (score: number) => {
                 this.updateScore(score)
             },

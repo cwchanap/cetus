@@ -302,6 +302,8 @@ describe('platform writes with failing platform migration', () => {
     it('does not treat a cached snapshot without platform as migrated for a later non-web write', async () => {
         await installAlterFailureHook()
         alterFailureMode = 'platform'
+        let now = Date.now()
+        const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now)
         try {
             await setupBaseTables()
             await createContextualGameScoresTable()
@@ -316,8 +318,11 @@ describe('platform writes with failing platform migration', () => {
 
             // Phase 2: the transient failure clears. The non-web write must
             // re-run the migration (bypassing the cached fast path), add the
-            // column, and persist the row with its real platform.
+            // column, and persist the row with its real platform. Forced
+            // attempts honor a minimum interval between ALTER tries, so the
+            // clock advances past it first.
             alterFailureMode = null
+            now += 60_001
 
             expect(
                 await saveGameScore('u1', 'tetris', 300, undefined, 'ios')
@@ -331,6 +336,7 @@ describe('platform writes with failing platform migration', () => {
             expect(rows.rows).toEqual([{ platform: 'ios' }])
         } finally {
             alterFailureMode = null
+            nowSpy.mockRestore()
         }
     })
 
@@ -344,6 +350,8 @@ describe('platform writes with failing platform migration', () => {
     it('bypasses a cached scoped-index snapshot without platform for a non-web write', async () => {
         await installAlterFailureHook()
         alterFailureMode = 'platform'
+        let now = Date.now()
+        const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now)
         try {
             await setupBaseTables()
             await createContextualGameScoresTable()
@@ -359,8 +367,11 @@ describe('platform writes with failing platform migration', () => {
 
             // Phase 2: the failure clears. The guard must bypass the cached
             // fast path so the idempotent migration re-runs and the write
-            // succeeds with its real platform.
+            // succeeds with its real platform. Forced attempts honor a
+            // minimum interval between ALTER tries, so the clock advances
+            // past it first.
             alterFailureMode = null
+            now += 60_001
 
             expect(
                 await saveGameScore('u1', 'tetris', 300, undefined, 'ios')
@@ -374,6 +385,7 @@ describe('platform writes with failing platform migration', () => {
             expect(rows.rows).toEqual([{ platform: 'ios' }])
         } finally {
             alterFailureMode = null
+            nowSpy.mockRestore()
         }
     })
 })
