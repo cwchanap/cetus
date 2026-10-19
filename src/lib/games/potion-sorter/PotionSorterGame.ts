@@ -1,5 +1,6 @@
 import { BaseGame } from '@/lib/games/core/BaseGame'
 import type { BaseGameCallbacks } from '@/lib/games/core/types'
+import type { ScoreSubmitter } from '@/lib/services/scoreService'
 import { GameID } from '@/lib/games'
 import { POTION_SORTER_PRESETS } from './levels'
 import { isPotionSorterSolved, pourPotion } from './puzzle'
@@ -14,7 +15,8 @@ import type {
 } from './types'
 
 export function createPotionSorterConfig(
-    difficulty: PotionSorterDifficulty = 'medium'
+    difficulty: PotionSorterDifficulty = 'medium',
+    submitScore?: ScoreSubmitter
 ): PotionSorterConfig {
     const preset = POTION_SORTER_PRESETS[difficulty]
     return {
@@ -22,6 +24,7 @@ export function createPotionSorterConfig(
         pausable: false,
         resettable: true,
         preset,
+        submitScore,
     }
 }
 

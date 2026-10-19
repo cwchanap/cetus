@@ -3,6 +3,7 @@ import {
     ICE_SLIDE_EXPEDITION_GENERATOR_VERSION,
     ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES,
     createIceSlideExpeditionStage,
+    type IceSlideFallbackInfo,
 } from './generator'
 import {
     ICE_SLIDE_OBJECTIVE_IDS,
@@ -102,7 +103,11 @@ export function applyIceSlideExpeditionRouteChoice(
 }
 
 export function createIceSlideExpeditionRunDefinition(
-    seed: string
+    seed: string,
+    options?: {
+        /** Forwarded to each stage's generator; see createIceSlideExpeditionStage. */
+        onFallback?: (info: IceSlideFallbackInfo) => void
+    }
 ): IceSlideRunDefinition {
     if (seed.length === 0) {
         throw new RangeError('seed must be non-empty')
@@ -116,6 +121,7 @@ export function createIceSlideExpeditionRunDefinition(
                 stageNumber: index + 1,
                 difficulty,
                 existingCanonicalKeys: canonicalKeys,
+                onFallback: options?.onFallback,
             })
             canonicalKeys.add(generated.canonicalKey)
             return generated.stage

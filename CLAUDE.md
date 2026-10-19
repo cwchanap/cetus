@@ -9,7 +9,7 @@ Cetus is a sci-fi-themed single-player gaming platform built with Astro and Tail
 ## Development Commands
 
 ### Package Manager
-This project uses **Bun** (`bun@1.3.1`) as the package manager.
+This project uses **Bun** (`bun@1.3.14`) as the package manager.
 
 ### Core Commands
 - `bun run dev` - Start both database and web server in parallel (Turbo orchestrates both)

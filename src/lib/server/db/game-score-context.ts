@@ -45,10 +45,39 @@ const RETRY_MAX_MS = 3_600_000
 
 let cachedState: GameScoresContextState | null = null
 let schemaPromise: Promise<GameScoresContextState> | null = null
-let indexRetryDelayMs = RETRY_MIN_MS
-let nextIndexRetryAt = 0
-let platformRetryDelayMs = RETRY_MIN_MS
-let nextPlatformRetryAt = 0
+
+/**
+ * Shared exponential-backoff state for lazy DDL retries: a failed attempt is
+ * retried after the current delay, which doubles on each failure up to
+ * RETRY_MAX_MS and resets on success.
+ */
+function createRetryBackoff(): {
+    isDue: () => boolean
+    onSuccess: () => void
+    onFailure: () => void
+} {
+    let delayMs = RETRY_MIN_MS
+    let nextRetryAt = 0
+    return {
+        isDue: () => Date.now() >= nextRetryAt,
+        onSuccess: () => {
+            delayMs = RETRY_MIN_MS
+            nextRetryAt = 0
+        },
+        onFailure: () => {
+            nextRetryAt = Date.now() + delayMs
+            delayMs = Math.min(delayMs * 2, RETRY_MAX_MS)
+        },
+    }
+}
+
+const indexBackoff = createRetryBackoff()
+const platformBackoff = createRetryBackoff()
+// Forced (requirePlatform) attempts bypass the exponential backoff — the
+// caller's insert fails without the column — but still respect a minimum
+// interval so an authenticated client cannot drive one DDL attempt plus a
+// warning log per request while the migration is persistently failing.
+let lastPlatformAlterAttemptAt = 0
 
 export function hasCompleteGameScoresContextColumns(
     capabilities: GameScoresContextCapabilities
@@ -170,16 +199,26 @@ async function addMissingColumns(
  * A failed attempt backs off like the scoped-index retry so probes that
  * miss the fast path for other reasons don't keep re-running (and warning
  * on) a stuck ALTER. Callers that actually need the column — non-web
- * writes via requirePlatform — bypass the backoff: their insert fails
- * without it, so each attempt is their chance to recover.
+ * writes via requirePlatform — bypass the exponential backoff: their
+ * insert fails without it, so each attempt is their chance to recover.
+ * Forced attempts still respect a minimum interval between ALTER tries so
+ * a client can't turn every request into a DDL attempt.
  */
 async function addPlatformColumnBestEffort(
     capabilities: GameScoresContextCapabilities,
     force: boolean
 ): Promise<GameScoresContextCapabilities> {
-    if (capabilities.platform || (!force && Date.now() < nextPlatformRetryAt)) {
+    if (capabilities.platform) {
         return capabilities
     }
+    if (
+        force
+            ? Date.now() - lastPlatformAlterAttemptAt < RETRY_MIN_MS
+            : !platformBackoff.isDue()
+    ) {
+        return capabilities
+    }
+    lastPlatformAlterAttemptAt = Date.now()
 
     try {
         await addColumnToleratingConcurrentMigrator(
@@ -191,13 +230,11 @@ async function addPlatformColumnBestEffort(
         )
     } catch (error) {
         console.warn('[game-score-context] platform migration failed:', error)
-        nextPlatformRetryAt = Date.now() + platformRetryDelayMs
-        platformRetryDelayMs = Math.min(platformRetryDelayMs * 2, RETRY_MAX_MS)
+        platformBackoff.onFailure()
         return capabilities
     }
 
-    platformRetryDelayMs = RETRY_MIN_MS
-    nextPlatformRetryAt = 0
+    platformBackoff.onSuccess()
     return { ...capabilities, platform: true }
 }
 
@@ -207,7 +244,7 @@ async function createScopedIndexIfDue(
     if (
         !hasCompleteGameScoresContextColumns(capabilities) ||
         capabilities.scopedIndex ||
-        Date.now() < nextIndexRetryAt
+        !indexBackoff.isDue()
     ) {
         return capabilities
     }
@@ -224,13 +261,11 @@ async function createScopedIndexIfDue(
             )
         `.execute(db)
 
-        indexRetryDelayMs = RETRY_MIN_MS
-        nextIndexRetryAt = 0
+        indexBackoff.onSuccess()
         return { ...capabilities, scopedIndex: true }
     } catch (error) {
         console.warn('[game-score-context] index creation failed:', error)
-        nextIndexRetryAt = Date.now() + indexRetryDelayMs
-        indexRetryDelayMs = Math.min(indexRetryDelayMs * 2, RETRY_MAX_MS)
+        indexBackoff.onFailure()
         return capabilities
     }
 }
@@ -242,17 +277,23 @@ async function inspectAndMigrate(
         let capabilities = await inspectCapabilities()
         cachedState = { known: true, capabilities }
 
-        if (!hasCompleteGameScoresContextColumns(capabilities)) {
-            await addMissingColumns(capabilities)
-            capabilities = await inspectCapabilities()
+        try {
+            if (!hasCompleteGameScoresContextColumns(capabilities)) {
+                await addMissingColumns(capabilities)
+                capabilities = await inspectCapabilities()
+                cachedState = { known: true, capabilities }
+            }
+        } finally {
+            // The platform column is unrelated to context completeness, so it
+            // must still be attempted when a context-column migration throws —
+            // otherwise every non-web write fails on insert even when it
+            // carries no context at all.
+            capabilities = await addPlatformColumnBestEffort(
+                capabilities,
+                options.requirePlatform === true
+            )
             cachedState = { known: true, capabilities }
         }
-
-        capabilities = await addPlatformColumnBestEffort(
-            capabilities,
-            options.requirePlatform === true
-        )
-        cachedState = { known: true, capabilities }
 
         capabilities = await createScopedIndexIfDue(capabilities)
         cachedState = { known: true, capabilities }
@@ -289,7 +330,7 @@ export function ensureGameScoresContextSchema(
         // that need the column: they must re-run the (idempotent) migration
         // instead of taking the fast path and failing on insert.
         (!options.requirePlatform || cachedCapabilities.platform) &&
-        (cachedCapabilities.scopedIndex || Date.now() < nextIndexRetryAt)
+        (cachedCapabilities.scopedIndex || !indexBackoff.isDue())
     ) {
         return Promise.resolve(cachedState as GameScoresContextState)
     }
@@ -297,6 +338,24 @@ export function ensureGameScoresContextSchema(
     if (!schemaPromise) {
         schemaPromise = inspectAndMigrate(options).finally(() => {
             schemaPromise = null
+        })
+    } else if (options.requirePlatform) {
+        // A probe started without requirePlatform may skip the platform
+        // ALTER while unforced backoff is armed, so joining it as-is could
+        // hand back platform:false and fail the caller's non-web insert.
+        // Follow the joined probe with a forced re-probe (itself
+        // single-flighted via schemaPromise) whenever the column is still
+        // missing.
+        return schemaPromise.then(state => {
+            if (state.known && state.capabilities.platform) {
+                return state
+            }
+            if (!schemaPromise) {
+                schemaPromise = inspectAndMigrate(options).finally(() => {
+                    schemaPromise = null
+                })
+            }
+            return schemaPromise
         })
     }
 

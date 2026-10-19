@@ -72,7 +72,10 @@ export interface GameScoresTable {
         string | null | undefined,
         string | null
     >
-    platform: ColumnType<string, string | undefined, string>
+    // platform is added lazily by the runtime migrator; on a database whose
+    // migration hasn't run yet, SELECT * rows simply lack the key, so the
+    // select type must admit undefined rather than claiming a present string.
+    platform: ColumnType<string | undefined, string | undefined, string>
     created_at: ColumnType<Date, never, never> // DEFAULT CURRENT_TIMESTAMP
 }
 

@@ -82,8 +82,20 @@ describe('score-context platform retry backoff', () => {
         expect(second.known && second.capabilities.platform).toBe(false)
         expect(platformAlterAttempts).toBe(1)
 
-        // Callers that need the column bypass the backoff: their insert
-        // fails without it, so each call is their chance to recover.
+        // Callers that need the column bypass the exponential backoff —
+        // their insert fails without it — but forced attempts still respect
+        // a minimum interval so per-request callers can't drive unbounded
+        // DDL. A forced call inside that window adds no attempt.
+        const floored = await ensureGameScoresContextSchema({
+            requirePlatform: true,
+        })
+        expect(floored.known && floored.capabilities.platform).toBe(false)
+        expect(platformAlterAttempts).toBe(1)
+
+        vi.advanceTimersByTime(60_001)
+        if (second.known) {
+            second.capabilities.scopedIndex = false
+        }
         const forced = await ensureGameScoresContextSchema({
             requirePlatform: true,
         })
