@@ -774,6 +774,8 @@ test.describe('Bejeweled', () => {
     test('keyboard hints score, pause freezes the timer, and replay starts a fresh dive', async ({
         page,
     }) => {
+        // shortcut: canvas-heavy flow runs ~20s locally, over 30s on slow CI runners
+        test.setTimeout(90_000)
         const errors: string[] = []
         page.on('pageerror', error => errors.push(error.message))
         await page.clock.install()
