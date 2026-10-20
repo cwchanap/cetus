@@ -14,6 +14,8 @@ coverage:
         if_not_found: failure
 
 # CI/dev scripts are infrastructure, not product code — keep them out of
-# coverage reporting.
+# coverage reporting. The app moved to apps/web, so scripts report under
+# apps/web/scripts/** (coverage is produced by apps/web's Vitest run; e.g.
+# scripts/validate-ice-slide-expedition.ts is loaded by a test import).
 ignore:
-  - scripts/**
+  - apps/web/scripts/**

@@ -4,50 +4,60 @@ A futuristic single-player gaming platform featuring interactive minigames with 
 
 ## 🚀 Quick Start
 
+Requires [Bun](https://bun.sh) 1.3.14. This is a Bun-workspaces monorepo — the Astro app lives in `apps/web` (`@cetus/web`), shared configs/tokens in `packages/` — with root scripts proxying into the app:
+
 ```sh
 # Install dependencies
-npm install
+bun install
 
-# Start development server
-npm run dev
+# Start development server (Turbo: database + web in parallel)
+bun run dev
 
-# Build for production
-npm run build
+# Build for production (emits apps/web/dist)
+bun run build
 
 # Preview production build
-npm run preview
+bun run preview
 ```
+
+Environment variables (`.env`) live in `apps/web/.env` (see `CLAUDE.md` for the full list).
 
 ## 🧪 Development Workflow
 
 ### Testing
 ```sh
 # Run tests in watch mode
-npm run test
+bun run test
 
 # Run tests once
-npm run test:run
+bun run test:run
 
 # Run tests with coverage
-npm run test:coverage
+bun run test:coverage
 
 # Test UI
-npm run test:ui
+bun run test:ui
+```
+
+### End-to-End Testing
+```sh
+# Run Playwright E2E tests (webServer auto-runs `bun run e2e:db:init` first)
+bun run test:e2e
 ```
 
 ### Code Quality
 ```sh
 # Lint code
-npm run lint
+bun run lint
 
 # Fix linting issues
-npm run lint:fix
+bun run lint:fix
 
 # Format code
-npm run format
+bun run format
 
 # Check formatting
-npm run format:check
+bun run format:check
 ```
 
 ## 🔄 CI/CD Pipeline

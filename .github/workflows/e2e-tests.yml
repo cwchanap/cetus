@@ -53,8 +53,10 @@ jobs:
           echo "$HOME/.turso/bin" >> "$GITHUB_PATH"
 
       - name: 🧩 Prepare environment
+        # The web app loads env from apps/web (Astro's project root); the
+        # file-DB fallback in src/lib/server/db/client.ts activates under CI.
         run: |
-          cat <<'EOF' > .env
+          cat <<'EOF' > apps/web/.env
           TURSO_DATABASE_URL=libsql://test-db.turso.io
           TURSO_AUTH_TOKEN=test-token
           BETTER_AUTH_SECRET=test-secret
@@ -63,12 +65,12 @@ jobs:
           GOOGLE_CLIENT_SECRET=dummy-secret
           EOF
 
-      - name: 🗄️ Ensure database path
-        run: mkdir -p db
-
-      - name: 🗄️ Initialize database schema
-        # better-auth >= 1.3 no longer auto-creates its tables on startup
-        run: sqlite3 db/db.sqlite < scripts/init-db.sql
+      # DB schema is initialized exactly once by the Playwright webServer
+      # command (`bun run e2e:db:init && bun run web:dev`, apps/web cwd —
+      # see apps/web/playwright.config.ts). e2e:db:init runs Better Auth
+      # migrations + scripts/init-db.sql + the platform column backfill.
+      # The old `mkdir -p db` + `sqlite3 db/db.sqlite < scripts/init-db.sql`
+      # steps were removed as a second, divergent schema initializer.
 
       - name: 🎭 Install Playwright Browsers
         run: bunx playwright install --with-deps
@@ -110,7 +112,7 @@ jobs:
         if: always()
         with:
           name: playwright-report
-          path: playwright-report/
+          path: apps/web/playwright-report/
           retention-days: 7
 
       - name: 📸 Upload Test Results
@@ -118,7 +120,7 @@ jobs:
         if: always()
         with:
           name: test-results
-          path: test-results/
+          path: apps/web/test-results/
           retention-days: 7
 
       - name: 📝 Comment Test Results

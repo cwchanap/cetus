@@ -11,6 +11,13 @@ Cetus is a sci-fi-themed single-player gaming platform built with Astro and Tail
 ### Package Manager
 This project uses **Bun** (`bun@1.3.14`) as the package manager.
 
+### Repository Layout
+Bun-workspaces monorepo with a single root `bun.lock` (`bunfig.toml` pins the hoisted linker):
+- `apps/web` (`@cetus/web`) — the Astro app: all `src/`, `e2e/`, `scripts/`, `db/`, tests and tool configs live here
+- `packages/config` (`@cetus/config`) — shared tsconfig/eslint base configs
+- `packages/tokens` (`@cetus/tokens`) — CSS-only semantic theme tokens
+- Root `package.json` scripts proxy into the web workspace via `bun run --cwd apps/web ...`; root `lint` runs `eslint .` over the whole repo
+
 ### Core Commands
 - `bun run dev` - Start both database and web server in parallel (Turbo orchestrates both)
 - `bun run web:dev` - Start Astro dev server only (localhost:4325)
@@ -27,9 +34,10 @@ bun run dev        # Runs database + web server in parallel (recommended)
 bun run db:dev     # Terminal 1: Start database (required for auth/scores)
 bun run web:dev    # Terminal 2: Start web server on localhost:4325
 ```
+The local database file is `apps/web/db/db.sqlite` (git-ignored). For E2E, `bun run e2e:db:init` (runs `apps/web/scripts/init-e2e-db.ts` from the web cwd) is the single canonical schema initializer — Better Auth migrations + `scripts/init-db.sql` + platform column backfill — and the Playwright `webServer` command runs it automatically before the dev server.
 
 ### Environment Setup
-Required environment variables in `.env`:
+Required environment variables in `apps/web/.env` (the app lives in `apps/web`, so `.env` moved there from the repo root — never create one at the root):
 ```
 TURSO_DATABASE_URL=your_turso_database_url
 TURSO_AUTH_TOKEN=your_turso_auth_token
@@ -88,54 +96,63 @@ Key database entities:
 - `user_achievements` - User achievement tracking (achievement definitions stored in code)
 
 ### Project Structure
+Bun-workspace monorepo. Paths below are relative to `apps/web/`:
 ```
-src/
-├── components/ui/     # Reusable UI components with sci-fi styling
-├── lib/
-│   ├── auth.ts        # Better Auth configuration
-│   ├── auth-client.ts # Client-side auth utilities
-│   ├── score-client.ts # Score tracking utilities
-│   ├── server/        # Server-side utilities
-│   │   └── db/        # Database layer (Kysely + LibSQL)
-│   │       ├── client.ts  # Database connection
-│   │       ├── queries.ts # Typed query functions
-│   │       └── types.ts   # Database schema types
-│   ├── services/     # Business logic services
-│   │   ├── achievementService.ts # Achievement checking and awarding
-│   │   └── scoreService.ts # Centralized score management
-│   └── games/        # Game-specific logic
-│       ├── core/      # Unified game framework (BaseGame, BaseRenderer, etc.)
-│       ├── renderers/ # Renderer factory and implementations
-│       ├── tetris/    # Tetris game implementation
-│       ├── bubble-shooter/ # Bubble shooter implementation
-│       ├── memory-matrix/ # Memory Matrix implementation
-│       ├── mine-grid/    # Mine Grid implementation
-│       ├── quick-math/ # Quick Math implementation
-│       ├── word-scramble/ # Word Scramble implementation
-│       ├── reflex/    # Reflex game implementation
-│       ├── sudoku/    # Sudoku puzzle implementation
-│       ├── bejeweled/ # Bejeweled match-3 implementation
-│       ├── path-navigator/ # Path Navigator implementation
-│       ├── evader/    # Evader implementation
-│       ├── 2048/      # 2048 sliding puzzle implementation
-│       ├── snake/     # Snake classic implementation
-│       ├── circuit-hacker/ # Circuit Hacker implementation
-│       ├── satellite-sync/ # Satellite Sync implementation
-│       ├── pattern-pulse/ # Pattern Pulse implementation
-│       ├── potion-sorter/ # Potion Sorter implementation
-│       ├── signal-switch/ # Signal Switch implementation
-│       ├── rhythm-reactor/ # Rhythm Reactor implementation
-│       ├── asteroid-drift/ # Asteroid Drift implementation
-│       └── chromatic-tide/ # Chromatic Tide implementation
-├── pages/
-│   ├── api/          # API routes (auth, scores)
-│   ├── login/        # Authentication pages
-│   ├── signup/
-│   ├── profile/      # User profile and statistics
-│   └── [game]/       # Game-specific pages
-├── layouts/          # Page layouts (main, app)
-└── middleware.ts     # Auth middleware
+apps/web/
+├── src/
+│   ├── components/ui/     # Reusable UI components with sci-fi styling
+│   ├── lib/
+│   │   ├── auth.ts        # Better Auth configuration
+│   │   ├── auth-client.ts # Client-side auth utilities
+│   │   ├── score-client.ts # Score tracking utilities
+│   │   ├── server/        # Server-side utilities
+│   │   │   └── db/        # Database layer (Kysely + LibSQL)
+│   │   │       ├── client.ts  # Database connection
+│   │   │       ├── queries.ts # Typed query functions
+│   │   │       └── types.ts   # Database schema types
+│   │   ├── services/     # Business logic services
+│   │   │   ├── achievementService.ts # Achievement checking and awarding
+│   │   │   └── scoreService.ts # Centralized score management
+│   │   └── games/        # Game-specific logic
+│   │       ├── core/      # Unified game framework (BaseGame, BaseRenderer, etc.)
+│   │       ├── renderers/ # Renderer factory and implementations
+│   │       ├── tetris/    # Tetris game implementation
+│   │       ├── bubble-shooter/ # Bubble shooter implementation
+│   │       ├── memory-matrix/ # Memory Matrix implementation
+│   │       ├── mine-grid/    # Mine Grid implementation
+│   │       ├── quick-math/ # Quick Math implementation
+│   │       ├── word-scramble/ # Word Scramble implementation
+│   │       ├── reflex/    # Reflex game implementation
+│   │       ├── sudoku/    # Sudoku puzzle implementation
+│   │       ├── bejeweled/ # Bejeweled match-3 implementation
+│   │       ├── path-navigator/ # Path Navigator implementation
+│   │       ├── evader/    # Evader implementation
+│   │       ├── 2048/      # 2048 sliding puzzle implementation
+│   │       ├── snake/     # Snake classic implementation
+│   │       ├── circuit-hacker/ # Circuit Hacker implementation
+│   │       ├── satellite-sync/ # Satellite Sync implementation
+│   │       ├── pattern-pulse/ # Pattern Pulse implementation
+│   │       ├── potion-sorter/ # Potion Sorter implementation
+│   │       ├── signal-switch/ # Signal Switch implementation
+│   │       ├── rhythm-reactor/ # Rhythm Reactor implementation
+│   │       ├── asteroid-drift/ # Asteroid Drift implementation
+│   │       └── chromatic-tide/ # Chromatic Tide implementation
+│   ├── pages/
+│   │   ├── api/          # API routes (auth, scores)
+│   │   ├── login/        # Authentication pages
+│   │   ├── signup/
+│   │   ├── profile/      # User profile and statistics
+│   │   └── [game]/       # Game-specific pages
+│   ├── layouts/          # Page layouts (main, app)
+│   └── middleware.ts     # Auth middleware
+├── e2e/                  # Playwright end-to-end specs
+├── scripts/              # init-e2e-db.ts, init-db.sql, validate-ice-slide-expedition.ts
+├── db/                   # Local SQLite database (db.sqlite, git-ignored)
+packages/
+├── config/               # @cetus/config — shared tsconfig/eslint bases
+└── tokens/               # @cetus/tokens — CSS-only semantic theme tokens
 ```
+Root-level: `turbo.json` (task orchestration), `bunfig.toml` (hoisted linker pin), `eslint.config.js` (root base), `.prettierrc`, `.husky`, `.github/`.
 
 ### Authentication System
 - **Better Auth**: Production-ready auth with email/password + OAuth
@@ -250,7 +267,7 @@ Comprehensive sci-fi design system:
 ### Test Structure
 - **Unit Tests**: `*.test.ts` files co-located with source code
 - **Integration Tests**: API and database interaction testing
-- **E2E Tests**: Playwright tests in root-level `e2e/` directory
+- **E2E Tests**: Playwright tests in `apps/web/e2e/` directory
 - **Setup**: Global test setup in `src/test/setup.ts`
 - **Coverage**: V8 coverage reports with HTML output
 - **Environment**: jsdom for DOM testing with Testing Library
@@ -272,7 +289,7 @@ Comprehensive sci-fi design system:
 - **Type Safety**: Strict TypeScript with explicit any warnings
 
 ### Component Development
-1. Use existing UI components from `src/components/ui/`
+1. Use existing UI components from `apps/web/src/components/ui/`
 2. Follow TypeScript interface patterns for props
 3. Apply sci-fi theme classes consistently
 4. Implement responsive design with mobile-first approach
