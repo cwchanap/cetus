@@ -458,15 +458,25 @@ describe('ice-slide expedition generation: fallback after 64 attempts', () => {
             }
         )
         try {
+            const onFallback = vi.fn()
             const result = createIceSlideExpeditionStage({
                 seed: 'ice-slide:hpa-489:v1:fallback:easy',
                 stageNumber: 1,
                 difficulty: 'easy',
+                onFallback,
             })
 
             expect(result.usedFallback).toBe(true)
             expect(result.attempts).toBe(64)
             expect(result.rejectionCounts).toEqual({ unsolvable: 64 })
+            expect(onFallback).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    stageNumber: 1,
+                    difficulty: 'easy',
+                    attempts: 64,
+                    rejectionCounts: { unsolvable: 64 },
+                })
+            )
         } finally {
             validateMock.mockRestore()
         }

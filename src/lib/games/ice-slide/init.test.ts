@@ -379,6 +379,38 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
+    it('warns via console when expedition generation falls back', async () => {
+        const actual =
+            await vi.importActual<typeof import('./expedition')>('./expedition')
+        vi.mocked(createIceSlideExpeditionRunDefinition).mockImplementationOnce(
+            (seed, options) => {
+                options?.onFallback?.({
+                    stageNumber: 3,
+                    difficulty: 'hard',
+                    seedHash: '00000000',
+                    attempts: 64,
+                    rejectionCounts: { unsolvable: 64 },
+                    fallbackId: 'fallback-hard-1',
+                })
+                return actual.createIceSlideExpeditionRunDefinition(
+                    seed,
+                    options
+                )
+            }
+        )
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+        await handle.start('expedition')
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            'Ice Slide Expedition generation fallback',
+            expect.objectContaining({ fallbackId: 'fallback-hard-1' })
+        )
+        warnSpy.mockRestore()
+    })
+
     it('shows the Expedition route choice after stage 2 Continue and keeps input locked', async () => {
         const container = mountDom()
         const handle = await initializeIceSlide(container, baseCallbacks())
