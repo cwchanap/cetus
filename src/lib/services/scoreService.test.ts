@@ -183,6 +183,22 @@ describe('Score Service', () => {
             expect(result.success).toBe(false)
             expect(result.code).toBe('NETWORK_ERROR')
         })
+
+        it('fails fast with TRANSPORT_UNAVAILABLE outside a DOM host', async () => {
+            vi.stubGlobal('document', undefined)
+
+            const result = await submitScore({
+                gameId: GameID.TETRIS,
+                score: 100,
+            })
+
+            expect(result).toEqual({
+                success: false,
+                error: 'Score submission requires a browser host; non-web hosts must inject a ScoreSubmitter transport',
+                code: 'TRANSPORT_UNAVAILABLE',
+            })
+            vi.unstubAllGlobals()
+        })
     })
 
     describe('saveGameScore', () => {
@@ -604,6 +620,30 @@ describe('Score Service', () => {
                     competitionKey: 'ice-slide:daily:2026-08-01:g1:r1',
                     rulesetVersion: 1,
                 },
+            })
+        })
+
+        it('forwards platform through SaveScoreOptions', async () => {
+            global.fetch = vi.fn().mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve({ success: true }),
+            })
+
+            await saveGameScore(
+                GameID.TETRIS,
+                100,
+                undefined,
+                undefined,
+                undefined,
+                { platform: 'web' }
+            )
+
+            const request = vi.mocked(global.fetch).mock
+                .calls[0][1] as RequestInit
+            expect(JSON.parse(String(request.body))).toEqual({
+                gameId: GameID.TETRIS,
+                score: 100,
+                platform: 'web',
             })
         })
 
