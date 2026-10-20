@@ -49,7 +49,7 @@
     "clsx": "^2.1.1",
     "cropperjs": "^1.6.2",
     "kysely": "^0.29.6",
-    "lucide-react": "^0.525.0",
+    "lucide-react": "^1.58.0",
     "pixi.js": "^8.22.0",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",
