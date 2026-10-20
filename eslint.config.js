@@ -10,20 +10,23 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   ...eslintPluginAstro.configs.recommended,
   {
+    // Ignore patterns are resolved relative to this config file, so entries
+    // for the moved app tree need the `**/` prefix to keep matching under
+    // apps/web (HPA-446 Step 2).
     ignores: [
-      'dist/',
-      'node_modules/',
-      '.astro/',
-      '.vercel/',
+      '**/dist/',
+      '**/node_modules/',
+      '**/.astro/',
+      '**/.vercel/',
       '.worktrees/',
-      'coverage/',
-      'db/',
+      '**/coverage/',
+      '**/db/',
       '.superpowers/',
-      'public/',
-      '*.config.js',
-      '*.config.mjs',
-      '*.config.ts',
-      'env.d.ts',
+      '**/public/',
+      '**/*.config.js',
+      '**/*.config.mjs',
+      '**/*.config.ts',
+      '**/env.d.ts',
     ],
   },
   {
