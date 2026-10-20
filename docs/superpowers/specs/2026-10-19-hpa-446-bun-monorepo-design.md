@@ -14,7 +14,7 @@ Success means all root commands work, web builds/tests/e2e remain green, styles 
 
 - Root package is `cetus` using Bun **1.3.14** (also pinned in GitHub Actions; do not downgrade to 1.3.1, which caused frozen-lockfile drift in CI). `turbo.json` already exists; root `bun run dev` starts `db:dev` and `web:dev` with Turbo.
 - Astro config, src, public, e2e, scripts, Better Auth migrations, CSS, test configs and shadcn `components.json` are all web-specific at repository root.
-- `src/styles/global.css` is Tailwind **v4 CSS-first** and contains both generic shadcn vars and scoped `--cetus-*` tokens; `tailwind.config.js` additionally contains legacy theme utilities. Do not assume the JS config is the active source for Tailwind v4 without verifying usage.
+- `src/styles/global.css` is Tailwind **v4 CSS-first** and contains both generic shadcn vars and scoped `--cetus-*` tokens. The legacy `tailwind.config.js` declares font/animation/gradient utilities, but there is **no `@config` directive in the CSS** and Astro loads `@tailwindcss/vite` without referencing that file. Treat the JS config as inactive pending a production-build CSS check; **do not copy its otherwise inert declarations into live CSS**, which would change appearance.
 - `src/styles/global.test.ts` and `src/styles/abyssal-shell.test.ts` parse CSS text and assert concrete theme values/selectors. They must be updated intentionally if token declarations move.
 - `vitest.config.ts`, score-schema migration tests, and multiple other tests assume `process.cwd()` is the Astro project root. `playwright.config.ts` uses `e2e/` and localhost:4325; its `webServer.command` now starts with `bun run e2e:db:init`, then runs web/dev, and the new `scripts/init-e2e-db.ts` reads `scripts/init-db.sql` and writes `db/db.sqlite` relative to cwd.
 - Root GitHub workflows run Bun 1.3.14 installation, lint, tests, build, Playwright, coverage upload and a legacy `sqlite3 db/db.sqlite < scripts/init-db.sql` step in E2E CI. The Playwright web server **also** runs the newer `e2e:db:init` script, which uses Better Auth `getMigrations()/runMigrations()` before game SQL and backfills contextual/platform columns before creating indexes. Prefer that existing canonical script after relocation rather than duplicating raw SQL initialization. `.github/dependabot.yml` uses the root Bun package ecosystem.
@@ -37,7 +37,7 @@ Success means all root commands work, web builds/tests/e2e remain green, styles 
       better-auth_migrations/              # includes dated platform migration
       astro.config.mjs
       vitest.config.ts playwright.config.ts
-      tailwind.config.js tsconfig.json
+      tsconfig.json
       components.json env.d.ts
       eslint.config.js
       .env                 # untracked, local only
@@ -48,14 +48,15 @@ Success means all root commands work, web builds/tests/e2e remain green, styles 
       src/index.ts         # semantic tokens + font stacks; source of truth
       theme.css            # committed, deterministic generated CSS
       scripts/generate-css.ts
+      src/theme.test.ts     # sole generator-output drift test
     config/
       package.json
       tsconfig.base.json
       eslint.base.mjs
-      prettier.config.mjs
+  .prettierrc               # existing shared Prettier config (stays at root)
 ```
 
-Preserve history with `git mv`. Keep project-level docs, config, and the GitHub/Husky folders at root. Move web-only shadcn configuration, style tests, E2E tests, application scripts, env declarations and migration SQL with the app. Root `.env` is untracked: document how to move local values to `apps/web/.env`, but do not commit secrets.
+Preserve history with `git mv`. Keep project-level docs, existing root `.prettierrc`, and the GitHub/Husky folders at root. Move web-only shadcn configuration, style tests, E2E tests, application scripts, env declarations and migration SQL with the app. **After confirming the compiled CSS does not use its utilities, delete the inactive root `tailwind.config.js` instead of moving it**; leave existing markup classes untouched and defer any styling correction to a separate task. Root `.env` is untracked: document how to move local values to `apps/web/.env`, but do not commit secrets.
 
 ## Workspace / command contract
 
@@ -68,11 +69,11 @@ Preserve history with `git mv`. Keep project-level docs, config, and the GitHub/
 
 ## Token and configuration boundaries
 
-**@cetus/tokens** is intentionally small. Extract the existing stable `--cetus-*` semantic values for default and abyssal themes, and the existing font stacks, without changing visual values or redesigning classes. Plain TS exports are canonical. One tiny deterministic Bun script generates a static `theme.css` for Tailwind v4; web imports that CSS at build time. Commit generated CSS so local tests work without an implicit bootstrap step, and add a cheap `--check` verification to catch drift. No runtime CSS injection, token server or design-system framework.
+**@cetus/tokens** is intentionally small. Extract the existing stable `--cetus-*` semantic values for default and abyssal themes, and the existing font stacks, without changing visual values or redesigning classes. Plain TS exports are canonical. One tiny deterministic Bun script generates static `theme.css` for Tailwind v4; web imports that CSS at build time. Commit generated CSS so local tests work without an implicit bootstrap step. **One Vitest test** runs the generator against a temporary output file and compares it byte-for-byte with committed `theme.css`; no separate `--check` command or parity/idempotence mechanism. One existing web-CSS test also verifies the generated stylesheet is imported. No runtime CSS injection, token server or design-system framework.
 
-Keep generic shadcn `--background`/`--radius`, CSS animations, HUD selectors and component styles in web CSS. Do not migrate every color, shadow, gradient or one-off class just to enlarge the token package. Preserve scoped selector order (default, dark, abyssal), specificity and CSS semantics. Theme tests should read the **generated token CSS** for token-value assertions and web `global.css` for shell utility/selectors, and prove the generated file is imported. The source token module remains usable by future native code, but NativeWind configuration is explicitly out of scope now.
+Keep generic shadcn `--background`/`--radius`, **already-active** CSS animations, HUD selectors and component styles in web CSS. Do not import dormant `tailwind.config.js` definitions or reactivate its legacy `.font-orbitron`, `.animate-float` or radial-gradient utilities. Do not migrate every color, shadow, gradient or one-off class just to enlarge the token package. Preserve scoped selector order (default, dark, abyssal), specificity and CSS semantics. Theme tests should read the **generated token CSS** for token-value assertions and web `global.css` for shell utility/selectors, and prove the generated file is imported. The source token module remains usable by future native code, but NativeWind configuration is explicitly out of scope now.
 
-**@cetus/config** holds the actual common TypeScript strictness, existing ESLint rules, and existing Prettier choices. Web retains Astro-specific TypeScript, ESLint and format overrides; in particular retain portable-game-globals restrictions from HPA-444. Keep React-specific presets and dependencies out until HPA-379 actually introduces React. A small extension/re-export is preferable to new config tooling.
+**@cetus/config** remains a **thin** workspace package because HPA-446 explicitly names it: only a shared TypeScript base and ESLint base. Keep root `.prettierrc` as the single repository-wide shared Prettier config; no `prettier.config.mjs` re-export or duplicate config. Web retains Astro-specific TypeScript and ESLint overrides; in particular retain portable-game-globals restrictions from HPA-444. Keep React-specific presets and dependencies out until HPA-379 actually introduces React. Root-only shared files without a package are a reasonable future simplification if ticket scope changes, but are not needed for this task.
 
 ## CI and Vercel release sequencing
 
@@ -92,7 +93,7 @@ Rejected: two dependent PRs for the same Linear ticket; a bespoke multi-package 
 
 1. `bun install --frozen-lockfile` and all named root commands pass; Vitest, Astro TypeScript and Playwright see the same app.
 2. All 23 game routes, score submission, login/profile, local Turso and assets behave as before. No generated files accidentally enter Git.
-3. Token generation is deterministic and checked; `global.test.ts` and `abyssal-shell.test.ts` pass without weakening appearance assertions; manually compare homepage, one canvas game and profile at desktop and mobile viewport sizes.
+3. One generator-to-temporary-file Vitest test matches committed token CSS, plus one web CSS import assertion; `global.test.ts` and `abyssal-shell.test.ts` retain their appearance assertions. Confirm the unused Tailwind JS config's classes were absent from the pre-migration build, and remain absent. Manually compare homepage, one canvas game and profile at desktop and mobile viewport sizes.
 4. CI uses the new test artifact paths and validates a real Vercel **preview** with project Root Directory `apps/web`.
 5. `git log --follow -- apps/web/src/...` retains the moved history; no code from HPA-444 is lost.
 6. HPA-444 is already merged. Rebase the planning branch onto main before implementing; HPA-446 is ready to merge **only after** root/CI/E2E/preview gates pass and HPA-444 score/portable-lint behavior is retained.
