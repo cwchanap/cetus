@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import Navigation from '@/components/ui/Navigation.astro'
@@ -8,6 +9,13 @@ import Footer from '@/components/ui/Footer.astro'
 
 const css = readFileSync(
     resolve(process.cwd(), 'src/styles/global.css'),
+    'utf-8'
+)
+
+// Shared token stylesheet, resolved through the @cetus/tokens package
+// specifier so the workspace exports mapping stays importable.
+const themeCss = readFileSync(
+    createRequire(import.meta.url).resolve('@cetus/tokens/theme.css'),
     'utf-8'
 )
 
@@ -30,8 +38,8 @@ describe('abyssal shell retints (behavioral)', () => {
         // .theme-abyssal .text-holographic / .font-orbitron overrides are gone.
         expect(css).not.toContain('.theme-abyssal .text-holographic')
         expect(css).not.toContain('.theme-abyssal .font-orbitron')
-        expect(css).toContain("--cetus-display-font: 'Fraunces', serif")
-        expect(css).toContain('--cetus-wordmark-fill: var(--cetus-ink)')
+        expect(themeCss).toContain("--cetus-display-font: 'Fraunces', serif")
+        expect(themeCss).toContain('--cetus-wordmark-fill: var(--cetus-ink)')
         expect(css).toContain('.cetus-wordmark')
     })
 
