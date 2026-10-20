@@ -35,12 +35,11 @@
     "prepare": "husky",
     "turbo": "turbo",
     "build:turbo": "turbo run build",
-    "dev:turbo": "turbo run dev --parallel",
-    "lint:turbo": "turbo run lint",
     "test:turbo": "turbo run test",
     "test:e2e:turbo": "turbo run test:e2e"
   },
   "devDependencies": {
+    "@cetus/config": "workspace:*",
     "@eslint/js": "^10.0.1",
     "dotenv": "^18.0.8",
     "eslint": "^10.13.0",
