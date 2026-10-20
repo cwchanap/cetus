@@ -1,7 +1,8 @@
 version: 2
 
 updates:
-  # JavaScript / TypeScript dependencies (single root package.json)
+  # JS/TS workspace dependencies — Bun workspaces share one root bun.lock,
+  # so updating at '/' covers apps/* and packages/* alike.
   - package-ecosystem: 'bun'
     directory: '/'
     schedule:

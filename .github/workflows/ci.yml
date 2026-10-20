@@ -63,7 +63,9 @@ jobs:
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./coverage
+          # Vitest runs with apps/web as its project root, so the coverage
+          # report lands in apps/web/coverage (not the repo root).
+          directory: apps/web/coverage
           fail_ci_if_error: false
           verbose: true
 
@@ -95,5 +97,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: build-artifacts
-          path: dist/
+          # `bun run build` proxies into apps/web, where Astro emits dist/.
+          path: apps/web/dist/
           retention-days: 7
