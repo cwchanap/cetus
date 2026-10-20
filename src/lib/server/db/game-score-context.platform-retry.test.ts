@@ -63,7 +63,7 @@ beforeAll(async () => {
 })
 
 describe('score-context platform retry backoff', () => {
-    it('throttles unforced platform retries while requirePlatform forces an attempt', async () => {
+    it('throttles unforced platform retries until the backoff expires while requirePlatform forces an attempt', async () => {
         // Probe 1: the platform ALTER fails once and arms the backoff.
         const first = await ensureGameScoresContextSchema()
         expect(first.known).toBe(true)
@@ -111,5 +111,23 @@ describe('score-context platform retry backoff', () => {
         const retried = await ensureGameScoresContextSchema()
         expect(retried.known && retried.capabilities.platform).toBe(false)
         expect(platformAlterAttempts).toBe(3)
+
+        // Regression for the normal path: the cached snapshot now has
+        // scopedIndex:true with platform still missing. Inside the backoff
+        // window the fast path must still hold — it returns the cached
+        // snapshot itself, with no probe and no ALTER attempt.
+        const cached = await ensureGameScoresContextSchema()
+        expect(cached).toBe(retried)
+        expect(platformAlterAttempts).toBe(3)
+
+        // Once the doubled 240s window expires, a due platform retry must
+        // invalidate that fast path on its own — otherwise the armed
+        // backoff never fires without a requirePlatform caller or a
+        // restart, since nothing else re-opens the schema probe while
+        // scopedIndex stays cached.
+        vi.advanceTimersByTime(240_001)
+        const reProbed = await ensureGameScoresContextSchema()
+        expect(reProbed.known && reProbed.capabilities.platform).toBe(false)
+        expect(platformAlterAttempts).toBe(4)
     })
 })
