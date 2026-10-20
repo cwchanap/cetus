@@ -1,0 +1,4 @@
+# Pin the classic hoisted install layout so the regenerated bun.lock keeps the
+# existing single root node_modules (no isolated per-workspace installs).
+[install]
+linker = "hoisted"

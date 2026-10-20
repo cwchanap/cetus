@@ -1,4 +1,7 @@
-@import 'tailwindcss';
+/* Source detection stays rooted at the repo root (four levels up from this
+   file) so root-level docs/spec markdown keeps feeding utility candidates —
+   keeps compiled CSS byte-identical to the pre-monorepo baseline (HPA-446). */
+@import 'tailwindcss' source('../../../../');
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
