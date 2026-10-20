@@ -624,11 +624,13 @@ export async function initializeIceSlide(
                     const seed = createExpeditionSeed()
                     run = createIceSlideExpeditionRunDefinition(seed, {
                         onFallback: info => {
-                            // eslint-disable-next-line no-console
-                            console.warn(
-                                'Ice Slide Expedition generation fallback',
-                                info
-                            )
+                            if (import.meta.env.DEV) {
+                                // eslint-disable-next-line no-console
+                                console.warn(
+                                    'Ice Slide Expedition generation fallback',
+                                    info
+                                )
+                            }
                         },
                     })
                     retryRun = cloneIceSlideRunDefinition(run)

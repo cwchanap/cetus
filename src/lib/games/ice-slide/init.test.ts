@@ -245,6 +245,7 @@ describe('initializeIceSlide', () => {
         debugWindow.iceSlideGame?.cleanup()
         vi.useRealTimers()
         vi.unstubAllGlobals()
+        vi.unstubAllEnvs()
     })
 
     it('keeps a Daily retry on its captured UTC run across rollover', async () => {
@@ -408,6 +409,38 @@ describe('initializeIceSlide', () => {
             'Ice Slide Expedition generation fallback',
             expect.objectContaining({ fallbackId: 'fallback-hard-1' })
         )
+        warnSpy.mockRestore()
+    })
+
+    it('stays silent on expedition fallback outside development', async () => {
+        const actual =
+            await vi.importActual<typeof import('./expedition')>('./expedition')
+        vi.mocked(createIceSlideExpeditionRunDefinition).mockImplementationOnce(
+            (seed, options) => {
+                options?.onFallback?.({
+                    stageNumber: 3,
+                    difficulty: 'hard',
+                    seedHash: '00000000',
+                    attempts: 64,
+                    rejectionCounts: { unsolvable: 64 },
+                    fallbackId: 'fallback-hard-1',
+                })
+                return actual.createIceSlideExpeditionRunDefinition(
+                    seed,
+                    options
+                )
+            }
+        )
+        // Vitest rewrites import.meta.env to process.env, so stubbing DEV
+        // exercises the production branch of the web boundary's gate.
+        vi.stubEnv('DEV', false)
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+        await handle.start('expedition')
+
+        expect(warnSpy).not.toHaveBeenCalled()
         warnSpy.mockRestore()
     })
 
