@@ -330,7 +330,12 @@ export function ensureGameScoresContextSchema(
         // that need the column: they must re-run the (idempotent) migration
         // instead of taking the fast path and failing on insert.
         (!options.requirePlatform || cachedCapabilities.platform) &&
-        (cachedCapabilities.scopedIndex || !indexBackoff.isDue())
+        (cachedCapabilities.scopedIndex || !indexBackoff.isDue()) &&
+        // A complete snapshot missing only the platform column cannot
+        // squat on the fast path forever: once the unforced retry is due
+        // the probe must run or the armed backoff never fires — nothing
+        // else re-opens the schema probe while scopedIndex stays cached.
+        (cachedCapabilities.platform || !platformBackoff.isDue())
     ) {
         return Promise.resolve(cachedState as GameScoresContextState)
     }
