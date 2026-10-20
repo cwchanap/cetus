@@ -1,0 +1,76 @@
+/* Cetus semantic design tokens — CSS-only source of truth (@cetus/tokens).
+   Imported by apps/web/src/styles/global.css; declarations moved verbatim
+   from there. No generator, no generated CSS, no TypeScript entry point. */
+
+:root {
+  /* Cetus semantic tokens — default resolves to exact Tailwind v4 colors so
+     non-abyssal pages are byte-identical to before tokenization. */
+  --cetus-accent: oklch(0.789 0.154 211.53); /* cyan-400 */
+  --cetus-accent-2: oklch(0.627 0.265 303.9); /* purple-500 */
+  --cetus-accent-3: oklch(
+    0.627 0.265 303.9
+  ); /* purple-500 default; abyssal swaps to magenta */
+  --cetus-btn-from: oklch(0.715 0.143 215.221); /* cyan-500 */
+  --cetus-btn-to: oklch(0.558 0.288 302.321); /* purple-600 */
+  --cetus-page-bg: linear-gradient(
+    135deg,
+    rgb(15 23 42),
+    rgb(88 28 135),
+    rgb(15 23 42)
+  );
+  --cetus-surface: oklch(0 0 0 / 0.05);
+  --cetus-hairline: oklch(0.372 0.028 257.286 / 0.5); /* slate-700/50 */
+  --cetus-ink: var(--foreground);
+  --cetus-ink-muted: oklch(0.872 0.01 258.338); /* gray-300 */
+  --cetus-footer-ink: oklch(0.707 0.022 257.328); /* gray-400 */
+  /* Wordmark tokens — default = Orbitron + holographic gradient.
+     Abyssal swaps to Fraunces italic + static ink (see .theme-abyssal). */
+  --cetus-display-font: 'Orbitron', monospace;
+  --cetus-display-weight: 700;
+  --cetus-display-style: normal;
+  --cetus-wordmark-bg: linear-gradient(
+    45deg,
+    rgb(34 211 238),
+    rgb(168 85 247),
+    rgb(236 72 153),
+    rgb(34 211 238)
+  );
+  --cetus-wordmark-fill: transparent;
+  --cetus-wordmark-animation: holographic 3s ease-in-out infinite;
+}
+
+.dark {
+  /* Cetus surface: white-opacity for dark backgrounds
+     (root uses black-opacity for light mode, matching --border pattern).
+     --cetus-hairline is not overridden here — it inherits the root
+     slate-700/50 value so the Footer border matches the original
+     border-slate-700/50 on non-abyssal pages. */
+  --cetus-surface: rgba(255, 255, 255, 0.05);
+}
+
+/* abyssal accent scope */
+.theme-abyssal {
+  --cetus-accent: #22f5d0; /* brighter teal (HUD energy) */
+  --cetus-accent-2: #ffc24a; /* brighter amber */
+  --cetus-accent-3: #ff3d8a; /* electric magenta — HUD chrome/hover/sweeps */
+  --cetus-btn-from: #1fe3c0; /* teal (tonal button) */
+  --cetus-btn-to: #0e9e84; /* deep teal */
+  --cetus-page-bg: #04060a; /* abyss */
+  --cetus-surface: #06090f; /* card */
+  --cetus-hairline: rgba(234, 246, 255, 0.1);
+  --cetus-ink: #eaf6ff;
+  --cetus-ink-muted: #8a98a6;
+  --cetus-footer-ink: var(--cetus-ink-muted);
+  /* Wordmark: Fraunces italic + static ink (retires .text-holographic /
+     .font-orbitron class overrides — the nav uses .cetus-wordmark). */
+  --cetus-display-font: 'Fraunces', serif;
+  --cetus-display-weight: 300;
+  --cetus-display-style: italic;
+  --cetus-wordmark-bg: none;
+  --cetus-wordmark-fill: var(--cetus-ink);
+  --cetus-wordmark-animation: none;
+  /* Bind font-mono to JetBrains Mono under the abyssal scope so the hero
+     kicker + catalog mono labels match SpecimenCard's scoped 'JetBrains Mono'.
+     Default pages keep Tailwind's system mono stack (no regression). */
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}

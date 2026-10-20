@@ -1,12 +1,20 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import Button from '@/components/ui/Button.astro'
 
 const css = readFileSync(
     resolve(process.cwd(), 'src/styles/global.css'),
+    'utf-8'
+)
+
+// Shared token stylesheet, resolved through the @cetus/tokens package
+// specifier so the workspace exports mapping stays importable.
+const themeCss = readFileSync(
+    createRequire(import.meta.url).resolve('@cetus/tokens/theme.css'),
     'utf-8'
 )
 
@@ -47,8 +55,8 @@ function tokenValue(block: string, token: string): string | null {
     return match ? match[1].trim() : null
 }
 
-const rootBlock = extractBlock(css, ':root')
-const abyssalBlock = extractBlock(css, '.theme-abyssal')
+const rootBlock = extractBlock(themeCss, ':root')
+const abyssalBlock = extractBlock(themeCss, '.theme-abyssal')
 
 describe('abyssal theme tokens (behavioral)', () => {
     let container: Awaited<ReturnType<typeof AstroContainer.create>>
@@ -60,6 +68,10 @@ describe('abyssal theme tokens (behavioral)', () => {
             props: { variant: 'outline' },
             slots: { default: 'Test' },
         })
+    })
+
+    it('imports the shared token stylesheet from @cetus/tokens', () => {
+        expect(css).toContain("@import '@cetus/tokens/theme.css';")
     })
 
     it('defines .hud-bracket rules in global scope (not just SpecimenCard)', () => {
@@ -143,7 +155,7 @@ describe('abyssal theme tokens (behavioral)', () => {
     })
 
     it('defines a .theme-abyssal scope that overrides the accents', () => {
-        expect(css).toMatch(/\.theme-abyssal[^{]*\{/)
+        expect(themeCss).toMatch(/\.theme-abyssal[^{]*\{/)
     })
 
     it('overrides the sci-fi page background under abyssal scope', () => {
@@ -203,13 +215,13 @@ describe('abyssal theme tokens (behavioral)', () => {
     })
 
     it('--cetus-surface in .dark uses white-opacity (visible on dark bg)', () => {
-        const darkBlock = extractBlock(css, '.dark')
+        const darkBlock = extractBlock(themeCss, '.dark')
         const surface = tokenValue(darkBlock, 'cetus-surface')
         expect(surface).toMatch(/rgba\(255,\s*255,\s*255/)
     })
 
     it('--cetus-hairline is NOT overridden in .dark (inherits root slate-700/50)', () => {
-        const darkBlock = extractBlock(css, '.dark')
+        const darkBlock = extractBlock(themeCss, '.dark')
         const hairline = tokenValue(darkBlock, 'cetus-hairline')
         // The original Footer border was border-slate-700/50 — a static class,
         // same in light and dark. The token should not be overridden in .dark
