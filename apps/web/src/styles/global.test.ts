@@ -1,22 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
-import { resolve } from 'node:path'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import Button from '@/components/ui/Button.astro'
-
-const css = readFileSync(
-    resolve(process.cwd(), 'src/styles/global.css'),
-    'utf-8'
-)
-
-// Shared token stylesheet, resolved through the @cetus/tokens package
-// specifier so the workspace exports mapping stays importable.
-const themeCss = readFileSync(
-    createRequire(import.meta.url).resolve('@cetus/tokens/theme.css'),
-    'utf-8'
-)
+import { globalCss as css, themeCss } from '@/test/styles'
 
 /** Extract the body of a CSS selector block. */
 function extractBlock(source: string, selector: string): string {
@@ -72,6 +58,20 @@ describe('abyssal theme tokens (behavioral)', () => {
 
     it('imports the shared token stylesheet from @cetus/tokens', () => {
         expect(css).toContain("@import '@cetus/tokens/theme.css';")
+    })
+
+    it('does not redeclare --cetus-* tokens in global.css', () => {
+        // theme.css is the single source of truth. A redeclaration here would
+        // silently win the cascade (it loads after the @import) with no test
+        // coverage — forbid it outright.
+        expect(css).not.toMatch(/--cetus-[a-z0-9-]+\s*:/)
+    })
+
+    it('defines the holographic keyframes used by --cetus-wordmark-animation', () => {
+        expect(themeCss).toContain(
+            '--cetus-wordmark-animation: holographic 3s ease-in-out infinite'
+        )
+        expect(themeCss).toMatch(/@keyframes\s+holographic/)
     })
 
     it('defines .hud-bracket rules in global scope (not just SpecimenCard)', () => {

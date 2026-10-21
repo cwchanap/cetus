@@ -72,11 +72,13 @@ export default defineConfig({
 
     /* Run your local dev server before starting the tests */
     webServer: {
-        // CI and local runs both use the Astro-only dev server; the DB
-        // connects via the file-based fallback under apps/web/db.
+        // CI and local runs both use the Astro-only dev server — no turso
+        // process. The DB connects via the file-based fallback under
+        // apps/web/db: src/lib/server/db/client.ts activates it when CI is
+        // set, and E2E_FILE_DB=1 opts local runs into the same path.
         // better-auth stopped auto-creating its tables in 1.7, so initialize
         // the schema (auth + game tables) before the server starts.
-        command: 'bun run e2e:db:init && bun run web:dev',
+        command: 'bun run e2e:db:init && E2E_FILE_DB=1 bun run web:dev',
         url: 'http://localhost:4325',
         reuseExistingServer: !process.env.CI,
     },

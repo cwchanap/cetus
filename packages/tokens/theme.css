@@ -39,6 +39,17 @@
   --cetus-wordmark-animation: holographic 3s ease-in-out infinite;
 }
 
+/* Pans the wordmark gradient (--cetus-wordmark-bg at 200% size). */
+@keyframes holographic {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
 .dark {
   /* Cetus surface: white-opacity for dark backgrounds
      (root uses black-opacity for light mode, matching --border pattern).

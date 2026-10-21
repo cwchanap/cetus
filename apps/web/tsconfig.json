@@ -1,5 +1,5 @@
 {
-  "extends": ["@cetus/config/tsconfig.base.json", "astro/tsconfigs/strict"],
+  "extends": ["astro/tsconfigs/strict", "@cetus/config/tsconfig.base.json"],
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist"],
   "compilerOptions": {

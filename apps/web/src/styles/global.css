@@ -1,7 +1,7 @@
-/* Source detection stays rooted at the repo root (four levels up from this
-   file) so root-level docs/spec markdown keeps feeding utility candidates —
-   keeps compiled CSS byte-identical to the pre-monorepo baseline (HPA-446). */
-@import 'tailwindcss' source('../../../../');
+/* Source detection is scoped to apps/web (two levels up from this file):
+   only app markup should feed utility candidates — root docs/specs must not
+   change shipped CSS, and Turbo's build inputs cover apps/web only. */
+@import 'tailwindcss' source('../..');
 @import 'tw-animate-css';
 /* Semantic --cetus-* token source of truth lives in the workspace package. */
 @import '@cetus/tokens/theme.css';
@@ -365,7 +365,8 @@
   .cetus-scanline,
   .cetus-strip__line,
   .cetus-strip__line::after,
-  .hud-bracket {
+  .hud-bracket,
+  .cetus-wordmark {
     animation: none !important;
     transition: none !important;
   }

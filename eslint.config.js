@@ -7,7 +7,9 @@ export default [
   {
     // Ignores for root and packages/* files. ESLint 10 resolves the nearest
     // config per source file, so the moved app tree is covered by the
-    // ignores in apps/web/eslint.config.js (HPA-446 Step 3).
+    // ignores in apps/web/eslint.config.js (HPA-446 Step 3). App paths are
+    // listed explicitly — `**/db/` or `**/*.config.*` would also exempt
+    // future packages/* code from linting.
     ignores: [
       '**/dist/',
       '**/node_modules/',
@@ -15,13 +17,13 @@ export default [
       '**/.vercel/',
       '.worktrees/',
       '**/coverage/',
-      '**/db/',
+      'apps/web/db/',
       '.superpowers/',
-      '**/public/',
-      '**/*.config.js',
-      '**/*.config.mjs',
-      '**/*.config.ts',
-      '**/env.d.ts',
+      'apps/web/public/',
+      '*.config.js',
+      '*.config.mjs',
+      '*.config.ts',
+      'apps/web/env.d.ts',
     ],
   },
 ]
