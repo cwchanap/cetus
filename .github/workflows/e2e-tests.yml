@@ -47,11 +47,6 @@ jobs:
       - name: 📥 Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: 🛠️ Install Turso CLI
-        run: |
-          curl -sSL tur.so/install | sh
-          echo "$HOME/.turso/bin" >> "$GITHUB_PATH"
-
       - name: 🧩 Prepare environment
         # The web app loads env from apps/web (Astro's project root); the
         # file-DB fallback in src/lib/server/db/client.ts activates under CI.
@@ -66,7 +61,7 @@ jobs:
           EOF
 
       # DB schema is initialized exactly once by the Playwright webServer
-      # command (`bun run e2e:db:init && bun run web:dev`, apps/web cwd —
+      # command (`bun run e2e:db:init && E2E_FILE_DB=1 bun run web:dev`, apps/web cwd —
       # see apps/web/playwright.config.ts). e2e:db:init runs Better Auth
       # migrations + scripts/init-db.sql + the platform column backfill.
       # The old `mkdir -p db` + `sqlite3 db/db.sqlite < scripts/init-db.sql`
@@ -80,8 +75,6 @@ jobs:
 
       - name: 🧪 Run E2E Tests
         run: |
-          export PATH="$HOME/.turso/bin:$PATH"
-
           BROWSER="${{ github.event.inputs.browser }}"
           HEADED="${{ github.event.inputs.headed }}"
 
