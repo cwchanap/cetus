@@ -51,6 +51,11 @@
     "turbo": "^2.11.8",
     "typescript-eslint": "^8.71.2"
   },
+  "overrides": {
+    "debug": "^4.4.3",
+    "jiti": "^2.7.0",
+    "lightningcss": "1.32.0"
+  },
   "lint-staged": {
     "*.{js,ts,tsx,astro}": [
       "eslint --fix",
