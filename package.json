@@ -36,7 +36,6 @@
     "test:e2e:turbo": "turbo run test:e2e"
   },
   "dependencies": {
-    "@astrojs/mdx": "^4.3.0",
     "@astrojs/vercel": "^8.2.0",
     "@libsql/client": "^0.18.0",
     "@libsql/kysely-libsql": "^0.4.1",
@@ -49,7 +48,6 @@
     "clsx": "^2.1.1",
     "cropperjs": "^1.6.2",
     "kysely": "^0.29.6",
-    "lucide-react": "^0.525.0",
     "pixi.js": "^8.22.0",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",
@@ -61,7 +59,6 @@
     "@playwright/test": "^1.64.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.6.3",
-    "@types/eslint__js": "^8.42.3",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
     "dotenv": "^18.0.8",
