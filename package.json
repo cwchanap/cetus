@@ -36,7 +36,7 @@
     "test:e2e:turbo": "turbo run test:e2e"
   },
   "dependencies": {
-    "@astrojs/mdx": "^4.3.0",
+    "@astrojs/mdx": "^8.1.0",
     "@astrojs/vercel": "^8.2.0",
     "@libsql/client": "^0.18.0",
     "@libsql/kysely-libsql": "^0.4.1",
