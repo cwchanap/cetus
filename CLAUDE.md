@@ -47,6 +47,8 @@ GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
 
+Migrating from a pre-monorepo checkout? Move any existing root `.env` to `apps/web/.env` and `db/db.sqlite` to `apps/web/db/db.sqlite` — copies at the repo root are no longer read.
+
 ### Testing
 - `bun run test` - Run tests in watch mode (Vitest)
 - `bun run test:ui` - Run tests with Vitest UI (visual dashboard)
@@ -255,12 +257,12 @@ All components follow consistent patterns:
 - **Accessibility**: Focus management and ARIA attributes
 
 ### Tailwind Theme System
-Comprehensive sci-fi design system:
-- **Custom Utilities**: `.text-holographic`, `.bg-glass`, `.border-neon`
-- **Animations**: `float`, `glow`, `holographic` keyframes
-- **Color Palette**: Cyan/purple/pink gradients with opacity variants
-- **Typography**: Orbitron (headers) + Inter (body) font stack
-- **Effects**: Custom scrollbars, neon shadows, backdrop filters
+Sci-fi design system (Tailwind v4, CSS-first — there is no `tailwind.config.js`):
+- **Semantic tokens**: `--cetus-*` variables live in `packages/tokens/theme.css` (`:root`, `.dark`, `.theme-abyssal` scopes) and are bridged to utilities via `@theme inline` in `apps/web/src/styles/global.css` — e.g. `bg-cetus-surface`, `text-cetus-ink`, `border-cetus-hairline`
+- **Abyssal theme**: `.theme-abyssal` (homepage) retints via token swaps; HUD chrome lives in `global.css` (`.cetus-wordmark`, `.hud-bracket*`, `.cetus-grid-horizon`, `.cetus-cursor`, `.cetus-scanline`, `.cetus-particle`) with `prefers-reduced-motion` coverage
+- **Color Palette**: Cyan/purple/pink gradients (abyssal swaps to teal/amber/magenta)
+- **Typography**: Orbitron + Inter default; Fraunces italic wordmark under abyssal
+- **Effects**: Glass surfaces via `bg-cetus-surface` + `backdrop-blur-*`, neon box-shadows, scanline overlay
 
 ## Testing Strategy
 

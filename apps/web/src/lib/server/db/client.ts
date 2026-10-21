@@ -4,11 +4,16 @@ import { Kysely, sql } from 'kysely'
 import { LibsqlDialect, libsql } from '@libsql/kysely-libsql'
 import type { Database } from './types'
 
-const isCi = process.env.CI === 'true' || process.env.CI === '1'
+// E2E runs (CI and local) use the file database under ./db — the Playwright
+// webServer only starts the Astro dev server, no turso process.
+const useFileDb =
+    process.env.CI === 'true' ||
+    process.env.CI === '1' ||
+    process.env.E2E_FILE_DB === '1'
 const fallbackUrl = pathToFileURL(
     path.resolve(process.cwd(), 'db', 'db.sqlite')
 ).toString()
-const dbUrl = isCi ? fallbackUrl : import.meta.env.TURSO_DATABASE_URL
+const dbUrl = useFileDb ? fallbackUrl : import.meta.env.TURSO_DATABASE_URL
 
 if (!dbUrl) {
     throw new Error('TURSO_DATABASE_URL environment variable is required')

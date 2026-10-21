@@ -133,8 +133,8 @@ jobs:
 
             // Try to read the test results summary
             try {
-              const reportPath = path.join('playwright-report', 'index.html');
-              const testResultsPath = 'test-results';
+              const reportPath = path.join('apps/web/playwright-report', 'index.html');
+              const testResultsPath = 'apps/web/test-results';
               
               let comment = '## 🎭 E2E Test Results\n\n';
               comment += `**Browser**: ${{ github.event.inputs.browser || 'chromium' }}\n`;

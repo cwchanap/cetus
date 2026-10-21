@@ -7,9 +7,11 @@
     ".": "./eslint.base.mjs",
     "./tsconfig.base.json": "./tsconfig.base.json"
   },
-  "devDependencies": {
+  "dependencies": {
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.12.0",
     "typescript-eslint": "^8.71.2"
+  },
+  "peerDependencies": {
+    "eslint": "^10.13.0"
   }
 }
