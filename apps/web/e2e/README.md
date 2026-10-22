@@ -8,19 +8,19 @@ This directory contains end-to-end tests for the Cetus gaming platform using Pla
 
 ```bash
 # Run E2E tests (all browsers)
-npm run test:e2e
+bun run test:e2e
 
 # Run E2E tests with UI (interactive mode)
-npm run test:e2e:ui
+bun run test:e2e:ui
 
 # Run E2E tests in headed mode (see browser)
-npm run test:e2e:headed
+bun run test:e2e:headed
 
 # Run E2E tests in debug mode
-npm run test:e2e:debug
+bun run test:e2e:debug
 
 # Show test report
-npm run test:e2e:report
+bun run test:e2e:report
 ```
 
 ### CI/CD
@@ -76,8 +76,10 @@ test.describe('Game Feature', () => {
 
 The E2E tests are configured in `playwright.config.ts`:
 
-- **Base URL**: `http://localhost:4321`
-- **Browsers**: Chrome, Firefox, Safari
+- **Base URL**: `http://localhost:4325`
+- **Browsers**: Chrome (Firefox/Safari projects are defined but commented out)
+- **Database**: Playwright initializes `db/db.sqlite` (`bun run e2e:db:init`) and boots Astro with `E2E_FILE_DB=1`, so E2E runs against a file-backed DB — no `turso dev` process needed
+- **Existing server**: `reuseExistingServer` is `false`. If `localhost:4325` is already serving (e.g. a `bun run web:dev` session), `bun run test:e2e` fails fast on the port conflict instead of silently running against that server's real database — stop the dev server first
 - **Timeouts**: 30 seconds for actions
 - **Artifacts**: Screenshots on failure, videos on retry
 - **Parallelization**: Tests run in parallel for faster execution
@@ -94,13 +96,13 @@ The E2E tests are configured in `playwright.config.ts`:
 
 ```bash
 # Run single test in debug mode
-npm run test:e2e:debug -- --grep "test name"
+bun run test:e2e:debug -- --grep "test name"
 
 # Run specific test file
-npm run test:e2e -- e2e/homepage.spec.ts
+bun run test:e2e -- e2e/homepage.spec.ts
 
 # Run with specific browser
-npm run test:e2e -- --project=chromium
+bun run test:e2e -- --project=chromium
 ```
 
 For more information, see the [Playwright documentation](https://playwright.dev/docs/intro).
