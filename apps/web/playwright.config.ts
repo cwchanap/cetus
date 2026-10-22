@@ -80,6 +80,10 @@ export default defineConfig({
         // the schema (auth + game tables) before the server starts.
         command: 'bun run e2e:db:init && E2E_FILE_DB=1 bun run web:dev',
         url: 'http://localhost:4325',
-        reuseExistingServer: !process.env.CI,
+        // Never reuse a server already on :4325 — that would skip the command
+        // above (no schema init, no E2E_FILE_DB) and run the suite against a
+        // dev server backed by the real Turso DB. Fail fast on port conflict
+        // instead; stop the dev server first.
+        reuseExistingServer: false,
     },
 })
