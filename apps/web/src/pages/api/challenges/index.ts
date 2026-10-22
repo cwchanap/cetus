@@ -6,8 +6,9 @@ import {
     getSecondsUntilMidnightUTC,
     getTodayUTC,
     getXPProgress,
-} from '@/lib/challenges'
+} from '@cetus/shared/challenges'
 import { jsonResponse, unauthorizedResponse } from '@/lib/server/api-utils'
+import type { ChallengesResponse } from '@cetus/shared/api-dto'
 
 export const GET: APIRoute = async ({ request }) => {
     const session = await auth.api.getSession({ headers: request.headers })
@@ -22,8 +23,15 @@ export const GET: APIRoute = async ({ request }) => {
         )
         const xpProgress = getXPProgress(xp)
 
-        return jsonResponse({
-            challenges,
+        // Serialize completedAt to the wire shape (JSON date string) so the
+        // payload is checked against the shared DTO as-is.
+        const payload: ChallengesResponse = {
+            challenges: challenges.map(challenge => ({
+                ...challenge,
+                completedAt: challenge.completedAt
+                    ? challenge.completedAt.toISOString()
+                    : null,
+            })),
             xp,
             level,
             xpProgress: xpProgress.progress,
@@ -31,7 +39,9 @@ export const GET: APIRoute = async ({ request }) => {
             streak: challengeStreak,
             resetIn: getSecondsUntilMidnightUTC(),
             date: getTodayUTC(),
-        })
+        }
+
+        return jsonResponse<ChallengesResponse>(payload)
     } catch (error) {
         const safeMessage =
             error instanceof Error ? error.message : 'Unknown error occurred'

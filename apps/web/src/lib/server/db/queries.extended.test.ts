@@ -57,12 +57,12 @@ vi.mock('@/lib/services/achievementService', () => ({
 }))
 
 // Mock challenges module for getUserXPAndLevel streak reset
-vi.mock('@/lib/challenges', () => ({
+vi.mock('@cetus/shared/challenges', () => ({
     getLevelFromXP: vi.fn((xp: number) => Math.floor(xp / 100) + 1),
 }))
 
 // Mock achievements module for getAchievementStatistics
-vi.mock('@/lib/achievements', () => ({
+vi.mock('@cetus/shared/achievements', () => ({
     getAllAchievements: vi.fn().mockReturnValue([
         { id: 'first_win', gameId: 'tetris', name: 'First Win' },
         { id: 'global_ace', gameId: 'global', name: 'Global Ace' },

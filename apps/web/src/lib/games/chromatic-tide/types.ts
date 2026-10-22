@@ -50,13 +50,8 @@ export interface ChromaticTideStats extends BaseGameStats {
     secondsRemaining: number
 }
 
-export interface ChromaticTideGameData {
-    cleared: boolean
-    movesUsed: number
-    capturedCells: number
-    initialCapturedCells: number
-    secondsRemaining: number
-}
+// Canonical definition in @cetus/shared (consumed by achievement predicates)
+export type { ChromaticTideGameData } from '@cetus/shared/game-data'
 
 export interface ChromaticTideConfig extends BaseGameConfig {
     rng: () => number

@@ -1,4 +1,4 @@
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { BaseGame } from '@/lib/games/core/BaseGame'
 import type { BaseGameCallbacks } from '@/lib/games/core/types'
 import { createRhythmReactorChart } from './chart'

@@ -1,6 +1,6 @@
 import { GameTimer } from '../core/GameTimer'
 import { ScoreManager } from '../core/ScoreManager'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { SATELLITE_SYNC_LEVELS } from './levels'
 import {
     polarToWorld,

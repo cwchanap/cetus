@@ -442,8 +442,8 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
   } from '@/lib/games/2048/frameworkTypes'
   import { getTileColor, getTileTextColor } from '@/lib/games/2048/utils'
   import { getUserBestScore } from '@/lib/services/scoreService'
-  import { GameID } from '@/lib/games'
-  import type { UserChallengeProgress } from '@/lib/challenges'
+  import { GameID } from '@cetus/shared/games'
+  import type { UserChallengeProgress } from '@cetus/shared/challenges'
 
   const sheet = document.querySelector<HTMLDialogElement>('#field-sheet')!
   const panels = [...sheet.querySelectorAll<HTMLElement>('[data-panel]')]

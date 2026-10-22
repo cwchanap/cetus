@@ -1,41 +1,42 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { appRoot } from '@/test/app-root'
 
 const reflexMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/reflex/index.astro'),
+    resolve(appRoot, 'src/pages/reflex/index.astro'),
     'utf-8'
 )
 const evaderMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/evader/index.astro'),
+    resolve(appRoot, 'src/pages/evader/index.astro'),
     'utf-8'
 )
 const circuitHackerMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/circuit-hacker/index.astro'),
+    resolve(appRoot, 'src/pages/circuit-hacker/index.astro'),
     'utf-8'
 )
 const bubbleShooterMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/bubble-shooter/index.astro'),
+    resolve(appRoot, 'src/pages/bubble-shooter/index.astro'),
     'utf-8'
 )
 const iceSlideMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/ice-slide/index.astro'),
+    resolve(appRoot, 'src/pages/ice-slide/index.astro'),
     'utf-8'
 )
 const mineGridMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/mine-grid/index.astro'),
+    resolve(appRoot, 'src/pages/mine-grid/index.astro'),
     'utf-8'
 )
 const gravityFlipMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/gravity-flip/index.astro'),
+    resolve(appRoot, 'src/pages/gravity-flip/index.astro'),
     'utf-8'
 )
 const asteroidDriftMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/asteroid-drift/index.astro'),
+    resolve(appRoot, 'src/pages/asteroid-drift/index.astro'),
     'utf-8'
 )
 const chromaticTideMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/chromatic-tide/index.astro'),
+    resolve(appRoot, 'src/pages/chromatic-tide/index.astro'),
     'utf-8'
 )
 
@@ -153,7 +154,7 @@ describe('Ice Slide Daily and Expedition challenge markup', () => {
 })
 
 const patternPulseMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/pattern-pulse/index.astro'),
+    resolve(appRoot, 'src/pages/pattern-pulse/index.astro'),
     'utf-8'
 )
 
@@ -292,16 +293,16 @@ describe('Chromatic Tide page markup', () => {
 })
 
 const potionSorterMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/potion-sorter/index.astro'),
+    resolve(appRoot, 'src/pages/potion-sorter/index.astro'),
     'utf-8'
 )
 
 const signalSwitchMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/signal-switch/index.astro'),
+    resolve(appRoot, 'src/pages/signal-switch/index.astro'),
     'utf-8'
 )
 const rhythmReactorMarkup = readFileSync(
-    resolve(process.cwd(), 'src/pages/rhythm-reactor/index.astro'),
+    resolve(appRoot, 'src/pages/rhythm-reactor/index.astro'),
     'utf-8'
 )
 
@@ -411,7 +412,7 @@ describe('Game pages use GamePage wrapper', () => {
     for (const game of games) {
         it(`${game} imports and uses GamePage`, () => {
             const src = readFileSync(
-                resolve(process.cwd(), `src/pages/${game}/index.astro`),
+                resolve(appRoot, `src/pages/${game}/index.astro`),
                 'utf-8'
             )
             expect(src).toContain('GamePage')
@@ -426,7 +427,7 @@ describe('Field plate game pages', () => {
     for (const game of fieldPlateGames) {
         it(`${game} uses AppLayout with the field plate chrome`, () => {
             const src = readFileSync(
-                resolve(process.cwd(), `src/pages/${game}/index.astro`),
+                resolve(appRoot, `src/pages/${game}/index.astro`),
                 'utf-8'
             )
             expect(src).toMatch(/import AppLayout/)

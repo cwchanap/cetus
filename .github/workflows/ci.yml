@@ -63,9 +63,9 @@ jobs:
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          # Vitest runs with apps/web as its project root, so the coverage
-          # report lands in apps/web/coverage (not the repo root).
-          directory: apps/web/coverage
+          # Root Vitest projects config aggregates web + package projects into
+          # a single report at the repo-root coverage/ directory.
+          directory: coverage
           fail_ci_if_error: false
           verbose: true
 

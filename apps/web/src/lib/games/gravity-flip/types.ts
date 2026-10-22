@@ -139,12 +139,8 @@ export interface GravityFlipStats extends BaseGameStats {
     flips: number
 }
 
-export interface GravityFlipGameData {
-    distance: number
-    starsCollected: number
-    flips: number
-    survivedFullRun: boolean
-}
+// Canonical definition in @cetus/shared (consumed by achievement predicates)
+export type { GravityFlipGameData } from '@cetus/shared/game-data'
 
 export function getGravityFlipMoverBounds(config: GravityFlipConfig): {
     minY: number

@@ -8,7 +8,7 @@ import {
     type RendererState,
 } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { createRunGuard } from '@/lib/games/core'
 import { createIceSlideDailyRunDefinition, toIceSlideUtcDateKey } from './daily'
 import {

@@ -1,7 +1,7 @@
 import { BaseGame } from '@/lib/games/core/BaseGame'
 import type { BaseGameCallbacks } from '@/lib/games/core/types'
 import { clamp, lerp, rectOverlap } from '@/lib/games/shared/utils'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { calculateGravityFlipScore } from './scoring'
 import {
     GRAVITY_FLIP_HAZARD_CATALOG,

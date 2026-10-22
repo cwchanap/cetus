@@ -6,6 +6,10 @@ import {
     badRequestResponse,
     errorResponse,
 } from '@/lib/server/api-utils'
+import type {
+    AvatarUpdateResponse,
+    SuccessMessageResponse,
+} from '@cetus/shared/api-dto'
 
 export const DELETE: APIRoute = async ({ locals }) => {
     const user = locals.user
@@ -20,7 +24,7 @@ export const DELETE: APIRoute = async ({ locals }) => {
             return errorResponse('Failed to remove avatar')
         }
 
-        return jsonResponse({
+        return jsonResponse<SuccessMessageResponse>({
             success: true,
             message: 'Avatar removed successfully',
         })
@@ -83,7 +87,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             return errorResponse('Failed to update avatar')
         }
 
-        return jsonResponse({
+        return jsonResponse<AvatarUpdateResponse>({
             success: true,
             message: 'Avatar updated successfully',
             avatar: base64Image,

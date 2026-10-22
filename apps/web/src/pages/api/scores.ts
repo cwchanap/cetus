@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { saveGameScoreWithAchievements } from '@/lib/server/db/queries'
-import { getGameById, GameID } from '@/lib/games'
+import { getGameById, GameID } from '@cetus/shared/games'
 import { iceSlideDailyAdmissionError } from '@/lib/games/ice-slide/run'
 import { auth } from '@/lib/auth'
 import { getAchievementNotifications } from '@/lib/services/achievementService'
@@ -13,7 +13,9 @@ import {
     badRequestResponse,
 } from '@/lib/server/api-utils'
 import type { PersistedScoreContext } from '@/lib/server/db/game-score-context'
-import { scoreSubmissionSchema, validateBody } from '@/lib/server/validations'
+import { scoreSubmissionSchema } from '@cetus/shared/validations'
+import type { ScoreSubmitResponse } from '@cetus/shared/api-dto'
+import { validateBody } from '@/lib/server/validations'
 
 const isGameId = (id: string): id is GameID =>
     Object.values(GameID).includes(id as GameID)
@@ -119,7 +121,7 @@ export const POST: APIRoute = async ({ request }) => {
             console.error('[scores API] Challenge update failed:', error)
         }
 
-        return jsonResponse({
+        return jsonResponse<ScoreSubmitResponse>({
             success: true,
             newAchievements: achievementNotifications.map(achievement => ({
                 id: achievement.id,

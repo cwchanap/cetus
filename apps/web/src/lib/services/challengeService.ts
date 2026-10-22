@@ -4,7 +4,7 @@ import {
     getTodayUTC,
     ChallengeType,
     type UserChallengeProgress,
-} from '../challenges'
+} from '@cetus/shared/challenges'
 import type { GameType } from '../server/db/types'
 import {
     getUserChallengeProgress,

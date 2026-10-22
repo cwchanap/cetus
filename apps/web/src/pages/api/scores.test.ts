@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/pages/api/scores'
 import { saveGameScoreWithAchievements } from '@/lib/server/db/queries'
-import { getGameById, GameID, type Game } from '@/lib/games'
-import { AchievementRarity } from '@/lib/achievements'
+import { getGameById, GameID, type Game } from '@cetus/shared/games'
+import { AchievementRarity } from '@cetus/shared/achievements'
 import { auth } from '@/lib/auth'
 import { updateChallengeProgress } from '@/lib/services/challengeService'
 
@@ -11,7 +11,7 @@ vi.mock('@/lib/server/db/queries', () => ({
     saveGameScoreWithAchievements: vi.fn(),
 }))
 
-vi.mock('@/lib/games', async importOriginal => {
+vi.mock('@cetus/shared/games', async importOriginal => {
     const actual = (await importOriginal()) as Record<string, unknown>
     return {
         ...actual,
@@ -73,7 +73,7 @@ describe('POST /api/scores', () => {
     it('should successfully save a score for authenticated user', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
             success: true,
@@ -123,7 +123,7 @@ describe('POST /api/scores', () => {
 
     it('forwards an explicit platform to persistence', async () => {
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
             success: true,
@@ -157,7 +157,7 @@ describe('POST /api/scores', () => {
 
     it('returns 400 for an unsupported platform and never reaches persistence', async () => {
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
 
         const request = new Request('http://localhost:4321/api/scores', {
@@ -312,7 +312,7 @@ describe('POST /api/scores', () => {
     it('should return 500 when save fails', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
             success: false,
@@ -352,7 +352,7 @@ describe('POST /api/scores', () => {
     it('should return 500 for database errors', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockImplementation(() => {
             throw new Error('Database error')
         })
@@ -379,7 +379,7 @@ describe('POST /api/scores', () => {
 
     it('returns SCORE_CONTEXT_UNAVAILABLE when contextual storage is unavailable', async () => {
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as never)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
             success: false,
@@ -429,7 +429,7 @@ describe('POST /api/scores', () => {
     it('should return 400 when getGameById returns null', async () => {
         // Arrange: pass a valid GameID enum value but mock getGameById to return null
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(undefined)
 
         const request = new Request('http://localhost:4321/api/scores', {
@@ -449,7 +449,7 @@ describe('POST /api/scores', () => {
     it('should include challengeUpdates when challenges are completed', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({
             success: true,
@@ -490,7 +490,7 @@ describe('POST /api/scores', () => {
     it('should continue and return success even when updateChallengeProgress throws', async () => {
         // Arrange: mock session and game lookup to avoid flakiness
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
 
         vi.mocked(saveGameScoreWithAchievements).mockResolvedValue({

@@ -1,13 +1,15 @@
 import type { APIRoute } from 'astro'
 import { updateUser, isUsernameAvailable } from '@/lib/server/db/queries'
 import type { UserUpdate } from '@/lib/server/db/types'
-import { validateBody, profileUpdateSchema } from '@/lib/server/validations'
+import { profileUpdateSchema } from '@cetus/shared/validations'
+import { validateBody } from '@/lib/server/validations'
 import {
     jsonResponse,
     unauthorizedResponse,
     badRequestResponse,
     errorResponse,
 } from '@/lib/server/api-utils'
+import type { SuccessMessageResponse } from '@cetus/shared/api-dto'
 
 export const POST: APIRoute = async ({ request, locals }) => {
     const user = locals.user
@@ -48,7 +50,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             return errorResponse('Failed to update profile')
         }
 
-        return jsonResponse({
+        return jsonResponse<SuccessMessageResponse>({
             success: true,
             message: 'Profile updated successfully',
         })

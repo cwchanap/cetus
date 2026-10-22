@@ -2,13 +2,13 @@
 import AppLayout from '@/layouts/AppLayout.astro'
 import Container from '@/components/ui/Container.astro'
 import SpecimenCard from '@/components/ui/SpecimenCard.astro'
-import { getAllGames } from '@/lib/games'
+import { getAllGames } from '@cetus/shared/games'
 import {
   getGamesByDepth,
   getFeaturedGames,
   DEPTH_LABELS,
   type DepthZone,
-} from '@/lib/organisms'
+} from '@cetus/shared/organisms'
 
 const games = getAllGames()
 const featured = getFeaturedGames(games)

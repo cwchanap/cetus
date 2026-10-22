@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { GameID } from '../games'
-import * as challenges from '../challenges'
-import { getTodayUTC } from '../challenges'
+import { GameID } from '@cetus/shared/games'
+import * as challenges from '@cetus/shared/challenges'
+import { getTodayUTC } from '@cetus/shared/challenges'
 
 // Mock challenges module
-vi.mock('../challenges', async importOriginal => {
-    const actual = await importOriginal<typeof import('../challenges')>()
+vi.mock('@cetus/shared/challenges', async importOriginal => {
+    const actual =
+        await importOriginal<typeof import('@cetus/shared/challenges')>()
     return {
         ...actual,
         generateDailyChallenges: vi.fn().mockReturnValue([

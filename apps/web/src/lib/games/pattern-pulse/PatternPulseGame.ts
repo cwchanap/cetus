@@ -1,6 +1,6 @@
 import { BaseGame } from '@/lib/games/core/BaseGame'
 import type { BaseGameCallbacks } from '@/lib/games/core/types'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { calculatePatternPulseRoundScore } from './scoring'
 import {
     PATTERN_PULSE_TIMING,

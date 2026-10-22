@@ -7,6 +7,7 @@ import {
     badRequestResponse,
     errorResponse,
 } from '@/lib/server/api-utils'
+import type { ScoreHistoryResponse } from '@cetus/shared/api-dto'
 
 export const GET: APIRoute = async ({ request, url }) => {
     try {
@@ -27,7 +28,7 @@ export const GET: APIRoute = async ({ request, url }) => {
 
         const history = await getUserGameHistory(session.user.id, limit)
 
-        return jsonResponse({ history })
+        return jsonResponse<ScoreHistoryResponse>({ history })
     } catch (_error) {
         return errorResponse('Internal server error')
     }

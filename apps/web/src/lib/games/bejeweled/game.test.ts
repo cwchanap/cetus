@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { BejeweledGame } from './game'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import type { BejeweledAnimator, JewelType, Position } from './types'
 import * as utils from './utils'
 

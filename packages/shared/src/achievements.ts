@@ -1,4 +1,3 @@
-import type { UserAchievementRecord } from './server/db/types'
 import { GameID } from './games'
 import type {
     TetrisGameData,
@@ -20,7 +19,7 @@ import type {
     AsteroidDriftGameData,
     ChromaticTideGameData,
     GameHistoryEntry,
-} from './games/shared/types'
+} from './game-data'
 
 // Achievement system types
 export enum AchievementRarity {
@@ -82,11 +81,6 @@ export interface AchievementNotification {
     description: string
     icon: string
     rarity: AchievementRarity
-}
-
-// Combined type for user achievements with details
-export type UserAchievementWithDetails = UserAchievementRecord & {
-    achievement: Achievement
 }
 
 // Achievement definitions for all games

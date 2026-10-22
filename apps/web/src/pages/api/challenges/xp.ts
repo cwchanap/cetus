@@ -1,8 +1,9 @@
 import type { APIRoute } from 'astro'
 import { auth } from '@/lib/auth'
 import { getUserXPAndLevel } from '@/lib/server/db/queries'
-import { getXPProgress, LEVEL_THRESHOLDS } from '@/lib/challenges'
+import { getXPProgress, LEVEL_THRESHOLDS } from '@cetus/shared/challenges'
 import { jsonResponse, unauthorizedResponse } from '@/lib/server/api-utils'
+import type { ChallengeXpResponse } from '@cetus/shared/api-dto'
 
 export const GET: APIRoute = async ({ request }) => {
     const session = await auth.api.getSession({ headers: request.headers })
@@ -16,7 +17,7 @@ export const GET: APIRoute = async ({ request }) => {
         )
         const progress = getXPProgress(xp)
 
-        return jsonResponse({
+        return jsonResponse<ChallengeXpResponse>({
             xp,
             level,
             currentLevelXP: progress.currentLevelXP,

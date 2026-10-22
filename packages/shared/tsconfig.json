@@ -1,0 +1,17 @@
+{
+    "extends": "@cetus/config/tsconfig.base.json",
+    "include": ["src/**/*.ts"],
+    "compilerOptions": {
+        "noEmit": true,
+        // ES standard library only — no DOM. Portable shared code must not
+        // reference browser globals; web-only adapters stay in apps/web.
+        "lib": ["ES2022"],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "verbatimModuleSyntax": true,
+        // TextEncoder (used by the validation schemas) comes from Node's
+        // typings; DOM is intentionally absent so browser globals are a
+        // compile error inside the package.
+        "types": ["node"]
+    }
+}

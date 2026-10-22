@@ -1,4 +1,4 @@
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import type {
     BaseGameCallbacks,
     BaseGameState,
@@ -36,7 +36,7 @@ export interface BejeweledInitResult {
     cleanup: () => void
 }
 
-import { type AchievementNotification } from '@/lib/achievements'
+import { type AchievementNotification } from '@cetus/shared/achievements'
 
 export async function initBejeweledGame(
     customConfig?: Partial<BejeweledConfig>,

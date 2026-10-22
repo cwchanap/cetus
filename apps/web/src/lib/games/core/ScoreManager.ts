@@ -5,8 +5,8 @@ import {
     type ScoreSubmissionResult,
     type ScoreSubmitter,
 } from '@/lib/services/scoreService'
-import type { GameID } from '@/lib/games'
-import type { ScorePlatform } from '@/lib/server/validations'
+import type { GameID } from '@cetus/shared/games'
+import type { ScorePlatform } from '@cetus/shared/validations'
 import type { ScoringConfig } from './types'
 
 export interface ScoreManagerConfig {

@@ -7,7 +7,7 @@ import {
     checkSpaceExplorerAchievement,
     checkInGameAchievements,
 } from './achievementService'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 
 // Mock the database queries
 vi.mock('../server/db/queries', () => ({
@@ -17,7 +17,7 @@ vi.mock('../server/db/queries', () => ({
 }))
 
 // Mock the achievements
-vi.mock('../achievements', () => ({
+vi.mock('@cetus/shared/achievements', () => ({
     getAchievementsByGame: vi.fn(),
     ACHIEVEMENTS: [
         {
@@ -65,7 +65,7 @@ import {
     getAchievementsByGame,
     AchievementRarity,
     type Achievement,
-} from '../achievements'
+} from '@cetus/shared/achievements'
 
 const mockAwardAchievement = vi.mocked(awardAchievement)
 const mockHasUserEarnedAchievement = vi.mocked(hasUserEarnedAchievement)

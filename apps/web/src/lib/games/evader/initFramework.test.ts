@@ -6,7 +6,7 @@ import type { EvaderStats } from './frameworkTypes'
 import {
     AchievementRarity,
     type AchievementNotification,
-} from '@/lib/achievements'
+} from '@cetus/shared/achievements'
 
 // Mock pixi.js for the renderer
 vi.mock('pixi.js', () => {

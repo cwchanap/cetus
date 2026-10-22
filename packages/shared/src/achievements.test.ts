@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
     getAllAchievements,
     getAchievementById,
@@ -12,28 +12,14 @@ import {
     type Achievement,
 } from './achievements'
 import { GameID } from './games'
-import type { MineGridGameData } from './games/mine-grid/types'
-import type { PotionSorterGameData } from './games/potion-sorter/types'
-import type { SignalSwitchGameData } from './games/signal-switch/types'
-import type { RhythmReactorGameData } from './games/rhythm-reactor/types'
-import type { AsteroidDriftGameData } from './games/asteroid-drift/types'
-import type { ChromaticTideGameData } from './games/chromatic-tide/types'
-import { checkAndAwardAchievements } from './services/achievementService'
-
-// Mock the database queries so checkAndAwardAchievements can be exercised
-// through the production evaluator without a live database. Only the score
-// threshold branch of checkAndAwardAchievements touches these mocks; the
-// achievement definitions in ./achievements remain real (unmocked).
-vi.mock('./server/db/queries', () => ({
-    awardAchievement: vi.fn(),
-    hasUserEarnedAchievement: vi.fn(),
-    getUserBestScore: vi.fn(),
-}))
-
-import { awardAchievement, hasUserEarnedAchievement } from './server/db/queries'
-
-const mockAwardAchievement = vi.mocked(awardAchievement)
-const mockHasUserEarnedAchievement = vi.mocked(hasUserEarnedAchievement)
+import type {
+    AsteroidDriftGameData,
+    ChromaticTideGameData,
+    MineGridGameData,
+    PotionSorterGameData,
+    RhythmReactorGameData,
+    SignalSwitchGameData,
+} from './game-data'
 
 describe('Achievement System', () => {
     describe('getAllAchievements', () => {
@@ -1026,86 +1012,7 @@ describe('Mine Grid achievements', () => {
             check({ ...baseData, difficulty: 'hard', cleared: false }, 0)
         ).toBe(false)
     })
-
-    describe('checkAndAwardAchievements threshold evaluation', () => {
-        beforeEach(() => {
-            vi.clearAllMocks()
-            mockHasUserEarnedAchievement.mockResolvedValue(false)
-            mockAwardAchievement.mockResolvedValue(true)
-        })
-
-        it('mine_grid_welcome is not awarded below its threshold (score 0)', async () => {
-            const result = await checkAndAwardAchievements(
-                'user123',
-                GameID.MINE_GRID,
-                0
-            )
-            expect(result).not.toContain('mine_grid_welcome')
-            expect(mockAwardAchievement).not.toHaveBeenCalledWith(
-                'user123',
-                'mine_grid_welcome'
-            )
-        })
-
-        it('mine_grid_welcome is awarded at its exact threshold (score 1)', async () => {
-            const result = await checkAndAwardAchievements(
-                'user123',
-                GameID.MINE_GRID,
-                1
-            )
-            expect(result).toContain('mine_grid_welcome')
-            expect(mockAwardAchievement).toHaveBeenCalledWith(
-                'user123',
-                'mine_grid_welcome'
-            )
-        })
-
-        it('mine_grid_welcome is awarded above its threshold (score 2)', async () => {
-            const result = await checkAndAwardAchievements(
-                'user123',
-                GameID.MINE_GRID,
-                2
-            )
-            expect(result).toContain('mine_grid_welcome')
-        })
-
-        it('mine_grid_demolition_expert is not awarded below its threshold (score 4999)', async () => {
-            const result = await checkAndAwardAchievements(
-                'user123',
-                GameID.MINE_GRID,
-                4999
-            )
-            expect(result).not.toContain('mine_grid_demolition_expert')
-            expect(mockAwardAchievement).not.toHaveBeenCalledWith(
-                'user123',
-                'mine_grid_demolition_expert'
-            )
-        })
-
-        it('mine_grid_demolition_expert is awarded at its exact threshold (score 5000)', async () => {
-            const result = await checkAndAwardAchievements(
-                'user123',
-                GameID.MINE_GRID,
-                5000
-            )
-            expect(result).toContain('mine_grid_demolition_expert')
-            expect(mockAwardAchievement).toHaveBeenCalledWith(
-                'user123',
-                'mine_grid_demolition_expert'
-            )
-        })
-
-        it('mine_grid_demolition_expert is awarded above its threshold (score 5001)', async () => {
-            const result = await checkAndAwardAchievements(
-                'user123',
-                GameID.MINE_GRID,
-                5001
-            )
-            expect(result).toContain('mine_grid_demolition_expert')
-        })
-    })
 })
-
 describe('Ice Slide achievements', () => {
     it('registers achievements for ice slide', () => {
         const list = getAchievementsByGame(GameID.ICE_SLIDE)
@@ -1350,66 +1257,6 @@ describe('Potion Sorter achievements', () => {
         expect(
             check({ ...baseData, difficulty: 'hard', solved: false }, 0)
         ).toBe(false)
-    })
-
-    describe('checkAndAwardAchievements threshold evaluation', () => {
-        beforeEach(() => {
-            vi.clearAllMocks()
-            mockHasUserEarnedAchievement.mockResolvedValue(false)
-            mockAwardAchievement.mockResolvedValue(true)
-        })
-
-        it('potion_sorter_welcome is not awarded below its threshold (score 0)', async () => {
-            const result = await checkAndAwardAchievements(
-                'user123',
-                GameID.POTION_SORTER,
-                0
-            )
-            expect(result).not.toContain('potion_sorter_welcome')
-            expect(mockAwardAchievement).not.toHaveBeenCalledWith(
-                'user123',
-                'potion_sorter_welcome'
-            )
-        })
-
-        it('potion_sorter_welcome is awarded at its exact threshold (score 1)', async () => {
-            const result = await checkAndAwardAchievements(
-                'user123',
-                GameID.POTION_SORTER,
-                1
-            )
-            expect(result).toContain('potion_sorter_welcome')
-            expect(mockAwardAchievement).toHaveBeenCalledWith(
-                'user123',
-                'potion_sorter_welcome'
-            )
-        })
-
-        it('potion_sorter_perfect_mixture is not awarded below its threshold (score 5499)', async () => {
-            const result = await checkAndAwardAchievements(
-                'user123',
-                GameID.POTION_SORTER,
-                5499
-            )
-            expect(result).not.toContain('potion_sorter_perfect_mixture')
-            expect(mockAwardAchievement).not.toHaveBeenCalledWith(
-                'user123',
-                'potion_sorter_perfect_mixture'
-            )
-        })
-
-        it('potion_sorter_perfect_mixture is awarded at its exact threshold (score 5500)', async () => {
-            const result = await checkAndAwardAchievements(
-                'user123',
-                GameID.POTION_SORTER,
-                5500
-            )
-            expect(result).toContain('potion_sorter_perfect_mixture')
-            expect(mockAwardAchievement).toHaveBeenCalledWith(
-                'user123',
-                'potion_sorter_perfect_mixture'
-            )
-        })
     })
 })
 

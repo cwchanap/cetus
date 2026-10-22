@@ -5,7 +5,7 @@ import {
     getScopedGameLeaderboard,
     type ScopedLeaderboardRow,
 } from '@/lib/server/db/queries'
-import { getAllGames, GameID } from '@/lib/games'
+import { getAllGames, GameID } from '@cetus/shared/games'
 
 // Mock dependencies
 vi.mock('@/lib/server/db/queries', () => ({
@@ -17,7 +17,7 @@ vi.mock('@/lib/server/db/queries', () => ({
     isGameLeaderboardAvailable: (result: unknown) => Array.isArray(result),
 }))
 
-vi.mock('@/lib/games', () => ({
+vi.mock('@cetus/shared/games', () => ({
     getAllGames: vi.fn(),
     GameID: {
         TETRIS: 'tetris',

@@ -498,8 +498,8 @@ const neighbours = [
   import type { TetrisState, TetrisStats } from '@/lib/games/tetris/types'
   import { LINE_CLEAR_BASE_SCORE } from '@/lib/games/tetris/TetrisGame'
   import { getUserBestScore } from '@/lib/services/scoreService'
-  import { GameID } from '@/lib/games'
-  import type { UserChallengeProgress } from '@/lib/challenges'
+  import { GameID } from '@cetus/shared/games'
+  import type { UserChallengeProgress } from '@cetus/shared/challenges'
 
   const sheet = document.querySelector<HTMLDialogElement>('#field-sheet')!
   const panels = [...sheet.querySelectorAll<HTMLElement>('[data-panel]')]

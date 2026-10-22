@@ -1,9 +1,10 @@
 import {
     ACHIEVEMENTS,
     getAchievementsByGame,
+    AchievementRarity,
     type Achievement,
     type AchievementCheckData,
-} from '../achievements'
+} from '@cetus/shared/achievements'
 import {
     awardAchievement,
     hasUserEarnedAchievement,
@@ -155,7 +156,7 @@ export function getAchievementNotifications(achievementIds: string[]): Array<{
     name: string
     description: string
     logo: string
-    rarity: string
+    rarity: AchievementRarity
 }> {
     return achievementIds
         .map(id => ACHIEVEMENTS.find(a => a.id === id))

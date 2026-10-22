@@ -4,7 +4,7 @@ import {
     type QuickMathConfig,
     type QuickMathCallbacks,
 } from './game'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 
 describe('QuickMath Framework Implementation', () => {
     let game: QuickMathFrameworkGame

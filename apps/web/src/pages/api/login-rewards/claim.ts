@@ -5,6 +5,10 @@ import {
     unauthorizedResponse,
     errorResponse,
 } from '@/lib/server/api-utils'
+import type {
+    LoginRewardClaimErrorResponse,
+    LoginRewardClaimResponse,
+} from '@cetus/shared/api-dto'
 
 /**
  * POST /api/login-rewards/claim
@@ -20,7 +24,7 @@ export const POST: APIRoute = async ({ locals }) => {
         const result = await claimDailyLoginReward(user.id)
 
         if (!result.success) {
-            return jsonResponse(
+            return jsonResponse<LoginRewardClaimErrorResponse>(
                 {
                     success: false,
                     error: result.error || 'Failed to claim reward',
@@ -29,7 +33,7 @@ export const POST: APIRoute = async ({ locals }) => {
             )
         }
 
-        return jsonResponse(result)
+        return jsonResponse<LoginRewardClaimResponse>(result)
     } catch (error) {
         console.error('[POST /api/login-rewards/claim] Error:', error)
         return errorResponse('Internal server error')

@@ -9,7 +9,7 @@ import type {
     BaseGameStats,
     ScoringConfig,
 } from './types'
-import type { GameID } from '@/lib/games'
+import type { GameID } from '@cetus/shared/games'
 
 export abstract class BaseGame<
     TState extends BaseGameState = BaseGameState,

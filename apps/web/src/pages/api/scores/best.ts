@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { getUserBestScore } from '@/lib/server/db/queries'
-import { getGameById, GameID } from '@/lib/games'
+import { getGameById, GameID } from '@cetus/shared/games'
 import { auth } from '@/lib/auth'
 import {
     jsonResponse,
@@ -9,6 +9,7 @@ import {
     codedErrorResponse,
     errorResponse,
 } from '@/lib/server/api-utils'
+import type { BestScoreResponse } from '@cetus/shared/api-dto'
 
 const isGameId = (id: string): id is GameID =>
     Object.values(GameID).includes(id as GameID)
@@ -52,7 +53,7 @@ export const GET: APIRoute = async ({ request, url }) => {
             )
         }
 
-        return jsonResponse({ bestScore: result.bestScore })
+        return jsonResponse<BestScoreResponse>({ bestScore: result.bestScore })
     } catch (_error) {
         return errorResponse('Internal server error')
     }

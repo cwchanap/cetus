@@ -4,7 +4,13 @@ import type {
     BaseGameStats,
 } from '@/lib/games/core/types'
 
-export type MineGridDifficulty = 'easy' | 'medium' | 'hard'
+// Canonical definitions in @cetus/shared (consumed by achievement predicates)
+export type {
+    MineGridDifficulty,
+    MineGridGameData,
+} from '@cetus/shared/game-data'
+import type { MineGridDifficulty } from '@cetus/shared/game-data'
+
 export type MineGridResult = 'playing' | 'cleared' | 'mine' | 'timeout'
 
 export interface MineGridCell {
@@ -63,14 +69,6 @@ export interface MineGridStats extends BaseGameStats {
     totalSafeCells: number
     flagsPlaced: number
     incorrectFlagActions: number
-}
-
-export interface MineGridGameData {
-    difficulty: MineGridDifficulty
-    cleared: boolean
-    revealedSafeCells: number
-    incorrectFlagActions: number
-    elapsedSeconds: number
 }
 
 export interface GridPosition {

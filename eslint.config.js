@@ -26,4 +26,45 @@ export default [
       'apps/web/env.d.ts',
     ],
   },
+  // Persistent package-boundary enforcement (HPA-447): portable code under
+  // packages/** must not import web/framework/DB modules. Bun's hoisted
+  // install and TS skipLibCheck would otherwise hide invalid dependencies.
+  {
+    files: ['packages/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['pixi.js', 'pixi.js/*'],
+              message: 'packages must not depend on PixiJS renderers',
+            },
+            {
+              group: ['astro', 'astro:*', 'astro/*'],
+              message: 'packages must not depend on Astro',
+            },
+            {
+              group: ['better-auth', 'better-auth/*'],
+              message: 'packages must not depend on Better Auth',
+            },
+            {
+              group: ['kysely', '@libsql/client', '@libsql/kysely-libsql'],
+              message: 'packages must not depend on the database layer',
+            },
+            {
+              group: ['@', '@/*'],
+              message:
+                'the @/ alias is web-only; use relative or @cetus/* imports',
+            },
+            {
+              group: ['@cetus/web', '**/apps/web', '**/apps/web/**'],
+              message:
+                'packages must not import apps/web; move portable code down',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]

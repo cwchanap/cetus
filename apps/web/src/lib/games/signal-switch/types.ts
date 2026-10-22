@@ -105,13 +105,8 @@ export interface SignalSwitchStats extends BaseGameStats {
     integrityRemaining: number
 }
 
-export interface SignalSwitchGameData {
-    safePasses: number
-    crashes: number
-    maxCombo: number
-    integrityRemaining: number
-    survivedFullRun: boolean
-}
+// Canonical definition in @cetus/shared (consumed by achievement predicates)
+export type { SignalSwitchGameData } from '@cetus/shared/game-data'
 
 export function createSignalSwitchConfig(
     overrides: Partial<SignalSwitchConfig> = {}

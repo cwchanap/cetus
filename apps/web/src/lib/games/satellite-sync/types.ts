@@ -97,10 +97,5 @@ export interface SatelliteSyncCallbacks {
     onWin: (finalScore: number) => void
 }
 
-export interface SatelliteSyncGameData {
-    levelsCleared: number
-    maxCombo: number
-    totalLocks: number
-    solved: boolean
-    minTimeRemainingRatio: number
-}
+// Canonical definition in @cetus/shared (consumed by achievement predicates)
+export type { SatelliteSyncGameData } from '@cetus/shared/game-data'

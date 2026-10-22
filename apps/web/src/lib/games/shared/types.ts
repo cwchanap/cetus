@@ -1,148 +1,70 @@
 /**
  * Shared game types for consistent type safety across all games
+ *
+ * The portable game-result DTOs (the `*GameData` shapes consumed by the
+ * achievement predicates) are canonically defined in `@cetus/shared` and
+ * re-exported here for the web game modules. Runtime-only types (stats,
+ * render helpers) remain web-side.
  */
 
-// Base game history entry for tracking clicked objects
-export interface GameHistoryEntry {
-    objectId: string
-    type: 'coin' | 'bomb'
-    clicked: boolean
-    timeToClick?: number
-    pointsAwarded: number
-}
+export type {
+    GameHistoryEntry,
+    TetrisGameData,
+    BubbleShooterGameData,
+    BejeweledGameData,
+    MemoryMatrixGameData,
+    WordScrambleGameData,
+    ReflexGameData,
+    QuickMathGameData,
+    SudokuGameData,
+    PathNavigatorGameData,
+    EvaderGameData,
+    Game2048Data,
+    SnakeGameData,
+    Difficulty,
+    CircuitHackerGameData,
+    SatelliteSyncGameData,
+    IceSlideMode,
+    IceSlideObjectiveId,
+    IceSlideExpeditionRouteChoice,
+    IceSlideGameData,
+    MineGridDifficulty,
+    MineGridGameData,
+    PatternPulseGameData,
+    GravityFlipGameData,
+    PotionSorterDifficulty,
+    PotionSorterGameData,
+    SignalSwitchGameData,
+    RhythmReactorGameData,
+    AsteroidDriftGameData,
+    ChromaticTideGameData,
+} from '@cetus/shared/game-data'
 
-// Tetris-specific game data
-export interface TetrisGameData {
-    doubles: number
-    triples: number
-    tetrises: number
-    consecutiveLineClears: number
-    piecesPlaced: number
-    level: number
-}
-
-// Bubble Shooter-specific game data
-export interface BubbleShooterGameData {
-    bubblesPopped: number
-    shotsFired: number
-    largestCombo: number
-}
-
-// Bejeweled-specific game data
-export interface BejeweledGameData {
-    maxCombo: number
-    largestMatch: number
-    straightFive?: boolean
-    totalMatches: number
-}
-
-// Memory Matrix-specific game data
-export interface MemoryMatrixGameData {
-    matchesFound: number
-    moves: number
-    perfectGame?: boolean
-}
-
-// Word Scramble-specific game data
-export interface WordScrambleGameData {
-    lastCorrectWord?: string
-    correctWords?: string[]
-    totalWordsScrambled: number
-}
-
-// Reflex-specific game data
-export interface ReflexGameData {
-    gameHistory: GameHistoryEntry[]
-    coinsCollected: number
-    bombsHit: number
-}
-
-// Quick Math-specific game data
-export interface QuickMathGameData {
-    seenOnePlusOne?: boolean
-    onePlusOneIncorrect?: boolean
-    seenOperand999?: boolean
-    zeroAnswerIncorrect?: boolean
-    correctAnswers: number
-    wrongAnswers: number
-}
-
-// Sudoku-specific game data
-export interface SudokuGameData {
-    difficulty: 'easy' | 'medium' | 'hard'
-    cellsFilled: number
-}
-
-// Path Navigator-specific game data
-export interface PathNavigatorGameData {
-    pathsCompleted: number
-    perfectPaths: number
-}
-
-// Evader-specific game data
-export interface EvaderGameData {
-    coinsCollected: number
-    bombsHit: number
-    survivalTime: number
-}
-
-// 2048-specific game data
-export interface Game2048Data {
-    maxTile: number
-    moves: number
-    merges: number
-}
-
-// Snake-specific game data
-export interface SnakeGameData {
-    foodsEaten: number
-    maxLength: number
-}
-
-// Circuit Hacker-specific game data
-export interface CircuitHackerGameData {
-    difficulty: import('../circuit-hacker/types').Difficulty
-    secondsRemaining: number
-    rotationsUsed: number
-    solved: boolean
-}
-
-// Satellite Sync-specific game data (canonical definition in satellite-sync/types.ts)
-export type SatelliteSyncGameData =
-    import('../satellite-sync/types').SatelliteSyncGameData
-
-// Ice Slide-specific game data (canonical definition in ice-slide/types.ts)
-export type IceSlideGameData = import('../ice-slide/types').IceSlideGameData
-
-// Mine Grid-specific game data (canonical definition in mine-grid/types.ts)
-export type MineGridGameData = import('../mine-grid/types').MineGridGameData
-
-// Pattern Pulse-specific game data (canonical definition in pattern-pulse/types.ts)
-export type PatternPulseGameData =
-    import('../pattern-pulse/types').PatternPulseGameData
-
-export type GravityFlipGameData =
-    import('../gravity-flip/types').GravityFlipGameData
-
-// Potion Sorter-specific game data (canonical definition in potion-sorter/types.ts)
-export type PotionSorterGameData =
-    import('../potion-sorter/types').PotionSorterGameData
-
-// Signal Switch-specific game data (canonical definition in signal-switch/types.ts)
-export type SignalSwitchGameData =
-    import('../signal-switch/types').SignalSwitchGameData
-
-// Rhythm Reactor-specific game data (canonical definition in rhythm-reactor/types.ts)
-export type RhythmReactorGameData =
-    import('../rhythm-reactor/types').RhythmReactorGameData
-
-// Asteroid Drift-specific game data (canonical definition in asteroid-drift/types.ts)
-export type AsteroidDriftGameData =
-    import('../asteroid-drift/types').AsteroidDriftGameData
-
-// Chromatic Tide-specific game data (canonical definition in chromatic-tide/types.ts)
-export type ChromaticTideGameData =
-    import('../chromatic-tide/types').ChromaticTideGameData
+import type {
+    TetrisGameData,
+    BubbleShooterGameData,
+    BejeweledGameData,
+    MemoryMatrixGameData,
+    WordScrambleGameData,
+    ReflexGameData,
+    QuickMathGameData,
+    SudokuGameData,
+    PathNavigatorGameData,
+    EvaderGameData,
+    Game2048Data,
+    SnakeGameData,
+    CircuitHackerGameData,
+    SatelliteSyncGameData,
+    IceSlideGameData,
+    MineGridGameData,
+    PatternPulseGameData,
+    GravityFlipGameData,
+    PotionSorterGameData,
+    SignalSwitchGameData,
+    RhythmReactorGameData,
+    AsteroidDriftGameData,
+    ChromaticTideGameData,
+} from '@cetus/shared/game-data'
 
 // Union type for all game data
 export type GameData =

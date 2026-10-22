@@ -6,7 +6,7 @@ import {
     toPublicScopedLeaderboardEntry,
     type GameLeaderboardEntry,
 } from '@/lib/server/db/queries'
-import { getAllGames, GameID } from '@/lib/games'
+import { getAllGames, GameID } from '@cetus/shared/games'
 import { parseIceSlideDailyRunKey } from '@/lib/games/ice-slide/run'
 import {
     jsonResponse,
@@ -14,7 +14,13 @@ import {
     codedErrorResponse,
     errorResponse,
 } from '@/lib/server/api-utils'
-import { leaderboardQuerySchema, validateQuery } from '@/lib/server/validations'
+import { leaderboardQuerySchema } from '@cetus/shared/validations'
+import type {
+    AllGamesLeaderboardResponse,
+    GameLeaderboardResponse,
+    ScopedLeaderboardResponse,
+} from '@cetus/shared/api-dto'
+import { validateQuery } from '@/lib/server/validations'
 
 export const GET: APIRoute = async ({ url, locals }) => {
     try {
@@ -28,15 +34,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // If no gameId provided, return leaderboards for all games
         if (!gameId) {
             const games = getAllGames()
-            const leaderboards: Record<
-                string,
-                Array<{
-                    rank: number
-                    name: string
-                    score: number
-                    created_at: string
-                }>
-            > = {}
+            const leaderboards: AllGamesLeaderboardResponse['leaderboards'] = {}
 
             const results = await Promise.all(
                 games.map(game => getGameLeaderboard(game.id, limit))
@@ -67,7 +65,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 )
             })
 
-            return jsonResponse({ leaderboards })
+            return jsonResponse<AllGamesLeaderboardResponse>({
+                leaderboards,
+            })
         }
 
         // Verify game exists
@@ -116,7 +116,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                     viewerUserId !== null && row.userId === viewerUserId,
             }))
 
-            return jsonResponse({
+            return jsonResponse<ScopedLeaderboardResponse>({
                 gameId,
                 gameName: game.name,
                 viewerAuthenticated: viewerUserId !== null,
@@ -143,7 +143,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
             ...entry,
         }))
 
-        return jsonResponse({
+        return jsonResponse<GameLeaderboardResponse>({
             gameId,
             gameName: game.name,
             leaderboard: leaderboardWithRanks,

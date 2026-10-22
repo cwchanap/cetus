@@ -129,8 +129,5 @@ export interface AsteroidDriftStats extends BaseGameStats {
     orbsCollected: number
 }
 
-export interface AsteroidDriftGameData {
-    survivalSeconds: number
-    orbsCollected: number
-    survivedFullRun: boolean
-}
+// Canonical definition in @cetus/shared (consumed by achievement predicates)
+export type { AsteroidDriftGameData } from '@cetus/shared/game-data'

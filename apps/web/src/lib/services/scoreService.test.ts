@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { GameID } from '../games'
+import { GameID } from '@cetus/shared/games'
 import {
     submitScore,
     saveGameScore,

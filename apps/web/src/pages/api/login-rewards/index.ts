@@ -5,6 +5,7 @@ import {
     unauthorizedResponse,
     errorResponse,
 } from '@/lib/server/api-utils'
+import type { LoginRewardStatusResponse } from '@cetus/shared/api-dto'
 
 /**
  * GET /api/login-rewards
@@ -19,7 +20,7 @@ export const GET: APIRoute = async ({ locals }) => {
     try {
         const status = await getLoginRewardStatusForUser(user.id)
 
-        return jsonResponse(status)
+        return jsonResponse<LoginRewardStatusResponse>(status)
     } catch (error) {
         console.error('[GET /api/login-rewards] Error:', error)
         return errorResponse('Internal server error')

@@ -1,8 +1,8 @@
 import { db } from './client'
 import { sql } from 'kysely'
-import type { AchievementCheckData } from '../../achievements'
-import { GameID } from '../../games'
-import type { ScorePlatform } from '../validations'
+import type { AchievementCheckData } from '@cetus/shared/achievements'
+import { GameID } from '@cetus/shared/games'
+import type { ScorePlatform } from '@cetus/shared/validations'
 import type {
     NewGameScore,
     NewUserStats,
@@ -95,26 +95,27 @@ async function getAchievementService() {
     return _achievementService
 }
 
-let _gamesModule: typeof import('../../games') | null = null
+let _gamesModule: typeof import('@cetus/shared/games') | null = null
 async function getGamesModule() {
     if (!_gamesModule) {
-        _gamesModule = await import('../../games')
+        _gamesModule = await import('@cetus/shared/games')
     }
     return _gamesModule
 }
 
-let _achievementsModule: typeof import('../../achievements') | null = null
+let _achievementsModule: typeof import('@cetus/shared/achievements') | null =
+    null
 async function getAchievementsModule() {
     if (!_achievementsModule) {
-        _achievementsModule = await import('../../achievements')
+        _achievementsModule = await import('@cetus/shared/achievements')
     }
     return _achievementsModule
 }
 
-let _challengesModule: typeof import('../../challenges') | null = null
+let _challengesModule: typeof import('@cetus/shared/challenges') | null = null
 async function getChallengesModule() {
     if (!_challengesModule) {
-        _challengesModule = await import('../../challenges')
+        _challengesModule = await import('@cetus/shared/challenges')
     }
     return _challengesModule
 }

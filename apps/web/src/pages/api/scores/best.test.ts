@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from '@/pages/api/scores/best'
 import { getUserBestScore } from '@/lib/server/db/queries'
-import { getGameById, GameID, type Game } from '@/lib/games'
+import { getGameById, GameID, type Game } from '@cetus/shared/games'
 import { auth } from '@/lib/auth'
 
 // Mock dependencies
@@ -9,7 +9,7 @@ vi.mock('@/lib/server/db/queries', () => ({
     getUserBestScore: vi.fn(),
 }))
 
-vi.mock('@/lib/games', () => ({
+vi.mock('@cetus/shared/games', () => ({
     getGameById: vi.fn(),
     GameID: {
         TETRIS: 'tetris',
@@ -73,7 +73,7 @@ describe('GET /api/scores/best', () => {
     it('should return best score for authenticated user and valid game', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(getUserBestScore).mockResolvedValue({
             status: 'ok',
@@ -99,7 +99,7 @@ describe('GET /api/scores/best', () => {
     it('should return null when user has no scores for the game', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(getUserBestScore).mockResolvedValue({
             status: 'ok',
@@ -126,7 +126,7 @@ describe('GET /api/scores/best', () => {
         // Arrange — a failed score-context probe is a retryable unavailable
         // state, distinct from the user having no scores (ok/null).
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(getUserBestScore).mockResolvedValue({
             status: 'unavailable',
@@ -230,7 +230,7 @@ describe('GET /api/scores/best', () => {
     it('should handle different valid game IDs', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(getUserBestScore).mockResolvedValue({
             status: 'ok',
@@ -277,7 +277,7 @@ describe('GET /api/scores/best', () => {
     it('should return 500 for database errors during game lookup', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockImplementation(() => {
             throw new Error('Database error')
         })
@@ -299,7 +299,7 @@ describe('GET /api/scores/best', () => {
     it('should return 500 for database errors during score lookup', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(getUserBestScore).mockRejectedValue(
             new Error('Database error')
@@ -380,7 +380,7 @@ describe('GET /api/scores/best', () => {
     it('should handle zero scores correctly', async () => {
         // Arrange
         vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any)
-        const { getGameById } = await import('@/lib/games')
+        const { getGameById } = await import('@cetus/shared/games')
         vi.mocked(getGameById).mockReturnValue(mockGame)
         vi.mocked(getUserBestScore).mockResolvedValue({
             status: 'ok',

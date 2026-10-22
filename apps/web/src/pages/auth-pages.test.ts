@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { appRoot } from '@/test/app-root'
 
-const loginPath = resolve(process.cwd(), 'src/pages/login/index.astro')
-const signupPath = resolve(process.cwd(), 'src/pages/signup/index.astro')
+const loginPath = resolve(appRoot, 'src/pages/login/index.astro')
+const signupPath = resolve(appRoot, 'src/pages/signup/index.astro')
 
 const loginMarkup = readFileSync(loginPath, 'utf-8')
 const signupMarkup = readFileSync(signupPath, 'utf-8')

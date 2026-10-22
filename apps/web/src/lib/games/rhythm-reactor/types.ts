@@ -83,16 +83,8 @@ export interface RhythmReactorStats extends BaseGameStats {
     finalStability: number
 }
 
-export interface RhythmReactorGameData {
-    hits: number
-    perfectHits: number
-    goodHits: number
-    misses: number
-    strayPresses: number
-    maxCombo: number
-    accuracy: number
-    finalStability: number
-}
+// Canonical definition in @cetus/shared (consumed by achievement predicates)
+export type { RhythmReactorGameData } from '@cetus/shared/game-data'
 
 export interface RhythmReactorHitResult {
     accepted: boolean

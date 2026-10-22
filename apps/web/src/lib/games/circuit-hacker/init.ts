@@ -10,7 +10,7 @@ import {
 import { DIFFICULTY_CONFIGS } from './utils'
 import type { Difficulty, CircuitHackerStats } from './types'
 import { saveGameScore } from '@/lib/services/scoreService'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { createRunGuard } from '@/lib/games/core'
 
 // Module-scope guard so a second init call invalidates pending callbacks

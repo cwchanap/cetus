@@ -1,4 +1,11 @@
-import type { IceSlideExpeditionRouteChoice } from './expedition'
+import type {
+    IceSlideExpeditionRouteChoice,
+    IceSlideGameData,
+    IceSlideMode,
+    IceSlideObjectiveId,
+} from '@cetus/shared/game-data'
+
+export type { IceSlideExpeditionRouteChoice }
 
 export type Direction = 'N' | 'E' | 'S' | 'W'
 
@@ -68,31 +75,6 @@ export interface IceSlideState {
     stageSignatures: string[]
 }
 
-export interface IceSlideGameData {
-    levelsCleared: number
-    totalMoves: number
-    crystalsCollected: number
-    elapsedSeconds: number
-    solved: boolean
-    perfectLevels: number
-    mode: IceSlideMode
-    runKey: string
-    runSchemaVersion: 1
-    generatorVersion: number
-    rulesetVersion: number
-    stagesTotal: number
-    starsEarned: number
-    falls: number
-    resets: number
-    stageSignatures: string[]
-    routeChoices: IceSlideExpeditionRouteChoice[]
-    undoChargesAvailable: number
-    undoChargesUsed: number
-    starsPossible: number
-    stageObjectiveIds: IceSlideObjectiveId[][]
-    stageScoreMultipliersBps: number[]
-}
-
 export interface IceSlideCallbacks {
     onGameStart: () => void
     onMove: (info: { moves: number; levelMoves: number }) => void
@@ -128,11 +110,10 @@ export const DIRECTION_DELTA: Record<Direction, GridPosition> = {
     W: { row: 0, col: -1 },
 }
 
-export type IceSlideMode = 'campaign' | 'daily' | 'expedition'
-export type IceSlideDifficulty = 'tutorial' | 'easy' | 'medium' | 'hard'
+// Canonical definitions in @cetus/shared (consumed by achievement predicates)
+export type { IceSlideGameData, IceSlideMode, IceSlideObjectiveId }
 
-export type IceSlideObjectiveId =
-    'collect_all_crystals' | 'no_falls' | 'no_reset'
+export type IceSlideDifficulty = 'tutorial' | 'easy' | 'medium' | 'hard'
 
 export type BoardTransform =
     | 'identity'
