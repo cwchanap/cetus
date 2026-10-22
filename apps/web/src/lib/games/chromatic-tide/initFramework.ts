@@ -1,4 +1,4 @@
-import type { AchievementNotification } from '@/lib/achievements'
+import type { AchievementNotification } from '@cetus/shared/achievements'
 import type {
     BaseGameCallbacks,
     BaseGameState,

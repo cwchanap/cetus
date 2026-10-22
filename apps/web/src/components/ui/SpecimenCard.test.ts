@@ -4,10 +4,11 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import SpecimenCard from './SpecimenCard.astro'
-import { GameID, type Game } from '@/lib/games'
+import { GameID, type Game } from '@cetus/shared/games'
+import { appRoot } from '@/test/app-root'
 
 const specimenSource = readFileSync(
-    resolve(process.cwd(), 'src/components/ui/SpecimenCard.astro'),
+    resolve(appRoot, 'src/components/ui/SpecimenCard.astro'),
     'utf-8'
 )
 

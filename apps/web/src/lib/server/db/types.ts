@@ -80,7 +80,7 @@ export interface GameScoresTable {
 }
 
 // Import GameID enum
-import { GameID } from '../../games'
+import { GameID } from '@cetus/shared/games'
 
 // Available games type - now using the enum
 export type GameType = GameID

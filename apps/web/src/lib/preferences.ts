@@ -1,68 +1,17 @@
 /**
- * User Preferences System
- * Client-side preferences stored in localStorage for instant access
- * Server-side notification preferences synced with database
+ * User Preferences System — web browser adapters
+ *
+ * Types and defaults live in `@cetus/shared/preferences`; these helpers bind
+ * them to `window`, localStorage, `matchMedia` and DOM events.
  */
 
-/**
- * Sound settings (stored client-side in localStorage)
- */
-export interface SoundSettings {
-    masterVolume: number // 0-100
-    sfxVolume: number // 0-100
-    musicVolume: number // 0-100
-    soundEnabled: boolean
-}
-
-/**
- * Display settings (stored client-side in localStorage)
- */
-export interface DisplaySettings {
-    reducedMotion: boolean
-}
-
-/**
- * Notification settings (stored server-side in database)
- */
-export interface NotificationSettings {
-    emailNotifications: boolean
-    pushNotifications: boolean
-    challengeReminders: boolean
-}
-
-/**
- * Complete client-side preferences
- */
-export interface ClientPreferences {
-    sound: SoundSettings
-    display: DisplaySettings
-}
-
-/**
- * Default client preferences
- */
-export const DEFAULT_CLIENT_PREFERENCES: ClientPreferences = {
-    sound: {
-        masterVolume: 70,
-        sfxVolume: 80,
-        musicVolume: 60,
-        soundEnabled: true,
-    },
-    display: {
-        reducedMotion: false,
-    },
-}
-
-/**
- * Default notification preferences
- */
-export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationSettings = {
-    emailNotifications: true,
-    pushNotifications: false,
-    challengeReminders: true,
-}
-
-export const PREFERENCES_STORAGE_KEY = 'cetus_preferences'
+import {
+    DEFAULT_CLIENT_PREFERENCES,
+    PREFERENCES_STORAGE_KEY,
+    type ClientPreferences,
+    type DisplaySettings,
+    type SoundSettings,
+} from '@cetus/shared/preferences'
 
 /**
  * Get client preferences from localStorage

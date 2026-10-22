@@ -2,7 +2,7 @@ import { BaseGame } from '@/lib/games/core/BaseGame'
 import type { BaseGameCallbacks } from '@/lib/games/core/types'
 import { circleOverlap } from '@/lib/games/shared/geometry'
 import { clamp, lerp } from '@/lib/games/shared/utils'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { calculateAsteroidDriftScore } from './scoring'
 import {
     createIntroAsteroid,

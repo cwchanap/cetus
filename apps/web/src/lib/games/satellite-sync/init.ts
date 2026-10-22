@@ -10,7 +10,7 @@ import {
 import { polarToWorld, bearing } from './geometry'
 import { SATELLITE_SYNC_LEVELS } from './levels'
 import { saveGameScore } from '@/lib/services/scoreService'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { createRunGuard } from '@/lib/games/core'
 import type { SatelliteSyncCallbacks } from './types'
 

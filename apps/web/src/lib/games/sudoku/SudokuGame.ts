@@ -1,7 +1,7 @@
 // Sudoku game implementation using BaseGame framework
 import { BaseGame } from '@/lib/games/core/BaseGame'
 import type { BaseGameCallbacks, ScoringConfig } from '@/lib/games/core/types'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import type { SudokuCell } from './types'
 import type { SudokuState, SudokuConfig, SudokuStats } from './frameworkTypes'
 import {

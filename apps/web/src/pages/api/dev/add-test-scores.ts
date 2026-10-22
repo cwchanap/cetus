@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { db } from '@/lib/server/db/client'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { jsonResponse, errorResponse } from '@/lib/server/api-utils'
 
 export const POST: APIRoute = async () => {

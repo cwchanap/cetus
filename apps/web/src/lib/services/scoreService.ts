@@ -3,13 +3,13 @@
  */
 
 import type { GameType } from '@/lib/server/db/types'
-import { type AchievementNotification } from '@/lib/achievements'
-import { getGameById, type GameID } from '@/lib/games'
+import { type AchievementNotification } from '@cetus/shared/achievements'
+import { getGameById, type GameID } from '@cetus/shared/games'
 import type { GameData } from '@/lib/games/shared/types'
 import type {
     ScorePlatform,
     ScoreSubmissionContext,
-} from '@/lib/server/validations'
+} from '@cetus/shared/validations'
 
 export type ScoreSubmissionPublicErrorCode =
     | 'SCORE_CONTEXT_UNAVAILABLE'

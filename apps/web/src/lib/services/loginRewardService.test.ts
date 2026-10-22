@@ -11,10 +11,10 @@ import {
     awardAchievement,
 } from '../server/db/queries'
 import type { UserStats } from '../server/db/types'
-import { getTodayUTC } from '../challenges'
+import { getTodayUTC } from '@cetus/shared/challenges'
 
 // Mock the date utility
-vi.mock('../challenges', () => ({
+vi.mock('@cetus/shared/challenges', () => ({
     getTodayUTC: vi.fn(),
 }))
 

@@ -1,6 +1,6 @@
 import { BaseGame } from '@/lib/games/core/BaseGame'
 import type { BaseGameCallbacks } from '@/lib/games/core/types'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { clamp, lerp } from '@/lib/games/shared/utils'
 import { calculateSignalSwitchPassPoints } from './scoring'
 import {

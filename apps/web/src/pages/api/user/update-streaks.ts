@@ -5,6 +5,7 @@ import {
     unauthorizedResponse,
     errorResponse,
 } from '@/lib/server/api-utils'
+import type { UpdateStreaksResponse } from '@cetus/shared/api-dto'
 
 export const POST: APIRoute = async ({ request, locals }) => {
     const cronSecret =
@@ -33,7 +34,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     try {
         const result = await updateAllUserStreaksForUTC()
-        return jsonResponse({ success: true, ...result })
+        return jsonResponse<UpdateStreaksResponse>({ success: true, ...result })
     } catch (_e) {
         return errorResponse('Internal server error')
     }

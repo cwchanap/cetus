@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
+import { appRoot } from './app-root'
 
 export const globalCss = readFileSync(
-    resolve(process.cwd(), 'src/styles/global.css'),
+    resolve(appRoot, 'src/styles/global.css'),
     'utf-8'
 )
 

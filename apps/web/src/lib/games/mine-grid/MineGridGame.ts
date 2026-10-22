@@ -1,7 +1,7 @@
 import { BaseGame } from '@/lib/games/core/BaseGame'
 import type { BaseGameCallbacks } from '@/lib/games/core/types'
 import type { ScoreSubmitter } from '@/lib/services/scoreService'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { createGrid, findCells } from '@/lib/games/shared/grid'
 import { getFloodRevealPositions, placeMines } from './board'
 import { calculateMineGridScore } from './scoring'

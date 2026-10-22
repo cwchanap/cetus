@@ -1,6 +1,6 @@
 import { BaseGame } from '@/lib/games/core/BaseGame'
 import type { ScoringConfig } from '@/lib/games/core/types'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import type { WordChallenge } from './types'
 import type {
     WordScrambleState,

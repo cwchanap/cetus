@@ -22,7 +22,9 @@ import type { IceSlideRunDefinition } from './types'
 export const ICE_SLIDE_EXPEDITION_RULESET_VERSION = 2
 export const ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS = 12_500
 
-export type IceSlideExpeditionRouteChoice = 'safe' | 'risky'
+// Canonical definition in @cetus/shared (consumed by achievement predicates)
+export type { IceSlideExpeditionRouteChoice } from '@cetus/shared/game-data'
+import type { IceSlideExpeditionRouteChoice } from '@cetus/shared/game-data'
 export type IceSlideExpeditionChoiceStage = 2 | 4
 
 export interface IceSlideExpeditionRouteEffect {

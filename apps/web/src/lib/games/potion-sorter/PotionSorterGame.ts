@@ -1,7 +1,7 @@
 import { BaseGame } from '@/lib/games/core/BaseGame'
 import type { BaseGameCallbacks } from '@/lib/games/core/types'
 import type { ScoreSubmitter } from '@/lib/services/scoreService'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { POTION_SORTER_PRESETS } from './levels'
 import { isPotionSorterSolved, pourPotion } from './puzzle'
 import { calculatePotionSorterScore } from './scoring'

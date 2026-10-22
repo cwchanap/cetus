@@ -4,7 +4,7 @@ import type { WordScrambleStats } from './frameworkTypes'
 import {
     AchievementRarity,
     type AchievementNotification,
-} from '@/lib/achievements'
+} from '@cetus/shared/achievements'
 
 vi.mock('@/lib/services/scoreService', () => ({
     // Implementation-backed so vi.restoreAllMocks() in beforeEach restores

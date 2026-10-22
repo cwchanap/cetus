@@ -21,7 +21,7 @@ import {
 } from '@/lib/games/core/errors'
 import { isEditableTarget } from '@/lib/games/shared/utils'
 
-import { type AchievementNotification } from '@/lib/achievements'
+import { type AchievementNotification } from '@cetus/shared/achievements'
 
 export interface BubbleShooterInitResult {
     game: BubbleShooterGame

@@ -350,7 +350,7 @@ const user = Astro.locals.user
     BubbleShooterStats,
   } from '@/lib/games/bubble-shooter/types'
   import { getUserBestScore } from '@/lib/services/scoreService'
-  import { GameID } from '@/lib/games'
+  import { GameID } from '@cetus/shared/games'
 
   const sheet = document.querySelector<HTMLDialogElement>('#field-sheet')!
   const pauseButton = document.querySelector<HTMLButtonElement>('#pause-btn')!

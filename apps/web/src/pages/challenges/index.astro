@@ -8,7 +8,10 @@ import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
 import { getUserDailyChallenges } from '@/lib/services/challengeService'
 import { getUserXPAndLevel } from '@/lib/server/db/queries'
-import { getXPProgress, getSecondsUntilMidnightUTC } from '@/lib/challenges'
+import {
+  getXPProgress,
+  getSecondsUntilMidnightUTC,
+} from '@cetus/shared/challenges'
 
 const user = Astro.locals.user
 if (!user) {

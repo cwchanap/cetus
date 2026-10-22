@@ -3,8 +3,8 @@ import { GameEventEmitter } from '../core/EventEmitter'
 import { GameTimer } from '../core/GameTimer'
 import { ScoreManager } from '../core/ScoreManager'
 import { BaseGame } from './BaseGame'
-import type { AchievementNotification } from '@/lib/achievements'
-import { GameID } from '@/lib/games'
+import type { AchievementNotification } from '@cetus/shared/achievements'
+import { GameID } from '@cetus/shared/games'
 
 describe('Game Framework Core', () => {
     describe('GameEventEmitter', () => {

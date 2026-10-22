@@ -2,6 +2,8 @@
  * API utility functions for consistent response handling
  */
 
+import type { CodedErrorBody } from '@cetus/shared/api-dto'
+
 /**
  * Create a JSON response with proper headers
  */
@@ -27,7 +29,8 @@ export function codedErrorResponse<C extends string>(
     code: C,
     status: number = 500
 ): Response {
-    return jsonResponse({ error: message, code }, status)
+    const body = { error: message, code } satisfies CodedErrorBody
+    return jsonResponse(body, status)
 }
 
 /**

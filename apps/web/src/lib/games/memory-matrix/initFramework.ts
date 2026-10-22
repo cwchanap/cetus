@@ -17,7 +17,7 @@ import {
 } from '@/lib/games/core/errors'
 import { formatTime } from './utils'
 
-import { type AchievementNotification } from '@/lib/achievements'
+import { type AchievementNotification } from '@cetus/shared/achievements'
 
 export interface MemoryMatrixInitResult {
     game: MemoryMatrixGame

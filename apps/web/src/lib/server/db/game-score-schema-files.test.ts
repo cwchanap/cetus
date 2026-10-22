@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { createClient } from '@libsql/client'
 import { describe, expect, it } from 'vitest'
+import { appRoot } from '@/test/app-root'
 
 const schemaFiles = [
     'scripts/init-db.sql',
@@ -30,10 +31,7 @@ function extractGameScoresDdl(source: string): string {
 
 describe.each(schemaFiles)('%s', schemaPath => {
     it('creates the complete contextual score schema', async () => {
-        const source = await readFile(
-            resolve(process.cwd(), schemaPath),
-            'utf8'
-        )
+        const source = await readFile(resolve(appRoot, schemaPath), 'utf8')
         const client = createClient({ url: ':memory:' })
 
         await client.executeMultiple(extractGameScoresDdl(source))
@@ -54,7 +52,7 @@ describe.each(schemaFiles)('%s', schemaPath => {
         )
         if (!preColumns.rows.some(row => row.name === 'platform')) {
             const migrationSql = await readFile(
-                resolve(process.cwd(), platformMigrationFile),
+                resolve(appRoot, platformMigrationFile),
                 'utf8'
             )
             const statements = migrationSql

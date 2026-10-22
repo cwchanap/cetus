@@ -48,7 +48,7 @@ vi.mock('@/lib/services/scoreService', () => ({
 }))
 
 import { initializeCircuitHackerGame } from './init'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { solveGameForTest } from './test-utils'
 import { screen } from '@testing-library/dom'
 

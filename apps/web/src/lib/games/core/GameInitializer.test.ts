@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { GameInitializer } from './GameInitializer'
 import { BaseGame } from './BaseGame'
 import { BaseRenderer } from './BaseRenderer'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import {
     AchievementRarity,
     type AchievementNotification,
-} from '@/lib/achievements'
+} from '@cetus/shared/achievements'
 import type {
     BaseGameCallbacks,
     BaseGameState,

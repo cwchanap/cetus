@@ -6,8 +6,8 @@ import type {
     ChallengeUpdates,
     ScoringConfig,
 } from './types'
-import type { GameID } from '@/lib/games'
-import type { AchievementNotification } from '@/lib/achievements'
+import type { GameID } from '@cetus/shared/games'
+import type { AchievementNotification } from '@cetus/shared/achievements'
 
 export interface GameInitializerConfig<
     TGame extends BaseGame,

@@ -5,8 +5,9 @@ export type Direction = 'N' | 'E' | 'S' | 'W'
 // this to 0..3 makes illegal rotations unrepresentable at zero runtime cost.
 export type Orientation = 0 | 1 | 2 | 3
 
-// Difficulty tiers (chosen up front)
-export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert'
+// Difficulty tiers (chosen up front); canonical definition in @cetus/shared
+export type { Difficulty } from '@cetus/shared/game-data'
+import type { Difficulty } from '@cetus/shared/game-data'
 
 // Shapes a tile can take
 export type TileType =

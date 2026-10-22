@@ -5,7 +5,7 @@ import {
     type MathQuestion,
 } from './game'
 import { QuickMathRenderer, type QuickMathRendererConfig } from './renderer'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import type { BaseGameCallbacks, BaseGameStats } from '@/lib/games/core/types'
 
 // Default configuration for Quick Math

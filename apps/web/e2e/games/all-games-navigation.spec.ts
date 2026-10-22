@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { GAMES, getGameUrl } from '../../src/lib/games'
+import { GAMES, getGameUrl } from '@cetus/shared/games'
 
 const NAV_TARGETS = GAMES.filter(g => g.isActive).map(g => ({
     title: g.name,

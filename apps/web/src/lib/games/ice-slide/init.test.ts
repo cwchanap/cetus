@@ -72,7 +72,7 @@ vi.mock('./run', async () => {
 
 import { initializeIceSlide } from './init'
 import { saveGameScore } from '@/lib/services/scoreService'
-import { GameID } from '@/lib/games'
+import { GameID } from '@cetus/shared/games'
 import { cleanup as rendererCleanup, setupPixiJS } from './renderer'
 import { createIceSlideDailyRunDefinition } from './daily'
 import {

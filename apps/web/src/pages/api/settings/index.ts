@@ -9,6 +9,10 @@ import {
     badRequestResponse,
     errorResponse,
 } from '@/lib/server/api-utils'
+import type {
+    NotificationSettingsResponse,
+    SettingsUpdateResponse,
+} from '@cetus/shared/api-dto'
 
 /**
  * GET /api/settings
@@ -32,7 +36,7 @@ export const GET: APIRoute = async ({ locals }) => {
             return errorResponse('Failed to fetch preferences')
         }
 
-        return jsonResponse(preferences)
+        return jsonResponse<NotificationSettingsResponse>(preferences)
     } catch (error) {
         console.error('[GET /api/settings] Error:', error)
         return errorResponse('Internal server error')
@@ -100,7 +104,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             return errorResponse('Failed to retrieve updated preferences')
         }
 
-        return jsonResponse({
+        return jsonResponse<SettingsUpdateResponse>({
             success: true,
             preferences: updatedPreferences,
         })

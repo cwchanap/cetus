@@ -5,7 +5,7 @@ import type {
     BaseGameCallbacks,
     BaseGameStats,
 } from '@/lib/games/core/types'
-import type { GameID } from '@/lib/games'
+import type { GameID } from '@cetus/shared/games'
 
 // Quick Math specific types
 export interface MathQuestion {

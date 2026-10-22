@@ -6,7 +6,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { AchievementRarity } from '@/lib/achievements'
+import { AchievementRarity } from '@cetus/shared/achievements'
+import { appRoot } from '@/test/app-root'
 
 // Mock achievement data for testing
 const _mockAchievements = [
@@ -148,7 +149,7 @@ describe('AchievementAward source retint', () => {
     it('uses cetus tokens, not Orbitron or hardcoded cyan', () => {
         // Read source and assert no legacy patterns
         const source = readFileSync(
-            resolve(process.cwd(), 'src/components/AchievementAward.astro'),
+            resolve(appRoot, 'src/components/AchievementAward.astro'),
             'utf-8'
         )
         expect(source).not.toMatch(/font-orbitron/)

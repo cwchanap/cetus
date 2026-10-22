@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import Organism from './Organism.astro'
-import type { OrganismIdentity } from '@/lib/organisms'
+import type { OrganismIdentity } from '@cetus/shared/organisms'
 
 type OrganismShape = OrganismIdentity['shape']
 

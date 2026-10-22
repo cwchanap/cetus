@@ -17,51 +17,18 @@ import {
     getMilestoneForDays,
     getNextMilestone,
     getTotalConsecutiveDays,
-    type LoginRewardDefinition,
     type MilestoneBadge,
-} from '../loginRewards'
-import { getTodayUTC } from '../challenges'
+} from '@cetus/shared/loginRewards'
+import { getTodayUTC } from '@cetus/shared/challenges'
+import type {
+    LoginRewardClaimResponse,
+    LoginRewardStatusResponse,
+} from '@cetus/shared/api-dto'
 
-export interface LoginRewardStatusResult {
-    /** Current position in 7-day cycle (0-7).
-     *  0 = first day, 1-6 = days 2-7, 7 = transient value when a cycle completes */
-    loginStreak: number
-    /** Day number to display (1-7) */
-    currentCycleDay: number
-    /** Total completed 7-day cycles */
-    totalCycles: number
-    /** Total consecutive days (cycles * 7 + current streak) */
-    totalConsecutiveDays: number
-    /** Today's reward if claimable */
-    todayReward: LoginRewardDefinition
-    /** Whether reward has been claimed today */
-    alreadyClaimed: boolean
-    /** Whether user can claim today */
-    canClaim: boolean
-    /** Next milestone badge to earn */
-    nextMilestone: MilestoneBadge | null
-    /** Days until next milestone */
-    daysUntilMilestone: number | null
-}
-
-export interface ClaimRewardResult {
-    success: boolean
-    error?: string
-    /** XP earned from this claim */
-    xpEarned?: number
-    /** New total XP */
-    newTotalXP?: number
-    /** New level after claim */
-    newLevel?: number
-    /** Whether user leveled up */
-    leveledUp?: boolean
-    /** Previous level before claim */
-    previousLevel?: number
-    /** Milestone badge earned (if any) */
-    milestoneBadge?: MilestoneBadge
-    /** Updated status after claim */
-    updatedStatus?: LoginRewardStatusResult
-}
+// The service results ARE the API response bodies; the canonical wire types
+// live in @cetus/shared/api-dto (typed to the routes, reused here).
+export type LoginRewardStatusResult = LoginRewardStatusResponse
+export type ClaimRewardResult = LoginRewardClaimResponse
 
 /**
  * Get current login reward status for a user

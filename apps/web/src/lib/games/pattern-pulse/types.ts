@@ -61,9 +61,5 @@ export interface PatternPulseStats extends BaseGameStats {
     maxStreak: number
 }
 
-export interface PatternPulseGameData {
-    completedRounds: number
-    longestSequence: number
-    mistakes: number
-    maxStreak: number
-}
+// Canonical definition in @cetus/shared (consumed by achievement predicates)
+export type { PatternPulseGameData } from '@cetus/shared/game-data'

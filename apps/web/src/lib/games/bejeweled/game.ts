@@ -1,5 +1,5 @@
 import { BaseGame } from '@/lib/games/core/BaseGame'
-import type { GameID } from '@/lib/games'
+import type { GameID } from '@cetus/shared/games'
 import type { BaseGameCallbacks, ScoringConfig } from '@/lib/games/core/types'
 import {
     JEWEL_TYPES,

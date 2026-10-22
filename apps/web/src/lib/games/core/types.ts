@@ -4,7 +4,7 @@ import type {
     ScoreSubmissionResult,
     ScoreSubmitter,
 } from '@/lib/services/scoreService'
-import type { ScorePlatform } from '@/lib/server/validations'
+import type { ScorePlatform } from '@cetus/shared/validations'
 
 export interface BaseGameState {
     score: number

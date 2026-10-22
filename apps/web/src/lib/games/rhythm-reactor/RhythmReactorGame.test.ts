@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { GameID, getGameIcon } from '@/lib/games'
+import { GameID, getGameIcon } from '@cetus/shared/games'
 import { createRhythmReactorChart } from './chart'
 import { calculateRhythmReactorAccuracy } from './scoring'
 import {

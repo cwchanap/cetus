@@ -447,8 +447,8 @@ const neighbours = [
   import { findLegalSwap } from '@/lib/games/bejeweled/utils'
   import { isEditableTarget } from '@/lib/games/shared/utils'
   import { getUserBestScore } from '@/lib/services/scoreService'
-  import { GameID } from '@/lib/games'
-  import type { UserChallengeProgress } from '@/lib/challenges'
+  import { GameID } from '@cetus/shared/games'
+  import type { UserChallengeProgress } from '@cetus/shared/challenges'
 
   const sheet = document.querySelector<HTMLDialogElement>('#field-sheet')!
   const panels = [...sheet.querySelectorAll<HTMLElement>('[data-panel]')]

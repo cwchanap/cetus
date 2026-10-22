@@ -13,7 +13,7 @@ import {
     handleGameError,
 } from '@/lib/games/core/errors'
 
-import { type AchievementNotification } from '@/lib/achievements'
+import { type AchievementNotification } from '@cetus/shared/achievements'
 
 const MOVEMENT_KEYS = new Set([
     'ArrowUp',

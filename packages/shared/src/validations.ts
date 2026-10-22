@@ -1,0 +1,231 @@
+/**
+ * Zod validation schemas for API endpoints (portable request contracts)
+ *
+ * Only schemas and their inferred types live here. The HTTP host adapters
+ * (`validateBody(request)` / `validateQuery(url)`) stay next to the web API
+ * routes in `apps/web/src/lib/server/validations.ts` and reuse these exports.
+ */
+
+import { z } from 'zod'
+import { GameID } from './games'
+
+// Game ID enum values for Zod
+const gameIdValues = Object.values(GameID) as [string, ...string[]]
+
+/**
+ * Score submission schema
+ */
+const SCORE_CONTEXT_MAX_GAME_DATA_BYTES = 16 * 1024
+const modePattern = /^[a-z][a-z0-9_-]*$/
+const competitionKeyPattern = /^[A-Za-z0-9:._-]+$/
+
+export const scoreContextSchema = z
+    .object({
+        mode: z.string().min(1).max(32).regex(modePattern),
+        competitionKey: z
+            .string()
+            .min(1)
+            .max(128)
+            .regex(competitionKeyPattern)
+            .optional(),
+        rulesetVersion: z.number().int().min(1).max(2_147_483_647),
+    })
+    .strict()
+
+export type ScoreSubmissionContext = z.infer<typeof scoreContextSchema>
+
+/** Platform a score was submitted from; defaults to 'web' when omitted. */
+export const scorePlatformSchema = z.enum(['web', 'ios', 'android'])
+
+export type ScorePlatform = z.infer<typeof scorePlatformSchema>
+
+function addContextualGameDataIssues(
+    data: Record<string, unknown>,
+    ctx: z.RefinementCtx
+): void {
+    for (const key of ['elapsedSeconds', 'totalMoves'] as const) {
+        const value = data[key]
+        if (
+            value !== undefined &&
+            (typeof value !== 'number' || !Number.isInteger(value) || value < 0)
+        ) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['gameData', key],
+                message: `${key} must be a non-negative integer`,
+            })
+        }
+    }
+
+    const serialized = JSON.stringify(data)
+    const byteLength = new TextEncoder().encode(serialized).byteLength
+    if (byteLength > SCORE_CONTEXT_MAX_GAME_DATA_BYTES) {
+        ctx.addIssue({
+            code: 'custom',
+            path: ['gameData'],
+            message: 'Contextual gameData exceeds 16 KiB',
+        })
+    }
+}
+
+export const scoreSubmissionSchema = z
+    .object({
+        gameId: z.enum(gameIdValues, {
+            error: 'Invalid game ID',
+        }),
+        score: z
+            .number()
+            .int()
+            .min(0, { error: 'Score must be a non-negative integer' })
+            .max(999_999_999, {
+                error: 'Score exceeds maximum allowed value',
+            }),
+        gameData: z.record(z.string(), z.unknown()).optional(),
+        context: scoreContextSchema.optional(),
+        platform: scorePlatformSchema.optional().default('web'),
+    })
+    .superRefine((data, ctx) => {
+        if (data.context && data.gameData) {
+            addContextualGameDataIssues(data.gameData, ctx)
+        }
+    })
+
+export type ScoreSubmissionInput = z.infer<typeof scoreSubmissionSchema>
+
+/**
+ * Profile update schema
+ */
+export const profileUpdateSchema = z
+    .object({
+        name: z
+            .string()
+            .trim()
+            .min(1, { message: 'Name cannot be empty' })
+            .max(100, { message: 'Name must be 100 characters or less' })
+            .optional(),
+        displayName: z.preprocess(
+            val => {
+                if (typeof val === 'string') {
+                    const trimmed = val.trim()
+                    return trimmed === '' ? null : trimmed
+                }
+                return val
+            },
+            z
+                .string()
+                .min(1, { message: 'Display name cannot be empty' })
+                .max(100, {
+                    message: 'Display name must be 100 characters or less',
+                })
+                .nullable()
+                .optional()
+        ),
+        username: z.preprocess(
+            val => {
+                if (typeof val === 'string') {
+                    const trimmed = val.trim().toLowerCase()
+                    return trimmed === '' ? null : trimmed
+                }
+                return val
+            },
+            z
+                .string()
+                .min(3, { message: 'Username must be at least 3 characters' })
+                .max(20, { message: 'Username must be 20 characters or less' })
+                .regex(/^[a-z0-9_]+$/, {
+                    message:
+                        'Username must contain only lowercase letters, numbers, or underscores',
+                })
+                .nullable()
+                .optional()
+        ),
+    })
+    .refine(
+        data =>
+            data.name !== undefined ||
+            data.displayName !== undefined ||
+            data.username !== undefined,
+        { message: 'At least one field must be provided' }
+    )
+
+export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>
+
+/**
+ * Leaderboard query schema
+ */
+export const leaderboardQuerySchema = z
+    .object({
+        gameId: z
+            .enum(gameIdValues, {
+                message: 'Invalid game ID',
+            })
+            .optional(),
+        limit: z
+            .string()
+            .regex(/^\d+$/, { message: 'limit must be a positive integer' })
+            .transform(Number)
+            .pipe(z.number().int().min(1).max(100))
+            .optional()
+            .default(10),
+        mode: z.string().min(1).max(32).regex(modePattern).optional(),
+        competitionKey: z
+            .string()
+            .min(1)
+            .max(128)
+            .regex(competitionKeyPattern)
+            .optional(),
+    })
+    .superRefine((data, ctx) => {
+        if (data.mode && !data.gameId) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['mode'],
+                message: 'mode requires gameId',
+            })
+        }
+
+        if (data.competitionKey && (!data.gameId || !data.mode)) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['competitionKey'],
+                message: 'competitionKey requires gameId and mode',
+            })
+        }
+
+        // Ice Slide Daily additionally requires an exact competition key; the
+        // route validates that key's game-domain grammar with
+        // parseIceSlideDailyRunKey().
+        if (
+            data.gameId === GameID.ICE_SLIDE &&
+            data.mode === 'daily' &&
+            !data.competitionKey
+        ) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['competitionKey'],
+                message: 'competitionKey is required for Ice Slide Daily',
+            })
+        }
+    })
+
+export type LeaderboardQueryInput = z.infer<typeof leaderboardQuerySchema>
+
+/**
+ * Pagination query schema
+ */
+export const paginationQuerySchema = z.object({
+    page: z
+        .string()
+        .transform(s => parseInt(s, 10))
+        .pipe(z.number().int().min(1))
+        .optional()
+        .default(1),
+    pageSize: z
+        .string()
+        .transform(s => parseInt(s, 10))
+        .pipe(z.number().int().min(1).max(100))
+        .optional()
+        .default(10),
+})
+
+export type PaginationQueryInput = z.infer<typeof paginationQuerySchema>

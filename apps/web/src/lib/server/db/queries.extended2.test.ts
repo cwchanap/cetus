@@ -33,7 +33,7 @@ vi.mock('@/lib/server/db/client', () => ({
     },
 }))
 
-vi.mock('@/lib/challenges', () => ({
+vi.mock('@cetus/shared/challenges', () => ({
     // Simplified formula (intentional): real code uses LEVEL_THRESHOLDS array, but this linear
     // approximation is sufficient for testing level-change detection in these unit tests.
     getLevelFromXP: vi.fn((xp: number) => Math.floor(xp / 100) + 1),

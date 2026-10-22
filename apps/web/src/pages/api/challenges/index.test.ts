@@ -7,7 +7,7 @@ import {
     getSecondsUntilMidnightUTC,
     getTodayUTC,
     getXPProgress,
-} from '@/lib/challenges'
+} from '@cetus/shared/challenges'
 
 vi.mock('@/lib/auth', () => ({
     auth: {
@@ -25,7 +25,7 @@ vi.mock('@/lib/server/db/queries', () => ({
     getUserXPAndLevel: vi.fn(),
 }))
 
-vi.mock('@/lib/challenges', () => ({
+vi.mock('@cetus/shared/challenges', () => ({
     getSecondsUntilMidnightUTC: vi.fn(),
     getTodayUTC: vi.fn(),
     getXPProgress: vi.fn(),

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from '@/pages/api/challenges/xp'
 import { auth } from '@/lib/auth'
 import { getUserXPAndLevel } from '@/lib/server/db/queries'
-import { getXPProgress, LEVEL_THRESHOLDS } from '@/lib/challenges'
+import { getXPProgress, LEVEL_THRESHOLDS } from '@cetus/shared/challenges'
 
 vi.mock('@/lib/auth', () => ({
     auth: {
@@ -16,7 +16,7 @@ vi.mock('@/lib/server/db/queries', () => ({
     getUserXPAndLevel: vi.fn(),
 }))
 
-vi.mock('@/lib/challenges', () => ({
+vi.mock('@cetus/shared/challenges', () => ({
     getXPProgress: vi.fn(),
     LEVEL_THRESHOLDS: [0, 100, 250, 500, 1000],
 }))
