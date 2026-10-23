@@ -4,13 +4,13 @@ import type {
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
-import { isEditableTarget } from '@/lib/games/shared/utils'
-import { ChromaticTideGame } from './ChromaticTideGame'
+} from '@cetus/games/core/errors'
+import { isEditableTarget } from '@/lib/keyboard'
+import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 import {
     ChromaticTideRenderer,
     createChromaticTideRendererConfig,
@@ -21,7 +21,8 @@ import {
     type ChromaticTideColor,
     type ChromaticTideState,
     type ChromaticTideStats,
-} from './types'
+} from '@cetus/games/chromatic-tide/types'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface ChromaticTideInitResult {
     game: ChromaticTideGame
@@ -192,7 +193,7 @@ export async function initChromaticTideGameFramework(): Promise<
         },
     }
 
-    const game = new ChromaticTideGame(undefined, enhancedCallbacks)
+    const game = new ChromaticTideGame({ submitScore }, enhancedCallbacks)
 
     const onGameEnd = (event: unknown): void => {
         const data = (event as { data?: unknown }).data as

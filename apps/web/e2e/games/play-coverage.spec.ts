@@ -1,25 +1,25 @@
 import { test, expect, type Page } from '@playwright/test'
-import { ASTEROID_DRIFT_RULES } from '../../src/lib/games/asteroid-drift/types'
-import { selectGreedyChromaticTideColor } from '../../src/lib/games/chromatic-tide/test-fixtures'
+import { ASTEROID_DRIFT_RULES } from '@cetus/games/asteroid-drift/types'
+import { selectGreedyChromaticTideColor } from '@cetus/games/chromatic-tide/test-fixtures'
 import {
     CHROMATIC_TIDE_PALETTE,
     type ChromaticTideState,
-} from '../../src/lib/games/chromatic-tide/types'
-import { ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS } from '../../src/lib/games/ice-slide/test-fixtures'
+} from '@cetus/games/chromatic-tide/types'
+import { ICE_SLIDE_DAILY_2026_08_12_DIRECTIONS } from '@cetus/games/ice-slide/test-fixtures'
 import {
     ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS,
     createIceSlideExpeditionRunDefinition,
-} from '../../src/lib/games/ice-slide/expedition'
-import { parseGrid, slide } from '../../src/lib/games/ice-slide/physics'
-import { SIGNAL_SWITCH_RULES } from '../../src/lib/games/signal-switch/types'
-import { SIGNAL_SWITCH_BASE_PASS_POINTS } from '../../src/lib/games/signal-switch/scoring'
+} from '@cetus/games/ice-slide/expedition'
+import { parseGrid, slide } from '@cetus/games/ice-slide/physics'
+import { SIGNAL_SWITCH_RULES } from '@cetus/games/signal-switch/types'
+import { SIGNAL_SWITCH_BASE_PASS_POINTS } from '@cetus/games/signal-switch/scoring'
 import type {
     Direction,
     GridPosition,
     IceSlideGameData,
     IceSlideRunDefinition,
     IceSlideState,
-} from '../../src/lib/games/ice-slide/types'
+} from '@cetus/games/ice-slide/types'
 
 /**
  * Two pinned 4-word seeds for deterministic Expedition crypto. The page

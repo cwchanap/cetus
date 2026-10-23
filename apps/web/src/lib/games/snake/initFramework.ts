@@ -1,19 +1,24 @@
 // Snake game initialization using BaseGame framework
-import { SnakeGame, DEFAULT_SNAKE_CONFIG } from './SnakeGame'
+import { SnakeGame, DEFAULT_SNAKE_CONFIG } from '@cetus/games/snake/SnakeGame'
 import { SnakeRenderer, createSnakeRendererConfig } from './SnakeRenderer'
-import type { SnakeConfig, SnakeStats, Direction } from './types'
+import type {
+    SnakeConfig,
+    SnakeStats,
+    Direction,
+} from '@cetus/games/snake/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
+} from '@cetus/games/core/errors'
 
 import { type AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface SnakeInitResult {
     game: SnakeGame
@@ -37,7 +42,11 @@ export async function initSnakeGameFramework(
         return undefined
     }
 
-    const config: SnakeConfig = { ...DEFAULT_SNAKE_CONFIG, ...customConfig }
+    const config: SnakeConfig = {
+        ...DEFAULT_SNAKE_CONFIG,
+        ...customConfig,
+        submitScore,
+    }
     const rendererConfig = createSnakeRendererConfig(config, '#snake-container')
 
     // Initialize renderer with error handling

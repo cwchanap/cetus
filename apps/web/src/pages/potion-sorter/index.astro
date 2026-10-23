@@ -3,8 +3,8 @@ import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Badge from '@/components/ui/Badge.astro'
 import Button from '@/components/ui/Button.astro'
-import { POTION_SORTER_PRESETS } from '@/lib/games/potion-sorter/levels'
-import { POTION_TUBE_CAPACITY } from '@/lib/games/potion-sorter/types'
+import { POTION_SORTER_PRESETS } from '@cetus/games/potion-sorter/levels'
+import { POTION_TUBE_CAPACITY } from '@cetus/games/potion-sorter/types'
 
 const MAX_TUBES = Math.max(
   ...Object.values(POTION_SORTER_PRESETS).map(

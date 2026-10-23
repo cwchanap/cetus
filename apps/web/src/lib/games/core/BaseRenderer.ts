@@ -1,4 +1,4 @@
-import type { RendererConfig } from './types'
+import type { RendererConfig } from '../renderers/types'
 
 export abstract class BaseRenderer {
     protected config: RendererConfig

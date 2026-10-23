@@ -1,23 +1,24 @@
-import { PatternPulseGame } from './PatternPulseGame'
+import { PatternPulseGame } from '@cetus/games/pattern-pulse/PatternPulseGame'
 import { PatternPulseRenderer } from './PatternPulseRenderer'
 import {
     createPatternPulseConfig,
     type PatternPad,
     type PatternPulseState,
     type PatternPulseStats,
-} from './types'
+} from '@cetus/games/pattern-pulse/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
-import { isEditableTarget } from '@/lib/games/shared/utils'
+} from '@cetus/games/core/errors'
+import { isEditableTarget } from '@/lib/keyboard'
 import type { AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface PatternPulseInitResult {
     game: PatternPulseGame
@@ -184,7 +185,7 @@ export async function initPatternPulseGameFramework(): Promise<
     }
 
     const game = new PatternPulseGame(
-        createPatternPulseConfig(),
+        { ...createPatternPulseConfig(), submitScore },
         enhancedCallbacks
     )
 

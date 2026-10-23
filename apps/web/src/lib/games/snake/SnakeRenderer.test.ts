@@ -51,7 +51,7 @@ vi.mock('pixi.js', () => {
 })
 
 import { SnakeRenderer, createSnakeRendererConfig } from './SnakeRenderer'
-import type { SnakeConfig } from './types'
+import type { SnakeConfig } from '@cetus/games/snake/types'
 import { Application, Graphics } from 'pixi.js'
 
 function makeSnakeConfig(overrides: Partial<SnakeConfig> = {}): SnakeConfig {

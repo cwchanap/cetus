@@ -58,7 +58,7 @@ import {
     GRAVITY_FLIP_RULES,
     createGravityFlipConfig,
     type GravityFlipState,
-} from './types'
+} from '@cetus/games/gravity-flip/types'
 
 type MockGraphics = {
     clear: ReturnType<typeof vi.fn>

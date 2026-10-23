@@ -4,8 +4,8 @@ import {
     createPotionSorterRendererConfig,
     PotionSorterRenderer,
 } from './PotionSorterRenderer'
-import { POTION_SORTER_PRESETS } from './levels'
-import type { PotionSorterState } from './types'
+import { POTION_SORTER_PRESETS } from '@cetus/games/potion-sorter/levels'
+import type { PotionSorterState } from '@cetus/games/potion-sorter/types'
 
 function setupDOM(): void {
     // Mirrors the static skeleton rendered by src/pages/potion-sorter/index.astro.

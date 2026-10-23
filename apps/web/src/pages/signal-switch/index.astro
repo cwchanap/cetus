@@ -6,12 +6,12 @@ import Card from '@/components/ui/Card.astro'
 import {
   SIGNAL_SWITCH_RULES,
   SIGNAL_SWITCH_SIGNALS,
-} from '@/lib/games/signal-switch/types'
+} from '@cetus/games/signal-switch/types'
 import {
   SIGNAL_SWITCH_BASE_PASS_POINTS,
   SIGNAL_SWITCH_COMBO_BONUS_CAP,
   SIGNAL_SWITCH_COMBO_STEP_POINTS,
-} from '@/lib/games/signal-switch/scoring'
+} from '@cetus/games/signal-switch/scoring'
 
 const totalLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.length
 const startingLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.filter(

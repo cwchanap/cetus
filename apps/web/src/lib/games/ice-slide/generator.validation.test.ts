@@ -3,12 +3,12 @@ import { runIceSlideExpeditionValidation } from '../../../../scripts/validate-ic
 import {
     getIceSlideObjectiveFeasibility,
     ICE_SLIDE_OBJECTIVE_IDS,
-} from './objectives'
+} from '@cetus/games/ice-slide/objectives'
 import {
     ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES,
     type IceSlideGeneratedStage,
-} from './generator'
-import { solveIceSlideBoard } from './solver'
+} from '@cetus/games/ice-slide/generator'
+import { solveIceSlideBoard } from '@cetus/games/ice-slide/solver'
 
 // 100 seeds x 3 tiers x 2 stages of generation + independent solving; give CI
 // machines explicit headroom instead of relying on the default timeout.

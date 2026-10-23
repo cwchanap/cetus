@@ -1,19 +1,20 @@
 import {
     WordScrambleGame,
     DEFAULT_WORD_SCRAMBLE_CONFIG,
-} from './WordScrambleGame'
+} from '@cetus/games/word-scramble/WordScrambleGame'
 import type {
     WordScrambleConfig,
     WordScrambleStats,
     WordScrambleCallbacks,
-} from './frameworkTypes'
-import type { BaseGameStats, ChallengeUpdates } from '@/lib/games/core/types'
+} from '@cetus/games/word-scramble/frameworkTypes'
+import type { BaseGameStats, ChallengeUpdates } from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
+} from '@cetus/games/core/errors'
 
 import { type AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface WordScrambleInitResult {
     game: WordScrambleGame
@@ -50,6 +51,7 @@ export async function initWordScrambleGameFramework(
     const config: WordScrambleConfig = {
         ...DEFAULT_WORD_SCRAMBLE_CONFIG,
         ...customConfig,
+        submitScore,
     }
 
     const skipButton = document.getElementById('skip-word')

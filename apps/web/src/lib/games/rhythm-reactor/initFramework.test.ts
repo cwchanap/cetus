@@ -1,11 +1,14 @@
 import { fireEvent } from '@testing-library/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initRhythmReactorGameFramework } from './initFramework'
-import { RHYTHM_REACTOR_RULES, type RhythmReactorStats } from './types'
+import {
+    RHYTHM_REACTOR_RULES,
+    type RhythmReactorStats,
+} from '@cetus/games/rhythm-reactor/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
+} from '@cetus/games/core/errors'
 import { RhythmReactorRenderer } from './RhythmReactorRenderer'
 
 interface MockRendererInstance {
@@ -63,9 +66,9 @@ vi.mock('./RhythmReactorRenderer', () => {
     }
 })
 
-vi.mock('@/lib/games/core/errors', async importOriginal => {
+vi.mock('@cetus/games/core/errors', async importOriginal => {
     const actual =
-        await importOriginal<typeof import('@/lib/games/core/errors')>()
+        await importOriginal<typeof import('@cetus/games/core/errors')>()
     return { ...actual, handleGameError: vi.fn() }
 })
 

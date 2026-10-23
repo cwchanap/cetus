@@ -9,7 +9,7 @@ import type {
     AsteroidDriftOrb,
     AsteroidDriftPlayer,
     AsteroidDriftState,
-} from './types'
+} from '@cetus/games/asteroid-drift/types'
 
 /** Below this speed (px/s) the ship is treated as stationary and points right. */
 const SHIP_HEADING_MIN_SPEED = 1
@@ -243,7 +243,7 @@ export class AsteroidDriftRenderer extends PixiJSRenderer {
 }
 
 export function createAsteroidDriftRendererConfig(
-    config: AsteroidDriftConfig
+    config: Omit<AsteroidDriftConfig, 'submitScore'>
 ): PixiJSRendererConfig {
     return {
         type: 'canvas',

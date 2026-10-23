@@ -1,7 +1,12 @@
 // src/lib/games/circuit-hacker/renderer.ts
 import { Application, Graphics } from 'pixi.js'
-import type { CircuitHackerState, Direction, GridPosition, Tile } from './types'
-import { getConnectors } from './utils'
+import type {
+    CircuitHackerState,
+    Direction,
+    GridPosition,
+    Tile,
+} from '@cetus/games/circuit-hacker/types'
+import { getConnectors } from '@cetus/games/circuit-hacker/utils'
 
 export interface RendererState {
     app: Application

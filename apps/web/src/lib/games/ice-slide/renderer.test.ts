@@ -51,7 +51,7 @@ import {
     swipeToDirection,
     keyToDirection,
 } from './renderer'
-import type { CellType, IceSlideState } from './types'
+import type { CellType, IceSlideState } from '@cetus/games/ice-slide/types'
 
 function makeState(
     grid: CellType[][],

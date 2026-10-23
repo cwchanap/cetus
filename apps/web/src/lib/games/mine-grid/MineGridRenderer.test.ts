@@ -4,7 +4,7 @@ import {
     createMineGridRendererConfig,
     MineGridRenderer,
 } from './MineGridRenderer'
-import type { MineGridState } from './types'
+import type { MineGridState } from '@cetus/games/mine-grid/types'
 
 function makeState(): MineGridState {
     return {

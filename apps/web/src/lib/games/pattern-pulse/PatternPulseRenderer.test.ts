@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PatternPulseRenderer } from './PatternPulseRenderer'
-import type { PatternPad, PatternPulseState } from './types'
+import type {
+    PatternPad,
+    PatternPulseState,
+} from '@cetus/games/pattern-pulse/types'
 
 function inputState(
     overrides: Partial<PatternPulseState> = {}

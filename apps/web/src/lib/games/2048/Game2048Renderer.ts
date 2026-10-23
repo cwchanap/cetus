@@ -4,9 +4,20 @@ import {
     PixiJSRenderer,
     type PixiJSRendererConfig,
 } from '@/lib/games/renderers/PixiJSRenderer'
-import { GAME_CONSTANTS, type Position, type Animation } from './types'
-import type { Game2048State, Game2048Config } from './frameworkTypes'
-import { getTileColor, getTileTextColor, getTileFontSize } from './utils'
+import {
+    GAME_CONSTANTS,
+    type Position,
+    type Animation,
+} from '@cetus/games/2048/types'
+import type {
+    Game2048State,
+    Game2048Config,
+} from '@cetus/games/2048/frameworkTypes'
+import {
+    getTileColor,
+    getTileTextColor,
+    getTileFontSize,
+} from '@cetus/games/2048/utils'
 
 export interface Game2048RendererConfig extends PixiJSRendererConfig {
     tileSize: number
@@ -392,7 +403,7 @@ export class Game2048Renderer extends PixiJSRenderer {
 }
 
 export function createGame2048RendererConfig(
-    gameConfig: Game2048Config,
+    gameConfig: Omit<Game2048Config, 'submitScore'>,
     container: string
 ): Game2048RendererConfig {
     return {

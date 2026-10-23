@@ -4,7 +4,12 @@ import {
     PixiJSRenderer,
     type PixiJSRendererConfig,
 } from '@/lib/games/renderers/PixiJSRenderer'
-import type { SnakeState, SnakeConfig, SnakeSegment, Food } from './types'
+import type {
+    SnakeState,
+    SnakeConfig,
+    SnakeSegment,
+    Food,
+} from '@cetus/games/snake/types'
 
 export interface SnakeRendererConfig extends PixiJSRendererConfig {
     gridWidth: number
@@ -200,7 +205,7 @@ export class SnakeRenderer extends PixiJSRenderer {
 }
 
 export function createSnakeRendererConfig(
-    gameConfig: SnakeConfig,
+    gameConfig: Omit<SnakeConfig, 'submitScore'>,
     container: string
 ): SnakeRendererConfig {
     return {

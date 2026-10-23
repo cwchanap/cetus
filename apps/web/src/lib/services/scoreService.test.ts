@@ -183,22 +183,6 @@ describe('Score Service', () => {
             expect(result.success).toBe(false)
             expect(result.code).toBe('NETWORK_ERROR')
         })
-
-        it('fails fast with TRANSPORT_UNAVAILABLE outside a DOM host', async () => {
-            vi.stubGlobal('document', undefined)
-
-            const result = await submitScore({
-                gameId: GameID.TETRIS,
-                score: 100,
-            })
-
-            expect(result).toEqual({
-                success: false,
-                error: 'Score submission requires a browser host; non-web hosts must inject a ScoreSubmitter transport',
-                code: 'TRANSPORT_UNAVAILABLE',
-            })
-            vi.unstubAllGlobals()
-        })
     })
 
     describe('saveGameScore', () => {

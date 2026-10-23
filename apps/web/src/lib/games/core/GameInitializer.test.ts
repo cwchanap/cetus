@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { GameInitializer } from './GameInitializer'
-import { BaseGame } from './BaseGame'
+import { BaseGame } from '@cetus/games/core/BaseGame'
 import { BaseRenderer } from './BaseRenderer'
 import { GameID } from '@cetus/shared/games'
 import {
@@ -11,8 +11,8 @@ import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
-    RendererConfig,
-} from './types'
+} from '@cetus/games/core/types'
+import type { RendererConfig } from '../renderers/types'
 
 // Mock the scoreService
 vi.mock('@/lib/services/scoreService', () => ({
@@ -97,6 +97,7 @@ describe('GameInitializer', () => {
                 duration: 60,
                 pausable: true,
                 resettable: true,
+                submitScore,
             },
             rendererConfig: {
                 type: 'dom',
@@ -144,6 +145,7 @@ describe('GameInitializer', () => {
                     duration: 60,
                     pausable: true,
                     resettable: true,
+                    submitScore,
                 },
                 // rendererConfig intentionally omitted to hit the || {} fallback
             })
@@ -417,6 +419,7 @@ describe('GameInitializer', () => {
                     duration: 60,
                     pausable: false,
                     resettable: false,
+                    submitScore,
                 },
                 rendererConfig: {
                     type: 'dom',
@@ -497,6 +500,7 @@ describe('GameInitializer', () => {
                     duration: 60,
                     pausable: true,
                     resettable: true,
+                    submitScore,
                 },
             }
             const initializer = new GameInitializer(config)
@@ -520,6 +524,7 @@ describe('GameInitializer', () => {
                     duration: 60,
                     pausable: true,
                     resettable: true,
+                    submitScore,
                 },
             }
             const initializer = new GameInitializer(config)

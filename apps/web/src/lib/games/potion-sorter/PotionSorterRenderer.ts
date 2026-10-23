@@ -4,7 +4,7 @@ import {
     type PotionColor,
     type PotionSorterState,
     type PotionTube,
-} from './types'
+} from '@cetus/games/potion-sorter/types'
 
 const LIQUID_VISUALS: Record<PotionColor, { label: string; glyph: string }> = {
     cyan: { label: 'Cyan', glyph: '▲' },

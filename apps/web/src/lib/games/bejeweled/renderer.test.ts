@@ -74,7 +74,7 @@ vi.mock('pixi.js', () => {
 })
 
 import { BejeweledRenderer } from './renderer'
-import type { BejeweledState } from './types'
+import type { BejeweledState } from '@cetus/games/bejeweled/types'
 import { Application, Graphics, Text } from 'pixi.js'
 
 function makeBejeweledState(

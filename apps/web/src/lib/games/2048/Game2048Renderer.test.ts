@@ -68,10 +68,10 @@ import {
     Game2048Renderer,
     createGame2048RendererConfig,
 } from './Game2048Renderer'
-import { Game2048, DEFAULT_GAME2048_CONFIG } from './Game2048'
-import type { Game2048State } from './frameworkTypes'
-import type { Animation } from './types'
-import { createEmptyBoard } from './utils'
+import { Game2048, DEFAULT_GAME2048_CONFIG } from '@cetus/games/2048/Game2048'
+import type { Game2048State } from '@cetus/games/2048/frameworkTypes'
+import type { Animation } from '@cetus/games/2048/types'
+import { createEmptyBoard } from '@cetus/games/2048/utils'
 import { Application, Graphics } from 'pixi.js'
 import { PixiJSRenderer } from '@/lib/games/renderers/PixiJSRenderer'
 
@@ -396,7 +396,9 @@ describe('Game2048Renderer', () => {
     it('slides original values, then replaces them with the merged tile', async () => {
         const renderer = new Game2048Renderer(makeConfig())
         await renderer.initialize()
-        const game = new Game2048()
+        const game = new Game2048({
+            submitScore: async () => ({ success: true, newAchievements: [] }),
+        })
         game.start()
         const previous = makeState()
         previous.board[0][0] = {

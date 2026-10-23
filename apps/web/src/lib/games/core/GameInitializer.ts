@@ -1,11 +1,11 @@
-import type { BaseGame } from './BaseGame'
+import type { BaseGame } from '@cetus/games/core/BaseGame'
 import type { BaseRenderer } from './BaseRenderer'
 import type {
     BaseGameCallbacks,
     BaseGameConfig,
     ChallengeUpdates,
     ScoringConfig,
-} from './types'
+} from '@cetus/games/core/types'
 import type { GameID } from '@cetus/shared/games'
 import type { AchievementNotification } from '@cetus/shared/achievements'
 

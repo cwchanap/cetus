@@ -1,4 +1,7 @@
-import { MineGridGame, createMineGridConfig } from './MineGridGame'
+import {
+    MineGridGame,
+    createMineGridConfig,
+} from '@cetus/games/mine-grid/MineGridGame'
 import {
     createMineGridRendererConfig,
     MineGridRenderer,
@@ -8,18 +11,19 @@ import {
     type MineGridDifficulty,
     type MineGridState,
     type MineGridStats,
-} from './types'
+} from '@cetus/games/mine-grid/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
+} from '@cetus/games/core/errors'
 import type { AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface MineGridInitResult {
     game: MineGridGame
@@ -191,7 +195,7 @@ export async function initMineGridGameFramework(): Promise<
     }
 
     const game = new MineGridGame(
-        createMineGridConfig('medium'),
+        { ...createMineGridConfig('medium'), submitScore },
         enhancedCallbacks
     )
 

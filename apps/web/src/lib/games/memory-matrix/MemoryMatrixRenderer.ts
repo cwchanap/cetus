@@ -1,9 +1,9 @@
 // Memory Matrix renderer using the DOMRenderer framework
 import { DOMRenderer } from '@/lib/games/renderers/DOMRenderer'
 import type { DOMRendererConfig } from '@/lib/games/renderers/RendererFactory'
-import type { Card } from './types'
-import type { MemoryMatrixState } from './frameworkTypes'
-import { formatTime } from './utils'
+import type { Card } from '@cetus/games/memory-matrix/types'
+import type { MemoryMatrixState } from '@cetus/games/memory-matrix/frameworkTypes'
+import { formatTime } from '@cetus/games/memory-matrix/utils'
 
 export class MemoryMatrixRenderer extends DOMRenderer {
     private boardElement: HTMLElement | null = null

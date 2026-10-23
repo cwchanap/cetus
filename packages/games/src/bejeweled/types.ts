@@ -1,0 +1,96 @@
+import type {
+    BaseGameConfig,
+    BaseGameState,
+    BaseGameStats,
+} from '../core/types'
+
+// Jewel definitions
+export type JewelType = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'cyan'
+
+export const JEWEL_TYPES: JewelType[] = [
+    'red',
+    'blue',
+    'green',
+    'yellow',
+    'purple',
+    'cyan',
+]
+
+export const JEWEL_COLORS: Record<JewelType, number> = {
+    red: 0xff4d4d,
+    blue: 0x4da6ff,
+    green: 0x4dff88,
+    yellow: 0xffe14d,
+    purple: 0xb84dff,
+    cyan: 0x4dfff2,
+}
+
+export interface Position {
+    row: number
+    col: number
+}
+
+export interface Match {
+    type: JewelType
+    positions: Position[]
+}
+
+export interface BejeweledState extends BaseGameState {
+    grid: (JewelType | null)[][]
+    rows: number
+    cols: number
+    selected: Position | null
+    combo: number
+    movesMade: number
+    isAnimating: boolean
+}
+
+export interface BejeweledConfig extends BaseGameConfig {
+    rows: number
+    cols: number
+    jewelTypes: JewelType[]
+    minMatch: number // typically 3
+    pointsPerJewel: number // base points per cleared jewel
+}
+
+// Default configuration for Bejeweled
+export const DEFAULT_BEJEWELED_CONFIG: Omit<BejeweledConfig, 'submitScore'> = {
+    duration: 60,
+    pausable: true,
+    resettable: true,
+    rows: 8,
+    cols: 8,
+    jewelTypes: JEWEL_TYPES,
+    minMatch: 3,
+    pointsPerJewel: 10,
+}
+
+export interface BejeweledStats extends BaseGameStats {
+    movesMade: number
+    maxCombo: number
+    largestMatch: number
+    totalMatches: number
+}
+
+// Animation hooks that the renderer can implement and the game can call.
+// These perform visual effects but do not mutate the game grid.
+export interface BejeweledAnimator {
+    animateSwap(
+        a: Position,
+        b: Position,
+        state: BejeweledState,
+        durationMs?: number
+    ): Promise<void>
+    animateSwapBack(
+        a: Position,
+        b: Position,
+        state: BejeweledState,
+        durationMs?: number
+    ): Promise<void>
+    animateClear(
+        cells: Position[],
+        state: BejeweledState,
+        durationMs?: number,
+        points?: number
+    ): Promise<void>
+}

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import type { TetrisInitResult } from '../../src/lib/games/tetris/initFramework'
+import type { TetrisInitResult } from '@/lib/games/tetris/initFramework'
 
 const readState = (page: Page) =>
     page.evaluate(() =>

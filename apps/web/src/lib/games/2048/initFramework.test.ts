@@ -65,7 +65,7 @@ vi.mock('pixi.js', () => {
 })
 
 import { init2048GameFramework } from './initFramework'
-import type { Direction, Tile } from './types'
+import type { Direction, Tile } from '@cetus/games/2048/types'
 import { Application } from 'pixi.js'
 
 const NO_MOVE_RESULT = {

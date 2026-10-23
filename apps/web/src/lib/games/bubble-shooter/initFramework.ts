@@ -2,26 +2,31 @@
 import {
     BubbleShooterGame,
     DEFAULT_BUBBLE_SHOOTER_CONFIG,
-} from './BubbleShooterGame'
+} from '@cetus/games/bubble-shooter/BubbleShooterGame'
 import {
     BubbleShooterRenderer,
     createBubbleShooterRendererConfig,
 } from './BubbleShooterRenderer'
-import { drawBubbleOnCanvas, pixiColorToHex } from './utils'
-import type { BubbleShooterConfig, BubbleShooterStats } from './types'
+import { drawBubbleOnCanvas } from './drawing'
+import { pixiColorToHex } from '@cetus/games/shared/colors'
+import type {
+    BubbleShooterConfig,
+    BubbleShooterStats,
+} from '@cetus/games/bubble-shooter/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
-import { isEditableTarget } from '@/lib/games/shared/utils'
+} from '@cetus/games/core/errors'
+import { isEditableTarget } from '@/lib/keyboard'
 
 import { type AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface BubbleShooterInitResult {
     game: BubbleShooterGame
@@ -58,6 +63,7 @@ export async function initBubbleShooterGameFramework(
     const config: BubbleShooterConfig = {
         ...DEFAULT_BUBBLE_SHOOTER_CONFIG,
         ...customConfig,
+        submitScore,
     }
     const rendererConfig = createBubbleShooterRendererConfig(
         config,

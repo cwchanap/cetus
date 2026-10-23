@@ -2,22 +2,26 @@
 import {
     MemoryMatrixGame,
     DEFAULT_MEMORY_MATRIX_CONFIG,
-} from './MemoryMatrixGame'
+} from '@cetus/games/memory-matrix/MemoryMatrixGame'
 import { MemoryMatrixRenderer } from './MemoryMatrixRenderer'
-import type { MemoryMatrixConfig, MemoryMatrixStats } from './frameworkTypes'
+import type {
+    MemoryMatrixConfig,
+    MemoryMatrixStats,
+} from '@cetus/games/memory-matrix/frameworkTypes'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
-import { formatTime } from './utils'
+} from '@cetus/games/core/errors'
+import { formatTime } from '@cetus/games/memory-matrix/utils'
 
 import { type AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface MemoryMatrixInitResult {
     game: MemoryMatrixGame
@@ -44,6 +48,7 @@ export async function initMemoryMatrixGameFramework(
     const config: MemoryMatrixConfig = {
         ...DEFAULT_MEMORY_MATRIX_CONFIG,
         ...customConfig,
+        submitScore,
     }
 
     const renderer = new MemoryMatrixRenderer({

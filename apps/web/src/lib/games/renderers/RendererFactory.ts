@@ -1,7 +1,7 @@
 import { BaseRenderer } from '../core/BaseRenderer'
 import { PixiJSRenderer, type PixiJSRendererConfig } from './PixiJSRenderer'
 import { DOMRenderer, type DOMRendererConfig } from './DOMRenderer'
-import type { RendererConfig, RendererType } from '../core/types'
+import type { RendererConfig, RendererType } from './types'
 
 export class RendererFactory {
     /**

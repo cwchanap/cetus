@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { initQuickMathFramework } from './init'
+import { submitScore } from '@/lib/services/scoreService'
 
 vi.mock('@/lib/services/scoreService', () => ({
+    submitScore: vi
+        .fn()
+        .mockResolvedValue({ success: true, newAchievements: [] }),
     saveGameScore: vi
         .fn()
         .mockResolvedValue({ success: true, newAchievements: [] }),
@@ -86,6 +90,11 @@ describe('initQuickMathFramework', () => {
     beforeEach(() => {
         setupDOM()
         vi.useFakeTimers()
+        // restoreAllMocks clears module-mock implementations
+        vi.mocked(submitScore).mockResolvedValue({
+            success: true,
+            newAchievements: [],
+        })
     })
 
     afterEach(() => {

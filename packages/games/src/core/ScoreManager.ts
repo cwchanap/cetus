@@ -1,0 +1,189 @@
+import { GameEventEmitter } from './EventEmitter'
+import type {
+    ScoreData,
+    ScoreSubmissionResult,
+    ScoreSubmitter,
+} from '@cetus/shared/scores'
+import type { GameID } from '@cetus/shared/games'
+import type { ScorePlatform } from '@cetus/shared/validations'
+import type { ScoringConfig } from './types'
+
+export interface ScoreManagerConfig {
+    gameId: GameID
+    scoringConfig: ScoringConfig
+    /** Platform label forwarded on ScoreData for the end-of-run save. */
+    platform?: ScorePlatform
+    onScoreUpdate?: (score: number) => void
+}
+
+export class ScoreManager extends GameEventEmitter {
+    private config: ScoreManagerConfig
+    private currentScore: number = 0
+    private scoreHistory: Array<{
+        points: number
+        reason: string
+        timestamp: number
+    }> = []
+
+    constructor(config: ScoreManagerConfig) {
+        super()
+        this.config = config
+    }
+
+    /**
+     * Add points to the current score
+     */
+    addPoints(points: number, reason: string = 'game_action'): void {
+        const adjustedPoints = Math.round(
+            points * (this.config.scoringConfig.bonusMultiplier || 1)
+        )
+        this.currentScore += adjustedPoints
+
+        // Ensure score doesn't go below 0
+        this.currentScore = Math.max(0, this.currentScore)
+
+        // Record in history
+        this.scoreHistory.push({
+            points: adjustedPoints,
+            reason,
+            timestamp: Date.now(),
+        })
+
+        // Call config callback
+        if (this.config.onScoreUpdate) {
+            this.config.onScoreUpdate(this.currentScore)
+        }
+
+        // Emit score update event
+        this.emit('score-update', {
+            score: this.currentScore,
+            points: adjustedPoints,
+            reason,
+        })
+    }
+
+    /**
+     * Subtract points from the current score
+     */
+    subtractPoints(points: number, reason: string = 'penalty'): void {
+        this.addPoints(-points, reason)
+    }
+
+    /**
+     * Calculate time bonus based on remaining time
+     */
+    calculateTimeBonus(timeRemaining: number): number {
+        if (!this.config.scoringConfig.timeBonus || timeRemaining <= 0) {
+            return 0
+        }
+
+        // Standard time bonus: 5 points per second remaining
+        return timeRemaining * 5
+    }
+
+    /**
+     * Apply time bonus to score
+     */
+    applyTimeBonus(timeRemaining: number): void {
+        const bonus = this.calculateTimeBonus(timeRemaining)
+        if (bonus > 0) {
+            this.addPoints(bonus, 'time_bonus')
+        }
+    }
+
+    /**
+     * Get current score
+     */
+    getScore(): number {
+        return this.currentScore
+    }
+
+    /**
+     * Get score history
+     */
+    getScoreHistory(): Array<{
+        points: number
+        reason: string
+        timestamp: number
+    }> {
+        return [...this.scoreHistory]
+    }
+
+    /**
+     * Reset score to 0
+     */
+    reset(): void {
+        this.currentScore = 0
+        this.scoreHistory = []
+
+        if (this.config.onScoreUpdate) {
+            this.config.onScoreUpdate(0)
+        }
+
+        this.emit('score-update', { score: 0, points: 0, reason: 'reset' })
+    }
+
+    /**
+     * Save final score.
+     *
+     * The submitter is a required argument — there is no default transport.
+     * Callers that already captured the run's score should pass it via
+     * `score`; otherwise the current score is read at call time.
+     * Post-request reward suppression is owned by BaseGame.end().
+     */
+    async saveFinalScore(
+        submitScore: ScoreSubmitter,
+        gameData?: Record<string, unknown>,
+        score: number = this.currentScore
+    ): Promise<ScoreSubmissionResult> {
+        try {
+            const data: ScoreData = {
+                gameId: this.config.gameId,
+                score,
+            }
+            if (this.config.platform !== undefined) {
+                data.platform = this.config.platform
+            }
+            if (gameData !== undefined) {
+                data.gameData = gameData
+            }
+            return await submitScore(data)
+        } catch (error) {
+            console.error('[ScoreManager] Failed to save score:', error)
+            return { success: false }
+        }
+    }
+
+    /**
+     * Get score statistics
+     */
+    getStats(): {
+        totalScore: number
+        totalActions: number
+        averagePointsPerAction: number
+        highestSingleScore: number
+        scoreBreakdown: Record<string, number>
+    } {
+        const scoreBreakdown: Record<string, number> = {}
+        let highestSingleScore = 0
+
+        this.scoreHistory.forEach(entry => {
+            scoreBreakdown[entry.reason] =
+                (scoreBreakdown[entry.reason] || 0) + entry.points
+            if (entry.points > highestSingleScore) {
+                highestSingleScore = entry.points
+            }
+        })
+
+        return {
+            totalScore: this.currentScore,
+            totalActions: this.scoreHistory.length,
+            averagePointsPerAction:
+                this.scoreHistory.length > 0
+                    ? this.currentScore / this.scoreHistory.length
+                    : 0,
+            highestSingleScore,
+            scoreBreakdown,
+        }
+    }
+}

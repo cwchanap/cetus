@@ -70,6 +70,18 @@
         "eslint": "^10.13.0",
       },
     },
+    "packages/games": {
+      "name": "@cetus/games",
+      "version": "0.0.1",
+      "dependencies": {
+        "@cetus/shared": "workspace:*",
+      },
+      "devDependencies": {
+        "@cetus/config": "workspace:*",
+        "@types/node": "^24.10.1",
+        "typescript": "^6.0.3",
+      },
+    },
     "packages/shared": {
       "name": "@cetus/shared",
       "version": "0.0.1",
@@ -77,6 +89,7 @@
         "zod": "^4.6.7",
       },
       "devDependencies": {
+        "@cetus/config": "workspace:*",
         "@types/node": "^24.10.1",
         "typescript": "^6.0.3",
       },
@@ -159,6 +172,8 @@
     "@capsizecss/unpack": ["@capsizecss/unpack@2.4.0", "", { "dependencies": { "blob-to-buffer": "^1.2.8", "cross-fetch": "^3.0.4", "fontkit": "^2.0.2" } }, "sha512-GrSU71meACqcmIUxPYOJvGKF0yryjN/L1aCuE9DViCTJI7bfkjgYDPD1zbNDcINJwSSP6UaBZY9GAbYDO7re0Q=="],
 
     "@cetus/config": ["@cetus/config@workspace:packages/config"],
+
+    "@cetus/games": ["@cetus/games@workspace:packages/games"],
 
     "@cetus/shared": ["@cetus/shared@workspace:packages/shared"],
 

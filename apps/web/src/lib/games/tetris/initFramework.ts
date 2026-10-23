@@ -1,21 +1,29 @@
 // Tetris game initialization using BaseGame framework
-import { TetrisGame, DEFAULT_TETRIS_CONFIG } from './TetrisGame'
+import {
+    TetrisGame,
+    DEFAULT_TETRIS_CONFIG,
+} from '@cetus/games/tetris/TetrisGame'
 import { TetrisRenderer, createTetrisRendererConfig } from './TetrisRenderer'
-import { drawNextPiece } from './utils'
-import type { TetrisConfig, TetrisStats, Piece } from './types'
+import { drawNextPiece } from './drawing'
+import type {
+    TetrisConfig,
+    TetrisStats,
+    Piece,
+} from '@cetus/games/tetris/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
-import { isEditableTarget } from '@/lib/games/shared/utils'
+} from '@cetus/games/core/errors'
+import { isEditableTarget } from '@/lib/keyboard'
 
 import { type AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface TetrisInitResult {
     game: TetrisGame
@@ -45,7 +53,11 @@ export async function initTetrisGameFramework(
     ) as HTMLCanvasElement | null
     const nextCtx = nextCanvas?.getContext('2d') ?? null
 
-    const config: TetrisConfig = { ...DEFAULT_TETRIS_CONFIG, ...customConfig }
+    const config: TetrisConfig = {
+        ...DEFAULT_TETRIS_CONFIG,
+        ...customConfig,
+        submitScore,
+    }
     const rendererConfig = createTetrisRendererConfig(
         config,
         '#tetris-container'

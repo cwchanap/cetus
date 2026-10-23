@@ -4,8 +4,11 @@ import {
     PixiJSRenderer,
     type PixiJSRendererConfig,
 } from '@/lib/games/renderers/PixiJSRenderer'
-import type { EvaderState, EvaderConfig } from './frameworkTypes'
-import type { GameObject, Player } from './types'
+import type {
+    EvaderState,
+    EvaderConfig,
+} from '@cetus/games/evader/frameworkTypes'
+import type { GameObject, Player } from '@cetus/games/evader/types'
 
 export interface EvaderRendererConfig extends PixiJSRendererConfig {
     playerSize: number
@@ -245,7 +248,7 @@ export class EvaderRenderer extends PixiJSRenderer {
 }
 
 export function createEvaderRendererConfig(
-    gameConfig: EvaderConfig,
+    gameConfig: Omit<EvaderConfig, 'submitScore'>,
     container: string
 ): EvaderRendererConfig {
     return {

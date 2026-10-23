@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { initWordScrambleGameFramework } from './initFramework'
-import type { WordScrambleStats } from './frameworkTypes'
+import type { WordScrambleStats } from '@cetus/games/word-scramble/frameworkTypes'
 import {
     AchievementRarity,
     type AchievementNotification,

@@ -1,4 +1,4 @@
-import { SignalSwitchGame } from './SignalSwitchGame'
+import { SignalSwitchGame } from '@cetus/games/signal-switch/SignalSwitchGame'
 import {
     createSignalSwitchRendererConfig,
     SignalSwitchRenderer,
@@ -9,19 +9,20 @@ import {
     type SignalSwitchOutcome,
     type SignalSwitchState,
     type SignalSwitchStats,
-} from './types'
+} from '@cetus/games/signal-switch/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
-import { isEditableTarget } from '@/lib/games/shared/utils'
+} from '@cetus/games/core/errors'
+import { isEditableTarget } from '@/lib/keyboard'
 import type { AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface SignalSwitchInitResult {
     game: SignalSwitchGame
@@ -58,7 +59,7 @@ export async function initSignalSwitchGameFramework(): Promise<
         return undefined
     }
 
-    const config = createSignalSwitchConfig()
+    const config = { ...createSignalSwitchConfig(), submitScore }
     const renderer = new SignalSwitchRenderer(
         createSignalSwitchRendererConfig(config)
     )

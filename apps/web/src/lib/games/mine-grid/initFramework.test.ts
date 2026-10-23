@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent } from '@testing-library/dom'
 import { initMineGridGameFramework } from './initFramework'
-import type { MineGridStats } from './types'
+import type { MineGridStats } from '@cetus/games/mine-grid/types'
 
 function setupDOM(): void {
     document.body.innerHTML = `

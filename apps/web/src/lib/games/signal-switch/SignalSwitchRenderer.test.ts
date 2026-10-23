@@ -59,7 +59,7 @@ import {
     SIGNAL_SWITCH_SIGNALS,
     createSignalSwitchConfig,
     type SignalSwitchState,
-} from './types'
+} from '@cetus/games/signal-switch/types'
 
 type MockGraphics = {
     clear: ReturnType<typeof vi.fn>

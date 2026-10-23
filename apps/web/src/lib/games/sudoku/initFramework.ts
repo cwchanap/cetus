@@ -1,19 +1,26 @@
 // Sudoku game initialization using BaseGame framework
-import { SudokuGame, DEFAULT_SUDOKU_CONFIG } from './SudokuGame'
+import {
+    SudokuGame,
+    DEFAULT_SUDOKU_CONFIG,
+} from '@cetus/games/sudoku/SudokuGame'
 import { SudokuRenderer, createSudokuRendererConfig } from './SudokuRenderer'
-import type { SudokuConfig, SudokuStats } from './frameworkTypes'
+import type {
+    SudokuConfig,
+    SudokuStats,
+} from '@cetus/games/sudoku/frameworkTypes'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
+} from '@cetus/games/core/errors'
 
 import { type AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface SudokuInitResult {
     game: SudokuGame
@@ -37,7 +44,11 @@ export async function initSudokuGameFramework(
         return undefined
     }
 
-    const config: SudokuConfig = { ...DEFAULT_SUDOKU_CONFIG, ...customConfig }
+    const config: SudokuConfig = {
+        ...DEFAULT_SUDOKU_CONFIG,
+        ...customConfig,
+        submitScore,
+    }
     const renderer = new SudokuRenderer(createSudokuRendererConfig())
 
     try {

@@ -4,8 +4,8 @@ import {
     PixiJSRenderer,
     type PixiJSRendererConfig,
 } from '@/lib/games/renderers/PixiJSRenderer'
-import { quadraticBezierPoint as getBezierPoint } from '@/lib/games/shared/geometry'
-import { GAME_LEVELS } from './PathNavigatorGame'
+import { quadraticBezierPoint as getBezierPoint } from '@cetus/games/shared/geometry'
+import { GAME_LEVELS } from '@cetus/games/path-navigator/PathNavigatorGame'
 import type {
     PathNavigatorState,
     PathNavigatorConfig,
@@ -13,7 +13,7 @@ import type {
     Cursor,
     Point,
     PathSegment,
-} from './types'
+} from '@cetus/games/path-navigator/types'
 
 export interface PathNavigatorRendererConfig extends PixiJSRendererConfig {
     gameWidth: number
@@ -349,7 +349,7 @@ export class PathNavigatorRenderer extends PixiJSRenderer {
 }
 
 export function createPathNavigatorRendererConfig(
-    gameConfig: PathNavigatorConfig,
+    gameConfig: Omit<PathNavigatorConfig, 'submitScore'>,
     container: string
 ): PathNavigatorRendererConfig {
     return {

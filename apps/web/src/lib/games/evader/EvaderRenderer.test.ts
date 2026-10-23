@@ -1,9 +1,12 @@
 // EvaderRenderer unit tests
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { EvaderRenderer, createEvaderRendererConfig } from './EvaderRenderer'
-import type { EvaderConfig, EvaderState } from './frameworkTypes'
-import type { GameObject, Player } from './types'
-import { DEFAULT_EVADER_CONFIG } from './EvaderGame'
+import type {
+    EvaderConfig,
+    EvaderState,
+} from '@cetus/games/evader/frameworkTypes'
+import type { GameObject, Player } from '@cetus/games/evader/types'
+import { DEFAULT_EVADER_CONFIG } from '@cetus/games/evader/EvaderGame'
 import { Application, Graphics, FillGradient } from 'pixi.js'
 
 vi.mock('pixi.js', () => {
@@ -71,7 +74,9 @@ vi.mock('pixi.js', () => {
     }
 })
 
-function makeConfig(overrides: Partial<EvaderConfig> = {}): EvaderConfig {
+function makeConfig(
+    overrides: Partial<EvaderConfig> = {}
+): Omit<EvaderConfig, 'submitScore'> {
     return { ...DEFAULT_EVADER_CONFIG, ...overrides }
 }
 

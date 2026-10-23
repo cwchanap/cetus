@@ -26,6 +26,9 @@ vi.mock('pixi.js', () => {
 })
 
 vi.mock('@/lib/services/scoreService', () => ({
+    submitScore: vi
+        .fn()
+        .mockResolvedValue({ success: true, newAchievements: [] }),
     saveGameScore: vi.fn(
         (
             _id: unknown,

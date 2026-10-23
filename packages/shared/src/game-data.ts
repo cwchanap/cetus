@@ -239,3 +239,33 @@ export interface ChromaticTideGameData {
     initialCapturedCells: number
     secondsRemaining: number
 }
+
+/**
+ * Union of every game's result DTO — the canonical `gameData` payload on
+ * score submission (see `./scores`) and the shape the achievement
+ * predicates consume.
+ */
+export type GameData =
+    | TetrisGameData
+    | BubbleShooterGameData
+    | BejeweledGameData
+    | MemoryMatrixGameData
+    | WordScrambleGameData
+    | ReflexGameData
+    | QuickMathGameData
+    | SudokuGameData
+    | PathNavigatorGameData
+    | EvaderGameData
+    | Game2048Data
+    | SnakeGameData
+    | CircuitHackerGameData
+    | SatelliteSyncGameData
+    | IceSlideGameData
+    | MineGridGameData
+    | PatternPulseGameData
+    | GravityFlipGameData
+    | PotionSorterGameData
+    | SignalSwitchGameData
+    | RhythmReactorGameData
+    | AsteroidDriftGameData
+    | ChromaticTideGameData

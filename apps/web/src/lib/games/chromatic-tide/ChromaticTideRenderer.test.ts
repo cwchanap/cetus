@@ -3,7 +3,7 @@ import {
     ChromaticTideRenderer,
     createChromaticTideRendererConfig,
 } from './ChromaticTideRenderer'
-import type { ChromaticTideState } from './types'
+import type { ChromaticTideState } from '@cetus/games/chromatic-tide/types'
 
 function makeState(): ChromaticTideState {
     return {

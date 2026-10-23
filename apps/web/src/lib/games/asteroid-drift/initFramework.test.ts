@@ -5,8 +5,8 @@ import { initAsteroidDriftGameFramework } from './initFramework'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
-import type { AsteroidDriftState } from './types'
+} from '@cetus/games/core/errors'
+import type { AsteroidDriftState } from '@cetus/games/asteroid-drift/types'
 
 vi.mock('./AsteroidDriftRenderer', () => {
     class MockAsteroidDriftRenderer {
@@ -41,9 +41,9 @@ vi.mock('./AsteroidDriftRenderer', () => {
     }
 })
 
-vi.mock('@/lib/games/core/errors', async importOriginal => {
+vi.mock('@cetus/games/core/errors', async importOriginal => {
     const actual =
-        await importOriginal<typeof import('@/lib/games/core/errors')>()
+        await importOriginal<typeof import('@cetus/games/core/errors')>()
     return { ...actual, handleGameError: vi.fn() }
 })
 

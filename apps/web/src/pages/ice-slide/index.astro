@@ -2,7 +2,7 @@
 import GamePage from '@/components/games/GamePage.astro'
 import Card from '@/components/ui/Card.astro'
 import Button from '@/components/ui/Button.astro'
-import { ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS } from '@/lib/games/ice-slide/expedition'
+import { ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS } from '@cetus/games/ice-slide/expedition'
 
 const expeditionRiskMultiplier = (
   ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS / 10_000
@@ -396,9 +396,9 @@ const expeditionRiskMultiplier = (
   import {
     createIceSlideDailyCompetitionKey,
     toIceSlideUtcDateKey,
-  } from '@/lib/games/ice-slide/daily'
+  } from '@cetus/games/ice-slide/daily'
   import { createDailyLeaderboardController } from '@/lib/games/ice-slide/daily-leaderboard'
-  import type { IceSlidePlayableMode } from '@/lib/games/ice-slide/types'
+  import type { IceSlidePlayableMode } from '@cetus/games/ice-slide/types'
 
   const requestedMode = new URLSearchParams(window.location.search).get('mode')
   const toPlayableMode = (value: string | null): IceSlidePlayableMode =>

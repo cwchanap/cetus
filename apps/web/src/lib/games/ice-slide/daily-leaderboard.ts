@@ -1,5 +1,5 @@
-import { formatNumber, formatTime } from '../shared/utils'
-import { parseIceSlideDailyRunKey } from './run'
+import { formatNumber, formatTime } from '@cetus/games/shared/utils'
+import { parseIceSlideDailyRunKey } from '@cetus/games/ice-slide/run'
 
 export interface DailyLeaderboardEntry {
     rank: number

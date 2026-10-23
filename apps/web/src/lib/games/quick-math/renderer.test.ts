@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { QuickMathRenderer, type QuickMathRendererConfig } from './renderer'
-import type { MathQuestion, QuickMathState, QuickMathStats } from './game'
+import type {
+    MathQuestion,
+    QuickMathState,
+    QuickMathStats,
+} from '@cetus/games/quick-math/game'
 
 function makeQuestion(overrides: Partial<MathQuestion> = {}): MathQuestion {
     return {

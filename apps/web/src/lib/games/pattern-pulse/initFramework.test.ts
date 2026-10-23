@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent } from '@testing-library/dom'
 import { initPatternPulseGameFramework } from './initFramework'
-import type { PatternPad } from './types'
+import type { PatternPad } from '@cetus/games/pattern-pulse/types'
 
 function setupDOM(): void {
     document.body.innerHTML = `

@@ -1,6 +1,6 @@
 import * as PIXI from 'pixi.js'
 import { BaseRenderer } from '../core/BaseRenderer'
-import type { RendererConfig } from '../core/types'
+import type { RendererConfig } from './types'
 
 export interface PixiJSRendererConfig extends RendererConfig {
     backgroundColor?: number

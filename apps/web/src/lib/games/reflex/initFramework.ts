@@ -1,19 +1,26 @@
 // Reflex game initialization using BaseGame framework
-import { ReflexGame, DEFAULT_REFLEX_CONFIG } from './ReflexGame'
+import {
+    ReflexGame,
+    DEFAULT_REFLEX_CONFIG,
+} from '@cetus/games/reflex/ReflexGame'
 import { ReflexRenderer, createReflexRendererConfig } from './ReflexRenderer'
-import type { ReflexConfig, ReflexStats } from './frameworkTypes'
+import type {
+    ReflexConfig,
+    ReflexStats,
+} from '@cetus/games/reflex/frameworkTypes'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
+} from '@cetus/games/core/errors'
 
 import { type AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface ReflexInitResult {
     game: ReflexGame
@@ -40,6 +47,7 @@ export async function initReflexGameFramework(
     const config: ReflexConfig = {
         ...DEFAULT_REFLEX_CONFIG,
         ...customConfig,
+        submitScore,
     }
     const rendererConfig = createReflexRendererConfig(
         config,

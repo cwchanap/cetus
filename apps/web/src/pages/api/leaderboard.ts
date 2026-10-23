@@ -7,7 +7,7 @@ import {
     type GameLeaderboardEntry,
 } from '@/lib/server/db/queries'
 import { getAllGames, GameID } from '@cetus/shared/games'
-import { parseIceSlideDailyRunKey } from '@/lib/games/ice-slide/run'
+import { parseIceSlideDailyRunKey } from '@cetus/games/ice-slide/run'
 import {
     jsonResponse,
     badRequestResponse,

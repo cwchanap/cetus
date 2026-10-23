@@ -1,5 +1,5 @@
 import { DOMRenderer } from '@/lib/games/renderers/DOMRenderer'
-import type { MineGridCell, MineGridState } from './types'
+import type { MineGridCell, MineGridState } from '@cetus/games/mine-grid/types'
 
 export type MineGridCellAction = 'primary' | 'flag'
 type MineGridCellState = 'hidden' | 'flagged' | 'revealed' | 'mine'

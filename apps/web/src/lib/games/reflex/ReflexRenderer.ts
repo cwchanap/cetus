@@ -4,8 +4,11 @@ import {
     PixiJSRenderer,
     type PixiJSRendererConfig,
 } from '@/lib/games/renderers/PixiJSRenderer'
-import type { ReflexState, ReflexConfig } from './frameworkTypes'
-import type { GameObject, GridPosition } from './types'
+import type {
+    ReflexState,
+    ReflexConfig,
+} from '@cetus/games/reflex/frameworkTypes'
+import type { GameObject, GridPosition } from '@cetus/games/reflex/types'
 
 export interface ReflexRendererConfig extends PixiJSRendererConfig {
     gridSize: number
@@ -344,7 +347,7 @@ export class ReflexRenderer extends PixiJSRenderer {
 }
 
 export function createReflexRendererConfig(
-    gameConfig: ReflexConfig,
+    gameConfig: Omit<ReflexConfig, 'submitScore'>,
     container: string
 ): ReflexRendererConfig {
     const canvasSize = gameConfig.gridSize * gameConfig.cellSize + 40

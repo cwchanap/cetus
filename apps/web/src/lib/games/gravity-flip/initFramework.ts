@@ -1,4 +1,4 @@
-import { GravityFlipGame } from './GravityFlipGame'
+import { GravityFlipGame } from '@cetus/games/gravity-flip/GravityFlipGame'
 import {
     createGravityFlipRendererConfig,
     GravityFlipRenderer,
@@ -8,19 +8,20 @@ import {
     type GravityFlipOutcome,
     type GravityFlipState,
     type GravityFlipStats,
-} from './types'
+} from '@cetus/games/gravity-flip/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
-import { isEditableTarget } from '@/lib/games/shared/utils'
+} from '@cetus/games/core/errors'
+import { isEditableTarget } from '@/lib/keyboard'
 import type { AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface GravityFlipInitResult {
     game: GravityFlipGame
@@ -50,7 +51,7 @@ export async function initGravityFlipGameFramework(): Promise<
         return undefined
     }
 
-    const config = createGravityFlipConfig()
+    const config = { ...createGravityFlipConfig(), submitScore }
     const renderer = new GravityFlipRenderer(
         createGravityFlipRendererConfig(config)
     )

@@ -200,8 +200,6 @@ export type UserStats = Selectable<UserStatsTable>
 export type NewUserAchievement = Omit<UserAchievementsTable, 'id' | 'earned_at'>
 export type UserAchievementRecord = Selectable<UserAchievementsTable>
 
-// Note: UserAchievementWithDetails type moved to achievements.ts to avoid circular dependency
-
 // Daily challenge type helpers
 export type NewDailyChallengeProgress = Omit<
     DailyChallengeProgressTable,
