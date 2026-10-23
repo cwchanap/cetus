@@ -4,7 +4,8 @@
   "globalDependencies": [
     "**/.env*",
     "**/tsconfig.json",
-    "bun.lock"
+    "bun.lock",
+    "packages/*/src/**"
   ],
   "globalEnv": [
     "TURSO_DATABASE_URL",
