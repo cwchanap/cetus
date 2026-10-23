@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { BaseRenderer } from './BaseRenderer'
-import type { RendererConfig } from './types'
+import type { RendererConfig } from '../renderers/types'
 
 // Concrete implementation for testing
 class TestRenderer extends BaseRenderer {

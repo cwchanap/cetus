@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
-import type { Game2048InitResult } from '../../src/lib/games/2048/initFramework'
-import type { Game2048State } from '../../src/lib/games/2048/frameworkTypes'
+import type { Game2048InitResult } from '@/lib/games/2048/initFramework'
+import type { Game2048State } from '@cetus/games/2048/frameworkTypes'
 
 const readState = (page: Page) =>
     page.evaluate(() =>

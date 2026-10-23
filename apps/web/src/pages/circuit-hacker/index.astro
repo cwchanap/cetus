@@ -144,7 +144,7 @@ import Button from '@/components/ui/Button.astro'
 
 <script>
   import { initializeCircuitHackerGame } from '@/lib/games/circuit-hacker/init'
-  import type { Difficulty } from '@/lib/games/circuit-hacker/types'
+  import type { Difficulty } from '@cetus/games/circuit-hacker/types'
 
   let gameHandle: Awaited<
     ReturnType<typeof initializeCircuitHackerGame>

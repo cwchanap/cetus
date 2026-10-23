@@ -1,9 +1,12 @@
 // ReflexRenderer unit tests
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReflexRenderer, createReflexRendererConfig } from './ReflexRenderer'
-import type { ReflexConfig, ReflexState } from './frameworkTypes'
-import type { GameObject, Cell } from './types'
-import { DEFAULT_REFLEX_CONFIG } from './ReflexGame'
+import type {
+    ReflexConfig,
+    ReflexState,
+} from '@cetus/games/reflex/frameworkTypes'
+import type { GameObject, Cell } from '@cetus/games/reflex/types'
+import { DEFAULT_REFLEX_CONFIG } from '@cetus/games/reflex/ReflexGame'
 
 vi.mock('pixi.js', () => {
     const makeGraphics = () => {
@@ -69,7 +72,9 @@ vi.mock('pixi.js', () => {
     }
 })
 
-function makeConfig(overrides: Partial<ReflexConfig> = {}): ReflexConfig {
+function makeConfig(
+    overrides: Partial<ReflexConfig> = {}
+): Omit<ReflexConfig, 'submitScore'> {
     return { ...DEFAULT_REFLEX_CONFIG, ...overrides }
 }
 

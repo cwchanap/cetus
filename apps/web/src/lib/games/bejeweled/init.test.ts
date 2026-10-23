@@ -3,11 +3,14 @@ import { initBejeweledGame } from './init'
 
 // Mock score service
 vi.mock('@/lib/services/scoreService', () => ({
+    submitScore: vi
+        .fn()
+        .mockResolvedValue({ success: true, newAchievements: [] }),
     saveGameScore: vi.fn().mockResolvedValue({ success: true }),
 }))
 
 // Mock BejeweledGame
-vi.mock('./game', () => ({
+vi.mock('@cetus/games/bejeweled/game', () => ({
     BejeweledGame: vi.fn().mockImplementation(() => ({
         start: vi.fn(),
         pause: vi.fn(),
@@ -100,7 +103,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('should call setAnimator on the game', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
 
@@ -110,7 +114,8 @@ describe('initBejeweledGame', () => {
 
         it('should wire renderer cell click to game', async () => {
             const { BejeweledRenderer } = await import('./renderer')
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
 
@@ -139,7 +144,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('should accept custom config overrides', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame({ duration: 30 })
             cleanup = result.cleanup
 
@@ -153,7 +159,8 @@ describe('initBejeweledGame', () => {
 
     describe('enhanced callbacks', () => {
         it('onScoreUpdate should update score DOM element', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
 
@@ -166,7 +173,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('onTimeUpdate should update time-remaining DOM element', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
 
@@ -180,7 +188,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('onStart should hide start-btn and show end-btn', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
 
@@ -199,7 +208,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('onStart should hide game-over-overlay', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const overlay = document.getElementById('game-over-overlay')!
             overlay.classList.remove('hidden')
 
@@ -214,7 +224,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('onEnd should show start-btn and hide end-btn', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
 
@@ -233,7 +244,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('onEnd should show game-over-overlay and update final score', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
 
@@ -249,7 +261,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('onStateChange should call renderer.render', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const { BejeweledRenderer } = await import('./renderer')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
@@ -268,7 +281,8 @@ describe('initBejeweledGame', () => {
 
     describe('button event listeners', () => {
         it('clicking start-btn should call game.start', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
 
@@ -278,7 +292,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('clicking end-btn should call game.end', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
 
@@ -288,7 +303,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('clicking play-again-btn should reset, start, and hide overlay', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
 
@@ -305,7 +321,8 @@ describe('initBejeweledGame', () => {
 
     describe('cleanup', () => {
         it('should call renderer.cleanup and game.destroy on cleanup', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const { BejeweledRenderer } = await import('./renderer')
             const result = await initBejeweledGame()
 
@@ -321,7 +338,8 @@ describe('initBejeweledGame', () => {
 
     describe('achievement notifications', () => {
         it('should call showAchievementAward when game ends with achievements', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const showAchievementAward = vi.fn()
             vi.stubGlobal('window', { ...window, showAchievementAward })
 
@@ -357,7 +375,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('should not call showAchievementAward when no achievements', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const showAchievementAward = vi.fn()
             vi.stubGlobal('window', { ...window, showAchievementAward })
 
@@ -384,7 +403,8 @@ describe('initBejeweledGame', () => {
 
     describe('custom callbacks forwarding', () => {
         it('should forward onScoreUpdate to custom callback', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const onScoreUpdate = vi.fn()
             const result = await initBejeweledGame(undefined, { onScoreUpdate })
             cleanup = result.cleanup
@@ -396,7 +416,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('should forward onTimeUpdate to custom callback', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const onTimeUpdate = vi.fn()
             const result = await initBejeweledGame(undefined, { onTimeUpdate })
             cleanup = result.cleanup
@@ -408,7 +429,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('should forward onStart to custom callback', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const onStart = vi.fn()
             const result = await initBejeweledGame(undefined, { onStart })
             cleanup = result.cleanup
@@ -420,7 +442,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('should forward onEnd to custom callback', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const onEnd = vi.fn()
             const result = await initBejeweledGame(undefined, { onEnd })
             cleanup = result.cleanup
@@ -432,7 +455,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('should forward onStateChange to custom callback', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const onStateChange = vi.fn()
             const result = await initBejeweledGame(undefined, { onStateChange })
             cleanup = result.cleanup
@@ -445,7 +469,8 @@ describe('initBejeweledGame', () => {
         })
 
         it('should not throw when customCallbacks object lacks specific callbacks', async () => {
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             // Pass an empty callbacks object — none of the optional functions are defined
             const result = await initBejeweledGame(undefined, {})
             cleanup = result.cleanup
@@ -470,7 +495,8 @@ describe('initBejeweledGame', () => {
             document.getElementById('end-btn')!.remove()
             document.getElementById('play-again-btn')!.remove()
 
-            const { BejeweledGame } = await import('./game')
+            const { BejeweledGame } =
+                await import('@cetus/games/bejeweled/game')
             const result = await initBejeweledGame()
             cleanup = result.cleanup
 

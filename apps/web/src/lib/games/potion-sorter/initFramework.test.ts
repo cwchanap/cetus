@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent } from '@testing-library/dom'
 import { initPotionSorterGameFramework } from './initFramework'
-import { PotionSorterGame } from './PotionSorterGame'
+import { PotionSorterGame } from '@cetus/games/potion-sorter/PotionSorterGame'
 import { PotionSorterRenderer } from './PotionSorterRenderer'
-import { POTION_SORTER_PRESETS } from './levels'
-import { calculatePotionSorterScore } from './scoring'
+import { POTION_SORTER_PRESETS } from '@cetus/games/potion-sorter/levels'
+import { calculatePotionSorterScore } from '@cetus/games/potion-sorter/scoring'
 
 const EASY_SOLUTION: Array<[number, number]> = [
     [0, 3],

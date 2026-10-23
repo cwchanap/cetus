@@ -1,26 +1,30 @@
-import { PotionSorterGame, createPotionSorterConfig } from './PotionSorterGame'
+import {
+    PotionSorterGame,
+    createPotionSorterConfig,
+} from '@cetus/games/potion-sorter/PotionSorterGame'
 import {
     createPotionSorterRendererConfig,
     PotionSorterRenderer,
 } from './PotionSorterRenderer'
-import { hasLegalMove } from './puzzle'
+import { hasLegalMove } from '@cetus/games/potion-sorter/puzzle'
 import type {
     PotionSorterDifficulty,
     PotionSorterResult,
     PotionSorterState,
     PotionSorterStats,
-} from './types'
+} from '@cetus/games/potion-sorter/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
+} from '@cetus/games/core/errors'
 import type { AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface PotionSorterInitResult {
     game: PotionSorterGame
@@ -203,7 +207,7 @@ export async function initPotionSorterGameFramework(): Promise<
     }
 
     const game = new PotionSorterGame(
-        createPotionSorterConfig('medium'),
+        { ...createPotionSorterConfig('medium'), submitScore },
         enhancedCallbacks
     )
 

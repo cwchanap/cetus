@@ -11,7 +11,7 @@ vi.mock('@/lib/services/scoreService', () => ({
 }))
 
 // Mock BubbleShooterGame
-vi.mock('./BubbleShooterGame', () => ({
+vi.mock('@cetus/games/bubble-shooter/BubbleShooterGame', () => ({
     BubbleShooterGame: vi.fn().mockImplementation(() => ({
         start: vi.fn(),
         pause: vi.fn(),
@@ -112,7 +112,7 @@ vi.mock('./BubbleShooterRenderer', () => ({
 }))
 
 // Mock errors module
-vi.mock('@/lib/games/core/errors', () => ({
+vi.mock('@cetus/games/core/errors', () => ({
     DOMElementNotFoundError: class DOMElementNotFoundError extends Error {
         constructor(id: string) {
             super(`DOM element not found: ${id}`)
@@ -121,13 +121,13 @@ vi.mock('@/lib/games/core/errors', () => ({
     handleGameError: vi.fn(),
 }))
 
-// Mock utils so drawBubbleOnCanvas / pixiColorToHex don't touch the canvas API
-vi.mock('./utils', () => ({
+// Mock the canvas adapter and color helper so they don't touch the canvas API
+vi.mock('./drawing', () => ({
     drawBubbleOnCanvas: vi.fn(),
+}))
+vi.mock('@cetus/games/shared/colors', () => ({
+    hexToPixiColor: vi.fn(),
     pixiColorToHex: vi.fn((c: number) => `#${c.toString(16)}`),
-    getBubbleX: vi.fn(),
-    getBubbleY: vi.fn(),
-    getNeighbors: vi.fn(() => []),
 }))
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
@@ -357,7 +357,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('game instance methods', () => {
         it('restart calls game.reset', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             result!.restart()
@@ -371,7 +372,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('endGame calls game.end', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             await result!.endGame()
@@ -379,7 +381,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('cleanup cancels render loop and destroys game/renderer', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             const { BubbleShooterRenderer } =
                 await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
@@ -398,7 +401,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('button event listeners', () => {
         it('clicking start-btn calls game.start', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             document.getElementById('start-btn')!.click()
@@ -406,7 +410,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('clicking end-btn calls game.end', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             document.getElementById('end-btn')!.click()
@@ -414,7 +419,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('clicking pause-btn when not paused calls game.pause', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             document.getElementById('pause-btn')!.click()
@@ -422,7 +428,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('clicking pause-btn when paused calls game.resume', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             vi.mocked(gameMock.getState).mockReturnValueOnce({
@@ -434,7 +441,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('abandon and restart clears the run and starts again', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             const overlay = document.getElementById('game-over-overlay')!
             overlay.classList.remove('hidden')
             result = await initBubbleShooterGameFramework()
@@ -446,7 +454,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('dive again clears the run and starts again', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             document.getElementById('restart-btn')!.click()
@@ -455,7 +464,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('clicking resume-btn calls game.resume', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             document.getElementById('resume-btn')!.click()
@@ -465,7 +475,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('canvas aim/shoot handlers', () => {
         it('maps pointer coordinates on a scaled canvas to game coordinates', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             const { BubbleShooterRenderer } =
                 await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
@@ -499,7 +510,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('pointerdown aims before shooting', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             const { BubbleShooterRenderer } =
                 await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
@@ -540,7 +552,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('keyboard controls', () => {
         it('p key toggles pause when active', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             vi.mocked(gameMock.getState).mockReturnValue({
@@ -556,7 +569,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('ignores pause key when not active', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             document.dispatchEvent(
@@ -568,7 +582,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('enhanced callbacks', () => {
         it('onScoreUpdate updates the score element', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const callbacksArg = vi.mocked(BubbleShooterGame).mock
                 .calls[0][1] as any
@@ -577,7 +592,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('onStart hides start button and shows end button', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const callbacksArg = vi.mocked(BubbleShooterGame).mock
                 .calls[0][1] as any
@@ -593,7 +609,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('onEnd populates overlay stats and shows the overlay', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const callbacksArg = vi.mocked(BubbleShooterGame).mock
                 .calls[0][1] as any
@@ -623,7 +640,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('onStateChange updates bubbles-remaining', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const callbacksArg = vi.mocked(BubbleShooterGame).mock
                 .calls[0][1] as any
@@ -638,7 +656,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('onEnd uses fallbacks for missing stats', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const callbacksArg = vi.mocked(BubbleShooterGame).mock
                 .calls[0][1] as any
@@ -658,7 +677,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('achievement handler', () => {
         it('calls showAchievementAward when achievements are present', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             const showAchievementAward = vi.fn()
             vi.stubGlobal('showAchievementAward', showAchievementAward)
 
@@ -683,7 +703,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('handles end event with no achievements', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             const onGameEndCall = vi
@@ -697,7 +718,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('beforeunload handler', () => {
         it('calls preventDefault when game is active', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             vi.mocked(gameMock.getState).mockReturnValue({
@@ -724,7 +746,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('render loop', () => {
         it('renders when needsRedraw is true', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             const { BubbleShooterRenderer } =
                 await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
@@ -746,7 +769,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('does not render when needsRedraw is false', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             const { BubbleShooterRenderer } =
                 await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
@@ -767,7 +791,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('passes the frame delta to game.update in seconds (not milliseconds)', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             vi.mocked(gameMock.update).mockClear()
@@ -788,7 +813,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('custom callbacks passthrough', () => {
         it('forwards onStateChange', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             const onStateChange = vi.fn()
             result = await initBubbleShooterGameFramework(undefined, {
                 onStateChange,
@@ -804,7 +830,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('forwards onEnd', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             const onEnd = vi.fn()
             result = await initBubbleShooterGameFramework(undefined, { onEnd })
             const callbacksArg = vi.mocked(BubbleShooterGame).mock
@@ -876,8 +903,9 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('bubble preview drawing', () => {
         it('onStateChange draws the current and next bubble previews when colors are set', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { drawBubbleOnCanvas } = await import('./utils')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
+            const { drawBubbleOnCanvas } = await import('./drawing')
             result = await initBubbleShooterGameFramework()
             const callbacksArg = vi.mocked(BubbleShooterGame).mock
                 .calls[0][1] as any
@@ -891,8 +919,9 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('onStateChange does not redraw previews when colors are unchanged', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { drawBubbleOnCanvas } = await import('./utils')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
+            const { drawBubbleOnCanvas } = await import('./drawing')
             result = await initBubbleShooterGameFramework()
             const callbacksArg = vi.mocked(BubbleShooterGame).mock
                 .calls[0][1] as any
@@ -912,8 +941,9 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('onStateChange skips previews when colors are undefined', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { drawBubbleOnCanvas } = await import('./utils')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
+            const { drawBubbleOnCanvas } = await import('./drawing')
             result = await initBubbleShooterGameFramework()
             const callbacksArg = vi.mocked(BubbleShooterGame).mock
                 .calls[0][1] as any
@@ -927,8 +957,9 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('onStateChange skips previews when the canvas context is unavailable', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { drawBubbleOnCanvas } = await import('./utils')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
+            const { drawBubbleOnCanvas } = await import('./drawing')
             // Make both preview canvases return null from getContext so the
             // `!ctx` guard in drawCurrentBubblePreview / drawNextBubblePreview
             // triggers even when a color is present.
@@ -959,8 +990,9 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('clears the preview canvases when currentBubble/nextBubble transition from a color to null', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
-            const { drawBubbleOnCanvas } = await import('./utils')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
+            const { drawBubbleOnCanvas } = await import('./drawing')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             const callbacksArg = vi.mocked(BubbleShooterGame).mock
@@ -996,7 +1028,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('pause UI synchronization', () => {
         it('syncPauseUI shows the pause overlay and updates button text when paused', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             // Persistently report paused so syncPauseUI takes the paused branch.
@@ -1034,7 +1067,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('pointermove ignores input when the game is not active', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             const { BubbleShooterRenderer } =
                 await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
@@ -1061,7 +1095,8 @@ describe('initBubbleShooterGameFramework', () => {
         })
 
         it('pointermove aims from the shooter when currentBubble is null', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             const { BubbleShooterRenderer } =
                 await import('./BubbleShooterRenderer')
             result = await initBubbleShooterGameFramework()
@@ -1095,7 +1130,8 @@ describe('initBubbleShooterGameFramework', () => {
 
     describe('keyboard resume', () => {
         it('p key resumes when paused', async () => {
-            const { BubbleShooterGame } = await import('./BubbleShooterGame')
+            const { BubbleShooterGame } =
+                await import('@cetus/games/bubble-shooter/BubbleShooterGame')
             result = await initBubbleShooterGameFramework()
             const gameMock = vi.mocked(BubbleShooterGame).mock.results[0].value
             vi.mocked(gameMock.getState).mockReturnValue({

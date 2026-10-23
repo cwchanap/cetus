@@ -1,7 +1,7 @@
 // Sudoku renderer using the DOMRenderer framework
 import { DOMRenderer } from '@/lib/games/renderers/DOMRenderer'
 import type { DOMRendererConfig } from '@/lib/games/renderers/RendererFactory'
-import type { SudokuState } from './frameworkTypes'
+import type { SudokuState } from '@cetus/games/sudoku/frameworkTypes'
 
 export class SudokuRenderer extends DOMRenderer {
     private onCellClick?: (row: number, col: number) => void

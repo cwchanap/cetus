@@ -1,5 +1,5 @@
 // src/lib/games/circuit-hacker/init.ts
-import { CircuitHackerGame } from './game'
+import { CircuitHackerGame } from '@cetus/games/circuit-hacker/game'
 import {
     setupPixiJS,
     renderGrid,
@@ -7,11 +7,14 @@ import {
     cleanup as rendererCleanup,
     type RendererState,
 } from './renderer'
-import { DIFFICULTY_CONFIGS } from './utils'
-import type { Difficulty, CircuitHackerStats } from './types'
+import { DIFFICULTY_CONFIGS } from '@cetus/games/circuit-hacker/utils'
+import type {
+    Difficulty,
+    CircuitHackerStats,
+} from '@cetus/games/circuit-hacker/types'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@cetus/shared/games'
-import { createRunGuard } from '@/lib/games/core'
+import { createRunGuard } from '@cetus/games'
 
 // Module-scope guard so a second init call invalidates pending callbacks
 // from a prior instance (e.g., view-transition remount without cleanup).

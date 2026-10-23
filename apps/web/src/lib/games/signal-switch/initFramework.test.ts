@@ -1,11 +1,14 @@
 import { fireEvent } from '@testing-library/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initSignalSwitchGameFramework } from './initFramework'
-import { SIGNAL_SWITCH_RULES, createSignalSwitchConfig } from './types'
+import {
+    SIGNAL_SWITCH_RULES,
+    createSignalSwitchConfig,
+} from '@cetus/games/signal-switch/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
+} from '@cetus/games/core/errors'
 
 interface MockRendererInstance {
     canvas: HTMLCanvasElement
@@ -68,9 +71,9 @@ vi.mock('./SignalSwitchRenderer', () => {
     }
 })
 
-vi.mock('@/lib/games/core/errors', async importOriginal => {
+vi.mock('@cetus/games/core/errors', async importOriginal => {
     const actual =
-        await importOriginal<typeof import('@/lib/games/core/errors')>()
+        await importOriginal<typeof import('@cetus/games/core/errors')>()
     return { ...actual, handleGameError: vi.fn() }
 })
 

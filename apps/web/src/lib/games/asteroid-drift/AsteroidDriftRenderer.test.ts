@@ -61,7 +61,7 @@ import {
     ASTEROID_DRIFT_RULES,
     createAsteroidDriftConfig,
     type AsteroidDriftState,
-} from './types'
+} from '@cetus/games/asteroid-drift/types'
 
 type MockGraphics = {
     clear: ReturnType<typeof vi.fn>

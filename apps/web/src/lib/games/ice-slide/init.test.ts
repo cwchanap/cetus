@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/services/scoreService', () => ({
+    submitScore: vi
+        .fn()
+        .mockResolvedValue({ success: true, newAchievements: [] }),
     saveGameScore: vi.fn(),
 }))
 
@@ -41,8 +44,10 @@ vi.mock('./renderer', () => ({
         keyToDirection(...(args as [string])),
 }))
 
-vi.mock('./daily', async () => {
-    const actual = await vi.importActual<typeof import('./daily')>('./daily')
+vi.mock('@cetus/games/ice-slide/daily', async () => {
+    const actual = await vi.importActual<
+        typeof import('@cetus/games/ice-slide/daily')
+    >('@cetus/games/ice-slide/daily')
     return {
         ...actual,
         createIceSlideDailyRunDefinition: vi.fn(
@@ -51,9 +56,10 @@ vi.mock('./daily', async () => {
     }
 })
 
-vi.mock('./expedition', async () => {
-    const actual =
-        await vi.importActual<typeof import('./expedition')>('./expedition')
+vi.mock('@cetus/games/ice-slide/expedition', async () => {
+    const actual = await vi.importActual<
+        typeof import('@cetus/games/ice-slide/expedition')
+    >('@cetus/games/ice-slide/expedition')
     return {
         ...actual,
         createIceSlideExpeditionRunDefinition: vi.fn(
@@ -62,8 +68,10 @@ vi.mock('./expedition', async () => {
     }
 })
 
-vi.mock('./run', async () => {
-    const actual = await vi.importActual<typeof import('./run')>('./run')
+vi.mock('@cetus/games/ice-slide/run', async () => {
+    const actual = await vi.importActual<
+        typeof import('@cetus/games/ice-slide/run')
+    >('@cetus/games/ice-slide/run')
     return {
         ...actual,
         cloneIceSlideRunDefinition: vi.fn(actual.cloneIceSlideRunDefinition),
@@ -74,20 +82,26 @@ import { initializeIceSlide } from './init'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@cetus/shared/games'
 import { cleanup as rendererCleanup, setupPixiJS } from './renderer'
-import { createIceSlideDailyRunDefinition } from './daily'
+import { createIceSlideDailyRunDefinition } from '@cetus/games/ice-slide/daily'
 import {
     createIceSlideExpeditionRunDefinition,
     ICE_SLIDE_EXPEDITION_RULESET_VERSION,
-} from './expedition'
-import { CAMPAIGN_RUN_KEY, cloneIceSlideRunDefinition } from './run'
-import { cloneGrid, slide } from './physics'
+} from '@cetus/games/ice-slide/expedition'
+import {
+    CAMPAIGN_RUN_KEY,
+    cloneIceSlideRunDefinition,
+} from '@cetus/games/ice-slide/run'
+import { cloneGrid, slide } from '@cetus/games/ice-slide/physics'
 import {
     DIRECTION_DELTA,
     type CellType,
     type Direction,
     type IceSlideGameData,
-} from './types'
-import { createTestRun, createTestStage } from './test-fixtures'
+} from '@cetus/games/ice-slide/types'
+import {
+    createTestRun,
+    createTestStage,
+} from '@cetus/games/ice-slide/test-fixtures'
 
 function mountDom(): HTMLElement {
     document.body.innerHTML = `
@@ -381,8 +395,9 @@ describe('initializeIceSlide', () => {
     })
 
     it('warns via console when expedition generation falls back', async () => {
-        const actual =
-            await vi.importActual<typeof import('./expedition')>('./expedition')
+        const actual = await vi.importActual<
+            typeof import('@cetus/games/ice-slide/expedition')
+        >('@cetus/games/ice-slide/expedition')
         vi.mocked(createIceSlideExpeditionRunDefinition).mockImplementationOnce(
             (seed, options) => {
                 options?.onFallback?.({
@@ -413,8 +428,9 @@ describe('initializeIceSlide', () => {
     })
 
     it('stays silent on expedition fallback outside development', async () => {
-        const actual =
-            await vi.importActual<typeof import('./expedition')>('./expedition')
+        const actual = await vi.importActual<
+            typeof import('@cetus/games/ice-slide/expedition')
+        >('@cetus/games/ice-slide/expedition')
         vi.mocked(createIceSlideExpeditionRunDefinition).mockImplementationOnce(
             (seed, options) => {
                 options?.onFallback?.({
@@ -1305,9 +1321,10 @@ describe('initializeIceSlide', () => {
 
     it('shows mission-complete overlay and submits on full win', async () => {
         const { cloneGrid, findStart, parseGrid, slide } =
-            await import('./physics')
-        const { ICE_SLIDE_LEVELS } = await import('./levels')
-        const { DIRECTION_DELTA } = await import('./types')
+            await import('@cetus/games/ice-slide/physics')
+        const { ICE_SLIDE_LEVELS } =
+            await import('@cetus/games/ice-slide/levels')
+        const { DIRECTION_DELTA } = await import('@cetus/games/ice-slide/types')
 
         function solveMoves(
             level: (typeof ICE_SLIDE_LEVELS)[number]

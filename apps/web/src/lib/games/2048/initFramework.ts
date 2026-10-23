@@ -1,24 +1,28 @@
 // 2048 game initialization using BaseGame framework
-import { Game2048, DEFAULT_GAME2048_CONFIG } from './Game2048'
+import { Game2048, DEFAULT_GAME2048_CONFIG } from '@cetus/games/2048/Game2048'
 import {
     Game2048Renderer,
     createGame2048RendererConfig,
 } from './Game2048Renderer'
-import type { Game2048Config, Game2048Stats } from './frameworkTypes'
-import { type Direction } from './types'
+import type {
+    Game2048Config,
+    Game2048Stats,
+} from '@cetus/games/2048/frameworkTypes'
+import { type Direction } from '@cetus/games/2048/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
-import { isEditableTarget } from '@/lib/games/shared/utils'
+} from '@cetus/games/core/errors'
+import { isEditableTarget } from '@/lib/keyboard'
 
 import { type AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface Game2048InitResult {
     game: Game2048
@@ -46,6 +50,7 @@ export async function init2048GameFramework(
     const config: Game2048Config = {
         ...DEFAULT_GAME2048_CONFIG,
         ...customConfig,
+        submitScore,
     }
     const rendererConfig = createGame2048RendererConfig(
         config,

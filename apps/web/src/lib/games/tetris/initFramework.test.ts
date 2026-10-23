@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { initTetrisGameFramework } from './initFramework'
-import type { BaseGameCallbacks } from '@/lib/games/core/types'
+import type { BaseGameCallbacks } from '@cetus/games/core/types'
 
 // The real TetrisRenderer drives PixiJS; mock the module so the framework
 // wiring (canvas setup, previews, handlers) can run in jsdom.
@@ -29,7 +29,7 @@ vi.mock('./TetrisRenderer', () => ({
 
 // Mock TetrisGame so tests can flip state and capture the framework's
 // enhanced callbacks.
-vi.mock('./TetrisGame', () => {
+vi.mock('@cetus/games/tetris/TetrisGame', () => {
     const TetrisGame = vi.fn().mockImplementation((_config, callbacks) => {
         const instance = {
             state: makeState(),
@@ -65,11 +65,11 @@ vi.mock('./TetrisGame', () => {
     }
 })
 
-vi.mock('./utils', () => ({
+vi.mock('./drawing', () => ({
     drawNextPiece: vi.fn(),
 }))
 
-vi.mock('@/lib/games/core/errors', () => ({
+vi.mock('@cetus/games/core/errors', () => ({
     DOMElementNotFoundError: class DOMElementNotFoundError extends Error {
         constructor(id: string) {
             super(`DOM element not found: ${id}`)
@@ -78,10 +78,10 @@ vi.mock('@/lib/games/core/errors', () => ({
     handleGameError: vi.fn(),
 }))
 
-import { TetrisGame } from './TetrisGame'
+import { TetrisGame } from '@cetus/games/tetris/TetrisGame'
 import { TetrisRenderer } from './TetrisRenderer'
-import { drawNextPiece } from './utils'
-import { handleGameError } from '@/lib/games/core/errors'
+import { drawNextPiece } from './drawing'
+import { handleGameError } from '@cetus/games/core/errors'
 
 // The mock instance carries its own state and the framework callbacks.
 function makeState(overrides: Record<string, unknown> = {}) {

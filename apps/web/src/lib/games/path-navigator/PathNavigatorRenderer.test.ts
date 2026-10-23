@@ -4,8 +4,8 @@ import {
     PathNavigatorRenderer,
     createPathNavigatorRendererConfig,
 } from './PathNavigatorRenderer'
-import { DEFAULT_PATH_NAVIGATOR_CONFIG } from './PathNavigatorGame'
-import type { PathNavigatorState } from './types'
+import { DEFAULT_PATH_NAVIGATOR_CONFIG } from '@cetus/games/path-navigator/PathNavigatorGame'
+import type { PathNavigatorState } from '@cetus/games/path-navigator/types'
 
 // Mock pixi.js Application/Container/Graphics to allow running in jsdom.
 vi.mock('pixi.js', () => {

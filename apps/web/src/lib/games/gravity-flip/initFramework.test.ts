@@ -5,7 +5,7 @@ import { initGravityFlipGameFramework } from './initFramework'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
+} from '@cetus/games/core/errors'
 
 vi.mock('./GravityFlipRenderer', () => {
     class MockGravityFlipRenderer {
@@ -40,9 +40,9 @@ vi.mock('./GravityFlipRenderer', () => {
     }
 })
 
-vi.mock('@/lib/games/core/errors', async importOriginal => {
+vi.mock('@cetus/games/core/errors', async importOriginal => {
     const actual =
-        await importOriginal<typeof import('@/lib/games/core/errors')>()
+        await importOriginal<typeof import('@cetus/games/core/errors')>()
     return { ...actual, handleGameError: vi.fn() }
 })
 

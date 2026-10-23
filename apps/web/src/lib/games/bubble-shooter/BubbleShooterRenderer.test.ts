@@ -66,8 +66,8 @@ import {
     BubbleShooterRenderer,
     createBubbleShooterRendererConfig,
 } from './BubbleShooterRenderer'
-import { DEFAULT_BUBBLE_SHOOTER_CONFIG } from './BubbleShooterGame'
-import type { BubbleShooterState } from './types'
+import { DEFAULT_BUBBLE_SHOOTER_CONFIG } from '@cetus/games/bubble-shooter/BubbleShooterGame'
+import type { BubbleShooterState } from '@cetus/games/bubble-shooter/types'
 import { Graphics, Container } from 'pixi.js'
 
 function makeRenderer(): BubbleShooterRenderer {

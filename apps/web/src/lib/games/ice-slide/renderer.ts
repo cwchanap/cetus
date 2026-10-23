@@ -1,5 +1,9 @@
 import { Application, Graphics } from 'pixi.js'
-import type { CellType, Direction, IceSlideState } from './types'
+import type {
+    CellType,
+    Direction,
+    IceSlideState,
+} from '@cetus/games/ice-slide/types'
 
 export interface RendererState {
     app: Application

@@ -1,19 +1,26 @@
 // Evader game initialization using BaseGame framework
-import { EvaderGame, DEFAULT_EVADER_CONFIG } from './EvaderGame'
+import {
+    EvaderGame,
+    DEFAULT_EVADER_CONFIG,
+} from '@cetus/games/evader/EvaderGame'
 import { EvaderRenderer, createEvaderRendererConfig } from './EvaderRenderer'
-import type { EvaderConfig, EvaderStats } from './frameworkTypes'
+import type {
+    EvaderConfig,
+    EvaderStats,
+} from '@cetus/games/evader/frameworkTypes'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
+} from '@cetus/games/core/errors'
 
 import { type AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 const MOVEMENT_KEYS = new Set([
     'ArrowUp',
@@ -55,6 +62,7 @@ export async function initEvaderGameFramework(
     const config: EvaderConfig = {
         ...DEFAULT_EVADER_CONFIG,
         ...customConfig,
+        submitScore,
     }
     const rendererConfig = createEvaderRendererConfig(
         config,

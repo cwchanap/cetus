@@ -1,54 +1,24 @@
 /**
  * Score Service - Centralized score management for all games
+ *
+ * This module owns the browser fetch transport (POST /api/scores); game
+ * simulations receive it via the injected `submitScore` config — there is
+ * no implicit fallback. The transport contracts (`ScoreData`,
+ * `ScoreSubmissionResult`, `ScoreSubmitter`) are canonically defined in
+ * `@cetus/shared/scores`.
  */
 
-import type { GameType } from '@/lib/server/db/types'
-import { type AchievementNotification } from '@cetus/shared/achievements'
-import { getGameById, type GameID } from '@cetus/shared/games'
-import type { GameData } from '@/lib/games/shared/types'
+import { type GameID, getGameById } from '@cetus/shared/games'
+import type { GameData } from '@cetus/shared/game-data'
 import type {
-    ScorePlatform,
     ScoreSubmissionContext,
+    ScorePlatform,
 } from '@cetus/shared/validations'
-
-export type ScoreSubmissionPublicErrorCode =
-    | 'SCORE_CONTEXT_UNAVAILABLE'
-    | 'UNAUTHENTICATED'
-    | 'NETWORK_ERROR'
-    | 'TRANSPORT_UNAVAILABLE'
-
-export interface ScoreSubmissionResult {
-    success: boolean
-    newAchievements?: AchievementNotification[]
-    challengeUpdates?: {
-        completedChallenges: Array<{
-            id: string
-            name: string
-            description: string
-            icon: string
-            xpReward: number
-        }>
-        xpEarned: number
-        levelUp: boolean
-        newLevel?: number
-    }
-    error?: string
-    code?: ScoreSubmissionPublicErrorCode
-}
-
-export interface ScoreData {
-    gameId: GameType
-    score: number
-    gameData?: GameData | Record<string, unknown>
-    context?: ScoreSubmissionContext
-    platform?: ScorePlatform
-}
-
-/**
- * Transport seam for score submission: the browser default POSTs to
- * /api/scores; other hosts can inject their own transport.
- */
-export type ScoreSubmitter = (data: ScoreData) => Promise<ScoreSubmissionResult>
+import type {
+    ScoreData,
+    ScoreSubmissionResult,
+    ScoreSubmitter,
+} from '@cetus/shared/scores'
 
 export interface SaveScoreOptions {
     isStale?: () => boolean
@@ -70,17 +40,6 @@ export interface GameHistoryEntry {
 export async function submitScore(
     scoreData: ScoreData
 ): Promise<ScoreSubmissionResult> {
-    // The default transport is a relative fetch — only a DOM host gives
-    // fetch a base URL to resolve '/api/scores' against. Non-DOM hosts must
-    // inject a ScoreSubmitter; failing fast here turns a missing transport
-    // into an explicit error instead of a generic network failure.
-    if (typeof document === 'undefined') {
-        return {
-            success: false,
-            error: 'Score submission requires a browser host; non-web hosts must inject a ScoreSubmitter transport',
-            code: 'TRANSPORT_UNAVAILABLE',
-        }
-    }
     try {
         const response = await fetch('/api/scores', {
             method: 'POST',
@@ -137,7 +96,7 @@ export async function submitScore(
  * Save score and handle achievements display
  */
 export async function saveGameScore(
-    gameId: GameType,
+    gameId: GameID,
     score: number,
     onSuccess?: (result: ScoreSubmissionResult) => void,
     onError?: (error: string, result?: ScoreSubmissionResult) => void,
@@ -242,9 +201,7 @@ export async function getUserGameHistory(
  * If a future caller needs to retry on the unavailable state, switch this to
  * a discriminated result that propagates `SCORE_CONTEXT_UNAVAILABLE`.
  */
-export async function getUserBestScore(
-    gameId: GameType
-): Promise<number | null> {
+export async function getUserBestScore(gameId: GameID): Promise<number | null> {
     try {
         const response = await fetch(
             `/api/scores/best?gameId=${encodeURIComponent(gameId)}`
@@ -264,7 +221,7 @@ export async function getUserBestScore(
 /**
  * Format game name for display
  */
-export function formatGameName(gameId: GameType): string {
+export function formatGameName(gameId: GameID): string {
     const game = getGameById(gameId as GameID)
     return game?.name ?? gameId.charAt(0).toUpperCase() + gameId.slice(1)
 }

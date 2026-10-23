@@ -1,6 +1,13 @@
 import { Application, Graphics } from 'pixi.js'
-import { polarToWorld, ringRadius, type WorldPoint } from './geometry'
-import type { SatelliteSyncState, RuntimeSatellite } from './types'
+import {
+    polarToWorld,
+    ringRadius,
+    type WorldPoint,
+} from '@cetus/games/satellite-sync/geometry'
+import type {
+    SatelliteSyncState,
+    RuntimeSatellite,
+} from '@cetus/games/satellite-sync/types'
 
 export interface SceneLayout {
     cx: number

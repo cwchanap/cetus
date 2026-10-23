@@ -1,22 +1,14 @@
 import {
     QuickMathFrameworkGame,
+    DEFAULT_QUICK_MATH_CONFIG,
     type QuickMathConfig,
     type QuickMathCallbacks,
     type MathQuestion,
-} from './game'
+} from '@cetus/games/quick-math/game'
 import { QuickMathRenderer, type QuickMathRendererConfig } from './renderer'
 import { GameID } from '@cetus/shared/games'
-import type { BaseGameCallbacks, BaseGameStats } from '@/lib/games/core/types'
-
-// Default configuration for Quick Math
-const DEFAULT_CONFIG: QuickMathConfig = {
-    duration: 60, // 60 seconds
-    pausable: false,
-    resettable: true,
-    pointsPerCorrectAnswer: 20,
-    maxNumber: 999,
-    operations: ['addition', 'subtraction'],
-}
+import type { BaseGameCallbacks, BaseGameStats } from '@cetus/games/core/types'
+import { submitScore } from '@/lib/services/scoreService'
 
 // Default renderer configuration
 const DEFAULT_RENDERER_CONFIG: QuickMathRendererConfig = {
@@ -45,7 +37,11 @@ export async function initQuickMathFramework(
     cleanup: () => void
 }> {
     // Merge configurations
-    const config: QuickMathConfig = { ...DEFAULT_CONFIG, ...customConfig }
+    const config: QuickMathConfig = {
+        ...DEFAULT_QUICK_MATH_CONFIG,
+        ...customConfig,
+        submitScore,
+    }
     const rendererConfig = { ...DEFAULT_RENDERER_CONFIG }
 
     // Create renderer

@@ -7,7 +7,7 @@ import {
     SIGNAL_SWITCH_SIGNALS,
     type SignalSwitchConfig,
     type SignalSwitchState,
-} from './types'
+} from '@cetus/games/signal-switch/types'
 
 export interface SignalSwitchRendererConfig extends PixiJSRendererConfig {
     gateX: number
@@ -212,7 +212,7 @@ export class SignalSwitchRenderer extends PixiJSRenderer {
 }
 
 export function createSignalSwitchRendererConfig(
-    config: SignalSwitchConfig
+    config: Omit<SignalSwitchConfig, 'submitScore'>
 ): SignalSwitchRendererConfig {
     return {
         type: 'canvas',

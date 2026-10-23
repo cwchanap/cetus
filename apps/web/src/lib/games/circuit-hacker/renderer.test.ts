@@ -41,7 +41,10 @@ vi.mock('pixi.js', () => {
 
 import { Application } from 'pixi.js'
 import { setupPixiJS, renderGrid, pointerToCell, cleanup } from './renderer'
-import type { CircuitHackerState, Tile } from './types'
+import type {
+    CircuitHackerState,
+    Tile,
+} from '@cetus/games/circuit-hacker/types'
 
 const tile = (over: Partial<Tile> = {}): Tile => ({
     type: 'straight',

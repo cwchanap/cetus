@@ -1,7 +1,7 @@
 import { fireEvent } from '@testing-library/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initChromaticTideGameFramework } from './initFramework'
-import type { ChromaticTideColor } from './types'
+import type { ChromaticTideColor } from '@cetus/games/chromatic-tide/types'
 
 const PALETTE: ChromaticTideColor[] = [
     'teal',

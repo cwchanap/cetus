@@ -1,4 +1,4 @@
-import { IceSlideGame } from './game'
+import { IceSlideGame } from '@cetus/games/ice-slide/game'
 import {
     setupPixiJS,
     renderGrid,
@@ -9,15 +9,21 @@ import {
 } from './renderer'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@cetus/shared/games'
-import { createRunGuard } from '@/lib/games/core'
-import { createIceSlideDailyRunDefinition, toIceSlideUtcDateKey } from './daily'
+import { createRunGuard } from '@cetus/games'
+import {
+    createIceSlideDailyRunDefinition,
+    toIceSlideUtcDateKey,
+} from '@cetus/games/ice-slide/daily'
 import {
     createIceSlideExpeditionRunDefinition,
     type IceSlideExpeditionRouteChoice,
-} from './expedition'
-import { cloneIceSlideRunDefinition, parseIceSlideDailyRunKey } from './run'
-import { isIceSlideObjectiveMode } from './scoring'
-import { ICE_SLIDE_OBJECTIVE_LABELS } from './objectives'
+} from '@cetus/games/ice-slide/expedition'
+import {
+    cloneIceSlideRunDefinition,
+    parseIceSlideDailyRunKey,
+} from '@cetus/games/ice-slide/run'
+import { isIceSlideObjectiveMode } from '@cetus/games/ice-slide/scoring'
+import { ICE_SLIDE_OBJECTIVE_LABELS } from '@cetus/games/ice-slide/objectives'
 import type {
     IceSlideCallbacks,
     IceSlideGameData,
@@ -25,7 +31,7 @@ import type {
     IceSlideRunDefinition,
     IceSlideStageClearResult,
     IceSlideState,
-} from './types'
+} from '@cetus/games/ice-slide/types'
 
 const runGuard = createRunGuard()
 

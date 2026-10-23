@@ -3,14 +3,14 @@ import {
     PixiJSRenderer,
     type PixiJSRendererConfig,
 } from '@/lib/games/renderers/PixiJSRenderer'
-import { lerp } from '@/lib/games/shared/utils'
+import { lerp } from '@cetus/games/shared/utils'
 import {
     JEWEL_COLORS,
     type BejeweledState,
     type JewelType,
     type Position,
     type BejeweledAnimator,
-} from './types'
+} from '@cetus/games/bejeweled/types'
 
 export interface BejeweledRendererConfig extends PixiJSRendererConfig {
     gridPadding?: number

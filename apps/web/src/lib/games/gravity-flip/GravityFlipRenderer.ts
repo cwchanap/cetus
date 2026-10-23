@@ -9,7 +9,7 @@ import {
     type GravityFlipHazard,
     type GravityFlipState,
     type GravityFlipStar,
-} from './types'
+} from '@cetus/games/gravity-flip/types'
 
 export interface GravityFlipRendererConfig extends PixiJSRendererConfig {
     corridorInset: number
@@ -221,7 +221,7 @@ export class GravityFlipRenderer extends PixiJSRenderer {
 }
 
 export function createGravityFlipRendererConfig(
-    config: GravityFlipConfig
+    config: Omit<GravityFlipConfig, 'submitScore'>
 ): GravityFlipRendererConfig {
     return {
         type: 'canvas',

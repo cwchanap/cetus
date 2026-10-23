@@ -1,0 +1,104 @@
+// Utility functions for Tetris game
+import type { Piece, GameConstants } from './types'
+
+export function rotateMatrix(matrix: number[][]): number[][] {
+    const rows = matrix.length
+    const cols = matrix[0].length
+    const rotated = Array(cols)
+        .fill(null)
+        .map(() => Array(rows).fill(0))
+
+    for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < cols; j++) {
+            rotated[j][rows - 1 - i] = matrix[i][j]
+        }
+    }
+
+    return rotated
+}
+
+export function checkCollision(
+    x: number,
+    y: number,
+    shape: number[][],
+    board: (number | null)[][],
+    constants: Pick<GameConstants, 'BOARD_WIDTH' | 'BOARD_HEIGHT'>
+): boolean {
+    for (let row = 0; row < shape.length; row++) {
+        for (let col = 0; col < shape[row].length; col++) {
+            if (shape[row][col]) {
+                const newX = x + col
+                const newY = y + row
+
+                // Check boundaries
+                if (
+                    newX < 0 ||
+                    newX >= constants.BOARD_WIDTH ||
+                    newY >= constants.BOARD_HEIGHT
+                ) {
+                    return true
+                }
+
+                // Check collision with placed pieces
+                if (newY >= 0 && board[newY][newX]) {
+                    return true
+                }
+            }
+        }
+    }
+    return false
+}
+
+/**
+ * Rows a piece can still fall before colliding — shared by hard-drop
+ * scoring and the renderer's ghost-piece outline.
+ */
+export function getDropDistance(
+    x: number,
+    y: number,
+    shape: number[][],
+    board: (number | null)[][],
+    constants: Pick<GameConstants, 'BOARD_WIDTH' | 'BOARD_HEIGHT'>
+): number {
+    let distance = 0
+    while (!checkCollision(x, y + distance + 1, shape, board, constants)) {
+        distance++
+    }
+    return distance
+}
+
+export function placePiece(
+    piece: Piece,
+    board: (number | null)[][],
+    _constants: GameConstants
+): void {
+    for (let row = 0; row < piece.shape.length; row++) {
+        for (let col = 0; col < piece.shape[row].length; col++) {
+            if (piece.shape[row][col]) {
+                const y = piece.y + row
+                const x = piece.x + col
+                if (y >= 0) {
+                    board[y][x] = piece.color
+                }
+            }
+        }
+    }
+}
+
+export function clearLines(
+    board: (number | null)[][],
+    constants: GameConstants
+): number {
+    let linesCleared = 0
+
+    for (let row = constants.BOARD_HEIGHT - 1; row >= 0; row--) {
+        if (board[row].every(cell => cell !== null)) {
+            board.splice(row, 1)
+            board.unshift(Array(constants.BOARD_WIDTH).fill(null))
+            linesCleared++
+            row++ // Check same row again
+        }
+    }
+
+    return linesCleared
+}

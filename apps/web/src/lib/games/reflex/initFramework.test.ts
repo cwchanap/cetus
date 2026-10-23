@@ -1,7 +1,7 @@
 // initFramework unit tests for Reflex
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { initReflexGameFramework, showGameOver } from './initFramework'
-import type { ReflexStats } from './frameworkTypes'
+import type { ReflexStats } from '@cetus/games/reflex/frameworkTypes'
 
 // Mock pixi.js for the renderer
 vi.mock('pixi.js', () => {

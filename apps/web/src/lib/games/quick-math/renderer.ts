@@ -1,6 +1,10 @@
 import { DOMRenderer } from '@/lib/games/renderers/DOMRenderer'
-import type { RendererConfig } from '@/lib/games/core/types'
-import type { QuickMathState, QuickMathStats, MathQuestion } from './game'
+import type { RendererConfig } from '@/lib/games/renderers/types'
+import type {
+    QuickMathState,
+    QuickMathStats,
+    MathQuestion,
+} from '@cetus/games/quick-math/game'
 
 export interface QuickMathRendererConfig extends RendererConfig {
     questionContainer: string

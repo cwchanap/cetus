@@ -44,12 +44,15 @@ vi.mock('pixi.js', () => {
 
 const saveGameScore = vi.fn().mockResolvedValue(undefined)
 vi.mock('@/lib/services/scoreService', () => ({
+    submitScore: vi
+        .fn()
+        .mockResolvedValue({ success: true, newAchievements: [] }),
     saveGameScore: (...args: unknown[]) => saveGameScore(...args),
 }))
 
 import { initializeCircuitHackerGame } from './init'
 import { GameID } from '@cetus/shared/games'
-import { solveGameForTest } from './test-utils'
+import { solveGameForTest } from '@cetus/games/circuit-hacker/test-utils'
 import { screen } from '@testing-library/dom'
 
 function setupDom(): HTMLElement {

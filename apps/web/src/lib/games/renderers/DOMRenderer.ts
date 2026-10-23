@@ -1,5 +1,5 @@
 import { BaseRenderer } from '../core/BaseRenderer'
-import type { RendererConfig } from '../core/types'
+import type { RendererConfig } from './types'
 
 export interface DOMRendererConfig extends RendererConfig {
     containerClass?: string

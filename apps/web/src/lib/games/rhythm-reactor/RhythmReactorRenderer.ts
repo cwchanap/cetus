@@ -7,7 +7,7 @@ import type {
     RhythmReactorConfig,
     RhythmReactorNote,
     RhythmReactorState,
-} from './types'
+} from '@cetus/games/rhythm-reactor/types'
 
 export interface RhythmReactorRendererConfig extends PixiJSRendererConfig {
     laneCount: number
@@ -188,7 +188,7 @@ export class RhythmReactorRenderer extends PixiJSRenderer {
 }
 
 export function createRhythmReactorRendererConfig(
-    config: RhythmReactorConfig
+    config: Omit<RhythmReactorConfig, 'submitScore'>
 ): RhythmReactorRendererConfig {
     return {
         type: 'canvas',

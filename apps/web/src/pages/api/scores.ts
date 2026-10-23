@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro'
 import { saveGameScoreWithAchievements } from '@/lib/server/db/queries'
 import { getGameById, GameID } from '@cetus/shared/games'
-import { iceSlideDailyAdmissionError } from '@/lib/games/ice-slide/run'
+import { iceSlideDailyAdmissionError } from '@cetus/games/ice-slide/run'
 import { auth } from '@/lib/auth'
 import { getAchievementNotifications } from '@/lib/services/achievementService'
 import { updateChallengeProgress } from '@/lib/services/challengeService'

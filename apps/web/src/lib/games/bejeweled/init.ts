@@ -4,21 +4,13 @@ import type {
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
-import { BejeweledGame } from './game'
-import { JEWEL_TYPES, type BejeweledConfig } from './types'
+} from '@cetus/games/core/types'
+import { BejeweledGame } from '@cetus/games/bejeweled/game'
+import {
+    DEFAULT_BEJEWELED_CONFIG,
+    type BejeweledConfig,
+} from '@cetus/games/bejeweled/types'
 import { BejeweledRenderer, type BejeweledRendererConfig } from './renderer'
-
-const DEFAULT_CONFIG: BejeweledConfig = {
-    duration: 60,
-    pausable: true,
-    resettable: true,
-    rows: 8,
-    cols: 8,
-    jewelTypes: JEWEL_TYPES,
-    minMatch: 3,
-    pointsPerJewel: 10,
-}
 
 const DEFAULT_RENDERER_CONFIG: BejeweledRendererConfig = {
     type: 'canvas',
@@ -37,13 +29,18 @@ export interface BejeweledInitResult {
 }
 
 import { type AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export async function initBejeweledGame(
     customConfig?: Partial<BejeweledConfig>,
     customCallbacks?: BaseGameCallbacks,
     customRendererConfig?: Partial<BejeweledRendererConfig>
 ): Promise<BejeweledInitResult> {
-    const config: BejeweledConfig = { ...DEFAULT_CONFIG, ...customConfig }
+    const config: BejeweledConfig = {
+        ...DEFAULT_BEJEWELED_CONFIG,
+        ...customConfig,
+        submitScore,
+    }
     const rendererConfig: BejeweledRendererConfig = {
         ...DEFAULT_RENDERER_CONFIG,
         ...customRendererConfig,

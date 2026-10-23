@@ -3,15 +3,15 @@ import {
     ICE_SLIDE_EXPEDITION_SOLVER_MAX_STATES,
     type IceSlideGeneratedStage,
     type IceSlideGenerationRejectionReason,
-} from '../src/lib/games/ice-slide/generator'
-import { ICE_SLIDE_OBJECTIVE_IDS } from '../src/lib/games/ice-slide/objectives'
-import { validateIceSlideStageQuality } from '../src/lib/games/ice-slide/quality'
-import { createIceSlideStageSignature } from '../src/lib/games/ice-slide/run'
+} from '@cetus/games/ice-slide/generator'
+import { ICE_SLIDE_OBJECTIVE_IDS } from '@cetus/games/ice-slide/objectives'
+import { validateIceSlideStageQuality } from '@cetus/games/ice-slide/quality'
+import { createIceSlideStageSignature } from '@cetus/games/ice-slide/run'
 import {
     getIceSlideTemplatesByDifficulty,
     type IceSlideTemplateDifficulty,
-} from '../src/lib/games/ice-slide/templates'
-import { getUniqueBoardTransforms } from '../src/lib/games/ice-slide/transforms'
+} from '@cetus/games/ice-slide/templates'
+import { getUniqueBoardTransforms } from '@cetus/games/ice-slide/transforms'
 import { pathToFileURL } from 'node:url'
 
 export interface IceSlideExpeditionValidationStats {

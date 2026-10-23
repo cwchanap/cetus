@@ -2,24 +2,28 @@
 import {
     PathNavigatorGame,
     DEFAULT_PATH_NAVIGATOR_CONFIG,
-} from './PathNavigatorGame'
+} from '@cetus/games/path-navigator/PathNavigatorGame'
 import {
     PathNavigatorRenderer,
     createPathNavigatorRendererConfig,
 } from './PathNavigatorRenderer'
-import { clamp } from '@/lib/games/shared/utils'
-import type { PathNavigatorConfig, PathNavigatorStats } from './types'
+import { clamp } from '@cetus/games/shared/utils'
+import type {
+    PathNavigatorConfig,
+    PathNavigatorStats,
+} from '@cetus/games/path-navigator/types'
 import type {
     BaseGameCallbacks,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
+} from '@cetus/games/core/errors'
 
 import { type AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface PathNavigatorInitResult {
     game: PathNavigatorGame
@@ -46,6 +50,7 @@ export async function initPathNavigatorGameFramework(
     const config: PathNavigatorConfig = {
         ...DEFAULT_PATH_NAVIGATOR_CONFIG,
         ...customConfig,
+        submitScore,
     }
     const rendererConfig = createPathNavigatorRendererConfig(
         config,

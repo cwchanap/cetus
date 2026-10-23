@@ -1,5 +1,8 @@
 import { DOMRenderer } from '@/lib/games/renderers/DOMRenderer'
-import type { PatternPad, PatternPulseState } from './types'
+import type {
+    PatternPad,
+    PatternPulseState,
+} from '@cetus/games/pattern-pulse/types'
 
 export class PatternPulseRenderer extends DOMRenderer {
     private onPadPress?: (pad: PatternPad) => void

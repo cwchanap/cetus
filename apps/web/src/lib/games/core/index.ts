@@ -1,28 +1,7 @@
-// Core game framework exports
-export { BaseGame } from './BaseGame'
-export { createRunGuard } from './runGuard'
-export type { RunGuard } from './runGuard'
+// Web game-framework facade — the web host owns renderers and the DOM
+// initializer; portable game simulation lives in `@cetus/games`.
 export { BaseRenderer } from './BaseRenderer'
-export { GameEventEmitter } from './EventEmitter'
-export { GameTimer } from './GameTimer'
-export { ScoreManager } from './ScoreManager'
 export { GameInitializer } from './GameInitializer'
-
-// Error handling exports
-export {
-    GameError,
-    GameInitializationError,
-    RenderError,
-    DOMElementNotFoundError,
-    InvalidGameStateError,
-    InvalidConfigError,
-    GameTimeoutError,
-    GameErrorCodes,
-    isGameError,
-    wrapError,
-    handleGameError,
-} from './errors'
-export type { GameErrorCode } from './errors'
 
 // Renderer exports
 export {
@@ -31,21 +10,9 @@ export {
     DOMRenderer,
 } from '../renderers/RendererFactory'
 
-// Type exports
-export type {
-    BaseGameState,
-    BaseGameConfig,
-    BaseGameCallbacks,
-    BaseGameStats,
-    ScoringConfig,
-    GameEventType,
-    GameEvent,
-    RendererType,
-    RendererConfig,
-} from './types'
-
 export type {
     PixiJSRendererConfig,
     DOMRendererConfig,
 } from '../renderers/RendererFactory'
 export type { GameInitializerConfig } from './GameInitializer'
+export type { RendererConfig, RendererType } from '../renderers/types'

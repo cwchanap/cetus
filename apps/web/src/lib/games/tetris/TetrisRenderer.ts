@@ -4,8 +4,12 @@ import {
     PixiJSRenderer,
     type PixiJSRendererConfig,
 } from '@/lib/games/renderers/PixiJSRenderer'
-import type { TetrisState, TetrisConfig, Piece } from './types'
-import { getDropDistance } from './utils'
+import type {
+    TetrisState,
+    TetrisConfig,
+    Piece,
+} from '@cetus/games/tetris/types'
+import { getDropDistance } from '@cetus/games/tetris/utils'
 
 export interface TetrisRendererConfig extends PixiJSRendererConfig {
     boardWidth: number
@@ -243,7 +247,7 @@ export class TetrisRenderer extends PixiJSRenderer {
 }
 
 export function createTetrisRendererConfig(
-    gameConfig: TetrisConfig,
+    gameConfig: Omit<TetrisConfig, 'submitScore'>,
     container: string
 ): TetrisRendererConfig {
     return {

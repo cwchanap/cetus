@@ -4,8 +4,8 @@ import {
     MemoryMatrixRenderer,
     createMemoryMatrixRendererConfig,
 } from './MemoryMatrixRenderer'
-import type { MemoryMatrixState } from './frameworkTypes'
-import type { Card } from './types'
+import type { MemoryMatrixState } from '@cetus/games/memory-matrix/frameworkTypes'
+import type { Card } from '@cetus/games/memory-matrix/types'
 
 function makeCard(overrides: Partial<Card> = {}): Card {
     return {

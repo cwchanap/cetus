@@ -9,12 +9,12 @@ import {
     worldToPixel,
     type RendererState,
 } from './renderer'
-import { polarToWorld } from './geometry'
+import { polarToWorld } from '@cetus/games/satellite-sync/geometry'
 import type {
     RuntimeSatellite,
     RuntimeTarget,
     SatelliteSyncState,
-} from './types'
+} from '@cetus/games/satellite-sync/types'
 import type { Application } from 'pixi.js'
 
 vi.mock('pixi.js', () => {

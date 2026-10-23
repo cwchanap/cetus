@@ -9,7 +9,7 @@ import type {
     BubbleShooterConfig,
     Bubble,
     Position,
-} from './types'
+} from '@cetus/games/bubble-shooter/types'
 
 export interface BubbleShooterRendererConfig extends PixiJSRendererConfig {
     bubbleRadius: number
@@ -225,7 +225,7 @@ export class BubbleShooterRenderer extends PixiJSRenderer {
 }
 
 export function createBubbleShooterRendererConfig(
-    gameConfig: BubbleShooterConfig,
+    gameConfig: Omit<BubbleShooterConfig, 'submitScore'>,
     container: string
 ): BubbleShooterRendererConfig {
     return {

@@ -64,8 +64,8 @@ vi.mock('pixi.js', () => {
 })
 
 import { TetrisRenderer, createTetrisRendererConfig } from './TetrisRenderer'
-import { DEFAULT_TETRIS_CONFIG } from './TetrisGame'
-import type { TetrisState, Piece } from './types'
+import { DEFAULT_TETRIS_CONFIG } from '@cetus/games/tetris/TetrisGame'
+import type { TetrisState, Piece } from '@cetus/games/tetris/types'
 import { Graphics, Container, Text } from 'pixi.js'
 
 function makeRenderer(): TetrisRenderer {

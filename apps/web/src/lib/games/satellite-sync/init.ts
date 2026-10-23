@@ -1,4 +1,4 @@
-import { SatelliteSyncGame } from './game'
+import { SatelliteSyncGame } from '@cetus/games/satellite-sync/game'
 import {
     setupScene,
     render,
@@ -7,12 +7,12 @@ import {
     cleanup as rendererCleanup,
     type RendererState,
 } from './renderer'
-import { polarToWorld, bearing } from './geometry'
-import { SATELLITE_SYNC_LEVELS } from './levels'
+import { polarToWorld, bearing } from '@cetus/games/satellite-sync/geometry'
+import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@cetus/shared/games'
-import { createRunGuard } from '@/lib/games/core'
-import type { SatelliteSyncCallbacks } from './types'
+import { createRunGuard } from '@cetus/games'
+import type { SatelliteSyncCallbacks } from '@cetus/games/satellite-sync/types'
 
 // Module-scope guard so a second init call invalidates pending callbacks
 // from a prior instance (e.g., view-transition remount without cleanup).

@@ -1,7 +1,7 @@
 import {
     RhythmReactorGame,
     createRhythmReactorConfig,
-} from './RhythmReactorGame'
+} from '@cetus/games/rhythm-reactor/RhythmReactorGame'
 import {
     createRhythmReactorRendererConfig,
     RhythmReactorRenderer,
@@ -10,19 +10,20 @@ import type {
     RhythmReactorLane,
     RhythmReactorState,
     RhythmReactorStats,
-} from './types'
+} from '@cetus/games/rhythm-reactor/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
-import { isEditableTarget } from '@/lib/games/shared/utils'
+} from '@cetus/games/core/errors'
+import { isEditableTarget } from '@/lib/keyboard'
 import type { AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface RhythmReactorInitResult {
     game: RhythmReactorGame
@@ -51,7 +52,7 @@ export async function initRhythmReactorGameFramework(): Promise<
         return undefined
     }
 
-    const config = createRhythmReactorConfig()
+    const config = { ...createRhythmReactorConfig(), submitScore }
     const renderer = new RhythmReactorRenderer(
         createRhythmReactorRendererConfig(config)
     )

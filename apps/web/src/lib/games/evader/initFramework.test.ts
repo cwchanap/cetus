@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { screen, fireEvent } from '@testing-library/dom'
 import { initEvaderGameFramework, showGameOver } from './initFramework'
-import type { EvaderStats } from './frameworkTypes'
+import type { EvaderStats } from '@cetus/games/evader/frameworkTypes'
 import {
     AchievementRarity,
     type AchievementNotification,

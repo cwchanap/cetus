@@ -55,8 +55,8 @@ import {
     NOTE_HEIGHT,
     RhythmReactorRenderer,
 } from './RhythmReactorRenderer'
-import { createRhythmReactorConfig } from './RhythmReactorGame'
-import type { RhythmReactorState } from './types'
+import { createRhythmReactorConfig } from '@cetus/games/rhythm-reactor/RhythmReactorGame'
+import type { RhythmReactorState } from '@cetus/games/rhythm-reactor/types'
 
 type MockGraphics = {
     clear: ReturnType<typeof vi.fn>

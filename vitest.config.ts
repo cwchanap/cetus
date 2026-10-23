@@ -21,6 +21,7 @@ export default defineConfig({
                 'node_modules/**',
                 '**/*.config.*',
                 '**/types.ts',
+                '**/frameworkTypes.ts',
                 '**/index.ts',
                 '**/*.astro',
                 '**/*.test.ts',
@@ -35,6 +36,14 @@ export default defineConfig({
                     environment: 'node',
                     globals: true,
                     include: ['packages/shared/src/**/*.test.ts'],
+                },
+            },
+            {
+                test: {
+                    name: 'games',
+                    environment: 'node',
+                    globals: true,
+                    include: ['packages/games/src/**/*.test.ts'],
                 },
             },
         ],

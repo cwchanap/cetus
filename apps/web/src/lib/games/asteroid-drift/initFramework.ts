@@ -1,4 +1,4 @@
-import { AsteroidDriftGame } from './AsteroidDriftGame'
+import { AsteroidDriftGame } from '@cetus/games/asteroid-drift/AsteroidDriftGame'
 import {
     createAsteroidDriftRendererConfig,
     AsteroidDriftRenderer,
@@ -9,19 +9,20 @@ import {
     type AsteroidDriftOutcome,
     type AsteroidDriftState,
     type AsteroidDriftStats,
-} from './types'
+} from '@cetus/games/asteroid-drift/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
     ChallengeUpdates,
-} from '@/lib/games/core/types'
+} from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
-} from '@/lib/games/core/errors'
-import { isEditableTarget } from '@/lib/games/shared/utils'
+} from '@cetus/games/core/errors'
+import { isEditableTarget } from '@/lib/keyboard'
 import type { AchievementNotification } from '@cetus/shared/achievements'
+import { submitScore } from '@/lib/services/scoreService'
 
 export interface AsteroidDriftInitResult {
     game: AsteroidDriftGame
@@ -88,7 +89,7 @@ export async function initAsteroidDriftGameFramework(): Promise<
         return undefined
     }
 
-    const config = createAsteroidDriftConfig()
+    const config = { ...createAsteroidDriftConfig(), submitScore }
     const renderer = new AsteroidDriftRenderer(
         createAsteroidDriftRendererConfig(config)
     )

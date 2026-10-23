@@ -3,7 +3,7 @@ import {
     CHROMATIC_TIDE_PALETTE,
     type ChromaticTideCell,
     type ChromaticTideState,
-} from './types'
+} from '@cetus/games/chromatic-tide/types'
 
 export class ChromaticTideRenderer extends DOMRenderer {
     protected override renderGame(state: unknown): void {
