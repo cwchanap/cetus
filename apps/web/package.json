@@ -26,6 +26,8 @@
   },
   "dependencies": {
     "@astrojs/vercel": "^8.2.0",
+    "@cetus/api-client": "workspace:*",
+    "@cetus/games": "workspace:*",
     "@cetus/tokens": "workspace:*",
     "@cetus/shared": "workspace:*",
     "@libsql/client": "^0.18.0",

@@ -4,7 +4,14 @@ A futuristic single-player gaming platform featuring interactive minigames with 
 
 ## 🚀 Quick Start
 
-Requires [Bun](https://bun.sh) 1.3.14. This is a Bun-workspaces monorepo — the Astro app lives in `apps/web` (`@cetus/web`), shared configs/tokens in `packages/` — with root scripts proxying into the app:
+Requires [Bun](https://bun.sh) 1.3.14. This is a Bun-workspaces monorepo — the Astro app lives in `apps/web` (`@cetus/web`), portable code in `packages/` — with root scripts proxying into the app:
+
+- `@cetus/shared` — portable domain (Zod request schemas, wire DTOs, score types)
+- `@cetus/games` — portable game rules for all 23 games (depends on `@cetus/shared`)
+- `@cetus/api-client` — typed client for the app API (depends on `@cetus/shared`)
+- `@cetus/config` / `@cetus/tokens` — shared tooling configs and theme tokens
+
+Dependency direction: `web → games/api-client → shared`. The web app owns renderers, DOM pages, Astro routing, auth and the database; new game rules belong in `@cetus/games` (no DOM), renderers stay in `apps/web`.
 
 ```sh
 # Install dependencies
@@ -58,6 +65,12 @@ bun run format
 
 # Check formatting
 bun run format:check
+
+# Typecheck the web app
+bun run typecheck
+
+# Typecheck every workspace package (Turbo)
+bun run turbo run typecheck
 ```
 
 ## 🔄 CI/CD Pipeline

@@ -13,9 +13,13 @@ This project uses **Bun** (`bun@1.3.14`) as the package manager.
 
 ### Repository Layout
 Bun-workspaces monorepo with a single root `bun.lock` (`bunfig.toml` pins the hoisted linker):
-- `apps/web` (`@cetus/web`) — the Astro app: all `src/`, `e2e/`, `scripts/`, `db/`, tests and tool configs live here
+- `apps/web` (`@cetus/web`) — the Astro app: all renderers, DOM pages, Astro, auth, DB and `e2e/`/`scripts/`/`db/` live here
+- `packages/shared` (`@cetus/shared`) — portable domain: Zod request schemas, wire DTOs, score types, achievements, challenges, validations (no DOM, no server deps)
+- `packages/games` (`@cetus/games`) — portable game rules for all 23 games (BaseGame framework, game logic; depends on `@cetus/shared`, no DOM)
+- `packages/api-client` (`@cetus/api-client`) — typed fetch client for the app API (14 methods; depends on `@cetus/shared`)
 - `packages/config` (`@cetus/config`) — shared tsconfig/eslint base configs
 - `packages/tokens` (`@cetus/tokens`) — CSS-only semantic theme tokens
+- Dependency direction: `web → api-client → shared` and `web → games → shared`; packages never import from `apps/web` or each other sideways (enforced by root ESLint `no-restricted-imports` on `packages/**` and per-package no-DOM `typecheck`)
 - Root `package.json` scripts proxy into the web workspace via `bun run --cwd apps/web ...`; root `lint` runs `eslint .` over the whole repo
 
 ### Core Commands
@@ -25,6 +29,8 @@ Bun-workspaces monorepo with a single root `bun.lock` (`bunfig.toml` pins the ho
 - `bun run build` - Build for production
 - `bun run preview` - Preview production build
 - `bun run astro` - Run Astro CLI commands
+- `bun run typecheck` - Typecheck the web app (astro check)
+- `bun run turbo run typecheck` - Typecheck every workspace package (isolated no-DOM typechecks for `shared`/`games`/`api-client` + web)
 
 ### Local Development Setup
 To run the application locally, both the database and web server are required:
@@ -151,6 +157,9 @@ apps/web/
 ├── scripts/              # init-e2e-db.ts, init-db.sql, validate-ice-slide-expedition.ts
 ├── db/                   # Local SQLite database (db.sqlite, git-ignored)
 packages/
+├── shared/               # @cetus/shared — portable domain, Zod request schemas, wire DTOs
+├── games/                # @cetus/games — portable game rules (all 23 games' logic)
+├── api-client/           # @cetus/api-client — typed client for the app API (14 methods)
 ├── config/               # @cetus/config — shared tsconfig/eslint bases
 └── tokens/               # @cetus/tokens — CSS-only semantic theme tokens
 ```
@@ -354,8 +363,7 @@ All API routes follow Astro's file-based routing in `src/pages/api/`:
 - `GET /api/scores/history` - Get user's score history with pagination
 
 **User** (`/api/user`):
-- `GET /api/user/profile` - Get user profile and stats
-- `PUT /api/user/profile` - Update user profile
+- `POST /api/user/profile` - Update user profile (profile page reads session/auth data; there is no profile GET route)
 - `POST /api/user/avatar` - Upload user avatar
 - `POST /api/user/update-streaks` - Update user login streaks
 
