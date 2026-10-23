@@ -297,5 +297,6 @@ describe('Chromatic Tide deterministic calibration', () => {
         expect(proportionAtMost(17)).toBeLessThanOrEqual(0.3)
         expect(proportionAtMost(15)).toBeGreaterThanOrEqual(0.03)
         expect(proportionAtMost(15)).toBeLessThanOrEqual(0.07)
-    })
+        // shortcut: 512-board compute loop ~0.6s bare but 16-22x slower under coverage/CI load; default 5s flakes
+    }, 30_000)
 })

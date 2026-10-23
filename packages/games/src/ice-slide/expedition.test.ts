@@ -236,5 +236,6 @@ describe('Ice Slide Expedition run materialization', () => {
             ).toBe(6)
             expect(() => assertValidIceSlideRunDefinition(run)).not.toThrow()
         }
-    })
+        // shortcut: 500-run compute loop ~0.6s bare but 16-22x slower under coverage/CI load; default 5s flakes
+    }, 30_000)
 })
