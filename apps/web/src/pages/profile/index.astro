@@ -627,6 +627,21 @@ const memberSince = session?.createdAt
   </div>
 
   <script>
+    import {
+      ApiClientError,
+      createApiClient,
+    } from '@cetus/api-client/api-client'
+
+    const api = createApiClient()
+
+    // Coded server errors keep their text; everything else reads as a
+    // network problem (matching the raw-fetch behavior this replaces).
+    function apiErrorMessage(error: unknown): string {
+      return error instanceof ApiClientError && error.kind === 'http'
+        ? error.message
+        : 'Network error. Please try again.'
+    }
+
     // Add some interactive effects
     document.addEventListener('DOMContentLoaded', () => {
       // Add glow effect on achievement cards
@@ -725,40 +740,27 @@ const memberSince = session?.createdAt
             saveDisplayNameBtn.textContent = '⏳'
           }
 
-          const body: { displayName: string } = { displayName: newDisplayName }
           // Allow clearing by sending empty string (API treats '' as null)
-          const response = await fetch('/api/user/profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          })
-          const result = await response.json()
-          if (response.ok && result.success) {
-            // Update heading display name and avatar initial
-            const currentUsername = (usernameTextEl?.textContent || '')
-              .replace(/^@/, '')
-              .trim()
-            const finalDisplay = computeDisplayName(
-              newDisplayName,
-              currentUsername
-            )
-            if (headingDisplayName) {
-              headingDisplayName.textContent = finalDisplay
-            }
-            if (!currentAvatarImg && avatarInitialEl && finalDisplay) {
-              avatarInitialEl.textContent = finalDisplay.charAt(0).toUpperCase()
-            }
-            displayNameEditForm?.classList.add('hidden')
-            displayNameDisplay?.classList.remove('hidden')
-            showMessage('Display name updated!', 'success')
-          } else {
-            showMessage(
-              result.error || 'Failed to update display name',
-              'error'
-            )
+          await api.updateProfile({ displayName: newDisplayName })
+          // Update heading display name and avatar initial
+          const currentUsername = (usernameTextEl?.textContent || '')
+            .replace(/^@/, '')
+            .trim()
+          const finalDisplay = computeDisplayName(
+            newDisplayName,
+            currentUsername
+          )
+          if (headingDisplayName) {
+            headingDisplayName.textContent = finalDisplay
           }
-        } catch (_error) {
-          showMessage('Network error. Please try again.', 'error')
+          if (!currentAvatarImg && avatarInitialEl && finalDisplay) {
+            avatarInitialEl.textContent = finalDisplay.charAt(0).toUpperCase()
+          }
+          displayNameEditForm?.classList.add('hidden')
+          displayNameDisplay?.classList.remove('hidden')
+          showMessage('Display name updated!', 'success')
+        } catch (error) {
+          showMessage(apiErrorMessage(error), 'error')
         } finally {
           if (saveDisplayNameBtn) {
             saveDisplayNameBtn.textContent = originalText
@@ -823,36 +825,27 @@ const memberSince = session?.createdAt
           if (saveUsernameBtn) {
             saveUsernameBtn.textContent = '⏳'
           }
-          const response = await fetch('/api/user/profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: raw }),
-          })
-          const result = await response.json()
-          if (response.ok && result.success) {
-            // Update username text
-            if (usernameTextEl) {
-              usernameTextEl.textContent = isClearing
-                ? 'No username set'
-                : `@${raw}`
-            }
-            // If no displayName set, heading and avatar may rely on username
-            const currentDisplayName = (displayNameInput?.value || '').trim()
-            const finalDisplay = computeDisplayName(currentDisplayName, raw)
-            if (headingDisplayName) {
-              headingDisplayName.textContent = finalDisplay
-            }
-            if (!currentAvatarImg && avatarInitialEl && finalDisplay) {
-              avatarInitialEl.textContent = finalDisplay.charAt(0).toUpperCase()
-            }
-            usernameEditForm?.classList.add('hidden')
-            usernameDisplay?.classList.remove('hidden')
-            showMessage('Username updated!', 'success')
-          } else {
-            showMessage(result.error || 'Failed to update username', 'error')
+          await api.updateProfile({ username: raw })
+          // Update username text
+          if (usernameTextEl) {
+            usernameTextEl.textContent = isClearing
+              ? 'No username set'
+              : `@${raw}`
           }
-        } catch (_error) {
-          showMessage('Network error. Please try again.', 'error')
+          // If no displayName set, heading and avatar may rely on username
+          const currentDisplayName = (displayNameInput?.value || '').trim()
+          const finalDisplay = computeDisplayName(currentDisplayName, raw)
+          if (headingDisplayName) {
+            headingDisplayName.textContent = finalDisplay
+          }
+          if (!currentAvatarImg && avatarInitialEl && finalDisplay) {
+            avatarInitialEl.textContent = finalDisplay.charAt(0).toUpperCase()
+          }
+          usernameEditForm?.classList.add('hidden')
+          usernameDisplay?.classList.remove('hidden')
+          showMessage('Username updated!', 'success')
+        } catch (error) {
+          showMessage(apiErrorMessage(error), 'error')
         } finally {
           if (saveUsernameBtn) {
             saveUsernameBtn.textContent = originalText
@@ -925,33 +918,25 @@ const memberSince = session?.createdAt
         }
 
         try {
-          const response = await fetch('/api/user/avatar', {
-            method: 'DELETE',
-          })
+          await api.deleteAvatar()
 
-          const result = await response.json()
-
-          if (response.ok && result.success) {
-            // Remove avatar image and show initial
-            if (currentAvatar) {
-              currentAvatar.remove()
-            }
-            if (avatarInitial) {
-              avatarInitial.style.display = 'block'
-            }
-
-            // Update overlay to remove the remove button
-            if (avatarUploadOverlay) {
-              avatarUploadOverlay.innerHTML =
-                '<span class="text-white text-xs font-medium">📷 Upload</span>'
-            }
-
-            showMessage('Avatar removed successfully!', 'success')
-          } else {
-            showMessage(result.error || 'Failed to remove avatar', 'error')
+          // Remove avatar image and show initial
+          if (currentAvatar) {
+            currentAvatar.remove()
           }
-        } catch (_error) {
-          showMessage('Network error. Please try again.', 'error')
+          if (avatarInitial) {
+            avatarInitial.style.display = 'block'
+          }
+
+          // Update overlay to remove the remove button
+          if (avatarUploadOverlay) {
+            avatarUploadOverlay.innerHTML =
+              '<span class="text-white text-xs font-medium">📷 Upload</span>'
+          }
+
+          showMessage('Avatar removed successfully!', 'success')
+        } catch (error) {
+          showMessage(apiErrorMessage(error), 'error')
         }
       })
 
@@ -1110,41 +1095,35 @@ const memberSince = session?.createdAt
 
               try {
                 // Upload avatar
-                const response = await fetch('/api/user/avatar', {
-                  method: 'POST',
-                  body: formData,
-                })
+                const result = await api.uploadAvatar(formData)
 
-                const result = await response.json()
+                // Update avatar display
+                if (currentAvatar) {
+                  currentAvatar.src = result.avatar
+                  currentAvatar.style.display = 'block'
+                } else {
+                  // Create new image element if it doesn't exist
+                  const newImg = document.createElement('img')
+                  newImg.src = result.avatar
+                  newImg.alt = 'User avatar'
+                  newImg.className = 'w-full h-full object-cover'
+                  newImg.id = 'current-avatar'
 
-                if (response.ok && result.success) {
-                  // Update avatar display
-                  if (currentAvatar) {
-                    currentAvatar.src = result.avatar
-                    currentAvatar.style.display = 'block'
-                  } else {
-                    // Create new image element if it doesn't exist
-                    const newImg = document.createElement('img')
-                    newImg.src = result.avatar
-                    newImg.alt = 'User avatar'
-                    newImg.className = 'w-full h-full object-cover'
-                    newImg.id = 'current-avatar'
-
-                    // Hide initial and add image
-                    if (avatarInitial) {
-                      avatarInitial.style.display = 'none'
-                    }
-                    avatarDisplay?.appendChild(newImg)
-                  }
-
-                  // Hide initial if it exists
+                  // Hide initial and add image
                   if (avatarInitial) {
                     avatarInitial.style.display = 'none'
                   }
+                  avatarDisplay?.appendChild(newImg)
+                }
 
-                  // Update overlay to include remove button
-                  if (avatarUploadOverlay) {
-                    avatarUploadOverlay.innerHTML = `
+                // Hide initial if it exists
+                if (avatarInitial) {
+                  avatarInitial.style.display = 'none'
+                }
+
+                // Update overlay to include remove button
+                if (avatarUploadOverlay) {
+                  avatarUploadOverlay.innerHTML = `
                     <span class="text-white text-xs font-medium mb-1">📷 Upload</span>
                     <button 
                       id="remove-avatar-btn"
@@ -1154,63 +1133,46 @@ const memberSince = session?.createdAt
                       🗑️ Remove
                     </button>
                   `
-                    // Re-attach event listener for new remove button
-                    const newRemoveBtn =
-                      document.getElementById('remove-avatar-btn')
-                    newRemoveBtn?.addEventListener('click', async e => {
-                      e.stopPropagation()
+                  // Re-attach event listener for new remove button
+                  const newRemoveBtn =
+                    document.getElementById('remove-avatar-btn')
+                  newRemoveBtn?.addEventListener('click', async e => {
+                    e.stopPropagation()
 
-                      if (
-                        !confirm('Are you sure you want to remove your avatar?')
-                      ) {
-                        return
+                    if (
+                      !confirm('Are you sure you want to remove your avatar?')
+                    ) {
+                      return
+                    }
+
+                    try {
+                      await api.deleteAvatar()
+
+                      // Remove avatar image and show initial
+                      if (currentAvatar) {
+                        currentAvatar.remove()
+                      }
+                      if (avatarInitial) {
+                        avatarInitial.style.display = 'block'
                       }
 
-                      try {
-                        const response = await fetch('/api/user/avatar', {
-                          method: 'DELETE',
-                        })
-
-                        const result = await response.json()
-
-                        if (response.ok && result.success) {
-                          // Remove avatar image and show initial
-                          if (currentAvatar) {
-                            currentAvatar.remove()
-                          }
-                          if (avatarInitial) {
-                            avatarInitial.style.display = 'block'
-                          }
-
-                          // Update overlay to remove the remove button
-                          if (avatarUploadOverlay) {
-                            avatarUploadOverlay.innerHTML =
-                              '<span class="text-white text-xs font-medium">📷 Upload</span>'
-                          }
-
-                          showMessage('Avatar removed successfully!', 'success')
-                        } else {
-                          showMessage(
-                            result.error || 'Failed to remove avatar',
-                            'error'
-                          )
-                        }
-                      } catch (_error) {
-                        showMessage('Network error. Please try again.', 'error')
+                      // Update overlay to remove the remove button
+                      if (avatarUploadOverlay) {
+                        avatarUploadOverlay.innerHTML =
+                          '<span class="text-white text-xs font-medium">📷 Upload</span>'
                       }
-                    })
-                  }
 
-                  closeCropModal()
-                  showMessage('Avatar updated successfully!', 'success')
-                } else {
-                  showMessage(
-                    result.error || 'Failed to update avatar',
-                    'error'
-                  )
+                      showMessage('Avatar removed successfully!', 'success')
+                    } catch (error) {
+                      showMessage(apiErrorMessage(error), 'error')
+                    }
+                  })
                 }
-              } catch (_error) {
-                showMessage('Network error. Please try again.', 'error')
+
+                closeCropModal()
+                showMessage('Avatar updated successfully!', 'success')
+              } catch (error) {
+                showMessage(apiErrorMessage(error), 'error')
               }
             },
             'image/png',

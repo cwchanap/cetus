@@ -1,5 +1,8 @@
 import { formatNumber, formatTime } from '@cetus/games/shared/utils'
 import { parseIceSlideDailyRunKey } from '@cetus/games/ice-slide/run'
+import { createApiClient } from '@cetus/api-client/api-client'
+import { GameID } from '@cetus/shared/games'
+import type { ScopedLeaderboardResponse } from '@cetus/shared/api-dto'
 
 export interface DailyLeaderboardEntry {
     rank: number
@@ -26,22 +29,6 @@ export interface DailyLeaderboardElements {
     empty: HTMLElement
     unavailable: HTMLElement
     rows: HTMLElement
-}
-
-/**
- * Build the exact scoped `/api/leaderboard` URL for an Ice Slide Daily
- * competition key. The key is URL-encoded so its colons survive transport.
- */
-export function buildIceSlideDailyLeaderboardUrl(
-    competitionKey: string
-): string {
-    const params = new URLSearchParams({
-        gameId: 'ice_slide',
-        mode: 'daily',
-        competitionKey,
-        limit: '10',
-    })
-    return `/api/leaderboard?${params.toString()}`
 }
 
 /**
@@ -140,6 +127,9 @@ export function createDailyLeaderboardController(
     load: (competitionKey: string) => Promise<void>
     hide: () => void
 } {
+    // Rides the shared typed client with the injectable fetch seam; scoped
+    // Daily params and URL encoding are owned by the client now.
+    const client = createApiClient({ fetchImpl: fetcher })
     let token = 0
 
     const render = (data: DailyLeaderboardResponse): void => {
@@ -175,29 +165,20 @@ export function createDailyLeaderboardController(
         elements.date.textContent = identity.dateKey
         setDailyLeaderboardPanelState(elements, 'loading')
 
-        let response: Response
+        let data: ScopedLeaderboardResponse
         try {
-            response = await fetcher(
-                buildIceSlideDailyLeaderboardUrl(competitionKey)
-            )
+            // The scoped query above selects the scoped branch of the
+            // leaderboard union; its entries are structurally the renderer's
+            // narrower DailyLeaderboardResponse (extra wire fields ignored).
+            data = (await client.getLeaderboard({
+                gameId: GameID.ICE_SLIDE,
+                mode: 'daily',
+                competitionKey,
+                limit: 10,
+            })) as ScopedLeaderboardResponse
         } catch {
-            if (current === token) {
-                showUnavailable()
-            }
-            return
-        }
-        if (current !== token) {
-            return
-        }
-        if (!response.ok) {
-            showUnavailable()
-            return
-        }
-
-        let data: DailyLeaderboardResponse
-        try {
-            data = (await response.json()) as DailyLeaderboardResponse
-        } catch {
+            // Network, non-2xx and malformed-body failures all surface as
+            // ApiClientError and render as the unavailable state.
             if (current === token) {
                 showUnavailable()
             }

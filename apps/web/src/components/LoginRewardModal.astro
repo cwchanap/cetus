@@ -14,6 +14,7 @@ const { status } = Astro.props
   id="login-reward-overlay"
   class="fixed inset-0 z-50 hidden"
   aria-hidden="true"
+  data-initial-status={JSON.stringify(status ?? null)}
 >
   <div
     class="absolute inset-0 bg-black/80 backdrop-blur-sm"
@@ -245,13 +246,42 @@ const { status } = Astro.props
   }
 </style>
 
-<script define:vars={{ initialStatus: status }}>
+<script>
+  import { ApiClientError, createApiClient } from '@cetus/api-client/api-client'
+  import type { LoginRewardClaimResponse } from '@cetus/shared/api-dto'
+  import type { LoginRewardStatusResult } from '@/lib/services/loginRewardService'
+
+  const api = createApiClient()
+
+  declare global {
+    interface Window {
+      loginRewardModal?: LoginRewardModal
+      showLoginRewardModal?: () => Promise<void>
+    }
+  }
+
   class LoginRewardModal {
+    overlay: HTMLElement | null
+    card: HTMLElement | null
+    claimBtn: HTMLButtonElement | null
+    closeBtn: HTMLButtonElement | null
+    alreadyClaimedDiv: HTMLElement | null
+    levelUpIndicator: HTMLElement | null
+    milestoneEarned: HTMLElement | null
+    status: LoginRewardStatusResult | null
+    isOpen: boolean
+    _isClaiming: boolean
+    onKeydown: ((e: KeyboardEvent) => void) | null
+
     constructor() {
       this.overlay = document.getElementById('login-reward-overlay')
       this.card = document.getElementById('login-reward-card')
-      this.claimBtn = document.getElementById('claim-reward-btn')
-      this.closeBtn = document.getElementById('close-reward-modal')
+      this.claimBtn = document.getElementById(
+        'claim-reward-btn'
+      ) as HTMLButtonElement | null
+      this.closeBtn = document.getElementById(
+        'close-reward-modal'
+      ) as HTMLButtonElement | null
       this.alreadyClaimedDiv = document.getElementById('already-claimed')
       this.levelUpIndicator = document.getElementById('level-up-indicator')
       this.milestoneEarned = document.getElementById('milestone-earned')
@@ -262,10 +292,25 @@ const { status } = Astro.props
 
       this.setupEventListeners()
 
-      // Auto-show if there's an initial status and reward is claimable
+      // Auto-show if there's an initial status and reward is claimable.
+      // The server-rendered status rides a data attribute so this module
+      // script can stay bundled and import the API client.
+      const initialStatus = this.readInitialStatus()
       if (initialStatus && initialStatus.canClaim) {
         // Small delay to allow page to render first
         setTimeout(() => this.show(initialStatus), 500)
+      }
+    }
+
+    readInitialStatus(): LoginRewardStatusResult | null {
+      const raw = this.overlay?.getAttribute('data-initial-status')
+      if (!raw) {
+        return null
+      }
+      try {
+        return JSON.parse(raw) as LoginRewardStatusResult
+      } catch {
+        return null
       }
     }
 
@@ -283,7 +328,8 @@ const { status } = Astro.props
       // Backdrop click
       if (this.overlay) {
         this.overlay.addEventListener('click', e => {
-          if (e.target.dataset.overlayBackdrop === 'true') {
+          const target = e.target as HTMLElement | null
+          if (target?.dataset.overlayBackdrop === 'true') {
             this.hide()
           }
         })
@@ -298,7 +344,7 @@ const { status } = Astro.props
       document.addEventListener('keydown', this.onKeydown)
     }
 
-    show(status) {
+    show(status: LoginRewardStatusResult) {
       if (!this.overlay) {
         return
       }
@@ -326,7 +372,7 @@ const { status } = Astro.props
       this.isOpen = false
     }
 
-    updateUI(status) {
+    updateUI(status: LoginRewardStatusResult) {
       // Update 7-day calendar
       const dayElements = document.querySelectorAll('[data-reward-day]')
       dayElements.forEach((el, index) => {
@@ -407,20 +453,7 @@ const { status } = Astro.props
       this.claimBtn.textContent = 'Claiming...'
 
       try {
-        const response = await fetch('/api/login-rewards/claim', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        })
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error('Claim failed:', response.status, errorText)
-          this.showClaimError('Claim failed. Please try again later.')
-          this._isClaiming = false
-          return
-        }
-
-        const result = await response.json()
+        const result = await api.claimLoginReward()
 
         if (result.success) {
           this.showClaimSuccess(result)
@@ -428,15 +461,20 @@ const { status } = Astro.props
           this.showClaimError(result.error || 'Failed to claim reward')
         }
       } catch (error) {
-        console.error('Failed to claim reward:', error)
-        this.showClaimError('Network error. Please try again.')
+        if (error instanceof ApiClientError && error.kind !== 'network') {
+          console.error('Claim failed:', error.status, error.message)
+          this.showClaimError('Claim failed. Please try again later.')
+        } else {
+          console.error('Failed to claim reward:', error)
+          this.showClaimError('Network error. Please try again.')
+        }
       } finally {
         // Always clear the re-entrancy guard
         this._isClaiming = false
       }
     }
 
-    showClaimSuccess(result) {
+    showClaimSuccess(result: LoginRewardClaimResponse) {
       // Update the UI with new status BEFORE showing success indicators
       if (result.updatedStatus) {
         this.updateUI(result.updatedStatus)
@@ -451,7 +489,11 @@ const { status } = Astro.props
       }
 
       // Show level up if applicable
-      if (result.leveledUp && this.levelUpIndicator) {
+      if (
+        result.leveledUp &&
+        result.newLevel !== undefined &&
+        this.levelUpIndicator
+      ) {
         const newLevelEl = document.getElementById('new-level-display')
         if (newLevelEl) {
           newLevelEl.textContent = result.newLevel.toString()
@@ -491,14 +533,15 @@ const { status } = Astro.props
       setTimeout(() => this.hide(), 3000)
     }
 
-    showClaimError(message) {
-      if (this.claimBtn) {
-        this.claimBtn.textContent = message
-        this.claimBtn.disabled = false
+    showClaimError(message: string) {
+      const btn = this.claimBtn
+      if (btn) {
+        btn.textContent = message
+        btn.disabled = false
 
         // Reset button after 2 seconds
         setTimeout(() => {
-          this.claimBtn.textContent = 'Claim Reward'
+          btn.textContent = 'Claim Reward'
         }, 2000)
       }
     }
@@ -513,7 +556,7 @@ const { status } = Astro.props
   }
 
   // Initialize modal
-  let loginRewardModal
+  let loginRewardModal: LoginRewardModal | undefined
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
@@ -528,12 +571,9 @@ const { status } = Astro.props
   // Expose function to show modal manually
   window.showLoginRewardModal = async function () {
     try {
-      const response = await fetch('/api/login-rewards')
-      if (response.ok) {
-        const status = await response.json()
-        if (window.loginRewardModal) {
-          window.loginRewardModal.show(status)
-        }
+      const status = await api.getLoginRewardStatus()
+      if (window.loginRewardModal) {
+        window.loginRewardModal.show(status)
       }
     } catch (error) {
       console.error('Failed to fetch login reward status:', error)

@@ -46,6 +46,14 @@ export default defineConfig({
                     include: ['packages/games/src/**/*.test.ts'],
                 },
             },
+            {
+                test: {
+                    name: 'api-client',
+                    environment: 'node',
+                    globals: true,
+                    include: ['packages/api-client/src/**/*.test.ts'],
+                },
+            },
         ],
     },
 })

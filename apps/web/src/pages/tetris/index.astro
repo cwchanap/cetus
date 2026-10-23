@@ -499,7 +499,9 @@ const neighbours = [
   import { LINE_CLEAR_BASE_SCORE } from '@cetus/games/tetris/TetrisGame'
   import { getUserBestScore } from '@/lib/services/scoreService'
   import { GameID } from '@cetus/shared/games'
-  import type { UserChallengeProgress } from '@cetus/shared/challenges'
+  import { createApiClient } from '@cetus/api-client/api-client'
+
+  const api = createApiClient()
 
   const sheet = document.querySelector<HTMLDialogElement>('#field-sheet')!
   const panels = [...sheet.querySelectorAll<HTMLElement>('[data-panel]')]
@@ -591,18 +593,7 @@ const neighbours = [
       return
     }
     try {
-      const response = await fetch('/api/challenges', { signal })
-      if (!response.ok) {
-        throw new Error('Challenges unavailable')
-      }
-      const data: {
-        challenges: UserChallengeProgress[]
-        xp: number
-        level: number
-        xpProgress: number
-        xpToNextLevel: number
-        streak: number
-      } = await response.json()
+      const data = await api.getChallenges({ signal })
       setText('account-label', `LV ${data.level}`)
       setText('xp-label', `Level ${data.level} · ${data.xp} XP`)
       setText('xp-next', `${data.xpToNextLevel} to next level`)
@@ -652,15 +643,13 @@ const neighbours = [
   }
   const refreshLeaderboard = async () => {
     try {
-      const response = await fetch('/api/leaderboard?gameId=tetris&limit=5', {
-        signal,
-      })
-      if (!response.ok) {
+      const data = await api.getLeaderboard(
+        { gameId: GameID.TETRIS, limit: 5 },
+        { signal }
+      )
+      if (!('leaderboard' in data)) {
         throw new Error('Leaderboard unavailable')
       }
-      const data: {
-        leaderboard: Array<{ rank: number; name: string; score: number }>
-      } = await response.json()
       const list = document.getElementById('leaderboard')!
       list.replaceChildren()
       data.leaderboard.forEach(entry => {

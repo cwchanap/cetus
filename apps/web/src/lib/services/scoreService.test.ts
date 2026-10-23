@@ -3,7 +3,6 @@ import { GameID } from '@cetus/shared/games'
 import {
     submitScore,
     saveGameScore,
-    getUserGameHistory,
     getUserBestScore,
     formatGameName,
     formatScore,
@@ -258,21 +257,6 @@ describe('Score Service', () => {
             )
         })
 
-        it('should use fallback error message when result has no error field', async () => {
-            global.fetch = vi.fn().mockResolvedValue({
-                ok: true,
-                json: () => Promise.resolve({ success: false }),
-            })
-
-            const onError = vi.fn()
-            await saveGameScore(GameID.TETRIS, 1000, undefined, onError)
-
-            expect(onError).toHaveBeenCalledWith(
-                'Failed to save score',
-                expect.objectContaining({ success: false })
-            )
-        })
-
         it('should call onError when network request throws', async () => {
             global.fetch = vi
                 .fn()
@@ -309,39 +293,6 @@ describe('Score Service', () => {
         })
     })
 
-    describe('getUserGameHistory', () => {
-        it('should fetch user game history successfully', async () => {
-            const mockHistory = [
-                {
-                    game_id: 'tetris',
-                    game_name: 'Tetris Challenge',
-                    score: 1000,
-                    created_at: '2023-01-01T00:00:00Z',
-                },
-            ]
-
-            global.fetch = vi.fn().mockResolvedValue({
-                ok: true,
-                json: () => Promise.resolve({ history: mockHistory }),
-            })
-
-            const result = await getUserGameHistory(10)
-
-            expect(result).toEqual(mockHistory)
-            expect(global.fetch).toHaveBeenCalledWith(
-                '/api/scores/history?limit=10'
-            )
-        })
-
-        it('should return empty array on error', async () => {
-            global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
-
-            const result = await getUserGameHistory(10)
-
-            expect(result).toEqual([])
-        })
-    })
-
     describe('getUserBestScore', () => {
         it('should fetch user best score successfully', async () => {
             global.fetch = vi.fn().mockResolvedValue({
@@ -353,7 +304,8 @@ describe('Score Service', () => {
 
             expect(result).toBe(1500)
             expect(global.fetch).toHaveBeenCalledWith(
-                `/api/scores/best?gameId=${GameID.TETRIS}`
+                `/api/scores/best?gameId=${GameID.TETRIS}`,
+                expect.anything()
             )
         })
 
@@ -979,26 +931,6 @@ describe('Score Service', () => {
             expect(global.fetch).toHaveBeenCalledTimes(1)
             expect(onSuccess).toHaveBeenCalled()
         })
-    })
-})
-
-describe('getUserGameHistory - non-ok response', () => {
-    it('should return empty array when response is not ok', async () => {
-        global.fetch = vi.fn().mockResolvedValue({
-            ok: false,
-            status: 500,
-        })
-        const result = await getUserGameHistory()
-        expect(result).toEqual([])
-    })
-
-    it('should return empty array when history key is missing', async () => {
-        global.fetch = vi.fn().mockResolvedValue({
-            ok: true,
-            json: () => Promise.resolve({}),
-        })
-        const result = await getUserGameHistory()
-        expect(result).toEqual([])
     })
 })
 

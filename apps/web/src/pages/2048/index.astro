@@ -443,7 +443,9 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
   import { getTileColor, getTileTextColor } from '@cetus/games/2048/utils'
   import { getUserBestScore } from '@/lib/services/scoreService'
   import { GameID } from '@cetus/shared/games'
-  import type { UserChallengeProgress } from '@cetus/shared/challenges'
+  import { createApiClient } from '@cetus/api-client/api-client'
+
+  const api = createApiClient()
 
   const sheet = document.querySelector<HTMLDialogElement>('#field-sheet')!
   const panels = [...sheet.querySelectorAll<HTMLElement>('[data-panel]')]
@@ -535,18 +537,7 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
       return
     }
     try {
-      const response = await fetch('/api/challenges', { signal })
-      if (!response.ok) {
-        throw new Error('Challenges unavailable')
-      }
-      const data: {
-        challenges: UserChallengeProgress[]
-        xp: number
-        level: number
-        xpProgress: number
-        xpToNextLevel: number
-        streak: number
-      } = await response.json()
+      const data = await api.getChallenges({ signal })
       setText('account-label', `LV ${data.level}`)
       setText('xp-label', `Level ${data.level} · ${data.xp} XP`)
       setText('xp-next', `${data.xpToNextLevel} to next level`)
@@ -596,15 +587,13 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
   }
   const refreshLeaderboard = async () => {
     try {
-      const response = await fetch('/api/leaderboard?gameId=2048&limit=5', {
-        signal,
-      })
-      if (!response.ok) {
+      const data = await api.getLeaderboard(
+        { gameId: GameID.GAME_2048, limit: 5 },
+        { signal }
+      )
+      if (!('leaderboard' in data)) {
         throw new Error('Leaderboard unavailable')
       }
-      const data: {
-        leaderboard: Array<{ rank: number; name: string; score: number }>
-      } = await response.json()
       const list = document.getElementById('leaderboard')!
       list.replaceChildren()
       data.leaderboard.forEach(entry => {
