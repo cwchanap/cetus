@@ -34,7 +34,7 @@ function loadAuthSecret(): string {
             'BETTER_AUTH_SECRET not found in env or apps/web/.env — cannot seed an E2E session'
         )
     }
-    return match[1].trim()
+    return match[1].trim().replace(/^["']|["']$/g, '')
 }
 
 let cachedDialect: LibsqlDialect | undefined

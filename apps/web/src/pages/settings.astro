@@ -230,12 +230,15 @@ const frauncesStyle =
 </AppLayout>
 
 <script>
+  import { ApiClientError, createApiClient } from '@cetus/api-client/api-client'
   import { type ClientPreferences } from '@cetus/shared/preferences'
   import {
     getClientPreferences,
     saveClientPreferences,
     updateSoundPreference,
   } from '@/lib/preferences'
+
+  const api = createApiClient()
 
   // Initialize on DOM ready
   document.addEventListener('DOMContentLoaded', () => {
@@ -401,61 +404,21 @@ const frauncesStyle =
         }
 
         try {
-          const response = await fetch('/api/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ [prefKey]: detail.checked }),
-          })
-
-          // Check response.ok before parsing JSON
-          if (!response.ok) {
-            const errorText = await response.text()
-            console.error(
-              `Failed to save preference (${response.status}): ${errorText}`
-            )
-            showSaveStatus(`Failed to save (${response.status})`, 'error')
-            // Revert toggle with guard to prevent handler re-entry
-            ignoreRevert = true
-            const button = toggle as HTMLButtonElement
-            button.click()
-            queueMicrotask(() => {
-              ignoreRevert = false
-            })
-            return
-          }
-
-          // Try to parse JSON response
-          let result: { success: boolean }
-          try {
-            result = await response.json()
-          } catch (parseError) {
-            console.error('Failed to parse response JSON:', parseError)
-            showSaveStatus('Invalid response from server', 'error')
-            // Revert toggle with guard to prevent handler re-entry
-            ignoreRevert = true
-            const button = toggle as HTMLButtonElement
-            button.click()
-            queueMicrotask(() => {
-              ignoreRevert = false
-            })
-            return
-          }
-
-          if (result.success) {
-            showSaveStatus('Saved!', 'success')
-          } else {
-            showSaveStatus('Failed to save', 'error')
-            // Revert toggle with guard to prevent handler re-entry
-            ignoreRevert = true
-            const button = toggle as HTMLButtonElement
-            button.click()
-            queueMicrotask(() => {
-              ignoreRevert = false
-            })
-          }
+          await api.updateSettings({ [prefKey]: detail.checked })
+          showSaveStatus('Saved!', 'success')
         } catch (error) {
-          console.error('Failed to save preference:', error)
-          showSaveStatus('Network error', 'error')
+          if (error instanceof ApiClientError && error.kind === 'parse') {
+            console.error('Failed to parse response JSON:', error)
+            showSaveStatus('Invalid response from server', 'error')
+          } else if (error instanceof ApiClientError && error.kind === 'http') {
+            console.error(
+              `Failed to save preference (${error.status}): ${error.message}`
+            )
+            showSaveStatus(`Failed to save (${error.status})`, 'error')
+          } else {
+            console.error('Failed to save preference:', error)
+            showSaveStatus('Network error', 'error')
+          }
           // Revert toggle with guard to prevent handler re-entry
           ignoreRevert = true
           const button = toggle as HTMLButtonElement

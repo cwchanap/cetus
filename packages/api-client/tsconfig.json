@@ -1,0 +1,15 @@
+{
+    "extends": "@cetus/config/tsconfig.base.json",
+    "include": ["src/**/*.ts"],
+    "compilerOptions": {
+        "noEmit": true,
+        // ES standard library only — no DOM. fetch/FormData/Headers typings
+        // come from Node's; browser globals are a compile error inside the
+        // package, keeping the client host-agnostic.
+        "lib": ["ES2022"],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "verbatimModuleSyntax": true,
+        "types": ["node"]
+    }
+}

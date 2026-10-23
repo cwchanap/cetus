@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-    buildIceSlideDailyLeaderboardUrl,
     createDailyLeaderboardController,
     createDailyLeaderboardRowElement,
     formatDailyLeaderboardElapsed,
@@ -49,15 +48,6 @@ const baseEntry = (
 })
 
 describe('Ice Slide Daily leaderboard helpers', () => {
-    it('builds the scoped Daily leaderboard URL with an encoded key', () => {
-        expect(
-            buildIceSlideDailyLeaderboardUrl('ice-slide:daily:2026-08-12:g1:r1')
-        ).toBe(
-            '/api/leaderboard?gameId=ice_slide&mode=daily&competitionKey=' +
-                'ice-slide%3Adaily%3A2026-08-12%3Ag1%3Ar1&limit=10'
-        )
-    })
-
     it('formats elapsed seconds for the leaderboard', () => {
         expect(formatDailyLeaderboardElapsed(null)).toBe('—')
         expect(formatDailyLeaderboardElapsed(87)).toBe('1:27')
@@ -195,6 +185,9 @@ describe('Ice Slide Daily leaderboard controller', () => {
 
         const oldPromise = controller.load('ice-slide:daily:2026-08-11:g1:r1')
         const newPromise = controller.load('ice-slide:daily:2026-08-12:g1:r1')
+        // The client resolves its header merge one microtask before calling
+        // the injected fetcher, so flush before resolving responses.
+        await Promise.resolve()
 
         resolvers[1](
             makeResponse({
@@ -221,6 +214,8 @@ describe('Ice Slide Daily leaderboard controller', () => {
         )
 
         const pending = controller.load('ice-slide:daily:2026-08-12:g1:r1')
+        // Flush one microtask so the pending request has reached the fetcher.
+        await Promise.resolve()
         controller.hide()
 
         expect(elements.panel.classList.contains('hidden')).toBe(true)
@@ -276,5 +271,29 @@ describe('Ice Slide Daily leaderboard controller', () => {
         await controller.load('ice-slide:daily:2026-08-12:g1:r1')
 
         expect(elements.unavailable.classList.contains('hidden')).toBe(false)
+    })
+
+    it('requests the scoped Daily params through the typed client', async () => {
+        const scopedFetcher = vi.fn((_url: string) =>
+            Promise.resolve(
+                makeResponse({ viewerAuthenticated: true, leaderboard: [] })
+            )
+        )
+        const controller = createDailyLeaderboardController(
+            elements,
+            scopedFetcher as unknown as typeof fetch
+        )
+
+        await controller.load('ice-slide:daily:2026-08-12:g1:r1')
+
+        const requestedUrl = scopedFetcher.mock.calls[0]?.[0] as string
+        const params = new URL(requestedUrl, 'https://cetus.test').searchParams
+        expect(params.get('gameId')).toBe('ice_slide')
+        expect(params.get('mode')).toBe('daily')
+        expect(params.get('competitionKey')).toBe(
+            'ice-slide:daily:2026-08-12:g1:r1'
+        )
+        expect(params.get('limit')).toBe('10')
+        expect(elements.empty.classList.contains('hidden')).toBe(false)
     })
 })

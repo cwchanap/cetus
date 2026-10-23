@@ -1,11 +1,12 @@
 /**
  * Score Service - Centralized score management for all games
  *
- * This module owns the browser fetch transport (POST /api/scores); game
- * simulations receive it via the injected `submitScore` config — there is
- * no implicit fallback. The transport contracts (`ScoreData`,
- * `ScoreSubmissionResult`, `ScoreSubmitter`) are canonically defined in
- * `@cetus/shared/scores`.
+ * This module is the thin web adapter over `@cetus/api-client`: score
+ * submission and best-score lookups ride the shared typed client (relative
+ * base URL, ambient browser fetch). Game simulations receive the submitter
+ * via the injected `submitScore` config — there is no implicit fallback.
+ * The transport contracts (`ScoreData`, `ScoreSubmissionResult`,
+ * `ScoreSubmitter`) are canonically defined in `@cetus/shared/scores`.
  */
 
 import { type GameID, getGameById } from '@cetus/shared/games'
@@ -19,6 +20,7 @@ import type {
     ScoreSubmissionResult,
     ScoreSubmitter,
 } from '@cetus/shared/scores'
+import { createApiClient } from '@cetus/api-client/api-client'
 
 export interface SaveScoreOptions {
     isStale?: () => boolean
@@ -27,12 +29,9 @@ export interface SaveScoreOptions {
     platform?: ScorePlatform
 }
 
-export interface GameHistoryEntry {
-    game_id: string
-    game_name: string
-    score: number
-    created_at: string
-}
+// Lazily binds the ambient global fetch at call time (instead of capturing
+// it at import time) so tests and hosts can stub global.fetch after import.
+const api = createApiClient({ fetchImpl: (...args) => fetch(...args) })
 
 /**
  * Submit a score to the server with comprehensive error handling
@@ -40,56 +39,7 @@ export interface GameHistoryEntry {
 export async function submitScore(
     scoreData: ScoreData
 ): Promise<ScoreSubmissionResult> {
-    try {
-        const response = await fetch('/api/scores', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(scoreData),
-        })
-
-        if (!response.ok) {
-            let body: { code?: unknown } | null = null
-            try {
-                body = (await response.json()) as { code?: unknown }
-            } catch {
-                body = null
-            }
-
-            const code =
-                response.status === 401
-                    ? 'UNAUTHENTICATED'
-                    : body?.code === 'SCORE_CONTEXT_UNAVAILABLE'
-                      ? body.code
-                      : undefined
-
-            if (response.status === 401) {
-                return {
-                    success: false,
-                    error: 'You must be logged in to save scores',
-                    code,
-                }
-            } else if (response.status === 400) {
-                return { success: false, error: 'Invalid score data', code }
-            } else {
-                return { success: false, error: 'Failed to save score', code }
-            }
-        }
-
-        const result = await response.json()
-        return {
-            success: result.success !== false,
-            newAchievements: result.newAchievements || [],
-            challengeUpdates: result.challengeUpdates,
-        }
-    } catch (_error) {
-        return {
-            success: false,
-            error: 'Network error occurred',
-            code: 'NETWORK_ERROR',
-        }
-    }
+    return api.submitScore(scoreData)
 }
 
 /**
@@ -168,31 +118,11 @@ export async function saveGameScore(
 }
 
 /**
- * Get user's game history
- */
-export async function getUserGameHistory(
-    limit: number = 10
-): Promise<GameHistoryEntry[]> {
-    try {
-        const response = await fetch(`/api/scores/history?limit=${limit}`)
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const result = await response.json()
-        return result.history || []
-    } catch (_error) {
-        return []
-    }
-}
-
-/**
  * Get user's best score for a specific game.
  *
  * Returns the best score as a number, or null when the user has no score.
  *
- * Note: this helper intentionally collapses every non-success path — network
+ * Note: this adapter intentionally collapses every non-success path — network
  * errors, non-2xx responses, and the server's retryable 503
  * `SCORE_CONTEXT_UNAVAILABLE` state (see `src/pages/api/scores/best.ts`) — to
  * the same null result used for "no score yet". This is the documented client
@@ -203,15 +133,7 @@ export async function getUserGameHistory(
  */
 export async function getUserBestScore(gameId: GameID): Promise<number | null> {
     try {
-        const response = await fetch(
-            `/api/scores/best?gameId=${encodeURIComponent(gameId)}`
-        )
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const result = await response.json()
+        const result = await api.getBestScore(gameId)
         return result.bestScore
     } catch (_error) {
         return null
