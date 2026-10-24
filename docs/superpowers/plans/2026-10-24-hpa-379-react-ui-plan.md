@@ -17,8 +17,8 @@ Linear: https://linear.app/cwchanap/issue/HPA-379/port-the-astro-ui-components-t
 - [ ] Add one compatible React/React DOM pair and `@astrojs/react` to `apps/web`/workspace, register `react()` alongside the current Vercel/Tailwind configuration. Confirm Astro 5 and TypeScript 6 compatibility when installing; do not guess version numbers.
 - [ ] Create `packages/ui/package.json`, TS config and component entry points. Use React peer dependencies and `@cetus/shared` types; no Astro/runtime backend imports.
 - [ ] Reuse existing `cn` behavior (clsx + tailwind-merge), existing `cva` library, and `@cetus/tokens`; **do not** add a design system, new themes or global state dependency.
-- [ ] Add UI jsdom tests to the root Vitest projects/coverage aggregation and package boundary rules to existing ESLint config.
-- [ ] Smoke-test Astro SSR rendering of a static React component and `client:load` behavior of an interactive one; verify CSS includes classes from `packages/ui`.
+- [ ] Add `@testing-library/react` to the web/UI test dependencies (the repo already has `@testing-library/dom` and jest-dom). Add UI jsdom tests to the root Vitest projects/coverage aggregation and package boundary rules to existing ESLint config.
+- [ ] In `apps/web/src/styles/global.css`, keep the existing `@import 'tailwindcss' source('../..')` and add `@source "../../../../packages/ui";` near it. That path is relative to the stylesheet, **not** `../../packages/ui` as proposed in review. Smoke-test Astro SSR for a static component and `client:load` for an interactive one; assert a package-only utility appears in the built CSS.
 
 ## Stage 2 — Migrate static primitives and catalog (mechanical)
 
@@ -30,9 +30,9 @@ Linear: https://linear.app/cwchanap/issue/HPA-379/port-the-astro-ui-components-t
 
 ## Stage 3 — Interactive primitives
 
-- [ ] Port Select, Slider, Toggle, Tabs + TabsTrigger/TabsContent with their current visuals and native controls/ARIA. Prefer simple React state/handlers over copying document-wide listeners.
-- [ ] Inventory legacy events before removal; maintain actual consumer-visible change behavior (especially `tab-change`) through a narrow adapter where needed.
-- [ ] Apply `client:load` only at owning interactive island boundaries. Verify controlled/uncontrolled values, keyboard, disabled, form submission, tab navigation, focus and no duplicate init on navigation.
+- [ ] Port Select, Slider and Toggle with their current visuals and native controls/ARIA. Prefer simple React state/handlers over copying document-wide listeners. Do not implement Tabs/TabsTrigger/TabsContent: current code has no consumers.
+- [ ] Inventory legacy events before removal and preserve events that have actual consumers. Do not create a `tab-change` adapter; the existing Tabs event has no listeners.
+- [ ] Apply `client:load` only at owning interactive island boundaries. Verify controlled/uncontrolled values, keyboard, disabled, form submission, focus and no duplicate init on navigation.
 - [ ] Gate: Testing Library event/keyboard tests plus representative browser flows.
 
 ## Stage 4 — Feature components and web adapters
@@ -53,10 +53,10 @@ Linear: https://linear.app/cwchanap/issue/HPA-379/port-the-astro-ui-components-t
 
 ## Stage 6 — Cleanup, regression, single-PR finish
 
-- [ ] Remove replaced Astro component files and old event scripts; check for dead imports, duplicate CSS and stale event listeners. The only explicit game-wrapper exception is the `GamePage.astro` layout/slot shell retained for HPA-393.
+- [ ] Delete the unused `apps/web/src/components/ui/Tabs.astro`, `TabsTrigger.astro` and `TabsContent.astro` outright (plus orphaned Tab-only tests/styles); do **not** recreate them in React. Remove replaced Astro component files and old event scripts; check for dead imports, duplicate CSS and stale event listeners. The approved game-wrapper exception is the `GamePage.astro` layout/slot shell retained for HPA-393.
 - [ ] Verify no `@cetus/ui` import reaches `apps/web`, Astro, Pixi, auth or server code; check there are no unnecessary hydrated static islands.
 - [ ] Run `bun run typecheck`, `bun run lint`, `bun run test:coverage`, `bun run build`, `bun run test:e2e`; record results and maintain 90% coverage gates. Compare reference screenshots at both widths and review client bundle/hydration behavior.
-- [ ] Update the **same PR** with outcome, residual caveats and exact contract retained for HPA-393. Link it on the HPA-379 ticket; do not mark ticket Done until implementation and gates pass.
+- [ ] Update the **same PR** with outcome, residual caveats and exact contract retained for HPA-393. Link it on HPA-379 (the October 24 reviewer approved the Astro shell exception and Tabs scope cut); do not mark ticket Done until implementation and gates pass.
 
 ## Expected files
 
