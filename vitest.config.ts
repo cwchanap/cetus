@@ -25,6 +25,7 @@ export default defineConfig({
                 '**/index.ts',
                 '**/*.astro',
                 '**/*.test.ts',
+                '**/*.test-d.ts',
                 '**/*.spec.ts',
             ],
         },
