@@ -25,17 +25,16 @@ import type {
     ScoreSubmitResponse,
     SettingsUpdateResponse,
     SuccessMessageResponse,
-    UpdateStreaksResponse,
 } from '@cetus/shared/api-dto'
 import type { ScoreData, ScoreSubmissionResult } from '@cetus/shared/scores'
 
 /** How an {@link ApiClientError} originated. */
 export type ApiClientErrorKind =
-    /** Non-2xx HTTP response. */
+    /** The server rejected the request: non-2xx, or a 2xx body whose `success` flag is not `true`. */
     | 'http'
     /** fetch itself rejected (offline, aborted, DNS…). */
     | 'network'
-    /** 2xx response whose body was not valid JSON. */
+    /** 2xx response whose body was not valid JSON or not the expected shape. */
     | 'parse'
 
 /** Error thrown by every non-score client operation on failure. */
@@ -45,18 +44,22 @@ export class ApiClientError extends Error {
     readonly kind: ApiClientErrorKind
     /** Machine-readable `code` from a coded error body, when present. */
     readonly code: string | undefined
+    /** Error text carried by the response body, when the server sent one. */
+    readonly serverMessage: string | undefined
 
     constructor(
         message: string,
         status: number,
         kind: ApiClientErrorKind,
-        code?: string
+        code?: string,
+        serverMessage?: string
     ) {
         super(message)
         this.name = 'ApiClientError'
         this.status = status
         this.kind = kind
         this.code = code
+        this.serverMessage = serverMessage
     }
 }
 
@@ -100,7 +103,6 @@ export interface ApiClient {
     updateProfile(profile: ProfileUpdateInput): Promise<SuccessMessageResponse>
     uploadAvatar(avatar: FormData): Promise<AvatarUpdateResponse>
     deleteAvatar(): Promise<SuccessMessageResponse>
-    updateStreaks(): Promise<UpdateStreaksResponse>
 }
 
 export function createApiClient(options: ApiClientOptions = {}): ApiClient {
@@ -123,25 +125,24 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         return extra ? { ...base, ...extra } : base
     }
 
-    // Guarded unknown-body property check (same pattern as the coded
+    // Guarded unknown-body property read (same pattern as the coded
     // envelope handling in scoreService): a non-JSON or unexpectedly-shaped
-    // error body must not throw here.
-    async function readErrorBody(
-        response: Response
-    ): Promise<{ message: string | undefined; code: string | undefined }> {
-        let body: { error?: unknown; code?: unknown } | null
-        try {
-            body = (await response.json()) as {
+    // body must not throw here.
+    function errorFields(body: unknown): {
+        message: string | undefined
+        code: string | undefined
+    } {
+        if (body !== null && typeof body === 'object') {
+            const { error, code } = body as {
                 error?: unknown
                 code?: unknown
             }
-        } catch {
-            body = null
+            return {
+                message: typeof error === 'string' ? error : undefined,
+                code: typeof code === 'string' ? code : undefined,
+            }
         }
-        return {
-            message: typeof body?.error === 'string' ? body.error : undefined,
-            code: typeof body?.code === 'string' ? body.code : undefined,
-        }
+        return { message: undefined, code: undefined }
     }
 
     async function request<T>(
@@ -151,11 +152,30 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
             body?: RequestInit['body']
             headers?: Record<string, string>
             signal?: AbortSignal
+            /**
+             * The endpoint's contract carries `success: true` — a 2xx body
+             * without it is surfaced as an 'http' failure rather than being
+             * trusted as the typed DTO.
+             */
+            expectSuccess?: boolean
+            /** A 2xx body failing this check surfaces as a 'parse' error. */
+            validateBody?: (body: unknown) => boolean
         }
     ): Promise<T> {
         // A throwing getHeaders provider is a host error, not a transport
         // failure — let it propagate rather than mislabeling it 'network'.
-        const requestHeaders = await headers(init?.headers)
+        let requestHeaders = await headers(init?.headers)
+        // fetch generates the multipart boundary only when Content-Type is
+        // absent; a host whose getHeaders defaults to JSON would clobber it,
+        // so the header is stripped for FormData bodies.
+        if (typeof FormData !== 'undefined' && init?.body instanceof FormData) {
+            requestHeaders = { ...requestHeaders }
+            for (const name of Object.keys(requestHeaders)) {
+                if (name.toLowerCase() === 'content-type') {
+                    delete requestHeaders[name]
+                }
+            }
+        }
         let response: Response
         try {
             response = await fetchImpl(url(path), {
@@ -173,35 +193,71 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
             throw new ApiClientError('Network error occurred', 0, 'network')
         }
 
+        // Read the body once. An abort arriving while it streams in
+        // propagates like an aborted fetch instead of being relabeled as a
+        // parse or HTTP failure.
+        let body: unknown = null
+        try {
+            body = await response.json()
+        } catch (error) {
+            if (init?.signal?.aborted) {
+                throw error
+            }
+            if (response.ok) {
+                throw new ApiClientError(
+                    'Invalid JSON response',
+                    response.status,
+                    'parse'
+                )
+            }
+        }
+
         if (!response.ok) {
-            const { message, code } = await readErrorBody(response)
+            const { message, code } = errorFields(body)
             throw new ApiClientError(
                 message ?? `Request failed with status ${response.status}`,
                 response.status,
                 'http',
-                code
+                code,
+                message
             )
         }
 
-        try {
-            return (await response.json()) as T
-        } catch {
+        if (
+            init?.expectSuccess === true &&
+            (body as { success?: unknown } | null)?.success !== true
+        ) {
+            const { message, code } = errorFields(body)
             throw new ApiClientError(
-                'Invalid JSON response',
+                message ?? 'Request failed',
+                response.status,
+                'http',
+                code,
+                message
+            )
+        }
+
+        if (init?.validateBody && !init.validateBody(body)) {
+            throw new ApiClientError(
+                'Unexpected response body',
                 response.status,
                 'parse'
             )
         }
+
+        return body as T
     }
 
     function jsonRequest<T>(
         method: string,
         path: string,
-        body?: unknown
+        body?: unknown,
+        init?: { expectSuccess?: boolean }
     ): Promise<T> {
         return request<T>(method, path, {
             body: body === undefined ? undefined : JSON.stringify(body),
             headers: { 'Content-Type': 'application/json' },
+            expectSuccess: init?.expectSuccess,
         })
     }
 
@@ -339,26 +395,34 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         updateSettings(
             preferences: Partial<NotificationSettingsResponse>
         ): Promise<SettingsUpdateResponse> {
-            return jsonRequest('POST', '/api/settings', preferences)
+            return jsonRequest('POST', '/api/settings', preferences, {
+                expectSuccess: true,
+            })
         },
 
         updateProfile(
             profile: ProfileUpdateInput
         ): Promise<SuccessMessageResponse> {
-            return jsonRequest('POST', '/api/user/profile', profile)
+            return jsonRequest('POST', '/api/user/profile', profile, {
+                expectSuccess: true,
+            })
         },
 
         uploadAvatar(avatar: FormData): Promise<AvatarUpdateResponse> {
-            // No manual Content-Type: the host sets the multipart boundary.
-            return request('POST', '/api/user/avatar', { body: avatar })
+            // No manual Content-Type: fetch sets the multipart boundary.
+            return request('POST', '/api/user/avatar', {
+                body: avatar,
+                expectSuccess: true,
+                validateBody: body =>
+                    typeof (body as AvatarUpdateResponse | null)?.avatar ===
+                    'string',
+            })
         },
 
         deleteAvatar(): Promise<SuccessMessageResponse> {
-            return request('DELETE', '/api/user/avatar')
-        },
-
-        updateStreaks(): Promise<UpdateStreaksResponse> {
-            return jsonRequest('POST', '/api/user/update-streaks')
+            return request('DELETE', '/api/user/avatar', {
+                expectSuccess: true,
+            })
         },
     }
 }

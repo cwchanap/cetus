@@ -1,4 +1,5 @@
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type { BaseGameConfig, BaseGameCallbacks } from '../core/types'
 import { GameID } from '@cetus/shared/games'
 import { createGrid, findCells } from '../shared/grid'
@@ -35,9 +36,18 @@ export class MineGridGame extends BaseGame<
         config: Partial<MineGridConfig> & Pick<BaseGameConfig, 'submitScore'>,
         callbacks: BaseGameCallbacks = {}
     ) {
+        // `duration` derives from the caller's preset when one is given so
+        // the timer cannot drift out of sync with the grid difficulty.
+        const defaults = createMineGridConfig(
+            config.preset?.difficulty,
+            config.rng
+        )
+        if (config.preset) {
+            defaults.duration = config.preset.duration
+        }
         super(
             GameID.MINE_GRID,
-            { ...createMineGridConfig(), ...config },
+            { ...defaults, ...definedValues(config) },
             callbacks,
             {
                 basePoints: 0,

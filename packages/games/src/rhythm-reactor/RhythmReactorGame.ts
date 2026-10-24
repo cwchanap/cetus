@@ -1,5 +1,6 @@
 import { GameID } from '@cetus/shared/games'
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type { BaseGameConfig, BaseGameCallbacks } from '../core/types'
 import { createRhythmReactorChart } from './chart'
 import {
@@ -26,7 +27,7 @@ export function createRhythmReactorConfig(
         pausable: false,
         resettable: true,
         chart: createRhythmReactorChart(),
-        ...overrides,
+        ...definedValues(overrides),
     }
 }
 
@@ -44,7 +45,7 @@ export class RhythmReactorGame extends BaseGame<
     ) {
         super(
             GameID.RHYTHM_REACTOR,
-            { ...createRhythmReactorConfig(), ...config },
+            { ...createRhythmReactorConfig(), ...definedValues(config) },
             callbacks,
             {
                 basePoints: 0,

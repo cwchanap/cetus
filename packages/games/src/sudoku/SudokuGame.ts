@@ -1,5 +1,6 @@
 // Sudoku game implementation using BaseGame framework
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameCallbacks,
@@ -44,7 +45,7 @@ export class SudokuGame extends BaseGame<
     ) {
         const fullConfig: SudokuConfig = {
             ...DEFAULT_SUDOKU_CONFIG,
-            ...config,
+            ...definedValues(config),
         }
         super(
             GameID.SUDOKU,

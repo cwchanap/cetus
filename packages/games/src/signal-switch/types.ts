@@ -1,3 +1,4 @@
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameState,
@@ -116,6 +117,6 @@ export function createSignalSwitchConfig(
         pausable: false,
         resettable: true,
         rng: Math.random,
-        ...overrides,
+        ...definedValues(overrides),
     }
 }

@@ -1,4 +1,5 @@
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type { BaseGameConfig, ScoringConfig } from '../core/types'
 import { GameID } from '@cetus/shared/games'
 import type { WordChallenge } from './types'
@@ -43,7 +44,7 @@ export class WordScrambleGame extends BaseGame<
     ) {
         const fullConfig: WordScrambleConfig = {
             ...DEFAULT_WORD_SCRAMBLE_CONFIG,
-            ...config,
+            ...definedValues(config),
         }
         super(
             GameID.WORD_SCRAMBLE,

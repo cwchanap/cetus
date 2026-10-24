@@ -20,9 +20,12 @@ export default defineConfig({
                 'e2e/**',
                 'node_modules/**',
                 '**/*.config.*',
-                '**/types.ts',
-                '**/frameworkTypes.ts',
-                '**/index.ts',
+                // These names are type-only in apps/web; in packages the same
+                // names carry executable config factories and route handlers,
+                // so they must stay measured.
+                'apps/web/src/**/types.ts',
+                'apps/web/src/**/frameworkTypes.ts',
+                'apps/web/src/lib/**/index.ts',
                 '**/*.astro',
                 '**/*.test.ts',
                 '**/*.test-d.ts',

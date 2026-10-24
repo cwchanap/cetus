@@ -1,4 +1,5 @@
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type { BaseGameConfig, BaseGameCallbacks } from '../core/types'
 import { circleOverlap } from '../shared/geometry'
 import { clamp, lerp } from '../shared/utils'
@@ -39,7 +40,7 @@ export class AsteroidDriftGame extends BaseGame<
     ) {
         super(
             GameID.ASTEROID_DRIFT,
-            { ...createAsteroidDriftConfig(), ...config },
+            { ...createAsteroidDriftConfig(), ...definedValues(config) },
             callbacks,
             {
                 basePoints: 0,

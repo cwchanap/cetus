@@ -65,9 +65,6 @@ const totalActivities = rawDaily.reduce((sum, d) => sum + (d.count || 0), 0)
 // Get recent 5 activities
 const recentActivities = userId ? await getUserGameHistory(userId, 5) : []
 
-const firstDay = new Date(Date.UTC(year, 0, 1))
-const lastDay = new Date(Date.UTC(year + 1, 0, 0)) // Dec 31
-
 // Year navigation helpers
 const canGoNext = year < currentYear
 const prevYear = year - 1
@@ -78,10 +75,10 @@ const nextYear = canGoNext ? year + 1 : year
 // render the same calendar.
 const { weeks } = buildContributionWeeks(year, dailyMap)
 
-// Precompute month label per week using first in-year day
+// Precompute month label per week using first in-year day (padding cells
+// carry count === -1)
 const weekLabelMonth: number[] = weeks.map(week => {
-  const inYearCell =
-    week.find(c => c.date >= firstDay && c.date <= lastDay) ?? week[0]
+  const inYearCell = week.find(c => c.count >= 0) ?? week[0]
   return inYearCell.month
 })
 const showMonthFlags: boolean[] = weekLabelMonth.map(

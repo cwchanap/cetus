@@ -1,5 +1,6 @@
 // Tetris game implementation using BaseGame framework
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameCallbacks,
@@ -130,7 +131,7 @@ export class TetrisGame extends BaseGame<
     ) {
         const fullConfig: TetrisConfig = {
             ...DEFAULT_TETRIS_CONFIG,
-            ...config,
+            ...definedValues(config),
         }
         super(
             GameID.TETRIS,

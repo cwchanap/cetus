@@ -1,5 +1,6 @@
 // Bubble Shooter game implementation using BaseGame framework
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameCallbacks,
@@ -82,7 +83,7 @@ export class BubbleShooterGame extends BaseGame<
     ) {
         const fullConfig: BubbleShooterConfig = {
             ...DEFAULT_BUBBLE_SHOOTER_CONFIG,
-            ...config,
+            ...definedValues(config),
         }
         super(
             GameID.BUBBLE_SHOOTER,

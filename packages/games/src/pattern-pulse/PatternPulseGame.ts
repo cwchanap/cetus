@@ -1,4 +1,5 @@
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type { BaseGameConfig, BaseGameCallbacks } from '../core/types'
 import { GameID } from '@cetus/shared/games'
 import { calculatePatternPulseRoundScore } from './scoring'
@@ -28,7 +29,7 @@ export class PatternPulseGame extends BaseGame<
     ) {
         super(
             GameID.PATTERN_PULSE,
-            { ...createPatternPulseConfig(), ...config },
+            { ...createPatternPulseConfig(), ...definedValues(config) },
             callbacks,
             {
                 basePoints: 0,

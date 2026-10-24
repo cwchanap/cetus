@@ -1,3 +1,4 @@
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameState,
@@ -35,7 +36,7 @@ export function createPatternPulseConfig(
         initialSequenceLength: 3,
         mistakeLimit: 3,
         rng: Math.random,
-        ...overrides,
+        ...definedValues(overrides),
     }
 }
 

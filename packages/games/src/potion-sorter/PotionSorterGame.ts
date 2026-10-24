@@ -1,4 +1,5 @@
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type { BaseGameConfig, BaseGameCallbacks } from '../core/types'
 import { GameID } from '@cetus/shared/games'
 import { POTION_SORTER_PRESETS } from './levels'
@@ -37,9 +38,15 @@ export class PotionSorterGame extends BaseGame<
             Pick<BaseGameConfig, 'submitScore'>,
         callbacks: BaseGameCallbacks = {}
     ) {
+        // `duration` derives from the caller's preset when one is given so
+        // the timer cannot drift out of sync with the puzzle difficulty.
+        const defaults = createPotionSorterConfig(config.preset?.difficulty)
+        if (config.preset) {
+            defaults.duration = config.preset.duration
+        }
         super(
             GameID.POTION_SORTER,
-            { ...createPotionSorterConfig(), ...config },
+            { ...defaults, ...definedValues(config) },
             callbacks,
             {
                 basePoints: 0,

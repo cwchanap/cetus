@@ -4,6 +4,7 @@ import { libsql, LibsqlDialect } from '@libsql/kysely-libsql'
 import { betterAuth } from 'better-auth'
 import { testUtils } from 'better-auth/plugins'
 import type { Page } from '@playwright/test'
+import { appRoot } from '../../src/test/app-root'
 
 /**
  * E2E authentication seeding.
@@ -15,9 +16,10 @@ import type { Page } from '@playwright/test'
  * and returns the signed session cookie. The app then treats the page as
  * normally signed-in — no mocks on the auth or score paths.
  *
- * Must run with `apps/web` as the working directory (the Playwright
- * webServer convention), matching `src/lib/server/db/client.ts`'s file-DB
- * resolution.
+ * Paths anchor to `appRoot` (the apps/web package root, resolved from the
+ * module location, not process.cwd()) so the helper works no matter which
+ * directory Playwright was launched from. The resolved db path matches
+ * `src/lib/server/db/client.ts`'s file-DB resolution.
  */
 
 function loadAuthSecret(): string {
@@ -27,7 +29,7 @@ function loadAuthSecret(): string {
     }
     // Local runs keep CI dummy values in apps/web/.env (git-ignored); the
     // Playwright process does not load that file automatically.
-    const env = readFileSync(resolve(process.cwd(), '.env'), 'utf8')
+    const env = readFileSync(resolve(appRoot, '.env'), 'utf8')
     const match = env.match(/^BETTER_AUTH_SECRET=(.+)$/m)
     if (!match) {
         throw new Error(
@@ -46,7 +48,7 @@ async function buildTestHelpers() {
         // dev server holds the same file open, so writes from this process
         // need a busy timeout to survive brief cross-process lock contention.
         const client = libsql.createClient({
-            url: `file:${resolve(process.cwd(), 'db', 'db.sqlite')}`,
+            url: `file:${resolve(appRoot, 'db', 'db.sqlite')}`,
         })
         await client.execute('PRAGMA busy_timeout = 5000')
         cachedDialect = new LibsqlDialect({ client })

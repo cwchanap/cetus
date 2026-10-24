@@ -1,5 +1,6 @@
 // 2048 game implementation using BaseGame framework
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameCallbacks,
@@ -63,7 +64,7 @@ export class Game2048 extends BaseGame<
     ) {
         const fullConfig: Game2048Config = {
             ...DEFAULT_GAME2048_CONFIG,
-            ...config,
+            ...definedValues(config),
         }
         super(
             GameID.GAME_2048,

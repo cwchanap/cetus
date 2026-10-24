@@ -1,5 +1,6 @@
 // Path Navigator game implementation using BaseGame framework
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameCallbacks,
@@ -210,7 +211,7 @@ export class PathNavigatorGame extends BaseGame<
     ) {
         const fullConfig: PathNavigatorConfig = {
             ...DEFAULT_PATH_NAVIGATOR_CONFIG,
-            ...config,
+            ...definedValues(config),
         }
         super(
             GameID.PATH_NAVIGATOR,

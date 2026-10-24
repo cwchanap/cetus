@@ -75,6 +75,41 @@ describe('PotionSorterGame', () => {
         expect(game.getState().timeRemaining).toBe(300)
     })
 
+    it('keeps the medium defaults when override keys are explicitly undefined', () => {
+        const game = new PotionSorterGame({
+            submitScore,
+            duration: undefined,
+            preset: undefined,
+        })
+        const state = game.getState()
+
+        expect(state.difficulty).toBe('medium')
+        expect(state.timeRemaining).toBe(300)
+    })
+
+    it('derives duration from a caller-supplied preset instead of the medium default', () => {
+        const game = new PotionSorterGame({
+            submitScore,
+            preset: POTION_SORTER_PRESETS.hard,
+        })
+        const state = game.getState()
+
+        expect(state.difficulty).toBe('hard')
+        expect(state.timeRemaining).toBe(480)
+    })
+
+    it('lets an explicit duration override win over the preset-derived value', () => {
+        const game = new PotionSorterGame({
+            submitScore,
+            preset: POTION_SORTER_PRESETS.easy,
+            duration: 42,
+        })
+        const state = game.getState()
+
+        expect(state.difficulty).toBe('easy')
+        expect(state.timeRemaining).toBe(42)
+    })
+
     it('clones the preset tubes instead of sharing the exported arrays', () => {
         const game = makeGame()
         const state = game.getState()

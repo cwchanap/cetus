@@ -1,5 +1,6 @@
 // Reflex game implementation using BaseGame framework
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameCallbacks,
@@ -52,7 +53,7 @@ export class ReflexGame extends BaseGame<
     ) {
         const fullConfig: ReflexConfig = {
             ...DEFAULT_REFLEX_CONFIG,
-            ...config,
+            ...definedValues(config),
         }
         super(
             GameID.REFLEX,

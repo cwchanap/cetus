@@ -44,9 +44,6 @@ const rawDaily = await getUserDailyActivity(user.id, year)
 const dailyMap = new Map(rawDaily.map(d => [d.date, d.count]))
 const totalActivities = rawDaily.reduce((sum, d) => sum + (d.count || 0), 0)
 
-const firstDay = new Date(Date.UTC(year, 0, 1))
-const lastDay = new Date(Date.UTC(year + 1, 0, 0)) // Dec 31
-
 // Year navigation helpers
 const canGoNext = year < currentYear
 const prevYear = year - 1
@@ -57,10 +54,10 @@ const nextYear = canGoNext ? year + 1 : year
 // render the same calendar.
 const { weeks } = buildContributionWeeks(year, dailyMap)
 
-// Precompute month label per week using first in-year day to avoid showing previous year's Dec before Jan
+// Precompute month label per week using first in-year day (padding cells
+// carry count === -1) to avoid showing previous year's Dec before Jan
 const weekLabelMonth: number[] = weeks.map(week => {
-  const inYearCell =
-    week.find(c => c.date >= firstDay && c.date <= lastDay) ?? week[0]
+  const inYearCell = week.find(c => c.count >= 0) ?? week[0]
   return inYearCell.month
 })
 const showMonthFlags: boolean[] = weekLabelMonth.map(
@@ -610,16 +607,16 @@ const memberSince = session?.createdAt
 
     const api = createApiClient()
 
-    // Coded server errors keep their text; everything else reads as a
-    // network problem (matching the raw-fetch behavior this replaces). A 413
-    // comes from the edge proxy before the route runs, so the body carries no
-    // server message — reuse the client-side copy instead of the raw
-    // "Request failed with status 413" fallback.
-    function apiErrorMessage(error: unknown): string {
+    // Server-supplied error text wins; everything else falls back to the
+    // caller's per-action message (matching the raw-fetch behavior this
+    // replaces). A 413 comes from the edge proxy before the route runs, so
+    // the body carries no server message — map it to the client-side copy.
+    function apiErrorMessage(error: unknown, fallback: string): string {
       if (error instanceof ApiClientError && error.kind === 'http') {
-        return error.status === 413
-          ? 'File size must be less than 5MB'
-          : error.message
+        return (
+          error.serverMessage ??
+          (error.status === 413 ? 'File size must be less than 5MB' : fallback)
+        )
       }
       return 'Network error. Please try again.'
     }
@@ -742,7 +739,10 @@ const memberSince = session?.createdAt
           displayNameDisplay?.classList.remove('hidden')
           showMessage('Display name updated!', 'success')
         } catch (error) {
-          showMessage(apiErrorMessage(error), 'error')
+          showMessage(
+            apiErrorMessage(error, 'Failed to update display name'),
+            'error'
+          )
         } finally {
           if (saveDisplayNameBtn) {
             saveDisplayNameBtn.textContent = originalText
@@ -827,7 +827,10 @@ const memberSince = session?.createdAt
           usernameDisplay?.classList.remove('hidden')
           showMessage('Username updated!', 'success')
         } catch (error) {
-          showMessage(apiErrorMessage(error), 'error')
+          showMessage(
+            apiErrorMessage(error, 'Failed to update username'),
+            'error'
+          )
         } finally {
           if (saveUsernameBtn) {
             saveUsernameBtn.textContent = originalText
@@ -918,7 +921,10 @@ const memberSince = session?.createdAt
 
           showMessage('Avatar removed successfully!', 'success')
         } catch (error) {
-          showMessage(apiErrorMessage(error), 'error')
+          showMessage(
+            apiErrorMessage(error, 'Failed to remove avatar'),
+            'error'
+          )
         }
       })
 
@@ -1146,7 +1152,10 @@ const memberSince = session?.createdAt
 
                       showMessage('Avatar removed successfully!', 'success')
                     } catch (error) {
-                      showMessage(apiErrorMessage(error), 'error')
+                      showMessage(
+                        apiErrorMessage(error, 'Failed to remove avatar'),
+                        'error'
+                      )
                     }
                   })
                 }
@@ -1154,7 +1163,10 @@ const memberSince = session?.createdAt
                 closeCropModal()
                 showMessage('Avatar updated successfully!', 'success')
               } catch (error) {
-                showMessage(apiErrorMessage(error), 'error')
+                showMessage(
+                  apiErrorMessage(error, 'Failed to update avatar'),
+                  'error'
+                )
               }
             },
             'image/png',
