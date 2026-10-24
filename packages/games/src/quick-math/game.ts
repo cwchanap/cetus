@@ -1,4 +1,5 @@
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameState,
     BaseGameConfig,
@@ -83,7 +84,7 @@ export class QuickMathFrameworkGame extends BaseGame<
     ) {
         const fullConfig: QuickMathConfig = {
             ...DEFAULT_QUICK_MATH_CONFIG,
-            ...config,
+            ...definedValues(config),
         }
         super(gameId, fullConfig, callbacks, {
             basePoints: fullConfig.pointsPerCorrectAnswer,

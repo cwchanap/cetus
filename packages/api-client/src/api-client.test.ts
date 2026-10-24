@@ -668,6 +668,24 @@ describe('createApiClient', () => {
                 'Username is already taken'
             )
         })
+
+        it('treats a 2xx body without success: true as a failure with the server message', async () => {
+            fetchImpl.mockResolvedValue(
+                okResponse({
+                    success: false,
+                    error: 'Username is already taken',
+                })
+            )
+
+            const error = await makeClient()
+                .updateProfile({ username: 'nova' })
+                .catch((e: unknown) => e)
+
+            expect(error).toBeInstanceOf(ApiClientError)
+            const apiError = error as ApiClientError
+            expect(apiError.kind).toBe('http')
+            expect(apiError.serverMessage).toBe('Username is already taken')
+        })
     })
 
     // --- POST+DELETE /api/user/avatar ------------------------------------------
@@ -713,6 +731,37 @@ describe('createApiClient', () => {
             expect(error).toBeInstanceOf(ApiClientError)
             expect((error as ApiClientError).status).toBe(400)
         })
+
+        it('strips a host-provided Content-Type so fetch can set the multipart boundary', async () => {
+            fetchImpl.mockResolvedValue(
+                okResponse({ success: true, avatar: '/a.png' })
+            )
+            const client = createApiClient({
+                fetchImpl: fetchImpl as typeof fetch,
+                getHeaders: () => ({
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer tok',
+                }),
+            })
+
+            await client.uploadAvatar(new FormData())
+
+            const init = fetchImpl.mock.calls[0][1] as RequestInit
+            expect(init.headers).toEqual({ Authorization: 'Bearer tok' })
+        })
+
+        it('rejects a 2xx body missing the avatar field as a parse error', async () => {
+            fetchImpl.mockResolvedValue(okResponse({ success: true }))
+            const formData = new FormData()
+            formData.append('avatar', new Blob(['png-bytes']), 'avatar.png')
+
+            const error = await makeClient()
+                .uploadAvatar(formData)
+                .catch((e: unknown) => e)
+
+            expect(error).toBeInstanceOf(ApiClientError)
+            expect((error as ApiClientError).kind).toBe('parse')
+        })
     })
 
     describe('deleteAvatar', () => {
@@ -733,36 +782,6 @@ describe('createApiClient', () => {
                 signal: undefined,
             })
             expect(result.success).toBe(true)
-        })
-    })
-
-    // --- POST /api/user/update-streaks -----------------------------------------
-
-    describe('updateStreaks', () => {
-        it('POSTs and reads the typed response', async () => {
-            fetchImpl.mockResolvedValue(
-                okResponse({
-                    success: true,
-                    processed: 12,
-                    incremented: 9,
-                    reset: 3,
-                })
-            )
-
-            const result = await makeClient().updateStreaks()
-
-            expect(fetchImpl).toHaveBeenCalledWith('/api/user/update-streaks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: undefined,
-                signal: undefined,
-            })
-            expect(result).toEqual({
-                success: true,
-                processed: 12,
-                incremented: 9,
-                reset: 3,
-            })
         })
     })
 
@@ -928,6 +947,47 @@ describe('createApiClient', () => {
                     { gameId: GameID.TETRIS },
                     { signal: controller.signal }
                 )
+                .catch((e: unknown) => e)
+
+            expect(error).toBe(abortError)
+        })
+
+        it('propagates an abort that lands while the success body is read', async () => {
+            const abortError = new DOMException('Aborted', 'AbortError')
+            const controller = new AbortController()
+            fetchImpl.mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: () => {
+                    controller.abort()
+                    return Promise.reject(abortError)
+                },
+            } as unknown as Response)
+
+            const error = await makeClient()
+                .getLeaderboard(
+                    { gameId: GameID.TETRIS },
+                    { signal: controller.signal }
+                )
+                .catch((e: unknown) => e)
+
+            expect(error).toBe(abortError)
+        })
+
+        it('propagates an abort that lands while the error body is read', async () => {
+            const abortError = new DOMException('Aborted', 'AbortError')
+            const controller = new AbortController()
+            fetchImpl.mockResolvedValue({
+                ok: false,
+                status: 500,
+                json: () => {
+                    controller.abort()
+                    return Promise.reject(abortError)
+                },
+            } as unknown as Response)
+
+            const error = await makeClient()
+                .getChallenges({ signal: controller.signal })
                 .catch((e: unknown) => e)
 
             expect(error).toBe(abortError)

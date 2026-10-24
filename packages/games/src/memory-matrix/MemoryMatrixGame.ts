@@ -1,5 +1,6 @@
 // Memory Matrix game implementation using BaseGame framework
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameCallbacks,
@@ -52,7 +53,7 @@ export class MemoryMatrixGame extends BaseGame<
     ) {
         const fullConfig: MemoryMatrixConfig = {
             ...DEFAULT_MEMORY_MATRIX_CONFIG,
-            ...config,
+            ...definedValues(config),
         }
         super(
             GameID.MEMORY_MATRIX,

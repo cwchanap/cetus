@@ -1,5 +1,6 @@
 import { GameID } from '@cetus/shared/games'
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type { BaseGameConfig, BaseGameCallbacks } from '../core/types'
 import {
     countCapturedCells,
@@ -30,7 +31,7 @@ export class ChromaticTideGame extends BaseGame<
     ) {
         super(
             GameID.CHROMATIC_TIDE,
-            { ...createChromaticTideConfig(), ...config },
+            { ...createChromaticTideConfig(), ...definedValues(config) },
             callbacks,
             {
                 basePoints: 0,

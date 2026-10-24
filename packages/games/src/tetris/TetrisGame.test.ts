@@ -8,6 +8,30 @@ const submitScore = vi.fn().mockResolvedValue({
     newAchievements: [],
 })
 
+describe('TetrisGame config merging', () => {
+    it('keeps defaults when override keys are explicitly undefined', () => {
+        const configured = new TetrisGame({
+            submitScore,
+            duration: undefined,
+        })
+
+        expect(configured.getState().timeRemaining).toBe(
+            DEFAULT_TETRIS_CONFIG.duration
+        )
+        configured.destroy()
+    })
+
+    it('applies defined overrides over the defaults', () => {
+        const configured = new TetrisGame({
+            submitScore,
+            duration: 123,
+        })
+
+        expect(configured.getState().timeRemaining).toBe(123)
+        configured.destroy()
+    })
+})
+
 describe('TetrisGame', () => {
     let game: TetrisGame
 

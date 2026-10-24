@@ -29,9 +29,10 @@ export interface SaveScoreOptions {
     platform?: ScorePlatform
 }
 
-// Lazily binds the ambient global fetch at call time (instead of capturing
-// it at import time) so tests and hosts can stub global.fetch after import.
-const api = createApiClient({ fetchImpl: (...args) => fetch(...args) })
+// The client's default fetchImpl already binds the ambient global fetch
+// lazily at call time, so tests and hosts can stub globalThis.fetch after
+// import.
+const api = createApiClient()
 
 /**
  * Submit a score to the server with comprehensive error handling

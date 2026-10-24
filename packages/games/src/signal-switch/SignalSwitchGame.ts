@@ -1,4 +1,5 @@
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type { BaseGameConfig, BaseGameCallbacks } from '../core/types'
 import { GameID } from '@cetus/shared/games'
 import { clamp, lerp } from '../shared/utils'
@@ -29,7 +30,7 @@ export class SignalSwitchGame extends BaseGame<
     ) {
         super(
             GameID.SIGNAL_SWITCH,
-            { ...createSignalSwitchConfig(), ...config },
+            { ...createSignalSwitchConfig(), ...definedValues(config) },
             callbacks,
             {
                 basePoints: 0,

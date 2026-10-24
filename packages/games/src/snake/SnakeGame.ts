@@ -1,5 +1,6 @@
 // Snake game implementation using BaseGame framework
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameCallbacks,
@@ -50,7 +51,10 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
         callbacks: BaseGameCallbacks = {},
         scoringConfig?: ScoringConfig
     ) {
-        const fullConfig: SnakeConfig = { ...DEFAULT_SNAKE_CONFIG, ...config }
+        const fullConfig: SnakeConfig = {
+            ...DEFAULT_SNAKE_CONFIG,
+            ...definedValues(config),
+        }
         super(
             GameID.SNAKE,
             fullConfig,

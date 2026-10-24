@@ -1,4 +1,5 @@
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type { BaseGameConfig, BaseGameCallbacks } from '../core/types'
 import { clamp, lerp, rectOverlap } from '../shared/utils'
 import { GameID } from '@cetus/shared/games'
@@ -32,7 +33,7 @@ export class GravityFlipGame extends BaseGame<
     ) {
         super(
             GameID.GRAVITY_FLIP,
-            { ...createGravityFlipConfig(), ...config },
+            { ...createGravityFlipConfig(), ...definedValues(config) },
             callbacks,
             {
                 basePoints: 0,

@@ -1,5 +1,6 @@
 // Evader game implementation using BaseGame framework
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameCallbacks,
@@ -54,7 +55,7 @@ export class EvaderGame extends BaseGame<
     ) {
         const fullConfig: EvaderConfig = {
             ...DEFAULT_EVADER_CONFIG,
-            ...config,
+            ...definedValues(config),
         }
         super(
             GameID.EVADER,

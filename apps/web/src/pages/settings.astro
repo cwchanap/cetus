@@ -414,7 +414,10 @@ const frauncesStyle =
             console.error(
               `Failed to save preference (${error.status}): ${error.message}`
             )
-            showSaveStatus(`Failed to save (${error.status})`, 'error')
+            showSaveStatus(
+              error.serverMessage ?? `Failed to save (${error.status})`,
+              'error'
+            )
           } else {
             console.error('Failed to save preference:', error)
             showSaveStatus('Network error', 'error')

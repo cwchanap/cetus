@@ -1,4 +1,5 @@
 import { BaseGame } from '../core/BaseGame'
+import { definedValues } from '../core/definedValues'
 import type { GameID } from '@cetus/shared/games'
 import type {
     BaseGameConfig,
@@ -44,7 +45,7 @@ export class BejeweledGame extends BaseGame<
     ) {
         const fullConfig: BejeweledConfig = {
             ...DEFAULT_BEJEWELED_CONFIG,
-            ...config,
+            ...definedValues(config),
         }
         super(
             gameId,

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MineGridGame, createMineGridConfig } from './MineGridGame'
-import type { MineGridConfig } from './types'
+import { MINE_GRID_PRESETS, type MineGridConfig } from './types'
 
 // Injected score transport so saveFinalScore never hits a network path
 const submitScore = vi.fn().mockResolvedValue({
@@ -52,6 +52,43 @@ describe('MineGridGame', () => {
     afterEach(() => {
         vi.useRealTimers()
         vi.unstubAllGlobals()
+    })
+
+    it('keeps the medium defaults when override keys are explicitly undefined', () => {
+        const game = new MineGridGame({
+            submitScore,
+            duration: undefined,
+            preset: undefined,
+        })
+        const state = game.getState()
+
+        expect(state.difficulty).toBe('medium')
+        expect(state.timeRemaining).toBe(MINE_GRID_PRESETS.medium.duration)
+        expect(state.board).toHaveLength(MINE_GRID_PRESETS.medium.rows)
+    })
+
+    it('derives duration from a caller-supplied preset instead of the medium default', () => {
+        const game = new MineGridGame({
+            submitScore,
+            preset: MINE_GRID_PRESETS.hard,
+        })
+        const state = game.getState()
+
+        expect(state.difficulty).toBe('hard')
+        expect(state.timeRemaining).toBe(MINE_GRID_PRESETS.hard.duration)
+        expect(state.board).toHaveLength(MINE_GRID_PRESETS.hard.rows)
+    })
+
+    it('lets an explicit duration override win over the preset-derived value', () => {
+        const game = new MineGridGame({
+            submitScore,
+            preset: MINE_GRID_PRESETS.hard,
+            duration: 42,
+        })
+        const state = game.getState()
+
+        expect(state.difficulty).toBe('hard')
+        expect(state.timeRemaining).toBe(42)
     })
 
     it('creates a hidden board with timeRemaining equal to config.duration', () => {

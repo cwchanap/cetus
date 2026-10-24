@@ -30,7 +30,7 @@ vi.mock('@/lib/server/db/client', async () => {
     return { db, dialect }
 })
 
-// claimLoginReward dynamically imports getLevelFromXP from @/lib/challenges.
+// claimLoginReward dynamically imports getLevelFromXP from @cetus/shared/challenges.
 vi.mock('@cetus/shared/challenges', () => ({
     getLevelFromXP: (xp: number) => Math.floor(xp / 100) + 1,
 }))

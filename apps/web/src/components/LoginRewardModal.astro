@@ -256,7 +256,6 @@ const { status } = Astro.props
   declare global {
     interface Window {
       loginRewardModal?: LoginRewardModal
-      showLoginRewardModal?: () => Promise<void>
     }
   }
 
@@ -566,17 +565,5 @@ const { status } = Astro.props
   } else {
     loginRewardModal = new LoginRewardModal()
     window.loginRewardModal = loginRewardModal
-  }
-
-  // Expose function to show modal manually
-  window.showLoginRewardModal = async function () {
-    try {
-      const status = await api.getLoginRewardStatus()
-      if (window.loginRewardModal) {
-        window.loginRewardModal.show(status)
-      }
-    } catch (error) {
-      console.error('Failed to fetch login reward status:', error)
-    }
   }
 </script>

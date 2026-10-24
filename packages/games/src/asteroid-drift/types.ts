@@ -1,3 +1,4 @@
+import { definedValues } from '../core/definedValues'
 import type {
     BaseGameConfig,
     BaseGameState,
@@ -81,7 +82,7 @@ export function createAsteroidDriftConfig(
         pausable: false,
         resettable: true,
         rng: Math.random,
-        ...overrides,
+        ...definedValues(overrides),
     }
 }
 
