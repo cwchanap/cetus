@@ -197,6 +197,17 @@ describe('createApiClient', () => {
             expect(result.error).toBe('Failed to save score')
         })
 
+        it('reports failure when a 2xx body carries success: false', async () => {
+            fetchImpl.mockResolvedValue(okResponse({ success: false }))
+
+            const result = await makeClient().submitScore({
+                gameId: GameID.TETRIS,
+                score: 100,
+            })
+
+            expect(result.success).toBe(false)
+        })
+
         it('reports NETWORK_ERROR when fetch rejects', async () => {
             fetchImpl.mockRejectedValue(new TypeError('Failed to fetch'))
 
@@ -857,7 +868,8 @@ describe('createApiClient', () => {
             })
         })
 
-        it('uses the ambient global fetch when fetchImpl is omitted', async () => {
+        it('binds the ambient global fetch lazily when fetchImpl is omitted', async () => {
+            const client = createApiClient()
             const globalFetch = vi
                 .fn()
                 .mockResolvedValue(okResponse({ bestScore: 7 }))
@@ -865,13 +877,60 @@ describe('createApiClient', () => {
             globalThis.fetch = globalFetch as typeof fetch
 
             try {
-                const client = createApiClient()
                 const result = await client.getBestScore(GameID.TETRIS)
                 expect(globalFetch).toHaveBeenCalled()
                 expect(result.bestScore).toBe(7)
             } finally {
                 globalThis.fetch = original
             }
+        })
+
+        it('lets a throwing getHeaders provider propagate instead of reporting a network error', async () => {
+            const providerError = new Error('session store unavailable')
+            const client = createApiClient({
+                fetchImpl: fetchImpl as typeof fetch,
+                getHeaders: () => {
+                    throw providerError
+                },
+            })
+
+            const error = await client.getSettings().catch((e: unknown) => e)
+
+            expect(error).toBe(providerError)
+            expect(fetchImpl).not.toHaveBeenCalled()
+        })
+
+        it('lets a throwing getHeaders propagate out of submitScore', async () => {
+            const providerError = new Error('session store unavailable')
+            const client = createApiClient({
+                fetchImpl: fetchImpl as typeof fetch,
+                getHeaders: () => {
+                    throw providerError
+                },
+            })
+
+            const error = await client
+                .submitScore({ gameId: GameID.TETRIS, score: 100 })
+                .catch((e: unknown) => e)
+
+            expect(error).toBe(providerError)
+            expect(fetchImpl).not.toHaveBeenCalled()
+        })
+
+        it('propagates the fetch rejection when the caller aborts', async () => {
+            const abortError = new DOMException('Aborted', 'AbortError')
+            fetchImpl.mockRejectedValue(abortError)
+            const controller = new AbortController()
+            controller.abort()
+
+            const error = await makeClient()
+                .getLeaderboard(
+                    { gameId: GameID.TETRIS },
+                    { signal: controller.signal }
+                )
+                .catch((e: unknown) => e)
+
+            expect(error).toBe(abortError)
         })
     })
 })

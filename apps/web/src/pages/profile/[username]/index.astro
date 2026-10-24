@@ -18,6 +18,7 @@ import {
 
 // Game system import
 import { getGameIcon } from '@cetus/shared/games'
+import { buildContributionWeeks } from '@cetus/shared/activity'
 
 // Params
 const usernameParam = (Astro.params.username || '').toLowerCase()
@@ -72,35 +73,10 @@ const canGoNext = year < currentYear
 const prevYear = year - 1
 const nextYear = canGoNext ? year + 1 : year
 
-// Start from Sunday on or before Jan 1
-const calendarStart = new Date(firstDay)
-calendarStart.setUTCDate(firstDay.getUTCDate() - firstDay.getUTCDay())
-
-// End on Saturday on or after Dec 31
-const calendarEnd = new Date(lastDay)
-calendarEnd.setUTCDate(lastDay.getUTCDate() + (6 - lastDay.getUTCDay()))
-
-type DayCell = { date: Date; dateStr: string; count: number; month: number }
-const weeks: DayCell[][] = []
-const d = new Date(calendarStart)
-let maxCount = 0
-while (d <= calendarEnd) {
-  const week: DayCell[] = []
-  for (let i = 0; i < 7; i++) {
-    const y = d.getUTCFullYear()
-    const m = d.getUTCMonth()
-    const day = d.getUTCDate()
-    const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    const inYear = d >= firstDay && d <= lastDay
-    const count = inYear ? (dailyMap.get(dateStr) ?? 0) : -1 // -1 = padding cell
-    if (count > maxCount) {
-      maxCount = count
-    }
-    week.push({ date: new Date(d), dateStr, count, month: m })
-    d.setUTCDate(d.getUTCDate() + 1)
-  }
-  weeks.push(week)
-}
+// Sun-Sat week grid covering the year, padded to full weeks (count = -1 for
+// out-of-year padding cells) — shared with @cetus/shared so non-Astro hosts
+// render the same calendar.
+const { weeks } = buildContributionWeeks(year, dailyMap)
 
 // Precompute month label per week using first in-year day
 const weekLabelMonth: number[] = weeks.map(week => {

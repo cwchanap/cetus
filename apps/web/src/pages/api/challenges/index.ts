@@ -24,13 +24,18 @@ export const GET: APIRoute = async ({ request }) => {
         const xpProgress = getXPProgress(xp)
 
         // Serialize completedAt to the wire shape (JSON date string) so the
-        // payload is checked against the shared DTO as-is.
+        // payload is checked against the shared DTO as-is. An unparseable
+        // completed_at row produces an Invalid Date; JSON.stringify used to
+        // write null for it, and toISOString() would throw instead — keep the
+        // old null-on-wire behavior rather than failing the whole request.
         const payload: ChallengesResponse = {
             challenges: challenges.map(challenge => ({
                 ...challenge,
-                completedAt: challenge.completedAt
-                    ? challenge.completedAt.toISOString()
-                    : null,
+                completedAt:
+                    challenge.completedAt &&
+                    !Number.isNaN(challenge.completedAt.getTime())
+                        ? challenge.completedAt.toISOString()
+                        : null,
             })),
             xp,
             level,

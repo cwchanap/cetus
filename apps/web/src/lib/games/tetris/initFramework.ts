@@ -56,7 +56,7 @@ export async function initTetrisGameFramework(
     const config: TetrisConfig = {
         ...DEFAULT_TETRIS_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
     const rendererConfig = createTetrisRendererConfig(
         config,

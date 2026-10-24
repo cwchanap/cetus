@@ -1881,7 +1881,8 @@ describe('initializeIceSlide', () => {
             break
         }
         handle.cleanup()
-    })
+        // Plays whole generated stages; much slower under coverage/CI load — default 5s flakes
+    }, 30_000)
 
     it('tears down pointer and keyboard handlers on cleanup', async () => {
         const container = mountDom()

@@ -2,6 +2,36 @@
 
 import base from '@cetus/config'
 
+// Framework/DB/web-source bans shared by every portable package (HPA-447).
+// Repeated inside each package-scoped block below: ESLint rule options
+// replace rather than merge across config entries for the same rule.
+const packageBoundaryPatterns = [
+  {
+    group: ['pixi.js', 'pixi.js/*'],
+    message: 'packages must not depend on PixiJS renderers',
+  },
+  {
+    group: ['astro', 'astro:*', 'astro/*'],
+    message: 'packages must not depend on Astro',
+  },
+  {
+    group: ['better-auth', 'better-auth/*'],
+    message: 'packages must not depend on Better Auth',
+  },
+  {
+    group: ['kysely', '@libsql/client', '@libsql/kysely-libsql'],
+    message: 'packages must not depend on the database layer',
+  },
+  {
+    group: ['@', '@/*'],
+    message: 'the @/ alias is web-only; use relative or @cetus/* imports',
+  },
+  {
+    group: ['@cetus/web', '**/apps/web', '**/apps/web/**'],
+    message: 'packages must not import apps/web; move portable code down',
+  },
+]
+
 export default [
   ...base,
   {
@@ -32,35 +62,48 @@ export default [
   {
     files: ['packages/**/*.ts'],
     rules: {
+      'no-restricted-imports': ['error', { patterns: packageBoundaryPatterns }],
+    },
+  },
+  // Dependency direction: shared is the base package (imports nothing
+  // workspace-local); games/api-client may only depend on @cetus/shared.
+  {
+    files: ['packages/shared/**/*.ts'],
+    rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
+            ...packageBoundaryPatterns,
             {
-              group: ['pixi.js', 'pixi.js/*'],
-              message: 'packages must not depend on PixiJS renderers',
-            },
-            {
-              group: ['astro', 'astro:*', 'astro/*'],
-              message: 'packages must not depend on Astro',
-            },
-            {
-              group: ['better-auth', 'better-auth/*'],
-              message: 'packages must not depend on Better Auth',
-            },
-            {
-              group: ['kysely', '@libsql/client', '@libsql/kysely-libsql'],
-              message: 'packages must not depend on the database layer',
-            },
-            {
-              group: ['@', '@/*'],
+              group: ['@cetus/*', '@cetus/**'],
               message:
-                'the @/ alias is web-only; use relative or @cetus/* imports',
+                '@cetus/shared is the base package; it cannot depend on other workspace packages',
             },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/{games,api-client}/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...packageBoundaryPatterns,
             {
-              group: ['@cetus/web', '**/apps/web', '**/apps/web/**'],
+              group: [
+                '@cetus/games',
+                '@cetus/games/**',
+                '@cetus/api-client',
+                '@cetus/api-client/**',
+                '@cetus/tokens',
+                '@cetus/tokens/**',
+              ],
               message:
-                'packages must not import apps/web; move portable code down',
+                'only @cetus/shared imports are allowed; sideways package imports are banned',
             },
           ],
         },

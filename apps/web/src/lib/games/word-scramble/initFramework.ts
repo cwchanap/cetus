@@ -51,7 +51,7 @@ export async function initWordScrambleGameFramework(
     const config: WordScrambleConfig = {
         ...DEFAULT_WORD_SCRAMBLE_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
 
     const skipButton = document.getElementById('skip-word')

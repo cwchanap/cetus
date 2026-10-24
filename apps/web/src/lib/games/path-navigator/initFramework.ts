@@ -50,7 +50,7 @@ export async function initPathNavigatorGameFramework(
     const config: PathNavigatorConfig = {
         ...DEFAULT_PATH_NAVIGATOR_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
     const rendererConfig = createPathNavigatorRendererConfig(
         config,

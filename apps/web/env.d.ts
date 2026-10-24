@@ -24,9 +24,9 @@ interface ImportMeta {
 interface Window {
     memoryMatrixGame?: import('@/lib/games/memory-matrix/initFramework').MemoryMatrixInitResult
     showAchievementAward?: (
-        achievements: import('@/lib/achievements').AchievementNotification[]
+        achievements: import('@cetus/shared/achievements').AchievementNotification[]
     ) => void
     showChallengeComplete?: (
-        challengeUpdates: import('@/lib/games/core/types').ChallengeUpdates
+        challengeUpdates: import('@cetus/games').ChallengeUpdates
     ) => void
 }

@@ -47,7 +47,7 @@ export async function initSudokuGameFramework(
     const config: SudokuConfig = {
         ...DEFAULT_SUDOKU_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
     const renderer = new SudokuRenderer(createSudokuRendererConfig())
 

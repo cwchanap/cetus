@@ -40,7 +40,7 @@ export async function initQuickMathFramework(
     const config: QuickMathConfig = {
         ...DEFAULT_QUICK_MATH_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
     const rendererConfig = { ...DEFAULT_RENDERER_CONFIG }
 

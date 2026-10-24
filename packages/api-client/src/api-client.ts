@@ -105,7 +105,11 @@ export interface ApiClient {
 
 export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     const baseUrl = options.baseUrl?.replace(/\/+$/, '') ?? ''
-    const fetchImpl = options.fetchImpl ?? fetch
+    // Bind the ambient fetch lazily so hosts/tests can stub or shim
+    // globalThis.fetch after the client is created.
+    const fetchImpl =
+        options.fetchImpl ??
+        ((...args: Parameters<typeof fetch>) => fetch(...args))
     const getHeaders = options.getHeaders
 
     function url(path: string): string {
@@ -149,15 +153,23 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
             signal?: AbortSignal
         }
     ): Promise<T> {
+        // A throwing getHeaders provider is a host error, not a transport
+        // failure — let it propagate rather than mislabeling it 'network'.
+        const requestHeaders = await headers(init?.headers)
         let response: Response
         try {
             response = await fetchImpl(url(path), {
                 method,
-                headers: await headers(init?.headers),
+                headers: requestHeaders,
                 body: init?.body,
                 signal: init?.signal,
             })
-        } catch {
+        } catch (error) {
+            // Caller-initiated aborts propagate as the fetch rejection
+            // (AbortError) instead of surfacing as a network failure.
+            if (init?.signal?.aborted) {
+                throw error
+            }
             throw new ApiClientError('Network error occurred', 0, 'network')
         }
 
@@ -199,12 +211,15 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
 
     return {
         async submitScore(data: ScoreData): Promise<ScoreSubmissionResult> {
+            // As in request(): a throwing getHeaders provider is a host
+            // error and propagates rather than reporting NETWORK_ERROR.
+            const requestHeaders = await headers({
+                'Content-Type': 'application/json',
+            })
             try {
                 const response = await fetchImpl(url('/api/scores'), {
                     method: 'POST',
-                    headers: await headers({
-                        'Content-Type': 'application/json',
-                    }),
+                    headers: requestHeaders,
                     body: JSON.stringify(data),
                 })
 
@@ -244,9 +259,15 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
                     }
                 }
 
-                const result = (await response.json()) as ScoreSubmitResponse
+                // The body is trusted only for its declared fields; `success`
+                // stays runtime-checked so a nonconforming 2xx payload (e.g.
+                // `{success:false}`) still surfaces as a failed submission.
+                const result = (await response.json()) as Omit<
+                    ScoreSubmitResponse,
+                    'success'
+                > & { success?: boolean }
                 return {
-                    success: true,
+                    success: result.success !== false,
                     newAchievements: result.newAchievements || [],
                     challengeUpdates: result.challengeUpdates,
                 }

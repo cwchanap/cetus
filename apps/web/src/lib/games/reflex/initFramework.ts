@@ -47,7 +47,7 @@ export async function initReflexGameFramework(
     const config: ReflexConfig = {
         ...DEFAULT_REFLEX_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
     const rendererConfig = createReflexRendererConfig(
         config,
