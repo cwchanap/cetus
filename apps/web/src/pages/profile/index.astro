@@ -14,6 +14,7 @@ import {
   getUserDailyActivity,
   getUserIdentityById,
 } from '@/lib/server/db/queries'
+import { buildContributionWeeks } from '@cetus/shared/activity'
 
 // Check if user is authenticated
 const user = Astro.locals.user
@@ -51,35 +52,10 @@ const canGoNext = year < currentYear
 const prevYear = year - 1
 const nextYear = canGoNext ? year + 1 : year
 
-// Start from Sunday on or before Jan 1
-const calendarStart = new Date(firstDay)
-calendarStart.setUTCDate(firstDay.getUTCDate() - firstDay.getUTCDay())
-
-// End on Saturday on or after Dec 31
-const calendarEnd = new Date(lastDay)
-calendarEnd.setUTCDate(lastDay.getUTCDate() + (6 - lastDay.getUTCDay()))
-
-type DayCell = { date: Date; dateStr: string; count: number; month: number }
-const weeks: DayCell[][] = []
-const d = new Date(calendarStart)
-let maxCount = 0
-while (d <= calendarEnd) {
-  const week: DayCell[] = []
-  for (let i = 0; i < 7; i++) {
-    const y = d.getUTCFullYear()
-    const m = d.getUTCMonth()
-    const day = d.getUTCDate()
-    const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    const inYear = d >= firstDay && d <= lastDay
-    const count = inYear ? (dailyMap.get(dateStr) ?? 0) : -1 // -1 = padding cell
-    if (count > maxCount) {
-      maxCount = count
-    }
-    week.push({ date: new Date(d), dateStr, count, month: m })
-    d.setUTCDate(d.getUTCDate() + 1)
-  }
-  weeks.push(week)
-}
+// Sun-Sat week grid covering the year, padded to full weeks (count = -1 for
+// out-of-year padding cells) — shared with @cetus/shared so non-Astro hosts
+// render the same calendar.
+const { weeks } = buildContributionWeeks(year, dailyMap)
 
 // Precompute month label per week using first in-year day to avoid showing previous year's Dec before Jan
 const weekLabelMonth: number[] = weeks.map(week => {
@@ -635,11 +611,17 @@ const memberSince = session?.createdAt
     const api = createApiClient()
 
     // Coded server errors keep their text; everything else reads as a
-    // network problem (matching the raw-fetch behavior this replaces).
+    // network problem (matching the raw-fetch behavior this replaces). A 413
+    // comes from the edge proxy before the route runs, so the body carries no
+    // server message — reuse the client-side copy instead of the raw
+    // "Request failed with status 413" fallback.
     function apiErrorMessage(error: unknown): string {
-      return error instanceof ApiClientError && error.kind === 'http'
-        ? error.message
-        : 'Network error. Please try again.'
+      if (error instanceof ApiClientError && error.kind === 'http') {
+        return error.status === 413
+          ? 'File size must be less than 5MB'
+          : error.message
+      }
+      return 'Network error. Please try again.'
     }
 
     // Add some interactive effects

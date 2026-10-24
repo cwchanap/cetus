@@ -39,7 +39,7 @@ export async function initBejeweledGame(
     const config: BejeweledConfig = {
         ...DEFAULT_BEJEWELED_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
     const rendererConfig: BejeweledRendererConfig = {
         ...DEFAULT_RENDERER_CONFIG,

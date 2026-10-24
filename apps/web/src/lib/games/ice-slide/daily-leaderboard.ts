@@ -167,15 +167,27 @@ export function createDailyLeaderboardController(
 
         let data: ScopedLeaderboardResponse
         try {
-            // The scoped query above selects the scoped branch of the
-            // leaderboard union; its entries are structurally the renderer's
-            // narrower DailyLeaderboardResponse (extra wire fields ignored).
-            data = (await client.getLeaderboard({
+            const response = await client.getLeaderboard({
                 gameId: GameID.ICE_SLIDE,
                 mode: 'daily',
                 competitionKey,
                 limit: 10,
-            })) as ScopedLeaderboardResponse
+            })
+            // The scoped params should select the scoped branch of the
+            // union, but the wire is unchecked: narrow at runtime instead of
+            // casting, so a non-scoped body renders 'unavailable' rather than
+            // leaking undefined fields (e.g. a hidden-state toggle on
+            // viewerAuthenticated) into the panel.
+            if (
+                typeof response !== 'object' ||
+                response === null ||
+                !('viewerAuthenticated' in response) ||
+                !Array.isArray(response.leaderboard)
+            ) {
+                throw new Error('Unexpected leaderboard response shape')
+            }
+            // Entries carry extra wire fields the renderer ignores.
+            data = response
         } catch {
             // Network, non-2xx and malformed-body failures all surface as
             // ApiClientError and render as the unavailable state.

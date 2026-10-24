@@ -62,7 +62,7 @@ export async function initEvaderGameFramework(
     const config: EvaderConfig = {
         ...DEFAULT_EVADER_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
     const rendererConfig = createEvaderRendererConfig(
         config,

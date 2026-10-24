@@ -15,11 +15,11 @@
     "astro": "bun run --cwd apps/web astro",
     "db:dev": "bun run --cwd apps/web db:dev",
     "web:dev": "bun run --cwd apps/web web:dev",
-    "test": "bun run --cwd apps/web test",
-    "test:ui": "bun run --cwd apps/web test:ui",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:watch": "bun run --cwd apps/web test:watch",
+    "test:watch": "vitest --watch",
     "validate:ice-slide-expedition": "bun run --cwd apps/web validate:ice-slide-expedition",
     "test:e2e": "bun run --cwd apps/web test:e2e",
     "e2e:db:init": "bun run --cwd apps/web e2e:db:init",
@@ -51,7 +51,8 @@
     "turbo": "^2.11.8",
     "typescript-eslint": "^8.71.2",
     "vitest": "^3.2.4",
-    "@vitest/coverage-v8": "^3.2.4"
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4"
   },
   "overrides": {
     "debug": "^4.4.3",

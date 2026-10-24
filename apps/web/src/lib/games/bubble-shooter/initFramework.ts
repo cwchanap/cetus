@@ -63,7 +63,7 @@ export async function initBubbleShooterGameFramework(
     const config: BubbleShooterConfig = {
         ...DEFAULT_BUBBLE_SHOOTER_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
     const rendererConfig = createBubbleShooterRendererConfig(
         config,

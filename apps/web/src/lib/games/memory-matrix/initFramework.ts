@@ -48,7 +48,7 @@ export async function initMemoryMatrixGameFramework(
     const config: MemoryMatrixConfig = {
         ...DEFAULT_MEMORY_MATRIX_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
 
     const renderer = new MemoryMatrixRenderer({

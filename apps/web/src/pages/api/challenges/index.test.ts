@@ -133,6 +133,37 @@ describe('GET /api/challenges', () => {
         expect(data.xpToNextLevel).toBe(0)
     })
 
+    it('serializes an invalid completedAt date to null instead of failing', async () => {
+        vi.mocked(getUserDailyChallenges).mockResolvedValue([
+            {
+                ...mockChallenges[0],
+                completed: true,
+                completedAt: new Date('not-a-date'),
+            },
+        ] as any)
+
+        const request = new Request('http://localhost/api/challenges')
+        const response = await GET({ request } as any)
+
+        expect(response.status).toBe(200)
+        const data = await response.json()
+        expect(data.challenges[0].completedAt).toBeNull()
+    })
+
+    it('serializes a valid completedAt date to an ISO string', async () => {
+        const completedAt = new Date('2024-01-03T12:34:56.000Z')
+        vi.mocked(getUserDailyChallenges).mockResolvedValue([
+            { ...mockChallenges[0], completed: true, completedAt },
+        ] as any)
+
+        const request = new Request('http://localhost/api/challenges')
+        const response = await GET({ request } as any)
+
+        expect(response.status).toBe(200)
+        const data = await response.json()
+        expect(data.challenges[0].completedAt).toBe('2024-01-03T12:34:56.000Z')
+    })
+
     it('should return 500 on unexpected error', async () => {
         vi.mocked(getUserDailyChallenges).mockRejectedValue(
             new Error('Database failure')

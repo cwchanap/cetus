@@ -50,7 +50,7 @@ export async function init2048GameFramework(
     const config: Game2048Config = {
         ...DEFAULT_GAME2048_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
     const rendererConfig = createGame2048RendererConfig(
         config,

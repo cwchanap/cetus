@@ -45,7 +45,7 @@ export async function initSnakeGameFramework(
     const config: SnakeConfig = {
         ...DEFAULT_SNAKE_CONFIG,
         ...customConfig,
-        submitScore,
+        submitScore: customConfig?.submitScore ?? submitScore,
     }
     const rendererConfig = createSnakeRendererConfig(config, '#snake-container')
 
