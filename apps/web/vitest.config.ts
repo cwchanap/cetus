@@ -9,6 +9,12 @@ import { resolve } from 'path'
 type VitestUserConfig = Parameters<typeof defineConfig>[0]
 
 const vitestConfig: VitestUserConfig = {
+    // Islands (.tsx) compile with the automatic JSX runtime in both the Astro
+    // build and tests; without this, the classic transform needs a React
+    // import in every test file.
+    esbuild: {
+        jsx: 'automatic',
+    },
     test: {
         environment: 'jsdom',
         globals: true,
