@@ -2,6 +2,9 @@
    only app markup should feed utility candidates — root docs/specs must not
    change shipped CSS, and Turbo's build inputs cover apps/web only. */
 @import 'tailwindcss' source('../..');
+/* React package sources are scanned too so migrated components' utility
+   classes are generated. Path is relative to THIS stylesheet. */
+@source "../../../../packages/ui";
 @import 'tw-animate-css';
 /* Semantic --cetus-* token source of truth lives in the workspace package. */
 @import '@cetus/tokens/theme.css';
