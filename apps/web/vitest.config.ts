@@ -36,10 +36,39 @@ const vitestConfig: VitestUserConfig = {
             GOOGLE_CLIENT_ID: 'test-google-client-id',
             GOOGLE_CLIENT_SECRET: 'test-google-secret',
         },
+        server: {
+            deps: {
+                // createContainer loads @astrojs/react's server renderer via
+                // loadRenderers; that module imports the astro:react:opts
+                // virtual module. Left external (the node_modules default),
+                // Node's ESM loader receives the astro: protocol and throws.
+                // Inline these so Vite transforms them and the aliases above
+                // apply.
+                inline: [
+                    /node_modules\/@astrojs\/react\//,
+                    /node_modules\/astro\/dist\/virtual-modules\//,
+                ],
+            },
+        },
     },
     resolve: {
         alias: {
             '@': resolve(__dirname, './src'),
+            // The astro:container virtual module is provided by Astro's vite
+            // plugin only when getViteConfig can load the Astro config. Under
+            // the root workspace config (project reference, cwd = repo root)
+            // it isn't registered, so alias to the same implementation module
+            // directly — identical to what the plugin virtualizes.
+            'astro:container': resolve(
+                __dirname,
+                '../../node_modules/astro/dist/virtual-modules/container.js'
+            ),
+            // Same story for @astrojs/react's virtual module, which the React
+            // server renderer imports when the container loads it.
+            'astro:react:opts': resolve(
+                __dirname,
+                './src/test/mocks/astro-react-opts.ts'
+            ),
             'astro:middleware': resolve(
                 __dirname,
                 './src/test/mocks/astro-middleware.ts'

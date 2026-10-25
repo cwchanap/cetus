@@ -1,17 +1,17 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
+import { createContainer } from '@/test/createContainer'
 import Navigation from '@/components/ui/Navigation.astro'
 import Footer from '@/components/ui/Footer.astro'
 import { globalCss as css, themeCss } from '@/test/styles'
 
 describe('abyssal shell retints (behavioral)', () => {
-    let container: Awaited<ReturnType<typeof AstroContainer.create>>
+    let container: Awaited<ReturnType<typeof createContainer>>
     let navHtml: string
     let footerHtml: string
 
     beforeAll(async () => {
-        container = await AstroContainer.create()
+        container = await createContainer()
         navHtml = await container.renderToString(Navigation, {
             locals: { user: null, session: null },
         })

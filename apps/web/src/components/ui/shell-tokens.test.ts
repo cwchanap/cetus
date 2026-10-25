@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
+import { createContainer } from '@/test/createContainer'
 import Button from './Button.astro'
 import Card from './Card.astro'
 import Heading from './Heading.astro'
@@ -9,10 +9,10 @@ import Navigation from './Navigation.astro'
 import Footer from './Footer.astro'
 
 describe('shell components use cetus tokens (behavioral)', () => {
-    let container: Awaited<ReturnType<typeof AstroContainer.create>>
+    let container: Awaited<ReturnType<typeof createContainer>>
 
     beforeAll(async () => {
-        container = await AstroContainer.create()
+        container = await createContainer()
     })
 
     it('Button primary uses the token gradient, not hardcoded cyan/purple', async () => {
