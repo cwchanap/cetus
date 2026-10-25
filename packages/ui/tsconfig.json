@@ -1,0 +1,14 @@
+{
+    "extends": "@cetus/config/tsconfig.base.json",
+    "include": ["src/**/*.ts", "src/**/*.tsx"],
+    "compilerOptions": {
+        "noEmit": true,
+        // React UI code targets the browser: DOM lib is intentional here
+        // (unlike @cetus/shared, which bans browser globals).
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "jsx": "react-jsx",
+        "verbatimModuleSyntax": true
+    }
+}
