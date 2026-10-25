@@ -1,16 +1,16 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
+import { createContainer } from '@/test/createContainer'
 import GamePage from './GamePage.astro'
 import GameTitle from './GameTitle.astro'
 import GameBreadcrumb from './GameBreadcrumb.astro'
 import GameOverlay from '@/components/GameOverlay.astro'
 
 describe('Game wrapper restyle', () => {
-    let container: Awaited<ReturnType<typeof AstroContainer.create>>
+    let container: Awaited<ReturnType<typeof createContainer>>
 
     beforeAll(async () => {
-        container = await AstroContainer.create()
+        container = await createContainer()
     })
 
     it('GamePage renders a custom controls slot when provided', async () => {

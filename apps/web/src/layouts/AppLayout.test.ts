@@ -1,13 +1,13 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
+import { createContainer } from '@/test/createContainer'
 import AppLayout from './AppLayout.astro'
 
 describe('AppLayout theme prop (behavioral)', () => {
-    let container: Awaited<ReturnType<typeof AstroContainer.create>>
+    let container: Awaited<ReturnType<typeof createContainer>>
 
     beforeAll(async () => {
-        container = await AstroContainer.create()
+        container = await createContainer()
     })
 
     it('applies theme-abyssal to the body when theme="abyssal"', async () => {

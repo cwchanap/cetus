@@ -1,14 +1,14 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
+import { createContainer } from '@/test/createContainer'
 import IndexPage from './index.astro'
 
 describe('homepage abyssal composition (behavioral)', () => {
-    let container: Awaited<ReturnType<typeof AstroContainer.create>>
+    let container: Awaited<ReturnType<typeof createContainer>>
     let html: string
 
     beforeAll(async () => {
-        container = await AstroContainer.create()
+        container = await createContainer()
         html = await container.renderToString(IndexPage, {
             locals: { user: null, session: null },
         })
