@@ -1,8 +1,7 @@
----
-import { cn } from '@/lib/utils'
-import type { HTMLAttributes } from 'astro/types'
+import type { HTMLAttributes } from 'react'
+import { cn } from '../../lib/utils'
 
-export interface Props extends HTMLAttributes<'span'> {
+export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?:
     | 'default'
     | 'secondary'
@@ -12,15 +11,7 @@ export interface Props extends HTMLAttributes<'span'> {
     | 'warning'
     | 'error'
   size?: 'default' | 'sm' | 'lg'
-  class?: string
 }
-
-const {
-  variant = 'default',
-  size = 'default',
-  class: className = '',
-  ...props
-} = Astro.props
 
 const destructiveStyle =
   'bg-cetus-accent-3/10 text-cetus-accent-3 border border-cetus-accent-3/30'
@@ -46,14 +37,24 @@ const badgeVariants = {
   },
 }
 
-const classes = cn(
-  'inline-flex items-center rounded-full font-mono tracking-wide text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-  badgeVariants.variant[variant],
-  badgeVariants.size[size],
-  className
-)
----
-
-<span class={classes} {...props}>
-  <slot />
-</span>
+export function Badge({
+  variant = 'default',
+  size = 'default',
+  className,
+  children,
+  ...rest
+}: BadgeProps) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full font-mono tracking-wide text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+        badgeVariants.variant[variant],
+        badgeVariants.size[size],
+        className
+      )}
+      {...rest}
+    >
+      {children}
+    </span>
+  )
+}
