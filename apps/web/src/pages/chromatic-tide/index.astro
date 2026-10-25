@@ -1,8 +1,6 @@
 ---
 import GamePage from '@/components/games/GamePage.astro'
-import Badge from '@/components/ui/Badge.astro'
-import Button from '@/components/ui/Button.astro'
-import Card from '@/components/ui/Card.astro'
+import { Badge, Button, Card } from '@cetus/ui'
 ---
 
 <GamePage
@@ -38,48 +36,48 @@ import Card from '@/components/ui/Card.astro'
         type="button"
         aria-pressed="false"
         disabled
-        class="chromatic-tide-color">1 Teal</Button
+        className="chromatic-tide-color">1 Teal</Button
       >
       <Button
         data-tide-color="amber"
         type="button"
         aria-pressed="false"
         disabled
-        class="chromatic-tide-color">2 Amber</Button
+        className="chromatic-tide-color">2 Amber</Button
       >
       <Button
         data-tide-color="magenta"
         type="button"
         aria-pressed="false"
         disabled
-        class="chromatic-tide-color">3 Magenta</Button
+        className="chromatic-tide-color">3 Magenta</Button
       >
       <Button
         data-tide-color="ice"
         type="button"
         aria-pressed="false"
         disabled
-        class="chromatic-tide-color">4 Ice</Button
+        className="chromatic-tide-color">4 Ice</Button
       >
       <Button
         data-tide-color="green"
         type="button"
         aria-pressed="false"
         disabled
-        class="chromatic-tide-color">5 Green</Button
+        className="chromatic-tide-color">5 Green</Button
       >
     </div>
   </div>
 
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">Moves: <span id="moves">0</span></span>
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">Captured: <span id="captured">0 / 144</span></span>
   </Badge>
 
   <div slot="game-info" class="space-y-6">
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="mb-4 font-mono text-sm tracking-wide text-cetus-accent">
         ▸ HOW TO PLAY
       </h3>
@@ -91,7 +89,7 @@ import Card from '@/components/ui/Card.astro'
       </div>
     </Card>
 
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="mb-4 font-mono text-sm tracking-wide text-cetus-accent">
         ▸ SCORING
       </h3>

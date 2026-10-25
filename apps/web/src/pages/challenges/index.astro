@@ -1,11 +1,6 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro'
-import Container from '@/components/ui/Container.astro'
-import Section from '@/components/ui/Section.astro'
-import Heading from '@/components/ui/Heading.astro'
-import Card from '@/components/ui/Card.astro'
-import Badge from '@/components/ui/Badge.astro'
-import Button from '@/components/ui/Button.astro'
+import { Badge, Button, Card, Container, Heading, Section } from '@cetus/ui'
 import { getUserDailyChallenges } from '@/lib/services/challengeService'
 import { getUserXPAndLevel } from '@/lib/server/db/queries'
 import {
@@ -56,38 +51,46 @@ const frauncesStyle =
     <Section>
       {
         loadError && (
-          <Card variant="glass" class="p-4 mb-4 border-red-500/30 bg-red-500/5">
+          <Card
+            variant="glass"
+            className="p-4 mb-4 border-red-500/30 bg-red-500/5"
+          >
             <div class="text-red-300 font-semibold">Note</div>
             <div class="text-sm text-red-200 mt-1">{loadError}</div>
           </Card>
         )
       }
 
-      <Heading level={1} variant="hero" kicker="DAILY MISSIONS" class="mb-8">
+      <Heading
+        level={1}
+        variant="hero"
+        kicker="DAILY MISSIONS"
+        className="mb-8"
+      >
         Daily Challenges
       </Heading>
 
       <!-- Stats Cards -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <Card variant="glass" class="p-4 text-center">
+        <Card variant="glass" className="p-4 text-center">
           <div class="text-3xl font-bold font-mono text-cetus-accent">
             {level}
           </div>
           <div class="text-sm text-cetus-ink-muted">Current Level</div>
         </Card>
-        <Card variant="glass" class="p-4 text-center">
+        <Card variant="glass" className="p-4 text-center">
           <div class="text-3xl font-bold font-mono text-cetus-accent-3">
             {xp.toLocaleString()}
           </div>
           <div class="text-sm text-cetus-ink-muted">Total XP</div>
         </Card>
-        <Card variant="glass" class="p-4 text-center">
+        <Card variant="glass" className="p-4 text-center">
           <div class="text-3xl font-bold font-mono text-cetus-accent-2">
             {challengeStreak}
           </div>
           <div class="text-sm text-cetus-ink-muted">Day Streak</div>
         </Card>
-        <Card variant="glass" class="p-4 text-center">
+        <Card variant="glass" className="p-4 text-center">
           <div class="text-3xl font-bold font-mono text-cetus-accent">
             {completedCount}/{challenges.length}
           </div>
@@ -96,7 +99,7 @@ const frauncesStyle =
       </div>
 
       <!-- Level Progress -->
-      <Card variant="glass" class="p-6 mb-8">
+      <Card variant="glass" className="p-6 mb-8">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-lg font-bold text-white" style={frauncesStyle}>
             Level Progress
@@ -148,7 +151,7 @@ const frauncesStyle =
               return (
                 <Card
                   variant={challenge.completed ? 'glass' : 'sci-fi'}
-                  class={`p-6 ${challenge.completed ? 'border-cetus-accent/30 bg-cetus-accent/5' : ''}`}
+                  className={`p-6 ${challenge.completed ? 'border-cetus-accent/30 bg-cetus-accent/5' : ''}`}
                 >
                   <div class="flex items-center gap-6">
                     <span class="text-4xl">{challenge.icon}</span>

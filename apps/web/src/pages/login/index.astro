@@ -1,9 +1,6 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro'
-import Card from '@/components/ui/Card.astro'
-import Section from '@/components/ui/Section.astro'
-import Container from '@/components/ui/Container.astro'
-import Heading from '@/components/ui/Heading.astro'
+import { Card, Container, Heading, Section } from '@cetus/ui'
 ---
 
 <AppLayout
@@ -12,14 +9,14 @@ import Heading from '@/components/ui/Heading.astro'
 >
   <!-- Login Section -->
   <Section>
-    <Container class="max-w-md">
+    <Container className="max-w-md">
       <div class="text-center mb-8">
         <Heading
           level={2}
           variant="section"
           align="center"
           kicker="AUTH · LOGIN"
-          class="mb-4"
+          className="mb-4"
         >
           PLAYER LOGIN
         </Heading>
@@ -28,7 +25,7 @@ import Heading from '@/components/ui/Heading.astro'
         </p>
       </div>
 
-      <Card variant="glass" brackets class="p-8">
+      <Card variant="glass" brackets className="p-8">
         <div class="space-y-3">
           <button
             type="button"

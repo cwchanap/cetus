@@ -1,8 +1,6 @@
 ---
 import GamePage from '@/components/games/GamePage.astro'
-import Badge from '@/components/ui/Badge.astro'
-import Button from '@/components/ui/Button.astro'
-import Card from '@/components/ui/Card.astro'
+import { Badge, Button, Card } from '@cetus/ui'
 import {
   SIGNAL_SWITCH_RULES,
   SIGNAL_SWITCH_SIGNALS,
@@ -48,29 +46,29 @@ const { glyph: initialGlyph, label: initialLabel } = SIGNAL_SWITCH_SIGNALS.cyan
     <p id="signal-switch-status" class="sr-only" aria-live="polite"></p>
   </div>
 
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">
       Integrity: <span id="signal-switch-integrity"
         >{SIGNAL_SWITCH_RULES.startingIntegrity}</span
       >
     </span>
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">Combo: <span id="signal-switch-combo">0</span></span
     >
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">
       Safe passes: <span id="signal-switch-safe-passes">0</span>
     </span>
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">
       Lanes: <span id="signal-switch-lanes">{startingLanes} / {totalLanes}</span
       >
     </span>
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">
       Speed: <span id="signal-switch-speed"
         >{SIGNAL_SWITCH_RULES.initialDroneSpeed}</span
@@ -79,7 +77,7 @@ const { glyph: initialGlyph, label: initialLabel } = SIGNAL_SWITCH_SIGNALS.cyan
   </Badge>
 
   <div slot="controls">
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <div class="flex flex-col items-center space-y-4">
         <div class="flex flex-wrap justify-center gap-2">
           <Button id="start-btn" type="button" variant="primary">
@@ -125,7 +123,7 @@ const { glyph: initialGlyph, label: initialLabel } = SIGNAL_SWITCH_SIGNALS.cyan
   </div>
 
   <div slot="game-info" class="space-y-6">
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ HOW TO PLAY
       </h3>
@@ -137,7 +135,7 @@ const { glyph: initialGlyph, label: initialLabel } = SIGNAL_SWITCH_SIGNALS.cyan
       </div>
     </Card>
 
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ SCORING
       </h3>

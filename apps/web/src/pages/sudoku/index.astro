@@ -1,8 +1,6 @@
 ---
 import GamePage from '@/components/games/GamePage.astro'
-import Card from '@/components/ui/Card.astro'
-import Badge from '@/components/ui/Badge.astro'
-import Button from '@/components/ui/Button.astro'
+import { Badge, Button, Card } from '@cetus/ui'
 ---
 
 <GamePage
@@ -24,10 +22,10 @@ import Button from '@/components/ui/Button.astro'
   </div>
 
   <!-- Additional stat badges (game-time / difficulty use game-specific IDs) -->
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">Time: <span id="game-time">00:00</span></span>
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono"
       >Difficulty: <span id="difficulty">Medium</span></span
     >
@@ -36,20 +34,20 @@ import Button from '@/components/ui/Button.astro'
   <!-- Sidebar -->
   <div slot="game-info">
     <!-- Difficulty Settings -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ DIFFICULTY
       </h3>
       <div class="space-y-3">
-        <Button id="easy-btn" class="w-full justify-start">
+        <Button id="easy-btn" className="w-full justify-start">
           <span class="mr-2">🟢</span>
           Easy (40 clues)
         </Button>
-        <Button id="medium-btn" class="w-full justify-start">
+        <Button id="medium-btn" className="w-full justify-start">
           <span class="mr-2">🟡</span>
           Medium (30 clues)
         </Button>
-        <Button id="hard-btn" class="w-full justify-start">
+        <Button id="hard-btn" className="w-full justify-start">
           <span class="mr-2">🔴</span>
           Hard (20 clues)
         </Button>
@@ -57,36 +55,38 @@ import Button from '@/components/ui/Button.astro'
     </Card>
 
     <!-- Controls Guide -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ CONTROLS
       </h3>
       <div class="space-y-2 text-sm">
         <div class="flex justify-between">
           <span class="text-cetus-ink-muted">Select Cell:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">Click</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs">Click</Badge>
         </div>
         <div class="flex justify-between">
           <span class="text-cetus-ink-muted">Enter Number:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">1-9</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs">1-9</Badge>
         </div>
         <div class="flex justify-between">
           <span class="text-cetus-ink-muted">Clear Cell:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">Delete</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs">Delete</Badge>
         </div>
         <div class="flex justify-between">
           <span class="text-cetus-ink-muted">Navigate:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">Arrow Keys</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs"
+            >Arrow Keys</Badge
+          >
         </div>
         <div class="flex justify-between">
           <span class="text-cetus-ink-muted">Pause:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">P</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs">P</Badge>
         </div>
       </div>
     </Card>
 
     <!-- How to Play -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ HOW TO PLAY
       </h3>

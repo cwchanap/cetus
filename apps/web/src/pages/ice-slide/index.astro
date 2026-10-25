@@ -1,7 +1,6 @@
 ---
 import GamePage from '@/components/games/GamePage.astro'
-import Card from '@/components/ui/Card.astro'
-import Button from '@/components/ui/Button.astro'
+import { Button, Card } from '@cetus/ui'
 import { ICE_SLIDE_EXPEDITION_RISK_MULTIPLIER_BPS } from '@cetus/games/ice-slide/expedition'
 
 const expeditionRiskMultiplier = (
@@ -116,7 +115,7 @@ const expeditionRiskMultiplier = (
             <Button
               id="stage-clear-continue-btn"
               type="button"
-              class="mt-6 w-full"
+              className="mt-6 w-full"
               size="lg"
             >
               Continue
@@ -151,7 +150,7 @@ const expeditionRiskMultiplier = (
         </div>
       </div>
 
-      <Card id="daily-meta" variant="glass" class="hidden p-4">
+      <Card id="daily-meta" variant="glass" className="hidden p-4">
         <div
           class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"
         >
@@ -175,7 +174,7 @@ const expeditionRiskMultiplier = (
         </div>
       </Card>
 
-      <Card id="expedition-meta" variant="glass" class="hidden p-4">
+      <Card id="expedition-meta" variant="glass" className="hidden p-4">
         <div
           class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"
         >
@@ -208,13 +207,13 @@ const expeditionRiskMultiplier = (
           variant="outline"
           size="sm"
           disabled
-          class="mt-3"
+          className="mt-3"
         >
           Undo (0)
         </Button>
       </Card>
 
-      <Card id="daily-leaderboard" variant="glass" class="hidden p-4">
+      <Card id="daily-leaderboard" variant="glass" className="hidden p-4">
         <div class="flex items-baseline justify-between gap-3">
           <h3 class="font-mono text-sm tracking-wide text-cetus-accent">
             ▸ DAILY RANKING
@@ -273,7 +272,7 @@ const expeditionRiskMultiplier = (
   </div>
 
   <div slot="game-info">
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ HOW TO PLAY
       </h3>
@@ -287,7 +286,7 @@ const expeditionRiskMultiplier = (
       </ul>
     </Card>
 
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ SCORING
       </h3>
@@ -316,7 +315,7 @@ const expeditionRiskMultiplier = (
       </p>
     </Card>
 
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ DAILY BRIEF
       </h3>
@@ -375,7 +374,7 @@ const expeditionRiskMultiplier = (
       type="button"
       variant="outline"
       size="lg"
-      class="hidden w-full"
+      className="hidden w-full"
     >
       New Expedition
     </Button>
@@ -384,7 +383,7 @@ const expeditionRiskMultiplier = (
       type="button"
       variant="outline"
       size="lg"
-      class="w-full"
+      className="w-full"
     >
       Change Mode
     </Button>

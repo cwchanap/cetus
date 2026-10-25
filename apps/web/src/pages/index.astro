@@ -1,7 +1,6 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro'
-import Container from '@/components/ui/Container.astro'
-import SpecimenCard from '@/components/ui/SpecimenCard.astro'
+import { Container, SpecimenCard } from '@cetus/ui'
 import { getAllGames } from '@cetus/shared/games'
 import {
   getGamesByDepth,
@@ -48,7 +47,7 @@ for (const z of zones) {
     </div>
     <div class="cetus-grid-horizon" aria-hidden="true"></div>
 
-    <Container class="relative max-w-5xl text-center">
+    <Container className="relative max-w-5xl text-center">
       <p class="font-mono text-xs tracking-[0.34em] text-cetus-accent">
         ▸ CETUS · DEEP CATALOG<span class="cetus-cursor" aria-hidden="true"
           >_</span
@@ -94,7 +93,7 @@ for (const z of zones) {
   <section id="catalog" class="relative px-6 py-16">
     <!-- Legacy deep-link anchor: AppLayout scrolls to #games after ?redirect=games login. -->
     <div id="games"></div>
-    <Container class="max-w-7xl">
+    <Container className="max-w-7xl">
       {
         zones.map(zone => {
           const meta = DEPTH_LABELS[zone]
@@ -132,7 +131,7 @@ for (const z of zones) {
 
   <!-- VALUE STRIP -->
   <section class="relative px-6 py-12">
-    <Container class="max-w-4xl text-center">
+    <Container className="max-w-4xl text-center">
       <p class="text-sm text-cetus-ink-muted">
         No login — play in one click ·{' '}
         <a

@@ -1,7 +1,6 @@
 ---
 import GamePage from '@/components/games/GamePage.astro'
-import Card from '@/components/ui/Card.astro'
-import Badge from '@/components/ui/Badge.astro'
+import { Badge, Card } from '@cetus/ui'
 ---
 
 <GamePage
@@ -24,14 +23,14 @@ import Badge from '@/components/ui/Badge.astro'
   </div>
 
   <!-- Additional stat: level -->
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">Level: <span id="level">1</span></span>
   </Badge>
 
   <!-- Sidebar -->
   <div slot="game-info">
     <!-- Instructions -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ HOW TO PLAY
       </h3>
@@ -60,47 +59,58 @@ import Badge from '@/components/ui/Badge.astro'
     </Card>
 
     <!-- Level Information -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ LEVELS
       </h3>
       <div class="space-y-3 text-sm">
         <div class="flex justify-between items-center">
           <span class="text-cetus-ink-muted">Level 1:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">Easy Path</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs"
+            >Easy Path</Badge
+          >
         </div>
         <div class="flex justify-between items-center">
           <span class="text-cetus-ink-muted">Level 2:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">Curved Path</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs"
+            >Curved Path</Badge
+          >
         </div>
         <div class="flex justify-between items-center">
           <span class="text-cetus-ink-muted">Level 3:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">Zigzag Path</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs"
+            >Zigzag Path</Badge
+          >
         </div>
         <div class="flex justify-between items-center">
           <span class="text-cetus-ink-muted">Level 4:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">Spiral Path</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs"
+            >Spiral Path</Badge
+          >
         </div>
       </div>
     </Card>
 
     <!-- Controls Guide -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ CONTROLS
       </h3>
       <div class="space-y-2 text-sm">
         <div class="flex justify-between items-center">
           <span class="text-cetus-ink-muted">Mouse Movement:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">Navigate</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs">Navigate</Badge
+          >
         </div>
         <div class="flex justify-between items-center">
           <span class="text-cetus-ink-muted">Start Game:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">Button</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs">Button</Badge>
         </div>
         <div class="flex justify-between items-center">
           <span class="text-cetus-ink-muted">Time Limit:</span>
-          <Badge variant="outline" class="px-2 py-1 text-xs">60 seconds</Badge>
+          <Badge variant="outline" className="px-2 py-1 text-xs"
+            >60 seconds</Badge
+          >
         </div>
         <div class="pt-2 border-t border-cetus-hairline">
           <div class="text-cetus-ink-muted text-xs">
@@ -111,7 +121,7 @@ import Badge from '@/components/ui/Badge.astro'
     </Card>
 
     <!-- Scoring -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ SCORING
       </h3>

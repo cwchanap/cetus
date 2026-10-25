@@ -1,8 +1,6 @@
 ---
 import GamePage from '@/components/games/GamePage.astro'
-import Badge from '@/components/ui/Badge.astro'
-import Button from '@/components/ui/Button.astro'
-import Card from '@/components/ui/Card.astro'
+import { Badge, Button, Card } from '@cetus/ui'
 import { RHYTHM_REACTOR_RULES } from '@cetus/games/rhythm-reactor/types'
 ---
 
@@ -31,20 +29,20 @@ import { RHYTHM_REACTOR_RULES } from '@cetus/games/rhythm-reactor/types'
     <p id="rhythm-reactor-status" class="sr-only" aria-live="polite"></p>
   </div>
 
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono"
       >Combo: <span id="rhythm-reactor-combo">0</span></span
     >
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">Hits: <span id="rhythm-reactor-hits">0</span></span>
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono"
       >Judgment: <span id="rhythm-reactor-judgment">READY</span></span
     >
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono"
       >Stability: <span id="rhythm-reactor-stability"
         >{RHYTHM_REACTOR_RULES.initialStability}</span
@@ -53,7 +51,7 @@ import { RHYTHM_REACTOR_RULES } from '@cetus/games/rhythm-reactor/types'
   </Badge>
 
   <div slot="controls">
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <div class="flex flex-col items-center space-y-4">
         <div class="flex flex-wrap justify-center gap-2">
           <Button id="start-btn" type="button" variant="primary">
@@ -99,7 +97,7 @@ import { RHYTHM_REACTOR_RULES } from '@cetus/games/rhythm-reactor/types'
   </div>
 
   <div slot="game-info" class="space-y-6">
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ HOW TO PLAY
       </h3>
@@ -111,7 +109,7 @@ import { RHYTHM_REACTOR_RULES } from '@cetus/games/rhythm-reactor/types'
       </div>
     </Card>
 
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ SCORING
       </h3>

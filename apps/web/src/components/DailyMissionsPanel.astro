@@ -1,6 +1,5 @@
 ---
-import Card from '@/components/ui/Card.astro'
-import Badge from '@/components/ui/Badge.astro'
+import { Badge, Card } from '@cetus/ui'
 import type { UserChallengeProgress } from '@cetus/shared/challenges'
 
 interface Props {
@@ -24,7 +23,7 @@ const difficultyColors: Record<string, string> = {
 }
 ---
 
-<Card variant="glass" class="p-6 mb-8">
+<Card variant="glass" className="p-6 mb-8">
   <!-- Header -->
   <div class="flex items-center justify-between mb-6">
     <div class="flex items-center gap-3">
@@ -37,7 +36,7 @@ const difficultyColors: Record<string, string> = {
       </h3>
     </div>
     <div class="flex items-center gap-3">
-      <Badge variant="outline" size="sm" class="bg-cetus-accent-2/20">
+      <Badge variant="outline" size="sm" className="bg-cetus-accent-2/20">
         Level {level}
       </Badge>
       <span

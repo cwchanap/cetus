@@ -1,0 +1,21 @@
+---
+// HPA-379 Stage 2 scoped-style proof fixture. A real .astro parent with a
+// scoped <style> rule targeting a class passed to a migrated React child.
+// No page in the app scoped-styles a primitive directly, so this fixture is
+// the closest existing case (per task brief) — it exercises the exact
+// production mechanism: Astro stamps `data-astro-cid-*` on component tags,
+// and the React child must forward it via {...rest} for the rule to match.
+import { Card } from '@cetus/ui'
+---
+
+<div class="proof-wrapper">
+  <Card variant="glass" className="proof-target">proof content</Card>
+</div>
+
+<style>
+  /* Scoped rule: compiles to .proof-target:where([data-astro-cid-*]) — it
+     only matches the Card root if Astro's cid attribute is forwarded. */
+  .proof-target {
+    letter-spacing: 0.01em;
+  }
+</style>

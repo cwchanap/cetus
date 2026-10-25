@@ -1,8 +1,6 @@
 ---
 import GamePage from '@/components/games/GamePage.astro'
-import Badge from '@/components/ui/Badge.astro'
-import Button from '@/components/ui/Button.astro'
-import Card from '@/components/ui/Card.astro'
+import { Badge, Button, Card } from '@cetus/ui'
 import { ASTEROID_DRIFT_RULES } from '@cetus/games/asteroid-drift/types'
 ---
 
@@ -30,15 +28,15 @@ import { ASTEROID_DRIFT_RULES } from '@cetus/games/asteroid-drift/types'
     <p id="asteroid-drift-status" class="sr-only" aria-live="polite"></p>
   </div>
 
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">Orbs: <span id="orbs-collected">0</span></span>
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">Speed: <span id="ship-speed">0</span></span>
   </Badge>
 
   <div slot="controls">
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <div class="flex flex-col items-center space-y-4">
         <div class="flex flex-wrap justify-center gap-2">
           <Button id="start-btn" type="button" variant="primary">
@@ -99,7 +97,7 @@ import { ASTEROID_DRIFT_RULES } from '@cetus/games/asteroid-drift/types'
   </div>
 
   <div slot="game-info" class="space-y-6">
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ HOW TO PLAY
       </h3>
@@ -111,7 +109,7 @@ import { ASTEROID_DRIFT_RULES } from '@cetus/games/asteroid-drift/types'
       </div>
     </Card>
 
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ SCORING
       </h3>
