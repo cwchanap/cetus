@@ -60,7 +60,7 @@ export default [
   // packages/** must not import web/framework/DB modules. Bun's hoisted
   // install and TS skipLibCheck would otherwise hide invalid dependencies.
   {
-    files: ['packages/**/*.ts'],
+    files: ['packages/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': ['error', { patterns: packageBoundaryPatterns }],
     },
@@ -68,7 +68,7 @@ export default [
   // Dependency direction: shared is the base package (imports nothing
   // workspace-local); games/api-client may only depend on @cetus/shared.
   {
-    files: ['packages/shared/**/*.ts'],
+    files: ['packages/shared/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -86,7 +86,7 @@ export default [
     },
   },
   {
-    files: ['packages/{games,api-client}/**/*.ts'],
+    files: ['packages/{games,api-client}/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -104,6 +104,33 @@ export default [
               ],
               message:
                 'only @cetus/shared imports are allowed; sideways package imports are banned',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Dependency direction for the React UI package (HPA-379): it may use
+  // @cetus/shared types and @cetus/tokens CSS tokens, never game rules,
+  // the API client, framework or server code. (react/react-dom and
+  // clsx/tailwind-merge are unrestricted; boundary bans above still apply.)
+  {
+    files: ['packages/ui/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...packageBoundaryPatterns,
+            {
+              group: [
+                '@cetus/games',
+                '@cetus/games/**',
+                '@cetus/api-client',
+                '@cetus/api-client/**',
+              ],
+              message:
+                '@cetus/ui may only depend on @cetus/shared and @cetus/tokens',
             },
           ],
         },
