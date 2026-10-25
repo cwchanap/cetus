@@ -25,11 +25,13 @@
     "typecheck": "astro check"
   },
   "dependencies": {
+    "@astrojs/react": "^4.4.2",
     "@astrojs/vercel": "^8.2.0",
     "@cetus/api-client": "workspace:*",
     "@cetus/games": "workspace:*",
-    "@cetus/tokens": "workspace:*",
     "@cetus/shared": "workspace:*",
+    "@cetus/tokens": "workspace:*",
+    "@cetus/ui": "workspace:*",
     "@libsql/client": "^0.18.0",
     "@libsql/kysely-libsql": "^0.4.1",
     "@tailwindcss/vite": "^4.3.3",
@@ -42,6 +44,8 @@
     "cropperjs": "^1.6.2",
     "kysely": "^0.29.6",
     "pixi.js": "^8.22.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",
     "zod": "^4.6.7"
@@ -52,6 +56,9 @@
     "@playwright/test": "^1.64.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
     "astro-eslint-parser": "^1.2.2",

@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config'
+import react from '@astrojs/react'
 import tailwindcss from '@tailwindcss/vite'
 
 import vercel from '@astrojs/vercel'
@@ -13,6 +14,8 @@ export default defineConfig({
     // `// @ts-check`. Cast through a variable to satisfy the checker.
     plugins: [/** @type {any} */ (tailwindcss())],
   },
+
+  integrations: [react()],
 
   adapter: vercel(),
 })
