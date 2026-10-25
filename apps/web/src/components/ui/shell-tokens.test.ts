@@ -1,12 +1,16 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
+import { createElement, type ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { createContainer } from '@/test/createContainer'
-import Button from './Button.astro'
-import Card from './Card.astro'
-import Heading from './Heading.astro'
-import Badge from './Badge.astro'
+import { Badge, Button, Card, Heading } from '@cetus/ui'
 import Navigation from './Navigation.astro'
 import Footer from './Footer.astro'
+
+// Migrated components are React (HPA-379 Stage 2): render them with
+// renderToStaticMarkup. Navigation/Footer are still .astro and keep the
+// AstroContainer, which resolves React descendants since Stage 1.
+const renderHtml = (component: ReactElement) => renderToStaticMarkup(component)
 
 describe('shell components use cetus tokens (behavioral)', () => {
     let container: Awaited<ReturnType<typeof createContainer>>
@@ -16,10 +20,9 @@ describe('shell components use cetus tokens (behavioral)', () => {
     })
 
     it('Button primary uses the token gradient, not hardcoded cyan/purple', async () => {
-        const html = await container.renderToString(Button, {
-            props: { variant: 'primary' },
-            slots: { default: 'Play' },
-        })
+        const html = renderHtml(
+            createElement(Button, { variant: 'primary' }, 'Play')
+        )
         expect(html).toContain('from-[var(--cetus-btn-from)]')
         expect(html).toContain('to-[var(--cetus-btn-to)]')
         expect(html).not.toMatch(/from-cyan-500/)
@@ -32,10 +35,9 @@ describe('shell components use cetus tokens (behavioral)', () => {
     })
 
     it('Button outline uses cetus-accent and a dark hover text color', async () => {
-        const html = await container.renderToString(Button, {
-            props: { variant: 'outline' },
-            slots: { default: 'Cancel' },
-        })
+        const html = renderHtml(
+            createElement(Button, { variant: 'outline' }, 'Cancel')
+        )
         expect(html).toContain('text-cetus-accent')
         expect(html).toContain('border-cetus-accent')
         // hover:text-slate-900 is always dark, readable on cyan/teal fill in
@@ -49,38 +51,38 @@ describe('shell components use cetus tokens (behavioral)', () => {
     })
 
     it('Card sci-fi variant uses cetus surface + hairline border', async () => {
-        const html = await container.renderToString(Card, {
-            props: { variant: 'sci-fi' },
-            slots: { default: 'Content' },
-        })
+        const html = renderHtml(
+            createElement(Card, { variant: 'sci-fi' }, 'Content')
+        )
         expect(html).toContain('bg-cetus-surface')
         expect(html).toContain('border-cetus-hairline')
         expect(html).not.toContain('border-neon')
     })
 
     it('Heading hero uses Fraunces token font, not Orbitron', async () => {
-        const html = await container.renderToString(Heading, {
-            props: { variant: 'hero' },
-            slots: { default: 'Title' },
-        })
+        const html = renderHtml(
+            createElement(Heading, { variant: 'hero' }, 'Title')
+        )
         expect(html).not.toMatch(/font-orbitron/)
         expect(html).not.toMatch(/text-holographic/)
     })
 
     it('Heading renders a mono kicker when kicker prop is provided', async () => {
-        const html = await container.renderToString(Heading, {
-            props: { variant: 'section', kicker: 'COMMAND' },
-            slots: { default: 'Dashboard' },
-        })
+        const html = renderHtml(
+            createElement(
+                Heading,
+                { variant: 'section', kicker: 'COMMAND' },
+                'Dashboard'
+            )
+        )
         expect(html).toContain('▸ COMMAND')
         expect(html).toMatch(/font-mono/)
     })
 
     it('Card glass variant uses cetus tokens, not border-neon', async () => {
-        const html = await container.renderToString(Card, {
-            props: { variant: 'glass' },
-            slots: { default: 'Content' },
-        })
+        const html = renderHtml(
+            createElement(Card, { variant: 'glass' }, 'Content')
+        )
         expect(html).toContain('bg-cetus-surface')
         expect(html).toContain('border-cetus-hairline')
         expect(html).not.toContain('border-neon')
@@ -88,18 +90,16 @@ describe('shell components use cetus tokens (behavioral)', () => {
     })
 
     it('Card brackets prop renders hud-bracket elements', async () => {
-        const html = await container.renderToString(Card, {
-            props: { variant: 'glass', brackets: true },
-            slots: { default: 'Content' },
-        })
+        const html = renderHtml(
+            createElement(Card, { variant: 'glass', brackets: true }, 'Content')
+        )
         expect(html).toContain('hud-bracket')
     })
 
     it('Badge has font-mono tracking for HUD readout feel', async () => {
-        const html = await container.renderToString(Badge, {
-            props: { variant: 'outline' },
-            slots: { default: 'Score' },
-        })
+        const html = renderHtml(
+            createElement(Badge, { variant: 'outline' }, 'Score')
+        )
         expect(html).toMatch(/font-mono/)
         expect(html).toMatch(/tracking/)
     })
