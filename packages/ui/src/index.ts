@@ -19,3 +19,4 @@ export {
     SpecimenCard,
     type SpecimenCardProps,
 } from './components/specimen-card'
+export { GameOverlay, type GameOverlayProps } from './components/game-overlay'

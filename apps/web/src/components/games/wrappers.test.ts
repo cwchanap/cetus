@@ -1,10 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { createContainer } from '@/test/createContainer'
+import { GameOverlay } from '@cetus/ui'
 import GamePage from './GamePage.astro'
 import GameTitle from './GameTitle.astro'
 import GameBreadcrumb from './GameBreadcrumb.astro'
-import GameOverlay from '@/components/GameOverlay.astro'
 
 describe('Game wrapper restyle', () => {
     let container: Awaited<ReturnType<typeof createContainer>>
@@ -82,12 +84,15 @@ describe('Game wrapper restyle', () => {
         expect(html).not.toMatch(/text-cyan-400/)
     })
 
-    it('GameOverlay uses Fraunces + mono score, not Orbitron', async () => {
-        const html = await container.renderToString(GameOverlay, {
-            slots: { default: 'Score: 100' },
-        })
+    it('GameOverlay uses Fraunces + mono score, not Orbitron', () => {
+        const html = renderToStaticMarkup(
+            createElement(GameOverlay, null, 'Score: 100')
+        )
         expect(html).toMatch(/cetus-wordmark/)
         expect(html).toMatch(/font-mono/)
+        expect(html).toContain('id="game-over-overlay"')
+        expect(html).toContain('id="play-again-btn"')
+        expect(html).toContain('Score: 100')
         expect(html).not.toMatch(/font-orbitron/)
         expect(html).not.toMatch(/text-cyan-400/)
     })
