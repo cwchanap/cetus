@@ -1,8 +1,7 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro'
 import { Button, Card, Container, Heading, Section } from '@cetus/ui'
-import Toggle from '@/components/ui/Toggle.astro'
-import Slider from '@/components/ui/Slider.astro'
+import SettingsPreferences from '@/components/islands/SettingsPreferences'
 import { getUserPreferences } from '@/lib/server/db/queries'
 
 // Check authentication
@@ -16,9 +15,6 @@ const serverPrefs = await getUserPreferences(user.id)
 const emailNotifications = serverPrefs?.email_notifications ?? true
 const pushNotifications = serverPrefs?.push_notifications ?? false
 const challengeReminders = serverPrefs?.challenge_reminders ?? true
-
-const frauncesStyle =
-  'font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);'
 ---
 
 <AppLayout
@@ -44,134 +40,21 @@ const frauncesStyle =
           </p>
         </div>
 
-        <!-- Sound Settings -->
-        <Card variant="glass" className="p-6 md:p-8 mb-6">
-          <h3
-            class="text-lg font-bold text-cetus-accent mb-6"
-            style={frauncesStyle}
-          >
-            [ SOUND ]
-          </h3>
-
-          <div class="space-y-6">
-            <Toggle
-              id="sound-enabled"
-              name="soundEnabled"
-              label="Sound Enabled"
-              description="Enable or disable all game sounds"
-              checked={true}
-              data-pref-type="sound"
-              data-pref-key="soundEnabled"
-            />
-
-            <div id="volume-controls" class="space-y-4">
-              <Slider
-                id="master-volume"
-                name="masterVolume"
-                label="Master Volume"
-                min={0}
-                max={100}
-                step={5}
-                value={70}
-                unit="%"
-                data-pref-type="sound"
-                data-pref-key="masterVolume"
-              />
-
-              <Slider
-                id="sfx-volume"
-                name="sfxVolume"
-                label="Sound Effects"
-                min={0}
-                max={100}
-                step={5}
-                value={80}
-                unit="%"
-                data-pref-type="sound"
-                data-pref-key="sfxVolume"
-              />
-
-              <Slider
-                id="music-volume"
-                name="musicVolume"
-                label="Music"
-                min={0}
-                max={100}
-                step={5}
-                value={60}
-                unit="%"
-                data-pref-type="sound"
-                data-pref-key="musicVolume"
-              />
-            </div>
-          </div>
-        </Card>
-
-        <!-- Display Settings -->
-        <Card variant="glass" className="p-6 md:p-8 mb-6">
-          <h3
-            class="text-lg font-bold text-cetus-accent mb-6"
-            style={frauncesStyle}
-          >
-            [ DISPLAY ]
-          </h3>
-
-          <div class="space-y-4">
-            <Toggle
-              id="reduced-motion"
-              name="reducedMotion"
-              label="Reduced Motion"
-              description="Minimize animations for better accessibility"
-              data-pref-type="display"
-              data-pref-key="reducedMotion"
-            />
-          </div>
-        </Card>
-
-        <!-- Notification Settings -->
-        <Card variant="glass" className="p-6 md:p-8 mb-6">
-          <h3
-            class="text-lg font-bold text-cetus-accent mb-6"
-            style={frauncesStyle}
-          >
-            [ NOTIFICATIONS ]
-          </h3>
-
-          <div class="space-y-4">
-            <Toggle
-              id="email-notifications"
-              name="emailNotifications"
-              label="Email Notifications"
-              description="Receive updates and reminders via email"
-              checked={emailNotifications}
-              data-server-pref="email_notifications"
-            />
-
-            <Toggle
-              id="push-notifications"
-              name="pushNotifications"
-              label="Push Notifications"
-              description="Receive browser push notifications"
-              checked={pushNotifications}
-              data-server-pref="push_notifications"
-            />
-
-            <Toggle
-              id="challenge-reminders"
-              name="challengeReminders"
-              label="Daily Challenge Reminders"
-              description="Get reminded about incomplete daily challenges"
-              checked={challengeReminders}
-              data-server-pref="challenge_reminders"
-            />
-          </div>
-        </Card>
+        <!-- Interactive settings island: owns the sound/display/notification
+             controls and the save status toast. Astro passes only the
+             serializable server preferences; callbacks live in the island. -->
+        <SettingsPreferences
+          client:load
+          emailNotifications={emailNotifications}
+          pushNotifications={pushNotifications}
+          challengeReminders={challengeReminders}
+        />
 
         <!-- Account Settings -->
         <Card variant="glass" className="p-6 md:p-8 mb-6">
           <h3
             class="text-lg font-bold text-cetus-accent mb-6"
-            style={frauncesStyle}
+            style="font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);"
           >
             [ ACCOUNT ]
           </h3>
@@ -215,258 +98,10 @@ const frauncesStyle =
       </Container>
     </Section>
   </main>
-
-  <!-- Save Status Toast -->
-  <div
-    id="save-status"
-    role="status"
-    aria-live="polite"
-    aria-atomic="true"
-    aria-hidden="true"
-    class="fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium transition-all transform translate-y-20 opacity-0"
-  >
-    Settings saved!
-  </div>
 </AppLayout>
 
-<script>
-  import { ApiClientError, createApiClient } from '@cetus/api-client/api-client'
-  import { type ClientPreferences } from '@cetus/shared/preferences'
-  import {
-    getClientPreferences,
-    saveClientPreferences,
-    updateSoundPreference,
-  } from '@/lib/preferences'
-
-  const api = createApiClient()
-
-  // Initialize on DOM ready
-  document.addEventListener('DOMContentLoaded', () => {
-    const prefs = getClientPreferences()
-
-    // Initialize sound settings from localStorage
-    initializeSoundSettings(prefs)
-
-    // Initialize display settings from localStorage
-    initializeDisplaySettings(prefs)
-
-    // Set up event listeners for client-side preferences
-    setupClientPreferenceListeners()
-
-    // Set up event listeners for server-side preferences
-    setupServerPreferenceListeners()
-  })
-
-  function initializeSoundSettings(prefs: ClientPreferences) {
-    // Sound enabled toggle - always update to match stored preference
-    const soundToggle = document.getElementById('sound-enabled')
-    if (soundToggle) {
-      const button = soundToggle.closest('[data-toggle]') as HTMLButtonElement
-      if (button) {
-        const currentChecked = button.getAttribute('aria-checked') === 'true'
-        if (currentChecked !== prefs.sound.soundEnabled) {
-          button.click()
-        }
-      }
-    }
-
-    // Volume sliders - set initial values via the component
-    setSliderValue('master-volume', prefs.sound.masterVolume)
-    setSliderValue('sfx-volume', prefs.sound.sfxVolume)
-    setSliderValue('music-volume', prefs.sound.musicVolume)
-
-    // Update volume controls visibility based on sound enabled
-    updateVolumeControlsVisibility(prefs.sound.soundEnabled)
-  }
-
-  function initializeDisplaySettings(prefs: ClientPreferences) {
-    // Apply reduced motion class from stored preferences on load
-    if (prefs.display.reducedMotion) {
-      document.documentElement.classList.add('reduce-motion')
-    } else {
-      document.documentElement.classList.remove('reduce-motion')
-    }
-
-    // Update reduced motion toggle to match stored preference
-    const motionToggleContainer = document
-      .getElementById('reduced-motion')
-      ?.closest('[data-toggle]') as HTMLElement & {
-      toggleComponent?: { setChecked: (v: boolean) => void }
-    }
-    if (motionToggleContainer?.toggleComponent) {
-      // Use Toggle component's API to properly sync state
-      motionToggleContainer.toggleComponent.setChecked(
-        prefs.display.reducedMotion
-      )
-    }
-  }
-
-  function setSliderValue(id: string, value: number) {
-    const container = document
-      .getElementById(id)
-      ?.closest('[data-slider-container]') as HTMLElement & {
-      sliderComponent?: { setValueExternal: (v: number) => void }
-    }
-    if (container?.sliderComponent) {
-      container.sliderComponent.setValueExternal(value)
-    }
-  }
-
-  function updateVolumeControlsVisibility(enabled: boolean) {
-    const volumeControls = document.getElementById('volume-controls')
-    if (volumeControls) {
-      volumeControls.style.opacity = enabled ? '1' : '0.5'
-      volumeControls.style.pointerEvents = enabled ? 'auto' : 'none'
-    }
-  }
-
-  function setupClientPreferenceListeners() {
-    // Sound enabled toggle
-    const soundToggleContainer = document
-      .getElementById('sound-enabled')
-      ?.closest('[data-toggle]')
-    if (soundToggleContainer) {
-      soundToggleContainer.addEventListener('toggle-change', (e: Event) => {
-        const detail = (e as CustomEvent).detail
-        const prefs = getClientPreferences()
-        prefs.sound.soundEnabled = detail.checked
-        saveClientPreferences(prefs)
-        updateVolumeControlsVisibility(detail.checked)
-        showSaveStatus()
-      })
-    }
-
-    // Volume sliders
-    ;['master-volume', 'sfx-volume', 'music-volume'].forEach(id => {
-      const container = document
-        .getElementById(id)
-        ?.closest('[data-slider-container]')
-      if (container) {
-        container.addEventListener('slider-change', (e: Event) => {
-          const detail = (e as CustomEvent).detail
-          const key = container.getAttribute(
-            'data-pref-key'
-          ) as keyof ClientPreferences['sound']
-
-          if (key) {
-            updateSoundPreference(key, detail.value as never)
-            showSaveStatus()
-          }
-        })
-      }
-    })
-
-    // Reduced motion toggle
-    const motionToggleContainer = document
-      .getElementById('reduced-motion')
-      ?.closest('[data-toggle]')
-    if (motionToggleContainer) {
-      motionToggleContainer.addEventListener('toggle-change', (e: Event) => {
-        const detail = (e as CustomEvent).detail
-        const prefs = getClientPreferences()
-        prefs.display.reducedMotion = detail.checked
-        saveClientPreferences(prefs)
-
-        // Apply reduced motion to document
-        if (detail.checked) {
-          document.documentElement.classList.add('reduce-motion')
-        } else {
-          document.documentElement.classList.remove('reduce-motion')
-        }
-
-        showSaveStatus()
-      })
-    }
-  }
-
-  function setupServerPreferenceListeners() {
-    // Find all server preference toggles
-    document.querySelectorAll('[data-server-pref]').forEach(container => {
-      const toggle = container.closest('[data-toggle]')
-      if (!toggle) {
-        return
-      }
-
-      // Guard flag to prevent handler re-entry during revert
-      let ignoreRevert = false
-
-      toggle.addEventListener('toggle-change', async (e: Event) => {
-        // Exit early if we're in a revert operation
-        if (ignoreRevert) {
-          return
-        }
-
-        const detail = (e as CustomEvent).detail
-        const prefKey = container.getAttribute('data-server-pref')
-
-        if (!prefKey) {
-          return
-        }
-
-        try {
-          await api.updateSettings({ [prefKey]: detail.checked })
-          showSaveStatus('Saved!', 'success')
-        } catch (error) {
-          if (error instanceof ApiClientError && error.kind === 'parse') {
-            console.error('Failed to parse response JSON:', error)
-            showSaveStatus('Invalid response from server', 'error')
-          } else if (error instanceof ApiClientError && error.kind === 'http') {
-            console.error(
-              `Failed to save preference (${error.status}): ${error.message}`
-            )
-            showSaveStatus(
-              error.serverMessage ?? `Failed to save (${error.status})`,
-              'error'
-            )
-          } else {
-            console.error('Failed to save preference:', error)
-            showSaveStatus('Network error', 'error')
-          }
-          // Revert toggle with guard to prevent handler re-entry
-          ignoreRevert = true
-          const button = toggle as HTMLButtonElement
-          button.click()
-          queueMicrotask(() => {
-            ignoreRevert = false
-          })
-        }
-      })
-    })
-  }
-
-  function showSaveStatus(
-    message: string = 'Saved!',
-    type: 'success' | 'error' = 'success'
-  ) {
-    const status = document.getElementById('save-status')
-    if (!status) {
-      return
-    }
-
-    status.textContent = message
-    status.setAttribute('aria-label', message)
-    status.setAttribute('aria-hidden', 'false')
-    status.className = `fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium transition-all transform ${
-      type === 'error' ? 'bg-cetus-accent-3' : 'bg-cetus-accent'
-    }`
-
-    // Animate in
-    requestAnimationFrame(() => {
-      status.style.transform = 'translateY(0)'
-      status.style.opacity = '1'
-    })
-
-    // Animate out after delay
-    setTimeout(() => {
-      status.style.transform = 'translateY(20px)'
-      status.style.opacity = '0'
-      status.setAttribute('aria-hidden', 'true')
-    }, 2000)
-  }
-</script>
-
 <style>
-  /* Reduced motion styles */
+  /* Reduced motion styles (class applied by the settings island) */
   :global(.reduce-motion *) {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
