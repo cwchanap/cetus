@@ -1,7 +1,6 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro'
-import AchievementAward from '@/components/AchievementAward.astro'
-import ChallengeComplete from '@/components/ChallengeComplete.astro'
+import AppNotifications from '@/components/islands/AppNotifications'
 import { DEFAULT_BUBBLE_SHOOTER_CONFIG } from '@cetus/games/bubble-shooter/BubbleShooterGame'
 const { rowAddInterval, shooterY, bubbleRadius, gameHeight } =
   DEFAULT_BUBBLE_SHOOTER_CONFIG
@@ -333,8 +332,7 @@ const user = Astro.locals.user
           >Back to the plate</button
         >
       </section>
-      <AchievementAward />
-      <ChallengeComplete />
+      <AppNotifications client:load />
     </dialog>
   </Fragment>
 </AppLayout>

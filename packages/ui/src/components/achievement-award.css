@@ -1,0 +1,64 @@
+/* Achievement award rarity tokens (HPA-379 Stage 4). Ported from the
+ * previous scoped AchievementAward.astro styles; .achievement-card and
+ * .rarity-badge are component-owned class names. */
+.achievement-card[data-rarity='legendary'] {
+  --rarity-color: color-mix(in srgb, var(--cetus-accent-2) 50%, transparent);
+  --rarity-shadow-color: color-mix(
+    in srgb,
+    var(--cetus-accent-2) 25%,
+    transparent
+  );
+  --rarity-particle: var(--cetus-accent-2);
+  --rarity-glow: color-mix(in srgb, var(--cetus-accent-2) 20%, transparent);
+  --rarity-badge-bg: color-mix(in srgb, var(--cetus-accent-2) 20%, transparent);
+  --rarity-badge-text: var(--cetus-accent-2);
+}
+
+.achievement-card[data-rarity='epic'] {
+  --rarity-color: color-mix(in srgb, var(--cetus-accent-3) 50%, transparent);
+  --rarity-shadow-color: color-mix(
+    in srgb,
+    var(--cetus-accent-3) 25%,
+    transparent
+  );
+  --rarity-particle: var(--cetus-accent-3);
+  --rarity-glow: color-mix(in srgb, var(--cetus-accent-3) 20%, transparent);
+  --rarity-badge-bg: color-mix(in srgb, var(--cetus-accent-3) 20%, transparent);
+  --rarity-badge-text: var(--cetus-accent-3);
+}
+
+.achievement-card[data-rarity='rare'] {
+  --rarity-color: color-mix(in srgb, var(--cetus-accent) 50%, transparent);
+  --rarity-shadow-color: color-mix(
+    in srgb,
+    var(--cetus-accent) 25%,
+    transparent
+  );
+  --rarity-particle: var(--cetus-accent);
+  --rarity-glow: color-mix(in srgb, var(--cetus-accent) 20%, transparent);
+  --rarity-badge-bg: color-mix(in srgb, var(--cetus-accent) 20%, transparent);
+  --rarity-badge-text: var(--cetus-accent);
+}
+
+.achievement-card[data-rarity='common'] {
+  --rarity-color: color-mix(in srgb, var(--cetus-ink-muted) 50%, transparent);
+  --rarity-shadow-color: color-mix(
+    in srgb,
+    var(--cetus-ink-muted) 25%,
+    transparent
+  );
+  --rarity-particle: var(--cetus-ink-muted);
+  --rarity-glow: color-mix(in srgb, var(--cetus-ink-muted) 20%, transparent);
+  --rarity-badge-bg: color-mix(
+    in srgb,
+    var(--cetus-ink-muted) 20%,
+    transparent
+  );
+  --rarity-badge-text: var(--cetus-ink-muted);
+}
+
+.rarity-badge {
+  background-color: var(--rarity-badge-bg);
+  color: var(--rarity-badge-text);
+  border-color: var(--rarity-color);
+}

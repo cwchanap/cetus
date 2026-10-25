@@ -84,4 +84,18 @@ describe('AppLayout theme prop (behavioral)', () => {
         // Note: animate-bounce appears in AchievementAward (always rendered),
         // so it cannot be asserted absent here — see sibling test above.
     })
+
+    it('mounts the AppNotifications island in the default notifications slot', async () => {
+        const html = await container.renderToString(AppLayout, {
+            props: { title: 'Test' },
+            locals: { user: null, session: null },
+            slots: { default: '<p>content</p>' },
+        })
+        // The island SSRs the notification overlay shells it owns.
+        expect(html).toContain('id="achievement-award-overlay"')
+        expect(html).toContain('id="challenge-complete-overlay"')
+        // Old controllers are gone — only the island renders these overlays.
+        expect(html).not.toContain('achievement-card-template')
+        expect(html).not.toContain('challenge-card-template')
+    })
 })

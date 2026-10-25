@@ -1,7 +1,6 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro'
-import AchievementAward from '@/components/AchievementAward.astro'
-import ChallengeComplete from '@/components/ChallengeComplete.astro'
+import AppNotifications from '@/components/islands/AppNotifications'
 const user = Astro.locals.user
 const instructions = [
   {
@@ -410,7 +409,7 @@ const ladder = [64, 128, 256, 512, 1024, 2048, 4096]
           )
         }<button class="primary-action" data-close>Back to the plate</button>
       </section>
-      <AchievementAward /><ChallengeComplete />
+      <AppNotifications client:load />
     </dialog>
     <template id="commission-template"
       ><article class="commission-card">
