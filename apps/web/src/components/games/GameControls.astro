@@ -1,6 +1,5 @@
 ---
-import Button from '@/components/ui/Button.astro'
-import Card from '@/components/ui/Card.astro'
+import { Button, Card } from '@cetus/ui'
 
 interface Props {
   gameId: string
@@ -19,7 +18,7 @@ const {
 } = Astro.props
 ---
 
-<Card variant="glass" class={`p-6 ${className || ''}`}>
+<Card variant="glass" className={`p-6 ${className || ''}`}>
   <div class="flex flex-col items-center space-y-4">
     <!-- Game Controls -->
     <div class="flex space-x-2">
@@ -30,7 +29,7 @@ const {
             id="end-btn"
             variant="outline"
             size="sm"
-            style="display: none;"
+            style={{ display: 'none' }}
           >
             End Game
           </Button>

@@ -2,12 +2,8 @@
 import AppLayout from '@/layouts/AppLayout.astro'
 
 // Component Imports
-import Container from '@/components/ui/Container.astro'
-import Section from '@/components/ui/Section.astro'
-import Heading from '@/components/ui/Heading.astro'
-import Card from '@/components/ui/Card.astro'
 import Select from '@/components/ui/Select.astro'
-import Avatar from '@/components/ui/Avatar.astro'
+import { Avatar, Card, Container, Heading, Section } from '@cetus/ui'
 
 // Server-side data fetching
 import { getAllGames } from '@cetus/shared/games'
@@ -77,8 +73,8 @@ const defaultGameId = games[0]?.id || 'tetris'
 
 <AppLayout title="Leaderboards - Cetus Gaming Platform">
   <main class="relative z-10 min-h-screen">
-    <Section class="py-20">
-      <Container class="max-w-6xl">
+    <Section className="py-20">
+      <Container className="max-w-6xl">
         {/* Page Title */}
         <div class="mb-12">
           <div
@@ -91,7 +87,7 @@ const defaultGameId = games[0]?.id || 'tetris'
             variant="hero"
             align="center"
             kicker="RANKINGS"
-            class="text-4xl md:text-5xl font-bold mb-4"
+            className="text-4xl md:text-5xl font-bold mb-4"
           >
             Leaderboards
           </Heading>
@@ -101,7 +97,7 @@ const defaultGameId = games[0]?.id || 'tetris'
           </p>
         </div>
 
-        <Card variant="glass" class="p-8">
+        <Card variant="glass" className="p-8">
           <div class="relative">
             {/* Background effects */}
             <div

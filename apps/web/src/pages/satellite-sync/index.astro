@@ -1,6 +1,6 @@
 ---
 import GamePage from '@/components/games/GamePage.astro'
-import Card from '@/components/ui/Card.astro'
+import { Card } from '@cetus/ui'
 ---
 
 <GamePage
@@ -65,7 +65,7 @@ import Card from '@/components/ui/Card.astro'
   <!-- Sidebar info -->
   <div slot="game-info">
     <!-- How to Play -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ HOW TO PLAY
       </h3>
@@ -79,7 +79,7 @@ import Card from '@/components/ui/Card.astro'
     </Card>
 
     <!-- Scoring -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ SCORING
       </h3>

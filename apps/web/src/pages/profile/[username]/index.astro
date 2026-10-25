@@ -2,11 +2,7 @@
 import AppLayout from '@/layouts/AppLayout.astro'
 
 // UI components
-import Container from '@/components/ui/Container.astro'
-import Section from '@/components/ui/Section.astro'
-import Heading from '@/components/ui/Heading.astro'
-import Card from '@/components/ui/Card.astro'
-import Badge from '@/components/ui/Badge.astro'
+import { Badge, Card, Container, Heading, Section } from '@cetus/ui'
 
 // Server-side queries
 import {
@@ -168,8 +164,8 @@ const memberSince = publicUser?.createdAt
   description={`Public profile for @${usernameParam} on Cetus`}
 >
   <main class="relative z-10 min-h-screen">
-    <Section class="py-20">
-      <Container class="max-w-4xl">
+    <Section className="py-20">
+      <Container className="max-w-4xl">
         <!-- Page Title -->
         <div class="text-center mb-12">
           <Heading
@@ -177,7 +173,7 @@ const memberSince = publicUser?.createdAt
             variant="hero"
             align="center"
             kicker="OPERATOR PROFILE"
-            class="mb-4"
+            className="mb-4"
           >
             {publicUser ? 'PLAYER PROFILE' : 'USER NOT FOUND'}
           </Heading>
@@ -193,7 +189,7 @@ const memberSince = publicUser?.createdAt
         <!-- If no user -->
         {
           !publicUser && (
-            <Card variant="glass" class="p-8 text-center">
+            <Card variant="glass" className="p-8 text-center">
               <p class="text-cetus-ink mb-6">
                 No user exists for username <strong>@{usernameParam}</strong>.
               </p>
@@ -208,7 +204,7 @@ const memberSince = publicUser?.createdAt
           publicUser && (
             <>
               {/* User Info Card (read-only) */}
-              <Card variant="glass" class="p-6 md:p-8 mb-8">
+              <Card variant="glass" className="p-6 md:p-8 mb-8">
                 <div class="flex flex-row items-start">
                   {/* Avatar */}
                   <div class="flex-shrink-0 mr-2.5">
@@ -262,7 +258,7 @@ const memberSince = publicUser?.createdAt
               </Card>
 
               {/* Activity Graph */}
-              <Card variant="glass" class="p-6 mb-8">
+              <Card variant="glass" className="p-6 mb-8">
                 <div class="flex items-center justify-between mb-4">
                   <h3 class="text-lg cetus-wordmark--glow font-bold">
                     Activity · <span data-testid="activity-year">{year}</span>
@@ -372,7 +368,7 @@ const memberSince = publicUser?.createdAt
               </Card>
 
               {/* Quick Stats */}
-              <Card variant="glass" class="p-6 mb-8">
+              <Card variant="glass" className="p-6 mb-8">
                 <h3 class="text-lg cetus-wordmark--glow font-bold mb-4">
                   Quick Stats
                 </h3>
@@ -411,7 +407,7 @@ const memberSince = publicUser?.createdAt
 
               {/* Recent Activities */}
               {recentActivities.length > 0 && (
-                <Card variant="glass" class="p-6 mb-8">
+                <Card variant="glass" className="p-6 mb-8">
                   <h3 class="text-lg cetus-wordmark--glow font-bold mb-4">
                     Recent Activities
                   </h3>

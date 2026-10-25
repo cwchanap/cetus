@@ -2,12 +2,7 @@
 import AppLayout from '@/layouts/AppLayout.astro'
 
 // Component Imports
-import Container from '@/components/ui/Container.astro'
-import Section from '@/components/ui/Section.astro'
-import Heading from '@/components/ui/Heading.astro'
-import Card from '@/components/ui/Card.astro'
-import Badge from '@/components/ui/Badge.astro'
-import Button from '@/components/ui/Button.astro'
+import { Badge, Button, Card, Container, Heading, Section } from '@cetus/ui'
 
 import {
   getUserStats,
@@ -168,8 +163,8 @@ const memberSince = session?.createdAt
 
   <!-- Profile Content -->
   <main class="relative z-10 min-h-screen">
-    <Section class="py-20">
-      <Container class="max-w-4xl">
+    <Section className="py-20">
+      <Container className="max-w-4xl">
         <!-- Page Title -->
         <div class="text-center mb-12">
           <Heading
@@ -177,7 +172,7 @@ const memberSince = session?.createdAt
             variant="hero"
             align="center"
             kicker="OPERATOR PROFILE"
-            class="mb-4"
+            className="mb-4"
           >
             USER PROFILE
           </Heading>
@@ -187,7 +182,7 @@ const memberSince = session?.createdAt
         </div>
 
         <!-- User Info Card -->
-        <Card variant="glass" class="p-6 md:p-8 mb-8">
+        <Card variant="glass" className="p-6 md:p-8 mb-8">
           <div class="flex flex-row items-start">
             <!-- Avatar -->
             <div class="flex-shrink-0 mr-2.5">
@@ -397,7 +392,7 @@ const memberSince = session?.createdAt
         </Card>
 
         <!-- Activity Graph -->
-        <Card variant="glass" class="p-6 mb-8">
+        <Card variant="glass" className="p-6 mb-8">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg cetus-wordmark--glow font-bold">
               Activity · <span data-testid="activity-year">{year}</span>
@@ -522,7 +517,7 @@ const memberSince = session?.createdAt
         </Card>
 
         <!-- Quick Stats -->
-        <Card variant="glass" class="p-6 mb-8">
+        <Card variant="glass" className="p-6 mb-8">
           <h3 class="text-lg cetus-wordmark--glow font-bold mb-4">
             Quick Stats
           </h3>
@@ -562,12 +557,12 @@ const memberSince = session?.createdAt
         </Card>
 
         <!-- Quick Actions -->
-        <Card variant="glass" class="p-6 mb-8">
+        <Card variant="glass" className="p-6 mb-8">
           <h3 class="text-lg cetus-wordmark--glow font-bold mb-4">
             Quick Actions
           </h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Button variant="outline" size="lg" class="justify-center">
+            <Button variant="outline" size="lg" className="justify-center">
               <a
                 href="/dashboard"
                 class="text-cetus-accent no-underline flex items-center"
@@ -576,7 +571,7 @@ const memberSince = session?.createdAt
                 View Dashboard
               </a>
             </Button>
-            <Button variant="outline" size="lg" class="justify-center">
+            <Button variant="outline" size="lg" className="justify-center">
               <a
                 href="/#games"
                 class="text-cetus-accent no-underline flex items-center"

@@ -1,7 +1,6 @@
 ---
 import GamePage from '@/components/games/GamePage.astro'
-import Card from '@/components/ui/Card.astro'
-import Badge from '@/components/ui/Badge.astro'
+import { Badge, Card } from '@cetus/ui'
 ---
 
 <GamePage
@@ -29,20 +28,20 @@ import Badge from '@/components/ui/Badge.astro'
   </div>
 
   <!-- Additional stat badges (game-score / game-time / pairs use game-specific IDs) -->
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">Score: <span id="game-score">0</span></span>
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">Time: <span id="game-time">1:00</span></span>
   </Badge>
-  <Badge slot="additional-stats" variant="outline" class="px-4 py-2">
+  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
     <span class="font-mono">Pairs: <span id="game-pairs">0/24</span></span>
   </Badge>
 
   <!-- Sidebar -->
   <div slot="game-info">
     <!-- Game Rules -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ HOW TO PLAY
       </h3>
@@ -56,7 +55,7 @@ import Badge from '@/components/ui/Badge.astro'
     </Card>
 
     <!-- Game Statistics -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ STATISTICS
       </h3>
@@ -77,7 +76,7 @@ import Badge from '@/components/ui/Badge.astro'
     </Card>
 
     <!-- Scoring System -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ SCORING
       </h3>
@@ -102,7 +101,7 @@ import Badge from '@/components/ui/Badge.astro'
     </Card>
 
     <!-- Game Shapes Preview -->
-    <Card variant="glass" class="p-6">
+    <Card variant="glass" className="p-6">
       <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
         ▸ SHAPES
       </h3>

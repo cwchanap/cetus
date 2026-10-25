@@ -1,10 +1,6 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro'
-import Container from '@/components/ui/Container.astro'
-import Section from '@/components/ui/Section.astro'
-import Heading from '@/components/ui/Heading.astro'
-import Card from '@/components/ui/Card.astro'
-import Button from '@/components/ui/Button.astro'
+import { Button, Card, Container, Heading, Section } from '@cetus/ui'
 import Toggle from '@/components/ui/Toggle.astro'
 import Slider from '@/components/ui/Slider.astro'
 import { getUserPreferences } from '@/lib/server/db/queries'
@@ -30,8 +26,8 @@ const frauncesStyle =
   description="Manage your preferences and settings on Cetus"
 >
   <main class="relative z-10 min-h-screen">
-    <Section class="py-20">
-      <Container class="max-w-3xl">
+    <Section className="py-20">
+      <Container className="max-w-3xl">
         <!-- Page Title -->
         <div class="text-center mb-12">
           <Heading
@@ -39,7 +35,7 @@ const frauncesStyle =
             variant="hero"
             align="center"
             kicker="SYSTEM CONFIG"
-            class="mb-4"
+            className="mb-4"
           >
             SETTINGS
           </Heading>
@@ -49,7 +45,7 @@ const frauncesStyle =
         </div>
 
         <!-- Sound Settings -->
-        <Card variant="glass" class="p-6 md:p-8 mb-6">
+        <Card variant="glass" className="p-6 md:p-8 mb-6">
           <h3
             class="text-lg font-bold text-cetus-accent mb-6"
             style={frauncesStyle}
@@ -112,7 +108,7 @@ const frauncesStyle =
         </Card>
 
         <!-- Display Settings -->
-        <Card variant="glass" class="p-6 md:p-8 mb-6">
+        <Card variant="glass" className="p-6 md:p-8 mb-6">
           <h3
             class="text-lg font-bold text-cetus-accent mb-6"
             style={frauncesStyle}
@@ -133,7 +129,7 @@ const frauncesStyle =
         </Card>
 
         <!-- Notification Settings -->
-        <Card variant="glass" class="p-6 md:p-8 mb-6">
+        <Card variant="glass" className="p-6 md:p-8 mb-6">
           <h3
             class="text-lg font-bold text-cetus-accent mb-6"
             style={frauncesStyle}
@@ -172,7 +168,7 @@ const frauncesStyle =
         </Card>
 
         <!-- Account Settings -->
-        <Card variant="glass" class="p-6 md:p-8 mb-6">
+        <Card variant="glass" className="p-6 md:p-8 mb-6">
           <h3
             class="text-lg font-bold text-cetus-accent mb-6"
             style={frauncesStyle}
@@ -182,7 +178,11 @@ const frauncesStyle =
 
           <div class="space-y-4">
             <a href="/profile" class="block">
-              <Button variant="outline" size="lg" class="w-full justify-center">
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full justify-center"
+              >
                 <span class="flex items-center gap-2">
                   <span>✏️</span>
                   Edit Profile
@@ -193,7 +193,7 @@ const frauncesStyle =
             <Button
               variant="destructive"
               size="lg"
-              class="w-full justify-center"
+              className="w-full justify-center"
               id="delete-account-btn"
               disabled
               title="Account deletion not yet available - Please contact support"
