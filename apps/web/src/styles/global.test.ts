@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import Button from '@/components/ui/Button.astro'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { Button } from '@cetus/ui'
 import { globalCss as css, themeCss } from '@/test/styles'
 
 /** Extract the body of a CSS selector block. */
@@ -45,15 +46,14 @@ const rootBlock = extractBlock(themeCss, ':root')
 const abyssalBlock = extractBlock(themeCss, '.theme-abyssal')
 
 describe('abyssal theme tokens (behavioral)', () => {
-    let container: Awaited<ReturnType<typeof AstroContainer.create>>
     let buttonHtml: string
 
     beforeAll(async () => {
-        container = await AstroContainer.create()
-        buttonHtml = await container.renderToString(Button, {
-            props: { variant: 'outline' },
-            slots: { default: 'Test' },
-        })
+        // Button is React since HPA-379 Stage 2 — static markup suffices here
+        // (the assertions are class-token checks, not DOM behavior).
+        buttonHtml = renderToStaticMarkup(
+            createElement(Button, { variant: 'outline' }, 'Test')
+        )
     })
 
     it('imports the shared token stylesheet from @cetus/tokens', () => {
