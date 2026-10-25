@@ -12,7 +12,7 @@ import {
   Section,
 } from '@cetus/ui'
 
-import Select from '@/components/ui/Select.astro'
+import AchievementsGameFilter from '@/components/islands/AchievementsGameFilter'
 
 import {
   getUserAchievements,
@@ -279,12 +279,10 @@ const frauncesStyle =
                   </span>
                 </div>
                 <div class="w-full md:w-64" id="game-filter-container">
-                  <Select
-                    id="game-filter-select"
-                    name="game"
+                  <AchievementsGameFilter
+                    client:load
                     value={selectedGame}
                     options={gameOptions}
-                    variant="glass"
                   />
                 </div>
               </div>
@@ -449,35 +447,6 @@ const frauncesStyle =
 
     <script>
       document.addEventListener('DOMContentLoaded', () => {
-        // Handle dropdown change -> update URL ?game and page param
-        const container = document.getElementById('game-filter-container')
-        const hiddenInput = container?.querySelector(
-          '[data-select-input]'
-        ) as HTMLInputElement | null
-
-        if (hiddenInput) {
-          hiddenInput.addEventListener('change', (e: Event) => {
-            const value = (e.target as HTMLInputElement).value
-            const current = new URL(window.location.href)
-            const url = new URL(window.location.href)
-            url.searchParams.set('game', value)
-            if (value === 'all') {
-              url.searchParams.set('page', '1')
-            } else {
-              url.searchParams.delete('page')
-            }
-
-            // Only navigate if the destination actually differs
-            const nextPath = url.pathname + url.search
-            const currentPath = current.pathname + current.search
-            if (nextPath === currentPath) {
-              return
-            }
-
-            window.location.href = url.toString()
-          })
-        }
-
         // Add glow effect on achievement cards
         const achievementCards = document.querySelectorAll('[data-achievement]')
         achievementCards.forEach(card => {

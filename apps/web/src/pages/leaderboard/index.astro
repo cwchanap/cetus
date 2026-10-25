@@ -1,9 +1,7 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro'
-
-// Component Imports
-import Select from '@/components/ui/Select.astro'
-import { Avatar, Card, Container, Heading, Section } from '@cetus/ui'
+import LeaderboardBoards from '@/components/islands/LeaderboardBoards'
+import { Card, Container, Heading, Section } from '@cetus/ui'
 
 // Server-side data fetching
 import { getAllGames } from '@cetus/shared/games'
@@ -12,30 +10,11 @@ import {
   isGameLeaderboardAvailable,
 } from '@/lib/server/db/queries'
 
-// Define types
-type LeaderboardEntry = {
-  name: string
-  username: string | null
-  score: number
-  created_at: string
-  image: string | null
-  achievements?: string[]
-}
-
-// Fetch all games and leaderboards
+// Fetch leaderboard data for each game and build the serializable island
+// props. Score/date labels are formatted here (server locale) so the
+// hydrated island renders identical markup to the server.
 const games = getAllGames()
-const gameLeaderboards: Record<string, LeaderboardEntry[]> = {}
-
-// Fetch leaderboard data for each game
-for (const game of games) {
-  const result = await getGameLeaderboard(game.id, 10)
-  // A failed score-context probe returns a discriminated `unavailable` result
-  // (distinct from "no scores"). The server-rendered page degrades to the
-  // existing empty state rather than failing the whole render; the
-  // `/api/leaderboard` endpoint surfaces the coded 503 for programmatic
-  // callers.
-  gameLeaderboards[game.id] = isGameLeaderboardAvailable(result) ? result : []
-}
+const boards = []
 
 // Game icons mapping
 const gameIcons: { [key: string]: string } = {
@@ -49,24 +28,34 @@ const gameIcons: { [key: string]: string } = {
   path_navigator: '🎮',
 }
 
-// Category color utility — text-color tokens so the abyssal theme can retint.
-const getCategoryColor = (category: string) => {
-  const colors: { [key: string]: string } = {
-    puzzle: 'text-cetus-accent-3',
-    action: 'text-cetus-accent-2',
-    strategy: 'text-cetus-accent',
-    trivia: 'text-cetus-accent',
-  }
-  return colors[category] || 'text-cetus-ink-muted'
-}
+for (const game of games) {
+  const result = await getGameLeaderboard(game.id, 10)
+  // A failed score-context probe returns a discriminated `unavailable`
+  // result (distinct from "no scores"). The page degrades to the existing
+  // empty state rather than failing the whole render; the
+  // `/api/leaderboard` endpoint surfaces the coded 503 for programmatic
+  // callers.
+  const leaderboard = isGameLeaderboardAvailable(result) ? result : []
+  const highestScore =
+    leaderboard.length > 0
+      ? Math.max(...leaderboard.map(entry => entry.score))
+      : 0
 
-// Create tabs data
-const tabsData = games.map(game => ({
-  id: game.id,
-  label: game.name,
-  games: [game],
-  icon: gameIcons[game.id] || '🎮',
-}))
+  boards.push({
+    id: game.id,
+    name: game.name,
+    category: game.category,
+    icon: gameIcons[game.id] || '🎮',
+    highestScoreLabel: highestScore > 0 ? highestScore.toLocaleString() : null,
+    entries: leaderboard.map(entry => ({
+      name: entry.name,
+      username: entry.username,
+      scoreLabel: entry.score.toLocaleString(),
+      dateLabel: new Date(entry.created_at).toLocaleDateString(),
+      image: entry.image,
+    })),
+  })
+}
 
 const defaultGameId = games[0]?.id || 'tetris'
 ---
@@ -98,213 +87,15 @@ const defaultGameId = games[0]?.id || 'tetris'
         </div>
 
         <Card variant="glass" className="p-8">
-          <div class="relative">
-            {/* Background effects */}
-            <div
-              class="absolute inset-0 bg-gradient-to-b from-transparent via-cetus-accent/5 to-transparent rounded-xl pointer-events-none"
-            >
-            </div>
-
-            {/* Game Selector Dropdown */}
-            <div class="mb-8 flex justify-end">
-              <Select
-                client:load
-                options={tabsData.map(tab => ({
-                  value: tab.id,
-                  label: `${tab.icon} ${tab.label}`,
-                }))}
-                placeholder="Select a game..."
-                class="w-96"
-                id="game-selector"
-                name="game-selector"
-                value={defaultGameId}
-                data-select-game
-              />
-            </div>
-
-            {/* Game Leaderboards */}
-            <div data-game-leaderboards>
-              {
-                tabsData.map(tab => (
-                  <div
-                    data-game-leaderboard={tab.id}
-                    data-game-id={tab.id}
-                    class={tab.id === defaultGameId ? '' : 'hidden'}
-                  >
-                    <div class="w-full max-w-4xl mx-auto">
-                      {tab.games.map(game => {
-                        const leaderboard = gameLeaderboards[game.id] || []
-                        const categoryColor = getCategoryColor(game.category)
-                        const gameHighestScore =
-                          leaderboard.length > 0
-                            ? Math.max(...leaderboard.map(entry => entry.score))
-                            : 0
-
-                        return (
-                          <div>
-                            {/* Game Header */}
-                            <div class="flex items-center gap-6 mb-8">
-                              <div class="w-16 h-16 bg-cetus-surface border border-cetus-hairline rounded-xl flex items-center justify-center">
-                                <span class={`text-2xl ${categoryColor}`}>
-                                  {gameIcons[game.id] || '🎮'}
-                                </span>
-                              </div>
-                              <div class="flex-1">
-                                <h3 class="text-2xl font-bold text-white mb-2">
-                                  {game.name} Leaderboard
-                                </h3>
-                                <div class="flex items-center gap-4 text-sm">
-                                  <span
-                                    class={`px-2 py-1 rounded-full bg-cetus-surface border border-cetus-hairline ${categoryColor}`}
-                                  >
-                                    {game.category}
-                                  </span>
-                                  <span class="text-cetus-ink-muted">
-                                    {leaderboard.length} entries
-                                  </span>
-                                  {gameHighestScore > 0 && (
-                                    <span class="font-mono text-cetus-accent font-bold">
-                                      {gameHighestScore.toLocaleString()}{' '}
-                                      highest score
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Leaderboard Content */}
-                            <div class="space-y-4">
-                              {leaderboard.length > 0 ? (
-                                leaderboard.map((entry, index) => {
-                                  const normalizedUsername =
-                                    entry.username?.trim().toLowerCase() || null
-                                  const profileUrl = normalizedUsername
-                                    ? `/profile/${encodeURIComponent(normalizedUsername)}`
-                                    : null
-                                  const rowClasses =
-                                    'flex items-center justify-between gap-4 p-4 bg-cetus-surface rounded-lg border border-cetus-hairline transition-colors'
-
-                                  return (
-                                    <div class={rowClasses}>
-                                      <div class="flex items-center gap-4">
-                                        <div
-                                          class={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-mono font-bold ${
-                                            index === 0
-                                              ? 'bg-yellow-500 text-black'
-                                              : index === 1
-                                                ? 'bg-gray-400 text-black'
-                                                : index === 2
-                                                  ? 'bg-orange-600 text-white'
-                                                  : 'bg-cetus-surface border border-cetus-hairline text-white'
-                                          }`}
-                                        >
-                                          {index + 1}
-                                        </div>
-                                        <Avatar
-                                          size="sm"
-                                          variant="cyan-purple"
-                                          src={entry.image || undefined}
-                                          alt={`${entry.name || 'Anonymous'} avatar`}
-                                          fallback={(
-                                            entry.name?.[0] || 'A'
-                                          ).toUpperCase()}
-                                        />
-                                        <div>
-                                          {profileUrl ? (
-                                            <a
-                                              href={profileUrl}
-                                              class="font-semibold text-white no-underline hover:underline transition-colors focus:outline-none focus:ring-2 focus:ring-cetus-accent focus:ring-offset-1 focus:ring-offset-gray-900 rounded"
-                                              aria-label={`Profile of ${normalizedUsername}`}
-                                            >
-                                              {entry.name || normalizedUsername}
-                                            </a>
-                                          ) : (
-                                            <div class="font-semibold text-white">
-                                              {entry.name || 'Anonymous'}
-                                            </div>
-                                          )}
-                                          <div class="text-sm text-cetus-ink-muted">
-                                            {new Date(
-                                              entry.created_at
-                                            ).toLocaleDateString()}
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <div class="text-right">
-                                        <div class="text-xl font-bold font-mono text-cetus-accent">
-                                          {entry.score.toLocaleString()}
-                                        </div>
-                                        {entry.achievements &&
-                                          entry.achievements.length > 0 && (
-                                            <div class="text-sm text-cetus-accent-2">
-                                              {entry.achievements.join(', ')}
-                                            </div>
-                                          )}
-                                      </div>
-                                    </div>
-                                  )
-                                })
-                              ) : (
-                                <div class="text-center py-12">
-                                  <div class="w-16 h-16 mx-auto mb-4 bg-cetus-surface border border-cetus-hairline rounded-full flex items-center justify-center">
-                                    <span class="text-2xl">🎯</span>
-                                  </div>
-                                  <p class="text-cetus-ink-muted mb-4">
-                                    No scores yet!
-                                  </p>
-                                  <p class="text-sm text-cetus-ink-muted mb-6">
-                                    Be the first to play and set a record.
-                                  </p>
-                                  <a
-                                    href={`/${game.id}`}
-                                    class="inline-flex items-center px-4 py-2 bg-cetus-accent hover:bg-cetus-accent/90 text-white rounded-lg transition-colors"
-                                  >
-                                    Play {game.name} 🎮
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ))
-              }
-            </div>
-          </div>
+          <!-- Selector + boards island: Astro passes only serializable board
+               data fetched above; selection callbacks live in the island. -->
+          <LeaderboardBoards
+            client:load
+            boards={boards}
+            defaultGameId={defaultGameId}
+          />
         </Card>
       </Container>
     </Section>
-
-    <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        const hiddenInput = document.querySelector(
-          'input[data-select-input]'
-        ) as HTMLInputElement
-        const leaderboards = document.querySelectorAll(
-          '[data-game-leaderboard]'
-        )
-
-        if (!hiddenInput || !leaderboards.length) {
-          return
-        }
-
-        function updateLeaderboardVisibility(selectedGameId: string) {
-          leaderboards.forEach(leaderboard => {
-            const gameId = leaderboard.getAttribute('data-game-id')
-            leaderboard.classList.toggle('hidden', gameId !== selectedGameId)
-          })
-        }
-
-        // Listen for changes from the Select component
-        hiddenInput.addEventListener('change', () => {
-          updateLeaderboardVisibility(hiddenInput.value)
-        })
-
-        // Set initial visibility
-        updateLeaderboardVisibility(hiddenInput.value || 'tetris')
-      })
-    </script>
   </main>
 </AppLayout>

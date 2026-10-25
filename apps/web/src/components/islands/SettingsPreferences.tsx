@@ -25,7 +25,8 @@ export interface SettingsPreferencesProps {
   challengeReminders: boolean
 }
 
-type ServerPrefKey = keyof NotificationSettingsResponse
+type ServerPrefKey =
+  'emailNotifications' | 'pushNotifications' | 'challengeReminders'
 type VolumeKey = 'masterVolume' | 'sfxVolume' | 'musicVolume'
 
 // The api-client DTO uses snake_case keys; map island state keys to them.
@@ -295,3 +296,5 @@ export function SettingsPreferences({
     </>
   )
 }
+
+export default SettingsPreferences
