@@ -1,3 +1,4 @@
+import { resolve } from 'path'
 import { defineConfig } from 'vitest/config'
 
 /**
@@ -28,12 +29,31 @@ export default defineConfig({
                 'apps/web/src/lib/**/index.ts',
                 '**/*.astro',
                 '**/*.test.ts',
+                '**/*.test.tsx',
                 '**/*.test-d.ts',
                 '**/*.spec.ts',
+                '**/*.spec.tsx',
             ],
         },
         projects: [
             'apps/web/vitest.config.ts',
+            {
+                // React UI package (HPA-379): jsdom + the shared jest-dom
+                // setup file. The `@` alias mirrors apps/web's config because
+                // setup.ts registers a mock keyed on `@/lib/auth-client`.
+                test: {
+                    name: 'ui',
+                    environment: 'jsdom',
+                    globals: true,
+                    setupFiles: ['./apps/web/src/test/setup.ts'],
+                    include: ['packages/ui/src/**/*.test.{ts,tsx}'],
+                },
+                resolve: {
+                    alias: {
+                        '@': resolve(__dirname, './apps/web/src'),
+                    },
+                },
+            },
             {
                 test: {
                     name: 'shared',
