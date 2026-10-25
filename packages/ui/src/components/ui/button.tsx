@@ -1,8 +1,7 @@
----
-import { cn } from '@/lib/utils'
-import type { HTMLAttributes } from 'astro/types'
+import type { ButtonHTMLAttributes } from 'react'
+import { cn } from '../../lib/utils'
 
-export interface Props extends HTMLAttributes<'button'> {
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?:
     | 'default'
     | 'destructive'
@@ -12,15 +11,7 @@ export interface Props extends HTMLAttributes<'button'> {
     | 'link'
     | 'primary'
   size?: 'default' | 'sm' | 'lg' | 'icon'
-  class?: string
 }
-
-const {
-  variant = 'default',
-  size = 'default',
-  class: className = '',
-  ...props
-} = Astro.props
 
 const buttonVariants = {
   variant: {
@@ -51,19 +42,26 @@ const defaultClasses =
 const sciFiClasses =
   'relative overflow-hidden font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-cetus-accent/50'
 
-const classes = cn(
-  defaultClasses,
-  sciFiClasses,
-  buttonVariants.variant[variant],
-  buttonVariants.size[size],
-  variant === 'primary' && 'hover-glow-cyan',
-  className
-)
----
-
-<button class={classes} {...props}>
-  <!-- Button content -->
-  <span class="relative z-10 flex items-center gap-2">
-    <slot />
-  </span>
-</button>
+export function Button({
+  variant = 'default',
+  size = 'default',
+  className,
+  children,
+  ...rest
+}: ButtonProps) {
+  return (
+    <button
+      className={cn(
+        defaultClasses,
+        sciFiClasses,
+        buttonVariants.variant[variant],
+        buttonVariants.size[size],
+        variant === 'primary' && 'hover-glow-cyan',
+        className
+      )}
+      {...rest}
+    >
+      <span className="relative z-10 flex items-center gap-2">{children}</span>
+    </button>
+  )
+}

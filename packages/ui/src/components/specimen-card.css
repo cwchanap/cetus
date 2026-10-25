@@ -1,0 +1,135 @@
+/* Ported 1:1 from SpecimenCard.astro's scoped <style> (HPA-379 Stage 2).
+ * Selectors stay flat and class-scoped, so plain CSS preserves the
+ * original specificity and cascade order. */
+
+.vessel {
+  text-decoration: none;
+  transition: transform 0.2s ease;
+}
+.vessel:hover {
+  transform: translateY(-3px);
+}
+.vessel:focus-visible {
+  outline: 2px solid var(--cetus-accent);
+  outline-offset: 2px;
+  transform: translateY(-3px);
+}
+.vessel:focus-visible .vessel__body {
+  box-shadow:
+    inset 0 0 34px color-mix(in srgb, var(--cetus-accent) 18%, transparent),
+    0 0 24px color-mix(in srgb, var(--cetus-accent) 25%, transparent);
+}
+
+.vessel__lid {
+  width: 50px;
+  height: 8px;
+  margin: 0 auto;
+  background: linear-gradient(#2a3340, #161c24);
+  border-radius: 3px 3px 1px 1px;
+}
+.vessel__neck {
+  width: 78px;
+  height: 10px;
+  margin: 0 auto;
+  border-left: 1px solid var(--cetus-hairline);
+  border-right: 1px solid var(--cetus-hairline);
+}
+
+.vessel__body {
+  width: 118px;
+  height: 138px;
+  margin: 0 auto;
+  border: 1px solid var(--cetus-hairline);
+  border-radius: 18px 18px 26px 26px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--cetus-accent) 6%, transparent),
+    transparent 60%
+  );
+  box-shadow: inset 0 0 30px
+    color-mix(in srgb, var(--cetus-accent) 12%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.vessel:hover .vessel__body,
+.vessel:focus-visible .vessel__body {
+  box-shadow:
+    inset 0 0 34px color-mix(in srgb, var(--cetus-accent) 20%, transparent),
+    0 0 0 1px var(--cetus-accent-3),
+    0 0 24px color-mix(in srgb, var(--cetus-accent-3) 40%, transparent);
+}
+.vessel__empty {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--cetus-hairline);
+}
+
+.vessel__meta {
+  margin-top: 0.85rem;
+  color: var(--cetus-ink);
+}
+.vessel__no {
+  font:
+    500 10px/1 'JetBrains Mono',
+    monospace;
+  letter-spacing: 0.2em;
+  color: var(--cetus-accent);
+  opacity: 0.7;
+}
+.vessel__name {
+  font:
+    400 22px/1.1 'Fraunces',
+    serif;
+  color: var(--cetus-ink);
+  margin: 7px 0 5px;
+}
+.vessel__depth {
+  font:
+    500 10px/1 'JetBrains Mono',
+    monospace;
+  letter-spacing: 0.16em;
+  color: var(--cetus-ink-muted);
+}
+.power-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 9px;
+}
+.power-bar > span:not(.power-bar__label) {
+  width: 9px;
+  height: 5px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--cetus-ink) 14%, transparent);
+}
+.power-bar > span:not(.power-bar__label).on {
+  background: var(--cetus-accent-2);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--cetus-accent-2) 70%, transparent);
+}
+.power-bar__label {
+  width: auto;
+  height: auto;
+  background: none;
+  box-shadow: none;
+  margin-left: 5px;
+  font:
+    500 9px/1 'JetBrains Mono',
+    monospace;
+  letter-spacing: 0.14em;
+  color: var(--cetus-ink-muted);
+}
+.power-bar--soon .power-bar__label {
+  color: var(--cetus-accent-3);
+  opacity: 0.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vessel:hover,
+  .vessel:focus-visible {
+    transform: none;
+  }
+}
