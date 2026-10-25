@@ -2,8 +2,7 @@
 import '@/styles/global.css'
 import Navigation from '@/components/ui/Navigation.astro'
 import Footer from '@/components/ui/Footer.astro'
-import AchievementAward from '@/components/AchievementAward.astro'
-import ChallengeComplete from '@/components/ChallengeComplete.astro'
+import AppNotifications from '@/components/islands/AppNotifications'
 
 export interface Props {
   title?: string
@@ -72,8 +71,9 @@ const themeInitScript = `
     {includeFooter && <Footer />}
 
     <slot name="notifications">
-      <AchievementAward />
-      <ChallengeComplete />
+      <!-- Web-owned notification island: registers window.showAchievementAward
+           and window.showChallengeComplete for the score service. -->
+      <AppNotifications client:load />
     </slot>
 
     <script>

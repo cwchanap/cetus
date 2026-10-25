@@ -20,3 +20,12 @@ export {
     type SpecimenCardProps,
 } from './components/specimen-card'
 export { GameOverlay, type GameOverlayProps } from './components/game-overlay'
+export {
+    AchievementAwardCard,
+    type AchievementAwardCardProps,
+} from './components/achievement-award'
+export {
+    ChallengeCompleteCard,
+    type ChallengeCompleteCardProps,
+    type ChallengeCompleteChallenge,
+} from './components/challenge-complete'
