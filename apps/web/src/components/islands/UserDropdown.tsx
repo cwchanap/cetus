@@ -17,7 +17,13 @@ export function UserDropdown({ user }: UserDropdownProps) {
   const handleLogout = async () => {
     // auth-client is not SSR-safe (browser-only bootstrap), so it is imported
     // lazily here — this handler only ever runs in the browser.
-    const { authClient } = await import('@/lib/auth-client')
+    const { authClient } = await import('@/lib/auth-client').catch(error => {
+      // A failed chunk load (e.g. stale page after a redeploy) bypasses the
+      // signOut error reporting below — log it here, then rethrow so the
+      // dropdown's catch still restores the button.
+      console.error('[logout] auth-client failed to load:', error)
+      throw error
+    })
     try {
       await authClient.signOut()
       window.location.reload()
