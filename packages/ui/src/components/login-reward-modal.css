@@ -1,0 +1,54 @@
+/* Login-reward modal styles (HPA-379 Stage 4). Ported from the previous
+ * scoped LoginRewardModal.astro styles. */
+@keyframes bounce-in {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.4s ease-out forwards;
+}
+
+[data-reward-day] {
+  background: var(--cetus-surface);
+  border-color: var(--cetus-hairline);
+}
+
+[data-reward-day].claimed {
+  background: color-mix(in srgb, var(--cetus-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--cetus-accent) 50%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cetus-accent) 25%, transparent);
+}
+
+@keyframes cetus-reward-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 12px
+      color-mix(in srgb, var(--cetus-accent-2) 30%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 22px
+      color-mix(in srgb, var(--cetus-accent-2) 55%, transparent);
+  }
+}
+
+[data-reward-day].current {
+  background: color-mix(in srgb, var(--cetus-accent-2) 20%, transparent);
+  border-color: color-mix(in srgb, var(--cetus-accent-2) 60%, transparent);
+  animation: cetus-reward-pulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reward-day].current {
+    animation: none;
+  }
+}
