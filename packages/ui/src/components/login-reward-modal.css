@@ -1,22 +1,8 @@
 /* Login-reward modal styles (HPA-379 Stage 4). Ported from the previous
- * scoped LoginRewardModal.astro styles. */
-@keyframes bounce-in {
-  0% {
-    transform: scale(0.5);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.05);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-.animate-bounce-in {
-  animation: bounce-in 0.4s ease-out forwards;
-}
+ * scoped LoginRewardModal.astro styles. The shared bounce-in entrance
+ * lives in bounce-in.css so ChallengeCompleteCard and this modal ship a
+ * single copy. */
+@import './bounce-in.css';
 
 [data-reward-day] {
   background: var(--cetus-surface);

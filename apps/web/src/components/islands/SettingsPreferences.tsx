@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { ApiClientError, createApiClient } from '@cetus/api-client/api-client'
 import type { NotificationSettingsResponse } from '@cetus/shared/api-dto'
 import {
@@ -72,10 +73,15 @@ export function SettingsPreferences({
     type: 'success' | 'error'
   } | null>(null)
   const statusTimer = useRef<number | undefined>(undefined)
+  // The save toast is portaled to document.body so its z-50 is not trapped
+  // in <main>'s stacking context (Footer could paint above it). Portals
+  // need `document`, so only render after mount — hydration-safe.
+  const [mounted, setMounted] = useState(false)
 
   // Mirror stored client preferences into the controls after mount
   // (hydration-safe: server and first client render use the defaults).
   useEffect(() => {
+    setMounted(true)
     const stored = getClientPreferences()
     setClientPrefs(stored)
     if (stored.display.reducedMotion) {
@@ -276,23 +282,29 @@ export function SettingsPreferences({
         </div>
       </Card>
 
-      {/* Save Status Toast */}
-      <div
-        id="save-status"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        aria-hidden={status === null}
-        className={cn(
-          'fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium transition-all transform',
-          status === null
-            ? 'translate-y-20 opacity-0'
-            : 'translate-y-0 opacity-100',
-          status?.type === 'error' ? 'bg-cetus-accent-3' : 'bg-cetus-accent'
+      {/* Save Status Toast — portaled to body so `fixed` escapes
+          <main>'s stacking context (z-order parity with the old
+          controller-owned toast) */}
+      {mounted &&
+        createPortal(
+          <div
+            id="save-status"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            aria-hidden={status === null}
+            className={cn(
+              'fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium transition-all transform',
+              status === null
+                ? 'translate-y-20 opacity-0'
+                : 'translate-y-0 opacity-100',
+              status?.type === 'error' ? 'bg-cetus-accent-3' : 'bg-cetus-accent'
+            )}
+          >
+            {status === null ? 'Settings saved!' : status.message}
+          </div>,
+          document.body
         )}
-      >
-        {status === null ? 'Settings saved!' : status.message}
-      </div>
     </>
   )
 }

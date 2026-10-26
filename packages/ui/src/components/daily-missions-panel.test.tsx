@@ -174,6 +174,9 @@ describe('DailyMissionsPanel countdown', () => {
     })
     expect(screen.getByText('Daily missions reset')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toBeInTheDocument()
+    // Portaled to document.body so `fixed` anchors to the viewport, matching
+    // the pre-port controller that appended the toast to body.
+    expect(screen.getByRole('alert').parentElement).toBe(document.body)
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Refresh now' }))

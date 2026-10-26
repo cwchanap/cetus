@@ -169,9 +169,10 @@ const MAX_TUBES = Math.max(
 </script>
 
 <style is:global>
-  /* Selected difficulty mirrors Button.astro's `primary` variant (same
-     contract as Mine Grid): `aria-pressed` drives both a11y state and
-     styling, so initFramework only toggles the attribute. */
+  /* Selected difficulty mirrors the React Button `primary` variant from
+     @cetus/ui (same contract as Mine Grid, carried over from Button.astro):
+     `aria-pressed` drives both a11y state and styling, so initFramework
+     only toggles the attribute. */
   @reference "../../styles/global.css";
   .potion-sorter-difficulty[aria-pressed='true'] {
     @apply border-0 bg-gradient-to-r from-[var(--cetus-btn-from)] to-[var(--cetus-btn-to)] text-white shadow-lg shadow-cetus-accent-2/25 hover:from-cetus-accent hover:to-cetus-accent-2;

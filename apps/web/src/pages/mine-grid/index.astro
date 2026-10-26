@@ -150,7 +150,8 @@ import { Badge, Button, Card } from '@cetus/ui'
 </script>
 
 <style is:global>
-  /* Selected difficulty/mode buttons mirror Button.astro's `primary` variant.
+  /* Selected difficulty/mode buttons mirror the React Button `primary`
+     variant from @cetus/ui (the pre-port Button.astro contract).
      `aria-pressed` is the single trigger for both a11y state and styling,
      so initFramework only toggles the attribute — no class swapping.
      `hover-glow-cyan` is a global class on the buttons themselves. */
