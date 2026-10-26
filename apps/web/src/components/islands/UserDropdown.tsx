@@ -1,4 +1,3 @@
-import { authClient } from '@/lib/auth-client'
 import { UserDropdown as UserDropdownView } from '@cetus/ui'
 
 /**
@@ -16,6 +15,9 @@ export interface UserDropdownProps {
 
 export function UserDropdown({ user }: UserDropdownProps) {
   const handleLogout = async () => {
+    // auth-client is not SSR-safe (browser-only bootstrap), so it is imported
+    // lazily here — this handler only ever runs in the browser.
+    const { authClient } = await import('@/lib/auth-client')
     try {
       await authClient.signOut()
       window.location.reload()
