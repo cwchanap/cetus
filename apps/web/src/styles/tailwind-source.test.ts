@@ -20,12 +20,16 @@ import { appRoot } from '@/test/app-root'
 const globalCssPath = resolve(appRoot, 'src/styles/global.css')
 const globalCss = readFileSync(globalCssPath, 'utf-8')
 
-// Canary: a utility emitted only from packages/ui source (Pagination's page
-// buttons). After Stage 2 deleted the .astro twins, apps/web no longer
-// mentions it — if that changes, update the canary along with the code.
-// Assembled from parts so this file itself never contains the literal
-// (the scan below must treat this test as canary-free).
-const CANARY = 'min-w-' + '[40px]'
+// Canaries: utilities emitted only from packages/ui source, one per
+// consumption path — the first belongs to Pagination's page buttons
+// (consumed server-side by the achievements page), the second to
+// AchievementAwardCard (consumed only through the hydrated
+// AppNotifications island). After Stage 2 deleted the .astro twins,
+// apps/web no longer mentions either — if that changes, update the canaries
+// along with the code. Assembled from parts so this file itself never
+// contains the literals (the scan below must treat this test as
+// canary-free).
+const CANARIES = ['min-w-' + '[40px]', 'min-h-' + '[480px]']
 
 function* walk(dir: string): Generator<string> {
     for (const entry of readdirSync(dir)) {
@@ -43,29 +47,29 @@ function* walk(dir: string): Generator<string> {
 }
 
 describe('Tailwind generates @cetus/ui utilities (built-CSS assertion)', () => {
-    it('canary utility appears only in packages/ui source', () => {
-        const uiHit = [...walk(resolve(appRoot, '../../packages/ui/src'))].some(
-            file => {
-                try {
-                    return readFileSync(file, 'utf-8').includes(CANARY)
-                } catch {
-                    return false
-                }
-            }
-        )
-        expect(uiHit, `${CANARY} must exist in packages/ui sources`).toBe(true)
-
-        const webHits = [...walk(appRoot + '/src')].filter(file => {
+    it('canary utilities appear only in packages/ui source', () => {
+        const read = (file: string) => {
             try {
-                return readFileSync(file, 'utf-8').includes(CANARY)
+                return readFileSync(file, 'utf-8')
             } catch {
-                return false
+                return ''
             }
-        })
-        expect(
-            webHits,
-            `${CANARY} must stay package-only; found in: ${webHits.map(f => relative(appRoot, f)).join(', ')}`
-        ).toEqual([])
+        }
+        const uiFiles = [...walk(resolve(appRoot, '../../packages/ui/src'))]
+        const webFiles = [...walk(appRoot + '/src')]
+
+        for (const canary of CANARIES) {
+            expect(
+                uiFiles.some(file => read(file).includes(canary)),
+                `${canary} must exist in packages/ui sources`
+            ).toBe(true)
+
+            const webHits = webFiles.filter(file => read(file).includes(canary))
+            expect(
+                webHits,
+                `${canary} must stay package-only; found in: ${webHits.map(f => relative(appRoot, f)).join(', ')}`
+            ).toEqual([])
+        }
     })
 
     it('compiles the canary utility into the built CSS via the @source wiring', async () => {
@@ -94,6 +98,10 @@ describe('Tailwind generates @cetus/ui utilities (built-CSS assertion)', () => {
 
         const builtCss = compiler.build([...candidates])
         // Brackets are CSS-escaped in the generated selector.
-        expect(builtCss).toContain('.min-w-\\[40px\\]')
+        for (const canary of CANARIES) {
+            const selector =
+                '.' + canary.replaceAll('[', '\\[').replaceAll(']', '\\]')
+            expect(builtCss).toContain(selector)
+        }
     })
 })
