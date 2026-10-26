@@ -20,6 +20,16 @@ export {
     type SpecimenCardProps,
 } from './components/specimen-card'
 export { GameOverlay, type GameOverlayProps } from './components/game-overlay'
+export { GameTitle, type GameTitleProps } from './components/game-title'
+export {
+    GameBreadcrumb,
+    type GameBreadcrumbProps,
+} from './components/game-breadcrumb'
+export { GameStats, type GameStatsProps } from './components/game-stats'
+export {
+    GameControls,
+    type GameControlsProps,
+} from './components/game-controls'
 export {
     AchievementAwardCard,
     type AchievementAwardCardProps,

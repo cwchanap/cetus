@@ -5,11 +5,13 @@
 // must live at the page root (outside GamePage), not in a slot.
 // See commit 6c7f470 (L3b) for the bug this prevented.
 import AppLayout from '@/layouts/AppLayout.astro'
-import GameBreadcrumb from './GameBreadcrumb.astro'
-import GameTitle from './GameTitle.astro'
-import GameControls from './GameControls.astro'
-import GameStats from './GameStats.astro'
-import { GameOverlay } from '@cetus/ui'
+import {
+  GameBreadcrumb,
+  GameControls,
+  GameOverlay,
+  GameStats,
+  GameTitle,
+} from '@cetus/ui'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -65,7 +67,7 @@ const {
 
   <div class={cn('px-6 py-8', className)}>
     <div class="max-w-6xl mx-auto">
-      <!-- Game Title -->
+      <!-- Game Title (React, SSR-only — no client: directive) -->
       <GameTitle title={title} description={description} />
 
       <!-- Game Container -->
@@ -77,7 +79,7 @@ const {
 
         <!-- Game Sidebar -->
         <div class="flex flex-col space-y-6">
-          <!-- Game Stats -->
+          <!-- Game Stats (React, SSR-only) -->
           <GameStats
             gameId={gameId}
             showScore={showScore}
@@ -87,7 +89,7 @@ const {
             <slot name="additional-stats" />
           </GameStats>
 
-          <!-- Game Controls -->
+          <!-- Game Controls (React, SSR-only) -->
           {
             Astro.slots.has('controls') ? (
               <slot name="controls" />
