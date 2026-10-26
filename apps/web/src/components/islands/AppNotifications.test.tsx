@@ -62,6 +62,23 @@ describe('AppNotifications window bridge', () => {
     expect(window.showAchievementAward).toBeUndefined()
     expect(window.showChallengeComplete).toBeUndefined()
   })
+
+  it('replays the pre-hydration backlog filled by the AppLayout stubs', () => {
+    window.__cetusNotificationBacklog = {
+      achievements: [achievement()],
+      challenges: [challengeUpdate()],
+    }
+    render(<AppNotifications />)
+
+    expect(window.__cetusNotificationBacklog).toBeUndefined()
+    expect(window.showAchievementAward).toBeTypeOf('function')
+    expect(
+      screen.getByRole('button', { name: 'Dismiss achievement' })
+    ).toHaveTextContent('First specimen')
+    expect(document.getElementById('challenge-name')).toHaveTextContent(
+      'Warm Up'
+    )
+  })
 })
 
 describe('AppNotifications achievement queue', () => {

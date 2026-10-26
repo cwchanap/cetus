@@ -1,5 +1,6 @@
 import type { CSSProperties, HTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
+import { displayFontStyle } from '../../lib/styles'
 
 export interface HeadingProps extends HTMLAttributes<HTMLHeadingElement> {
   level?: 1 | 2 | 3 | 4 | 5 | 6
@@ -13,12 +14,6 @@ const headingVariants = {
   hero: 'cetus-wordmark--glow',
   section: 'text-white',
   subsection: 'font-semibold text-white',
-}
-
-const displayFontStyle: CSSProperties = {
-  fontFamily: 'var(--cetus-display-font)',
-  fontWeight: 'var(--cetus-display-weight)',
-  fontStyle: 'var(--cetus-display-style)',
 }
 
 const headingStyles: Record<string, CSSProperties | undefined> = {

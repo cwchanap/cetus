@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ApiClientError, createApiClient } from '@cetus/api-client/api-client'
 import type { NotificationSettingsResponse } from '@cetus/shared/api-dto'
@@ -6,7 +6,7 @@ import {
   DEFAULT_CLIENT_PREFERENCES,
   type ClientPreferences,
 } from '@cetus/shared/preferences'
-import { Card, Slider, Toggle, cn } from '@cetus/ui'
+import { Card, Slider, Toggle, cn, displayFontStyle } from '@cetus/ui'
 import { getClientPreferences, saveClientPreferences } from '@/lib/preferences'
 
 /**
@@ -38,12 +38,6 @@ const WIRE_KEYS: Record<ServerPrefKey, keyof NotificationSettingsResponse> = {
 }
 
 const api = createApiClient()
-
-const frauncesStyle: CSSProperties = {
-  fontFamily: 'var(--cetus-display-font)',
-  fontWeight: 'var(--cetus-display-weight)',
-  fontStyle: 'var(--cetus-display-style)',
-}
 
 function describeSaveError(error: unknown): string {
   if (error instanceof ApiClientError && error.kind === 'parse') {
@@ -143,7 +137,11 @@ export function SettingsPreferences({
       showStatus('Saved!', 'success')
     } catch (error) {
       console.error('Failed to save preference:', error)
-      setServerPrefs(prev => ({ ...prev, [key]: previous }))
+      // Revert only if this save's optimistic value is still current — a
+      // later click may have moved the key past this save's snapshot.
+      setServerPrefs(prev =>
+        prev[key] === next ? { ...prev, [key]: previous } : prev
+      )
       showStatus(describeSaveError(error), 'error')
     }
   }
@@ -154,7 +152,7 @@ export function SettingsPreferences({
       <Card variant="glass" className="p-6 md:p-8 mb-6">
         <h3
           className="text-lg font-bold text-cetus-accent mb-6"
-          style={frauncesStyle}
+          style={displayFontStyle}
         >
           [ SOUND ]
         </h3>
@@ -220,7 +218,7 @@ export function SettingsPreferences({
       <Card variant="glass" className="p-6 md:p-8 mb-6">
         <h3
           className="text-lg font-bold text-cetus-accent mb-6"
-          style={frauncesStyle}
+          style={displayFontStyle}
         >
           [ DISPLAY ]
         </h3>
@@ -241,7 +239,7 @@ export function SettingsPreferences({
       <Card variant="glass" className="p-6 md:p-8 mb-6">
         <h3
           className="text-lg font-bold text-cetus-accent mb-6"
-          style={frauncesStyle}
+          style={displayFontStyle}
         >
           [ NOTIFICATIONS ]
         </h3>

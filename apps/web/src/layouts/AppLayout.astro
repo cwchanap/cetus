@@ -40,6 +40,27 @@ const themeInitScript = `
     <meta name="description" content={description} />
     <!-- Theme initialization (prevent Flash of Incorrect Theme) -->
     <script is:inline set:html={themeInitScript} />
+    <script is:inline>
+      // Queue window.showAchievementAward / showChallengeComplete calls
+      // fired before the AppNotifications island hydrates (parity with the
+      // previous controllers' pendingCalls buffer). The island drains
+      // window.__cetusNotificationBacklog when it mounts and replaces these
+      // stubs with the real handlers.
+      window.__cetusNotificationBacklog = {
+        achievements: [],
+        challenges: [],
+      }
+      window.showAchievementAward = function (achievements) {
+        if (Array.isArray(achievements)) {
+          window.__cetusNotificationBacklog.achievements.push(...achievements)
+        }
+      }
+      window.showChallengeComplete = function (challengeUpdates) {
+        if (challengeUpdates) {
+          window.__cetusNotificationBacklog.challenges.push(challengeUpdates)
+        }
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

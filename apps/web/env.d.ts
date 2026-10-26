@@ -29,4 +29,10 @@ interface Window {
     showChallengeComplete?: (
         challengeUpdates: import('@cetus/games').ChallengeUpdates
     ) => void
+    /** Pre-hydration buffer filled by the AppLayout inline stubs and
+        drained by the AppNotifications island on mount. */
+    __cetusNotificationBacklog?: {
+        achievements: import('@cetus/shared/achievements').AchievementNotification[]
+        challenges: import('@cetus/games').ChallengeUpdates[]
+    }
 }

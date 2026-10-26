@@ -25,7 +25,16 @@ export function UserDropdown({ user }: UserDropdownProps) {
       throw error
     })
     try {
-      await authClient.signOut()
+      // auth-client is created without fetchOptions.throw, so a failed
+      // sign-out resolves with `{ data: null, error }` instead of
+      // throwing — surface it through the same failure path as a throw.
+      const signOutResult = await authClient.signOut()
+      const signOutError = signOutResult?.error
+      if (signOutError) {
+        throw new Error(
+          signOutError.message ?? `signOut failed (${signOutError.status})`
+        )
+      }
       window.location.reload()
     } catch (error) {
       // signOut can throw spuriously (e.g. response-parsing errors) even

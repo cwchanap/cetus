@@ -1,4 +1,5 @@
 import type { ChallengeUpdatesPayload } from '@cetus/shared/api-dto'
+import { displayFontStyle } from '../lib/styles'
 import './bounce-in.css'
 
 /** One completed-challenge entry from the score submission payload. */
@@ -45,11 +46,7 @@ export function ChallengeCompleteCard({
       {/* Challenge Info */}
       <h3
         className="text-xl font-bold text-white mb-2"
-        style={{
-          fontFamily: 'var(--cetus-display-font)',
-          fontWeight: 'var(--cetus-display-weight)',
-          fontStyle: 'var(--cetus-display-style)',
-        }}
+        style={displayFontStyle}
         id="challenge-name"
       >
         {challenge.name}

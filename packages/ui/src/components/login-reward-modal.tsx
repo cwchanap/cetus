@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type MouseEvent } from 'react'
 import type {
   LoginRewardClaimResponse,
   LoginRewardStatusResponse,
 } from '@cetus/shared/api-dto'
 import { LOGIN_REWARD_CYCLE } from '@cetus/shared/loginRewards'
+import { displayFontStyle } from '../lib/styles'
 import './login-reward-modal.css'
 
 /**
@@ -68,16 +69,25 @@ export function LoginRewardModal({
     return () => document.removeEventListener('keydown', onKeydown)
   }, [open, onClose])
 
+  // Dismiss whenever the click lands outside the card (backdrop or the
+  // centering wrapper, which paints above the backdrop across the
+  // viewport). Clicks inside the card are preserved.
+  const handleOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+      onClose()
+    }
+  }
+
   return (
     <div
       id="login-reward-overlay"
       className={`fixed inset-0 z-50${open ? '' : ' hidden'}`}
       aria-hidden={!open}
+      onClick={handleOverlayClick}
     >
       <div
         className="absolute inset-0 bg-black/80 backdrop-blur-sm"
         data-overlay-backdrop="true"
-        onClick={onClose}
       />
       <div className="relative flex items-center justify-center min-h-screen p-4">
         <div
@@ -98,11 +108,7 @@ export function LoginRewardModal({
             <h2
               id="login-reward-title"
               className="text-2xl font-bold text-white"
-              style={{
-                fontFamily: 'var(--cetus-display-font)',
-                fontWeight: 'var(--cetus-display-weight)',
-                fontStyle: 'var(--cetus-display-style)',
-              }}
+              style={displayFontStyle}
             >
               Daily Login Reward
             </h2>
@@ -192,7 +198,7 @@ export function LoginRewardModal({
           {/* Level up indicator (hidden by default) */}
           <div
             id="level-up-indicator"
-            className={`${showLevelUp ? '' : 'hidden '}mb-4 py-2 px-4 bg-cetus-accent-3 rounded-full animate-pulse`}
+            className={`${showLevelUp ? 'inline-block' : 'hidden'} mb-4 py-2 px-4 bg-cetus-accent-3 rounded-full animate-pulse`}
           >
             <span className="text-white font-bold">
               🎉 LEVEL UP! Level{' '}

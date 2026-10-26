@@ -3,6 +3,7 @@
 // interactive primitives (Select, Slider, Toggle) carry controlled/
 // uncontrolled React state via onValueChange/onCheckedChange callbacks.
 export { cn } from './lib/utils'
+export { displayFontStyle } from './lib/styles'
 export { Button, type ButtonProps } from './components/ui/button'
 export { Card, type CardProps } from './components/ui/card'
 export { Badge, type BadgeProps } from './components/ui/badge'
