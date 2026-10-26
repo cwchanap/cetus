@@ -170,7 +170,7 @@ describe('LoginRewardModal island claim flow', () => {
 
   it('maps non-network ApiClientError to the retry message', async () => {
     claimLoginRewardMock.mockRejectedValue(
-      new ApiClientError('boom', 500, 'server')
+      new ApiClientError('boom', 500, 'http')
     )
 
     vi.useFakeTimers()

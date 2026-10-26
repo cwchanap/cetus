@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { fireEvent, render, screen, act } from '@testing-library/react'
-import type { AchievementNotification } from '@cetus/shared/achievements'
+import {
+  AchievementRarity,
+  type AchievementNotification,
+} from '@cetus/shared/achievements'
 import type { ChallengeUpdatesPayload } from '@cetus/shared/api-dto'
 import { AppNotifications } from './AppNotifications'
 
@@ -12,7 +15,7 @@ const achievement = (
   name: 'First specimen',
   description: 'Score your first points',
   icon: '🎯',
-  rarity: 'common',
+  rarity: AchievementRarity.COMMON,
   ...overrides,
 })
 
@@ -68,7 +71,11 @@ describe('AppNotifications achievement queue', () => {
     act(() => {
       window.showAchievementAward!([
         achievement(),
-        achievement({ id: 'a2', name: 'Second specimen', rarity: 'epic' }),
+        achievement({
+          id: 'a2',
+          name: 'Second specimen',
+          rarity: AchievementRarity.EPIC,
+        }),
       ])
     })
 
