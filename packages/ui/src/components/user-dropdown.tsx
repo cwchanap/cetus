@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { cn } from '../lib/utils'
 
 /**
  * Navigation user dropdown (HPA-379 Stage 4). Pure presentation: open/close,
@@ -75,7 +76,14 @@ export function UserDropdown({ user, onLogout, className }: UserDropdownProps) {
   }
 
   return (
-    <div className={className} id="user-dropdown" ref={containerRef}>
+    // relative + z-index restore the ported .astro twin's positioning
+    // context — without it the menu's absolute right-0 anchors to a distant
+    // positioned ancestor and the dropdown drifts away from the trigger.
+    <div
+      className={cn('relative z-[10000]', className)}
+      id="user-dropdown"
+      ref={containerRef}
+    >
       {/* Dropdown trigger button */}
       <button
         id="user-menu-button"
