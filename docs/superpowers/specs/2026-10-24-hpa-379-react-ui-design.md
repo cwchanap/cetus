@@ -1,6 +1,6 @@
 # HPA-379 — React UI migration: design
 
-Status: **proposed** · Linear: https://linear.app/cwchanap/issue/HPA-379/port-the-astro-ui-components-to-react-in-cetusui
+Status: **implemented** (2026-10-25) · Linear: https://linear.app/cwchanap/issue/HPA-379/port-the-astro-ui-components-to-react-in-cetusui
 Base: `main` after HPA-447 (shared games/domain/API extraction).
 
 ## Goal and boundaries
