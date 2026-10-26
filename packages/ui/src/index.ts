@@ -37,3 +37,7 @@ export {
     DailyMissionsPanel,
     type DailyMissionsPanelProps,
 } from './components/daily-missions-panel'
+export {
+    UserDropdown,
+    type UserDropdownProps,
+} from './components/user-dropdown'
