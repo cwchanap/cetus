@@ -4,7 +4,7 @@ import AppLayout from '@/layouts/AppLayout.astro'
 // Component Imports
 import { Button, Card, Container, Heading, Section } from '@cetus/ui'
 import DailyMissionsPanel from '@/components/DailyMissionsPanel.astro'
-import LoginRewardModal from '@/components/LoginRewardModal.astro'
+import LoginRewardModal from '@/components/islands/LoginRewardModal'
 
 import {
   getUserGameHistoryPaginated,
@@ -324,5 +324,5 @@ const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
   </main>
 
   <!-- Login Reward Modal -->
-  <LoginRewardModal status={loginRewardStatus} />
+  <LoginRewardModal client:load status={loginRewardStatus} />
 </AppLayout>

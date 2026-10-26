@@ -29,3 +29,7 @@ export {
     type ChallengeCompleteCardProps,
     type ChallengeCompleteChallenge,
 } from './components/challenge-complete'
+export {
+    LoginRewardModal,
+    type LoginRewardModalProps,
+} from './components/login-reward-modal'
