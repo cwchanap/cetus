@@ -33,3 +33,7 @@ export {
     LoginRewardModal,
     type LoginRewardModalProps,
 } from './components/login-reward-modal'
+export {
+    DailyMissionsPanel,
+    type DailyMissionsPanelProps,
+} from './components/daily-missions-panel'

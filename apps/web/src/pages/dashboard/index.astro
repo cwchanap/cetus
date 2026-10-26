@@ -2,8 +2,14 @@
 import AppLayout from '@/layouts/AppLayout.astro'
 
 // Component Imports
-import { Button, Card, Container, Heading, Section } from '@cetus/ui'
-import DailyMissionsPanel from '@/components/DailyMissionsPanel.astro'
+import {
+  Button,
+  Card,
+  Container,
+  DailyMissionsPanel,
+  Heading,
+  Section,
+} from '@cetus/ui'
 import LoginRewardModal from '@/components/islands/LoginRewardModal'
 
 import {
@@ -187,6 +193,7 @@ const userName = user.name || user.email?.split('@')[0] || 'Anonymous User'
           )
         }
         <DailyMissionsPanel
+          client:load
           challenges={challenges}
           xp={xp}
           level={level}
