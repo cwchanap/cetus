@@ -175,6 +175,13 @@ describe('Game wrapper restyle', () => {
         expect(html).toMatch(/font-mono/)
         expect(html).toContain('id="game-over-overlay"')
         expect(html).toContain('id="play-again-btn"')
+        // tailwind-merge must not drop `flex` in favor of `hidden` — games
+        // show the overlay via classList.remove('hidden').
+        const overlayClass = html.match(
+            /id="game-over-overlay"[^>]*class="([^"]*)"/
+        )?.[1]
+        expect(overlayClass).toContain('flex')
+        expect(overlayClass).toContain('hidden')
         expect(html).toContain('Score: 100')
         expect(html).not.toMatch(/font-orbitron/)
         expect(html).not.toMatch(/text-cyan-400/)
