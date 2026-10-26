@@ -977,6 +977,16 @@ test.describe('Snake', () => {
         await page.locator('#reset-btn').click()
         await expect(page.locator('#start-btn')).toBeVisible()
         await expect(page.locator('#score')).toHaveText('0')
+
+        // The page-root init script must still own the game instance
+        // (Stage 5 shell keeps game scripts out of named slots).
+        await expect
+            .poll(() =>
+                page.evaluate(() =>
+                    Boolean((window as { snakeGame?: unknown }).snakeGame)
+                )
+            )
+            .toBe(true)
     })
 })
 
