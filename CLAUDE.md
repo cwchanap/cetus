@@ -108,7 +108,8 @@ Bun-workspace monorepo. Paths below are relative to `apps/web/`:
 ```
 apps/web/
 ├── src/
-│   ├── components/ui/     # Reusable UI components with sci-fi styling
+│   ├── components/ui/     # Navigation/Footer Astro + shell-tokens test (reusable UI moved to packages/ui)
+│   ├── components/islands/ # React hydration islands (SettingsPreferences, AppNotifications, UserDropdown, …)
 │   ├── lib/
 │   │   ├── auth.ts        # Better Auth configuration
 │   │   ├── auth-client.ts # Client-side auth utilities
@@ -157,6 +158,7 @@ apps/web/
 ├── scripts/              # init-e2e-db.ts, init-db.sql, validate-ice-slide-expedition.ts
 ├── db/                   # Local SQLite database (db.sqlite, git-ignored)
 packages/
+├── ui/                   # @cetus/ui — reusable React UI components (Button, Card, Select, overlays, …)
 ├── shared/               # @cetus/shared — portable domain, Zod request schemas, wire DTOs
 ├── games/                # @cetus/games — portable game rules (all 23 games' logic)
 ├── api-client/           # @cetus/api-client — typed client for the app API (14 methods)
@@ -265,6 +267,8 @@ All components follow consistent patterns:
 - **Responsive Design**: Mobile-first with touch/hover states
 - **Accessibility**: Focus management and ARIA attributes
 
+Since HPA-379, reusable UI lives in `packages/ui` (React `@cetus/ui`); web-specific interactive owners are React islands under `apps/web/src/components/islands/` hydrated by Astro pages. `Navigation`, `Footer` and the `GamePage.astro` shell remain Astro.
+
 ### Tailwind Theme System
 Sci-fi design system (Tailwind v4, CSS-first — there is no `tailwind.config.js`):
 - **Semantic tokens**: `--cetus-*` variables live in `packages/tokens/theme.css` (`:root`, `.dark`, `.theme-abyssal` scopes) and are bridged to utilities via `@theme inline` in `apps/web/src/styles/global.css` — e.g. `bg-cetus-surface`, `text-cetus-ink`, `border-cetus-hairline`
@@ -300,7 +304,7 @@ Sci-fi design system (Tailwind v4, CSS-first — there is no `tailwind.config.js
 - **Type Safety**: Strict TypeScript with explicit any warnings
 
 ### Component Development
-1. Use existing UI components from `apps/web/src/components/ui/`
+1. Use existing UI components from `packages/ui` (React `@cetus/ui`); add page-specific interactive owners as islands under `apps/web/src/components/islands/`
 2. Follow TypeScript interface patterns for props
 3. Apply sci-fi theme classes consistently
 4. Implement responsive design with mobile-first approach
