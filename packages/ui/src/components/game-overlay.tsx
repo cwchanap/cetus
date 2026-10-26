@@ -32,10 +32,13 @@ export function GameOverlay({
   return (
     <div
       id={id}
-      className={cn(
-        'fixed inset-0 bg-black/90 flex items-center justify-center hidden z-50',
+      // `hidden` must bypass tailwind-merge: it would drop `flex` as a
+      // conflicting display class, breaking the game scripts'
+      // classList.remove('hidden') show pattern.
+      className={`${cn(
+        'fixed inset-0 bg-black/90 flex items-center justify-center z-50',
         className
-      )}
+      )} hidden`}
       {...rest}
     >
       <div className="text-center p-8">
