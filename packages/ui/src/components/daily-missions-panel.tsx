@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { UserChallengeProgress } from '@cetus/shared/challenges'
 import { Badge } from './ui/badge'
 import { Card } from './ui/card'
+import { displayFontStyle } from '../lib/styles'
 
 /**
  * Dashboard daily-missions panel (HPA-379 Stage 4). View props derive
@@ -34,15 +35,10 @@ function formatCountdown(seconds: number): string {
   return `Resets in ${pad(hours)}:${pad(mins)}:${pad(secs)}`
 }
 
-export function DailyMissionsPanel({
-  challenges,
-  xp,
-  level,
-  xpProgress,
-  xpToNextLevel,
-  streak,
-  resetIn,
-}: DailyMissionsPanelProps) {
+// The per-second countdown lives in its own component so the once-a-second
+// state tick doesn't re-render the whole panel (header, XP bar, challenge
+// list) — only this subtree re-renders.
+function ResetCountdown({ resetIn }: { resetIn: number }) {
   const [seconds, setSeconds] = useState(resetIn)
   const [showRefreshPrompt, setShowRefreshPrompt] = useState(false)
 
@@ -62,6 +58,69 @@ export function DailyMissionsPanel({
   }, [seconds])
 
   return (
+    <>
+      <span
+        id="reset-timer"
+        className="text-sm text-cetus-ink-muted"
+        data-reset-in={resetIn}
+      >
+        {seconds > 0 ? formatCountdown(seconds) : 'Daily missions reset'}
+      </span>
+      {/* Refresh prompt when the daily missions have reset. Portaled to
+          document.body so `fixed` anchors to the viewport: showRefreshPrompt
+          only turns true on the client, so this is SSR-safe. */}
+      {showRefreshPrompt &&
+        createPortal(
+          <div
+            id="mission-refresh-toast"
+            role="alert"
+            className="fixed bottom-6 right-6 z-50 max-w-sm rounded-xl bg-cetus-surface border border-cetus-hairline shadow-2xl shadow-cetus-accent/30 p-4 text-white backdrop-blur-md"
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-xl">🔄</span>
+              <div className="flex-1">
+                <p className="font-semibold">Daily missions have reset</p>
+                <p className="text-sm text-cetus-ink-muted mt-1">
+                  New daily missions are available. Refresh to load the latest
+                  set.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    id="mission-refresh-now"
+                    className="px-3 py-1.5 rounded-lg bg-cetus-accent text-white text-sm font-semibold hover:bg-cetus-accent/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent/50"
+                    type="button"
+                    onClick={() => window.location.reload()}
+                  >
+                    Refresh now
+                  </button>
+                  <button
+                    id="mission-refresh-dismiss"
+                    className="px-3 py-1.5 rounded-lg border border-cetus-hairline text-sm text-cetus-ink-muted hover:border-cetus-accent/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent/50"
+                    type="button"
+                    onClick={() => setShowRefreshPrompt(false)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
+  )
+}
+
+export function DailyMissionsPanel({
+  challenges,
+  xp,
+  level,
+  xpProgress,
+  xpToNextLevel,
+  streak,
+  resetIn,
+}: DailyMissionsPanelProps) {
+  return (
     <Card variant="glass" className="p-6 mb-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -69,11 +128,7 @@ export function DailyMissionsPanel({
           <span className="text-2xl">🎯</span>
           <h3
             className="text-lg font-bold text-cetus-accent"
-            style={{
-              fontFamily: 'var(--cetus-display-font)',
-              fontWeight: 'var(--cetus-display-weight)',
-              fontStyle: 'var(--cetus-display-style)',
-            }}
+            style={displayFontStyle}
           >
             DAILY MISSIONS
           </h3>
@@ -82,13 +137,7 @@ export function DailyMissionsPanel({
           <Badge variant="outline" size="sm" className="bg-cetus-accent-2/20">
             Level {level}
           </Badge>
-          <span
-            id="reset-timer"
-            className="text-sm text-cetus-ink-muted"
-            data-reset-in={resetIn}
-          >
-            {seconds > 0 ? formatCountdown(seconds) : 'Daily missions reset'}
-          </span>
+          <ResetCountdown resetIn={resetIn} />
         </div>
       </div>
 
@@ -185,48 +234,6 @@ export function DailyMissionsPanel({
           </span>
         </div>
       )}
-
-      {/* Refresh prompt when the daily missions have reset. Portaled to
-          document.body so `fixed` anchors to the viewport: showRefreshPrompt
-          only turns true on the client, so this is SSR-safe. */}
-      {showRefreshPrompt &&
-        createPortal(
-          <div
-            id="mission-refresh-toast"
-            role="alert"
-            className="fixed bottom-6 right-6 z-50 max-w-sm rounded-xl bg-cetus-surface border border-cetus-hairline shadow-2xl shadow-cetus-accent/30 p-4 text-white backdrop-blur-md"
-          >
-            <div className="flex items-start gap-3">
-              <span className="text-xl">🔄</span>
-              <div className="flex-1">
-                <p className="font-semibold">Daily missions have reset</p>
-                <p className="text-sm text-cetus-ink-muted mt-1">
-                  New daily missions are available. Refresh to load the latest
-                  set.
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <button
-                    id="mission-refresh-now"
-                    className="px-3 py-1.5 rounded-lg bg-cetus-accent text-white text-sm font-semibold hover:bg-cetus-accent/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent/50"
-                    type="button"
-                    onClick={() => window.location.reload()}
-                  >
-                    Refresh now
-                  </button>
-                  <button
-                    id="mission-refresh-dismiss"
-                    className="px-3 py-1.5 rounded-lg border border-cetus-hairline text-sm text-cetus-ink-muted hover:border-cetus-accent/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent/50"
-                    type="button"
-                    onClick={() => setShowRefreshPrompt(false)}
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
     </Card>
   )
 }

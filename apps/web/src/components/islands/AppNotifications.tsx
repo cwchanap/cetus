@@ -290,11 +290,20 @@ export function AppNotifications() {
     }
   }
 
-  // Window bridge: register on mount, clean up on unmount so there is never
-  // a second owner of these globals.
+  // Window bridge: take over from the AppLayout inline stubs, replay any
+  // calls that arrived before hydration (the backlog the stubs fill), and
+  // clean up on unmount so there is never a second owner of these globals.
   useEffect(() => {
+    const backlog = window.__cetusNotificationBacklog
     window.showAchievementAward = enqueueAchievements
     window.showChallengeComplete = enqueueChallenge
+    if (backlog) {
+      delete window.__cetusNotificationBacklog
+      if (backlog.achievements.length > 0) {
+        enqueueAchievements(backlog.achievements)
+      }
+      backlog.challenges.forEach(enqueueChallenge)
+    }
     return () => {
       delete window.showAchievementAward
       delete window.showChallengeComplete

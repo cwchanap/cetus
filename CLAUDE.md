@@ -218,7 +218,7 @@ Each game follows: `types.ts` → `game.ts` → `renderer.ts` → `utils.ts`
 - **Chromatic Tide**: BaseGame + DOMRenderer flood-fill strategy game; exposes a `window.chromaticTideGame` debug handle
 
 **Critical Astro-TypeScript Integration Pattern**:
-All game HTML structure must be in Astro components - TypeScript only manipulates dynamic content:
+Since HPA-379, shared game chrome (`GameTitle`, `GameStats`, `GameControls`, `GameOverlay`, `GameBreadcrumb`) are SSR-rendered React components from `@cetus/ui` composed inside `GamePage.astro` — they emit static HTML (no hydration) carrying the stable `id`s (`start-btn`, `game-over-overlay`, `final-score`, …) that game scripts mutate imperatively. The rule that still stands: the *dynamic* game-board DOM lives in `.astro` markup and TypeScript only manipulates dynamic content — it never builds structure with innerHTML:
 ```typescript
 // ✅ CORRECT - Query for existing Astro elements
 private setupDOM(): void {
@@ -241,9 +241,9 @@ this.container.innerHTML = '<div>content</div>' // Breaks styling
 ```
 
 **Game Container Pattern in Astro Pages**:
-- Astro responsibility: All HTML structure, styling, layout, overlays
-- TypeScript responsibility: Only dynamic content (cards, pieces, game objects)
-- No innerHTML needed: Astro provides all necessary DOM structure upfront
+- Astro responsibility: Page structure, styling, layout — including composing the SSR-only `@cetus/ui` chrome (stats card, controls, game-over overlay) via `GamePage.astro`
+- TypeScript responsibility: Only dynamic content (cards, pieces, game objects) and imperative toggles on the fixed-id chrome (`classList.remove('hidden')`, `style.display`, textContent)
+- No innerHTML needed: SSR provides all necessary DOM structure upfront
 
 **Button State Management Pattern**:
 ```javascript
@@ -262,7 +262,7 @@ startBtn.addEventListener('click', () => {
 ### UI Component System
 All components follow consistent patterns:
 - **TypeScript Props**: Strongly typed component interfaces
-- **Variant System**: Button, Badge, Card variants with class-variance-authority
+- **Variant System**: Button, Badge, Card variants via per-component variant maps merged with `cn` (`@cetus/ui`)
 - **Sci-Fi Theme**: Neon glows, glass-morphism, holographic effects
 - **Responsive Design**: Mobile-first with touch/hover states
 - **Accessibility**: Focus management and ARIA attributes

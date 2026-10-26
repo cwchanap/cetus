@@ -1,5 +1,6 @@
 import { useMemo, type CSSProperties, type KeyboardEvent } from 'react'
 import type { AchievementNotification } from '@cetus/shared/achievements'
+import { displayFontStyle } from '../lib/styles'
 import './achievement-award.css'
 
 /**
@@ -49,6 +50,7 @@ export function AchievementAwardCard({
     <div
       className="achievement-card relative bg-cetus-surface rounded-2xl border border-cetus-hairline p-8 text-center shadow-2xl transform transition-all duration-300 hover:scale-105 cursor-pointer w-96 min-h-[480px] flex flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent"
       style={cardStyle}
+      data-card=""
       data-rarity={achievement.rarity}
       tabIndex={0}
       role="button"
@@ -102,11 +104,7 @@ export function AchievementAwardCard({
           {/* Achievement Name */}
           <h3
             className="font-bold text-2xl text-white mb-3 flex-shrink-0 min-h-[4rem] flex items-center justify-center px-3 leading-tight"
-            style={{
-              fontFamily: 'var(--cetus-display-font)',
-              fontWeight: 'var(--cetus-display-weight)',
-              fontStyle: 'var(--cetus-display-style)',
-            }}
+            style={displayFontStyle}
           >
             <span data-name className="line-clamp-2 break-words">
               {achievement.name}

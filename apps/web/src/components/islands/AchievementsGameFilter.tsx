@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Select } from '@cetus/ui'
 
 /**
@@ -16,14 +17,20 @@ export function AchievementsGameFilter({
   value,
   options,
 }: AchievementsGameFilterProps) {
+  // Local selection mirrors the prop on first render but tracks the user's
+  // pick until the full-page navigation completes — without it React would
+  // restore the stale prop value while the browser is still loading.
+  const [selected, setSelected] = useState(value)
+
   return (
     <Select
       id="game-filter-select"
       name="game"
       variant="glass"
-      value={value}
+      value={selected}
       options={options}
       onValueChange={next => {
+        setSelected(next)
         const url = new URL(window.location.href)
         url.searchParams.set('game', next)
         if (next === 'all') {

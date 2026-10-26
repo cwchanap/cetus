@@ -108,11 +108,20 @@ export function Pagination({
           )}
 
           {/* Page numbers */}
-          {pageNumbers.map(pageNum =>
+          {pageNumbers.map((pageNum, index) =>
             pageNum === '...' ? (
-              <span className="px-2 text-cetus-ink-muted">...</span>
+              <span
+                key={`ellipsis-${index}`}
+                className="px-2 text-cetus-ink-muted"
+              >
+                ...
+              </span>
             ) : (
-              <a href={getPageUrl(pageNum)} className="inline-block">
+              <a
+                key={pageNum}
+                href={getPageUrl(pageNum)}
+                className="inline-block"
+              >
                 <Button
                   variant={pageNum === currentPage ? 'primary' : 'outline'}
                   size="sm"

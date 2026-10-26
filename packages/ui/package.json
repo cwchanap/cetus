@@ -5,8 +5,12 @@
     "type": "module",
     "exports": {
         ".": "./src/index.ts",
+        "./lib/utils": "./src/lib/utils.ts",
         "./*": "./src/*"
     },
+    "sideEffects": [
+        "**/*.css"
+    ],
     "scripts": {
         "typecheck": "tsc --noEmit -p tsconfig.json"
     },

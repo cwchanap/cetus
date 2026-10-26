@@ -15,6 +15,12 @@ describe('cn (smoke)', () => {
     expect(cn('flex', isHidden && 'hidden', ['items-center'])).toBe(
       'flex items-center'
     )
+    // `hidden` has its own merge group: it must not drop a display class
+    // that game scripts restore via classList.remove('hidden').
+    expect(cn('flex', 'hidden')).toBe('flex hidden')
+    expect(cn('inline-flex items-center', 'hidden')).toBe(
+      'inline-flex items-center hidden'
+    )
   })
 
   it('renders a React element carrying cn-computed classes', () => {
