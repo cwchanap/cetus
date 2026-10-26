@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { UserChallengeProgress } from '@cetus/shared/challenges'
 import { Badge } from './ui/badge'
 import { Card } from './ui/card'
@@ -185,43 +186,47 @@ export function DailyMissionsPanel({
         </div>
       )}
 
-      {/* Refresh prompt when the daily missions have reset */}
-      {showRefreshPrompt && (
-        <div
-          id="mission-refresh-toast"
-          role="alert"
-          className="fixed bottom-6 right-6 z-50 max-w-sm rounded-xl bg-cetus-surface border border-cetus-hairline shadow-2xl shadow-cetus-accent/30 p-4 text-white backdrop-blur-md"
-        >
-          <div className="flex items-start gap-3">
-            <span className="text-xl">🔄</span>
-            <div className="flex-1">
-              <p className="font-semibold">Daily missions have reset</p>
-              <p className="text-sm text-cetus-ink-muted mt-1">
-                New daily missions are available. Refresh to load the latest
-                set.
-              </p>
-              <div className="mt-3 flex gap-2">
-                <button
-                  id="mission-refresh-now"
-                  className="px-3 py-1.5 rounded-lg bg-cetus-accent text-white text-sm font-semibold hover:bg-cetus-accent/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent/50"
-                  type="button"
-                  onClick={() => window.location.reload()}
-                >
-                  Refresh now
-                </button>
-                <button
-                  id="mission-refresh-dismiss"
-                  className="px-3 py-1.5 rounded-lg border border-cetus-hairline text-sm text-cetus-ink-muted hover:border-cetus-accent/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent/50"
-                  type="button"
-                  onClick={() => setShowRefreshPrompt(false)}
-                >
-                  Dismiss
-                </button>
+      {/* Refresh prompt when the daily missions have reset. Portaled to
+          document.body so `fixed` anchors to the viewport: showRefreshPrompt
+          only turns true on the client, so this is SSR-safe. */}
+      {showRefreshPrompt &&
+        createPortal(
+          <div
+            id="mission-refresh-toast"
+            role="alert"
+            className="fixed bottom-6 right-6 z-50 max-w-sm rounded-xl bg-cetus-surface border border-cetus-hairline shadow-2xl shadow-cetus-accent/30 p-4 text-white backdrop-blur-md"
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-xl">🔄</span>
+              <div className="flex-1">
+                <p className="font-semibold">Daily missions have reset</p>
+                <p className="text-sm text-cetus-ink-muted mt-1">
+                  New daily missions are available. Refresh to load the latest
+                  set.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    id="mission-refresh-now"
+                    className="px-3 py-1.5 rounded-lg bg-cetus-accent text-white text-sm font-semibold hover:bg-cetus-accent/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent/50"
+                    type="button"
+                    onClick={() => window.location.reload()}
+                  >
+                    Refresh now
+                  </button>
+                  <button
+                    id="mission-refresh-dismiss"
+                    className="px-3 py-1.5 rounded-lg border border-cetus-hairline text-sm text-cetus-ink-muted hover:border-cetus-accent/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent/50"
+                    type="button"
+                    onClick={() => setShowRefreshPrompt(false)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </Card>
   )
 }

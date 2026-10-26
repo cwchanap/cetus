@@ -1,5 +1,6 @@
-/* Challenge-complete entrance animation (HPA-379 Stage 4). Ported from the
- * previous scoped ChallengeComplete.astro styles. */
+/* Shared bounce-in entrance animation (HPA-379). One copy for every
+ * consumer — ChallengeCompleteCard and LoginRewardModal both rely on the
+ * public `.animate-bounce-in` class. */
 @keyframes bounce-in {
   0% {
     transform: scale(0.5);

@@ -3,7 +3,7 @@ import { cn } from '../../lib/utils'
 
 export interface ToggleProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
-  'value' | 'onChange' | 'checked'
+  'value' | 'onChange' | 'checked' | 'onClick'
 > {
   variant?: 'default' | 'sci-fi'
   size?: 'default' | 'sm' | 'lg'

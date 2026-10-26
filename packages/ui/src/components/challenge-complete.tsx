@@ -1,5 +1,5 @@
 import type { ChallengeUpdatesPayload } from '@cetus/shared/api-dto'
-import './challenge-complete.css'
+import './bounce-in.css'
 
 /** One completed-challenge entry from the score submission payload. */
 export type ChallengeCompleteChallenge =
