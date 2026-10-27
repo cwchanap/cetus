@@ -37,7 +37,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/canvas-confetti": "^1.9.0",
     "astro": "^5.10.1",
-    "better-auth": "^1.7.7",
+    "better-auth": "^1.7.12",
     "canvas-confetti": "^1.9.4",
     "cropperjs": "^1.6.2",
     "kysely": "^0.29.6",
@@ -48,7 +48,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
+    "@astrojs/check": "^0.9.12",
     "@cetus/config": "workspace:*",
     "@playwright/test": "^1.64.0",
     "@testing-library/dom": "^10.4.2",
