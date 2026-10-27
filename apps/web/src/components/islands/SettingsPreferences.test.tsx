@@ -155,4 +155,93 @@ describe('SettingsPreferences', () => {
     // save attempt happened for one user toggle.
     expect(updateSettingsMock).toHaveBeenCalledTimes(1)
   })
+
+  it('serializes saves per key so the last selected value persists last', async () => {
+    let resolveFirst!: (value: {
+      success: boolean
+      preferences: Record<string, never>
+    }) => void
+    updateSettingsMock
+      .mockImplementationOnce(
+        () => new Promise(resolve => (resolveFirst = resolve))
+      )
+      .mockResolvedValue({ success: true, preferences: {} })
+    const { getByRole } = render(
+      <SettingsPreferences
+        emailNotifications
+        pushNotifications={false}
+        challengeReminders
+      />
+    )
+    await waitFor(() => {
+      expect(
+        getByRole('switch', { name: 'Email Notifications' })
+      ).toBeInTheDocument()
+    })
+
+    const toggle = getByRole('switch', { name: 'Email Notifications' })
+    fireEvent.click(toggle) // optimistic off, save A in flight
+    fireEvent.click(toggle) // optimistic on, queued behind A
+
+    // The second click must not race a parallel request: only A is sent.
+    await waitFor(() => {
+      expect(updateSettingsMock).toHaveBeenCalledTimes(1)
+    })
+    expect(updateSettingsMock).toHaveBeenNthCalledWith(1, {
+      email_notifications: false,
+    })
+
+    resolveFirst({ success: true, preferences: {} })
+
+    // After A settles, the drain pursues the latest intent — the last
+    // selected value is the final persisted one.
+    await waitFor(() => {
+      expect(updateSettingsMock).toHaveBeenCalledTimes(2)
+    })
+    expect(updateSettingsMock).toHaveBeenNthCalledWith(2, {
+      email_notifications: true,
+    })
+    await waitFor(() => {
+      expect(toggle).toHaveAttribute('aria-checked', 'true')
+    })
+  })
+
+  it('coalesces rapid re-toggles into a single save when intent settles back', async () => {
+    let resolveFirst!: (value: {
+      success: boolean
+      preferences: Record<string, never>
+    }) => void
+    updateSettingsMock.mockImplementationOnce(
+      () => new Promise(resolve => (resolveFirst = resolve))
+    )
+    const { getByRole } = render(
+      <SettingsPreferences
+        emailNotifications
+        pushNotifications={false}
+        challengeReminders
+      />
+    )
+    await waitFor(() => {
+      expect(
+        getByRole('switch', { name: 'Email Notifications' })
+      ).toBeInTheDocument()
+    })
+
+    const toggle = getByRole('switch', { name: 'Email Notifications' })
+    fireEvent.click(toggle) // off — save in flight
+    fireEvent.click(toggle) // on
+    fireEvent.click(toggle) // off — final intent equals the in-flight save
+
+    resolveFirst({ success: true, preferences: {} })
+
+    // The in-flight save already persisted the final intent: no follow-up
+    // request is needed and the switch stays at the last selected value.
+    await waitFor(() => {
+      expect(toggle).toHaveAttribute('aria-checked', 'false')
+    })
+    expect(updateSettingsMock).toHaveBeenCalledTimes(1)
+    expect(updateSettingsMock).toHaveBeenNthCalledWith(1, {
+      email_notifications: false,
+    })
+  })
 })
