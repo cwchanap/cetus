@@ -123,27 +123,73 @@ export function SettingsPreferences({
     showStatus()
   }
 
-  const handleServerToggle = async (key: ServerPrefKey, next: boolean) => {
-    const previous = serverPrefs[key]
-    if (next === previous) {
+  // `desired` is the latest user intent; `confirmed` is the last value the
+  // server is known to hold (props initially, then each successful save —
+  // every save writes the key's whole value, so it doubles as the revert
+  // target). Refs because the drain below reads them after async gaps.
+  const desired = useRef({
+    emailNotifications,
+    pushNotifications,
+    challengeReminders,
+  })
+  const confirmed = useRef({
+    emailNotifications,
+    pushNotifications,
+    challengeReminders,
+  })
+  const draining = useRef<Record<ServerPrefKey, boolean>>({
+    emailNotifications: false,
+    pushNotifications: false,
+    challengeReminders: false,
+  })
+
+  // Per-key save serializer: while intent differs from the confirmed
+  // server value, persist the latest intent. Clicks landing during an
+  // in-flight save just move `desired` — the running loop picks them up
+  // after its current await — so writes stay ordered and coalesce to the
+  // last selected value instead of racing to the server out of order.
+  const drainServerSaves = async (key: ServerPrefKey) => {
+    if (draining.current[key]) {
       return
     }
+    draining.current[key] = true
+    try {
+      while (desired.current[key] !== confirmed.current[key]) {
+        const target = desired.current[key]
+        const payload: Partial<NotificationSettingsResponse> = {}
+        payload[WIRE_KEYS[key]] = target
+        try {
+          await api.updateSettings(payload)
+          confirmed.current[key] = target
+          showStatus('Saved!', 'success')
+        } catch (error) {
+          console.error('Failed to save preference:', error)
+          // Abandon the failed intent only when it is still the latest —
+          // a re-toggle during the failed save keeps `desired` pointing
+          // at the newer value, which the loop may still pursue.
+          if (desired.current[key] === target) {
+            desired.current[key] = confirmed.current[key]
+            setServerPrefs(prev => ({
+              ...prev,
+              [key]: confirmed.current[key],
+            }))
+          }
+          showStatus(describeSaveError(error), 'error')
+        }
+      }
+    } finally {
+      draining.current[key] = false
+    }
+  }
+
+  const handleServerToggle = (key: ServerPrefKey, next: boolean) => {
+    if (next === desired.current[key]) {
+      return
+    }
+    desired.current[key] = next
     // Optimistic update; revert from React state when the save fails.
     setServerPrefs(prev => ({ ...prev, [key]: next }))
-    const payload: Partial<NotificationSettingsResponse> = {}
-    payload[WIRE_KEYS[key]] = next
-    try {
-      await api.updateSettings(payload)
-      showStatus('Saved!', 'success')
-    } catch (error) {
-      console.error('Failed to save preference:', error)
-      // Revert only if this save's optimistic value is still current — a
-      // later click may have moved the key past this save's snapshot.
-      setServerPrefs(prev =>
-        prev[key] === next ? { ...prev, [key]: previous } : prev
-      )
-      showStatus(describeSaveError(error), 'error')
-    }
+    void drainServerSaves(key)
   }
 
   return (
