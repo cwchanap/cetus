@@ -8,10 +8,8 @@ import { cn } from '../lib/utils'
  * `start-btn`, `end-btn` (hidden until the game starts), `pause-btn` and
  * `reset-btn` nodes that game scripts mutate imperatively, so it must stay
  * SSR-only (no hydration). `children` renders custom control extras.
- * `gameId` is kept for page-call-site compatibility (unused presentation).
  */
 export interface GameControlsProps {
-  gameId?: string
   showPause?: boolean
   showReset?: boolean
   showEnd?: boolean

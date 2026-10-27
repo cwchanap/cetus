@@ -1,6 +1,13 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro'
-import { Button, Card, Container, Heading, Section } from '@cetus/ui'
+import {
+  Button,
+  Card,
+  Container,
+  Heading,
+  Section,
+  displayFontStyle,
+} from '@cetus/ui'
 import SettingsPreferences from '@/components/islands/SettingsPreferences'
 import { getUserPreferences } from '@/lib/server/db/queries'
 
@@ -54,7 +61,7 @@ const challengeReminders = serverPrefs?.challenge_reminders ?? true
         <Card variant="glass" className="p-6 md:p-8 mb-6">
           <h3
             class="text-lg font-bold text-cetus-accent mb-6"
-            style="font-family: var(--cetus-display-font); font-weight: var(--cetus-display-weight); font-style: var(--cetus-display-style);"
+            style={displayFontStyle}
           >
             [ ACCOUNT ]
           </h3>

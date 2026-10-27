@@ -369,12 +369,17 @@ const expeditionRiskMultiplier = (
         </div>
       </div>
     </div>
+    {
+      /* `flex` (not inline-flex) pairs with `hidden`: Tailwind emits display
+        utilities alphabetically, so `.hidden` must outrank the base class —
+        inline-flex sorts after hidden and would keep the button visible. */
+    }
     <Button
       id="new-expedition-btn"
       type="button"
       variant="outline"
       size="lg"
-      className="hidden w-full"
+      className="flex hidden w-full"
     >
       New Expedition
     </Button>

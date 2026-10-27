@@ -8,10 +8,8 @@ import { cn } from '../lib/utils'
  * `score` and `time-remaining` nodes that game scripts mutate imperatively,
  * so it must stay SSR-only (no hydration — React must never re-render the
  * subtrees the scripts own). `children` renders additional stats badges.
- * `gameId` is kept for page-call-site compatibility (unused presentation).
  */
 export interface GameStatsProps {
-  gameId?: string
   showScore?: boolean
   showTime?: boolean
   initialTime?: number

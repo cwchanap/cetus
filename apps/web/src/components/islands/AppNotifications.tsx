@@ -7,7 +7,11 @@ import {
 } from 'react'
 import type { AchievementNotification } from '@cetus/shared/achievements'
 import type { ChallengeUpdatesPayload } from '@cetus/shared/api-dto'
-import { AchievementAwardCard, ChallengeCompleteCard, cn } from '@cetus/ui'
+import { cn } from '@cetus/ui'
+// Deep paths: these components ship a stylesheet, so importing them
+// through the barrel would attach that CSS to every barrel consumer.
+import { AchievementAwardCard } from '@cetus/ui/components/achievement-award'
+import { ChallengeCompleteCard } from '@cetus/ui/components/challenge-complete'
 
 /**
  * Web-owned notification island (HPA-379 Stage 4). One mount per page,
@@ -34,18 +38,14 @@ export function AppNotifications() {
   const awardBackdropRef = useRef<HTMLDivElement | null>(null)
   const awardContainerRef = useRef<HTMLDivElement | null>(null)
 
-  const processAchievementQueue = useCallback(async () => {
-    if (achievementQueueRef.current.length === 0) {
-      achievementBusyRef.current = false
-      return
-    }
-
-    achievementBusyRef.current = true
+  const processAchievementQueue = useCallback(() => {
     const next = achievementQueueRef.current.shift()
     if (!next) {
       achievementBusyRef.current = false
       return
     }
+
+    achievementBusyRef.current = true
     setAchievement(next)
   }, [])
 
@@ -56,7 +56,7 @@ export function AppNotifications() {
       }
       achievementQueueRef.current.push(...achievements)
       if (!achievementBusyRef.current) {
-        void processAchievementQueue()
+        processAchievementQueue()
       }
     },
     [processAchievementQueue]
@@ -119,7 +119,7 @@ export function AppNotifications() {
       overlay.style.display = 'none'
       setAchievement(null)
       setTimeout(() => {
-        void processAchievementQueue()
+        processAchievementQueue()
       }, 1000)
     }
 
@@ -186,6 +186,11 @@ export function AppNotifications() {
 
   const enqueueChallenge = useCallback(
     (challengeUpdates: ChallengeUpdatesPayload) => {
+      // Parity with the AppLayout stub: a nullish payload would sit at the
+      // queue head and throw in processChallengeQueue, never shifted off.
+      if (!challengeUpdates) {
+        return
+      }
       challengeQueueRef.current.push(challengeUpdates)
       if (!challengeBusyRef.current) {
         void processChallengeQueue()

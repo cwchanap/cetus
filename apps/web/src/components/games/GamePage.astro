@@ -34,7 +34,6 @@ interface Props {
 }
 
 const {
-  gameId,
   title,
   description,
   icon,
@@ -81,7 +80,6 @@ const {
         <div class="flex flex-col space-y-6">
           <!-- Game Stats (React, SSR-only) -->
           <GameStats
-            gameId={gameId}
             showScore={showScore}
             showTime={showTime}
             initialTime={initialTime}
@@ -95,7 +93,6 @@ const {
               <slot name="controls" />
             ) : (
               <GameControls
-                gameId={gameId}
                 showPause={showPause}
                 showReset={showReset}
                 showEnd={showEnd}

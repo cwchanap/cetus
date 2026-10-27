@@ -93,8 +93,9 @@ const themeInitScript = `
 
     <slot name="notifications">
       <!-- Web-owned notification island: registers window.showAchievementAward
-           and window.showChallengeComplete for the score service. -->
-      <AppNotifications client:load />
+           and window.showChallengeComplete for the score service. Hydrates
+           at idle — the head stub buffers calls until the island mounts. -->
+      <AppNotifications client:idle />
     </slot>
 
     <script>

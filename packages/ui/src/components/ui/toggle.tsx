@@ -1,4 +1,4 @@
-import { useId, useState, type ButtonHTMLAttributes } from 'react'
+import { useEffect, useId, useState, type ButtonHTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
 
 export interface ToggleProps extends Omit<
@@ -65,11 +65,15 @@ export function Toggle({
   className,
   ...rest
 }: ToggleProps) {
-  if (!label && !ariaLabel) {
-    console.warn(
-      'Toggle component requires either a "label" or "aria-label" prop for accessibility'
-    )
-  }
+  // In an effect so it fires once per mounted instance — not on every SSR
+  // request and client re-render.
+  useEffect(() => {
+    if (!label && !ariaLabel) {
+      console.warn(
+        'Toggle component requires either a "label" or "aria-label" prop for accessibility'
+      )
+    }
+  }, [label, ariaLabel])
 
   const generatedId = useId()
   const isControlled = checked !== undefined

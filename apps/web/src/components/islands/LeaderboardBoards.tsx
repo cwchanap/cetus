@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Avatar, Select } from '@cetus/ui'
+import { Avatar, Select, cn } from '@cetus/ui'
 
 /**
  * Leaderboard page island (HPA-379): owns the game selector AND the displayed
@@ -90,7 +90,7 @@ export function LeaderboardBoards({
           {/* Game Header */}
           <div className="mb-8 flex items-center gap-6">
             <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-cetus-hairline bg-cetus-surface">
-              <span className={`text-2xl ${categoryColor}`}>
+              <span className={cn('text-2xl', categoryColor)}>
                 {selected.icon}
               </span>
             </div>
@@ -100,7 +100,10 @@ export function LeaderboardBoards({
               </h3>
               <div className="flex items-center gap-4 text-sm">
                 <span
-                  className={`rounded-full border border-cetus-hairline bg-cetus-surface px-2 py-1 ${categoryColor}`}
+                  className={cn(
+                    'rounded-full border border-cetus-hairline bg-cetus-surface px-2 py-1',
+                    categoryColor
+                  )}
                 >
                   {selected.category}
                 </span>
@@ -136,7 +139,10 @@ export function LeaderboardBoards({
                   >
                     <div className="flex items-center gap-4">
                       <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-mono font-bold ${rankBadgeClass}`}
+                        className={cn(
+                          'flex h-8 w-8 items-center justify-center rounded-full text-sm font-mono font-bold',
+                          rankBadgeClass
+                        )}
                       >
                         {index + 1}
                       </div>
