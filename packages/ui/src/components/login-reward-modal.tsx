@@ -5,6 +5,7 @@ import type {
 } from '@cetus/shared/api-dto'
 import { LOGIN_REWARD_CYCLE } from '@cetus/shared/loginRewards'
 import { displayFontStyle } from '../lib/styles'
+import { cn } from '../lib/utils'
 import './login-reward-modal.css'
 
 /**
@@ -81,7 +82,7 @@ export function LoginRewardModal({
   return (
     <div
       id="login-reward-overlay"
-      className={`fixed inset-0 z-50${open ? '' : ' hidden'}`}
+      className={cn('fixed inset-0 z-50', !open && 'hidden')}
       aria-hidden={!open}
       onClick={handleOverlayClick}
     >
@@ -126,7 +127,11 @@ export function LoginRewardModal({
               return (
                 <div
                   key={reward.day}
-                  className={`${rewardDayBaseClass}${claimed ? ' claimed' : ''}${current ? ' current' : ''}`}
+                  className={cn(
+                    rewardDayBaseClass,
+                    claimed && 'claimed',
+                    current && 'current'
+                  )}
                   data-reward-day={index}
                 >
                   <span className="text-xs text-cetus-ink-muted mb-1">
@@ -198,7 +203,12 @@ export function LoginRewardModal({
           {/* Level up indicator (hidden by default) */}
           <div
             id="level-up-indicator"
-            className={`${showLevelUp ? 'inline-block' : 'hidden'} mb-4 py-2 px-4 bg-cetus-accent-3 rounded-full animate-pulse`}
+            className={cn(
+              'mb-4 py-2 px-4 bg-cetus-accent-3 rounded-full animate-pulse',
+              // XOR: `hidden` loses to inline-block in Tailwind's
+              // alphabetical display order, so emit exactly one.
+              showLevelUp ? 'inline-block' : 'hidden'
+            )}
           >
             <span className="text-white font-bold">
               🎉 LEVEL UP! Level{' '}
@@ -211,7 +221,10 @@ export function LoginRewardModal({
           {/* Milestone badge earned (hidden by default) */}
           <div
             id="milestone-earned"
-            className={`${milestone ? '' : 'hidden '}mb-4 py-3 px-4 bg-cetus-accent-2/20 rounded-xl border border-cetus-accent-2/30`}
+            className={cn(
+              'mb-4 py-3 px-4 bg-cetus-accent-2/20 rounded-xl border border-cetus-accent-2/30',
+              !milestone && 'hidden'
+            )}
           >
             <div className="text-2xl mb-1" id="milestone-icon">
               {milestone?.icon ?? '🏅'}
@@ -231,7 +244,10 @@ export function LoginRewardModal({
           <div className="mt-6">
             <button
               id="claim-reward-btn"
-              className={`px-8 py-3 rounded-full bg-cetus-accent text-white font-bold text-lg shadow-lg shadow-cetus-accent/40 hover:shadow-cetus-accent/60 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-cetus-surface transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100${showClaimButton ? '' : ' hidden'}`}
+              className={cn(
+                'px-8 py-3 rounded-full bg-cetus-accent text-white font-bold text-lg shadow-lg shadow-cetus-accent/40 hover:shadow-cetus-accent/60 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-cetus-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-cetus-surface transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100',
+                !showClaimButton && 'hidden'
+              )}
               type="button"
               disabled={claimPhase === 'claiming'}
               onClick={onClaim}
@@ -247,7 +263,10 @@ export function LoginRewardModal({
           {/* Already claimed state (hidden by default) */}
           <div
             id="already-claimed"
-            className={`mt-6${canClaim && claimPhase !== 'success' ? ' hidden' : ''}`}
+            className={cn(
+              'mt-6',
+              canClaim && claimPhase !== 'success' && 'hidden'
+            )}
           >
             <div className="text-green-400 font-semibold">✓ Claimed Today</div>
             <p className="text-cetus-ink-muted text-sm mt-1">

@@ -1,5 +1,6 @@
 import type { ChallengeUpdatesPayload } from '@cetus/shared/api-dto'
 import { displayFontStyle } from '../lib/styles'
+import { cn } from '../lib/utils'
 import './bounce-in.css'
 
 /** One completed-challenge entry from the score submission payload. */
@@ -58,7 +59,12 @@ export function ChallengeCompleteCard({
       {/* Level Up Badge (hidden by default) */}
       <div
         id="level-up-badge"
-        className={`${showLevelUp ? '' : 'hidden '}mb-4 py-2 px-4 bg-cetus-accent-3 rounded-full inline-block animate-pulse`}
+        className={cn(
+          'mb-4 py-2 px-4 bg-cetus-accent-3 rounded-full animate-pulse',
+          // XOR: `hidden` loses to inline-block in Tailwind's alphabetical
+          // display order, so emit exactly one of them.
+          showLevelUp ? 'inline-block' : 'hidden'
+        )}
         role="status"
         aria-live="assertive"
       >

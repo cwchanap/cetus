@@ -4,7 +4,9 @@ import type {
   LoginRewardClaimResponse,
   LoginRewardStatusResponse,
 } from '@cetus/shared/api-dto'
-import { LoginRewardModal as LoginRewardModalView } from '@cetus/ui'
+// Deep path: this component ships a stylesheet, so importing it through
+// the barrel would attach that CSS to every barrel consumer.
+import { LoginRewardModal as LoginRewardModalView } from '@cetus/ui/components/login-reward-modal'
 
 /**
  * Web-owned login-reward island (HPA-379 Stage 4). Astro passes only the

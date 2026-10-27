@@ -4,6 +4,7 @@ import type { UserChallengeProgress } from '@cetus/shared/challenges'
 import { Badge } from './ui/badge'
 import { Card } from './ui/card'
 import { displayFontStyle } from '../lib/styles'
+import { cn } from '../lib/utils'
 
 /**
  * Dashboard daily-missions panel (HPA-379 Stage 4). View props derive
@@ -171,11 +172,12 @@ export function DailyMissionsPanel({
           return (
             <div
               key={challenge.challengeId}
-              className={`p-4 rounded-xl border transition-all ${
+              className={cn(
+                'p-4 rounded-xl border transition-all',
                 challenge.completed
                   ? 'bg-cetus-accent/10 border-cetus-accent/30'
                   : 'bg-cetus-surface border border-cetus-hairline hover:border-cetus-accent/30'
-              }`}
+              )}
             >
               <div className="flex items-start gap-4">
                 <span className="text-2xl">{challenge.icon}</span>
@@ -185,7 +187,10 @@ export function DailyMissionsPanel({
                       {challenge.name}
                     </span>
                     <span
-                      className={`text-xs ${difficultyColors[challenge.difficulty]}`}
+                      className={cn(
+                        'text-xs',
+                        difficultyColors[challenge.difficulty]
+                      )}
                     >
                       {challenge.difficulty.toUpperCase()}
                     </span>
@@ -213,7 +218,12 @@ export function DailyMissionsPanel({
                 </div>
                 <div className="text-right">
                   <span
-                    className={`text-sm font-bold ${challenge.completed ? 'text-green-400' : 'text-cetus-accent'}`}
+                    className={cn(
+                      'text-sm font-bold',
+                      challenge.completed
+                        ? 'text-green-400'
+                        : 'text-cetus-accent'
+                    )}
                   >
                     +{challenge.xpReward} XP
                   </span>

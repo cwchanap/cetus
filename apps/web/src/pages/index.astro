@@ -1,6 +1,9 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro'
-import { Container, SpecimenCard } from '@cetus/ui'
+import { Container } from '@cetus/ui'
+// Deep path: this component ships a stylesheet, so importing it through
+// the barrel would attach that CSS to every barrel consumer.
+import { SpecimenCard } from '@cetus/ui/components/specimen-card'
 import { getAllGames } from '@cetus/shared/games'
 import {
   getGamesByDepth,

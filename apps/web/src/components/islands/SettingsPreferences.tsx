@@ -6,7 +6,10 @@ import {
   DEFAULT_CLIENT_PREFERENCES,
   type ClientPreferences,
 } from '@cetus/shared/preferences'
-import { Card, Slider, Toggle, cn, displayFontStyle } from '@cetus/ui'
+import { Card, Toggle, cn, displayFontStyle } from '@cetus/ui'
+// Deep path: this component ships a stylesheet, so importing it through
+// the barrel would attach that CSS to every barrel consumer.
+import { Slider } from '@cetus/ui/components/ui/slider'
 import { getClientPreferences, saveClientPreferences } from '@/lib/preferences'
 
 /**
@@ -93,32 +96,39 @@ export function SettingsPreferences({
     statusTimer.current = window.setTimeout(() => setStatus(null), 2000)
   }
 
-  const persistClientPrefs = (next: ClientPreferences) => {
+  // Re-read localStorage at write time (the previous controller did the
+  // same): it is the source of truth and another writer (e.g. a second tab)
+  // may have updated it since this island mounted — merging from the
+  // mount-time snapshot would clobber those keys.
+  const persistClientPrefs = (
+    patch: (prefs: ClientPreferences) => ClientPreferences
+  ) => {
+    const next = patch(getClientPreferences())
     setClientPrefs(next)
     saveClientPreferences(next)
   }
 
   const handleSoundEnabled = (soundEnabled: boolean) => {
-    persistClientPrefs({
-      ...clientPrefs,
-      sound: { ...clientPrefs.sound, soundEnabled },
-    })
+    persistClientPrefs(prefs => ({
+      ...prefs,
+      sound: { ...prefs.sound, soundEnabled },
+    }))
     showStatus()
   }
 
   const handleVolume = (key: VolumeKey, value: number) => {
-    persistClientPrefs({
-      ...clientPrefs,
-      sound: { ...clientPrefs.sound, [key]: value },
-    })
+    persistClientPrefs(prefs => ({
+      ...prefs,
+      sound: { ...prefs.sound, [key]: value },
+    }))
     showStatus()
   }
 
   const handleReducedMotion = (reducedMotion: boolean) => {
-    persistClientPrefs({
-      ...clientPrefs,
-      display: { ...clientPrefs.display, reducedMotion },
-    })
+    persistClientPrefs(prefs => ({
+      ...prefs,
+      display: { ...prefs.display, reducedMotion },
+    }))
     document.documentElement.classList.toggle('reduce-motion', reducedMotion)
     showStatus()
   }

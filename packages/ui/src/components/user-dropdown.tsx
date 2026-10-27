@@ -97,7 +97,10 @@ export function UserDropdown({ user, onLogout, className }: UserDropdownProps) {
           <span className="mr-2">👤</span>
           Welcome, {userName}
           <svg
-            className={`ml-2 h-4 w-4 transition-transform duration-200${open ? ' rotate-180' : ''}`}
+            className={cn(
+              'ml-2 h-4 w-4 transition-transform duration-200',
+              open && 'rotate-180'
+            )}
             id="dropdown-arrow"
             fill="none"
             stroke="currentColor"
@@ -117,11 +120,12 @@ export function UserDropdown({ user, onLogout, className }: UserDropdownProps) {
       {/* Dropdown menu */}
       <div
         id="user-menu"
-        className={`absolute right-0 mt-2 w-56 rounded-lg bg-cetus-surface backdrop-blur-md border border-cetus-hairline shadow-lg shadow-cetus-accent/10 z-[9999] transition-all duration-200 origin-top-right ${
+        className={cn(
+          'absolute right-0 mt-2 w-56 rounded-lg bg-cetus-surface backdrop-blur-md border border-cetus-hairline shadow-lg shadow-cetus-accent/10 z-[9999] transition-all duration-200 origin-top-right',
           open
             ? 'opacity-100 scale-100 pointer-events-auto'
             : 'opacity-0 scale-95 pointer-events-none'
-        }`}
+        )}
       >
         <div className="py-2">
           {/* User info section */}

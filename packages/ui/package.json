@@ -6,6 +6,7 @@
     "exports": {
         ".": "./src/index.ts",
         "./lib/utils": "./src/lib/utils.ts",
+        "./components/*": "./src/components/*.tsx",
         "./*": "./src/*"
     },
     "sideEffects": [
