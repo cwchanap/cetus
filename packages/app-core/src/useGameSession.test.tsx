@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { renderToString } from 'react-dom/server'
 import {
   BaseGame,
   type BaseGameConfig,
@@ -8,7 +9,7 @@ import {
 } from '@cetus/games'
 import { GameID } from '@cetus/shared/games'
 import { createBaseGameSession } from './createBaseGameSession'
-import type { GameSession } from './types'
+import type { GameSession, GameSessionSnapshot } from './types'
 import { useGameSession } from './useGameSession'
 
 // Minimal portable BaseGame stub: real lifecycle/event machinery, no DOM.
@@ -51,7 +52,7 @@ function createStubGame(
   })
 }
 
-const idleSnapshot = {
+const idleSnapshot: GameSessionSnapshot<number> = {
   status: 'idle',
   score: 0,
   timeRemaining: 60,
@@ -135,6 +136,22 @@ describe('useGameSession', () => {
     expect(result.current.snapshot).toBe(first)
   })
 
+  it('renders the server snapshot during SSR without crashing', () => {
+    game = createStubGame()
+    const session = createBaseGameSession(game, state => state.score)
+    act(() => {
+      session.actions.start()
+    })
+
+    // renderToString resolves through getServerSnapshot; a hook without one
+    // throws "Missing getServerSnapshot" under SSR.
+    const html = renderToString(
+      <SsrProbe session={session} initial={idleSnapshot} />
+    )
+
+    expect(stripSsrComments(html)).toContain('status:running')
+  })
+
   it('unsubscribes from the session on unmount', () => {
     game = createStubGame()
     const session = createBaseGameSession(game, state => state.score)
@@ -158,3 +175,75 @@ describe('useGameSession', () => {
     expect(activeSubscriptions).toBe(0)
   })
 })
+
+describe('useGameSession with a null session (SSR islands)', () => {
+  const initialSnapshot: GameSessionSnapshot<number> = {
+    status: 'idle',
+    score: 0,
+    timeRemaining: 60,
+    projected: 0,
+    result: null,
+  }
+
+  it('renders the provided initial snapshot by identity with no-op controls', () => {
+    const { result, rerender } = renderHook(() =>
+      useGameSession<number>(null, initialSnapshot)
+    )
+
+    expect(result.current.snapshot).toBe(initialSnapshot)
+    expect(result.current.capabilities).toEqual({
+      pausable: false,
+      resettable: false,
+    })
+    // No-op actions: callable without a session and stable across renders.
+    const actions = result.current.actions
+    expect(() => {
+      actions.start()
+      actions.pause()
+      actions.resume()
+      actions.reset()
+    }).not.toThrow()
+    rerender()
+    expect(result.current.actions).toBe(actions)
+  })
+
+  it('falls back to a stable generic idle snapshot without initialSnapshot', () => {
+    const { result, rerender } = renderHook(() => useGameSession<number>(null))
+
+    expect(result.current.snapshot).toEqual({
+      status: 'idle',
+      score: 0,
+      timeRemaining: 0,
+      result: null,
+    })
+    const first = result.current.snapshot
+    rerender()
+    expect(result.current.snapshot).toBe(first)
+  })
+
+  it('renders the initial snapshot through the server snapshot path', () => {
+    const html = renderToString(
+      <SsrProbe session={null} initial={initialSnapshot} />
+    )
+
+    const text = stripSsrComments(html)
+    expect(text).toContain('status:idle')
+    expect(text).toContain('time:60')
+  })
+})
+
+function stripSsrComments(html: string): string {
+  return html.replace(/<!-- -->/g, '')
+}
+
+function SsrProbe(props: {
+  session: GameSession<number> | null
+  initial: GameSessionSnapshot<number>
+}) {
+  const { snapshot } = useGameSession(props.session, props.initial)
+  return (
+    <p>
+      status:{snapshot.status} time:{snapshot.timeRemaining}
+    </p>
+  )
+}
