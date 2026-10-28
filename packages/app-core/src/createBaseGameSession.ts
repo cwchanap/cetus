@@ -23,8 +23,11 @@ function deriveStatus(
 
 /**
  * Adapt one BaseGame run into a cached-snapshot store for
- * `useSyncExternalStore`. Subscribes once to the six BaseGame events,
- * keeps ONE cached snapshot (status, score, time, projection, result) and
+ * `useSyncExternalStore`. Subscribes once to the six canonical BaseGame
+ * events plus the games' shared `state-change` event (DOM-renderer games
+ * mutate HUD-only fields — flags, attempts, streaks — without a score or
+ * timer event), keeps ONE cached snapshot (status, score, time, projection,
+ * result) and
  * notifies subscribers only when a projected value actually changes —
  * `BaseGame.getState()` returns a fresh object every call, so raw state
  * must never leak through as the snapshot. `project` must return the same
@@ -129,6 +132,7 @@ export function createBaseGameSession<TProjected>(
     game.on('end', onEndEvent)
     game.on('score-update', onEvent)
     game.on('time-update', onEvent)
+    game.on('state-change', onEvent)
 
     function subscribe(onStoreChange: Listener): () => void {
         if (disposed) {
@@ -152,6 +156,7 @@ export function createBaseGameSession<TProjected>(
         game.off('end', onEndEvent)
         game.off('score-update', onEvent)
         game.off('time-update', onEvent)
+        game.off('state-change', onEvent)
         listeners.clear()
     }
 
