@@ -55,7 +55,6 @@ const games = [
     'satellite-sync',
     'ice-slide',
     'gravity-flip',
-    'potion-sorter',
     'signal-switch',
     'rhythm-reactor',
     'asteroid-drift',
@@ -302,7 +301,11 @@ describe('Chromatic Tide page markup', () => {
     })
 })
 
-const potionSorterMarkup = readFileSync(
+const potionSorterIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/PotionSorterScreen.tsx'),
+    'utf-8'
+)
+const potionSorterRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/potion-sorter/index.astro'),
     'utf-8'
 )
@@ -391,20 +394,21 @@ describe('Rhythm Reactor page markup', () => {
     })
 })
 
-describe('Potion Sorter page markup', () => {
-    it('keeps the tube board, dead-end undo, HUD ids, and root-level initializer', () => {
-        expect(potionSorterMarkup).toContain('id="potion-sorter-container"')
-        expect(potionSorterMarkup).toContain('id="potion-sorter-board"')
-        expect(potionSorterMarkup).toContain('id="undo-btn"')
-        expect(potionSorterMarkup).toContain('data-dead-end="false"')
-        expect(potionSorterMarkup).toContain('id="potion-sorter-status"')
-        expect(potionSorterMarkup).toContain('showPause={false}')
-        expect(potionSorterMarkup).toContain('showEnd={false}')
-        expect(potionSorterMarkup).toContain('initialTime={300}')
-        expect(potionSorterMarkup).not.toContain('id="end-btn"')
-        expect(potionSorterMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initPotionSorterGameFramework/
+describe('Potion Sorter island markup', () => {
+    it('keeps the tube board, dead-end undo, and HUD ids in the island and the route thin', () => {
+        expect(potionSorterRouteMarkup).toContain(
+            "import PotionSorterScreen from '@/components/islands/games/PotionSorterScreen'"
         )
+        expect(potionSorterRouteMarkup).toContain('client:load')
+        expect(potionSorterRouteMarkup).not.toMatch(/<script[^>]*>/)
+        expect(potionSorterIslandMarkup).toContain(
+            'id="potion-sorter-container"'
+        )
+        expect(potionSorterIslandMarkup).toContain('id="potion-sorter-board"')
+        expect(potionSorterIslandMarkup).toContain('id="undo-btn"')
+        expect(potionSorterIslandMarkup).toContain('data-dead-end="false"')
+        expect(potionSorterIslandMarkup).toContain('id="potion-sorter-status"')
+        expect(potionSorterIslandMarkup).not.toContain('id="end-btn"')
         for (const id of [
             'easy-btn',
             'medium-btn',
@@ -413,7 +417,7 @@ describe('Potion Sorter page markup', () => {
             'moves',
             'undos',
         ]) {
-            expect(potionSorterMarkup).toContain(`id="${id}"`)
+            expect(potionSorterIslandMarkup).toContain(`id="${id}"`)
         }
     })
 })

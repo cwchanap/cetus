@@ -9,21 +9,12 @@ import {
 import { hasLegalMove } from '@cetus/games/potion-sorter/puzzle'
 import type {
     PotionSorterDifficulty,
-    PotionSorterResult,
     PotionSorterState,
-    PotionSorterStats,
 } from '@cetus/games/potion-sorter/types'
-import type {
-    BaseGameCallbacks,
-    BaseGameState,
-    BaseGameStats,
-    ChallengeUpdates,
-} from '@cetus/games/core/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
-import type { AchievementNotification } from '@cetus/shared/achievements'
+import type { BaseGameCallbacks, BaseGameState } from '@cetus/games/core/types'
+import { handleGameError } from '@cetus/games/core/errors'
+
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface PotionSorterInitResult {
@@ -35,18 +26,12 @@ export interface PotionSorterInitResult {
     cleanup: () => void
 }
 
-export async function initPotionSorterGameFramework(): Promise<
-    PotionSorterInitResult | undefined
-> {
-    const container = document.getElementById('potion-sorter-container')
-    if (!container) {
-        handleGameError(
-            new DOMElementNotFoundError('potion-sorter-container'),
-            'PotionSorter'
-        )
-        return undefined
-    }
-
+export async function initPotionSorterGameFramework(
+    // The island-owned board host (#potion-sorter-container). The renderer
+    // mounts into the frozen inner #potion-sorter-board, so the host itself
+    // is only passed for parity with the island mount contract (HPA-393).
+    _container: HTMLElement
+): Promise<PotionSorterInitResult | undefined> {
     const renderer = new PotionSorterRenderer(
         createPotionSorterRendererConfig()
     )
@@ -79,23 +64,10 @@ export async function initPotionSorterGameFramework(): Promise<
         trackedListeners.push({ target, type, handler })
     }
 
-    const setText = (id: string, value: string): void => {
-        const element = document.getElementById(id)
-        if (element) {
-            element.textContent = value
-        }
-    }
-
     const setStatus = (text: string): void => {
-        setText('potion-sorter-status', text)
-    }
-
-    const setStartVisible = (visible: boolean): void => {
-        const startButton = document.getElementById(
-            'start-btn'
-        ) as HTMLButtonElement | null
-        if (startButton) {
-            startButton.style.display = visible ? 'inline-flex' : 'none'
+        const status = document.getElementById('potion-sorter-status')
+        if (status) {
+            status.textContent = text
         }
     }
 
@@ -127,18 +99,6 @@ export async function initPotionSorterGameFramework(): Promise<
         }
     }
 
-    const hideOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.add('hidden')
-    }
-
-    const syncHud = (state: PotionSorterState): void => {
-        setText('score', String(state.score))
-        setText('time-remaining', String(state.timeRemaining))
-        setText('difficulty', capitalize(state.difficulty))
-        setText('moves', String(state.movesMade))
-        setText('undos', String(state.undosUsed))
-    }
-
     const syncUndoButton = (): void => {
         const button = document.getElementById(
             'undo-btn'
@@ -159,50 +119,24 @@ export async function initPotionSorterGameFramework(): Promise<
 
     const resetPresentation = (): void => {
         setStatus('Ready.')
-        hideOverlay()
-        setStartVisible(true)
         setDifficultyButtonsDisabled(false)
     }
 
+    // React owns the HUD/buttons/overlay (HPA-393): the callbacks only keep
+    // the bespoke control state (tube rendering, undo/dead-end emphasis,
+    // difficulty selectors lock during a run).
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: (state: BaseGameState) => {
             const potionSorterState = state as PotionSorterState
             renderer.render(potionSorterState)
-            syncHud(potionSorterState)
             syncUndoButton()
-        },
-        onScoreUpdate: (score: number) => {
-            setText('score', String(score))
-        },
-        onTimeUpdate: (timeRemaining: number) => {
-            setText('time-remaining', String(timeRemaining))
         },
         onStart: () => {
-            setStartVisible(false)
             setDifficultyButtonsDisabled(true)
-            hideOverlay()
         },
-        onEnd: (finalScore: number, stats: BaseGameStats) => {
-            const potionSorterStats = stats as PotionSorterStats
-            setStartVisible(true)
+        onEnd: () => {
             setDifficultyButtonsDisabled(false)
             syncUndoButton()
-            setText('final-score', String(finalScore))
-            setText('final-outcome', getOutcomeLabel(potionSorterStats.result))
-            setText(
-                'final-difficulty',
-                capitalize(potionSorterStats.difficulty)
-            )
-            setText('final-moves', String(potionSorterStats.movesMade))
-            setText('final-undos', String(potionSorterStats.undosUsed))
-            setText('final-time', formatTime(potionSorterStats.timeElapsed))
-            const title = document.getElementById('game-over-title')
-            if (title) {
-                title.textContent = getOutcomeTitle(potionSorterStats.result)
-            }
-            document
-                .getElementById('game-over-overlay')
-                ?.classList.remove('hidden')
         },
     }
 
@@ -211,43 +145,12 @@ export async function initPotionSorterGameFramework(): Promise<
         enhancedCallbacks
     )
 
-    const onGameEnd = (event: unknown): void => {
-        const data = (event as { data?: unknown }).data as
-            | {
-                  newAchievements?: AchievementNotification[]
-                  challengeUpdates?: ChallengeUpdates
-              }
-            | undefined
-        const globalWindow = window as Window & {
-            showAchievementAward?: (
-                achievements: AchievementNotification[]
-            ) => void
-            showChallengeComplete?: (updates: ChallengeUpdates) => void
-        }
-        if (data?.newAchievements?.length) {
-            globalWindow.showAchievementAward?.(data.newAchievements)
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            globalWindow.showChallengeComplete?.(data.challengeUpdates)
-        }
-    }
-    game.on('end', onGameEnd)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
-    const startButton = document.getElementById('start-btn')
-    const resetButton = document.getElementById('reset-btn')
-    const playAgainButton = document.getElementById('play-again-btn')
     const undoButton = document.getElementById('undo-btn')
 
-    const startHandler: EventListener = () => {
-        game.start()
-    }
-    const resetHandler = (): void => {
-        game.reset()
-        renderer.render(game.getState())
-        syncHud(game.getState())
-        resetPresentation()
-        syncUndoButton()
-    }
     const undoHandler: EventListener = () => {
         if (game.undo()) {
             setStatus('Last pour undone.')
@@ -255,9 +158,6 @@ export async function initPotionSorterGameFramework(): Promise<
         syncUndoButton()
     }
 
-    listen(startButton, 'click', startHandler)
-    listen(resetButton, 'click', resetHandler)
-    listen(playAgainButton, 'click', resetHandler)
     listen(undoButton, 'click', undoHandler)
 
     const difficultyHandler =
@@ -266,9 +166,11 @@ export async function initPotionSorterGameFramework(): Promise<
             if (game.newGame(difficulty)) {
                 setDifficultySelection(difficulty)
                 renderer.render(game.getState())
-                syncHud(game.getState())
                 resetPresentation()
                 syncUndoButton()
+                // newGame() resets without emitting; announce the fresh
+                // state so the React session adapter re-projects the HUD.
+                game.emit('state-change', { state: game.getState() })
             }
         }
     for (const difficulty of ['easy', 'medium', 'hard'] as const) {
@@ -313,9 +215,15 @@ export async function initPotionSorterGameFramework(): Promise<
     }
     listen(window, 'beforeunload', beforeUnloadHandler)
 
+    const resetHandler = (): void => {
+        game.reset()
+        renderer.render(game.getState())
+        resetPresentation()
+        syncUndoButton()
+    }
+
     renderer.render(game.getState())
-    syncHud(game.getState())
-    setStartVisible(true)
+    setStatus('Ready.')
     setDifficultyButtonsDisabled(false)
     setDifficultySelection(game.getState().difficulty)
     syncUndoButton()
@@ -329,7 +237,7 @@ export async function initPotionSorterGameFramework(): Promise<
         for (const { target, type, handler } of trackedListeners) {
             target.removeEventListener(type, handler)
         }
-        game.off('end', onGameEnd)
+        removeForwarder()
         renderer.destroy()
         game.destroy()
     }
@@ -341,37 +249,5 @@ export async function initPotionSorterGameFramework(): Promise<
         getState: () => game.getState(),
         restart: resetHandler,
         cleanup,
-    }
-}
-
-function capitalize(value: string): string {
-    return value.charAt(0).toUpperCase() + value.slice(1)
-}
-
-function formatTime(seconds: number): string {
-    return `${Math.floor(seconds / 60)
-        .toString()
-        .padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`
-}
-
-function getOutcomeLabel(result: PotionSorterResult): string {
-    switch (result) {
-        case 'solved':
-            return 'Solved'
-        case 'timeout':
-            return 'Timeout'
-        default:
-            return 'Game Over'
-    }
-}
-
-function getOutcomeTitle(result: PotionSorterResult): string {
-    switch (result) {
-        case 'solved':
-            return 'SOLVED!'
-        case 'timeout':
-            return 'TIME UP!'
-        default:
-            return 'GAME OVER!'
     }
 }
