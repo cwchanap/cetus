@@ -35,6 +35,7 @@ export default [
       'src/lib/games/core/BaseRenderer.ts',
       'src/lib/games/core/RendererFactory.ts',
       'src/lib/games/core/GameInitializer.ts',
+      'src/lib/games/core/notificationForwarder.ts',
       '**/*.test.ts',
       '**/*.spec.ts',
       'src/lib/games/ice-slide/daily-leaderboard.ts',
