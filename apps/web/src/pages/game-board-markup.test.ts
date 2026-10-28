@@ -23,7 +23,11 @@ const iceSlideMarkup = readFileSync(
     resolve(appRoot, 'src/pages/ice-slide/index.astro'),
     'utf-8'
 )
-const mineGridMarkup = readFileSync(
+const mineGridIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/MineGridScreen.tsx'),
+    'utf-8'
+)
+const mineGridRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/mine-grid/index.astro'),
     'utf-8'
 )
@@ -50,7 +54,6 @@ const games = [
     'circuit-hacker',
     'satellite-sync',
     'ice-slide',
-    'mine-grid',
     'pattern-pulse',
     'gravity-flip',
     'potion-sorter',
@@ -156,13 +159,15 @@ const patternPulseMarkup = readFileSync(
     'utf-8'
 )
 
-describe('Mine Grid page markup', () => {
-    it('keeps the two-container board and root-level initializer', () => {
-        expect(mineGridMarkup).toContain('id="mine-grid-container"')
-        expect(mineGridMarkup).toContain('id="mine-grid-board"')
-        expect(mineGridMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initMineGridGameFramework/
+describe('Mine Grid island markup', () => {
+    it('keeps the two-container board in the island and the route thin', () => {
+        expect(mineGridRouteMarkup).toContain(
+            "import MineGridScreen from '@/components/islands/games/MineGridScreen'"
         )
+        expect(mineGridRouteMarkup).toContain('client:load')
+        expect(mineGridRouteMarkup).not.toMatch(/<script[^>]*>/)
+        expect(mineGridIslandMarkup).toContain('id="mine-grid-container"')
+        expect(mineGridIslandMarkup).toContain('id="mine-grid-board"')
     })
 })
 

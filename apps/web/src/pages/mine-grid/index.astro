@@ -1,161 +1,28 @@
 ---
-import GamePage from '@/components/games/GamePage.astro'
-import { Badge, Button, Card } from '@cetus/ui'
+import AppLayout from '@/layouts/AppLayout.astro'
+import MineGridScreen from '@/components/islands/games/MineGridScreen'
 ---
 
-<GamePage
-  gameId="mine-grid"
-  title="Mine Grid"
+<AppLayout
+  title="Mine Grid - Cetus Minigames"
   description="Scan the field, flag hidden mines, and reveal every safe cell"
-  icon="💣"
-  showPause={false}
-  showEnd={false}
-  initialTime={300}
+  navigation={[
+    { href: '/', label: 'Home' },
+    { href: '#', label: 'Mine Grid' },
+  ]}
+  includeFooter={false}
 >
-  <div slot="game-board" class="w-[min(560px,calc(100vw-2rem))]">
-    <div id="mine-grid-container" class="w-full max-w-[560px] aspect-square">
-      <div
-        id="mine-grid-board"
-        class="grid w-full h-full gap-1"
-        role="grid"
-        aria-label="Mine Grid board"
-      >
-      </div>
-    </div>
-  </div>
-
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono"
-      >Difficulty: <span id="difficulty">Medium</span></span
-    >
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono">Flags: <span id="flags">0</span></span>
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono">Safe: <span id="safe-progress">0 / 85</span></span>
-  </Badge>
-
-  <div slot="game-info" class="space-y-6">
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ DIFFICULTY
-      </h3>
-      <div class="grid grid-cols-3 gap-2">
-        <Button
-          id="easy-btn"
-          variant="outline"
-          size="sm"
-          aria-pressed="false"
-          className="mine-grid-difficulty hover-glow-cyan">Easy</Button
-        >
-        <Button
-          id="medium-btn"
-          variant="outline"
-          size="sm"
-          aria-pressed="true"
-          className="mine-grid-difficulty hover-glow-cyan">Medium</Button
-        >
-        <Button
-          id="hard-btn"
-          variant="outline"
-          size="sm"
-          aria-pressed="false"
-          className="mine-grid-difficulty hover-glow-cyan">Hard</Button
-        >
-      </div>
-    </Card>
-
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ ACTION MODE
-      </h3>
-      <div class="flex gap-2">
-        <Button
-          id="reveal-mode-btn"
-          variant="outline"
-          size="sm"
-          aria-pressed="true"
-          className="mine-grid-mode hover-glow-cyan">Reveal</Button
-        >
-        <Button
-          id="flag-mode-btn"
-          variant="outline"
-          size="sm"
-          aria-pressed="false"
-          className="mine-grid-mode hover-glow-cyan">Flag</Button
-        >
-      </div>
-      <p class="mt-3 text-xs text-cetus-ink-muted">
-        Right-click any cell to flag it regardless of the selected mode.
-      </p>
-    </Card>
-
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ HOW TO PLAY
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>Reveal every safe cell without detonating a mine.</p>
-        <p>Use adjacent numbers to locate hidden mines.</p>
-        <p>Flag suspected mines with Flag mode or right-click.</p>
-      </div>
-    </Card>
-
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ SCORING
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>Safe cells are worth points when the field is cleared.</p>
-        <p>Correct flags add bonus points; incorrect flags cost points.</p>
-        <p>Clear the grid quickly for a larger time bonus.</p>
-      </div>
-    </Card>
-  </div>
-
-  <div slot="final-stats">
-    <div class="text-lg text-cetus-ink">
-      Outcome: <span id="final-outcome" class="text-cetus-accent">—</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Difficulty:
-      <span id="final-difficulty" class="text-cetus-accent-3">Medium</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Time: <span id="final-time" class="text-cetus-accent">00:00</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Incorrect Flags:
-      <span id="final-incorrect-flags" class="text-cetus-accent-2">0</span>
-    </div>
-  </div>
-</GamePage>
-
-<script>
-  import { initMineGridGameFramework } from '@/lib/games/mine-grid/initFramework'
-
-  document.addEventListener('DOMContentLoaded', () => {
-    initMineGridGameFramework()
-      .then(handle => {
-        if (handle) {
-          ;(window as Window & { mineGridGame?: typeof handle }).mineGridGame =
-            handle
-        }
-      })
-      .catch(error => {
-        console.error('Mine Grid failed to initialize', error)
-      })
-  })
-</script>
+  <MineGridScreen client:load />
+</AppLayout>
 
 <style is:global>
   /* Selected difficulty/mode buttons mirror the React Button `primary`
      variant from @cetus/ui (the pre-port Button.astro contract).
      `aria-pressed` is the single trigger for both a11y state and styling,
      so initFramework only toggles the attribute — no class swapping.
-     `hover-glow-cyan` is a global class on the buttons themselves. */
-  @reference "../../styles/global.css";
+     `hover-glow-cyan` is a global class on the buttons themselves.
+     The buttons are rendered by the MineGridScreen island, so these
+     selectors must stay global (HPA-393 island migration). */
   .mine-grid-difficulty[aria-pressed='true'],
   .mine-grid-mode[aria-pressed='true'] {
     @apply border-0 bg-gradient-to-r from-[var(--cetus-btn-from)] to-[var(--cetus-btn-to)] text-white shadow-lg shadow-cetus-accent-2/25 hover:from-cetus-accent hover:to-cetus-accent-2;
