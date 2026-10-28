@@ -39,7 +39,11 @@ const asteroidDriftMarkup = readFileSync(
     resolve(appRoot, 'src/pages/asteroid-drift/index.astro'),
     'utf-8'
 )
-const chromaticTideMarkup = readFileSync(
+const chromaticTideIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/ChromaticTideScreen.tsx'),
+    'utf-8'
+)
+const chromaticTideRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/chromatic-tide/index.astro'),
     'utf-8'
 )
@@ -58,7 +62,6 @@ const games = [
     'signal-switch',
     'rhythm-reactor',
     'asteroid-drift',
-    'chromatic-tide',
 ]
 
 const fieldPlateGames = ['tetris', 'bubble-shooter', 'bejeweled', '2048']
@@ -270,29 +273,33 @@ describe('Asteroid Drift page markup', () => {
     })
 })
 
-describe('Chromatic Tide page markup', () => {
-    it('keeps the presentational board in the load-bearing named slot', () => {
-        expect(chromaticTideMarkup).toContain('slot="game-board"')
-        expect(chromaticTideMarkup).toContain('gameId="chromatic-tide"')
-        expect(chromaticTideMarkup).toContain('initialTime={90}')
-        expect(chromaticTideMarkup).toContain('showPause={false}')
-        expect(chromaticTideMarkup).toContain('showEnd={false}')
-        expect(chromaticTideMarkup).toContain('id="chromatic-tide-board"')
-        expect(chromaticTideMarkup).toContain('id="chromatic-tide-status"')
-        expect(chromaticTideMarkup).toContain('aria-live="polite"')
-        expect(chromaticTideMarkup.match(/data-tide-color=/g)).toHaveLength(5)
-        expect(chromaticTideMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initChromaticTideGameFramework/
+describe('Chromatic Tide island markup', () => {
+    it('keeps the flood-fill board, color controls, and live status in the island and the route thin', () => {
+        expect(chromaticTideRouteMarkup).toContain(
+            "import ChromaticTideScreen from '@/components/islands/games/ChromaticTideScreen'"
         )
+        expect(chromaticTideRouteMarkup).toContain('client:load')
+        expect(chromaticTideRouteMarkup).not.toMatch(/<script[^>]*>/)
+        expect(chromaticTideIslandMarkup).toContain('id="chromatic-tide-board"')
+        expect(chromaticTideIslandMarkup).toContain(
+            'id="chromatic-tide-status"'
+        )
+        expect(chromaticTideIslandMarkup).toContain('aria-live="polite"')
+        expect(
+            chromaticTideIslandMarkup.match(
+                /color: '(teal|amber|magenta|ice|green)'/g
+            )
+        ).toHaveLength(5)
+        expect(chromaticTideIslandMarkup).toContain('data-tide-color={color}')
 
-        const boardTag = chromaticTideMarkup.match(
+        const boardTag = chromaticTideIslandMarkup.match(
             /<div[^>]*id="chromatic-tide-board"[^>]*>/
         )?.[0]
         expect(boardTag).toBeDefined()
         expect(boardTag).not.toContain('role="grid"')
         expect(boardTag).toContain('aria-hidden="true"')
 
-        const colorsTag = chromaticTideMarkup.match(
+        const colorsTag = chromaticTideIslandMarkup.match(
             /<div[^>]*id="chromatic-tide-colors"[^>]*>/
         )?.[0]
         expect(colorsTag).toBeDefined()
