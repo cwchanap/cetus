@@ -23,6 +23,7 @@ import MineGridScreen from '@/components/islands/games/MineGridScreen'
      `hover-glow-cyan` is a global class on the buttons themselves.
      The buttons are rendered by the MineGridScreen island, so these
      selectors must stay global (HPA-393 island migration). */
+  @reference "../../styles/global.css";
   .mine-grid-difficulty[aria-pressed='true'],
   .mine-grid-mode[aria-pressed='true'] {
     @apply border-0 bg-gradient-to-r from-[var(--cetus-btn-from)] to-[var(--cetus-btn-to)] text-white shadow-lg shadow-cetus-accent-2/25 hover:from-cetus-accent hover:to-cetus-accent-2;
