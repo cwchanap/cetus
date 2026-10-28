@@ -41,7 +41,6 @@ const chromaticTideMarkup = readFileSync(
 )
 
 const games = [
-    'memory-matrix',
     'quick-math',
     'word-scramble',
     'reflex',
