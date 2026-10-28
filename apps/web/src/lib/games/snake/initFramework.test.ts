@@ -342,66 +342,76 @@ describe('initSnakeGameFramework', () => {
         })
     })
 
-    describe('onGameEnd achievement handler', () => {
-        it('should call showAchievementAward when achievements are present', async () => {
+    describe('notification forwarder', () => {
+        async function getEndListener() {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            const showAchievementAward = vi.fn()
-            vi.stubGlobal('showAchievementAward', showAchievementAward)
-
             result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
-
-            // Get the onGameEnd callback registered with game.on('end', handler)
-            const onGameEndCall = vi
+            const endCalls = vi
                 .mocked(gameMock.on)
-                .mock.calls.find((call: unknown[]) => call[0] === 'end')
-            const onGameEnd = onGameEndCall?.[1] as
-                ((...args: unknown[]) => unknown) | undefined
+                .mock.calls.filter((call: unknown[]) => call[0] === 'end')
+            return { gameMock, endCalls }
+        }
 
-            if (onGameEnd) {
-                onGameEnd({
-                    data: { newAchievements: [{ id: 'first_blood' }] },
-                })
-                expect(showAchievementAward).toHaveBeenCalledWith([
-                    { id: 'first_blood' },
-                ])
-            }
+        it('should register exactly one end listener (the shared forwarder)', async () => {
+            const { endCalls } = await getEndListener()
+            expect(endCalls).toHaveLength(1)
+        })
+
+        it('should forward structured end results to the toast globals', async () => {
+            const showAchievementAward = vi.fn()
+            const showChallengeComplete = vi.fn()
+            vi.stubGlobal('showAchievementAward', showAchievementAward)
+            vi.stubGlobal('showChallengeComplete', showChallengeComplete)
+
+            const { endCalls } = await getEndListener()
+            const onGameEnd = endCalls[0]?.[1] as
+                ((...args: unknown[]) => unknown) | undefined
+            expect(onGameEnd).toBeDefined()
+            onGameEnd!({
+                data: {
+                    score: 10,
+                    stats: { foodsEaten: 1 },
+                    newAchievements: [{ id: 'first_blood' }],
+                },
+            })
+            expect(showAchievementAward).toHaveBeenCalledWith([
+                { id: 'first_blood' },
+            ])
 
             vi.unstubAllGlobals()
         })
 
-        it('should handle onGameEnd with no achievements', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework(getContainer())
-            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
+        it('should ignore the bare timer end and empty reward fields', async () => {
+            const showAchievementAward = vi.fn()
+            const showChallengeComplete = vi.fn()
+            vi.stubGlobal('showAchievementAward', showAchievementAward)
+            vi.stubGlobal('showChallengeComplete', showChallengeComplete)
 
-            const onGameEndCall = vi
-                .mocked(gameMock.on)
-                .mock.calls.find((call: unknown[]) => call[0] === 'end')
-            const onGameEnd = onGameEndCall?.[1] as
+            const { endCalls } = await getEndListener()
+            const onGameEnd = endCalls[0]?.[1] as
                 ((...args: unknown[]) => unknown) | undefined
+            expect(onGameEnd).toBeDefined()
+            expect(() => onGameEnd!({ data: {} })).not.toThrow()
+            expect(() =>
+                onGameEnd!({
+                    data: { score: 1, stats: {}, newAchievements: [] },
+                })
+            ).not.toThrow()
+            expect(showAchievementAward).not.toHaveBeenCalled()
+            expect(showChallengeComplete).not.toHaveBeenCalled()
 
-            if (onGameEnd) {
-                expect(() => onGameEnd({ data: {} })).not.toThrow()
-            }
+            vi.unstubAllGlobals()
         })
 
-        it('should handle onGameEnd with empty achievements array', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework(getContainer())
-            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
+        it('should detach the forwarder on cleanup', async () => {
+            const { gameMock, endCalls } = await getEndListener()
+            const onGameEnd = endCalls[0]?.[1]
+            expect(onGameEnd).toBeDefined()
 
-            const onGameEndCall = vi
-                .mocked(gameMock.on)
-                .mock.calls.find((call: unknown[]) => call[0] === 'end')
-            const onGameEnd = onGameEndCall?.[1] as
-                ((...args: unknown[]) => unknown) | undefined
-
-            if (onGameEnd) {
-                expect(() =>
-                    onGameEnd({ data: { newAchievements: [] } })
-                ).not.toThrow()
-            }
+            result!.cleanup()
+            result = undefined
+            expect(gameMock.off).toHaveBeenCalledWith('end', onGameEnd)
         })
     })
 
