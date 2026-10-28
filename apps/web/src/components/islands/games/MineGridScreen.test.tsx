@@ -137,6 +137,15 @@ describe('MineGridScreen', () => {
     ]) {
       expect(container.querySelector(`#${id}`)).not.toBeNull()
     }
+    // The difficulty buttons start disabled: the initializer wires them
+    // only after its async mount, and the e2e clicks #easy-btn once without
+    // retrying — a pre-init click would be lost. Init enables them as soon
+    // as the handlers are attached.
+    for (const id of ['easy-btn', 'medium-btn', 'hard-btn']) {
+      expect(container.querySelector(`#${id}`)).toBeDisabled()
+    }
+    expect(container.querySelector('#reveal-mode-btn')).toBeEnabled()
+    expect(container.querySelector('#flag-mode-btn')).toBeEnabled()
 
     await waitFor(() => {
       expect(initMineGridGameFrameworkMock).toHaveBeenCalledTimes(1)
