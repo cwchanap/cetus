@@ -52,7 +52,6 @@ const games = [
     'quick-math',
     'word-scramble',
     'reflex',
-    'sudoku',
     'path-navigator',
     'evader',
     'circuit-hacker',
