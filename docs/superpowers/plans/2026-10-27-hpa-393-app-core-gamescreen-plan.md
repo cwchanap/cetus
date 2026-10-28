@@ -6,25 +6,25 @@ Linear: https://linear.app/cwchanap/issue/HPA-393/build-cetusapp-core-and-move-a
 
 ## Execution rule
 
-**Exactly one PR for this Linear ticket.** This PR begins with the two planning documents, then the implementation lands as a sequence of commits on the **same branch/PR**. Do not split by game or by package. Rebase/check `main` before implementation because HPA-379 (#97) merged immediately before planning. At each checkpoint, prefer deletion of migrated controllers over compatibility shims. No new art/SFX is required.
+**Exactly one PR for this Linear ticket.** This PR begins with these two planning documents, then implementation lands as staged commits on the **same branch/PR**, not a second PR for the Snake pilot. Rebase/check `main` before implementation and again before each large batch. **Human checkpoint gate:** explicitly request a review of the Snake pilot before Stage 3, each Stage 3 batch before the next, Stage 4 before Stage 5, and **each field-plate commit before the next plate**. Record reviewer acknowledgment in this PR before proceeding; passing CI is not review. At each checkpoint, delete migrated controllers rather than preserving compatibility shims. No new art/SFX.
 
 ## Stage 0 — baseline, inventory and regression harness
 
 1. Confirm `main` contains merged `@cetus/ui`, portable games and API client. Record baseline root tests/coverage, Astro/build, lint and Playwright outcomes (and known pre-existing flaky tests) before touching game screens.
 2. Capture concise per-game checklist: game id/path; initializer/result type; BaseGame vs handle; container mount; input + rAF ownership; special HUD/modes/overlay; score/achievement path; debug global and cleanup. Cover **1 Snake + 15 standard + 3 handles + 4 plates = 23**, not a new registry.
-3. Extend existing smoke tests where thin: verify authenticated score/achievement+challenge notification flow, DOM mount/unmount, keyboard/touch and restart on Snake; later parameterize smoke checks across the 23 routes. Capture comparison screenshots at desktop (1280px) and mobile (390px), specifically each bespoke plate.
+3. Reuse `apps/web/e2e/games/play-coverage.spec.ts` (one happy-path play test per game) plus per-game Playwright specs as **blocking** regression tests. Extend only thin coverage for authenticated score/achievement+challenge notification flow, mount/unmount, keyboard/touch and restart on Snake; parameterize only where useful. Capture **local/manual comparison artifacts** at desktop (1280px) and mobile (390px), especially bespoke plates; **no `toHaveScreenshot`, pixel-diff baseline infrastructure or Pixi canvas CI snapshot gate**.
 4. Inspect `packages/ui/src/components/game-*` and current `apps/web/src/components/games/GamePage.astro` props/IDs. Confirm which labels/slots can map directly into React and which panels remain per-game.
 
 **Gate:** baseline documented; 23-game migration checklist complete.
 
 ## Stage 1 — introduce app-core with no UI/browser ownership
 
-1. Add `packages/app-core/package.json`, `tsconfig.json`, `src/index.ts`; depend on React peer, `@cetus/shared`, `@cetus/games` only if needed for adapter typing, and `@cetus/api-client`. Add an app-core **Node** project to root Vitest and existing coverage; extend root ESLint package dependency direction and DOM-global checks. No separate test runner, bundler or cache library.
+1. Add `packages/app-core/package.json`, `tsconfig.json`, `src/index.ts`; declare React as a peer, `@cetus/shared`, `@cetus/games` only if needed for adapter typing, `@cetus/api-client`, and `@testing-library/react` as a **dev/test-only** dependency. Add one app-core **jsdom** project to root Vitest and existing coverage (mark pure adapter test files `// @vitest-environment node`); extend root ESLint package direction, app-core DOM-global restrictions and no-DOM production typecheck. No separate test runner, deprecated `react-test-renderer`, bundler or cache library.
 2. Define a small session adapter contract and BaseGame adapter in `app-core`: snapshot/actions/subscription cleanup; map `onEnd` local completion versus validated structured `'end'` result-after-submit without double submission. Ensure old-run award notifications cannot escape after reset/restart. Add an adapter seam for handles without importing web initializers.
-3. Implement `useGameSession` with stable subscription, state snapshot, controls and teardown. Add `useLeaderboard`, `useChallenges`, `useLoginRewards` using the real API-client methods; implement `useProfile` and `useAchievements` against passed initial SSR data + existing mutations/reward events (there are no GET endpoints for them). Keep APIs simple and refetch on demand.
-4. Test with a Node-compatible DOM-free React renderer and mocked session/API client: start/pause/resume/end/reset, pause restrictions, score/time, event ordering, duplicate `end` events, zero/failed saves, late async response after unmount, stale/new query and no duplicate notifications. Avoid building a generic caching state machine.
+3. Implement `useGameSession(session)` with stable subscription, state snapshot, controls and teardown. Implement **only** `useLeaderboard(client, query)` and `useChallenges(client, ...)` for current Tetris/2048/Bejeweled consumers, using the existing `ApiClient` directly as an explicit parameter. Web owns a stable client instance; tests inject a mock, no Context/provider/factory. Defer `useProfile`, `useAchievements`, and `useLoginRewards` until an actual screen consumes them; leave SSR account state, AppNotifications and dashboard login rewards untouched. Keep APIs simple and refetch on demand.
+4. Test **hooks using `@testing-library/react` `renderHook` in jsdom** (existing React 19-compatible test pattern), with mocked session/API client. Test pure adapter event normalization in Node with a per-file Vitest environment directive. Cover start/pause/resume/end/reset, pause restrictions, score/time, event ordering, duplicate `end` events, zero/failed saves, late async response after unmount, stale/new query and no duplicate notifications. Avoid building a generic caching state machine; verify app-core source imports/globals stay DOM-free.
 
-**Gate:** app-core package independent typecheck + Node hooks tests; root tests/coverage still include it; lint intentionally rejects a temporary forbidden import.
+**Gate:** independent app-core typecheck, React hook tests in jsdom and pure adapter tests in Node; root tests/coverage include both; lint intentionally rejects a temporary forbidden import and use of a DOM global in app-core source.
 
 ## Stage 2 — Snake pilot and reusable web GameScreen boundary
 
@@ -33,7 +33,7 @@ Linear: https://linear.app/cwchanap/issue/HPA-393/build-cetusapp-core-and-move-a
 3. Move `apps/web/src/pages/snake/index.astro` to an Astro route with `<GameScreen game="snake" client:load />`, no inline root `<script>`. Preserve Snake special stats and keyboard help in React; register/clear the original `window.snakeGame` debug result.
 4. Add React integration tests for the screen and Playwright checks for keyboard movement, 60-second/early end, play again, score submission, reward notifications and repeated mount/unmount.
 
-**Gate:** Snake gameplay and post-run UX match baseline; score saved once, awards shown once, cleanup verified, desktop/mobile screens visually comparable.
+**Gate:** Snake gameplay and post-run UX match baseline; score saved once, awards shown once, cleanup verified. Compare desktop/mobile screenshots manually (non-blocking), then **obtain explicit human review of the Snake commit(s) before Stage 3**.
 
 ## Stage 3 — the 15 other standard GamePage games
 
@@ -43,7 +43,7 @@ Migrate in small **commits inside this PR**, reusing the Snake lifecycle boundar
 
 For each game: replace Astro game markup/script with a thin `GameScreen` route; pass mount `ref` and callbacks; move HUD/controls/overlay/menu/game-specific stats into React; remove the old DOM writes/handler ownership; preserve touch/keyboard/game input and game-specific reset/pause behavior; expose the existing debug handle. Move page-script **rule logic** into `@cetus/games` with focused tests only where actually found. Avoid giant shared-config objects for differences that exist in only one game.
 
-**Gate after each small batch:** package/web typecheck, relevant unit tests, route smoke, game completion + score/award regression. Do not leave two controllers attached to one game.
+**Gate after each small batch:** package/web typecheck, relevant unit tests, route smoke, game completion + score/award regression, **and an explicit human review of that batch's commits before the next batch**. Do not leave two controllers attached to one game.
 
 ## Stage 4 — handle-based exceptions
 
@@ -52,16 +52,16 @@ For each game: replace Astro game markup/script with a thin `GameScreen` route; 
 3. Ice Slide: preserve Campaign, Daily and seeded Expedition runs, route choices, Undo, results, score contexts and per-day leaderboard; adapt its existing handle actions as capabilities, not generic functions in all games. Honor stale run/save guards.
 4. Remove the old page-root controllers and migrate each route to `GameScreen`. Assert cleanup/re-entry (including a pending async score save) and debug handles.
 
-**Gate:** all three play and finish identically; no duplicate save/toast or stale overlay, including Ice Slide mode switching.
+**Gate:** all three play and finish identically; no duplicate save/toast or stale overlay, including Ice Slide mode switching. Request human review of the Stage 4 changes before Stage 5.
 
 ## Stage 5 — four custom field-plate screens
 
-1. Migrate Tetris, 2048, Bejeweled and Bubble Shooter individually. Move each 1,200–2,100-line inline script into a **dedicated React component/controller module**; separate true rules into `@cetus/games` with tests, while leaving renderer/audio, menus and app API orchestration web-owned.
+1. Migrate Tetris, 2048, Bejeweled and Bubble Shooter **as four independently reviewable commits (or self-contained commit groups)**, obtaining explicit human review for each plate before starting the next. Move each 1,200–2,100-line page controller into a **dedicated React component/controller module**; separate true rules into `@cetus/games` with tests, while leaving renderer/audio, menus and API orchestration web-owned.
 2. Keep their special plate headers, CSS, accessible dialogs, panel routing/focus, sound/ghost/reduced-motion settings, undo/hold/aim controls, local+remote bests, challenges/log/rewards and telemetry exactly as built. Use `@cetus/ui` when it matches; do **not** homogenize field plates into a GamePage sidebar.
 3. Replace id-based DOM mutations in portions React owns with props/state. Renderer may operate on its own passed canvas host; never mutate the React-managed HUD. Preserve existing use of `getLeaderboard`/`getChallenges`/`getBestScore` from shared API client through app-core hooks where useful; no duplicate fetching abstraction.
-4. Test each page against its existing E2E controls and desktop/mobile snapshot, plus dialog Escape/focus, restart, guest/auth scores, achievements, navigation teardown and debug globals.
+4. Test each page against its **existing E2E controls** plus dialog Escape/focus, restart, guest/auth scores, achievements, navigation teardown and debug globals. Manually compare desktop/mobile screenshots; do not create an automated screenshot baseline for Pixi scenes.
 
-**Gate:** four complete Playwright journeys and visual parity; no inline game-controller script in any of 23 Astro pages.
+**Gate:** four complete Playwright journeys, manually checked visual comparison artifacts (not blocking pixel-diff CI), human review acknowledgment **per plate**, and no inline game-controller scripts across the 23 Astro pages.
 
 ## Stage 6 — remove migration shell, final verification
 
@@ -80,7 +80,7 @@ For each game: replace Astro game markup/script with a thin `GameScreen` route; 
 
 ## Deliverables checklist
 
-- [ ] `@cetus/app-core` with documented small interfaces and Node hook tests
+- [ ] `@cetus/app-core` with minimal session + 2 data hooks, jsdom hook tests, Node adapter tests and portable runtime lint/typecheck
 - [ ] `GameScreen` boundary + Snake validated
 - [ ] Fifteen standard game routes migrated
 - [ ] Three handle-based game routes migrated
@@ -88,3 +88,8 @@ For each game: replace Astro game markup/script with a thin `GameScreen` route; 
 - [ ] Obsolete `GamePage.astro` and inline controllers removed
 - [ ] Debug handles, score/reward semantics, input/accessibility and visuals preserved
 - [ ] Root lint/typecheck/unit/coverage/build/Playwright + authenticated preview green
+- [ ] Human review recorded for Snake, each standard-game batch, handle batch, and each of four field plates; screenshots manually compared without new CI snapshot tooling
+
+## Review decisions (2026-10-27, PR #99)
+
+Accepted the reviewer’s four concerns: keep one PR but require documented human stage reviews; cut the three unused hooks; make screenshot comparisons **manual/non-blocking**; choose direct `ApiClient` parameters. React hooks are tested in existing jsdom/React Testing Library infrastructure, not with React 19's deprecated `react-test-renderer`; only pure adapters require Node tests. Update the Linear acceptance wording to distinguish DOM-free app-core **source** from the test environment.
