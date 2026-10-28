@@ -25,6 +25,11 @@ function setupDOM(): void {
     `
 }
 
+// The island passes the board host (HPA-393); tests grab the same node.
+function initFramework(): ReturnType<typeof initSudokuGameFramework> {
+    return initSudokuGameFramework(document.getElementById('sudoku-container')!)
+}
+
 describe('initSudokuGameFramework', () => {
     let result: Awaited<ReturnType<typeof initSudokuGameFramework>>
 
@@ -54,13 +59,20 @@ describe('initSudokuGameFramework', () => {
     })
 
     describe('initialization', () => {
-        it('returns undefined when the container is missing', async () => {
+        it('returns undefined when the renderer board is missing', async () => {
+            const consoleError = vi
+                .spyOn(console, 'error')
+                .mockImplementation(() => {})
             document.getElementById('sudoku-container')!.remove()
-            expect(await initSudokuGameFramework()).toBeUndefined()
+            expect(
+                await initSudokuGameFramework(document.createElement('div'))
+            ).toBeUndefined()
+            expect(consoleError).toHaveBeenCalled()
+            consoleError.mockRestore()
         })
 
         it('returns a game instance with the expected API', async () => {
-            result = await initSudokuGameFramework()
+            result = await initFramework()
             expect(result).toBeDefined()
             expect(result!.game).toBeDefined()
             expect(result!.renderer).toBeDefined()
@@ -71,7 +83,7 @@ describe('initSudokuGameFramework', () => {
         })
 
         it('initializes with default state', async () => {
-            result = await initSudokuGameFramework()
+            result = await initFramework()
             const state = result!.getState()
             expect(state.score).toBe(0)
             expect(state.gameStarted).toBe(false)
@@ -79,42 +91,26 @@ describe('initSudokuGameFramework', () => {
         })
 
         it('renders the initial board into the sudoku-container element', async () => {
-            result = await initSudokuGameFramework()
+            result = await initFramework()
             const container = document.getElementById('sudoku-container')!
             expect(container.querySelectorAll('.sudoku-cell').length).toBe(81)
         })
     })
 
     describe('start wiring', () => {
-        it('starts the game and swaps buttons via the start button', async () => {
-            result = await initSudokuGameFramework()
-            const startBtn = document.getElementById('start-btn')!
-            const endBtn = document.getElementById('end-btn')!
+        it('starts the game through the game API', async () => {
+            // Shared-button wiring moved to the SudokuScreen island (HPA-393);
+            // the game lifecycle contract stays here.
+            result = await initFramework()
 
-            startBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+            result!.game.start()
 
             expect(result!.game.getState().gameStarted).toBe(true)
-            expect(startBtn.style.display).toBe('none')
-            expect(endBtn.style.display).toBe('inline-flex')
-        })
-
-        it('hides the game-over overlay on start', async () => {
-            result = await initSudokuGameFramework()
-            const overlay = document.getElementById('game-over-overlay')!
-            overlay.classList.remove('hidden')
-
-            document
-                .getElementById('start-btn')!
-                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
-
-            expect(overlay.classList.contains('hidden')).toBe(true)
         })
 
         it('disables difficulty buttons on start', async () => {
-            result = await initSudokuGameFramework()
-            document
-                .getElementById('start-btn')!
-                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+            result = await initFramework()
+            result!.game.start()
 
             expect(
                 (document.getElementById('easy-btn') as HTMLButtonElement)
@@ -125,7 +121,7 @@ describe('initSudokuGameFramework', () => {
 
     describe('cell clicks', () => {
         it('selects a cell when clicked after the game starts', async () => {
-            result = await initSudokuGameFramework()
+            result = await initFramework()
             result!.game.start()
 
             const container = document.getElementById('sudoku-container')!
@@ -141,66 +137,39 @@ describe('initSudokuGameFramework', () => {
     })
 
     describe('end game', () => {
-        it('shows the overlay and submits the score on end', async () => {
-            result = await initSudokuGameFramework()
+        it('submits the score on end', async () => {
+            // Overlay/final-stat ownership moved to the SudokuScreen island
+            // (HPA-393); the score-submission contract stays here.
+            result = await initFramework()
             result!.game.start()
 
             await result!.endGame()
             await Promise.resolve()
             await Promise.resolve()
 
-            const overlay = document.getElementById('game-over-overlay')!
-            expect(overlay.classList.contains('hidden')).toBe(false)
             expect(fetch).toHaveBeenCalledWith(
                 '/api/scores',
                 expect.objectContaining({ method: 'POST' })
             )
         })
-
-        it('updates final stats in the overlay on end', async () => {
-            result = await initSudokuGameFramework()
-            result!.game.start()
-
-            await result!.endGame()
-            await Promise.resolve()
-            await Promise.resolve()
-
-            const finalScore = document.getElementById('final-score')!
-            expect(finalScore.textContent).toMatch(/\d+/)
-        })
-
-        it('shows GAME OVER title when puzzle not solved', async () => {
-            result = await initSudokuGameFramework()
-            result!.game.start()
-
-            await result!.endGame()
-            await Promise.resolve()
-            await Promise.resolve()
-
-            const title = document.getElementById('game-over-title')!
-            expect(title.textContent).toBe('GAME OVER')
-        })
     })
 
     describe('restart', () => {
-        it('resets the game and hides the overlay', async () => {
-            result = await initSudokuGameFramework()
+        it('resets the game', async () => {
+            result = await initFramework()
             result!.game.start()
-            const overlay = document.getElementById('game-over-overlay')!
-            overlay.classList.remove('hidden')
 
             result!.restart()
 
             const state = result!.game.getState()
             expect(state.gameStarted).toBe(false)
             expect(state.score).toBe(0)
-            expect(overlay.classList.contains('hidden')).toBe(true)
         })
     })
 
     describe('start after game over', () => {
         it('generates a fresh puzzle and resets score before starting', async () => {
-            result = await initSudokuGameFramework()
+            result = await initFramework()
             result!.game.start()
             // Capture the first run's puzzle givens and score a placement
             const firstState = result!.game.getState()
@@ -227,11 +196,10 @@ describe('initSudokuGameFramework', () => {
             await result!.endGame()
             expect(result!.game.getState().isGameOver).toBe(true)
 
-            // Click Start again — should produce a fresh puzzle, not reuse
-            // the ended run's grid/score.
-            document
-                .getElementById('start-btn')!
-                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+            // Click Start again — BaseGame.start() clears a completed run
+            // itself (fresh puzzle), so it must not reuse the ended run's
+            // grid/score.
+            result!.game.start()
 
             const state = result!.game.getState()
             expect(state.gameStarted).toBe(true)
@@ -248,14 +216,12 @@ describe('initSudokuGameFramework', () => {
         })
     })
 
-    describe('reset button', () => {
-        it('resets the game when reset is clicked', async () => {
-            result = await initSudokuGameFramework()
+    describe('reset', () => {
+        it('resets the game through the initializer restart', async () => {
+            result = await initFramework()
             result!.game.start()
 
-            document
-                .getElementById('reset-btn')!
-                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+            result!.restart()
 
             const state = result!.game.getState()
             expect(state.gameStarted).toBe(false)
@@ -264,7 +230,7 @@ describe('initSudokuGameFramework', () => {
 
     describe('difficulty buttons', () => {
         it('changes difficulty when easy button is clicked', async () => {
-            result = await initSudokuGameFramework()
+            result = await initFramework()
             document
                 .getElementById('easy-btn')!
                 .dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -273,7 +239,7 @@ describe('initSudokuGameFramework', () => {
         })
 
         it('changes difficulty when hard button is clicked', async () => {
-            result = await initSudokuGameFramework()
+            result = await initFramework()
             document
                 .getElementById('hard-btn')!
                 .dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -282,20 +248,18 @@ describe('initSudokuGameFramework', () => {
         })
     })
 
-    describe('pause button', () => {
-        it('toggles pause when pause button is clicked', async () => {
-            result = await initSudokuGameFramework()
+    describe('pause', () => {
+        it('pauses and resumes through the game API', async () => {
+            // Pause-button wiring moved to the SudokuScreen island (HPA-393);
+            // the game lifecycle contract stays here (also used by the P key).
+            result = await initFramework()
             result!.game.start()
 
-            const pauseBtn = document.getElementById('pause-btn')!
-            pauseBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-
+            result!.game.pause()
             expect(result!.game.getState().isPaused).toBe(true)
-            expect(pauseBtn.textContent).toBe('Resume')
 
-            pauseBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+            result!.game.resume()
             expect(result!.game.getState().isPaused).toBe(false)
-            expect(pauseBtn.textContent).toBe('Pause')
         })
     })
 })
