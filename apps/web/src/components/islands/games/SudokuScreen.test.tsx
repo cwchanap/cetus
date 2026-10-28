@@ -8,10 +8,7 @@ import {
   type BaseGameStats,
 } from '@cetus/games'
 import { GameID } from '@cetus/shared/games'
-import type {
-  SudokuState,
-  SudokuStats,
-} from '@cetus/games/sudoku/frameworkTypes'
+import type { SudokuState } from '@cetus/games/sudoku/frameworkTypes'
 
 const { initSudokuGameFrameworkMock } = vi.hoisted(() => ({
   initSudokuGameFrameworkMock: vi.fn(),
