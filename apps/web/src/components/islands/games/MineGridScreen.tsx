@@ -360,7 +360,7 @@ export default function MineGridScreen() {
             </span>
           </div>
           <div className="text-lg text-cetus-ink">
-            Difficulty:
+            Difficulty:{' '}
             <span id="final-difficulty" className="text-cetus-accent-3">
               {resultStats ? capitalize(resultStats.difficulty) : 'Medium'}
             </span>
@@ -372,7 +372,7 @@ export default function MineGridScreen() {
             </span>
           </div>
           <div className="text-lg text-cetus-ink">
-            Incorrect Flags:
+            Incorrect Flags:{' '}
             <span id="final-incorrect-flags" className="text-cetus-accent-2">
               {resultStats?.incorrectFlagActions ?? 0}
             </span>
