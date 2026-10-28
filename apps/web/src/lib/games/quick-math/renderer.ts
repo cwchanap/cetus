@@ -22,8 +22,6 @@ export class QuickMathRenderer extends DOMRenderer {
         questions?: HTMLElement
         correct?: HTMLElement
         sessionScore?: HTMLElement
-        mainScore?: HTMLElement
-        time?: HTMLElement
     } = {}
 
     constructor(config: QuickMathRendererConfig) {
@@ -45,14 +43,13 @@ export class QuickMathRenderer extends DOMRenderer {
             this.config.submitButton
         ) as HTMLButtonElement
 
-        // Find stats elements
+        // Find stats elements. React owns the shared #score / #time-remaining
+        // badges (HPA-393); the board-embedded session counters stay here.
         this.statsElements = {
             questions:
                 document.getElementById('current-questions') || undefined,
             correct: document.getElementById('current-correct') || undefined,
             sessionScore: document.getElementById('current-score') || undefined,
-            mainScore: document.getElementById('score') || undefined,
-            time: document.getElementById('time-remaining') || undefined,
         }
 
         if (!this.questionElement || !this.answerInput || !this.submitButton) {
@@ -121,14 +118,6 @@ export class QuickMathRenderer extends DOMRenderer {
         }
         if (this.statsElements.sessionScore) {
             this.statsElements.sessionScore.textContent = state.score.toString()
-        }
-
-        if (this.statsElements.mainScore) {
-            this.statsElements.mainScore.textContent = state.score.toString()
-        }
-
-        if (this.statsElements.time) {
-            this.statsElements.time.textContent = state.timeRemaining.toString()
         }
 
         // Update input state based on game state

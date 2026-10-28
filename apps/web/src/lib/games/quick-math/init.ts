@@ -7,13 +7,14 @@ import {
 } from '@cetus/games/quick-math/game'
 import { QuickMathRenderer, type QuickMathRendererConfig } from './renderer'
 import { GameID } from '@cetus/shared/games'
-import type { BaseGameCallbacks, BaseGameStats } from '@cetus/games/core/types'
+import type { BaseGameCallbacks } from '@cetus/games/core/types'
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
-// Default renderer configuration
-const DEFAULT_RENDERER_CONFIG: QuickMathRendererConfig = {
+// Default renderer configuration (the container selector is derived from
+// the island-passed host element; the rest are frozen page ids).
+const DEFAULT_RENDERER_CONFIG: Omit<QuickMathRendererConfig, 'container'> = {
     type: 'dom',
-    container: '#quick-math-container',
     questionContainer: '#question',
     answerInput: '#answer-input',
     submitButton: '#submit-answer',
@@ -28,103 +29,42 @@ export interface QuickMathFrameworkCallbacks extends BaseGameCallbacks {
     ) => void
 }
 
-export async function initQuickMathFramework(
-    customConfig?: Partial<QuickMathConfig>,
-    customCallbacks?: QuickMathFrameworkCallbacks
-): Promise<{
+export interface QuickMathInitResult {
     game: QuickMathFrameworkGame
     renderer: QuickMathRenderer
     cleanup: () => void
-}> {
+}
+
+export async function initQuickMathFramework(
+    // The island-owned board host (#quick-math-container); the renderer
+    // resolves it by the same frozen id (HPA-393).
+    container: HTMLElement,
+    customConfig?: Partial<QuickMathConfig>,
+    customCallbacks?: QuickMathFrameworkCallbacks
+): Promise<QuickMathInitResult> {
     // Merge configurations
     const config: QuickMathConfig = {
         ...DEFAULT_QUICK_MATH_CONFIG,
         ...customConfig,
         submitScore: customConfig?.submitScore ?? submitScore,
     }
-    const rendererConfig = { ...DEFAULT_RENDERER_CONFIG }
+    const rendererConfig: QuickMathRendererConfig = {
+        ...DEFAULT_RENDERER_CONFIG,
+        container: `#${CSS.escape(container.id)}`,
+    }
 
     // Create renderer
     const renderer = new QuickMathRenderer(rendererConfig)
     await renderer.initialize()
 
-    // Create game with enhanced callbacks
-    const enhancedCallbacks: QuickMathCallbacks = {
+    // React owns the HUD buttons/overlay (HPA-393): the only callback wiring
+    // kept here is the question renderer feed; everything else passes
+    // through to the caller untouched.
+    const callbacks: QuickMathCallbacks = {
         ...customCallbacks,
         onQuestionUpdate: (question: MathQuestion) => {
             renderer.renderQuestion(question)
-            if (customCallbacks?.onQuestionUpdate) {
-                customCallbacks.onQuestionUpdate(question)
-            }
-        },
-        onAnswerSubmit: (
-            correct: boolean,
-            question: MathQuestion,
-            answer: string
-        ) => {
-            if (customCallbacks?.onAnswerSubmit) {
-                customCallbacks.onAnswerSubmit(correct, question, answer)
-            }
-        },
-        onScoreUpdate: (score: number) => {
-            if (customCallbacks?.onScoreUpdate) {
-                customCallbacks.onScoreUpdate(score)
-            }
-        },
-        onTimeUpdate: (timeRemaining: number) => {
-            if (customCallbacks?.onTimeUpdate) {
-                customCallbacks.onTimeUpdate(timeRemaining)
-            }
-        },
-        onStart: () => {
-            // Update button states
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            const endBtn = document.getElementById(
-                'end-btn'
-            ) as HTMLButtonElement
-            if (startBtn && endBtn) {
-                startBtn.style.display = 'none'
-                endBtn.style.display = 'inline-flex'
-            }
-            if (customCallbacks?.onStart) {
-                customCallbacks.onStart()
-            }
-        },
-        onEnd: (finalScore: number, stats: BaseGameStats) => {
-            // Cast stats for rendering - the actual stats will be QuickMathStats from the game
-            const gameStats = game.getGameStats()
-
-            // Update button states
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            const endBtn = document.getElementById(
-                'end-btn'
-            ) as HTMLButtonElement
-            if (startBtn && endBtn) {
-                startBtn.style.display = 'inline-flex'
-                endBtn.style.display = 'none'
-            }
-
-            // Show game over overlay
-            const gameOverOverlay = document.getElementById('game-over-overlay')
-            if (gameOverOverlay) {
-                gameOverOverlay.classList.remove('hidden')
-            }
-
-            // Update final score
-            const finalScoreElement = document.getElementById('final-score')
-            if (finalScoreElement) {
-                finalScoreElement.textContent = finalScore.toString()
-            }
-
-            renderer.renderStats(gameStats)
-
-            if (customCallbacks?.onEnd) {
-                customCallbacks.onEnd(finalScore, stats)
-            }
+            customCallbacks?.onQuestionUpdate?.(question)
         },
     }
 
@@ -132,19 +72,23 @@ export async function initQuickMathFramework(
     const game = new QuickMathFrameworkGame(
         GameID.QUICK_MATH,
         config,
-        enhancedCallbacks
+        callbacks
     )
 
-    // Set up Quick Math specific event handlers
+    // Set up Quick Math specific event handlers (submit button + render
+    // listeners; board-embedded session counters stay renderer-written).
     setupQuickMathEvents(game, renderer)
 
-    // Set up standard button handlers
-    setupStandardButtons(game)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); Quick Math had no legacy bridge, so this is the
+    // standard single toast owner wiring.
+    const removeForwarder = forwardBaseGameResults(game)
 
     return {
         game,
         renderer,
         cleanup: () => {
+            removeForwarder()
             renderer.cleanup()
             game.destroy()
         },
@@ -184,52 +128,6 @@ function setupQuickMathEvents(
     game.on('end', () => {
         renderer.renderGameState(game.getState())
     })
-}
-
-function setupStandardButtons(game: QuickMathFrameworkGame): void {
-    // Start button
-    const startBtn = document.getElementById('start-btn') as HTMLButtonElement
-    if (startBtn) {
-        startBtn.addEventListener('click', () => {
-            game.start()
-        })
-    }
-
-    // End button
-    const endBtn = document.getElementById('end-btn') as HTMLButtonElement
-    if (endBtn) {
-        endBtn.addEventListener('click', () => {
-            game.end()
-        })
-    }
-
-    // Play again button
-    const playAgainBtn = document.getElementById(
-        'play-again-btn'
-    ) as HTMLButtonElement
-    if (playAgainBtn) {
-        playAgainBtn.addEventListener('click', () => {
-            // Hide game over overlay
-            const gameOverOverlay = document.getElementById('game-over-overlay')
-            if (gameOverOverlay) {
-                gameOverOverlay.classList.add('hidden')
-            }
-
-            // Reset button states
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            const endBtn = document.getElementById(
-                'end-btn'
-            ) as HTMLButtonElement
-            if (startBtn && endBtn) {
-                startBtn.style.display = 'inline-flex'
-                endBtn.style.display = 'none'
-            }
-
-            game.reset()
-        })
-    }
 }
 
 // Export for backward compatibility
