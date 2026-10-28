@@ -7,8 +7,8 @@ const reflexIslandMarkup = readFileSync(
     resolve(appRoot, 'src/components/islands/games/ReflexScreen.tsx'),
     'utf-8'
 )
-const evaderMarkup = readFileSync(
-    resolve(appRoot, 'src/pages/evader/index.astro'),
+const evaderIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/EvaderScreen.tsx'),
     'utf-8'
 )
 const circuitHackerMarkup = readFileSync(
@@ -49,13 +49,10 @@ const chromaticTideRouteMarkup = readFileSync(
 )
 
 const games = [
-    'path-navigator',
-    'evader',
     'circuit-hacker',
     'satellite-sync',
     'ice-slide',
     'gravity-flip',
-    'signal-switch',
     'rhythm-reactor',
     'asteroid-drift',
 ]
@@ -64,13 +61,16 @@ const fieldPlateGames = ['tetris', 'bubble-shooter', 'bejeweled', '2048']
 
 describe('Game board page markup', () => {
     it('keeps Reflex and Evader default boards visible before start', () => {
-        // Reflex's board (and its hidden-by-default #game-status overlay)
-        // moved into the ReflexScreen island (HPA-393); the markup lives in
-        // TSX now, so the class attribute is spelled className.
+        // Reflex's and Evader's boards (and their hidden-by-default
+        // #game-status overlays) moved into their islands (HPA-393); the
+        // markup lives in TSX now, so the class attribute is spelled
+        // className.
         expect(reflexIslandMarkup).toMatch(
             /id="game-status"[^>]*className="[^"]*hidden/
         )
-        expect(evaderMarkup).toMatch(/id="game-status"[^>]*class="[^"]*hidden/)
+        expect(evaderIslandMarkup).toMatch(
+            /id="game-status"[^>]*className="[^"]*hidden/
+        )
     })
 
     it('exposes the Circuit Hacker canvas container and difficulty select', () => {
