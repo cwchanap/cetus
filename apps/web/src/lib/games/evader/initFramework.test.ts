@@ -1,8 +1,7 @@
 // initFramework unit tests for Evader
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { screen, fireEvent } from '@testing-library/dom'
-import { initEvaderGameFramework, showGameOver } from './initFramework'
-import type { EvaderStats } from '@cetus/games/evader/frameworkTypes'
+import { initEvaderGameFramework } from './initFramework'
 import {
     AchievementRarity,
     type AchievementNotification,
@@ -76,21 +75,11 @@ vi.mock('pixi.js', () => {
     }
 })
 
+// React owns the HUD/buttons/overlay (HPA-393); the initializer only needs
+// the board host the island ref-passes plus the static D-pad markup.
 function setupDOM() {
     document.body.innerHTML = `
         <div id="game-canvas-container"></div>
-        <span id="score">0</span>
-        <span id="time-remaining">60</span>
-        <span id="coins-collected">0</span>
-        <span id="bombs-hit">0</span>
-        <span id="final-score">0</span>
-        <span id="final-coins">0</span>
-        <span id="final-bombs">0</span>
-        <div id="game-status" style="display:flex"></div>
-        <div id="game-over-overlay" class="hidden"></div>
-        <button id="start-btn">Start</button>
-        <button id="stop-btn" style="display:none">Stop</button>
-        <button id="play-again-btn">Play Again</button>
         <div id="dpad">
             <button data-key="ArrowUp" aria-label="Move up">↑</button>
             <button data-key="ArrowDown" aria-label="Move down">↓</button>
@@ -98,6 +87,10 @@ function setupDOM() {
             <button data-key="ArrowRight" aria-label="Move right">→</button>
         </div>
     `
+}
+
+function getContainer(): HTMLElement {
+    return document.getElementById('game-canvas-container') as HTMLElement
 }
 
 describe('initEvaderGameFramework', () => {
@@ -127,7 +120,7 @@ describe('initEvaderGameFramework', () => {
 
     describe('initialization', () => {
         it('returns a result with game, renderer, and cleanup', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             expect(result).toBeDefined()
             expect(result!.game).toBeDefined()
             expect(result!.renderer).toBeDefined()
@@ -136,137 +129,19 @@ describe('initEvaderGameFramework', () => {
             result!.cleanup()
         })
 
-        it('returns undefined when container is missing', async () => {
-            document.getElementById('game-canvas-container')!.remove()
-            const result = await initEvaderGameFramework()
-            expect(result).toBeUndefined()
-        })
-
         it('accepts custom config', async () => {
-            const result = await initEvaderGameFramework({ duration: 30 })
+            const result = await initEvaderGameFramework(getContainer(), {
+                duration: 30,
+            })
             expect(result).toBeDefined()
             expect(result!.game.getState().timeRemaining).toBe(30)
             result!.cleanup()
         })
     })
 
-    describe('game start', () => {
-        it('hides start button and shows stop button on start', async () => {
-            const result = await initEvaderGameFramework()
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            const stopBtn = document.getElementById(
-                'stop-btn'
-            ) as HTMLButtonElement
-
-            result!.game.start()
-
-            expect(startBtn.style.display).toBe('none')
-            expect(stopBtn.style.display).toBe('inline-flex')
-            result!.cleanup()
-        })
-
-        it('hides the game-over overlay on start', async () => {
-            const result = await initEvaderGameFramework()
-            const overlay = document.getElementById('game-over-overlay')!
-            overlay.classList.remove('hidden')
-
-            result!.game.start()
-            expect(overlay.classList.contains('hidden')).toBe(true)
-            result!.cleanup()
-        })
-
-        it('hides the status message on start', async () => {
-            const result = await initEvaderGameFramework()
-            const status = document.getElementById('game-status')!
-
-            result!.game.start()
-            expect(status.style.display).toBe('none')
-            result!.cleanup()
-        })
-    })
-
-    describe('game end', () => {
-        it('shows overlay and resets buttons on end', async () => {
-            const result = await initEvaderGameFramework()
-            result!.game.start()
-            await result!.game.end()
-
-            const overlay = document.getElementById('game-over-overlay')!
-            expect(overlay.classList.contains('hidden')).toBe(false)
-
-            const startBtn = document.getElementById('start-btn')!
-            const stopBtn = document.getElementById('stop-btn')!
-            expect(startBtn.style.display).toBe('inline-flex')
-            expect(stopBtn.style.display).toBe('none')
-            result!.cleanup()
-        })
-
-        it('displays final stats in the overlay', async () => {
-            const result = await initEvaderGameFramework()
-            result!.game.start()
-            await result!.game.end()
-
-            const finalScore = document.getElementById('final-score')!
-            expect(finalScore.textContent).toBe('0')
-            result!.cleanup()
-        })
-
-        it('uses stats values for the display', async () => {
-            const result = await initEvaderGameFramework()
-            result!.cleanup()
-
-            const stats: EvaderStats = {
-                finalScore: 100,
-                timeElapsed: 60,
-                gameCompleted: true,
-                coinsCollected: 5,
-                bombsHit: 3,
-                gameHistory: [],
-            }
-
-            showGameOver(stats.finalScore, stats)
-
-            const finalScore = document.getElementById('final-score')!
-            const finalCoins = document.getElementById('final-coins')!
-            const finalBombs = document.getElementById('final-bombs')!
-            expect(finalScore.textContent).toBe('100')
-            expect(finalCoins.textContent).toBe('5')
-            expect(finalBombs.textContent).toBe('3')
-        })
-    })
-
-    describe('live stats update', () => {
-        it('updates coins/bombs on state change', async () => {
-            const result = await initEvaderGameFramework()
-            result!.game.start()
-
-            // Place a coin on the player and run a physics update to trigger collision
-            const game = result!.game
-            const player = game.getState().player
-            ;(
-                game as unknown as { state: { objects: unknown[] } }
-            ).state.objects.push({
-                id: 'test-coin',
-                type: 'coin',
-                x: player.x,
-                y: player.y,
-                speed: 0,
-                spawnTime: Date.now(),
-            })
-            game.update(0.016)
-
-            const coinsEl = document.getElementById('coins-collected')!
-            expect(coinsEl.textContent).toBe('1')
-
-            result!.cleanup()
-        })
-    })
-
     describe('cleanup', () => {
         it('does not throw on cleanup', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
             expect(() => result!.cleanup()).not.toThrow()
         })
@@ -274,7 +149,7 @@ describe('initEvaderGameFramework', () => {
 
     describe('restart', () => {
         it('resets the game state', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
             vi.advanceTimersByTime(1000)
 
@@ -288,46 +163,9 @@ describe('initEvaderGameFramework', () => {
         })
     })
 
-    describe('score/time UI callbacks', () => {
-        it('updates score element on score change', async () => {
-            const result = await initEvaderGameFramework()
-            result!.game.start()
-
-            // Place a coin on the player to award points
-            const game = result!.game
-            const player = game.getState().player
-            ;(
-                game as unknown as { state: { objects: unknown[] } }
-            ).state.objects.push({
-                id: 'test-coin',
-                type: 'coin',
-                x: player.x,
-                y: player.y,
-                speed: 0,
-                spawnTime: Date.now(),
-            })
-            game.update(0.016)
-
-            const scoreEl = document.getElementById('score')!
-            expect(scoreEl.textContent).toBe('100')
-            result!.cleanup()
-        })
-
-        it('updates time element on tick', async () => {
-            const result = await initEvaderGameFramework()
-            result!.game.start()
-
-            vi.advanceTimersByTime(1000)
-
-            const timeEl = document.getElementById('time-remaining')!
-            expect(timeEl.textContent).toBe('59')
-            result!.cleanup()
-        })
-    })
-
     describe('keyboard controls', () => {
         it('responds to ArrowUp keydown when active', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
             expect(() =>
                 document.dispatchEvent(
@@ -341,7 +179,7 @@ describe('initEvaderGameFramework', () => {
         })
 
         it('responds to keyup', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             expect(() =>
                 document.dispatchEvent(
                     new KeyboardEvent('keyup', {
@@ -354,7 +192,7 @@ describe('initEvaderGameFramework', () => {
         })
 
         it('ignores non-movement keys', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             expect(() =>
                 document.dispatchEvent(
                     new KeyboardEvent('keydown', {
@@ -367,7 +205,7 @@ describe('initEvaderGameFramework', () => {
         })
 
         it('ignores movement keys when modifier is held', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
 
             const game = result!.game
@@ -385,7 +223,7 @@ describe('initEvaderGameFramework', () => {
         })
 
         it('releases WASD key on keyup even when modifier is held', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
 
             const game = result!.game
@@ -416,7 +254,7 @@ describe('initEvaderGameFramework', () => {
         // registered in setupTouchControls listen for 'pointerdown' etc. and
         // jsdom dispatches MouseEvent to those listeners by event name.
         it('pointerdown on D-pad button calls pressKey', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
 
             const upBtn = screen.getByRole('button', { name: 'Move up' })
@@ -426,7 +264,7 @@ describe('initEvaderGameFramework', () => {
         })
 
         it('pointerup on D-pad button calls releaseKey', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
 
             const rightBtn = screen.getByRole('button', { name: 'Move right' })
@@ -439,7 +277,7 @@ describe('initEvaderGameFramework', () => {
         })
 
         it('pointerleave releases the key when finger slides off button', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
 
             const downBtn = screen.getByRole('button', { name: 'Move down' })
@@ -450,7 +288,7 @@ describe('initEvaderGameFramework', () => {
         })
 
         it('releases implicit pointer capture on pointerdown so pointerleave fires on touch', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
 
             const upBtn = screen.getByRole('button', { name: 'Move up' })
@@ -467,7 +305,7 @@ describe('initEvaderGameFramework', () => {
         })
 
         it('cleanup removes D-pad listeners', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
             const pressSpy = vi.spyOn(result!.game, 'pressKey')
             result!.cleanup()
@@ -481,7 +319,7 @@ describe('initEvaderGameFramework', () => {
             // The D-pad press handler gates on game.getState().isActive so a
             // press before start doesn't leave a stuck key in pressedKeys.
             // This is the touch equivalent of the keyboard isActive gate.
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             // Deliberately do NOT call game.start() — game is inactive.
             expect(result!.game.getState().isActive).toBe(false)
 
@@ -514,7 +352,7 @@ describe('initEvaderGameFramework', () => {
             const showSpy = vi.fn()
             window.showAchievementAward = showSpy
 
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
             await result!.game.end()
 
@@ -546,7 +384,7 @@ describe('initEvaderGameFramework', () => {
                     destroy: vi.fn(),
                 } as unknown as InstanceType<typeof Application>
             })
-            const res = await initEvaderGameFramework()
+            const res = await initEvaderGameFramework(getContainer())
             expect(res).toBeUndefined()
             expect(canvas.parentNode).toBeNull()
         })
@@ -569,7 +407,7 @@ describe('initEvaderGameFramework', () => {
             const consoleSpy = vi
                 .spyOn(console, 'error')
                 .mockImplementation(() => {})
-            const res = await initEvaderGameFramework()
+            const res = await initEvaderGameFramework(getContainer())
             expect(res).toBeUndefined()
             expect(consoleSpy).toHaveBeenCalled()
             consoleSpy.mockRestore()
@@ -586,7 +424,7 @@ describe('initEvaderGameFramework', () => {
                     return rafCallbacks.length
                 }
             )
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
             const renderSpy = vi.spyOn(result!.renderer, 'render')
             renderSpy.mockClear()
@@ -605,7 +443,7 @@ describe('initEvaderGameFramework', () => {
                     return rafCallbacks.length
                 }
             )
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
             result!.game.pause()
             const updateSpy = vi.spyOn(result!.game, 'update')
@@ -616,49 +454,9 @@ describe('initEvaderGameFramework', () => {
         })
     })
 
-    describe('button handlers', () => {
-        it('start button resets the game when starting after a game over', async () => {
-            const result = await initEvaderGameFramework()
-            result!.game.start()
-            await result!.game.end()
-            expect(result!.game.getState().isGameOver).toBe(true)
-            const resetSpy = vi.spyOn(result!.game, 'reset')
-            document
-                .getElementById('start-btn')!
-                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
-            expect(resetSpy).toHaveBeenCalled()
-            result!.cleanup()
-        })
-
-        it('stop button ends the game', async () => {
-            const result = await initEvaderGameFramework()
-            result!.game.start()
-            const endSpy = vi.spyOn(result!.game, 'end')
-            document
-                .getElementById('stop-btn')!
-                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
-            await Promise.resolve()
-            expect(endSpy).toHaveBeenCalled()
-            result!.cleanup()
-        })
-
-        it('play-again button hides the overlay and resets button visibility', async () => {
-            const result = await initEvaderGameFramework()
-            const overlay = document.getElementById('game-over-overlay')!
-            overlay.classList.remove('hidden')
-            document
-                .getElementById('play-again-btn')!
-                .dispatchEvent(new MouseEvent('click', { bubbles: true }))
-            expect(overlay.classList.contains('hidden')).toBe(true)
-            const startBtn = document.getElementById('start-btn')!
-            expect(startBtn.style.display).toBe('inline-flex')
-            result!.cleanup()
-        })
-    })
-
     describe('beforeunload warning', () => {
         it('calls preventDefault when a game is in progress', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             result!.game.start()
             const event = new Event('beforeunload', { cancelable: true })
             const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
@@ -668,7 +466,7 @@ describe('initEvaderGameFramework', () => {
         })
 
         it('does not call preventDefault when no game is in progress', async () => {
-            const result = await initEvaderGameFramework()
+            const result = await initEvaderGameFramework(getContainer())
             expect(result!.game.getState().isActive).toBe(false)
             result!.cleanup()
         })
