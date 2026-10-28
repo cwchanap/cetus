@@ -28,6 +28,7 @@
     "@astrojs/react": "^4.4.2",
     "@astrojs/vercel": "^8.2.0",
     "@cetus/api-client": "workspace:*",
+    "@cetus/app-core": "workspace:*",
     "@cetus/games": "workspace:*",
     "@cetus/shared": "workspace:*",
     "@cetus/tokens": "workspace:*",

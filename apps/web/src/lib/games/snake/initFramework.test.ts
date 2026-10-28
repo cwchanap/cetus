@@ -92,63 +92,14 @@ function createElement<K extends keyof HTMLElementTagNameMap>(
 }
 
 function setupDOM() {
+    // React owns the HUD/buttons/overlay (HPA-393); the initializer only
+    // needs the board host the island ref-passes.
     const container = createElement('div', { id: 'snake-container' })
-    const score = createElement('span', { id: 'score' })
-    score.textContent = '0'
-    const timeRemaining = createElement('span', { id: 'time-remaining' })
-    timeRemaining.textContent = '60s'
-    const snakeLength = createElement('span', { id: 'snake-length' })
-    snakeLength.textContent = '1'
-    const snakeLengthStats = createElement('span', { id: 'snake-length-stats' })
-    snakeLengthStats.textContent = '1'
-    const foodsEaten = createElement('span', { id: 'foods-eaten' })
-    foodsEaten.textContent = '0'
-    const finalScore = createElement('span', { id: 'final-score' })
-    finalScore.textContent = '0'
-    const finalLength = createElement('span', { id: 'final-length' })
-    finalLength.textContent = '1'
-    const finalFoods = createElement('span', { id: 'final-foods' })
-    finalFoods.textContent = '0'
-    const finalTime = createElement('span', { id: 'final-time' })
-    finalTime.textContent = '0s'
-    const overlay = createElement('div', {
-        id: 'game-over-overlay',
-        class: 'hidden',
-    })
-    const startBtn = createElement('button', { id: 'start-btn' })
-    startBtn.style.display = 'inline-flex'
-    startBtn.textContent = 'Start'
-    const endBtn = createElement('button', { id: 'end-btn' })
-    endBtn.style.display = 'none'
-    endBtn.textContent = 'End'
-    const pauseBtn = createElement('button', { id: 'pause-btn' })
-    pauseBtn.textContent = 'Pause'
-    const resetBtn = createElement('button', { id: 'reset-btn' })
-    resetBtn.textContent = 'Reset'
-    const restartBtn = createElement('button', { id: 'restart-btn' })
-    restartBtn.textContent = 'Restart'
-    const playAgainBtn = createElement('button', { id: 'play-again-btn' })
-    playAgainBtn.textContent = 'Play Again'
+    document.body.replaceChildren(container)
+}
 
-    document.body.replaceChildren(
-        container,
-        score,
-        timeRemaining,
-        snakeLength,
-        snakeLengthStats,
-        foodsEaten,
-        finalScore,
-        finalLength,
-        finalFoods,
-        finalTime,
-        overlay,
-        startBtn,
-        endBtn,
-        pauseBtn,
-        resetBtn,
-        restartBtn,
-        playAgainBtn
-    )
+function getContainer(): HTMLElement {
+    return document.getElementById('snake-container') as HTMLElement
 }
 
 describe('initSnakeGameFramework', () => {
@@ -182,12 +133,6 @@ describe('initSnakeGameFramework', () => {
     })
 
     describe('initialization', () => {
-        it('should return undefined when snake-container is missing', async () => {
-            document.getElementById('snake-container')!.remove()
-            const res = await initSnakeGameFramework()
-            expect(res).toBeUndefined()
-        })
-
         it('should return undefined when renderer initialization fails', async () => {
             const { SnakeRenderer } = await import('./SnakeRenderer')
             vi.mocked(SnakeRenderer).mockImplementationOnce(
@@ -202,12 +147,12 @@ describe('initSnakeGameFramework', () => {
                     }) as any
             )
 
-            const res = await initSnakeGameFramework()
+            const res = await initSnakeGameFramework(getContainer())
             expect(res).toBeUndefined()
         })
 
         it('should return an object with game, renderer, cleanup, restart, getState, endGame', async () => {
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             expect(result).toBeDefined()
             expect(result!.game).toBeDefined()
             expect(result!.renderer).toBeDefined()
@@ -219,7 +164,7 @@ describe('initSnakeGameFramework', () => {
 
         it('should call renderer.initialize', async () => {
             const { SnakeRenderer } = await import('./SnakeRenderer')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const rendererInstance =
                 vi.mocked(SnakeRenderer).mock.results[0].value
             expect(rendererInstance.initialize).toHaveBeenCalled()
@@ -227,23 +172,24 @@ describe('initSnakeGameFramework', () => {
 
         it('should call renderer.render on initial state', async () => {
             const { SnakeRenderer } = await import('./SnakeRenderer')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const rendererInstance =
                 vi.mocked(SnakeRenderer).mock.results[0].value
             expect(rendererInstance.render).toHaveBeenCalled()
         })
 
         it('should start render loop with requestAnimationFrame', async () => {
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             expect(rafCallbacks.length).toBeGreaterThan(0)
         })
 
         it('should accept custom config', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework({ duration: 30 })
-            expect(vi.mocked(SnakeGame)).toHaveBeenCalledWith(
-                expect.objectContaining({ duration: 30 }),
-                expect.any(Object)
+            result = await initSnakeGameFramework(getContainer(), {
+                duration: 30,
+            })
+            expect(vi.mocked(SnakeGame).mock.calls[0][0]).toEqual(
+                expect.objectContaining({ duration: 30 })
             )
         })
     })
@@ -251,14 +197,14 @@ describe('initSnakeGameFramework', () => {
     describe('game instance methods', () => {
         it('restart should call game.reset', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
             result!.restart()
             expect(gameMock.reset).toHaveBeenCalled()
         })
 
         it('getState should return game state', async () => {
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const state = result!.getState()
             expect(state).toBeDefined()
             expect(state).toHaveProperty('score')
@@ -266,7 +212,7 @@ describe('initSnakeGameFramework', () => {
 
         it('endGame should call game.end', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
             await result!.endGame()
             expect(gameMock.end).toHaveBeenCalled()
@@ -275,7 +221,7 @@ describe('initSnakeGameFramework', () => {
         it('cleanup should cancel render loop and call renderer/game cleanup', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
             const { SnakeRenderer } = await import('./SnakeRenderer')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
 
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
             const rendererMock = vi.mocked(SnakeRenderer).mock.results[0].value
@@ -289,77 +235,10 @@ describe('initSnakeGameFramework', () => {
         })
     })
 
-    describe('button event listeners', () => {
-        it('clicking start-btn should call game.start', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
-            document.getElementById('start-btn')!.click()
-            expect(gameMock.start).toHaveBeenCalled()
-        })
-
-        it('clicking end-btn should call game.end', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
-            document.getElementById('end-btn')!.click()
-            expect(gameMock.end).toHaveBeenCalled()
-        })
-
-        it('clicking pause-btn when not paused should call game.pause', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
-            // Default state has isPaused: false
-            document.getElementById('pause-btn')!.click()
-            expect(gameMock.pause).toHaveBeenCalled()
-        })
-
-        it('clicking pause-btn when paused should call game.resume', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
-            vi.mocked(gameMock.getState).mockReturnValueOnce({
-                ...gameMock.getState(),
-                isPaused: true,
-            })
-            document.getElementById('pause-btn')!.click()
-            expect(gameMock.resume).toHaveBeenCalled()
-        })
-
-        it('clicking reset-btn should call game.reset', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
-            document.getElementById('reset-btn')!.click()
-            expect(gameMock.reset).toHaveBeenCalled()
-        })
-
-        it('clicking restart-btn should call game.reset and hide overlay', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            const overlay = document.getElementById('game-over-overlay')!
-            overlay.classList.remove('hidden')
-
-            result = await initSnakeGameFramework()
-            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
-            document.getElementById('restart-btn')!.click()
-            expect(gameMock.reset).toHaveBeenCalled()
-            expect(overlay.classList.contains('hidden')).toBe(true)
-        })
-
-        it('clicking play-again-btn should call game.reset', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
-            document.getElementById('play-again-btn')!.click()
-            expect(gameMock.reset).toHaveBeenCalled()
-        })
-    })
-
     describe('keyboard controls', () => {
         it('should ignore keypresses when game is not started', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
 
             for (const key of [
@@ -377,7 +256,7 @@ describe('initSnakeGameFramework', () => {
 
         it('should change direction when game is active', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
 
             vi.mocked(gameMock.getState).mockReturnValue({
@@ -412,7 +291,7 @@ describe('initSnakeGameFramework', () => {
 
         it('should handle p key for pause toggle', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
 
             vi.mocked(gameMock.getState).mockReturnValue({
@@ -430,7 +309,7 @@ describe('initSnakeGameFramework', () => {
 
         it('should handle P key for resume when paused', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
 
             vi.mocked(gameMock.getState).mockReturnValue({
@@ -447,91 +326,19 @@ describe('initSnakeGameFramework', () => {
         })
     })
 
-    describe('enhanced callbacks', () => {
-        it('onScoreUpdate should update score element', async () => {
+    describe('callbacks pass-through', () => {
+        it('should construct the game with the caller-supplied callbacks', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const gameMock = vi.mocked(SnakeGame).mock.results[0].value
-            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
-            callbacksArg.onScoreUpdate(100)
-            expect(document.getElementById('score')!.textContent).toBe('100')
-        })
-
-        it('onTimeUpdate should update time-remaining element', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
-            callbacksArg.onTimeUpdate(45)
-            expect(document.getElementById('time-remaining')!.textContent).toBe(
-                '45s'
+            const customCallbacks = { onScoreUpdate: () => {} }
+            result = await initSnakeGameFramework(
+                getContainer(),
+                undefined,
+                customCallbacks
             )
-        })
 
-        it('onStart should hide start-btn and show end-btn', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
-            callbacksArg.onStart()
-
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            const endBtn = document.getElementById(
-                'end-btn'
-            ) as HTMLButtonElement
-            expect(startBtn.style.display).toBe('none')
-            expect(endBtn.style.display).toBe('inline-flex')
-        })
-
-        it('onEnd should show game-over-overlay with final stats', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
-            callbacksArg.onEnd(250, {
-                finalScore: 250,
-                timeElapsed: 30,
-                gameCompleted: false,
-                maxLength: 8,
-                foodsEaten: 5,
-            })
-
-            expect(document.getElementById('final-score')!.textContent).toBe(
-                '250'
-            )
-            expect(
-                document
-                    .getElementById('game-over-overlay')!
-                    .classList.contains('hidden')
-            ).toBe(false)
-        })
-
-        it('onStateChange should call updateUI', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
-            callbacksArg.onStateChange({
-                snake: [
-                    { x: 1, y: 1 },
-                    { x: 2, y: 1 },
-                ],
-                foodsEaten: 3,
-                score: 0,
-                timeRemaining: 60,
-                isActive: true,
-                isPaused: false,
-                isGameOver: false,
-                gameStarted: true,
-                direction: 'right',
-                food: [],
-                needsRedraw: false,
-                maxLength: 2,
-            })
-            expect(document.getElementById('snake-length')!.textContent).toBe(
-                '2'
-            )
-            expect(document.getElementById('foods-eaten')!.textContent).toBe(
-                '3'
-            )
+            // React owns the HUD/buttons/overlay; the initializer must not
+            // wrap or intercept the caller's callbacks.
+            expect(vi.mocked(SnakeGame).mock.calls[0][1]).toBe(customCallbacks)
         })
     })
 
@@ -541,7 +348,7 @@ describe('initSnakeGameFramework', () => {
             const showAchievementAward = vi.fn()
             vi.stubGlobal('showAchievementAward', showAchievementAward)
 
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
 
             // Get the onGameEnd callback registered with game.on('end', handler)
@@ -565,7 +372,7 @@ describe('initSnakeGameFramework', () => {
 
         it('should handle onGameEnd with no achievements', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
 
             const onGameEndCall = vi
@@ -581,7 +388,7 @@ describe('initSnakeGameFramework', () => {
 
         it('should handle onGameEnd with empty achievements array', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
 
             const onGameEndCall = vi
@@ -601,7 +408,7 @@ describe('initSnakeGameFramework', () => {
     describe('beforeunload handler', () => {
         it('should call preventDefault when game is active', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
 
             vi.mocked(gameMock.getState).mockReturnValue({
@@ -618,7 +425,7 @@ describe('initSnakeGameFramework', () => {
         })
 
         it('should not call preventDefault when game is not started', async () => {
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
 
             const event = new Event('beforeunload', { cancelable: true })
             const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
@@ -646,7 +453,7 @@ describe('initSnakeGameFramework', () => {
                     }) as any
             )
 
-            const res = await initSnakeGameFramework()
+            const res = await initSnakeGameFramework(getContainer())
             expect(res).toBeUndefined()
             expect(mockRemoveChild).toHaveBeenCalledWith(mockCanvas)
         })
@@ -672,7 +479,7 @@ describe('initSnakeGameFramework', () => {
                     }) as any
             )
 
-            const res = await initSnakeGameFramework()
+            const res = await initSnakeGameFramework(getContainer())
             expect(res).toBeUndefined()
             expect(errorSpy).toHaveBeenCalledWith(
                 'Error during renderer cleanup:',
@@ -682,83 +489,11 @@ describe('initSnakeGameFramework', () => {
         })
     })
 
-    describe('custom callbacks passthrough', () => {
-        it('should forward onStateChange to customCallbacks.onStateChange', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            const onStateChange = vi.fn()
-            result = await initSnakeGameFramework(undefined, { onStateChange })
-
-            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
-            const state = {
-                snake: [{ x: 1, y: 1 }],
-                foodsEaten: 0,
-                score: 0,
-                timeRemaining: 60,
-                isActive: true,
-                isPaused: false,
-                isGameOver: false,
-                gameStarted: true,
-                direction: 'right',
-                food: [],
-                needsRedraw: false,
-                maxLength: 1,
-            }
-            callbacksArg.onStateChange(state)
-            expect(onStateChange).toHaveBeenCalledWith(state)
-        })
-
-        it('should forward onScoreUpdate to customCallbacks.onScoreUpdate', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            const onScoreUpdate = vi.fn()
-            result = await initSnakeGameFramework(undefined, { onScoreUpdate })
-
-            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
-            callbacksArg.onScoreUpdate(42)
-            expect(onScoreUpdate).toHaveBeenCalledWith(42)
-        })
-
-        it('should forward onTimeUpdate to customCallbacks.onTimeUpdate', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            const onTimeUpdate = vi.fn()
-            result = await initSnakeGameFramework(undefined, { onTimeUpdate })
-
-            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
-            callbacksArg.onTimeUpdate(30)
-            expect(onTimeUpdate).toHaveBeenCalledWith(30)
-        })
-
-        it('should forward onStart to customCallbacks.onStart', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            const onStart = vi.fn()
-            result = await initSnakeGameFramework(undefined, { onStart })
-
-            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
-            callbacksArg.onStart()
-            expect(onStart).toHaveBeenCalled()
-        })
-
-        it('should forward onEnd to customCallbacks.onEnd', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            const onEnd = vi.fn()
-            result = await initSnakeGameFramework(undefined, { onEnd })
-
-            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
-            callbacksArg.onEnd(100, {
-                finalScore: 100,
-                timeElapsed: 10,
-                gameCompleted: false,
-                maxLength: 3,
-                foodsEaten: 2,
-            })
-            expect(onEnd).toHaveBeenCalledWith(100, expect.any(Object))
-        })
-    })
-
     describe('render loop', () => {
         it('should call renderer.render when needsRedraw is true', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
             const { SnakeRenderer } = await import('./SnakeRenderer')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
             const rendererMock = vi.mocked(SnakeRenderer).mock.results[0].value
 
@@ -781,7 +516,7 @@ describe('initSnakeGameFramework', () => {
         it('should not call renderer.render when needsRedraw is false', async () => {
             const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
             const { SnakeRenderer } = await import('./SnakeRenderer')
-            result = await initSnakeGameFramework()
+            result = await initSnakeGameFramework(getContainer())
             const gameMock = vi.mocked(SnakeGame).mock.results[0].value
             const rendererMock = vi.mocked(SnakeRenderer).mock.results[0].value
 
@@ -801,7 +536,7 @@ describe('initSnakeGameFramework', () => {
         })
     })
 
-    describe('branch coverage: non-Error throw and || fallbacks', () => {
+    describe('branch coverage: non-Error throw', () => {
         it('should handle non-Error thrown during renderer.initialize (line 57 false branch)', async () => {
             const { SnakeRenderer } = await import('./SnakeRenderer')
             vi.mocked(SnakeRenderer).mockImplementationOnce(
@@ -816,34 +551,9 @@ describe('initSnakeGameFramework', () => {
                     }) as any
             )
 
-            const res = await initSnakeGameFramework()
+            const res = await initSnakeGameFramework(getContainer())
             // Non-Error string → new Error(String(error)) path (line 57 false branch)
             expect(res).toBeUndefined()
-        })
-
-        it('onEnd should use || fallbacks when maxLength/foodsEaten/timeElapsed are falsy (lines 241, 246, 251)', async () => {
-            const { SnakeGame } = await import('@cetus/games/snake/SnakeGame')
-            result = await initSnakeGameFramework()
-            const callbacksArg = vi.mocked(SnakeGame).mock.calls[0][1] as any
-
-            // maxLength: undefined → '3' fallback; foodsEaten: undefined → '0' fallback; timeElapsed: 0 → 0 fallback
-            callbacksArg.onEnd(0, {
-                finalScore: 0,
-                timeElapsed: 0,
-                gameCompleted: false,
-                maxLength: undefined,
-                foodsEaten: undefined,
-            })
-
-            const finalLengthEl = document.getElementById('final-length')
-            const finalFoodsEl = document.getElementById('final-foods')
-            const finalTimeEl = document.getElementById('final-time')
-            expect(finalLengthEl).not.toBeNull()
-            expect(finalLengthEl!.textContent).toBe('3') // || '3' fallback
-            expect(finalFoodsEl).not.toBeNull()
-            expect(finalFoodsEl!.textContent).toBe('0') // || '0' fallback
-            expect(finalTimeEl).not.toBeNull()
-            expect(finalTimeEl!.textContent).toBe('0s') // || 0 fallback
         })
     })
 })
