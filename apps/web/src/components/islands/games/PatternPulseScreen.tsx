@@ -350,13 +350,13 @@ export default function PatternPulseScreen() {
             </span>
           </div>
           <div className="text-lg text-cetus-ink">
-            Rounds Cleared:
+            Rounds Cleared:{' '}
             <span id="final-rounds" className="text-cetus-accent-2">
               {resultStats?.completedRounds ?? 0}
             </span>
           </div>
           <div className="text-lg text-cetus-ink">
-            Longest Sequence:
+            Longest Sequence:{' '}
             <span id="final-longest-sequence" className="text-cetus-accent-3">
               {resultStats?.longestSequence ?? 0}
             </span>
