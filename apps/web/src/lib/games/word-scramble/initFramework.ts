@@ -4,16 +4,15 @@ import {
 } from '@cetus/games/word-scramble/WordScrambleGame'
 import type {
     WordScrambleConfig,
-    WordScrambleStats,
     WordScrambleCallbacks,
 } from '@cetus/games/word-scramble/frameworkTypes'
-import type { BaseGameStats, ChallengeUpdates } from '@cetus/games/core/types'
+import type { BaseGameStats } from '@cetus/games/core/types'
 import {
     DOMElementNotFoundError,
     handleGameError,
 } from '@cetus/games/core/errors'
 
-import { type AchievementNotification } from '@cetus/shared/achievements'
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface WordScrambleInitResult {
@@ -25,6 +24,9 @@ export interface WordScrambleInitResult {
 }
 
 export async function initWordScrambleGameFramework(
+    // The island-owned board host (HPA-393). Every interactive element is
+    // resolved by its frozen page id, so the host itself is unused here.
+    _container: HTMLElement,
     customConfig?: Partial<WordScrambleConfig>,
     customCallbacks?: WordScrambleCallbacks
 ): Promise<WordScrambleInitResult | undefined> {
@@ -33,14 +35,8 @@ export async function initWordScrambleGameFramework(
         'answer-input'
     ) as HTMLInputElement | null
     const submitButton = document.getElementById('submit-answer')
-    const startButton = document.getElementById('start-btn')
 
-    if (
-        !scrambledWordElement ||
-        !answerInput ||
-        !submitButton ||
-        !startButton
-    ) {
+    if (!scrambledWordElement || !answerInput || !submitButton) {
         handleGameError(
             new DOMElementNotFoundError('word-scramble required elements'),
             'WordScramble'
@@ -55,24 +51,18 @@ export async function initWordScrambleGameFramework(
     }
 
     const skipButton = document.getElementById('skip-word')
-    const endButton = document.getElementById('end-btn')
-    const scoreElement = document.getElementById('score')
     const timeRemainingElement = document.getElementById('time-remaining')
     const currentWordsElement = document.getElementById('current-words')
     const currentCorrectElement = document.getElementById('current-correct')
     const currentScoreElement = document.getElementById('current-score')
-    const gameOverOverlay = document.getElementById('game-over-overlay')
-    const finalScoreElement = document.getElementById('final-score')
-    const totalWordsElement = document.getElementById('total-words')
-    const accuracyElement = document.getElementById('accuracy')
-    const longestWordElement = document.getElementById('longest-word')
 
+    // React owns the HUD badges, shared buttons and overlay (HPA-393): the
+    // callbacks keep only the bespoke board/input writers — the scrambled
+    // word + difficulty tint, input enable/disable + focus, the
+    // board-embedded session counters and the shared badge's low-time tint.
     const enhancedCallbacks: WordScrambleCallbacks = {
         ...customCallbacks,
         onScoreUpdate: (score: number) => {
-            if (scoreElement) {
-                scoreElement.textContent = score.toString()
-            }
             if (currentScoreElement) {
                 currentScoreElement.textContent = score.toString()
             }
@@ -80,7 +70,6 @@ export async function initWordScrambleGameFramework(
         },
         onTimeUpdate: (timeRemaining: number) => {
             if (timeRemainingElement) {
-                timeRemainingElement.textContent = timeRemaining.toString()
                 if (timeRemaining <= 10) {
                     timeRemainingElement.classList.add('text-red-400')
                     timeRemainingElement.classList.remove('text-cyan-400')
@@ -129,12 +118,6 @@ export async function initWordScrambleGameFramework(
             if (skipButton) {
                 skipButton.removeAttribute('disabled')
             }
-            if (startButton) {
-                startButton.style.display = 'none'
-            }
-            if (endButton) {
-                endButton.style.display = 'inline-flex'
-            }
             if (currentWordsElement) {
                 currentWordsElement.textContent = '0'
             }
@@ -143,9 +126,6 @@ export async function initWordScrambleGameFramework(
             }
             if (currentScoreElement) {
                 currentScoreElement.textContent = '0'
-            }
-            if (gameOverOverlay) {
-                gameOverOverlay.classList.add('hidden')
             }
             customCallbacks?.onStart?.()
         },
@@ -158,29 +138,6 @@ export async function initWordScrambleGameFramework(
             }
             if (skipButton) {
                 skipButton.setAttribute('disabled', 'true')
-            }
-            if (startButton) {
-                startButton.style.display = 'inline-flex'
-            }
-            if (endButton) {
-                endButton.style.display = 'none'
-            }
-
-            const wordStats = stats as WordScrambleStats
-            if (finalScoreElement) {
-                finalScoreElement.textContent = finalScore.toString()
-            }
-            if (totalWordsElement) {
-                totalWordsElement.textContent = wordStats.totalWords.toString()
-            }
-            if (accuracyElement) {
-                accuracyElement.textContent = `${Math.round(wordStats.accuracy)}%`
-            }
-            if (longestWordElement) {
-                longestWordElement.textContent = wordStats.longestWord || 'None'
-            }
-            if (gameOverOverlay) {
-                gameOverOverlay.classList.remove('hidden')
             }
             customCallbacks?.onEnd?.(finalScore, stats)
         },
@@ -220,29 +177,9 @@ export async function initWordScrambleGameFramework(
 
     const game = new WordScrambleGame(config, enhancedCallbacks)
 
-    const onGameEnd = (event: unknown) => {
-        const data = (event as { data: unknown }).data as {
-            newAchievements?: AchievementNotification[]
-            challengeUpdates?: ChallengeUpdates
-        }
-        if (data?.newAchievements && data.newAchievements.length > 0) {
-            if (
-                typeof window !== 'undefined' &&
-                typeof window.showAchievementAward === 'function'
-            ) {
-                window.showAchievementAward(data.newAchievements)
-            }
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            if (
-                typeof window !== 'undefined' &&
-                typeof window.showChallengeComplete === 'function'
-            ) {
-                window.showChallengeComplete(data.challengeUpdates)
-            }
-        }
-    }
-    game.on('end', onGameEnd)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
     const cleanupButtonHandlers = setupButtonHandlers(
         game,
@@ -256,7 +193,7 @@ export async function initWordScrambleGameFramework(
         cleanup: () => {
             cleanupButtonHandlers()
             cleanupUnloadWarning()
-            game.off('end', onGameEnd)
+            removeForwarder()
             game.destroy()
         },
         restart: () => {
@@ -273,29 +210,12 @@ function setupButtonHandlers(
     answerInput: HTMLInputElement,
     submitButton: HTMLElement
 ): () => void {
-    const startBtn = document.getElementById('start-btn')
-    const endBtn = document.getElementById('end-btn')
     const skipBtn = document.getElementById('skip-word')
-    const playAgainBtn = document.getElementById('play-again-btn')
-
-    const startHandler = () => {
-        game.reset()
-        game.start()
-    }
-
-    const endHandler = () => {
-        void game.end()
-    }
 
     const skipHandler = () => {
         if (game.getState().isActive) {
             game.skipCurrentChallenge()
         }
-    }
-
-    const playAgainHandler = () => {
-        game.reset()
-        game.start()
     }
 
     const submitHandler = () => {
@@ -314,19 +234,13 @@ function setupButtonHandlers(
         game.updateCurrentAnswer((e.target as HTMLInputElement).value)
     }
 
-    startBtn?.addEventListener('click', startHandler)
-    endBtn?.addEventListener('click', endHandler)
     skipBtn?.addEventListener('click', skipHandler)
-    playAgainBtn?.addEventListener('click', playAgainHandler)
     submitButton.addEventListener('click', submitHandler)
     answerInput.addEventListener('keydown', enterKeyHandler)
     answerInput.addEventListener('input', inputHandler)
 
     return () => {
-        startBtn?.removeEventListener('click', startHandler)
-        endBtn?.removeEventListener('click', endHandler)
         skipBtn?.removeEventListener('click', skipHandler)
-        playAgainBtn?.removeEventListener('click', playAgainHandler)
         submitButton.removeEventListener('click', submitHandler)
         answerInput.removeEventListener('keydown', enterKeyHandler)
         answerInput.removeEventListener('input', inputHandler)
