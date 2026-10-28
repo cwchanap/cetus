@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { initWordScrambleGameFramework } from './initFramework'
-import type { WordScrambleStats } from '@cetus/games/word-scramble/frameworkTypes'
 import {
     AchievementRarity,
     type AchievementNotification,
@@ -18,53 +17,32 @@ vi.mock('@/lib/services/scoreService', () => ({
 
 import { submitScore } from '@/lib/services/scoreService'
 
+// HPA-393: React owns the shared start/end buttons, the overlay and its
+// final stats, so the initializer no longer wires or writes them — that
+// coverage moved to the WordScrambleScreen island test. The initializer
+// keeps the board trio (scrambled word / input / submit), the skip button,
+// the board-embedded session counters and the shared time badge's low-time
+// tint. The board host is island-owned and unused here, so tests pass
+// document.body.
 function setupDOM() {
     document.body.innerHTML = `
         <div id="scrambled-word"></div>
         <input id="answer-input" type="text" disabled />
         <button id="submit-answer" disabled>Submit</button>
         <button id="skip-word" disabled>Skip</button>
-        <button id="start-btn">Start</button>
-        <button id="end-btn" style="display: none;">End</button>
-        <button id="play-again-btn">Play Again</button>
-        <span id="score">0</span>
         <span id="time-remaining">60</span>
         <span id="current-words">0</span>
         <span id="current-correct">0</span>
         <span id="current-score">0</span>
-        <div id="game-over-overlay" class="hidden"></div>
-        <span id="final-score">0</span>
-        <span id="total-words">0</span>
-        <span id="accuracy">0%</span>
-        <span id="longest-word">None</span>
     `
 }
 
-function makeStats(
-    overrides: Partial<WordScrambleStats> = {}
-): WordScrambleStats {
-    return {
-        finalScore: 100,
-        timeElapsed: 60,
-        gameCompleted: true,
-        totalWords: 5,
-        correctAnswers: 4,
-        incorrectAnswers: 1,
-        accuracy: 80,
-        averageTimePerWord: 5,
-        longestWord: 'hello',
-        shortestWord: 'hi',
-        wordsUnscrambled: [
-            {
-                word: 'hello',
-                scrambled: 'lleho',
-                userAnswer: 'hello',
-                correct: true,
-                timeToAnswer: 3,
-            },
-        ],
-        ...overrides,
-    }
+async function startInitialized() {
+    const instance = (await initWordScrambleGameFramework(
+        document.body
+    )) as NonNullable<Awaited<ReturnType<typeof initWordScrambleGameFramework>>>
+    instance.game.start()
+    return instance
 }
 
 describe('initWordScrambleGameFramework', () => {
@@ -83,30 +61,24 @@ describe('initWordScrambleGameFramework', () => {
     describe('initialization', () => {
         it('should return undefined when scrambled-word element is missing', async () => {
             document.getElementById('scrambled-word')!.remove()
-            const result = await initWordScrambleGameFramework()
+            const result = await initWordScrambleGameFramework(document.body)
             expect(result).toBeUndefined()
         })
 
         it('should return undefined when answer-input is missing', async () => {
             document.getElementById('answer-input')!.remove()
-            const result = await initWordScrambleGameFramework()
+            const result = await initWordScrambleGameFramework(document.body)
             expect(result).toBeUndefined()
         })
 
         it('should return undefined when submit-answer is missing', async () => {
             document.getElementById('submit-answer')!.remove()
-            const result = await initWordScrambleGameFramework()
-            expect(result).toBeUndefined()
-        })
-
-        it('should return undefined when start-btn is missing', async () => {
-            document.getElementById('start-btn')!.remove()
-            const result = await initWordScrambleGameFramework()
+            const result = await initWordScrambleGameFramework(document.body)
             expect(result).toBeUndefined()
         })
 
         it('should return game instance with all control methods', async () => {
-            const instance = await initWordScrambleGameFramework()
+            const instance = await initWordScrambleGameFramework(document.body)
             expect(instance).toBeDefined()
             expect(typeof instance!.restart).toBe('function')
             expect(typeof instance!.getState).toBe('function')
@@ -116,18 +88,14 @@ describe('initWordScrambleGameFramework', () => {
 
         it('should return game instance when optional elements are missing', async () => {
             document.getElementById('skip-word')!.remove()
-            document.getElementById('play-again-btn')!.remove()
-            document.getElementById('score')!.remove()
-            document.getElementById('time-remaining')!.remove()
-            const instance = await initWordScrambleGameFramework()
+            const instance = await initWordScrambleGameFramework(document.body)
             expect(instance).toBeDefined()
         })
     })
 
     describe('game flow', () => {
-        it('start button click should start the game and show challenge', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
+        it('starting the game shows the first scrambled challenge', async () => {
+            const instance = await startInitialized()
 
             const state = instance!.getState()
             expect(state.isActive).toBe(true)
@@ -139,35 +107,18 @@ describe('initWordScrambleGameFramework', () => {
         })
 
         it('start should enable input and submit button', async () => {
-            await initWordScrambleGameFramework()
+            await startInitialized()
             const answerInput = document.getElementById(
                 'answer-input'
             ) as HTMLInputElement
             const submitBtn = document.getElementById('submit-answer')!
 
-            expect(answerInput.disabled).toBe(true)
-            expect(submitBtn.hasAttribute('disabled')).toBe(true)
-
-            document.getElementById('start-btn')!.click()
-
             expect(answerInput.disabled).toBe(false)
             expect(submitBtn.hasAttribute('disabled')).toBe(false)
         })
 
-        it('start should hide start button and show end button', async () => {
-            await initWordScrambleGameFramework()
-            const startBtn = document.getElementById('start-btn')!
-            const endBtn = document.getElementById('end-btn')!
-
-            document.getElementById('start-btn')!.click()
-
-            expect(startBtn.style.display).toBe('none')
-            expect(endBtn.style.display).toBe('inline-flex')
-        })
-
         it('submit button should submit answer when game is active', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
+            const instance = await startInitialized()
 
             const state = instance!.getState()
             const answerInput = document.getElementById(
@@ -182,7 +133,9 @@ describe('initWordScrambleGameFramework', () => {
         })
 
         it('submit should not work when game is not active', async () => {
-            const instance = await initWordScrambleGameFramework()
+            const instance = (await initWordScrambleGameFramework(
+                document.body
+            ))!
             const answerInput = document.getElementById(
                 'answer-input'
             ) as HTMLInputElement
@@ -194,8 +147,7 @@ describe('initWordScrambleGameFramework', () => {
         })
 
         it('skip button should skip challenge when game is active', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
+            const instance = await startInitialized()
             const firstChallenge = instance!.getState().currentChallenge
 
             document.getElementById('skip-word')!.click()
@@ -207,8 +159,7 @@ describe('initWordScrambleGameFramework', () => {
         })
 
         it('enter key should submit answer when game is active', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
+            const instance = await startInitialized()
 
             const state = instance!.getState()
             const answerInput = document.getElementById(
@@ -223,7 +174,9 @@ describe('initWordScrambleGameFramework', () => {
         })
 
         it('input event should update current answer', async () => {
-            const instance = await initWordScrambleGameFramework()
+            const instance = (await initWordScrambleGameFramework(
+                document.body
+            ))!
             const answerInput = document.getElementById(
                 'answer-input'
             ) as HTMLInputElement
@@ -234,8 +187,7 @@ describe('initWordScrambleGameFramework', () => {
         })
 
         it('correct answer should add green border temporarily', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
+            const instance = await startInitialized()
 
             const answerInput = document.getElementById(
                 'answer-input'
@@ -254,8 +206,7 @@ describe('initWordScrambleGameFramework', () => {
         })
 
         it('incorrect answer should add red border temporarily', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
+            const instance = await startInitialized()
 
             const answerInput = document.getElementById(
                 'answer-input'
@@ -269,8 +220,7 @@ describe('initWordScrambleGameFramework', () => {
         })
 
         it('onTimeUpdate should add red class when time <= 10', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
+            const instance = await startInitialized()
             instance!.game['updateTime'](10)
 
             const el = document.getElementById('time-remaining')!
@@ -279,8 +229,7 @@ describe('initWordScrambleGameFramework', () => {
         })
 
         it('onChallengeUpdate should color easy words green', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
+            const instance = await startInitialized()
             ;(instance!.game['callbacks'] as any).onChallengeUpdate?.({
                 id: 'c1',
                 originalWord: 'cat',
@@ -292,9 +241,8 @@ describe('initWordScrambleGameFramework', () => {
             expect(el.classList.contains('text-green-400')).toBe(true)
         })
 
-        it('end game should disable controls and show overlay', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
+        it('end game should disable the input controls', async () => {
+            const instance = await startInitialized()
 
             await instance!.endGame()
 
@@ -302,47 +250,15 @@ describe('initWordScrambleGameFramework', () => {
                 'answer-input'
             ) as HTMLInputElement
             const submitBtn = document.getElementById('submit-answer')!
-            const overlay = document.getElementById('game-over-overlay')!
+            const skipBtn = document.getElementById('skip-word')!
 
             expect(answerInput.disabled).toBe(true)
             expect(submitBtn.hasAttribute('disabled')).toBe(true)
-            expect(overlay.classList.contains('hidden')).toBe(false)
-        })
-
-        it('end game should update final stats elements', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
-
-            const game = instance!.game
-            ;(game as any).state.wordHistory = [
-                {
-                    word: 'keyboard',
-                    scrambled: 'keyboard',
-                    userAnswer: 'keyboard',
-                    correct: true,
-                    timeToAnswer: 3,
-                },
-            ]
-            ;(game as any).state.wordsUnscrambled = 1
-            ;(game as any).state.correctAnswers = 1
-            ;(game as any).state.incorrectAnswers = 0
-
-            await instance!.endGame()
-
-            expect(document.getElementById('final-score')!.textContent).toBe(
-                game.getState().score.toString()
-            )
-            expect(document.getElementById('total-words')!.textContent).toBe(
-                '1'
-            )
-            expect(document.getElementById('longest-word')!.textContent).toBe(
-                'keyboard'
-            )
+            expect(skipBtn.hasAttribute('disabled')).toBe(true)
         })
 
         it('restart should start a fresh game', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
+            const instance = await startInitialized()
             const answerInput = document.getElementById(
                 'answer-input'
             ) as HTMLInputElement
@@ -359,25 +275,8 @@ describe('initWordScrambleGameFramework', () => {
         })
 
         it('cleanup should not throw', async () => {
-            const instance = await initWordScrambleGameFramework()
+            const instance = await initWordScrambleGameFramework(document.body)
             expect(() => instance!.cleanup()).not.toThrow()
-        })
-
-        it('play-again button should restart the game', async () => {
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
-            const answerInput = document.getElementById(
-                'answer-input'
-            ) as HTMLInputElement
-            answerInput.value =
-                instance!.getState().currentChallenge!.originalWord
-            document.getElementById('submit-answer')!.click()
-            expect(instance!.getState().wordsUnscrambled).toBe(1)
-
-            document.getElementById('play-again-btn')!.click()
-
-            expect(instance!.getState().wordsUnscrambled).toBe(0)
-            expect(instance!.getState().isActive).toBe(true)
         })
 
         it('should call showAchievementAward when achievements are earned', async () => {
@@ -396,8 +295,7 @@ describe('initWordScrambleGameFramework', () => {
             const showAchievementAward = vi.fn()
             vi.stubGlobal('showAchievementAward', showAchievementAward)
 
-            const instance = await initWordScrambleGameFramework()
-            document.getElementById('start-btn')!.click()
+            const instance = await startInitialized()
 
             await instance!.endGame()
 
@@ -406,17 +304,32 @@ describe('initWordScrambleGameFramework', () => {
 
             vi.unstubAllGlobals()
         })
+
+        it('should forward custom onEnd callback with the final score and stats', async () => {
+            const onEnd = vi.fn()
+            const instance = (await initWordScrambleGameFramework(
+                document.body,
+                {},
+                { onEnd }
+            ))!
+            instance.game.start()
+            await instance.endGame()
+            expect(onEnd).toHaveBeenCalledWith(
+                expect.any(Number),
+                expect.objectContaining({ totalWords: expect.any(Number) })
+            )
+        })
     })
 
     describe('returned instance methods', () => {
         it('getState should return game state', async () => {
-            const instance = await initWordScrambleGameFramework()
+            const instance = await initWordScrambleGameFramework(document.body)
             const state = instance!.getState()
             expect(state).toBeDefined()
         })
 
         it('endGame should not throw', async () => {
-            const instance = await initWordScrambleGameFramework()
+            const instance = await initWordScrambleGameFramework(document.body)
             await expect(instance!.endGame()).resolves.not.toThrow()
         })
     })

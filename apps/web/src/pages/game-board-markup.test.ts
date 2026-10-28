@@ -49,7 +49,6 @@ const chromaticTideRouteMarkup = readFileSync(
 )
 
 const games = [
-    'word-scramble',
     'reflex',
     'path-navigator',
     'evader',
