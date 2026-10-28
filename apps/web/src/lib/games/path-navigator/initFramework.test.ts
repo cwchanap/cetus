@@ -70,19 +70,15 @@ vi.mock('pixi.js', () => {
 })
 
 function setupDOM() {
+    // React owns the HUD/buttons/overlay (HPA-393); the initializer only
+    // needs the board host the island ref-passes.
     document.body.innerHTML = `
         <div id="path-navigator-container"></div>
-        <span id="score">0</span>
-        <span id="time-remaining">60</span>
-        <span id="level">1</span>
-        <button id="start-btn">Start Game</button>
-        <button id="end-btn" style="display:none;">End Game</button>
-        <button id="play-again-btn">Play Again</button>
-        <div id="game-over-overlay" class="hidden"></div>
-        <span id="final-score">0</span>
-        <span id="levels-completed">0</span>
-        <span id="total-time">0</span>
     `
+}
+
+function getContainer(): HTMLElement {
+    return document.getElementById('path-navigator-container') as HTMLElement
 }
 
 describe('initPathNavigatorGameFramework', () => {
@@ -120,14 +116,8 @@ describe('initPathNavigatorGameFramework', () => {
     })
 
     describe('initialization', () => {
-        it('should return undefined when container is missing', async () => {
-            document.getElementById('path-navigator-container')!.remove()
-            const result = await initPathNavigatorGameFramework()
-            expect(result).toBeUndefined()
-        })
-
         it('should return an instance with the framework API', async () => {
-            instance = await initPathNavigatorGameFramework()
+            instance = await initPathNavigatorGameFramework(getContainer())
             expect(instance).toBeDefined()
             expect(instance!.game).toBeDefined()
             expect(instance!.renderer).toBeDefined()
@@ -138,83 +128,32 @@ describe('initPathNavigatorGameFramework', () => {
         })
     })
 
-    describe('game controls', () => {
-        it('start button click should start the game', async () => {
-            instance = await initPathNavigatorGameFramework()
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
+    describe('game lifecycle', () => {
+        it('endGame should end the run and report game over', async () => {
+            instance = await initPathNavigatorGameFramework(getContainer())
+            instance!.game.start()
+            await instance!.endGame()
 
-            startBtn.click()
-
-            const state = instance!.getState()
-            expect(state.isActive).toBe(true)
-            expect(state.gameStarted).toBe(true)
-            // Start button hidden, end button visible
-            expect(startBtn.style.display).toBe('none')
-        })
-
-        it('end button click should end the game', async () => {
-            instance = await initPathNavigatorGameFramework()
-            const startBtn = document.getElementById('start-btn')
-            const endBtn = document.getElementById('end-btn')
-
-            ;(startBtn as HTMLButtonElement).click()
-            await Promise.resolve()
-            ;(endBtn as HTMLButtonElement).click()
-            // Allow the async end() to settle
             await vi.waitFor(() => {
                 expect(instance!.getState().isGameOver).toBe(true)
             })
         })
 
-        it('play-again button should reset the game and hide overlay', async () => {
-            instance = await initPathNavigatorGameFramework()
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            const playAgainBtn = document.getElementById(
-                'play-again-btn'
-            ) as HTMLButtonElement
-
-            startBtn.click()
-            playAgainBtn.click()
+        it('restart should reset the game state', async () => {
+            instance = await initPathNavigatorGameFramework(getContainer())
+            instance!.game.start()
+            instance!.restart()
 
             const state = instance!.getState()
             expect(state.isActive).toBe(false)
             expect(state.currentLevel).toBe(1)
             expect(state.score).toBe(0)
-            const overlay = document.getElementById('game-over-overlay')!
-            expect(overlay.classList.contains('hidden')).toBe(true)
-        })
-
-        it('onEnd callback should populate the game-over overlay', async () => {
-            instance = await initPathNavigatorGameFramework()
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            const endBtn = document.getElementById(
-                'end-btn'
-            ) as HTMLButtonElement
-
-            startBtn.click()
-            endBtn.click()
-
-            await vi.waitFor(() => {
-                const overlay = document.getElementById('game-over-overlay')!
-                expect(overlay.classList.contains('hidden')).toBe(false)
-            })
-
-            const finalScore = document.getElementById('final-score')!
-            expect(finalScore.textContent).toBe('0')
-            const levelsCompleted = document.getElementById('levels-completed')!
-            expect(levelsCompleted.textContent).toBe('0')
         })
     })
 
     describe('keyboard controls', () => {
         it('should not move the cursor before the game starts', async () => {
-            instance = await initPathNavigatorGameFramework()
+            instance = await initPathNavigatorGameFramework(getContainer())
             const stateBefore = instance!.getState()
             document.dispatchEvent(
                 new KeyboardEvent('keydown', { key: 'ArrowUp' })
@@ -225,11 +164,8 @@ describe('initPathNavigatorGameFramework', () => {
         })
 
         it('should move the cursor with arrow keys once started', async () => {
-            instance = await initPathNavigatorGameFramework()
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            startBtn.click()
+            instance = await initPathNavigatorGameFramework(getContainer())
+            instance!.game.start()
 
             const beforeX = instance!.getState().cursor.x
             document.dispatchEvent(
@@ -240,11 +176,8 @@ describe('initPathNavigatorGameFramework', () => {
         })
 
         it('should ignore non-arrow keys', async () => {
-            instance = await initPathNavigatorGameFramework()
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            startBtn.click()
+            instance = await initPathNavigatorGameFramework(getContainer())
+            instance!.game.start()
 
             const beforeX = instance!.getState().cursor.x
             const beforeY = instance!.getState().cursor.y
@@ -260,7 +193,7 @@ describe('initPathNavigatorGameFramework', () => {
 
     describe('cleanup', () => {
         it('should not throw and should tear down listeners', async () => {
-            instance = await initPathNavigatorGameFramework()
+            instance = await initPathNavigatorGameFramework(getContainer())
             expect(() => instance!.cleanup()).not.toThrow()
             instance = undefined
         })
