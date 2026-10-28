@@ -60,6 +60,13 @@ function buttonFor(color: ChromaticTideColor): HTMLButtonElement {
     )!
 }
 
+// The island passes the board host (HPA-393); tests grab the same node.
+function initFramework(): ReturnType<typeof initChromaticTideGameFramework> {
+    return initChromaticTideGameFramework(
+        document.getElementById('chromatic-tide-container')!
+    )
+}
+
 describe('initChromaticTideGameFramework', () => {
     let handle: Awaited<ReturnType<typeof initChromaticTideGameFramework>>
 
@@ -93,18 +100,18 @@ describe('initChromaticTideGameFramework', () => {
         document.body.replaceChildren()
     })
 
-    it('fails cleanly when the Chromatic Tide container is missing', async () => {
+    it('fails cleanly when the renderer board is missing', async () => {
         const consoleError = vi
             .spyOn(console, 'error')
             .mockImplementation(() => {})
-        document.getElementById('chromatic-tide-container')?.remove()
+        document.getElementById('chromatic-tide-board')?.remove()
 
-        expect(await initChromaticTideGameFramework()).toBeUndefined()
+        expect(await initFramework()).toBeUndefined()
         expect(consoleError).toHaveBeenCalled()
     })
 
     it('renders an idle board with all five color controls disabled', async () => {
-        handle = await initChromaticTideGameFramework()
+        handle = await initFramework()
 
         expect(handle).toBeDefined()
         expect(colorButtons()).toHaveLength(5)
@@ -120,9 +127,9 @@ describe('initChromaticTideGameFramework', () => {
     })
 
     it('enables every color on Start while keeping the current color pressed and reachable', async () => {
-        handle = await initChromaticTideGameFramework()
+        handle = await initFramework()
 
-        document.getElementById('start-btn')!.click()
+        handle!.game.start()
 
         expect(handle!.game.getState().isActive).toBe(true)
         expect(colorButtons().every(button => !button.disabled)).toBe(true)
@@ -138,9 +145,9 @@ describe('initChromaticTideGameFramework', () => {
     })
 
     it('routes current and changed button choices through the model without counting the current color', async () => {
-        handle = await initChromaticTideGameFramework()
+        handle = await initFramework()
         const chooseColor = vi.spyOn(handle!.game, 'chooseColor')
-        document.getElementById('start-btn')!.click()
+        handle!.game.start()
 
         buttonFor('teal').click()
         expect(handle!.game.getState().movesUsed).toBe(0)
@@ -154,9 +161,9 @@ describe('initChromaticTideGameFramework', () => {
     })
 
     it('routes number keys through the same choice path and ignores editable targets', async () => {
-        handle = await initChromaticTideGameFramework()
+        handle = await initFramework()
         const chooseColor = vi.spyOn(handle!.game, 'chooseColor')
-        document.getElementById('start-btn')!.click()
+        handle!.game.start()
 
         const keyboardChoice = new KeyboardEvent('keydown', {
             key: '5',
@@ -175,32 +182,28 @@ describe('initChromaticTideGameFramework', () => {
         expect(handle!.game.getState().movesUsed).toBe(1)
     })
 
-    it('updates the pressed reachable color, HUD, and polite status after a move', async () => {
-        handle = await initChromaticTideGameFramework()
-        document.getElementById('start-btn')!.click()
+    it('updates the pressed reachable color and polite status after a move', async () => {
+        handle = await initFramework()
+        handle!.game.start()
 
         buttonFor('green').click()
 
         expect(buttonFor('green')).toHaveAttribute('aria-pressed', 'true')
         expect(buttonFor('green').disabled).toBe(false)
         expect(buttonFor('teal')).toHaveAttribute('aria-pressed', 'false')
-        expect(document.getElementById('moves')).toHaveTextContent('1')
-        expect(document.getElementById('captured')).toHaveTextContent(
-            '143 / 144'
-        )
         expect(
             document.getElementById('chromatic-tide-status')
         ).toHaveTextContent('Territory green, 143 of 144 captured, 1 move.')
     })
 
-    it('Reset and Play Again restore idle controls and render fresh boards', async () => {
-        handle = await initChromaticTideGameFramework()
-        document.getElementById('start-btn')!.click()
+    it('Restart restores idle controls and renders a fresh board', async () => {
+        handle = await initFramework()
+        handle!.game.start()
         buttonFor('green').click()
         const firstBoard = handle!.game.getState().board
         const firstCell = document.querySelector('.chromatic-tide-cell')
 
-        document.getElementById('reset-btn')!.click()
+        handle!.restart()
 
         expect(handle!.game.getState()).toMatchObject({
             isActive: false,
@@ -213,13 +216,10 @@ describe('initChromaticTideGameFramework', () => {
             firstCell
         )
         expect(colorButtons().every(button => button.disabled)).toBe(true)
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
-        )
 
         const secondBoard = handle!.game.getState().board
-        document.getElementById('start-btn')!.click()
-        document.getElementById('play-again-btn')!.click()
+        handle!.game.start()
+        handle!.restart()
 
         expect(handle!.game.getState()).toMatchObject({
             isActive: false,
@@ -230,32 +230,21 @@ describe('initChromaticTideGameFramework', () => {
         expect(colorButtons().every(button => button.disabled)).toBe(true)
     })
 
-    it('populates final stats, overlay, controls, and live status when the board clears', async () => {
-        handle = await initChromaticTideGameFramework()
-        document.getElementById('start-btn')!.click()
+    it('locks controls and announces the cleared board when it clears', async () => {
+        // Overlay/final-stat ownership moved to the ChromaticTideScreen island
+        // (HPA-393); the initializer contract left here is control state and
+        // the polite live announcer.
+        handle = await initFramework()
+        handle!.game.start()
 
         buttonFor('amber').click()
 
         await vi.waitFor(() =>
-            expect(
-                document.getElementById('game-over-overlay')
-            ).not.toHaveClass('hidden')
-        )
-        expect(handle!.game.getState()).toMatchObject({
-            outcome: 'cleared',
-            isActive: false,
-            isGameOver: true,
-        })
-        expect(document.getElementById('final-outcome')).toHaveTextContent(
-            'Cleared'
-        )
-        expect(document.getElementById('final-moves')).toHaveTextContent('1')
-        expect(document.getElementById('final-captured')).toHaveTextContent(
-            '144 / 144'
-        )
-        expect(document.getElementById('final-score')).toHaveTextContent('2645')
-        expect(document.getElementById('game-over-title')).toHaveTextContent(
-            'TIDE COMPLETE!'
+            expect(handle!.game.getState()).toMatchObject({
+                outcome: 'cleared',
+                isActive: false,
+                isGameOver: true,
+            })
         )
         expect(colorButtons().every(button => button.disabled)).toBe(true)
         expect(
@@ -274,8 +263,8 @@ describe('initChromaticTideGameFramework', () => {
         vi.mocked(Math.random).mockImplementation(
             () => samples[sampleIndex++] ?? 0.4
         )
-        handle = await initChromaticTideGameFramework()
-        document.getElementById('start-btn')!.click()
+        handle = await initFramework()
+        handle!.game.start()
         buttonFor('amber').click()
         const partialScore = handle!.game.getState().score
 
@@ -291,32 +280,19 @@ describe('initChromaticTideGameFramework', () => {
             isActive: false,
             isGameOver: true,
         })
-        expect(document.getElementById('game-over-title')).toHaveTextContent(
-            'TIME UP!'
-        )
-        expect(document.getElementById('final-outcome')).toHaveTextContent(
-            'Timeout'
-        )
+        expect(colorButtons().every(button => button.disabled)).toBe(true)
         expect(
             document.getElementById('chromatic-tide-status')
         ).toHaveTextContent('Time expired.')
-        expect(colorButtons().every(button => button.disabled)).toBe(true)
-        expect(document.getElementById('start-btn')).toHaveStyle({
-            display: 'inline-flex',
-        })
     })
 
     it('keeps non-timeout placeholders when a playing run ends', async () => {
-        handle = await initChromaticTideGameFramework()
-        document.getElementById('start-btn')!.click()
+        handle = await initFramework()
+        handle!.game.start()
 
         await handle!.game.end()
 
         expect(handle!.game.getState().outcome).toBe('playing')
-        expect(document.getElementById('game-over-title')).toHaveTextContent(
-            'GAME OVER!'
-        )
-        expect(document.getElementById('final-outcome')).toHaveTextContent('—')
         expect(
             document.getElementById('chromatic-tide-status')
         ).not.toHaveTextContent('Time expired.')
@@ -336,8 +312,8 @@ describe('initChromaticTideGameFramework', () => {
                 },
             }),
         } as Response)
-        handle = await initChromaticTideGameFramework()
-        document.getElementById('start-btn')!.click()
+        handle = await initFramework()
+        handle!.game.start()
 
         buttonFor('amber').click()
 
@@ -352,8 +328,8 @@ describe('initChromaticTideGameFramework', () => {
     })
 
     it('guards active runs before unload', async () => {
-        handle = await initChromaticTideGameFramework()
-        document.getElementById('start-btn')!.click()
+        handle = await initFramework()
+        handle!.game.start()
         const event = new Event('beforeunload', { cancelable: true })
 
         window.dispatchEvent(event)
@@ -362,8 +338,8 @@ describe('initChromaticTideGameFramework', () => {
     })
 
     it('cleans up once and later DOM events cannot mutate the destroyed game', async () => {
-        handle = await initChromaticTideGameFramework()
-        document.getElementById('start-btn')!.click()
+        handle = await initFramework()
+        handle!.game.start()
         const rendererDestroy = vi.spyOn(handle!.renderer, 'destroy')
         const gameDestroy = vi.spyOn(handle!.game, 'destroy')
         const chooseColor = vi.spyOn(handle!.game, 'chooseColor')
@@ -373,8 +349,6 @@ describe('initChromaticTideGameFramework', () => {
         handle!.cleanup()
         buttonFor('green').click()
         fireEvent.keyDown(document, { key: '5' })
-        document.getElementById('reset-btn')!.click()
-        document.getElementById('start-btn')!.click()
 
         expect(rendererDestroy).toHaveBeenCalledTimes(1)
         expect(gameDestroy).toHaveBeenCalledTimes(1)
@@ -389,11 +363,11 @@ describe('initChromaticTideGameFramework', () => {
     it.each(PALETTE.map((color, index) => [String(index + 1), color] as const))(
         'maps key %s to %s',
         async (key, color) => {
-            handle = await initChromaticTideGameFramework()
+            handle = await initFramework()
             const chooseColor = vi
                 .spyOn(handle!.game, 'chooseColor')
                 .mockReturnValue(false)
-            document.getElementById('start-btn')!.click()
+            handle!.game.start()
 
             fireEvent.keyDown(document, { key })
 
