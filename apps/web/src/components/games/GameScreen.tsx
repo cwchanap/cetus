@@ -34,6 +34,10 @@ export interface GameScreenProps {
   statsProps?: GameStatsProps
   /** Pass-through for GameControls. */
   controlsProps?: GameControlsProps
+  /** Custom control markup rendered instead of GameControls (mirrors
+   *  GamePage.astro's `controls` slot, same position between stats and
+   *  game-info — e.g. Reflex's start/stop pair). */
+  controls?: ReactNode
   /** Pass-through for GameOverlay. */
   overlayProps?: GameOverlayProps
 }
@@ -47,6 +51,7 @@ export function GameScreen({
   finalStats,
   statsProps,
   controlsProps,
+  controls,
   overlayProps,
 }: GameScreenProps) {
   return (
@@ -69,8 +74,8 @@ export function GameScreen({
               {/* Game Stats */}
               <GameStats {...statsProps} />
 
-              {/* Game Controls */}
-              <GameControls {...controlsProps} />
+              {/* Game Controls (or a page-provided custom control card) */}
+              {controls ?? <GameControls {...controlsProps} />}
 
               {/* Game Information */}
               {sidebarExtras}
