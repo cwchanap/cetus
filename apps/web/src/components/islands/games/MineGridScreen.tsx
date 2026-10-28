@@ -250,13 +250,19 @@ export default function MineGridScreen() {
             </h3>
             {/* Wired by the initializer (bespoke custom control):
                             clicking swaps the idle preset through
-                            game.newGame; disabled while a run is active. */}
+                            game.newGame; disabled while a run is active.
+                            They also START disabled: the initializer wires
+                            them only after its async mount, so an eager
+                            pre-init click would be silently lost — init
+                            enables them (setDifficultyButtonsDisabled(false))
+                            as soon as the handlers are attached. */}
             <div className="grid grid-cols-3 gap-2">
               <Button
                 id="easy-btn"
                 variant="outline"
                 size="sm"
                 aria-pressed="false"
+                disabled
                 className="mine-grid-difficulty hover-glow-cyan"
               >
                 Easy
@@ -266,6 +272,7 @@ export default function MineGridScreen() {
                 variant="outline"
                 size="sm"
                 aria-pressed="true"
+                disabled
                 className="mine-grid-difficulty hover-glow-cyan"
               >
                 Medium
@@ -275,6 +282,7 @@ export default function MineGridScreen() {
                 variant="outline"
                 size="sm"
                 aria-pressed="false"
+                disabled
                 className="mine-grid-difficulty hover-glow-cyan"
               >
                 Hard
