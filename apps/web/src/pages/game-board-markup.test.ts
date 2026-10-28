@@ -3,8 +3,8 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { appRoot } from '@/test/app-root'
 
-const reflexMarkup = readFileSync(
-    resolve(appRoot, 'src/pages/reflex/index.astro'),
+const reflexIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/ReflexScreen.tsx'),
     'utf-8'
 )
 const evaderMarkup = readFileSync(
@@ -49,7 +49,6 @@ const chromaticTideRouteMarkup = readFileSync(
 )
 
 const games = [
-    'reflex',
     'path-navigator',
     'evader',
     'circuit-hacker',
@@ -65,7 +64,12 @@ const fieldPlateGames = ['tetris', 'bubble-shooter', 'bejeweled', '2048']
 
 describe('Game board page markup', () => {
     it('keeps Reflex and Evader default boards visible before start', () => {
-        expect(reflexMarkup).toMatch(/id="game-status"[^>]*class="[^"]*hidden/)
+        // Reflex's board (and its hidden-by-default #game-status overlay)
+        // moved into the ReflexScreen island (HPA-393); the markup lives in
+        // TSX now, so the class attribute is spelled className.
+        expect(reflexIslandMarkup).toMatch(
+            /id="game-status"[^>]*className="[^"]*hidden/
+        )
         expect(evaderMarkup).toMatch(/id="game-status"[^>]*class="[^"]*hidden/)
     })
 

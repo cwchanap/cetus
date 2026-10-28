@@ -1,7 +1,6 @@
 // initFramework unit tests for Reflex
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { initReflexGameFramework, showGameOver } from './initFramework'
-import type { ReflexStats } from '@cetus/games/reflex/frameworkTypes'
+import { initReflexGameFramework } from './initFramework'
 
 // Mock pixi.js for the renderer
 vi.mock('pixi.js', () => {
@@ -79,24 +78,19 @@ vi.mock('pixi.js', () => {
     }
 })
 
+// HPA-393: React owns the HUD spans, the start/stop buttons, the overlay
+// and its final stats, so the initializer no longer wires or writes them —
+// that coverage moved to the ReflexScreen island test. The initializer
+// keeps the Pixi canvas host, the canvas click handler, the rAF render
+// loop and the unload warning.
 function setupDOM() {
     document.body.innerHTML = `
         <div id="game-canvas-container"></div>
-        <span id="score">0</span>
-        <span id="time-remaining">60</span>
-        <span id="coins-collected">0</span>
-        <span id="bombs-hit">0</span>
-        <span id="accuracy">0%</span>
-        <span id="final-score">0</span>
-        <span id="final-coins">0</span>
-        <span id="final-bombs">0</span>
-        <span id="final-accuracy">0%</span>
-        <span id="avg-reaction">0ms</span>
-        <div id="game-over-overlay" class="hidden"></div>
-        <button id="start-btn">Start</button>
-        <button id="stop-btn" style="display:none">Stop</button>
-        <button id="play-again-btn">Play Again</button>
     `
+}
+
+function getContainer(): HTMLElement {
+    return document.getElementById('game-canvas-container')!
 }
 
 describe('initReflexGameFramework', () => {
@@ -126,7 +120,7 @@ describe('initReflexGameFramework', () => {
 
     describe('initialization', () => {
         it('returns a result with game, renderer, and cleanup', async () => {
-            const result = await initReflexGameFramework()
+            const result = await initReflexGameFramework(getContainer())
             expect(result).toBeDefined()
             expect(result!.game).toBeDefined()
             expect(result!.renderer).toBeDefined()
@@ -135,14 +129,17 @@ describe('initReflexGameFramework', () => {
             result!.cleanup()
         })
 
-        it('returns undefined when container is missing', async () => {
-            document.getElementById('game-canvas-container')!.remove()
-            const result = await initReflexGameFramework()
+        it('returns undefined when container is detached', async () => {
+            const container = getContainer()
+            container.remove()
+            const result = await initReflexGameFramework(container)
             expect(result).toBeUndefined()
         })
 
         it('accepts custom config', async () => {
-            const result = await initReflexGameFramework({ duration: 30 })
+            const result = await initReflexGameFramework(getContainer(), {
+                duration: 30,
+            })
             expect(result).toBeDefined()
             expect(result!.game.getState().timeRemaining).toBe(30)
             result!.cleanup()
@@ -150,111 +147,49 @@ describe('initReflexGameFramework', () => {
     })
 
     describe('game start', () => {
-        it('hides start button and shows stop button on start', async () => {
-            const result = await initReflexGameFramework()
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            const stopBtn = document.getElementById(
-                'stop-btn'
-            ) as HTMLButtonElement
+        it('emits start with an active state and running spawn timer', async () => {
+            const result = await initReflexGameFramework(getContainer())
 
             result!.game.start()
 
-            expect(startBtn.style.display).toBe('none')
-            expect(stopBtn.style.display).toBe('inline-flex')
-            result!.cleanup()
-        })
-
-        it('hides the game-over overlay on start', async () => {
-            const result = await initReflexGameFramework()
-            const overlay = document.getElementById('game-over-overlay')!
-            overlay.classList.remove('hidden')
-
-            result!.game.start()
-            expect(overlay.classList.contains('hidden')).toBe(true)
+            const state = result!.game.getState()
+            expect(state.isActive).toBe(true)
+            expect(state.gameStarted).toBe(true)
+            vi.advanceTimersByTime(1000)
+            // Spawner ticked: objects appeared from the spawn interval.
+            expect(result!.game.getActiveObjects().length).toBeGreaterThan(0)
             result!.cleanup()
         })
     })
 
     describe('game end', () => {
-        it('shows overlay and resets buttons on end', async () => {
-            const result = await initReflexGameFramework()
+        it('ends the run through endGame', async () => {
+            const result = await initReflexGameFramework(getContainer())
             result!.game.start()
-            await result!.game.end()
+            await result!.endGame()
 
-            const overlay = document.getElementById('game-over-overlay')!
-            expect(overlay.classList.contains('hidden')).toBe(false)
-
-            const startBtn = document.getElementById('start-btn')!
-            const stopBtn = document.getElementById('stop-btn')!
-            expect(startBtn.style.display).toBe('inline-flex')
-            expect(stopBtn.style.display).toBe('none')
+            const state = result!.game.getState()
+            expect(state.isActive).toBe(false)
+            expect(state.isGameOver).toBe(true)
             result!.cleanup()
-        })
-
-        it('displays final stats in the overlay', async () => {
-            const result = await initReflexGameFramework()
-            result!.game.start()
-            await result!.game.end()
-
-            const finalScore = document.getElementById('final-score')!
-            const finalAccuracy = document.getElementById('final-accuracy')!
-            expect(finalScore.textContent).toBe('0')
-            expect(finalAccuracy.textContent).toBe('0%')
-            result!.cleanup()
-        })
-
-        it('uses stats.accuracy for the display', async () => {
-            const result = await initReflexGameFramework()
-            result!.cleanup()
-
-            // Craft stats where correctClicks/totalClicks (accuracy) diverges
-            // from coinsCollected/totalClicks. The Task 1.5 bug displayed the
-            // latter; the fix must display stats.accuracy.
-            const divergentStats: ReflexStats = {
-                finalScore: 100,
-                timeElapsed: 60,
-                gameCompleted: true,
-                totalClicks: 10,
-                correctClicks: 7,
-                incorrectClicks: 3,
-                accuracy: 70,
-                coinsCollected: 5, // would yield 50% under the buggy formula
-                bombsHit: 3,
-                missedCoins: 0,
-                averageReactionTime: 0,
-                objectsSpawned: 10,
-                gameHistory: [],
-            }
-
-            showGameOver(divergentStats.finalScore, divergentStats)
-
-            const finalAccuracy = document.getElementById('final-accuracy')!
-            const finalScore = document.getElementById('final-score')!
-            const finalCoins = document.getElementById('final-coins')!
-            expect(finalScore.textContent).toBe('100')
-            expect(finalAccuracy.textContent).toBe('70%')
-            // coinsCollected is shown verbatim, confirming divergence is real
-            expect(finalCoins.textContent).toBe('5')
         })
     })
 
     describe('live stats update', () => {
-        it('updates coins/bombs/accuracy on state change', async () => {
-            const result = await initReflexGameFramework()
+        it('emits state-change with coin collections', async () => {
+            const result = await initReflexGameFramework(getContainer())
             result!.game.start()
 
             vi.spyOn(Math, 'random').mockReturnValue(0.5) // always coins
             vi.advanceTimersByTime(1000)
 
             const coin = result!.game.getActiveObjects()[0]
+            const stateChange = vi.fn()
+            result!.game.on('state-change', stateChange)
             result!.game.handleCellClick(coin.cell.row, coin.cell.col)
 
-            const coinsEl = document.getElementById('coins-collected')!
-            const accuracyEl = document.getElementById('accuracy')!
-            expect(coinsEl.textContent).toBe('1')
-            expect(accuracyEl.textContent).toMatch(/\d+%/)
+            expect(stateChange).toHaveBeenCalled()
+            expect(result!.game.getState().coinsCollected).toBe(1)
 
             result!.cleanup()
         })
@@ -262,7 +197,7 @@ describe('initReflexGameFramework', () => {
 
     describe('cleanup', () => {
         it('does not throw on cleanup', async () => {
-            const result = await initReflexGameFramework()
+            const result = await initReflexGameFramework(getContainer())
             result!.game.start()
             expect(() => result!.cleanup()).not.toThrow()
         })
@@ -270,7 +205,7 @@ describe('initReflexGameFramework', () => {
 
     describe('restart', () => {
         it('resets the game state', async () => {
-            const result = await initReflexGameFramework()
+            const result = await initReflexGameFramework(getContainer())
             result!.game.start()
             vi.advanceTimersByTime(1000)
 
@@ -280,34 +215,6 @@ describe('initReflexGameFramework', () => {
             expect(state.gameStarted).toBe(false)
             expect(state.score).toBe(0)
             expect(state.objects).toEqual([])
-            result!.cleanup()
-        })
-    })
-
-    describe('score/time UI callbacks', () => {
-        it('updates score element on score change', async () => {
-            const result = await initReflexGameFramework()
-            result!.game.start()
-
-            vi.spyOn(Math, 'random').mockReturnValue(0.5)
-            vi.advanceTimersByTime(1000)
-
-            const coin = result!.game.getActiveObjects()[0]
-            result!.game.handleCellClick(coin.cell.row, coin.cell.col)
-
-            const scoreEl = document.getElementById('score')!
-            expect(scoreEl.textContent).toBe('10')
-            result!.cleanup()
-        })
-
-        it('updates time element on tick', async () => {
-            const result = await initReflexGameFramework()
-            result!.game.start()
-
-            vi.advanceTimersByTime(1000)
-
-            const timeEl = document.getElementById('time-remaining')!
-            expect(timeEl.textContent).toBe('59')
             result!.cleanup()
         })
     })
