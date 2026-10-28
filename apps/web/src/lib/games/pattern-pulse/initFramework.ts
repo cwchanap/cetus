@@ -4,20 +4,12 @@ import {
     createPatternPulseConfig,
     type PatternPad,
     type PatternPulseState,
-    type PatternPulseStats,
 } from '@cetus/games/pattern-pulse/types'
-import type {
-    BaseGameCallbacks,
-    BaseGameState,
-    BaseGameStats,
-    ChallengeUpdates,
-} from '@cetus/games/core/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
+import type { BaseGameCallbacks, BaseGameState } from '@cetus/games/core/types'
+import { handleGameError } from '@cetus/games/core/errors'
 import { isEditableTarget } from '@/lib/keyboard'
-import type { AchievementNotification } from '@cetus/shared/achievements'
+
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface PatternPulseInitResult {
@@ -45,43 +37,13 @@ function shortcutToPad(key: string): PatternPad | null {
     return null
 }
 
-function statusText(state: PatternPulseState): string {
-    if (state.outcome === 'timeout') {
-        return 'TIME'
-    }
-    if (state.outcome === 'mistakes') {
-        return 'SIGNAL LOST'
-    }
-    if (state.phase === 'idle') {
-        return 'READY'
-    }
-    if (state.phase === 'watch') {
-        return 'WATCH'
-    }
-    if (state.phase === 'input') {
-        return 'REPEAT'
-    }
-    if (state.feedback === 'correct') {
-        return 'CORRECT'
-    }
-    if (state.feedback === 'wrong') {
-        return 'WRONG — WATCH AGAIN'
-    }
-    return 'READY'
-}
-
-export async function initPatternPulseGameFramework(): Promise<
-    PatternPulseInitResult | undefined
-> {
-    const container = document.getElementById('pattern-pulse-container')
-    if (!container) {
-        handleGameError(
-            new DOMElementNotFoundError('pattern-pulse-container'),
-            'PatternPulse'
-        )
-        return undefined
-    }
-
+export async function initPatternPulseGameFramework(
+    // The island-owned board host (#pattern-pulse-container). The renderer
+    // mounts into the frozen inner #pattern-pulse-board pad grid, so the
+    // host itself is only passed for parity with the island mount contract
+    // (HPA-393).
+    _container: HTMLElement
+): Promise<PatternPulseInitResult | undefined> {
     const renderer = new PatternPulseRenderer()
     try {
         await renderer.initialize()
@@ -112,75 +74,11 @@ export async function initPatternPulseGameFramework(): Promise<
         trackedListeners.push({ target, type, handler })
     }
 
-    const setText = (id: string, value: string): void => {
-        const element = document.getElementById(id)
-        if (element) {
-            element.textContent = value
-        }
-    }
-
-    const setStartVisible = (visible: boolean): void => {
-        const startButton = document.getElementById(
-            'start-btn'
-        ) as HTMLButtonElement | null
-        if (startButton) {
-            startButton.style.display = visible ? 'inline-flex' : 'none'
-        }
-    }
-
-    const hideOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.add('hidden')
-    }
-
-    const syncHud = (state: PatternPulseState): void => {
-        setText('sequence-length', String(state.sequence.length))
-        setText('completed-rounds', String(state.completedRounds))
-        setText('streak', String(state.streak))
-        setText('mistakes', String(state.mistakes))
-        setText('time-remaining', String(state.timeRemaining))
-        setText('pattern-status', statusText(state))
-    }
-
-    const resetPresentation = (): void => {
-        hideOverlay()
-        setStartVisible(true)
-    }
-
+    // React owns the HUD/buttons/overlay (HPA-393): the callbacks only keep
+    // the imperative pad rendering — every caller callback passes through.
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: (state: BaseGameState) => {
-            const patternPulseState = state as PatternPulseState
-            renderer.render(patternPulseState)
-            syncHud(patternPulseState)
-        },
-        onScoreUpdate: (score: number) => {
-            setText('score', String(score))
-        },
-        onTimeUpdate: (timeRemaining: number) => {
-            setText('time-remaining', String(timeRemaining))
-        },
-        onStart: () => {
-            setStartVisible(false)
-            hideOverlay()
-        },
-        onEnd: (finalScore: number, stats: BaseGameStats) => {
-            const patternPulseStats = stats as PatternPulseStats
-            resetPresentation()
-            setText('final-score', String(finalScore))
-            setText('final-outcome', getOutcomeLabel(patternPulseStats.outcome))
-            setText('final-rounds', String(patternPulseStats.completedRounds))
-            setText(
-                'final-longest-sequence',
-                String(patternPulseStats.longestSequence)
-            )
-            setText('final-max-streak', String(patternPulseStats.maxStreak))
-            setText('final-mistakes', String(patternPulseStats.mistakes))
-            const title = document.getElementById('game-over-title')
-            if (title) {
-                title.textContent = getOutcomeTitle(patternPulseStats.outcome)
-            }
-            document
-                .getElementById('game-over-overlay')
-                ?.classList.remove('hidden')
+            renderer.render(state as PatternPulseState)
         },
     }
 
@@ -189,45 +87,9 @@ export async function initPatternPulseGameFramework(): Promise<
         enhancedCallbacks
     )
 
-    const onGameEnd = (event: unknown): void => {
-        const data = (event as { data?: unknown }).data as
-            | {
-                  newAchievements?: AchievementNotification[]
-                  challengeUpdates?: ChallengeUpdates
-              }
-            | undefined
-        const globalWindow = window as Window & {
-            showAchievementAward?: (
-                achievements: AchievementNotification[]
-            ) => void
-            showChallengeComplete?: (updates: ChallengeUpdates) => void
-        }
-        if (data?.newAchievements?.length) {
-            globalWindow.showAchievementAward?.(data.newAchievements)
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            globalWindow.showChallengeComplete?.(data.challengeUpdates)
-        }
-    }
-    game.on('end', onGameEnd)
-
-    const startButton = document.getElementById('start-btn')
-    const resetButton = document.getElementById('reset-btn')
-    const playAgainButton = document.getElementById('play-again-btn')
-
-    const startHandler: EventListener = () => {
-        game.start()
-    }
-    const resetHandler = (): void => {
-        game.reset()
-        renderer.render(game.getState())
-        syncHud(game.getState())
-        resetPresentation()
-    }
-
-    listen(startButton, 'click', startHandler)
-    listen(resetButton, 'click', resetHandler)
-    listen(playAgainButton, 'click', resetHandler)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
     // The shortcut listens on `document`; the game stays the final phase
     // authority because `pressPad` gates on the input phase. Auto-repeated
@@ -262,9 +124,12 @@ export async function initPatternPulseGameFramework(): Promise<
     }
     listen(window, 'beforeunload', beforeUnloadHandler)
 
+    const resetHandler = (): void => {
+        game.reset()
+        renderer.render(game.getState())
+    }
+
     renderer.render(game.getState())
-    syncHud(game.getState())
-    setStartVisible(true)
 
     let cleanedUp = false
     const cleanup = (): void => {
@@ -275,7 +140,7 @@ export async function initPatternPulseGameFramework(): Promise<
         for (const { target, type, handler } of trackedListeners) {
             target.removeEventListener(type, handler)
         }
-        game.off('end', onGameEnd)
+        removeForwarder()
         renderer.destroy()
         game.destroy()
     }
@@ -287,27 +152,5 @@ export async function initPatternPulseGameFramework(): Promise<
         getState: () => game.getState(),
         restart: resetHandler,
         cleanup,
-    }
-}
-
-function getOutcomeLabel(outcome: PatternPulseStats['outcome']): string {
-    switch (outcome) {
-        case 'timeout':
-            return 'Timeout'
-        case 'mistakes':
-            return 'Mistake Limit'
-        default:
-            return 'Game Over'
-    }
-}
-
-function getOutcomeTitle(outcome: PatternPulseStats['outcome']): string {
-    switch (outcome) {
-        case 'timeout':
-            return 'TIME UP!'
-        case 'mistakes':
-            return 'SIGNAL LOST!'
-        default:
-            return 'GAME OVER!'
     }
 }
