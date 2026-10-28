@@ -48,7 +48,6 @@ const games = [
     'sudoku',
     'path-navigator',
     'evader',
-    'snake',
     'circuit-hacker',
     'satellite-sync',
     'ice-slide',
