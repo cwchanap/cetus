@@ -137,4 +137,56 @@ export default [
       ],
     },
   },
+  // Dependency direction for the portable hooks package (HPA-393): it may
+  // depend on @cetus/shared and @cetus/games (peer) only — never the API
+  // client, UI components, tokens, framework or server code.
+  {
+    files: ['packages/app-core/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...packageBoundaryPatterns,
+            {
+              group: [
+                '@cetus/api-client',
+                '@cetus/api-client/**',
+                '@cetus/ui',
+                '@cetus/ui/**',
+                '@cetus/tokens',
+                '@cetus/tokens/**',
+              ],
+              message:
+                '@cetus/app-core may only depend on @cetus/shared and @cetus/games',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // DOM globals are banned in app-core production sources (HPA-393): hooks
+  // and adapters stay portable; only jsdom test files may touch them. The
+  // no-DOM tsconfig lib already excludes them at compile time.
+  {
+    files: ['packages/app-core/src/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'window',
+          message: 'app-core production source must not use browser globals',
+        },
+        {
+          name: 'document',
+          message: 'app-core production source must not use browser globals',
+        },
+        {
+          name: 'HTMLElement',
+          message: 'app-core production source must not use browser globals',
+        },
+      ],
+    },
+  },
 ]

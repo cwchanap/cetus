@@ -1,0 +1,16 @@
+{
+    "extends": "@cetus/config/tsconfig.base.json",
+    "include": ["src/**/*.ts", "src/**/*.tsx"],
+    "compilerOptions": {
+        "noEmit": true,
+        // ES standard library only — no DOM (like @cetus/games): hooks and
+        // session adapters must stay portable; DOM renderers stay in apps/web
+        // and jsdom exists only inside test runs.
+        "lib": ["ES2022"],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "jsx": "react-jsx",
+        "verbatimModuleSyntax": true,
+        "types": ["node"]
+    }
+}

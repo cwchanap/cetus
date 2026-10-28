@@ -78,6 +78,26 @@
         "typescript": "^6.0.3",
       },
     },
+    "packages/app-core": {
+      "name": "@cetus/app-core",
+      "version": "0.0.1",
+      "dependencies": {
+        "@cetus/shared": "workspace:*",
+      },
+      "devDependencies": {
+        "@cetus/config": "workspace:*",
+        "@cetus/games": "workspace:*",
+        "@testing-library/react": "^16.3.3",
+        "@types/react": "^19.3.0",
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1",
+        "typescript": "^6.0.3",
+      },
+      "peerDependencies": {
+        "@cetus/games": "workspace:*",
+        "react": "^17.0.2 || ^18.0.0 || ^19.0.0",
+      },
+    },
     "packages/config": {
       "name": "@cetus/config",
       "version": "0.0.1",
@@ -244,6 +264,8 @@
     "@capsizecss/unpack": ["@capsizecss/unpack@2.4.0", "", { "dependencies": { "blob-to-buffer": "^1.2.8", "cross-fetch": "^3.0.4", "fontkit": "^2.0.2" } }, "sha512-GrSU71meACqcmIUxPYOJvGKF0yryjN/L1aCuE9DViCTJI7bfkjgYDPD1zbNDcINJwSSP6UaBZY9GAbYDO7re0Q=="],
 
     "@cetus/api-client": ["@cetus/api-client@workspace:packages/api-client"],
+
+    "@cetus/app-core": ["@cetus/app-core@workspace:packages/app-core"],
 
     "@cetus/config": ["@cetus/config@workspace:packages/config"],
 
