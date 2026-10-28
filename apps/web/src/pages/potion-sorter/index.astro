@@ -1,178 +1,26 @@
 ---
-import GamePage from '@/components/games/GamePage.astro'
-import { Badge, Button, Card } from '@cetus/ui'
-import { POTION_SORTER_PRESETS } from '@cetus/games/potion-sorter/levels'
-import { POTION_TUBE_CAPACITY } from '@cetus/games/potion-sorter/types'
-
-const MAX_TUBES = Math.max(
-  ...Object.values(POTION_SORTER_PRESETS).map(
-    preset => preset.initialTubes.length
-  )
-)
+import AppLayout from '@/layouts/AppLayout.astro'
+import PotionSorterScreen from '@/components/islands/games/PotionSorterScreen'
 ---
 
-<GamePage
-  gameId="potion-sorter"
-  title="Potion Sorter"
+<AppLayout
+  title="Potion Sorter - Cetus Minigames"
   description="Sort layered lab potions into matching tubes before time runs out"
-  icon="🧪"
-  showPause={false}
-  showEnd={false}
-  initialTime={300}
+  navigation={[
+    { href: '/', label: 'Home' },
+    { href: '#', label: 'Potion Sorter' },
+  ]}
+  includeFooter={false}
 >
-  <div id="potion-sorter-container" slot="game-board" class="w-full">
-    <!-- Static tube skeleton: PotionSorterRenderer updates these in place
-         (visibility, layers, state attributes) and never recreates them. -->
-    <div
-      id="potion-sorter-board"
-      class="potion-sorter-board"
-      aria-label="Potion tubes"
-    >
-      {
-        Array.from({ length: MAX_TUBES }, (_, index) => (
-          <button
-            type="button"
-            class="potion-tube"
-            data-tube-index={index}
-            hidden
-          >
-            {Array.from({ length: POTION_TUBE_CAPACITY }).map(() => (
-              <span class="potion-layer" aria-hidden="true" />
-            ))}
-          </button>
-        ))
-      }
-    </div>
-    <p id="potion-sorter-status" class="sr-only" aria-live="polite"></p>
-  </div>
-
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono"
-      >Difficulty: <span id="difficulty">Medium</span></span
-    >
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono">Moves: <span id="moves">0</span></span>
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono">Undos: <span id="undos">0</span></span>
-  </Badge>
-
-  <div slot="game-info" class="space-y-6">
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ DIFFICULTY
-      </h3>
-      <div class="grid grid-cols-3 gap-2">
-        <Button
-          id="easy-btn"
-          variant="outline"
-          size="sm"
-          aria-pressed="false"
-          className="potion-sorter-difficulty hover-glow-cyan">Easy</Button
-        >
-        <Button
-          id="medium-btn"
-          variant="outline"
-          size="sm"
-          aria-pressed="true"
-          className="potion-sorter-difficulty hover-glow-cyan">Medium</Button
-        >
-        <Button
-          id="hard-btn"
-          variant="outline"
-          size="sm"
-          aria-pressed="false"
-          className="potion-sorter-difficulty hover-glow-cyan">Hard</Button
-        >
-      </div>
-      <div class="mt-2">
-        <Button
-          id="undo-btn"
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled
-          data-dead-end="false">Undo</Button
-        >
-      </div>
-      <p class="mt-3 text-xs text-cetus-ink-muted">
-        Undo reverses your last pour. When no legal pour remains, Undo is
-        highlighted — use it to back out of a dead end.
-      </p>
-    </Card>
-
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ HOW TO PLAY
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>Select a tube, then select a second tube to pour its top liquid.</p>
-        <p>Pour only onto an empty tube or a matching top liquid.</p>
-        <p>Stack four layers of one liquid into a tube to complete it.</p>
-        <p>Complete every tube before the timer runs out.</p>
-      </div>
-    </Card>
-
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ SCORING
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>
-          Solving banks the completion base: Easy 1,000 / Medium 2,000 / Hard
-          3,000.
-        </p>
-        <p>Finish under twice the move target for 40 points per unused move.</p>
-        <p>Each second remaining on the clock adds 5 points.</p>
-        <p>Timing out scores zero.</p>
-      </div>
-    </Card>
-  </div>
-
-  <div slot="final-stats">
-    <div class="text-lg text-cetus-ink">
-      Outcome: <span id="final-outcome" class="text-cetus-accent">—</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Difficulty:
-      <span id="final-difficulty" class="text-cetus-accent-3">Medium</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Moves: <span id="final-moves" class="text-cetus-accent-2">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Undos: <span id="final-undos" class="text-cetus-accent-2">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Time: <span id="final-time" class="text-cetus-accent">00:00</span>
-    </div>
-  </div>
-</GamePage>
-
-<script>
-  import { initPotionSorterGameFramework } from '@/lib/games/potion-sorter/initFramework'
-
-  document.addEventListener('DOMContentLoaded', () => {
-    initPotionSorterGameFramework()
-      .then(handle => {
-        if (handle) {
-          ;(
-            window as Window & { potionSorterGame?: typeof handle }
-          ).potionSorterGame = handle
-        }
-      })
-      .catch(error => {
-        console.error('Potion Sorter failed to initialize', error)
-      })
-  })
-</script>
+  <PotionSorterScreen client:load />
+</AppLayout>
 
 <style is:global>
   /* Selected difficulty mirrors the React Button `primary` variant from
      @cetus/ui (same contract as Mine Grid, carried over from Button.astro):
      `aria-pressed` drives both a11y state and styling, so initFramework
-     only toggles the attribute. */
+     only toggles the attribute. The difficulty buttons are rendered by the
+     PotionSorterScreen island, so these selectors must stay global. */
   @reference "../../styles/global.css";
   .potion-sorter-difficulty[aria-pressed='true'] {
     @apply border-0 bg-gradient-to-r from-[var(--cetus-btn-from)] to-[var(--cetus-btn-to)] text-white shadow-lg shadow-cetus-accent-2/25 hover:from-cetus-accent hover:to-cetus-accent-2;
@@ -190,7 +38,7 @@ const MAX_TUBES = Math.max(
     margin-inline: auto;
   }
 
-  /* Tube buttons are static Astro markup; PotionSorterRenderer only toggles
+  /* Tube buttons are static island markup; PotionSorterRenderer only toggles
      their hidden state and data attributes. All visual affordance lives here,
      keyed by the data attributes the renderer emits. */
   .potion-tube[hidden],
