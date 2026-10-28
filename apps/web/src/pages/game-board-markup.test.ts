@@ -54,7 +54,6 @@ const games = [
     'circuit-hacker',
     'satellite-sync',
     'ice-slide',
-    'pattern-pulse',
     'gravity-flip',
     'potion-sorter',
     'signal-switch',
@@ -154,7 +153,11 @@ describe('Ice Slide Daily and Expedition challenge markup', () => {
     })
 })
 
-const patternPulseMarkup = readFileSync(
+const patternPulseIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/PatternPulseScreen.tsx'),
+    'utf-8'
+)
+const patternPulseRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/pattern-pulse/index.astro'),
     'utf-8'
 )
@@ -171,17 +174,21 @@ describe('Mine Grid island markup', () => {
     })
 })
 
-describe('Pattern Pulse page markup', () => {
-    it('keeps the static pad board and root-level initializer', () => {
-        expect(patternPulseMarkup).toContain('id="pattern-pulse-container"')
-        expect(patternPulseMarkup).toContain('id="pattern-pulse-board"')
-        expect(
-            patternPulseMarkup.match(/data-pattern-pad="[0-3]"/g)
-        ).toHaveLength(4)
-        expect(patternPulseMarkup).toContain('id="pattern-status"')
-        expect(patternPulseMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initPatternPulseGameFramework/
+describe('Pattern Pulse island markup', () => {
+    it('keeps the static pad board in the island and the route thin', () => {
+        expect(patternPulseRouteMarkup).toContain(
+            "import PatternPulseScreen from '@/components/islands/games/PatternPulseScreen'"
         )
+        expect(patternPulseRouteMarkup).toContain('client:load')
+        expect(patternPulseRouteMarkup).not.toMatch(/<script[^>]*>/)
+        expect(patternPulseIslandMarkup).toContain(
+            'id="pattern-pulse-container"'
+        )
+        expect(patternPulseIslandMarkup).toContain('id="pattern-pulse-board"')
+        expect(
+            patternPulseIslandMarkup.match(/data-pattern-pad="[0-3]"/g)
+        ).toHaveLength(4)
+        expect(patternPulseIslandMarkup).toContain('id="pattern-status"')
     })
 })
 

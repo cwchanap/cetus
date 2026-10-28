@@ -1,141 +1,26 @@
 ---
-import GamePage from '@/components/games/GamePage.astro'
-import { Badge, Card } from '@cetus/ui'
+import AppLayout from '@/layouts/AppLayout.astro'
+import PatternPulseScreen from '@/components/islands/games/PatternPulseScreen'
 ---
 
-<GamePage
-  gameId="pattern-pulse"
-  title="Pattern Pulse"
+<AppLayout
+  title="Pattern Pulse - Cetus Minigames"
   description="Watch the signal, then repeat the growing pattern before time runs out"
-  icon="🔁"
-  showPause={false}
-  showEnd={false}
-  initialTime={60}
+  navigation={[
+    { href: '/', label: 'Home' },
+    { href: '#', label: 'Pattern Pulse' },
+  ]}
+  includeFooter={false}
 >
-  <div
-    slot="game-board"
-    id="pattern-pulse-container"
-    class="w-[min(520px,calc(100vw-2rem))]"
-  >
-    <div
-      id="pattern-pulse-board"
-      class="grid grid-cols-2 gap-3 aspect-square"
-      role="group"
-      aria-label="Pattern Pulse signal pads"
-    >
-      <button
-        type="button"
-        class="pattern-pulse-pad"
-        data-pattern-pad="0"
-        aria-label="Pad 1, triangle"
-        ><span aria-hidden="true">▲</span><span>1</span></button
-      >
-      <button
-        type="button"
-        class="pattern-pulse-pad"
-        data-pattern-pad="1"
-        aria-label="Pad 2, circle"
-        ><span aria-hidden="true">●</span><span>2</span></button
-      >
-      <button
-        type="button"
-        class="pattern-pulse-pad"
-        data-pattern-pad="2"
-        aria-label="Pad 3, diamond"
-        ><span aria-hidden="true">◆</span><span>3</span></button
-      >
-      <button
-        type="button"
-        class="pattern-pulse-pad"
-        data-pattern-pad="3"
-        aria-label="Pad 4, star"
-        ><span aria-hidden="true">✦</span><span>4</span></button
-      >
-    </div>
-    <p id="pattern-status" aria-live="polite">READY</p>
-  </div>
+  <PatternPulseScreen client:load />
+</AppLayout>
 
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono">Length: <span id="sequence-length">3</span></span>
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono">Rounds: <span id="completed-rounds">0</span></span>
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono">Streak: <span id="streak">0</span></span>
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono">Mistakes: <span id="mistakes">0</span></span>
-  </Badge>
-
-  <div slot="game-info" class="space-y-6">
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ HOW TO PLAY
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>Watch the pads light up, then repeat the sequence.</p>
-        <p>Click the pads or press keys 1–4 to answer.</p>
-        <p>Each completed round adds one pad to the sequence.</p>
-        <p>Three mistakes or running out of time ends the run.</p>
-      </div>
-    </Card>
-
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ SCORING
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>Each completed pad is worth 100 points.</p>
-        <p>Answer quickly for a speed bonus of up to 200 points.</p>
-        <p>Consecutive rounds add a +50 streak bonus each.</p>
-      </div>
-    </Card>
-  </div>
-
-  <div slot="final-stats">
-    <div class="text-lg text-cetus-ink">
-      Outcome: <span id="final-outcome" class="text-cetus-accent">—</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Rounds Cleared:
-      <span id="final-rounds" class="text-cetus-accent-2">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Longest Sequence:
-      <span id="final-longest-sequence" class="text-cetus-accent-3">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Max Streak: <span id="final-max-streak" class="text-cetus-accent">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Mistakes: <span id="final-mistakes" class="text-cetus-accent-2">0</span>
-    </div>
-  </div>
-</GamePage>
-
-<script>
-  import { initPatternPulseGameFramework } from '@/lib/games/pattern-pulse/initFramework'
-
-  document.addEventListener('DOMContentLoaded', () => {
-    initPatternPulseGameFramework()
-      .then(handle => {
-        if (handle) {
-          ;(
-            window as Window & { patternPulseGame?: typeof handle }
-          ).patternPulseGame = handle
-        }
-      })
-      .catch(error => {
-        console.error('Pattern Pulse failed to initialize', error)
-      })
-  })
-</script>
-
-<style>
-  /* Static pads live in the Astro template; the renderer only toggles
-     data attributes, so all visual affordance lives here. Pads are never
-     natively disabled — [aria-disabled='true'] keys the gated treatment. */
+<style is:global>
+  /* Static pads live in the PatternPulseScreen island (HPA-393), so these
+     selectors must be global — Astro-scoped styles would never match
+     island-rendered elements. The renderer only toggles data attributes,
+     so all visual affordance lives here. Pads are never natively disabled
+     — [aria-disabled='true'] keys the gated treatment. */
   .pattern-pulse-pad {
     display: flex;
     align-items: center;
