@@ -8,10 +8,7 @@ import {
   type BaseGameStats,
 } from '@cetus/games'
 import { GameID } from '@cetus/shared/games'
-import type {
-  PotionSorterDifficulty,
-  PotionSorterStats,
-} from '@cetus/games/potion-sorter/types'
+import type { PotionSorterDifficulty } from '@cetus/games/potion-sorter/types'
 
 const { initPotionSorterGameFrameworkMock } = vi.hoisted(() => ({
   initPotionSorterGameFrameworkMock: vi.fn(),
