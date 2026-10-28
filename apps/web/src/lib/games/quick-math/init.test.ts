@@ -11,6 +11,11 @@ vi.mock('@/lib/services/scoreService', () => ({
         .mockResolvedValue({ success: true, newAchievements: [] }),
 }))
 
+// HPA-393: React owns the shared start/end buttons, the overlay and its
+// final stats, so the initializer no longer wires or writes them — that
+// coverage moved to the QuickMathScreen island test. The initializer keeps
+// the board host, question/input/submit trio and the board-embedded
+// session counters.
 function setupDOM() {
     document.body.replaceChildren()
 
@@ -25,40 +30,16 @@ function setupDOM() {
     const answerInput = document.createElement('input')
     answerInput.id = 'answer-input'
     answerInput.type = 'text'
+    answerInput.disabled = true
     container.appendChild(answerInput)
 
     const submitBtn = document.createElement('button')
     submitBtn.id = 'submit-answer'
     submitBtn.textContent = 'Submit'
+    submitBtn.disabled = true
     container.appendChild(submitBtn)
 
     document.body.appendChild(container)
-
-    const startBtn = document.createElement('button')
-    startBtn.id = 'start-btn'
-    startBtn.textContent = 'Start'
-    document.body.appendChild(startBtn)
-
-    const endBtn = document.createElement('button')
-    endBtn.id = 'end-btn'
-    endBtn.style.display = 'none'
-    endBtn.textContent = 'End'
-    document.body.appendChild(endBtn)
-
-    const playAgainBtn = document.createElement('button')
-    playAgainBtn.id = 'play-again-btn'
-    playAgainBtn.textContent = 'Play Again'
-    document.body.appendChild(playAgainBtn)
-
-    const overlay = document.createElement('div')
-    overlay.id = 'game-over-overlay'
-    overlay.className = 'hidden'
-    document.body.appendChild(overlay)
-
-    const finalScore = document.createElement('span')
-    finalScore.id = 'final-score'
-    finalScore.textContent = '0'
-    document.body.appendChild(finalScore)
 
     const currentQuestions = document.createElement('span')
     currentQuestions.id = 'current-questions'
@@ -74,16 +55,10 @@ function setupDOM() {
     currentScore.id = 'current-score'
     currentScore.textContent = '0'
     document.body.appendChild(currentScore)
+}
 
-    const score = document.createElement('span')
-    score.id = 'score'
-    score.textContent = '0'
-    document.body.appendChild(score)
-
-    const timeRemaining = document.createElement('span')
-    timeRemaining.id = 'time-remaining'
-    timeRemaining.textContent = '60'
-    document.body.appendChild(timeRemaining)
+function getContainer(): HTMLElement {
+    return document.getElementById('quick-math-container')!
 }
 
 describe('initQuickMathFramework', () => {
@@ -106,7 +81,7 @@ describe('initQuickMathFramework', () => {
 
     describe('initialization', () => {
         it('should return game, renderer, and cleanup', async () => {
-            const result = await initQuickMathFramework()
+            const result = await initQuickMathFramework(getContainer())
             expect(result).toBeDefined()
             expect(result.game).toBeDefined()
             expect(result.renderer).toBeDefined()
@@ -114,7 +89,7 @@ describe('initQuickMathFramework', () => {
         })
 
         it('should return a QuickMathFrameworkGame instance', async () => {
-            const result = await initQuickMathFramework()
+            const result = await initQuickMathFramework(getContainer())
             expect(result.game).toBeDefined()
             expect(typeof result.game.start).toBe('function')
             expect(typeof result.game.end).toBe('function')
@@ -123,184 +98,125 @@ describe('initQuickMathFramework', () => {
         })
 
         it('should merge custom config', async () => {
-            const result = await initQuickMathFramework({
+            const result = await initQuickMathFramework(getContainer(), {
                 pointsPerCorrectAnswer: 50,
             })
             expect(result.game).toBeDefined()
         })
 
         it('should call cleanup without errors', async () => {
-            const result = await initQuickMathFramework()
+            const result = await initQuickMathFramework(getContainer())
             expect(() => result.cleanup()).not.toThrow()
         })
 
-        it('should throw if container element is missing', async () => {
-            document.getElementById('quick-math-container')!.remove()
-            await expect(initQuickMathFramework()).rejects.toThrow()
+        it('should throw if container element is detached', async () => {
+            const container = getContainer()
+            container.remove()
+            await expect(initQuickMathFramework(container)).rejects.toThrow(
+                'Container element not found'
+            )
         })
 
         it('should throw if question element is missing', async () => {
             document.getElementById('question')!.remove()
-            await expect(initQuickMathFramework()).rejects.toThrow()
+            await expect(
+                initQuickMathFramework(getContainer())
+            ).rejects.toThrow()
         })
 
         it('should throw if answer-input element is missing', async () => {
             document.getElementById('answer-input')!.remove()
-            await expect(initQuickMathFramework()).rejects.toThrow()
+            await expect(
+                initQuickMathFramework(getContainer())
+            ).rejects.toThrow()
         })
 
         it('should throw if submit-answer element is missing', async () => {
             document.getElementById('submit-answer')!.remove()
-            await expect(initQuickMathFramework()).rejects.toThrow()
+            await expect(
+                initQuickMathFramework(getContainer())
+            ).rejects.toThrow()
         })
     })
 
-    describe('setupStandardButtons', () => {
-        it('start button click should call game.start()', async () => {
-            const result = await initQuickMathFramework()
-            const startSpy = vi.spyOn(result.game, 'start')
-            document.getElementById('start-btn')!.click()
-            expect(startSpy).toHaveBeenCalled()
-        })
-
-        it('end button click should call game.end()', async () => {
-            const result = await initQuickMathFramework()
-            const endSpy = vi.spyOn(result.game, 'end')
-            document.getElementById('end-btn')!.click()
-            expect(endSpy).toHaveBeenCalled()
-        })
-
-        it('play-again button click should call game.reset()', async () => {
-            const result = await initQuickMathFramework()
-            const resetSpy = vi.spyOn(result.game, 'reset')
-            document.getElementById('play-again-btn')!.click()
-            expect(resetSpy).toHaveBeenCalled()
-        })
-
-        it('play-again button should hide game-over-overlay', async () => {
-            const overlay = document.getElementById('game-over-overlay')!
-            overlay.classList.remove('hidden')
-            await initQuickMathFramework()
-            document.getElementById('play-again-btn')!.click()
-            expect(overlay.classList.contains('hidden')).toBe(true)
-        })
-
-        it('play-again should reset button states', async () => {
-            const startBtn = document.getElementById(
-                'start-btn'
+    describe('question rendering', () => {
+        it('should render the generated question and enable the input on start', async () => {
+            const result = await initQuickMathFramework(getContainer())
+            const answerInput = document.getElementById(
+                'answer-input'
+            ) as HTMLInputElement
+            const submitBtn = document.getElementById(
+                'submit-answer'
             ) as HTMLButtonElement
-            const endBtn = document.getElementById(
-                'end-btn'
-            ) as HTMLButtonElement
-            startBtn.style.display = 'none'
-            endBtn.style.display = 'inline-flex'
-            await initQuickMathFramework()
-            document.getElementById('play-again-btn')!.click()
-            expect(startBtn.style.display).toBe('inline-flex')
-            expect(endBtn.style.display).toBe('none')
-        })
 
-        it('should work without optional buttons missing', async () => {
-            document.getElementById('start-btn')!.remove()
-            document.getElementById('end-btn')!.remove()
-            document.getElementById('play-again-btn')!.remove()
-            const result = await initQuickMathFramework()
-            expect(result).toBeDefined()
-        })
-    })
-
-    describe('onStart callback', () => {
-        it('should hide start-btn and show end-btn when game starts', async () => {
-            const result = await initQuickMathFramework()
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement
-            const endBtn = document.getElementById(
-                'end-btn'
-            ) as HTMLButtonElement
-            startBtn.style.display = 'inline-flex'
-            endBtn.style.display = 'none'
+            expect(answerInput.disabled).toBe(true)
             result.game.start()
-            // onStart callback runs
-            expect(startBtn.style.display).toBe('none')
-            expect(endBtn.style.display).toBe('inline-flex')
+
+            // onQuestionUpdate feeds the renderer: question text + enabled input.
+            const questionText =
+                document.getElementById('question')!.textContent ?? ''
+            expect(questionText).toMatch(/\d+\s*[+-]\s*\d+/)
+            expect(answerInput.disabled).toBe(false)
+            expect(submitBtn.disabled).toBe(false)
         })
-    })
 
-    describe('onEnd callback', () => {
-        it('should show start-btn, hide end-btn, and show game-over-overlay on end', async () => {
-            const result = await initQuickMathFramework()
-            const startBtn = document.getElementById(
-                'start-btn'
+        it('should disable input and button when the game ends', async () => {
+            const result = await initQuickMathFramework(getContainer())
+            const answerInput = document.getElementById(
+                'answer-input'
+            ) as HTMLInputElement
+            const submitBtn = document.getElementById(
+                'submit-answer'
             ) as HTMLButtonElement
-            const endBtn = document.getElementById(
-                'end-btn'
-            ) as HTMLButtonElement
-            const overlay = document.getElementById('game-over-overlay')!
 
-            startBtn.style.display = 'none'
-            endBtn.style.display = 'inline-flex'
-            overlay.classList.add('hidden')
-
-            // Start then immediately end
             result.game.start()
+            expect(answerInput.disabled).toBe(false)
+
             await result.game.end()
 
-            expect(startBtn.style.display).toBe('inline-flex')
-            expect(endBtn.style.display).toBe('none')
-            expect(overlay.classList.contains('hidden')).toBe(false)
+            expect(answerInput.disabled).toBe(true)
+            expect(submitBtn.disabled).toBe(true)
         })
 
-        it('should update final-score element on end', async () => {
-            const result = await initQuickMathFramework()
+        it('should update the board session counters on score events', async () => {
+            const result = await initQuickMathFramework(getContainer())
             result.game.start()
-            await result.game.end()
-            const finalScore = document.getElementById('final-score')!
-            expect(finalScore.textContent).toBe('0') // no score accumulated
-        })
+            const state = result.game.getState()
+            const question = state.currentQuestion
+            expect(question).not.toBeNull()
+            result.game.submitAnswer(String(question!.answer))
 
-        it('should call custom onEnd callback', async () => {
-            const onEnd = vi.fn()
-            const result = await initQuickMathFramework({}, { onEnd })
-            result.game.start()
-            await result.game.end()
-            expect(onEnd).toHaveBeenCalled()
-        })
-
-        it('should work without start/end buttons on end', async () => {
-            document.getElementById('start-btn')!.remove()
-            document.getElementById('end-btn')!.remove()
-            const result = await initQuickMathFramework()
-            result.game.start()
-            await expect(result.game.end()).resolves.not.toThrow()
-        })
-
-        it('should work without game-over-overlay on end', async () => {
-            document.getElementById('game-over-overlay')!.remove()
-            const result = await initQuickMathFramework()
-            result.game.start()
-            await expect(result.game.end()).resolves.not.toThrow()
-        })
-
-        it('should work without final-score element on end', async () => {
-            document.getElementById('final-score')!.remove()
-            const result = await initQuickMathFramework()
-            result.game.start()
-            await expect(result.game.end()).resolves.not.toThrow()
+            expect(
+                document.getElementById('current-questions')!.textContent
+            ).toBe('1')
+            expect(
+                document.getElementById('current-correct')!.textContent
+            ).toBe('1')
+            expect(document.getElementById('current-score')!.textContent).toBe(
+                '20'
+            )
         })
     })
 
     describe('custom callbacks', () => {
         it('should invoke custom onStart callback', async () => {
             const onStart = vi.fn()
-            const result = await initQuickMathFramework({}, { onStart })
+            const result = await initQuickMathFramework(
+                getContainer(),
+                {},
+                { onStart }
+            )
             result.game.start()
             expect(onStart).toHaveBeenCalled()
         })
 
         it('should invoke custom onScoreUpdate callback when correct answer submitted', async () => {
             const onScoreUpdate = vi.fn()
-            const result = await initQuickMathFramework({}, { onScoreUpdate })
+            const result = await initQuickMathFramework(
+                getContainer(),
+                {},
+                { onScoreUpdate }
+            )
             result.game.start()
             const state = result.game.getState()
             const question = state.currentQuestion
@@ -311,7 +227,11 @@ describe('initQuickMathFramework', () => {
 
         it('should invoke custom onTimeUpdate callback', async () => {
             const onTimeUpdate = vi.fn()
-            const result = await initQuickMathFramework({}, { onTimeUpdate })
+            const result = await initQuickMathFramework(
+                getContainer(),
+                {},
+                { onTimeUpdate }
+            )
             result.game.start()
             vi.advanceTimersByTime(1000)
             expect(onTimeUpdate).toHaveBeenCalled()
@@ -320,6 +240,7 @@ describe('initQuickMathFramework', () => {
         it('should invoke custom onQuestionUpdate callback when game starts', async () => {
             const onQuestionUpdate = vi.fn()
             const result = await initQuickMathFramework(
+                getContainer(),
                 {},
                 { onQuestionUpdate }
             )
@@ -332,7 +253,11 @@ describe('initQuickMathFramework', () => {
 
         it('should invoke custom onAnswerSubmit callback when answer submitted', async () => {
             const onAnswerSubmit = vi.fn()
-            const result = await initQuickMathFramework({}, { onAnswerSubmit })
+            const result = await initQuickMathFramework(
+                getContainer(),
+                {},
+                { onAnswerSubmit }
+            )
             result.game.start()
             const state = result.game.getState()
             const question = state.currentQuestion
@@ -344,11 +269,23 @@ describe('initQuickMathFramework', () => {
                 String(question!.answer)
             )
         })
+
+        it('should call custom onEnd callback', async () => {
+            const onEnd = vi.fn()
+            const result = await initQuickMathFramework(
+                getContainer(),
+                {},
+                { onEnd }
+            )
+            result.game.start()
+            await result.game.end()
+            expect(onEnd).toHaveBeenCalled()
+        })
     })
 
     describe('submit button in setupQuickMathEvents', () => {
         it('should call game.submitAnswer when submit is clicked with active game', async () => {
-            const result = await initQuickMathFramework()
+            const result = await initQuickMathFramework(getContainer())
             const answerInput = document.getElementById(
                 'answer-input'
             ) as HTMLInputElement
@@ -361,7 +298,7 @@ describe('initQuickMathFramework', () => {
         })
 
         it('should not call game.submitAnswer when input is empty', async () => {
-            const result = await initQuickMathFramework()
+            const result = await initQuickMathFramework(getContainer())
             const answerInput = document.getElementById(
                 'answer-input'
             ) as HTMLInputElement
@@ -373,7 +310,7 @@ describe('initQuickMathFramework', () => {
         })
 
         it('should not call game.submitAnswer when game is not active', async () => {
-            const result = await initQuickMathFramework()
+            const result = await initQuickMathFramework(getContainer())
             const answerInput = document.getElementById(
                 'answer-input'
             ) as HTMLInputElement

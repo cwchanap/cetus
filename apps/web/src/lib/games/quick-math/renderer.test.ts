@@ -84,8 +84,6 @@ describe('QuickMathRenderer', () => {
             'current-questions',
             'current-correct',
             'current-score',
-            'score',
-            'time-remaining',
             'total-questions',
             'accuracy',
         ].forEach(id => {
@@ -165,14 +163,15 @@ describe('QuickMathRenderer', () => {
     })
 
     describe('renderGameState', () => {
-        it('should update stats elements', async () => {
-            // Stats elements must exist BEFORE initialize() so the renderer captures them
+        it('should update the board-embedded session counters', async () => {
+            // Stats elements must exist BEFORE initialize() so the renderer captures them.
+            // The shared #score / #time-remaining badges are React-owned (HPA-393)
+            // and are no longer renderer-written; their coverage moved to the
+            // QuickMathScreen island test.
             const statsIds = [
                 'current-questions',
                 'current-correct',
                 'current-score',
-                'score',
-                'time-remaining',
             ]
             const statsEls = statsIds.map(id => {
                 const el = document.createElement('div')
@@ -200,10 +199,6 @@ describe('QuickMathRenderer', () => {
             ).toBe('4')
             expect(document.getElementById('current-score')?.textContent).toBe(
                 '80'
-            )
-            expect(document.getElementById('score')?.textContent).toBe('80')
-            expect(document.getElementById('time-remaining')?.textContent).toBe(
-                '30'
             )
 
             freshRenderer.cleanup()
