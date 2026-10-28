@@ -117,6 +117,30 @@ describe('createBaseGameSession', () => {
         expect(session.getCachedSnapshot()).toBe(scored)
     })
 
+    it('refreshes the projection from state-change events', () => {
+        game = createStubGame()
+        const session = createBaseGameSession(
+            game,
+            state => (state as { attempts?: number }).attempts ?? 0
+        )
+        const listener = vi.fn()
+        session.subscribe(listener)
+        expect(session.getCachedSnapshot().projected).toBe(0)
+
+        // HUD-only state changes carry no score/timer payload; the adapter
+        // still sees them through the games' shared 'state-change' event.
+        ;(game as unknown as { state: { attempts: number } }).state.attempts = 3
+        game.emit('state-change', { state: game.getState() })
+
+        expect(listener).toHaveBeenCalledTimes(1)
+        expect(session.getCachedSnapshot().projected).toBe(3)
+
+        // Unchanged projection: same snapshot reference, no notify.
+        game.emit('state-change', { state: game.getState() })
+        expect(listener).toHaveBeenCalledTimes(1)
+        expect(session.getCachedSnapshot().projected).toBe(3)
+    })
+
     it('drives status transitions through start/pause/resume/reset', () => {
         game = createStubGame()
         const session = createBaseGameSession(game, state => state.score)
