@@ -4,15 +4,21 @@ import { Card } from './ui/card'
 import { cn } from '../lib/utils'
 
 /**
- * Game HUD stats card (HPA-379 Stage 5). Presentational only: exposes the
- * `score` and `time-remaining` nodes that game scripts mutate imperatively,
- * so it must stay SSR-only (no hydration — React must never re-render the
- * subtrees the scripts own). `children` renders additional stats badges.
+ * Game HUD stats card (HPA-379 Stage 5). Presentational/SSR-safe by default:
+ * exposes the `score` and `time-remaining` nodes that game scripts mutate
+ * imperatively. Hydrated islands (HPA-393) may instead drive them via the
+ * optional controlled `score`/`time` props; omitting them keeps the legacy
+ * markup and imperative-script contract unchanged. `children` renders
+ * additional stats badges.
  */
 export interface GameStatsProps {
   showScore?: boolean
   showTime?: boolean
   initialTime?: number
+  /** Controlled score; omit to render the legacy literal 0. */
+  score?: number
+  /** Controlled time; omit to render `initialTime`. */
+  time?: number
   className?: string
   children?: ReactNode
 }
@@ -21,6 +27,8 @@ export function GameStats({
   showScore = true,
   showTime = true,
   initialTime = 60,
+  score,
+  time,
   className,
   children,
 }: GameStatsProps) {
@@ -34,7 +42,7 @@ export function GameStats({
               <span className="font-mono">
                 Score:{' '}
                 <span id="score" className="font-mono text-cetus-accent">
-                  0
+                  {score ?? 0}
                 </span>
               </span>
             </Badge>
@@ -47,7 +55,7 @@ export function GameStats({
                   id="time-remaining"
                   className="font-mono text-cetus-accent"
                 >
-                  {initialTime}
+                  {time ?? initialTime}
                 </span>
                 s
               </span>
