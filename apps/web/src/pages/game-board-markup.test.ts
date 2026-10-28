@@ -165,6 +165,34 @@ const patternPulseRouteMarkup = readFileSync(
     'utf-8'
 )
 
+const pathNavigatorIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/PathNavigatorScreen.tsx'),
+    'utf-8'
+)
+const pathNavigatorRouteMarkup = readFileSync(
+    resolve(appRoot, 'src/pages/path-navigator/index.astro'),
+    'utf-8'
+)
+
+describe('Path Navigator island markup', () => {
+    it('keeps the board, level badge, and final-stat ids in the island and the route thin', () => {
+        expect(pathNavigatorRouteMarkup).toContain(
+            "import PathNavigatorScreen from '@/components/islands/games/PathNavigatorScreen'"
+        )
+        expect(pathNavigatorRouteMarkup).toContain('client:load')
+        expect(pathNavigatorRouteMarkup).not.toMatch(/<script[^>]*>/)
+        expect(pathNavigatorIslandMarkup).toContain(
+            'id="path-navigator-container"'
+        )
+        for (const id of ['level', 'levels-completed', 'total-time']) {
+            expect(pathNavigatorIslandMarkup).toContain(`id="${id}"`)
+        }
+        // Legacy GamePage props: pause/reset hidden, start/end pair only.
+        expect(pathNavigatorIslandMarkup).toContain('showPause: false')
+        expect(pathNavigatorIslandMarkup).toContain('showReset: false')
+    })
+})
+
 describe('Mine Grid island markup', () => {
     it('keeps the two-container board in the island and the route thin', () => {
         expect(mineGridRouteMarkup).toContain(
