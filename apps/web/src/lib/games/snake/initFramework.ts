@@ -2,13 +2,10 @@
 import { SnakeGame, DEFAULT_SNAKE_CONFIG } from '@cetus/games/snake/SnakeGame'
 import { SnakeRenderer, createSnakeRendererConfig } from './SnakeRenderer'
 import type { SnakeConfig, Direction } from '@cetus/games/snake/types'
-import type {
-    BaseGameCallbacks,
-    ChallengeUpdates,
-} from '@cetus/games/core/types'
+import type { BaseGameCallbacks } from '@cetus/games/core/types'
 import { handleGameError } from '@cetus/games/core/errors'
 
-import { type AchievementNotification } from '@cetus/shared/achievements'
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface SnakeInitResult {
@@ -70,30 +67,9 @@ export async function initSnakeGameFramework(
     // caller supplied them — no imperative DOM writers here.
     const game = new SnakeGame(config, customCallbacks)
 
-    // Handle achievement notifications
-    const onGameEnd = (event: unknown) => {
-        const data = (event as { data: unknown }).data as {
-            newAchievements?: AchievementNotification[]
-            challengeUpdates?: ChallengeUpdates
-        }
-        if (data?.newAchievements && data.newAchievements.length > 0) {
-            if (
-                typeof window !== 'undefined' &&
-                typeof window.showAchievementAward === 'function'
-            ) {
-                window.showAchievementAward(data.newAchievements)
-            }
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            if (
-                typeof window !== 'undefined' &&
-                typeof window.showChallengeComplete === 'function'
-            ) {
-                window.showChallengeComplete(data.challengeUpdates)
-            }
-        }
-    }
-    game.on('end', onGameEnd)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
     // Set up keyboard controls
     const cleanupKeyboardControls = setupKeyboardControls(game)
@@ -145,7 +121,7 @@ export async function initSnakeGameFramework(
             cleanupRenderLoop()
             cleanupKeyboardControls()
             cleanupUnloadWarning()
-            game.off('end', onGameEnd)
+            removeForwarder()
             renderer.cleanup()
             game.destroy()
         },
