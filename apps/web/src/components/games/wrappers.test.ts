@@ -11,6 +11,7 @@ import {
     GameTitle,
 } from '@cetus/ui'
 import GamePage from './GamePage.astro'
+import { GameScreen } from './GameScreen'
 
 describe('Game wrapper restyle', () => {
     let container: Awaited<ReturnType<typeof createContainer>>
@@ -185,5 +186,35 @@ describe('Game wrapper restyle', () => {
         expect(html).toContain('Score: 100')
         expect(html).not.toMatch(/font-orbitron/)
         expect(html).not.toMatch(/text-cyan-400/)
+    })
+
+    it('GameScreen renders a custom controls node instead of GameControls', () => {
+        const html = renderToStaticMarkup(
+            createElement(GameScreen, {
+                gameId: 'test',
+                title: 'Test',
+                description: 'Test desc',
+                icon: '🎮',
+                board: createElement('div', { id: 'board-mock' }),
+                controls: createElement('div', { id: 'custom-controls' }),
+            })
+        )
+        expect(html).toContain('id="custom-controls"')
+        // The default GameControls card is replaced, mirroring GamePage's
+        // `Astro.slots.has('controls')` branch.
+        expect(html).not.toContain('id="start-btn"')
+    })
+
+    it('GameScreen renders default GameControls without the controls prop', () => {
+        const html = renderToStaticMarkup(
+            createElement(GameScreen, {
+                gameId: 'test',
+                title: 'Test',
+                description: 'Test desc',
+                icon: '🎮',
+                board: createElement('div', { id: 'board-mock' }),
+            })
+        )
+        expect(html).toContain('id="start-btn"')
     })
 })
