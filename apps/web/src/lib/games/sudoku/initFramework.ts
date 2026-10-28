@@ -250,7 +250,7 @@ function setupKeyboardControls(game: SudokuGame): () => void {
                     break
                 case 'ArrowLeft':
                     e.preventDefault()
-                    newRow = Math.max(0, col - 1)
+                    newCol = Math.max(0, col - 1)
                     break
                 case 'ArrowRight':
                     e.preventDefault()

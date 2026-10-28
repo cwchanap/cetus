@@ -136,6 +136,66 @@ describe('initSudokuGameFramework', () => {
         })
     })
 
+    describe('arrow-key selection movement', () => {
+        // Regression: ArrowLeft must move the selection left (column clamp),
+        // not vertically — guards against row/col mixups in the keydown handler.
+        async function startAtCenter(): Promise<void> {
+            result = await initFramework()
+            result!.game.start()
+            result!.game.selectCell(4, 4)
+        }
+
+        function pressKey(key: string): void {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key }))
+        }
+
+        it('moves the selection left with ArrowLeft', async () => {
+            await startAtCenter()
+            pressKey('ArrowLeft')
+            expect(result!.game.getState().grid.selectedCell).toEqual({
+                row: 4,
+                col: 3,
+            })
+        })
+
+        it('moves the selection right with ArrowRight', async () => {
+            await startAtCenter()
+            pressKey('ArrowRight')
+            expect(result!.game.getState().grid.selectedCell).toEqual({
+                row: 4,
+                col: 5,
+            })
+        })
+
+        it('moves the selection up with ArrowUp', async () => {
+            await startAtCenter()
+            pressKey('ArrowUp')
+            expect(result!.game.getState().grid.selectedCell).toEqual({
+                row: 3,
+                col: 4,
+            })
+        })
+
+        it('moves the selection down with ArrowDown', async () => {
+            await startAtCenter()
+            pressKey('ArrowDown')
+            expect(result!.game.getState().grid.selectedCell).toEqual({
+                row: 5,
+                col: 4,
+            })
+        })
+
+        it('clamps ArrowLeft at the first column', async () => {
+            await startAtCenter()
+            result!.game.selectCell(4, 0)
+            pressKey('ArrowLeft')
+            expect(result!.game.getState().grid.selectedCell).toEqual({
+                row: 4,
+                col: 0,
+            })
+        })
+    })
+
     describe('end game', () => {
         it('submits the score on end', async () => {
             // Overlay/final-stat ownership moved to the SudokuScreen island
