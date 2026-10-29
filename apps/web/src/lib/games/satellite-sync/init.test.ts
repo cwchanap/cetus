@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { AchievementRarity } from '@cetus/shared/achievements'
 import { initializeSatelliteSync } from './init'
 
 vi.mock('pixi.js', () => {
@@ -42,19 +43,10 @@ vi.mock('@/lib/services/scoreService', () => ({
 }))
 
 function setupDom(): HTMLElement {
-    document.body.innerHTML = `
-        <div id="game-canvas-container"></div>
-        <span id="score">0</span>
-        <span id="time-remaining">--</span>
-        <span id="level">1</span>
-        <button id="start-btn"></button>
-        <button id="end-btn" style="display:none"></button>
-        <div id="game-over-overlay" class="hidden">
-            <h2 id="game-over-title"></h2>
-            <span id="final-score">0</span>
-            <button id="play-again-btn"></button>
-        </div>
-    `
+    // The initializer no longer owns any HUD/overlay/button DOM (HPA-393):
+    // the React island renders those nodes and the init callbacks drive
+    // them. Only the Pixi board host remains.
+    document.body.innerHTML = `<div id="game-canvas-container"></div>`
     return document.getElementById('game-canvas-container')!
 }
 
@@ -88,12 +80,12 @@ describe('initializeSatelliteSync', () => {
         handle.cleanup()
     })
 
-    it('starts the game and updates the time element', async () => {
+    it('starts the game and forwards the level time budget via onTimeUpdate', async () => {
         const container = setupDom()
-        const onTime = vi.fn()
+        const onTimeUpdate = vi.fn()
         const handle = await initializeSatelliteSync(container, {
             onGameStart: vi.fn(),
-            onTimeUpdate: onTime,
+            onTimeUpdate,
             onScoreUpdate: vi.fn(),
             onLock: vi.fn(),
             onComboReset: vi.fn(),
@@ -102,14 +94,14 @@ describe('initializeSatelliteSync', () => {
             onWin: vi.fn(),
         })
         await handle.start()
-        const timeEl = document.getElementById('time-remaining')!
-        expect(timeEl.textContent).toBe('60')
+        expect(onTimeUpdate).toHaveBeenCalledWith(60)
         handle.cleanup()
     })
 
-    it('submits the score and shows the overlay on fail', async () => {
+    it('submits the score and reports the fail on timeout', async () => {
         const { saveGameScore } = await import('@/lib/services/scoreService')
         const container = setupDom()
+        const onFail = vi.fn()
         const handle = await initializeSatelliteSync(container, {
             onGameStart: vi.fn(),
             onTimeUpdate: vi.fn(),
@@ -117,18 +109,14 @@ describe('initializeSatelliteSync', () => {
             onLock: vi.fn(),
             onComboReset: vi.fn(),
             onLevelClear: vi.fn(),
-            onFail: vi.fn(),
+            onFail,
             onWin: vi.fn(),
         })
         await handle.start()
         vi.advanceTimersByTime(61_000)
         await Promise.resolve()
         expect(saveGameScore).toHaveBeenCalled()
-        expect(
-            document
-                .getElementById('game-over-overlay')!
-                .classList.contains('hidden')
-        ).toBe(false)
+        expect(onFail).toHaveBeenCalledTimes(1)
         handle.cleanup()
     })
 
@@ -208,15 +196,16 @@ describe('initializeSatelliteSync', () => {
         handle.cleanup()
     })
 
-    it('updates the level badge to the next level after a clear', async () => {
+    it('reports the cleared level after solving level 1', async () => {
         const container = setupDom()
+        const onLevelClear = vi.fn()
         const handle = await initializeSatelliteSync(container, {
             onGameStart: vi.fn(),
             onTimeUpdate: vi.fn(),
             onScoreUpdate: vi.fn(),
             onLock: vi.fn(),
             onComboReset: vi.fn(),
-            onLevelClear: vi.fn(),
+            onLevelClear,
             onFail: vi.fn(),
             onWin: vi.fn(),
         })
@@ -244,8 +233,7 @@ describe('initializeSatelliteSync', () => {
                 }
             }
         }
-        const levelEl = document.getElementById('level')!
-        expect(levelEl.textContent).toBe('2')
+        expect(onLevelClear).toHaveBeenCalledWith(1)
         handle.cleanup()
     })
 })
@@ -259,6 +247,9 @@ describe('initializeSatelliteSync interaction wiring', () => {
         vi.clearAllTimers()
         vi.useRealTimers()
         vi.clearAllMocks()
+        // Keep failing assertions from leaking toast spies into siblings.
+        delete window.showAchievementAward
+        delete window.showChallengeComplete
     })
 
     function baseCallbacks() {
@@ -667,7 +658,65 @@ describe('initializeSatelliteSync interaction wiring', () => {
         handle.cleanup()
     })
 
-    it('shows the mission-complete overlay and submits the score on a full win', async () => {
+    it('fires each reward toast exactly once per save; the display result is not a toast path', async () => {
+        const { saveGameScore } = await import('@/lib/services/scoreService')
+        const achievementToast = vi.fn()
+        const challengeToast = vi.fn()
+        window.showAchievementAward = achievementToast
+        window.showChallengeComplete = challengeToast
+        // The mock mirrors the real scoreService contract: the save path
+        // fires each toast exactly once when rewards are earned.
+        vi.mocked(saveGameScore).mockImplementationOnce(
+            (_id, _score, onSuccess) => {
+                window.showAchievementAward?.([
+                    {
+                        id: 'ach-1',
+                        name: 'Test',
+                        description: 'Test achievement',
+                        icon: '🏆',
+                        rarity: AchievementRarity.COMMON,
+                    },
+                ])
+                window.showChallengeComplete?.({
+                    completedChallenges: [
+                        {
+                            id: 'c1',
+                            name: 'Challenge',
+                            description: 'Test challenge',
+                            icon: '🎯',
+                            xpReward: 10,
+                        },
+                    ],
+                    xpEarned: 10,
+                    levelUp: false,
+                })
+                onSuccess?.({ success: true, newAchievements: [] })
+                return Promise.resolve()
+            }
+        )
+        const onFail = vi.fn()
+        const container = setupDom()
+        const handle = await initializeSatelliteSync(container, {
+            ...baseCallbacks(),
+            onFail,
+        })
+        await handle.start()
+        // Let the level-1 timer expire -> onFail -> submitScore.
+        vi.advanceTimersByTime(61_000)
+        await Promise.resolve()
+
+        // The end flow delivered the display result exactly once, and the
+        // saveGameScore path fired each toast exactly once — the display
+        // result is not a second toast path.
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+        expect(onFail).toHaveBeenCalledTimes(1)
+        expect(achievementToast).toHaveBeenCalledTimes(1)
+        expect(challengeToast).toHaveBeenCalledTimes(1)
+
+        handle.cleanup()
+    })
+
+    it('reports the win and submits the score on a full win', async () => {
         const { saveGameScore } = await import('@/lib/services/scoreService')
         const container = setupDom()
         const onWin = vi.fn()
@@ -705,16 +754,8 @@ describe('initializeSatelliteSync interaction wiring', () => {
         }
         await Promise.resolve()
         expect(game.getState().status).toBe('won')
-        expect(onWin).toHaveBeenCalled()
+        expect(onWin).toHaveBeenCalledTimes(1)
         expect(saveGameScore).toHaveBeenCalled()
-        expect(
-            document
-                .getElementById('game-over-overlay')!
-                .classList.contains('hidden')
-        ).toBe(false)
-        expect(document.getElementById('game-over-title')!.textContent).toBe(
-            'MISSION COMPLETE!'
-        )
         handle.cleanup()
     })
 })
