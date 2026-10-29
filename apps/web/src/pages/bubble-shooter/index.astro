@@ -216,8 +216,13 @@ const user = Astro.locals.user
      elements, so the whole block is global (batch 1-3 precedent).
      Bare element selectors are scoped under their containers with
      :where() — the zero-specificity wrapper keeps the cascade
-     identical for every plate node while containing the leak
-     (#challenge-continue border/font/outline victim). */
+     (0,0,1)-equivalent for every plate node. Sheet coverage lists
+     include both `.field-sheet` and `#field-sheet` (some plates
+     ship an id-only dialog), and the sheet button legs exclude the
+     notifications astro-island subtree via
+     :where(:not(astro-island *)) so island chrome
+     (#challenge-continue) keeps its own styles while static sheet
+     buttons stay covered. */
   @font-face {
     font-family: 'Field Newsreader';
     src: url('/fonts/field-plate/newsreader.woff2') format('woff2');
@@ -303,7 +308,8 @@ const user = Astro.locals.user
   }
   .micro,
   .mono,
-  :where(.plate-width, .field-sheet) button {
+  :where(.plate-width) button,
+  :where(.field-sheet, #field-sheet) button:where(:not(astro-island *)) {
     font-family: 'Field Mono', monospace;
   }
   .micro {
@@ -322,33 +328,41 @@ const user = Astro.locals.user
   .ice {
     color: #6fe3ff;
   }
-  :where(.plate-width, .field-sheet) a {
+  :where(.plate-width, .field-sheet, #field-sheet) a {
     color: inherit;
     text-decoration: none;
   }
-  :where(.plate-width, .field-sheet) a:hover {
+  :where(.plate-width, .field-sheet, #field-sheet) a:hover {
     color: #22f5d0;
   }
-  :where(.plate-width, .field-sheet) button,
+  :where(.plate-width) button,
+  :where(.field-sheet, #field-sheet) button:where(:not(astro-island *)),
   .account {
     border: 1px solid #26333d;
     border-radius: 2px;
     background: #0a1219;
     color: #a7b4bd;
   }
-  :where(.plate-width, .field-sheet) button {
+  :where(.plate-width) button,
+  :where(.field-sheet, #field-sheet) button:where(:not(astro-island *)) {
     cursor: pointer;
   }
-  :where(.plate-width, .field-sheet) button:disabled {
+  :where(.plate-width) button:disabled,
+  :where(.field-sheet, #field-sheet)
+    button:where(:not(astro-island *)):disabled {
     opacity: 0.45;
     cursor: wait;
   }
-  :where(.plate-width, .field-sheet) button:hover:not(:disabled) {
+  :where(.plate-width) button:hover:not(:disabled),
+  :where(.field-sheet, #field-sheet)
+    button:where(:not(astro-island *)):hover:not(:disabled) {
     border-color: #22f5d0;
     color: #eaf6ff;
   }
-  :where(.plate-width, .field-sheet) a:focus-visible,
-  :where(.plate-width, .field-sheet) button:focus-visible {
+  :where(.plate-width, .field-sheet, #field-sheet) a:focus-visible,
+  :where(.plate-width) button:focus-visible,
+  :where(.field-sheet, #field-sheet)
+    button:where(:not(astro-island *)):focus-visible {
     outline: 2px solid #22f5d0;
     outline-offset: 4px;
   }
@@ -380,7 +394,7 @@ const user = Astro.locals.user
     letter-spacing: 0.28em;
   }
   :where(.plate-width) h1,
-  :where(.field-sheet) h2 {
+  :where(.field-sheet, #field-sheet) h2 {
     font-family: 'Field Newsreader', serif;
     font-weight: 400;
     line-height: 1.05;
@@ -389,7 +403,7 @@ const user = Astro.locals.user
     font-size: clamp(28px, 4vw, 38px);
     margin-top: 6px;
   }
-  :where(.field-sheet) h2 {
+  :where(.field-sheet, #field-sheet) h2 {
     font-size: 36px;
     font-weight: 300;
     margin-top: 12px;
@@ -402,7 +416,7 @@ const user = Astro.locals.user
   #log-title {
     font-size: 28px;
   }
-  :where(.field-sheet) h2:focus {
+  :where(.field-sheet, #field-sheet) h2:focus {
     outline: none;
   }
   .tools {
