@@ -213,8 +213,11 @@ const user = Astro.locals.user
 <style is:global>
   /* The plate body moved into the BubbleShooterScreen island
      (HPA-393); Astro-scoped selectors never match island-rendered
-     elements, so the whole block is global — selector list unchanged
-     (batch 1-3 precedent). */
+     elements, so the whole block is global (batch 1-3 precedent).
+     Bare element selectors are scoped under their containers with
+     :where() — the zero-specificity wrapper keeps the cascade
+     identical for every plate node while containing the leak
+     (#challenge-continue border/font/outline victim). */
   @font-face {
     font-family: 'Field Newsreader';
     src: url('/fonts/field-plate/newsreader.woff2') format('woff2');
@@ -293,14 +296,14 @@ const user = Astro.locals.user
     border-radius: 50%;
     background: #ff3d8a;
   }
-  nav {
+  :where(.plate-width) nav {
     display: flex;
     align-items: center;
     gap: 18px;
   }
   .micro,
   .mono,
-  button {
+  :where(.plate-width, .field-sheet) button {
     font-family: 'Field Mono', monospace;
   }
   .micro {
@@ -319,33 +322,33 @@ const user = Astro.locals.user
   .ice {
     color: #6fe3ff;
   }
-  a {
+  :where(.plate-width, .field-sheet) a {
     color: inherit;
     text-decoration: none;
   }
-  a:hover {
+  :where(.plate-width, .field-sheet) a:hover {
     color: #22f5d0;
   }
-  button,
+  :where(.plate-width, .field-sheet) button,
   .account {
     border: 1px solid #26333d;
     border-radius: 2px;
     background: #0a1219;
     color: #a7b4bd;
   }
-  button {
+  :where(.plate-width, .field-sheet) button {
     cursor: pointer;
   }
-  button:disabled {
+  :where(.plate-width, .field-sheet) button:disabled {
     opacity: 0.45;
     cursor: wait;
   }
-  button:hover:not(:disabled) {
+  :where(.plate-width, .field-sheet) button:hover:not(:disabled) {
     border-color: #22f5d0;
     color: #eaf6ff;
   }
-  a:focus-visible,
-  button:focus-visible {
+  :where(.plate-width, .field-sheet) a:focus-visible,
+  :where(.plate-width, .field-sheet) button:focus-visible {
     outline: 2px solid #22f5d0;
     outline-offset: 4px;
   }
@@ -376,17 +379,17 @@ const user = Astro.locals.user
     font-size: 10px;
     letter-spacing: 0.28em;
   }
-  h1,
-  h2 {
+  :where(.plate-width) h1,
+  :where(.field-sheet) h2 {
     font-family: 'Field Newsreader', serif;
     font-weight: 400;
     line-height: 1.05;
   }
-  h1 {
+  :where(.plate-width) h1 {
     font-size: clamp(28px, 4vw, 38px);
     margin-top: 6px;
   }
-  h2 {
+  :where(.field-sheet) h2 {
     font-size: 36px;
     font-weight: 300;
     margin-top: 12px;
@@ -399,7 +402,7 @@ const user = Astro.locals.user
   #log-title {
     font-size: 28px;
   }
-  h2:focus {
+  :where(.field-sheet) h2:focus {
     outline: none;
   }
   .tools {
@@ -781,7 +784,7 @@ const user = Astro.locals.user
       left: 16px;
       right: 16px;
     }
-    nav {
+    :where(.plate-width) nav {
       gap: 10px;
     }
     .title-row {
