@@ -9,20 +9,15 @@ import {
 import type {
     RhythmReactorLane,
     RhythmReactorState,
-    RhythmReactorStats,
 } from '@cetus/games/rhythm-reactor/types'
 import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
-    ChallengeUpdates,
 } from '@cetus/games/core/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
+import { handleGameError } from '@cetus/games/core/errors'
 import { isEditableTarget } from '@/lib/keyboard'
-import type { AchievementNotification } from '@cetus/shared/achievements'
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface RhythmReactorInitResult {
@@ -30,6 +25,9 @@ export interface RhythmReactorInitResult {
     renderer: RhythmReactorRenderer
     getGame: () => RhythmReactorGame
     getState: () => ReturnType<RhythmReactorGame['getState']>
+    /** React-owned Reset re-syncs the bespoke lane controls through this
+     * (HPA-393): reset() emits no event, so the island calls restart(). */
+    restart: () => void
     cleanup: () => void
 }
 
@@ -40,22 +38,17 @@ const KEY_TO_LANE: Record<string, RhythmReactorLane> = {
     k: 3,
 }
 
-export async function initRhythmReactorGameFramework(): Promise<
-    RhythmReactorInitResult | undefined
-> {
-    const container = document.getElementById('rhythm-reactor-container')
-    if (!container) {
-        handleGameError(
-            new DOMElementNotFoundError('rhythm-reactor-container'),
-            'RhythmReactor'
-        )
-        return undefined
-    }
-
+export async function initRhythmReactorGameFramework(
+    container: HTMLElement
+): Promise<RhythmReactorInitResult | undefined> {
     const config = { ...createRhythmReactorConfig(), submitScore }
-    const renderer = new RhythmReactorRenderer(
-        createRhythmReactorRendererConfig(config)
-    )
+    // The renderer mounts via a selector; derive it from the ref'd host
+    // element (which keeps the frozen `#rhythm-reactor-canvas` e2e id —
+    // the canvas div lives inside the ref'd board container).
+    const renderer = new RhythmReactorRenderer({
+        ...createRhythmReactorRendererConfig(config),
+        container: `#${CSS.escape(container.id)} #rhythm-reactor-canvas`,
+    })
     try {
         await renderer.initialize()
     } catch (error) {
@@ -89,32 +82,17 @@ export async function initRhythmReactorGameFramework(): Promise<
         trackedListeners.push({ target, type, handler })
     }
 
+    // The HUD badges and score/time spans keep a synchronous DOM writer
+    // (HPA-393): the frozen e2e reads them in the same JS tick as a
+    // debug-handle mutation (performPerfectRhythmInput), which React's
+    // batched re-render can never satisfy. React renders the same values
+    // from the session projection; both writers derive from the same state
+    // with identical formulas. Overlay/buttons/final stats are React-only.
     const setText = (id: string, value: string): void => {
         const element = document.getElementById(id)
         if (element) {
             element.textContent = value
         }
-    }
-
-    const hideOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.add('hidden')
-    }
-
-    const showOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.remove('hidden')
-    }
-
-    const setStartVisible = (visible: boolean): void => {
-        const startButton = document.getElementById(
-            'start-btn'
-        ) as HTMLButtonElement | null
-        if (startButton) {
-            startButton.style.display = visible ? 'inline-flex' : 'none'
-        }
-    }
-
-    const announce = (message: string): void => {
-        setText('rhythm-reactor-status', message)
     }
 
     const syncHud = (state: RhythmReactorState): void => {
@@ -128,6 +106,16 @@ export async function initRhythmReactorGameFramework(): Promise<
         setText('time-remaining', String(state.timeRemaining))
     }
 
+    const announce = (message: string): void => {
+        const element = document.getElementById('rhythm-reactor-status')
+        if (element) {
+            element.textContent = message
+        }
+    }
+
+    // The bespoke lane-button controls live in the React-owned sidebar
+    // card (outside the board host), so they are looked up by their
+    // frozen id — same pattern as Signal Switch's gate controls (HPA-393).
     const laneButtons = Array.from(
         document.querySelectorAll<HTMLButtonElement>(
             '#rhythm-reactor-controls [data-rhythm-lane]'
@@ -166,6 +154,9 @@ export async function initRhythmReactorGameFramework(): Promise<
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: (state: BaseGameState) => {
             const rhythmReactorState = state as RhythmReactorState
+            // React owns the overlay/buttons/final stats (HPA-393); the
+            // callbacks keep the HUD badges (same-tick e2e contract), the
+            // bespoke lane controls and the polite live announcer in sync.
             syncHud(rhythmReactorState)
             syncControls(rhythmReactorState)
             trackAnnouncements(rhythmReactorState)
@@ -175,64 +166,24 @@ export async function initRhythmReactorGameFramework(): Promise<
             setText('time-remaining', String(timeRemaining)),
         onStart: () => {
             lastJudgmentAnnouncement = ''
-            setStartVisible(false)
-            hideOverlay()
             announce('Rhythm Reactor started.')
         },
-        onEnd: (finalScore: number, stats: BaseGameStats) => {
-            const rhythmReactorStats = stats as RhythmReactorStats
-            setStartVisible(true)
+        onEnd: (_finalScore: number, _stats: BaseGameStats) => {
+            // end() flips isActive without emitting a final state change, so
+            // re-sync here or active-lane buttons stay enabled after game over.
             syncControls(game.getState())
-            setText('final-score', String(finalScore))
-            setText('final-hits', String(rhythmReactorStats.hits))
-            setText('final-misses', String(rhythmReactorStats.misses))
-            setText(
-                'final-stray-presses',
-                String(rhythmReactorStats.strayPresses)
-            )
-            setText('final-perfect', String(rhythmReactorStats.perfectHits))
-            setText('final-good', String(rhythmReactorStats.goodHits))
-            setText('final-max-combo', String(rhythmReactorStats.maxCombo))
-            setText(
-                'final-accuracy',
-                `${rhythmReactorStats.accuracy.toFixed(1)}%`
-            )
-            setText(
-                'final-stability',
-                String(rhythmReactorStats.finalStability)
-            )
-            showOverlay()
             announce('Run complete.')
         },
     }
 
     const game = new RhythmReactorGame(config, enhancedCallbacks)
 
-    const onGameEnd = (event: unknown): void => {
-        const data = (event as { data?: unknown }).data as
-            | {
-                  newAchievements?: AchievementNotification[]
-                  challengeUpdates?: ChallengeUpdates
-              }
-            | undefined
-        const globalWindow = window as Window & {
-            showAchievementAward?: (
-                achievements: AchievementNotification[]
-            ) => void
-            showChallengeComplete?: (updates: ChallengeUpdates) => void
-        }
-        if (data?.newAchievements?.length) {
-            globalWindow.showAchievementAward?.(data.newAchievements)
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            globalWindow.showChallengeComplete?.(data.challengeUpdates)
-        }
-    }
-    game.on('end', onGameEnd)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
-    const startButton = document.getElementById('start-btn')
-    const resetButton = document.getElementById('reset-btn')
-    const playAgainButton = document.getElementById('play-again-btn')
+    // React owns the start/reset/play-again buttons (HPA-393); the bespoke
+    // lane controls stay initializer-wired.
     const laneControls = document.getElementById('rhythm-reactor-controls')
     const canvas = renderer.getApp()?.canvas ?? null
 
@@ -241,20 +192,16 @@ export async function initRhythmReactorGameFramework(): Promise<
         canvas.style.height = 'auto'
     }
 
-    const startHandler: EventListener = () => game.start()
-    const resetHandler: EventListener = () => {
+    // React drives the Reset button through this (HPA-393): reset() emits no
+    // event, so the lane controls must re-sync explicitly, mirroring the
+    // legacy reset handler (renderer + HUD/overlay are React-owned).
+    const restart = (): void => {
         game.reset()
         renderer.render(game.getState())
         syncHud(game.getState())
         syncControls(game.getState())
-        hideOverlay()
-        setStartVisible(true)
         lastJudgmentAnnouncement = ''
         announce('Ready.')
-    }
-    const playAgainHandler: EventListener = () => {
-        hideOverlay()
-        game.start()
     }
     const laneClickHandler: EventListener = event => {
         const target = event.target instanceof Element ? event.target : null
@@ -301,9 +248,6 @@ export async function initRhythmReactorGameFramework(): Promise<
             'You have a game in progress. Are you sure you want to leave?'
     }
 
-    listen(startButton, 'click', startHandler)
-    listen(resetButton, 'click', resetHandler)
-    listen(playAgainButton, 'click', playAgainHandler)
     listen(laneControls, 'click', laneClickHandler)
     listen(document, 'keydown', keyboardHandler)
     listen(window, 'beforeunload', beforeUnloadHandler)
@@ -311,7 +255,6 @@ export async function initRhythmReactorGameFramework(): Promise<
     renderer.render(game.getState())
     syncHud(game.getState())
     syncControls(game.getState())
-    setStartVisible(true)
 
     let frameId: number | null = null
     let lastFrameTime: number | null = null
@@ -347,7 +290,7 @@ export async function initRhythmReactorGameFramework(): Promise<
         for (const { target, type, handler } of trackedListeners) {
             target.removeEventListener(type, handler)
         }
-        game.off('end', onGameEnd)
+        removeForwarder()
         renderer.destroy()
         game.destroy()
     }
@@ -357,6 +300,7 @@ export async function initRhythmReactorGameFramework(): Promise<
         renderer,
         getGame: () => game,
         getState: () => game.getState(),
+        restart,
         cleanup,
     }
 }

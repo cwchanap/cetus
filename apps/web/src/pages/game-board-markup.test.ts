@@ -56,12 +56,7 @@ const chromaticTideRouteMarkup = readFileSync(
     'utf-8'
 )
 
-const games = [
-    'circuit-hacker',
-    'satellite-sync',
-    'ice-slide',
-    'rhythm-reactor',
-]
+const games = ['circuit-hacker', 'satellite-sync', 'ice-slide']
 
 const fieldPlateGames = ['tetris', 'bubble-shooter', 'bejeweled', '2048']
 
@@ -371,6 +366,10 @@ const rhythmReactorMarkup = readFileSync(
     resolve(appRoot, 'src/pages/rhythm-reactor/index.astro'),
     'utf-8'
 )
+const rhythmReactorIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/RhythmReactorScreen.tsx'),
+    'utf-8'
+)
 
 describe('Signal Switch island markup', () => {
     it('keeps the thin route with the island import and no root script', () => {
@@ -413,17 +412,33 @@ describe('Signal Switch island markup', () => {
     })
 })
 
-describe('Rhythm Reactor page markup', () => {
-    it('keeps the board, lane controls, HUD, and final-stat ids', () => {
-        const source = rhythmReactorMarkup
+describe('Rhythm Reactor island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(rhythmReactorMarkup).toContain(
+            "import RhythmReactorScreen from '@/components/islands/games/RhythmReactorScreen'"
+        )
+        expect(rhythmReactorMarkup).toContain('client:load')
+        expect(rhythmReactorMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps the board, lane controls, HUD, and final-stat ids in the island', () => {
+        // Board, HUD badges, bespoke lane controls and final-stat ids moved
+        // into the island (HPA-393) with the class attribute spelled
+        // className in TSX.
+        const source = rhythmReactorIslandMarkup
         expect(source).toContain('id="rhythm-reactor-controls"')
-        expect(source.match(/data-rhythm-lane=/g)).toHaveLength(4)
+        // The bespoke lane markers render from the four-entry lane list;
+        // the RTL test counts the rendered buttons, the e2e asserts the
+        // runtime selector structure (Signal Switch precedent).
+        expect(source).toContain('data-rhythm-lane={index}')
         for (const id of [
+            'rhythm-reactor-container',
+            'rhythm-reactor-canvas',
+            'rhythm-reactor-status',
             'rhythm-reactor-combo',
             'rhythm-reactor-hits',
             'rhythm-reactor-judgment',
             'rhythm-reactor-stability',
-            'rhythm-reactor-status',
             'final-hits',
             'final-misses',
             'final-stray-presses',
@@ -432,16 +447,12 @@ describe('Rhythm Reactor page markup', () => {
             'final-max-combo',
             'final-accuracy',
             'final-stability',
+            'start-btn',
+            'reset-btn',
         ]) {
             expect(source).toContain(`id="${id}"`)
         }
-        expect(source).toContain('showPause={false}')
-        expect(source).toContain('showEnd={false}')
-        expect(source).toContain('showReset={true}')
-        const readyIndex = source.indexOf('DOMContentLoaded')
-        const initIndex = source.indexOf('initRhythmReactorGameFramework()')
-        expect(readyIndex).toBeGreaterThanOrEqual(0)
-        expect(initIndex).toBeGreaterThan(readyIndex)
+        expect(source).not.toContain('id="end-btn"')
     })
 })
 
