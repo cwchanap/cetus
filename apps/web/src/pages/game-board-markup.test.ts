@@ -11,7 +11,11 @@ const evaderIslandMarkup = readFileSync(
     resolve(appRoot, 'src/components/islands/games/EvaderScreen.tsx'),
     'utf-8'
 )
-const circuitHackerMarkup = readFileSync(
+const circuitHackerIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/CircuitHackerScreen.tsx'),
+    'utf-8'
+)
+const circuitHackerRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/circuit-hacker/index.astro'),
     'utf-8'
 )
@@ -56,7 +60,7 @@ const chromaticTideRouteMarkup = readFileSync(
     'utf-8'
 )
 
-const games = ['circuit-hacker', 'satellite-sync', 'ice-slide']
+const games = ['satellite-sync', 'ice-slide']
 
 const fieldPlateGames = ['tetris', 'bubble-shooter', 'bejeweled', '2048']
 
@@ -72,11 +76,6 @@ describe('Game board page markup', () => {
         expect(evaderIslandMarkup).toMatch(
             /id="game-status"[^>]*className="[^"]*hidden/
         )
-    })
-
-    it('exposes the Circuit Hacker canvas container and difficulty select', () => {
-        expect(circuitHackerMarkup).toContain('id="game-canvas-container"')
-        expect(circuitHackerMarkup).toContain('id="difficulty-select"')
     })
 })
 
@@ -203,6 +202,46 @@ describe('Mine Grid island markup', () => {
         expect(mineGridRouteMarkup).not.toMatch(/<script[^>]*>/)
         expect(mineGridIslandMarkup).toContain('id="mine-grid-container"')
         expect(mineGridIslandMarkup).toContain('id="mine-grid-board"')
+    })
+})
+
+describe('Circuit Hacker island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(circuitHackerRouteMarkup).toContain(
+            "import CircuitHackerScreen from '@/components/islands/games/CircuitHackerScreen'"
+        )
+        expect(circuitHackerRouteMarkup).toContain('client:load')
+        expect(circuitHackerRouteMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps the canvas container, difficulty select, HUD, and final-stat ids in the island', () => {
+        // Board, bespoke difficulty select + start/stop pair, error surface
+        // and final-stat ids moved into the island (HPA-393) with the class
+        // attribute spelled className in TSX.
+        for (const id of [
+            'game-canvas-container',
+            'game-status',
+            'game-error',
+            'game-error-title',
+            'game-error-message',
+            'difficulty-select',
+            'rotation-count',
+            'start-btn',
+            'stop-btn',
+            'final-score',
+            'final-time',
+            'final-rotations',
+        ]) {
+            expect(circuitHackerIslandMarkup).toContain(`id="${id}"`)
+        }
+        // The frozen option values survive verbatim.
+        for (const value of ['easy', 'medium', 'hard', 'expert']) {
+            expect(circuitHackerIslandMarkup).toContain(`value="${value}"`)
+        }
+        // Legacy GamePage props preserved: no built-in score readout and
+        // no shared end button — Circuit Hacker keeps its custom #stop-btn.
+        expect(circuitHackerIslandMarkup).toContain('showScore: false')
+        expect(circuitHackerIslandMarkup).not.toContain('id="end-btn"')
     })
 })
 
