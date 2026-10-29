@@ -68,7 +68,12 @@ describe('initializeCircuitHackerGame', () => {
         vi.useFakeTimers()
         saveGameScore.mockClear()
     })
-    afterEach(() => vi.useRealTimers())
+    afterEach(() => {
+        vi.useRealTimers()
+        // Keep failing assertions from leaking toast spies into siblings.
+        delete window.showAchievementAward
+        delete window.showChallengeComplete
+    })
 
     it('starts a game of the chosen difficulty', async () => {
         const container = setupDom()
@@ -261,8 +266,6 @@ describe('initializeCircuitHackerGame', () => {
         expect(achievementToast).toHaveBeenCalledTimes(1)
         expect(challengeToast).toHaveBeenCalledTimes(1)
 
-        delete window.showAchievementAward
-        delete window.showChallengeComplete
         handle.cleanup()
     })
 
