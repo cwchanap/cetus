@@ -19,6 +19,14 @@ const circuitHackerRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/circuit-hacker/index.astro'),
     'utf-8'
 )
+const satelliteSyncIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/SatelliteSyncScreen.tsx'),
+    'utf-8'
+)
+const satelliteSyncRouteMarkup = readFileSync(
+    resolve(appRoot, 'src/pages/satellite-sync/index.astro'),
+    'utf-8'
+)
 const bubbleShooterMarkup = readFileSync(
     resolve(appRoot, 'src/pages/bubble-shooter/index.astro'),
     'utf-8'
@@ -60,7 +68,7 @@ const chromaticTideRouteMarkup = readFileSync(
     'utf-8'
 )
 
-const games = ['satellite-sync', 'ice-slide']
+const games = ['ice-slide']
 
 const fieldPlateGames = ['tetris', 'bubble-shooter', 'bejeweled', '2048']
 
@@ -242,6 +250,42 @@ describe('Circuit Hacker island markup', () => {
         // no shared end button — Circuit Hacker keeps its custom #stop-btn.
         expect(circuitHackerIslandMarkup).toContain('showScore: false')
         expect(circuitHackerIslandMarkup).not.toContain('id="end-btn"')
+    })
+})
+
+describe('Satellite Sync island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(satelliteSyncRouteMarkup).toContain(
+            "import SatelliteSyncScreen from '@/components/islands/games/SatelliteSyncScreen'"
+        )
+        expect(satelliteSyncRouteMarkup).toContain('client:load')
+        expect(satelliteSyncRouteMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps the canvas container, HUD badges, error banner, and control ids in the island', () => {
+        // Board, HUD badges (level/combo), error banner, start/end pair
+        // and overlay ids moved into the island (HPA-393) with the class
+        // attribute spelled className in TSX.
+        for (const id of [
+            'game-canvas-container',
+            'game-status',
+            'game-error',
+            'level',
+            'combo',
+            'start-btn',
+            'end-btn',
+        ]) {
+            expect(satelliteSyncIslandMarkup).toContain(`id="${id}"`)
+        }
+        // The frozen overlay contract: legacy GamePage props preserved
+        // (overlayTitle, Play Again) and the built-in final-score span.
+        expect(satelliteSyncIslandMarkup).toContain('MISSION COMPLETE!')
+        expect(satelliteSyncIslandMarkup).toContain("TIME'S UP!")
+        expect(satelliteSyncIslandMarkup).toContain("buttonText: 'Play Again'")
+        // The manual end button returns to the pre-start prompt via the
+        // seam's onIdle transition (no shared reset button).
+        expect(satelliteSyncIslandMarkup).toContain('onIdle')
+        expect(satelliteSyncIslandMarkup).not.toContain('id="reset-btn"')
     })
 })
 
