@@ -35,6 +35,10 @@ const gravityFlipMarkup = readFileSync(
     resolve(appRoot, 'src/pages/gravity-flip/index.astro'),
     'utf-8'
 )
+const gravityFlipIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/GravityFlipScreen.tsx'),
+    'utf-8'
+)
 const asteroidDriftMarkup = readFileSync(
     resolve(appRoot, 'src/pages/asteroid-drift/index.astro'),
     'utf-8'
@@ -52,7 +56,6 @@ const games = [
     'circuit-hacker',
     'satellite-sync',
     'ice-slide',
-    'gravity-flip',
     'rhythm-reactor',
     'asteroid-drift',
 ]
@@ -223,11 +226,23 @@ describe('Pattern Pulse island markup', () => {
     })
 })
 
-describe('Gravity Flip page markup', () => {
-    it('keeps stable board controls and root-level initializer', () => {
+describe('Gravity Flip island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(gravityFlipMarkup).toContain(
+            "import GravityFlipScreen from '@/components/islands/games/GravityFlipScreen'"
+        )
+        expect(gravityFlipMarkup).toContain('client:load')
+        expect(gravityFlipMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps stable board, control, HUD, and final-stat ids in the island', () => {
+        // Board, HUD badges, bespoke flip button and final-stat ids moved
+        // into the island (HPA-393) with the class attribute spelled
+        // className in TSX.
         for (const id of [
             'gravity-flip-container',
             'gravity-flip-canvas',
+            'gravity-flip-status',
             'flip-btn',
             'gravity-direction',
             'distance-traveled',
@@ -241,13 +256,12 @@ describe('Gravity Flip page markup', () => {
             'start-btn',
             'reset-btn',
         ]) {
-            expect(gravityFlipMarkup).toContain(`id="${id}"`)
+            expect(gravityFlipIslandMarkup).toContain(`id="${id}"`)
         }
-        expect(gravityFlipMarkup).not.toContain('id="end-btn"')
-        expect(gravityFlipMarkup).toContain('id="world-speed">—</span>')
-        expect(gravityFlipMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initGravityFlipGameFramework/
-        )
+        expect(gravityFlipIslandMarkup).not.toContain('id="end-btn"')
+        // Pre-hydration world speed keeps the legacy em-dash placeholder
+        // (idle snapshot projection default).
+        expect(gravityFlipIslandMarkup).toContain("speed: '—'")
     })
 })
 
