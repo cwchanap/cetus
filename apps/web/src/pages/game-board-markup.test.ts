@@ -31,7 +31,11 @@ const bubbleShooterMarkup = readFileSync(
     resolve(appRoot, 'src/pages/bubble-shooter/index.astro'),
     'utf-8'
 )
-const iceSlideMarkup = readFileSync(
+const iceSlideIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/IceSlideScreen.tsx'),
+    'utf-8'
+)
+const iceSlideRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/ice-slide/index.astro'),
     'utf-8'
 )
@@ -68,8 +72,6 @@ const chromaticTideRouteMarkup = readFileSync(
     'utf-8'
 )
 
-const games = ['ice-slide']
-
 const fieldPlateGames = ['tetris', 'bubble-shooter', 'bejeweled', '2048']
 
 describe('Game board page markup', () => {
@@ -101,66 +103,78 @@ describe('Bubble Shooter rules copy', () => {
     })
 })
 
-describe('Ice Slide Daily and Expedition challenge markup', () => {
-    it('keeps stable mode, HUD, and result selectors', () => {
-        expect(iceSlideMarkup).toContain('id="ice-slide-mode-selector"')
-        expect(iceSlideMarkup).toContain('value="campaign"')
-        expect(iceSlideMarkup).toContain('value="daily"')
-        expect(iceSlideMarkup).toContain('value="expedition"')
-        expect(iceSlideMarkup).toContain('id="daily-meta"')
-        expect(iceSlideMarkup).toContain('id="daily-date"')
-        expect(iceSlideMarkup).toContain('id="daily-reset"')
-        expect(iceSlideMarkup).toContain('id="daily-stage-progress"')
-        expect(iceSlideMarkup).toContain('id="stage-clear-overlay"')
-        expect(iceSlideMarkup).toContain('id="stage-clear-continue-btn"')
-        expect(iceSlideMarkup).toContain('id="run-final-stage-result"')
-        expect(iceSlideMarkup).toContain('id="run-final-heading"')
-        expect(iceSlideMarkup).toContain('id="run-final-clear"')
-        expect(iceSlideMarkup).toContain('id="run-final-efficient"')
-        expect(iceSlideMarkup).toContain('id="run-final-bonus"')
-        expect(iceSlideMarkup).toContain('id="change-mode-btn"')
-        expect(iceSlideMarkup).toContain('id="expedition-route-choice-overlay"')
-        expect(iceSlideMarkup).toContain('id="expedition-safe-btn"')
-        expect(iceSlideMarkup).toContain('id="expedition-risk-btn"')
-        expect(iceSlideMarkup).toContain('id="expedition-undo-btn"')
-        expect(iceSlideMarkup).toMatch(
-            /id="expedition-route-choice-overlay"[^>]*class="[^"]*hidden/
+describe('Ice Slide island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(iceSlideRouteMarkup).toContain(
+            "import IceSlideScreen from '@/components/islands/games/IceSlideScreen'"
         )
-        expect(iceSlideMarkup).toMatch(
+        expect(iceSlideRouteMarkup).toContain('client:load')
+        expect(iceSlideRouteMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps stable mode, HUD, and result selectors in the island', () => {
+        // Board, mode selector, bespoke overlays/panels, result rows and
+        // result-action ids moved into the island (HPA-393) with the class
+        // attribute spelled className in TSX; every frozen id stays alive.
+        const markup = iceSlideIslandMarkup
+        expect(markup).toContain('id="ice-slide-mode-selector"')
+        expect(markup).toContain('value="campaign"')
+        expect(markup).toContain('value="daily"')
+        expect(markup).toContain('value="expedition"')
+        expect(markup).toContain('id="daily-meta"')
+        expect(markup).toContain('id="daily-date"')
+        expect(markup).toContain('id="daily-reset"')
+        expect(markup).toContain('id="daily-stage-progress"')
+        expect(markup).toContain('id="stage-clear-overlay"')
+        expect(markup).toContain('id="stage-clear-continue-btn"')
+        expect(markup).toContain('id="run-final-stage-result"')
+        expect(markup).toContain('id="run-final-heading"')
+        expect(markup).toContain('id="run-final-clear"')
+        expect(markup).toContain('id="run-final-efficient"')
+        expect(markup).toContain('id="run-final-bonus"')
+        expect(markup).toContain('id="change-mode-btn"')
+        expect(markup).toContain('id="expedition-route-choice-overlay"')
+        expect(markup).toContain('id="expedition-safe-btn"')
+        expect(markup).toContain('id="expedition-risk-btn"')
+        expect(markup).toContain('id="expedition-undo-btn"')
+        expect(markup).toMatch(
+            /id="expedition-route-choice-overlay"[^>]*className="[^"]*hidden/
+        )
+        expect(markup).toMatch(
             /<Button id="expedition-safe-btn" type="button">/
         )
-        expect(iceSlideMarkup).toMatch(
+        expect(markup).toMatch(
             /<Button id="expedition-risk-btn" type="button">/
         )
-        const expeditionStars = iceSlideMarkup.match(
+        const expeditionStars = markup.match(
             /<span id="expedition-stars">([\s\S]*?)<\/span>/
         )?.[1]
         expect(expeditionStars).toBe('Stars 0 / —')
         expect(expeditionStars).not.toContain('/ 18')
-        expect(iceSlideMarkup).toContain('id="expedition-meta"')
-        expect(iceSlideMarkup).toContain('id="expedition-seed"')
-        expect(iceSlideMarkup).toContain('id="expedition-stage-progress"')
-        expect(iceSlideMarkup).toContain('id="expedition-stars"')
-        expect(iceSlideMarkup).toContain('id="expedition-attempts"')
-        expect(iceSlideMarkup).toContain('id="expedition-objective-clear"')
-        expect(iceSlideMarkup).toContain('id="expedition-objective-efficient"')
-        expect(iceSlideMarkup).toContain('id="expedition-objective-bonus"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-seed"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-progress"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-stars"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-moves"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-crystals"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-attempts"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-time"')
-        expect(iceSlideMarkup).toContain('id="new-expedition-btn"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-date"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-signed-out"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-loading"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-empty"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-unavailable"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-rows"')
+        expect(markup).toContain('id="expedition-meta"')
+        expect(markup).toContain('id="expedition-seed"')
+        expect(markup).toContain('id="expedition-stage-progress"')
+        expect(markup).toContain('id="expedition-stars"')
+        expect(markup).toContain('id="expedition-attempts"')
+        expect(markup).toContain('id="expedition-objective-clear"')
+        expect(markup).toContain('id="expedition-objective-efficient"')
+        expect(markup).toContain('id="expedition-objective-bonus"')
+        expect(markup).toContain('id="expedition-summary"')
+        expect(markup).toContain('id="expedition-summary-seed"')
+        expect(markup).toContain('id="expedition-summary-progress"')
+        expect(markup).toContain('id="expedition-summary-stars"')
+        expect(markup).toContain('id="expedition-summary-moves"')
+        expect(markup).toContain('id="expedition-summary-crystals"')
+        expect(markup).toContain('id="expedition-summary-attempts"')
+        expect(markup).toContain('id="expedition-summary-time"')
+        expect(markup).toContain('id="new-expedition-btn"')
+        expect(markup).toContain('id="daily-leaderboard"')
+        expect(markup).toContain('id="daily-leaderboard-date"')
+        expect(markup).toContain('id="daily-leaderboard-signed-out"')
+        expect(markup).toContain('id="daily-leaderboard-loading"')
+        expect(markup).toContain('id="daily-leaderboard-empty"')
+        expect(markup).toContain('id="daily-leaderboard-unavailable"')
+        expect(markup).toContain('id="daily-leaderboard-rows"')
     })
 })
 
@@ -565,21 +579,6 @@ describe('Potion Sorter island markup', () => {
             expect(potionSorterIslandMarkup).toContain(`id="${id}"`)
         }
     })
-})
-
-describe('Game pages use GamePage wrapper', () => {
-    for (const game of games) {
-        it(`${game} imports and uses GamePage`, () => {
-            const src = readFileSync(
-                resolve(appRoot, `src/pages/${game}/index.astro`),
-                'utf-8'
-            )
-            expect(src).toContain('GamePage')
-            expect(src).toContain('slot="game-board"')
-            // Should NOT import AppLayout directly anymore
-            expect(src).not.toMatch(/import AppLayout/)
-        })
-    }
 })
 
 describe('Field plate game pages', () => {

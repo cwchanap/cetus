@@ -48,9 +48,31 @@ function createExpeditionSeed(): string {
     )
 }
 
+/**
+ * Shared-HUD values the island renders from React state (HPA-393 Stage
+ * 3.3): the spans whose only legacy writers were this initializer's
+ * syncHud/onTimeUpdate DOM writes. Bespoke mode panels stay imperative.
+ */
+export interface IceSlideHudSnapshot {
+    score: number
+    level: number
+    moves: number
+    crystals: number
+    timeText: string
+    levelName: string
+}
+
 export interface IceSlideUICallbacks extends IceSlideCallbacks {
     onError?: (title: string, message: string) => void
     onScoreSaved?: (gameData: IceSlideGameData) => void
+    /** Replaces the deleted syncHud shared-span setText writers. */
+    onHudSync?: (hud: IceSlideHudSnapshot) => void
+    /**
+     * Replaces the deleted showOverlay/resetButtons DOM writers: the run
+     * result overlay (title + final score) is React-owned now. `completed`
+     * distinguishes a full win from a manual/local end.
+     */
+    onRunEnded?: (title: string, finalScore: number, completed: boolean) => void
 }
 
 export interface IceSlideHandle {
@@ -76,23 +98,6 @@ function setVisible(id: string, visible: boolean): void {
     if (el) {
         el.classList.toggle('hidden', !visible)
     }
-}
-
-function resetButtons(): void {
-    const startBtn = document.getElementById('start-btn')
-    const endBtn = document.getElementById('end-btn')
-    if (startBtn) {
-        startBtn.style.display = 'inline-flex'
-    }
-    if (endBtn) {
-        endBtn.style.display = 'none'
-    }
-}
-
-function showOverlay(title: string, score: number): void {
-    setText('game-over-title', title)
-    setText('final-score', score.toString())
-    setVisible('game-over-overlay', true)
 }
 
 function formatTime(seconds: number): string {
@@ -171,6 +176,30 @@ export async function initializeIceSlide(
         syncHud()
     }
 
+    // Bespoke control wiring (Signal Switch gate precedent, HPA-393): the
+    // stage-clear continue button and the expedition route/undo buttons
+    // render as static island markup WITHOUT React onClick, so the
+    // initializer owns their listeners (React suppresses onClick for
+    // elements whose props say disabled — the undo button is imperatively
+    // enabled by syncExpeditionMeta). Tracked so cleanup detaches them.
+    const trackedListeners: Array<{
+        target: EventTarget
+        type: string
+        handler: EventListener
+    }> = []
+
+    const listen = (
+        target: EventTarget | null,
+        type: string,
+        handler: EventListener
+    ): void => {
+        if (!target) {
+            return
+        }
+        target.addEventListener(type, handler)
+        trackedListeners.push({ target, type, handler })
+    }
+
     const hideStageClear = (): void => {
         inputLocked = false
         setVisible('stage-clear-overlay', false)
@@ -230,7 +259,6 @@ export async function initializeIceSlide(
         setVisible('daily-meta', false)
         setVisible('expedition-meta', false)
         setVisible('expedition-summary', false)
-        resetButtons()
         callbacks.onError?.(
             'Ice Slide Error',
             error instanceof Error ? error.message : String(error)
@@ -282,15 +310,14 @@ export async function initializeIceSlide(
             undoButton.textContent = `Undo (${state.undoChargesAvailable})`
             undoButton.disabled = !game.canUndo()
         }
-        setText('score', state.score.toString())
-        setText('level', String(state.levelIndex + 1))
-        setText('moves', state.moves.toString())
-        setText('crystals', state.crystalsCollected.toString())
-        setText('time-remaining', formatTime(state.elapsedSeconds))
-        const levelName = document.getElementById('level-name')
-        if (levelName) {
-            levelName.textContent = state.levelName
-        }
+        callbacks.onHudSync?.({
+            score: state.score,
+            level: state.levelIndex + 1,
+            moves: state.moves,
+            crystals: state.crystalsCollected,
+            timeText: formatTime(state.elapsedSeconds),
+            levelName: state.levelName,
+        })
 
         const isDaily = state.mode === 'daily'
         const isExpedition = state.mode === 'expedition'
@@ -542,7 +569,6 @@ export async function initializeIceSlide(
         hideRouteChoice()
         hideRunFinalStageResult()
         setVisible('expedition-summary', false)
-        setVisible('game-over-overlay', false)
         activeRun = run ?? null
         currentMode = run?.mode ?? 'campaign'
         dailyDateKey =
@@ -581,14 +607,12 @@ export async function initializeIceSlide(
             },
             onTimeUpdate: (seconds: number) => {
                 callbacks.onTimeUpdate(seconds)
-                setText('time-remaining', formatTime(seconds))
             },
             onWin: finalScore => {
                 callbacks.onWin(finalScore)
                 hideStageClear()
                 hideRouteChoice()
-                resetButtons()
-                showOverlay('MISSION COMPLETE!', finalScore)
+                callbacks.onRunEnded?.('MISSION COMPLETE!', finalScore, true)
                 submitScore(finalScore)
                 syncHud()
                 populateExpeditionSummary()
@@ -687,8 +711,7 @@ export async function initializeIceSlide(
                 hideStageClear()
                 const shouldSubmit = score > 0
                 game.stop()
-                resetButtons()
-                showOverlay('RUN ENDED', score)
+                callbacks.onRunEnded?.('RUN ENDED', score, false)
                 if (shouldSubmit) {
                     submitScore(score)
                 }
@@ -703,17 +726,15 @@ export async function initializeIceSlide(
                 }
                 hideStageClear()
                 game.stop()
-                resetButtons()
-                showOverlay('RUN ENDED', score)
+                callbacks.onRunEnded?.('RUN ENDED', score, false)
                 syncHud()
                 return
             }
 
             const shouldSubmit = status === 'playing' && score > 0
             game.stop()
-            resetButtons()
             if (shouldSubmit) {
-                showOverlay('RUN ENDED', score)
+                callbacks.onRunEnded?.('RUN ENDED', score, false)
                 submitScore(score)
             }
         },
@@ -758,9 +779,10 @@ export async function initializeIceSlide(
             setVisible('expedition-meta', false)
             setVisible('expedition-summary', false)
             teardownRenderer()
-            document
-                .getElementById('stage-clear-continue-btn')
-                ?.removeEventListener('click', continueHandler)
+            for (const { target, type, handler } of trackedListeners) {
+                target.removeEventListener(type, handler)
+            }
+            trackedListeners.length = 0
             const debugWindow = window as Window & {
                 iceSlideGame?: IceSlideHandle
             }
@@ -774,8 +796,19 @@ export async function initializeIceSlide(
 
     ;(window as Window & { iceSlideGame?: IceSlideHandle }).iceSlideGame =
         handle
-    document
-        .getElementById('stage-clear-continue-btn')
-        ?.addEventListener('click', continueHandler)
+    listen(
+        document.getElementById('stage-clear-continue-btn'),
+        'click',
+        continueHandler
+    )
+    listen(document.getElementById('expedition-safe-btn'), 'click', () => {
+        handle.chooseExpeditionRoute('safe')
+    })
+    listen(document.getElementById('expedition-risk-btn'), 'click', () => {
+        handle.chooseExpeditionRoute('risky')
+    })
+    listen(document.getElementById('expedition-undo-btn'), 'click', () => {
+        handle.undo()
+    })
     return handle
 }
