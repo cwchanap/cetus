@@ -154,6 +154,60 @@ describe('Tetris island markup', () => {
     })
 })
 
+describe('Field plate style template (fix round 1)', () => {
+    // Fix round 1 of the T15 review: tetris ships an id-only sheet dialog
+    // (<dialog id="field-sheet">, no class), so every sheet coverage list
+    // must name BOTH `.field-sheet` and `#field-sheet`; and the sheet
+    // button legs must exclude the notifications astro-island subtree
+    // (AppNotifications renders inside the sheet dialog) so
+    // #challenge-continue does not inherit the plate button
+    // border/Field Mono/focus outline. Every wrapper stays :where() —
+    // all rules remain (0,0,1), identical to the pre-migration bare
+    // element selectors, so class rules keep winning on plate nodes.
+    for (const [game, markup] of [
+        ['bubble-shooter', bubbleShooterMarkup],
+        ['tetris', tetrisRouteMarkup],
+    ] as const) {
+        it(`${game}: sheet coverage lists the id and button legs exclude the notification island`, () => {
+            // The class-only template is gone (its sheet leg matched
+            // nothing on tetris's id-only dialog).
+            expect(markup).not.toContain(':where(.plate-width, .field-sheet)')
+            expect(markup).not.toMatch(/:where\(\.field-sheet\)[\s,]/)
+            // Sheet coverage lists carry the id alongside the class.
+            expect(markup).toContain(':where(.field-sheet, #field-sheet)')
+            // Exactly six sheet button legs (font, border base, cursor,
+            // disabled, hover, focus-visible), each excluding the
+            // notifications astro-island subtree.
+            expect(
+                markup.match(
+                    /:where\(\.field-sheet, #field-sheet\)\s*button:where\(:not\(astro-island \*\)\)/g
+                )
+            ).toHaveLength(6)
+            // Plate-body button legs stay plain: the island body itself
+            // is an astro-island (TetrisScreen), so a blanket exclusion
+            // on the .plate-width leg would strip its base styles.
+            expect(
+                markup.match(/:where\(\.plate-width\) button/g)
+            ).toHaveLength(6)
+            expect(markup).not.toContain(
+                ':where(.plate-width) button:where(:not('
+            )
+        })
+    }
+
+    it('tetris covers h2, progress, and anchor rules for the id-only sheet', () => {
+        expect(tetrisRouteMarkup).toMatch(
+            /:where\(\.field-sheet, #field-sheet\) h2/
+        )
+        expect(tetrisRouteMarkup).toMatch(
+            /:where\(\.plate-width, \.field-sheet, #field-sheet\) progress/
+        )
+        expect(tetrisRouteMarkup).toMatch(
+            /:where\(\.plate-width, \.field-sheet, #field-sheet\) a\b/
+        )
+    })
+})
+
 describe('Ice Slide island markup', () => {
     it('keeps the thin route with the island import and no root script', () => {
         expect(iceSlideRouteMarkup).toContain(
