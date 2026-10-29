@@ -6,7 +6,6 @@ import {
 import {
     SIGNAL_SWITCH_SIGNALS,
     createSignalSwitchConfig,
-    type SignalSwitchOutcome,
     type SignalSwitchState,
     type SignalSwitchStats,
 } from '@cetus/games/signal-switch/types'
@@ -14,14 +13,10 @@ import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
-    ChallengeUpdates,
 } from '@cetus/games/core/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
+import { handleGameError } from '@cetus/games/core/errors'
 import { isEditableTarget } from '@/lib/keyboard'
-import type { AchievementNotification } from '@cetus/shared/achievements'
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface SignalSwitchInitResult {
@@ -29,6 +24,9 @@ export interface SignalSwitchInitResult {
     renderer: SignalSwitchRenderer
     getGame: () => SignalSwitchGame
     getState: () => ReturnType<SignalSwitchGame['getState']>
+    /** React-owned Reset re-syncs the bespoke gate controls through this
+     * (HPA-393): reset() emits no event, so the island calls restart(). */
+    restart: () => void
     cleanup: () => void
 }
 
@@ -39,30 +37,17 @@ const KEY_TO_LANE: Record<string, number> = {
     '4': 3,
 }
 
-function outcomeTitle(outcome: SignalSwitchOutcome): string {
-    return outcome === 'survived' ? 'SHIFT COMPLETE' : 'SIGNAL LOST'
-}
-
-function outcomeLabel(outcome: SignalSwitchOutcome): string {
-    return outcome === 'survived' ? 'Survived' : 'Systems failed'
-}
-
-export async function initSignalSwitchGameFramework(): Promise<
-    SignalSwitchInitResult | undefined
-> {
-    const container = document.getElementById('signal-switch-container')
-    if (!container) {
-        handleGameError(
-            new DOMElementNotFoundError('signal-switch-container'),
-            'SignalSwitch'
-        )
-        return undefined
-    }
-
+export async function initSignalSwitchGameFramework(
+    container: HTMLElement
+): Promise<SignalSwitchInitResult | undefined> {
     const config = { ...createSignalSwitchConfig(), submitScore }
-    const renderer = new SignalSwitchRenderer(
-        createSignalSwitchRendererConfig(config)
-    )
+    // The renderer mounts via a selector; derive it from the ref'd host
+    // element (which keeps the frozen `#signal-switch-canvas` e2e id —
+    // the canvas div lives inside the ref'd board container).
+    const renderer = new SignalSwitchRenderer({
+        ...createSignalSwitchRendererConfig(config),
+        container: `#${CSS.escape(container.id)} #signal-switch-canvas`,
+    })
     try {
         await renderer.initialize()
     } catch (error) {
@@ -103,43 +88,17 @@ export async function initSignalSwitchGameFramework(): Promise<
         }
     }
 
-    const hideOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.add('hidden')
-    }
-
-    const showOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.remove('hidden')
-    }
-
-    const setStartVisible = (visible: boolean): void => {
-        const startButton = document.getElementById(
-            'start-btn'
-        ) as HTMLButtonElement | null
-        if (startButton) {
-            startButton.style.display = visible ? 'inline-flex' : 'none'
-        }
-    }
-
-    const totalLanes = config.laneUnlockSeconds.length
-
-    const syncHud = (state: SignalSwitchState): void => {
-        setText('signal-switch-integrity', String(state.integrity))
-        setText('signal-switch-combo', String(state.combo))
-        setText('signal-switch-safe-passes', String(state.safePasses))
-        setText(
-            'signal-switch-lanes',
-            `${state.activeLaneCount} / ${totalLanes}`
-        )
-        setText('signal-switch-speed', String(Math.round(state.droneSpeed)))
-        setText('score', String(state.score))
-        setText('time-remaining', String(state.timeRemaining))
-    }
-
-    const laneButtons = Array.from(
-        document.querySelectorAll<HTMLButtonElement>(
-            '#gate-controls [data-signal-lane]'
-        )
-    )
+    // The bespoke lane-gate controls live in the React-owned sidebar card
+    // (outside the board host), so they are looked up by their frozen id —
+    // same pattern as Evader's controls-slot D-pad (HPA-393).
+    const gateControls = document.getElementById('gate-controls')
+    const laneButtons = gateControls
+        ? Array.from(
+              gateControls.querySelectorAll<HTMLButtonElement>(
+                  '[data-signal-lane]'
+              )
+          )
+        : []
 
     const syncControls = (state: SignalSwitchState): void => {
         for (const button of laneButtons) {
@@ -186,13 +145,11 @@ export async function initSignalSwitchGameFramework(): Promise<
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: (state: BaseGameState) => {
             const signalSwitchState = state as SignalSwitchState
-            syncHud(signalSwitchState)
+            // React owns the HUD badges (HPA-393); the callbacks keep the
+            // bespoke gate controls and the polite live announcer in sync.
             syncControls(signalSwitchState)
             trackAnnouncements(signalSwitchState)
         },
-        onScoreUpdate: (score: number) => setText('score', String(score)),
-        onTimeUpdate: (timeRemaining: number) =>
-            setText('time-remaining', String(timeRemaining)),
         onStart: () => {
             // BaseGame.start() calls onStart before onGameStart emits the
             // fresh opening state. Clearing the baselines here keeps the live
@@ -200,26 +157,12 @@ export async function initSignalSwitchGameFramework(): Promise<
             // actual unlocks and integrity loss during the run.
             lastAnnouncedLaneCount = null
             lastAnnouncedIntegrity = null
-            setStartVisible(false)
-            hideOverlay()
         },
-        onEnd: (finalScore: number, stats: BaseGameStats) => {
+        onEnd: (_finalScore: number, stats: BaseGameStats) => {
             const signalSwitchStats = stats as SignalSwitchStats
-            setStartVisible(true)
             // end() flips isActive without emitting a final state change, so
             // re-sync here or active-lane buttons stay enabled after game over.
             syncControls(game.getState())
-            setText('game-over-title', outcomeTitle(signalSwitchStats.outcome))
-            setText('final-outcome', outcomeLabel(signalSwitchStats.outcome))
-            setText('final-score', String(finalScore))
-            setText('final-safe-passes', String(signalSwitchStats.safePasses))
-            setText('final-crashes', String(signalSwitchStats.crashes))
-            setText('final-max-combo', String(signalSwitchStats.maxCombo))
-            setText(
-                'final-integrity',
-                String(signalSwitchStats.integrityRemaining)
-            )
-            showOverlay()
             announce(
                 signalSwitchStats.outcome === 'survived'
                     ? 'Shift complete. You survived the full run.'
@@ -230,32 +173,12 @@ export async function initSignalSwitchGameFramework(): Promise<
 
     const game = new SignalSwitchGame(config, enhancedCallbacks)
 
-    const onGameEnd = (event: unknown): void => {
-        const data = (event as { data?: unknown }).data as
-            | {
-                  newAchievements?: AchievementNotification[]
-                  challengeUpdates?: ChallengeUpdates
-              }
-            | undefined
-        const globalWindow = window as Window & {
-            showAchievementAward?: (
-                achievements: AchievementNotification[]
-            ) => void
-            showChallengeComplete?: (updates: ChallengeUpdates) => void
-        }
-        if (data?.newAchievements?.length) {
-            globalWindow.showAchievementAward?.(data.newAchievements)
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            globalWindow.showChallengeComplete?.(data.challengeUpdates)
-        }
-    }
-    game.on('end', onGameEnd)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
-    const startButton = document.getElementById('start-btn')
-    const resetButton = document.getElementById('reset-btn')
-    const playAgainButton = document.getElementById('play-again-btn')
-    const gateControls = document.getElementById('gate-controls')
+    // React owns the start/reset/play-again buttons (HPA-393); the bespoke
+    // lane-gate controls stay initializer-wired.
     const canvas = renderer.getApp()?.canvas ?? null
 
     // PixiJSRenderer uses autoDensity: true, which writes inline
@@ -269,21 +192,13 @@ export async function initSignalSwitchGameFramework(): Promise<
         canvas.style.height = 'auto'
     }
 
-    const startHandler: EventListener = () => game.start()
-    const resetHandler: EventListener = () => {
+    // React drives the Reset button through this (HPA-393): reset() emits no
+    // event, so the gate controls must re-sync explicitly, mirroring the
+    // legacy reset handler (renderer + HUD/overlay are React-owned).
+    const restart = (): void => {
         game.reset()
         renderer.render(game.getState())
-        syncHud(game.getState())
         syncControls(game.getState())
-        hideOverlay()
-        setStartVisible(true)
-    }
-    const playAgainHandler: EventListener = () => {
-        hideOverlay()
-        // BaseGame.start() auto-resets a completed run and immediately starts
-        // it. Do not change Play Again to reset-only: Signal Switch expects
-        // the next run to be active as soon as this button is pressed.
-        game.start()
     }
     const gateClickHandler: EventListener = event => {
         const target = event.target instanceof Element ? event.target : null
@@ -322,17 +237,12 @@ export async function initSignalSwitchGameFramework(): Promise<
             'You have a game in progress. Are you sure you want to leave?'
     }
 
-    listen(startButton, 'click', startHandler)
-    listen(resetButton, 'click', resetHandler)
-    listen(playAgainButton, 'click', playAgainHandler)
     listen(gateControls, 'click', gateClickHandler)
     listen(document, 'keydown', keyboardHandler)
     listen(window, 'beforeunload', beforeUnloadHandler)
 
     renderer.render(game.getState())
-    syncHud(game.getState())
     syncControls(game.getState())
-    setStartVisible(true)
 
     let frameId: number | null = null
     let lastFrameTime: number | null = null
@@ -367,7 +277,7 @@ export async function initSignalSwitchGameFramework(): Promise<
         for (const { target, type, handler } of trackedListeners) {
             target.removeEventListener(type, handler)
         }
-        game.off('end', onGameEnd)
+        removeForwarder()
         renderer.destroy()
         game.destroy()
     }
@@ -377,6 +287,7 @@ export async function initSignalSwitchGameFramework(): Promise<
         renderer,
         getGame: () => game,
         getState: () => game.getState(),
+        restart,
         cleanup,
     }
 }

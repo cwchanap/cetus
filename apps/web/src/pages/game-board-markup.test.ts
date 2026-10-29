@@ -346,6 +346,10 @@ const potionSorterRouteMarkup = readFileSync(
     'utf-8'
 )
 
+const signalSwitchIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/SignalSwitchScreen.tsx'),
+    'utf-8'
+)
 const signalSwitchMarkup = readFileSync(
     resolve(appRoot, 'src/pages/signal-switch/index.astro'),
     'utf-8'
@@ -355,8 +359,19 @@ const rhythmReactorMarkup = readFileSync(
     'utf-8'
 )
 
-describe('Signal Switch page markup', () => {
+describe('Signal Switch island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(signalSwitchMarkup).toContain(
+            "import SignalSwitchScreen from '@/components/islands/games/SignalSwitchScreen'"
+        )
+        expect(signalSwitchMarkup).toContain('client:load')
+        expect(signalSwitchMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
     it('keeps stable board, control, and final-stat ids with four lane gates', () => {
+        // Board, HUD badges, bespoke gate controls and final-stat ids moved
+        // into the island (HPA-393) with the class attribute spelled
+        // className in TSX.
         for (const id of [
             'signal-switch-container',
             'signal-switch-canvas',
@@ -375,26 +390,13 @@ describe('Signal Switch page markup', () => {
             'start-btn',
             'reset-btn',
         ]) {
-            expect(signalSwitchMarkup).toContain(`id="${id}"`)
+            expect(signalSwitchIslandMarkup).toContain(`id="${id}"`)
         }
-        expect(
-            signalSwitchMarkup.match(/data-signal-lane="[0-3]"/g)
-        ).toHaveLength(4)
-        expect(signalSwitchMarkup).toContain('showPause={false}')
-        expect(signalSwitchMarkup).toContain('showEnd={false}')
-        expect(signalSwitchMarkup).not.toContain('id="end-btn"')
-        expect(signalSwitchMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initSignalSwitchGameFramework/
-        )
-    })
-
-    it('bootstraps the framework after DOMContentLoaded', () => {
-        const readyIndex = signalSwitchMarkup.indexOf('DOMContentLoaded')
-        const initCallIndex = signalSwitchMarkup.indexOf(
-            'initSignalSwitchGameFramework()'
-        )
-        expect(readyIndex).toBeGreaterThan(-1)
-        expect(initCallIndex).toBeGreaterThan(readyIndex)
+        // The bespoke lane-gate markers render from the four-entry rule
+        // constant; the RTL test counts the rendered buttons, the e2e
+        // asserts the runtime selector structure.
+        expect(signalSwitchIslandMarkup).toContain('data-signal-lane={index}')
+        expect(signalSwitchIslandMarkup).not.toContain('id="end-btn"')
     })
 })
 
