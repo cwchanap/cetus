@@ -91,37 +91,53 @@ export function mount(host: HTMLElement, signal: AbortSignal): void {
     document
         .querySelectorAll<HTMLButtonElement>('[data-sheet]')
         .forEach(button => {
-            button.addEventListener('click', () => {
-                returnPanel = currentPanel
-                const state = handle?.getState()
-                resumeAfterSheet = Boolean(state?.isActive && !state.isPaused)
-                if (resumeAfterSheet) {
-                    handle?.game.pause()
-                }
-                showSheet(button.dataset.sheet!)
-            })
+            button.addEventListener(
+                'click',
+                () => {
+                    returnPanel = currentPanel
+                    const state = handle?.getState()
+                    resumeAfterSheet = Boolean(
+                        state?.isActive && !state.isPaused
+                    )
+                    if (resumeAfterSheet) {
+                        handle?.game.pause()
+                    }
+                    showSheet(button.dataset.sheet!)
+                },
+                { signal }
+            )
         })
     sheet
         .querySelectorAll('[data-close]')
-        .forEach(button => button.addEventListener('click', closeInfo))
-    sheet.addEventListener('cancel', event => {
-        event.preventDefault()
-        if (panels.some(panel => panel.inert)) {
-            return
-        }
-        if (currentPanel === 'help' || currentPanel === 'log') {
-            closeInfo()
-        } else if (currentPanel === 'pause') {
-            handle?.game.resume()
-        }
-    })
+        .forEach(button =>
+            button.addEventListener('click', closeInfo, { signal })
+        )
+    sheet.addEventListener(
+        'cancel',
+        event => {
+            event.preventDefault()
+            if (panels.some(panel => panel.inert)) {
+                return
+            }
+            if (currentPanel === 'help' || currentPanel === 'log') {
+                closeInfo()
+            } else if (currentPanel === 'pause') {
+                handle?.game.resume()
+            }
+        },
+        { signal }
+    )
     // A second Escape makes the browser's close watcher force-close the dialog
     // (non-cancelable), bypassing closeSheet — reopen the panel it stranded.
-    sheet.addEventListener('close', () => {
-        if (currentPanel) {
-            showSheet(currentPanel)
-        }
-    })
+    sheet.addEventListener(
+        'close',
+        () => {
+            if (currentPanel) {
+                showSheet(currentPanel)
+            }
+        },
+        { signal }
+    )
     showSheet('intro')
 
     // Reward queues can advance after the player has already begun another dive.
