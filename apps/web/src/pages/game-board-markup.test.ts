@@ -31,6 +31,10 @@ const bubbleShooterMarkup = readFileSync(
     resolve(appRoot, 'src/pages/bubble-shooter/index.astro'),
     'utf-8'
 )
+const bubbleShooterIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/BubbleShooterScreen.tsx'),
+    'utf-8'
+)
 const iceSlideIslandMarkup = readFileSync(
     resolve(appRoot, 'src/components/islands/games/IceSlideScreen.tsx'),
     'utf-8'
@@ -91,6 +95,13 @@ describe('Game board page markup', () => {
 
 describe('Bubble Shooter rules copy', () => {
     it('sources rowAddInterval from config and reflects Tasks 4-6 mechanics', () => {
+        // The plate body (growth note + collection limit) moved into the
+        // island (HPA-393 Stage 4); both files destructure rowAddInterval
+        // from the shared config — the island for the body markup, the
+        // route for the retained intro/help sheet panels.
+        expect(bubbleShooterIslandMarkup).toMatch(
+            /\{\s*rowAddInterval[^}]*\}\s*=\s*DEFAULT_BUBBLE_SHOOTER_CONFIG/
+        )
         expect(bubbleShooterMarkup).toMatch(
             /\{\s*rowAddInterval[^}]*\}\s*=\s*DEFAULT_BUBBLE_SHOOTER_CONFIG/
         )

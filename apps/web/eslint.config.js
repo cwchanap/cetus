@@ -29,6 +29,9 @@ export default [
     files: ['src/lib/games/**/*.ts'],
     ignores: [
       '**/init*.ts',
+      // Field-plate controllers (HPA-393 Stage 4) own the plate DOM the
+      // same way the init boundaries do.
+      '**/controller.ts',
       '**/renderer.ts',
       '**/*Renderer.ts',
       'src/lib/games/renderers/**',
