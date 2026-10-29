@@ -43,6 +43,10 @@ const asteroidDriftMarkup = readFileSync(
     resolve(appRoot, 'src/pages/asteroid-drift/index.astro'),
     'utf-8'
 )
+const asteroidDriftIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/AsteroidDriftScreen.tsx'),
+    'utf-8'
+)
 const chromaticTideIslandMarkup = readFileSync(
     resolve(appRoot, 'src/components/islands/games/ChromaticTideScreen.tsx'),
     'utf-8'
@@ -57,7 +61,6 @@ const games = [
     'satellite-sync',
     'ice-slide',
     'rhythm-reactor',
-    'asteroid-drift',
 ]
 
 const fieldPlateGames = ['tetris', 'bubble-shooter', 'bejeweled', '2048']
@@ -265,8 +268,19 @@ describe('Gravity Flip island markup', () => {
     })
 })
 
-describe('Asteroid Drift page markup', () => {
-    it('keeps stable board, D-pad controls, and root-level initializer', () => {
+describe('Asteroid Drift island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(asteroidDriftMarkup).toContain(
+            "import AsteroidDriftScreen from '@/components/islands/games/AsteroidDriftScreen'"
+        )
+        expect(asteroidDriftMarkup).toContain('client:load')
+        expect(asteroidDriftMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps stable board, D-pad, HUD, and final-stat ids in the island', () => {
+        // Board, HUD badges, D-pad controls and final-stat ids moved into
+        // the island (HPA-393) with the class attribute spelled className
+        // in TSX.
         for (const id of [
             'asteroid-drift-container',
             'asteroid-drift-canvas',
@@ -280,11 +294,12 @@ describe('Asteroid Drift page markup', () => {
             'start-btn',
             'reset-btn',
         ]) {
-            expect(asteroidDriftMarkup).toContain(`id="${id}"`)
+            expect(asteroidDriftIslandMarkup).toContain(`id="${id}"`)
         }
         const dpadButtons =
-            asteroidDriftMarkup.match(/<button[^>]*data-direction=[^>]*>/g) ??
-            []
+            asteroidDriftIslandMarkup.match(
+                /<button[^>]*data-direction=[^>]*>/g
+            ) ?? []
         expect(dpadButtons).toHaveLength(4)
         for (const direction of ['up', 'left', 'down', 'right']) {
             expect(dpadButtons.join('\n')).toContain(
@@ -293,26 +308,10 @@ describe('Asteroid Drift page markup', () => {
         }
         for (const button of dpadButtons) {
             expect(button).toContain('type="button"')
-            expect(button).toContain('tabindex="-1"')
+            expect(button).toContain('tabIndex={-1}')
             expect(button).toContain('aria-label=')
         }
-        expect(asteroidDriftMarkup).toContain('slot="controls"')
-        expect(asteroidDriftMarkup).not.toContain('id="end-btn"')
-        expect(asteroidDriftMarkup).toContain('showPause={false}')
-        expect(asteroidDriftMarkup).toContain('showEnd={false}')
-        expect(asteroidDriftMarkup).toContain('showReset={true}')
-        expect(asteroidDriftMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initAsteroidDriftGameFramework/
-        )
-    })
-
-    it('bootstraps the framework after DOMContentLoaded', () => {
-        const readyIndex = asteroidDriftMarkup.indexOf('DOMContentLoaded')
-        const initCallIndex = asteroidDriftMarkup.indexOf(
-            'initAsteroidDriftGameFramework()'
-        )
-        expect(readyIndex).toBeGreaterThan(-1)
-        expect(initCallIndex).toBeGreaterThan(readyIndex)
+        expect(asteroidDriftIslandMarkup).not.toContain('id="end-btn"')
     })
 })
 

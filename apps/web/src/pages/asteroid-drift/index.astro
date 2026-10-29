@@ -1,163 +1,25 @@
 ---
-import GamePage from '@/components/games/GamePage.astro'
-import { Badge, Button, Card } from '@cetus/ui'
-import { ASTEROID_DRIFT_RULES } from '@cetus/games/asteroid-drift/types'
+import AppLayout from '@/layouts/AppLayout.astro'
+import AsteroidDriftScreen from '@/components/islands/games/AsteroidDriftScreen'
 ---
 
-<GamePage
-  gameId="asteroid-drift"
-  title="Asteroid Drift"
+<AppLayout
+  title="Asteroid Drift - Cetus Minigames"
   description="Thrust a momentum-bound ship through 90 seconds of rising asteroid traffic and grab energy orbs for bonus score."
-  icon="☄️"
-  initialTime={ASTEROID_DRIFT_RULES.duration}
-  showPause={false}
-  showEnd={false}
-  showReset={true}
-  overlayTitle="SHIP LOST"
+  navigation={[
+    { href: '/', label: 'Home' },
+    { href: '#', label: 'Asteroid Drift' },
+  ]}
+  includeFooter={false}
 >
-  <div
-    slot="game-board"
-    id="asteroid-drift-container"
-    class="w-full max-w-[800px]"
-  >
-    <div
-      id="asteroid-drift-canvas"
-      class="overflow-hidden rounded-lg bg-black/30"
-    >
-    </div>
-    <p id="asteroid-drift-status" class="sr-only" aria-live="polite"></p>
-  </div>
+  <AsteroidDriftScreen client:load />
+</AppLayout>
 
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono">Orbs: <span id="orbs-collected">0</span></span>
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono">Speed: <span id="ship-speed">0</span></span>
-  </Badge>
-
-  <div slot="controls">
-    <Card variant="glass" className="p-6">
-      <div class="flex flex-col items-center space-y-4">
-        <div class="flex flex-wrap justify-center gap-2">
-          <Button id="start-btn" type="button" variant="primary">
-            Start Game
-          </Button>
-          <Button id="reset-btn" type="button" variant="outline">
-            Reset
-          </Button>
-        </div>
-        <div
-          id="asteroid-drift-dpad"
-          class="grid grid-cols-3 gap-2 select-none"
-          style="grid-template-areas: '. up .' 'left . right' '. down .';"
-        >
-          <button
-            type="button"
-            data-direction="up"
-            aria-label="Thrust up"
-            class="dpad-btn"
-            tabindex="-1"
-            style="grid-area: up;"
-          >
-            &#8593;
-          </button>
-          <button
-            type="button"
-            data-direction="left"
-            aria-label="Thrust left"
-            class="dpad-btn"
-            tabindex="-1"
-            style="grid-area: left;"
-          >
-            &#8592;
-          </button>
-          <button
-            type="button"
-            data-direction="right"
-            aria-label="Thrust right"
-            class="dpad-btn"
-            tabindex="-1"
-            style="grid-area: right;"
-          >
-            &#8594;
-          </button>
-          <button
-            type="button"
-            data-direction="down"
-            aria-label="Thrust down"
-            class="dpad-btn"
-            tabindex="-1"
-            style="grid-area: down;"
-          >
-            &#8595;
-          </button>
-        </div>
-      </div>
-    </Card>
-  </div>
-
-  <div slot="game-info" class="space-y-6">
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ HOW TO PLAY
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>Hold arrows or WASD to thrust — the ship drifts with momentum.</p>
-        <p>Asteroids pour in from every edge as the run ramps up.</p>
-        <p>Grab energy orbs before they fade for bonus score.</p>
-        <p>Survive the full {ASTEROID_DRIFT_RULES.duration} seconds to win.</p>
-      </div>
-    </Card>
-
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ SCORING
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>
-          Survival earns {ASTEROID_DRIFT_RULES.survivalPointsPerSecond} points per
-          second.
-        </p>
-        <p>Each energy orb adds {ASTEROID_DRIFT_RULES.orbPoints} points.</p>
-        <p>An asteroid collision ends the run immediately.</p>
-      </div>
-    </Card>
-  </div>
-
-  <div slot="final-stats">
-    <div class="text-lg text-cetus-ink">
-      Outcome: <span id="final-outcome" class="text-cetus-accent">—</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Survival:
-      <span id="final-survival" class="text-cetus-accent-2">0</span>s
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Orbs: <span id="final-orbs" class="text-cetus-accent-3">0</span>
-    </div>
-  </div>
-</GamePage>
-
-<script>
-  import { initAsteroidDriftGameFramework } from '@/lib/games/asteroid-drift/initFramework'
-
-  document.addEventListener('DOMContentLoaded', () => {
-    initAsteroidDriftGameFramework()
-      .then(handle => {
-        if (handle) {
-          ;(
-            window as Window & { asteroidDriftGame?: typeof handle }
-          ).asteroidDriftGame = handle
-        }
-      })
-      .catch(error => {
-        console.error('Asteroid Drift failed to initialize', error)
-      })
-  })
-</script>
-
-<style>
-  #asteroid-drift-canvas :global(canvas) {
+<style is:global>
+  /* Static canvas + D-pad markup lives in the AsteroidDriftScreen island
+     (HPA-393), so these selectors must be global — Astro-scoped styles
+     would never match island-rendered elements. */
+  #asteroid-drift-canvas canvas {
     display: block;
     max-width: 100%;
     height: auto;
