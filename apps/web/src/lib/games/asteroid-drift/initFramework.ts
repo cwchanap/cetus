@@ -14,14 +14,10 @@ import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
-    ChallengeUpdates,
 } from '@cetus/games/core/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
+import { handleGameError } from '@cetus/games/core/errors'
 import { isEditableTarget } from '@/lib/keyboard'
-import type { AchievementNotification } from '@cetus/shared/achievements'
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface AsteroidDriftInitResult {
@@ -47,26 +43,6 @@ const KEYBOARD_DIRECTIONS: Record<string, AsteroidDriftDirection> = {
     D: 'right',
 }
 
-function outcomeTitle(outcome: AsteroidDriftOutcome): string {
-    if (outcome === 'survived') {
-        return 'DRIFT COMPLETE'
-    }
-    if (outcome === 'expired') {
-        return 'DRIFT ENDED'
-    }
-    return 'SHIP LOST'
-}
-
-function outcomeLabel(outcome: AsteroidDriftOutcome): string {
-    if (outcome === 'survived') {
-        return 'Survived'
-    }
-    if (outcome === 'expired') {
-        return 'Expired'
-    }
-    return 'Collision'
-}
-
 function outcomeAnnouncement(outcome: AsteroidDriftOutcome): string {
     if (outcome === 'survived') {
         return 'Drift complete. You survived the full run.'
@@ -77,22 +53,17 @@ function outcomeAnnouncement(outcome: AsteroidDriftOutcome): string {
     return 'Collision. Ship lost.'
 }
 
-export async function initAsteroidDriftGameFramework(): Promise<
-    AsteroidDriftInitResult | undefined
-> {
-    const container = document.getElementById('asteroid-drift-container')
-    if (!container) {
-        handleGameError(
-            new DOMElementNotFoundError('asteroid-drift-container'),
-            'AsteroidDrift'
-        )
-        return undefined
-    }
-
+export async function initAsteroidDriftGameFramework(
+    container: HTMLElement
+): Promise<AsteroidDriftInitResult | undefined> {
     const config = { ...createAsteroidDriftConfig(), submitScore }
-    const renderer = new AsteroidDriftRenderer(
-        createAsteroidDriftRendererConfig(config)
-    )
+    // The renderer mounts via a selector; derive it from the ref'd host
+    // element (which keeps the frozen `#asteroid-drift-canvas` e2e id —
+    // the canvas div lives inside the ref'd board container).
+    const renderer = new AsteroidDriftRenderer({
+        ...createAsteroidDriftRendererConfig(config),
+        container: `#${CSS.escape(container.id)} #asteroid-drift-canvas`,
+    })
     try {
         await renderer.initialize()
     } catch (error) {
@@ -126,46 +97,11 @@ export async function initAsteroidDriftGameFramework(): Promise<
         trackedListeners.push({ target, type, handler })
     }
 
-    const setText = (id: string, value: string): void => {
-        const element = document.getElementById(id)
-        if (element) {
-            element.textContent = value
-        }
-    }
-
-    const hideOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.add('hidden')
-    }
-
-    const showOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.remove('hidden')
-    }
-
-    const setStartVisible = (visible: boolean): void => {
-        const startButton = document.getElementById(
-            'start-btn'
-        ) as HTMLButtonElement | null
-        if (startButton) {
-            startButton.style.display = visible ? 'inline-flex' : 'none'
-        }
-    }
-
-    const syncHud = (state: AsteroidDriftState): void => {
-        setText('orbs-collected', String(state.orbsCollected))
-        setText(
-            'ship-speed',
-            String(
-                Math.round(
-                    Math.hypot(state.player.velocityX, state.player.velocityY)
-                )
-            )
-        )
-        setText('score', String(state.score))
-        setText('time-remaining', String(state.timeRemaining))
-    }
-
     const announce = (message: string): void => {
-        setText('asteroid-drift-status', message)
+        const element = document.getElementById('asteroid-drift-status')
+        if (element) {
+            element.textContent = message
+        }
     }
 
     let lastAnnouncedOrbs: number | null = null
@@ -183,62 +119,33 @@ export async function initAsteroidDriftGameFramework(): Promise<
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: (state: BaseGameState) => {
             const driftState = state as AsteroidDriftState
-            syncHud(driftState)
+            // React owns the HUD badges/overlay (HPA-393); the callbacks
+            // keep only the polite live announcer in sync.
             trackAnnouncements(driftState)
         },
-        onScoreUpdate: (score: number) => setText('score', String(score)),
-        onTimeUpdate: (timeRemaining: number) =>
-            setText('time-remaining', String(timeRemaining)),
         onStart: () => {
             // BaseGame.start() calls onStart before onGameStart emits the
             // fresh opening state. Clearing the baseline here keeps the live
             // region silent on run initialization; announcements only fire
             // for orbs actually collected during the run.
             lastAnnouncedOrbs = null
-            setStartVisible(false)
-            hideOverlay()
             announce('Drift started.')
         },
-        onEnd: (finalScore: number, stats: BaseGameStats) => {
+        onEnd: (_finalScore: number, stats: BaseGameStats) => {
             const driftStats = stats as AsteroidDriftStats
-            setStartVisible(true)
-            setText('game-over-title', outcomeTitle(driftStats.outcome))
-            setText('final-outcome', outcomeLabel(driftStats.outcome))
-            setText('final-score', String(finalScore))
-            setText('final-survival', String(driftStats.survivalSeconds))
-            setText('final-orbs', String(driftStats.orbsCollected))
-            showOverlay()
             announce(outcomeAnnouncement(driftStats.outcome))
         },
     }
 
     const game = new AsteroidDriftGame(config, enhancedCallbacks)
 
-    const onGameEnd = (event: unknown): void => {
-        const data = (event as { data?: unknown }).data as
-            | {
-                  newAchievements?: AchievementNotification[]
-                  challengeUpdates?: ChallengeUpdates
-              }
-            | undefined
-        const globalWindow = window as Window & {
-            showAchievementAward?: (
-                achievements: AchievementNotification[]
-            ) => void
-            showChallengeComplete?: (updates: ChallengeUpdates) => void
-        }
-        if (data?.newAchievements?.length) {
-            globalWindow.showAchievementAward?.(data.newAchievements)
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            globalWindow.showChallengeComplete?.(data.challengeUpdates)
-        }
-    }
-    game.on('end', onGameEnd)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
-    const startButton = document.getElementById('start-btn')
-    const resetButton = document.getElementById('reset-btn')
-    const playAgainButton = document.getElementById('play-again-btn')
+    // React owns the start/reset/play-again buttons (HPA-393); the touch
+    // D-pad stays initializer-wired (looked up by its frozen id in the
+    // React-owned controls card, outside the board host).
     const dpad = document.getElementById('asteroid-drift-dpad')
     const canvas = renderer.getApp()?.canvas ?? null
 
@@ -251,23 +158,6 @@ export async function initAsteroidDriftGameFramework(): Promise<
     if (canvas) {
         canvas.style.width = '100%'
         canvas.style.height = 'auto'
-    }
-
-    const startHandler: EventListener = () => game.start()
-    const resetHandler: EventListener = () => {
-        game.reset()
-        lastAnnouncedOrbs = null
-        renderer.render(game.getState())
-        syncHud(game.getState())
-        hideOverlay()
-        setStartVisible(true)
-    }
-    const playAgainHandler: EventListener = () => {
-        hideOverlay()
-        // BaseGame.start() auto-resets a completed run and immediately starts
-        // it. Do not change Play Again to reset-only: Asteroid Drift expects
-        // the next run to be active as soon as this button is pressed.
-        game.start()
     }
 
     // Keyboard: arrows/WASD press on keydown while active; keyup always
@@ -381,17 +271,12 @@ export async function initAsteroidDriftGameFramework(): Promise<
             'You have a game in progress. Are you sure you want to leave?'
     }
 
-    listen(startButton, 'click', startHandler)
-    listen(resetButton, 'click', resetHandler)
-    listen(playAgainButton, 'click', playAgainHandler)
     listen(document, 'keydown', keyboardDownHandler)
     listen(document, 'keyup', keyboardUpHandler)
     listen(window, 'blur', blurHandler)
     listen(window, 'beforeunload', beforeUnloadHandler)
 
     renderer.render(game.getState())
-    syncHud(game.getState())
-    setStartVisible(true)
 
     let frameId: number | null = null
     let lastFrameTime: number | null = null
@@ -430,7 +315,7 @@ export async function initAsteroidDriftGameFramework(): Promise<
         for (const { target, type, handler } of trackedListeners) {
             target.removeEventListener(type, handler)
         }
-        game.off('end', onGameEnd)
+        removeForwarder()
         renderer.destroy()
         game.destroy()
     }
