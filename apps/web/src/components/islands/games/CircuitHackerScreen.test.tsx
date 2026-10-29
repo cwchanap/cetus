@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { CircuitHackerStats } from '@cetus/games/circuit-hacker/types'
 
 const { initializeCircuitHackerGameMock } = vi.hoisted(() => ({
@@ -251,6 +251,28 @@ describe('CircuitHackerScreen', () => {
     )
     // Legacy showError also hides the status prompt.
     expect(document.querySelector('#game-status')).toHaveClass('hidden')
+  })
+
+  it('closes the overlay when an error fires after the end', async () => {
+    const { callbacks } = await mountAndInit()
+
+    // Score-save failure after solve: onEnd opens the success overlay
+    // first, then the save path reports the failure via onError.
+    act(() => {
+      callbacks.onEnd(fakeStats, { title: 'CIRCUIT POWERED!' })
+      callbacks.onError?.('Score Not Saved', 'network down')
+    })
+
+    const errorSurface = document.querySelector('#game-error')
+    await waitFor(() => {
+      expect(errorSurface).not.toHaveClass('hidden')
+    })
+    expect(document.querySelector('#game-error-title')?.textContent).toBe(
+      'Score Not Saved'
+    )
+    // Legacy showError semantics: the error surface must not be buried
+    // under the z-50 overlay — the overlay is closed.
+    expect(document.querySelector('#game-over-overlay')).toHaveClass('hidden')
   })
 
   it('restores the buttons when handle.start rejects', async () => {

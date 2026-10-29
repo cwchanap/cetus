@@ -120,6 +120,10 @@ export default function CircuitHackerScreen() {
             setOverlay({ title: outcome.title })
           },
           onError: (title, message) => {
+            // Legacy showError cleared the overlay first: on the
+            // score-save-failure-after-solve path onEnd has already opened
+            // it, and the error surface renders underneath the z-50 layer.
+            setOverlay(null)
             setError({ title, message })
           },
         })
