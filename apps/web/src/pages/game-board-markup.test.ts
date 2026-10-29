@@ -35,6 +35,14 @@ const bubbleShooterIslandMarkup = readFileSync(
     resolve(appRoot, 'src/components/islands/games/BubbleShooterScreen.tsx'),
     'utf-8'
 )
+const tetrisRouteMarkup = readFileSync(
+    resolve(appRoot, 'src/pages/tetris/index.astro'),
+    'utf-8'
+)
+const tetrisIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/TetrisScreen.tsx'),
+    'utf-8'
+)
 const iceSlideIslandMarkup = readFileSync(
     resolve(appRoot, 'src/components/islands/games/IceSlideScreen.tsx'),
     'utf-8'
@@ -111,6 +119,38 @@ describe('Bubble Shooter rules copy', () => {
         expect(bubbleShooterMarkup).not.toContain(
             'New row appears after each shot'
         )
+    })
+})
+
+describe('Tetris island markup', () => {
+    it('keeps the plate body ids in the island and the route thin', () => {
+        // The plate body (title row, HUD, trays, board, clear feedback)
+        // moved into the island (HPA-393 Stage 4); the route keeps only
+        // AppLayout chrome, the retained field sheet and the style block.
+        expect(tetrisRouteMarkup).toContain(
+            "import TetrisScreen from '@/components/islands/games/TetrisScreen'"
+        )
+        expect(tetrisRouteMarkup).toContain('client:load')
+        expect(tetrisRouteMarkup).not.toMatch(/<script[^>]*>/)
+        for (const id of [
+            'tetris-container',
+            'clear-flash',
+            'line-feedback',
+            'next-canvas',
+            'hold-canvas',
+            'hold-btn',
+            'hold-state',
+            'pause-btn',
+            'score',
+            'lines',
+            'clear-streak',
+            'level',
+            'drop-rate',
+            'rate-fill',
+            'next-level',
+        ]) {
+            expect(tetrisIslandMarkup).toContain(`id="${id}"`)
+        }
     })
 })
 
