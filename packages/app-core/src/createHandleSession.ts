@@ -28,6 +28,12 @@ export interface HandleSessionHandlers<TProjected> {
     onResume?(): void
     /** Display-only result of a finished run; never a toast source. */
     onEnd(result: GameSessionResult): void
+    /**
+     * Return to the pre-start state without a game callback — e.g. a
+     * manual stop whose initializer only cancels the run (Satellite
+     * Sync's end button fires nothing; its chrome must go back to idle).
+     */
+    onIdle?(): void
     onScore?(score: number): void
     onTime?(timeRemaining: number): void
     setProjected(projected: TProjected): void
@@ -93,6 +99,7 @@ export function createHandleSession<TProjected>(
         onPause: () => update({ status: 'paused' }),
         onResume: () => update({ status: 'running' }),
         onEnd: result => update({ status: 'finished', result }),
+        onIdle: () => update({ status: 'idle' }),
         onScore: score => update({ score }),
         onTime: timeRemaining => update({ timeRemaining }),
         setProjected: projected => update({ projected }),

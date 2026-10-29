@@ -116,6 +116,27 @@ describe('createHandleSession', () => {
         expect(finished.result).toBe(endResult)
     })
 
+    it('onIdle returns a running session to the pre-start idle state', () => {
+        const { session, handlers } = createSession()
+        const listener = vi.fn()
+        session.subscribe(listener)
+
+        handlers.onStart()
+        expect(session.getCachedSnapshot().status).toBe('running')
+
+        // Manual stop on a game whose initializer fires no callback
+        // (Satellite Sync): the island drives the transition itself.
+        handlers.onIdle?.()
+        expect(listener).toHaveBeenCalledTimes(2)
+        const idle = session.getCachedSnapshot()
+        expect(idle.status).toBe('idle')
+        expect(idle.result).toBeNull()
+
+        // No-change repeat stays silent (same update discipline).
+        handlers.onIdle?.()
+        expect(listener).toHaveBeenCalledTimes(2)
+    })
+
     it('defaults actions to no-ops and uses provided overrides', () => {
         const plain = createSession()
         expect(() => {
