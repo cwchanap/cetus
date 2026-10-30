@@ -41,7 +41,9 @@ function deriveStatus(
  * { score, stats } built from live state so the overlay shows real final
  * values immediately; the structured end then overwrites it. The adapter
  * never submits or re-submits scores, and a stale save resolving during a
- * newer run cannot finish it.
+ * newer run cannot finish it — the end payload's runId is checked against
+ * the game's live run so a superseded run's result is dropped even when it
+ * arrives while the newer run is also finished.
  */
 export function createBaseGameSession<TProjected>(
     game: BaseGame,
@@ -132,8 +134,20 @@ export function createBaseGameSession<TProjected>(
             const payload = data as {
                 score: number
                 stats: GameSessionResult['stats']
+                runId?: number
                 newAchievements?: GameSessionResult['newAchievements']
                 challengeUpdates?: GameSessionResult['challengeUpdates']
+            }
+            // A save that resolves after a newer run started still emits its
+            // structured end; its runId no longer matches the live run. Drop
+            // it wholesale — the stale score/stats must not overwrite the
+            // newer run's provisional or pending result (BaseGame already
+            // strips the reward fields).
+            if (
+                typeof payload.runId === 'number' &&
+                payload.runId !== game.getRunId()
+            ) {
+                return
             }
             pendingResult = {
                 score: payload.score,

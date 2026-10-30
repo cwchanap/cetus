@@ -111,7 +111,6 @@ function getOutcomeTitle(outcome: ChromaticTideStats['outcome']): string {
  */
 export default function ChromaticTideScreen() {
   const boardRef = useRef<HTMLDivElement>(null)
-  const initRef = useRef<ChromaticTideInitResult | null>(null)
   const [session, setSession] =
     useState<GameSession<ChromaticTideProjected> | null>(null)
   const { snapshot, actions } = useGameSession(
@@ -143,7 +142,6 @@ export default function ChromaticTideScreen() {
         return
       }
       init = result
-      initRef.current = result
       createdSession = createBaseGameSession(
         result.game,
         createChromaticTideProjector()
@@ -157,7 +155,6 @@ export default function ChromaticTideScreen() {
       disposed = true
       createdSession?.dispose()
       init?.cleanup()
-      initRef.current = null
       const debugHandle = (window as WindowWithChromaticTideGame)
         .chromaticTideGame
       if (debugHandle === init) {
@@ -172,10 +169,11 @@ export default function ChromaticTideScreen() {
   const startRun = () => {
     actions.start()
   }
-  // Legacy reset/play-again restored the idle board; reset() emits no game
-  // event, so refresh the cache explicitly after the restart.
+  // One reset only: onGameReset emits state-change, so the initializer's
+  // callback re-renders the fresh board while the session adapter refreshes
+  // to idle off the same final state (a second reset would generate a
+  // hidden replacement board).
   const resetRun = () => {
-    initRef.current?.restart()
     actions.reset()
   }
 

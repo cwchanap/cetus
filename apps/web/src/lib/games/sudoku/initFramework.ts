@@ -50,6 +50,10 @@ export async function initSudokuGameFramework(
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: (state: BaseGameState) => {
             renderer.render(state as SudokuState)
+            // Difficulty lock derives from live state so a mid-run reset
+            // (which emits state-change via onGameReset, not onEnd) releases
+            // the buttons back to idle.
+            setDifficultyButtonsDisabled(state.isActive && !state.isGameOver)
         },
         onTimeUpdate: () => {
             const elapsed = game.getElapsedTime()

@@ -231,7 +231,7 @@ describe('SudokuScreen', () => {
     )
   })
 
-  it('replays from the overlay restart button through the initializer restart', async () => {
+  it('replays from the overlay restart button through a single session reset', async () => {
     render(<SudokuScreen />)
     await waitFor(() => {
       expect(initSudokuGameFrameworkMock).toHaveBeenCalledTimes(1)
@@ -246,9 +246,12 @@ describe('SudokuScreen', () => {
       expect(stubGame.getState().isGameOver).toBe(true)
     })
 
+    const resetSpy = vi.spyOn(stubGame, 'reset')
     fireEvent.click(document.querySelector('#restart-btn') as HTMLButtonElement)
 
-    expect(restartMock).toHaveBeenCalled()
+    // A single reset: onGameReset's state-change re-renders the fresh
+    // puzzle; a second reset would generate another unseen one.
+    expect(resetSpy).toHaveBeenCalledTimes(1)
     await waitFor(() => {
       expect(stubGame.getState().isGameOver).toBe(false)
       expect(stubGame.getState().isActive).toBe(false)
@@ -269,9 +272,10 @@ describe('SudokuScreen', () => {
       expect(stubGame.getState().isActive).toBe(true)
     })
 
+    const resetSpy = vi.spyOn(stubGame, 'reset')
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
 
-    expect(restartMock).toHaveBeenCalled()
+    expect(resetSpy).toHaveBeenCalledTimes(1)
     await waitFor(() => {
       expect(stubGame.getState().isActive).toBe(false)
       expect(stubGame.getState().gameStarted).toBe(false)

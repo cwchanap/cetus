@@ -302,6 +302,85 @@ describe('createBaseGameSession', () => {
         expect(snapshot.result).toBeNull()
     })
 
+    it('drops a stale structured result arriving while the newer run is also finished', async () => {
+        const resolvers: Array<(result: { success: boolean }) => void> = []
+        const submitScore = vi.fn(
+            () =>
+                new Promise<{ success: boolean }>(resolve => {
+                    resolvers.push(resolve)
+                })
+        )
+        game = createStubGame({ submitScore })
+        const session = createBaseGameSession(game, state => state.score)
+
+        // Run A ends with its save still in flight.
+        game.start()
+        game.addScore(10, 'run-a')
+        const endA = game.end()
+
+        // Run B starts and finishes before A's save resolves.
+        session.actions.start()
+        game.addScore(20, 'run-b')
+        const endB = game.end()
+
+        const provisional = session.getCachedSnapshot().result
+        expect(provisional).toEqual({
+            score: 20,
+            stats: { finalScore: 20, timeElapsed: 0, gameCompleted: true },
+        })
+
+        // A's save resolves late: its structured end carries the old runId
+        // and must not overwrite the finished B run's displayed result.
+        resolvers[0]({ success: true })
+        await endA
+
+        expect(session.getCachedSnapshot().status).toBe('finished')
+        expect(session.getCachedSnapshot().result).toBe(provisional)
+
+        // B's own structured end still lands and replaces the provisional.
+        resolvers[1]({ success: true })
+        await endB
+
+        expect(session.getCachedSnapshot().result).toEqual({
+            score: 20,
+            stats: { finalScore: 20, timeElapsed: 0, gameCompleted: true },
+            newAchievements: undefined,
+            challengeUpdates: undefined,
+        })
+    })
+
+    it('keeps the current run result when saves resolve out of order', async () => {
+        const resolvers: Array<(result: { success: boolean }) => void> = []
+        const submitScore = vi.fn(
+            () =>
+                new Promise<{ success: boolean }>(resolve => {
+                    resolvers.push(resolve)
+                })
+        )
+        game = createStubGame({ submitScore })
+        const session = createBaseGameSession(game, state => state.score)
+
+        game.start()
+        game.addScore(10, 'run-a')
+        const endA = game.end()
+        session.actions.start()
+        game.addScore(20, 'run-b')
+        const endB = game.end()
+
+        // B resolves first and is accepted; A's stale end arriving after
+        // must not clobber the committed B result.
+        resolvers[1]({ success: true })
+        await endB
+
+        const committed = session.getCachedSnapshot().result
+        expect(committed?.score).toBe(20)
+
+        resolvers[0]({ success: true })
+        await endA
+
+        expect(session.getCachedSnapshot().result).toBe(committed)
+    })
+
     it('notifies duplicate and multiple subscribers exactly once per event', () => {
         game = createStubGame()
         const session = createBaseGameSession(game, state => state.score)

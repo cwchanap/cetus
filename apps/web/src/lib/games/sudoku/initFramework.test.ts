@@ -286,6 +286,24 @@ describe('initSudokuGameFramework', () => {
             const state = result!.game.getState()
             expect(state.gameStarted).toBe(false)
         })
+
+        it('re-enables the difficulty buttons after a mid-run reset', async () => {
+            // The screen's Reset goes through game.reset(); the difficulty
+            // lock must follow live state rather than only onStart/onEnd.
+            result = await initFramework()
+            result!.game.start()
+
+            const buttons = () =>
+                ['easy-btn', 'medium-btn', 'hard-btn'].map(
+                    id => document.getElementById(id) as HTMLButtonElement
+                )
+            expect(buttons().every(btn => btn.disabled)).toBe(true)
+
+            result!.game.reset()
+
+            expect(result!.game.getState().gameStarted).toBe(false)
+            expect(buttons().every(btn => btn.disabled)).toBe(false)
+        })
     })
 
     describe('difficulty buttons', () => {

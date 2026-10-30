@@ -95,6 +95,10 @@ export class ChromaticTideGame extends BaseGame<
         return true
     }
 
+    protected override onGameReset(): void {
+        this.emitStateChange()
+    }
+
     update(_deltaTime: number): void {}
 
     render(): void {}
