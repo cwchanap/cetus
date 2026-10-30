@@ -7,6 +7,13 @@ was read from the actual code and E2E specs on `main` (HPA-379 #97 and HPA-447
 #95 confirmed merged) on 2026-10-28. Later tasks tick rows here and must not
 regress the frozen contracts in Section B.
 
+> **Status (Stage 5 close-out, 2026-10-28):** the migration inventory below is
+> **IMPLEMENTED** — all 23 games are island-hosted and `GamePage.astro` is
+> deleted on this branch (PR #99). Section A's classes (`Std`/`S`/`Handle`/
+> `Plate`) and per-page script facts describe the **pre-migration baseline**;
+> see "Migration status" at the end of this file for each game's island and
+> commit range.
+
 Shared shell facts that hold for all 23 games:
 
 - Score/achievement toasts are owned by the **AppNotifications island**
@@ -155,9 +162,9 @@ Cleanup semantics to preserve: framework games expose `cleanup()` on their
 init result (render loop + button/keyboard/unload handlers +
 `renderer.cleanup()` + `game.destroy()`); handle-based games invalidate stale
 async work via a module-scope `createRunGuard()`; Ice Slide additionally
-deletes `window.iceSlideGame` on teardown. `GameInitializer.ts` in
-`apps/web/src/lib/games/core/` currently has no production importers — out of
-scope for this migration.
+deletes `window.iceSlideGame` on teardown. The unused `GameInitializer.ts`
+was deleted from `apps/web/src/lib/games/core/` in Stage 5 (commit 2f438993)
+after the importer audit confirmed zero production importers.
 
 ## Section C — Blocking E2E baseline
 
@@ -182,3 +189,49 @@ scope for this migration.
   `SIGNAL_SWITCH_RULES`, `ASTEROID_DRIFT_RULES`).
 - Checkpoint status: baseline and contracts reviewed. **No new loader
   registry** in this stage.
+
+## Migration status — IMPLEMENTED (Stage 5 close-out)
+
+Every game now follows one of three island patterns (16 React BaseGame
+screens via `@cetus/app-core` `useGameSession`, 4 hosted field-plate
+controllers, 3 handle games). Route + board-host IDs, debug globals and
+toast ownership were preserved per Section A/B; e2e specs were not edited.
+
+| # | Game | Island (`components/islands/games/`) | Migration commits |
+|---|------|--------------------------------------|-------------------|
+| 12 | Snake | `SnakeScreen.tsx` | eeaa03a1, dc4b6691 |
+| 3 | Memory Matrix | `MemoryMatrixScreen.tsx` | dbbf1f7f |
+| 16 | Mine Grid | `MineGridScreen.tsx` | 82755ad2, c31827b2, 36b744a2, 833cffda |
+| 17 | Pattern Pulse | `PatternPulseScreen.tsx` | 2cc2b302, 833cffda |
+| 19 | Potion Sorter | `PotionSorterScreen.tsx` | 72b6d627, 46e07712 |
+| 23 | Chromatic Tide | `ChromaticTideScreen.tsx` | c91f257d |
+| 7 | Sudoku | `SudokuScreen.tsx` | 94d78ca3, 46e07712, 3c2c85f7 |
+| 4 | Quick Math | `QuickMathScreen.tsx` | 565f9c09, 9c43f70c |
+| 5 | Word Scramble | `WordScrambleScreen.tsx` | 2768ac71 |
+| 6 | Reflex | `ReflexScreen.tsx` | 7497a053 |
+| 10 | Evader | `EvaderScreen.tsx` | 2e6e1e5e |
+| 9 | Path Navigator | `PathNavigatorScreen.tsx` | 191ac77c |
+| 20 | Signal Switch | `SignalSwitchScreen.tsx` | 1e4aa99b |
+| 18 | Gravity Flip | `GravityFlipScreen.tsx` | b7f5c680 |
+| 22 | Asteroid Drift | `AsteroidDriftScreen.tsx` | 8c0c7ac0 |
+| 21 | Rhythm Reactor | `RhythmReactorScreen.tsx` | 15aa5aaa |
+| 13 | Circuit Hacker | `CircuitHackerScreen.tsx` | 08b62828, 866776d9 |
+| 14 | Satellite Sync | `SatelliteSyncScreen.tsx` | e1deb485 |
+| 15 | Ice Slide | `IceSlideScreen.tsx` | 65fb5058 |
+| 2 | Bubble Shooter | `BubbleShooterScreen.tsx` + `bubble-shooter/controller.ts` | 8fc18f73, 0cecef30 |
+| 1 | Tetris | `TetrisScreen.tsx` + `tetris/controller.ts` | abae3043 |
+| 11 | 2048 | `Game2048Screen.tsx` + `2048/controller.ts` | e394e2b4 |
+| 8 | Bejeweled | `BejeweledScreen.tsx` + `bejeweled/controller.ts` | bb77bbac |
+
+Shared milestones: `GamePage.astro` deleted in bed125dc; unused
+`GameInitializer.ts` deleted in 2f438993.
+
+**Pending human artifacts (not automatable in this repo):**
+
+- Authenticated Vercel preview check (sign-in-gated games on the deployed
+  preview).
+- Manual visual snapshots at 1280px and 390px per game (Section C note
+  stands — no screenshot tooling; compare by eye).
+- Known pre-existing local-DB quirk: `displayName` column SQLITE error on a
+  stale local `db.sqlite` — pre-dates this PR, unaffected by it; refresh the
+  local DB via `bun run e2e:db:init` if hit.
