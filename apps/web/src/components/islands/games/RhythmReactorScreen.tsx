@@ -175,9 +175,12 @@ export default function RhythmReactorScreen() {
           id="rhythm-reactor-container"
           className="w-full max-w-[800px]"
         >
+          {/* aspect-ratio reserves the PixiJS canvas box (800×420) in SSR so
+              the controls below never shift when the canvas mounts (e2e
+              measures lane positions right after load). */}
           <div
             id="rhythm-reactor-canvas"
-            className="overflow-hidden rounded-lg bg-black/30"
+            className="aspect-[800/420] overflow-hidden rounded-lg bg-black/30"
           ></div>
           <p
             id="rhythm-reactor-status"
