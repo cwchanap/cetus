@@ -155,6 +155,8 @@ describe('createBaseGameSession', () => {
         expect(status()).toBe('running')
         // reset() emits no game event, so the adapter refreshes explicitly.
         game.addScore(3, 'test')
+        // reset() emits score-update through ScoreManager.reset; the
+        // adapter's explicit refresh after reset is only defensive.
         session.actions.reset()
         expect(session.getCachedSnapshot()).toEqual(idleSnapshot)
     })
@@ -186,9 +188,13 @@ describe('createBaseGameSession', () => {
         const ended = game.end()
 
         // end() runs callbacks and timer stop synchronously; the bare end
-        // has already finished the run before the save resolves.
+        // has already finished the run before the save resolves. The
+        // provisional result carries the live score and stats immediately.
         expect(session.getCachedSnapshot().status).toBe('finished')
-        expect(session.getCachedSnapshot().result).toBeNull()
+        expect(session.getCachedSnapshot().result).toEqual({
+            score: 12,
+            stats: { finalScore: 12, timeElapsed: 0, gameCompleted: true },
+        })
 
         await ended
 
@@ -230,6 +236,46 @@ describe('createBaseGameSession', () => {
         expect(session.getCachedSnapshot().result?.newAchievements).toEqual(
             achievements
         )
+    })
+
+    it('publishes a provisional result while the save stalls, then the structured end overwrites it', async () => {
+        let resolveSave: (result: { success: boolean }) => void = () => {}
+        const submitScore = vi.fn(
+            () =>
+                new Promise<{ success: boolean }>(resolve => {
+                    resolveSave = resolve
+                })
+        )
+        game = createStubGame({ submitScore })
+        const session = createBaseGameSession(game, state => state.score)
+        game.start()
+        game.addScore(9, 'test')
+        const ended = game.end()
+
+        // The save never resolves: the finished run still shows real values.
+        const stalled = session.getCachedSnapshot()
+        expect(stalled.status).toBe('finished')
+        expect(stalled.result).toEqual({
+            score: 9,
+            stats: { finalScore: 9, timeElapsed: 0, gameCompleted: true },
+        })
+
+        // The provisional reference is stable across unrelated refreshes.
+        game.emit('time-update', { time: 0 })
+        expect(session.getCachedSnapshot()).toBe(stalled)
+
+        resolveSave({ success: true })
+        await ended
+
+        const finished = session.getCachedSnapshot()
+        expect(finished.result).toEqual({
+            score: 9,
+            stats: { finalScore: 9, timeElapsed: 0, gameCompleted: true },
+            newAchievements: undefined,
+            challengeUpdates: undefined,
+        })
+        // The structured end replaced the provisional result.
+        expect(finished.result).not.toBe(stalled.result)
     })
 
     it('drops a stale structured result when a newer run starts', async () => {
