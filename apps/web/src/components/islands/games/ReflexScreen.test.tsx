@@ -154,6 +154,29 @@ describe('ReflexScreen', () => {
     expect((window as WindowWithReflexGame).reflexGame).toBeDefined()
   })
 
+  it('surfaces a renderer init failure through the game error surface', async () => {
+    initReflexGameFrameworkMock.mockResolvedValue(undefined)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      render(<ReflexScreen />)
+
+      // Legacy behavior: the #game-error surface reveals the failure
+      // instead of the board staying blank.
+      await waitFor(() => {
+        expect(document.querySelector('#game-error')).toHaveStyle({
+          display: 'flex',
+        })
+      })
+      expect(
+        document.querySelector('#game-error-message')?.textContent
+      ).toContain('failed to initialize')
+      // No session, no debug handle: the board stays inert.
+      expect((window as WindowWithReflexGame).reflexGame).toBeUndefined()
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
   it('renders the idle HUD byte-equal to the legacy route', () => {
     const { container } = render(<ReflexScreen />)
 
