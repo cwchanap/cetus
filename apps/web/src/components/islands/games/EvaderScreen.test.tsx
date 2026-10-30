@@ -135,6 +135,32 @@ describe('EvaderScreen', () => {
     expect((window as WindowWithEvaderGame).evaderGame).toBeDefined()
   })
 
+  it('surfaces a renderer init failure through the game error surface', async () => {
+    initEvaderGameFrameworkMock.mockResolvedValue(undefined)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      render(<EvaderScreen />)
+
+      // Legacy behavior: the #game-error surface reveals the failure
+      // instead of the board staying blank.
+      await waitFor(() => {
+        expect(document.querySelector('#game-error')).toHaveStyle({
+          display: 'flex',
+        })
+      })
+      expect(document.querySelector('#game-error-title')?.textContent).toBe(
+        'Failed to Load Game'
+      )
+      expect(
+        document.querySelector('#game-error-message')?.textContent
+      ).toContain('failed to initialize')
+      // No session, no debug handle: the board stays inert.
+      expect((window as WindowWithEvaderGame).evaderGame).toBeUndefined()
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
   it('renders the idle HUD byte-equal to the legacy route', () => {
     const { container } = render(<EvaderScreen />)
 

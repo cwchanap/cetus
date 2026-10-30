@@ -108,7 +108,9 @@ export default function ReflexScreen() {
           return
         }
         if (!result) {
-          return
+          // Renderer failed to start: surface it instead of leaving a
+          // blank board that silently ignores Start.
+          throw new Error('Reflex renderer failed to initialize')
         }
         init = result
         initRef.current = result
