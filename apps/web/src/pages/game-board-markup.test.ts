@@ -43,6 +43,14 @@ const tetrisIslandMarkup = readFileSync(
     resolve(appRoot, 'src/components/islands/games/TetrisScreen.tsx'),
     'utf-8'
 )
+const game2048RouteMarkup = readFileSync(
+    resolve(appRoot, 'src/pages/2048/index.astro'),
+    'utf-8'
+)
+const game2048IslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/Game2048Screen.tsx'),
+    'utf-8'
+)
 const iceSlideIslandMarkup = readFileSync(
     resolve(appRoot, 'src/components/islands/games/IceSlideScreen.tsx'),
     'utf-8'
@@ -151,6 +159,39 @@ describe('Tetris island markup', () => {
         ]) {
             expect(tetrisIslandMarkup).toContain(`id="${id}"`)
         }
+    })
+})
+
+describe('2048 island markup', () => {
+    it('keeps the plate body ids in the island and the route thin', () => {
+        // The plate body (title row, HUD, ascent ladder, board frame,
+        // undo controls, live status) moved into the island (HPA-393
+        // Stage 4); the route keeps only AppLayout chrome, the retained
+        // field sheet + commission template and the style block.
+        expect(game2048RouteMarkup).toContain(
+            "import Game2048Screen from '@/components/islands/games/Game2048Screen'"
+        )
+        expect(game2048RouteMarkup).toContain('client:load')
+        expect(game2048RouteMarkup).not.toMatch(/<script[^>]*>/)
+        for (const id of [
+            'game-2048-container',
+            'merge-feedback',
+            'board-warning',
+            'undo-btn',
+            'undos-left',
+            'pause-btn',
+            'score-display',
+            'next-target',
+            'game-status',
+        ]) {
+            expect(game2048IslandMarkup).toContain(`id="${id}"`)
+        }
+        // The seven-rung ascent ladder renders from the same [64…4096]
+        // constant the route frontmatter carried pre-migration.
+        expect(game2048IslandMarkup).toContain(
+            'const ladder = [64, 128, 256, 512, 1024, 2048, 4096]'
+        )
+        expect(game2048IslandMarkup).toContain('data-milestone={value}')
     })
 })
 
