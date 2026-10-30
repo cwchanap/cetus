@@ -51,6 +51,14 @@ const game2048IslandMarkup = readFileSync(
     resolve(appRoot, 'src/components/islands/games/Game2048Screen.tsx'),
     'utf-8'
 )
+const bejeweledRouteMarkup = readFileSync(
+    resolve(appRoot, 'src/pages/bejeweled/index.astro'),
+    'utf-8'
+)
+const bejeweledIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/BejeweledScreen.tsx'),
+    'utf-8'
+)
 const iceSlideIslandMarkup = readFileSync(
     resolve(appRoot, 'src/components/islands/games/IceSlideScreen.tsx'),
     'utf-8'
@@ -192,6 +200,37 @@ describe('2048 island markup', () => {
             'const ladder = [64, 128, 256, 512, 1024, 2048, 4096]'
         )
         expect(game2048IslandMarkup).toContain('data-milestone={value}')
+    })
+})
+
+describe('Bejeweled island markup', () => {
+    it('keeps the plate body ids in the island and the route thin', () => {
+        // The plate body (title row, HUD, cascade cues, board frame, tray
+        // + hint) moved into the island (HPA-393 Stage 4); the route keeps
+        // only AppLayout chrome, the retained field sheet + commission
+        // template and the style block.
+        expect(bejeweledRouteMarkup).toContain(
+            "import BejeweledScreen from '@/components/islands/games/BejeweledScreen'"
+        )
+        expect(bejeweledRouteMarkup).toContain('client:load')
+        expect(bejeweledRouteMarkup).not.toMatch(/<script[^>]*>/)
+        for (const id of [
+            'bejeweled-container',
+            'time-remaining',
+            'time-fill',
+            'score',
+            'moves',
+            'cascade-label',
+            'cascade-pips',
+            'max-combo',
+            'board-notice',
+            'hint-btn',
+            'pause-btn',
+        ]) {
+            expect(bejeweledIslandMarkup).toContain(`id="${id}"`)
+        }
+        // The five cascade pips the e2e assertions count and recolor.
+        expect(bejeweledIslandMarkup).toContain('{ length: 5 }')
     })
 })
 
