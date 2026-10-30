@@ -19,8 +19,9 @@ export interface GameSessionResult {
  * One immutable cached snapshot of the adapted game. `projected` carries the
  * game's own HUD fields; keep its identity stable for unchanged values so
  * `useSyncExternalStore` never loops on `BaseGame.getState()`'s fresh
- * objects. `result` is populated only from a structured end event — the
- * timer-forwarded bare `end` finishes the run without one.
+ * objects. `result` is provisional (live score + stats) until the
+ * structured end event lands after the score save; the timer-forwarded
+ * bare `end` finishes the run without carrying one.
  */
 export interface GameSessionSnapshot<TProjected> {
     status: 'idle' | 'running' | 'paused' | 'finished'

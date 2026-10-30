@@ -36,9 +36,12 @@ function deriveStatus(
  * End discrimination: every real bare `end` (forwarded from
  * `GameTimer.stop()`) coincides with the game state already reporting the
  * run over, so status derives from state and both end kinds finish the
- * run; only the structured `end` (emitted after BaseGame's own score
- * save) populates `result`. The adapter never submits or re-submits
- * scores, and a stale save resolving during a newer run cannot finish it.
+ * run. While the run is over but the structured `end` (emitted after
+ * BaseGame's own score save) has not arrived, `result` holds a provisional
+ * { score, stats } built from live state so the overlay shows real final
+ * values immediately; the structured end then overwrites it. The adapter
+ * never submits or re-submits scores, and a stale save resolving during a
+ * newer run cannot finish it.
  */
 export function createBaseGameSession<TProjected>(
     game: BaseGame,
@@ -57,6 +60,7 @@ export function createBaseGameSession<TProjected>(
     const listeners = new Set<Listener>()
     let disposed = false
     let pendingResult: GameSessionResult | null = null
+    let provisionalResult: GameSessionResult | null = null
     const initialState = game.getState()
     let snapshot: GameSessionSnapshot<TProjected> = {
         status: deriveStatus(initialState),
@@ -74,8 +78,23 @@ export function createBaseGameSession<TProjected>(
         // drops a pending one so a stale save can never leak into a newer run.
         if (status !== 'finished') {
             pendingResult = null
+            provisionalResult = null
         }
-        const result = status === 'finished' ? pendingResult : null
+        let result = status === 'finished' ? pendingResult : null
+        // Provisional final result while the structured end is still in
+        // flight (e.g. a stalled /api/scores save): publish the live score
+        // and stats immediately so the overlay shows real values; the
+        // structured end overwrites it. Cached so repeated refreshes keep
+        // the same reference (no notify churn).
+        if (status === 'finished' && result === null) {
+            if (provisionalResult === null) {
+                provisionalResult = {
+                    score: state.score,
+                    stats: game.getGameStats(),
+                }
+            }
+            result = provisionalResult
+        }
         if (
             snapshot.status === status &&
             snapshot.score === state.score &&
@@ -122,6 +141,7 @@ export function createBaseGameSession<TProjected>(
                 newAchievements: payload.newAchievements,
                 challengeUpdates: payload.challengeUpdates,
             }
+            provisionalResult = null
         }
         refresh()
     }
@@ -164,7 +184,8 @@ export function createBaseGameSession<TProjected>(
         start: () => game.start(),
         pause: () => game.pause(),
         resume: () => game.resume(),
-        // reset emits no game event, so refresh the cache explicitly.
+        // reset() emits score-update through ScoreManager.reset, which
+        // already refreshes the cache; the explicit refresh is defensive.
         reset: () => {
             game.reset()
             refresh()
