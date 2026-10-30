@@ -132,7 +132,7 @@ export async function initBejeweledGame(
         game.clickCell(row, col)
     })
 
-    // Show achievement awards on game end (parity with GameInitializer)
+    // Show achievement awards on game end (parity with notificationForwarder)
     game.on('end', event => {
         const data = event.data as {
             newAchievements?: AchievementNotification[]
