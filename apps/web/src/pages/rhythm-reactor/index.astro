@@ -25,6 +25,18 @@ import RhythmReactorScreen from '@/components/islands/games/RhythmReactorScreen'
     height: auto;
     touch-action: manipulation;
   }
+  /* Reserve the canvas box (800×420 at the 327px mobile content width)
+     from the SSR byte: the pre-hydration column flex sizes the board
+     column to 0 width, so aspect-ratio cannot reserve it and the late
+     PixiJS mount pushed the controls ~172px down mid-test. */
+  #rhythm-reactor-canvas {
+    min-height: calc((100vw - 3rem) * 420 / 800);
+  }
+  @media (min-width: 64rem) {
+    #rhythm-reactor-canvas {
+      min-height: 0;
+    }
+  }
   .rhythm-lane-button {
     padding: 0.75rem 1rem;
     border-radius: 0.5rem;
