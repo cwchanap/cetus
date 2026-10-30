@@ -140,7 +140,7 @@ describe('SnakeScreen', () => {
     expect(document.querySelector('#final-time')?.textContent).toBe('12s')
   })
 
-  it('replays from the overlay play-again button', async () => {
+  it('returns to idle from the overlay play-again button', async () => {
     render(<SnakeScreen />)
     await waitFor(() => {
       expect(initSnakeGameFrameworkMock).toHaveBeenCalledTimes(1)
@@ -159,10 +159,11 @@ describe('SnakeScreen', () => {
       document.querySelector('#play-again-btn') as HTMLButtonElement
     )
 
-    await waitFor(() => {
-      expect(stubGame.getState().isActive).toBe(true)
-    })
+    // Legacy play-again reset to idle (overlay hidden); it never
+    // auto-restarted.
+    expect(stubGame.getState().isActive).toBe(false)
     expect(stubGame.getState().isGameOver).toBe(false)
+    expect(stubGame.getState().score).toBe(0)
     await waitFor(() => {
       expect(document.querySelector('#game-over-overlay')).toHaveClass('hidden')
     })

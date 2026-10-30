@@ -271,7 +271,9 @@ export default function SnakeScreen() {
       overlayProps={{
         open: snapshot.status === 'finished',
         score: snapshot.result?.score ?? 0,
-        onButtonClick: startRun,
+        // Legacy playAgainHandler reset and hid the overlay; it never
+        // auto-restarted.
+        onButtonClick: handleReset,
       }}
       finalStats={
         <>
