@@ -220,7 +220,7 @@ describe('ChromaticTideScreen', () => {
     expect(document.querySelector('#final-time')?.textContent).toBe('00:12')
   })
 
-  it('replays from the overlay play-again button through the initializer restart', async () => {
+  it('replays from the overlay play-again button through a single session reset', async () => {
     render(<ChromaticTideScreen />)
     await waitFor(() => {
       expect(initChromaticTideGameFrameworkMock).toHaveBeenCalledTimes(1)
@@ -235,11 +235,14 @@ describe('ChromaticTideScreen', () => {
       expect(stubGame.getState().isGameOver).toBe(true)
     })
 
+    const resetSpy = vi.spyOn(stubGame, 'reset')
     fireEvent.click(
       document.querySelector('#play-again-btn') as HTMLButtonElement
     )
 
-    expect(restartMock).toHaveBeenCalled()
+    // A single reset: the game's onGameReset state-change re-renders the
+    // fresh board; a second reset would deal a hidden replacement board.
+    expect(resetSpy).toHaveBeenCalledTimes(1)
     await waitFor(() => {
       expect(stubGame.getState().isGameOver).toBe(false)
       expect(stubGame.getState().isActive).toBe(false)
@@ -260,9 +263,10 @@ describe('ChromaticTideScreen', () => {
       expect(stubGame.getState().isActive).toBe(true)
     })
 
+    const resetSpy = vi.spyOn(stubGame, 'reset')
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
 
-    expect(restartMock).toHaveBeenCalled()
+    expect(resetSpy).toHaveBeenCalledTimes(1)
     await waitFor(() => {
       expect(stubGame.getState().isActive).toBe(false)
       expect(stubGame.getState().gameStarted).toBe(false)

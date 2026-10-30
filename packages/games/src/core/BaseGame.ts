@@ -221,10 +221,14 @@ export abstract class BaseGame<
         // Keep emitting the structured end event even for a stale run, but
         // suppress the save-derived reward payload so achievements and
         // challenge updates from a discarded run do not leak into a newer
-        // run that started during the await.
+        // run that started during the await. The runId tags which run
+        // produced the result so listeners can reject it wholesale — the
+        // score/stats of a stale run must not overwrite a newer finished
+        // run's displayed result either.
         this.emit('end', {
             score: finalScore,
             stats: finalStats,
+            runId,
             newAchievements: this.runGuard.isStale(runId)
                 ? undefined
                 : saveResult.newAchievements,
@@ -301,6 +305,15 @@ export abstract class BaseGame<
      */
     getState(): TState {
         return { ...this.state }
+    }
+
+    /**
+     * Identifier of the current run. Bumped on every start and reset, so a
+     * structured `end` payload's `runId` matching this value belongs to the
+     * live run; anything older was superseded while its save was in flight.
+     */
+    getRunId(): number {
+        return this.runGuard.current()
     }
 
     /**

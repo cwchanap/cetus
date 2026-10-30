@@ -147,10 +147,10 @@ export default function SudokuScreen() {
   const handleEnd = () => {
     void initRef.current?.endGame()
   }
-  // Legacy reset/play-again generated a fresh puzzle (game.newGame);
-  // reset() emits no game event, so refresh the cache explicitly after.
+  // One reset only: onGameReset emits state-change, so the initializer's
+  // callback re-renders the fresh puzzle (and releases the difficulty lock)
+  // while the session adapter refreshes to idle off the same final state.
   const resetRun = () => {
-    initRef.current?.restart()
     actions.reset()
   }
 
