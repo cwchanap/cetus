@@ -417,6 +417,10 @@ export class PathNavigatorGame extends BaseGame<
         this.state.cursor.x = startPoint.x
         this.state.cursor.y = startPoint.y
         this.state.hasReachedGoal = false
+
+        // The addScore above emitted score-update before the transition;
+        // notify now so session projections see the new level immediately.
+        this.emitStateChange()
     }
 
     private checkCollision(
@@ -521,6 +525,13 @@ export class PathNavigatorGame extends BaseGame<
             }
         }
         return false
+    }
+
+    private emitStateChange(): void {
+        if (this.callbacks.onStateChange) {
+            this.callbacks.onStateChange(this.getState())
+        }
+        this.emit('state-change', { state: this.getState() })
     }
 }
 
