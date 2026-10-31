@@ -21,6 +21,7 @@ export interface ChromaticTideInitResult {
     renderer: ChromaticTideRenderer
     getGame: () => ChromaticTideGame
     getState: () => ReturnType<ChromaticTideGame['getState']>
+    restart: () => void
     cleanup: () => void
 }
 
@@ -210,6 +211,10 @@ export async function initChromaticTideGameFramework(
         renderer,
         getGame: () => game,
         getState: () => game.getState(),
+        // Frozen debug-handle contract (window.chromaticTideGame): reset()
+        // re-renders and re-derives the controls through the onGameReset
+        // state-change — no separate presentation sync needed.
+        restart: () => game.reset(),
         cleanup,
     }
 }

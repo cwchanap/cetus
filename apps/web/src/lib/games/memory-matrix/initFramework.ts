@@ -15,6 +15,7 @@ export interface MemoryMatrixInitResult {
     game: MemoryMatrixGame
     renderer: MemoryMatrixRenderer
     cleanup: () => void
+    restart: () => void
     getState: () => ReturnType<MemoryMatrixGame['getState']>
     endGame: () => Promise<void>
 }
@@ -91,6 +92,9 @@ export async function initMemoryMatrixGameFramework(
             renderer.destroy()
             game.destroy()
         },
+        // Frozen debug-handle contract (window.memoryMatrixGame): reset()
+        // re-renders through the onGameReset state-change.
+        restart: () => game.reset(),
         getState: () => game.getState(),
         endGame: () => game.end(),
     }

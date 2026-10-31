@@ -17,6 +17,7 @@ export interface PatternPulseInitResult {
     renderer: PatternPulseRenderer
     getGame: () => PatternPulseGame
     getState: () => ReturnType<PatternPulseGame['getState']>
+    restart: () => void
     cleanup: () => void
 }
 
@@ -144,6 +145,9 @@ export async function initPatternPulseGameFramework(
         renderer,
         getGame: () => game,
         getState: () => game.getState(),
+        // Frozen debug-handle contract (window.patternPulseGame): reset()
+        // re-renders through the onGameReset state-change.
+        restart: () => game.reset(),
         cleanup,
     }
 }

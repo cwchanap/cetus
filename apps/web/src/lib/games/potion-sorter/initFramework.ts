@@ -22,6 +22,7 @@ export interface PotionSorterInitResult {
     renderer: PotionSorterRenderer
     getGame: () => PotionSorterGame
     getState: () => ReturnType<PotionSorterGame['getState']>
+    restart: () => void
     cleanup: () => void
 }
 
@@ -236,6 +237,10 @@ export async function initPotionSorterGameFramework(
         renderer,
         getGame: () => game,
         getState: () => game.getState(),
+        // Frozen debug-handle contract (window.potionSorterGame): reset()
+        // re-renders and re-derives the controls through the onGameReset
+        // state-change — no separate presentation sync needed.
+        restart: () => game.reset(),
         cleanup,
     }
 }

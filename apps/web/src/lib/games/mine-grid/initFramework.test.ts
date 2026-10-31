@@ -133,18 +133,18 @@ describe('initMineGridGameFramework', () => {
         await finishClear(handle!)
         expect(difficultyButtonsEnabled()).toBe(true)
 
-        handle!.game.reset()
+        handle!.restart()
         await finishMine(handle!)
         expect(difficultyButtonsEnabled()).toBe(true)
 
-        handle!.game.reset()
+        handle!.restart()
         vi.useFakeTimers()
         handle!.game.start()
         await vi.advanceTimersByTimeAsync(300_000)
         await settleEnd()
         expect(difficultyButtonsEnabled()).toBe(true)
 
-        handle!.game.reset()
+        handle!.restart()
         expect(difficultyButtonsEnabled()).toBe(true)
     })
 
@@ -243,10 +243,10 @@ describe('initMineGridGameFramework', () => {
         expect(toggleFlag).toHaveBeenCalledWith(0, 0)
     })
 
-    it('reset restores Reveal mode and the idle state', async () => {
+    it('restart restores Reveal mode and the idle state', async () => {
         handle = await initMineGridGameFramework(getContainer())
         document.getElementById('flag-mode-btn')!.click()
-        handle!.game.reset()
+        handle!.restart()
 
         expect(document.getElementById('reveal-mode-btn')).toHaveAttribute(
             'aria-pressed',
