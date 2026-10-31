@@ -256,7 +256,7 @@ describe('SignalSwitchScreen', () => {
     })
   })
 
-  it('Reset resets the session and re-syncs the bespoke gate controls', async () => {
+  it('Reset applies one reset and refreshes the session to idle', async () => {
     const { container } = render(<SignalSwitchScreen />)
     await waitFor(() => {
       expect(initSignalSwitchGameFrameworkMock).toHaveBeenCalledTimes(1)
@@ -270,11 +270,14 @@ describe('SignalSwitchScreen', () => {
       gateSignals: ['magenta', 'cyan', 'cyan', 'cyan'],
     })
 
+    const resetSpy = vi.spyOn(stubGame, 'reset')
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
 
     expect(stubGame.getState().isActive).toBe(false)
     expect(stubGame.getState().gameStarted).toBe(false)
-    expect(restartMock).toHaveBeenCalledTimes(1)
+    // One reset per click: actions.reset()+restart() used to reset twice.
+    expect(resetSpy).toHaveBeenCalledTimes(1)
+    expect(restartMock).not.toHaveBeenCalled()
     await waitFor(() => {
       expect(container.querySelector('#start-btn')).not.toHaveStyle({
         display: 'none',

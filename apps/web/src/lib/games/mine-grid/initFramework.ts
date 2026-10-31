@@ -22,6 +22,7 @@ export interface MineGridInitResult {
     getGame: () => MineGridGame
     getState: () => ReturnType<MineGridGame['getState']>
     restart: () => void
+    syncPresentation: () => void
     cleanup: () => void
 }
 
@@ -176,10 +177,18 @@ export async function initMineGridGameFramework(
     }
     listen(window, 'beforeunload', beforeUnloadHandler)
 
-    const resetHandler = (): void => {
-        game.reset()
+    // Render-only sync after a session-driven reset: onGameReset already
+    // emitted state-change (onStateChange re-rendered the fresh board), so
+    // this restores reveal mode and the difficulty lock without a second
+    // reset() (HPA-393).
+    const syncPresentation = (): void => {
         renderer.render(game.getState())
         resetPresentation()
+    }
+
+    const resetHandler = (): void => {
+        game.reset()
+        syncPresentation()
     }
 
     renderer.render(game.getState())
@@ -207,6 +216,7 @@ export async function initMineGridGameFramework(
         getGame: () => game,
         getState: () => game.getState(),
         restart: resetHandler,
+        syncPresentation,
         cleanup,
     }
 }

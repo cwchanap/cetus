@@ -169,11 +169,13 @@ export default function MineGridScreen() {
   const startRun = () => {
     actions.start()
   }
-  // Legacy reset/play-again also restored Reveal mode; reset() emits no
-  // game event, so refresh the cache explicitly after the restart.
+  // One reset only: onGameReset emits state-change, so the initializer's
+  // callback re-renders the fresh board while the session adapter refreshes
+  // to idle; the render-only sync then restores Reveal mode and unlocks
+  // difficulty without a second reset.
   const resetRun = () => {
-    initRef.current?.restart()
     actions.reset()
+    initRef.current?.syncPresentation()
   }
 
   const resultStats = snapshot.result?.stats as MineGridStats | undefined

@@ -194,10 +194,11 @@ export default function PatternPulseScreen() {
   const startRun = () => {
     actions.start()
   }
-  // Legacy reset/play-again restored the idle board; reset() emits no
-  // game event, so refresh the cache explicitly after the restart.
+  // One reset only: onGameReset emits state-change, so the initializer's
+  // callback re-renders the fresh sequence while the session adapter
+  // refreshes to idle off the same final state (a second reset would draw
+  // another RNG sequence).
   const resetRun = () => {
-    initRef.current?.restart()
     actions.reset()
   }
 

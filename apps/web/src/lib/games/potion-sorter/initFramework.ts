@@ -23,6 +23,7 @@ export interface PotionSorterInitResult {
     getGame: () => PotionSorterGame
     getState: () => ReturnType<PotionSorterGame['getState']>
     restart: () => void
+    syncPresentation: () => void
     cleanup: () => void
 }
 
@@ -215,11 +216,19 @@ export async function initPotionSorterGameFramework(
     }
     listen(window, 'beforeunload', beforeUnloadHandler)
 
-    const resetHandler = (): void => {
-        game.reset()
+    // Render-only sync after a session-driven reset: onGameReset already
+    // emitted state-change (onStateChange re-rendered the fresh tubes and
+    // re-synced undo), so this restores the idle status/difficulty lock
+    // without a second reset() (HPA-393).
+    const syncPresentation = (): void => {
         renderer.render(game.getState())
         resetPresentation()
         syncUndoButton()
+    }
+
+    const resetHandler = (): void => {
+        game.reset()
+        syncPresentation()
     }
 
     renderer.render(game.getState())
@@ -248,6 +257,7 @@ export async function initPotionSorterGameFramework(
         getGame: () => game,
         getState: () => game.getState(),
         restart: resetHandler,
+        syncPresentation,
         cleanup,
     }
 }

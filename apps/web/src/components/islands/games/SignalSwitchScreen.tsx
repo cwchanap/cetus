@@ -112,7 +112,7 @@ function createSignalSwitchProjector() {
  * input, the delegated gate-button clicks, the polite live announcer and
  * the single rAF loop stay initializer-owned (gate controls are bespoke,
  * not the shared chrome). Reset re-syncs those bespoke gates through the
- * initializer's `restart()`. Teardown disposes the session, runs the
+ * `state-change` the reset emits. Teardown disposes the session, runs the
  * initializer cleanup once and clears the debug handle only if it still
  * points at this instance.
  */
@@ -181,11 +181,11 @@ export default function SignalSwitchScreen() {
   const startRun = () => {
     actions.start()
   }
-  // reset() emits no event, so the bespoke gate buttons (initializer-wired)
-  // must be re-synced explicitly through the initializer's restart().
+  // One reset only: onGameReset emits state-change, so the initializer's
+  // callback re-syncs the bespoke gate controls while the session adapter
+  // refreshes to idle (the rAF loop repaints the canvas as usual).
   const handleReset = () => {
     actions.reset()
-    initRef.current?.restart()
   }
 
   const resultStats = snapshot.result?.stats as SignalSwitchStats | undefined

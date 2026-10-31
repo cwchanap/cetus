@@ -24,8 +24,9 @@ export interface SignalSwitchInitResult {
     renderer: SignalSwitchRenderer
     getGame: () => SignalSwitchGame
     getState: () => ReturnType<SignalSwitchGame['getState']>
-    /** React-owned Reset re-syncs the bespoke gate controls through this
-     * (HPA-393): reset() emits no event, so the island calls restart(). */
+    /** Full reset + gate re-sync via state-change (debug handle / legacy
+     * contract). The island's Reset calls actions.reset() only — one
+     * game.reset() per click (HPA-393). */
     restart: () => void
     cleanup: () => void
 }
@@ -192,13 +193,12 @@ export async function initSignalSwitchGameFramework(
         canvas.style.height = 'auto'
     }
 
-    // React drives the Reset button through this (HPA-393): reset() emits no
-    // event, so the gate controls must re-sync explicitly, mirroring the
-    // legacy reset handler (renderer + HUD/overlay are React-owned).
+    // onGameReset emits state-change, so the onStateChange callback above
+    // re-syncs the bespoke gate controls and the session adapter refreshes —
+    // a single reset() keeps model, renderer and session on the same final
+    // state (the rAF loop repaints the canvas next frame as usual).
     const restart = (): void => {
         game.reset()
-        renderer.render(game.getState())
-        syncControls(game.getState())
     }
     const gateClickHandler: EventListener = event => {
         const target = event.target instanceof Element ? event.target : null
