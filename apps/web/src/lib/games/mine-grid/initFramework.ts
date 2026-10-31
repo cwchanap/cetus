@@ -21,6 +21,7 @@ export interface MineGridInitResult {
     renderer: MineGridRenderer
     getGame: () => MineGridGame
     getState: () => ReturnType<MineGridGame['getState']>
+    restart: () => void
     cleanup: () => void
 }
 
@@ -199,6 +200,10 @@ export async function initMineGridGameFramework(
         renderer,
         getGame: () => game,
         getState: () => game.getState(),
+        // Frozen debug-handle contract (window.mineGridGame): reset()
+        // re-renders and re-derives the controls through the onGameReset
+        // state-change — no separate presentation sync needed.
+        restart: () => game.reset(),
         cleanup,
     }
 }

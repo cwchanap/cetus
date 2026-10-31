@@ -211,7 +211,7 @@ describe('initPatternPulseGameFramework', () => {
         handle = await initPatternPulseGameFramework(getContainer())
         await startRun(handle!)
 
-        handle!.game.reset()
+        handle!.restart()
 
         expect(handle!.game.getState()).toMatchObject({
             phase: 'idle',
@@ -242,7 +242,7 @@ describe('initPatternPulseGameFramework', () => {
         })
         // The overlay stats themselves are React-owned (island test).
 
-        handle!.game.reset()
+        handle!.restart()
         expect(handle!.game.getState()).toMatchObject({
             phase: 'idle',
             isActive: false,

@@ -333,12 +333,12 @@ describe('initPotionSorterGameFramework', () => {
         expect(handle!.game.getState().result).toBe('solved')
     })
 
-    it('reset clears dead-end state and returns to idle', async () => {
+    it('Restart clears dead-end state and returns to idle', async () => {
         handle = await initFramework()
         handle!.game.start()
 
         playMoves(MEDIUM_DEAD_END)
-        handle!.game.reset()
+        handle!.restart()
 
         expect(handle!.game.getState()).toMatchObject({
             difficulty: 'medium',
@@ -431,16 +431,16 @@ describe('initPotionSorterGameFramework', () => {
         expect(undoButton.dataset.deadEnd).toBe('false')
     })
 
-    it('Play Again reset keeps the chosen preset and restores the board', async () => {
+    it('Play Again restart keeps the chosen preset and restores the board', async () => {
         // Overlay/final-stat ownership moved to the PotionSorterScreen island
-        // (HPA-393); the initializer contract left here is the reset itself.
+        // (HPA-393); the initializer contract left here is the restart itself.
         handle = await initFramework()
         document.getElementById('easy-btn')!.click()
         handle!.game.start()
 
         playMoves(EASY_SOLUTION)
         await settleEnd()
-        handle!.game.reset()
+        handle!.restart()
 
         expect(handle!.game.getState()).toMatchObject({
             difficulty: 'easy',
