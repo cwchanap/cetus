@@ -80,6 +80,7 @@ vi.mock('@cetus/games/ice-slide/run', async () => {
 
 import { initializeIceSlide } from './init'
 import { saveGameScore } from '@/lib/services/scoreService'
+import { AchievementRarity } from '@cetus/shared/achievements'
 import { GameID } from '@cetus/shared/games'
 import { cleanup as rendererCleanup, setupPixiJS } from './renderer'
 import { createIceSlideDailyRunDefinition } from '@cetus/games/ice-slide/daily'
@@ -106,18 +107,6 @@ import {
 function mountDom(): HTMLElement {
     document.body.innerHTML = `
       <div id="game-canvas-container"></div>
-      <span id="score">0</span>
-      <span id="level">1</span>
-      <span id="moves">0</span>
-      <span id="crystals">0</span>
-      <span id="time-remaining">0:00</span>
-      <span id="level-name">—</span>
-      <button id="start-btn" style="display:none"></button>
-      <button id="end-btn" style="display:inline-flex"></button>
-      <div id="game-over-overlay" class="hidden">
-        <span id="game-over-title"></span>
-        <span id="final-score"></span>
-      </div>
       <div id="daily-meta" class="hidden">
         <span id="daily-date"></span>
         <span id="daily-reset"></span>
@@ -178,6 +167,8 @@ const baseCallbacks = () => ({
     onWin: vi.fn(),
     onError: vi.fn(),
     onScoreSaved: vi.fn(),
+    onHudSync: vi.fn(),
+    onRunEnded: vi.fn(),
 })
 
 function findSolution(
@@ -529,6 +520,77 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
+    it('wires the static route-choice and undo buttons through the handle', async () => {
+        const run = createTestRun([
+            createTestStage({
+                id: 'expedition:clicks:1',
+                rows: ['#####', '#S..#', '#..G#', '#####'],
+                parMoves: 2,
+                objectiveIds: ['no_falls'],
+            }),
+            createTestStage({
+                id: 'expedition:clicks:2',
+                objectiveIds: ['no_falls'],
+            }),
+            createTestStage({
+                // Post-choice stage: a non-terminal move must exist for the
+                // undo click below to have something to undo.
+                id: 'expedition:clicks:3',
+                rows: ['#####', '#S..#', '#..G#', '#####'],
+                parMoves: 2,
+                objectiveIds: ['no_falls'],
+            }),
+            ...Array.from({ length: 3 }, (_, index) =>
+                createTestStage({
+                    id: `expedition:clicks:${index + 4}`,
+                    objectiveIds: ['no_falls'],
+                })
+            ),
+        ])
+        vi.mocked(createIceSlideExpeditionRunDefinition).mockReturnValueOnce(
+            run
+        )
+
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, baseCallbacks())
+        await handle.start('expedition')
+        solveCurrentStage(handle)
+        solveCurrentStage(handle)
+
+        // Stage 2's clear carries a pending route choice (the expedition
+        // rule): the init-wired continue button opens the route overlay,
+        // then the static safe/risk buttons route the choice (island
+        // renders them without React onClick).
+        document.getElementById('stage-clear-continue-btn')?.click()
+        expect(
+            document
+                .getElementById('expedition-route-choice-overlay')
+                ?.classList.contains('hidden')
+        ).toBe(false)
+        document.getElementById('expedition-risk-btn')?.click()
+        expect(handle.getGame()!.getState().routeChoices).toEqual(['risky'])
+
+        // The init-wired undo button applies a charge once one exists.
+        const game = handle.getGame()!
+        game.move('S')
+        ;(
+            game as unknown as { state: { undoChargesAvailable: number } }
+        ).state.undoChargesAvailable = 1
+        const undoButton = document.getElementById(
+            'expedition-undo-btn'
+        ) as HTMLButtonElement
+        undoButton.disabled = false
+        undoButton.click()
+        expect(game.getState().undoChargesAvailable).toBe(0)
+
+        handle.cleanup()
+        // Cleanup detaches the tracked listeners: post-cleanup clicks are
+        // inert (no throw, no state change).
+        undoButton.disabled = false
+        undoButton.click()
+        expect(game.getState().undoChargesAvailable).toBe(0)
+    })
+
     it('renders dynamic Expedition stars and keeps Undo disabled exactly when unavailable', async () => {
         const stages = [
             ['no_reset', 'no_falls'],
@@ -584,21 +646,18 @@ describe('initializeIceSlide', () => {
     })
 
     it('ends a zero-score Daily run locally without submitting', async () => {
+        const callbacks = baseCallbacks()
         const container = mountDom()
-        const handle = await initializeIceSlide(container, baseCallbacks())
+        const handle = await initializeIceSlide(container, callbacks)
 
         await handle.start('daily')
         handle.stop()
 
         expect(handle.getGame()!.getState().status).toBe('idle')
-        expect(document.getElementById('game-over-title')?.textContent).toBe(
-            'RUN ENDED'
-        )
-        expect(document.getElementById('final-score')?.textContent).toBe('0')
+        // Result overlay moved to the island (HPA-393): the initializer
+        // reports the local end through onRunEnded instead of DOM writes.
+        expect(callbacks.onRunEnded).toHaveBeenCalledWith('RUN ENDED', 0, false)
         expect(saveGameScore).not.toHaveBeenCalled()
-        expect(document.getElementById('start-btn')?.style.display).toBe(
-            'inline-flex'
-        )
         handle.stop()
         handle.cleanup()
     })
@@ -736,14 +795,15 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
-    it('starts a run and updates HUD after a move', async () => {
+    it('starts a run and syncs the shared HUD through onHudSync', async () => {
+        const callbacks = baseCallbacks()
         const container = mountDom()
-        const handle = await initializeIceSlide(container, baseCallbacks())
+        const handle = await initializeIceSlide(container, callbacks)
 
         await handle.start()
         expect(handle.getGame()?.getState().status).toBe('playing')
-        expect(document.getElementById('level-name')?.textContent).toBe(
-            'First Frost'
+        expect(callbacks.onHudSync).toHaveBeenCalledWith(
+            expect.objectContaining({ levelName: 'First Frost' })
         )
 
         handle.getGame()?.move('S')
@@ -753,9 +813,10 @@ describe('initializeIceSlide', () => {
         handle.cleanup()
     })
 
-    it('submits score on stop after points and restores buttons', async () => {
+    it('submits score on stop and reports the run result', async () => {
+        const callbacks = baseCallbacks()
         const container = mountDom()
-        const handle = await initializeIceSlide(container, baseCallbacks())
+        const handle = await initializeIceSlide(container, callbacks)
 
         await handle.start()
         handle.getGame()?.move('S')
@@ -765,13 +826,10 @@ describe('initializeIceSlide', () => {
         const [gameId, score] = vi.mocked(saveGameScore).mock.calls[0]
         expect(gameId).toBe(GameID.ICE_SLIDE)
         expect(score).toBeGreaterThan(0)
-        expect(
-            document
-                .getElementById('game-over-overlay')
-                ?.classList.contains('hidden')
-        ).toBe(false)
-        expect(document.getElementById('start-btn')?.style.display).toBe(
-            'inline-flex'
+        expect(callbacks.onRunEnded).toHaveBeenCalledWith(
+            'RUN ENDED',
+            expect.any(Number),
+            false
         )
 
         handle.cleanup()
@@ -832,10 +890,6 @@ describe('initializeIceSlide', () => {
             )
         })
         expect(handle.getGame()).toBeNull()
-        expect(document.getElementById('start-btn')?.style.display).toBe(
-            'inline-flex'
-        )
-        expect(document.getElementById('end-btn')?.style.display).toBe('none')
         handle.cleanup()
     })
 
@@ -880,9 +934,6 @@ describe('initializeIceSlide', () => {
             'boot failed'
         )
         expect(handle.getGame()).toBeNull()
-        expect(document.getElementById('start-btn')?.style.display).toBe(
-            'inline-flex'
-        )
         handle.cleanup()
     })
 
@@ -1386,11 +1437,9 @@ describe('initializeIceSlide', () => {
         }
 
         const onWin = vi.fn()
+        const callbacks = { ...baseCallbacks(), onWin }
         const container = mountDom()
-        const handle = await initializeIceSlide(container, {
-            ...baseCallbacks(),
-            onWin,
-        })
+        const handle = await initializeIceSlide(container, callbacks)
         await handle.start()
 
         for (let i = 0; i < ICE_SLIDE_LEVELS.length; i++) {
@@ -1402,20 +1451,16 @@ describe('initializeIceSlide', () => {
         }
 
         expect(onWin).toHaveBeenCalled()
-        expect(
-            document
-                .getElementById('game-over-overlay')
-                ?.classList.contains('hidden')
-        ).toBe(false)
-        expect(document.getElementById('game-over-title')?.textContent).toBe(
-            'MISSION COMPLETE!'
+        expect(callbacks.onRunEnded).toHaveBeenCalledWith(
+            'MISSION COMPLETE!',
+            expect.any(Number),
+            true
         )
         expect(saveGameScore).toHaveBeenCalledTimes(1)
         handle.stop()
         expect(saveGameScore).toHaveBeenCalledTimes(1)
-        expect(document.getElementById('game-over-title')?.textContent).toBe(
-            'MISSION COMPLETE!'
-        )
+        // The won run's stop path must not re-report a second result.
+        expect(callbacks.onRunEnded).toHaveBeenCalledTimes(1)
         handle.cleanup()
     })
 
@@ -1444,9 +1489,6 @@ describe('initializeIceSlide', () => {
         expect(handle.getGame()).toBeNull()
         expect(vi.mocked(rendererCleanup)).toHaveBeenCalled()
         expect(container.childNodes.length).toBe(0)
-        expect(document.getElementById('start-btn')?.style.display).toBe(
-            'inline-flex'
-        )
         handle.cleanup()
     })
 
@@ -1618,8 +1660,9 @@ describe('initializeIceSlide', () => {
     })
 
     it('submits a positive-score Expedition End with expedition context', async () => {
+        const callbacks = baseCallbacks()
         const container = mountDom()
-        const handle = await initializeIceSlide(container, baseCallbacks())
+        const handle = await initializeIceSlide(container, callbacks)
 
         await handle.start('expedition')
         solveCurrentStage(handle)
@@ -1645,8 +1688,10 @@ describe('initializeIceSlide', () => {
                 }
             ).context?.competitionKey
         ).toBeUndefined()
-        expect(document.getElementById('game-over-title')?.textContent).toBe(
-            'RUN ENDED'
+        expect(callbacks.onRunEnded).toHaveBeenCalledWith(
+            'RUN ENDED',
+            expect.any(Number),
+            false
         )
         // The same local summary as a zero-score End, plus submission.
         expect(
@@ -1661,21 +1706,16 @@ describe('initializeIceSlide', () => {
     })
 
     it('ends a zero-score Expedition run locally without submitting', async () => {
+        const callbacks = baseCallbacks()
         const container = mountDom()
-        const handle = await initializeIceSlide(container, baseCallbacks())
+        const handle = await initializeIceSlide(container, callbacks)
 
         await handle.start('expedition')
         handle.stop()
 
         expect(handle.getGame()!.getState().status).toBe('idle')
-        expect(document.getElementById('game-over-title')?.textContent).toBe(
-            'RUN ENDED'
-        )
-        expect(document.getElementById('final-score')?.textContent).toBe('0')
+        expect(callbacks.onRunEnded).toHaveBeenCalledWith('RUN ENDED', 0, false)
         expect(saveGameScore).not.toHaveBeenCalled()
-        expect(document.getElementById('start-btn')?.style.display).toBe(
-            'inline-flex'
-        )
         // Zero-score End still renders the local Expedition summary.
         expect(
             document
@@ -1776,9 +1816,6 @@ describe('initializeIceSlide', () => {
             'gen failed'
         )
         expect(handle.getGame()).toBeNull()
-        expect(document.getElementById('start-btn')?.style.display).toBe(
-            'inline-flex'
-        )
 
         // failRun cleared the captured retry snapshot and the internal Daily
         // date/mode state: a later retry cannot silently relaunch the
@@ -1919,6 +1956,59 @@ describe('initializeIceSlide', () => {
         expect(swipeToDirection).not.toHaveBeenCalled()
         expect(keyToDirection).not.toHaveBeenCalled()
         expect(handle.getGame()).toBeNull()
+        handle.cleanup()
+    })
+
+    it('keeps the one-toast contract: toasts fire once per successful save, the result callback is not a second path', async () => {
+        // The mocked saveGameScore mirrors the real scoreService contract:
+        // success fires the window toasts from inside the save path, then
+        // reports back. The display result (onRunEnded) must stay toast-free.
+        const achievementToast = vi.fn()
+        const challengeToast = vi.fn()
+        window.showAchievementAward = achievementToast
+        window.showChallengeComplete = challengeToast
+        vi.mocked(saveGameScore).mockImplementationOnce(
+            async (_gameId, _score, onSuccess) => {
+                window.showAchievementAward?.([
+                    {
+                        id: 'ach-1',
+                        name: 'Test',
+                        description: 'Test achievement',
+                        icon: '🏆',
+                        rarity: AchievementRarity.COMMON,
+                    },
+                ])
+                window.showChallengeComplete?.({
+                    completedChallenges: [
+                        {
+                            id: 'c1',
+                            name: 'Challenge',
+                            description: 'Test challenge',
+                            icon: '🎯',
+                            xpReward: 10,
+                        },
+                    ],
+                    xpEarned: 10,
+                    levelUp: false,
+                })
+                onSuccess?.({
+                    success: true,
+                    newAchievements: [],
+                })
+            }
+        )
+        const callbacks = baseCallbacks()
+        const container = mountDom()
+        const handle = await initializeIceSlide(container, callbacks)
+
+        await handle.start()
+        handle.getGame()?.move('S')
+        handle.stop()
+
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+        expect(achievementToast).toHaveBeenCalledTimes(1)
+        expect(challengeToast).toHaveBeenCalledTimes(1)
+        expect(callbacks.onRunEnded).toHaveBeenCalledTimes(1)
         handle.cleanup()
     })
 })

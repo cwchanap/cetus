@@ -982,7 +982,7 @@ describe('BaseGame stale-run guard', () => {
         expect(structuredEnds[0].data.newAchievements).toEqual(['first_win'])
     })
 
-    it('suppresses newAchievements in end event when reset happens during the save', async () => {
+    it('delivers newAchievements in end event when reset happens during the save', async () => {
         const submitScore = vi
             .fn()
             .mockResolvedValue({ newAchievements: ['first_win'] })
@@ -1030,7 +1030,9 @@ describe('BaseGame stale-run guard', () => {
             e => e.data && 'score' in e.data
         )
         expect(structuredEnds).toHaveLength(1)
-        expect(structuredEnds[0].data.newAchievements).toBeUndefined()
+        // The completed run's save committed — its earned rewards are
+        // delivered even though the run went stale during the await.
+        expect(structuredEnds[0].data.newAchievements).toEqual(['first_win'])
     })
 
     it('invokes onEnd/onGameEnd while the score save is still pending', async () => {
@@ -1278,26 +1280,32 @@ describe('BaseGame stale-run guard', () => {
         game.reset()
         await endPromise
 
-        // The save POST still happened, the structured end event still
-        // emitted, and only its save-derived reward payload is suppressed.
+        // The save POST still happened and the structured end event still
+        // emitted — with its reward payload intact, since it describes what
+        // the committed save actually earned (the runId is what lets the
+        // session adapter drop the stale score/stats instead).
         expect(submitScore).toHaveBeenCalledTimes(1)
         expect(onEnd).toHaveBeenCalledTimes(1)
         const structuredEnds = endEvents.filter(
             e => e.data && 'score' in e.data
         )
         expect(structuredEnds).toHaveLength(1)
-        expect(structuredEnds[0].data.newAchievements).toBeUndefined()
-        expect(structuredEnds[0].data.challengeUpdates).toBeUndefined()
+        expect(structuredEnds[0].data.newAchievements).toEqual(['first_win'])
+        expect(structuredEnds[0].data.challengeUpdates).toMatchObject({
+            completedChallenges: [{ id: 'c1' }],
+            xpEarned: 10,
+            levelUp: false,
+        })
     })
 
     it('still invokes onEnd/onGameEnd for the ended run when start() races with end() (Play Again path)', async () => {
         // Logically equivalent to the reset() race above, but asserts the
         // literal "Play Again" path: start() also advances the run guard,
         // so the pending end() from the previous run goes stale. Its local
-        // callbacks already fired at freeze time, so only the save-derived
-        // end-event payload is suppressed — never the callbacks.
-        // Fixture carries both reward fields so suppression is observable —
-        // an empty payload would make the toBeUndefined asserts vacuous.
+        // callbacks already fired at freeze time, so they can never be
+        // suppressed — and its committed save-derived rewards still ship
+        // with the end event for the notification forwarder.
+        // Fixture carries both reward fields so delivery is observable.
         const submitScore = vi.fn().mockResolvedValue({
             newAchievements: ['first_win'],
             challengeUpdates: {
@@ -1375,8 +1383,12 @@ describe('BaseGame stale-run guard', () => {
             e => e.data && 'score' in e.data
         )
         expect(structuredEnds).toHaveLength(1)
-        expect(structuredEnds[0].data.newAchievements).toBeUndefined()
-        expect(structuredEnds[0].data.challengeUpdates).toBeUndefined()
+        expect(structuredEnds[0].data.newAchievements).toEqual(['first_win'])
+        expect(structuredEnds[0].data.challengeUpdates).toMatchObject({
+            completedChallenges: [{ id: 'c1' }],
+            xpEarned: 10,
+            levelUp: false,
+        })
     })
 
     it('saves the completed run payload when onEnd starts a new run synchronously', async () => {
@@ -1668,7 +1680,7 @@ describe('BaseGame stale-run guard', () => {
         game.destroy()
     })
 
-    it('suppresses save-derived end-event rewards for a stale run when the transport is injected', async () => {
+    it('delivers save-derived end-event rewards for a stale run when the transport is injected', async () => {
         const injectedSubmitter = vi.fn().mockResolvedValue({
             success: true,
             newAchievements: [
@@ -1736,15 +1748,21 @@ describe('BaseGame stale-run guard', () => {
         game.reset()
         await endPromise
 
-        // The injected transport still carried the request exactly once;
-        // only the save-derived reward payload is suppressed.
+        // The injected transport still carried the request exactly once,
+        // and its committed rewards ship with the stale end event.
         expect(injectedSubmitter).toHaveBeenCalledTimes(1)
         const structuredEnds = endEvents.filter(
             e => e.data && 'score' in e.data
         )
         expect(structuredEnds).toHaveLength(1)
-        expect(structuredEnds[0].data.newAchievements).toBeUndefined()
-        expect(structuredEnds[0].data.challengeUpdates).toBeUndefined()
+        expect(structuredEnds[0].data.newAchievements).toMatchObject([
+            { id: 'first_win' },
+        ])
+        expect(structuredEnds[0].data.challengeUpdates).toMatchObject({
+            completedChallenges: [{ id: 'c1' }],
+            xpEarned: 10,
+            levelUp: false,
+        })
 
         game.destroy()
     })

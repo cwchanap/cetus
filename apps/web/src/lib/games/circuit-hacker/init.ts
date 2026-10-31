@@ -11,6 +11,7 @@ import { DIFFICULTY_CONFIGS } from '@cetus/games/circuit-hacker/utils'
 import type {
     Difficulty,
     CircuitHackerStats,
+    RunEndReason,
 } from '@cetus/games/circuit-hacker/types'
 import { saveGameScore } from '@/lib/services/scoreService'
 import { GameID } from '@cetus/shared/games'
@@ -26,7 +27,7 @@ export interface CircuitHackerUICallbacks {
     onTimeUpdate: (timeRemaining: number) => void
     onRotation: (rotationsUsed: number) => void
     onStart: () => void
-    onEnd: (stats: CircuitHackerStats) => void
+    onEnd: (stats: CircuitHackerStats, outcome: CircuitHackerEndOutcome) => void
     // Surfaces non-fatal failures (e.g. score submission rejected by the
     // server) to the page so the player is informed rather than seeing a
     // misleading success overlay. Fatal failures (start/load) still throw
@@ -34,40 +35,22 @@ export interface CircuitHackerUICallbacks {
     onError?: (title: string, message: string) => void
 }
 
+/**
+ * How the run ended, for the page's React-owned overlay: the headline the
+ * legacy route rendered plus the fail reason (absent when solved). The
+ * display result carries no side effects — persistence and reward toasts
+ * stay owned by the saveGameScore path below.
+ */
+export interface CircuitHackerEndOutcome {
+    title: string
+    reason?: RunEndReason
+}
+
 export interface CircuitHackerHandle {
     start: (difficulty: Difficulty) => Promise<void>
     stop: () => void
     cleanup: () => void
     getGame: () => CircuitHackerGame | null
-}
-
-function setText(id: string, value: string): void {
-    const el = document.getElementById(id)
-    if (el) {
-        el.textContent = value
-    }
-}
-
-function resetButtons(): void {
-    const startBtn = document.getElementById('start-btn')
-    const stopBtn = document.getElementById('stop-btn')
-    if (startBtn) {
-        startBtn.style.display = 'inline-flex'
-    }
-    if (stopBtn) {
-        stopBtn.style.display = 'none'
-    }
-}
-
-function showOverlay(title: string, stats: CircuitHackerStats): void {
-    setText('game-over-title', title)
-    setText('final-score', stats.finalScore.toString())
-    setText('final-time', `${stats.secondsRemaining}s`)
-    setText('final-rotations', stats.rotationsUsed.toString())
-    const overlay = document.getElementById('game-over-overlay')
-    if (overlay) {
-        overlay.classList.remove('hidden')
-    }
 }
 
 export async function initializeCircuitHackerGame(
@@ -126,9 +109,9 @@ export async function initializeCircuitHackerGame(
                 },
                 onSolved: async (finalScore, stats) => {
                     render()
-                    resetButtons()
-                    showOverlay('CIRCUIT POWERED!', stats)
-                    callbacks.onEnd(stats)
+                    // Display-only end result: the React island opens its
+                    // overlay from this; toasts stay owned by saveGameScore.
+                    callbacks.onEnd(stats, { title: 'CIRCUIT POWERED!' })
                     const surfaceError = (message: string) => {
                         callbacks.onError?.(
                             'Score Not Saved',
@@ -181,12 +164,10 @@ export async function initializeCircuitHackerGame(
                 },
                 onFail: (stats, reason) => {
                     render()
-                    resetButtons()
-                    showOverlay(
-                        reason === 'manual' ? 'GAME OVER' : "TIME'S UP!",
-                        stats
-                    )
-                    callbacks.onEnd(stats)
+                    callbacks.onEnd(stats, {
+                        title: reason === 'manual' ? 'GAME OVER' : "TIME'S UP!",
+                        reason,
+                    })
                 },
             }
         )

@@ -1,8 +1,7 @@
 // @vitest-environment node
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { createContainer } from '@/test/createContainer'
 import {
     GameBreadcrumb,
     GameControls,
@@ -10,90 +9,9 @@ import {
     GameStats,
     GameTitle,
 } from '@cetus/ui'
-import GamePage from './GamePage.astro'
+import { GameScreen } from './GameScreen'
 
 describe('Game wrapper restyle', () => {
-    let container: Awaited<ReturnType<typeof createContainer>>
-
-    beforeAll(async () => {
-        container = await createContainer()
-    })
-
-    it('GamePage renders a custom controls slot when provided', async () => {
-        const html = await container.renderToString(GamePage, {
-            props: {
-                gameId: 'test',
-                title: 'Test',
-                description: 'Test desc',
-                icon: '🎮',
-            },
-            slots: {
-                'game-board': '<div id="board-mock"></div>',
-                controls: '<button id="custom-control">Custom</button>',
-            },
-        })
-        expect(html).toContain('id="custom-control"')
-        // Default GameControls start button should NOT appear when slot is provided
-        expect(html).not.toContain('id="start-btn"')
-    })
-
-    it('GamePage renders default GameControls when no controls slot', async () => {
-        const html = await container.renderToString(GamePage, {
-            props: {
-                gameId: 'test',
-                title: 'Test',
-                description: 'Test desc',
-                icon: '🎮',
-            },
-            slots: {
-                'game-board': '<div id="board-mock"></div>',
-            },
-        })
-        expect(html).toContain('id="start-btn"')
-    })
-
-    it('GamePage renders SSR-only React wrappers (no hydration directive)', async () => {
-        const html = await container.renderToString(GamePage, {
-            props: {
-                gameId: 'test',
-                title: 'Test',
-                description: 'Test desc',
-                icon: '🎮',
-            },
-            slots: {
-                'game-board': '<div id="board-mock"></div>',
-            },
-        })
-        // Game HUD contract nodes the game scripts mutate imperatively.
-        expect(html).toContain('id="score"')
-        expect(html).toContain('id="time-remaining"')
-        expect(html).toContain('id="pause-btn"')
-        expect(html).toContain('id="reset-btn"')
-        // End button hidden by default, like the game scripts expect.
-        expect(html).toMatch(/id="end-btn"[^>]*style="display:none"/)
-        // Astro must not hydrate the wrappers into game HUD islands: the
-        // only astro-island on the page is AppLayout's AppNotifications.
-        expect(html.match(/<astro-island/g)?.length ?? 0).toBe(1)
-    })
-
-    it('GamePage passes overlayTitle and overlayButtonText to GameOverlay', async () => {
-        const html = await container.renderToString(GamePage, {
-            props: {
-                gameId: 'test',
-                title: 'Test',
-                description: 'Test desc',
-                icon: '🎮',
-                overlayTitle: 'CUSTOM OVERLAY TITLE',
-                overlayButtonText: 'Custom Button Text',
-            },
-            slots: {
-                'game-board': '<div id="board-mock"></div>',
-            },
-        })
-        expect(html).toContain('CUSTOM OVERLAY TITLE')
-        expect(html).toContain('Custom Button Text')
-    })
-
     it('GameTitle uses Fraunces token, not Orbitron', () => {
         const html = renderToStaticMarkup(
             createElement(GameTitle, {
@@ -185,5 +103,34 @@ describe('Game wrapper restyle', () => {
         expect(html).toContain('Score: 100')
         expect(html).not.toMatch(/font-orbitron/)
         expect(html).not.toMatch(/text-cyan-400/)
+    })
+
+    it('GameScreen renders a custom controls node instead of GameControls', () => {
+        const html = renderToStaticMarkup(
+            createElement(GameScreen, {
+                gameId: 'test',
+                title: 'Test',
+                description: 'Test desc',
+                icon: '🎮',
+                board: createElement('div', { id: 'board-mock' }),
+                controls: createElement('div', { id: 'custom-controls' }),
+            })
+        )
+        expect(html).toContain('id="custom-controls"')
+        // The default GameControls card is replaced by the custom controls.
+        expect(html).not.toContain('id="start-btn"')
+    })
+
+    it('GameScreen renders default GameControls without the controls prop', () => {
+        const html = renderToStaticMarkup(
+            createElement(GameScreen, {
+                gameId: 'test',
+                title: 'Test',
+                description: 'Test desc',
+                icon: '🎮',
+                board: createElement('div', { id: 'board-mock' }),
+            })
+        )
+        expect(html).toContain('id="start-btn"')
     })
 })

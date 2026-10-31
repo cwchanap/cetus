@@ -1,184 +1,41 @@
 ---
-import GamePage from '@/components/games/GamePage.astro'
-import { Badge, Button, Card } from '@cetus/ui'
-import { RHYTHM_REACTOR_RULES } from '@cetus/games/rhythm-reactor/types'
+import AppLayout from '@/layouts/AppLayout.astro'
+import RhythmReactorScreen from '@/components/islands/games/RhythmReactorScreen'
 ---
 
-<GamePage
-  gameId="rhythm-reactor"
-  title="Rhythm Reactor"
+<AppLayout
+  title="Rhythm Reactor - Cetus Minigames"
   description="Hit each falling beat in time to keep the reactor stable."
-  icon="🎵"
-  initialTime={RHYTHM_REACTOR_RULES.duration}
-  showPause={false}
-  showEnd={false}
-  showReset={true}
-  overlayTitle="RHYTHM RUN COMPLETE"
-  overlayButtonId="play-again-btn"
+  navigation={[
+    { href: '/', label: 'Home' },
+    { href: '#', label: 'Rhythm Reactor' },
+  ]}
+  includeFooter={false}
 >
-  <div
-    slot="game-board"
-    id="rhythm-reactor-container"
-    class="w-full max-w-[800px]"
-  >
-    <div
-      id="rhythm-reactor-canvas"
-      class="overflow-hidden rounded-lg bg-black/30"
-    >
-    </div>
-    <p id="rhythm-reactor-status" class="sr-only" aria-live="polite"></p>
-  </div>
+  <RhythmReactorScreen client:load />
+</AppLayout>
 
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono"
-      >Combo: <span id="rhythm-reactor-combo">0</span></span
-    >
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono">Hits: <span id="rhythm-reactor-hits">0</span></span>
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono"
-      >Judgment: <span id="rhythm-reactor-judgment">READY</span></span
-    >
-  </Badge>
-  <Badge slot="additional-stats" variant="outline" className="px-4 py-2">
-    <span class="font-mono"
-      >Stability: <span id="rhythm-reactor-stability"
-        >{RHYTHM_REACTOR_RULES.initialStability}</span
-      ></span
-    >
-  </Badge>
-
-  <div slot="controls">
-    <Card variant="glass" className="p-6">
-      <div class="flex flex-col items-center space-y-4">
-        <div class="flex flex-wrap justify-center gap-2">
-          <Button id="start-btn" type="button" variant="primary">
-            Start Game
-          </Button>
-          <Button id="reset-btn" type="button" variant="outline">
-            Reset
-          </Button>
-        </div>
-        <div
-          id="rhythm-reactor-controls"
-          role="group"
-          aria-label="Rhythm lanes"
-          class="grid w-full grid-cols-2 gap-2"
-        >
-          <button
-            type="button"
-            data-rhythm-lane="0"
-            class="rhythm-lane-button"
-            disabled>Lane 1 · D</button
-          >
-          <button
-            type="button"
-            data-rhythm-lane="1"
-            class="rhythm-lane-button"
-            disabled>Lane 2 · F</button
-          >
-          <button
-            type="button"
-            data-rhythm-lane="2"
-            class="rhythm-lane-button"
-            disabled>Lane 3 · J</button
-          >
-          <button
-            type="button"
-            data-rhythm-lane="3"
-            class="rhythm-lane-button"
-            disabled>Lane 4 · K</button
-          >
-        </div>
-      </div>
-    </Card>
-  </div>
-
-  <div slot="game-info" class="space-y-6">
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ HOW TO PLAY
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>Beats fall down four lanes toward the reactor line.</p>
-        <p>Press D, F, J, or K when a beat reaches its lane.</p>
-        <p>Tap a lane button on touch devices for the same timing window.</p>
-        <p>Keep your combo alive and protect reactor stability.</p>
-      </div>
-    </Card>
-
-    <Card variant="glass" className="p-6">
-      <h3 class="font-mono text-sm tracking-wide text-cetus-accent mb-4">
-        ▸ SCORING
-      </h3>
-      <div class="space-y-2 text-sm text-cetus-ink">
-        <p>Perfect hits score 100 points; Good hits score 60.</p>
-        <p>Combo milestones increase the score multiplier.</p>
-        <p>Missed notes and stray presses reduce stability and accuracy.</p>
-      </div>
-    </Card>
-  </div>
-
-  <div slot="final-stats">
-    <div class="text-lg text-cetus-ink">
-      Hits: <span id="final-hits" class="text-cetus-accent">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Misses: <span id="final-misses" class="text-cetus-accent-2">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Stray presses:
-      <span id="final-stray-presses" class="text-cetus-accent-3">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Perfect: <span id="final-perfect" class="text-cetus-accent">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Good: <span id="final-good" class="text-cetus-accent-2">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Max combo:
-      <span id="final-max-combo" class="text-cetus-accent">0</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Accuracy:
-      <span id="final-accuracy" class="text-cetus-accent-2">0.0%</span>
-    </div>
-    <div class="text-lg text-cetus-ink">
-      Stability:
-      <span id="final-stability" class="text-cetus-accent-3"
-        >{RHYTHM_REACTOR_RULES.initialStability}</span
-      >
-    </div>
-  </div>
-</GamePage>
-
-<script>
-  import { initRhythmReactorGameFramework } from '@/lib/games/rhythm-reactor/initFramework'
-
-  document.addEventListener('DOMContentLoaded', () => {
-    initRhythmReactorGameFramework()
-      .then(handle => {
-        if (handle) {
-          ;(
-            window as Window & { rhythmReactorGame?: typeof handle }
-          ).rhythmReactorGame = handle
-        }
-      })
-      .catch(error => {
-        console.error('Rhythm Reactor failed to initialize', error)
-      })
-  })
-</script>
-
-<style>
-  #rhythm-reactor-canvas :global(canvas) {
+<style is:global>
+  /* Static canvas + lane-button markup lives in the RhythmReactorScreen
+     island (HPA-393), so these selectors must be global — Astro-scoped
+     styles would never match island-rendered elements. */
+  #rhythm-reactor-canvas canvas {
     display: block;
     max-width: 100%;
     height: auto;
     touch-action: manipulation;
+  }
+  /* Reserve the canvas box (800×420 at the 327px mobile content width)
+     from the SSR byte: the pre-hydration column flex sizes the board
+     column to 0 width, so aspect-ratio cannot reserve it and the late
+     PixiJS mount pushed the controls ~172px down mid-test. */
+  #rhythm-reactor-canvas {
+    min-height: calc((100vw - 3rem) * 420 / 800);
+  }
+  @media (min-width: 64rem) {
+    #rhythm-reactor-canvas {
+      min-height: 0;
+    }
   }
   .rhythm-lane-button {
     padding: 0.75rem 1rem;

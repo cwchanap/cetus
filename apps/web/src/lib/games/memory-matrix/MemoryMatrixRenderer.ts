@@ -3,7 +3,6 @@ import { DOMRenderer } from '@/lib/games/renderers/DOMRenderer'
 import type { DOMRendererConfig } from '@/lib/games/renderers/RendererFactory'
 import type { Card } from '@cetus/games/memory-matrix/types'
 import type { MemoryMatrixState } from '@cetus/games/memory-matrix/frameworkTypes'
-import { formatTime } from '@cetus/games/memory-matrix/utils'
 
 export class MemoryMatrixRenderer extends DOMRenderer {
     private boardElement: HTMLElement | null = null
@@ -26,8 +25,8 @@ export class MemoryMatrixRenderer extends DOMRenderer {
         if (!this.isMemoryMatrixState(state)) {
             return
         }
+        // React owns the HUD spans (HPA-393); the renderer only draws cards.
         this.renderBoard(state)
-        this.updateUI(state)
     }
 
     private isMemoryMatrixState(state: unknown): state is MemoryMatrixState {
@@ -152,38 +151,6 @@ export class MemoryMatrixRenderer extends DOMRenderer {
             return 'text-white border-cyan-400 shadow-glow-cyan bg-slate-600'
         } else {
             return 'bg-slate-700 border-slate-500 hover:border-cyan-400 hover:shadow-glow-cyan text-slate-400 hover:bg-slate-600 focus-visible:outline-none focus-visible:border-cyan-400 focus-visible:shadow-glow-cyan'
-        }
-    }
-
-    private updateUI(state: MemoryMatrixState): void {
-        const setText = (id: string, value: string) => {
-            const el = document.getElementById(id)
-            if (el) {
-                el.textContent = value
-            }
-        }
-
-        setText('game-score', state.score.toString())
-        setText('game-pairs', `${state.matchedPairs}/${state.totalPairs}`)
-        setText('game-accuracy', `${state.accuracy}%`)
-        setText('pairs-found', state.matchesFound.toString())
-        setText('total-attempts', state.totalAttempts.toString())
-
-        const timeElement = document.getElementById('game-time')
-        if (timeElement) {
-            timeElement.textContent = formatTime(state.timeRemaining)
-            if (state.timeRemaining <= 10) {
-                timeElement.className = 'text-red-400 font-bold'
-            } else if (state.timeRemaining <= 30) {
-                timeElement.className = 'text-yellow-400'
-            } else {
-                timeElement.className = 'text-white'
-            }
-        }
-
-        const timeRemainingElement = document.getElementById('time-remaining')
-        if (timeRemainingElement) {
-            timeRemainingElement.textContent = `${state.timeRemaining}s`
         }
     }
 

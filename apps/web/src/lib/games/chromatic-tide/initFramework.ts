@@ -1,14 +1,5 @@
-import type { AchievementNotification } from '@cetus/shared/achievements'
-import type {
-    BaseGameCallbacks,
-    BaseGameState,
-    BaseGameStats,
-    ChallengeUpdates,
-} from '@cetus/games/core/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
+import type { BaseGameCallbacks, BaseGameState } from '@cetus/games/core/types'
+import { handleGameError } from '@cetus/games/core/errors'
 import { isEditableTarget } from '@/lib/keyboard'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 import {
@@ -19,9 +10,10 @@ import {
     CHROMATIC_TIDE_PALETTE,
     CHROMATIC_TIDE_RULES,
     type ChromaticTideColor,
+    type ChromaticTideOutcome,
     type ChromaticTideState,
-    type ChromaticTideStats,
 } from '@cetus/games/chromatic-tide/types'
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface ChromaticTideInitResult {
@@ -41,18 +33,12 @@ const KEYBOARD_COLORS: Record<string, ChromaticTideColor> = {
     '5': 'green',
 }
 
-export async function initChromaticTideGameFramework(): Promise<
-    ChromaticTideInitResult | undefined
-> {
-    const container = document.getElementById('chromatic-tide-container')
-    if (!container) {
-        handleGameError(
-            new DOMElementNotFoundError('chromatic-tide-container'),
-            'ChromaticTide'
-        )
-        return undefined
-    }
-
+export async function initChromaticTideGameFramework(
+    // The island-owned board host (#chromatic-tide-container). The renderer
+    // mounts into the frozen inner #chromatic-tide-board grid and the color
+    // buttons live beside it inside the host (HPA-393).
+    container: HTMLElement
+): Promise<ChromaticTideInitResult | undefined> {
     const renderer = new ChromaticTideRenderer(
         createChromaticTideRendererConfig()
     )
@@ -85,30 +71,6 @@ export async function initChromaticTideGameFramework(): Promise<
         trackedListeners.push({ target, type, handler })
     }
 
-    const setText = (id: string, value: string): void => {
-        const element = document.getElementById(id)
-        if (element) {
-            element.textContent = value
-        }
-    }
-
-    const setStartVisible = (visible: boolean): void => {
-        const startButton = document.getElementById(
-            'start-btn'
-        ) as HTMLButtonElement | null
-        if (startButton) {
-            startButton.style.display = visible ? 'inline-flex' : 'none'
-        }
-    }
-
-    const hideOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.add('hidden')
-    }
-
-    const showOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.remove('hidden')
-    }
-
     const colorButtons = (): HTMLButtonElement[] =>
         Array.from(
             container.querySelectorAll<HTMLButtonElement>(
@@ -135,87 +97,45 @@ export async function initChromaticTideGameFramework(): Promise<
     }
 
     const announceState = (state: ChromaticTideState): void => {
-        setText('chromatic-tide-status', stateSummary(state))
+        const status = document.getElementById('chromatic-tide-status')
+        if (status) {
+            status.textContent = stateSummary(state)
+        }
     }
 
-    const syncHud = (state: ChromaticTideState): void => {
-        setText('score', String(state.score))
-        setText('time-remaining', String(state.timeRemaining))
-        setText('moves', String(state.movesUsed))
-        setText(
-            'captured',
-            `${state.capturedCells} / ${CHROMATIC_TIDE_RULES.rows * CHROMATIC_TIDE_RULES.cols}`
-        )
-    }
-
+    // React owns the HUD/buttons/overlay (HPA-393): the callbacks only keep
+    // the bespoke control state (color availability/pressed state) and the
+    // polite live announcer.
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: (state: BaseGameState) => {
             const tideState = state as ChromaticTideState
             renderer.render(tideState)
-            syncHud(tideState)
             syncColorControls(tideState)
             announceState(tideState)
         },
-        onScoreUpdate: (score: number) => setText('score', String(score)),
-        onTimeUpdate: (timeRemaining: number) =>
-            setText('time-remaining', String(timeRemaining)),
         onStart: () => {
             const state = game.getState()
-            setStartVisible(false)
-            hideOverlay()
             syncColorControls(state)
             announceState(state)
         },
-        onEnd: (finalScore: number, stats: BaseGameStats) => {
-            const tideStats = stats as ChromaticTideStats
+        onEnd: () => {
             const state = game.getState()
-            setStartVisible(true)
             syncColorControls(state)
-            setText('game-over-title', getOutcomeTitle(tideStats.outcome))
-            setText('final-score', String(finalScore))
-            setText('final-outcome', getOutcomeLabel(tideStats.outcome))
-            setText('final-moves', String(tideStats.movesUsed))
-            setText(
-                'final-captured',
-                `${tideStats.capturedCells} / ${CHROMATIC_TIDE_RULES.rows * CHROMATIC_TIDE_RULES.cols}`
-            )
-            setText('final-time', formatTime(tideStats.timeElapsed))
-            showOverlay()
-            const outcomeAnnouncement = getOutcomeAnnouncement(
-                tideStats.outcome
-            )
-            setText(
-                'chromatic-tide-status',
-                [outcomeAnnouncement, stateSummary(state)]
+            const outcomeAnnouncement = getOutcomeAnnouncement(state.outcome)
+            const status = document.getElementById('chromatic-tide-status')
+            if (status) {
+                status.textContent = [outcomeAnnouncement, stateSummary(state)]
                     .filter(Boolean)
                     .join(' ')
-            )
+            }
         },
     }
 
     const game = new ChromaticTideGame({ submitScore }, enhancedCallbacks)
 
-    const onGameEnd = (event: unknown): void => {
-        const data = (event as { data?: unknown }).data as
-            | {
-                  newAchievements?: AchievementNotification[]
-                  challengeUpdates?: ChallengeUpdates
-              }
-            | undefined
-        const globalWindow = window as Window & {
-            showAchievementAward?: (
-                achievements: AchievementNotification[]
-            ) => void
-            showChallengeComplete?: (updates: ChallengeUpdates) => void
-        }
-        if (data?.newAchievements?.length) {
-            globalWindow.showAchievementAward?.(data.newAchievements)
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            globalWindow.showChallengeComplete?.(data.challengeUpdates)
-        }
-    }
-    game.on('end', onGameEnd)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
     const chooseColor = (color: ChromaticTideColor): boolean =>
         game.chooseColor(color)
@@ -230,21 +150,6 @@ export async function initChromaticTideGameFramework(): Promise<
         })
     }
 
-    const startButton = document.getElementById('start-btn')
-    const resetButton = document.getElementById('reset-btn')
-    const playAgainButton = document.getElementById('play-again-btn')
-
-    const startHandler: EventListener = () => game.start()
-    const resetHandler = (): void => {
-        game.reset()
-        const state = game.getState()
-        renderer.render(state)
-        syncHud(state)
-        syncColorControls(state)
-        announceState(state)
-        hideOverlay()
-        setStartVisible(true)
-    }
     const keyboardHandler: EventListener = event => {
         const keyboardEvent = event as KeyboardEvent
         if (
@@ -279,19 +184,13 @@ export async function initChromaticTideGameFramework(): Promise<
             'You have a game in progress. Are you sure you want to leave?'
     }
 
-    listen(startButton, 'click', startHandler)
-    listen(resetButton, 'click', resetHandler)
-    listen(playAgainButton, 'click', resetHandler)
     listen(document, 'keydown', keyboardHandler)
     listen(window, 'beforeunload', beforeUnloadHandler)
 
     const initialState = game.getState()
     renderer.render(initialState)
-    syncHud(initialState)
     syncColorControls(initialState)
     announceState(initialState)
-    setStartVisible(true)
-    hideOverlay()
 
     let cleanedUp = false
     const cleanup = (): void => {
@@ -302,7 +201,7 @@ export async function initChromaticTideGameFramework(): Promise<
         for (const { target, type, handler } of trackedListeners) {
             target.removeEventListener(type, handler)
         }
-        game.off('end', onGameEnd)
+        removeForwarder()
         renderer.destroy()
         game.destroy()
     }
@@ -312,7 +211,10 @@ export async function initChromaticTideGameFramework(): Promise<
         renderer,
         getGame: () => game,
         getState: () => game.getState(),
-        restart: resetHandler,
+        // Frozen debug-handle contract (window.chromaticTideGame): reset()
+        // re-renders and re-derives the controls through the onGameReset
+        // state-change — no separate presentation sync needed.
+        restart: () => game.reset(),
         cleanup,
     }
 }
@@ -325,37 +227,7 @@ function isChromaticTideColor(
     )
 }
 
-function formatTime(seconds: number): string {
-    return `${Math.floor(seconds / 60)
-        .toString()
-        .padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`
-}
-
-function getOutcomeTitle(outcome: ChromaticTideStats['outcome']): string {
-    switch (outcome) {
-        case 'cleared':
-            return 'TIDE COMPLETE!'
-        case 'timeout':
-            return 'TIME UP!'
-        case 'playing':
-            return 'GAME OVER!'
-    }
-}
-
-function getOutcomeLabel(outcome: ChromaticTideStats['outcome']): string {
-    switch (outcome) {
-        case 'cleared':
-            return 'Cleared'
-        case 'timeout':
-            return 'Timeout'
-        case 'playing':
-            return '—'
-    }
-}
-
-function getOutcomeAnnouncement(
-    outcome: ChromaticTideStats['outcome']
-): string {
+function getOutcomeAnnouncement(outcome: ChromaticTideOutcome): string {
     switch (outcome) {
         case 'cleared':
             return 'Board cleared.'

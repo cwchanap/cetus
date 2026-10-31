@@ -5,7 +5,6 @@ import {
 } from './GravityFlipRenderer'
 import {
     createGravityFlipConfig,
-    type GravityFlipOutcome,
     type GravityFlipState,
     type GravityFlipStats,
 } from '@cetus/games/gravity-flip/types'
@@ -13,14 +12,10 @@ import type {
     BaseGameCallbacks,
     BaseGameState,
     BaseGameStats,
-    ChallengeUpdates,
 } from '@cetus/games/core/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
+import { handleGameError } from '@cetus/games/core/errors'
 import { isEditableTarget } from '@/lib/keyboard'
-import type { AchievementNotification } from '@cetus/shared/achievements'
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface GravityFlipInitResult {
@@ -31,30 +26,17 @@ export interface GravityFlipInitResult {
     cleanup: () => void
 }
 
-function outcomeTitle(outcome: GravityFlipOutcome): string {
-    return outcome === 'survived' ? 'RUN COMPLETE' : 'GRAVITY LOST'
-}
-
-function outcomeLabel(outcome: GravityFlipOutcome): string {
-    return outcome === 'survived' ? 'Survived' : 'Collision'
-}
-
-export async function initGravityFlipGameFramework(): Promise<
-    GravityFlipInitResult | undefined
-> {
-    const container = document.getElementById('gravity-flip-container')
-    if (!container) {
-        handleGameError(
-            new DOMElementNotFoundError('gravity-flip-container'),
-            'GravityFlip'
-        )
-        return undefined
-    }
-
+export async function initGravityFlipGameFramework(
+    container: HTMLElement
+): Promise<GravityFlipInitResult | undefined> {
     const config = { ...createGravityFlipConfig(), submitScore }
-    const renderer = new GravityFlipRenderer(
-        createGravityFlipRendererConfig(config)
-    )
+    // The renderer mounts via a selector; derive it from the ref'd host
+    // element (which keeps the frozen `#gravity-flip-canvas` e2e id —
+    // the canvas div lives inside the ref'd board container).
+    const renderer = new GravityFlipRenderer({
+        ...createGravityFlipRendererConfig(config),
+        container: `#${CSS.escape(container.id)} #gravity-flip-canvas`,
+    })
     try {
         await renderer.initialize()
     } catch (error) {
@@ -88,45 +70,11 @@ export async function initGravityFlipGameFramework(): Promise<
         trackedListeners.push({ target, type, handler })
     }
 
-    const setText = (id: string, value: string): void => {
-        const element = document.getElementById(id)
-        if (element) {
-            element.textContent = value
-        }
-    }
-
-    const hideOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.add('hidden')
-    }
-
-    const showOverlay = (): void => {
-        document.getElementById('game-over-overlay')?.classList.remove('hidden')
-    }
-
-    const setStartVisible = (visible: boolean): void => {
-        const startButton = document.getElementById(
-            'start-btn'
-        ) as HTMLButtonElement | null
-        if (startButton) {
-            startButton.style.display = visible ? 'inline-flex' : 'none'
-        }
-    }
-
-    const syncHud = (state: GravityFlipState): void => {
-        setText(
-            'gravity-direction',
-            state.gravity === 'down' ? 'FLOOR ↓' : 'CEILING ↑'
-        )
-        setText('distance-traveled', String(Math.floor(state.distance)))
-        setText('stars-collected', String(state.starsCollected))
-        setText('flip-count', String(state.flips))
-        setText('world-speed', String(Math.round(state.worldSpeed)))
-        setText('score', String(state.score))
-        setText('time-remaining', String(state.timeRemaining))
-    }
-
     const announce = (message: string): void => {
-        setText('gravity-flip-status', message)
+        const element = document.getElementById('gravity-flip-status')
+        if (element) {
+            element.textContent = message
+        }
     }
 
     let lastAnnouncedGravity: GravityFlipState['gravity'] | null = null
@@ -134,7 +82,8 @@ export async function initGravityFlipGameFramework(): Promise<
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: (state: BaseGameState) => {
             const gravityFlipState = state as GravityFlipState
-            syncHud(gravityFlipState)
+            // React owns the HUD badges/overlay (HPA-393); the callbacks
+            // keep only the polite live announcer in sync.
             if (
                 lastAnnouncedGravity !== null &&
                 gravityFlipState.gravity !== lastAnnouncedGravity
@@ -147,28 +96,15 @@ export async function initGravityFlipGameFramework(): Promise<
             }
             lastAnnouncedGravity = gravityFlipState.gravity
         },
-        onScoreUpdate: (score: number) => setText('score', String(score)),
-        onTimeUpdate: (timeRemaining: number) =>
-            setText('time-remaining', String(timeRemaining)),
         onStart: () => {
             // BaseGame.start() calls onStart before onGameStart emits the
             // fresh (gravity: 'down') state. Clearing the baseline here keeps
             // the live region silent on run initialization; announcements only
             // fire for actual flips during the run.
             lastAnnouncedGravity = null
-            setStartVisible(false)
-            hideOverlay()
         },
-        onEnd: (finalScore: number, stats: BaseGameStats) => {
+        onEnd: (_finalScore: number, stats: BaseGameStats) => {
             const gravityFlipStats = stats as GravityFlipStats
-            setStartVisible(true)
-            setText('game-over-title', outcomeTitle(gravityFlipStats.outcome))
-            setText('final-outcome', outcomeLabel(gravityFlipStats.outcome))
-            setText('final-score', String(finalScore))
-            setText('final-distance', String(gravityFlipStats.distance))
-            setText('final-stars', String(gravityFlipStats.starsCollected))
-            setText('final-flips', String(gravityFlipStats.flips))
-            showOverlay()
             announce(
                 gravityFlipStats.outcome === 'survived'
                     ? 'Run complete. You survived the full minute.'
@@ -179,32 +115,13 @@ export async function initGravityFlipGameFramework(): Promise<
 
     const game = new GravityFlipGame(config, enhancedCallbacks)
 
-    const onGameEnd = (event: unknown): void => {
-        const data = (event as { data?: unknown }).data as
-            | {
-                  newAchievements?: AchievementNotification[]
-                  challengeUpdates?: ChallengeUpdates
-              }
-            | undefined
-        const globalWindow = window as Window & {
-            showAchievementAward?: (
-                achievements: AchievementNotification[]
-            ) => void
-            showChallengeComplete?: (updates: ChallengeUpdates) => void
-        }
-        if (data?.newAchievements?.length) {
-            globalWindow.showAchievementAward?.(data.newAchievements)
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            globalWindow.showChallengeComplete?.(data.challengeUpdates)
-        }
-    }
-    game.on('end', onGameEnd)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
-    const startButton = document.getElementById('start-btn')
-    const resetButton = document.getElementById('reset-btn')
+    // React owns the start/reset/play-again buttons (HPA-393); the bespoke
+    // flip button stays initializer-wired.
     const flipButton = document.getElementById('flip-btn')
-    const playAgainButton = document.getElementById('play-again-btn')
     const canvas = renderer.getApp()?.canvas ?? null
 
     // PixiJSRenderer uses autoDensity: true, which writes inline
@@ -218,23 +135,8 @@ export async function initGravityFlipGameFramework(): Promise<
         canvas.style.height = 'auto'
     }
 
-    const startHandler: EventListener = () => game.start()
-    const resetHandler: EventListener = () => {
-        game.reset()
-        renderer.render(game.getState())
-        syncHud(game.getState())
-        hideOverlay()
-        setStartVisible(true)
-    }
     const flipHandler: EventListener = () => {
         game.flipGravity()
-    }
-    const playAgainHandler: EventListener = () => {
-        hideOverlay()
-        // BaseGame.start() auto-resets a completed run and immediately starts it.
-        // Do not change Play Again to reset-only: Gravity Flip expects the next
-        // run to be active as soon as this button is pressed.
-        game.start()
     }
     const keyboardHandler: EventListener = event => {
         const keyboardEvent = event as KeyboardEvent
@@ -268,17 +170,12 @@ export async function initGravityFlipGameFramework(): Promise<
             'You have a game in progress. Are you sure you want to leave?'
     }
 
-    listen(startButton, 'click', startHandler)
-    listen(resetButton, 'click', resetHandler)
     listen(flipButton, 'click', flipHandler)
-    listen(playAgainButton, 'click', playAgainHandler)
     listen(canvas, 'pointerdown', flipHandler)
     listen(document, 'keydown', keyboardHandler)
     listen(window, 'beforeunload', beforeUnloadHandler)
 
     renderer.render(game.getState())
-    syncHud(game.getState())
-    setStartVisible(true)
 
     let frameId: number | null = null
     let lastFrameTime: number | null = null
@@ -313,7 +210,7 @@ export async function initGravityFlipGameFramework(): Promise<
         for (const { target, type, handler } of trackedListeners) {
             target.removeEventListener(type, handler)
         }
-        game.off('end', onGameEnd)
+        removeForwarder()
         renderer.destroy()
         game.destroy()
     }

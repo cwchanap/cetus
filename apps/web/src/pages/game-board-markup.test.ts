@@ -3,27 +3,75 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { appRoot } from '@/test/app-root'
 
-const reflexMarkup = readFileSync(
-    resolve(appRoot, 'src/pages/reflex/index.astro'),
+const reflexIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/ReflexScreen.tsx'),
     'utf-8'
 )
-const evaderMarkup = readFileSync(
-    resolve(appRoot, 'src/pages/evader/index.astro'),
+const evaderIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/EvaderScreen.tsx'),
     'utf-8'
 )
-const circuitHackerMarkup = readFileSync(
+const circuitHackerIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/CircuitHackerScreen.tsx'),
+    'utf-8'
+)
+const circuitHackerRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/circuit-hacker/index.astro'),
+    'utf-8'
+)
+const satelliteSyncIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/SatelliteSyncScreen.tsx'),
+    'utf-8'
+)
+const satelliteSyncRouteMarkup = readFileSync(
+    resolve(appRoot, 'src/pages/satellite-sync/index.astro'),
     'utf-8'
 )
 const bubbleShooterMarkup = readFileSync(
     resolve(appRoot, 'src/pages/bubble-shooter/index.astro'),
     'utf-8'
 )
-const iceSlideMarkup = readFileSync(
+const bubbleShooterIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/BubbleShooterScreen.tsx'),
+    'utf-8'
+)
+const tetrisRouteMarkup = readFileSync(
+    resolve(appRoot, 'src/pages/tetris/index.astro'),
+    'utf-8'
+)
+const tetrisIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/TetrisScreen.tsx'),
+    'utf-8'
+)
+const game2048RouteMarkup = readFileSync(
+    resolve(appRoot, 'src/pages/2048/index.astro'),
+    'utf-8'
+)
+const game2048IslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/Game2048Screen.tsx'),
+    'utf-8'
+)
+const bejeweledRouteMarkup = readFileSync(
+    resolve(appRoot, 'src/pages/bejeweled/index.astro'),
+    'utf-8'
+)
+const bejeweledIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/BejeweledScreen.tsx'),
+    'utf-8'
+)
+const iceSlideIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/IceSlideScreen.tsx'),
+    'utf-8'
+)
+const iceSlideRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/ice-slide/index.astro'),
     'utf-8'
 )
-const mineGridMarkup = readFileSync(
+const mineGridIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/MineGridScreen.tsx'),
+    'utf-8'
+)
+const mineGridRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/mine-grid/index.astro'),
     'utf-8'
 )
@@ -31,53 +79,53 @@ const gravityFlipMarkup = readFileSync(
     resolve(appRoot, 'src/pages/gravity-flip/index.astro'),
     'utf-8'
 )
+const gravityFlipIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/GravityFlipScreen.tsx'),
+    'utf-8'
+)
 const asteroidDriftMarkup = readFileSync(
     resolve(appRoot, 'src/pages/asteroid-drift/index.astro'),
     'utf-8'
 )
-const chromaticTideMarkup = readFileSync(
+const asteroidDriftIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/AsteroidDriftScreen.tsx'),
+    'utf-8'
+)
+const chromaticTideIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/ChromaticTideScreen.tsx'),
+    'utf-8'
+)
+const chromaticTideRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/chromatic-tide/index.astro'),
     'utf-8'
 )
-
-const games = [
-    'memory-matrix',
-    'quick-math',
-    'word-scramble',
-    'reflex',
-    'sudoku',
-    'path-navigator',
-    'evader',
-    'snake',
-    'circuit-hacker',
-    'satellite-sync',
-    'ice-slide',
-    'mine-grid',
-    'pattern-pulse',
-    'gravity-flip',
-    'potion-sorter',
-    'signal-switch',
-    'rhythm-reactor',
-    'asteroid-drift',
-    'chromatic-tide',
-]
 
 const fieldPlateGames = ['tetris', 'bubble-shooter', 'bejeweled', '2048']
 
 describe('Game board page markup', () => {
     it('keeps Reflex and Evader default boards visible before start', () => {
-        expect(reflexMarkup).toMatch(/id="game-status"[^>]*class="[^"]*hidden/)
-        expect(evaderMarkup).toMatch(/id="game-status"[^>]*class="[^"]*hidden/)
-    })
-
-    it('exposes the Circuit Hacker canvas container and difficulty select', () => {
-        expect(circuitHackerMarkup).toContain('id="game-canvas-container"')
-        expect(circuitHackerMarkup).toContain('id="difficulty-select"')
+        // Reflex's and Evader's boards (and their hidden-by-default
+        // #game-status overlays) moved into their islands (HPA-393); the
+        // markup lives in TSX now, so the class attribute is spelled
+        // className.
+        expect(reflexIslandMarkup).toMatch(
+            /id="game-status"[^>]*className="[^"]*hidden/
+        )
+        expect(evaderIslandMarkup).toMatch(
+            /id="game-status"[^>]*className="[^"]*hidden/
+        )
     })
 })
 
 describe('Bubble Shooter rules copy', () => {
     it('sources rowAddInterval from config and reflects Tasks 4-6 mechanics', () => {
+        // The plate body (growth note + collection limit) moved into the
+        // island (HPA-393 Stage 4); both files destructure rowAddInterval
+        // from the shared config — the island for the body markup, the
+        // route for the retained intro/help sheet panels.
+        expect(bubbleShooterIslandMarkup).toMatch(
+            /\{\s*rowAddInterval[^}]*\}\s*=\s*DEFAULT_BUBBLE_SHOOTER_CONFIG/
+        )
         expect(bubbleShooterMarkup).toMatch(
             /\{\s*rowAddInterval[^}]*\}\s*=\s*DEFAULT_BUBBLE_SHOOTER_CONFIG/
         )
@@ -90,103 +138,391 @@ describe('Bubble Shooter rules copy', () => {
     })
 })
 
-describe('Ice Slide Daily and Expedition challenge markup', () => {
-    it('keeps stable mode, HUD, and result selectors', () => {
-        expect(iceSlideMarkup).toContain('id="ice-slide-mode-selector"')
-        expect(iceSlideMarkup).toContain('value="campaign"')
-        expect(iceSlideMarkup).toContain('value="daily"')
-        expect(iceSlideMarkup).toContain('value="expedition"')
-        expect(iceSlideMarkup).toContain('id="daily-meta"')
-        expect(iceSlideMarkup).toContain('id="daily-date"')
-        expect(iceSlideMarkup).toContain('id="daily-reset"')
-        expect(iceSlideMarkup).toContain('id="daily-stage-progress"')
-        expect(iceSlideMarkup).toContain('id="stage-clear-overlay"')
-        expect(iceSlideMarkup).toContain('id="stage-clear-continue-btn"')
-        expect(iceSlideMarkup).toContain('id="run-final-stage-result"')
-        expect(iceSlideMarkup).toContain('id="run-final-heading"')
-        expect(iceSlideMarkup).toContain('id="run-final-clear"')
-        expect(iceSlideMarkup).toContain('id="run-final-efficient"')
-        expect(iceSlideMarkup).toContain('id="run-final-bonus"')
-        expect(iceSlideMarkup).toContain('id="change-mode-btn"')
-        expect(iceSlideMarkup).toContain('id="expedition-route-choice-overlay"')
-        expect(iceSlideMarkup).toContain('id="expedition-safe-btn"')
-        expect(iceSlideMarkup).toContain('id="expedition-risk-btn"')
-        expect(iceSlideMarkup).toContain('id="expedition-undo-btn"')
-        expect(iceSlideMarkup).toMatch(
-            /id="expedition-route-choice-overlay"[^>]*class="[^"]*hidden/
+describe('Tetris island markup', () => {
+    it('keeps the plate body ids in the island and the route thin', () => {
+        // The plate body (title row, HUD, trays, board, clear feedback)
+        // moved into the island (HPA-393 Stage 4); the route keeps only
+        // AppLayout chrome, the retained field sheet and the style block.
+        expect(tetrisRouteMarkup).toContain(
+            "import TetrisScreen from '@/components/islands/games/TetrisScreen'"
         )
-        expect(iceSlideMarkup).toMatch(
+        expect(tetrisRouteMarkup).toContain('client:load')
+        expect(tetrisRouteMarkup).not.toMatch(/<script[^>]*>/)
+        for (const id of [
+            'tetris-container',
+            'clear-flash',
+            'line-feedback',
+            'next-canvas',
+            'hold-canvas',
+            'hold-btn',
+            'hold-state',
+            'pause-btn',
+            'score',
+            'lines',
+            'clear-streak',
+            'level',
+            'drop-rate',
+            'rate-fill',
+            'next-level',
+        ]) {
+            expect(tetrisIslandMarkup).toContain(`id="${id}"`)
+        }
+    })
+})
+
+describe('2048 island markup', () => {
+    it('keeps the plate body ids in the island and the route thin', () => {
+        // The plate body (title row, HUD, ascent ladder, board frame,
+        // undo controls, live status) moved into the island (HPA-393
+        // Stage 4); the route keeps only AppLayout chrome, the retained
+        // field sheet + commission template and the style block.
+        expect(game2048RouteMarkup).toContain(
+            "import Game2048Screen from '@/components/islands/games/Game2048Screen'"
+        )
+        expect(game2048RouteMarkup).toContain('client:load')
+        expect(game2048RouteMarkup).not.toMatch(/<script[^>]*>/)
+        for (const id of [
+            'game-2048-container',
+            'merge-feedback',
+            'board-warning',
+            'undo-btn',
+            'undos-left',
+            'pause-btn',
+            'score-display',
+            'next-target',
+            'game-status',
+        ]) {
+            expect(game2048IslandMarkup).toContain(`id="${id}"`)
+        }
+        // The seven-rung ascent ladder renders from the same [64…4096]
+        // constant the route frontmatter carried pre-migration.
+        expect(game2048IslandMarkup).toContain(
+            'const ladder = [64, 128, 256, 512, 1024, 2048, 4096]'
+        )
+        expect(game2048IslandMarkup).toContain('data-milestone={value}')
+    })
+})
+
+describe('Bejeweled island markup', () => {
+    it('keeps the plate body ids in the island and the route thin', () => {
+        // The plate body (title row, HUD, cascade cues, board frame, tray
+        // + hint) moved into the island (HPA-393 Stage 4); the route keeps
+        // only AppLayout chrome, the retained field sheet + commission
+        // template and the style block.
+        expect(bejeweledRouteMarkup).toContain(
+            "import BejeweledScreen from '@/components/islands/games/BejeweledScreen'"
+        )
+        expect(bejeweledRouteMarkup).toContain('client:load')
+        expect(bejeweledRouteMarkup).not.toMatch(/<script[^>]*>/)
+        for (const id of [
+            'bejeweled-container',
+            'time-remaining',
+            'time-fill',
+            'score',
+            'moves',
+            'cascade-label',
+            'cascade-pips',
+            'max-combo',
+            'board-notice',
+            'hint-btn',
+            'pause-btn',
+        ]) {
+            expect(bejeweledIslandMarkup).toContain(`id="${id}"`)
+        }
+        // The five cascade pips the e2e assertions count and recolor.
+        expect(bejeweledIslandMarkup).toContain('{ length: 5 }')
+    })
+})
+
+describe('Field plate style template (fix round 1)', () => {
+    // Fix round 1 of the T15 review: tetris ships an id-only sheet dialog
+    // (<dialog id="field-sheet">, no class), so every sheet coverage list
+    // must name BOTH `.field-sheet` and `#field-sheet`; and the sheet
+    // button legs must exclude the notifications astro-island subtree
+    // (AppNotifications renders inside the sheet dialog) so
+    // #challenge-continue does not inherit the plate button
+    // border/Field Mono/focus outline. Every wrapper stays :where() —
+    // all rules remain (0,0,1), identical to the pre-migration bare
+    // element selectors, so class rules keep winning on plate nodes.
+    for (const [game, markup] of [
+        ['bubble-shooter', bubbleShooterMarkup],
+        ['tetris', tetrisRouteMarkup],
+    ] as const) {
+        it(`${game}: sheet coverage lists the id and button legs exclude the notification island`, () => {
+            // The class-only template is gone (its sheet leg matched
+            // nothing on tetris's id-only dialog).
+            expect(markup).not.toContain(':where(.plate-width, .field-sheet)')
+            expect(markup).not.toMatch(/:where\(\.field-sheet\)[\s,]/)
+            // Sheet coverage lists carry the id alongside the class.
+            expect(markup).toContain(':where(.field-sheet, #field-sheet)')
+            // Exactly six sheet button legs (font, border base, cursor,
+            // disabled, hover, focus-visible), each excluding the
+            // notifications astro-island subtree.
+            expect(
+                markup.match(
+                    /:where\(\.field-sheet, #field-sheet\)\s*button:where\(:not\(astro-island \*\)\)/g
+                )
+            ).toHaveLength(6)
+            // Plate-body button legs stay plain: the island body itself
+            // is an astro-island (TetrisScreen), so a blanket exclusion
+            // on the .plate-width leg would strip its base styles.
+            expect(
+                markup.match(/:where\(\.plate-width\) button/g)
+            ).toHaveLength(6)
+            expect(markup).not.toContain(
+                ':where(.plate-width) button:where(:not('
+            )
+        })
+    }
+
+    it('tetris covers h2, progress, and anchor rules for the id-only sheet', () => {
+        expect(tetrisRouteMarkup).toMatch(
+            /:where\(\.field-sheet, #field-sheet\) h2/
+        )
+        expect(tetrisRouteMarkup).toMatch(
+            /:where\(\.plate-width, \.field-sheet, #field-sheet\) progress/
+        )
+        expect(tetrisRouteMarkup).toMatch(
+            /:where\(\.plate-width, \.field-sheet, #field-sheet\) a\b/
+        )
+    })
+})
+
+describe('Ice Slide island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(iceSlideRouteMarkup).toContain(
+            "import IceSlideScreen from '@/components/islands/games/IceSlideScreen'"
+        )
+        expect(iceSlideRouteMarkup).toContain('client:load')
+        expect(iceSlideRouteMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps stable mode, HUD, and result selectors in the island', () => {
+        // Board, mode selector, bespoke overlays/panels, result rows and
+        // result-action ids moved into the island (HPA-393) with the class
+        // attribute spelled className in TSX; every frozen id stays alive.
+        const markup = iceSlideIslandMarkup
+        expect(markup).toContain('id="ice-slide-mode-selector"')
+        expect(markup).toContain('value="campaign"')
+        expect(markup).toContain('value="daily"')
+        expect(markup).toContain('value="expedition"')
+        expect(markup).toContain('id="daily-meta"')
+        expect(markup).toContain('id="daily-date"')
+        expect(markup).toContain('id="daily-reset"')
+        expect(markup).toContain('id="daily-stage-progress"')
+        expect(markup).toContain('id="stage-clear-overlay"')
+        expect(markup).toContain('id="stage-clear-continue-btn"')
+        expect(markup).toContain('id="run-final-stage-result"')
+        expect(markup).toContain('id="run-final-heading"')
+        expect(markup).toContain('id="run-final-clear"')
+        expect(markup).toContain('id="run-final-efficient"')
+        expect(markup).toContain('id="run-final-bonus"')
+        expect(markup).toContain('id="change-mode-btn"')
+        expect(markup).toContain('id="expedition-route-choice-overlay"')
+        expect(markup).toContain('id="expedition-safe-btn"')
+        expect(markup).toContain('id="expedition-risk-btn"')
+        expect(markup).toContain('id="expedition-undo-btn"')
+        expect(markup).toMatch(
+            /id="expedition-route-choice-overlay"[^>]*className="[^"]*hidden/
+        )
+        expect(markup).toMatch(
             /<Button id="expedition-safe-btn" type="button">/
         )
-        expect(iceSlideMarkup).toMatch(
+        expect(markup).toMatch(
             /<Button id="expedition-risk-btn" type="button">/
         )
-        const expeditionStars = iceSlideMarkup.match(
+        const expeditionStars = markup.match(
             /<span id="expedition-stars">([\s\S]*?)<\/span>/
         )?.[1]
         expect(expeditionStars).toBe('Stars 0 / —')
         expect(expeditionStars).not.toContain('/ 18')
-        expect(iceSlideMarkup).toContain('id="expedition-meta"')
-        expect(iceSlideMarkup).toContain('id="expedition-seed"')
-        expect(iceSlideMarkup).toContain('id="expedition-stage-progress"')
-        expect(iceSlideMarkup).toContain('id="expedition-stars"')
-        expect(iceSlideMarkup).toContain('id="expedition-attempts"')
-        expect(iceSlideMarkup).toContain('id="expedition-objective-clear"')
-        expect(iceSlideMarkup).toContain('id="expedition-objective-efficient"')
-        expect(iceSlideMarkup).toContain('id="expedition-objective-bonus"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-seed"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-progress"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-stars"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-moves"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-crystals"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-attempts"')
-        expect(iceSlideMarkup).toContain('id="expedition-summary-time"')
-        expect(iceSlideMarkup).toContain('id="new-expedition-btn"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-date"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-signed-out"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-loading"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-empty"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-unavailable"')
-        expect(iceSlideMarkup).toContain('id="daily-leaderboard-rows"')
+        expect(markup).toContain('id="expedition-meta"')
+        expect(markup).toContain('id="expedition-seed"')
+        expect(markup).toContain('id="expedition-stage-progress"')
+        expect(markup).toContain('id="expedition-stars"')
+        expect(markup).toContain('id="expedition-attempts"')
+        expect(markup).toContain('id="expedition-objective-clear"')
+        expect(markup).toContain('id="expedition-objective-efficient"')
+        expect(markup).toContain('id="expedition-objective-bonus"')
+        expect(markup).toContain('id="expedition-summary"')
+        expect(markup).toContain('id="expedition-summary-seed"')
+        expect(markup).toContain('id="expedition-summary-progress"')
+        expect(markup).toContain('id="expedition-summary-stars"')
+        expect(markup).toContain('id="expedition-summary-moves"')
+        expect(markup).toContain('id="expedition-summary-crystals"')
+        expect(markup).toContain('id="expedition-summary-attempts"')
+        expect(markup).toContain('id="expedition-summary-time"')
+        expect(markup).toContain('id="new-expedition-btn"')
+        expect(markup).toContain('id="daily-leaderboard"')
+        expect(markup).toContain('id="daily-leaderboard-date"')
+        expect(markup).toContain('id="daily-leaderboard-signed-out"')
+        expect(markup).toContain('id="daily-leaderboard-loading"')
+        expect(markup).toContain('id="daily-leaderboard-empty"')
+        expect(markup).toContain('id="daily-leaderboard-unavailable"')
+        expect(markup).toContain('id="daily-leaderboard-rows"')
     })
 })
 
-const patternPulseMarkup = readFileSync(
+const patternPulseIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/PatternPulseScreen.tsx'),
+    'utf-8'
+)
+const patternPulseRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/pattern-pulse/index.astro'),
     'utf-8'
 )
 
-describe('Mine Grid page markup', () => {
-    it('keeps the two-container board and root-level initializer', () => {
-        expect(mineGridMarkup).toContain('id="mine-grid-container"')
-        expect(mineGridMarkup).toContain('id="mine-grid-board"')
-        expect(mineGridMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initMineGridGameFramework/
+const pathNavigatorIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/PathNavigatorScreen.tsx'),
+    'utf-8'
+)
+const pathNavigatorRouteMarkup = readFileSync(
+    resolve(appRoot, 'src/pages/path-navigator/index.astro'),
+    'utf-8'
+)
+
+describe('Path Navigator island markup', () => {
+    it('keeps the board, level badge, and final-stat ids in the island and the route thin', () => {
+        expect(pathNavigatorRouteMarkup).toContain(
+            "import PathNavigatorScreen from '@/components/islands/games/PathNavigatorScreen'"
         )
+        expect(pathNavigatorRouteMarkup).toContain('client:load')
+        expect(pathNavigatorRouteMarkup).not.toMatch(/<script[^>]*>/)
+        expect(pathNavigatorIslandMarkup).toContain(
+            'id="path-navigator-container"'
+        )
+        for (const id of ['level', 'levels-completed', 'total-time']) {
+            expect(pathNavigatorIslandMarkup).toContain(`id="${id}"`)
+        }
+        // Legacy GamePage props: pause/reset hidden, start/end pair only.
+        expect(pathNavigatorIslandMarkup).toContain('showPause: false')
+        expect(pathNavigatorIslandMarkup).toContain('showReset: false')
     })
 })
 
-describe('Pattern Pulse page markup', () => {
-    it('keeps the static pad board and root-level initializer', () => {
-        expect(patternPulseMarkup).toContain('id="pattern-pulse-container"')
-        expect(patternPulseMarkup).toContain('id="pattern-pulse-board"')
+describe('Mine Grid island markup', () => {
+    it('keeps the two-container board in the island and the route thin', () => {
+        expect(mineGridRouteMarkup).toContain(
+            "import MineGridScreen from '@/components/islands/games/MineGridScreen'"
+        )
+        expect(mineGridRouteMarkup).toContain('client:load')
+        expect(mineGridRouteMarkup).not.toMatch(/<script[^>]*>/)
+        expect(mineGridIslandMarkup).toContain('id="mine-grid-container"')
+        expect(mineGridIslandMarkup).toContain('id="mine-grid-board"')
+    })
+})
+
+describe('Circuit Hacker island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(circuitHackerRouteMarkup).toContain(
+            "import CircuitHackerScreen from '@/components/islands/games/CircuitHackerScreen'"
+        )
+        expect(circuitHackerRouteMarkup).toContain('client:load')
+        expect(circuitHackerRouteMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps the canvas container, difficulty select, HUD, and final-stat ids in the island', () => {
+        // Board, bespoke difficulty select + start/stop pair, error surface
+        // and final-stat ids moved into the island (HPA-393) with the class
+        // attribute spelled className in TSX.
+        for (const id of [
+            'game-canvas-container',
+            'game-status',
+            'game-error',
+            'game-error-title',
+            'game-error-message',
+            'difficulty-select',
+            'rotation-count',
+            'start-btn',
+            'stop-btn',
+            'final-score',
+            'final-time',
+            'final-rotations',
+        ]) {
+            expect(circuitHackerIslandMarkup).toContain(`id="${id}"`)
+        }
+        // The frozen option values survive verbatim.
+        for (const value of ['easy', 'medium', 'hard', 'expert']) {
+            expect(circuitHackerIslandMarkup).toContain(`value="${value}"`)
+        }
+        // Legacy GamePage props preserved: no built-in score readout and
+        // no shared end button — Circuit Hacker keeps its custom #stop-btn.
+        expect(circuitHackerIslandMarkup).toContain('showScore: false')
+        expect(circuitHackerIslandMarkup).not.toContain('id="end-btn"')
+    })
+})
+
+describe('Satellite Sync island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(satelliteSyncRouteMarkup).toContain(
+            "import SatelliteSyncScreen from '@/components/islands/games/SatelliteSyncScreen'"
+        )
+        expect(satelliteSyncRouteMarkup).toContain('client:load')
+        expect(satelliteSyncRouteMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps the canvas container, HUD badges, error banner, and control ids in the island', () => {
+        // Board, HUD badges (level/combo), error banner, start/end pair
+        // and overlay ids moved into the island (HPA-393) with the class
+        // attribute spelled className in TSX.
+        for (const id of [
+            'game-canvas-container',
+            'game-status',
+            'game-error',
+            'level',
+            'combo',
+            'start-btn',
+            'end-btn',
+        ]) {
+            expect(satelliteSyncIslandMarkup).toContain(`id="${id}"`)
+        }
+        // The frozen overlay contract: legacy GamePage props preserved
+        // (overlayTitle, Play Again) and the built-in final-score span.
+        expect(satelliteSyncIslandMarkup).toContain('MISSION COMPLETE!')
+        expect(satelliteSyncIslandMarkup).toContain("TIME'S UP!")
+        expect(satelliteSyncIslandMarkup).toContain("buttonText: 'Play Again'")
+        // The manual end button returns to the pre-start prompt via the
+        // seam's onIdle transition (no shared reset button).
+        expect(satelliteSyncIslandMarkup).toContain('onIdle')
+        expect(satelliteSyncIslandMarkup).not.toContain('id="reset-btn"')
+    })
+})
+
+describe('Pattern Pulse island markup', () => {
+    it('keeps the static pad board in the island and the route thin', () => {
+        expect(patternPulseRouteMarkup).toContain(
+            "import PatternPulseScreen from '@/components/islands/games/PatternPulseScreen'"
+        )
+        expect(patternPulseRouteMarkup).toContain('client:load')
+        expect(patternPulseRouteMarkup).not.toMatch(/<script[^>]*>/)
+        expect(patternPulseIslandMarkup).toContain(
+            'id="pattern-pulse-container"'
+        )
+        expect(patternPulseIslandMarkup).toContain('id="pattern-pulse-board"')
         expect(
-            patternPulseMarkup.match(/data-pattern-pad="[0-3]"/g)
+            patternPulseIslandMarkup.match(/data-pattern-pad="[0-3]"/g)
         ).toHaveLength(4)
-        expect(patternPulseMarkup).toContain('id="pattern-status"')
-        expect(patternPulseMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initPatternPulseGameFramework/
-        )
+        expect(patternPulseIslandMarkup).toContain('id="pattern-status"')
     })
 })
 
-describe('Gravity Flip page markup', () => {
-    it('keeps stable board controls and root-level initializer', () => {
+describe('Gravity Flip island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(gravityFlipMarkup).toContain(
+            "import GravityFlipScreen from '@/components/islands/games/GravityFlipScreen'"
+        )
+        expect(gravityFlipMarkup).toContain('client:load')
+        expect(gravityFlipMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps stable board, control, HUD, and final-stat ids in the island', () => {
+        // Board, HUD badges, bespoke flip button and final-stat ids moved
+        // into the island (HPA-393) with the class attribute spelled
+        // className in TSX.
         for (const id of [
             'gravity-flip-container',
             'gravity-flip-canvas',
+            'gravity-flip-status',
             'flip-btn',
             'gravity-direction',
             'distance-traveled',
@@ -200,18 +536,28 @@ describe('Gravity Flip page markup', () => {
             'start-btn',
             'reset-btn',
         ]) {
-            expect(gravityFlipMarkup).toContain(`id="${id}"`)
+            expect(gravityFlipIslandMarkup).toContain(`id="${id}"`)
         }
-        expect(gravityFlipMarkup).not.toContain('id="end-btn"')
-        expect(gravityFlipMarkup).toContain('id="world-speed">—</span>')
-        expect(gravityFlipMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initGravityFlipGameFramework/
-        )
+        expect(gravityFlipIslandMarkup).not.toContain('id="end-btn"')
+        // Pre-hydration world speed keeps the legacy em-dash placeholder
+        // (idle snapshot projection default).
+        expect(gravityFlipIslandMarkup).toContain("speed: '—'")
     })
 })
 
-describe('Asteroid Drift page markup', () => {
-    it('keeps stable board, D-pad controls, and root-level initializer', () => {
+describe('Asteroid Drift island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(asteroidDriftMarkup).toContain(
+            "import AsteroidDriftScreen from '@/components/islands/games/AsteroidDriftScreen'"
+        )
+        expect(asteroidDriftMarkup).toContain('client:load')
+        expect(asteroidDriftMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps stable board, D-pad, HUD, and final-stat ids in the island', () => {
+        // Board, HUD badges, D-pad controls and final-stat ids moved into
+        // the island (HPA-393) with the class attribute spelled className
+        // in TSX.
         for (const id of [
             'asteroid-drift-container',
             'asteroid-drift-canvas',
@@ -225,11 +571,12 @@ describe('Asteroid Drift page markup', () => {
             'start-btn',
             'reset-btn',
         ]) {
-            expect(asteroidDriftMarkup).toContain(`id="${id}"`)
+            expect(asteroidDriftIslandMarkup).toContain(`id="${id}"`)
         }
         const dpadButtons =
-            asteroidDriftMarkup.match(/<button[^>]*data-direction=[^>]*>/g) ??
-            []
+            asteroidDriftIslandMarkup.match(
+                /<button[^>]*data-direction=[^>]*>/g
+            ) ?? []
         expect(dpadButtons).toHaveLength(4)
         for (const direction of ['up', 'left', 'down', 'right']) {
             expect(dpadButtons.join('\n')).toContain(
@@ -238,52 +585,40 @@ describe('Asteroid Drift page markup', () => {
         }
         for (const button of dpadButtons) {
             expect(button).toContain('type="button"')
-            expect(button).toContain('tabindex="-1"')
+            expect(button).toContain('tabIndex={-1}')
             expect(button).toContain('aria-label=')
         }
-        expect(asteroidDriftMarkup).toContain('slot="controls"')
-        expect(asteroidDriftMarkup).not.toContain('id="end-btn"')
-        expect(asteroidDriftMarkup).toContain('showPause={false}')
-        expect(asteroidDriftMarkup).toContain('showEnd={false}')
-        expect(asteroidDriftMarkup).toContain('showReset={true}')
-        expect(asteroidDriftMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initAsteroidDriftGameFramework/
-        )
-    })
-
-    it('bootstraps the framework after DOMContentLoaded', () => {
-        const readyIndex = asteroidDriftMarkup.indexOf('DOMContentLoaded')
-        const initCallIndex = asteroidDriftMarkup.indexOf(
-            'initAsteroidDriftGameFramework()'
-        )
-        expect(readyIndex).toBeGreaterThan(-1)
-        expect(initCallIndex).toBeGreaterThan(readyIndex)
+        expect(asteroidDriftIslandMarkup).not.toContain('id="end-btn"')
     })
 })
 
-describe('Chromatic Tide page markup', () => {
-    it('keeps the presentational board in the load-bearing named slot', () => {
-        expect(chromaticTideMarkup).toContain('slot="game-board"')
-        expect(chromaticTideMarkup).toContain('gameId="chromatic-tide"')
-        expect(chromaticTideMarkup).toContain('initialTime={90}')
-        expect(chromaticTideMarkup).toContain('showPause={false}')
-        expect(chromaticTideMarkup).toContain('showEnd={false}')
-        expect(chromaticTideMarkup).toContain('id="chromatic-tide-board"')
-        expect(chromaticTideMarkup).toContain('id="chromatic-tide-status"')
-        expect(chromaticTideMarkup).toContain('aria-live="polite"')
-        expect(chromaticTideMarkup.match(/data-tide-color=/g)).toHaveLength(5)
-        expect(chromaticTideMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initChromaticTideGameFramework/
+describe('Chromatic Tide island markup', () => {
+    it('keeps the flood-fill board, color controls, and live status in the island and the route thin', () => {
+        expect(chromaticTideRouteMarkup).toContain(
+            "import ChromaticTideScreen from '@/components/islands/games/ChromaticTideScreen'"
         )
+        expect(chromaticTideRouteMarkup).toContain('client:load')
+        expect(chromaticTideRouteMarkup).not.toMatch(/<script[^>]*>/)
+        expect(chromaticTideIslandMarkup).toContain('id="chromatic-tide-board"')
+        expect(chromaticTideIslandMarkup).toContain(
+            'id="chromatic-tide-status"'
+        )
+        expect(chromaticTideIslandMarkup).toContain('aria-live="polite"')
+        expect(
+            chromaticTideIslandMarkup.match(
+                /color: '(teal|amber|magenta|ice|green)'/g
+            )
+        ).toHaveLength(5)
+        expect(chromaticTideIslandMarkup).toContain('data-tide-color={color}')
 
-        const boardTag = chromaticTideMarkup.match(
+        const boardTag = chromaticTideIslandMarkup.match(
             /<div[^>]*id="chromatic-tide-board"[^>]*>/
         )?.[0]
         expect(boardTag).toBeDefined()
         expect(boardTag).not.toContain('role="grid"')
         expect(boardTag).toContain('aria-hidden="true"')
 
-        const colorsTag = chromaticTideMarkup.match(
+        const colorsTag = chromaticTideIslandMarkup.match(
             /<div[^>]*id="chromatic-tide-colors"[^>]*>/
         )?.[0]
         expect(colorsTag).toBeDefined()
@@ -292,11 +627,19 @@ describe('Chromatic Tide page markup', () => {
     })
 })
 
-const potionSorterMarkup = readFileSync(
+const potionSorterIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/PotionSorterScreen.tsx'),
+    'utf-8'
+)
+const potionSorterRouteMarkup = readFileSync(
     resolve(appRoot, 'src/pages/potion-sorter/index.astro'),
     'utf-8'
 )
 
+const signalSwitchIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/SignalSwitchScreen.tsx'),
+    'utf-8'
+)
 const signalSwitchMarkup = readFileSync(
     resolve(appRoot, 'src/pages/signal-switch/index.astro'),
     'utf-8'
@@ -305,9 +648,24 @@ const rhythmReactorMarkup = readFileSync(
     resolve(appRoot, 'src/pages/rhythm-reactor/index.astro'),
     'utf-8'
 )
+const rhythmReactorIslandMarkup = readFileSync(
+    resolve(appRoot, 'src/components/islands/games/RhythmReactorScreen.tsx'),
+    'utf-8'
+)
 
-describe('Signal Switch page markup', () => {
+describe('Signal Switch island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(signalSwitchMarkup).toContain(
+            "import SignalSwitchScreen from '@/components/islands/games/SignalSwitchScreen'"
+        )
+        expect(signalSwitchMarkup).toContain('client:load')
+        expect(signalSwitchMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
     it('keeps stable board, control, and final-stat ids with four lane gates', () => {
+        // Board, HUD badges, bespoke gate controls and final-stat ids moved
+        // into the island (HPA-393) with the class attribute spelled
+        // className in TSX.
         for (const id of [
             'signal-switch-container',
             'signal-switch-canvas',
@@ -326,40 +684,43 @@ describe('Signal Switch page markup', () => {
             'start-btn',
             'reset-btn',
         ]) {
-            expect(signalSwitchMarkup).toContain(`id="${id}"`)
+            expect(signalSwitchIslandMarkup).toContain(`id="${id}"`)
         }
-        expect(
-            signalSwitchMarkup.match(/data-signal-lane="[0-3]"/g)
-        ).toHaveLength(4)
-        expect(signalSwitchMarkup).toContain('showPause={false}')
-        expect(signalSwitchMarkup).toContain('showEnd={false}')
-        expect(signalSwitchMarkup).not.toContain('id="end-btn"')
-        expect(signalSwitchMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initSignalSwitchGameFramework/
-        )
-    })
-
-    it('bootstraps the framework after DOMContentLoaded', () => {
-        const readyIndex = signalSwitchMarkup.indexOf('DOMContentLoaded')
-        const initCallIndex = signalSwitchMarkup.indexOf(
-            'initSignalSwitchGameFramework()'
-        )
-        expect(readyIndex).toBeGreaterThan(-1)
-        expect(initCallIndex).toBeGreaterThan(readyIndex)
+        // The bespoke lane-gate markers render from the four-entry rule
+        // constant; the RTL test counts the rendered buttons, the e2e
+        // asserts the runtime selector structure.
+        expect(signalSwitchIslandMarkup).toContain('data-signal-lane={index}')
+        expect(signalSwitchIslandMarkup).not.toContain('id="end-btn"')
     })
 })
 
-describe('Rhythm Reactor page markup', () => {
-    it('keeps the board, lane controls, HUD, and final-stat ids', () => {
-        const source = rhythmReactorMarkup
+describe('Rhythm Reactor island markup', () => {
+    it('keeps the thin route with the island import and no root script', () => {
+        expect(rhythmReactorMarkup).toContain(
+            "import RhythmReactorScreen from '@/components/islands/games/RhythmReactorScreen'"
+        )
+        expect(rhythmReactorMarkup).toContain('client:load')
+        expect(rhythmReactorMarkup).not.toMatch(/<script[^>]*>/)
+    })
+
+    it('keeps the board, lane controls, HUD, and final-stat ids in the island', () => {
+        // Board, HUD badges, bespoke lane controls and final-stat ids moved
+        // into the island (HPA-393) with the class attribute spelled
+        // className in TSX.
+        const source = rhythmReactorIslandMarkup
         expect(source).toContain('id="rhythm-reactor-controls"')
-        expect(source.match(/data-rhythm-lane=/g)).toHaveLength(4)
+        // The bespoke lane markers render from the four-entry lane list;
+        // the RTL test counts the rendered buttons, the e2e asserts the
+        // runtime selector structure (Signal Switch precedent).
+        expect(source).toContain('data-rhythm-lane={index}')
         for (const id of [
+            'rhythm-reactor-container',
+            'rhythm-reactor-canvas',
+            'rhythm-reactor-status',
             'rhythm-reactor-combo',
             'rhythm-reactor-hits',
             'rhythm-reactor-judgment',
             'rhythm-reactor-stability',
-            'rhythm-reactor-status',
             'final-hits',
             'final-misses',
             'final-stray-presses',
@@ -368,33 +729,30 @@ describe('Rhythm Reactor page markup', () => {
             'final-max-combo',
             'final-accuracy',
             'final-stability',
+            'start-btn',
+            'reset-btn',
         ]) {
             expect(source).toContain(`id="${id}"`)
         }
-        expect(source).toContain('showPause={false}')
-        expect(source).toContain('showEnd={false}')
-        expect(source).toContain('showReset={true}')
-        const readyIndex = source.indexOf('DOMContentLoaded')
-        const initIndex = source.indexOf('initRhythmReactorGameFramework()')
-        expect(readyIndex).toBeGreaterThanOrEqual(0)
-        expect(initIndex).toBeGreaterThan(readyIndex)
+        expect(source).not.toContain('id="end-btn"')
     })
 })
 
-describe('Potion Sorter page markup', () => {
-    it('keeps the tube board, dead-end undo, HUD ids, and root-level initializer', () => {
-        expect(potionSorterMarkup).toContain('id="potion-sorter-container"')
-        expect(potionSorterMarkup).toContain('id="potion-sorter-board"')
-        expect(potionSorterMarkup).toContain('id="undo-btn"')
-        expect(potionSorterMarkup).toContain('data-dead-end="false"')
-        expect(potionSorterMarkup).toContain('id="potion-sorter-status"')
-        expect(potionSorterMarkup).toContain('showPause={false}')
-        expect(potionSorterMarkup).toContain('showEnd={false}')
-        expect(potionSorterMarkup).toContain('initialTime={300}')
-        expect(potionSorterMarkup).not.toContain('id="end-btn"')
-        expect(potionSorterMarkup).toMatch(
-            /<\/GamePage>[\s\S]*<script[^>]*>[\s\S]*initPotionSorterGameFramework/
+describe('Potion Sorter island markup', () => {
+    it('keeps the tube board, dead-end undo, and HUD ids in the island and the route thin', () => {
+        expect(potionSorterRouteMarkup).toContain(
+            "import PotionSorterScreen from '@/components/islands/games/PotionSorterScreen'"
         )
+        expect(potionSorterRouteMarkup).toContain('client:load')
+        expect(potionSorterRouteMarkup).not.toMatch(/<script[^>]*>/)
+        expect(potionSorterIslandMarkup).toContain(
+            'id="potion-sorter-container"'
+        )
+        expect(potionSorterIslandMarkup).toContain('id="potion-sorter-board"')
+        expect(potionSorterIslandMarkup).toContain('id="undo-btn"')
+        expect(potionSorterIslandMarkup).toContain('data-dead-end="false"')
+        expect(potionSorterIslandMarkup).toContain('id="potion-sorter-status"')
+        expect(potionSorterIslandMarkup).not.toContain('id="end-btn"')
         for (const id of [
             'easy-btn',
             'medium-btn',
@@ -403,24 +761,9 @@ describe('Potion Sorter page markup', () => {
             'moves',
             'undos',
         ]) {
-            expect(potionSorterMarkup).toContain(`id="${id}"`)
+            expect(potionSorterIslandMarkup).toContain(`id="${id}"`)
         }
     })
-})
-
-describe('Game pages use GamePage wrapper', () => {
-    for (const game of games) {
-        it(`${game} imports and uses GamePage`, () => {
-            const src = readFileSync(
-                resolve(appRoot, `src/pages/${game}/index.astro`),
-                'utf-8'
-            )
-            expect(src).toContain('GamePage')
-            expect(src).toContain('slot="game-board"')
-            // Should NOT import AppLayout directly anymore
-            expect(src).not.toMatch(/import AppLayout/)
-        })
-    }
 })
 
 describe('Field plate game pages', () => {

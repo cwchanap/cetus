@@ -4,6 +4,8 @@ import { initPatternPulseGameFramework } from './initFramework'
 import type { PatternPad } from '@cetus/games/pattern-pulse/types'
 
 function setupDOM(): void {
+    // React owns the HUD/shared buttons/overlay (HPA-393); the initializer
+    // only needs the board host (and its static pads) the island ref-passes.
     document.body.innerHTML = `
         <div id="pattern-pulse-container">
             <div id="pattern-pulse-board">
@@ -12,27 +14,12 @@ function setupDOM(): void {
                 <button type="button" data-pattern-pad="2">◆</button>
                 <button type="button" data-pattern-pad="3">✦</button>
             </div>
-            <p id="pattern-status">READY</p>
-        </div>
-        <button id="start-btn" style="display: inline-flex">Start Game</button>
-        <button id="reset-btn">Reset</button>
-        <span id="score">0</span>
-        <span id="time-remaining">60</span>
-        <span id="sequence-length">3</span>
-        <span id="completed-rounds">0</span>
-        <span id="streak">0</span>
-        <span id="mistakes">0</span>
-        <div id="game-over-overlay" class="hidden">
-            <h3 id="game-over-title">GAME OVER!</h3>
-            <span id="final-score">0</span>
-            <span id="final-outcome">—</span>
-            <span id="final-rounds">0</span>
-            <span id="final-longest-sequence">0</span>
-            <span id="final-max-streak">0</span>
-            <span id="final-mistakes">0</span>
-            <button id="play-again-btn">Play Again</button>
         </div>
     `
+}
+
+function getContainer(): HTMLElement {
+    return document.getElementById('pattern-pulse-container') as HTMLElement
 }
 
 async function settleEnd(): Promise<void> {
@@ -97,18 +84,8 @@ describe('initPatternPulseGameFramework', () => {
         document.body.replaceChildren()
     })
 
-    it('fails cleanly when #pattern-pulse-container is missing', async () => {
-        const consoleError = vi
-            .spyOn(console, 'error')
-            .mockImplementation(() => {})
-        document.getElementById('pattern-pulse-container')?.remove()
-
-        expect(await initPatternPulseGameFramework()).toBeUndefined()
-        expect(consoleError).toHaveBeenCalled()
-    })
-
-    it('renders the idle board and HUD without starting a run', async () => {
-        handle = await initPatternPulseGameFramework()
+    it('renders the idle board without starting a run', async () => {
+        handle = await initPatternPulseGameFramework(getContainer())
 
         expect(handle).toBeDefined()
         expect(handle!.game.getState()).toMatchObject({
@@ -116,17 +93,6 @@ describe('initPatternPulseGameFramework', () => {
             isActive: false,
             gameStarted: false,
         })
-        expect(document.getElementById('pattern-status')).toHaveTextContent(
-            'READY'
-        )
-        expect(document.getElementById('sequence-length')).toHaveTextContent(
-            '3'
-        )
-        expect(document.getElementById('completed-rounds')).toHaveTextContent(
-            '0'
-        )
-        expect(document.getElementById('streak')).toHaveTextContent('0')
-        expect(document.getElementById('mistakes')).toHaveTextContent('0')
         expect(
             document.querySelectorAll(
                 '#pattern-pulse-board button[aria-disabled="true"]'
@@ -135,7 +101,7 @@ describe('initPatternPulseGameFramework', () => {
     })
 
     it('maps a document numeric shortcut during input', async () => {
-        handle = await initPatternPulseGameFramework()
+        handle = await initPatternPulseGameFramework(getContainer())
         expect(handle).toBeDefined()
         handle?.game.start()
         vi.advanceTimersByTime(4_000)
@@ -152,7 +118,7 @@ describe('initPatternPulseGameFramework', () => {
     })
 
     it('ignores auto-repeated numeric keydown events during input', async () => {
-        handle = await initPatternPulseGameFramework()
+        handle = await initPatternPulseGameFramework(getContainer())
         handle!.game.start()
         vi.advanceTimersByTime(4_000)
         expect(handle!.game.getState().phase).toBe('input')
@@ -175,7 +141,7 @@ describe('initPatternPulseGameFramework', () => {
     it('ignores numeric shortcuts from an editable target', async () => {
         const input = document.createElement('input')
         document.body.appendChild(input)
-        handle = await initPatternPulseGameFramework()
+        handle = await initPatternPulseGameFramework(getContainer())
         handle?.game.start()
         vi.advanceTimersByTime(4_000)
 
@@ -189,7 +155,7 @@ describe('initPatternPulseGameFramework', () => {
     })
 
     it('routes renderer pad clicks to the game', async () => {
-        handle = await initPatternPulseGameFramework()
+        handle = await initPatternPulseGameFramework(getContainer())
         await startRun(handle!)
 
         const sequence = handle!.game.getState().sequence
@@ -204,80 +170,58 @@ describe('initPatternPulseGameFramework', () => {
         })
     })
 
-    it('updates the status text across phases and feedback', async () => {
-        handle = await initPatternPulseGameFramework()
-        const status = document.getElementById('pattern-status')!
-
+    it('advances rounds and streaks as the sequence is repeated', async () => {
+        handle = await initPatternPulseGameFramework(getContainer())
         handle!.game.start()
-        expect(status).toHaveTextContent('WATCH')
-
         vi.advanceTimersByTime(4_000)
-        expect(status).toHaveTextContent('REPEAT')
+        expect(handle!.game.getState().phase).toBe('input')
 
         const sequence = handle!.game.getState().sequence
         for (const pad of sequence) {
             fireEvent.click(padButton(pad))
         }
-        expect(status).toHaveTextContent('CORRECT')
-        expect(document.getElementById('completed-rounds')).toHaveTextContent(
-            '1'
-        )
-        expect(document.getElementById('streak')).toHaveTextContent('1')
+        expect(handle!.game.getState()).toMatchObject({
+            completedRounds: 1,
+            streak: 1,
+            feedback: 'correct',
+        })
 
         advanceToInput(handle!)
         expect(handle!.game.getState().phase).toBe('input')
         fireEvent.click(padButton(wrongPadFor(sequence[0])))
-        expect(status).toHaveTextContent('WRONG — WATCH AGAIN')
-        expect(document.getElementById('mistakes')).toHaveTextContent('1')
+        expect(handle!.game.getState()).toMatchObject({
+            mistakes: 1,
+            inputIndex: 0,
+            feedback: 'wrong',
+        })
     })
 
-    it('forwards score and time callbacks to the HUD', async () => {
-        handle = await initPatternPulseGameFramework()
+    it('awards the speed-bonus score for a completed round', async () => {
+        handle = await initPatternPulseGameFramework(getContainer())
         await startRun(handle!)
-
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            '58'
-        )
 
         for (const pad of handle!.game.getState().sequence) {
             fireEvent.click(padButton(pad))
         }
-        expect(document.getElementById('score')).toHaveTextContent('500')
-        expect(document.getElementById('sequence-length')).toHaveTextContent(
-            '3'
-        )
+        expect(handle!.game.getState().score).toBe(500)
+        expect(handle!.game.getState().sequence).toHaveLength(3)
     })
 
-    it('Reset restores the idle presentation mid-run', async () => {
-        handle = await initPatternPulseGameFramework()
+    it('Reset restores the idle state mid-run', async () => {
+        handle = await initPatternPulseGameFramework(getContainer())
         await startRun(handle!)
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            '58'
-        )
 
-        document.getElementById('reset-btn')!.click()
+        handle!.restart()
 
         expect(handle!.game.getState()).toMatchObject({
             phase: 'idle',
             isActive: false,
             gameStarted: false,
         })
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            '60'
-        )
-        expect(document.getElementById('pattern-status')).toHaveTextContent(
-            'READY'
-        )
-        expect(document.getElementById('start-btn')).toHaveStyle({
-            display: 'inline-flex',
-        })
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
-        )
     })
 
-    it('renders final overlay data after the mistake limit and Play Again resets', async () => {
-        handle = await initPatternPulseGameFramework()
+    it('ends after the mistake limit and restarts to idle', async () => {
+        handle = await initPatternPulseGameFramework(getContainer())
         await startRun(handle!)
 
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -296,37 +240,14 @@ describe('initPatternPulseGameFramework', () => {
             outcome: 'mistakes',
             isGameOver: true,
         })
-        expect(document.getElementById('game-over-overlay')).not.toHaveClass(
-            'hidden'
-        )
-        expect(document.getElementById('game-over-title')).toHaveTextContent(
-            'SIGNAL LOST!'
-        )
-        expect(document.getElementById('final-outcome')).toHaveTextContent(
-            /mistake/i
-        )
-        expect(document.getElementById('final-rounds')).toHaveTextContent('0')
-        expect(document.getElementById('final-mistakes')).toHaveTextContent('3')
-        expect(
-            document.getElementById('final-longest-sequence')
-        ).toHaveTextContent('0')
-        expect(document.getElementById('final-max-streak')).toHaveTextContent(
-            '0'
-        )
+        // The overlay stats themselves are React-owned (island test).
 
-        document.getElementById('play-again-btn')!.click()
+        handle!.restart()
         expect(handle!.game.getState()).toMatchObject({
             phase: 'idle',
             isActive: false,
             gameStarted: false,
         })
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
-        )
-        expect(document.getElementById('pattern-status')).toHaveTextContent(
-            'READY'
-        )
-        expect(document.getElementById('score')).toHaveTextContent('0')
     })
 
     it('forwards achievement and challenge notifications from end events', async () => {
@@ -344,7 +265,7 @@ describe('initPatternPulseGameFramework', () => {
             }),
         } as Response)
 
-        handle = await initPatternPulseGameFramework()
+        handle = await initPatternPulseGameFramework(getContainer())
         handle!.game.start()
         await handle!.game.end()
 
@@ -357,7 +278,7 @@ describe('initPatternPulseGameFramework', () => {
     })
 
     it('warns before unload while a run is active', async () => {
-        handle = await initPatternPulseGameFramework()
+        handle = await initPatternPulseGameFramework(getContainer())
         handle!.game.start()
 
         const event = new Event('beforeunload', { cancelable: true })
@@ -367,7 +288,7 @@ describe('initPatternPulseGameFramework', () => {
     })
 
     it('does not warn before unload when idle', async () => {
-        handle = await initPatternPulseGameFramework()
+        handle = await initPatternPulseGameFramework(getContainer())
 
         const event = new Event('beforeunload', { cancelable: true })
         const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
@@ -376,7 +297,7 @@ describe('initPatternPulseGameFramework', () => {
     })
 
     it('preserves the static pads after cleanup', async () => {
-        handle = await initPatternPulseGameFramework()
+        handle = await initPatternPulseGameFramework(getContainer())
         await startRun(handle!)
 
         handle!.cleanup()
@@ -391,13 +312,12 @@ describe('initPatternPulseGameFramework', () => {
     })
 
     it('cleans up DOM listeners, renderer, and game once', async () => {
-        handle = await initPatternPulseGameFramework()
+        handle = await initPatternPulseGameFramework(getContainer())
         const rendererDestroy = vi.spyOn(handle!.renderer, 'destroy')
         const gameDestroy = vi.spyOn(handle!.game, 'destroy')
 
         handle!.cleanup()
         handle!.cleanup()
-        document.getElementById('start-btn')!.click()
         document.dispatchEvent(
             new KeyboardEvent('keydown', { key: '1', bubbles: true })
         )
@@ -407,39 +327,17 @@ describe('initPatternPulseGameFramework', () => {
         expect(handle!.game.getState().gameStarted).toBe(false)
     })
 
-    it('starts the game when the start button is clicked', async () => {
-        handle = await initPatternPulseGameFramework()
-        expect(handle!.game.getState().isActive).toBe(false)
-
-        document.getElementById('start-btn')!.click()
-
-        expect(handle!.game.getState().isActive).toBe(true)
-        expect(handle!.game.getState().phase).toBe('watch')
-        expect(document.getElementById('start-btn')).toHaveStyle({
-            display: 'none',
-        })
-    })
-
     it('fails cleanly when the renderer cannot initialize', async () => {
         const consoleError = vi
             .spyOn(console, 'error')
             .mockImplementation(() => {})
         document.getElementById('pattern-pulse-board')?.remove()
 
-        expect(await initPatternPulseGameFramework()).toBeUndefined()
+        expect(
+            await initPatternPulseGameFramework(getContainer())
+        ).toBeUndefined()
         expect(consoleError).toHaveBeenCalled()
         consoleError.mockRestore()
-    })
-
-    it('handles a missing reset button gracefully', async () => {
-        document.getElementById('reset-btn')?.remove()
-        document.getElementById('play-again-btn')?.remove()
-
-        handle = await initPatternPulseGameFramework()
-        expect(handle).toBeDefined()
-        // Start button still works
-        handle!.game.start()
-        expect(handle!.game.getState().isActive).toBe(true)
     })
 
     it('ignores numeric shortcuts from textarea and select elements', async () => {
@@ -448,7 +346,7 @@ describe('initPatternPulseGameFramework', () => {
         document.body.appendChild(textarea)
         document.body.appendChild(select)
 
-        handle = await initPatternPulseGameFramework()
+        handle = await initPatternPulseGameFramework(getContainer())
         handle!.game.start()
         vi.advanceTimersByTime(4_000)
         expect(handle!.game.getState().phase).toBe('input')
@@ -468,7 +366,7 @@ describe('initPatternPulseGameFramework', () => {
     })
 
     it('routes numeric shortcuts 1-4 and ignores non-numeric keys', async () => {
-        handle = await initPatternPulseGameFramework()
+        handle = await initPatternPulseGameFramework(getContainer())
         handle!.game.start()
         vi.advanceTimersByTime(4_000)
         expect(handle!.game.getState().phase).toBe('input')
@@ -499,8 +397,8 @@ describe('initPatternPulseGameFramework', () => {
         expect(handle!.game.getState().mistakes).toBe(misBefore)
     })
 
-    it('shows timeout overlay when the game timer expires', async () => {
-        handle = await initPatternPulseGameFramework()
+    it('reports the timeout outcome when the game timer expires', async () => {
+        handle = await initPatternPulseGameFramework(getContainer())
         handle!.game.start()
 
         // Advance past the full 60-second duration
@@ -511,14 +409,6 @@ describe('initPatternPulseGameFramework', () => {
             outcome: 'timeout',
             isGameOver: true,
         })
-        expect(document.getElementById('game-over-title')).toHaveTextContent(
-            'TIME UP!'
-        )
-        expect(document.getElementById('final-outcome')).toHaveTextContent(
-            'Timeout'
-        )
-        expect(document.getElementById('pattern-status')).toHaveTextContent(
-            'TIME'
-        )
+        // The overlay title/stats are React-owned (island test).
     })
 })

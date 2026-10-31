@@ -55,6 +55,17 @@ export default defineConfig({
                 },
             },
             {
+                // Portable hooks package (HPA-393): React hook tests run in
+                // jsdom; pure adapter files override per-file with the
+                // `// @vitest-environment node` docblock.
+                test: {
+                    name: 'app-core',
+                    environment: 'jsdom',
+                    globals: true,
+                    include: ['packages/app-core/src/**/*.test.{ts,tsx}'],
+                },
+            },
+            {
                 test: {
                     name: 'shared',
                     environment: 'node',

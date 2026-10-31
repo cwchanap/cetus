@@ -1,23 +1,11 @@
 // Snake game initialization using BaseGame framework
 import { SnakeGame, DEFAULT_SNAKE_CONFIG } from '@cetus/games/snake/SnakeGame'
 import { SnakeRenderer, createSnakeRendererConfig } from './SnakeRenderer'
-import type {
-    SnakeConfig,
-    SnakeStats,
-    Direction,
-} from '@cetus/games/snake/types'
-import type {
-    BaseGameCallbacks,
-    BaseGameState,
-    BaseGameStats,
-    ChallengeUpdates,
-} from '@cetus/games/core/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
+import type { SnakeConfig, Direction } from '@cetus/games/snake/types'
+import type { BaseGameCallbacks } from '@cetus/games/core/types'
+import { handleGameError } from '@cetus/games/core/errors'
 
-import { type AchievementNotification } from '@cetus/shared/achievements'
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface SnakeInitResult {
@@ -30,24 +18,21 @@ export interface SnakeInitResult {
 }
 
 export async function initSnakeGameFramework(
+    container: HTMLElement,
     customConfig?: Partial<SnakeConfig>,
     customCallbacks?: BaseGameCallbacks
 ): Promise<SnakeInitResult | undefined> {
-    const container = document.getElementById('snake-container')
-    if (!container) {
-        handleGameError(
-            new DOMElementNotFoundError('snake-container'),
-            'SnakeGame'
-        )
-        return undefined
-    }
-
     const config: SnakeConfig = {
         ...DEFAULT_SNAKE_CONFIG,
         ...customConfig,
         submitScore: customConfig?.submitScore ?? submitScore,
     }
-    const rendererConfig = createSnakeRendererConfig(config, '#snake-container')
+    // The renderer mounts via a selector; derive it from the ref'd host
+    // element (which keeps the frozen `#snake-container` e2e id).
+    const rendererConfig = createSnakeRendererConfig(
+        config,
+        `#${CSS.escape(container.id)}`
+    )
 
     // Initialize renderer with error handling
     const renderer = new SnakeRenderer(rendererConfig)
@@ -78,83 +63,13 @@ export async function initSnakeGameFramework(
         app.canvas.style.borderRadius = '8px'
     }
 
-    // Enhanced callbacks with UI updates
-    const enhancedCallbacks: BaseGameCallbacks = {
-        ...customCallbacks,
-        onStateChange: (state: BaseGameState) => {
-            updateUI(state as ReturnType<SnakeGame['getState']>)
-            customCallbacks?.onStateChange?.(state)
-        },
-        onScoreUpdate: (score: number) => {
-            const scoreEl = document.getElementById('score')
-            if (scoreEl) {
-                scoreEl.textContent = String(score)
-            }
-            customCallbacks?.onScoreUpdate?.(score)
-        },
-        onTimeUpdate: (time: number) => {
-            const timeEl = document.getElementById('time-remaining')
-            if (timeEl) {
-                timeEl.textContent = `${time}s`
-            }
-            customCallbacks?.onTimeUpdate?.(time)
-        },
-        onStart: () => {
-            const startBtn = document.getElementById(
-                'start-btn'
-            ) as HTMLButtonElement | null
-            const endBtn = document.getElementById(
-                'end-btn'
-            ) as HTMLButtonElement | null
-            if (startBtn) {
-                startBtn.style.display = 'none'
-            }
-            if (endBtn) {
-                endBtn.style.display = 'inline-flex'
-            }
-            const overlay = document.getElementById('game-over-overlay')
-            if (overlay) {
-                overlay.classList.add('hidden')
-            }
-            customCallbacks?.onStart?.()
-        },
-        onEnd: (finalScore: number, stats: BaseGameStats) => {
-            const snakeStats = stats as SnakeStats
-            showGameOver(finalScore, snakeStats)
-            customCallbacks?.onEnd?.(finalScore, stats)
-        },
-    }
+    // React owns the HUD/buttons/overlay (HPA-393): callbacks stay as the
+    // caller supplied them — no imperative DOM writers here.
+    const game = new SnakeGame(config, customCallbacks)
 
-    // Create game instance
-    const game = new SnakeGame(config, enhancedCallbacks)
-
-    // Handle achievement notifications
-    const onGameEnd = (event: unknown) => {
-        const data = (event as { data: unknown }).data as {
-            newAchievements?: AchievementNotification[]
-            challengeUpdates?: ChallengeUpdates
-        }
-        if (data?.newAchievements && data.newAchievements.length > 0) {
-            if (
-                typeof window !== 'undefined' &&
-                typeof window.showAchievementAward === 'function'
-            ) {
-                window.showAchievementAward(data.newAchievements)
-            }
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            if (
-                typeof window !== 'undefined' &&
-                typeof window.showChallengeComplete === 'function'
-            ) {
-                window.showChallengeComplete(data.challengeUpdates)
-            }
-        }
-    }
-    game.on('end', onGameEnd)
-
-    // Set up button handlers
-    const cleanupButtonHandlers = setupButtonHandlers(game)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
     // Set up keyboard controls
     const cleanupKeyboardControls = setupKeyboardControls(game)
@@ -204,156 +119,15 @@ export async function initSnakeGameFramework(
         renderer,
         cleanup: () => {
             cleanupRenderLoop()
-            cleanupButtonHandlers()
             cleanupKeyboardControls()
             cleanupUnloadWarning()
-            game.off('end', onGameEnd)
+            removeForwarder()
             renderer.cleanup()
             game.destroy()
         },
         restart: () => game.reset(),
         getState: () => game.getState(),
         endGame: () => game.end(),
-    }
-}
-
-function updateUI(state: ReturnType<SnakeGame['getState']>): void {
-    const lengthElement = document.getElementById('snake-length')
-    const lengthStatsElement = document.getElementById('snake-length-stats')
-    const foodsElement = document.getElementById('foods-eaten')
-
-    if (lengthElement) {
-        lengthElement.textContent = state.snake.length.toString()
-    }
-    if (lengthStatsElement) {
-        lengthStatsElement.textContent = state.snake.length.toString()
-    }
-    if (foodsElement) {
-        foodsElement.textContent = state.foodsEaten.toString()
-    }
-}
-
-function showGameOver(finalScore: number, stats: SnakeStats): void {
-    const startBtn = document.getElementById(
-        'start-btn'
-    ) as HTMLButtonElement | null
-    const endBtn = document.getElementById(
-        'end-btn'
-    ) as HTMLButtonElement | null
-
-    if (startBtn) {
-        startBtn.style.display = 'inline-flex'
-        startBtn.textContent = 'Start'
-    }
-    if (endBtn) {
-        endBtn.style.display = 'none'
-    }
-
-    // Update overlay stats
-    const finalScoreEl = document.getElementById('final-score')
-    if (finalScoreEl) {
-        finalScoreEl.textContent = finalScore.toString()
-    }
-
-    const finalLengthEl = document.getElementById('final-length')
-    if (finalLengthEl) {
-        finalLengthEl.textContent = stats.maxLength?.toString() || '3'
-    }
-
-    const finalFoodsEl = document.getElementById('final-foods')
-    if (finalFoodsEl) {
-        finalFoodsEl.textContent = stats.foodsEaten?.toString() || '0'
-    }
-
-    const finalTimeEl = document.getElementById('final-time')
-    if (finalTimeEl) {
-        const seconds = Math.floor(stats.timeElapsed || 0)
-        finalTimeEl.textContent = `${seconds}s`
-    }
-
-    // Show overlay
-    const overlay = document.getElementById('game-over-overlay')
-    if (overlay) {
-        overlay.classList.remove('hidden')
-    }
-}
-
-function setupButtonHandlers(game: SnakeGame): () => void {
-    const startBtn = document.getElementById('start-btn')
-    const endBtn = document.getElementById('end-btn')
-    const pauseBtn = document.getElementById('pause-btn')
-    const resetBtn = document.getElementById('reset-btn')
-    const restartBtn = document.getElementById('restart-btn')
-    const playAgainBtn = document.getElementById('play-again-btn')
-
-    const startHandler = () => game.start()
-    const endHandler = () => game.end()
-
-    const pauseHandler = () => {
-        const state = game.getState()
-        if (state.isPaused) {
-            game.resume()
-            if (pauseBtn) {
-                pauseBtn.textContent = 'Pause'
-            }
-        } else {
-            game.pause()
-            if (pauseBtn) {
-                pauseBtn.textContent = 'Resume'
-            }
-        }
-    }
-
-    const resetHandler = () => {
-        game.reset()
-        const startBtn = document.getElementById(
-            'start-btn'
-        ) as HTMLButtonElement | null
-        const endBtn = document.getElementById(
-            'end-btn'
-        ) as HTMLButtonElement | null
-        if (startBtn) {
-            startBtn.style.display = 'inline-flex'
-        }
-        if (endBtn) {
-            endBtn.style.display = 'none'
-        }
-        const overlay = document.getElementById('game-over-overlay')
-        if (overlay) {
-            overlay.classList.add('hidden')
-        }
-    }
-
-    const restartHandler = () => {
-        game.reset()
-        const overlay = document.getElementById('game-over-overlay')
-        if (overlay) {
-            overlay.classList.add('hidden')
-        }
-    }
-
-    const playAgainHandler = () => {
-        game.reset()
-        const overlay = document.getElementById('game-over-overlay')
-        if (overlay) {
-            overlay.classList.add('hidden')
-        }
-    }
-
-    startBtn?.addEventListener('click', startHandler)
-    endBtn?.addEventListener('click', endHandler)
-    pauseBtn?.addEventListener('click', pauseHandler)
-    resetBtn?.addEventListener('click', resetHandler)
-    restartBtn?.addEventListener('click', restartHandler)
-    playAgainBtn?.addEventListener('click', playAgainHandler)
-
-    return () => {
-        startBtn?.removeEventListener('click', startHandler)
-        endBtn?.removeEventListener('click', endHandler)
-        pauseBtn?.removeEventListener('click', pauseHandler)
-        resetBtn?.removeEventListener('click', resetHandler)
-        restartBtn?.removeEventListener('click', restartHandler)
-        playAgainBtn?.removeEventListener('click', playAgainHandler)
     }
 }
 
@@ -386,20 +160,13 @@ function setupKeyboardControls(game: SnakeGame): () => void {
             return
         }
 
-        // Pause toggle
+        // Pause toggle (the controlled pause button label is React-owned)
         if (e.key === 'p' || e.key === 'P') {
             e.preventDefault()
-            const pauseBtn = document.getElementById('pause-btn')
             if (state.isPaused) {
                 game.resume()
-                if (pauseBtn) {
-                    pauseBtn.textContent = 'Pause'
-                }
             } else {
                 game.pause()
-                if (pauseBtn) {
-                    pauseBtn.textContent = 'Resume'
-                }
             }
         }
     }

@@ -1,14 +1,8 @@
 import { fireEvent } from '@testing-library/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initRhythmReactorGameFramework } from './initFramework'
-import {
-    RHYTHM_REACTOR_RULES,
-    type RhythmReactorStats,
-} from '@cetus/games/rhythm-reactor/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
+import { RHYTHM_REACTOR_RULES } from '@cetus/games/rhythm-reactor/types'
+import { handleGameError } from '@cetus/games/core/errors'
 import { RhythmReactorRenderer } from './RhythmReactorRenderer'
 
 interface MockRendererInstance {
@@ -72,6 +66,9 @@ vi.mock('@cetus/games/core/errors', async importOriginal => {
     return { ...actual, handleGameError: vi.fn() }
 })
 
+// React owns the HUD badges/buttons/overlay (HPA-393); the initializer
+// needs the board host the island ref-passes plus the bespoke lane
+// controls card (looked up by its frozen id, outside the board host).
 function setupDOM(): void {
     document.body.innerHTML = `
         <div id="rhythm-reactor-container">
@@ -84,28 +81,17 @@ function setupDOM(): void {
         <span id="rhythm-reactor-hits">0</span>
         <span id="rhythm-reactor-judgment">READY</span>
         <span id="rhythm-reactor-stability">60</span>
-        <button id="start-btn" type="button">Start</button>
-        <button id="reset-btn" type="button">Reset</button>
         <div id="rhythm-reactor-controls" role="group">
             <button type="button" data-rhythm-lane="0" disabled>Lane 1 · D</button>
             <button type="button" data-rhythm-lane="1" disabled>Lane 2 · F</button>
             <button type="button" data-rhythm-lane="2" disabled>Lane 3 · J</button>
             <button type="button" data-rhythm-lane="3" disabled>Lane 4 · K</button>
         </div>
-        <div id="game-over-overlay" class="hidden">
-            <h3 id="game-over-title">RHYTHM REACTOR OFFLINE</h3>
-            <span id="final-score">0</span>
-            <span id="final-hits">0</span>
-            <span id="final-misses">0</span>
-            <span id="final-stray-presses">0</span>
-            <span id="final-perfect">0</span>
-            <span id="final-good">0</span>
-            <span id="final-max-combo">0</span>
-            <span id="final-accuracy">0.0%</span>
-            <span id="final-stability">60</span>
-            <button id="play-again-btn" type="button">Play Again</button>
-        </div>
     `
+}
+
+function getContainer(): HTMLElement {
+    return document.getElementById('rhythm-reactor-container') as HTMLElement
 }
 
 function laneButtons(): HTMLButtonElement[] {
@@ -181,16 +167,6 @@ describe('initRhythmReactorGameFramework', () => {
         document.body.replaceChildren()
     })
 
-    it('reports a missing root with the existing game-error path', async () => {
-        document.getElementById('rhythm-reactor-container')?.remove()
-
-        expect(await initRhythmReactorGameFramework()).toBeUndefined()
-        expect(handleGameError).toHaveBeenCalledWith(
-            expect.any(DOMElementNotFoundError),
-            'RhythmReactor'
-        )
-    })
-
     it('cleans a partial renderer when renderer setup fails', async () => {
         const failedRenderer = {
             initialize: vi.fn().mockRejectedValue(new Error('renderer failed')),
@@ -202,7 +178,9 @@ describe('initRhythmReactorGameFramework', () => {
             () => failedRenderer as never
         )
 
-        expect(await initRhythmReactorGameFramework()).toBeUndefined()
+        expect(
+            await initRhythmReactorGameFramework(getContainer())
+        ).toBeUndefined()
         expect(failedRenderer.destroy).toHaveBeenCalledTimes(1)
         expect(handleGameError).toHaveBeenCalledWith(
             expect.any(Error),
@@ -211,7 +189,7 @@ describe('initRhythmReactorGameFramework', () => {
     })
 
     it('maps four delegated lane buttons to hitLane', async () => {
-        handle = await initRhythmReactorGameFramework()
+        handle = await initRhythmReactorGameFramework(getContainer())
         const hitLane = vi.spyOn(handle!.game, 'hitLane')
         handle!.game.start()
 
@@ -225,7 +203,7 @@ describe('initRhythmReactorGameFramework', () => {
     })
 
     it('maps case-insensitive DFJK keyboard input through hitLane', async () => {
-        handle = await initRhythmReactorGameFramework()
+        handle = await initRhythmReactorGameFramework(getContainer())
         const hitLane = vi.spyOn(handle!.game, 'hitLane')
         hitLane.mockReturnValue({ accepted: true, judgment: 'miss', points: 0 })
         handle!.game.start()
@@ -244,7 +222,7 @@ describe('initRhythmReactorGameFramework', () => {
     })
 
     it('ignores repeat, modifier, and editable keyboard events', async () => {
-        handle = await initRhythmReactorGameFramework()
+        handle = await initRhythmReactorGameFramework(getContainer())
         const hitLane = vi.spyOn(handle!.game, 'hitLane')
         handle!.game.start()
         const input = document.createElement('input')
@@ -284,7 +262,7 @@ describe('initRhythmReactorGameFramework', () => {
     })
 
     it('routes lane keys past focused buttons but suppresses Enter/Space activation keys', async () => {
-        handle = await initRhythmReactorGameFramework()
+        handle = await initRhythmReactorGameFramework(getContainer())
         const hitLane = vi.spyOn(handle!.game, 'hitLane')
         hitLane.mockReturnValue({ accepted: true, judgment: 'miss', points: 0 })
         handle!.game.start()
@@ -306,21 +284,22 @@ describe('initRhythmReactorGameFramework', () => {
         expect(hitLane).toHaveBeenCalledWith(0)
     })
 
-    it('hides Start and enables lanes when a run starts', async () => {
-        handle = await initRhythmReactorGameFramework()
+    it('enables the lane buttons once a run starts', async () => {
+        handle = await initRhythmReactorGameFramework(getContainer())
 
         expect(laneButtons().every(button => button.disabled)).toBe(true)
-        document.getElementById('start-btn')!.click()
+        handle!.game.start()
 
-        expect(document.getElementById('start-btn')!.style.display).toBe('none')
         expect(laneButtons().every(button => !button.disabled)).toBe(true)
     })
 
-    it('syncs visible combo, hits, judgment, and stability state', async () => {
-        handle = await initRhythmReactorGameFramework()
+    it('syncs combo, hits, judgment, stability, score, and time same-tick', async () => {
+        handle = await initRhythmReactorGameFramework(getContainer())
         advanceToFirstNote(handle!)
         handle!.game.hitLane(0)
 
+        // Same-tick DOM writes are the frozen e2e contract
+        // (performPerfectRhythmInput reads the HUD in the same evaluate).
         expect(
             document.getElementById('rhythm-reactor-combo')
         ).toHaveTextContent('1')
@@ -333,10 +312,11 @@ describe('initRhythmReactorGameFramework', () => {
         expect(
             document.getElementById('rhythm-reactor-stability')
         ).toHaveTextContent('64')
+        expect(document.getElementById('score')).toHaveTextContent('100')
     })
 
     it('announces judgments and completion through the live region', async () => {
-        handle = await initRhythmReactorGameFramework()
+        handle = await initRhythmReactorGameFramework(getContainer())
         stubFinalSave(handle!)
         advanceToFirstNote(handle!)
         handle!.game.hitLane(0)
@@ -348,7 +328,7 @@ describe('initRhythmReactorGameFramework', () => {
     })
 
     it('announces a note miss as "Miss." rather than "MISS hit."', async () => {
-        handle = await initRhythmReactorGameFramework()
+        handle = await initRhythmReactorGameFramework(getContainer())
         handle!.game.start()
         // First chart note hits at 2.0s with a 0.4s miss window; advance past
         // 2.4s without hitting it so it auto-expires into a non-stray miss.
@@ -361,13 +341,14 @@ describe('initRhythmReactorGameFramework', () => {
         expect(statusText()).toBe('Miss.')
     })
 
-    it('reset restores idle HUD, controls, timer, and overlay', async () => {
-        handle = await initRhythmReactorGameFramework()
+    it('reset resets the run and re-syncs the bespoke lane controls', async () => {
+        handle = await initRhythmReactorGameFramework(getContainer())
         advanceToFirstNote(handle!)
         handle!.game.hitLane(0)
-        document.getElementById('game-over-overlay')!.classList.remove('hidden')
+        expect(laneButtons().every(button => !button.disabled)).toBe(true)
+        expect(statusText()).toContain('PERFECT')
 
-        document.getElementById('reset-btn')!.click()
+        handle!.game.reset()
 
         expect(handle!.game.getState()).toMatchObject({
             isActive: false,
@@ -383,81 +364,20 @@ describe('initRhythmReactorGameFramework', () => {
             stability: RHYTHM_REACTOR_RULES.initialStability,
             lastJudgment: null,
         })
-        expect(
-            document.getElementById('rhythm-reactor-hits')
-        ).toHaveTextContent('0')
+        expect(laneButtons().every(button => button.disabled)).toBe(true)
+        // The legacy reset handler re-synced the HUD too.
         expect(
             document.getElementById('rhythm-reactor-judgment')
         ).toHaveTextContent('READY')
-        expect(laneButtons().every(button => button.disabled)).toBe(true)
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
+        expect(document.getElementById('time-remaining')).toHaveTextContent(
+            String(RHYTHM_REACTOR_RULES.duration)
         )
-        expect(document.getElementById('start-btn')!.style.display).toBe(
-            'inline-flex'
-        )
-    })
-
-    it('Play Again calls game.start after game over', async () => {
-        handle = await initRhythmReactorGameFramework()
-        stubFinalSave(handle!)
-        const startSpy = vi.spyOn(handle!.game, 'start')
-        handle!.game.start()
-        await handle!.game.end()
-
-        document.getElementById('play-again-btn')!.click()
-
-        expect(startSpy).toHaveBeenCalledTimes(2)
-        expect(handle!.game.getState()).toMatchObject({
-            isActive: true,
-            isGameOver: false,
-            gameStarted: true,
-        })
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
-        )
-    })
-
-    it('fills every final stat including stray presses and one-decimal accuracy', async () => {
-        handle = await initRhythmReactorGameFramework()
-        stubFinalSave(handle!)
-        const stats: RhythmReactorStats = {
-            finalScore: 730,
-            timeElapsed: 12,
-            gameCompleted: true,
-            hits: 7,
-            misses: 3,
-            strayPresses: 2,
-            perfectHits: 4,
-            goodHits: 3,
-            maxCombo: 5,
-            accuracy: 83.333,
-            finalStability: 74,
-        }
-        vi.spyOn(handle!.game, 'getGameStats').mockReturnValue(stats)
-        handle!.game.start()
-        await handle!.game.end()
-
-        expect(document.getElementById('final-hits')).toHaveTextContent('7')
-        expect(document.getElementById('final-misses')).toHaveTextContent('3')
-        expect(
-            document.getElementById('final-stray-presses')
-        ).toHaveTextContent('2')
-        expect(document.getElementById('final-perfect')).toHaveTextContent('4')
-        expect(document.getElementById('final-good')).toHaveTextContent('3')
-        expect(document.getElementById('final-max-combo')).toHaveTextContent(
-            '5'
-        )
-        expect(document.getElementById('final-accuracy')).toHaveTextContent(
-            '83.3%'
-        )
-        expect(document.getElementById('final-stability')).toHaveTextContent(
-            '74'
-        )
+        // The legacy reset handler announced the ready state.
+        expect(statusText()).toBe('Ready.')
     })
 
     it('warns beforeunload only while active', async () => {
-        handle = await initRhythmReactorGameFramework()
+        handle = await initRhythmReactorGameFramework(getContainer())
         stubFinalSave(handle!)
         eventReturnValueSpy = vi.spyOn(Event.prototype, 'returnValue', 'set')
         handle!.game.start()
@@ -480,7 +400,7 @@ describe('initRhythmReactorGameFramework', () => {
     })
 
     it('runs one rAF update/render loop and clamps delta to maxUpdateDelta', async () => {
-        handle = await initRhythmReactorGameFramework()
+        handle = await initRhythmReactorGameFramework(getContainer())
         const render = h.rendererInstances[0].render
         const update = vi.spyOn(handle!.game, 'update')
 
@@ -501,7 +421,7 @@ describe('initRhythmReactorGameFramework', () => {
     })
 
     it('cleans up listeners and resources idempotently', async () => {
-        handle = await initRhythmReactorGameFramework()
+        handle = await initRhythmReactorGameFramework(getContainer())
         const rendererDestroy = vi.spyOn(handle!.renderer, 'destroy')
         const gameDestroy = vi.spyOn(handle!.game, 'destroy')
         const cancel = vi.mocked(cancelAnimationFrame)

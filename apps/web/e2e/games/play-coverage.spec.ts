@@ -978,8 +978,8 @@ test.describe('Snake', () => {
         await expect(page.locator('#start-btn')).toBeVisible()
         await expect(page.locator('#score')).toHaveText('0')
 
-        // The page-root init script must still own the game instance
-        // (Stage 5 shell keeps game scripts out of named slots).
+        // The SnakeScreen island mounts the game; the window.snakeGame
+        // debug handle must exist after hydration (HPA-393).
         await expect
             .poll(() =>
                 page.evaluate(() =>

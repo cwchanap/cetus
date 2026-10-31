@@ -1,22 +1,8 @@
 import { fireEvent } from '@testing-library/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initSignalSwitchGameFramework } from './initFramework'
-import {
-    SIGNAL_SWITCH_RULES,
-    createSignalSwitchConfig,
-} from '@cetus/games/signal-switch/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
-
-interface MockRendererInstance {
-    canvas: HTMLCanvasElement
-    initialize: ReturnType<typeof vi.fn>
-    render: ReturnType<typeof vi.fn>
-    destroy: ReturnType<typeof vi.fn>
-    getApp: ReturnType<typeof vi.fn>
-}
+import { SIGNAL_SWITCH_RULES } from '@cetus/games/signal-switch/types'
+import { handleGameError } from '@cetus/games/core/errors'
 
 const h = vi.hoisted(() => ({
     rendererInstances: [] as Array<{
@@ -77,38 +63,26 @@ vi.mock('@cetus/games/core/errors', async importOriginal => {
     return { ...actual, handleGameError: vi.fn() }
 })
 
+// React owns the HUD badges/buttons/overlay (HPA-393); the initializer
+// needs the board host the island ref-passes plus the bespoke gate
+// controls card (looked up by its frozen id, outside the board host).
 function setupDOM(): void {
     document.body.innerHTML = `
         <div id="signal-switch-container">
             <div id="signal-switch-canvas"></div>
             <p id="signal-switch-status" aria-live="polite"></p>
         </div>
-        <span id="score">0</span>
-        <span id="time-remaining">90</span>
-        <span id="signal-switch-integrity">—</span>
-        <span id="signal-switch-combo">—</span>
-        <span id="signal-switch-safe-passes">—</span>
-        <span id="signal-switch-lanes">—</span>
-        <span id="signal-switch-speed">—</span>
-        <button id="start-btn" type="button">Start</button>
-        <button id="reset-btn" type="button">Reset</button>
         <div id="gate-controls" role="group" aria-label="Lane gates">
             <button type="button" data-signal-lane="0"></button>
             <button type="button" data-signal-lane="1"></button>
             <button type="button" data-signal-lane="2"></button>
             <button type="button" data-signal-lane="3"></button>
         </div>
-        <div id="game-over-overlay" class="hidden">
-            <h3 id="game-over-title">SIGNAL LOST</h3>
-            <span id="final-score">0</span>
-            <span id="final-outcome">—</span>
-            <span id="final-safe-passes">0</span>
-            <span id="final-crashes">0</span>
-            <span id="final-max-combo">0</span>
-            <span id="final-integrity">3</span>
-            <button id="play-again-btn" type="button">Play Again</button>
-        </div>
     `
+}
+
+function getContainer(): HTMLElement {
+    return document.getElementById('signal-switch-container') as HTMLElement
 }
 
 function laneButtons(): HTMLButtonElement[] {
@@ -178,16 +152,6 @@ describe('initSignalSwitchGameFramework', () => {
         document.body.replaceChildren()
     })
 
-    it('reports missing root with DOMElementNotFoundError/handleGameError', async () => {
-        document.getElementById('signal-switch-container')?.remove()
-
-        expect(await initSignalSwitchGameFramework()).toBeUndefined()
-        expect(handleGameError).toHaveBeenCalledWith(
-            expect.any(DOMElementNotFoundError),
-            'SignalSwitch'
-        )
-    })
-
     it('cleans renderer and returns undefined when renderer setup fails', async () => {
         const failedRenderer = {
             initialize: vi.fn().mockRejectedValue(new Error('renderer failed')),
@@ -200,7 +164,9 @@ describe('initSignalSwitchGameFramework', () => {
             () => failedRenderer as never
         )
 
-        expect(await initSignalSwitchGameFramework()).toBeUndefined()
+        expect(
+            await initSignalSwitchGameFramework(getContainer())
+        ).toBeUndefined()
         expect(failedRenderer.destroy).toHaveBeenCalledTimes(1)
         expect(handleGameError).toHaveBeenCalledWith(
             expect.any(Error),
@@ -209,7 +175,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('valid init renders exactly once and returns one handle', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
 
         expect(handle).toBeDefined()
         expect(handle!.getGame()).toBe(handle!.game)
@@ -218,37 +184,8 @@ describe('initSignalSwitchGameFramework', () => {
         expect(h.rendererInstances[0].render).toHaveBeenCalledTimes(1)
     })
 
-    it('derives idle HUD text from createSignalSwitchConfig values', async () => {
-        handle = await initSignalSwitchGameFramework()
-        const config = createSignalSwitchConfig()
-        const totalLanes = config.laneUnlockSeconds.length
-        const startingLanes = config.laneUnlockSeconds.filter(
-            unlockAt => unlockAt <= 0
-        ).length
-
-        expect(document.getElementById('score')).toHaveTextContent('0')
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            String(config.duration)
-        )
-        expect(
-            document.getElementById('signal-switch-integrity')
-        ).toHaveTextContent(String(config.startingIntegrity))
-        expect(
-            document.getElementById('signal-switch-combo')
-        ).toHaveTextContent('0')
-        expect(
-            document.getElementById('signal-switch-safe-passes')
-        ).toHaveTextContent('0')
-        expect(
-            document.getElementById('signal-switch-lanes')
-        ).toHaveTextContent(`${startingLanes} / ${totalLanes}`)
-        expect(
-            document.getElementById('signal-switch-speed')
-        ).toHaveTextContent(String(config.initialDroneSpeed))
-    })
-
     it('labels every lane button from catalog metadata and keeps them disabled until Start', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         const buttons = laneButtons()
 
         expect(buttons).toHaveLength(
@@ -272,7 +209,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('starts exactly one rAF update/render loop without state-change rendering', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         const renderMock = h.rendererInstances[0].render
         const updateSpy = vi.spyOn(handle!.game, 'update')
         const initialRenderCount = renderMock.mock.calls.length
@@ -299,7 +236,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('rejects locked-lane clicks before unlock and accepts them after', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         // Keep drones airborne so no crash ends the run mid-test.
         ;(
             handle!.game as unknown as { config: { gateX: number } }
@@ -326,7 +263,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('delegated gate-controls clicks cycle the matching lane', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         handle!.game.start()
 
         fireEvent.click(laneButtons()[0])
@@ -342,7 +279,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('keyboard 1-4 cycles the matching lane', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         handle!.game.start()
 
         document.dispatchEvent(
@@ -358,7 +295,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('ignores repeat/modifier/editable keyboard targets', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         handle!.game.start()
         const input = document.createElement('input')
         const textarea = document.createElement('textarea')
@@ -397,7 +334,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('focused lane button does not double activate via key plus click', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         handle!.game.start()
         const laneButton = laneButtons()[0]
         laneButton.focus()
@@ -411,7 +348,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('prevents default only on a successful key cycle', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
 
         const idleEvent = new KeyboardEvent('keydown', {
             key: '1',
@@ -432,7 +369,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('overrides Pixi inline canvas dimensions to preserve aspect ratio', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         const el = document.querySelector<HTMLCanvasElement>(
             '#signal-switch-canvas canvas'
         )!
@@ -442,7 +379,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('announces lane unlocks but not ordinary gate changes', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         ;(
             handle!.game as unknown as { config: { gateX: number } }
         ).config.gateX = 1_000_000
@@ -459,7 +396,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('announces remaining integrity after a crash', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         handle!.game.start()
 
         // The authored teaching drone (magenta) hits the untouched cyan gate
@@ -482,18 +419,18 @@ describe('initSignalSwitchGameFramework', () => {
         )
     })
 
-    it('Reset restores idle HUD and controls', async () => {
-        const totalLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.length
-        const startingLanes = SIGNAL_SWITCH_RULES.laneUnlockSeconds.filter(
-            unlockAt => unlockAt <= 0
-        ).length
-        handle = await initSignalSwitchGameFramework()
+    it('reset resets the run and re-syncs the bespoke gate controls', async () => {
+        handle = await initSignalSwitchGameFramework(getContainer())
         ;(
             handle!.game as unknown as { config: { gateX: number } }
         ).config.gateX = 1_000_000
         handle!.game.start()
         fireEvent.click(laneButtons()[0])
-        document.getElementById('reset-btn')!.click()
+        expect(
+            handle!.game.getState().gateSignals.some(s => s === 'magenta')
+        ).toBe(true)
+
+        handle!.game.reset()
 
         expect(handle!.game.getState()).toMatchObject({
             isActive: false,
@@ -506,27 +443,15 @@ describe('initSignalSwitchGameFramework', () => {
         expect(
             handle!.game.getState().gateSignals.every(s => s === 'cyan')
         ).toBe(true)
-        expect(document.getElementById('score')).toHaveTextContent('0')
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            String(SIGNAL_SWITCH_RULES.duration)
-        )
-        expect(
-            document.getElementById('signal-switch-integrity')
-        ).toHaveTextContent(String(SIGNAL_SWITCH_RULES.startingIntegrity))
-        expect(
-            document.getElementById('signal-switch-lanes')
-        ).toHaveTextContent(`${startingLanes} / ${totalLanes}`)
         for (const button of laneButtons()) {
             expect(button.disabled).toBe(true)
+            expect(button.textContent).toContain('Cyan')
         }
-        expect(document.getElementById('start-btn')!.style.display).toBe(
-            'inline-flex'
-        )
     })
 
-    it('systems failure shows SIGNAL LOST / Systems failed', async () => {
+    it('systems failure announces the lost signal and disables the gates', async () => {
         Math.random = () => 0
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         stubFinalSave(handle!)
         handle!.game.start()
 
@@ -535,25 +460,18 @@ describe('initSignalSwitchGameFramework', () => {
         }
 
         await vi.waitFor(() =>
-            expect(
-                document.getElementById('game-over-title')
-            ).toHaveTextContent('SIGNAL LOST')
-        )
-        expect(document.getElementById('final-outcome')).toHaveTextContent(
-            'Systems failed'
-        )
-        expect(document.getElementById('final-crashes')).toHaveTextContent(
-            String(SIGNAL_SWITCH_RULES.startingIntegrity)
+            expect(statusText()).toBe('Signal lost. Systems failed.')
         )
         // Terminal callback must re-sync controls: active-lane buttons are
-        // enabled during the run and would otherwise stay enabled.
+        // enabled during the run and would otherwise stay enabled. The
+        // overlay title/labels are React-owned (SignalSwitchScreen tests).
         for (const button of laneButtons()) {
             expect(button.disabled).toBe(true)
         }
     })
 
-    it('timeout shows SHIFT COMPLETE / Survived', async () => {
-        handle = await initSignalSwitchGameFramework()
+    it('timeout announces the completed shift and disables the gates', async () => {
+        handle = await initSignalSwitchGameFramework(getContainer())
         ;(
             handle!.game as unknown as { config: { gateX: number } }
         ).config.gateX = 1_000_000
@@ -562,39 +480,17 @@ describe('initSignalSwitchGameFramework', () => {
 
         vi.advanceTimersByTime(90_000)
         await vi.waitFor(() =>
-            expect(
-                document.getElementById('game-over-title')
-            ).toHaveTextContent('SHIFT COMPLETE')
-        )
-        expect(document.getElementById('final-outcome')).toHaveTextContent(
-            'Survived'
+            expect(statusText()).toBe(
+                'Shift complete. You survived the full run.'
+            )
         )
         for (const button of laneButtons()) {
             expect(button.disabled).toBe(true)
         }
     })
 
-    it('Play Again immediately starts a fresh run', async () => {
-        handle = await initSignalSwitchGameFramework()
-        stubFinalSave(handle!)
-        handle!.game.start()
-        await handle!.game.end()
-        document.getElementById('play-again-btn')!.click()
-
-        expect(handle!.game.getState()).toMatchObject({
-            isActive: true,
-            isGameOver: false,
-            gameStarted: true,
-            integrity: SIGNAL_SWITCH_RULES.startingIntegrity,
-            safePasses: 0,
-        })
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
-        )
-    })
-
     it('active run beforeunload prevents navigation and sets returnValue', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         handle!.game.start()
         const event = new Event('beforeunload', { cancelable: true })
         const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
@@ -609,7 +505,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('idle/ended run beforeunload does not block', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         const idleEvent = new Event('beforeunload', { cancelable: true })
         const idlePreventDefaultSpy = vi.spyOn(idleEvent, 'preventDefault')
         window.dispatchEvent(idleEvent)
@@ -625,7 +521,7 @@ describe('initSignalSwitchGameFramework', () => {
     })
 
     it('cleanup removes listeners, cancels rAF, destroys once, and is idempotent', async () => {
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         const rendererDestroySpy = vi.spyOn(handle!.renderer, 'destroy')
         const gameDestroySpy = vi.spyOn(handle!.game, 'destroy')
         const cancelAnimationFrameSpy = vi.mocked(cancelAnimationFrame)
@@ -666,7 +562,7 @@ describe('initSignalSwitchGameFramework', () => {
         vi.stubGlobal('showAchievementAward', showAchievementAward)
         vi.stubGlobal('showChallengeComplete', showChallengeComplete)
 
-        handle = await initSignalSwitchGameFramework()
+        handle = await initSignalSwitchGameFramework(getContainer())
         handle!.game.start()
         await handle!.game.end()
 

@@ -19,7 +19,7 @@ Bun-workspaces monorepo with a single root `bun.lock` (`bunfig.toml` pins the ho
 - `packages/api-client` (`@cetus/api-client`) — typed fetch client for the app API (14 methods; depends on `@cetus/shared`)
 - `packages/config` (`@cetus/config`) — shared tsconfig/eslint base configs
 - `packages/tokens` (`@cetus/tokens`) — CSS-only semantic theme tokens
-- Dependency direction: `web → api-client → shared` and `web → games → shared`; packages never import from `apps/web` or each other sideways (enforced by root ESLint `no-restricted-imports` on `packages/**` and per-package no-DOM `typecheck`)
+- Dependency direction: `web → api-client → shared`, `web → games → shared` and `web → app-core → shared`/`games`; packages never import from `apps/web` or each other sideways (enforced by root ESLint `no-restricted-imports` on `packages/**` and per-package no-DOM `typecheck`)
 - Root `package.json` scripts proxy into the web workspace via `bun run --cwd apps/web ...`; root `lint` runs `eslint .` over the whole repo
 
 ### Core Commands
@@ -109,7 +109,7 @@ Bun-workspace monorepo. Paths below are relative to `apps/web/`:
 apps/web/
 ├── src/
 │   ├── components/ui/     # Navigation/Footer Astro + shell-tokens test (reusable UI moved to packages/ui)
-│   ├── components/islands/ # React hydration islands (SettingsPreferences, AppNotifications, UserDropdown, …)
+│   ├── components/islands/ # React hydration islands (SettingsPreferences, AppNotifications, UserDropdown, games/*Screen, …)
 │   ├── lib/
 │   │   ├── auth.ts        # Better Auth configuration
 │   │   ├── auth-client.ts # Client-side auth utilities
@@ -161,6 +161,7 @@ packages/
 ├── ui/                   # @cetus/ui — reusable React UI components (Button, Card, Select, overlays, …)
 ├── shared/               # @cetus/shared — portable domain, Zod request schemas, wire DTOs
 ├── games/                # @cetus/games — portable game rules (all 23 games' logic)
+├── app-core/             # @cetus/app-core — portable `useGameSession` hook + BaseGame/handle session adapters (HPA-393)
 ├── api-client/           # @cetus/api-client — typed client for the app API (14 methods)
 ├── config/               # @cetus/config — shared tsconfig/eslint bases
 └── tokens/               # @cetus/tokens — CSS-only semantic theme tokens
@@ -190,8 +191,8 @@ Each game follows: `types.ts` → `game.ts` → `renderer.ts` → `utils.ts`
 - **GameEventEmitter**: Type-safe event system for game events (start, pause, resume, end, score-update, etc.)
 - **GameTimer**: Countdown timer with pause/resume support and time-based callbacks
 - **ScoreManager**: Centralized score tracking with bonus/penalty calculations and multipliers
-- **GameInitializer**: Standardized game initialization with configuration and callback wiring
 - **RendererFactory**: Factory pattern for creating PixiJS or DOM renderers with proper configuration
+- **notificationForwarder**: Web-only helper that attaches exactly one `forwardBaseGameResults` 'end' listener per BaseGame screen (single toast owner)
 
 **Renderer Architecture**:
 - **DOM-based**: Memory Matrix uses direct DOM manipulation with card grid; Mine Grid uses direct DOM manipulation with a Minesweeper-style grid; Pattern Pulse uses direct DOM manipulation with a four-pad memory-sequence grid; Potion Sorter uses direct DOM manipulation with a wrapping tube grid; Chromatic Tide uses direct DOM manipulation with a flood-fill board
@@ -218,7 +219,7 @@ Each game follows: `types.ts` → `game.ts` → `renderer.ts` → `utils.ts`
 - **Chromatic Tide**: BaseGame + DOMRenderer flood-fill strategy game; exposes a `window.chromaticTideGame` debug handle
 
 **Critical Astro-TypeScript Integration Pattern**:
-Since HPA-379, shared game chrome (`GameTitle`, `GameStats`, `GameControls`, `GameOverlay`, `GameBreadcrumb`) are SSR-rendered React components from `@cetus/ui` composed inside `GamePage.astro` — they emit static HTML (no hydration) carrying the stable `id`s (`start-btn`, `game-over-overlay`, `final-score`, …) that game scripts mutate imperatively. The rule that still stands: the *dynamic* game-board DOM lives in `.astro` markup and TypeScript only manipulates dynamic content — it never builds structure with innerHTML:
+Since HPA-393, every game route is a thin Astro page hosting one named React island (`apps/web/src/components/islands/games/*Screen.tsx`, hydrated `client:load`) — `GamePage.astro` is REMOVED. Shared game chrome (`GameTitle`, `GameStats`, `GameControls`, `GameOverlay`, `GameBreadcrumb`) renders through the shared `GameScreen` component inside each island, carrying the stable `id`s (`start-btn`, `game-over-overlay`, `final-score`, …). The rule that still stands: the *dynamic* game-board DOM is owned by exactly one controller per screen and TypeScript never builds structure with innerHTML:
 ```typescript
 // ✅ CORRECT - Query for existing Astro elements
 private setupDOM(): void {
@@ -240,10 +241,12 @@ private renderBoard(): void {
 this.container.innerHTML = '<div>content</div>' // Breaks styling
 ```
 
-**Game Container Pattern in Astro Pages**:
-- Astro responsibility: Page structure, styling, layout — including composing the SSR-only `@cetus/ui` chrome (stats card, controls, game-over overlay) via `GamePage.astro`
-- TypeScript responsibility: Only dynamic content (cards, pieces, game objects) and imperative toggles on the fixed-id chrome (`classList.remove('hidden')`, `style.display`, textContent)
-- No innerHTML needed: SSR provides all necessary DOM structure upfront
+**Game Hosting Architecture (HPA-393)** — one controller + one toast owner per screen:
+- **16 React-controlled BaseGame screens**: the island wires `@cetus/app-core` `useGameSession` over a `createBaseGameSession` adapter; a mount effect imports the browser initializer (`lib/games/<game>/initFramework.ts`), which mounts BaseGame + renderer and attaches exactly one `forwardBaseGameResults` 'end' listener for achievement/challenge toasts
+- **4 hosted field-plate screens** (Tetris, 2048, Bejeweled, Bubble Shooter): the island mounts `lib/games/<game>/controller.ts` via `mount(host, signal)`, which exclusively owns all descendant DOM (rendered into a `.plate-width.field-plate` host) and keeps the plate initializer's existing toast listener
+- **3 handle-based screens** (Circuit Hacker, Satellite Sync, Ice Slide): the island wires `createHandleSession`; the legacy initializer keeps persistence (`saveGameScore`) and stays the one toast owner
+- **Notification ownership**: the `AppNotifications` island in `AppLayout.astro` is the sole `window.showAchievementAward`/`window.showChallengeComplete` registrant; screens forward results to it and never register their own toast paths
+- Astro responsibility per route: static page shell, chrome markup and the single `<XScreen client:load>` island — no root `<script>` game code
 
 **Button State Management Pattern**:
 ```javascript
@@ -267,7 +270,7 @@ All components follow consistent patterns:
 - **Responsive Design**: Mobile-first with touch/hover states
 - **Accessibility**: Focus management and ARIA attributes
 
-Since HPA-379, reusable UI lives in `packages/ui` (React `@cetus/ui`); web-specific interactive owners are React islands under `apps/web/src/components/islands/` hydrated by Astro pages. `Navigation`, `Footer` and the `GamePage.astro` shell remain Astro.
+Since HPA-379, reusable UI lives in `packages/ui` (React `@cetus/ui`); web-specific interactive owners are React islands under `apps/web/src/components/islands/` hydrated by Astro pages. `Navigation` and `Footer` remain Astro; since HPA-393 every game route hosts its own `games/*Screen.tsx` island (`GamePage.astro` removed).
 
 ### Tailwind Theme System
 Sci-fi design system (Tailwind v4, CSS-first — there is no `tailwind.config.js`):
@@ -345,8 +348,8 @@ Sci-fi design system (Tailwind v4, CSS-first — there is no `tailwind.config.js
 - **DOM vs Canvas**: Understand renderer types - DOM-based (Memory Matrix, Mine Grid, Pattern Pulse, Potion Sorter, Chromatic Tide) vs PixiJS Canvas (most games)
 - **Debug Access**: Games expose debugging via `window.gameNameGame` for development inspection
 - **Framework Patterns**: 20 of 23 games use `BaseGame` (framework-native). Circuit Hacker, Satellite Sync, and Ice Slide intentionally use a handle-based pattern (`createRunGuard` + manual `saveGameScore`) suited to their multi-phase/custom-state-machine game loops — this is a blessed pattern, not a migration debt.
-- **GameInitializer**: `GameInitializer.ts` in the core framework currently has no production game importers; do not delete or migrate it here.
-- **Core Framework**: Unified game framework available in `src/lib/games/core/` for consistent game architecture
+- **Island Architecture**: since HPA-393 all 23 games are island-hosted — 16 React BaseGame screens via `@cetus/app-core` (`useGameSession`), 4 hosted field-plate controllers (`mount(host, signal)`), 3 handle games (`createHandleSession`); game routes carry no root `<script>` game code and exactly one toast owner per screen.
+- **Core Framework**: `src/lib/games/core/` provides BaseGame/BaseRenderer/RendererFactory consumers plus the web-only `notificationForwarder` (`forwardBaseGameResults`); the unused `GameInitializer` was deleted (HPA-393 Stage 5).
 
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.

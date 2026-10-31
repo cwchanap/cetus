@@ -1,5 +1,6 @@
 // src/lib/games/circuit-hacker/init.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { AchievementRarity } from '@cetus/shared/achievements'
 
 vi.mock('pixi.js', () => {
     const makeGraphics = () => {
@@ -53,19 +54,12 @@ vi.mock('@/lib/services/scoreService', () => ({
 import { initializeCircuitHackerGame } from './init'
 import { GameID } from '@cetus/shared/games'
 import { solveGameForTest } from '@cetus/games/circuit-hacker/test-utils'
-import { screen } from '@testing-library/dom'
 
 function setupDom(): HTMLElement {
-    document.body.innerHTML = `
-        <div id="game-canvas-container"></div>
-        <span id="final-score">0</span>
-        <span id="final-time">0</span>
-        <span id="final-rotations">0</span>
-        <span id="game-over-title"></span>
-        <div id="game-over-overlay" class="hidden" data-testid="game-over-overlay"></div>
-        <button id="start-btn" data-testid="start-btn"></button>
-        <button id="stop-btn" style="display:none" data-testid="stop-btn"></button>
-    `
+    // The initializer no longer owns any HUD/overlay/button DOM (HPA-393):
+    // the React island renders those nodes and the init callbacks drive
+    // them. Only the Pixi board host remains.
+    document.body.innerHTML = `<div id="game-canvas-container"></div>`
     return document.getElementById('game-canvas-container') as HTMLElement
 }
 
@@ -74,7 +68,12 @@ describe('initializeCircuitHackerGame', () => {
         vi.useFakeTimers()
         saveGameScore.mockClear()
     })
-    afterEach(() => vi.useRealTimers())
+    afterEach(() => {
+        vi.useRealTimers()
+        // Keep failing assertions from leaking toast spies into siblings.
+        delete window.showAchievementAward
+        delete window.showChallengeComplete
+    })
 
     it('starts a game of the chosen difficulty', async () => {
         const container = setupDom()
@@ -149,7 +148,7 @@ describe('initializeCircuitHackerGame', () => {
         handle.cleanup()
     })
 
-    it('shows "GAME OVER" overlay and does not submit on manual stop', async () => {
+    it('reports the manual-stop end via the onEnd callback and does not submit', async () => {
         const onEnd = vi.fn()
         const container = setupDom()
         const handle = await initializeCircuitHackerGame(container, {
@@ -163,28 +162,110 @@ describe('initializeCircuitHackerGame', () => {
         await vi.runAllTimersAsync()
         expect(saveGameScore).not.toHaveBeenCalled()
         expect(onEnd).toHaveBeenCalledTimes(1)
-        expect(screen.getByText('GAME OVER')).toBeInTheDocument()
-        expect(screen.getByTestId('game-over-overlay')).not.toHaveClass(
-            'hidden'
-        )
-        // Button state reset: start visible, stop hidden
-        expect(screen.getByTestId('start-btn')).toBeVisible()
-        expect(screen.getByTestId('stop-btn')).not.toBeVisible()
+        expect(onEnd.mock.calls[0][1]).toEqual({
+            title: 'GAME OVER',
+            reason: 'manual',
+        })
         handle.cleanup()
     })
 
-    it('shows "TIME\'S UP!" overlay on timeout failure', async () => {
+    it('reports the timeout end as "TIME\'S UP!" via the onEnd callback', async () => {
+        const onEnd = vi.fn()
         const container = setupDom()
         const handle = await initializeCircuitHackerGame(container, {
             onTimeUpdate: vi.fn(),
             onRotation: vi.fn(),
             onStart: vi.fn(),
-            onEnd: vi.fn(),
+            onEnd,
         })
         await handle.start('easy')
         vi.advanceTimersByTime(121_000)
         await vi.runAllTimersAsync()
-        expect(screen.getByText("TIME'S UP!")).toBeInTheDocument()
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onEnd.mock.calls[0][1]).toEqual({
+            title: "TIME'S UP!",
+            reason: 'timeout',
+        })
+        handle.cleanup()
+    })
+
+    it('reports a solve as "CIRCUIT POWERED!" with the stats payload', async () => {
+        const onEnd = vi.fn()
+        const container = setupDom()
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation: vi.fn(),
+            onStart: vi.fn(),
+            onEnd,
+        })
+        await handle.start('easy')
+        solveGameForTest(handle.getGame()!)
+        await vi.runAllTimersAsync()
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        const [stats, outcome] = onEnd.mock.calls[0]
+        expect(outcome).toEqual({ title: 'CIRCUIT POWERED!' })
+        expect(stats).toMatchObject({
+            difficulty: 'easy',
+            solved: true,
+            finalScore: expect.any(Number),
+        })
+        handle.cleanup()
+    })
+
+    it('fires reward toasts once per successful save and never from the display result', async () => {
+        // Toast spies on the exact window functions the real scoreService
+        // invokes. The mocked saveGameScore mirrors the real contract:
+        // success fires the window toasts from inside the save path, then
+        // reports back.
+        const achievementToast = vi.fn()
+        const challengeToast = vi.fn()
+        window.showAchievementAward = achievementToast
+        window.showChallengeComplete = challengeToast
+        saveGameScore.mockImplementationOnce(async () => {
+            window.showAchievementAward?.([
+                {
+                    id: 'ach-1',
+                    name: 'Test',
+                    description: 'Test achievement',
+                    icon: '🏆',
+                    rarity: AchievementRarity.COMMON,
+                },
+            ])
+            window.showChallengeComplete?.({
+                completedChallenges: [
+                    {
+                        id: 'c1',
+                        name: 'Challenge',
+                        description: 'Test challenge',
+                        icon: '🎯',
+                        xpReward: 10,
+                    },
+                ],
+                xpEarned: 10,
+                levelUp: false,
+            })
+            return undefined
+        })
+        const onEnd = vi.fn()
+        const container = setupDom()
+        const handle = await initializeCircuitHackerGame(container, {
+            onTimeUpdate: vi.fn(),
+            onRotation: vi.fn(),
+            onStart: vi.fn(),
+            onEnd,
+        })
+        await handle.start('easy')
+        solveGameForTest(handle.getGame()!)
+        await vi.runAllTimersAsync()
+
+        // The end flow delivered the display result exactly once, and the
+        // saveGameScore path fired each toast exactly once — the display
+        // result is not a second toast path.
+        expect(saveGameScore).toHaveBeenCalledTimes(1)
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(achievementToast).toHaveBeenCalledTimes(1)
+        expect(challengeToast).toHaveBeenCalledTimes(1)
+
         handle.cleanup()
     })
 

@@ -32,22 +32,6 @@ export interface SatelliteSyncUICallbacks extends SatelliteSyncCallbacks {
 const KEYBOARD_STEP_DEG = 3
 const KEYBOARD_KEYS = new Set(['q', 'ArrowLeft', 'ArrowRight', 'Enter', ' '])
 
-function setText(id: string, value: string): void {
-    const el = document.getElementById(id)
-    if (el) {
-        el.textContent = value
-    }
-}
-
-function showOverlay(title: string, score: number): void {
-    setText('game-over-title', title)
-    setText('final-score', score.toString())
-    const overlay = document.getElementById('game-over-overlay')
-    if (overlay) {
-        overlay.classList.remove('hidden')
-    }
-}
-
 export async function initializeSatelliteSync(
     container: HTMLElement,
     callbacks: SatelliteSyncUICallbacks
@@ -177,20 +161,14 @@ export async function initializeSatelliteSync(
                 rafId = requestAnimationFrame(loop)
             },
             onTimeUpdate: (t: number) => {
-                setText('time-remaining', t.toString())
                 callbacks.onTimeUpdate(t)
             },
             onScoreUpdate: (sc: number) => {
-                setText('score', sc.toString())
                 callbacks.onScoreUpdate(sc)
             },
             onLock: info => callbacks.onLock(info),
             onComboReset: () => callbacks.onComboReset(),
             onLevelClear: level => {
-                setText(
-                    'level',
-                    Math.min(level + 1, SATELLITE_SYNC_LEVELS.length).toString()
-                )
                 callbacks.onLevelClear(level)
             },
             onFail: (level, finalScore) => {
@@ -198,7 +176,6 @@ export async function initializeSatelliteSync(
                     cancelAnimationFrame(rafId)
                     rafId = null
                 }
-                showOverlay("TIME'S UP!", finalScore)
                 callbacks.onFail(level, finalScore)
                 void submitScore(finalScore)
             },
@@ -207,7 +184,6 @@ export async function initializeSatelliteSync(
                     cancelAnimationFrame(rafId)
                     rafId = null
                 }
-                showOverlay('MISSION COMPLETE!', finalScore)
                 callbacks.onWin(finalScore)
                 void submitScore(finalScore)
             },
@@ -361,7 +337,6 @@ export async function initializeSatelliteSync(
         window.addEventListener('keydown', keyboardHandlers.keydown)
 
         game.start()
-        setText('level', '1')
         render(renderer, game.getState())
     }
 

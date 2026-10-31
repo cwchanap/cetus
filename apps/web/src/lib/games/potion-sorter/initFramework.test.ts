@@ -4,7 +4,6 @@ import { initPotionSorterGameFramework } from './initFramework'
 import { PotionSorterGame } from '@cetus/games/potion-sorter/PotionSorterGame'
 import { PotionSorterRenderer } from './PotionSorterRenderer'
 import { POTION_SORTER_PRESETS } from '@cetus/games/potion-sorter/levels'
-import { calculatePotionSorterScore } from '@cetus/games/potion-sorter/scoring'
 
 const EASY_SOLUTION: Array<[number, number]> = [
     [0, 3],
@@ -113,6 +112,13 @@ function visibleTubeCount(): number {
     ).length
 }
 
+// The island passes the board host (HPA-393); tests grab the same node.
+function initFramework(): ReturnType<typeof initPotionSorterGameFramework> {
+    return initPotionSorterGameFramework(
+        document.getElementById('potion-sorter-container')!
+    )
+}
+
 describe('initPotionSorterGameFramework', () => {
     let handle: Awaited<ReturnType<typeof initPotionSorterGameFramework>>
 
@@ -137,19 +143,19 @@ describe('initPotionSorterGameFramework', () => {
         document.body.replaceChildren()
     })
 
-    it('fails cleanly when the outer container is missing', async () => {
+    it('fails cleanly when the renderer board is missing', async () => {
         const consoleError = vi
             .spyOn(console, 'error')
             .mockImplementation(() => {})
-        document.getElementById('potion-sorter-container')?.remove()
+        document.getElementById('potion-sorter-board')?.remove()
 
-        expect(await initPotionSorterGameFramework()).toBeUndefined()
+        expect(await initFramework()).toBeUndefined()
         expect(consoleError).toHaveBeenCalled()
         consoleError.mockRestore()
     })
 
     it('creates exactly one game and renderer instance', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
 
         expect(handle).toBeDefined()
         expect(handle!.game).toBeInstanceOf(PotionSorterGame)
@@ -160,8 +166,8 @@ describe('initPotionSorterGameFramework', () => {
         expect(visibleTubeCount()).toBe(7)
     })
 
-    it('renders the idle Medium board and HUD before Start', async () => {
-        handle = await initPotionSorterGameFramework()
+    it('renders the idle Medium board with the pressed preset before Start', async () => {
+        handle = await initFramework()
 
         expect(handle!.game.getState()).toMatchObject({
             difficulty: 'medium',
@@ -172,15 +178,6 @@ describe('initPotionSorterGameFramework', () => {
         expect(
             document.getElementById('medium-btn')!.getAttribute('aria-pressed')
         ).toBe('true')
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            '300'
-        )
-        expect(document.getElementById('difficulty')).toHaveTextContent(
-            'Medium'
-        )
-        expect(document.getElementById('start-btn')).toHaveStyle({
-            display: 'inline-flex',
-        })
         const undoButton = document.getElementById(
             'undo-btn'
         ) as HTMLButtonElement
@@ -189,7 +186,7 @@ describe('initPotionSorterGameFramework', () => {
     })
 
     it('rerenders immediately on an idle difficulty change and rejects active changes', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
 
         document.getElementById('hard-btn')!.click()
 
@@ -205,10 +202,6 @@ describe('initPotionSorterGameFramework', () => {
         expect(
             document.getElementById('medium-btn')!.getAttribute('aria-pressed')
         ).toBe('false')
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            '480'
-        )
-        expect(document.getElementById('difficulty')).toHaveTextContent('Hard')
 
         handle!.game.start()
         document.getElementById('easy-btn')!.click()
@@ -225,7 +218,7 @@ describe('initPotionSorterGameFramework', () => {
     })
 
     it('routes a native tube click to activateTube', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
         handle!.game.start()
 
         clickTube(0)
@@ -234,7 +227,7 @@ describe('initPotionSorterGameFramework', () => {
     })
 
     it('writes selection, invalid, pour, and undo copy to the status region', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
         handle!.game.start()
         const status = document.getElementById('potion-sorter-status')!
 
@@ -256,7 +249,7 @@ describe('initPotionSorterGameFramework', () => {
     })
 
     it('keeps Undo disabled without history and enables it after a legal pour', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
         const undoButton = document.getElementById(
             'undo-btn'
         ) as HTMLButtonElement
@@ -274,7 +267,7 @@ describe('initPotionSorterGameFramework', () => {
     })
 
     it('announces the Medium dead-end path and emphasizes Undo', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
         handle!.game.start()
 
         playMoves(MEDIUM_DEAD_END)
@@ -291,7 +284,7 @@ describe('initPotionSorterGameFramework', () => {
     })
 
     it('clears the dead-end presentation when Undo restores a playable board', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
         handle!.game.start()
 
         playMoves(MEDIUM_DEAD_END)
@@ -308,7 +301,7 @@ describe('initPotionSorterGameFramework', () => {
     })
 
     it('announces the Hard dead-end path with the same signal', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
         document.getElementById('hard-btn')!.click()
         handle!.game.start()
 
@@ -325,7 +318,7 @@ describe('initPotionSorterGameFramework', () => {
     })
 
     it('never enters dead-end presentation on the clean Easy path before solve', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
         document.getElementById('easy-btn')!.click()
         handle!.game.start()
         const status = document.getElementById('potion-sorter-status')!
@@ -340,12 +333,12 @@ describe('initPotionSorterGameFramework', () => {
         expect(handle!.game.getState().result).toBe('solved')
     })
 
-    it('Reset clears dead-end state and returns to idle', async () => {
-        handle = await initPotionSorterGameFramework()
+    it('Restart clears dead-end state and returns to idle', async () => {
+        handle = await initFramework()
         handle!.game.start()
 
         playMoves(MEDIUM_DEAD_END)
-        document.getElementById('reset-btn')!.click()
+        handle!.restart()
 
         expect(handle!.game.getState()).toMatchObject({
             difficulty: 'medium',
@@ -363,19 +356,10 @@ describe('initPotionSorterGameFramework', () => {
         ) as HTMLButtonElement
         expect(undoButton.dataset.deadEnd).toBe('false')
         expect(undoButton.disabled).toBe(true)
-        expect(document.getElementById('start-btn')).toHaveStyle({
-            display: 'inline-flex',
-        })
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
-        )
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            '300'
-        )
     })
 
     it('disables Undo and clears the dead-end flag when a run with history times out', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
         handle!.game.start()
 
         playMoves(MEDIUM_DEAD_END)
@@ -403,7 +387,7 @@ describe('initPotionSorterGameFramework', () => {
             vi.fn().mockReturnValue(pendingScore) as unknown as typeof fetch
         )
 
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
         handle!.game.start()
 
         playMoves(MEDIUM_DEAD_END)
@@ -430,7 +414,7 @@ describe('initPotionSorterGameFramework', () => {
     })
 
     it('keeps Undo disabled across game over and an idle difficulty change', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
         handle!.game.start()
 
         playMoves(MEDIUM_DEAD_END)
@@ -447,49 +431,16 @@ describe('initPotionSorterGameFramework', () => {
         expect(undoButton.dataset.deadEnd).toBe('false')
     })
 
-    it('fills the result overlay with outcome, difficulty, score, moves, undos, and time', async () => {
-        handle = await initPotionSorterGameFramework()
+    it('Play Again restart keeps the chosen preset and restores the board', async () => {
+        // Overlay/final-stat ownership moved to the PotionSorterScreen island
+        // (HPA-393); the initializer contract left here is the restart itself.
+        handle = await initFramework()
         document.getElementById('easy-btn')!.click()
         handle!.game.start()
 
         playMoves(EASY_SOLUTION)
         await settleEnd()
-
-        expect(document.getElementById('game-over-overlay')).not.toHaveClass(
-            'hidden'
-        )
-        expect(document.getElementById('game-over-title')).toHaveTextContent(
-            'SOLVED!'
-        )
-        expect(document.getElementById('final-outcome')).toHaveTextContent(
-            'Solved'
-        )
-        expect(document.getElementById('final-difficulty')).toHaveTextContent(
-            'Easy'
-        )
-        expect(document.getElementById('final-score')).toHaveTextContent(
-            String(
-                calculatePotionSorterScore(
-                    POTION_SORTER_PRESETS.easy,
-                    180,
-                    10,
-                    true
-                )
-            )
-        )
-        expect(document.getElementById('final-moves')).toHaveTextContent('10')
-        expect(document.getElementById('final-undos')).toHaveTextContent('0')
-        expect(document.getElementById('final-time')).toHaveTextContent('00:00')
-    })
-
-    it('Play Again reuses the reset handler, hides the overlay, and restores the board', async () => {
-        handle = await initPotionSorterGameFramework()
-        document.getElementById('easy-btn')!.click()
-        handle!.game.start()
-
-        playMoves(EASY_SOLUTION)
-        await settleEnd()
-        document.getElementById('play-again-btn')!.click()
+        handle!.restart()
 
         expect(handle!.game.getState()).toMatchObject({
             difficulty: 'easy',
@@ -499,15 +450,6 @@ describe('initPotionSorterGameFramework', () => {
             movesMade: 0,
             undosUsed: 0,
         })
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
-        )
-        expect(document.getElementById('start-btn')).toHaveStyle({
-            display: 'inline-flex',
-        })
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            '180'
-        )
         expect(
             document.getElementById('easy-btn')!.getAttribute('aria-pressed')
         ).toBe('true')
@@ -516,30 +458,8 @@ describe('initPotionSorterGameFramework', () => {
         )
     })
 
-    it('starts a fresh run directly from Start after a completed run', async () => {
-        handle = await initPotionSorterGameFramework()
-        document.getElementById('easy-btn')!.click()
-        handle!.game.start()
-
-        playMoves(EASY_SOLUTION)
-        await settleEnd()
-        document.getElementById('start-btn')!.click()
-
-        expect(handle!.game.getState()).toMatchObject({
-            isActive: true,
-            result: 'playing',
-            movesMade: 0,
-        })
-        expect(document.getElementById('start-btn')).toHaveStyle({
-            display: 'none',
-        })
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
-        )
-    })
-
     it('warns before unload only while a run is active', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
 
         const idleEvent = new Event('beforeunload', { cancelable: true })
         const idlePreventDefault = vi.spyOn(idleEvent, 'preventDefault')
@@ -554,17 +474,18 @@ describe('initPotionSorterGameFramework', () => {
     })
 
     it('cleans up DOM listeners, renderer, and game once', async () => {
-        handle = await initPotionSorterGameFramework()
+        handle = await initFramework()
         const rendererDestroy = vi.spyOn(handle!.renderer, 'destroy')
         const gameDestroy = vi.spyOn(handle!.game, 'destroy')
 
         handle!.cleanup()
         handle!.cleanup()
-        document.getElementById('start-btn')!.click()
+        document.getElementById('undo-btn')!.click()
 
         expect(rendererDestroy).toHaveBeenCalledTimes(1)
         expect(gameDestroy).toHaveBeenCalledTimes(1)
         expect(handle!.game.getState().isActive).toBe(false)
+        expect(handle!.game.getState().movesMade).toBe(0)
         expect(
             document.querySelectorAll(
                 '#potion-sorter-board button[data-tube-index]'

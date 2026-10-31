@@ -2,10 +2,7 @@ import { fireEvent } from '@testing-library/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AsteroidDriftRenderer } from './AsteroidDriftRenderer'
 import { initAsteroidDriftGameFramework } from './initFramework'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
+import { handleGameError } from '@cetus/games/core/errors'
 import type { AsteroidDriftState } from '@cetus/games/asteroid-drift/types'
 
 vi.mock('./AsteroidDriftRenderer', () => {
@@ -47,33 +44,26 @@ vi.mock('@cetus/games/core/errors', async importOriginal => {
     return { ...actual, handleGameError: vi.fn() }
 })
 
+// React owns the HUD badges/buttons/overlay (HPA-393); the initializer
+// needs the board host the island ref-passes plus the touch D-pad (looked
+// up by its frozen id in the React-owned controls card).
 function setupDOM(): void {
     document.body.innerHTML = `
         <div id="asteroid-drift-container">
             <div id="asteroid-drift-canvas"></div>
             <p id="asteroid-drift-status" aria-live="polite"></p>
         </div>
-        <span id="score">0</span>
-        <span id="time-remaining">90</span>
-        <span id="orbs-collected">0</span>
-        <span id="ship-speed">0</span>
-        <button id="start-btn" type="button">Start</button>
-        <button id="reset-btn" type="button">Reset</button>
         <div id="asteroid-drift-dpad">
             <button type="button" data-direction="up" aria-label="Thrust up" tabindex="-1">↑</button>
             <button type="button" data-direction="left" aria-label="Thrust left" tabindex="-1">←</button>
             <button type="button" data-direction="right" aria-label="Thrust right" tabindex="-1">→</button>
             <button type="button" data-direction="down" aria-label="Thrust down" tabindex="-1">↓</button>
         </div>
-        <div id="game-over-overlay" class="hidden">
-            <h3 id="game-over-title">SHIP LOST</h3>
-            <span id="final-score">0</span>
-            <span id="final-outcome">—</span>
-            <span id="final-survival">0</span>
-            <span id="final-orbs">0</span>
-            <button id="play-again-btn" type="button">Play Again</button>
-        </div>
     `
+}
+
+function getContainer(): HTMLElement {
+    return document.getElementById('asteroid-drift-container') as HTMLElement
 }
 
 function canvas(): HTMLCanvasElement {
@@ -86,6 +76,10 @@ function dpadButton(direction: string): HTMLButtonElement {
     return document.querySelector<HTMLButtonElement>(
         `#asteroid-drift-dpad button[data-direction="${direction}"]`
     )!
+}
+
+function statusText(): string {
+    return document.getElementById('asteroid-drift-status')!.textContent ?? ''
 }
 
 /** Drop every active asteroid so an idle player can never collide. */
@@ -134,16 +128,6 @@ describe('initAsteroidDriftGameFramework', () => {
         document.body.replaceChildren()
     })
 
-    it('reports missing root with DOMElementNotFoundError/handleGameError', async () => {
-        document.getElementById('asteroid-drift-container')?.remove()
-
-        expect(await initAsteroidDriftGameFramework()).toBeUndefined()
-        expect(handleGameError).toHaveBeenCalledWith(
-            expect.any(DOMElementNotFoundError),
-            'AsteroidDrift'
-        )
-    })
-
     it('cleans renderer and returns undefined when renderer setup fails', async () => {
         const failedRenderer = {
             initialize: vi.fn().mockRejectedValue(new Error('renderer failed')),
@@ -155,7 +139,9 @@ describe('initAsteroidDriftGameFramework', () => {
             () => failedRenderer as unknown as AsteroidDriftRenderer
         )
 
-        expect(await initAsteroidDriftGameFramework()).toBeUndefined()
+        expect(
+            await initAsteroidDriftGameFramework(getContainer())
+        ).toBeUndefined()
         expect(failedRenderer.destroy).toHaveBeenCalledTimes(1)
         expect(handleGameError).toHaveBeenCalledWith(
             expect.any(Error),
@@ -164,40 +150,27 @@ describe('initAsteroidDriftGameFramework', () => {
     })
 
     it('returns getGame() and getState()', async () => {
-        handle = await initAsteroidDriftGameFramework()
+        handle = await initAsteroidDriftGameFramework(getContainer())
 
         expect(handle).toBeDefined()
         expect(handle!.getGame()).toBe(handle!.game)
         expect(handle!.getState()).toEqual(handle!.game.getState())
     })
 
-    it('renders the idle state and syncs the idle HUD', async () => {
-        handle = await initAsteroidDriftGameFramework()
+    it('renders the idle state exactly once before any rAF tick', async () => {
+        handle = await initAsteroidDriftGameFramework(getContainer())
 
         // The mock renderer records every render call; the initializer must
         // have painted the idle state exactly once before any rAF tick.
         expect(vi.mocked(handle!.renderer.render).mock.calls).toHaveLength(1)
         expect(handle!.game.getState().isActive).toBe(false)
-        expect(document.getElementById('orbs-collected')).toHaveTextContent('0')
-        expect(document.getElementById('ship-speed')).toHaveTextContent('0')
-        expect(document.getElementById('score')).toHaveTextContent('0')
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            '90'
-        )
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
-        )
-        expect(
-            (document.getElementById('start-btn') as HTMLButtonElement).style
-                .display
-        ).toBe('inline-flex')
     })
 
     it('overrides Pixi inline canvas dimensions to preserve aspect ratio', async () => {
         // PixiJSRenderer(autoDensity: true) writes inline width/height in CSS
         // px. The initializer must override them so a narrow viewport shrinks
         // the canvas uniformly instead of stretching it vertically.
-        handle = await initAsteroidDriftGameFramework()
+        handle = await initAsteroidDriftGameFramework(getContainer())
         const el = canvas()
 
         expect(el.style.width).toBe('100%')
@@ -205,7 +178,7 @@ describe('initAsteroidDriftGameFramework', () => {
     })
 
     it('starts exactly one rAF update/render loop with monotonic clamped deltas', async () => {
-        handle = await initAsteroidDriftGameFramework()
+        handle = await initAsteroidDriftGameFramework(getContainer())
         const updateSpy = vi.spyOn(handle!.game, 'update')
         const renderSpy = vi.spyOn(handle!.renderer, 'render')
         const initialRenderCount = renderSpy.mock.calls.length
@@ -234,7 +207,7 @@ describe('initAsteroidDriftGameFramework', () => {
     })
 
     it('renders but does not update while the game is inactive', async () => {
-        handle = await initAsteroidDriftGameFramework()
+        handle = await initAsteroidDriftGameFramework(getContainer())
         const updateSpy = vi.spyOn(handle!.game, 'update')
         const renderSpy = vi.spyOn(handle!.renderer, 'render')
         const initialRenderCount = renderSpy.mock.calls.length
@@ -246,27 +219,11 @@ describe('initAsteroidDriftGameFramework', () => {
         expect(renderSpy).toHaveBeenCalledTimes(initialRenderCount + 2)
     })
 
-    it('Start hides the overlay and the start button', async () => {
-        handle = await initAsteroidDriftGameFramework()
-        const overlay = document.getElementById('game-over-overlay')!
-        overlay.classList.remove('hidden')
-
-        document.getElementById('start-btn')!.click()
-        expect(handle!.game.getState().isActive).toBe(true)
-        expect(overlay).toHaveClass('hidden')
-        expect(
-            (document.getElementById('start-btn') as HTMLButtonElement).style
-                .display
-        ).toBe('none')
-    })
-
     it('announces the run start and nothing else during plain updates', async () => {
-        handle = await initAsteroidDriftGameFramework()
+        handle = await initAsteroidDriftGameFramework(getContainer())
         handle!.game.start()
 
-        expect(
-            document.getElementById('asteroid-drift-status')
-        ).toHaveTextContent('Drift started.')
+        expect(statusText()).toBe('Drift started.')
 
         // Spawn traffic passes by (asteroids cleared) without events that
         // qualify for announcements: the live region stays untouched.
@@ -275,23 +232,14 @@ describe('initAsteroidDriftGameFramework', () => {
             handle!.game.update(0.1)
         }
 
-        expect(
-            document.getElementById('asteroid-drift-status')
-        ).toHaveTextContent('Drift started.')
+        expect(statusText()).toBe('Drift started.')
     })
 
-    it('state callbacks sync orbs, speed, score, and time', async () => {
-        handle = await initAsteroidDriftGameFramework()
+    it('announces orb collection', async () => {
+        handle = await initAsteroidDriftGameFramework(getContainer())
         handle!.game.start()
         handle!.game.pressDirection('right')
         handle!.game.update(0.1)
-
-        expect(document.getElementById('ship-speed')).not.toHaveTextContent('0')
-
-        vi.advanceTimersByTime(1_000)
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            '89'
-        )
 
         // Force an orb onto the ship so one update collects it.
         const player = handle!.game.getState().player
@@ -308,15 +256,11 @@ describe('initAsteroidDriftGameFramework', () => {
         handle!.game.update(0.05)
 
         expect(handle!.game.getState().orbsCollected).toBe(1)
-        expect(document.getElementById('orbs-collected')).toHaveTextContent('1')
-        expect(document.getElementById('score')).toHaveTextContent('100')
-        expect(
-            document.getElementById('asteroid-drift-status')
-        ).toHaveTextContent('Energy orb collected.')
+        expect(statusText()).toBe('Energy orb collected.')
     })
 
-    it('collision shows SHIP LOST / Collision', async () => {
-        handle = await initAsteroidDriftGameFramework()
+    it('collision announces the ship loss', async () => {
+        handle = await initAsteroidDriftGameFramework(getContainer())
         handle!.game.start()
 
         // The deterministic intro asteroid reaches the centered idle player
@@ -326,22 +270,12 @@ describe('initAsteroidDriftGameFramework', () => {
         }
 
         await vi.waitFor(() =>
-            expect(document.getElementById('final-outcome')).toHaveTextContent(
-                'Collision'
-            )
+            expect(statusText()).toBe('Collision. Ship lost.')
         )
-        // The static markup ships the collision title already; assert the
-        // synced outcome first, then the title the initializer rewrote.
-        expect(document.getElementById('game-over-title')).toHaveTextContent(
-            'SHIP LOST'
-        )
-        expect(
-            document.getElementById('asteroid-drift-status')
-        ).toHaveTextContent('Collision. Ship lost.')
     })
 
-    it('full simulation shows DRIFT COMPLETE / Survived', async () => {
-        handle = await initAsteroidDriftGameFramework()
+    it('full simulation announces the completed drift', async () => {
+        handle = await initAsteroidDriftGameFramework(getContainer())
         handle!.game.start()
 
         for (let i = 0; i < 900; i++) {
@@ -351,20 +285,14 @@ describe('initAsteroidDriftGameFramework', () => {
         vi.advanceTimersByTime(90_000)
 
         await vi.waitFor(() =>
-            expect(
-                document.getElementById('game-over-title')
-            ).toHaveTextContent('DRIFT COMPLETE')
+            expect(statusText()).toBe(
+                'Drift complete. You survived the full run.'
+            )
         )
-        expect(document.getElementById('final-outcome')).toHaveTextContent(
-            'Survived'
-        )
-        expect(
-            document.getElementById('asteroid-drift-status')
-        ).toHaveTextContent('Drift complete. You survived the full run.')
     })
 
-    it('early wall expiry shows DRIFT ENDED / Expired with partial survival', async () => {
-        handle = await initAsteroidDriftGameFramework()
+    it('early wall expiry announces the ended drift with partial survival', async () => {
+        handle = await initAsteroidDriftGameFramework(getContainer())
         handle!.game.start()
 
         for (let i = 0; i < 40; i++) {
@@ -374,79 +302,16 @@ describe('initAsteroidDriftGameFramework', () => {
         vi.advanceTimersByTime(90_000)
 
         await vi.waitFor(() =>
-            expect(
-                document.getElementById('game-over-title')
-            ).toHaveTextContent('DRIFT ENDED')
-        )
-        expect(document.getElementById('final-outcome')).toHaveTextContent(
-            'Expired'
+            expect(statusText()).toBe(
+                'Drift ended. The run expired before full simulation.'
+            )
         )
         // Partial credit only: some simulated survival, far short of 90.
-        const finalSurvival = document.getElementById('final-survival')!
-        expect(finalSurvival).toHaveTextContent('3')
-        expect(handle!.game.getGameStats().survivalSeconds).toBe(
-            Number(finalSurvival.textContent)
-        )
-        expect(
-            document.getElementById('asteroid-drift-status')
-        ).toHaveTextContent(
-            'Drift ended. The run expired before full simulation.'
-        )
-    })
-
-    it('Play Again immediately starts a fresh active run', async () => {
-        handle = await initAsteroidDriftGameFramework()
-        handle!.game.start()
-        await handle!.game.end()
-        document.getElementById('play-again-btn')!.click()
-
-        expect(handle!.game.getState()).toMatchObject({
-            isActive: true,
-            isGameOver: false,
-            gameStarted: true,
-            outcome: 'playing',
-            score: 0,
-            orbsCollected: 0,
-        })
-        expect(handle!.game.getState().asteroids).toHaveLength(1)
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
-        )
-    })
-
-    it('Reset restores the centered zero-score idle HUD', async () => {
-        handle = await initAsteroidDriftGameFramework()
-        handle!.game.start()
-        handle!.game.pressDirection('left')
-        handle!.game.update(0.1)
-        document.getElementById('reset-btn')!.click()
-
-        expect(handle!.game.getState()).toMatchObject({
-            isActive: false,
-            gameStarted: false,
-            score: 0,
-            orbsCollected: 0,
-        })
-        expect(handle!.game.getState().asteroids).toEqual([])
-        expect(handle!.game.getState().player).toMatchObject({
-            x: 400,
-            y: 240,
-            velocityX: 0,
-            velocityY: 0,
-        })
-        expect(document.getElementById('orbs-collected')).toHaveTextContent('0')
-        expect(document.getElementById('ship-speed')).toHaveTextContent('0')
-        expect(document.getElementById('score')).toHaveTextContent('0')
-        expect(document.getElementById('time-remaining')).toHaveTextContent(
-            '90'
-        )
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
-        )
+        expect(handle!.game.getGameStats().survivalSeconds).toBe(3)
     })
 
     it('active run beforeunload prevents navigation and sets returnValue', async () => {
-        handle = await initAsteroidDriftGameFramework()
+        handle = await initAsteroidDriftGameFramework(getContainer())
         handle!.game.start()
         const event = new Event('beforeunload', { cancelable: true })
         const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
@@ -461,7 +326,7 @@ describe('initAsteroidDriftGameFramework', () => {
     })
 
     it('idle/ended run beforeunload does not block', async () => {
-        handle = await initAsteroidDriftGameFramework()
+        handle = await initAsteroidDriftGameFramework(getContainer())
         const idleEvent = new Event('beforeunload', { cancelable: true })
         const idlePreventDefaultSpy = vi.spyOn(idleEvent, 'preventDefault')
         window.dispatchEvent(idleEvent)
@@ -477,7 +342,7 @@ describe('initAsteroidDriftGameFramework', () => {
 
     describe('keyboard controls', () => {
         it('maps arrows and WASD to the four directions while active', async () => {
-            handle = await initAsteroidDriftGameFramework()
+            handle = await initAsteroidDriftGameFramework(getContainer())
             handle!.game.start()
 
             document.dispatchEvent(
@@ -505,7 +370,7 @@ describe('initAsteroidDriftGameFramework', () => {
         })
 
         it('ignores repeat, modifier combos, editable targets, and unrelated keys', async () => {
-            handle = await initAsteroidDriftGameFramework()
+            handle = await initAsteroidDriftGameFramework(getContainer())
             handle!.game.start()
             const input = document.createElement('input')
             const textarea = document.createElement('textarea')
@@ -549,7 +414,7 @@ describe('initAsteroidDriftGameFramework', () => {
         })
 
         it('does not press directions before the game starts', async () => {
-            handle = await initAsteroidDriftGameFramework()
+            handle = await initAsteroidDriftGameFramework(getContainer())
 
             document.dispatchEvent(
                 new KeyboardEvent('keydown', {
@@ -562,7 +427,7 @@ describe('initAsteroidDriftGameFramework', () => {
         })
 
         it('keyup releases the mapped direction even after game end', async () => {
-            handle = await initAsteroidDriftGameFramework()
+            handle = await initAsteroidDriftGameFramework(getContainer())
             handle!.game.start()
             await handle!.game.end()
 
@@ -578,7 +443,7 @@ describe('initAsteroidDriftGameFramework', () => {
         })
 
         it('window blur releases held keyboard and touch directions', async () => {
-            handle = await initAsteroidDriftGameFramework()
+            handle = await initAsteroidDriftGameFramework(getContainer())
             handle!.game.start()
 
             // Hold a keyboard direction and a touch direction. A keyup is
@@ -605,7 +470,7 @@ describe('initAsteroidDriftGameFramework', () => {
 
     describe('D-pad pointer controls', () => {
         it('simultaneous pointerdown creates touch diagonals', async () => {
-            handle = await initAsteroidDriftGameFramework()
+            handle = await initAsteroidDriftGameFramework(getContainer())
             handle!.game.start()
 
             fireEvent.pointerDown(dpadButton('up'))
@@ -621,7 +486,7 @@ describe('initAsteroidDriftGameFramework', () => {
         })
 
         it('keeps keyboard ownership when the touch copy is released', async () => {
-            handle = await initAsteroidDriftGameFramework()
+            handle = await initAsteroidDriftGameFramework(getContainer())
             handle!.game.start()
 
             document.dispatchEvent(
@@ -642,7 +507,7 @@ describe('initAsteroidDriftGameFramework', () => {
         })
 
         it('pointerleave and pointercancel release the touch direction', async () => {
-            handle = await initAsteroidDriftGameFramework()
+            handle = await initAsteroidDriftGameFramework(getContainer())
             handle!.game.start()
 
             fireEvent.pointerDown(dpadButton('right'))
@@ -655,7 +520,7 @@ describe('initAsteroidDriftGameFramework', () => {
         })
 
         it('does not leave latent input when pressed before start', async () => {
-            handle = await initAsteroidDriftGameFramework()
+            handle = await initAsteroidDriftGameFramework(getContainer())
 
             fireEvent.pointerDown(dpadButton('left'))
             expect(handle!.game.pressedDirections).toEqual(new Set())
@@ -665,7 +530,7 @@ describe('initAsteroidDriftGameFramework', () => {
         })
 
         it('defensively releases implicit pointer capture with the pointer id', async () => {
-            handle = await initAsteroidDriftGameFramework()
+            handle = await initAsteroidDriftGameFramework(getContainer())
             handle!.game.start()
             const button = dpadButton('up')
             const releaseSpy = vi.fn()
@@ -680,7 +545,7 @@ describe('initAsteroidDriftGameFramework', () => {
         })
 
         it('survives a failing releasePointerCapture call', async () => {
-            handle = await initAsteroidDriftGameFramework()
+            handle = await initAsteroidDriftGameFramework(getContainer())
             handle!.game.start()
             const button = dpadButton('down')
             button.releasePointerCapture = () => {
@@ -693,7 +558,7 @@ describe('initAsteroidDriftGameFramework', () => {
     })
 
     it('cleanup removes listeners, cancels rAF once, and is idempotent', async () => {
-        handle = await initAsteroidDriftGameFramework()
+        handle = await initAsteroidDriftGameFramework(getContainer())
         const rendererDestroySpy = vi.spyOn(handle!.renderer, 'destroy')
         const gameDestroySpy = vi.spyOn(handle!.game, 'destroy')
         const cancelAnimationFrameSpy = vi.mocked(cancelAnimationFrame)
@@ -735,7 +600,7 @@ describe('initAsteroidDriftGameFramework', () => {
         vi.stubGlobal('showAchievementAward', showAchievementAward)
         vi.stubGlobal('showChallengeComplete', showChallengeComplete)
 
-        handle = await initAsteroidDriftGameFramework()
+        handle = await initAsteroidDriftGameFramework(getContainer())
         handle!.game.start()
         await handle!.game.end()
 

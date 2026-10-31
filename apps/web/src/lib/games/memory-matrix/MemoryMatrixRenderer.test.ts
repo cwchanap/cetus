@@ -458,53 +458,6 @@ describe('MemoryMatrixRenderer', () => {
         })
     })
 
-    describe('UI element updates', () => {
-        it('should update game-score element', async () => {
-            const renderer = await createRenderer()
-            const el = document.createElement('div')
-            el.id = 'game-score'
-            document.body.appendChild(el)
-
-            renderer.render(makeState({ score: 500 }))
-            expect(el.textContent).toBe('500')
-            renderer.destroy()
-        })
-
-        it('should update game-pairs element', async () => {
-            const renderer = await createRenderer()
-            const el = document.createElement('div')
-            el.id = 'game-pairs'
-            document.body.appendChild(el)
-
-            renderer.render(makeState({ matchedPairs: 3, totalPairs: 8 }))
-            expect(el.textContent).toBe('3/8')
-            renderer.destroy()
-        })
-
-        it('should update game-time element with color when low', async () => {
-            const renderer = await createRenderer()
-            const el = document.createElement('div')
-            el.id = 'game-time'
-            document.body.appendChild(el)
-
-            renderer.render(makeState({ timeRemaining: 5 }))
-            expect(el.textContent).toBeTruthy()
-            expect(el.className).toContain('text-red-400')
-            renderer.destroy()
-        })
-
-        it('should update game-accuracy element', async () => {
-            const renderer = await createRenderer()
-            const el = document.createElement('div')
-            el.id = 'game-accuracy'
-            document.body.appendChild(el)
-
-            renderer.render(makeState({ accuracy: 75 }))
-            expect(el.textContent).toBe('75%')
-            renderer.destroy()
-        })
-    })
-
     describe('cleanup', () => {
         it('should clear the board element', async () => {
             const renderer = await createRenderer()
@@ -552,41 +505,6 @@ describe('MemoryMatrixRenderer', () => {
             ).boardElement = null
             renderer.render(makeState())
             expect(boardEl.children.length).toBe(0)
-            renderer.destroy()
-        })
-    })
-
-    describe('game-time element color tiers', () => {
-        it('should apply yellow class when timeRemaining is between 11 and 30', async () => {
-            const renderer = await createRenderer()
-            const el = document.createElement('div')
-            el.id = 'game-time'
-            document.body.appendChild(el)
-
-            renderer.render(makeState({ timeRemaining: 20 }))
-            expect(el.className).toContain('text-yellow-400')
-            renderer.destroy()
-        })
-
-        it('should apply white class when timeRemaining is above 30', async () => {
-            const renderer = await createRenderer()
-            const el = document.createElement('div')
-            el.id = 'game-time'
-            document.body.appendChild(el)
-
-            renderer.render(makeState({ timeRemaining: 45 }))
-            expect(el.className).toContain('text-white')
-            renderer.destroy()
-        })
-
-        it('should update time-remaining element with seconds', async () => {
-            const renderer = await createRenderer()
-            const el = document.createElement('div')
-            el.id = 'time-remaining'
-            document.body.appendChild(el)
-
-            renderer.render(makeState({ timeRemaining: 37 }))
-            expect(el.textContent).toBe('37s')
             renderer.destroy()
         })
     })

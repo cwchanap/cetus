@@ -2,10 +2,7 @@ import { fireEvent } from '@testing-library/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GravityFlipRenderer } from './GravityFlipRenderer'
 import { initGravityFlipGameFramework } from './initFramework'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
+import { handleGameError } from '@cetus/games/core/errors'
 
 vi.mock('./GravityFlipRenderer', () => {
     class MockGravityFlipRenderer {
@@ -46,38 +43,31 @@ vi.mock('@cetus/games/core/errors', async importOriginal => {
     return { ...actual, handleGameError: vi.fn() }
 })
 
+// React owns the HUD badges/buttons/overlay (HPA-393); the initializer
+// needs the board host the island ref-passes plus the bespoke flip button
+// (looked up by its frozen id, outside the board host).
 function setupDOM(): void {
     document.body.innerHTML = `
         <div id="gravity-flip-container">
             <div id="gravity-flip-canvas"></div>
             <p id="gravity-flip-status" aria-live="polite"></p>
         </div>
-        <span id="score">0</span>
-        <span id="time-remaining">60</span>
-        <span id="gravity-direction">FLOOR ↓</span>
-        <span id="distance-traveled">0</span>
-        <span id="stars-collected">0</span>
-        <span id="flip-count">0</span>
-        <span id="world-speed">—</span>
-        <button id="start-btn" type="button">Start</button>
-        <button id="reset-btn" type="button">Reset</button>
-        <button id="flip-btn" type="button">Flip</button>
-        <div id="game-over-overlay" class="hidden">
-            <h3 id="game-over-title">GRAVITY LOST</h3>
-            <span id="final-score">0</span>
-            <span id="final-outcome">—</span>
-            <span id="final-distance">0</span>
-            <span id="final-stars">0</span>
-            <span id="final-flips">0</span>
-            <button id="play-again-btn" type="button">Play Again</button>
-        </div>
+        <button id="flip-btn" type="button">FLIP GRAVITY</button>
     `
+}
+
+function getContainer(): HTMLElement {
+    return document.getElementById('gravity-flip-container') as HTMLElement
 }
 
 function canvas(): HTMLCanvasElement {
     return document.querySelector<HTMLCanvasElement>(
         '#gravity-flip-canvas canvas'
     )!
+}
+
+function statusText(): string {
+    return document.getElementById('gravity-flip-status')!.textContent ?? ''
 }
 
 describe('initGravityFlipGameFramework', () => {
@@ -121,16 +111,6 @@ describe('initGravityFlipGameFramework', () => {
         document.body.replaceChildren()
     })
 
-    it('reports missing root with DOMElementNotFoundError/handleGameError', async () => {
-        document.getElementById('gravity-flip-container')?.remove()
-
-        expect(await initGravityFlipGameFramework()).toBeUndefined()
-        expect(handleGameError).toHaveBeenCalledWith(
-            expect.any(DOMElementNotFoundError),
-            'GravityFlip'
-        )
-    })
-
     it('cleans renderer and returns undefined when renderer setup fails', async () => {
         const failedRenderer = {
             initialize: vi.fn().mockRejectedValue(new Error('renderer failed')),
@@ -142,7 +122,9 @@ describe('initGravityFlipGameFramework', () => {
             () => failedRenderer as unknown as GravityFlipRenderer
         )
 
-        expect(await initGravityFlipGameFramework()).toBeUndefined()
+        expect(
+            await initGravityFlipGameFramework(getContainer())
+        ).toBeUndefined()
         expect(failedRenderer.destroy).toHaveBeenCalledTimes(1)
         expect(handleGameError).toHaveBeenCalledWith(
             expect.any(Error),
@@ -151,7 +133,7 @@ describe('initGravityFlipGameFramework', () => {
     })
 
     it('returns getGame() and getState()', async () => {
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
 
         expect(handle).toBeDefined()
         expect(handle!.getGame()).toBe(handle!.game)
@@ -159,7 +141,7 @@ describe('initGravityFlipGameFramework', () => {
     })
 
     it('starts exactly one rAF update/render loop without state-change rendering', async () => {
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
         const updateSpy = vi.spyOn(handle!.game, 'update')
         const renderSpy = vi.spyOn(handle!.renderer, 'render')
         const initialRenderCount = renderSpy.mock.calls.length
@@ -183,7 +165,7 @@ describe('initGravityFlipGameFramework', () => {
     })
 
     it('Space/ArrowUp/ArrowDown flip while active', async () => {
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
         handle!.game.start()
 
         for (const key of [' ', 'ArrowUp', 'ArrowDown']) {
@@ -203,7 +185,7 @@ describe('initGravityFlipGameFramework', () => {
     })
 
     it('ignores repeat/modifier/editable keyboard targets', async () => {
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
         handle!.game.start()
         const input = document.createElement('input')
         const textarea = document.createElement('textarea')
@@ -242,9 +224,9 @@ describe('initGravityFlipGameFramework', () => {
     })
 
     it('ignores document shortcuts when event.target is a button', async () => {
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
         handle!.game.start()
-        const button = document.getElementById('start-btn')!
+        const button = document.getElementById('flip-btn')!
 
         button.dispatchEvent(
             new KeyboardEvent('keydown', {
@@ -257,7 +239,7 @@ describe('initGravityFlipGameFramework', () => {
     })
 
     it('focused flip button Space plus native click flips exactly once', async () => {
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
         handle!.game.start()
         const flipButton = document.getElementById('flip-btn')!
         flipButton.focus()
@@ -274,7 +256,7 @@ describe('initGravityFlipGameFramework', () => {
     })
 
     it('canvas pointerdown and #flip-btn click use flipGravity', async () => {
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
         handle!.game.start()
 
         fireEvent.pointerDown(canvas())
@@ -287,41 +269,27 @@ describe('initGravityFlipGameFramework', () => {
         // PixiJSRenderer(autoDensity: true) writes inline width/height in CSS
         // px. The initializer must override them so a narrow viewport shrinks
         // the canvas uniformly instead of stretching it vertically.
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
         const el = canvas()
 
         expect(el.style.width).toBe('100%')
         expect(el.style.height).toBe('auto')
     })
 
-    it('Reset restores floor/zero idle HUD', async () => {
-        handle = await initGravityFlipGameFramework()
+    it('announces gravity flips but stays silent on the run-start baseline', async () => {
+        handle = await initGravityFlipGameFramework(getContainer())
         handle!.game.start()
-        handle!.game.flipGravity()
-        document.getElementById('reset-btn')!.click()
 
-        expect(handle!.game.getState()).toMatchObject({
-            gravity: 'down',
-            distance: 0,
-            starsCollected: 0,
-            flips: 0,
-            isActive: false,
-            gameStarted: false,
-        })
-        expect(document.getElementById('gravity-direction')).toHaveTextContent(
-            'FLOOR ↓'
-        )
-        expect(document.getElementById('distance-traveled')).toHaveTextContent(
-            '0'
-        )
-        expect(document.getElementById('stars-collected')).toHaveTextContent(
-            '0'
-        )
-        expect(document.getElementById('flip-count')).toHaveTextContent('0')
+        // BaseGame.start() emits the fresh (gravity: 'down') state; the live
+        // region must stay silent for it (baseline, not an actual flip).
+        expect(statusText()).toBe('')
+
+        handle!.game.flipGravity()
+        expect(statusText()).toBe('Gravity pulling to the ceiling')
     })
 
-    it('collision shows GRAVITY LOST / Collision', async () => {
-        handle = await initGravityFlipGameFramework()
+    it('announces the collision outcome through the live region', async () => {
+        handle = await initGravityFlipGameFramework(getContainer())
         handle!.game.start()
 
         // The authored opening floor-spike reaches the floor-resting idle
@@ -331,46 +299,19 @@ describe('initGravityFlipGameFramework', () => {
         }
 
         await vi.waitFor(() =>
-            expect(document.getElementById('final-outcome')).toHaveTextContent(
-                'Collision'
-            )
-        )
-        expect(document.getElementById('game-over-title')).toHaveTextContent(
-            'GRAVITY LOST'
+            expect(statusText()).toBe('Collision. Run ended.')
         )
     })
 
-    it('timeout shows RUN COMPLETE / Survived', async () => {
-        handle = await initGravityFlipGameFramework()
+    it('timeout announces the survived outcome through the live region', async () => {
+        handle = await initGravityFlipGameFramework(getContainer())
         handle!.game.start()
 
         vi.advanceTimersByTime(60_000)
         await vi.waitFor(() =>
-            expect(
-                document.getElementById('game-over-title')
-            ).toHaveTextContent('RUN COMPLETE')
-        )
-        expect(document.getElementById('final-outcome')).toHaveTextContent(
-            'Survived'
-        )
-    })
-
-    it('Play Again immediately starts a fresh run', async () => {
-        handle = await initGravityFlipGameFramework()
-        handle!.game.start()
-        await handle!.game.end()
-        document.getElementById('play-again-btn')!.click()
-
-        expect(handle!.game.getState()).toMatchObject({
-            isActive: true,
-            isGameOver: false,
-            gameStarted: true,
-            gravity: 'down',
-            flips: 0,
-            distance: 0,
-        })
-        expect(document.getElementById('game-over-overlay')).toHaveClass(
-            'hidden'
+            expect(statusText()).toBe(
+                'Run complete. You survived the full minute.'
+            )
         )
     })
 
@@ -378,24 +319,21 @@ describe('initGravityFlipGameFramework', () => {
         // Regression: lastAnnouncedGravity survived reset/replay. If the
         // previous run ended while gravity was 'up', the new run's onGameStart
         // emitted gravity 'down', which differed from the stale 'up' baseline
-        // and spuriously announced "Gravity pulling to the floor".
-        handle = await initGravityFlipGameFramework()
+        // and spuriously announced "Gravity pulling to the floor". The React
+        // overlay Play Again routes through game.start(), so drive it directly.
+        handle = await initGravityFlipGameFramework(getContainer())
         handle!.game.start()
         handle!.game.flipGravity() // gravity -> 'up', lastAnnouncedGravity = 'up'
         await handle!.game.end() // onEnd announces "Collision. Run ended."
-        const statusAfterEnd = document.getElementById(
-            'gravity-flip-status'
-        )!.textContent
-        document.getElementById('play-again-btn')!.click()
+        const statusAfterEnd = statusText()
+        handle!.game.start()
 
         expect(handle!.game.getState().gravity).toBe('down')
-        expect(
-            document.getElementById('gravity-flip-status')!.textContent
-        ).toBe(statusAfterEnd)
+        expect(statusText()).toBe(statusAfterEnd)
     })
 
     it('active run beforeunload prevents navigation and sets returnValue', async () => {
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
         handle!.game.start()
         const event = new Event('beforeunload', { cancelable: true })
         const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
@@ -410,7 +348,7 @@ describe('initGravityFlipGameFramework', () => {
     })
 
     it('idle/ended run beforeunload does not block', async () => {
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
         const idleEvent = new Event('beforeunload', { cancelable: true })
         const idlePreventDefaultSpy = vi.spyOn(idleEvent, 'preventDefault')
         window.dispatchEvent(idleEvent)
@@ -425,7 +363,7 @@ describe('initGravityFlipGameFramework', () => {
     })
 
     it('cleanup removes beforeunload/input listeners, cancels rAF, and is idempotent', async () => {
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
         const rendererDestroySpy = vi.spyOn(handle!.renderer, 'destroy')
         const gameDestroySpy = vi.spyOn(handle!.game, 'destroy')
         const cancelAnimationFrameSpy = vi.mocked(cancelAnimationFrame)
@@ -466,7 +404,7 @@ describe('initGravityFlipGameFramework', () => {
         vi.stubGlobal('showAchievementAward', showAchievementAward)
         vi.stubGlobal('showChallengeComplete', showChallengeComplete)
 
-        handle = await initGravityFlipGameFramework()
+        handle = await initGravityFlipGameFramework(getContainer())
         handle!.game.start()
         await handle!.game.end()
 

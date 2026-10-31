@@ -6,20 +6,12 @@ import {
 import { SudokuRenderer, createSudokuRendererConfig } from './SudokuRenderer'
 import type {
     SudokuConfig,
-    SudokuStats,
+    SudokuState,
 } from '@cetus/games/sudoku/frameworkTypes'
-import type {
-    BaseGameCallbacks,
-    BaseGameState,
-    BaseGameStats,
-    ChallengeUpdates,
-} from '@cetus/games/core/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
+import type { BaseGameCallbacks, BaseGameState } from '@cetus/games/core/types'
+import { handleGameError } from '@cetus/games/core/errors'
 
-import { type AchievementNotification } from '@cetus/shared/achievements'
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface SudokuInitResult {
@@ -32,22 +24,13 @@ export interface SudokuInitResult {
 }
 
 export async function initSudokuGameFramework(
-    customConfig?: Partial<SudokuConfig>,
-    customCallbacks?: BaseGameCallbacks
+    // The island-owned board host (#sudoku-container); the renderer mounts
+    // the 81-cell grid into it (HPA-393).
+    _container: HTMLElement
 ): Promise<SudokuInitResult | undefined> {
-    const container = document.getElementById('sudoku-container')
-    if (!container) {
-        handleGameError(
-            new DOMElementNotFoundError('sudoku-container'),
-            'Sudoku'
-        )
-        return undefined
-    }
-
     const config: SudokuConfig = {
         ...DEFAULT_SUDOKU_CONFIG,
-        ...customConfig,
-        submitScore: customConfig?.submitScore ?? submitScore,
+        submitScore,
     }
     const renderer = new SudokuRenderer(createSudokuRendererConfig())
 
@@ -62,19 +45,22 @@ export async function initSudokuGameFramework(
         return undefined
     }
 
-    // Enhanced callbacks with UI updates
+    // Difficulty lock and selection derive from live state so every
+    // transition — start, game over, or a mid-run reset that emits
+    // state-change via onGameReset rather than onEnd — lands the same
+    // presentation.
+    const syncDifficultyControls = (state: SudokuState): void => {
+        setDifficultyButtonsDisabled(state.isActive && !state.isGameOver)
+        setDifficultySelection(state.difficulty)
+    }
+
+    // React owns the HUD/buttons/overlay (HPA-393): the callbacks only keep
+    // the bespoke #game-time elapsed span and the difficulty controls.
     const enhancedCallbacks: BaseGameCallbacks = {
-        ...customCallbacks,
         onStateChange: (state: BaseGameState) => {
-            renderer.render(state)
-            customCallbacks?.onStateChange?.(state)
-        },
-        onScoreUpdate: (score: number) => {
-            const el = document.getElementById('score')
-            if (el) {
-                el.textContent = score.toString()
-            }
-            customCallbacks?.onScoreUpdate?.(score)
+            const sudokuState = state as SudokuState
+            renderer.render(sudokuState)
+            syncDifficultyControls(sudokuState)
         },
         onTimeUpdate: () => {
             const elapsed = game.getElapsedTime()
@@ -86,18 +72,11 @@ export async function initSudokuGameFramework(
                 const seconds = (elapsed % 60).toString().padStart(2, '0')
                 el.textContent = `${minutes}:${seconds}`
             }
-            customCallbacks?.onTimeUpdate?.(elapsed)
         },
-        onStart: () => {
-            swapStartEndButtons(true)
-            hideOverlay()
-            setDifficultyButtonsDisabled(true)
-            renderer.render(game.getState())
-            customCallbacks?.onStart?.()
-        },
-        onEnd: (finalScore: number, stats: BaseGameStats) => {
-            showGameOver(finalScore, stats as SudokuStats, game.getState())
-            customCallbacks?.onEnd?.(finalScore, stats)
+        // end() flips isActive without emitting state-change, so re-sync
+        // here or the difficulty buttons stay locked after game over.
+        onEnd: () => {
+            syncDifficultyControls(game.getState())
         },
     }
 
@@ -109,39 +88,17 @@ export async function initSudokuGameFramework(
         game.selectCell(row, col)
     })
 
-    // Handle achievement notifications
-    const onGameEnd = (event: unknown) => {
-        const data = (event as { data: unknown }).data as {
-            newAchievements?: AchievementNotification[]
-            challengeUpdates?: ChallengeUpdates
-        }
-        if (data?.newAchievements && data.newAchievements.length > 0) {
-            if (
-                typeof window !== 'undefined' &&
-                typeof window.showAchievementAward === 'function'
-            ) {
-                window.showAchievementAward(data.newAchievements)
-            }
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            if (
-                typeof window !== 'undefined' &&
-                typeof window.showChallengeComplete === 'function'
-            ) {
-                window.showChallengeComplete(data.challengeUpdates)
-            }
-        }
-    }
-    game.on('end', onGameEnd)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
     // Set up controls
-    const cleanupButtonHandlers = setupButtonHandlers(game, renderer)
+    const cleanupButtonHandlers = setupButtonHandlers(game)
     const cleanupKeyboardControls = setupKeyboardControls(game)
     const cleanupUnloadWarning = setupUnloadWarning(game)
 
     // Initial render + difficulty display
     renderer.render(game.getState())
-    updateDifficultyDisplay(game.getState().difficulty)
     setDifficultySelection(game.getState().difficulty)
 
     return {
@@ -151,60 +108,17 @@ export async function initSudokuGameFramework(
             cleanupButtonHandlers()
             cleanupKeyboardControls()
             cleanupUnloadWarning()
-            game.off('end', onGameEnd)
+            removeForwarder()
             renderer.destroy()
             game.destroy()
         },
-        restart: () => {
-            game.newGame()
-            renderer.render(game.getState())
-            resetButtonVisibility()
-        },
+        restart: () => game.newGame(),
         getState: () => game.getState(),
         endGame: () => game.end(),
     }
 }
 
 // --- UI helper functions ---
-
-function swapStartEndButtons(gameStarted: boolean): void {
-    const startBtn = document.getElementById(
-        'start-btn'
-    ) as HTMLButtonElement | null
-    const endBtn = document.getElementById(
-        'end-btn'
-    ) as HTMLButtonElement | null
-    if (gameStarted) {
-        if (startBtn) {
-            startBtn.style.display = 'none'
-        }
-        if (endBtn) {
-            endBtn.style.display = 'inline-flex'
-        }
-    } else {
-        if (startBtn) {
-            startBtn.style.display = 'inline-flex'
-            startBtn.textContent = 'Start Game'
-            startBtn.disabled = false
-        }
-        if (endBtn) {
-            endBtn.style.display = 'none'
-        }
-    }
-}
-
-function hideOverlay(): void {
-    const overlay = document.getElementById('game-over-overlay')
-    if (overlay) {
-        overlay.classList.add('hidden')
-    }
-}
-
-function resetButtonVisibility(): void {
-    swapStartEndButtons(false)
-    hideOverlay()
-    setDifficultyButtonsDisabled(false)
-}
 
 function setDifficultyButtonsDisabled(disabled: boolean): void {
     const ids = ['easy-btn', 'medium-btn', 'hard-btn']
@@ -214,14 +128,6 @@ function setDifficultyButtonsDisabled(disabled: boolean): void {
             btn.disabled = disabled
         }
     })
-}
-
-function updateDifficultyDisplay(difficulty: 'easy' | 'medium' | 'hard'): void {
-    const el = document.getElementById('difficulty')
-    if (el) {
-        el.textContent =
-            difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
-    }
 }
 
 const DIFFICULTY_VARIANT_CLASSES = {
@@ -261,143 +167,42 @@ function setDifficultySelection(difficulty: 'easy' | 'medium' | 'hard'): void {
             btn.classList.add(...DIFFICULTY_VARIANT_CLASSES.outline)
         }
     })
-    updateDifficultyDisplay(difficulty)
-}
-
-function showGameOver(
-    finalScore: number,
-    stats: SudokuStats,
-    state: ReturnType<SudokuGame['getState']>
-): void {
-    swapStartEndButtons(false)
-    setDifficultyButtonsDisabled(false)
-
-    const setText = (id: string, value: string) => {
-        const el = document.getElementById(id)
-        if (el) {
-            el.textContent = value
-        }
-    }
-
-    const elapsed = stats.timeElapsed
-    const minutes = Math.floor(elapsed / 60)
-        .toString()
-        .padStart(2, '0')
-    const seconds = (elapsed % 60).toString().padStart(2, '0')
-    setText('final-time', `${minutes}:${seconds}`)
-    setText('final-score', finalScore.toString())
-
-    const difficulty =
-        state.difficulty.charAt(0).toUpperCase() + state.difficulty.slice(1)
-    setText('final-difficulty', difficulty)
-
-    const titleElement = document.getElementById('game-over-title')
-    if (titleElement) {
-        if (stats.isComplete) {
-            titleElement.textContent = 'PUZZLE SOLVED!'
-            titleElement.className =
-                'text-4xl font-orbitron font-bold text-green-400 mb-6'
-        } else {
-            titleElement.textContent = 'GAME OVER'
-            titleElement.className =
-                'text-4xl font-orbitron font-bold text-red-400 mb-6'
-        }
-    }
-
-    const overlay = document.getElementById('game-over-overlay')
-    if (overlay) {
-        overlay.classList.remove('hidden')
-    }
 }
 
 function togglePause(game: SudokuGame): void {
     const state = game.getState()
-    const pauseBtn = document.getElementById('pause-btn')
     if (state.isPaused) {
         game.resume()
-        if (pauseBtn) {
-            pauseBtn.textContent = 'Pause'
-        }
     } else {
         game.pause()
-        if (pauseBtn) {
-            pauseBtn.textContent = 'Resume'
-        }
     }
 }
 
 // --- Setup functions ---
 
-function setupButtonHandlers(
-    game: SudokuGame,
-    renderer: SudokuRenderer
-): () => void {
-    const startBtn = document.getElementById('start-btn')
-    const endBtn = document.getElementById('end-btn')
-    const pauseBtn = document.getElementById('pause-btn')
-    const resetBtn = document.getElementById('reset-btn')
-    const restartBtn = document.getElementById('restart-btn')
-    const easyBtn = document.getElementById('easy-btn')
-    const mediumBtn = document.getElementById('medium-btn')
-    const hardBtn = document.getElementById('hard-btn')
+function setupButtonHandlers(game: SudokuGame): () => void {
+    // Handler references are stored so cleanup removes the SAME closures —
+    // addEventListener/removeEventListener match on identity. newGame()
+    // resets through reset() → onGameReset → emitStateChange, which
+    // re-renders and re-derives the difficulty controls — no manual
+    // render/emit per click.
+    const difficultyHandlers = (['easy', 'medium', 'hard'] as const).map(
+        difficulty => ({
+            difficulty,
+            handler: () => game.newGame(difficulty),
+        })
+    )
 
-    const startHandler = () => {
-        // After a game over (or solved puzzle), BaseGame.start() only flips
-        // flags, so generate a fresh puzzle before starting a new run.
-        if (game.getState().isGameOver) {
-            game.newGame()
-        }
-        game.start()
-    }
-
-    const endHandler = () => {
-        void game.end()
-    }
-
-    const pauseHandler = () => togglePause(game)
-
-    const resetHandler = () => {
-        game.newGame()
-        renderer.render(game.getState())
-        resetButtonVisibility()
-        updateDifficultyDisplay(game.getState().difficulty)
-        setDifficultySelection(game.getState().difficulty)
-    }
-
-    const restartHandler = () => {
-        game.newGame()
-        renderer.render(game.getState())
-        resetButtonVisibility()
-        updateDifficultyDisplay(game.getState().difficulty)
-        setDifficultySelection(game.getState().difficulty)
-    }
-
-    const difficultyHandler =
-        (difficulty: 'easy' | 'medium' | 'hard') => () => {
-            game.newGame(difficulty)
-            renderer.render(game.getState())
-            resetButtonVisibility()
-            setDifficultySelection(difficulty)
-        }
-
-    startBtn?.addEventListener('click', startHandler)
-    endBtn?.addEventListener('click', endHandler)
-    pauseBtn?.addEventListener('click', pauseHandler)
-    resetBtn?.addEventListener('click', resetHandler)
-    restartBtn?.addEventListener('click', restartHandler)
-    easyBtn?.addEventListener('click', difficultyHandler('easy'))
-    mediumBtn?.addEventListener('click', difficultyHandler('medium'))
-    hardBtn?.addEventListener('click', difficultyHandler('hard'))
+    const buttons = difficultyHandlers.map(({ difficulty, handler }) => {
+        const button = document.getElementById(`${difficulty}-btn`)
+        button?.addEventListener('click', handler)
+        return button
+    })
 
     return () => {
-        startBtn?.removeEventListener('click', startHandler)
-        endBtn?.removeEventListener('click', endHandler)
-        pauseBtn?.removeEventListener('click', pauseHandler)
-        resetBtn?.removeEventListener('click', resetHandler)
-        restartBtn?.removeEventListener('click', restartHandler)
-        easyBtn?.removeEventListener('click', difficultyHandler('easy'))
-        mediumBtn?.removeEventListener('click', difficultyHandler('medium'))
-        hardBtn?.removeEventListener('click', difficultyHandler('hard'))
+        difficultyHandlers.forEach(({ handler }, index) => {
+            buttons[index]?.removeEventListener('click', handler)
+        })
     }
 }
 

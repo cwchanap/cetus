@@ -4,23 +4,11 @@ import {
     DEFAULT_MEMORY_MATRIX_CONFIG,
 } from '@cetus/games/memory-matrix/MemoryMatrixGame'
 import { MemoryMatrixRenderer } from './MemoryMatrixRenderer'
-import type {
-    MemoryMatrixConfig,
-    MemoryMatrixStats,
-} from '@cetus/games/memory-matrix/frameworkTypes'
-import type {
-    BaseGameCallbacks,
-    BaseGameState,
-    BaseGameStats,
-    ChallengeUpdates,
-} from '@cetus/games/core/types'
-import {
-    DOMElementNotFoundError,
-    handleGameError,
-} from '@cetus/games/core/errors'
-import { formatTime } from '@cetus/games/memory-matrix/utils'
+import type { MemoryMatrixConfig } from '@cetus/games/memory-matrix/frameworkTypes'
+import type { BaseGameCallbacks, BaseGameState } from '@cetus/games/core/types'
+import { handleGameError } from '@cetus/games/core/errors'
 
-import { type AchievementNotification } from '@cetus/shared/achievements'
+import { forwardBaseGameResults } from '@/lib/games/core/notificationForwarder'
 import { submitScore } from '@/lib/services/scoreService'
 
 export interface MemoryMatrixInitResult {
@@ -33,18 +21,13 @@ export interface MemoryMatrixInitResult {
 }
 
 export async function initMemoryMatrixGameFramework(
+    // The island-owned board host (#memory-matrix-container). The renderer
+    // mounts into the frozen inner #memory-board grid, so the host itself
+    // is only passed for parity with the island mount contract (HPA-393).
+    _container: HTMLElement,
     customConfig?: Partial<MemoryMatrixConfig>,
     customCallbacks?: BaseGameCallbacks
 ): Promise<MemoryMatrixInitResult | undefined> {
-    const container = document.getElementById('memory-matrix-container')
-    if (!container) {
-        handleGameError(
-            new DOMElementNotFoundError('memory-matrix-container'),
-            'MemoryMatrix'
-        )
-        return undefined
-    }
-
     const config: MemoryMatrixConfig = {
         ...DEFAULT_MEMORY_MATRIX_CONFIG,
         ...customConfig,
@@ -68,49 +51,17 @@ export async function initMemoryMatrixGameFramework(
         return undefined
     }
 
-    // Enhanced callbacks with UI updates
+    // React owns the HUD/buttons/overlay (HPA-393): the callbacks only keep
+    // the imperative board rendering — every caller callback passes through.
     const enhancedCallbacks: BaseGameCallbacks = {
         ...customCallbacks,
         onStateChange: (state: BaseGameState) => {
             renderer.render(state)
             customCallbacks?.onStateChange?.(state)
         },
-        onScoreUpdate: (score: number) => {
-            const el = document.getElementById('game-score')
-            if (el) {
-                el.textContent = score.toString()
-            }
-            customCallbacks?.onScoreUpdate?.(score)
-        },
-        onTimeUpdate: (time: number) => {
-            const el = document.getElementById('game-time')
-            if (el) {
-                el.textContent = formatTime(time)
-                if (time <= 10) {
-                    el.className = 'text-red-400 font-bold'
-                } else if (time <= 30) {
-                    el.className = 'text-yellow-400'
-                } else {
-                    el.className = 'text-white'
-                }
-            }
-            customCallbacks?.onTimeUpdate?.(time)
-        },
         onStart: () => {
-            swapStartEndButtons(true)
-            hideOverlay()
             renderer.render(game.getState())
             customCallbacks?.onStart?.()
-        },
-        onEnd: (finalScore: number, stats: BaseGameStats) => {
-            const state = game.getState()
-            showGameOver(
-                finalScore,
-                stats as MemoryMatrixStats,
-                state.timeRemaining,
-                state.totalPairs
-            )
-            customCallbacks?.onEnd?.(finalScore, stats)
         },
     }
 
@@ -122,33 +73,11 @@ export async function initMemoryMatrixGameFramework(
         game.flipCard({ row, col })
     })
 
-    // Handle achievement notifications
-    const onGameEnd = (event: unknown) => {
-        const data = (event as { data: unknown }).data as {
-            newAchievements?: AchievementNotification[]
-            challengeUpdates?: ChallengeUpdates
-        }
-        if (data?.newAchievements && data.newAchievements.length > 0) {
-            if (
-                typeof window !== 'undefined' &&
-                typeof window.showAchievementAward === 'function'
-            ) {
-                window.showAchievementAward(data.newAchievements)
-            }
-        }
-        if (data?.challengeUpdates?.completedChallenges?.length) {
-            if (
-                typeof window !== 'undefined' &&
-                typeof window.showChallengeComplete === 'function'
-            ) {
-                window.showChallengeComplete(data.challengeUpdates)
-            }
-        }
-    }
-    game.on('end', onGameEnd)
+    // One shared 'end' listener forwarding structured results to the global
+    // toasts (HPA-393); replaces the former per-game toast bridge.
+    const removeForwarder = forwardBaseGameResults(game)
 
-    // Set up controls
-    const cleanupButtonHandlers = setupButtonHandlers(game, renderer)
+    // Set up page unload warning
     const cleanupUnloadWarning = setupUnloadWarning(game)
 
     // Initial render
@@ -158,137 +87,16 @@ export async function initMemoryMatrixGameFramework(
         game,
         renderer,
         cleanup: () => {
-            cleanupButtonHandlers()
             cleanupUnloadWarning()
-            game.off('end', onGameEnd)
+            removeForwarder()
             renderer.destroy()
             game.destroy()
         },
-        restart: () => {
-            game.reset()
-            renderer.render(game.getState())
-            resetButtonVisibility()
-        },
+        // Frozen debug-handle contract (window.memoryMatrixGame): reset()
+        // re-renders through the onGameReset state-change.
+        restart: () => game.reset(),
         getState: () => game.getState(),
         endGame: () => game.end(),
-    }
-}
-
-function swapStartEndButtons(gameStarted: boolean): void {
-    const startBtn = document.getElementById(
-        'start-btn'
-    ) as HTMLButtonElement | null
-    const endBtn = document.getElementById(
-        'end-btn'
-    ) as HTMLButtonElement | null
-    if (gameStarted) {
-        if (startBtn) {
-            startBtn.style.display = 'none'
-        }
-        if (endBtn) {
-            endBtn.style.display = 'inline-flex'
-        }
-    } else {
-        if (startBtn) {
-            startBtn.style.display = 'inline-flex'
-            startBtn.textContent = 'Start Game'
-            startBtn.disabled = false
-        }
-        if (endBtn) {
-            endBtn.style.display = 'none'
-        }
-    }
-}
-
-function hideOverlay(): void {
-    const overlay = document.getElementById('game-over-overlay')
-    if (overlay) {
-        overlay.classList.add('hidden')
-    }
-}
-
-function resetButtonVisibility(): void {
-    swapStartEndButtons(false)
-    hideOverlay()
-}
-
-function showGameOver(
-    finalScore: number,
-    stats: MemoryMatrixStats,
-    timeRemaining: number,
-    totalPairs: number
-): void {
-    swapStartEndButtons(false)
-
-    const setText = (id: string, value: string) => {
-        const el = document.getElementById(id)
-        if (el) {
-            el.textContent = value
-        }
-    }
-
-    setText('final-score', finalScore.toString())
-    setText('final-pairs', `${stats.matchesFound}/${totalPairs}`)
-    setText('final-accuracy', `${Math.round(stats.accuracy)}%`)
-    setText('final-time', `${timeRemaining}s`)
-    setText('final-attempts', stats.totalAttempts.toString())
-
-    const overlayTitle = document.getElementById('game-over-title')
-    if (overlayTitle) {
-        if (stats.gameWon) {
-            overlayTitle.textContent = 'VICTORY!'
-            overlayTitle.className =
-                'text-4xl font-orbitron font-bold text-green-400 mb-6'
-        } else {
-            overlayTitle.textContent = "TIME'S UP!"
-            overlayTitle.className =
-                'text-4xl font-orbitron font-bold text-cyan-400 mb-6'
-        }
-    }
-
-    const overlay = document.getElementById('game-over-overlay')
-    if (overlay) {
-        overlay.classList.remove('hidden')
-    }
-}
-
-function setupButtonHandlers(
-    game: MemoryMatrixGame,
-    renderer: MemoryMatrixRenderer
-): () => void {
-    const startBtn = document.getElementById('start-btn')
-    const endBtn = document.getElementById('end-btn')
-    const resetBtn = document.getElementById('reset-btn')
-    const playAgainBtn = document.getElementById('play-again-btn')
-
-    const startHandler = () => game.start()
-
-    const endHandler = () => {
-        void game.end()
-    }
-
-    const resetHandler = () => {
-        game.reset()
-        renderer.render(game.getState())
-        resetButtonVisibility()
-    }
-
-    const playAgainHandler = () => {
-        game.reset()
-        renderer.render(game.getState())
-        resetButtonVisibility()
-    }
-
-    startBtn?.addEventListener('click', startHandler)
-    endBtn?.addEventListener('click', endHandler)
-    resetBtn?.addEventListener('click', resetHandler)
-    playAgainBtn?.addEventListener('click', playAgainHandler)
-
-    return () => {
-        startBtn?.removeEventListener('click', startHandler)
-        endBtn?.removeEventListener('click', endHandler)
-        resetBtn?.removeEventListener('click', resetHandler)
-        playAgainBtn?.removeEventListener('click', playAgainHandler)
     }
 }
 
