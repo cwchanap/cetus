@@ -106,7 +106,6 @@ function mutateState(game: StubGame, patch: StubPatch): void {
 describe('SignalSwitchScreen', () => {
   let stubGame: StubGame
   let cleanupMock: ReturnType<typeof vi.fn>
-  let restartMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -117,20 +116,11 @@ describe('SignalSwitchScreen', () => {
       submitScore: vi.fn(async () => ({ success: true })),
     })
     cleanupMock = vi.fn()
-    restartMock = vi.fn(() => {
-      // Mirror the real restart(): re-sync bespoke gate controls after the
-      // eventless reset (here: reset gates back to cyan).
-      stubGame.reset()
-      mutateState(stubGame, {
-        gateSignals: ['cyan', 'cyan', 'cyan', 'cyan'],
-      })
-    })
     initSignalSwitchGameFrameworkMock.mockResolvedValue({
       game: stubGame,
       renderer: {},
       getGame: () => stubGame,
       getState: () => stubGame.getState(),
-      restart: restartMock,
       cleanup: cleanupMock,
     })
   })
@@ -277,7 +267,6 @@ describe('SignalSwitchScreen', () => {
     expect(stubGame.getState().gameStarted).toBe(false)
     // One reset per click: actions.reset()+restart() used to reset twice.
     expect(resetSpy).toHaveBeenCalledTimes(1)
-    expect(restartMock).not.toHaveBeenCalled()
     await waitFor(() => {
       expect(container.querySelector('#start-btn')).not.toHaveStyle({
         display: 'none',

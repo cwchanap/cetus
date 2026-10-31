@@ -106,8 +106,6 @@ function mutateState(game: StubGame, patch: StubPatch): void {
 describe('RhythmReactorScreen', () => {
   let stubGame: StubGame
   let cleanupMock: ReturnType<typeof vi.fn>
-  let restartMock: ReturnType<typeof vi.fn>
-  let syncPresentationMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -118,17 +116,11 @@ describe('RhythmReactorScreen', () => {
       submitScore: vi.fn(async () => ({ success: true })),
     })
     cleanupMock = vi.fn()
-    restartMock = vi.fn(() => stubGame.reset())
-    // Mirror the real syncPresentation(): render-only re-sync after the
-    // session reset — it must not call game.reset() itself.
-    syncPresentationMock = vi.fn()
     initRhythmReactorGameFrameworkMock.mockResolvedValue({
       game: stubGame,
       renderer: {},
       getGame: () => stubGame,
       getState: () => stubGame.getState(),
-      restart: restartMock,
-      syncPresentation: syncPresentationMock,
       cleanup: cleanupMock,
     })
   })
@@ -267,8 +259,6 @@ describe('RhythmReactorScreen', () => {
     expect(stubGame.getState().gameStarted).toBe(false)
     // One reset per click: actions.reset()+restart() used to reset twice.
     expect(resetSpy).toHaveBeenCalledTimes(1)
-    expect(restartMock).not.toHaveBeenCalled()
-    expect(syncPresentationMock).toHaveBeenCalledTimes(1)
     await waitFor(() => {
       expect(container.querySelector('#start-btn')).not.toHaveStyle({
         display: 'none',

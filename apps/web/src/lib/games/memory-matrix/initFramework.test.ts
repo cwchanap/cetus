@@ -51,7 +51,6 @@ describe('initMemoryMatrixGameFramework', () => {
             expect(result!.game).toBeDefined()
             expect(result!.renderer).toBeDefined()
             expect(typeof result!.cleanup).toBe('function')
-            expect(typeof result!.restart).toBe('function')
             expect(typeof result!.getState).toBe('function')
             expect(typeof result!.endGame).toBe('function')
         })
@@ -102,12 +101,12 @@ describe('initMemoryMatrixGameFramework', () => {
         })
     })
 
-    describe('restart', () => {
+    describe('reset', () => {
         it('resets the game and re-renders the idle board', async () => {
             result = await initMemoryMatrixGameFramework(getContainer())
             result!.game.start()
 
-            result!.restart()
+            result!.game.reset()
 
             const state = result!.game.getState()
             expect(state.gameStarted).toBe(false)

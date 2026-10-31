@@ -85,14 +85,12 @@ function createRhythmReactorProjector() {
  * input, the delegated lane-button clicks, the polite live announcer and
  * the single rAF loop stay initializer-owned (lane controls are bespoke,
  * not the shared chrome). Reset re-syncs the bespoke lane buttons and the
- * idle announcement through the initializer's `syncPresentation()` after
- * the session reset. Teardown disposes the session,
- * runs the initializer cleanup once and clears the debug handle only if
- * it still points at this instance.
+ * idle announcement through the `state-change` the reset emits. Teardown
+ * disposes the session, runs the initializer cleanup once and clears the
+ * debug handle only if it still points at this instance.
  */
 export default function RhythmReactorScreen() {
   const boardRef = useRef<HTMLDivElement>(null)
-  const initRef = useRef<RhythmReactorInitResult | null>(null)
   const [session, setSession] =
     useState<GameSession<RhythmReactorProjected> | null>(null)
   const { snapshot, actions } = useGameSession(
@@ -124,7 +122,6 @@ export default function RhythmReactorScreen() {
         return
       }
       init = result
-      initRef.current = result
       createdSession = createBaseGameSession(
         result.game,
         createRhythmReactorProjector()
@@ -138,7 +135,6 @@ export default function RhythmReactorScreen() {
       disposed = true
       createdSession?.dispose()
       init?.cleanup()
-      initRef.current = null
       const debugHandle = (window as WindowWithRhythmReactorGame)
         .rhythmReactorGame
       if (debugHandle === init) {
@@ -156,12 +152,10 @@ export default function RhythmReactorScreen() {
     actions.start()
   }
   // One reset only: onGameReset emits state-change, so the initializer's
-  // callback re-syncs the HUD and lane controls while the session adapter
-  // refreshes to idle; the render-only sync then repaints and restores the
-  // idle announcement without a second reset.
+  // callback re-syncs the HUD, lane controls and the idle announcement
+  // while the session adapter refreshes to idle.
   const handleReset = () => {
     actions.reset()
-    initRef.current?.syncPresentation()
   }
 
   const resultStats = snapshot.result?.stats as RhythmReactorStats | undefined

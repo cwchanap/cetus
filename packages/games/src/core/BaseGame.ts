@@ -218,23 +218,20 @@ export abstract class BaseGame<
             finalScore
         )
 
-        // Keep emitting the structured end event even for a stale run, but
-        // suppress the save-derived reward payload so achievements and
-        // challenge updates from a discarded run do not leak into a newer
-        // run that started during the await. The runId tags which run
-        // produced the result so listeners can reject it wholesale — the
-        // score/stats of a stale run must not overwrite a newer finished
-        // run's displayed result either.
+        // Keep emitting the structured end event even for a stale run. The
+        // runId tags which run produced the result so listeners can reject
+        // it wholesale — the session adapter drops a stale run's score/stats
+        // so they cannot overwrite a newer finished run's displayed result.
+        // The reward fields still describe what the completed run actually
+        // earned server-side (its save committed before it went stale), so
+        // they are carried untouched and the notification forwarder decides
+        // what to show.
         this.emit('end', {
             score: finalScore,
             stats: finalStats,
             runId,
-            newAchievements: this.runGuard.isStale(runId)
-                ? undefined
-                : saveResult.newAchievements,
-            challengeUpdates: this.runGuard.isStale(runId)
-                ? undefined
-                : saveResult.challengeUpdates,
+            newAchievements: saveResult.newAchievements,
+            challengeUpdates: saveResult.challengeUpdates,
         })
     }
 

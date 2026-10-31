@@ -133,7 +133,6 @@ function getOutcomeTitle(outcome: PatternPulseStats['outcome']): string {
  */
 export default function PatternPulseScreen() {
   const boardRef = useRef<HTMLDivElement>(null)
-  const initRef = useRef<PatternPulseInitResult | null>(null)
   const [session, setSession] =
     useState<GameSession<PatternPulseProjected> | null>(null)
   const { snapshot, actions } = useGameSession(
@@ -165,7 +164,6 @@ export default function PatternPulseScreen() {
         return
       }
       init = result
-      initRef.current = result
       createdSession = createBaseGameSession(
         result.game,
         createPatternPulseProjector()
@@ -179,7 +177,6 @@ export default function PatternPulseScreen() {
       disposed = true
       createdSession?.dispose()
       init?.cleanup()
-      initRef.current = null
       const debugHandle = (window as WindowWithPatternPulseGame)
         .patternPulseGame
       if (debugHandle === init) {

@@ -91,7 +91,6 @@ function mutateState(
 describe('MemoryMatrixScreen', () => {
   let stubGame: StubGame
   let cleanupMock: ReturnType<typeof vi.fn>
-  let restartMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -102,12 +101,10 @@ describe('MemoryMatrixScreen', () => {
       submitScore: vi.fn(async () => ({ success: true })),
     })
     cleanupMock = vi.fn()
-    restartMock = vi.fn(() => stubGame.reset())
     initMemoryMatrixGameFrameworkMock.mockResolvedValue({
       game: stubGame,
       renderer: {},
       cleanup: cleanupMock,
-      restart: restartMock,
       getState: () => stubGame.getState(),
       endGame: () => stubGame.end(),
     })
@@ -235,7 +232,6 @@ describe('MemoryMatrixScreen', () => {
 
     // One reset per click: restart()+actions.reset() used to reset twice.
     expect(resetSpy).toHaveBeenCalledTimes(1)
-    expect(restartMock).not.toHaveBeenCalled()
     await waitFor(() => {
       expect(stubGame.getState().isGameOver).toBe(false)
       expect(stubGame.getState().isActive).toBe(false)
@@ -261,7 +257,6 @@ describe('MemoryMatrixScreen', () => {
 
     // One reset per click: restart()+actions.reset() used to reset twice.
     expect(resetSpy).toHaveBeenCalledTimes(1)
-    expect(restartMock).not.toHaveBeenCalled()
     await waitFor(() => {
       expect(stubGame.getState().isActive).toBe(false)
       expect(stubGame.getState().gameStarted).toBe(false)

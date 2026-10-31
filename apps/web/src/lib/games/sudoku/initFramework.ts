@@ -45,15 +45,22 @@ export async function initSudokuGameFramework(
         return undefined
     }
 
+    // Difficulty lock and selection derive from live state so every
+    // transition — start, game over, or a mid-run reset that emits
+    // state-change via onGameReset rather than onEnd — lands the same
+    // presentation.
+    const syncDifficultyControls = (state: SudokuState): void => {
+        setDifficultyButtonsDisabled(state.isActive && !state.isGameOver)
+        setDifficultySelection(state.difficulty)
+    }
+
     // React owns the HUD/buttons/overlay (HPA-393): the callbacks only keep
-    // the bespoke #game-time elapsed span and the difficulty-button lock.
+    // the bespoke #game-time elapsed span and the difficulty controls.
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: (state: BaseGameState) => {
-            renderer.render(state as SudokuState)
-            // Difficulty lock derives from live state so a mid-run reset
-            // (which emits state-change via onGameReset, not onEnd) releases
-            // the buttons back to idle.
-            setDifficultyButtonsDisabled(state.isActive && !state.isGameOver)
+            const sudokuState = state as SudokuState
+            renderer.render(sudokuState)
+            syncDifficultyControls(sudokuState)
         },
         onTimeUpdate: () => {
             const elapsed = game.getElapsedTime()
@@ -66,12 +73,10 @@ export async function initSudokuGameFramework(
                 el.textContent = `${minutes}:${seconds}`
             }
         },
-        onStart: () => {
-            setDifficultyButtonsDisabled(true)
-            renderer.render(game.getState())
-        },
+        // end() flips isActive without emitting state-change, so re-sync
+        // here or the difficulty buttons stay locked after game over.
         onEnd: () => {
-            setDifficultyButtonsDisabled(false)
+            syncDifficultyControls(game.getState())
         },
     }
 
@@ -88,7 +93,7 @@ export async function initSudokuGameFramework(
     const removeForwarder = forwardBaseGameResults(game)
 
     // Set up controls
-    const cleanupButtonHandlers = setupButtonHandlers(game, renderer)
+    const cleanupButtonHandlers = setupButtonHandlers(game)
     const cleanupKeyboardControls = setupKeyboardControls(game)
     const cleanupUnloadWarning = setupUnloadWarning(game)
 
@@ -107,10 +112,7 @@ export async function initSudokuGameFramework(
             renderer.destroy()
             game.destroy()
         },
-        restart: () => {
-            game.newGame()
-            renderer.render(game.getState())
-        },
+        restart: () => game.newGame(),
         getState: () => game.getState(),
         endGame: () => game.end(),
     }
@@ -178,32 +180,29 @@ function togglePause(game: SudokuGame): void {
 
 // --- Setup functions ---
 
-function setupButtonHandlers(
-    game: SudokuGame,
-    renderer: SudokuRenderer
-): () => void {
-    const easyBtn = document.getElementById('easy-btn')
-    const mediumBtn = document.getElementById('medium-btn')
-    const hardBtn = document.getElementById('hard-btn')
+function setupButtonHandlers(game: SudokuGame): () => void {
+    // Handler references are stored so cleanup removes the SAME closures —
+    // addEventListener/removeEventListener match on identity. newGame()
+    // resets through reset() → onGameReset → emitStateChange, which
+    // re-renders and re-derives the difficulty controls — no manual
+    // render/emit per click.
+    const difficultyHandlers = (['easy', 'medium', 'hard'] as const).map(
+        difficulty => ({
+            difficulty,
+            handler: () => game.newGame(difficulty),
+        })
+    )
 
-    const difficultyHandler =
-        (difficulty: 'easy' | 'medium' | 'hard') => () => {
-            game.newGame(difficulty)
-            renderer.render(game.getState())
-            setDifficultySelection(difficulty)
-            // newGame() resets without emitting; announce the fresh state so
-            // the React session adapter re-projects the HUD (HPA-393).
-            game.emit('state-change', { state: game.getState() })
-        }
-
-    easyBtn?.addEventListener('click', difficultyHandler('easy'))
-    mediumBtn?.addEventListener('click', difficultyHandler('medium'))
-    hardBtn?.addEventListener('click', difficultyHandler('hard'))
+    const buttons = difficultyHandlers.map(({ difficulty, handler }) => {
+        const button = document.getElementById(`${difficulty}-btn`)
+        button?.addEventListener('click', handler)
+        return button
+    })
 
     return () => {
-        easyBtn?.removeEventListener('click', difficultyHandler('easy'))
-        mediumBtn?.removeEventListener('click', difficultyHandler('medium'))
-        hardBtn?.removeEventListener('click', difficultyHandler('hard'))
+        difficultyHandlers.forEach(({ handler }, index) => {
+            buttons[index]?.removeEventListener('click', handler)
+        })
     }
 }
 

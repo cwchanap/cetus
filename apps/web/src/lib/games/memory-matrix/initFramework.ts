@@ -15,7 +15,6 @@ export interface MemoryMatrixInitResult {
     game: MemoryMatrixGame
     renderer: MemoryMatrixRenderer
     cleanup: () => void
-    restart: () => void
     getState: () => ReturnType<MemoryMatrixGame['getState']>
     endGame: () => Promise<void>
 }
@@ -91,12 +90,6 @@ export async function initMemoryMatrixGameFramework(
             removeForwarder()
             renderer.destroy()
             game.destroy()
-        },
-        // onGameReset emits state-change, so the onStateChange callback
-        // above re-renders the fresh board — a single reset() keeps model,
-        // renderer and session on the same final state.
-        restart: () => {
-            game.reset()
         },
         getState: () => game.getState(),
         endGame: () => game.end(),

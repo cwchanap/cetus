@@ -111,7 +111,6 @@ function getOutcomeTitle(result: MineGridStats['result']): string {
  */
 export default function MineGridScreen() {
   const boardRef = useRef<HTMLDivElement>(null)
-  const initRef = useRef<MineGridInitResult | null>(null)
   const [session, setSession] = useState<GameSession<MineGridProjected> | null>(
     null
   )
@@ -141,7 +140,6 @@ export default function MineGridScreen() {
         return
       }
       init = result
-      initRef.current = result
       createdSession = createBaseGameSession(
         result.game,
         createMineGridProjector()
@@ -155,7 +153,6 @@ export default function MineGridScreen() {
       disposed = true
       createdSession?.dispose()
       init?.cleanup()
-      initRef.current = null
       const debugHandle = (window as WindowWithMineGridGame).mineGridGame
       if (debugHandle === init) {
         delete (window as WindowWithMineGridGame).mineGridGame
@@ -170,12 +167,10 @@ export default function MineGridScreen() {
     actions.start()
   }
   // One reset only: onGameReset emits state-change, so the initializer's
-  // callback re-renders the fresh board while the session adapter refreshes
-  // to idle; the render-only sync then restores Reveal mode and unlocks
-  // difficulty without a second reset.
+  // derived control sync re-renders the fresh board and restores Reveal
+  // mode/difficulty while the session adapter refreshes to idle.
   const resetRun = () => {
     actions.reset()
-    initRef.current?.syncPresentation()
   }
 
   const resultStats = snapshot.result?.stats as MineGridStats | undefined

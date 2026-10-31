@@ -419,7 +419,7 @@ describe('initSignalSwitchGameFramework', () => {
         )
     })
 
-    it('restart resets the run and re-syncs the bespoke gate controls', async () => {
+    it('reset resets the run and re-syncs the bespoke gate controls', async () => {
         handle = await initSignalSwitchGameFramework(getContainer())
         ;(
             handle!.game as unknown as { config: { gateX: number } }
@@ -430,7 +430,7 @@ describe('initSignalSwitchGameFramework', () => {
             handle!.game.getState().gateSignals.some(s => s === 'magenta')
         ).toBe(true)
 
-        handle!.restart()
+        handle!.game.reset()
 
         expect(handle!.game.getState()).toMatchObject({
             isActive: false,
