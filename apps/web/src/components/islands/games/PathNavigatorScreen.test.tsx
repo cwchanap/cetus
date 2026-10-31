@@ -66,15 +66,17 @@ function mutateState(game: StubGame, level: number): void {
       state: Record<string, unknown>
     }
   ).state
-  state.currentLevel = level
-  // PathNavigatorGame has no state-change event; the level badge advances
-  // through the score-update refresh fired by completeLevel's addScore —
-  // the same event the session adapter refreshes on.
-  ;(
+  const emit = (
     game as unknown as {
       emit: (type: string, data?: unknown) => void
     }
-  ).emit('score-update', { score: game.getState().score })
+  ).emit.bind(game)
+  // Real ordering in completeLevel: addScore fires score-update while
+  // currentLevel still holds the previous level; the transition lands and
+  // a state-change notification refreshes the session projection.
+  emit('score-update', { score: game.getState().score })
+  state.currentLevel = level
+  emit('state-change', { state: game.getState() })
 }
 
 describe('PathNavigatorScreen', () => {

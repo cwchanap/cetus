@@ -256,6 +256,37 @@ describe('PathNavigatorGame', () => {
             expect(game.getState().isGameOver).toBe(true)
         })
 
+        it('should emit state-change after the level transition (score-update fires pre-transition)', () => {
+            game.start()
+            const seen: Array<{ event: string; level: number }> = []
+            game.on('score-update', () =>
+                seen.push({
+                    event: 'score-update',
+                    level: game.getState().currentLevel,
+                })
+            )
+            game.on('state-change', () =>
+                seen.push({
+                    event: 'state-change',
+                    level: game.getState().currentLevel,
+                })
+            )
+
+            const endPoint = GAME_LEVELS[0].path.endPoint
+            game.updatePlayerPosition(endPoint.x, endPoint.y)
+
+            // completeLevel scores first while currentLevel is still 1 —
+            // addScore surfaces as two score-updates (ScoreManager emit plus
+            // the onScoreUpdate → updateScore re-emit) — then transitions
+            // and notifies, so session projections refresh on the
+            // post-transition event, not the next timer tick.
+            expect(seen).toEqual([
+                { event: 'score-update', level: 1 },
+                { event: 'score-update', level: 1 },
+                { event: 'state-change', level: 2 },
+            ])
+        })
+
         it('should position cursor at new level start', () => {
             if (GAME_LEVELS.length < 2) {
                 return
