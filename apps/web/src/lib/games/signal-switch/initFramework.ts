@@ -24,10 +24,6 @@ export interface SignalSwitchInitResult {
     renderer: SignalSwitchRenderer
     getGame: () => SignalSwitchGame
     getState: () => ReturnType<SignalSwitchGame['getState']>
-    /** Full reset + gate re-sync via state-change (debug handle / legacy
-     * contract). The island's Reset calls actions.reset() only — one
-     * game.reset() per click (HPA-393). */
-    restart: () => void
     cleanup: () => void
 }
 
@@ -193,13 +189,6 @@ export async function initSignalSwitchGameFramework(
         canvas.style.height = 'auto'
     }
 
-    // onGameReset emits state-change, so the onStateChange callback above
-    // re-syncs the bespoke gate controls and the session adapter refreshes —
-    // a single reset() keeps model, renderer and session on the same final
-    // state (the rAF loop repaints the canvas next frame as usual).
-    const restart = (): void => {
-        game.reset()
-    }
     const gateClickHandler: EventListener = event => {
         const target = event.target instanceof Element ? event.target : null
         const button = target?.closest('[data-signal-lane]')
@@ -287,7 +276,6 @@ export async function initSignalSwitchGameFramework(
         renderer,
         getGame: () => game,
         getState: () => game.getState(),
-        restart,
         cleanup,
     }
 }

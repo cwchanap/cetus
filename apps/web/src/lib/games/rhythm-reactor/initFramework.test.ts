@@ -341,14 +341,14 @@ describe('initRhythmReactorGameFramework', () => {
         expect(statusText()).toBe('Miss.')
     })
 
-    it('restart resets the run and re-syncs the bespoke lane controls', async () => {
+    it('reset resets the run and re-syncs the bespoke lane controls', async () => {
         handle = await initRhythmReactorGameFramework(getContainer())
         advanceToFirstNote(handle!)
         handle!.game.hitLane(0)
         expect(laneButtons().every(button => !button.disabled)).toBe(true)
         expect(statusText()).toContain('PERFECT')
 
-        handle!.restart()
+        handle!.game.reset()
 
         expect(handle!.game.getState()).toMatchObject({
             isActive: false,

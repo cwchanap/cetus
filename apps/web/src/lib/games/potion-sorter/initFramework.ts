@@ -22,8 +22,6 @@ export interface PotionSorterInitResult {
     renderer: PotionSorterRenderer
     getGame: () => PotionSorterGame
     getState: () => ReturnType<PotionSorterGame['getState']>
-    restart: () => void
-    syncPresentation: () => void
     cleanup: () => void
 }
 
@@ -118,25 +116,30 @@ export async function initPotionSorterGameFramework(
         button.dataset.deadEnd = String(deadEnded)
     }
 
-    const resetPresentation = (): void => {
-        setStatus('Ready.')
-        setDifficultyButtonsDisabled(false)
+    // React owns the HUD/buttons/overlay (HPA-393): the callbacks keep the
+    // bespoke controls derived from live state — tube rendering, the
+    // undo/dead-end emphasis, and the difficulty lock/selection follow every
+    // state-change (start, game over, a mid-run reset emitted via
+    // onGameReset rather than onEnd); a fresh idle state restores 'Ready.'.
+    const syncControls = (state: PotionSorterState): void => {
+        setDifficultyButtonsDisabled(state.isActive && !state.isGameOver)
+        setDifficultySelection(state.difficulty)
+        if (!state.isActive && !state.isGameOver) {
+            setStatus('Ready.')
+        }
     }
 
-    // React owns the HUD/buttons/overlay (HPA-393): the callbacks only keep
-    // the bespoke control state (tube rendering, undo/dead-end emphasis,
-    // difficulty selectors lock during a run).
     const enhancedCallbacks: BaseGameCallbacks = {
         onStateChange: (state: BaseGameState) => {
             const potionSorterState = state as PotionSorterState
             renderer.render(potionSorterState)
+            syncControls(potionSorterState)
             syncUndoButton()
         },
-        onStart: () => {
-            setDifficultyButtonsDisabled(true)
-        },
+        // end() flips isActive without emitting state-change, so re-sync
+        // here or the difficulty buttons stay locked after game over.
         onEnd: () => {
-            setDifficultyButtonsDisabled(false)
+            syncControls(game.getState())
             syncUndoButton()
         },
     }
@@ -161,24 +164,16 @@ export async function initPotionSorterGameFramework(
 
     listen(undoButton, 'click', undoHandler)
 
-    const difficultyHandler =
-        (difficulty: PotionSorterDifficulty): EventListener =>
-        () => {
-            if (game.newGame(difficulty)) {
-                setDifficultySelection(difficulty)
-                renderer.render(game.getState())
-                resetPresentation()
-                syncUndoButton()
-                // newGame() resets without emitting; announce the fresh
-                // state so the React session adapter re-projects the HUD.
-                game.emit('state-change', { state: game.getState() })
-            }
-        }
     for (const difficulty of ['easy', 'medium', 'hard'] as const) {
         listen(
             document.getElementById(`${difficulty}-btn`),
             'click',
-            difficultyHandler(difficulty)
+            // newGame() resets through reset() → onGameReset →
+            // emitStateChange, which re-renders and re-derives the
+            // controls — no manual render/emit per click.
+            () => {
+                game.newGame(difficulty)
+            }
         )
     }
 
@@ -216,21 +211,6 @@ export async function initPotionSorterGameFramework(
     }
     listen(window, 'beforeunload', beforeUnloadHandler)
 
-    // Render-only sync after a session-driven reset: onGameReset already
-    // emitted state-change (onStateChange re-rendered the fresh tubes and
-    // re-synced undo), so this restores the idle status/difficulty lock
-    // without a second reset() (HPA-393).
-    const syncPresentation = (): void => {
-        renderer.render(game.getState())
-        resetPresentation()
-        syncUndoButton()
-    }
-
-    const resetHandler = (): void => {
-        game.reset()
-        syncPresentation()
-    }
-
     renderer.render(game.getState())
     setStatus('Ready.')
     setDifficultyButtonsDisabled(false)
@@ -256,8 +236,6 @@ export async function initPotionSorterGameFramework(
         renderer,
         getGame: () => game,
         getState: () => game.getState(),
-        restart: resetHandler,
-        syncPresentation,
         cleanup,
     }
 }

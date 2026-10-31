@@ -98,7 +98,6 @@ function mutateState(
 describe('PatternPulseScreen', () => {
   let stubGame: StubGame
   let cleanupMock: ReturnType<typeof vi.fn>
-  let restartMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -109,13 +108,11 @@ describe('PatternPulseScreen', () => {
       submitScore: vi.fn(async () => ({ success: true })),
     })
     cleanupMock = vi.fn()
-    restartMock = vi.fn(() => stubGame.reset())
     initPatternPulseGameFrameworkMock.mockResolvedValue({
       game: stubGame,
       renderer: {},
       getGame: () => stubGame,
       cleanup: cleanupMock,
-      restart: restartMock,
       getState: () => stubGame.getState(),
     })
   })
@@ -256,7 +253,6 @@ describe('PatternPulseScreen', () => {
     // One reset per click: restart()+actions.reset() used to reset twice,
     // drawing a second RNG sequence the renderer never showed.
     expect(resetSpy).toHaveBeenCalledTimes(1)
-    expect(restartMock).not.toHaveBeenCalled()
     await waitFor(() => {
       expect(stubGame.getState().isGameOver).toBe(false)
       expect(stubGame.getState().isActive).toBe(false)
@@ -284,7 +280,6 @@ describe('PatternPulseScreen', () => {
     // One reset per click: restart()+actions.reset() used to reset twice,
     // drawing a second RNG sequence the renderer never showed.
     expect(resetSpy).toHaveBeenCalledTimes(1)
-    expect(restartMock).not.toHaveBeenCalled()
     await waitFor(() => {
       expect(stubGame.getState().isActive).toBe(false)
       expect(stubGame.getState().gameStarted).toBe(false)

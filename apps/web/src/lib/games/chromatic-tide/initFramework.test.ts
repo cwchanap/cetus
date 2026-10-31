@@ -196,14 +196,14 @@ describe('initChromaticTideGameFramework', () => {
         ).toHaveTextContent('Territory green, 143 of 144 captured, 1 move.')
     })
 
-    it('Restart restores idle controls and renders a fresh board', async () => {
+    it('reset restores idle controls and renders a fresh board', async () => {
         handle = await initFramework()
         handle!.game.start()
         buttonFor('green').click()
         const firstBoard = handle!.game.getState().board
         const firstCell = document.querySelector('.chromatic-tide-cell')
 
-        handle!.restart()
+        handle!.game.reset()
 
         expect(handle!.game.getState()).toMatchObject({
             isActive: false,
@@ -219,7 +219,7 @@ describe('initChromaticTideGameFramework', () => {
 
         const secondBoard = handle!.game.getState().board
         handle!.game.start()
-        handle!.restart()
+        handle!.game.reset()
 
         expect(handle!.game.getState()).toMatchObject({
             isActive: false,

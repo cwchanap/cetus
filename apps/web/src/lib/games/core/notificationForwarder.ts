@@ -3,8 +3,11 @@
 // listener through this helper instead of a per-game toast bridge. It
 // forwards only structured end payloads — numeric `score` plus object
 // `stats`, the same discrimination rule as the app-core adapter — so the
-// timer's bare 'end' is ignored, preserves BaseGame's stale-run filtering
-// (stale runs carry undefined reward fields), and never resubmits scores.
+// timer's bare 'end' is ignored, and it never resubmits scores. Reward
+// fields describe what the completed run's committed save actually earned,
+// so they are delivered even when the run went stale while its save was
+// in flight (the payload's runId is what lets the session adapter keep the
+// stale score/stats out of the result projection — a separate concern).
 import type { BaseGame } from '@cetus/games/core/BaseGame'
 import type { ChallengeUpdates, GameEvent } from '@cetus/games/core/types'
 import type { AchievementNotification } from '@cetus/shared/achievements'

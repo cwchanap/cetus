@@ -322,7 +322,7 @@ describe('init2048GameFramework', () => {
     })
 
     describe('end game', () => {
-        it('shows local results once before saving and ignores a late save after replay', async () => {
+        it('shows local results once before saving and delivers a late save after replay', async () => {
             let resolveSave!: (response: Response) => void
             vi.mocked(fetch).mockImplementationOnce(
                 () => new Promise(resolve => (resolveSave = resolve))
@@ -356,10 +356,13 @@ describe('init2048GameFramework', () => {
                 )
             )
             await saving
-            // The late save does not re-run local callbacks; only the
-            // save-derived end-event payload is suppressed for the stale run.
+            // The late save does not re-run local callbacks, but its
+            // committed rewards still reach the toast path — the run
+            // going stale mid-save no longer suppresses them.
             expect(onEnd).toHaveBeenCalledTimes(1)
-            expect(showAchievementAward).not.toHaveBeenCalled()
+            expect(showAchievementAward).toHaveBeenCalledWith([
+                { id: 'late-award' },
+            ])
             expect(result!.getState()).toMatchObject({
                 score: 0,
                 isActive: true,

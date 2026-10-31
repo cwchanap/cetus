@@ -5,8 +5,8 @@ import type { ScoreSubmissionResult } from '@cetus/shared/scores'
  * Display-only data for a finished run, built from the structured `end`
  * event BaseGame emits after its injected `submitScore` resolves. It feeds
  * UI surfaces (results sheet); it is never a notification source and the
- * score is never re-submitted from it. Reward fields are absent for stale
- * runs — BaseGame already suppresses them.
+ * score is never re-submitted from it. Stale runs never reach it — the
+ * session adapter drops their end payloads by runId.
  */
 export interface GameSessionResult {
     score: number

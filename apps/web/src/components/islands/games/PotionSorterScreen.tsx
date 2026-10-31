@@ -118,7 +118,6 @@ function getOutcomeTitle(result: PotionSorterStats['result']): string {
  */
 export default function PotionSorterScreen() {
   const boardRef = useRef<HTMLDivElement>(null)
-  const initRef = useRef<PotionSorterInitResult | null>(null)
   const [session, setSession] =
     useState<GameSession<PotionSorterProjected> | null>(null)
   const { snapshot, actions } = useGameSession(
@@ -150,7 +149,6 @@ export default function PotionSorterScreen() {
         return
       }
       init = result
-      initRef.current = result
       createdSession = createBaseGameSession(
         result.game,
         createPotionSorterProjector()
@@ -164,7 +162,6 @@ export default function PotionSorterScreen() {
       disposed = true
       createdSession?.dispose()
       init?.cleanup()
-      initRef.current = null
       const debugHandle = (window as WindowWithPotionSorterGame)
         .potionSorterGame
       if (debugHandle === init) {
@@ -180,12 +177,10 @@ export default function PotionSorterScreen() {
     actions.start()
   }
   // One reset only: onGameReset emits state-change, so the initializer's
-  // callback re-renders the fresh tubes while the session adapter refreshes
-  // to idle; the render-only sync then restores the idle status/difficulty
-  // lock without a second reset.
+  // derived control sync re-renders the fresh tubes and restores the idle
+  // status/difficulty lock while the session adapter refreshes to idle.
   const resetRun = () => {
     actions.reset()
-    initRef.current?.syncPresentation()
   }
 
   const resultStats = snapshot.result?.stats as PotionSorterStats | undefined

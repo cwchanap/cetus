@@ -21,7 +21,6 @@ export interface ChromaticTideInitResult {
     renderer: ChromaticTideRenderer
     getGame: () => ChromaticTideGame
     getState: () => ReturnType<ChromaticTideGame['getState']>
-    restart: () => void
     cleanup: () => void
 }
 
@@ -187,13 +186,6 @@ export async function initChromaticTideGameFramework(
     listen(document, 'keydown', keyboardHandler)
     listen(window, 'beforeunload', beforeUnloadHandler)
 
-    // onGameReset emits state-change, so the onStateChange callback above
-    // re-renders the fresh board and resyncs controls/announcer — a single
-    // reset() keeps model, renderer and session on the same final state.
-    const resetHandler = (): void => {
-        game.reset()
-    }
-
     const initialState = game.getState()
     renderer.render(initialState)
     syncColorControls(initialState)
@@ -218,7 +210,6 @@ export async function initChromaticTideGameFramework(
         renderer,
         getGame: () => game,
         getState: () => game.getState(),
-        restart: resetHandler,
         cleanup,
     }
 }

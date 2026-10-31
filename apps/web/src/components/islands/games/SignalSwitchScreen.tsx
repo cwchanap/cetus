@@ -118,7 +118,6 @@ function createSignalSwitchProjector() {
  */
 export default function SignalSwitchScreen() {
   const boardRef = useRef<HTMLDivElement>(null)
-  const initRef = useRef<SignalSwitchInitResult | null>(null)
   const [session, setSession] =
     useState<GameSession<SignalSwitchProjected> | null>(null)
   const { snapshot, actions } = useGameSession(
@@ -150,7 +149,6 @@ export default function SignalSwitchScreen() {
         return
       }
       init = result
-      initRef.current = result
       createdSession = createBaseGameSession(
         result.game,
         createSignalSwitchProjector()
@@ -164,7 +162,6 @@ export default function SignalSwitchScreen() {
       disposed = true
       createdSession?.dispose()
       init?.cleanup()
-      initRef.current = null
       const debugHandle = (window as WindowWithSignalSwitchGame)
         .signalSwitchGame
       if (debugHandle === init) {

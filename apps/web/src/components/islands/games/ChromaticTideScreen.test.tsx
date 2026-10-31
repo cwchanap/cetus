@@ -90,7 +90,6 @@ function mutateState(
 describe('ChromaticTideScreen', () => {
   let stubGame: StubGame
   let cleanupMock: ReturnType<typeof vi.fn>
-  let restartMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -101,13 +100,11 @@ describe('ChromaticTideScreen', () => {
       submitScore: vi.fn(async () => ({ success: true })),
     })
     cleanupMock = vi.fn()
-    restartMock = vi.fn(() => stubGame.reset())
     initChromaticTideGameFrameworkMock.mockResolvedValue({
       game: stubGame,
       renderer: {},
       getGame: () => stubGame,
       cleanup: cleanupMock,
-      restart: restartMock,
       getState: () => stubGame.getState(),
     })
   })
