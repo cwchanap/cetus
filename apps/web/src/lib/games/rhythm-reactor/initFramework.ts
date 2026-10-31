@@ -25,9 +25,13 @@ export interface RhythmReactorInitResult {
     renderer: RhythmReactorRenderer
     getGame: () => RhythmReactorGame
     getState: () => ReturnType<RhythmReactorGame['getState']>
-    /** React-owned Reset re-syncs the bespoke lane controls through this
-     * (HPA-393): reset() emits no event, so the island calls restart(). */
+    /** Full reset + presentation re-sync (debug handle / legacy contract).
+     * The island's Reset uses actions.reset() + syncPresentation instead,
+     * so a click produces exactly one game.reset(). */
     restart: () => void
+    /** Render-only sync after a session-driven reset — no game.reset()
+     * inside (HPA-393). */
+    syncPresentation: () => void
     cleanup: () => void
 }
 
@@ -192,16 +196,20 @@ export async function initRhythmReactorGameFramework(
         canvas.style.height = 'auto'
     }
 
-    // React drives the Reset button through this (HPA-393): reset() emits no
-    // event, so the lane controls must re-sync explicitly, mirroring the
-    // legacy reset handler (renderer + HUD/overlay are React-owned).
-    const restart = (): void => {
-        game.reset()
+    // Render-only sync after a session-driven reset: onGameReset already
+    // emitted state-change (onStateChange re-synced HUD/lane controls), so
+    // this repaints the frame and restores the idle announcement without a
+    // second reset() (HPA-393).
+    const syncPresentation = (): void => {
         renderer.render(game.getState())
         syncHud(game.getState())
         syncControls(game.getState())
         lastJudgmentAnnouncement = ''
         announce('Ready.')
+    }
+    const restart = (): void => {
+        game.reset()
+        syncPresentation()
     }
     const laneClickHandler: EventListener = event => {
         const target = event.target instanceof Element ? event.target : null
@@ -301,6 +309,7 @@ export async function initRhythmReactorGameFramework(
         getGame: () => game,
         getState: () => game.getState(),
         restart,
+        syncPresentation,
         cleanup,
     }
 }

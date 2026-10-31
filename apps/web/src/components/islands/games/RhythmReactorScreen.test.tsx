@@ -107,6 +107,7 @@ describe('RhythmReactorScreen', () => {
   let stubGame: StubGame
   let cleanupMock: ReturnType<typeof vi.fn>
   let restartMock: ReturnType<typeof vi.fn>
+  let syncPresentationMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -117,17 +118,17 @@ describe('RhythmReactorScreen', () => {
       submitScore: vi.fn(async () => ({ success: true })),
     })
     cleanupMock = vi.fn()
-    restartMock = vi.fn(() => {
-      // Mirror the real restart(): re-sync bespoke lane controls after the
-      // eventless reset (here: nothing bespoke to restore beyond reset).
-      stubGame.reset()
-    })
+    restartMock = vi.fn(() => stubGame.reset())
+    // Mirror the real syncPresentation(): render-only re-sync after the
+    // session reset — it must not call game.reset() itself.
+    syncPresentationMock = vi.fn()
     initRhythmReactorGameFrameworkMock.mockResolvedValue({
       game: stubGame,
       renderer: {},
       getGame: () => stubGame,
       getState: () => stubGame.getState(),
       restart: restartMock,
+      syncPresentation: syncPresentationMock,
       cleanup: cleanupMock,
     })
   })
@@ -247,7 +248,7 @@ describe('RhythmReactorScreen', () => {
     })
   })
 
-  it('Reset resets the session and re-syncs the bespoke lane controls', async () => {
+  it('Reset applies one reset and re-syncs the bespoke lane controls', async () => {
     const { container } = render(<RhythmReactorScreen />)
     await waitFor(() => {
       expect(initRhythmReactorGameFrameworkMock).toHaveBeenCalledTimes(1)
@@ -259,11 +260,15 @@ describe('RhythmReactorScreen', () => {
     })
     mutateState(stubGame, { combo: 2, lastJudgment: 'good' })
 
+    const resetSpy = vi.spyOn(stubGame, 'reset')
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
 
     expect(stubGame.getState().isActive).toBe(false)
     expect(stubGame.getState().gameStarted).toBe(false)
-    expect(restartMock).toHaveBeenCalledTimes(1)
+    // One reset per click: actions.reset()+restart() used to reset twice.
+    expect(resetSpy).toHaveBeenCalledTimes(1)
+    expect(restartMock).not.toHaveBeenCalled()
+    expect(syncPresentationMock).toHaveBeenCalledTimes(1)
     await waitFor(() => {
       expect(container.querySelector('#start-btn')).not.toHaveStyle({
         display: 'none',

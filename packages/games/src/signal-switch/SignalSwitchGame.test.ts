@@ -574,4 +574,24 @@ describe('SignalSwitchGame', () => {
             },
         ])
     })
+
+    it('reset emits state-change so renderer and session subscribers re-sync the fresh baseline', () => {
+        const game = crossingGame()
+        game.start()
+        const listener = vi.fn()
+        game.on('state-change', listener)
+        listener.mockClear()
+
+        game.reset()
+
+        expect(listener).toHaveBeenCalled()
+        const event = listener.mock.lastCall?.[0] as {
+            data: { state: ReturnType<SignalSwitchGame['getState']> }
+        }
+        expect(event.data.state.isActive).toBe(false)
+        expect(event.data.state.gameStarted).toBe(false)
+        expect(
+            event.data.state.gateSignals.every(signal => signal === 'cyan')
+        ).toBe(true)
+    })
 })

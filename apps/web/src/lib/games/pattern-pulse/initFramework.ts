@@ -124,9 +124,12 @@ export async function initPatternPulseGameFramework(
     }
     listen(window, 'beforeunload', beforeUnloadHandler)
 
+    // onGameReset emits state-change, so the onStateChange callback above
+    // re-renders the fresh sequence — a single reset() keeps model, renderer
+    // and session on the same final state (a second reset would draw another
+    // RNG sequence the renderer never shows).
     const resetHandler = (): void => {
         game.reset()
-        renderer.render(game.getState())
     }
 
     renderer.render(game.getState())

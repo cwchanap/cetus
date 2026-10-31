@@ -158,10 +158,10 @@ export default function MemoryMatrixScreen() {
   const handleEnd = () => {
     void initRef.current?.endGame()
   }
-  // Legacy reset/play-again reset the run and restore the idle board;
-  // reset() emits no game event, so refresh the cache explicitly.
+  // One reset only: onGameReset emits state-change, so the initializer's
+  // callback re-renders the fresh board while the session adapter refreshes
+  // to idle off the same final state.
   const resetRun = () => {
-    initRef.current?.restart()
     actions.reset()
   }
 

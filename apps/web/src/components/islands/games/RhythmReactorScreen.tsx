@@ -84,8 +84,9 @@ function createRhythmReactorProjector() {
  * `window.rhythmReactorGame`. The Pixi canvas, the D/F/J/K keyboard
  * input, the delegated lane-button clicks, the polite live announcer and
  * the single rAF loop stay initializer-owned (lane controls are bespoke,
- * not the shared chrome). Reset re-syncs those bespoke lane buttons
- * through the initializer's `restart()`. Teardown disposes the session,
+ * not the shared chrome). Reset re-syncs the bespoke lane buttons and the
+ * idle announcement through the initializer's `syncPresentation()` after
+ * the session reset. Teardown disposes the session,
  * runs the initializer cleanup once and clears the debug handle only if
  * it still points at this instance.
  */
@@ -154,11 +155,13 @@ export default function RhythmReactorScreen() {
   const startRun = () => {
     actions.start()
   }
-  // reset() emits no event, so the bespoke lane buttons (initializer-wired)
-  // must be re-synced explicitly through the initializer's restart().
+  // One reset only: onGameReset emits state-change, so the initializer's
+  // callback re-syncs the HUD and lane controls while the session adapter
+  // refreshes to idle; the render-only sync then repaints and restores the
+  // idle announcement without a second reset.
   const handleReset = () => {
     actions.reset()
-    initRef.current?.restart()
+    initRef.current?.syncPresentation()
   }
 
   const resultStats = snapshot.result?.stats as RhythmReactorStats | undefined

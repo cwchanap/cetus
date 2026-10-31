@@ -180,6 +180,7 @@ export class SignalSwitchGame extends BaseGame<
         this.elapsedSimSeconds = 0
         this.spawnElapsedSeconds = 0
         this.droneSequence = 0
+        this.emitStateChange()
     }
 
     private activeLaneCountForElapsed(elapsedSeconds: number): number {

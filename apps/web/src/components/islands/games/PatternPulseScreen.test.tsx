@@ -233,7 +233,7 @@ describe('PatternPulseScreen', () => {
     expect(document.querySelector('#final-mistakes')?.textContent).toBe('3')
   })
 
-  it('replays from the overlay play-again button through the initializer restart', async () => {
+  it('replays from the overlay play-again button through one session reset', async () => {
     render(<PatternPulseScreen />)
     await waitFor(() => {
       expect(initPatternPulseGameFrameworkMock).toHaveBeenCalledTimes(1)
@@ -248,11 +248,15 @@ describe('PatternPulseScreen', () => {
       expect(stubGame.getState().isGameOver).toBe(true)
     })
 
+    const resetSpy = vi.spyOn(stubGame, 'reset')
     fireEvent.click(
       document.querySelector('#play-again-btn') as HTMLButtonElement
     )
 
-    expect(restartMock).toHaveBeenCalled()
+    // One reset per click: restart()+actions.reset() used to reset twice,
+    // drawing a second RNG sequence the renderer never showed.
+    expect(resetSpy).toHaveBeenCalledTimes(1)
+    expect(restartMock).not.toHaveBeenCalled()
     await waitFor(() => {
       expect(stubGame.getState().isGameOver).toBe(false)
       expect(stubGame.getState().isActive).toBe(false)
@@ -274,9 +278,13 @@ describe('PatternPulseScreen', () => {
       expect(stubGame.getState().isActive).toBe(true)
     })
 
+    const resetSpy = vi.spyOn(stubGame, 'reset')
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
 
-    expect(restartMock).toHaveBeenCalled()
+    // One reset per click: restart()+actions.reset() used to reset twice,
+    // drawing a second RNG sequence the renderer never showed.
+    expect(resetSpy).toHaveBeenCalledTimes(1)
+    expect(restartMock).not.toHaveBeenCalled()
     await waitFor(() => {
       expect(stubGame.getState().isActive).toBe(false)
       expect(stubGame.getState().gameStarted).toBe(false)

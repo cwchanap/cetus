@@ -95,6 +95,7 @@ describe('MineGridScreen', () => {
   let stubGame: StubGame
   let cleanupMock: ReturnType<typeof vi.fn>
   let restartMock: ReturnType<typeof vi.fn>
+  let syncPresentationMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -106,12 +107,16 @@ describe('MineGridScreen', () => {
     })
     cleanupMock = vi.fn()
     restartMock = vi.fn(() => stubGame.reset())
+    // Mirror the real syncPresentation(): render-only re-sync after the
+    // session reset — it must not call game.reset() itself.
+    syncPresentationMock = vi.fn()
     initMineGridGameFrameworkMock.mockResolvedValue({
       game: stubGame,
       renderer: {},
       getGame: () => stubGame,
       cleanup: cleanupMock,
       restart: restartMock,
+      syncPresentation: syncPresentationMock,
       getState: () => stubGame.getState(),
     })
   })
@@ -238,7 +243,7 @@ describe('MineGridScreen', () => {
     )
   })
 
-  it('replays from the overlay play-again button through the initializer restart', async () => {
+  it('replays from the overlay play-again button through one session reset', async () => {
     render(<MineGridScreen />)
     await waitFor(() => {
       expect(initMineGridGameFrameworkMock).toHaveBeenCalledTimes(1)
@@ -253,11 +258,15 @@ describe('MineGridScreen', () => {
       expect(stubGame.getState().isGameOver).toBe(true)
     })
 
+    const resetSpy = vi.spyOn(stubGame, 'reset')
     fireEvent.click(
       document.querySelector('#play-again-btn') as HTMLButtonElement
     )
 
-    expect(restartMock).toHaveBeenCalled()
+    // One reset per click: restart()+actions.reset() used to reset twice.
+    expect(resetSpy).toHaveBeenCalledTimes(1)
+    expect(restartMock).not.toHaveBeenCalled()
+    expect(syncPresentationMock).toHaveBeenCalledTimes(1)
     await waitFor(() => {
       expect(stubGame.getState().isGameOver).toBe(false)
       expect(stubGame.getState().isActive).toBe(false)
@@ -278,9 +287,13 @@ describe('MineGridScreen', () => {
       expect(stubGame.getState().isActive).toBe(true)
     })
 
+    const resetSpy = vi.spyOn(stubGame, 'reset')
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
 
-    expect(restartMock).toHaveBeenCalled()
+    // One reset per click: restart()+actions.reset() used to reset twice.
+    expect(resetSpy).toHaveBeenCalledTimes(1)
+    expect(restartMock).not.toHaveBeenCalled()
+    expect(syncPresentationMock).toHaveBeenCalledTimes(1)
     await waitFor(() => {
       expect(stubGame.getState().isActive).toBe(false)
       expect(stubGame.getState().gameStarted).toBe(false)

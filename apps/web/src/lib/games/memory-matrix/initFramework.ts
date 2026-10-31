@@ -92,9 +92,11 @@ export async function initMemoryMatrixGameFramework(
             renderer.destroy()
             game.destroy()
         },
+        // onGameReset emits state-change, so the onStateChange callback
+        // above re-renders the fresh board — a single reset() keeps model,
+        // renderer and session on the same final state.
         restart: () => {
             game.reset()
-            renderer.render(game.getState())
         },
         getState: () => game.getState(),
         endGame: () => game.end(),

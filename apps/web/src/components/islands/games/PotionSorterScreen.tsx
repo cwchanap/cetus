@@ -179,11 +179,13 @@ export default function PotionSorterScreen() {
   const startRun = () => {
     actions.start()
   }
-  // Legacy reset/play-also restored the idle board; reset() emits no game
-  // event, so refresh the cache explicitly after the restart.
+  // One reset only: onGameReset emits state-change, so the initializer's
+  // callback re-renders the fresh tubes while the session adapter refreshes
+  // to idle; the render-only sync then restores the idle status/difficulty
+  // lock without a second reset.
   const resetRun = () => {
-    initRef.current?.restart()
     actions.reset()
+    initRef.current?.syncPresentation()
   }
 
   const resultStats = snapshot.result?.stats as PotionSorterStats | undefined
