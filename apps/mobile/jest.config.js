@@ -3,6 +3,7 @@
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',
+  setupFiles: ['./jest.setup.js'],
   // Workspace TS sources resolve through node_modules symlinks; transform
   // them (and the native deps jest-expo already allowlists) for Node.
   transformIgnorePatterns: [
