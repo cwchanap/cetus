@@ -92,7 +92,7 @@ export default function ProfileScreen() {
   return (
     <View className="flex-1 items-center justify-center gap-2.5 bg-[#05070f] p-6">
       <Text className="font-display text-xl font-bold text-cetus-ink">
-        {session.user.name ?? session.user.email}
+        {session.user.name || session.user.email}
       </Text>
       {session.user.name ? (
         <Text className="font-sans text-sm text-cetus-ink-muted">
