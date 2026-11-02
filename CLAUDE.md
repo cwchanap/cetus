@@ -14,7 +14,7 @@ This project uses **Bun** (`bun@1.3.14`) as the package manager.
 ### Repository Layout
 Bun-workspaces monorepo with a single root `bun.lock` (`bunfig.toml` pins the hoisted linker):
 - `apps/web` (`@cetus/web`) — the Astro app: all renderers, DOM pages, Astro, auth, DB and `e2e/`/`scripts/`/`db/` live here
-- `apps/mobile` (`@cetus/mobile`) — the Expo Router iOS/Android shell: four tabs, the shared 23-game catalog, Google/Apple browser OAuth via the web app's Better Auth server (consumes `@cetus/shared` + `@cetus/api-client` only; mobile Jest is separate from root Vitest)
+- `apps/mobile` (`@cetus/mobile`) — the Expo Router iOS/Android shell: four tabs, the shared 23-game catalog, Google/Apple browser OAuth via the web app's Better Auth server (application code consumes `@cetus/shared` + `@cetus/api-client` only; styling pulls `@cetus/tokens` and tooling extends `@cetus/config`; mobile Jest is separate from root Vitest)
 - `packages/shared` (`@cetus/shared`) — portable domain: Zod request schemas, wire DTOs, score types, achievements, challenges, validations (no DOM, no server deps)
 - `packages/games` (`@cetus/games`) — portable game rules for all 23 games (BaseGame framework, game logic; depends on `@cetus/shared`, no DOM)
 - `packages/api-client` (`@cetus/api-client`) — typed fetch client for the app API (14 methods; depends on `@cetus/shared`)

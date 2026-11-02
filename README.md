@@ -40,7 +40,7 @@ bun run --cwd apps/mobile typecheck
 bun run --cwd apps/mobile lint
 ```
 
-Package boundaries: the mobile app consumes `@cetus/shared` and `@cetus/api-client` only. `@cetus/ui` is web React (native variants are HPA-182); `@cetus/games`/`@cetus/app-core` are not imported until native screens exist.
+Package boundaries: mobile **application code** consumes `@cetus/shared` and `@cetus/api-client` only — no `@cetus/ui` (web React; native variants are HPA-182), `@cetus/games` or `@cetus/app-core` (not imported until native screens exist). Styling still pulls the shared theme tokens (`@cetus/tokens/theme.css` via `global.css`) and tooling extends `@cetus/config`.
 
 **Mobile auth setup (manual prerequisites):**
 
