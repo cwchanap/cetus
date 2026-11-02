@@ -1,6 +1,9 @@
 import { betterAuth } from 'better-auth'
-import { expo } from '@better-auth/expo'
-import { resolveAuthConfig, type ResolvedAuthConfig } from './auth-config'
+import {
+    expoPluginWithExactOrigins,
+    resolveAuthConfig,
+    type ResolvedAuthConfig,
+} from './auth-config'
 import { dialect } from './server/db'
 
 // Check required environment variables
@@ -32,7 +35,7 @@ export const auth = betterAuth({
         dialect,
         type: 'sqlite',
     },
-    plugins: [expo()],
+    plugins: [expoPluginWithExactOrigins()],
     socialProviders: {
         google: config.google,
         ...(config.apple ? { apple: config.apple } : {}),

@@ -1,4 +1,5 @@
 import { importPKCS8, SignJWT } from 'jose'
+import { expo } from '@better-auth/expo'
 
 // Pure environment decision for the Better Auth server config: enabled social
 // providers (incl. the async Apple client-secret factory), baseURL and trusted
@@ -15,15 +16,24 @@ export interface AuthEnvInput {
     APPLE_PRIVATE_KEY?: string | undefined
 }
 
+export interface AppleProviderOptions {
+    clientId: string
+    clientSecret: string
+}
+
+// better-auth resolves a provider factory once at init and retains the result,
+// but its oauth2 layer re-awaits `options` on every authorization and token
+// exchange when the options object is callable
+// (`options = typeof options === "function" ? await options() : options`).
+// Returning a callable config keeps client-secret JWTs fresh per sign-in flow
+// instead of signing once per process.
+export type LazyAppleProviderOptions = (() => Promise<AppleProviderOptions>) &
+    AppleProviderOptions
+
 export interface ResolvedAuthConfig {
     baseURL: string
     google: { clientId: string; clientSecret: string }
-    apple:
-        | (() => Promise<{
-              clientId: string
-              clientSecret: string
-          }>)
-        | undefined
+    apple: (() => Promise<LazyAppleProviderOptions>) | undefined
     trustedOrigins: string[]
 }
 
@@ -90,10 +100,33 @@ function resolveApple(env: AuthEnvInput): AppleCredentials | undefined {
     return credentials
 }
 
+// The upstream expo plugin unconditionally trusts `exp://` in development
+// (its init hook adds it whenever NODE_ENV === 'development', and better-auth
+// merges plugin origins into the effective allowlist). HPA-179 allows exactly
+// {baseURL, cetus://, https://appleid.apple.com} — strip the injected origin
+// so the effective set stays exact in every environment.
+export function expoPluginWithExactOrigins() {
+    const plugin = expo()
+    const init = plugin.init?.bind(plugin)
+    plugin.init = (async (
+        context: Parameters<NonNullable<typeof plugin.init>>[0]
+    ) => {
+        const result = await init?.(context)
+        if (!result?.options?.trustedOrigins) {
+            return result
+        }
+        const trustedOrigins = result.options.trustedOrigins.filter(
+            origin => origin !== 'exp://'
+        )
+        return { ...result, options: { ...result.options, trustedOrigins } }
+    }) as unknown as typeof plugin.init
+    return plugin
+}
+
 // better-auth 1.7.x does not export generateAppleClientSecret, so mint the
 // short-lived ES256 client-secret JWT here per Apple's token docs: sub =
 // Services ID, iss = Team ID, aud = appleid.apple.com, kid = Key ID, ~1 month
-// exp. Called lazily inside the async provider factory — never at boot.
+// exp. Signed lazily per oauth2 call — never at boot.
 async function generateAppleClientSecret(
     apple: AppleCredentials
 ): Promise<string> {
@@ -112,6 +145,32 @@ async function generateAppleClientSecret(
         .sign(key)
 }
 
+function createLazyAppleProvider(
+    apple: AppleCredentials
+): () => Promise<LazyAppleProviderOptions> {
+    return async () => {
+        const load = async (): Promise<AppleProviderOptions> => ({
+            clientId: apple.serviceId,
+            clientSecret: await generateAppleClientSecret(apple),
+        })
+        return Object.defineProperties(load, {
+            clientId: {
+                // Satisfies init-time presence checks (create-context and the
+                // provider's authorize wrapper read these before any oauth2
+                // call resolves the callable).
+                value: apple.serviceId,
+                enumerable: true,
+            },
+            clientSecret: {
+                // Truthiness guard only; real requests always resolve via the
+                // callable and get a freshly signed JWT.
+                get: () => 'lazy-apple-client-secret',
+                enumerable: false,
+            },
+        }) as LazyAppleProviderOptions
+    }
+}
+
 export function resolveAuthConfig(input: {
     env: AuthEnvInput
     isProd: boolean
@@ -122,12 +181,7 @@ export function resolveAuthConfig(input: {
     return {
         baseURL,
         google,
-        apple: apple
-            ? async () => ({
-                  clientId: apple.serviceId,
-                  clientSecret: await generateAppleClientSecret(apple),
-              })
-            : undefined,
+        apple: apple ? createLazyAppleProvider(apple) : undefined,
         trustedOrigins: [
             ...(baseURL ? [baseURL] : []),
             'cetus://',
