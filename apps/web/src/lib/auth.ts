@@ -1,4 +1,6 @@
 import { betterAuth } from 'better-auth'
+import { expo } from '@better-auth/expo'
+import { resolveAuthConfig, type ResolvedAuthConfig } from './auth-config'
 import { dialect } from './server/db'
 
 // Check required environment variables
@@ -12,32 +14,17 @@ if (!secret) {
     )
 }
 
-// Determine baseURL - use env var, fallback to localhost, or empty in production (inferred from request)
-let baseURL: string
-if (import.meta.env.BETTER_AUTH_URL) {
-    baseURL = import.meta.env.BETTER_AUTH_URL
-} else if (import.meta.env.PROD) {
-    baseURL = '' // Better Auth will infer from request headers in production
-} else {
-    baseURL = 'http://localhost:4325'
-}
-
-// Check if Google OAuth is properly configured
-const googleClientId = import.meta.env.GOOGLE_CLIENT_ID
-const googleClientSecret = import.meta.env.GOOGLE_CLIENT_SECRET
-const isGoogleOAuthConfigured =
-    googleClientId?.trim() &&
-    googleClientSecret?.trim() &&
-    googleClientId !== 'placeholder' &&
-    googleClientSecret !== 'placeholder'
-
-if (!isGoogleOAuthConfigured) {
-    console.error(
-        '[auth] FATAL: Google OAuth is required for Google-only authentication. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to real OAuth credentials.'
-    )
-    throw new Error(
-        'Google OAuth is required for Google-only authentication. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to real OAuth credentials.'
-    )
+// Provider/baseURL/trusted-origin decisions live in the pure, unit-tested
+// helper; this file stays a thin singleton call over it.
+let config: ResolvedAuthConfig
+try {
+    config = resolveAuthConfig({
+        env: import.meta.env,
+        isProd: import.meta.env.PROD,
+    })
+} catch (error) {
+    console.error(`[auth] FATAL: ${(error as Error).message}`)
+    throw error
 }
 
 export const auth = betterAuth({
@@ -45,11 +32,10 @@ export const auth = betterAuth({
         dialect,
         type: 'sqlite',
     },
+    plugins: [expo()],
     socialProviders: {
-        google: {
-            clientId: googleClientId as string,
-            clientSecret: googleClientSecret as string,
-        },
+        google: config.google,
+        ...(config.apple ? { apple: config.apple } : {}),
     },
     session: {
         expiresIn: 60 * 60 * 24 * 7, // 7 days
@@ -63,9 +49,9 @@ export const auth = betterAuth({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
     },
-    trustedOrigins: baseURL ? [baseURL] : [],
+    trustedOrigins: config.trustedOrigins,
     secret,
-    baseURL,
+    baseURL: config.baseURL,
 })
 
 export type Session = typeof auth.$Infer.Session

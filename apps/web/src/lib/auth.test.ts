@@ -1,41 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { generateKeyPairSync } from 'node:crypto'
 import { authClient } from '@/lib/auth-client'
-import { appRoot } from '@/test/app-root'
-
-const googleOnlyCredentialsError =
-    'Google OAuth is required for Google-only authentication. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to real OAuth credentials.'
-const authSource = readFileSync(resolve(appRoot, 'src/lib/auth.ts'), 'utf8')
-
-describe('Auth Source Contract', () => {
-    it('removes password authentication configuration', () => {
-        expect(authSource).not.toContain('emailAndPassword')
-    })
-
-    it('requires Google OAuth with the exact Google-only credential error', () => {
-        expect(authSource).toContain(googleOnlyCredentialsError)
-    })
-
-    it('rejects placeholder Google OAuth credentials', () => {
-        expect(authSource).toContain("googleClientId !== 'placeholder'")
-        expect(authSource).toContain("googleClientSecret !== 'placeholder'")
-    })
-
-    it('configures Google as a social provider', () => {
-        expect(authSource).toContain('socialProviders')
-        expect(authSource).toContain('google')
-    })
-
-    it('logs error before throwing on missing env vars', () => {
-        expect(authSource).toContain('console.error')
-        expect(authSource).toContain('[auth] FATAL')
-    })
-
-    it('trims whitespace from Google OAuth credentials', () => {
-        expect(authSource).toContain('?.trim()')
-    })
-})
 
 // Mock the DB module before importing auth.ts in behavioral tests
 // Provide a minimal Kysely dialect interface to prevent betterAuth init errors
@@ -78,7 +43,7 @@ describe('Auth Behavioral Config', () => {
         // If emailAndPassword is absent entirely, that's correct — default is disabled.
     })
 
-    it('configures Google as the social provider', async () => {
+    it('configures Google as the social provider and omits Apple when unset', async () => {
         const { auth } = await import('@/lib/auth')
 
         const options = (auth as any).options || (auth as any)._options
@@ -86,6 +51,30 @@ describe('Auth Behavioral Config', () => {
         expect(options?.socialProviders?.google?.clientId).toBe(
             'test-google-client-id'
         )
+        expect(options?.socialProviders?.apple).toBeUndefined()
+    })
+
+    it('registers the expo server plugin', async () => {
+        const { auth } = await import('@/lib/auth')
+
+        const options = (auth as any).options || (auth as any)._options
+        const pluginIds = (options?.plugins ?? []).map(
+            (plugin: { id: string }) => plugin.id
+        )
+        expect(pluginIds).toContain('expo')
+    })
+
+    it('trusts exactly the web origin plus the Expo and Apple origins', async () => {
+        const { auth } = await import('@/lib/auth')
+
+        const options = (auth as any).options || (auth as any)._options
+        // vitest env sets BETTER_AUTH_URL=http://localhost:4321
+        expect(options?.trustedOrigins).toEqual([
+            'http://localhost:4321',
+            'cetus://',
+            'https://appleid.apple.com',
+        ])
+        expect(options?.baseURL).toBe('http://localhost:4321')
     })
 
     it('configures session with proper defaults', async () => {
@@ -121,7 +110,7 @@ describe('Auth Env Validation', () => {
         vi.stubEnv('GOOGLE_CLIENT_SECRET', '')
 
         await expect(import('@/lib/auth')).rejects.toThrow(
-            'Google OAuth is required for Google-only authentication'
+            'Google OAuth credentials are required'
         )
     })
 
@@ -131,7 +120,7 @@ describe('Auth Env Validation', () => {
         vi.stubEnv('GOOGLE_CLIENT_SECRET', 'placeholder')
 
         await expect(import('@/lib/auth')).rejects.toThrow(
-            'Google OAuth is required for Google-only authentication'
+            'Google OAuth credentials are required'
         )
     })
 
@@ -141,7 +130,55 @@ describe('Auth Env Validation', () => {
         vi.stubEnv('GOOGLE_CLIENT_SECRET', '   ')
 
         await expect(import('@/lib/auth')).rejects.toThrow(
-            'Google OAuth is required for Google-only authentication'
+            'Google OAuth credentials are required'
+        )
+    })
+})
+
+describe('Auth Apple Modes', () => {
+    const { privateKey } = generateKeyPairSync('ec', {
+        namedCurve: 'prime256v1',
+    })
+    const testP8 = privateKey
+        .export({ type: 'pkcs8', format: 'pem' })
+        .toString()
+
+    beforeEach(() => {
+        vi.resetModules()
+    })
+
+    afterEach(() => {
+        vi.unstubAllEnvs()
+    })
+
+    it('boots with a fully configured Apple provider as a lazy factory', async () => {
+        vi.stubEnv('APPLE_SERVICE_ID', 'com.cetus.web.service')
+        vi.stubEnv('APPLE_TEAM_ID', 'TEAM123')
+        vi.stubEnv('APPLE_KEY_ID', 'KEY123')
+        vi.stubEnv('APPLE_PRIVATE_KEY', testP8)
+
+        const { auth } = await import('@/lib/auth')
+
+        const options = (auth as any).options || (auth as any)._options
+        const apple = options?.socialProviders?.apple
+        expect(typeof apple).toBe('function')
+        // Google stays available alongside Apple.
+        expect(options?.socialProviders?.google?.clientId).toBe(
+            'test-google-client-id'
+        )
+
+        const provider = await apple()
+        expect(provider.clientId).toBe('com.cetus.web.service')
+        expect(typeof provider.clientSecret).toBe('string')
+        expect(provider.clientSecret.split('.')).toHaveLength(3)
+    })
+
+    it('throws naming the missing vars on partial Apple config', async () => {
+        vi.stubEnv('APPLE_SERVICE_ID', 'com.cetus.web.service')
+        vi.stubEnv('APPLE_TEAM_ID', 'TEAM123')
+
+        await expect(import('@/lib/auth')).rejects.toThrow(
+            /missing APPLE_KEY_ID, APPLE_PRIVATE_KEY/
         )
     })
 })

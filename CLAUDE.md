@@ -51,6 +51,12 @@ BETTER_AUTH_SECRET=your_32_char_secret
 BETTER_AUTH_URL=http://localhost:4325 # for development
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
+# Optional Sign in with Apple — set all four or none (web stays Google-only without them).
+# These are backend-only secrets; never expose them via EXPO_PUBLIC_* in the mobile app.
+APPLE_SERVICE_ID=your_apple_services_id
+APPLE_TEAM_ID=your_apple_team_id
+APPLE_KEY_ID=your_apple_key_id
+APPLE_PRIVATE_KEY=your_apple_p8_private_key_contents
 ```
 
 Migrating from a pre-monorepo checkout? Move any existing root `.env` to `apps/web/.env` and `db/db.sqlite` to `apps/web/db/db.sqlite` — copies at the repo root are no longer read.
