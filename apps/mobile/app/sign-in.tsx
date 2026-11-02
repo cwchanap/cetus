@@ -9,11 +9,11 @@ export default function SignInScreen() {
       <Text className="font-display text-xl font-bold text-cetus-ink">
         Sign in to Cetus
       </Text>
-      <Text className="text-center text-sm text-cetus-ink-muted">
+      <Text className="font-sans text-center text-sm text-cetus-ink-muted">
         Google and Apple sign-in arrive in a later update.
       </Text>
       <Link href="/(tabs)/profile">
-        <Text className="mt-1.5 text-[15px] font-semibold text-cetus-accent">
+        <Text className="font-sans mt-1.5 text-[15px] font-semibold text-cetus-accent">
           Back to profile
         </Text>
       </Link>
