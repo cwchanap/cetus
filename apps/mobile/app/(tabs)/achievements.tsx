@@ -6,7 +6,7 @@ export default function AchievementsScreen() {
       <Text className="font-display text-xl font-bold text-cetus-ink">
         Achievements
       </Text>
-      <Text className="text-center text-sm text-cetus-ink-muted">
+      <Text className="font-sans text-center text-sm text-cetus-ink-muted">
         Achievement tracking is not available on mobile yet — coming in a later
         update.
       </Text>

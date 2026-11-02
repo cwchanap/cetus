@@ -3,10 +3,10 @@
  * Expo 57 RC guide: utilities stay unlayered so they win over platform
  * defaults, and nativewind/theme provides the native font/elevation theme.
  * Semantic --cetus-* tokens come from the shared @cetus/tokens package —
- * mobile uses the dark non-abyssal theme (:root + .dark via the
- * prefers-color-scheme root scope in theme.css; never .theme-abyssal).
- * Gradient-only tokens (--cetus-page-bg, --cetus-wordmark-*) are unsupported
- * on native and simply unused here.
+ * mobile uses the dark non-abyssal theme by putting className="dark" on the
+ * root view (app/_layout.tsx), which reuses the shared .dark declarations;
+ * never .theme-abyssal. Gradient-only tokens (--cetus-page-bg,
+ * --cetus-wordmark-*) are unsupported on native and simply unused here.
  */
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/preflight.css' layer(base);
@@ -17,7 +17,8 @@
 @source './app';
 
 /* Register Orbitron/Inter (loaded via expo-font in app/_layout.tsx) as the
-   default sans; unknown families fall back to the system font on native. */
+   default sans. The root layout overrides --font-sans/--cetus-display-font
+   at runtime so any font-load failure falls back to the system font. */
 @theme {
   --font-sans: 'Inter', sans-serif;
 }

@@ -53,18 +53,10 @@
   }
 }
 
-/* Native dark scope (HPA-179 mobile): react-native-css has no document root,
-   so the documented NativeWind v5 dark mechanism is a prefers-color-scheme
-   media query on :root. Values mirror .dark below verbatim; web always sets
-   the .dark class, so the media query is redundant there (appearance is
-   unchanged on both platforms). */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground: oklch(0.985 0 0);
-    --cetus-surface: rgba(255, 255, 255, 0.05);
-  }
-}
-
+/* Dark scope, shared by web and native (HPA-179): web adds the .dark class
+   on <html>; mobile adds className="dark" on its root view, which
+   react-native-css cascades to every descendant. No appearance-based
+   (prefers-color-scheme) scope exists here — web dark is class-driven only. */
 .dark {
   /* Cetus surface: white-opacity for dark backgrounds
      (root uses black-opacity for light mode, matching --border pattern).

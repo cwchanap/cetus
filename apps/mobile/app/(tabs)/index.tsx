@@ -14,10 +14,10 @@ function GameCard({ game }: { game: (typeof ACTIVE_GAMES)[number] }) {
       <Text className="font-display text-base font-bold text-cetus-ink">
         {game.name}
       </Text>
-      <Text className="text-[13px] text-cetus-ink-muted">
+      <Text className="font-sans text-[13px] text-cetus-ink-muted">
         {game.category} · {game.difficulty} difficulty
       </Text>
-      <Text className="text-xs text-cetus-accent">
+      <Text className="font-sans text-xs text-cetus-accent">
         Not playable on mobile yet
       </Text>
     </View>

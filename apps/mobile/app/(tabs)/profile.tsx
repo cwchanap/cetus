@@ -9,12 +9,12 @@ export default function ProfileScreen() {
       <Text className="font-display text-xl font-bold text-cetus-ink">
         Anonymous diver
       </Text>
-      <Text className="text-center text-sm text-cetus-ink-muted">
+      <Text className="font-sans text-center text-sm text-cetus-ink-muted">
         You are browsing Cetus without an account. Sign in to sync scores and
         achievements.
       </Text>
       <Link href="/sign-in">
-        <Text className="mt-1.5 text-[15px] font-semibold text-cetus-accent">
+        <Text className="font-sans mt-1.5 text-[15px] font-semibold text-cetus-accent">
           Sign in
         </Text>
       </Link>
