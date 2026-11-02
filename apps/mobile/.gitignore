@@ -10,7 +10,9 @@ dist/
 web-build/
 
 # generated types
-expo-env.d.ts
+# (expo-env.d.ts is committed: CI typechecks without running expo start,
+# and the side-effect `import '../global.css'` needs expo/types' *.css shim)
+# expo-env.d.ts
 
 # dependencies
 node_modules/

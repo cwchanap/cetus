@@ -3,6 +3,9 @@
    from there. No generator, no generated CSS, no TypeScript entry point. */
 
 :root {
+  /* Ink source token: moved unchanged from apps/web/src/styles/global.css
+     so --cetus-ink resolves on native too (web keeps overriding via .dark). */
+  --foreground: oklch(0.141 0.005 285.823);
   /* Cetus semantic tokens — default resolves to exact Tailwind v4 colors so
      non-abyssal pages are byte-identical to before tokenization. */
   --cetus-accent: oklch(0.789 0.154 211.53); /* cyan-400 */
@@ -50,12 +53,25 @@
   }
 }
 
+/* Native dark scope (HPA-179 mobile): react-native-css has no document root,
+   so the documented NativeWind v5 dark mechanism is a prefers-color-scheme
+   media query on :root. Values mirror .dark below verbatim; web always sets
+   the .dark class, so the media query is redundant there (appearance is
+   unchanged on both platforms). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground: oklch(0.985 0 0);
+    --cetus-surface: rgba(255, 255, 255, 0.05);
+  }
+}
+
 .dark {
   /* Cetus surface: white-opacity for dark backgrounds
      (root uses black-opacity for light mode, matching --border pattern).
      --cetus-hairline is not overridden here — it inherits the root
      slate-700/50 value so the Footer border matches the original
      border-slate-700/50 on non-abyssal pages. */
+  --foreground: oklch(0.985 0 0);
   --cetus-surface: rgba(255, 255, 255, 0.05);
 }
 
