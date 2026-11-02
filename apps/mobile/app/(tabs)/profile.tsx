@@ -94,16 +94,19 @@ export default function ProfileScreen() {
       <Text className="font-display text-xl font-bold text-cetus-ink">
         {session.user.name ?? session.user.email}
       </Text>
-      {session.user.name !== undefined && (
+      {session.user.name ? (
         <Text className="font-sans text-sm text-cetus-ink-muted">
           {session.user.email}
         </Text>
-      )}
+      ) : null}
       <ConnectionStatus sessionKey={sessionKey} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Sign out"
-        onPress={() => authClient.signOut()}
+        onPress={() => {
+          // Surface sign-out failures instead of an unhandled rejection.
+          authClient.signOut().catch(() => {})
+        }}
         className="mt-4 rounded-xl border border-cetus-hairline px-5 py-3"
       >
         <Text className="font-sans text-[15px] font-semibold text-cetus-ink">

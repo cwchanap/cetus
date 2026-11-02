@@ -29,7 +29,7 @@ export default function SignInScreen() {
       const { error: signInError } = await authClient.signIn.social({
         provider,
         // The destination rides through the browser round-trip as the
-        // callback URL (the expo server plugin rewrites it to the cetus://
+        // callback URL (the expo client plugin rewrites it to the cetus://
         // deep link on mobile requests), preserving return-to-Games/Profile.
         callbackURL: destination,
       })
