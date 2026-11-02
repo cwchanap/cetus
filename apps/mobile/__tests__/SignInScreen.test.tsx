@@ -2,7 +2,7 @@ import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
 
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ returnTo: undefined }),
+  useLocalSearchParams: jest.fn(() => ({ returnTo: undefined })),
   useRouter: () => ({ replace: jest.fn() }),
 }))
 
@@ -13,11 +13,13 @@ jest.mock('../src/lib/auth-client', () => ({
   },
 }))
 
+import { useLocalSearchParams } from 'expo-router'
 import SignInScreen from '../app/sign-in'
 import { authClient } from '../src/lib/auth-client'
 
 const signInSocial = jest.mocked(authClient.signIn.social)
 const getSession = jest.mocked(authClient.getSession)
+const mockParams = jest.mocked(useLocalSearchParams)
 
 const press = async (tree: TestRenderer.ReactTestRenderer, label: string) => {
   const button = tree.root.findByProps({ accessibilityLabel: label })
@@ -53,7 +55,7 @@ test('shows a visible error when the provider rejects the sign-in', async () => 
 
   expect(signInSocial).toHaveBeenCalledWith({
     provider: 'google',
-    callbackURL: '/profile',
+    callbackURL: '/(tabs)/profile',
   })
   const error = tree.root.findByProps({ testID: 'sign-in-error' })
   expect(error.props.children).toContain('rejected')
@@ -71,10 +73,42 @@ test('shows a visible error when the browser session is dismissed without an err
 
   expect(signInSocial).toHaveBeenCalledWith({
     provider: 'google',
-    callbackURL: '/profile',
+    callbackURL: '/(tabs)/profile',
   })
   const error = tree.root.findByProps({ testID: 'sign-in-error' })
   expect(error.props.children).toContain('canceled')
+})
+
+test('carries an allowlisted returnTo through the OAuth callback', async () => {
+  mockParams.mockReturnValueOnce({ returnTo: '/' })
+  signInSocial.mockResolvedValueOnce({
+    data: null,
+    error: { message: 'Access denied' },
+  })
+
+  const tree = await render()
+  await press(tree, 'Continue with Google')
+
+  expect(signInSocial).toHaveBeenCalledWith({
+    provider: 'google',
+    callbackURL: '/',
+  })
+})
+
+test('falls back to profile for unknown returnTo values', async () => {
+  mockParams.mockReturnValueOnce({ returnTo: 'evil://screen' })
+  signInSocial.mockResolvedValueOnce({
+    data: null,
+    error: { message: 'Access denied' },
+  })
+
+  const tree = await render()
+  await press(tree, 'Continue with Apple')
+
+  expect(signInSocial).toHaveBeenCalledWith({
+    provider: 'apple',
+    callbackURL: '/(tabs)/profile',
+  })
 })
 
 test('shows a visible error when the sign-in call throws', async () => {
@@ -85,7 +119,7 @@ test('shows a visible error when the sign-in call throws', async () => {
 
   expect(signInSocial).toHaveBeenCalledWith({
     provider: 'apple',
-    callbackURL: '/profile',
+    callbackURL: '/(tabs)/profile',
   })
   const error = tree.root.findByProps({ testID: 'sign-in-error' })
   expect(error.props.children).toContain('canceled')
