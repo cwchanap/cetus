@@ -1,15 +1,24 @@
 import { useState } from 'react'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 
 import { authClient } from '../src/lib/auth-client'
 
 type Provider = 'google' | 'apple'
 
+// Only known tab roots may be used as a post-login destination.
+const RETURN_TO_ALLOWED = ['/(tabs)/profile', '/'] as const
+
 // Browser OAuth on both platforms: the expo client plugin opens the system
 // browser and returns via the cetus:// deep link; no native provider SDKs.
 export default function SignInScreen() {
   const router = useRouter()
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>()
+  const destination = RETURN_TO_ALLOWED.includes(
+    returnTo as (typeof RETURN_TO_ALLOWED)[number]
+  )
+    ? (returnTo as string)
+    : '/(tabs)/profile'
   const [pending, setPending] = useState<Provider | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -25,11 +34,18 @@ export default function SignInScreen() {
         setError(
           `Sign-in was rejected (${signInError.message ?? provider}). Please try again.`
         )
-      } else {
-        router.replace('/(tabs)/profile')
+        return
       }
+      // A dismissed/canceled browser session resolves with error: null and
+      // no session — confirm the session before navigating.
+      const { data: session } = await authClient.getSession()
+      if (!session) {
+        setError('Sign-in was canceled. Please try again.')
+        return
+      }
+      router.replace(destination)
     } catch {
-      // Canceled browser flow or network failure — surface, never crash.
+      // Network failure or unexpected client error — surface, never crash.
       setError('Sign-in was canceled or failed. Please try again.')
     } finally {
       setPending(null)

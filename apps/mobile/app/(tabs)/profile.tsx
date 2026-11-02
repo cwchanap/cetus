@@ -5,11 +5,14 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { api } from '../../src/lib/api'
 import { authClient } from '../../src/lib/auth-client'
 
-// Session proof against the real backend: identity from Better Auth
-// `useSession`, authorization from the protected `GET /api/settings`
-// (200 signed in, 401 signed out). Profile editing stays in HPA-182.
-function ConnectionStatus({ signedIn }: { signedIn: boolean }) {
-  const [status, setStatus] = useState<'checking' | 'ok' | 'failed'>('checking')
+// Protected-API proof: the same `GET /api/settings` must succeed while
+// signed in and return 401 once signed out. Mounted in both session states
+// so the post-sign-out 401 is observable in the UI (live checks against the
+// real backend are the manual/device acceptance gate).
+function ConnectionStatus({ sessionKey }: { sessionKey: string }) {
+  const [status, setStatus] = useState<
+    'checking' | 'ok' | 'signed-out' | 'failed'
+  >('checking')
 
   useEffect(() => {
     let active = true
@@ -21,15 +24,20 @@ function ConnectionStatus({ signedIn }: { signedIn: boolean }) {
           setStatus('ok')
         }
       })
-      .catch(() => {
-        if (active) {
+      .catch((error: unknown) => {
+        if (!active) {
+          return
+        }
+        if ((error as { status?: number }).status === 401) {
+          setStatus('signed-out')
+        } else {
           setStatus('failed')
         }
       })
     return () => {
       active = false
     }
-  }, [signedIn])
+  }, [sessionKey])
 
   if (status === 'checking') {
     return <ActivityIndicator testID="api-checking" />
@@ -41,13 +49,17 @@ function ConnectionStatus({ signedIn }: { signedIn: boolean }) {
     >
       {status === 'ok'
         ? 'API: authenticated connection verified'
-        : 'API: request failed (signed out returns 401)'}
+        : status === 'signed-out'
+          ? 'API: signed out — protected endpoint rejected (401)'
+          : 'API: request failed (network or server error)'}
     </Text>
   )
 }
 
 export default function ProfileScreen() {
+  // useSession is Better Auth's react binding over getSession.
   const { data: session, isPending } = authClient.useSession()
+  const sessionKey = session?.user.id ?? 'anonymous'
 
   if (isPending) {
     return (
@@ -72,6 +84,7 @@ export default function ProfileScreen() {
             Sign in
           </Text>
         </Link>
+        <ConnectionStatus sessionKey={sessionKey} />
       </View>
     )
   }
@@ -86,7 +99,7 @@ export default function ProfileScreen() {
           {session.user.email}
         </Text>
       )}
-      <ConnectionStatus signedIn />
+      <ConnectionStatus sessionKey={sessionKey} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Sign out"

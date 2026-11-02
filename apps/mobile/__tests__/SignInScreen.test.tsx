@@ -2,21 +2,22 @@ import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: jest.fn() }),
-}))
-
-jest.mock('expo-router', () => ({
+  useLocalSearchParams: () => ({ returnTo: undefined }),
   useRouter: () => ({ replace: jest.fn() }),
 }))
 
 jest.mock('../src/lib/auth-client', () => ({
-  authClient: { signIn: { social: jest.fn() } },
+  authClient: {
+    signIn: { social: jest.fn() },
+    getSession: jest.fn(),
+  },
 }))
 
 import SignInScreen from '../app/sign-in'
 import { authClient } from '../src/lib/auth-client'
 
 const signInSocial = jest.mocked(authClient.signIn.social)
+const getSession = jest.mocked(authClient.getSession)
 
 const press = async (tree: TestRenderer.ReactTestRenderer, label: string) => {
   const button = tree.root.findByProps({ accessibilityLabel: label })
@@ -25,53 +26,67 @@ const press = async (tree: TestRenderer.ReactTestRenderer, label: string) => {
   })
 }
 
+const render = async () => {
+  let tree: TestRenderer.ReactTestRenderer | undefined
+  await act(async () => {
+    tree = TestRenderer.create(<SignInScreen />)
+  })
+  return tree!
+}
+
 afterEach(() => {
   signInSocial.mockReset()
+  getSession.mockReset()
 })
 
 // Rejected and canceled browser logins must surface a visible error — never
-// navigate, never crash. (Real provider flows are manual/device gates.)
+// navigate, never crash. (Real provider flows are manual/device gates; no
+// successful-OAuth mocks here.)
 test('shows a visible error when the provider rejects the sign-in', async () => {
   signInSocial.mockResolvedValueOnce({
     data: null,
     error: { message: 'Access denied' },
   })
 
-  let tree: TestRenderer.ReactTestRenderer | undefined
-  await act(async () => {
-    tree = TestRenderer.create(<SignInScreen />)
-  })
-  await press(tree!, 'Continue with Google')
-
-  const error = tree!.root.findByProps({ testID: 'sign-in-error' })
-  expect(error.props.children).toContain('rejected')
-  expect(error.props.children).toContain('Access denied')
-})
-
-test('shows a visible error when the browser flow is canceled', async () => {
-  signInSocial.mockRejectedValueOnce(new Error('User canceled the auth flow'))
-
-  let tree: TestRenderer.ReactTestRenderer | undefined
-  await act(async () => {
-    tree = TestRenderer.create(<SignInScreen />)
-  })
-  await press(tree!, 'Continue with Apple')
-
-  const error = tree!.root.findByProps({ testID: 'sign-in-error' })
-  expect(error.props.children).toContain('canceled')
-})
-
-test('requests the expected provider via the auth client', async () => {
-  signInSocial.mockResolvedValueOnce({ data: {}, error: null })
-
-  let tree: TestRenderer.ReactTestRenderer | undefined
-  await act(async () => {
-    tree = TestRenderer.create(<SignInScreen />)
-  })
-  await press(tree!, 'Continue with Google')
+  const tree = await render()
+  await press(tree, 'Continue with Google')
 
   expect(signInSocial).toHaveBeenCalledWith({
     provider: 'google',
     callbackURL: '/profile',
   })
+  const error = tree.root.findByProps({ testID: 'sign-in-error' })
+  expect(error.props.children).toContain('rejected')
+  expect(error.props.children).toContain('Access denied')
+})
+
+test('shows a visible error when the browser session is dismissed without an error', async () => {
+  // The installed expo client resolves a dismissed browser flow normally
+  // (error: null, no session) — the screen must treat it as canceled.
+  signInSocial.mockResolvedValueOnce({ data: null, error: null })
+  getSession.mockResolvedValueOnce({ data: null, error: null })
+
+  const tree = await render()
+  await press(tree, 'Continue with Google')
+
+  expect(signInSocial).toHaveBeenCalledWith({
+    provider: 'google',
+    callbackURL: '/profile',
+  })
+  const error = tree.root.findByProps({ testID: 'sign-in-error' })
+  expect(error.props.children).toContain('canceled')
+})
+
+test('shows a visible error when the sign-in call throws', async () => {
+  signInSocial.mockRejectedValueOnce(new Error('User canceled the auth flow'))
+
+  const tree = await render()
+  await press(tree, 'Continue with Apple')
+
+  expect(signInSocial).toHaveBeenCalledWith({
+    provider: 'apple',
+    callbackURL: '/profile',
+  })
+  const error = tree.root.findByProps({ testID: 'sign-in-error' })
+  expect(error.props.children).toContain('canceled')
 })
