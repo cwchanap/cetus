@@ -151,7 +151,7 @@ describe('Auth Apple Modes', () => {
         vi.unstubAllEnvs()
     })
 
-    it('boots with a fully configured Apple provider as a lazy factory', async () => {
+    it('boots with a fully configured Apple provider whose retained options re-sign per oauth2 call', async () => {
         vi.stubEnv('APPLE_SERVICE_ID', 'com.cetus.web.service')
         vi.stubEnv('APPLE_TEAM_ID', 'TEAM123')
         vi.stubEnv('APPLE_KEY_ID', 'KEY123')
@@ -167,10 +167,21 @@ describe('Auth Apple Modes', () => {
             'test-google-client-id'
         )
 
-        const provider = await apple()
-        expect(provider.clientId).toBe('com.cetus.web.service')
-        expect(typeof provider.clientSecret).toBe('string')
-        expect(provider.clientSecret.split('.')).toHaveLength(3)
+        // The provider better-auth retains after resolving the factory once:
+        // replicate create-context's own resolution (`await originalConfig()`)
+        // and prove the retained options are callable so every oauth2 call
+        // re-signs. (Context fields never populate in jsdom, so the retained
+        // provider itself is asserted via the same resolution path.)
+        const retainedOptions = await apple()
+        expect(typeof retainedOptions).toBe('function')
+        expect(retainedOptions.clientId).toBe('com.cetus.web.service')
+
+        const first = await retainedOptions()
+        expect(first.clientId).toBe('com.cetus.web.service')
+        expect(first.clientSecret.split('.')).toHaveLength(3)
+
+        const second = await retainedOptions()
+        expect(second.clientSecret).not.toBe(first.clientSecret)
     })
 
     it('throws naming the missing vars on partial Apple config', async () => {
@@ -180,6 +191,27 @@ describe('Auth Apple Modes', () => {
         await expect(import('@/lib/auth')).rejects.toThrow(
             /missing APPLE_KEY_ID, APPLE_PRIVATE_KEY/
         )
+    })
+
+    it('wires the expo plugin with the exact-origin wrapper', async () => {
+        vi.stubEnv('NODE_ENV', 'development')
+
+        const { auth } = await import('@/lib/auth')
+
+        // Context init never completes under unit-test mocks, so observe the
+        // wired plugin directly: its init result must not carry the upstream
+        // dev `exp://` origin that better-auth would merge into the
+        // effective allowlist (source-verified merge path; see ledger).
+        const options = (auth as any).options || (auth as any)._options
+        const plugin = (options?.plugins ?? []).find(
+            (p: { id: string }) => p.id === 'expo'
+        )
+        expect(plugin).toBeDefined()
+        expect(typeof plugin.init).toBe('function')
+
+        const result = await plugin.init({})
+        const origins = result?.options?.trustedOrigins ?? []
+        expect(origins).not.toContain('exp://')
     })
 })
 

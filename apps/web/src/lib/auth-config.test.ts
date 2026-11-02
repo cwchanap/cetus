@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { generateKeyPairSync } from 'node:crypto'
 import { decodeJwt, decodeProtectedHeader } from 'jose'
-import { resolveAuthConfig, type AuthEnvInput } from '@/lib/auth-config'
+import { expo } from '@better-auth/expo'
+import {
+    expoPluginWithExactOrigins,
+    resolveAuthConfig,
+    type AuthEnvInput,
+} from '@/lib/auth-config'
 
 // A real ES256 key pair so the Apple client-secret factory signs for real.
 const { privateKey } = generateKeyPairSync('ec', {
@@ -100,26 +105,36 @@ describe('resolveAuthConfig — Apple (optional)', () => {
         )
     })
 
-    it('builds a lazy Apple factory signing a fresh ES256 client secret', async () => {
+    it('builds a lazy Apple provider whose oauth2 reads sign fresh ES256 secrets', async () => {
         const config = resolveAuthConfig({
             env: { ...googleEnv, ...completeAppleEnv },
             isProd: false,
         })
         expect(typeof config.apple).toBe('function')
 
+        // better-auth resolves the factory once and retains the result; the
+        // retained options must be callable so every oauth2 call re-signs.
         const provider = await config.apple!()
+        expect(typeof provider).toBe('function')
         expect(provider.clientId).toBe('com.cetus.web.service')
 
-        const header = decodeProtectedHeader(provider.clientSecret)
+        const first = await provider()
+        expect(first.clientId).toBe('com.cetus.web.service')
+
+        const header = decodeProtectedHeader(first.clientSecret)
         expect(header.alg).toBe('ES256')
         expect(header.kid).toBe('KEY123')
 
-        const claims = decodeJwt(provider.clientSecret)
+        const claims = decodeJwt(first.clientSecret)
         expect(claims.sub).toBe('com.cetus.web.service')
         expect(claims.iss).toBe('TEAM123')
         expect(claims.aud).toBe('https://appleid.apple.com')
         // ~1 month validity, minted fresh at call time.
         expect(claims.exp! - claims.iat!).toBe(30 * 24 * 60 * 60)
+
+        // Each resolution mints a distinct secret — never once per process.
+        const second = await provider()
+        expect(second.clientSecret).not.toBe(first.clientSecret)
     })
 
     it('accepts a .p8 key with escaped newlines', async () => {
@@ -132,7 +147,33 @@ describe('resolveAuthConfig — Apple (optional)', () => {
             isProd: false,
         })
         const provider = await config.apple!()
-        expect(decodeProtectedHeader(provider.clientSecret).kid).toBe('KEY123')
+        const fresh = await provider()
+        expect(decodeProtectedHeader(fresh.clientSecret).kid).toBe('KEY123')
+    })
+})
+
+describe('expoPluginWithExactOrigins', () => {
+    it('keeps the upstream exp:// dev origin out of the plugin init result', async () => {
+        vi.stubEnv('NODE_ENV', 'development')
+
+        const upstream = expo()
+        const upstreamResult = await upstream.init!({} as never)
+        expect(upstreamResult?.options?.trustedOrigins).toContain('exp://')
+
+        const wrapped = expoPluginWithExactOrigins()
+        const wrappedResult = await wrapped.init!({} as never)
+        expect(wrappedResult?.options?.trustedOrigins).not.toContain('exp://')
+    })
+
+    it('leaves non-development init results untouched', async () => {
+        vi.stubEnv('NODE_ENV', 'production')
+
+        const wrapped = expoPluginWithExactOrigins()
+        const wrappedResult = await wrapped.init!({} as never)
+        // Upstream returns [] outside development; nothing to strip, no error.
+        expect(wrappedResult?.options?.trustedOrigins ?? []).not.toContain(
+            'exp://'
+        )
     })
 })
 
