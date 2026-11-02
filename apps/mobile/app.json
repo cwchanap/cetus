@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Cetus",
+    "slug": "cetus",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "scheme": "cetus",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "bundleIdentifier": "com.hapadona.cetus"
+    },
+    "android": {
+      "package": "com.hapadona.cetus"
+    },
+    "plugins": ["expo-router"]
+  }
+}

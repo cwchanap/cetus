@@ -15,6 +15,7 @@
     "astro": "bun run --cwd apps/web astro",
     "db:dev": "bun run --cwd apps/web db:dev",
     "web:dev": "bun run --cwd apps/web web:dev",
+    "mobile:dev": "bun run --cwd apps/mobile dev",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
