@@ -1,14 +1,22 @@
 {
-  "extends": ["expo/tsconfig.base", "@cetus/config/tsconfig.base.json"],
+  "extends": [
+    "expo/tsconfig.base",
+    "@cetus/config/tsconfig.base.json"
+  ],
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    // Jest globals for __tests__ (repo convention: explicit types list).
+    "types": ["jest"]
   },
   "include": [
     "app/**/*.ts",
     "app/**/*.tsx",
     "src/**/*.ts",
     "src/**/*.tsx",
+    "__tests__/**/*.ts",
+    "__tests__/**/*.tsx",
     "expo-env.d.ts",
-    ".expo/types/**/*.ts"
+    ".expo/types/**/*.ts",
+    "nativewind-env.d.ts"
   ]
 }

@@ -21,6 +21,9 @@ export default function TabsLayout() {
   )
 }
 
+// Nav chrome keeps plain colors: expo-router tab/header style props take no
+// className, and the canvas has no solid token (--cetus-page-bg is a
+// CSS-only gradient that native does not support).
 const styles = StyleSheet.create({
   header: { backgroundColor: '#0b1020' },
   headerTitle: { color: '#e8ecff' },

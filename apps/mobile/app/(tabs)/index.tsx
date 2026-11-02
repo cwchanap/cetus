@@ -1,4 +1,4 @@
-import { FlatList, StyleSheet, Text, View } from 'react-native'
+import { FlatList, Text, View } from 'react-native'
 import { GAMES } from '@cetus/shared/games'
 
 // All registry games are listed honestly: none are playable on mobile yet
@@ -7,42 +7,34 @@ const ACTIVE_GAMES = GAMES.filter(game => game.isActive)
 
 function GameCard({ game }: { game: (typeof ACTIVE_GAMES)[number] }) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.name}>{game.name}</Text>
-      <Text style={styles.meta}>
+    // Dark non-abyssal theme: surfaces/ink/hairline come from the shared
+    // --cetus-* tokens (see global.css); unsupported effects (wordmark
+    // gradient, animations) are simply not used here.
+    <View className="rounded-xl border border-cetus-hairline bg-cetus-surface gap-1.5 p-4">
+      <Text className="font-display text-base font-bold text-cetus-ink">
+        {game.name}
+      </Text>
+      <Text className="text-[13px] text-cetus-ink-muted">
         {game.category} · {game.difficulty} difficulty
       </Text>
-      <Text style={styles.badge}>Not playable on mobile yet</Text>
+      <Text className="text-xs text-cetus-accent">
+        Not playable on mobile yet
+      </Text>
     </View>
   )
 }
 
 export default function GamesScreen() {
   return (
+    // initialNumToRender >= registry size keeps every game mounted from the
+    // first render (no virtualized rows hiding catalog entries).
     <FlatList
-      style={styles.screen}
-      contentContainerStyle={styles.content}
+      className="flex-1 bg-[#05070f]"
+      contentContainerClassName="gap-3 p-4 pb-8"
       data={ACTIVE_GAMES}
+      initialNumToRender={ACTIVE_GAMES.length}
       keyExtractor={game => game.id}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
       renderItem={({ item }) => <GameCard game={item} />}
     />
   )
 }
-
-const styles = StyleSheet.create({
-  screen: { backgroundColor: '#05070f' },
-  content: { padding: 16, paddingBottom: 32 },
-  card: {
-    backgroundColor: '#0b1020',
-    borderColor: '#1b2440',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    gap: 6,
-  },
-  name: { color: '#e8ecff', fontSize: 16, fontWeight: '600' },
-  meta: { color: '#8b93b0', fontSize: 13 },
-  badge: { color: '#7ee7ff', fontSize: 12, marginTop: 2 },
-  separator: { height: 12 },
-})

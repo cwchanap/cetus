@@ -83,6 +83,14 @@ export default defineConfig({
             },
             {
                 test: {
+                    name: 'tokens',
+                    environment: 'node',
+                    globals: true,
+                    include: ['packages/tokens/**/*.test.ts'],
+                },
+            },
+            {
+                test: {
                     name: 'api-client',
                     environment: 'node',
                     globals: true,
