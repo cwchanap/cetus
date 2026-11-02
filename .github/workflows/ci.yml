@@ -52,8 +52,14 @@ jobs:
       - name: 📥 Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: 🔎 Typecheck all workspaces
+        run: bun run turbo run typecheck
+
       - name: 🧪 Run unit tests
         run: bun run test:run
+
+      - name: 📱 Run mobile Jest tests
+        run: bun run --cwd apps/mobile test
 
       - name: 📊 Generate coverage report
         run: bun run test:coverage

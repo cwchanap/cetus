@@ -124,18 +124,18 @@ apps/mobile/
 
 Record actual commands/device/build links, not a planned pass. A blocked external integration is **not a pass**.
 
-| Evidence | Pass criterion | Status at planning |
+| Evidence | Pass criterion | Status after implementation (2026-11-02; commits on this PR) |
 | --- | --- | --- |
-| HTTPS callback host | Owned fixed tunnel H reachable publicly, Apple/Google callbacks registered | Not provisioned/verified |
-| Expo compatibility | Pinned Expo + NativeWind RC + lightningcss; iOS/Android CSS smoke and web build | Not run |
-| App shell | 23 shared registry names, all four tabs, no fake playable games | Not run |
-| Theme/fonts | Shared `--foreground` resolves; dark palette, Orbitron/Inter on both platforms | Not run |
-| Web auth | Google-only browser login and server regression tests pass | Not run |
-| Mobile Google | Real iOS+Android login/error/cancel, restart and sign-out | Not run — credentials needed |
-| Mobile Apple | Real iOS+Android login/error/cancel on HTTPS H | Not run — Apple developer setup needed |
-| Protected API | `GET /api/settings` 200 signed in and 401 signed out, no stale cookie | Not run |
-| EAS preview | iOS and Android preview builds successful, real build links | Not run — EAS access needed |
-| Test/quality | Mobile 3 focused Jest tests, root tests/coverage, Turbo typecheck, ESLint, web build | Not run |
+| HTTPS callback host | Owned fixed tunnel H reachable publicly, Apple/Google callbacks registered | **Blocked - external.** No tunnel/domain provisioned in the implementation environment; provider registrations pending. Origin wiring (`BETTER_AUTH_URL`, `EXPO_PUBLIC_API_BASE_URL`), trusted origins and callback paths are implemented and unit-tested; `apps/mobile/eas.json` carries a REPLACE-WITH placeholder origin |
+| Expo compatibility | Pinned Expo + NativeWind RC + lightningcss; iOS/Android CSS smoke and web build | **Code-complete; device smoke pending.** expo 57.0.31 / react 19.2.3 (repo-aligned) / react-native 0.86.3 / nativewind 5.0.0-rc.0 / react-native-css 3.1.0-rc.0; lightningcss root pin 1.32.0 moved to 1.30.1 (1.32.0 breaks react-native-css native compile - Rust Specifier error; 1.30.1 proven on native compile AND a real web build, twice); expo-doctor 21/21 |
+| App shell | 23 shared registry names, all four tabs, no fake playable games | **Code-complete; device boot pending.** Catalog Jest asserts all 23 active registry games render |
+| Theme/fonts | Shared `--foreground` resolves; dark palette, Orbitron/Inter on both platforms | **Code-complete; device inspection pending.** `--foreground` moved unchanged into `packages/tokens/theme.css` with one Vitest self-containment assertion (new `tokens` project); web light/dark appearance preserved (verified in real web build output CSS); mobile dark via shared `.dark` class on the root + Appearance.setColorScheme("dark") + expo-system-ui |
+| Web auth | Google-only browser login and server regression tests pass | **Green.** Behavioral auth-config/auth tests (Google required incl. placeholder rejection; Apple none/complete/partial; exact trusted origins incl. no `exp://` even in dev); source-string "Google-only" tests removed; full suite 248 files / 4049 tests |
+| Mobile Google | Real iOS+Android login/error/cancel, restart and sign-out | **Blocked - external.** No devices/tunnel; cancellation/rejection paths covered by jest-expo tests |
+| Mobile Apple | Real iOS+Android login/error/cancel on HTTPS H | **Blocked - external.** Apple Developer setup unavailable; server-side provider implemented + tested (fresh per-flow ES256 secrets, no static token) |
+| Protected API | `GET /api/settings` 200 signed in and 401 signed out, no stale cookie | **Adapter-level green; live check pending.** Cookie present/absent + credentials "omit" jest tests; Profile UI distinguishes the signed-out 401 |
+| EAS preview | iOS and Android preview builds successful, real build links | **Blocked - external.** No EAS account/project; `eas.json` profiles ready with a documented placeholder origin; `eas init` + builds pending |
+| Test/quality | Mobile 3 focused Jest tests, root tests/coverage, Turbo typecheck, ESLint, web build | **Green where runnable:** mobile jest 3 suites / 8 tests; root test:run 4049 tests; turbo typecheck 7/7; ESLint 0 errors; format clean; real web build passed locally (CI-env dummies); CI now runs typecheck + mobile Jest in the test job |
 
 Provider credentials, signing, fixed DNS/tunnel and device availability are explicit prerequisites, not reasons to claim HPA-179 done early.
 

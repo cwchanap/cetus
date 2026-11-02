@@ -29,6 +29,25 @@ bun run preview
 
 Environment variables (`.env`) live in `apps/web/.env` (see `CLAUDE.md` for the full list).
 
+## 📱 Mobile App (Expo)
+
+`apps/mobile` (`@cetus/mobile`) is the Expo Router shell for iOS/Android: four tabs, the 23-game catalog from `@cetus/shared`, and Google/Apple **browser** sign-in against the same Better Auth server as the web app. Native game screens, native UI kit and Skia are separate tickets (HPA-182/HPA-425/HPA-533).
+
+```sh
+bun run mobile:dev              # expo start --dev-client (development builds only, no Expo Go)
+bun run --cwd apps/mobile test    # mobile Jest (jest-expo; separate from root Vitest)
+bun run --cwd apps/mobile typecheck
+bun run --cwd apps/mobile lint
+```
+
+Package boundaries: the mobile app consumes `@cetus/shared` and `@cetus/api-client` only. `@cetus/ui` is web React (native variants are HPA-182); `@cetus/games`/`@cetus/app-core` are not imported until native screens exist.
+
+**Mobile auth setup (manual prerequisites):**
+
+- `EXPO_PUBLIC_API_BASE_URL` must point at the **fixed HTTPS origin** (e.g. a named Cloudflare Tunnel on an owned subdomain forwarding to local `bun run dev`) that the backend also uses as `BETTER_AUTH_URL`. Replace the placeholder in `apps/mobile/eas.json` before any EAS build. This is the only public mobile env var — secrets (`APPLE_PRIVATE_KEY`, `GOOGLE_CLIENT_SECRET`, `BETTER_AUTH_SECRET`) stay in `apps/web/.env` on the server.
+- Apple sign-in needs a real Apple Developer setup: Services ID + return URL `<origin>/api/auth/callback/apple`, Team ID, Key ID and `.p8` key set via `APPLE_SERVICE_ID` / `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` in `apps/web/.env` (all four or none; partial config fails fast with the missing names). Google needs redirect `<origin>/api/auth/callback/google`.
+- Deep-link scheme is `cetus://`. Bundle ID `com.hapadona.cetus` is a **proposal pending owner confirmation**. No EAS project is linked yet — run `eas init` when the account exists; never invent a project ID.
+
 ## 🧪 Development Workflow
 
 ### Testing
@@ -78,7 +97,7 @@ bun run turbo run typecheck
 The project uses GitHub Actions for automated testing and building:
 
 - **Lint & Format**: ESLint and Prettier checks
-- **Test**: Unit tests with Vitest
+- **Test**: Typecheck (`turbo run typecheck`), unit tests with Vitest, mobile Jest (jest-expo), and coverage
 - **Build**: Astro production build
 - **Coverage**: Test coverage reporting (optional Codecov integration)
 
