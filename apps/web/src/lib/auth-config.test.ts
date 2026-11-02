@@ -153,6 +153,10 @@ describe('resolveAuthConfig — Apple (optional)', () => {
 })
 
 describe('expoPluginWithExactOrigins', () => {
+    afterEach(() => {
+        vi.unstubAllEnvs()
+    })
+
     it('keeps the upstream exp:// dev origin out of the plugin init result', async () => {
         vi.stubEnv('NODE_ENV', 'development')
 
