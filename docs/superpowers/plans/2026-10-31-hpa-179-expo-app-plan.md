@@ -1,6 +1,6 @@
 # HPA-179 — Expo app foundation and mobile OAuth: single-PR implementation plan
 
-**Status:** Documentation-only; implementation and native verification have not started (updated 2026-10-31 after [PR #100 design review](https://github.com/cwchanap/cetus/pull/100#issuecomment-6552609545)).
+**Status:** Implemented on PR #100 (2026-11-02) — all stages code-complete, automated gates green; native/external verification (fixed HTTPS host, providers, devices, EAS) pending per the sign-off ledger; PR stays draft.
 **Issue:** [HPA-179](https://linear.app/cwchanap/issue/HPA-179/scaffold-the-expo-app-with-google-and-apple-sign-in)
 **Design:** [Expo shell and native authentication design](../specs/2026-10-31-hpa-179-expo-app-design.md)
 **Baseline:** `main` at `5619dad54d5b69f8b71fdbfc49a2ea66b8d892b3`, after merged HPA-393/#99. Reconfirm main HEAD before implementing.

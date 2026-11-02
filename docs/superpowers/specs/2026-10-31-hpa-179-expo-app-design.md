@@ -1,6 +1,6 @@
 # HPA-179 — Expo mobile foundation and Google/Apple sign-in: design
 
-**Status:** Proposed; documentation-only draft (2026-10-31). No runtime implementation in this commit.
+**Status:** Implemented on PR #100 (2026-11-02) — code-complete, automated gates green; external acceptance (fixed HTTPS host, provider registration, device/EAS builds) still pending, PR stays draft.
 **Linear:** https://linear.app/cwchanap/issue/HPA-179/scaffold-the-expo-app-with-google-and-apple-sign-in
 **Baseline:** `main` at `5619dad54d5b69f8b71fdbfc49a2ea66b8d892b3` (after merged HPA-393/#99).
 **Delivery:** One PR for HPA-179. Add implementation as reviewed commits **to this same PR**, never a second PR for this ticket.

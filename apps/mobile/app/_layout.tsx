@@ -4,7 +4,7 @@ import { Stack } from 'expo-router'
 import { useFonts } from 'expo-font'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Appearance, Platform, StyleSheet, View } from 'react-native'
 import { VariableContextProvider } from 'react-native-css'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -38,26 +38,42 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 })
 
 export default function RootLayout() {
-  // Splash stays up until the fonts load or definitively fail.
+  // Splash stays up until the fonts load or definitively fail — or a
+  // bounded timeout expires so a stalled font promise cannot hold startup
+  // forever; the timeout falls back to system fonts like any other failure.
+  const FONT_TIMEOUT_MS = 5000
   const [fontsLoaded, fontError] = useFonts({
     Inter: Inter_400Regular,
     Orbitron: Orbitron_700Bold,
   })
   const fontsReady = fontsLoaded && fontError === null
   const appReady = fontsLoaded || fontError !== null
+  const [timedOut, setTimedOut] = useState(false)
 
   useEffect(() => {
     if (appReady) {
-      SplashScreen.hideAsync().catch(() => {})
+      return
     }
+    const timer = setTimeout(() => setTimedOut(true), FONT_TIMEOUT_MS)
+    return () => clearTimeout(timer)
   }, [appReady])
 
-  if (!appReady) {
+  const ready = appReady || timedOut
+
+  useEffect(() => {
+    if (ready) {
+      SplashScreen.hideAsync().catch(() => {})
+    }
+  }, [ready])
+
+  if (!ready) {
     return null
   }
 
   return (
-    <VariableContextProvider value={fontsReady ? CUSTOM_FONTS : SYSTEM_FONTS}>
+    <VariableContextProvider
+      value={fontsReady && !timedOut ? CUSTOM_FONTS : SYSTEM_FONTS}
+    >
       <SafeAreaProvider>
         <StatusBar style="light" />
         {/* `dark` activates the shared .dark token scope from @cetus/tokens —

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { generateKeyPairSync } from 'node:crypto'
 import { decodeJwt, decodeProtectedHeader } from 'jose'
 import { expo } from '@better-auth/expo'

@@ -21,8 +21,20 @@ if (!secret) {
 // helper; this file stays a thin singleton call over it.
 let config: ResolvedAuthConfig
 try {
+    // Name every private key explicitly: Astro's production build inlines
+    // import.meta.env properties that are referenced by name in this module
+    // — passing the whole env object would strip GOOGLE_*/APPLE_* from the
+    // server bundle and crash auth at module init in production.
     config = resolveAuthConfig({
-        env: import.meta.env,
+        env: {
+            BETTER_AUTH_URL: import.meta.env.BETTER_AUTH_URL,
+            GOOGLE_CLIENT_ID: import.meta.env.GOOGLE_CLIENT_ID,
+            GOOGLE_CLIENT_SECRET: import.meta.env.GOOGLE_CLIENT_SECRET,
+            APPLE_SERVICE_ID: import.meta.env.APPLE_SERVICE_ID,
+            APPLE_TEAM_ID: import.meta.env.APPLE_TEAM_ID,
+            APPLE_KEY_ID: import.meta.env.APPLE_KEY_ID,
+            APPLE_PRIVATE_KEY: import.meta.env.APPLE_PRIVATE_KEY,
+        },
         isProd: import.meta.env.PROD,
     })
 } catch (error) {
