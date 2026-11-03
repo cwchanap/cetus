@@ -59,6 +59,7 @@ function ConnectionStatus({ sessionKey }: { sessionKey: string }) {
 export default function ProfileScreen() {
   // useSession is Better Auth's react binding over getSession.
   const { data: session, isPending } = authClient.useSession()
+  const [signOutFailed, setSignOutFailed] = useState(false)
   const sessionKey = session?.user.id ?? 'anonymous'
 
   if (isPending) {
@@ -104,8 +105,19 @@ export default function ProfileScreen() {
         accessibilityRole="button"
         accessibilityLabel="Sign out"
         onPress={() => {
-          // Surface sign-out failures instead of an unhandled rejection.
-          authClient.signOut().catch(() => {})
+          // Better Auth resolves with { error } on failure; surface that and
+          // rejected calls alike instead of silently staying signed in.
+          setSignOutFailed(false)
+          authClient
+            .signOut()
+            .then(result => {
+              // auth-client resolves failed calls with `{ error }` instead of
+              // throwing (same contract as the web sign-out handler).
+              if (result?.error) {
+                setSignOutFailed(true)
+              }
+            })
+            .catch(() => setSignOutFailed(true))
         }}
         className="mt-4 rounded-xl border border-cetus-hairline px-5 py-3"
       >
@@ -113,6 +125,14 @@ export default function ProfileScreen() {
           Sign out
         </Text>
       </Pressable>
+      {signOutFailed ? (
+        <Text
+          accessibilityRole="alert"
+          className="font-sans text-sm text-red-400"
+        >
+          Sign-out failed. Please try again.
+        </Text>
+      ) : null}
     </View>
   )
 }
