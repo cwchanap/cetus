@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock the auth module
 vi.mock('@/lib/auth', () => ({
@@ -131,7 +131,17 @@ describe('middleware', () => {
 
 // The re-implemented origin check (Astro's checkOrigin is disabled in config
 // so /api/auth/callback/apple can accept Apple's cross-site form_post).
+// The check only runs in production — matching the stock check, which the
+// dev pipeline never enabled.
 describe('middleware — origin check', () => {
+    beforeEach(() => {
+        vi.stubEnv('PROD', true)
+    })
+
+    afterEach(() => {
+        vi.unstubAllEnvs()
+    })
+
     function makeNext() {
         return vi.fn().mockResolvedValue(new Response('OK'))
     }
@@ -199,6 +209,17 @@ describe('middleware — origin check', () => {
             },
             body: 'code=abc&state=xyz',
         })
+        const next = makeNext()
+
+        await (onRequest as any)(context, next)
+
+        expect(next).toHaveBeenCalled()
+    })
+
+    it('does not run the check in dev — bare API clients keep working', async () => {
+        vi.stubEnv('PROD', false)
+        vi.mocked(auth.api.getSession).mockResolvedValueOnce(null as any)
+        const context = makePostContext('/api/login-rewards/claim', {})
         const next = makeNext()
 
         await (onRequest as any)(context, next)
