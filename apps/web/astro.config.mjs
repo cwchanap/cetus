@@ -17,5 +17,11 @@ export default defineConfig({
 
   integrations: [react()],
 
+  // The built-in origin check is all-or-nothing and would 403 Apple's
+  // cross-site form_post callback before Better Auth sees it. It is
+  // re-implemented in src/middleware.ts with /api/auth/callback/apple
+  // exempted (Better Auth enforces its own trustedOrigins there).
+  security: { checkOrigin: false },
+
   adapter: vercel(),
 })

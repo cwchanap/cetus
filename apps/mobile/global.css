@@ -27,6 +27,7 @@
    mirroring apps/web/src/styles/global.css. `inline` keeps the var()
    reference so runtime dark-scheme variable resolution stays reactive. */
 @theme inline {
+  --color-cetus-canvas: var(--cetus-canvas);
   --color-cetus-accent: var(--cetus-accent);
   --color-cetus-accent-2: var(--cetus-accent-2);
   --color-cetus-accent-3: var(--cetus-accent-3);

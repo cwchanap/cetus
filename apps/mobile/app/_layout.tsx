@@ -1,12 +1,17 @@
-import { Inter_400Regular } from '@expo-google-fonts/inter'
-import { Orbitron_700Bold } from '@expo-google-fonts/orbitron'
+// Deep per-weight imports: the package roots re-export every weight, which
+// bundles ~6 MB of unused .ttf assets. Only these two are loaded.
+import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular'
+import { Orbitron_700Bold } from '@expo-google-fonts/orbitron/700Bold'
 import { Stack } from 'expo-router'
 import { useFonts } from 'expo-font'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect, useState } from 'react'
-import { Appearance, Platform, StyleSheet, View } from 'react-native'
-import { VariableContextProvider } from 'react-native-css'
+import { Appearance, Platform, View } from 'react-native'
+import {
+  useNativeVariable,
+  VariableContextProvider,
+} from 'react-native-css/native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import '../global.css'
@@ -60,6 +65,13 @@ export default function RootLayout() {
 
   const ready = appReady || timedOut
 
+  // Nav chrome resolves the shared solid tokens at runtime: header/tab props
+  // take no className, and the token file is the single source of truth (no
+  // copied color constants in the app).
+  const canvas = useNativeVariable('--cetus-canvas')
+  const chromeBg = useNativeVariable('--cetus-chrome')
+  const chromeTint = useNativeVariable('--cetus-chrome-tint')
+
   useEffect(() => {
     if (ready) {
       SplashScreen.hideAsync().catch(() => {})
@@ -82,9 +94,9 @@ export default function RootLayout() {
         <View className="dark flex-1">
           <Stack
             screenOptions={{
-              headerStyle: styles.header,
-              headerTintColor: '#7ee7ff',
-              contentStyle: styles.content,
+              headerStyle: { backgroundColor: chromeBg },
+              headerTintColor: chromeTint,
+              contentStyle: { backgroundColor: canvas },
             }}
           >
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -95,11 +107,3 @@ export default function RootLayout() {
     </VariableContextProvider>
   )
 }
-
-// Nav chrome keeps plain colors: expo-router header style props take no
-// className, and the canvas has no solid token (--cetus-page-bg is a
-// CSS-only gradient that native does not support).
-const styles = StyleSheet.create({
-  header: { backgroundColor: '#0b1020' },
-  content: { backgroundColor: '#05070f' },
-})

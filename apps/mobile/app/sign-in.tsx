@@ -32,6 +32,10 @@ export default function SignInScreen() {
         // callback URL (the expo client plugin rewrites it to the cetus://
         // deep link on mobile requests), preserving return-to-Games/Profile.
         callbackURL: destination,
+        // Provider errors (deny/cancel at Google/Apple) redirect here too —
+        // without it the browser lands on the server's https error page and
+        // is stranded outside the app.
+        errorCallbackURL: destination,
       })
       if (signInError) {
         setError(
@@ -46,7 +50,10 @@ export default function SignInScreen() {
         setError('Sign-in was canceled. Please try again.')
         return
       }
-      router.replace(destination)
+      // dismissTo pops this screen back to the existing (tabs) navigator
+      // (and selects the destination tab) — replace() would stack a second
+      // (tabs), which Android back would resurface.
+      router.dismissTo(destination)
     } catch {
       // Network failure or unexpected client error — surface, never crash.
       setError('Sign-in was canceled or failed. Please try again.')
@@ -56,7 +63,7 @@ export default function SignInScreen() {
   }
 
   return (
-    <View className="flex-1 items-center justify-center gap-2.5 bg-[#05070f] p-6">
+    <View className="flex-1 items-center justify-center gap-2.5 bg-cetus-canvas p-6">
       <Text className="font-display text-xl font-bold text-cetus-ink">
         Sign in to Cetus
       </Text>

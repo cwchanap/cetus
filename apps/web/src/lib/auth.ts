@@ -34,6 +34,7 @@ try {
             APPLE_TEAM_ID: import.meta.env.APPLE_TEAM_ID,
             APPLE_KEY_ID: import.meta.env.APPLE_KEY_ID,
             APPLE_PRIVATE_KEY: import.meta.env.APPLE_PRIVATE_KEY,
+            ENABLE_EXPO_AUTH: import.meta.env.ENABLE_EXPO_AUTH,
         },
         isProd: import.meta.env.PROD,
     })
@@ -47,7 +48,10 @@ export const auth = betterAuth({
         dialect,
         type: 'sqlite',
     },
-    plugins: [expoPluginWithExactOrigins()],
+    // The expo plugin ships an authorization proxy that redirects to any
+    // external https origin — register it only when the mobile backend is
+    // actually enabled (ENABLE_EXPO_AUTH), not on production web.
+    plugins: config.expoEnabled ? [expoPluginWithExactOrigins()] : [],
     socialProviders: {
         google: config.google,
         ...(config.apple ? { apple: config.apple } : {}),

@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { generateKeyPairSync } from 'node:crypto'
 import { authClient } from '@/lib/auth-client'
 
+// A real ES256 key pair for tests that boot the full Apple provider config.
+const { privateKey: appleTestKey } = generateKeyPairSync('ec', {
+    namedCurve: 'prime256v1',
+})
+const testP8 = appleTestKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+
 // Mock the DB module before importing auth.ts in behavioral tests
 // Provide a minimal Kysely dialect interface to prevent betterAuth init errors
 vi.mock('@/lib/server/db', () => ({
@@ -31,6 +37,10 @@ describe('Auth Behavioral Config', () => {
         vi.resetModules()
     })
 
+    afterEach(() => {
+        vi.unstubAllEnvs()
+    })
+
     it('does not enable emailAndPassword authentication', async () => {
         const { auth } = await import('@/lib/auth')
 
@@ -54,7 +64,8 @@ describe('Auth Behavioral Config', () => {
         expect(options?.socialProviders?.apple).toBeUndefined()
     })
 
-    it('registers the expo server plugin', async () => {
+    it('registers the expo server plugin only when ENABLE_EXPO_AUTH is set', async () => {
+        vi.stubEnv('ENABLE_EXPO_AUTH', '1')
         const { auth } = await import('@/lib/auth')
 
         const options = (auth as any).options || (auth as any)._options
@@ -64,7 +75,26 @@ describe('Auth Behavioral Config', () => {
         expect(pluginIds).toContain('expo')
     })
 
+    it('omits the expo server plugin and cetus:// origin when ENABLE_EXPO_AUTH is unset', async () => {
+        const { auth } = await import('@/lib/auth')
+
+        const options = (auth as any).options || (auth as any)._options
+        const pluginIds = (options?.plugins ?? []).map(
+            (plugin: { id: string }) => plugin.id
+        )
+        expect(pluginIds).not.toContain('expo')
+        expect(options?.trustedOrigins).not.toContain('cetus://')
+    })
+
     it('trusts exactly the web origin plus the Expo and Apple origins', async () => {
+        // Both origins are conditional now: cetus:// needs the expo flag,
+        // appleid needs a fully configured Apple provider.
+        vi.stubEnv('ENABLE_EXPO_AUTH', '1')
+        vi.stubEnv('APPLE_SERVICE_ID', 'com.cetus.web.service')
+        vi.stubEnv('APPLE_TEAM_ID', 'TEAM123')
+        vi.stubEnv('APPLE_KEY_ID', 'KEY123')
+        vi.stubEnv('APPLE_PRIVATE_KEY', testP8)
+
         const { auth } = await import('@/lib/auth')
 
         const options = (auth as any).options || (auth as any)._options
@@ -136,13 +166,6 @@ describe('Auth Env Validation', () => {
 })
 
 describe('Auth Apple Modes', () => {
-    const { privateKey } = generateKeyPairSync('ec', {
-        namedCurve: 'prime256v1',
-    })
-    const testP8 = privateKey
-        .export({ type: 'pkcs8', format: 'pem' })
-        .toString()
-
     beforeEach(() => {
         vi.resetModules()
     })
@@ -189,12 +212,13 @@ describe('Auth Apple Modes', () => {
         vi.stubEnv('APPLE_TEAM_ID', 'TEAM123')
 
         await expect(import('@/lib/auth')).rejects.toThrow(
-            /missing APPLE_KEY_ID, APPLE_PRIVATE_KEY/
+            /missing or placeholder APPLE_KEY_ID, APPLE_PRIVATE_KEY/
         )
     })
 
     it('wires the expo plugin with the exact-origin wrapper', async () => {
         vi.stubEnv('NODE_ENV', 'development')
+        vi.stubEnv('ENABLE_EXPO_AUTH', '1')
 
         const { auth } = await import('@/lib/auth')
 
