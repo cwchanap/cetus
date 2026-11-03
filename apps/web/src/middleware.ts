@@ -8,6 +8,10 @@ import { defineMiddleware } from 'astro:middleware'
 // urlencoded POST from https://appleid.apple.com, which the stock check
 // would 403 before Better Auth runs. Better Auth enforces its own
 // trustedOrigins check on the callback, so the exemption is safe.
+// The check is gated on PROD because the stock check never ran in `astro
+// dev` (the dev pipeline resolves the manifest flag before buildOutput is
+// known) — bare API clients without an Origin header (Playwright, curl)
+// must keep working in dev.
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 const FORM_CONTENT_TYPES = [
     'application/x-www-form-urlencoded',
@@ -19,6 +23,7 @@ const ORIGIN_CHECK_EXEMPT_PATHS = new Set(['/api/auth/callback/apple'])
 export const onRequest = defineMiddleware(async (context, next) => {
     const { request, url, isPrerendered } = context
     if (
+        import.meta.env.PROD &&
         !isPrerendered &&
         !SAFE_METHODS.has(request.method) &&
         !ORIGIN_CHECK_EXEMPT_PATHS.has(url.pathname) &&
