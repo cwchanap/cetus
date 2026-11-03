@@ -7,4 +7,17 @@ const { withNativewind } = require('nativewind/metro')
 
 const config = getDefaultConfig(__dirname)
 
-module.exports = withNativewind(config)
+// react-native-css inlines every CSS variable declared exactly once, which
+// would freeze the runtime-overridden values below: VariableContextProvider
+// swaps the font vars on load failure and the root `dark` class resolves the
+// theme vars. Exclude them so they stay dynamic.
+module.exports = withNativewind(config, {
+  inlineVariables: {
+    exclude: [
+      '--cetus-ink',
+      '--foreground',
+      '--font-sans',
+      '--cetus-display-font',
+    ],
+  },
+})
