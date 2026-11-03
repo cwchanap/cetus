@@ -31,6 +31,17 @@
   --cetus-display-font: 'Orbitron', monospace;
   --cetus-display-weight: 700;
   --cetus-display-style: normal;
+  /* Native chrome palette (HPA-179): solid colors the Expo shell resolves at
+     runtime via react-native-css useNativeVariable for props that take no
+     className (nav headers, tab bar). Declared once here — apps/mobile's
+     metro config excludes them from variable inlining so they stay readable
+     at runtime. Web never consumes them (its chrome uses other utilities). */
+  --cetus-canvas: #05070f;
+  --cetus-chrome: #0b1020;
+  --cetus-chrome-ink: #e8ecff;
+  --cetus-chrome-tint: #7ee7ff;
+  --cetus-chrome-muted: #5b6480;
+  --cetus-chrome-border: #1b2440;
   --cetus-wordmark-bg: linear-gradient(
     45deg,
     rgb(34 211 238),

@@ -59,12 +59,11 @@ function ConnectionStatus({ sessionKey }: { sessionKey: string }) {
 export default function ProfileScreen() {
   // useSession is Better Auth's react binding over getSession.
   const { data: session, isPending } = authClient.useSession()
-  const [signOutFailed, setSignOutFailed] = useState(false)
   const sessionKey = session?.user.id ?? 'anonymous'
 
   if (isPending) {
     return (
-      <View className="flex-1 items-center justify-center bg-[#05070f]">
+      <View className="flex-1 items-center justify-center bg-cetus-canvas">
         <ActivityIndicator />
       </View>
     )
@@ -72,7 +71,7 @@ export default function ProfileScreen() {
 
   if (!session) {
     return (
-      <View className="flex-1 items-center justify-center gap-2.5 bg-[#05070f] p-6">
+      <View className="flex-1 items-center justify-center gap-2.5 bg-cetus-canvas p-6">
         <Text className="font-display text-xl font-bold text-cetus-ink">
           Anonymous diver
         </Text>
@@ -91,7 +90,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View className="flex-1 items-center justify-center gap-2.5 bg-[#05070f] p-6">
+    <View className="flex-1 items-center justify-center gap-2.5 bg-cetus-canvas p-6">
       <Text className="font-display text-xl font-bold text-cetus-ink">
         {session.user.name || session.user.email}
       </Text>
@@ -105,19 +104,12 @@ export default function ProfileScreen() {
         accessibilityRole="button"
         accessibilityLabel="Sign out"
         onPress={() => {
-          // Better Auth resolves with { error } on failure; surface that and
-          // rejected calls alike instead of silently staying signed in.
-          setSignOutFailed(false)
-          authClient
-            .signOut()
-            .then(result => {
-              // auth-client resolves failed calls with `{ error }` instead of
-              // throwing (same contract as the web sign-out handler).
-              if (result?.error) {
-                setSignOutFailed(true)
-              }
-            })
-            .catch(() => setSignOutFailed(true))
+          // The expo client clears the local session in its fetch `init`
+          // hook — before the request resolves — so a failed sign-out is
+          // never observable here: the screen is already on the signed-out
+          // view (and the user IS signed out locally regardless). Swallow
+          // rejections; there is nothing to surface.
+          void authClient.signOut().catch(() => {})
         }}
         className="mt-4 rounded-xl border border-cetus-hairline px-5 py-3"
       >
@@ -125,14 +117,6 @@ export default function ProfileScreen() {
           Sign out
         </Text>
       </Pressable>
-      {signOutFailed ? (
-        <Text
-          accessibilityRole="alert"
-          className="font-sans text-sm text-red-400"
-        >
-          Sign-out failed. Please try again.
-        </Text>
-      ) : null}
     </View>
   )
 }

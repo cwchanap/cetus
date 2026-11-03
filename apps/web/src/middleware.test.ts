@@ -18,16 +18,18 @@ import { onRequest } from './middleware'
 import { auth } from '@/lib/auth'
 
 interface TestContext {
-    request: { headers: Headers }
+    request: Request
+    url: URL
+    isPrerendered: boolean
     locals: Record<string, unknown>
 }
 
 describe('middleware', () => {
     function makeContext(overrides: Partial<TestContext> = {}): TestContext {
         return {
-            request: {
-                headers: new Headers(),
-            },
+            request: new Request('https://cetus.example/page'),
+            url: new URL('https://cetus.example/page'),
+            isPrerendered: false,
             locals: {},
             ...overrides,
         }
@@ -86,14 +88,18 @@ describe('middleware', () => {
         vi.mocked(auth.api.getSession).mockResolvedValueOnce(null as any)
 
         const headers = new Headers({ Authorization: 'Bearer token123' })
-        const context = makeContext({ request: { headers } })
+        const context = makeContext({
+            request: new Request('https://cetus.example/page', { headers }),
+        })
         const next = makeNext()
 
         await (onRequest as any)(context, next)
 
-        expect(auth.api.getSession).toHaveBeenCalledWith({
-            headers,
-        })
+        // Request copies its init headers — assert on the carried value.
+        const calledArgs = vi.mocked(auth.api.getSession).mock.calls.at(0)?.[0]
+        expect((calledArgs?.headers as Headers).get('Authorization')).toBe(
+            'Bearer token123'
+        )
     })
 
     it('should return the response from next()', async () => {
@@ -120,5 +126,99 @@ describe('middleware', () => {
             'Test error'
         )
         expect(next).not.toHaveBeenCalled()
+    })
+})
+
+// The re-implemented origin check (Astro's checkOrigin is disabled in config
+// so /api/auth/callback/apple can accept Apple's cross-site form_post).
+describe('middleware — origin check', () => {
+    function makeNext() {
+        return vi.fn().mockResolvedValue(new Response('OK'))
+    }
+
+    function makePostContext(path: string, init: RequestInit): TestContext {
+        return {
+            request: new Request(`https://cetus.example${path}`, {
+                method: 'POST',
+                ...init,
+            }),
+            url: new URL(`https://cetus.example${path}`),
+            isPrerendered: false,
+            locals: {},
+        }
+    }
+
+    it('403s a cross-site form post', async () => {
+        const context = makePostContext('/api/scores', {
+            headers: {
+                'content-type': 'application/x-www-form-urlencoded',
+                origin: 'https://evil.example',
+            },
+            body: 'a=1',
+        })
+        const next = makeNext()
+
+        const response = await (onRequest as any)(context, next)
+
+        expect(response.status).toBe(403)
+        expect(next).not.toHaveBeenCalled()
+    })
+
+    it('403s a POST with no origin and no content-type', async () => {
+        const context = makePostContext('/api/scores', {})
+        const next = makeNext()
+
+        const response = await (onRequest as any)(context, next)
+
+        expect(response.status).toBe(403)
+        expect(next).not.toHaveBeenCalled()
+    })
+
+    it('passes a same-origin form post through', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValueOnce(null as any)
+        const context = makePostContext('/api/scores', {
+            headers: {
+                'content-type': 'application/x-www-form-urlencoded',
+                origin: 'https://cetus.example',
+            },
+            body: 'a=1',
+        })
+        const next = makeNext()
+
+        await (onRequest as any)(context, next)
+
+        expect(next).toHaveBeenCalled()
+    })
+
+    it('exempts the Apple OAuth callback — its origin is cross-site by design', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValueOnce(null as any)
+        const context = makePostContext('/api/auth/callback/apple', {
+            headers: {
+                'content-type': 'application/x-www-form-urlencoded',
+                origin: 'https://appleid.apple.com',
+            },
+            body: 'code=abc&state=xyz',
+        })
+        const next = makeNext()
+
+        await (onRequest as any)(context, next)
+
+        expect(next).toHaveBeenCalled()
+    })
+
+    it('passes cross-origin JSON posts (the check only covers form-like bodies)', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValueOnce(null as any)
+        const context = makePostContext('/api/scores', {
+            headers: {
+                'content-type': 'application/json',
+                origin: 'https://other.example',
+            },
+            body: '{}',
+        })
+        const next = makeNext()
+
+        await (onRequest as any)(context, next)
+
+        expect(next).toHaveBeenCalled()
     })
 })

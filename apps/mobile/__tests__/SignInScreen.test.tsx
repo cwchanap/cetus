@@ -3,7 +3,7 @@ import TestRenderer, { act } from 'react-test-renderer'
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(() => ({ returnTo: undefined })),
-  useRouter: () => ({ replace: jest.fn() }),
+  useRouter: () => ({ dismissTo: jest.fn() }),
 }))
 
 jest.mock('../src/lib/auth-client', () => ({
@@ -56,6 +56,7 @@ test('shows a visible error when the provider rejects the sign-in', async () => 
   expect(signInSocial).toHaveBeenCalledWith({
     provider: 'google',
     callbackURL: '/(tabs)/profile',
+    errorCallbackURL: '/(tabs)/profile',
   })
   const error = tree.root.findByProps({ testID: 'sign-in-error' })
   expect(error.props.children).toContain('rejected')
@@ -74,6 +75,7 @@ test('shows a visible error when the browser session is dismissed without an err
   expect(signInSocial).toHaveBeenCalledWith({
     provider: 'google',
     callbackURL: '/(tabs)/profile',
+    errorCallbackURL: '/(tabs)/profile',
   })
   const error = tree.root.findByProps({ testID: 'sign-in-error' })
   expect(error.props.children).toContain('canceled')
@@ -92,6 +94,7 @@ test('carries an allowlisted returnTo through the OAuth callback', async () => {
   expect(signInSocial).toHaveBeenCalledWith({
     provider: 'google',
     callbackURL: '/',
+    errorCallbackURL: '/',
   })
 })
 
@@ -108,6 +111,7 @@ test('falls back to profile for unknown returnTo values', async () => {
   expect(signInSocial).toHaveBeenCalledWith({
     provider: 'apple',
     callbackURL: '/(tabs)/profile',
+    errorCallbackURL: '/(tabs)/profile',
   })
 })
 
@@ -120,6 +124,7 @@ test('shows a visible error when the sign-in call throws', async () => {
   expect(signInSocial).toHaveBeenCalledWith({
     provider: 'apple',
     callbackURL: '/(tabs)/profile',
+    errorCallbackURL: '/(tabs)/profile',
   })
   const error = tree.root.findByProps({ testID: 'sign-in-error' })
   expect(error.props.children).toContain('canceled')

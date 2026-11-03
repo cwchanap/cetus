@@ -44,7 +44,8 @@ Package boundaries: mobile **application code** consumes `@cetus/shared` and `@c
 
 **Mobile auth setup (manual prerequisites):**
 
-- `EXPO_PUBLIC_API_BASE_URL` must point at the **fixed HTTPS origin** (e.g. a named Cloudflare Tunnel on an owned subdomain forwarding to local `bun run dev`) that the backend also uses as `BETTER_AUTH_URL`. Replace the placeholder in `apps/mobile/eas.json` before any EAS build. This is the only public mobile env var — secrets (`APPLE_PRIVATE_KEY`, `GOOGLE_CLIENT_SECRET`, `BETTER_AUTH_SECRET`) stay in `apps/web/.env` on the server.
+- `EXPO_PUBLIC_API_BASE_URL` must point at the **fixed HTTPS origin** (e.g. a named Cloudflare Tunnel on an owned subdomain forwarding to local `bun run dev`) that the backend also uses as `BETTER_AUTH_URL`. Replace the placeholder in `apps/mobile/eas.json` before any EAS build (the app refuses to boot against it). This is the only public mobile env var — secrets (`APPLE_PRIVATE_KEY`, `GOOGLE_CLIENT_SECRET`, `BETTER_AUTH_SECRET`) stay in `apps/web/.env` on the server.
+- The backend serves the mobile OAuth flow only with `ENABLE_EXPO_AUTH=1` in `apps/web/.env`: it registers the Better Auth expo plugin (authorization proxy + `cetus://` deep-link origin). Leave it unset on deployments that serve web only — the proxy is an open redirector and should not run on production web.
 - Apple sign-in needs a real Apple Developer setup: Services ID + return URL `<origin>/api/auth/callback/apple`, Team ID, Key ID and `.p8` key set via `APPLE_SERVICE_ID` / `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` in `apps/web/.env` (all four or none; partial config fails fast with the missing names). Google needs redirect `<origin>/api/auth/callback/google`.
 - Deep-link scheme is `cetus://`. Bundle ID `com.hapadona.cetus` is a **proposal pending owner confirmation**. No EAS project is linked yet — run `eas init` when the account exists; never invent a project ID.
 

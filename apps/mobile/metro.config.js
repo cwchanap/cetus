@@ -7,17 +7,21 @@ const { withNativewind } = require('nativewind/metro')
 
 const config = getDefaultConfig(__dirname)
 
-// react-native-css inlines every CSS variable declared exactly once, which
-// would freeze the runtime-overridden values below: VariableContextProvider
-// swaps the font vars on load failure and the root `dark` class resolves the
-// theme vars. Exclude them so they stay dynamic.
+// react-native-css inlines every CSS variable declared exactly once. The
+// chrome tokens below are declared once in @cetus/tokens :root and read at
+// runtime via useNativeVariable for header/tab-bar props — inlining would
+// drop them from the runtime variable context. (Multi-declared vars like
+// --foreground, --cetus-ink, --font-sans and --cetus-display-font are never
+// inlined anyway and need no exclusion.)
 module.exports = withNativewind(config, {
   inlineVariables: {
     exclude: [
-      '--cetus-ink',
-      '--foreground',
-      '--font-sans',
-      '--cetus-display-font',
+      '--cetus-canvas',
+      '--cetus-chrome',
+      '--cetus-chrome-ink',
+      '--cetus-chrome-tint',
+      '--cetus-chrome-muted',
+      '--cetus-chrome-border',
     ],
   },
 })

@@ -1,16 +1,27 @@
 import { Tabs } from 'expo-router'
-import { StyleSheet } from 'react-native'
+import { useNativeVariable } from 'react-native-css/native'
 
 export default function TabsLayout() {
+  // Nav chrome resolves the shared solid tokens at runtime — header/tab props
+  // take no className, and @cetus/tokens is the single source of truth.
+  const chromeBg = useNativeVariable('--cetus-chrome')
+  const chromeInk = useNativeVariable('--cetus-chrome-ink')
+  const chromeTint = useNativeVariable('--cetus-chrome-tint')
+  const chromeMuted = useNativeVariable('--cetus-chrome-muted')
+  const chromeBorder = useNativeVariable('--cetus-chrome-border')
+
   return (
     <Tabs
       screenOptions={{
-        headerStyle: styles.header,
-        headerTintColor: '#7ee7ff',
-        headerTitleStyle: styles.headerTitle,
-        tabBarStyle: styles.bar,
-        tabBarActiveTintColor: '#7ee7ff',
-        tabBarInactiveTintColor: '#5b6480',
+        headerStyle: { backgroundColor: chromeBg },
+        headerTintColor: chromeTint,
+        headerTitleStyle: { color: chromeInk },
+        tabBarStyle: {
+          backgroundColor: chromeBg,
+          borderTopColor: chromeBorder,
+        },
+        tabBarActiveTintColor: chromeTint,
+        tabBarInactiveTintColor: chromeMuted,
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Games' }} />
@@ -20,12 +31,3 @@ export default function TabsLayout() {
     </Tabs>
   )
 }
-
-// Nav chrome keeps plain colors: expo-router tab/header style props take no
-// className, and the canvas has no solid token (--cetus-page-bg is a
-// CSS-only gradient that native does not support).
-const styles = StyleSheet.create({
-  header: { backgroundColor: '#0b1020' },
-  headerTitle: { color: '#e8ecff' },
-  bar: { backgroundColor: '#0b1020', borderTopColor: '#1b2440' },
-})

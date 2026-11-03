@@ -12,7 +12,6 @@
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://REPLACE-WITH-FIXED-TUNNEL-ORIGIN.example"
       }
-    },
-    "production": {}
+    }
   }
 }

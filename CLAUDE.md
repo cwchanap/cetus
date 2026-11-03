@@ -59,6 +59,10 @@ APPLE_SERVICE_ID=your_apple_services_id
 APPLE_TEAM_ID=your_apple_team_id
 APPLE_KEY_ID=your_apple_key_id
 APPLE_PRIVATE_KEY=your_apple_p8_private_key_contents
+# Optional mobile auth backend — set only while the fixed HTTPS origin serves
+# the Expo app. Enables the Better Auth expo plugin (authorization proxy +
+# deep-link origins); leave unset on a production deployment serving web only.
+ENABLE_EXPO_AUTH=1
 ```
 
 Migrating from a pre-monorepo checkout? Move any existing root `.env` to `apps/web/.env` and `db/db.sqlite` to `apps/web/db/db.sqlite` — copies at the repo root are no longer read.
@@ -291,7 +295,7 @@ Sci-fi design system (Tailwind v4, CSS-first — there is no `tailwind.config.js
 ## Testing Strategy
 
 ### Test Structure
-- **Unit Tests**: `*.test.ts` files co-located with source code
+- **Unit Tests**: `*.test.ts` files co-located with source code — except the mobile app: `apps/mobile/__tests__/` holds the jest-expo suites because files under `apps/mobile/app/` are Expo Router routes (a `*.test.tsx` there would be bundled as a screen)
 - **Integration Tests**: API and database interaction testing
 - **E2E Tests**: Playwright tests in `apps/web/e2e/` directory
 - **Setup**: Global test setup in `src/test/setup.ts`

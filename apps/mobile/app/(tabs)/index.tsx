@@ -29,7 +29,7 @@ export default function GamesScreen() {
     // initialNumToRender >= registry size keeps every game mounted from the
     // first render (no virtualized rows hiding catalog entries).
     <FlatList
-      className="flex-1 bg-[#05070f]"
+      className="flex-1 bg-cetus-canvas"
       contentContainerClassName="gap-3 p-4 pb-8"
       data={ACTIVE_GAMES}
       initialNumToRender={ACTIVE_GAMES.length}

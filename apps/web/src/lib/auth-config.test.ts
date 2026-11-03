@@ -101,8 +101,50 @@ describe('resolveAuthConfig — Apple (optional)', () => {
             APPLE_TEAM_ID: 'TEAM123',
         }
         expect(() => resolveAuthConfig({ env, isProd: false })).toThrow(
-            /missing APPLE_KEY_ID, APPLE_PRIVATE_KEY/
+            /missing or placeholder APPLE_KEY_ID, APPLE_PRIVATE_KEY/
         )
+    })
+
+    it('treats doc-placeholder Apple vars as unset — disabled, not enabled-broken', () => {
+        const config = resolveAuthConfig({
+            env: {
+                ...googleEnv,
+                APPLE_SERVICE_ID: 'your_apple_services_id',
+                APPLE_TEAM_ID: 'your_apple_team_id',
+                APPLE_KEY_ID: 'your_apple_key_id',
+                APPLE_PRIVATE_KEY: 'your_apple_p8_private_key_contents',
+            },
+            isProd: false,
+        })
+        expect(config.apple).toBeUndefined()
+    })
+
+    it('fails at boot on a mixed real/placeholder Apple config', () => {
+        expect(() =>
+            resolveAuthConfig({
+                env: {
+                    ...googleEnv,
+                    APPLE_SERVICE_ID: 'com.cetus.web.service',
+                    APPLE_TEAM_ID: 'your_apple_team_id',
+                    APPLE_KEY_ID: 'KEY123',
+                    APPLE_PRIVATE_KEY: 'placeholder',
+                },
+                isProd: false,
+            })
+        ).toThrow(/missing or placeholder APPLE_TEAM_ID, APPLE_PRIVATE_KEY/)
+    })
+
+    it('rejects a non-PEM Apple private key at resolve time', () => {
+        expect(() =>
+            resolveAuthConfig({
+                env: {
+                    ...googleEnv,
+                    ...completeAppleEnv,
+                    APPLE_PRIVATE_KEY: 'not-a-pem',
+                },
+                isProd: false,
+            })
+        ).toThrow(/APPLE_PRIVATE_KEY must be the PKCS8 PEM/)
     })
 
     it('builds a lazy Apple provider whose oauth2 reads sign fresh ES256 secrets', async () => {
@@ -117,6 +159,12 @@ describe('resolveAuthConfig — Apple (optional)', () => {
         const provider = await config.apple!()
         expect(typeof provider).toBe('function')
         expect(provider.clientId).toBe('com.cetus.web.service')
+
+        // The synchronous clientSecret reader gets a real signed JWT (the
+        // init-time secret), never a sentinel string.
+        const bootSecret = provider.clientSecret
+        expect(decodeProtectedHeader(bootSecret).kid).toBe('KEY123')
+        expect(decodeJwt(bootSecret).sub).toBe('com.cetus.web.service')
 
         const first = await provider()
         expect(first.clientId).toBe('com.cetus.web.service')
@@ -188,11 +236,7 @@ describe('resolveAuthConfig — baseURL and trusted origins', () => {
             isProd: false,
         })
         expect(config.baseURL).toBe('https://cetus.example')
-        expect(config.trustedOrigins).toEqual([
-            'https://cetus.example',
-            'cetus://',
-            'https://appleid.apple.com',
-        ])
+        expect(config.trustedOrigins).toEqual(['https://cetus.example'])
     })
 
     it('omits the empty production baseURL from trusted origins', () => {
@@ -201,10 +245,7 @@ describe('resolveAuthConfig — baseURL and trusted origins', () => {
             isProd: true,
         })
         expect(config.baseURL).toBe('')
-        expect(config.trustedOrigins).toEqual([
-            'cetus://',
-            'https://appleid.apple.com',
-        ])
+        expect(config.trustedOrigins).toEqual([])
     })
 
     it('falls back to the dev URL outside production', () => {
@@ -213,10 +254,35 @@ describe('resolveAuthConfig — baseURL and trusted origins', () => {
             isProd: false,
         })
         expect(config.baseURL).toBe('http://localhost:4325')
-        expect(config.trustedOrigins).toEqual([
-            'http://localhost:4325',
-            'cetus://',
-            'https://appleid.apple.com',
-        ])
+        expect(config.trustedOrigins).toEqual(['http://localhost:4325'])
+    })
+
+    it('adds cetus:// only while the expo plugin is enabled', () => {
+        const off = resolveAuthConfig({ env: googleEnv, isProd: false })
+        expect(off.expoEnabled).toBe(false)
+        expect(off.trustedOrigins).not.toContain('cetus://')
+
+        const on = resolveAuthConfig({
+            env: { ...googleEnv, ENABLE_EXPO_AUTH: '1' },
+            isProd: false,
+        })
+        expect(on.expoEnabled).toBe(true)
+        expect(on.trustedOrigins).toContain('cetus://')
+    })
+
+    it('adds the appleid origin only when Apple sign-in is configured', () => {
+        const withoutApple = resolveAuthConfig({
+            env: googleEnv,
+            isProd: false,
+        })
+        expect(withoutApple.trustedOrigins).not.toContain(
+            'https://appleid.apple.com'
+        )
+
+        const withApple = resolveAuthConfig({
+            env: { ...googleEnv, ...completeAppleEnv },
+            isProd: false,
+        })
+        expect(withApple.trustedOrigins).toContain('https://appleid.apple.com')
     })
 })
