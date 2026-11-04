@@ -25,6 +25,7 @@ let mockSession: {
   isPending: boolean
   refetch: jest.Mock
 } = { data: null, isPending: false, refetch: mockSessionRefetch }
+let mockFocusOnRegister = true
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
@@ -36,9 +37,11 @@ jest.mock('expo-router', () => ({
   useFocusEffect: (callback: () => unknown) => {
     if (!mockFocusCallbacks.includes(callback)) {
       mockFocusCallbacks.push(callback)
-      const cleanup = callback()
-      if (typeof cleanup === 'function') {
-        mockFocusCleanups.push(cleanup as () => void)
+      if (mockFocusOnRegister) {
+        const cleanup = callback()
+        if (typeof cleanup === 'function') {
+          mockFocusCleanups.push(cleanup as () => void)
+        }
       }
     }
   },
@@ -307,6 +310,7 @@ beforeEach(() => {
   mockCanGoBack.mockReset().mockReturnValue(true)
   mockFocusCallbacks.length = 0
   mockFocusCleanups = []
+  mockFocusOnRegister = true
   mockSessionRefetch.mockReset().mockResolvedValue(undefined)
   mockNotificationAsync.mockReset().mockResolvedValue(undefined)
   mockRequestPermission.mockReset().mockResolvedValue({ granted: true })
@@ -640,7 +644,38 @@ describe('login reward host — claiming', () => {
     expect(claimLoginReward).toHaveBeenCalledTimes(1)
   })
 
-  test('surfaces a claim failure and allows a retry', async () => {
+  test('surfaces a transient failure with a persistent alert and allows a retry', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await openClaimable(tree)
+    await press(tree, 'Claim daily login reward')
+    await settleRejection(
+      claimRuns[0],
+      new ApiClientError('Reward service unavailable', 500, 'http')
+    )
+
+    expect(mockNotificationAsync).not.toHaveBeenCalled()
+    const alert = tree.root.findByProps({ accessibilityRole: 'alert' })
+    expect(scalarText(alert.props.children)).toBe('Reward service unavailable')
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+
+    await settle(statusRuns[1], status())
+    expect(renderedText(tree)).toContain('Try again')
+
+    await drain(2200)
+    const persisted = tree.root.findByProps({ accessibilityRole: 'alert' })
+    expect(scalarText(persisted.props.children)).toBe(
+      'Reward service unavailable'
+    )
+
+    await press(tree, 'Claim daily login reward')
+    expect(claimLoginReward).toHaveBeenCalledTimes(2)
+    await settle(claimRuns[1], claimSuccess({ leveledUp: false }))
+    expect(renderedText(tree)).toContain('Claimed Today')
+    expect(mockNotificationAsync).toHaveBeenCalledTimes(1)
+  })
+
+  test('reconciles an already-claimed rejection to the server truth without another mutation', async () => {
     signIn('user-a')
     const tree = await render(<LoginRewardHost />)
     await openClaimable(tree)
@@ -650,17 +685,23 @@ describe('login reward host — claiming', () => {
       new ApiClientError('Reward already claimed today', 400, 'http')
     )
 
-    expect(mockNotificationAsync).not.toHaveBeenCalled()
-    expect(renderedText(tree)).toContain('Reward already claimed today')
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+    expect(tree.root.findByProps({ accessibilityRole: 'alert' })).toBeTruthy()
 
-    await drain(2100)
-    expect(renderedText(tree)).toContain('Claim Reward')
+    await settle(
+      statusRuns[1],
+      status({ alreadyClaimed: true, canClaim: false })
+    )
+    await drain()
 
-    await press(tree, 'Claim daily login reward')
-    expect(claimLoginReward).toHaveBeenCalledTimes(2)
-    await settle(claimRuns[1], claimSuccess({ leveledUp: false }))
     expect(renderedText(tree)).toContain('Claimed Today')
-    expect(mockNotificationAsync).toHaveBeenCalledTimes(1)
+    expect(
+      tree.root.findAllByProps({
+        accessibilityLabel: 'Claim daily login reward',
+      })
+    ).toHaveLength(0)
+    expect(claimLoginReward).toHaveBeenCalledTimes(1)
+    expect(mockNotificationAsync).not.toHaveBeenCalled()
   })
 
   test('surfaces a network claim failure distinctly', async () => {
@@ -673,9 +714,116 @@ describe('login reward host — claiming', () => {
       new ApiClientError('Network error occurred', 0, 'network')
     )
 
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+    await settle(statusRuns[1], status())
+
     const rendered = renderedText(tree)
     expect(rendered).toContain('Network error')
     expect(mockNotificationAsync).not.toHaveBeenCalled()
+  })
+
+  test('retires the claim overlay when the post-claim refetch returns newer truth', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await openClaimable(tree)
+    await press(tree, 'Claim daily login reward')
+    await settle(claimRuns[0], claimSuccess())
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+    expect(renderedText(tree)).toContain('Claimed Today')
+
+    await drain(3200)
+    expect(openModals(tree)).toHaveLength(0)
+
+    await settle(
+      statusRuns[1],
+      status({
+        loginStreak: 3,
+        currentCycleDay: 4,
+        todayReward: {
+          day: 4,
+          xp: 40,
+          icon: '💫',
+          description: 'Day 4 - Half way there!',
+        },
+        totalConsecutiveDays: 10,
+        alreadyClaimed: false,
+        canClaim: true,
+        daysUntilMilestone: 20,
+      })
+    )
+    await drain(AUTO_OPEN_WAIT)
+
+    expect(openModals(tree)).toHaveLength(1)
+    expect(renderedText(tree)).toContain('+40 XP')
+  })
+
+  test('a pre-claim fetch resolving late cannot displace the claim overlay', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await openClaimable(tree)
+    await press(tree, 'Claim daily login reward')
+
+    await focus()
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+
+    await settle(claimRuns[0], claimSuccess())
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(3)
+    expect(renderedText(tree)).toContain('Claimed Today')
+
+    await settle(statusRuns[1], status())
+    expect(renderedText(tree)).toContain('Claimed Today')
+
+    await settle(
+      statusRuns[2],
+      status({ alreadyClaimed: true, canClaim: false })
+    )
+    expect(renderedText(tree)).toContain('Claimed Today')
+  })
+
+  test('an unresolved claim from account A does not block account B', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await openClaimable(tree)
+    await press(tree, 'Claim daily login reward')
+    expect(claimLoginReward).toHaveBeenCalledTimes(1)
+
+    signIn('user-b')
+    await rerender(tree, <LoginRewardHost />)
+    await settle(statusRuns[statusRuns.length - 1], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+
+    await press(tree, 'Claim daily login reward')
+    expect(claimLoginReward).toHaveBeenCalledTimes(2)
+
+    await settle(claimRuns[1], claimSuccess({ leveledUp: false }))
+    expect(renderedText(tree)).toContain('Claimed Today')
+    expect(mockNotificationAsync).toHaveBeenCalledTimes(1)
+
+    await settle(claimRuns[0], claimSuccess())
+    expect(mockNotificationAsync).toHaveBeenCalledTimes(1)
+  })
+
+  test('claims stay independent across A to B to A account switches', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await openClaimable(tree)
+    await press(tree, 'Claim daily login reward')
+    expect(claimLoginReward).toHaveBeenCalledTimes(1)
+
+    signIn('user-b')
+    await rerender(tree, <LoginRewardHost />)
+    await settle(statusRuns[statusRuns.length - 1], status())
+    await drain(AUTO_OPEN_WAIT)
+    await press(tree, 'Claim daily login reward')
+    expect(claimLoginReward).toHaveBeenCalledTimes(2)
+
+    signIn('user-a', 'sess-a2')
+    await rerender(tree, <LoginRewardHost />)
+    await settle(statusRuns[statusRuns.length - 1], status())
+    await drain(AUTO_OPEN_WAIT)
+    await press(tree, 'Claim daily login reward')
+    expect(claimLoginReward).toHaveBeenCalledTimes(3)
   })
 
   test('treats a 401 claim failure as an expired session and hides the modal', async () => {
@@ -909,6 +1057,128 @@ describe('login reward host — single visible modal', () => {
 
     expect(openModals(tree)).toHaveLength(1)
     expect(renderedText(tree)).toContain('Daily Login Reward')
+  })
+
+  test('a surviving claimable host presents once the modal lease frees', async () => {
+    signIn('user-a')
+    const tree = await render(
+      <>
+        <LoginRewardHost key="a" />
+        <LoginRewardHost key="b" />
+      </>
+    )
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+
+    await settle(statusRuns[0], status())
+    await settle(statusRuns[1], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+
+    await rerender(tree, <LoginRewardHost key="b" />)
+    await drain(AUTO_OPEN_WAIT)
+
+    expect(openModals(tree)).toHaveLength(1)
+    expect(renderedText(tree)).toContain('Daily Login Reward')
+  })
+
+  test('an explicit dismissal does not let a surviving host re-present the same reward', async () => {
+    signIn('user-a')
+    const tree = await render(
+      <>
+        <LoginRewardHost key="a" />
+        <LoginRewardHost key="b" />
+      </>
+    )
+    await settle(statusRuns[0], status())
+    await settle(statusRuns[1], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+
+    await press(tree, 'Close daily login reward')
+    await drain(AUTO_OPEN_WAIT)
+
+    expect(openModals(tree)).toHaveLength(0)
+    expect(renderedText(tree)).not.toContain('Daily Login Reward')
+  })
+})
+
+describe('login reward host — focus-scoped presentation', () => {
+  test('defers presentation while unfocused and presents on focus', async () => {
+    mockFocusOnRegister = false
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(1)
+
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(0)
+
+    await focus()
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+    expect(renderedText(tree)).toContain('Daily Login Reward')
+  })
+
+  test('cancels a pending presentation when the screen blurs', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await settle(statusRuns[0], status())
+
+    await blur()
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(0)
+
+    await focus()
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+  })
+
+  test('closes the open modal on blur and re-presents while still armed', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+
+    await blur()
+    expect(openModals(tree)).toHaveLength(0)
+
+    await focus()
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+  })
+
+  test('a claim settling while blurred is discarded but still refreshes status', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+    await press(tree, 'Claim daily login reward')
+
+    await blur()
+    expect(openModals(tree)).toHaveLength(0)
+
+    await settle(claimRuns[0], claimSuccess())
+    expect(mockNotificationAsync).not.toHaveBeenCalled()
+    expect(renderedText(tree)).not.toContain('LEVEL UP')
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+  })
+
+  test('an explicitly dismissed reward stays closed across blur and refocus', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+    await press(tree, 'Close daily login reward')
+    expect(openModals(tree)).toHaveLength(0)
+
+    await blur()
+    await focus()
+    await drain(AUTO_OPEN_WAIT)
+
+    expect(openModals(tree)).toHaveLength(0)
   })
 })
 
