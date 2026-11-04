@@ -689,8 +689,6 @@ describe('createApiClient', () => {
         })
     })
 
-    // --- GET /api/user/profile -------------------------------------------------
-
     describe('getUserOverview', () => {
         it('GETs the current user overview as a typed DTO', async () => {
             const body: UserOverviewResponse = {
