@@ -38,6 +38,14 @@ function isUtcDate(value: string): boolean {
   )
 }
 
+function isCanonicalTimestamp(value: string): boolean {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return false
+  }
+  return parsed.toISOString() === value
+}
+
 function isMissionProgress(mission: unknown): boolean {
   if (mission === null || typeof mission !== 'object') {
     return false
@@ -61,7 +69,7 @@ function isMissionProgress(mission: unknown): boolean {
     typeof entry.completed === 'boolean' &&
     (entry.completedAt === null ||
       (typeof entry.completedAt === 'string' &&
-        !Number.isNaN(Date.parse(entry.completedAt)))) &&
+        isCanonicalTimestamp(entry.completedAt))) &&
     (entry.gameId === undefined || GAME_IDS.has(entry.gameId))
   )
 }

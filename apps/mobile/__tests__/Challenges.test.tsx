@@ -398,7 +398,7 @@ describe('challenges route — signed in', () => {
           xpReward: 30,
           difficulty: 'medium',
           completed: true,
-          completedAt: '2026-11-02T08:15:00Z',
+          completedAt: '2026-11-02T08:15:00.000Z',
         }),
       ])
     )
@@ -429,7 +429,7 @@ describe('challenges route — signed in', () => {
       payload([
         mission({
           completed: true,
-          completedAt: '2026-11-02T08:15:00Z',
+          completedAt: '2026-11-02T08:15:00.000Z',
           currentValue: 2,
         }),
       ])
@@ -889,6 +889,19 @@ describe('challenges route — malformed responses', () => {
     [
       'unparseable completedAt',
       payload([mission({ completedAt: 'yesterday' })]),
+    ],
+    [
+      'completedAt with impossible calendar date',
+      payload([mission({ completedAt: '2026-02-30T12:00:00.000Z' })]),
+    ],
+    ['epoch-string completedAt', payload([mission({ completedAt: '0' })])],
+    [
+      'noncanonical completedAt',
+      payload([mission({ completedAt: 'Nov 2, 2026' })]),
+    ],
+    [
+      'completedAt missing milliseconds',
+      payload([mission({ completedAt: '2026-11-02T08:15:00Z' })]),
     ],
   ]
 
