@@ -1,9 +1,10 @@
 import type { HTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
+import type { AvatarSize, AvatarVariant } from '../../variants'
 
 export interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
-  size?: 'sm' | 'default' | 'lg' | 'xl'
-  variant?: 'default' | 'cyan-purple' | 'purple-pink' | 'pink-cyan' | 'solid'
+  size?: AvatarSize
+  variant?: AvatarVariant
   src?: string
   alt?: string
   fallback?: string
@@ -23,6 +24,9 @@ const avatarVariants = {
     'pink-cyan': 'bg-cetus-accent-3/20 ring-1 ring-cetus-accent-3/40',
     solid: 'bg-muted',
   },
+} satisfies {
+  size: Record<AvatarSize, string>
+  variant: Record<AvatarVariant, string>
 }
 
 export function Avatar({

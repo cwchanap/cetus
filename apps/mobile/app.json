@@ -12,6 +12,16 @@
     "android": {
       "package": "com.hapadona.cetus"
     },
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cetus needs access to your photo library to set a profile avatar.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }

@@ -1,12 +1,13 @@
 import { useEffect, useId, useState, type ButtonHTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
+import type { ToggleSize, ToggleVariant } from '../../variants'
 
 export interface ToggleProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
   'value' | 'onChange' | 'checked' | 'onClick'
 > {
-  variant?: 'default' | 'sci-fi'
-  size?: 'default' | 'sm' | 'lg'
+  variant?: ToggleVariant
+  size?: ToggleSize
   /** Controlled switch state. */
   checked?: boolean
   /** Uncontrolled initial switch state. */
@@ -30,19 +31,22 @@ const toggleVariants = {
     sm: 'w-9 h-5',
     lg: 'w-14 h-7',
   },
+} satisfies {
+  variant: Record<ToggleVariant, string>
+  size: Record<ToggleSize, string>
 }
 
 const knobSizes = {
   default: 'w-5 h-5',
   sm: 'w-4 h-4',
   lg: 'w-6 h-6',
-}
+} satisfies Record<ToggleSize, string>
 
 const knobTranslate = {
   default: 'data-[checked]:translate-x-5',
   sm: 'data-[checked]:translate-x-4',
   lg: 'data-[checked]:translate-x-7',
-}
+} satisfies Record<ToggleSize, string>
 
 /**
  * HPA-379 React port of the former Toggle.astro. State flows through the

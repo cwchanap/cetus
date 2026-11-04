@@ -1,8 +1,9 @@
 import type { HTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
+import type { CardVariant } from '../../variants'
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'sci-fi' | 'glass' | 'elevated'
+  variant?: CardVariant
   brackets?: boolean
 }
 
@@ -16,6 +17,8 @@ const cardVariants = {
     elevated:
       'rounded-lg border bg-card text-card-foreground shadow-lg hover:shadow-xl transition-shadow duration-300',
   },
+} satisfies {
+  variant: Record<CardVariant, string>
 }
 
 export function Card({

@@ -1,16 +1,10 @@
 import type { HTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
+import type { BadgeSize, BadgeVariant } from '../../variants'
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?:
-    | 'default'
-    | 'secondary'
-    | 'destructive'
-    | 'outline'
-    | 'success'
-    | 'warning'
-    | 'error'
-  size?: 'default' | 'sm' | 'lg'
+  variant?: BadgeVariant
+  size?: BadgeSize
 }
 
 const destructiveStyle =
@@ -35,6 +29,9 @@ const badgeVariants = {
     sm: 'px-2.5 py-0.5 text-xs',
     lg: 'px-4 py-1.5 text-sm',
   },
+} satisfies {
+  variant: Record<BadgeVariant, string>
+  size: Record<BadgeSize, string>
 }
 
 export function Badge({

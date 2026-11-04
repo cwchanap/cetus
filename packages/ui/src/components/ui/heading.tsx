@@ -1,11 +1,12 @@
 import type { CSSProperties, HTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
 import { displayFontStyle } from '../../lib/styles'
+import type { HeadingAlign, HeadingLevel, HeadingVariant } from '../../variants'
 
 export interface HeadingProps extends HTMLAttributes<HTMLHeadingElement> {
-  level?: 1 | 2 | 3 | 4 | 5 | 6
-  variant?: 'default' | 'hero' | 'section' | 'subsection'
-  align?: 'left' | 'center' | 'right'
+  level?: HeadingLevel
+  variant?: HeadingVariant
+  align?: HeadingAlign
   kicker?: string
 }
 
@@ -14,9 +15,9 @@ const headingVariants = {
   hero: 'cetus-wordmark--glow',
   section: 'text-white',
   subsection: 'font-semibold text-white',
-}
+} satisfies Record<HeadingVariant, string>
 
-const headingStyles: Record<string, CSSProperties | undefined> = {
+const headingStyles: Record<HeadingVariant, CSSProperties | undefined> = {
   default: undefined,
   hero: displayFontStyle,
   section: displayFontStyle,
@@ -30,13 +31,13 @@ const sizeVariants = {
   4: 'text-2xl md:text-3xl',
   5: 'text-xl md:text-2xl',
   6: 'text-lg md:text-xl',
-}
+} satisfies Record<HeadingLevel, string>
 
 const alignVariants = {
   left: 'text-left',
   center: 'text-center',
   right: 'text-right',
-}
+} satisfies Record<HeadingAlign, string>
 
 export function Heading({
   level = 2,
