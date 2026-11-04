@@ -22,6 +22,7 @@ module.exports = withNativewind(config, {
       '--cetus-chrome-tint',
       '--cetus-chrome-muted',
       '--cetus-chrome-border',
+      '--cetus-ink-muted',
     ],
   },
 })
