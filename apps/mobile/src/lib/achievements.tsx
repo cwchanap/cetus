@@ -125,7 +125,7 @@ export function AchievementRow({ view }: { view: AchievementView }) {
   const state = earned ? 'earned' : 'locked'
   const label = masked
     ? 'Hidden achievement, locked'
-    : `${achievement.name}, ${achievement.rarity} achievement, ${state}`
+    : `${achievement.name}, ${achievement.rarity} achievement, ${gameLabel(achievement.gameId)}, ${achievement.description}, ${state}`
   return (
     <Card
       variant="sci-fi"

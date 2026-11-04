@@ -10,7 +10,10 @@ const mockReplace = jest.fn()
 const mockCanGoBack = jest.fn()
 let mockFocusCallback: (() => void) | undefined
 let mockSession: {
-  data: { user: { id: string; name: string; email: string } } | null
+  data: {
+    user: { id: string; name: string; email: string }
+    session: { id: string }
+  } | null
   isPending: boolean
 } = { data: null, isPending: false }
 
@@ -208,9 +211,12 @@ const appState = async (state: AppStateStatus) => {
   await drain()
 }
 
-const signIn = (id: string) => {
+const signIn = (id: string, sessionId = `sess-${id}`) => {
   mockSession = {
-    data: { user: { id, name: `Diver ${id}`, email: `${id}@cetus.test` } },
+    data: {
+      user: { id, name: `Diver ${id}`, email: `${id}@cetus.test` },
+      session: { id: sessionId },
+    },
     isPending: false,
   }
 }
@@ -331,6 +337,37 @@ describe('achievements tab — session resolving', () => {
       })
     ).toHaveLength(0)
   })
+
+  test('holds the protected request while a cached session is still resolving', async () => {
+    mockSession = {
+      data: {
+        user: {
+          id: 'user-a',
+          name: 'Diver user-a',
+          email: 'user-a@cetus.test',
+        },
+        session: { id: 'sess-a' },
+      },
+      isPending: true,
+    }
+
+    const tree = await render(<AchievementsScreen />)
+
+    expect(getUserOverview).not.toHaveBeenCalled()
+    expect(
+      tree.root.findByProps({ testID: 'achievements-loading' })
+    ).toBeTruthy()
+    expect(
+      tree.root.findAllByProps({
+        accessibilityLabel: 'Sign in to view achievements',
+      })
+    ).toHaveLength(0)
+
+    mockSession = { data: mockSession.data, isPending: false }
+    await rerender(tree, <AchievementsScreen />)
+
+    expect(getUserOverview).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('achievements tab — signed in', () => {
@@ -377,20 +414,46 @@ describe('achievements tab — signed in', () => {
     await settle(runs[0], overview(['space_explorer']))
 
     const earned = tree.root.findByProps({
-      accessibilityLabel: 'Space Explorer, common achievement, earned',
+      accessibilityLabel:
+        'Space Explorer, common achievement, Global, Welcome to the Cetus universe!, earned',
     })
     expect(earned.props.accessible).toBe(true)
     expect(
       tree.root.findByProps({
-        accessibilityLabel: 'Tetris Novice, common achievement, locked',
+        accessibilityLabel:
+          'Tetris Novice, common achievement, Tetris Challenge, Score 100 points in Tetris, locked',
       })
     ).toBeTruthy()
     expect(
       tree.root.findByProps({
         accessibilityLabel:
-          'Vocabulary Virtuoso, legendary achievement, locked',
+          'Vocabulary Virtuoso, legendary achievement, Word Scramble, Score 800 points in Word Scramble, locked',
       })
     ).toBeTruthy()
+  })
+
+  test('includes unlock descriptions and game context in accessible labels', async () => {
+    signIn('user-a')
+    const tree = await render(<AchievementsScreen />)
+    await settle(runs[0], overview(['sudoku_adept']))
+
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel:
+          'Sudoku Adept, rare achievement, Sudoku, Score 2000 points in Sudoku, earned',
+      }).props.accessible
+    ).toBe(true)
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel:
+          'Sudoku Master, epic achievement, Sudoku, Score 3000 points in Sudoku, locked',
+      })
+    ).toBeTruthy()
+    expect(
+      tree.root.findAllByProps({
+        accessibilityLabel: 'Hidden achievement, locked',
+      }).length
+    ).toBeGreaterThan(0)
   })
 
   test('filters by earned and locked status with selected-state chips', async () => {
@@ -576,6 +639,78 @@ describe('achievements tab — signed in', () => {
       params: { returnTo: '/(tabs)/achievements' },
     })
   })
+
+  test('suppresses focus and foreground refetches after a 401 until reauthentication', async () => {
+    signIn('user-a')
+    const tree = await render(<AchievementsScreen />)
+    await settleRejection(
+      runs[0],
+      new ApiClientError('Request failed with status 401', 401, 'http')
+    )
+    expect(getUserOverview).toHaveBeenCalledTimes(1)
+
+    await focus()
+    await blur()
+    await focus()
+    await appState('active')
+
+    expect(getUserOverview).toHaveBeenCalledTimes(1)
+    expect(renderedText(tree)).toContain('expired')
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel: 'Sign in to view achievements',
+      })
+    ).toBeTruthy()
+    expect(
+      tree.root.findAllByProps({ testID: 'achievements-loading' })
+    ).toHaveLength(0)
+  })
+
+  test('resumes fetching when the same user returns with a fresh session', async () => {
+    signIn('user-a')
+    const tree = await render(<AchievementsScreen />)
+    await settleRejection(
+      runs[0],
+      new ApiClientError('Request failed with status 401', 401, 'http')
+    )
+    expect(getUserOverview).toHaveBeenCalledTimes(1)
+
+    signIn('user-a', 'sess-a2')
+    await rerender(tree, <AchievementsScreen />)
+
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+    await settle(runs[1], overview(['space_explorer']))
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel:
+          'Space Explorer, common achievement, Global, Welcome to the Cetus universe!, earned',
+      })
+    ).toBeTruthy()
+    expect(renderedText(tree)).not.toContain('expired')
+  })
+
+  test('a different account still fetches after a 401 on the previous account', async () => {
+    signIn('user-a')
+    const tree = await render(<AchievementsScreen />)
+    await settleRejection(
+      runs[0],
+      new ApiClientError('Request failed with status 401', 401, 'http')
+    )
+
+    signIn('user-b')
+    await rerender(tree, <AchievementsScreen />)
+
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+    expect(renderedText(tree)).not.toContain('expired')
+
+    await settle(runs[1], overview(['tetris_novice']))
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel:
+          'Tetris Novice, common achievement, Tetris Challenge, Score 100 points in Tetris, earned',
+      })
+    ).toBeTruthy()
+  })
 })
 
 describe('achievements tab — account isolation', () => {
@@ -585,7 +720,8 @@ describe('achievements tab — account isolation', () => {
     await settle(runs[0], overview(['space_explorer']))
     expect(
       tree.root.findByProps({
-        accessibilityLabel: 'Space Explorer, common achievement, earned',
+        accessibilityLabel:
+          'Space Explorer, common achievement, Global, Welcome to the Cetus universe!, earned',
       })
     ).toBeTruthy()
 
@@ -598,7 +734,8 @@ describe('achievements tab — account isolation', () => {
     ).toBeTruthy()
     expect(
       tree.root.findAllByProps({
-        accessibilityLabel: 'Space Explorer, common achievement, earned',
+        accessibilityLabel:
+          'Space Explorer, common achievement, Global, Welcome to the Cetus universe!, earned',
       })
     ).toHaveLength(0)
     expect(renderedText(tree)).not.toContain(`of ${TOTAL_ACHIEVEMENTS} earned`)
@@ -606,12 +743,14 @@ describe('achievements tab — account isolation', () => {
     await settle(runs[1], overview(['tetris_novice']))
     expect(
       tree.root.findByProps({
-        accessibilityLabel: 'Space Explorer, common achievement, locked',
+        accessibilityLabel:
+          'Space Explorer, common achievement, Global, Welcome to the Cetus universe!, locked',
       })
     ).toBeTruthy()
     expect(
       tree.root.findByProps({
-        accessibilityLabel: 'Tetris Novice, common achievement, earned',
+        accessibilityLabel:
+          'Tetris Novice, common achievement, Tetris Challenge, Score 100 points in Tetris, earned',
       })
     ).toBeTruthy()
     expect(renderedText(tree)).toContain(`1 of ${TOTAL_ACHIEVEMENTS} earned`)
@@ -632,14 +771,16 @@ describe('achievements tab — account isolation', () => {
     ).toBeTruthy()
     expect(
       tree.root.findAllByProps({
-        accessibilityLabel: 'Space Explorer, common achievement, earned',
+        accessibilityLabel:
+          'Space Explorer, common achievement, Global, Welcome to the Cetus universe!, earned',
       })
     ).toHaveLength(0)
 
     await settle(runs[1], overview(['tetris_novice']))
     expect(
       tree.root.findByProps({
-        accessibilityLabel: 'Space Explorer, common achievement, locked',
+        accessibilityLabel:
+          'Space Explorer, common achievement, Global, Welcome to the Cetus universe!, locked',
       })
     ).toBeTruthy()
   })
@@ -660,7 +801,8 @@ describe('achievements tab — account isolation', () => {
     ).toBeTruthy()
     expect(
       tree.root.findAllByProps({
-        accessibilityLabel: 'Space Explorer, common achievement, earned',
+        accessibilityLabel:
+          'Space Explorer, common achievement, Global, Welcome to the Cetus universe!, earned',
       })
     ).toHaveLength(0)
     expect(renderedText(tree)).not.toContain('Space Explorer')

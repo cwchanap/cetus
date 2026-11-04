@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'expo-router'
 import { FlatList, RefreshControl, Text, View } from 'react-native'
 import { useNativeVariable } from 'react-native-css/native'
@@ -32,15 +32,27 @@ export default function AchievementsScreen() {
   const accent = useNativeVariable('--cetus-accent')
   const { data: session, isPending } = authClient.useSession()
   const userId = session?.user.id ?? null
+  const sessionKey = session?.session?.id ?? userId
+  const [expiredSessionKey, setExpiredSessionKey] = useState<string | null>(
+    null
+  )
+  const authExpired =
+    expiredSessionKey !== null && expiredSessionKey === sessionKey
   const [status, setStatus] = useState<AchievementStatusFilter>('all')
   const [game, setGame] = useState<AchievementGameScope>(ACHIEVEMENT_GAME_ALL)
 
   const { data, loading, error, refresh } = useRemoteData<UserOverviewResponse>(
     useCallback(() => api.getUserOverview(), []),
-    ['achievements', userId ?? 'anonymous'],
-    userId !== null
+    ['achievements', userId ?? 'anonymous', sessionKey ?? 'none'],
+    userId !== null && !isPending && !authExpired
   )
   useRefetchOnFocus(refresh)
+
+  useEffect(() => {
+    if (error !== null && isUnauthorizedError(error) && sessionKey !== null) {
+      setExpiredSessionKey(sessionKey)
+    }
+  }, [error, sessionKey])
 
   const views = useMemo(() => achievementViewsFor(data), [data])
   const filtered = useMemo(
@@ -73,7 +85,7 @@ export default function AchievementsScreen() {
     return <AchievementsSignIn onSignIn={openSignIn} />
   }
 
-  if (error !== null && isUnauthorizedError(error)) {
+  if (authExpired || (error !== null && isUnauthorizedError(error))) {
     return <AchievementsSignIn expired onSignIn={openSignIn} />
   }
 
