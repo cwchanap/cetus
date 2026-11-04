@@ -36,6 +36,13 @@ vi.mock('@/lib/server/db/client', () => ({
         insertInto: vi.fn(),
         updateTable: vi.fn(),
         transaction: vi.fn(),
+        getExecutor: vi.fn(() => ({
+            transformQuery: vi.fn((node: unknown) => node),
+            compileQuery: vi.fn((node: unknown) => node),
+            executeQuery: vi.fn().mockResolvedValue({
+                rows: [{ name: 'displayName' }, { name: 'username' }],
+            }),
+        })),
         fn: {
             count: vi.fn().mockReturnValue({
                 as: vi.fn().mockReturnValue('COUNT'),
