@@ -1021,6 +1021,340 @@ describe('profile tab — sign out', () => {
   })
 })
 
+describe('profile tab — sign out availability', () => {
+  test('keeps sign-out available while the overview is still loading', async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+
+    const button = tree.root.findByProps({ accessibilityLabel: 'Sign out' })
+    await act(async () => {
+      button.props.onPress()
+    })
+    await drain()
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
+  })
+
+  test('keeps sign-out available while the session resolves', async () => {
+    mockSession = {
+      data: {
+        user: {
+          id: 'user-a',
+          name: 'Diver user-a',
+          email: 'user-a@cetus.test',
+        },
+        session: { id: 'sess-a', updatedAt: '2026-01-01T00:00:00Z' },
+      },
+      isPending: true,
+      refetch: mockSessionRefetch,
+    }
+    const tree = await render(<ProfileScreen />)
+
+    const button = tree.root.findByProps({ accessibilityLabel: 'Sign out' })
+    await act(async () => {
+      button.props.onPress()
+    })
+    await drain()
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
+  })
+
+  test('keeps sign-out available when the overview request fails', async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    await settleOverviewRejection(
+      overviewRuns[0],
+      new ApiClientError('Network error occurred', 0, 'network')
+    )
+
+    expect(tree.root.findByProps({ testID: 'profile-error' })).toBeTruthy()
+    await press(tree, 'Sign out')
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('profile tab — stale session image', () => {
+  test('treats the overview image as authoritative over a stale cached session avatar', async () => {
+    signIn('user-a', 'sess-a', '2026-01-01T00:00:00Z', 'data:STALE_SESSION')
+    const tree = await render(<ProfileScreen />)
+    await settleOverview(overviewRuns[0], overview({ image: null }))
+    await settleHistory(historyRuns[0], historyOf([]))
+
+    expect(
+      tree.root.findByProps({ testID: 'profile-avatar-initial' })
+    ).toBeTruthy()
+    expect(
+      tree.root.findAllByProps({ testID: 'profile-avatar-image' })
+    ).toHaveLength(0)
+  })
+})
+
+describe('profile tab — picker session transitions', () => {
+  const signedInWithAvatar = async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    await settleOverview(
+      overviewRuns[0],
+      overview({ image: 'data:image/png;base64,OLD=' })
+    )
+    await settleHistory(historyRuns[0], historyOf([]))
+    return tree
+  }
+
+  const openPendingPicker = async (tree: TestRenderer.ReactTestRenderer) => {
+    const picker = deferred<{
+      canceled: boolean
+      assets: unknown[] | null
+    }>()
+    mockLaunchLibrary.mockImplementationOnce(() => picker.promise)
+    const change = tree.root.findByProps({
+      accessibilityLabel: 'Change avatar',
+    })
+    await act(async () => {
+      change.props.onPress()
+    })
+    await drain()
+    expect(mockLaunchLibrary).toHaveBeenCalledTimes(1)
+    return picker
+  }
+
+  const resolvePicker = async (
+    picker: Deferred<{ canceled: boolean; assets: unknown[] | null }>
+  ) => {
+    await act(async () => {
+      picker.resolve({
+        canceled: false,
+        assets: [
+          {
+            uri: 'file://picked/avatar.png',
+            fileName: 'avatar.png',
+            fileSize: 1024,
+            mimeType: 'image/png',
+            width: 512,
+            height: 512,
+          },
+        ],
+      })
+      await picker.promise
+    })
+    await drain()
+  }
+
+  test('abandons the pick when the session becomes pending mid-picker', async () => {
+    const tree = await signedInWithAvatar()
+    const picker = await openPendingPicker(tree)
+
+    mockSession = {
+      data: mockSession.data,
+      isPending: true,
+      refetch: mockSessionRefetch,
+    }
+    await rerender(tree, <ProfileScreen />)
+
+    await resolvePicker(picker)
+
+    expect(uploadAvatar).not.toHaveBeenCalled()
+  })
+
+  test('abandons the pick when a 401 latches mid-picker', async () => {
+    const tree = await signedInWithAvatar()
+    const picker = await openPendingPicker(tree)
+
+    await focus()
+    await blur()
+    await focus()
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+    await settleOverviewRejection(overviewRuns[1], unauthorized())
+    expect(renderedText(tree)).toContain('expired')
+
+    await resolvePicker(picker)
+
+    expect(uploadAvatar).not.toHaveBeenCalled()
+  })
+
+  test('completes the upload when the session stays eligible through the pick', async () => {
+    const tree = await signedInWithAvatar()
+    const picker = await openPendingPicker(tree)
+
+    await resolvePicker(picker)
+
+    expect(uploadAvatar).toHaveBeenCalledTimes(1)
+    expect(renderedText(tree)).toContain('Avatar updated')
+  })
+})
+
+describe('profile tab — avatar override reconciliation', () => {
+  const signedInWithAvatar = async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    await settleOverview(
+      overviewRuns[0],
+      overview({ image: 'data:image/png;base64,OLD=' })
+    )
+    await settleHistory(historyRuns[0], historyOf([]))
+    return tree
+  }
+
+  const avatarUri = (tree: TestRenderer.ReactTestRenderer) =>
+    (
+      tree.root.findByProps({ testID: 'profile-avatar-image' }).props
+        .source as { uri: string }
+    ).uri
+
+  test('retires the upload override when the post-mutation read returns a server-side change', async () => {
+    const tree = await signedInWithAvatar()
+
+    await press(tree, 'Change avatar')
+    expect(avatarUri(tree)).toBe('data:image/png;base64,AAA=')
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+
+    await settleOverview(
+      overviewRuns[1],
+      overview({ image: 'data:image/png;base64,WEB=' })
+    )
+
+    expect(avatarUri(tree)).toBe('data:image/png;base64,WEB=')
+  })
+
+  test('a stale in-flight read cannot retire the override before the post-mutation read lands', async () => {
+    const tree = await signedInWithAvatar()
+
+    await focus()
+    await blur()
+    await focus()
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+
+    await press(tree, 'Change avatar')
+    expect(avatarUri(tree)).toBe('data:image/png;base64,AAA=')
+    expect(getUserOverview).toHaveBeenCalledTimes(3)
+
+    await settleOverview(
+      overviewRuns[1],
+      overview({ image: 'data:image/png;base64,STALE=' })
+    )
+    expect(avatarUri(tree)).toBe('data:image/png;base64,AAA=')
+
+    await settleOverview(
+      overviewRuns[2],
+      overview({ image: 'data:image/png;base64,WEB=' })
+    )
+    expect(avatarUri(tree)).toBe('data:image/png;base64,WEB=')
+  })
+})
+
+describe('profile tab — busy ownership across accounts', () => {
+  const signedIn = async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    await settleOverview(overviewRuns[0], overview())
+    await settleHistory(historyRuns[0], historyOf([]))
+    return tree
+  }
+
+  const switchToUserB = async (tree: TestRenderer.ReactTestRenderer) => {
+    signIn('user-b')
+    await rerender(tree, <ProfileScreen />)
+    await settleOverview(overviewRuns[1], overview({ username: 'diver_b' }))
+    await settleHistory(historyRuns[1], historyOf([]))
+  }
+
+  test('account B can save while account A save is still in flight', async () => {
+    const tree = await signedIn()
+
+    const pendingA = deferred<{ success: true; message: string }>()
+    updateProfile.mockImplementationOnce(() => pendingA.promise)
+    await typeInto(tree, 'Display name', 'A edit')
+    await press(tree, 'Save profile')
+    expect(updateProfile).toHaveBeenCalledTimes(1)
+
+    await switchToUserB(tree)
+
+    await typeInto(tree, 'Display name', 'B edit')
+    await press(tree, 'Save profile')
+
+    expect(updateProfile).toHaveBeenCalledTimes(2)
+    expect(renderedText(tree)).toContain('Profile updated')
+
+    await act(async () => {
+      pendingA.resolve({ success: true, message: 'ok' })
+      await pendingA.promise
+    })
+    await drain()
+
+    expect(renderedText(tree)).toContain('Profile updated')
+    expect(getUserOverview).toHaveBeenCalledTimes(3)
+  })
+
+  test('a stale A completion resolving after B started does not block B result', async () => {
+    const tree = await signedIn()
+
+    const pendingA = deferred<{ success: true; message: string }>()
+    updateProfile.mockImplementationOnce(() => pendingA.promise)
+    await typeInto(tree, 'Display name', 'A edit')
+    await press(tree, 'Save profile')
+
+    await switchToUserB(tree)
+
+    const pendingB = deferred<{ success: true; message: string }>()
+    updateProfile.mockImplementationOnce(() => pendingB.promise)
+    await typeInto(tree, 'Display name', 'B edit')
+    await press(tree, 'Save profile')
+    expect(updateProfile).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      pendingA.resolve({ success: true, message: 'ok' })
+      await pendingA.promise
+    })
+    await drain()
+    expect(renderedText(tree)).not.toContain('Profile updated')
+
+    await act(async () => {
+      pendingB.resolve({ success: true, message: 'ok' })
+      await pendingB.promise
+    })
+    await drain()
+
+    expect(renderedText(tree)).toContain('Profile updated')
+  })
+
+  test('account B can upload an avatar while account A upload is in flight', async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    await settleOverview(
+      overviewRuns[0],
+      overview({ image: 'data:image/png;base64,OLD=' })
+    )
+    await settleHistory(historyRuns[0], historyOf([]))
+
+    const pendingA = deferred<{
+      success: true
+      message: string
+      avatar: string
+    }>()
+    uploadAvatar.mockImplementationOnce(() => pendingA.promise)
+    await press(tree, 'Change avatar')
+    expect(uploadAvatar).toHaveBeenCalledTimes(1)
+
+    await switchToUserB(tree)
+
+    await press(tree, 'Change avatar')
+    expect(uploadAvatar).toHaveBeenCalledTimes(2)
+    expect(renderedText(tree)).toContain('Avatar updated')
+
+    await act(async () => {
+      pendingA.resolve({
+        success: true,
+        message: 'ok',
+        avatar: 'data:image/png;base64,AAA=',
+      })
+      await pendingA.promise
+    })
+    await drain()
+    expect(renderedText(tree)).toContain('Avatar updated')
+  })
+})
+
 describe('profile tab — refetch lifecycle', () => {
   test('refetches only when the tab regains focus', async () => {
     signIn('user-a')
