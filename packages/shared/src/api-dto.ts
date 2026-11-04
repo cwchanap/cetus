@@ -220,8 +220,6 @@ export interface SuccessMessageResponse {
     message: string
 }
 
-// --- GET /api/user/profile --------------------------------------------------
-
 export interface UserOverviewProfile {
     name: string
     displayName: string | null
