@@ -22,7 +22,6 @@ export default function ChallengesScreen() {
   const router = useRouter()
   const accent = useNativeVariable('--cetus-accent')
   const insets = useSafeAreaInsets()
-  // useSession is Better Auth's react binding over getSession.
   const {
     data: session,
     isPending,

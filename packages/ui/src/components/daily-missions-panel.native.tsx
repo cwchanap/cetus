@@ -6,11 +6,6 @@ import { Badge } from './ui/badge.native'
 import { Card } from './ui/card.native'
 import { cn } from '../lib/utils'
 
-/**
- * Native daily-missions panel. View props derive from the ChallengesResponse
- * wire DTO; the reset countdown and the expired-reset refresh affordance are
- * self-contained client behavior (no web services), matching the web panel.
- */
 export interface DailyMissionsPanelProps {
   challenges: ChallengeProgressResponse[]
   xp: number
@@ -22,7 +17,6 @@ export interface DailyMissionsPanelProps {
   onResetRefresh?: () => void
 }
 
-// Difficulty colors (same token mapping as the web panel)
 const difficultyColors: Record<string, string> = {
   easy: 'text-cetus-accent',
   medium: 'text-cetus-accent-2',
@@ -37,8 +31,6 @@ function formatCountdown(seconds: number): string {
   return `Resets in ${pad(hours)}:${pad(mins)}:${pad(secs)}`
 }
 
-// The per-second countdown lives in its own component so the once-a-second
-// state tick doesn't re-render the whole panel — only this subtree.
 function ResetCountdown({
   resetIn,
   onResetRefresh,
@@ -48,7 +40,6 @@ function ResetCountdown({
 }) {
   const [seconds, setSeconds] = useState(resetIn)
 
-  // Countdown: tick once per second until the daily reset.
   useEffect(() => {
     if (seconds <= 0) {
       return
@@ -58,8 +49,6 @@ function ResetCountdown({
   }, [seconds])
 
   if (seconds <= 0) {
-    // The web panel portals a refresh toast; native has no document reload,
-    // so the expired state surfaces an inline refresh affordance instead.
     return (
       <View className="flex-row items-center gap-2">
         <Text className="font-sans text-sm text-cetus-ink-muted">
@@ -170,7 +159,6 @@ export function DailyMissionsPanel({
   const clampedProgress = Math.min(100, Math.max(0, xpProgress))
   return (
     <Card variant="glass" className="gap-5 p-5">
-      {/* Header */}
       <View className="flex-row items-center justify-between gap-3">
         <View className="flex-1 flex-row items-center gap-2.5">
           <Text className="text-2xl">🎯</Text>
@@ -189,7 +177,6 @@ export function DailyMissionsPanel({
         </View>
       </View>
 
-      {/* XP Progress Bar */}
       <View className="gap-1.5">
         <View className="flex-row justify-between">
           <Text className="font-sans text-sm text-cetus-ink-muted">
@@ -208,14 +195,12 @@ export function DailyMissionsPanel({
         </Text>
       </View>
 
-      {/* Challenge List */}
       <View className="gap-3">
         {challenges.map(challenge => (
           <MissionRow key={challenge.challengeId} challenge={challenge} />
         ))}
       </View>
 
-      {/* Streak Display */}
       {streak > 0 ? (
         <View className="flex-row items-center gap-2 border-t border-cetus-hairline pt-4">
           <Text className="text-orange-400">🔥</Text>
