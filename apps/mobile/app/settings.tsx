@@ -114,6 +114,7 @@ export default function SettingsScreen() {
   } | null>(null)
   const appliedDataRef = useRef<unknown>(null)
   const watchedLeasesRef = useRef<Set<SettingsWriteLease>>(new Set())
+  const pendingReconcileRef = useRef<Set<string>>(new Set())
   const userIdRef = useRef(userId)
   userIdRef.current = userId
 
@@ -123,6 +124,7 @@ export default function SettingsScreen() {
     setSaved(false)
     setFailedKeys(new Set())
     setMutationError(null)
+    pendingReconcileRef.current.clear()
   }
 
   const watchLease = useCallback(
@@ -137,13 +139,21 @@ export default function SettingsScreen() {
         if (!mountedRef.current) {
           return
         }
+        pendingReconcileRef.current.add(lease.userId)
         const outstanding = settingsWriteLease()
         if (outstanding !== null) {
-          watchLease(outstanding)
+          if (outstanding !== lease) {
+            watchLease(outstanding)
+          }
           return
         }
         setSaving(false)
-        if (lease.userId === userIdRef.current) {
+        const currentUser = userIdRef.current
+        if (
+          currentUser !== null &&
+          pendingReconcileRef.current.has(currentUser)
+        ) {
+          pendingReconcileRef.current.clear()
           refresh()
         }
       })
@@ -152,9 +162,12 @@ export default function SettingsScreen() {
   )
 
   useEffect(() => {
-    const lease = settingsWriteLease() ?? initialLease
-    if (lease !== null) {
-      watchLease(lease)
+    const live = settingsWriteLease()
+    if (live !== null) {
+      watchLease(live)
+    }
+    if (initialLease !== null && initialLease !== live) {
+      watchLease(initialLease)
     }
   }, [sessionKey, watchLease, initialLease])
 
