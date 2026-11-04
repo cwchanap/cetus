@@ -8,8 +8,7 @@ import { getActiveGames, searchGames, type Game } from '@cetus/shared/games'
 import { difficultyBadgeVariant } from '../../src/lib/game-catalog'
 
 // All registry games are listed honestly: none are playable on mobile yet
-// (HPA-182/HPA-425 own the screens), so entries navigate to details and never
-// play.
+// (HPA-182/HPA-425 own the screens), so entries carry no tap handler at all.
 const ACTIVE_GAMES = getActiveGames()
 const ACTIVE_COUNT = ACTIVE_GAMES.length
 
@@ -24,6 +23,9 @@ const CATEGORY_FILTERS: { value: CategoryFilter; label: string }[] = [
 
 function GameCard({ game, onOpen }: { game: Game; onOpen: () => void }) {
   return (
+    // Dark non-abyssal theme: surfaces/ink/hairline come from the shared
+    // --cetus-* tokens (see global.css); unsupported effects (wordmark
+    // gradient, animations) are simply not used here.
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={game.name}
@@ -31,9 +33,6 @@ function GameCard({ game, onOpen }: { game: Game; onOpen: () => void }) {
       onPress={onOpen}
       className="active:opacity-80"
     >
-      {/* Dark non-abyssal theme: surfaces/ink/hairline come from the shared
-          --cetus-* tokens (see global.css); unsupported effects (wordmark
-          gradient, animations) are simply not used here. */}
       <Card variant="sci-fi" className="gap-1.5 p-4">
         <View className="flex-row items-center justify-between gap-2">
           <Text className="flex-1 font-display text-base font-bold text-cetus-ink">
