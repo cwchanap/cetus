@@ -24,6 +24,7 @@ import {
   type AchievementView,
 } from '../../src/lib/achievements'
 import { isUnauthorizedError, useRefetchOnFocus } from '../../src/lib/refetch'
+import { sessionKeyFor, useExpiredSessionGate } from '../../src/lib/session'
 
 const GAME_OPTIONS = achievementGameOptions()
 
@@ -36,18 +37,8 @@ export default function AchievementsScreen() {
     refetch: refetchSession,
   } = authClient.useSession()
   const userId = session?.user.id ?? null
-  const sessionKey = session?.session
-    ? [
-        session.session.id,
-        String(session.session.updatedAt ?? ''),
-        String(session.session.expiresAt ?? ''),
-      ].join(':')
-    : userId
-  const [expiredSessionKeys, setExpiredSessionKeys] = useState<
-    readonly string[]
-  >([])
-  const authExpired =
-    sessionKey !== null && expiredSessionKeys.includes(sessionKey)
+  const sessionKey = sessionKeyFor(session)
+  const { authExpired, markSessionExpired } = useExpiredSessionGate(sessionKey)
   const [status, setStatus] = useState<AchievementStatusFilter>('all')
   const [game, setGame] = useState<AchievementGameScope>(ACHIEVEMENT_GAME_ALL)
 
@@ -60,12 +51,10 @@ export default function AchievementsScreen() {
 
   useEffect(() => {
     if (error !== null && isUnauthorizedError(error) && sessionKey !== null) {
-      setExpiredSessionKeys(current =>
-        current.includes(sessionKey) ? current : [...current, sessionKey]
-      )
+      markSessionExpired()
       void Promise.resolve(refetchSession?.()).catch(() => undefined)
     }
-  }, [error, sessionKey, refetchSession])
+  }, [error, sessionKey, markSessionExpired, refetchSession])
 
   const views = useMemo(() => achievementViewsFor(data), [data])
   const filtered = useMemo(

@@ -1,122 +1,606 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'expo-router'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'expo-router'
+import * as ImagePicker from 'expo-image-picker'
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
+import { useNativeVariable } from 'react-native-css/native'
+import { useRemoteData } from '@cetus/app-core'
+import { Button, Card, Heading } from '@cetus/ui'
+import type {
+  ScoreHistoryResponse,
+  UserOverviewResponse,
+} from '@cetus/shared/api-dto'
+import { profileUpdateSchema } from '@cetus/shared/validations'
 
 import { api } from '../../src/lib/api'
 import { authClient } from '../../src/lib/auth-client'
+import {
+  AvatarBadge,
+  avatarFileNameFor,
+  avatarMimeTypeFor,
+  avatarValidationError,
+  favoriteGameLabel,
+  HistoryEmpty,
+  HistoryError,
+  HistoryRow,
+  ProfileError,
+  ProfileLoading,
+  ProfileSignIn,
+  RECENT_SCORE_LIMIT,
+  StatChip,
+} from '../../src/lib/profile'
+import { isUnauthorizedError, useRefetchOnFocus } from '../../src/lib/refetch'
+import { sessionKeyFor, useExpiredSessionGate } from '../../src/lib/session'
 
-// Protected-API proof: the same `GET /api/settings` must succeed while
-// signed in and return 401 once signed out. Mounted in both session states
-// so the post-sign-out 401 is observable in the UI (live checks against the
-// real backend are the manual/device acceptance gate).
-function ConnectionStatus({ sessionKey }: { sessionKey: string }) {
-  const [status, setStatus] = useState<
-    'checking' | 'ok' | 'signed-out' | 'failed'
-  >('checking')
-
-  useEffect(() => {
-    let active = true
-    setStatus('checking')
-    api
-      .getSettings()
-      .then(() => {
-        if (active) {
-          setStatus('ok')
-        }
-      })
-      .catch((error: unknown) => {
-        if (!active) {
-          return
-        }
-        if ((error as { status?: number }).status === 401) {
-          setStatus('signed-out')
-        } else {
-          setStatus('failed')
-        }
-      })
-    return () => {
-      active = false
-    }
-  }, [sessionKey])
-
-  if (status === 'checking') {
-    return <ActivityIndicator testID="api-checking" />
-  }
-  return (
-    <Text
-      testID="api-status"
-      className="font-sans text-center text-sm text-cetus-ink-muted"
-    >
-      {status === 'ok'
-        ? 'API: authenticated connection verified'
-        : status === 'signed-out'
-          ? 'API: signed out — protected endpoint rejected (401)'
-          : 'API: request failed (network or server error)'}
-    </Text>
-  )
-}
+const toError = (reason: unknown): Error =>
+  reason instanceof Error ? reason : new Error(String(reason))
 
 export default function ProfileScreen() {
+  const router = useRouter()
+  const accent = useNativeVariable('--cetus-accent')
+  const inkMuted = useNativeVariable('--cetus-ink-muted')
   // useSession is Better Auth's react binding over getSession.
-  const { data: session, isPending } = authClient.useSession()
-  const sessionKey = session?.user.id ?? 'anonymous'
+  const {
+    data: session,
+    isPending,
+    refetch: refetchSession,
+  } = authClient.useSession()
+  const userId = session?.user.id ?? null
+  const sessionKey = sessionKeyFor(session)
+  const { authExpired, markSessionExpired } = useExpiredSessionGate(sessionKey)
+  const canFetch = userId !== null && !isPending && !authExpired
+
+  const {
+    data: overviewData,
+    loading: overviewLoading,
+    error: overviewError,
+    refresh: refreshOverview,
+  } = useRemoteData<UserOverviewResponse>(
+    useCallback(() => api.getUserOverview(), []),
+    ['profile', userId ?? 'anonymous', sessionKey ?? 'none'],
+    canFetch
+  )
+  const {
+    data: historyData,
+    loading: historyLoading,
+    error: historyError,
+    refresh: refreshHistory,
+  } = useRemoteData<ScoreHistoryResponse>(
+    useCallback(() => api.getScoreHistory(RECENT_SCORE_LIMIT), []),
+    ['profile-history', userId ?? 'anonymous', sessionKey ?? 'none'],
+    canFetch
+  )
+  const refreshAll = useCallback(() => {
+    refreshOverview()
+    refreshHistory()
+  }, [refreshOverview, refreshHistory])
+  useRefetchOnFocus(refreshAll)
+
+  const [mutationError, setMutationError] = useState<Error | null>(null)
+  const reconciledForRef = useRef<string | null>(null)
+  useEffect(() => {
+    const unauthorized =
+      isUnauthorizedError(overviewError) ||
+      isUnauthorizedError(historyError) ||
+      isUnauthorizedError(mutationError)
+    if (!unauthorized || sessionKey === null) {
+      return
+    }
+    markSessionExpired()
+    if (reconciledForRef.current !== sessionKey) {
+      reconciledForRef.current = sessionKey
+      void Promise.resolve(refetchSession?.()).catch(() => undefined)
+    }
+  }, [
+    overviewError,
+    historyError,
+    mutationError,
+    sessionKey,
+    markSessionExpired,
+    refetchSession,
+  ])
+
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+  const sessionKeyRef = useRef(sessionKey)
+  useEffect(() => {
+    sessionKeyRef.current = sessionKey
+  }, [sessionKey])
+  const saveBusyRef = useRef(false)
+  const avatarBusyRef = useRef(false)
+  const isStale = (key: string) =>
+    !mountedRef.current || sessionKeyRef.current !== key
+
+  const [draftFor, setDraftFor] = useState<string | null>(sessionKey)
+  const [displayNameDraft, setDisplayNameDraft] = useState('')
+  const [usernameDraft, setUsernameDraft] = useState('')
+  const [syncedFor, setSyncedFor] = useState<string | null>(null)
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [profileNotice, setProfileNotice] = useState<string | null>(null)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const [avatarNotice, setAvatarNotice] = useState<string | null>(null)
+  const [avatarOverride, setAvatarOverride] = useState<{
+    key: string
+    uri: string | null
+  } | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+
+  if (draftFor !== sessionKey) {
+    setDraftFor(sessionKey)
+    setSyncedFor(null)
+    setDisplayNameDraft('')
+    setUsernameDraft('')
+    setProfileError(null)
+    setProfileNotice(null)
+    setAvatarError(null)
+    setAvatarNotice(null)
+    setAvatarOverride(null)
+    setMutationError(null)
+    setSaving(false)
+    setUploading(false)
+  }
+  if (
+    overviewData !== undefined &&
+    sessionKey !== null &&
+    syncedFor !== sessionKey
+  ) {
+    setSyncedFor(sessionKey)
+    setDisplayNameDraft(overviewData.profile.displayName ?? '')
+    setUsernameDraft(overviewData.profile.username ?? '')
+  }
+
+  const openSignIn = useCallback(() => {
+    router.push({
+      pathname: '/sign-in',
+      params: { returnTo: '/(tabs)/profile' },
+    })
+  }, [router])
+
+  const saveProfile = async () => {
+    const key = sessionKey
+    if (key === null || authExpired || saveBusyRef.current) {
+      return
+    }
+    setProfileError(null)
+    setProfileNotice(null)
+    const parsed = profileUpdateSchema.safeParse({
+      displayName: displayNameDraft,
+      username: usernameDraft,
+    })
+    if (!parsed.success) {
+      setProfileError(
+        parsed.error.issues[0]?.message ?? 'Check the fields and try again.'
+      )
+      return
+    }
+    saveBusyRef.current = true
+    setSaving(true)
+    try {
+      await api.updateProfile(parsed.data)
+      if (isStale(key)) {
+        return
+      }
+      setProfileNotice('Profile updated.')
+      refreshOverview()
+    } catch (reason) {
+      const error = toError(reason)
+      if (isStale(key)) {
+        return
+      }
+      setMutationError(error)
+      if (!isUnauthorizedError(error)) {
+        setProfileError(error.message || 'Could not save your profile.')
+      }
+    } finally {
+      saveBusyRef.current = false
+      if (!isStale(key)) {
+        setSaving(false)
+      }
+    }
+  }
+
+  const pickAvatar = async () => {
+    const key = sessionKey
+    if (key === null || authExpired || avatarBusyRef.current) {
+      return
+    }
+    avatarBusyRef.current = true
+    setUploading(true)
+    setAvatarError(null)
+    setAvatarNotice(null)
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (isStale(key)) {
+        return
+      }
+      if (!permission.granted) {
+        setAvatarError('Allow photo library access to choose an avatar.')
+        return
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+      })
+      if (isStale(key) || result.canceled) {
+        return
+      }
+      const asset = result.assets?.[0]
+      if (asset === undefined || asset === null) {
+        return
+      }
+      const problem = avatarValidationError(asset)
+      if (problem !== null) {
+        setAvatarError(problem)
+        return
+      }
+      const mime = avatarMimeTypeFor(asset)
+      if (mime === null) {
+        return
+      }
+      const formData = new FormData()
+      formData.append('avatar', {
+        uri: asset.uri,
+        name: avatarFileNameFor(asset, mime),
+        type: mime,
+      } as unknown as Blob)
+      const updated = await api.uploadAvatar(formData)
+      if (isStale(key)) {
+        return
+      }
+      setAvatarOverride({ key, uri: updated.avatar })
+      setAvatarNotice('Avatar updated.')
+      refreshOverview()
+    } catch (reason) {
+      const error = toError(reason)
+      if (isStale(key)) {
+        return
+      }
+      setMutationError(error)
+      if (!isUnauthorizedError(error)) {
+        setAvatarError("Couldn't update your avatar. Try again.")
+      }
+    } finally {
+      avatarBusyRef.current = false
+      if (!isStale(key)) {
+        setUploading(false)
+      }
+    }
+  }
+
+  const removeAvatar = async () => {
+    const key = sessionKey
+    if (key === null || authExpired || avatarBusyRef.current) {
+      return
+    }
+    avatarBusyRef.current = true
+    setUploading(true)
+    setAvatarError(null)
+    setAvatarNotice(null)
+    try {
+      await api.deleteAvatar()
+      if (isStale(key)) {
+        return
+      }
+      setAvatarOverride({ key, uri: null })
+      setAvatarNotice('Avatar removed.')
+      refreshOverview()
+    } catch (reason) {
+      const error = toError(reason)
+      if (isStale(key)) {
+        return
+      }
+      setMutationError(error)
+      if (!isUnauthorizedError(error)) {
+        setAvatarError("Couldn't remove your avatar. Try again.")
+      }
+    } finally {
+      avatarBusyRef.current = false
+      if (!isStale(key)) {
+        setUploading(false)
+      }
+    }
+  }
 
   if (isPending) {
     return (
-      <View className="flex-1 items-center justify-center bg-cetus-canvas">
-        <ActivityIndicator />
+      <View className="flex-1 bg-cetus-canvas">
+        <ProfileLoading />
       </View>
     )
   }
 
   if (!session) {
+    return <ProfileSignIn onSignIn={openSignIn} />
+  }
+
+  if (
+    authExpired ||
+    isUnauthorizedError(overviewError) ||
+    isUnauthorizedError(historyError) ||
+    isUnauthorizedError(mutationError)
+  ) {
+    return <ProfileSignIn expired onSignIn={openSignIn} />
+  }
+
+  if (overviewData === undefined) {
     return (
-      <View className="flex-1 items-center justify-center gap-2.5 bg-cetus-canvas p-6">
-        <Text className="font-display text-xl font-bold text-cetus-ink">
-          Anonymous diver
-        </Text>
-        <Text className="font-sans text-center text-sm text-cetus-ink-muted">
-          You are browsing Cetus without an account. Sign in to sync scores and
-          achievements.
-        </Text>
-        <Link href="/sign-in">
-          <Text className="font-sans mt-1.5 text-[15px] font-semibold text-cetus-accent">
-            Sign in
-          </Text>
-        </Link>
-        <ConnectionStatus sessionKey={sessionKey} />
+      <View className="flex-1 bg-cetus-canvas">
+        {overviewLoading ? (
+          <ProfileLoading />
+        ) : (
+          <ProfileError
+            error={overviewError ?? new Error('Profile request failed')}
+            onRetry={refreshOverview}
+          />
+        )}
       </View>
     )
   }
 
+  const { profile, stats } = overviewData
+  const displayName =
+    profile.displayName ?? session.user.name ?? session.user.email
+  const serverImage =
+    avatarOverride !== null && avatarOverride.key === sessionKey
+      ? avatarOverride.uri
+      : (profile.image ?? session.user.image ?? null)
+  const memberSince = new Date(profile.createdAt).toLocaleDateString()
+
   return (
-    <View className="flex-1 items-center justify-center gap-2.5 bg-cetus-canvas p-6">
-      <Text className="font-display text-xl font-bold text-cetus-ink">
-        {session.user.name || session.user.email}
-      </Text>
-      {session.user.name ? (
-        <Text className="font-sans text-sm text-cetus-ink-muted">
-          {session.user.email}
-        </Text>
-      ) : null}
-      <ConnectionStatus sessionKey={sessionKey} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Sign out"
-        onPress={() => {
-          // The expo client clears the local session in its fetch `init`
-          // hook — before the request resolves — so a failed sign-out is
-          // never observable here: the screen is already on the signed-out
-          // view (and the user IS signed out locally regardless). Swallow
-          // rejections; there is nothing to surface.
-          void authClient.signOut().catch(() => {})
-        }}
-        className="mt-4 rounded-xl border border-cetus-hairline px-5 py-3"
+    <KeyboardAvoidingView
+      className="flex-1 bg-cetus-canvas"
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="gap-4 px-4 pb-10 pt-4"
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={overviewLoading}
+            onRefresh={refreshAll}
+            tintColor={accent}
+          />
+        }
       >
-        <Text className="font-sans text-[15px] font-semibold text-cetus-ink">
+        <View className="gap-1">
+          <Heading level={4} variant="section" kicker="DIVER FILE">
+            Profile
+          </Heading>
+        </View>
+
+        <Card variant="sci-fi" className="gap-3 p-4">
+          <View className="flex-row items-center gap-4">
+            <AvatarBadge name={displayName} uri={serverImage} />
+            <View className="flex-1 gap-0.5">
+              <Text
+                className="font-display text-lg font-bold text-cetus-ink"
+                numberOfLines={1}
+              >
+                {displayName}
+              </Text>
+              {profile.username !== null ? (
+                <Text
+                  className="font-sans text-sm text-cetus-accent"
+                  numberOfLines={1}
+                >
+                  @{profile.username}
+                </Text>
+              ) : null}
+              <Text
+                className="font-sans text-xs text-cetus-ink-muted"
+                numberOfLines={1}
+              >
+                {session.user.email}
+              </Text>
+              <Text className="font-sans text-xs text-cetus-ink-muted">
+                Member since {memberSince}
+              </Text>
+            </View>
+          </View>
+          <View className="flex-row flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              accessibilityRole="button"
+              accessibilityLabel="Change avatar"
+              disabled={uploading}
+              onPress={() => {
+                void pickAvatar()
+              }}
+            >
+              {uploading ? 'Working…' : 'Change avatar'}
+            </Button>
+            {serverImage !== null && serverImage !== '' ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                accessibilityRole="button"
+                accessibilityLabel="Remove avatar"
+                disabled={uploading}
+                onPress={() => {
+                  void removeAvatar()
+                }}
+              >
+                Remove avatar
+              </Button>
+            ) : null}
+          </View>
+          {avatarError !== null ? (
+            <Text
+              accessibilityRole="alert"
+              testID="profile-avatar-error"
+              className="font-sans text-sm text-red-400"
+            >
+              {avatarError}
+            </Text>
+          ) : null}
+          {avatarNotice !== null ? (
+            <Text
+              testID="profile-avatar-notice"
+              className="font-sans text-sm text-cetus-accent"
+            >
+              {avatarNotice}
+            </Text>
+          ) : null}
+        </Card>
+
+        <Card variant="sci-fi" className="gap-2.5 p-4">
+          <Text className="font-display text-sm font-bold text-cetus-ink">
+            Dive stats
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            <StatChip
+              label="Level"
+              value={`${stats.level} · ${stats.xp.toLocaleString()} XP`}
+            />
+            <StatChip
+              label="Games played"
+              value={stats.totalGamesPlayed.toLocaleString()}
+            />
+            <StatChip
+              label="Total score"
+              value={stats.totalScore.toLocaleString()}
+            />
+            <StatChip label="Streak" value={`${stats.streakDays} days`} />
+            <StatChip
+              label="Favorite"
+              value={favoriteGameLabel(stats.favoriteGame)}
+            />
+          </View>
+        </Card>
+
+        <Card variant="sci-fi" className="gap-3 p-4">
+          <Text className="font-display text-sm font-bold text-cetus-ink">
+            Edit profile
+          </Text>
+          <View className="gap-1">
+            <Text className="font-sans text-xs text-cetus-ink-muted">
+              Display name
+            </Text>
+            <TextInput
+              accessibilityLabel="Display name"
+              value={displayNameDraft}
+              onChangeText={setDisplayNameDraft}
+              placeholder="How other divers see you"
+              placeholderTextColor={inkMuted}
+              autoCapitalize="words"
+              returnKeyType="done"
+              maxLength={100}
+              editable={!saving}
+              className="rounded-xl border border-cetus-hairline bg-cetus-canvas px-3 py-2.5 font-sans text-sm text-cetus-ink"
+            />
+          </View>
+          <View className="gap-1">
+            <Text className="font-sans text-xs text-cetus-ink-muted">
+              Username
+            </Text>
+            <TextInput
+              accessibilityLabel="Username"
+              value={usernameDraft}
+              onChangeText={setUsernameDraft}
+              placeholder="lowercase, numbers, underscores"
+              placeholderTextColor={inkMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              maxLength={20}
+              editable={!saving}
+              className="rounded-xl border border-cetus-hairline bg-cetus-canvas px-3 py-2.5 font-sans text-sm text-cetus-ink"
+            />
+          </View>
+          {profileError !== null ? (
+            <Text
+              accessibilityRole="alert"
+              testID="profile-edit-error"
+              className="font-sans text-sm text-red-400"
+            >
+              {profileError}
+            </Text>
+          ) : null}
+          {profileNotice !== null ? (
+            <Text
+              testID="profile-edit-notice"
+              className="font-sans text-sm text-cetus-accent"
+            >
+              {profileNotice}
+            </Text>
+          ) : null}
+          <Button
+            variant="primary"
+            accessibilityRole="button"
+            accessibilityLabel="Save profile"
+            disabled={saving}
+            onPress={() => {
+              void saveProfile()
+            }}
+          >
+            {saving ? 'Saving…' : 'Save profile'}
+          </Button>
+        </Card>
+
+        <Card variant="sci-fi" className="gap-2 p-4">
+          <Text className="font-display text-sm font-bold text-cetus-ink">
+            Recent scores
+          </Text>
+          {historyData === undefined ? (
+            historyLoading ? (
+              <View className="items-center py-4">
+                <ActivityIndicator accessibilityLabel="Loading recent scores" />
+              </View>
+            ) : (
+              <HistoryError
+                error={historyError ?? new Error('History request failed')}
+                onRetry={refreshHistory}
+              />
+            )
+          ) : historyData.history.length === 0 ? (
+            <HistoryEmpty />
+          ) : (
+            <View className="gap-2">
+              {historyData.history.map(entry => (
+                <HistoryRow
+                  key={`${entry.game_id}-${entry.created_at}-${entry.score}`}
+                  entry={entry}
+                />
+              ))}
+            </View>
+          )}
+        </Card>
+
+        <Button
+          variant="outline"
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+          onPress={() => {
+            // The expo client clears the local session in its fetch `init`
+            // hook — before the request resolves — so a failed sign-out is
+            // never observable here: the screen is already on the signed-out
+            // view (and the user IS signed out locally regardless). Swallow
+            // rejections; there is nothing to surface.
+            void authClient.signOut().catch(() => {})
+          }}
+          className="mt-1"
+        >
           Sign out
-        </Text>
-      </Pressable>
-    </View>
+        </Button>
+      </ScrollView>
+    </KeyboardAvoidingView>
   )
 }
