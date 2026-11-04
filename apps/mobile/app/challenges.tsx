@@ -14,6 +14,7 @@ import {
   ChallengesError,
   ChallengesLoading,
   ChallengesSignIn,
+  challengesResponseFor,
 } from '../src/lib/challenges'
 import { isUnauthorizedError, useRefetchOnFocus } from '../src/lib/refetch'
 import { sessionKeyFor, useExpiredSessionGate } from '../src/lib/session'
@@ -52,6 +53,11 @@ export default function ChallengesScreen() {
     })
   }, [router])
 
+  const payload = data === undefined ? undefined : challengesResponseFor(data)
+  const payloadError =
+    error ??
+    (payload === null ? new Error('Unexpected challenges response') : null)
+
   let content: ReactNode
   if (isPending) {
     content = <ChallengesLoading />
@@ -59,12 +65,12 @@ export default function ChallengesScreen() {
     content = <ChallengesSignIn onSignIn={openSignIn} />
   } else if (authExpired || isUnauthorizedError(error)) {
     content = <ChallengesSignIn expired onSignIn={openSignIn} />
-  } else if (data === undefined) {
+  } else if (payload === undefined || payload === null) {
     content = loading ? (
       <ChallengesLoading />
     ) : (
       <ChallengesError
-        error={error ?? new Error('Challenges request failed')}
+        error={payloadError ?? new Error('Challenges request failed')}
         onRetry={refresh}
       />
     )
@@ -86,20 +92,20 @@ export default function ChallengesScreen() {
             Challenges
           </Heading>
           <Text className="font-sans text-xs text-cetus-ink-muted">
-            {data.date} UTC · missions reset daily at midnight UTC
+            {payload.date} UTC · missions reset daily at midnight UTC
           </Text>
         </View>
         <DailyMissionsPanel
-          challenges={data.challenges}
-          xp={data.xp}
-          level={data.level}
-          xpProgress={data.xpProgress}
-          xpToNextLevel={data.xpToNextLevel}
-          streak={data.streak}
-          resetIn={data.resetIn}
+          challenges={payload.challenges}
+          xp={payload.xp}
+          level={payload.level}
+          xpProgress={payload.xpProgress}
+          xpToNextLevel={payload.xpToNextLevel}
+          streak={payload.streak}
+          resetIn={payload.resetIn}
           onResetRefresh={refresh}
         />
-        {data.challenges.length === 0 ? <ChallengesEmpty /> : null}
+        {payload.challenges.length === 0 ? <ChallengesEmpty /> : null}
       </ScrollView>
     )
   }
