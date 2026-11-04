@@ -6,23 +6,36 @@ import {
 } from '@/lib/server/db/queries'
 import { db } from '@/lib/server/db/client'
 
-vi.mock('@/lib/server/db/client', () => ({
-    db: {
-        selectFrom: vi.fn(),
-        insertInto: vi.fn(),
-        updateTable: vi.fn(),
-        transaction: vi.fn(),
-        fn: {
-            count: vi.fn().mockReturnValue({
-                as: vi.fn().mockReturnValue('COUNT'),
-            }),
+vi.mock('@/lib/server/db/client', () => {
+    const executor = {
+        transformQuery: (node: unknown) => node,
+        compileQuery: () => ({ sql: '', parameters: [] }),
+        executeQuery: vi.fn(),
+    }
+    return {
+        db: {
+            selectFrom: vi.fn(),
+            insertInto: vi.fn(),
+            updateTable: vi.fn(),
+            transaction: vi.fn(),
+            getExecutor: () => executor,
+            fn: {
+                count: vi.fn().mockReturnValue({
+                    as: vi.fn().mockReturnValue('COUNT'),
+                }),
+            },
         },
-    },
-}))
+    }
+})
 
 describe('Strict user read variants', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        ;(
+            db.getExecutor().executeQuery as ReturnType<typeof vi.fn>
+        ).mockResolvedValue({
+            rows: [{ name: 'displayName' }, { name: 'username' }],
+        })
     })
 
     describe('getUserStatsStrict', () => {
