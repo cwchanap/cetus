@@ -380,6 +380,37 @@ test('Select maps shared variant and size names onto the trigger', async () => {
   expect(trigger.props.className).toContain('h-12')
 })
 
+test('Select styles muted text and the sheet with generated theme colors', async () => {
+  const tree = await render(
+    <Ui.Select
+      options={SELECT_OPTIONS}
+      placeholder="Pick a game"
+      onValueChange={() => {}}
+    />
+  )
+  const classNames = () =>
+    tree.root
+      .findAll(node => typeof node.props.className === 'string')
+      .map(node => node.props.className as string)
+
+  expect(classNames().some(name => name.includes('text-cetus-ink-muted'))).toBe(
+    true
+  )
+
+  await act(async () => {
+    comboboxOf(tree).props.onPress()
+  })
+
+  const sheet = tree.root
+    .findAllByType(View)
+    .find(node => node.props.className?.includes('rounded-t-2xl'))
+  expect(sheet).toBeTruthy()
+  expect(sheet?.props.className).toContain('bg-cetus-canvas')
+  expect(
+    classNames().every(name => !/cetus-(bg|muted)(?![\w-])/.test(name))
+  ).toBe(true)
+})
+
 test('root export exposes only implemented native components', () => {
   const root = Ui as unknown as Record<string, unknown>
   expect(root.Button).toBeDefined()

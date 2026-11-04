@@ -115,13 +115,13 @@ export function Select({
               ? variant === 'outline'
                 ? 'text-cetus-accent'
                 : 'text-cetus-ink'
-              : 'text-cetus-muted'
+              : 'text-cetus-ink-muted'
           )}
         >
           {displayLabel}
         </Text>
         <Text
-          className="ml-2 text-xs text-cetus-muted"
+          className="ml-2 text-xs text-cetus-ink-muted"
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         >
@@ -140,7 +140,7 @@ export function Select({
             className="absolute inset-0"
             onPress={() => setOpen(false)}
           />
-          <View className="max-h-[70%] rounded-t-2xl border-t border-cetus-hairline bg-cetus-bg">
+          <View className="max-h-[70%] rounded-t-2xl border-t border-cetus-hairline bg-cetus-canvas">
             <ScrollView>
               {options.map(option => {
                 const isSelected = option.value === currentValue

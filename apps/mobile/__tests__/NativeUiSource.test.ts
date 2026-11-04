@@ -90,4 +90,48 @@ describe('Tailwind generates native @cetus/ui utilities', () => {
             expect(builtCss).toContain(selector)
         }
     })
+
+    it('generates CSS for every cetus-* utility used by native sources', async () => {
+        const compiler = await compile(globalCss, {
+            base: dirname(globalCssPath),
+            onDependency: () => {},
+        })
+
+        const sources =
+            compiler.root === 'none'
+                ? []
+                : compiler.root === null
+                  ? [{ base: mobileRoot, pattern: '**/*', negated: false }]
+                  : [{ ...compiler.root, negated: false }]
+        const scanner = new Scanner({
+            sources: sources.concat(compiler.sources),
+        })
+
+        const nativeFiles = [...walk(uiSrc)].filter(f =>
+            f.endsWith('.native.tsx')
+        )
+        const cetusCandidates = new Set<string>()
+        for (const file of nativeFiles) {
+            for (const match of read(file).matchAll(
+                /(?:[a-z-]+:)?[a-z]+-cetus-[a-z0-9-]+(?:\/\d+)?/g
+            )) {
+                cetusCandidates.add(match[0])
+            }
+        }
+        expect(cetusCandidates.size).toBeGreaterThan(0)
+
+        const builtCss = compiler.build([
+            ...new Set(scanner.scan().concat([...cetusCandidates])),
+        ])
+
+        const missing = [...cetusCandidates].filter(token => {
+            const selector =
+                '.' + token.replaceAll(':', '\\:').replaceAll('/', '\\/')
+            const pattern = new RegExp(
+                selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w-])'
+            )
+            return !pattern.test(builtCss)
+        })
+        expect(missing).toEqual([])
+    })
 })
