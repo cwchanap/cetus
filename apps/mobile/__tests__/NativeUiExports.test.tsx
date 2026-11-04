@@ -5,6 +5,8 @@ import { Text, View } from 'react-native'
 import * as Ui from '@cetus/ui'
 import { Button as DeepButton } from '@cetus/ui/components/ui/button'
 import { Card as DeepCard } from '@cetus/ui/components/ui/card'
+import { Badge as DeepBadge } from '@cetus/ui/components/ui/badge'
+import { Heading as DeepHeading } from '@cetus/ui/components/ui/heading'
 
 const render = async (element: React.ReactElement) => {
   let tree: TestRenderer.ReactTestRenderer | undefined
@@ -122,14 +124,49 @@ test('Card renders the four HUD bracket corners when brackets is set', async () 
   expect(brackets).toHaveLength(4)
 })
 
+test('root Badge renders a native tree with variant classes', async () => {
+  const tree = await render(<Ui.Badge variant="success">New</Ui.Badge>)
+  const view = tree.root.findByType(View)
+  expect(view.props.className).toContain('rounded-full')
+  expect(view.props.className).toContain('border-cetus-accent')
+  const text = tree.root.findByType(Text)
+  expect(text.props.children).toBe('New')
+  expect(text.props.className).toContain('text-cetus-accent')
+})
+
+test('root Heading renders a header-role Text with level and variant classes', async () => {
+  const tree = await render(
+    <Ui.Heading level={3} variant="section">
+      Catalog
+    </Ui.Heading>
+  )
+  const header = tree.root.findByProps({ accessibilityRole: 'header' })
+  expect(header.props.children).toBe('Catalog')
+  expect(header.props.className).toContain('text-3xl')
+  expect(header.props.className).toContain('font-display')
+})
+
+test('Heading renders its kicker line above the title', async () => {
+  const tree = await render(
+    <Ui.Heading level={4} kicker="GAME FILE">
+      Tetris Challenge
+    </Ui.Heading>
+  )
+  const texts = tree.root.findAllByType(Text)
+  expect(texts[0].props.children).toEqual(['▸ ', 'GAME FILE'])
+  expect(texts[0].props.className).toContain('uppercase')
+})
+
 test('deep imports resolve the same native implementations as the root', () => {
   expect(DeepButton).toBe(Ui.Button)
   expect(DeepCard).toBe(Ui.Card)
+  expect(DeepBadge).toBe(Ui.Badge)
+  expect(DeepHeading).toBe(Ui.Heading)
 })
 
 test('unported deep imports fail rather than fall through to web', () => {
   for (const specifier of [
-    '@cetus/ui/components/ui/badge',
+    '@cetus/ui/components/ui/avatar',
     '@cetus/ui/components/game-title',
   ]) {
     expect(() => jest.requireActual(specifier)).toThrow()
@@ -159,9 +196,9 @@ test('root export exposes only implemented native components', () => {
   const root = Ui as unknown as Record<string, unknown>
   expect(root.Button).toBeDefined()
   expect(root.Card).toBeDefined()
+  expect(root.Badge).toBeDefined()
+  expect(root.Heading).toBeDefined()
   for (const key of [
-    'Badge',
-    'Heading',
     'Avatar',
     'Container',
     'Section',

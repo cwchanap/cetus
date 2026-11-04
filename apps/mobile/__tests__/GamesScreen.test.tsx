@@ -1,5 +1,10 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
+import { Text } from 'react-native'
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}))
 
 import GamesScreen from '../app/(tabs)/index'
 import { GAMES } from '@cetus/shared/games'
@@ -15,7 +20,11 @@ test('games screen renders every active registry game', async () => {
   })
 
   expect(tree).toBeDefined()
-  const rendered = JSON.stringify(tree?.toJSON())
+  const rendered =
+    tree?.root
+      .findAllByType(Text)
+      .map(node => JSON.stringify(node.props.children))
+      .join('\n') ?? ''
   const active = GAMES.filter(game => game.isActive)
   expect(active).toHaveLength(23)
   for (const game of active) {

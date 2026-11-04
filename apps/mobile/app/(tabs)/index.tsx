@@ -1,40 +1,154 @@
-import { FlatList, Text, View } from 'react-native'
-import { GAMES } from '@cetus/shared/games'
+import { useMemo, useState } from 'react'
+import { useRouter } from 'expo-router'
+import { FlatList, Pressable, Text, TextInput, View } from 'react-native'
+import { useNativeVariable } from 'react-native-css/native'
+import { Badge, Card, cn } from '@cetus/ui'
+import { getActiveGames, searchGames, type Game } from '@cetus/shared/games'
+
+import { difficultyBadgeVariant } from '../../src/lib/game-catalog'
 
 // All registry games are listed honestly: none are playable on mobile yet
-// (HPA-182/HPA-425 own the screens), so entries carry no tap handler at all.
-const ACTIVE_GAMES = GAMES.filter(game => game.isActive)
+// (HPA-182/HPA-425 own the screens), so entries navigate to details and never
+// play.
+const ACTIVE_GAMES = getActiveGames()
+const ACTIVE_COUNT = ACTIVE_GAMES.length
 
-function GameCard({ game }: { game: (typeof ACTIVE_GAMES)[number] }) {
+type CategoryFilter = 'all' | Game['category']
+
+const CATEGORY_FILTERS: { value: CategoryFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'puzzle', label: 'Puzzle' },
+  { value: 'action', label: 'Action' },
+  { value: 'strategy', label: 'Strategy' },
+]
+
+function GameCard({ game, onOpen }: { game: Game; onOpen: () => void }) {
   return (
-    // Dark non-abyssal theme: surfaces/ink/hairline come from the shared
-    // --cetus-* tokens (see global.css); unsupported effects (wordmark
-    // gradient, animations) are simply not used here.
-    <View className="rounded-xl border border-cetus-hairline bg-cetus-surface gap-1.5 p-4">
-      <Text className="font-display text-base font-bold text-cetus-ink">
-        {game.name}
-      </Text>
-      <Text className="font-sans text-[13px] text-cetus-ink-muted">
-        {game.category} · {game.difficulty} difficulty
-      </Text>
-      <Text className="font-sans text-xs text-cetus-accent">
-        Not playable on mobile yet
-      </Text>
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={game.name}
+      accessibilityHint="Opens game details"
+      onPress={onOpen}
+      className="active:opacity-80"
+    >
+      {/* Dark non-abyssal theme: surfaces/ink/hairline come from the shared
+          --cetus-* tokens (see global.css); unsupported effects (wordmark
+          gradient, animations) are simply not used here. */}
+      <Card variant="sci-fi" className="gap-1.5 p-4">
+        <View className="flex-row items-center justify-between gap-2">
+          <Text className="flex-1 font-display text-base font-bold text-cetus-ink">
+            {game.name}
+          </Text>
+          <Badge variant={difficultyBadgeVariant(game.difficulty)} size="sm">
+            {game.difficulty}
+          </Badge>
+        </View>
+        <Text
+          className="font-sans text-[13px] text-cetus-ink-muted"
+          numberOfLines={2}
+        >
+          {game.description}
+        </Text>
+        <View className="flex-row items-center justify-between gap-2">
+          <Text className="font-sans text-xs text-cetus-ink-muted">
+            {game.category}
+          </Text>
+          <Text className="font-sans text-xs text-cetus-accent">
+            Not playable on mobile yet
+          </Text>
+        </View>
+      </Card>
+    </Pressable>
   )
 }
 
 export default function GamesScreen() {
+  const router = useRouter()
+  const inkMuted = useNativeVariable('--cetus-ink-muted')
+  const [query, setQuery] = useState('')
+  const [category, setCategory] = useState<CategoryFilter>('all')
+
+  const games = useMemo(() => {
+    const base = query.trim() ? searchGames(query) : ACTIVE_GAMES
+    return category === 'all'
+      ? base
+      : base.filter(game => game.category === category)
+  }, [query, category])
+
+  const header = (
+    <View className="gap-3">
+      <TextInput
+        accessibilityLabel="Search games"
+        placeholder="Search games"
+        placeholderTextColor={inkMuted}
+        value={query}
+        onChangeText={setQuery}
+        autoCapitalize="none"
+        autoCorrect={false}
+        clearButtonMode="while-editing"
+        returnKeyType="search"
+        className="rounded-xl border border-cetus-hairline bg-cetus-surface px-4 py-2.5 font-sans text-sm text-cetus-ink"
+      />
+      <View className="flex-row flex-wrap gap-2">
+        {CATEGORY_FILTERS.map(filter => {
+          const active = category === filter.value
+          return (
+            <Pressable
+              key={filter.value}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter: ${filter.label}`}
+              accessibilityState={{ selected: active }}
+              onPress={() => setCategory(filter.value)}
+              className={cn(
+                'rounded-full border px-3 py-1.5',
+                active
+                  ? 'border-cetus-accent bg-cetus-accent/10'
+                  : 'border-cetus-hairline bg-cetus-surface'
+              )}
+            >
+              <Text
+                className={cn(
+                  'font-sans text-xs font-semibold',
+                  active ? 'text-cetus-accent' : 'text-cetus-ink-muted'
+                )}
+              >
+                {filter.label}
+              </Text>
+            </Pressable>
+          )
+        })}
+      </View>
+      <Text className="font-sans text-xs text-cetus-ink-muted">
+        {games.length} of {ACTIVE_COUNT} games
+      </Text>
+    </View>
+  )
+
+  const empty = (
+    <Text
+      testID="games-empty"
+      className="font-sans mt-6 text-center text-sm text-cetus-ink-muted"
+    >
+      No games match your search.
+    </Text>
+  )
+
   return (
     // initialNumToRender >= registry size keeps every game mounted from the
     // first render (no virtualized rows hiding catalog entries).
     <FlatList
       className="flex-1 bg-cetus-canvas"
       contentContainerClassName="gap-3 p-4 pb-8"
-      data={ACTIVE_GAMES}
-      initialNumToRender={ACTIVE_GAMES.length}
+      data={games}
+      initialNumToRender={ACTIVE_COUNT}
       keyExtractor={game => game.id}
-      renderItem={({ item }) => <GameCard game={item} />}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={header}
+      ListEmptyComponent={empty}
+      renderItem={({ item }) => (
+        <GameCard game={item} onOpen={() => router.push(`/games/${item.id}`)} />
+      )}
     />
   )
 }
