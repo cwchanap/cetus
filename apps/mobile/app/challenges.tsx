@@ -103,6 +103,7 @@ export default function ChallengesScreen() {
           xpToNextLevel={payload.xpToNextLevel}
           streak={payload.streak}
           resetIn={payload.resetIn}
+          responseStamp={payload}
           onResetRefresh={refresh}
         />
         {payload.challenges.length === 0 ? <ChallengesEmpty /> : null}

@@ -4,32 +4,65 @@ import type {
   ChallengeProgressResponse,
   ChallengesResponse,
 } from '@cetus/shared/api-dto'
+import { ChallengeType } from '@cetus/shared/challenges'
+import { GameID } from '@cetus/shared/games'
 
 import { isNetworkError, isServiceUnavailable } from './refetch'
+
+const CHALLENGE_TYPES = new Set<string>(Object.values(ChallengeType))
+const GAME_IDS = new Set<string>(Object.values(GameID))
+const DIFFICULTIES = new Set(['easy', 'medium', 'hard'])
+const MAX_RESET_IN_SECONDS = 86_400
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+const isNonNegativeInteger = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0
+
+const isPositiveInteger = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0
+
+const isPercent = (value: unknown): value is number =>
+  typeof value === 'number' &&
+  Number.isFinite(value) &&
+  value >= 0 &&
+  value <= 100
+
+function isUtcDate(value: string): boolean {
+  if (!DATE_PATTERN.test(value)) {
+    return false
+  }
+  const parsed = new Date(`${value}T00:00:00Z`)
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  )
+}
 
 function isMissionProgress(mission: unknown): boolean {
   if (mission === null || typeof mission !== 'object') {
     return false
   }
   const entry = mission as Partial<ChallengeProgressResponse>
-  const progressNumbers = [
-    entry.targetValue,
-    entry.currentValue,
-    entry.xpReward,
-  ]
   return (
     typeof entry.challengeId === 'string' &&
+    entry.challengeId.length > 0 &&
     typeof entry.name === 'string' &&
+    entry.name.length > 0 &&
     typeof entry.description === 'string' &&
     typeof entry.icon === 'string' &&
+    entry.icon.length > 0 &&
     typeof entry.type === 'string' &&
-    progressNumbers.every(
-      value => typeof value === 'number' && Number.isFinite(value)
-    ) &&
+    CHALLENGE_TYPES.has(entry.type) &&
+    isPositiveInteger(entry.targetValue) &&
+    isNonNegativeInteger(entry.currentValue) &&
+    isNonNegativeInteger(entry.xpReward) &&
     typeof entry.difficulty === 'string' &&
+    DIFFICULTIES.has(entry.difficulty) &&
     typeof entry.completed === 'boolean' &&
-    (entry.completedAt === null || typeof entry.completedAt === 'string') &&
-    (entry.gameId === undefined || typeof entry.gameId === 'string')
+    (entry.completedAt === null ||
+      (typeof entry.completedAt === 'string' &&
+        !Number.isNaN(Date.parse(entry.completedAt)))) &&
+    (entry.gameId === undefined || GAME_IDS.has(entry.gameId))
   )
 }
 
@@ -40,22 +73,18 @@ export function challengesResponseFor(
     return null
   }
   const candidate = data as Partial<ChallengesResponse>
-  const numericFields = [
-    candidate.xp,
-    candidate.level,
-    candidate.xpProgress,
-    candidate.xpToNextLevel,
-    candidate.streak,
-    candidate.resetIn,
-  ]
   if (
-    !numericFields.every(
-      value => typeof value === 'number' && Number.isFinite(value)
-    )
+    !isNonNegativeInteger(candidate.xp) ||
+    !isPositiveInteger(candidate.level) ||
+    !isPercent(candidate.xpProgress) ||
+    !isNonNegativeInteger(candidate.xpToNextLevel) ||
+    !isNonNegativeInteger(candidate.streak) ||
+    !isNonNegativeInteger(candidate.resetIn) ||
+    candidate.resetIn > MAX_RESET_IN_SECONDS
   ) {
     return null
   }
-  if (typeof candidate.date !== 'string' || candidate.date.length === 0) {
+  if (typeof candidate.date !== 'string' || !isUtcDate(candidate.date)) {
     return null
   }
   if (
