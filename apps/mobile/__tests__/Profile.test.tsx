@@ -1799,3 +1799,15 @@ describe('profile tab — expired session sign-out', () => {
     ).toBeTruthy()
   })
 })
+
+describe('profile tab — settings entry', () => {
+  test('links to the settings route from the account menu', async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    await settleOverview(overviewRuns[0], overview())
+    await settleHistory(historyRuns[0], historyOf(HISTORY_ENTRIES))
+
+    await press(tree, 'Notification settings')
+    expect(mockPush).toHaveBeenCalledWith('/settings')
+  })
+})
