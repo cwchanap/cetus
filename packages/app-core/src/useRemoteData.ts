@@ -8,11 +8,29 @@ export interface UseRemoteDataResult<T> {
 }
 
 interface FetchState<T> {
-    key: string
+    key: readonly unknown[]
     enabled: boolean
     data: T | undefined
     error: Error | null
     pending: boolean
+}
+
+function shallowKeyEqual(
+    a: readonly unknown[],
+    b: readonly unknown[]
+): boolean {
+    if (a === b) {
+        return true
+    }
+    if (a.length !== b.length) {
+        return false
+    }
+    for (let index = 0; index < a.length; index++) {
+        if (!Object.is(a[index], b[index])) {
+            return false
+        }
+    }
+    return true
 }
 
 function toError(reason: unknown): Error {
@@ -24,17 +42,23 @@ export function useRemoteData<T>(
     key: readonly unknown[],
     enabled: boolean = true
 ): UseRemoteDataResult<T> {
-    const keyString = JSON.stringify(key)
     const loadRef = useRef(load)
     const generationRef = useRef(0)
     const [refreshCount, setRefreshCount] = useState(0)
+    const [keySnapshot, setKeySnapshot] = useState<readonly unknown[]>(() => [
+        ...key,
+    ])
     const [result, setResult] = useState<FetchState<T>>({
-        key: keyString,
+        key: keySnapshot,
         enabled,
         data: undefined,
         error: null,
         pending: enabled,
     })
+
+    if (!shallowKeyEqual(keySnapshot, key)) {
+        setKeySnapshot([...key])
+    }
 
     useEffect(() => {
         loadRef.current = load
@@ -43,14 +67,14 @@ export function useRemoteData<T>(
     useEffect(() => {
         if (!enabled) {
             setResult(current =>
-                current.key === keyString &&
+                current.key === keySnapshot &&
                 current.enabled === false &&
                 current.data === undefined &&
                 current.error === null &&
                 current.pending === false
                     ? current
                     : {
-                          key: keyString,
+                          key: keySnapshot,
                           enabled: false,
                           data: undefined,
                           error: null,
@@ -62,12 +86,12 @@ export function useRemoteData<T>(
         const controller = new AbortController()
         const generation = ++generationRef.current
         setResult(current =>
-            current.key === keyString && current.enabled === true
+            current.key === keySnapshot && current.enabled === true
                 ? current.pending && current.error === null
                     ? current
                     : { ...current, pending: true, error: null }
                 : {
-                      key: keyString,
+                      key: keySnapshot,
                       enabled: true,
                       data: undefined,
                       error: null,
@@ -87,7 +111,7 @@ export function useRemoteData<T>(
                     !controller.signal.aborted
                 ) {
                     setResult({
-                        key: keyString,
+                        key: keySnapshot,
                         enabled: true,
                         data: value,
                         error: null,
@@ -101,7 +125,7 @@ export function useRemoteData<T>(
                     !controller.signal.aborted
                 ) {
                     setResult({
-                        key: keyString,
+                        key: keySnapshot,
                         enabled: true,
                         data: undefined,
                         error: toError(reason),
@@ -116,14 +140,16 @@ export function useRemoteData<T>(
                 generationRef.current++
             }
         }
-    }, [keyString, enabled, refreshCount])
+    }, [keySnapshot, enabled, refreshCount])
 
     const refresh = useCallback(() => {
         setRefreshCount(count => count + 1)
     }, [])
 
     const current =
-        enabled && result.key === keyString && result.enabled === enabled
+        enabled &&
+        result.enabled === enabled &&
+        shallowKeyEqual(result.key, key)
     return {
         data: current ? result.data : undefined,
         loading: enabled && (!current || result.pending),
