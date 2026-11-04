@@ -6,6 +6,10 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn() }),
 }))
 
+jest.mock('../src/lib/login-rewards', () => ({
+  LoginRewardHost: () => null,
+}))
+
 import GamesScreen from '../app/(tabs)/index'
 import { GAMES } from '@cetus/shared/games'
 

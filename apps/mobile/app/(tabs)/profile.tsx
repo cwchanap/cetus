@@ -38,6 +38,7 @@ import {
   RECENT_SCORE_LIMIT,
   StatChip,
 } from '../../src/lib/profile'
+import { LoginRewardHost } from '../../src/lib/login-rewards'
 import { isUnauthorizedError, useRefetchOnFocus } from '../../src/lib/refetch'
 import { sessionKeyFor, useExpiredSessionGate } from '../../src/lib/session'
 
@@ -48,7 +49,7 @@ const toError = (reason: unknown): Error =>
 // signed in and return 401 once signed out. Mounted in both session states
 // so the post-sign-out 401 is observable in the UI (live checks against the
 // real backend are the manual/device acceptance gate).
-export default function ProfileScreen() {
+function ProfileScreenBody() {
   const router = useRouter()
   const accent = useNativeVariable('--cetus-accent')
   const inkMuted = useNativeVariable('--cetus-ink-muted')
@@ -689,5 +690,14 @@ export default function ProfileScreen() {
         {signOutControl}
       </ScrollView>
     </KeyboardAvoidingView>
+  )
+}
+
+export default function ProfileScreen() {
+  return (
+    <>
+      <ProfileScreenBody />
+      <LoginRewardHost />
+    </>
   )
 }

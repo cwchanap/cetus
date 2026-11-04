@@ -6,6 +6,7 @@ import { Badge, Card, cn } from '@cetus/ui'
 import { getActiveGames, searchGames, type Game } from '@cetus/shared/games'
 
 import { difficultyBadgeVariant } from '../../src/lib/game-catalog'
+import { LoginRewardHost } from '../../src/lib/login-rewards'
 
 // All registry games are listed honestly: none are playable on mobile yet
 // (HPA-182/HPA-425 own the screens), so entries carry no tap handler at all.
@@ -155,19 +156,25 @@ export default function GamesScreen() {
   return (
     // initialNumToRender >= registry size keeps every game mounted from the
     // first render (no virtualized rows hiding catalog entries).
-    <FlatList
-      className="flex-1 bg-cetus-canvas"
-      contentContainerClassName="gap-3 p-4 pb-8"
-      data={games}
-      initialNumToRender={ACTIVE_COUNT}
-      keyExtractor={game => game.id}
-      keyboardDismissMode="on-drag"
-      keyboardShouldPersistTaps="handled"
-      ListHeaderComponent={header}
-      ListEmptyComponent={empty}
-      renderItem={({ item }) => (
-        <GameCard game={item} onOpen={() => router.push(`/games/${item.id}`)} />
-      )}
-    />
+    <>
+      <FlatList
+        className="flex-1 bg-cetus-canvas"
+        contentContainerClassName="gap-3 p-4 pb-8"
+        data={games}
+        initialNumToRender={ACTIVE_COUNT}
+        keyExtractor={game => game.id}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={header}
+        ListEmptyComponent={empty}
+        renderItem={({ item }) => (
+          <GameCard
+            game={item}
+            onOpen={() => router.push(`/games/${item.id}`)}
+          />
+        )}
+      />
+      <LoginRewardHost />
+    </>
   )
 }

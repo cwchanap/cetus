@@ -62,6 +62,12 @@ jest.mock('../src/lib/auth-client', () => ({
   },
 }))
 
+const mockLoginRewardHost = jest.fn((_props: object) => null)
+
+jest.mock('../src/lib/login-rewards', () => ({
+  LoginRewardHost: (props: object) => mockLoginRewardHost(props),
+}))
+
 import ProfileScreen from '../app/(tabs)/profile'
 import { api } from '../src/lib/api'
 
@@ -309,6 +315,7 @@ beforeEach(() => {
   focusCleanup = undefined
   mockSessionRefetch.mockReset().mockResolvedValue(undefined)
   mockSignOut.mockReset().mockResolvedValue(undefined)
+  mockLoginRewardHost.mockClear()
   mockRequestPermission.mockReset().mockResolvedValue({ granted: true })
   mockLaunchLibrary.mockReset().mockResolvedValue({
     canceled: false,
@@ -646,6 +653,12 @@ describe('profile tab — signed in', () => {
 
     expect(renderedText(tree)).toContain('expired')
     expect(mockSessionRefetch).toHaveBeenCalledTimes(1)
+  })
+
+  test('mounts the login reward host on the profile tab', async () => {
+    await render(<ProfileScreen />)
+
+    expect(mockLoginRewardHost).toHaveBeenCalled()
   })
 })
 

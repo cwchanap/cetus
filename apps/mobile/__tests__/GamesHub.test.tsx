@@ -5,6 +5,7 @@ import { Text } from 'react-native'
 const mockPush = jest.fn()
 const mockReplace = jest.fn()
 const mockCanGoBack = jest.fn()
+const mockLoginRewardHost = jest.fn((_props: object) => null)
 const mockParams: { gameId?: string | string[] } = {}
 
 jest.mock('expo-router', () => ({
@@ -15,6 +16,10 @@ jest.mock('expo-router', () => ({
     canGoBack: mockCanGoBack,
   }),
   useLocalSearchParams: () => mockParams,
+}))
+
+jest.mock('../src/lib/login-rewards', () => ({
+  LoginRewardHost: (props: object) => mockLoginRewardHost(props),
 }))
 
 import GamesScreen from '../app/(tabs)/index'
@@ -54,6 +59,7 @@ beforeEach(() => {
   mockPush.mockClear()
   mockReplace.mockClear()
   mockCanGoBack.mockReset().mockReturnValue(true)
+  mockLoginRewardHost.mockClear()
   mockParams.gameId = undefined
 })
 
@@ -148,6 +154,12 @@ describe('games catalog', () => {
     })
 
     expect(mockPush).toHaveBeenCalledWith('/challenges')
+  })
+
+  test('mounts the login reward host on the hub', async () => {
+    await render(<GamesScreen />)
+
+    expect(mockLoginRewardHost).toHaveBeenCalled()
   })
 })
 
