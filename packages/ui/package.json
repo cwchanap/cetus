@@ -13,7 +13,10 @@
             "react-native": "./src/components/*.native.tsx",
             "default": "./src/components/*.tsx"
         },
-        "./*": "./src/*"
+        "./*": {
+            "react-native": null,
+            "default": "./src/*"
+        }
     },
     "sideEffects": [
         "**/*.css"

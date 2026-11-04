@@ -61,6 +61,40 @@ test('Button wraps string children in Text with the variant text classes', async
   expect(text.props.className).toContain('text-slate-900')
 })
 
+test('Button wraps interpolated scalar children in a single styled Text', async () => {
+  const score = 42
+  const tree = await render(
+    <Ui.Button variant="primary" onPress={() => {}}>
+      Score: {score}
+    </Ui.Button>
+  )
+  const rawScalars = pressableOf(tree).children.filter(
+    child => typeof child === 'string'
+  )
+  expect(rawScalars).toEqual([])
+  const text = tree.root.findByType(Text)
+  expect(text.props.children).toEqual(['Score: ', 42])
+  expect(text.props.className).toContain('text-slate-900')
+})
+
+test('Button keeps element children beside wrapped text nodes', async () => {
+  const tree = await render(
+    <Ui.Button onPress={() => {}}>
+      <View testID="icon" />
+      Play
+    </Ui.Button>
+  )
+  expect(tree.root.findByProps({ testID: 'icon' })).toBeTruthy()
+  const rawScalars = pressableOf(tree).children.filter(
+    child => typeof child === 'string'
+  )
+  expect(rawScalars).toEqual([])
+  const texts = tree.root.findAllByType(Text)
+  expect(texts).toHaveLength(1)
+  expect(texts[0].props.children).toBe('Play')
+  expect(texts[0].props.className).toContain('text-cetus-ink')
+})
+
 test('root Card renders a native View with variant classes', async () => {
   const tree = await render(
     <Ui.Card variant="sci-fi">
@@ -93,13 +127,32 @@ test('deep imports resolve the same native implementations as the root', () => {
   expect(DeepCard).toBe(Ui.Card)
 })
 
-test('unported deep imports fail rather than fall through to web', async () => {
+test('unported deep imports fail rather than fall through to web', () => {
   for (const specifier of [
     '@cetus/ui/components/ui/badge',
     '@cetus/ui/components/game-title',
   ]) {
-    await expect(import(specifier)).rejects.toThrow()
+    expect(() => jest.requireActual(specifier)).toThrow()
   }
+})
+
+test('catch-all file subpaths cannot reach web modules on native', () => {
+  for (const specifier of [
+    '@cetus/ui/index.ts',
+    '@cetus/ui/index',
+    '@cetus/ui/lib/styles',
+    '@cetus/ui/lib/utils.ts',
+    '@cetus/ui/variants.ts',
+  ]) {
+    expect(() => jest.requireActual(specifier)).toThrow()
+  }
+})
+
+test('declared platform-neutral subpaths still resolve on native', () => {
+  const utils = jest.requireActual('@cetus/ui/lib/utils') as {
+    cn: unknown
+  }
+  expect(typeof utils.cn).toBe('function')
 })
 
 test('root export exposes only implemented native components', () => {
