@@ -10,15 +10,19 @@ import type { NotificationSettingsResponse } from '@cetus/shared/api-dto'
 import { api } from '../src/lib/api'
 import { authClient } from '../src/lib/auth-client'
 import {
+  claimSettingsWrite,
   NOTIFICATION_PREFS,
   notificationPrefsFor,
+  releaseSettingsWrite,
   SettingsError,
   SettingsLoading,
   SettingsSignIn,
   settingsResponseFor,
   settingsUpdateFor,
+  settingsWriteLease,
   type NotificationPrefKey,
   type NotificationPrefs,
+  type SettingsWriteLease,
 } from '../src/lib/settings'
 import { isUnauthorizedError, useRefetchOnFocus } from '../src/lib/refetch'
 import { sessionKeyFor, useExpiredSessionGate } from '../src/lib/session'
@@ -99,33 +103,59 @@ export default function SettingsScreen() {
   const [prefsFor, setPrefsFor] = useState<string | null>(sessionKey)
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null)
   const [saved, setSaved] = useState(false)
-  const [failedKey, setFailedKey] = useState<NotificationPrefKey | null>(null)
-  const [saving, setSaving] = useState(false)
-  const busyRef = useRef<{
-    epoch: number
-    key: NotificationPrefKey
-  } | null>(null)
+  const [failedKeys, setFailedKeys] = useState<
+    ReadonlySet<NotificationPrefKey>
+  >(new Set())
+  const [saving, setSaving] = useState(() => settingsWriteLease() !== null)
   const confirmedRef = useRef<{
     epoch: number
     prefs: NotificationPrefs
   } | null>(null)
   const appliedDataRef = useRef<unknown>(null)
+  const watchedLeasesRef = useRef<Set<SettingsWriteLease>>(new Set())
+  const userIdRef = useRef(userId)
+  userIdRef.current = userId
 
-  if (busyRef.current !== null && busyRef.current.epoch !== epochRef.current) {
-    busyRef.current = null
-    setSaving(false)
-  }
   if (prefsFor !== sessionKey) {
     setPrefsFor(sessionKey)
     setPrefs(null)
     setSaved(false)
-    setFailedKey(null)
+    setFailedKeys(new Set())
     setMutationError(null)
   }
+
+  const watchLease = useCallback(
+    (lease: SettingsWriteLease) => {
+      if (watchedLeasesRef.current.has(lease)) {
+        return
+      }
+      watchedLeasesRef.current.add(lease)
+      setSaving(true)
+      void lease.settled.then(() => {
+        watchedLeasesRef.current.delete(lease)
+        if (!mountedRef.current) {
+          return
+        }
+        setSaving(false)
+        if (lease.userId === userIdRef.current) {
+          refresh()
+        }
+      })
+    },
+    [refresh]
+  )
+
+  useEffect(() => {
+    const lease = settingsWriteLease()
+    if (lease !== null) {
+      watchLease(lease)
+    }
+  }, [sessionKey, watchLease])
 
   const saveKey = async (
     key: NotificationPrefKey,
     target: boolean,
+    lease: SettingsWriteLease,
     operationEpoch: number
   ) => {
     const wire = NOTIFICATION_PREFS.find(row => row.key === key)?.wire
@@ -144,19 +174,23 @@ export default function SettingsScreen() {
       if (parsed === null) {
         throw new Error('Unexpected settings response')
       }
-      writesSettledRef.current += 1
       const acknowledged = notificationPrefsFor(parsed.preferences)
       confirmedRef.current = { epoch: operationEpoch, prefs: acknowledged }
       setPrefs({ ...acknowledged })
       setMutationError(null)
-      setFailedKey(current => (current === key ? null : current))
+      setFailedKeys(current => {
+        if (!current.has(key)) {
+          return current
+        }
+        const next = new Set(current)
+        next.delete(key)
+        return next
+      })
       setSaved(true)
-      refresh()
     } catch (reason) {
       if (isStale(operationEpoch)) {
         return
       }
-      writesSettledRef.current += 1
       const failure = toError(reason)
       setMutationError(failure)
       const confirmed =
@@ -170,15 +204,12 @@ export default function SettingsScreen() {
       }
       if (!isUnauthorizedError(failure)) {
         setSaved(false)
-        setFailedKey(key)
+        setFailedKeys(current => new Set(current).add(key))
       }
     } finally {
-      if (busyRef.current?.epoch === operationEpoch) {
-        busyRef.current = null
-        if (mountedRef.current) {
-          setSaving(false)
-        }
-      }
+      writesSettledRef.current += 1
+      releaseSettingsWrite(lease)
+      lease.finish()
     }
   }
 
@@ -190,7 +221,7 @@ export default function SettingsScreen() {
     const parsed = settingsResponseFor(data.settings)
     if (
       parsed === null ||
-      busyRef.current !== null ||
+      settingsWriteLease() !== null ||
       data.settledAfter < writesSettledRef.current
     ) {
       return
@@ -222,7 +253,7 @@ export default function SettingsScreen() {
     if (
       !latestRef.current.eligible ||
       serverPrefs === null ||
-      busyRef.current !== null
+      userId === null
     ) {
       return
     }
@@ -234,12 +265,15 @@ export default function SettingsScreen() {
     if (confirmed[key] === next) {
       return
     }
-    busyRef.current = { epoch: operationEpoch, key }
+    const lease = claimSettingsWrite(userId)
+    if (lease === null) {
+      return
+    }
     confirmedRef.current = { epoch: operationEpoch, prefs: confirmed }
-    setSaving(true)
     setPrefs({ ...confirmed, [key]: next })
     setSaved(false)
-    void saveKey(key, next, operationEpoch)
+    watchLease(lease)
+    void saveKey(key, next, lease, operationEpoch)
   }
 
   const payloadError =
@@ -300,7 +334,7 @@ export default function SettingsScreen() {
             />
           ))}
         </Card>
-        {failedKey !== null ? (
+        {failedKeys.size > 0 ? (
           <Text
             accessibilityRole="alert"
             testID="settings-status"
