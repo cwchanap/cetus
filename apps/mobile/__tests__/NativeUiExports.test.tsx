@@ -3,11 +3,15 @@ import TestRenderer, { act } from 'react-test-renderer'
 import { Text, View } from 'react-native'
 
 import * as Ui from '@cetus/ui'
+import type { ChallengeProgressResponse } from '@cetus/shared/api-dto'
+import { ChallengeType } from '@cetus/shared/challenges'
 import { Button as DeepButton } from '@cetus/ui/components/ui/button'
 import { Card as DeepCard } from '@cetus/ui/components/ui/card'
 import { Badge as DeepBadge } from '@cetus/ui/components/ui/badge'
 import { Heading as DeepHeading } from '@cetus/ui/components/ui/heading'
 import { Select as DeepSelect } from '@cetus/ui/components/ui/select'
+
+const mountedTrees: TestRenderer.ReactTestRenderer[] = []
 
 const render = async (element: React.ReactElement) => {
   let tree: TestRenderer.ReactTestRenderer | undefined
@@ -17,8 +21,36 @@ const render = async (element: React.ReactElement) => {
   if (!tree) {
     throw new Error('TestRenderer.create returned nothing')
   }
+  mountedTrees.push(tree)
   return tree
 }
+
+// Unmount after each test so the mission panel's 1-second reset-countdown
+// timer cannot fire state updates into a torn-down test environment.
+afterEach(async () => {
+  while (mountedTrees.length > 0) {
+    const tree = mountedTrees.pop()
+    await act(async () => {
+      tree?.unmount()
+    })
+  }
+})
+
+const scalarText = (children: React.ReactNode): string => {
+  if (Array.isArray(children)) {
+    return children.map(scalarText).join('')
+  }
+  if (typeof children === 'string' || typeof children === 'number') {
+    return String(children)
+  }
+  return ''
+}
+
+const renderedText = (tree: TestRenderer.ReactTestRenderer) =>
+  tree.root
+    .findAllByType(Text)
+    .map(node => scalarText(node.props.children))
+    .join('\n')
 
 const pressableOf = (tree: TestRenderer.ReactTestRenderer) =>
   tree.root.find(
@@ -418,6 +450,7 @@ test('root export exposes only implemented native components', () => {
   expect(root.Badge).toBeDefined()
   expect(root.Heading).toBeDefined()
   expect(root.Select).toBeDefined()
+  expect(root.DailyMissionsPanel).toBeDefined()
   for (const key of [
     'Avatar',
     'Container',
@@ -429,10 +462,83 @@ test('root export exposes only implemented native components', () => {
     'GameBreadcrumb',
     'GameStats',
     'GameControls',
-    'DailyMissionsPanel',
     'UserDropdown',
     'displayFontStyle',
   ]) {
     expect(root[key]).toBeUndefined()
   }
+})
+
+const MISSION: ChallengeProgressResponse = {
+  challengeId: 'play_2_games',
+  name: 'Warm Up',
+  description: 'Play 2 games today',
+  icon: '🎮',
+  type: ChallengeType.PLAY_GAMES,
+  targetValue: 2,
+  currentValue: 1,
+  xpReward: 30,
+  difficulty: 'easy',
+  completed: false,
+  completedAt: null,
+}
+
+const PANEL_PROPS = {
+  challenges: [MISSION],
+  xp: 120,
+  level: 3,
+  xpProgress: 40,
+  xpToNextLevel: 130,
+  streak: 4,
+  resetIn: 5415,
+}
+
+test('deep import resolves the same native DailyMissionsPanel as the root', () => {
+  const deep = jest.requireActual('@cetus/ui/components/daily-missions-panel')
+    .DailyMissionsPanel as unknown
+  expect(deep).toBe(Ui.DailyMissionsPanel)
+})
+
+test('DailyMissionsPanel renders missions, XP progress, streak and the UTC reset countdown', async () => {
+  const tree = await render(<Ui.DailyMissionsPanel {...PANEL_PROPS} />)
+
+  const text = renderedText(tree)
+  expect(text).toContain('DAILY MISSIONS')
+  expect(text).toContain('Warm Up')
+  expect(text).toContain('Play 2 games today')
+  expect(text).toContain('Level 3')
+  expect(text).toContain('120 XP')
+  expect(text).toContain('130 XP to Level 4')
+  expect(text).toContain('Resets in 01:30:15')
+  expect(text).toContain('4 days')
+  expect(
+    tree.root.findByProps({
+      accessibilityLabel:
+        'Warm Up, easy mission, Play 2 games today, 1 of 2 complete, 30 XP reward, in progress',
+    })
+  ).toBeTruthy()
+})
+
+test('DailyMissionsPanel swaps the countdown for a refresh control once the reset passes', async () => {
+  const onResetRefresh = jest.fn()
+  const tree = await render(
+    <Ui.DailyMissionsPanel
+      {...PANEL_PROPS}
+      resetIn={0}
+      onResetRefresh={onResetRefresh}
+    />
+  )
+
+  const text = renderedText(tree)
+  expect(text).toContain('Daily missions reset')
+  expect(text).not.toContain('Resets in')
+
+  const refresh = tree.root.findByProps({
+    accessibilityLabel: 'Refresh daily missions',
+  })
+  expect(refresh.props.accessibilityRole).toBe('button')
+  await act(async () => {
+    refresh.props.onPress()
+  })
+  expect(onResetRefresh).toHaveBeenCalledTimes(1)
 })

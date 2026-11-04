@@ -1,0 +1,230 @@
+/// <reference types="react-native-css/types" />
+import { useEffect, useState } from 'react'
+import { Pressable, Text, View } from 'react-native'
+import type { ChallengeProgressResponse } from '@cetus/shared/api-dto'
+import { Badge } from './ui/badge.native'
+import { Card } from './ui/card.native'
+import { cn } from '../lib/utils'
+
+/**
+ * Native daily-missions panel. View props derive from the ChallengesResponse
+ * wire DTO; the reset countdown and the expired-reset refresh affordance are
+ * self-contained client behavior (no web services), matching the web panel.
+ */
+export interface DailyMissionsPanelProps {
+  challenges: ChallengeProgressResponse[]
+  xp: number
+  level: number
+  xpProgress: number
+  xpToNextLevel: number
+  streak: number
+  resetIn: number
+  onResetRefresh?: () => void
+}
+
+// Difficulty colors (same token mapping as the web panel)
+const difficultyColors: Record<string, string> = {
+  easy: 'text-cetus-accent',
+  medium: 'text-cetus-accent-2',
+  hard: 'text-cetus-accent-3',
+}
+
+function formatCountdown(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
+  const mins = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+  const pad = (value: number) => value.toString().padStart(2, '0')
+  return `Resets in ${pad(hours)}:${pad(mins)}:${pad(secs)}`
+}
+
+// The per-second countdown lives in its own component so the once-a-second
+// state tick doesn't re-render the whole panel — only this subtree.
+function ResetCountdown({
+  resetIn,
+  onResetRefresh,
+}: {
+  resetIn: number
+  onResetRefresh?: () => void
+}) {
+  const [seconds, setSeconds] = useState(resetIn)
+
+  // Countdown: tick once per second until the daily reset.
+  useEffect(() => {
+    if (seconds <= 0) {
+      return
+    }
+    const timer = setTimeout(() => setSeconds(value => value - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [seconds])
+
+  if (seconds <= 0) {
+    // The web panel portals a refresh toast; native has no document reload,
+    // so the expired state surfaces an inline refresh affordance instead.
+    return (
+      <View className="flex-row items-center gap-2">
+        <Text className="font-sans text-sm text-cetus-ink-muted">
+          Daily missions reset
+        </Text>
+        {onResetRefresh ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Refresh daily missions"
+            onPress={onResetRefresh}
+            className="active:opacity-80"
+          >
+            <Text className="font-sans text-sm font-semibold text-cetus-accent">
+              Refresh
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    )
+  }
+
+  return (
+    <Text className="font-sans text-sm text-cetus-ink-muted">
+      {formatCountdown(seconds)}
+    </Text>
+  )
+}
+
+function MissionRow({ challenge }: { challenge: ChallengeProgressResponse }) {
+  const progress =
+    challenge.targetValue > 0
+      ? Math.min(100, (challenge.currentValue / challenge.targetValue) * 100)
+      : 0
+  const state = challenge.completed ? 'completed' : 'in progress'
+  const label = `${challenge.name}, ${challenge.difficulty} mission, ${challenge.description}, ${challenge.currentValue} of ${challenge.targetValue} complete, ${challenge.xpReward} XP reward, ${state}`
+  return (
+    <View
+      accessible
+      accessibilityLabel={label}
+      className={cn(
+        'rounded-xl border p-4',
+        challenge.completed
+          ? 'border-cetus-accent/30 bg-cetus-accent/10'
+          : 'border-cetus-hairline bg-cetus-canvas'
+      )}
+    >
+      <View className="flex-row items-start gap-3">
+        <Text className="text-2xl">{challenge.icon}</Text>
+        <View className="flex-1 gap-1.5">
+          <View className="flex-row flex-wrap items-center gap-2">
+            <Text className="font-sans font-bold text-cetus-ink">
+              {challenge.name}
+            </Text>
+            <Text
+              className={cn(
+                'font-sans text-xs',
+                difficultyColors[challenge.difficulty]
+              )}
+            >
+              {challenge.difficulty.toUpperCase()}
+            </Text>
+            {challenge.completed ? (
+              <Badge variant="success" size="sm">
+                Completed
+              </Badge>
+            ) : null}
+          </View>
+          <Text className="font-sans text-sm text-cetus-ink-muted">
+            {challenge.description}
+          </Text>
+          {challenge.completed ? null : (
+            <View className="flex-row items-center gap-3">
+              <View className="h-1.5 flex-1 overflow-hidden rounded-full bg-cetus-surface">
+                <View
+                  className="h-full bg-cetus-accent"
+                  style={{ width: `${progress}%` }}
+                />
+              </View>
+              <Text className="font-sans text-xs text-cetus-ink-muted">
+                {challenge.currentValue}/{challenge.targetValue}
+              </Text>
+            </View>
+          )}
+        </View>
+        <Text
+          className={cn(
+            'font-sans text-sm font-bold',
+            challenge.completed ? 'text-green-400' : 'text-cetus-accent'
+          )}
+        >
+          +{challenge.xpReward} XP
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+export function DailyMissionsPanel({
+  challenges,
+  xp,
+  level,
+  xpProgress,
+  xpToNextLevel,
+  streak,
+  resetIn,
+  onResetRefresh,
+}: DailyMissionsPanelProps) {
+  const clampedProgress = Math.min(100, Math.max(0, xpProgress))
+  return (
+    <Card variant="glass" className="gap-5 p-5">
+      {/* Header */}
+      <View className="flex-row items-center justify-between gap-3">
+        <View className="flex-1 flex-row items-center gap-2.5">
+          <Text className="text-2xl">🎯</Text>
+          <Text
+            accessibilityRole="header"
+            className="font-display text-lg font-bold text-cetus-accent"
+          >
+            DAILY MISSIONS
+          </Text>
+        </View>
+        <View className="flex-row items-center gap-2.5">
+          <Badge variant="outline" size="sm" className="bg-cetus-accent-2/20">
+            Level {level}
+          </Badge>
+          <ResetCountdown resetIn={resetIn} onResetRefresh={onResetRefresh} />
+        </View>
+      </View>
+
+      {/* XP Progress Bar */}
+      <View className="gap-1.5">
+        <View className="flex-row justify-between">
+          <Text className="font-sans text-sm text-cetus-ink-muted">
+            XP Progress
+          </Text>
+          <Text className="font-sans text-sm text-cetus-accent">{xp} XP</Text>
+        </View>
+        <View className="h-2 w-full overflow-hidden rounded-full border border-cetus-hairline bg-cetus-canvas">
+          <View
+            className="h-full bg-cetus-accent"
+            style={{ width: `${clampedProgress}%` }}
+          />
+        </View>
+        <Text className="font-sans text-xs text-cetus-ink-muted">
+          {xpToNextLevel} XP to Level {level + 1}
+        </Text>
+      </View>
+
+      {/* Challenge List */}
+      <View className="gap-3">
+        {challenges.map(challenge => (
+          <MissionRow key={challenge.challengeId} challenge={challenge} />
+        ))}
+      </View>
+
+      {/* Streak Display */}
+      {streak > 0 ? (
+        <View className="flex-row items-center gap-2 border-t border-cetus-hairline pt-4">
+          <Text className="text-orange-400">🔥</Text>
+          <Text className="font-sans text-sm text-cetus-ink-muted">
+            Challenge Streak:{' '}
+            <Text className="font-bold text-orange-400">{streak} days</Text>
+          </Text>
+        </View>
+      ) : null}
+    </Card>
+  )
+}

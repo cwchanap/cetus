@@ -76,6 +76,26 @@ export default function GamesScreen() {
 
   const header = (
     <View className="gap-3">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Daily missions"
+        accessibilityHint="Opens today's missions, XP and reset countdown"
+        onPress={() => router.push('/challenges')}
+        className="active:opacity-80"
+      >
+        <Card variant="sci-fi" className="flex-row items-center gap-3 p-4">
+          <Text className="text-xl">🎯</Text>
+          <View className="flex-1 gap-0.5">
+            <Text className="font-display text-sm font-bold text-cetus-ink">
+              Daily missions
+            </Text>
+            <Text className="font-sans text-xs text-cetus-ink-muted">
+              Challenges and XP — reset daily at midnight UTC
+            </Text>
+          </View>
+          <Text className="font-sans text-sm text-cetus-ink-muted">›</Text>
+        </Card>
+      </Pressable>
       <TextInput
         accessibilityLabel="Search games"
         placeholder="Search games"
