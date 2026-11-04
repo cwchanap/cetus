@@ -1350,6 +1350,117 @@ describe('login reward host — dismissal window identity', () => {
     await drain(AUTO_OPEN_WAIT)
     expect(openModals(tree)).toHaveLength(0)
   })
+
+  test('does not let a pre-midnight dismissal window persist onto the new day', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    await press(tree, 'Close daily login reward')
+    expect(openModals(tree)).toHaveLength(0)
+
+    mockTodayUTC = '2026-03-05'
+    await focus()
+    await settle(statusRuns[1], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+
+    await press(tree, 'Close daily login reward')
+    expect(openModals(tree)).toHaveLength(0)
+  })
+})
+
+describe('login reward host — UTC rollover provenance', () => {
+  test('suppresses a GET issued before midnight that resolves after, then refetches', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(1)
+
+    mockTodayUTC = '2026-03-05'
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+
+    expect(openModals(tree)).toHaveLength(0)
+    expect(renderedText(tree)).not.toContain('Daily Login Reward')
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+  })
+
+  test('presents the fresh-day response and does not refetch in a loop', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+
+    mockTodayUTC = '2026-03-05'
+    await settle(statusRuns[0], status())
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+
+    await settle(statusRuns[1], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+
+    await drain(AUTO_OPEN_WAIT)
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+  })
+
+  test('a claim resolving after midnight keeps request-day provenance', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+
+    await press(tree, 'Claim daily login reward')
+    await focus()
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+
+    mockTodayUTC = '2026-03-05'
+    await settle(claimRuns[0], claimSuccess())
+    expect(mockNotificationAsync).toHaveBeenCalledTimes(1)
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(3)
+
+    await settle(statusRuns[1], status())
+    await settle(
+      statusRuns[2],
+      status({ alreadyClaimed: true, canClaim: false })
+    )
+    await drain(AUTO_OPEN_WAIT)
+
+    expect(renderedText(tree)).toContain('Claimed Today')
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(3)
+  })
+
+  test('a request resolving after the account changed stays discarded', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(1)
+
+    signIn('user-b')
+    await rerender(tree, <LoginRewardHost />)
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(0)
+
+    await settle(statusRuns[1], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+    expect(renderedText(tree)).toContain('+30 XP')
+  })
+
+  test('a request resolving after sign-out is never displayed', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(1)
+
+    mockSession = { data: null, isPending: false, refetch: mockSessionRefetch }
+    await rerender(tree, <LoginRewardHost />)
+
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+
+    expect(openModals(tree)).toHaveLength(0)
+    expect(renderedText(tree)).not.toContain('Daily Login Reward')
+  })
 })
 
 describe('login reward host — screen mounting', () => {
