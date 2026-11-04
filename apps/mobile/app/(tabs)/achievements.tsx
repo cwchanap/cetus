@@ -30,14 +30,24 @@ const GAME_OPTIONS = achievementGameOptions()
 export default function AchievementsScreen() {
   const router = useRouter()
   const accent = useNativeVariable('--cetus-accent')
-  const { data: session, isPending } = authClient.useSession()
+  const {
+    data: session,
+    isPending,
+    refetch: refetchSession,
+  } = authClient.useSession()
   const userId = session?.user.id ?? null
-  const sessionKey = session?.session?.id ?? userId
-  const [expiredSessionKey, setExpiredSessionKey] = useState<string | null>(
-    null
-  )
+  const sessionKey = session?.session
+    ? [
+        session.session.id,
+        String(session.session.updatedAt ?? ''),
+        String(session.session.expiresAt ?? ''),
+      ].join(':')
+    : userId
+  const [expiredSessionKeys, setExpiredSessionKeys] = useState<
+    readonly string[]
+  >([])
   const authExpired =
-    expiredSessionKey !== null && expiredSessionKey === sessionKey
+    sessionKey !== null && expiredSessionKeys.includes(sessionKey)
   const [status, setStatus] = useState<AchievementStatusFilter>('all')
   const [game, setGame] = useState<AchievementGameScope>(ACHIEVEMENT_GAME_ALL)
 
@@ -50,9 +60,12 @@ export default function AchievementsScreen() {
 
   useEffect(() => {
     if (error !== null && isUnauthorizedError(error) && sessionKey !== null) {
-      setExpiredSessionKey(sessionKey)
+      setExpiredSessionKeys(current =>
+        current.includes(sessionKey) ? current : [...current, sessionKey]
+      )
+      void Promise.resolve(refetchSession?.()).catch(() => undefined)
     }
-  }, [error, sessionKey])
+  }, [error, sessionKey, refetchSession])
 
   const views = useMemo(() => achievementViewsFor(data), [data])
   const filtered = useMemo(
