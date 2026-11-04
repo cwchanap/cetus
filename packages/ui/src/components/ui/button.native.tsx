@@ -1,5 +1,5 @@
 /// <reference types="react-native-css/types" />
-import type { ReactNode } from 'react'
+import { Children, type ReactNode } from 'react'
 import { Pressable, Text, type PressableProps } from 'react-native'
 import { cn } from '../../lib/utils'
 import type { ButtonSize, ButtonVariant } from '../../variants'
@@ -57,6 +57,11 @@ export function Button({
   children,
   ...rest
 }: ButtonProps) {
+  const textClassName = cn('text-sm font-bold', textVariants.variant[variant])
+  const items = Children.toArray(children)
+  const allScalar =
+    items.length > 0 &&
+    items.every(item => typeof item === 'string' || typeof item === 'number')
   return (
     <Pressable
       className={cn(
@@ -67,14 +72,18 @@ export function Button({
       )}
       {...rest}
     >
-      {typeof children === 'string' || typeof children === 'number' ? (
-        <Text
-          className={cn('text-sm font-bold', textVariants.variant[variant])}
-        >
-          {children}
-        </Text>
+      {allScalar ? (
+        <Text className={textClassName}>{children}</Text>
       ) : (
-        children
+        items.map((item, index) =>
+          typeof item === 'string' || typeof item === 'number' ? (
+            <Text key={index} className={textClassName}>
+              {item}
+            </Text>
+          ) : (
+            item
+          )
+        )
       )}
     </Pressable>
   )
