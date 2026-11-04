@@ -378,35 +378,37 @@ export async function getGameLeaderboard(
     }
 }
 
+async function applyUserIdentityColumns(): Promise<void> {
+    if (_migrationsRun.has('userIdentity')) {
+        return
+    }
+    const result = await sql<{
+        name: string
+    }>`PRAGMA table_info("user")`.execute(db)
+    const cols = result.rows?.map(r => r.name) ?? []
+
+    if (!cols.includes('displayName')) {
+        await sql`ALTER TABLE "user" ADD COLUMN displayName TEXT`.execute(db)
+    }
+
+    if (!cols.includes('username')) {
+        await sql`ALTER TABLE "user" ADD COLUMN username TEXT`.execute(db)
+    }
+
+    // Create unique index for username (allows multiple NULLs by SQLite semantics)
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON "user" (username)`.execute(
+        db
+    )
+    _migrationsRun.add('userIdentity')
+}
+
 /**
  * Ensure user identity columns (displayName, username) and unique index exist.
  * Safe and idempotent for SQLite/LibSQL.
  */
 export async function ensureUserIdentityColumns(): Promise<void> {
-    if (_migrationsRun.has('userIdentity')) {
-        return
-    }
     try {
-        const result = await sql<{
-            name: string
-        }>`PRAGMA table_info("user")`.execute(db)
-        const cols = result.rows?.map(r => r.name) ?? []
-
-        if (!cols.includes('displayName')) {
-            await sql`ALTER TABLE "user" ADD COLUMN displayName TEXT`.execute(
-                db
-            )
-        }
-
-        if (!cols.includes('username')) {
-            await sql`ALTER TABLE "user" ADD COLUMN username TEXT`.execute(db)
-        }
-
-        // Create unique index for username (allows multiple NULLs by SQLite semantics)
-        await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON "user" (username)`.execute(
-            db
-        )
-        _migrationsRun.add('userIdentity')
+        await applyUserIdentityColumns()
     } catch (error) {
         // Log but swallow to avoid breaking primary flows
         console.warn('[ensureUserIdentityColumns] Migration warning:', error)
@@ -497,7 +499,6 @@ export async function getUserByUsername(
 async function readUserIdentityById(
     userId: string
 ): Promise<PublicUser | null> {
-    await ensureUserIdentityColumns()
     const row = await db
         .selectFrom('user')
         .select([
@@ -534,6 +535,7 @@ export async function getUserIdentityById(
     userId: string
 ): Promise<PublicUser | null> {
     try {
+        await ensureUserIdentityColumns()
         return await readUserIdentityById(userId)
     } catch (error) {
         console.error(
@@ -547,6 +549,7 @@ export async function getUserIdentityById(
 export async function getUserIdentityByIdStrict(
     userId: string
 ): Promise<PublicUser | null> {
+    await applyUserIdentityColumns()
     return readUserIdentityById(userId)
 }
 
