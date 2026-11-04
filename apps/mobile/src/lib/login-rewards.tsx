@@ -24,9 +24,6 @@ let modalLease: object | null = null
 const toError = (reason: unknown): Error =>
   reason instanceof Error ? reason : new Error(String(reason))
 
-// The host owns fetch/claim orchestration for the shared presentation modal;
-// it renders nothing unless the server reports a claimable reward, so it is
-// safe to mount on any screen regardless of session state.
 export function LoginRewardHost() {
   const {
     data: session,
