@@ -98,6 +98,12 @@ import GamesScreen from '../app/(tabs)/index'
 import ProfileScreen from '../app/(tabs)/profile'
 import { api } from '../src/lib/api'
 
+// The first render carries the cold transform/render cost of the native UI
+// tree; on a shared CI worker that can exceed the 5s default. An act() that
+// is abandoned mid-flight also poisons React's act depth for the whole file,
+// so keep the timeout comfortably above worst-case render time.
+jest.setTimeout(30_000)
+
 const getLoginRewardStatus = jest.mocked(api.getLoginRewardStatus)
 const claimLoginReward = jest.mocked(api.claimLoginReward)
 const getUserOverview = jest.mocked(api.getUserOverview)
