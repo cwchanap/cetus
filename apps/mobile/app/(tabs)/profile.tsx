@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -663,6 +664,27 @@ export default function ProfileScreen() {
             </View>
           )}
         </Card>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Notification settings"
+          accessibilityHint="Opens email, push and reminder preferences"
+          onPress={() => router.push('/settings')}
+          className="active:opacity-80"
+        >
+          <Card variant="sci-fi" className="flex-row items-center gap-3 p-4">
+            <Text className="text-xl">🔔</Text>
+            <View className="flex-1 gap-0.5">
+              <Text className="font-display text-sm font-bold text-cetus-ink">
+                Notification settings
+              </Text>
+              <Text className="font-sans text-xs text-cetus-ink-muted">
+                Email, push and daily challenge reminders
+              </Text>
+            </View>
+            <Text className="font-sans text-sm text-cetus-ink-muted">›</Text>
+          </Card>
+        </Pressable>
 
         {signOutControl}
       </ScrollView>

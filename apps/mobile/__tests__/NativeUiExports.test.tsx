@@ -10,6 +10,7 @@ import { Card as DeepCard } from '@cetus/ui/components/ui/card'
 import { Badge as DeepBadge } from '@cetus/ui/components/ui/badge'
 import { Heading as DeepHeading } from '@cetus/ui/components/ui/heading'
 import { Select as DeepSelect } from '@cetus/ui/components/ui/select'
+import { Toggle as DeepToggle } from '@cetus/ui/components/ui/toggle'
 
 const mountedTrees: TestRenderer.ReactTestRenderer[] = []
 
@@ -194,6 +195,7 @@ test('deep imports resolve the same native implementations as the root', () => {
   expect(DeepBadge).toBe(Ui.Badge)
   expect(DeepHeading).toBe(Ui.Heading)
   expect(DeepSelect).toBe(Ui.Select)
+  expect(DeepToggle).toBe(Ui.Toggle)
 })
 
 test('unported deep imports fail rather than fall through to web', () => {
@@ -441,6 +443,118 @@ test('Select styles muted text and the sheet with generated theme colors', async
   ).toBe(true)
 })
 
+const switchOf = (
+  tree: TestRenderer.ReactTestRenderer,
+  accessibilityLabel: string
+) => tree.root.findByProps({ accessibilityRole: 'switch', accessibilityLabel })
+
+const flipSwitch = async (
+  tree: TestRenderer.ReactTestRenderer,
+  accessibilityLabel: string,
+  value: boolean
+) => {
+  const node = switchOf(tree, accessibilityLabel)
+  await act(async () => {
+    node.props.onChange({ nativeEvent: { value } })
+  })
+}
+
+test('Toggle renders a switch-role node with its label and description', async () => {
+  const tree = await render(
+    <Ui.Toggle
+      label="Push Notifications"
+      description="Receive push notifications"
+      checked
+      onCheckedChange={() => {}}
+    />
+  )
+  const node = switchOf(tree, 'Push Notifications')
+  expect(node.props.accessibilityState.checked).toBe(true)
+  const text = renderedText(tree)
+  expect(text).toContain('Push Notifications')
+  expect(text).toContain('Receive push notifications')
+})
+
+test('Toggle reports the next value through onCheckedChange', async () => {
+  const onCheckedChange = jest.fn()
+  const tree = await render(
+    <Ui.Toggle
+      label="Push Notifications"
+      checked={false}
+      onCheckedChange={onCheckedChange}
+    />
+  )
+  await flipSwitch(tree, 'Push Notifications', true)
+  expect(onCheckedChange).toHaveBeenCalledWith(true)
+  expect(onCheckedChange).toHaveBeenCalledTimes(1)
+})
+
+test('Toggle stays controlled to its checked prop', async () => {
+  const onCheckedChange = jest.fn()
+  const tree = await render(
+    <Ui.Toggle
+      label="Push Notifications"
+      checked={false}
+      onCheckedChange={onCheckedChange}
+    />
+  )
+  await flipSwitch(tree, 'Push Notifications', true)
+  expect(
+    switchOf(tree, 'Push Notifications').props.accessibilityState.checked
+  ).toBe(false)
+})
+
+test('Toggle tracks its own state when uncontrolled', async () => {
+  const onCheckedChange = jest.fn()
+  const tree = await render(
+    <Ui.Toggle
+      label="Push Notifications"
+      defaultChecked
+      onCheckedChange={onCheckedChange}
+    />
+  )
+  expect(
+    switchOf(tree, 'Push Notifications').props.accessibilityState.checked
+  ).toBe(true)
+  await flipSwitch(tree, 'Push Notifications', false)
+  expect(onCheckedChange).toHaveBeenCalledWith(false)
+  expect(
+    switchOf(tree, 'Push Notifications').props.accessibilityState.checked
+  ).toBe(false)
+})
+
+test('Toggle exposes disabled state and swallows changes while disabled', async () => {
+  const onCheckedChange = jest.fn()
+  const tree = await render(
+    <Ui.Toggle
+      label="Push Notifications"
+      checked={false}
+      disabled
+      onCheckedChange={onCheckedChange}
+    />
+  )
+  const node = switchOf(tree, 'Push Notifications')
+  expect(node.props.accessibilityState.disabled).toBe(true)
+  await act(async () => {
+    node.props.onChange({ nativeEvent: { value: true } })
+  })
+  expect(onCheckedChange).not.toHaveBeenCalled()
+  expect(
+    switchOf(tree, 'Push Notifications').props.accessibilityState.checked
+  ).toBe(false)
+})
+
+test('Toggle falls back to accessibilityLabel when no label is given', async () => {
+  const tree = await render(
+    <Ui.Toggle
+      accessibilityLabel="Reminders"
+      checked
+      onCheckedChange={() => {}}
+    />
+  )
+  expect(switchOf(tree, 'Reminders')).toBeTruthy()
+})
+
 test('root export exposes only implemented native components', () => {
   const root = Ui as unknown as Record<string, unknown>
   expect(root.Button).toBeDefined()
@@ -448,13 +562,13 @@ test('root export exposes only implemented native components', () => {
   expect(root.Badge).toBeDefined()
   expect(root.Heading).toBeDefined()
   expect(root.Select).toBeDefined()
+  expect(root.Toggle).toBeDefined()
   expect(root.DailyMissionsPanel).toBeDefined()
   for (const key of [
     'Avatar',
     'Container',
     'Section',
     'Pagination',
-    'Toggle',
     'GameOverlay',
     'GameTitle',
     'GameBreadcrumb',

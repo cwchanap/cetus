@@ -11,6 +11,7 @@ const RETURN_TO_ALLOWED = [
   '/(tabs)/profile',
   '/(tabs)/achievements',
   '/challenges',
+  '/settings',
   '/',
 ] as const
 
