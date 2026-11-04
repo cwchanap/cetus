@@ -135,6 +135,20 @@ describe('games catalog', () => {
 
     expect(mockPush).toHaveBeenCalledWith('/games/tetris')
   })
+
+  test('links to the daily missions stack route', async () => {
+    const tree = await render(<GamesScreen />)
+
+    const entry = tree.root.findByProps({
+      accessibilityLabel: 'Daily missions',
+    })
+    expect(entry.props.accessibilityRole).toBe('button')
+    await act(async () => {
+      entry.props.onPress()
+    })
+
+    expect(mockPush).toHaveBeenCalledWith('/challenges')
+  })
 })
 
 describe('game detail', () => {
