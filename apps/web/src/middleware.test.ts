@@ -158,6 +158,22 @@ describe('middleware — origin check', () => {
         }
     }
 
+    function makeMethodContext(
+        method: string,
+        path: string,
+        init: RequestInit
+    ): TestContext {
+        return {
+            request: new Request(`https://cetus.example${path}`, {
+                method,
+                ...init,
+            }),
+            url: new URL(`https://cetus.example${path}`),
+            isPrerendered: false,
+            locals: {},
+        }
+    }
+
     it('403s a cross-site form post', async () => {
         const context = makePostContext('/api/scores', {
             headers: {
@@ -236,6 +252,100 @@ describe('middleware — origin check', () => {
             },
             body: '{}',
         })
+        const next = makeNext()
+
+        await (onRequest as any)(context, next)
+
+        expect(next).toHaveBeenCalled()
+    })
+
+    it('passes a same-origin multipart avatar upload through', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValueOnce(null as any)
+        const context = makeMethodContext('POST', '/api/user/avatar', {
+            headers: {
+                'content-type':
+                    'multipart/form-data; boundary=----native-generated-boundary',
+                origin: 'https://cetus.example',
+            },
+            body: '----native-generated-boundary--',
+        })
+        const next = makeNext()
+
+        await (onRequest as any)(context, next)
+
+        expect(next).toHaveBeenCalled()
+    })
+
+    it('403s a multipart post when the origin is missing', async () => {
+        const context = makeMethodContext('POST', '/api/user/avatar', {
+            headers: {
+                'content-type':
+                    'multipart/form-data; boundary=----native-generated-boundary',
+            },
+            body: '----native-generated-boundary--',
+        })
+        const next = makeNext()
+
+        const response = await (onRequest as any)(context, next)
+
+        expect(response.status).toBe(403)
+        expect(next).not.toHaveBeenCalled()
+    })
+
+    it('403s a multipart post from a foreign origin', async () => {
+        const context = makeMethodContext('POST', '/api/user/avatar', {
+            headers: {
+                'content-type':
+                    'multipart/form-data; boundary=----native-generated-boundary',
+                origin: 'https://evil.example',
+            },
+            body: '----native-generated-boundary--',
+        })
+        const next = makeNext()
+
+        const response = await (onRequest as any)(context, next)
+
+        expect(response.status).toBe(403)
+        expect(next).not.toHaveBeenCalled()
+    })
+
+    it('passes a same-origin bodyless avatar DELETE through', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValueOnce(null as any)
+        const context = makeMethodContext('DELETE', '/api/user/avatar', {
+            headers: { origin: 'https://cetus.example' },
+        })
+        const next = makeNext()
+
+        await (onRequest as any)(context, next)
+
+        expect(next).toHaveBeenCalled()
+    })
+
+    it('403s a bodyless DELETE when the origin is missing', async () => {
+        const context = makeMethodContext('DELETE', '/api/user/avatar', {})
+        const next = makeNext()
+
+        const response = await (onRequest as any)(context, next)
+
+        expect(response.status).toBe(403)
+        expect(next).not.toHaveBeenCalled()
+    })
+
+    it('403s a bodyless DELETE from a foreign origin', async () => {
+        const context = makeMethodContext('DELETE', '/api/user/avatar', {
+            headers: { origin: 'https://evil.example' },
+        })
+        const next = makeNext()
+
+        const response = await (onRequest as any)(context, next)
+
+        expect(response.status).toBe(403)
+        expect(next).not.toHaveBeenCalled()
+    })
+
+    it('leaves safe methods alone — a GET without an origin still passes', async () => {
+        vi.mocked(auth.api.getSession).mockResolvedValueOnce(null as any)
+        const context = makeMethodContext('GET', '/api/leaderboard', {})
         const next = makeNext()
 
         await (onRequest as any)(context, next)

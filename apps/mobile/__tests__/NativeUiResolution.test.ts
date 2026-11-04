@@ -700,6 +700,7 @@ describe('the reachable native UI graph stays free of web-only code', () => {
 
     it('only imports the expected external packages at runtime', () => {
         expect([...graph.externals].sort()).toEqual([
+            '@cetus/shared/challenges',
             '@cetus/shared/loginRewards',
             'clsx',
             'react',
