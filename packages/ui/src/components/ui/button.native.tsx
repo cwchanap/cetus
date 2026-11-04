@@ -4,8 +4,6 @@ import { Pressable, Text, type PressableProps } from 'react-native'
 import { cn } from '../../lib/utils'
 import type { ButtonSize, ButtonVariant } from '../../variants'
 
-// Semantic native props mirror the web API: Pressable/onPress and NativeWind
-// className instead of button/onClick, sharing only the variant/size names.
 export interface ButtonProps extends Omit<
   PressableProps,
   'children' | 'className' | 'style'
@@ -25,8 +23,6 @@ const buttonVariants = {
     secondary: 'bg-slate-700 border border-slate-600',
     ghost: 'active:bg-cetus-surface',
     link: '',
-    // Gradient needs a native module; the shared accent token is the
-    // sanctioned solid fallback.
     primary: 'bg-cetus-accent',
   },
   size: {

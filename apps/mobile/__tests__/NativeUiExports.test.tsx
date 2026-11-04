@@ -6,10 +6,6 @@ import * as Ui from '@cetus/ui'
 import { Button as DeepButton } from '@cetus/ui/components/ui/button'
 import { Card as DeepCard } from '@cetus/ui/components/ui/card'
 
-// jest-expo resolves the `react-native` export condition, so these imports
-// must land on the .native.tsx pilots — Pressable/View hosts, never DOM
-// elements. Pressable itself is a memo component whose fiber type is not
-// the exported object, so assertions target its rendered host tree/props.
 const render = async (element: React.ReactElement) => {
   let tree: TestRenderer.ReactTestRenderer | undefined
   await act(async () => {
@@ -98,9 +94,6 @@ test('deep imports resolve the same native implementations as the root', () => {
 })
 
 test('unported deep imports fail rather than fall through to web', async () => {
-  // No badge.native.tsx / game-title.native.tsx exist yet — the
-  // `react-native` export target must error instead of resolving DOM code.
-  // Computed specifiers keep the negative check out of static resolution.
   for (const specifier of [
     '@cetus/ui/components/ui/badge',
     '@cetus/ui/components/game-title',
@@ -113,7 +106,6 @@ test('root export exposes only implemented native components', () => {
   const root = Ui as unknown as Record<string, unknown>
   expect(root.Button).toBeDefined()
   expect(root.Card).toBeDefined()
-  // Deferred/web-only surface must not exist on native.
   for (const key of [
     'Badge',
     'Heading',

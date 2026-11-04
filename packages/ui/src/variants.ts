@@ -1,13 +1,3 @@
-// Shared variant/size NAME unions (HPA-182). These are the contract every
-// platform's component API must honor: web and native tables map the same
-// names to platform-specific class values via `satisfies Record<...>` in
-// each component file, so a missing or renamed name fails typechecking.
-// Type unions only — no shared styling lives here.
-//
-// Scoped to the components HPA-182's native screens consume. Deferred
-// components (game chrome, AchievementAward, ChallengeComplete, Slider,
-// Pagination, UserDropdown) get no union until a native consumer exists.
-
 export type ButtonVariant =
     | 'default'
     | 'destructive'

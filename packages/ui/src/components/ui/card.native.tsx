@@ -24,9 +24,6 @@ const cardVariants = {
   variant: Record<CardVariant, string>
 }
 
-// Native HUD brackets: the web corner pieces are CSS pseudo-elements on
-// .hud-bracket-host; here they are plain absolutely-positioned accent
-// border views pinned to the card's corners.
 const bracketBase = 'absolute w-3 h-3 border-cetus-accent'
 const bracketCorners = [
   'top-0 left-0 border-t-2 border-l-2 rounded-tl-lg',
