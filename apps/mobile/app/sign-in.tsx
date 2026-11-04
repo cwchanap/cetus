@@ -6,7 +6,7 @@ import { authClient } from '../src/lib/auth-client'
 
 type Provider = 'google' | 'apple'
 
-// Only known in-app destinations may be used as a post-login destination.
+// Only known tab roots may be used as a post-login destination.
 const RETURN_TO_ALLOWED = [
   '/(tabs)/profile',
   '/(tabs)/achievements',

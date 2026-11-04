@@ -25,8 +25,6 @@ const render = async (element: React.ReactElement) => {
   return tree
 }
 
-// Unmount after each test so the mission panel's 1-second reset-countdown
-// timer cannot fire state updates into a torn-down test environment.
 afterEach(async () => {
   while (mountedTrees.length > 0) {
     const tree = mountedTrees.pop()
