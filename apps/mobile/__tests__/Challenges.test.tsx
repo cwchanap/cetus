@@ -485,6 +485,40 @@ describe('challenges route — signed in', () => {
 
     await press(tree, 'Refresh daily missions')
     expect(getChallenges).toHaveBeenCalledTimes(2)
+
+    await settle(runs[1], payload([mission()], { resetIn: 86_400 }))
+    const restored = renderedText(tree)
+    expect(restored).toContain('Resets in 24:00:00')
+    expect(restored).not.toContain('Daily missions reset')
+  })
+
+  test('expires on wall time while suspended and re-anchors on a foreground refresh', async () => {
+    const nowSpy = jest.spyOn(Date, 'now')
+    const t0 = 1_700_000_000_000
+    try {
+      nowSpy.mockReturnValue(t0)
+      signIn('user-a')
+      const tree = await render(<ChallengesScreen />)
+      await settle(runs[0], payload([mission()], { resetIn: 3600 }))
+      expect(renderedText(tree)).toContain('Resets in 01:00:00')
+
+      nowSpy.mockReturnValue(t0 + 3_605_000)
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 1300))
+      })
+      expect(renderedText(tree)).toContain('Daily missions reset')
+
+      await focus()
+      await appState('active')
+      expect(getChallenges).toHaveBeenCalledTimes(2)
+      await settle(runs[1], payload([mission()], { resetIn: 86_400 }))
+
+      const restored = renderedText(tree)
+      expect(restored).toContain('Resets in 24:00:00')
+      expect(restored).not.toContain('Daily missions reset')
+    } finally {
+      nowSpy.mockRestore()
+    }
   })
 
   test('surfaces a network error distinctly and retries into data', async () => {
@@ -782,6 +816,74 @@ describe('challenges route — signed in', () => {
 
     await settle(runs[1], payload([mission()]))
     expect(renderedText(tree)).toContain('Warm Up')
+  })
+})
+
+describe('challenges route — malformed responses', () => {
+  const MALFORMED: Array<[string, unknown]> = [
+    ['null payload', null],
+    ['empty object', {}],
+    ['null mission list', { challenges: null }],
+    ['non-array mission list', { ...payload([mission()]), challenges: 'oops' }],
+    ['missing XP fields', { challenges: [] }],
+    [
+      'non-numeric mission progress',
+      payload([mission({ currentValue: '1' as unknown as number })]),
+    ],
+    [
+      'mission missing required fields',
+      { ...payload([]), challenges: [{ challengeId: 'broken' }] },
+    ],
+  ]
+
+  test.each(MALFORMED)(
+    'reports %s through the retryable error state',
+    async (_label, value) => {
+      signIn('user-a')
+      const tree = await render(<ChallengesScreen />)
+      await settle(runs[runs.length - 1], value as ChallengesResponse)
+
+      expect(tree.root.findByProps({ testID: 'challenges-error' })).toBeTruthy()
+      expect(renderedText(tree)).toContain('Something went wrong')
+      expect(
+        tree.root.findAllByProps({ testID: 'challenges-loading' })
+      ).toHaveLength(0)
+    }
+  )
+
+  test('a retry after a malformed payload still recovers into data', async () => {
+    signIn('user-a')
+    const tree = await render(<ChallengesScreen />)
+    await settle(runs[0], {
+      challenges: null,
+    } as unknown as ChallengesResponse)
+    expect(tree.root.findByProps({ testID: 'challenges-error' })).toBeTruthy()
+
+    await press(tree, 'Retry loading daily missions')
+    expect(getChallenges).toHaveBeenCalledTimes(2)
+
+    await settle(runs[1], payload([mission()]))
+    expect(renderedText(tree)).toContain('Warm Up')
+    expect(
+      tree.root.findAllByProps({ testID: 'challenges-error' })
+    ).toHaveLength(0)
+  })
+
+  test('a malformed refresh masks the previously loaded missions', async () => {
+    signIn('user-a')
+    const tree = await render(<ChallengesScreen />)
+    await settle(runs[0], payload([mission()]))
+    expect(renderedText(tree)).toContain('Warm Up')
+
+    await focus()
+    await blur()
+    await focus()
+    expect(getChallenges).toHaveBeenCalledTimes(2)
+
+    await settle(runs[1], {} as unknown as ChallengesResponse)
+    expect(tree.root.findByProps({ testID: 'challenges-error' })).toBeTruthy()
+    expect(renderedText(tree)).not.toContain('Warm Up')
+    expect(renderedText(tree)).not.toContain('Level 3')
   })
 })
 

@@ -1,7 +1,71 @@
 import { ActivityIndicator, Text, View } from 'react-native'
 import { Button, Heading } from '@cetus/ui'
+import type {
+  ChallengeProgressResponse,
+  ChallengesResponse,
+} from '@cetus/shared/api-dto'
 
 import { isNetworkError, isServiceUnavailable } from './refetch'
+
+function isMissionProgress(mission: unknown): boolean {
+  if (mission === null || typeof mission !== 'object') {
+    return false
+  }
+  const entry = mission as Partial<ChallengeProgressResponse>
+  const progressNumbers = [
+    entry.targetValue,
+    entry.currentValue,
+    entry.xpReward,
+  ]
+  return (
+    typeof entry.challengeId === 'string' &&
+    typeof entry.name === 'string' &&
+    typeof entry.description === 'string' &&
+    typeof entry.icon === 'string' &&
+    typeof entry.type === 'string' &&
+    progressNumbers.every(
+      value => typeof value === 'number' && Number.isFinite(value)
+    ) &&
+    typeof entry.difficulty === 'string' &&
+    typeof entry.completed === 'boolean' &&
+    (entry.completedAt === null || typeof entry.completedAt === 'string') &&
+    (entry.gameId === undefined || typeof entry.gameId === 'string')
+  )
+}
+
+export function challengesResponseFor(
+  data: unknown
+): ChallengesResponse | null {
+  if (data === null || typeof data !== 'object') {
+    return null
+  }
+  const candidate = data as Partial<ChallengesResponse>
+  const numericFields = [
+    candidate.xp,
+    candidate.level,
+    candidate.xpProgress,
+    candidate.xpToNextLevel,
+    candidate.streak,
+    candidate.resetIn,
+  ]
+  if (
+    !numericFields.every(
+      value => typeof value === 'number' && Number.isFinite(value)
+    )
+  ) {
+    return null
+  }
+  if (typeof candidate.date !== 'string' || candidate.date.length === 0) {
+    return null
+  }
+  if (
+    !Array.isArray(candidate.challenges) ||
+    !candidate.challenges.every(isMissionProgress)
+  ) {
+    return null
+  }
+  return candidate as ChallengesResponse
+}
 
 export function ChallengesLoading() {
   return (

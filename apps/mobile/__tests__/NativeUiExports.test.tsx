@@ -540,3 +540,122 @@ test('DailyMissionsPanel swaps the countdown for a refresh control once the rese
   })
   expect(onResetRefresh).toHaveBeenCalledTimes(1)
 })
+
+test('DailyMissionsPanel ticks through zero into the reset state', async () => {
+  const tree = await render(
+    <Ui.DailyMissionsPanel {...PANEL_PROPS} resetIn={1} />
+  )
+  expect(renderedText(tree)).toContain('Resets in 00:00:01')
+
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 1300))
+  })
+
+  const text = renderedText(tree)
+  expect(text).toContain('Daily missions reset')
+  expect(text).not.toContain('Resets in')
+})
+
+test('DailyMissionsPanel re-anchors the countdown when a new response changes resetIn', async () => {
+  const tree = await render(
+    <Ui.DailyMissionsPanel {...PANEL_PROPS} resetIn={0} />
+  )
+  expect(renderedText(tree)).toContain('Daily missions reset')
+
+  await act(async () => {
+    tree.update(<Ui.DailyMissionsPanel {...PANEL_PROPS} resetIn={86400} />)
+  })
+
+  const text = renderedText(tree)
+  expect(text).toContain('Resets in 24:00:00')
+  expect(text).not.toContain('Daily missions reset')
+})
+
+test('DailyMissionsPanel keeps its deadline when successive responses repeat resetIn', async () => {
+  const tree = await render(
+    <Ui.DailyMissionsPanel {...PANEL_PROPS} resetIn={1} />
+  )
+  await act(async () => {
+    tree.update(<Ui.DailyMissionsPanel {...PANEL_PROPS} resetIn={1} />)
+  })
+
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 1300))
+  })
+
+  const text = renderedText(tree)
+  expect(text).toContain('Daily missions reset')
+})
+
+test('DailyMissionsPanel expires on wall time while ticks are suspended', async () => {
+  const nowSpy = jest.spyOn(Date, 'now')
+  const t0 = 1_700_000_000_000
+  try {
+    nowSpy.mockReturnValue(t0)
+    const tree = await render(
+      <Ui.DailyMissionsPanel {...PANEL_PROPS} resetIn={3600} />
+    )
+    expect(renderedText(tree)).toContain('Resets in 01:00:00')
+
+    nowSpy.mockReturnValue(t0 + 3_605_000)
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 1300))
+    })
+
+    const text = renderedText(tree)
+    expect(text).toContain('Daily missions reset')
+    expect(text).not.toContain('Resets in')
+  } finally {
+    nowSpy.mockRestore()
+  }
+})
+
+test('DailyMissionsPanel countdown stops cleanly on unmount', async () => {
+  const tree = await render(
+    <Ui.DailyMissionsPanel {...PANEL_PROPS} resetIn={2} />
+  )
+  await act(async () => {
+    tree.unmount()
+  })
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 1200))
+  })
+  expect(tree.toJSON()).toBeNull()
+})
+
+test('DailyMissionsPanel stacks level and reset metadata below the title for narrow screens', async () => {
+  const tree = await render(<Ui.DailyMissionsPanel {...PANEL_PROPS} />)
+
+  const title = tree.root.findByProps({ accessibilityRole: 'header' })
+  expect(title.props.children).toBe('DAILY MISSIONS')
+  expect(title.props.numberOfLines).toBe(2)
+  expect(title.props.className).toContain('flex-1')
+
+  let titleRow: TestRenderer.ReactTestInstance | null = title.parent
+  while (titleRow && titleRow.type !== View) {
+    titleRow = titleRow.parent
+  }
+  if (titleRow === null) {
+    throw new Error('Expected a View row containing the panel title')
+  }
+  const titleRowText = titleRow
+    .findAllByType(Text)
+    .map(node => scalarText(node.props.children))
+    .join('\n')
+  expect(titleRowText).not.toContain('Level 3')
+  expect(titleRowText).not.toContain('Resets in')
+
+  const metadataRow = tree.root.findAllByType(View).find(node => {
+    const className = node.props.className as string | undefined
+    if (!className?.includes('justify-between')) {
+      return false
+    }
+    const texts = node
+      .findAllByType(Text)
+      .map(child => scalarText(child.props.children))
+      .join('\n')
+    return texts.includes('Level 3') && texts.includes('Resets in')
+  })
+  expect(metadataRow).toBeTruthy()
+  expect(metadataRow).not.toBe(titleRow)
+})

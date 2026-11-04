@@ -38,17 +38,32 @@ function ResetCountdown({
   resetIn: number
   onResetRefresh?: () => void
 }) {
-  const [seconds, setSeconds] = useState(resetIn)
+  const [clock, setClock] = useState(() => {
+    const now = Date.now()
+    return {
+      resetIn,
+      deadline: now + Math.max(0, resetIn) * 1000,
+      now,
+    }
+  })
+  if (clock.resetIn !== resetIn) {
+    const now = Date.now()
+    setClock({ resetIn, deadline: now + Math.max(0, resetIn) * 1000, now })
+  }
+  const remaining = Math.max(0, Math.ceil((clock.deadline - clock.now) / 1000))
 
   useEffect(() => {
-    if (seconds <= 0) {
+    if (clock.deadline - clock.now <= 0) {
       return
     }
-    const timer = setTimeout(() => setSeconds(value => value - 1), 1000)
+    const timer = setTimeout(
+      () => setClock(current => ({ ...current, now: Date.now() })),
+      1000
+    )
     return () => clearTimeout(timer)
-  }, [seconds])
+  }, [clock])
 
-  if (seconds <= 0) {
+  if (remaining <= 0) {
     return (
       <View className="flex-row items-center gap-2">
         <Text className="font-sans text-sm text-cetus-ink-muted">
@@ -72,7 +87,7 @@ function ResetCountdown({
 
   return (
     <Text className="font-sans text-sm text-cetus-ink-muted">
-      {formatCountdown(seconds)}
+      {formatCountdown(remaining)}
     </Text>
   )
 }
@@ -159,17 +174,18 @@ export function DailyMissionsPanel({
   const clampedProgress = Math.min(100, Math.max(0, xpProgress))
   return (
     <Card variant="glass" className="gap-5 p-5">
-      <View className="flex-row items-center justify-between gap-3">
-        <View className="flex-1 flex-row items-center gap-2.5">
+      <View className="gap-2.5">
+        <View className="flex-row items-center gap-2.5">
           <Text className="text-2xl">🎯</Text>
           <Text
             accessibilityRole="header"
-            className="font-display text-lg font-bold text-cetus-accent"
+            numberOfLines={2}
+            className="flex-1 font-display text-lg font-bold text-cetus-accent"
           >
             DAILY MISSIONS
           </Text>
         </View>
-        <View className="flex-row items-center gap-2.5">
+        <View className="flex-row flex-wrap items-center justify-between gap-2">
           <Badge variant="outline" size="sm" className="bg-cetus-accent-2/20">
             Level {level}
           </Badge>
