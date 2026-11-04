@@ -1,6 +1,12 @@
 import { useCallback, useRef } from 'react'
 import { useFocusEffect } from 'expo-router'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import {
+  ActivityIndicator,
+  AppState,
+  Pressable,
+  Text,
+  View,
+} from 'react-native'
 import { Button, cn } from '@cetus/ui'
 import {
   ApiClientError,
@@ -80,46 +86,18 @@ export function useRefetchOnFocus(refetch: () => void): void {
   const skipInitialFocus = useRef(true)
   useFocusEffect(
     useCallback(() => {
+      const subscription = AppState.addEventListener('change', state => {
+        if (state === 'active') {
+          refetch()
+        }
+      })
       if (skipInitialFocus.current) {
         skipInitialFocus.current = false
-        return
+      } else {
+        refetch()
       }
-      refetch()
+      return () => subscription.remove()
     }, [refetch])
-  )
-}
-
-export function ScopeChip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string
-  active: boolean
-  onPress: () => void
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Leaderboard scope: ${label}`}
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      className={cn(
-        'rounded-full border px-3 py-1.5',
-        active
-          ? 'border-cetus-accent bg-cetus-accent/10'
-          : 'border-cetus-hairline bg-cetus-surface'
-      )}
-    >
-      <Text
-        className={cn(
-          'font-sans text-xs font-semibold',
-          active ? 'text-cetus-accent' : 'text-cetus-ink-muted'
-        )}
-      >
-        {label}
-      </Text>
-    </Pressable>
   )
 }
 

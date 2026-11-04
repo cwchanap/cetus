@@ -1,6 +1,6 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { Text } from 'react-native'
+import { AppState, Text, type AppStateStatus } from 'react-native'
 import { ApiClientError } from '@cetus/api-client/api-client'
 import type {
   LeaderboardEntryResponse,
@@ -40,6 +40,7 @@ import GameLeaderboardScreen from '../app/leaderboard/[gameId]'
 import { api } from '../src/lib/api'
 
 const getLeaderboard = jest.mocked(api.getLeaderboard)
+const addAppStateListener = jest.spyOn(AppState, 'addEventListener')
 
 const ACTIVE_GAMES = getActiveGames()
 
@@ -60,6 +61,12 @@ function deferred<T>(): Deferred<T> {
 }
 
 let runs: Deferred<LeaderboardResponse>[]
+let appStateListeners: {
+  listener: (state: AppStateStatus) => void
+  remove: jest.Mock
+  removed: boolean
+}[]
+let focusCleanup: (() => void) | undefined
 
 const render = async (element: React.ReactElement) => {
   let tree: TestRenderer.ReactTestRenderer | undefined
@@ -118,10 +125,64 @@ const press = async (
   })
 }
 
-const focus = async () => {
-  const callback = mockFocusCallback
+const comboboxOf = (tree: TestRenderer.ReactTestRenderer) =>
+  tree.root.findByProps({ accessibilityRole: 'combobox' })
+
+const menuItemsOf = (tree: TestRenderer.ReactTestRenderer) =>
+  tree.root.findAll(
+    node =>
+      node.props.accessibilityRole === 'menuitem' &&
+      typeof node.props.onPress === 'function'
+  )
+
+const openSelector = async (tree: TestRenderer.ReactTestRenderer) => {
   await act(async () => {
-    callback?.()
+    comboboxOf(tree).props.onPress()
+  })
+}
+
+const pickOption = async (
+  tree: TestRenderer.ReactTestRenderer,
+  label: string
+) => {
+  const option = tree.root.findByProps({
+    accessibilityRole: 'menuitem',
+    accessibilityLabel: label,
+  })
+  await act(async () => {
+    option.props.onPress()
+  })
+}
+
+const chooseScope = async (
+  tree: TestRenderer.ReactTestRenderer,
+  label: string
+) => {
+  await openSelector(tree)
+  await pickOption(tree, label)
+}
+
+const focus = async () => {
+  await act(async () => {
+    const cleanup = mockFocusCallback?.()
+    focusCleanup = typeof cleanup === 'function' ? cleanup : undefined
+  })
+}
+
+const blur = async () => {
+  await act(async () => {
+    focusCleanup?.()
+    focusCleanup = undefined
+  })
+}
+
+const appState = async (state: AppStateStatus) => {
+  await act(async () => {
+    for (const entry of appStateListeners) {
+      if (!entry.removed) {
+        entry.listener(state)
+      }
+    }
   })
 }
 
@@ -183,7 +244,26 @@ beforeEach(() => {
   mockCanGoBack.mockReset().mockReturnValue(true)
   mockParams.gameId = undefined
   mockFocusCallback = undefined
+  focusCleanup = undefined
   runs = []
+  appStateListeners = []
+  addAppStateListener.mockReset()
+  addAppStateListener.mockImplementation(
+    (_type: string, listener: (state: AppStateStatus) => void) => {
+      const subscription = {
+        listener,
+        removed: false,
+        remove: jest.fn(),
+      }
+      subscription.remove.mockImplementation(() => {
+        subscription.removed = true
+      })
+      appStateListeners.push(subscription)
+      return subscription as unknown as ReturnType<
+        typeof AppState.addEventListener
+      >
+    }
+  )
   getLeaderboard.mockReset()
   getLeaderboard.mockImplementation(() => {
     const run = deferred<LeaderboardResponse>()
@@ -216,33 +296,27 @@ describe('leaderboard tab', () => {
     expect(rendered).toContain('Snake Ace')
     expect(rendered).toContain('No scores yet')
     expect(rendered).not.toContain('Sign in')
+
+    await openSelector(tree)
     expect(
       tree.root.findByProps({
-        accessibilityLabel: 'Leaderboard scope: All games',
+        accessibilityRole: 'menuitem',
+        accessibilityLabel: 'All games',
       }).props.accessibilityState?.selected
     ).toBe(true)
   })
 
-  test('selecting a game chip fetches the per-game board and marks the chip selected', async () => {
+  test('selecting a game fetches the per-game board and marks it selected', async () => {
     const tree = await render(<LeaderboardScreen />)
     await settle(runs[0], overviewResponse)
 
-    await press(tree, 'Leaderboard scope: Snake')
+    await chooseScope(tree, 'Snake')
 
     expect(getLeaderboard).toHaveBeenCalledTimes(2)
     expect(getLeaderboard).toHaveBeenLastCalledWith(
       { gameId: 'snake', limit: 25 },
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
-    expect(
-      tree.root.findByProps({ accessibilityLabel: 'Leaderboard scope: Snake' })
-        .props.accessibilityState?.selected
-    ).toBe(true)
-    expect(
-      tree.root.findByProps({
-        accessibilityLabel: 'Leaderboard scope: All games',
-      }).props.accessibilityState?.selected
-    ).toBe(false)
     expect(
       tree.root.findByProps({ testID: 'leaderboard-loading' })
     ).toBeTruthy()
@@ -253,13 +327,22 @@ describe('leaderboard tab', () => {
     expect(rendered).toContain('Snake Ace')
     expect(rendered).toContain('Python Pro')
     expect(rendered).not.toContain('Diver One')
+
+    await openSelector(tree)
+    const items = menuItemsOf(tree)
+    const snake = items.find(node => node.props.accessibilityLabel === 'Snake')
+    const all = items.find(
+      node => node.props.accessibilityLabel === 'All games'
+    )
+    expect(snake?.props.accessibilityState?.selected).toBe(true)
+    expect(all?.props.accessibilityState?.selected).toBe(false)
   })
 
   test('shows the empty board state when the selected game has no scores', async () => {
     const tree = await render(<LeaderboardScreen />)
     await settle(runs[0], overviewResponse)
 
-    await press(tree, 'Leaderboard scope: Snake')
+    await chooseScope(tree, 'Snake')
     await settle(runs[1], emptySnakeResponse)
 
     const rendered = renderedText(tree)
@@ -313,8 +396,8 @@ describe('leaderboard tab', () => {
     const tree = await render(<LeaderboardScreen />)
     await settle(runs[0], overviewResponse)
 
-    await press(tree, 'Leaderboard scope: Snake')
-    await press(tree, 'Leaderboard scope: Tetris Challenge')
+    await chooseScope(tree, 'Snake')
+    await chooseScope(tree, 'Tetris Challenge')
     expect(getLeaderboard).toHaveBeenCalledTimes(3)
 
     await settle(runs[1], snakeResponse)
@@ -327,9 +410,12 @@ describe('leaderboard tab', () => {
     const rendered = renderedText(tree)
     expect(rendered).toContain('Block Boss')
     expect(rendered).not.toContain('Snake Ace')
+
+    await openSelector(tree)
     expect(
       tree.root.findByProps({
-        accessibilityLabel: 'Leaderboard scope: Tetris Challenge',
+        accessibilityRole: 'menuitem',
+        accessibilityLabel: 'Tetris Challenge',
       }).props.accessibilityState?.selected
     ).toBe(true)
   })
@@ -341,8 +427,43 @@ describe('leaderboard tab', () => {
     await focus()
     expect(getLeaderboard).toHaveBeenCalledTimes(1)
 
+    await blur()
     await focus()
     expect(getLeaderboard).toHaveBeenCalledTimes(2)
+  })
+
+  test('refetches on app foreground while focused, not on other transitions', async () => {
+    await render(<LeaderboardScreen />)
+    await settle(runs[0], overviewResponse)
+    await focus()
+    expect(appStateListeners).toHaveLength(1)
+    expect(getLeaderboard).toHaveBeenCalledTimes(1)
+
+    await appState('background')
+    expect(getLeaderboard).toHaveBeenCalledTimes(1)
+
+    await appState('inactive')
+    expect(getLeaderboard).toHaveBeenCalledTimes(1)
+
+    await appState('active')
+    expect(getLeaderboard).toHaveBeenCalledTimes(2)
+  })
+
+  test('drops the app-state subscription on blur and ignores foregrounding unfocused', async () => {
+    await render(<LeaderboardScreen />)
+    await focus()
+    expect(appStateListeners).toHaveLength(1)
+    const subscription = appStateListeners[0]
+
+    await blur()
+    expect(subscription.remove).toHaveBeenCalledTimes(1)
+
+    await appState('active')
+    expect(getLeaderboard).toHaveBeenCalledTimes(1)
+
+    await focus()
+    expect(getLeaderboard).toHaveBeenCalledTimes(2)
+    expect(appStateListeners).toHaveLength(2)
   })
 
   test('opens the dedicated per-game leaderboard route from a board header', async () => {
@@ -356,16 +477,18 @@ describe('leaderboard tab', () => {
     expect(mockPush).toHaveBeenCalledWith('/leaderboard/tetris')
   })
 
-  test('keeps every game chip accessible', async () => {
+  test('exposes every active game as a selector option', async () => {
     const tree = await render(<LeaderboardScreen />)
     await settle(runs[0], overviewResponse)
 
+    await openSelector(tree)
+
+    const items = menuItemsOf(tree)
+    expect(items).toHaveLength(ACTIVE_GAMES.length + 1)
     for (const game of ACTIVE_GAMES) {
       expect(
-        tree.root.findByProps({
-          accessibilityLabel: `Leaderboard scope: ${game.name}`,
-        })
-      ).toBeTruthy()
+        items.some(node => node.props.accessibilityLabel === game.name)
+      ).toBe(true)
     }
   })
 })
@@ -473,7 +596,22 @@ describe('per-game leaderboard route', () => {
     await focus()
     expect(getLeaderboard).toHaveBeenCalledTimes(1)
 
+    await blur()
     await focus()
+    expect(getLeaderboard).toHaveBeenCalledTimes(2)
+  })
+
+  test('refetches on app foreground while focused on the leaf', async () => {
+    mockParams.gameId = 'tetris'
+    await render(<GameLeaderboardScreen />)
+    await settle(runs[0], tetrisResponse)
+    await focus()
+    expect(appStateListeners).toHaveLength(1)
+
+    await appState('background')
+    expect(getLeaderboard).toHaveBeenCalledTimes(1)
+
+    await appState('active')
     expect(getLeaderboard).toHaveBeenCalledTimes(2)
   })
 })

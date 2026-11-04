@@ -7,6 +7,7 @@ import { Button as DeepButton } from '@cetus/ui/components/ui/button'
 import { Card as DeepCard } from '@cetus/ui/components/ui/card'
 import { Badge as DeepBadge } from '@cetus/ui/components/ui/badge'
 import { Heading as DeepHeading } from '@cetus/ui/components/ui/heading'
+import { Select as DeepSelect } from '@cetus/ui/components/ui/select'
 
 const render = async (element: React.ReactElement) => {
   let tree: TestRenderer.ReactTestRenderer | undefined
@@ -162,6 +163,7 @@ test('deep imports resolve the same native implementations as the root', () => {
   expect(DeepCard).toBe(Ui.Card)
   expect(DeepBadge).toBe(Ui.Badge)
   expect(DeepHeading).toBe(Ui.Heading)
+  expect(DeepSelect).toBe(Ui.Select)
 })
 
 test('unported deep imports fail rather than fall through to web', () => {
@@ -192,18 +194,204 @@ test('declared platform-neutral subpaths still resolve on native', () => {
   expect(typeof utils.cn).toBe('function')
 })
 
+const SELECT_OPTIONS = [
+  { value: 'all', label: 'All games' },
+  { value: 'tetris', label: 'Tetris Challenge' },
+  { value: 'snake', label: 'Snake' },
+]
+
+const comboboxOf = (tree: TestRenderer.ReactTestRenderer) =>
+  tree.root.findByProps({ accessibilityRole: 'combobox' })
+
+const menuItemsOf = (tree: TestRenderer.ReactTestRenderer) =>
+  tree.root.findAll(
+    node =>
+      node.props.accessibilityRole === 'menuitem' &&
+      typeof node.props.onPress === 'function'
+  )
+
+test('Select renders a combobox-role trigger with the selected label', async () => {
+  const tree = await render(
+    <Ui.Select
+      options={SELECT_OPTIONS}
+      value="snake"
+      onValueChange={() => {}}
+    />
+  )
+  const trigger = comboboxOf(tree)
+  expect(trigger.props.accessibilityState?.expanded).toBe(false)
+  const label = tree.root
+    .findAllByType(Text)
+    .map(node => node.props.children)
+    .join('')
+  expect(label).toContain('Snake')
+})
+
+test('Select shows the placeholder when the value matches no option', async () => {
+  const tree = await render(
+    <Ui.Select
+      options={SELECT_OPTIONS}
+      value={undefined}
+      placeholder="Pick a game"
+    />
+  )
+  const label = tree.root
+    .findAllByType(Text)
+    .map(node => node.props.children)
+    .join('')
+  expect(label).toContain('Pick a game')
+})
+
+test('Select opens menuitem options marking the current selection', async () => {
+  const tree = await render(
+    <Ui.Select
+      options={SELECT_OPTIONS}
+      value="tetris"
+      onValueChange={() => {}}
+    />
+  )
+  await act(async () => {
+    comboboxOf(tree).props.onPress()
+  })
+
+  expect(comboboxOf(tree).props.accessibilityState?.expanded).toBe(true)
+  const items = menuItemsOf(tree)
+  expect(items).toHaveLength(3)
+  const tetris = items.find(
+    node => node.props.accessibilityLabel === 'Tetris Challenge'
+  )
+  expect(tetris?.props.accessibilityState?.selected).toBe(true)
+  const all = items.find(node => node.props.accessibilityLabel === 'All games')
+  expect(all?.props.accessibilityState?.selected).toBe(false)
+})
+
+test('Select reports the chosen value and closes the options', async () => {
+  const onValueChange = jest.fn()
+  const tree = await render(
+    <Ui.Select
+      options={SELECT_OPTIONS}
+      value="all"
+      onValueChange={onValueChange}
+    />
+  )
+  await act(async () => {
+    comboboxOf(tree).props.onPress()
+  })
+  const snake = tree.root.findByProps({
+    accessibilityRole: 'menuitem',
+    accessibilityLabel: 'Snake',
+  })
+  await act(async () => {
+    snake.props.onPress()
+  })
+
+  expect(onValueChange).toHaveBeenCalledWith('snake')
+  expect(menuItemsOf(tree)).toHaveLength(0)
+  expect(comboboxOf(tree).props.accessibilityState?.expanded).toBe(false)
+})
+
+test('Select dismisses via the labeled backdrop without selecting', async () => {
+  const onValueChange = jest.fn()
+  const tree = await render(
+    <Ui.Select
+      options={SELECT_OPTIONS}
+      value="all"
+      onValueChange={onValueChange}
+    />
+  )
+  await act(async () => {
+    comboboxOf(tree).props.onPress()
+  })
+  const dismiss = tree.root.findByProps({ accessibilityLabel: 'Dismiss' })
+  await act(async () => {
+    dismiss.props.onPress()
+  })
+
+  expect(onValueChange).not.toHaveBeenCalled()
+  expect(menuItemsOf(tree)).toHaveLength(0)
+})
+
+test('Select dismisses via the platform request-close path', async () => {
+  const tree = await render(
+    <Ui.Select options={SELECT_OPTIONS} value="all" onValueChange={() => {}} />
+  )
+  await act(async () => {
+    comboboxOf(tree).props.onPress()
+  })
+  const modal = tree.root.find(node => node.props.onRequestClose)
+  await act(async () => {
+    modal.props.onRequestClose()
+  })
+
+  expect(menuItemsOf(tree)).toHaveLength(0)
+})
+
+test('Select exposes disabled state and does not open when disabled', async () => {
+  const onValueChange = jest.fn()
+  const tree = await render(
+    <Ui.Select
+      options={SELECT_OPTIONS}
+      value="all"
+      disabled
+      onValueChange={onValueChange}
+    />
+  )
+  const trigger = comboboxOf(tree)
+  expect(trigger.props.accessibilityState?.disabled).toBe(true)
+  await act(async () => {
+    trigger.props.onPress?.()
+  })
+  expect(menuItemsOf(tree)).toHaveLength(0)
+})
+
+test('Select tracks its own selection when uncontrolled', async () => {
+  const tree = await render(
+    <Ui.Select options={SELECT_OPTIONS} defaultValue="all" />
+  )
+  await act(async () => {
+    comboboxOf(tree).props.onPress()
+  })
+  const snake = tree.root.findByProps({
+    accessibilityRole: 'menuitem',
+    accessibilityLabel: 'Snake',
+  })
+  await act(async () => {
+    snake.props.onPress()
+  })
+
+  const label = tree.root
+    .findAllByType(Text)
+    .map(node => node.props.children)
+    .join('')
+  expect(label).toContain('Snake')
+})
+
+test('Select maps shared variant and size names onto the trigger', async () => {
+  const tree = await render(
+    <Ui.Select
+      options={SELECT_OPTIONS}
+      value="all"
+      variant="outline"
+      size="lg"
+    />
+  )
+  const trigger = comboboxOf(tree)
+  expect(trigger.props.className).toContain('border-cetus-accent/50')
+  expect(trigger.props.className).toContain('h-12')
+})
+
 test('root export exposes only implemented native components', () => {
   const root = Ui as unknown as Record<string, unknown>
   expect(root.Button).toBeDefined()
   expect(root.Card).toBeDefined()
   expect(root.Badge).toBeDefined()
   expect(root.Heading).toBeDefined()
+  expect(root.Select).toBeDefined()
   for (const key of [
     'Avatar',
     'Container',
     'Section',
     'Pagination',
-    'Select',
     'Toggle',
     'GameOverlay',
     'GameTitle',
