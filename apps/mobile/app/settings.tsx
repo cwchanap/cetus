@@ -26,6 +26,11 @@ import { sessionKeyFor, useExpiredSessionGate } from '../src/lib/session'
 const toError = (reason: unknown): Error =>
   reason instanceof Error ? reason : new Error(String(reason))
 
+type SettingsFetch = {
+  settledAfter: number
+  settings: unknown
+}
+
 export default function SettingsScreen() {
   const router = useRouter()
   const accent = useNativeVariable('--cetus-accent')
@@ -39,12 +44,16 @@ export default function SettingsScreen() {
   const sessionKey = sessionKeyFor(session)
   const { authExpired, markSessionExpired } = useExpiredSessionGate(sessionKey)
 
-  const { data, loading, error, refresh } =
-    useRemoteData<NotificationSettingsResponse>(
-      useCallback(() => api.getSettings(), []),
-      ['settings', userId ?? 'anonymous', sessionKey ?? 'none'],
-      userId !== null && !isPending && !authExpired
-    )
+  const writesSettledRef = useRef(0)
+  const { data, loading, error, refresh } = useRemoteData<SettingsFetch>(
+    useCallback(async () => {
+      const settledAfter = writesSettledRef.current
+      const settings = await api.getSettings()
+      return { settledAfter, settings }
+    }, []),
+    ['settings', userId ?? 'anonymous', sessionKey ?? 'none'],
+    userId !== null && !isPending && !authExpired
+  )
   useRefetchOnFocus(refresh)
 
   const [mutationError, setMutationError] = useState<Error | null>(null)
@@ -89,141 +98,86 @@ export default function SettingsScreen() {
 
   const [prefsFor, setPrefsFor] = useState<string | null>(sessionKey)
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null)
-  const [status, setStatus] = useState<'saved' | 'failed' | null>(null)
-  const desiredRef = useRef<{ epoch: number; prefs: NotificationPrefs } | null>(
-    null
-  )
+  const [saved, setSaved] = useState(false)
+  const [failedKey, setFailedKey] = useState<NotificationPrefKey | null>(null)
+  const [saving, setSaving] = useState(false)
+  const busyRef = useRef<{
+    epoch: number
+    key: NotificationPrefKey
+  } | null>(null)
   const confirmedRef = useRef<{
     epoch: number
     prefs: NotificationPrefs
   } | null>(null)
-  const drainingRef = useRef<Partial<Record<NotificationPrefKey, number>>>({})
   const appliedDataRef = useRef<unknown>(null)
 
+  if (busyRef.current !== null && busyRef.current.epoch !== epochRef.current) {
+    busyRef.current = null
+    setSaving(false)
+  }
   if (prefsFor !== sessionKey) {
     setPrefsFor(sessionKey)
     setPrefs(null)
-    setStatus(null)
+    setSaved(false)
+    setFailedKey(null)
     setMutationError(null)
   }
 
-  const syncFromServer = (
-    server: NotificationPrefs,
+  const saveKey = async (
+    key: NotificationPrefKey,
+    target: boolean,
     operationEpoch: number
   ) => {
-    if (isStale(operationEpoch)) {
-      return
-    }
-    const confirmed =
-      confirmedRef.current?.epoch === operationEpoch
-        ? confirmedRef.current.prefs
-        : null
-    const desired =
-      desiredRef.current?.epoch === operationEpoch
-        ? desiredRef.current.prefs
-        : null
-    const nextDesired = { ...(desired ?? server) }
-    for (const row of NOTIFICATION_PREFS) {
-      const busy = drainingRef.current[row.key] === operationEpoch
-      if (
-        !busy &&
-        (confirmed === null ||
-          desired === null ||
-          desired[row.key] === confirmed[row.key])
-      ) {
-        nextDesired[row.key] = server[row.key]
-      }
-    }
-    confirmedRef.current = { epoch: operationEpoch, prefs: { ...server } }
-    desiredRef.current = { epoch: operationEpoch, prefs: nextDesired }
-    setPrefs({ ...nextDesired })
-    for (const row of NOTIFICATION_PREFS) {
-      void drainKey(row.key)
-    }
-  }
-
-  const drainKey = async (key: NotificationPrefKey) => {
-    const operationEpoch = latestRef.current.epoch
-    if (drainingRef.current[key] === operationEpoch) {
-      return
-    }
-    drainingRef.current[key] = operationEpoch
-    let wrote = false
     const wire = NOTIFICATION_PREFS.find(row => row.key === key)?.wire
     try {
-      while (true) {
-        if (isStale(operationEpoch) || wire === undefined) {
-          return
-        }
-        const desired =
-          desiredRef.current?.epoch === operationEpoch
-            ? desiredRef.current.prefs
-            : null
-        const confirmed =
-          confirmedRef.current?.epoch === operationEpoch
-            ? confirmedRef.current.prefs
-            : null
-        if (
-          desired === null ||
-          confirmed === null ||
-          desired[key] === confirmed[key]
-        ) {
-          return
-        }
-        const target = desired[key]
-        const payload: Partial<NotificationSettingsResponse> = {
-          [wire]: target,
-        }
-        try {
-          const response = await api.updateSettings(payload)
-          if (isStale(operationEpoch)) {
-            return
-          }
-          const parsed = settingsUpdateFor(response)
-          if (parsed === null) {
-            throw new Error('Unexpected settings response')
-          }
-          wrote = true
-          setStatus('saved')
-          syncFromServer(
-            notificationPrefsFor(parsed.preferences),
-            operationEpoch
-          )
-        } catch (reason) {
-          if (isStale(operationEpoch)) {
-            return
-          }
-          const failure = toError(reason)
-          setMutationError(failure)
-          const latestDesired =
-            desiredRef.current?.epoch === operationEpoch
-              ? desiredRef.current.prefs
-              : null
-          const latestConfirmed =
-            confirmedRef.current?.epoch === operationEpoch
-              ? confirmedRef.current.prefs
-              : null
-          if (latestDesired !== null && latestDesired[key] === target) {
-            const rollback = latestConfirmed?.[key] ?? target
-            desiredRef.current = {
-              epoch: operationEpoch,
-              prefs: { ...latestDesired, [key]: rollback },
-            }
-            setPrefs(current =>
-              current === null ? current : { ...current, [key]: rollback }
-            )
-          }
-          if (!isUnauthorizedError(failure)) {
-            setStatus('failed')
-          }
-        }
+      if (wire === undefined) {
+        return
+      }
+      const payload: Partial<NotificationSettingsResponse> = {
+        [wire]: target,
+      }
+      const response = await api.updateSettings(payload)
+      if (isStale(operationEpoch)) {
+        return
+      }
+      const parsed = settingsUpdateFor(response)
+      if (parsed === null) {
+        throw new Error('Unexpected settings response')
+      }
+      writesSettledRef.current += 1
+      const acknowledged = notificationPrefsFor(parsed.preferences)
+      confirmedRef.current = { epoch: operationEpoch, prefs: acknowledged }
+      setPrefs({ ...acknowledged })
+      setMutationError(null)
+      setFailedKey(current => (current === key ? null : current))
+      setSaved(true)
+      refresh()
+    } catch (reason) {
+      if (isStale(operationEpoch)) {
+        return
+      }
+      writesSettledRef.current += 1
+      const failure = toError(reason)
+      setMutationError(failure)
+      const confirmed =
+        confirmedRef.current?.epoch === operationEpoch
+          ? confirmedRef.current.prefs
+          : null
+      if (confirmed !== null) {
+        setPrefs(current =>
+          current === null ? current : { ...current, [key]: confirmed[key] }
+        )
+      }
+      if (!isUnauthorizedError(failure)) {
+        setSaved(false)
+        setFailedKey(key)
       }
     } finally {
-      if (drainingRef.current[key] === operationEpoch) {
-        drainingRef.current[key] = undefined
-      }
-      if (wrote && !isStale(operationEpoch)) {
-        refresh()
+      if (busyRef.current?.epoch === operationEpoch) {
+        busyRef.current = null
+        if (mountedRef.current) {
+          setSaving(false)
+        }
       }
     }
   }
@@ -232,12 +186,21 @@ export default function SettingsScreen() {
     if (data === undefined || appliedDataRef.current === data) {
       return
     }
-    const parsed = settingsResponseFor(data)
-    if (parsed === null) {
+    appliedDataRef.current = data
+    const parsed = settingsResponseFor(data.settings)
+    if (
+      parsed === null ||
+      busyRef.current !== null ||
+      data.settledAfter < writesSettledRef.current
+    ) {
       return
     }
-    appliedDataRef.current = data
-    syncFromServer(notificationPrefsFor(parsed), latestRef.current.epoch)
+    const server = notificationPrefsFor(parsed)
+    confirmedRef.current = {
+      epoch: latestRef.current.epoch,
+      prefs: server,
+    }
+    setPrefs({ ...server })
   })
 
   const openSignIn = useCallback(() => {
@@ -247,7 +210,8 @@ export default function SettingsScreen() {
     })
   }, [router])
 
-  const payload = data === undefined ? undefined : settingsResponseFor(data)
+  const payload =
+    data === undefined ? undefined : settingsResponseFor(data.settings)
   const serverPrefs =
     payload === null || payload === undefined
       ? null
@@ -255,29 +219,27 @@ export default function SettingsScreen() {
   const view = prefs ?? serverPrefs
 
   const handleToggle = (key: NotificationPrefKey, next: boolean) => {
-    if (!latestRef.current.eligible || serverPrefs === null) {
+    if (
+      !latestRef.current.eligible ||
+      serverPrefs === null ||
+      busyRef.current !== null
+    ) {
       return
     }
     const operationEpoch = latestRef.current.epoch
     const confirmed =
       confirmedRef.current?.epoch === operationEpoch
         ? confirmedRef.current.prefs
-        : serverPrefs
-    const desired =
-      desiredRef.current?.epoch === operationEpoch
-        ? desiredRef.current.prefs
-        : { ...confirmed }
-    if (desired[key] === next) {
+        : { ...serverPrefs }
+    if (confirmed[key] === next) {
       return
     }
+    busyRef.current = { epoch: operationEpoch, key }
     confirmedRef.current = { epoch: operationEpoch, prefs: confirmed }
-    desiredRef.current = {
-      epoch: operationEpoch,
-      prefs: { ...desired, [key]: next },
-    }
-    setPrefs({ ...desiredRef.current.prefs })
-    setStatus(null)
-    void drainKey(key)
+    setSaving(true)
+    setPrefs({ ...confirmed, [key]: next })
+    setSaved(false)
+    void saveKey(key, next, operationEpoch)
   }
 
   const payloadError =
@@ -333,25 +295,25 @@ export default function SettingsScreen() {
               label={row.label}
               description={row.description}
               checked={view[row.key]}
+              disabled={saving}
               onCheckedChange={next => handleToggle(row.key, next)}
             />
           ))}
         </Card>
-        {status === 'saved' ? (
-          <Text
-            testID="settings-status"
-            className="font-sans text-sm text-cetus-accent"
-          >
-            Preferences saved.
-          </Text>
-        ) : null}
-        {status === 'failed' ? (
+        {failedKey !== null ? (
           <Text
             accessibilityRole="alert"
             testID="settings-status"
             className="font-sans text-sm text-red-400"
           >
             Couldn&apos;t save your preferences. Try again.
+          </Text>
+        ) : saved ? (
+          <Text
+            testID="settings-status"
+            className="font-sans text-sm text-cetus-accent"
+          >
+            Preferences saved.
           </Text>
         ) : null}
       </ScrollView>
