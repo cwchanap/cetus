@@ -1,8 +1,9 @@
 import type { HTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
+import type { SectionVariant } from '../../variants'
 
 export interface SectionProps extends HTMLAttributes<HTMLElement> {
-  variant?: 'default' | 'hero' | 'features' | 'cta'
+  variant?: SectionVariant
 }
 
 const sectionVariants = {
@@ -11,7 +12,7 @@ const sectionVariants = {
   features:
     'relative z-10 px-6 py-16 bg-gradient-to-b from-transparent to-slate-900/20',
   cta: 'relative z-10 px-6 py-16 bg-gradient-to-t from-transparent to-cyan-400/5',
-}
+} satisfies Record<SectionVariant, string>
 
 export function Section({
   variant = 'default',

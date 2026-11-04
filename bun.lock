@@ -29,12 +29,15 @@
         "@cetus/api-client": "workspace:*",
         "@cetus/shared": "workspace:*",
         "@cetus/tokens": "workspace:*",
+        "@cetus/ui": "workspace:*",
         "@expo-google-fonts/inter": "^0.4.2",
         "@expo-google-fonts/orbitron": "^0.4.2",
         "better-auth": "^1.7.10",
         "expo": "~57.0.31",
         "expo-constants": "~57.0.22",
         "expo-font": "~57.0.4",
+        "expo-haptics": "~57.0.3",
+        "expo-image-picker": "~57.0.20",
         "expo-linking": "~57.0.13",
         "expo-router": "~57.0.29",
         "expo-secure-store": "~57.0.4",
@@ -198,6 +201,8 @@
         "@types/react-dom": "~19.2.0",
         "react": "19.2.3",
         "react-dom": "19.2.3",
+        "react-native": "0.86.3",
+        "react-native-css": "3.1.0-rc.0",
         "typescript": "^6.0.3",
       },
       "peerDependencies": {
@@ -1558,6 +1563,12 @@
     "expo-font": ["expo-font@57.0.4", "", { "dependencies": { "fontfaceobserver": "^2.1.0" }, "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-7WOMC2oA6xCfOm8bbofqWn2bIqyWFm7YLEnpc/gA1MJH0Ll0TfT/3+CqRkoW2eNRWMS8sxrz5WukUmSvmNquHA=="],
 
     "expo-glass-effect": ["expo-glass-effect@57.0.4", "", { "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }, "sha512-/AG2Kljbqfgxu+GchI2YFIbxiF9cPsIpCy4iNDzlRiZk9rvR6BwRfB6gfQVu3V2ExaoGf2h5IsEnqVI5MYNBAg=="],
+
+    "expo-haptics": ["expo-haptics@57.0.3", "", { "peerDependencies": { "expo": "*" } }, "sha512-qucUXtwtJdtECKSQK5D6TQBc/0SxKj7s5wQ4mrfSxhZsHrS9a4rcxINl/gbruMaY9spTXStco32ST4pV0vXmxw=="],
+
+    "expo-image-loader": ["expo-image-loader@57.0.1", "", { "peerDependencies": { "expo": "*" } }, "sha512-uhrZKLT/cTl2mXyR28kPpVkS5O+PK9N1QA/07IFM4f5T4g0lTW1JHT3NEWwEEsGFldPmVX4j7LwUVVZxE+woug=="],
+
+    "expo-image-picker": ["expo-image-picker@57.0.20", "", { "dependencies": { "expo-image-loader": "~57.0.1" }, "peerDependencies": { "expo": "*" } }, "sha512-plgcGuMZMWqDchjXQW6S/WepYLB5KqfbZOzwC6xe0+j5IhY4ipvVuRZcXeP/0NgKgU0Jiu/XoTK4Bi8crtZ+sQ=="],
 
     "expo-json-utils": ["expo-json-utils@57.0.2", "", {}, "sha512-9kYZECLKE3pYZQs+kt3+ggY83Lfryog9/UEo3HJKGcHUZeKKtlFBIPFjI4LzREubsvjP7AsvG0FdEX9EquIoAQ=="],
 

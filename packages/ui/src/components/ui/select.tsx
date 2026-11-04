@@ -1,12 +1,13 @@
 import { useState, type SelectHTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
+import type { SelectSize, SelectVariant } from '../../variants'
 
 export interface SelectProps extends Omit<
   SelectHTMLAttributes<HTMLSelectElement>,
   'value' | 'defaultValue' | 'onChange' | 'children' | 'size'
 > {
-  variant?: 'default' | 'glass' | 'outline'
-  size?: 'default' | 'sm' | 'lg'
+  variant?: SelectVariant
+  size?: SelectSize
   placeholder?: string
   options: Array<{ value: string; label: string }>
   /** Controlled selected value. */
@@ -30,6 +31,9 @@ const selectVariants = {
     sm: 'h-8 px-2 py-1 text-xs',
     lg: 'h-12 px-4 py-3 text-base',
   },
+} satisfies {
+  variant: Record<SelectVariant, string>
+  size: Record<SelectSize, string>
 }
 
 /**

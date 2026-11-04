@@ -33,6 +33,11 @@ export default defineConfig({
                 '**/*.test-d.ts',
                 '**/*.spec.ts',
                 '**/*.spec.tsx',
+                // Native modules are exercised by apps/mobile jest-expo,
+                // not this jsdom/Node workspace — keep them out of root
+                // instrumentation (HPA-182).
+                '**/*.native.ts',
+                '**/*.native.tsx',
             ],
         },
         projects: [

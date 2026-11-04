@@ -1,16 +1,10 @@
 import type { ButtonHTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
+import type { ButtonSize, ButtonVariant } from '../../variants'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?:
-    | 'default'
-    | 'destructive'
-    | 'outline'
-    | 'secondary'
-    | 'ghost'
-    | 'link'
-    | 'primary'
-  size?: 'default' | 'sm' | 'lg' | 'icon'
+  variant?: ButtonVariant
+  size?: ButtonSize
 }
 
 const buttonVariants = {
@@ -33,6 +27,9 @@ const buttonVariants = {
     lg: 'h-11 rounded-md px-8',
     icon: 'h-10 w-10',
   },
+} satisfies {
+  variant: Record<ButtonVariant, string>
+  size: Record<ButtonSize, string>
 }
 
 const defaultClasses =

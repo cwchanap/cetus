@@ -9,6 +9,23 @@
 // barrel consumer ships its stylesheet too.
 export { cn } from './lib/utils'
 export { displayFontStyle } from './lib/styles'
+export type {
+    ButtonVariant,
+    ButtonSize,
+    CardVariant,
+    BadgeVariant,
+    BadgeSize,
+    HeadingVariant,
+    HeadingLevel,
+    HeadingAlign,
+    AvatarVariant,
+    AvatarSize,
+    SectionVariant,
+    SelectVariant,
+    SelectSize,
+    ToggleVariant,
+    ToggleSize,
+} from './variants'
 export { Button, type ButtonProps } from './components/ui/button'
 export { Card, type CardProps } from './components/ui/card'
 export { Badge, type BadgeProps } from './components/ui/badge'

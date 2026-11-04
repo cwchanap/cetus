@@ -16,6 +16,11 @@
 
 @source './app';
 
+/* Native @cetus/ui pilots (HPA-182): scan ONLY *.native.tsx sources so the
+   shared package's utilities are emitted without ever scanning the web DOM
+   components (which carry browser-only classes). */
+@source '../../packages/ui/src/**/*.native.tsx';
+
 /* Register Orbitron/Inter (loaded via expo-font in app/_layout.tsx) as the
    default sans. The root layout overrides --font-sans/--cetus-display-font
    at runtime so any font-load failure falls back to the system font. */

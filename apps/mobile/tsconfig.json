@@ -5,6 +5,11 @@
   ],
   "compilerOptions": {
     "noEmit": true,
+    // Restated from expo/tsconfig.base to pin the contract HPA-182 relies
+    // on: bundler resolution honors package.json `exports`, and the
+    // `react-native` custom condition selects *.native.tsx modules.
+    "moduleResolution": "bundler",
+    "customConditions": ["react-native"],
     // Jest globals for __tests__ (repo convention: explicit types list).
     "types": ["jest"]
   },
