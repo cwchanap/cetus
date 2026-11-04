@@ -354,4 +354,140 @@ describe('useRemoteData', () => {
     expect(result.current.data).toBe('board')
     expect(result.current.refresh).toBe(refresh)
   })
+
+  it('hands off cleanly between distinct object key identities', async () => {
+    const runs: Deferred<string>[] = []
+    const load = deferredLoader(runs)
+    const aliceKey = new Map([['user', 'alice']])
+    const bobKey = new Map([['user', 'bob']])
+    const seen: {
+      owner: string
+      data: string | undefined
+      loading: boolean
+    }[] = []
+    function Probe({ k }: { k: Map<string, string> }) {
+      const remote = useRemoteData(load, ['account', k])
+      seen.push({
+        owner: k.get('user') ?? '',
+        data: remote.data,
+        loading: remote.loading,
+      })
+      return null
+    }
+
+    const { rerender } = render(<Probe k={aliceKey} />)
+    await settle(runs[0], 'alice-private')
+    seen.length = 0
+
+    rerender(<Probe k={bobKey} />)
+
+    expect(load).toHaveBeenCalledTimes(2)
+    const bobEntries = seen.filter(e => e.owner === 'bob')
+    expect(bobEntries.length).toBeGreaterThan(0)
+    expect(bobEntries.every(e => e.data === undefined)).toBe(true)
+    const lastBob = bobEntries[bobEntries.length - 1]
+    expect(lastBob?.loading).toBe(true)
+
+    await settle(runs[1], 'bob-private')
+    const last = seen[seen.length - 1]
+    expect(last?.owner).toBe('bob')
+    expect(last?.data).toBe('bob-private')
+  })
+
+  it('distinguishes undefined from null key entries', async () => {
+    const runs: Deferred<string>[] = []
+    const load = deferredLoader(runs)
+    const { result, rerender } = renderHook(
+      ({ v }: { v: unknown }) => useRemoteData(load, ['k', v]),
+      { initialProps: { v: undefined as unknown } }
+    )
+    await settle(runs[0], 'for-undefined')
+
+    rerender({ v: null })
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(result.current.data).toBeUndefined()
+
+    await settle(runs[1], 'for-null')
+    expect(result.current.data).toBe('for-null')
+  })
+
+  it('distinguishes symbol key entries by identity', async () => {
+    const runs: Deferred<string>[] = []
+    const load = deferredLoader(runs)
+    const first = Symbol('entry')
+    const second = Symbol('entry')
+    const { result, rerender } = renderHook(
+      ({ k }: { k: symbol }) => useRemoteData(load, ['k', k]),
+      { initialProps: { k: first } }
+    )
+    await settle(runs[0], 'sym-one')
+
+    rerender({ k: second })
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(result.current.data).toBeUndefined()
+
+    await settle(runs[1], 'sym-two')
+    expect(result.current.data).toBe('sym-two')
+
+    rerender({ k: second })
+    expect(load).toHaveBeenCalledTimes(2)
+  })
+
+  it('treats bigint key entries as values without throwing', async () => {
+    const runs: Deferred<string>[] = []
+    const load = deferredLoader(runs)
+    const { result, rerender } = renderHook(
+      ({ k }: { k: bigint }) => useRemoteData(load, ['k', k]),
+      { initialProps: { k: BigInt(1) } }
+    )
+    await settle(runs[0], 'one')
+    expect(result.current.data).toBe('one')
+
+    rerender({ k: BigInt(1) })
+    expect(load).toHaveBeenCalledTimes(1)
+
+    rerender({ k: BigInt(2) })
+    expect(load).toHaveBeenCalledTimes(2)
+    await settle(runs[1], 'two')
+    expect(result.current.data).toBe('two')
+  })
+
+  it('accepts bigint and cyclic keys while disabled without throwing', () => {
+    const cyclic: { self?: unknown } = {}
+    cyclic.self = cyclic
+    const load = vi.fn((_signal: AbortSignal) => new Promise<string>(() => {}))
+    const { result, rerender } = renderHook(
+      ({ k }: { k: readonly unknown[] }) => useRemoteData(load, k, false),
+      { initialProps: { k: ['k', BigInt(7)] as readonly unknown[] } }
+    )
+
+    expect(result.current.loading).toBe(false)
+    expect(result.current.data).toBeUndefined()
+
+    rerender({ k: ['k', cyclic] })
+    expect(result.current.loading).toBe(false)
+    expect(result.current.data).toBeUndefined()
+    expect(load).not.toHaveBeenCalled()
+  })
+
+  it('does not retain the caller-owned key array as the snapshot', async () => {
+    const runs: Deferred<string>[] = []
+    const load = deferredLoader(runs)
+    const keys = ['account', 'alice']
+    const { result, rerender } = renderHook(
+      ({ k }: { k: readonly string[] }) => useRemoteData(load, k),
+      { initialProps: { k: keys } }
+    )
+    await settle(runs[0], 'alice-data')
+    expect(result.current.data).toBe('alice-data')
+
+    keys[1] = 'bob'
+    rerender({ k: keys })
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(result.current.data).toBeUndefined()
+    expect(result.current.loading).toBe(true)
+
+    await settle(runs[1], 'bob-data')
+    expect(result.current.data).toBe('bob-data')
+  })
 })
