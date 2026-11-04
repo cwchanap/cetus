@@ -10,11 +10,6 @@ import { cn } from '../lib/utils'
 import { Button } from './ui/button.native'
 import { Heading } from './ui/heading.native'
 
-/**
- * Login-reward modal (HPA-182 Task 10). Pure presentation: every visible
- * value derives from the @cetus/shared DTOs, and the claim/close actions
- * are owned by the apps/mobile host that mounts this component.
- */
 export interface LoginRewardModalProps {
   status: LoginRewardStatusResponse | null
   open: boolean
