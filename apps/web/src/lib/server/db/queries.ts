@@ -120,37 +120,47 @@ async function getChallengesModule() {
     return _challengesModule
 }
 
+async function readUserStats(userId: string): Promise<UserStats | null> {
+    const stats = await db
+        .selectFrom('user_stats')
+        .selectAll()
+        .where('user_id', '=', userId)
+        .executeTakeFirst()
+
+    if (!stats) {
+        return null
+    }
+
+    // Calculate the correct count of distinct games played
+    const distinctGames = await db
+        .selectFrom('game_scores')
+        .select('game_id')
+        .distinct()
+        .where('user_id', '=', userId)
+        .execute()
+
+    return {
+        ...stats,
+        total_games_played: distinctGames.length,
+    }
+}
+
 /**
  * Get user game statistics
  */
 export async function getUserStats(userId: string): Promise<UserStats | null> {
     try {
-        const stats = await db
-            .selectFrom('user_stats')
-            .selectAll()
-            .where('user_id', '=', userId)
-            .executeTakeFirst()
-
-        if (!stats) {
-            return null
-        }
-
-        // Calculate the correct count of distinct games played
-        const distinctGames = await db
-            .selectFrom('game_scores')
-            .select('game_id')
-            .distinct()
-            .where('user_id', '=', userId)
-            .execute()
-
-        return {
-            ...stats,
-            total_games_played: distinctGames.length,
-        }
+        return await readUserStats(userId)
     } catch (error) {
         console.error('[getUserStats] Database error:', sanitizeError(error))
         return null
     }
+}
+
+export async function getUserStatsStrict(
+    userId: string
+): Promise<UserStats | null> {
+    return readUserStats(userId)
 }
 
 /**
@@ -484,6 +494,39 @@ export async function getUserByUsername(
     }
 }
 
+async function readUserIdentityById(
+    userId: string
+): Promise<PublicUser | null> {
+    await ensureUserIdentityColumns()
+    const row = await db
+        .selectFrom('user')
+        .select([
+            'id',
+            'username',
+            'displayName',
+            'image',
+            'name',
+            'email',
+            'createdAt',
+        ])
+        .where('id', '=', userId)
+        .executeTakeFirst()
+
+    if (!row) {
+        return null
+    }
+
+    return {
+        id: row.id,
+        username: row.username ?? null,
+        displayName: row.displayName ?? null,
+        image: row.image ?? null,
+        name: row.name,
+        email: row.email,
+        createdAt: new Date(String(row.createdAt)).toISOString(),
+    }
+}
+
 /**
  * Get a user by ID (includes public identity fields)
  */
@@ -491,34 +534,7 @@ export async function getUserIdentityById(
     userId: string
 ): Promise<PublicUser | null> {
     try {
-        await ensureUserIdentityColumns()
-        const row = await db
-            .selectFrom('user')
-            .select([
-                'id',
-                'username',
-                'displayName',
-                'image',
-                'name',
-                'email',
-                'createdAt',
-            ])
-            .where('id', '=', userId)
-            .executeTakeFirst()
-
-        if (!row) {
-            return null
-        }
-
-        return {
-            id: row.id,
-            username: row.username ?? null,
-            displayName: row.displayName ?? null,
-            image: row.image ?? null,
-            name: row.name,
-            email: row.email,
-            createdAt: new Date(String(row.createdAt)).toISOString(),
-        }
+        return await readUserIdentityById(userId)
     } catch (error) {
         console.error(
             '[getUserIdentityById] Database error:',
@@ -526,6 +542,12 @@ export async function getUserIdentityById(
         )
         return null
     }
+}
+
+export async function getUserIdentityByIdStrict(
+    userId: string
+): Promise<PublicUser | null> {
+    return readUserIdentityById(userId)
 }
 
 /**
@@ -961,6 +983,17 @@ export async function updateUser(
     }
 }
 
+async function readUserAchievements(
+    userId: string
+): Promise<UserAchievementRecord[]> {
+    return db
+        .selectFrom('user_achievements')
+        .selectAll()
+        .where('user_id', '=', userId)
+        .orderBy('earned_at', 'desc')
+        .execute()
+}
+
 /**
  * Get user's earned achievements (just the records)
  */
@@ -968,14 +1001,7 @@ export async function getUserAchievements(
     userId: string
 ): Promise<UserAchievementRecord[]> {
     try {
-        const userAchievements = await db
-            .selectFrom('user_achievements')
-            .selectAll()
-            .where('user_id', '=', userId)
-            .orderBy('earned_at', 'desc')
-            .execute()
-
-        return userAchievements
+        return await readUserAchievements(userId)
     } catch (error) {
         console.error(
             '[getUserAchievements] Database error:',
@@ -983,6 +1009,12 @@ export async function getUserAchievements(
         )
         return []
     }
+}
+
+export async function getUserAchievementsStrict(
+    userId: string
+): Promise<UserAchievementRecord[]> {
+    return readUserAchievements(userId)
 }
 
 /**

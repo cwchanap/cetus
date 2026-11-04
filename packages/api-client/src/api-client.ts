@@ -25,6 +25,7 @@ import type {
     ScoreSubmitResponse,
     SettingsUpdateResponse,
     SuccessMessageResponse,
+    UserOverviewResponse,
 } from '@cetus/shared/api-dto'
 import type { ScoreData, ScoreSubmissionResult } from '@cetus/shared/scores'
 
@@ -100,6 +101,7 @@ export interface ApiClient {
     updateSettings(
         preferences: Partial<NotificationSettingsResponse>
     ): Promise<SettingsUpdateResponse>
+    getUserOverview(): Promise<UserOverviewResponse>
     updateProfile(profile: ProfileUpdateInput): Promise<SuccessMessageResponse>
     uploadAvatar(avatar: FormData): Promise<AvatarUpdateResponse>
     deleteAvatar(): Promise<SuccessMessageResponse>
@@ -398,6 +400,10 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
             return jsonRequest('POST', '/api/settings', preferences, {
                 expectSuccess: true,
             })
+        },
+
+        getUserOverview(): Promise<UserOverviewResponse> {
+            return get('/api/user/profile')
         },
 
         updateProfile(

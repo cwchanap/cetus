@@ -220,6 +220,31 @@ export interface SuccessMessageResponse {
     message: string
 }
 
+// --- GET /api/user/profile --------------------------------------------------
+
+export interface UserOverviewProfile {
+    name: string
+    displayName: string | null
+    username: string | null
+    image: string | null
+    createdAt: string
+}
+
+export interface UserOverviewStats {
+    totalGamesPlayed: number
+    totalScore: number
+    favoriteGame: string | null
+    streakDays: number
+    xp: number
+    level: number
+}
+
+export interface UserOverviewResponse {
+    profile: UserOverviewProfile
+    stats: UserOverviewStats
+    earnedAchievementIds: string[]
+}
+
 export interface AvatarUpdateResponse {
     success: true
     message: string
