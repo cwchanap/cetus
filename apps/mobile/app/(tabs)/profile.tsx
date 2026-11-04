@@ -63,20 +63,21 @@ export default function ProfileScreen() {
   const canFetch = userId !== null && !isPending && !authExpired
 
   const mutationSeqRef = useRef(0)
-  const overviewDispatchSeqRef = useRef(0)
   const {
-    data: overviewData,
+    data: overviewResult,
     loading: overviewLoading,
     error: overviewError,
     refresh: refreshOverview,
-  } = useRemoteData<UserOverviewResponse>(
+  } = useRemoteData<{ overview: UserOverviewResponse; seq: number }>(
     useCallback(() => {
-      overviewDispatchSeqRef.current = mutationSeqRef.current
-      return api.getUserOverview()
+      const seq = mutationSeqRef.current
+      return api.getUserOverview().then(overview => ({ overview, seq }))
     }, []),
     ['profile', userId ?? 'anonymous', sessionKey ?? 'none'],
     canFetch
   )
+  const overviewData = overviewResult?.overview
+  const overviewSeq = overviewResult?.seq
   const {
     data: historyData,
     loading: historyLoading,
@@ -124,23 +125,27 @@ export default function ProfileScreen() {
       mountedRef.current = false
     }
   }, [])
-  const saveBusyFor = useRef<string | null>(null)
-  const avatarBusyFor = useRef<string | null>(null)
-  const latestRef = useRef({ key: null as string | null, eligible: false })
-  latestRef.current = {
-    key: sessionKey,
-    eligible:
-      sessionKey !== null &&
-      !isPending &&
-      !authExpired &&
-      !isUnauthorizedError(overviewError) &&
-      !isUnauthorizedError(historyError) &&
-      !isUnauthorizedError(mutationError),
+  const eligible =
+    sessionKey !== null &&
+    !isPending &&
+    !authExpired &&
+    !isUnauthorizedError(overviewError) &&
+    !isUnauthorizedError(historyError) &&
+    !isUnauthorizedError(mutationError)
+  const epochRef = useRef(0)
+  const latestRef = useRef({ key: sessionKey, eligible, epoch: 0 })
+  if (
+    latestRef.current.key !== sessionKey ||
+    latestRef.current.eligible !== eligible
+  ) {
+    epochRef.current += 1
   }
-  const isStale = (key: string) =>
-    !mountedRef.current ||
-    latestRef.current.key !== key ||
-    !latestRef.current.eligible
+  latestRef.current = { key: sessionKey, eligible, epoch: epochRef.current }
+  const epoch = latestRef.current.epoch
+  const saveBusyFor = useRef<number | null>(null)
+  const avatarBusyFor = useRef<number | null>(null)
+  const isStale = (operationEpoch: number) =>
+    !mountedRef.current || latestRef.current.epoch !== operationEpoch
 
   const [draftFor, setDraftFor] = useState<string | null>(sessionKey)
   const [displayNameDraft, setDisplayNameDraft] = useState('')
@@ -151,13 +156,13 @@ export default function ProfileScreen() {
   const [avatarError, setAvatarError] = useState<string | null>(null)
   const [avatarNotice, setAvatarNotice] = useState<string | null>(null)
   const [avatarOverride, setAvatarOverride] = useState<{
-    key: string
+    epoch: number
     uri: string | null
     seq: number
-    baseline: UserOverviewResponse | undefined
   } | null>(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [busyResetEpoch, setBusyResetEpoch] = useState(epoch)
 
   if (draftFor !== sessionKey) {
     setDraftFor(sessionKey)
@@ -182,13 +187,18 @@ export default function ProfileScreen() {
     setDisplayNameDraft(overviewData.profile.displayName ?? '')
     setUsernameDraft(overviewData.profile.username ?? '')
   }
-  if (
-    avatarOverride !== null &&
-    overviewData !== undefined &&
-    overviewData !== avatarOverride.baseline &&
-    overviewDispatchSeqRef.current >= avatarOverride.seq
-  ) {
-    setAvatarOverride(null)
+  if (busyResetEpoch !== epoch) {
+    setBusyResetEpoch(epoch)
+    setSaving(false)
+    setUploading(false)
+  }
+  if (avatarOverride !== null) {
+    if (
+      avatarOverride.epoch !== epoch ||
+      (overviewSeq !== undefined && overviewSeq >= avatarOverride.seq)
+    ) {
+      setAvatarOverride(null)
+    }
   }
 
   const openSignIn = useCallback(() => {
@@ -199,13 +209,8 @@ export default function ProfileScreen() {
   }, [router])
 
   const saveProfile = async () => {
-    const key = sessionKey
-    if (
-      key === null ||
-      authExpired ||
-      isPending ||
-      saveBusyFor.current === key
-    ) {
+    const opEpoch = latestRef.current.epoch
+    if (!latestRef.current.eligible || saveBusyFor.current === opEpoch) {
       return
     }
     setProfileError(null)
@@ -220,11 +225,11 @@ export default function ProfileScreen() {
       )
       return
     }
-    saveBusyFor.current = key
+    saveBusyFor.current = opEpoch
     setSaving(true)
     try {
       await api.updateProfile(parsed.data)
-      if (isStale(key)) {
+      if (isStale(opEpoch)) {
         return
       }
       mutationSeqRef.current += 1
@@ -232,7 +237,7 @@ export default function ProfileScreen() {
       refreshOverview()
     } catch (reason) {
       const error = toError(reason)
-      if (isStale(key)) {
+      if (isStale(opEpoch)) {
         return
       }
       setMutationError(error)
@@ -240,32 +245,25 @@ export default function ProfileScreen() {
         setProfileError(error.message || 'Could not save your profile.')
       }
     } finally {
-      if (saveBusyFor.current === key) {
+      if (saveBusyFor.current === opEpoch) {
         saveBusyFor.current = null
-      }
-      if (!isStale(key)) {
         setSaving(false)
       }
     }
   }
 
   const pickAvatar = async () => {
-    const key = sessionKey
-    if (
-      key === null ||
-      authExpired ||
-      isPending ||
-      avatarBusyFor.current === key
-    ) {
+    const opEpoch = latestRef.current.epoch
+    if (!latestRef.current.eligible || avatarBusyFor.current === opEpoch) {
       return
     }
-    avatarBusyFor.current = key
+    avatarBusyFor.current = opEpoch
     setUploading(true)
     setAvatarError(null)
     setAvatarNotice(null)
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
-      if (isStale(key)) {
+      if (isStale(opEpoch)) {
         return
       }
       if (!permission.granted) {
@@ -278,7 +276,7 @@ export default function ProfileScreen() {
         aspect: [1, 1],
         quality: 0.9,
       })
-      if (isStale(key) || result.canceled) {
+      if (isStale(opEpoch) || result.canceled) {
         return
       }
       const asset = result.assets?.[0]
@@ -300,22 +298,24 @@ export default function ProfileScreen() {
         name: avatarFileNameFor(asset, mime),
         type: mime,
       } as unknown as Blob)
+      if (isStale(opEpoch)) {
+        return
+      }
       const updated = await api.uploadAvatar(formData)
-      if (isStale(key)) {
+      if (isStale(opEpoch)) {
         return
       }
       mutationSeqRef.current += 1
       setAvatarOverride({
-        key,
+        epoch: opEpoch,
         uri: updated.avatar,
         seq: mutationSeqRef.current,
-        baseline: overviewData,
       })
       setAvatarNotice('Avatar updated.')
       refreshOverview()
     } catch (reason) {
       const error = toError(reason)
-      if (isStale(key)) {
+      if (isStale(opEpoch)) {
         return
       }
       setMutationError(error)
@@ -323,46 +323,38 @@ export default function ProfileScreen() {
         setAvatarError("Couldn't update your avatar. Try again.")
       }
     } finally {
-      if (avatarBusyFor.current === key) {
+      if (avatarBusyFor.current === opEpoch) {
         avatarBusyFor.current = null
-      }
-      if (!isStale(key)) {
         setUploading(false)
       }
     }
   }
 
   const removeAvatar = async () => {
-    const key = sessionKey
-    if (
-      key === null ||
-      authExpired ||
-      isPending ||
-      avatarBusyFor.current === key
-    ) {
+    const opEpoch = latestRef.current.epoch
+    if (!latestRef.current.eligible || avatarBusyFor.current === opEpoch) {
       return
     }
-    avatarBusyFor.current = key
+    avatarBusyFor.current = opEpoch
     setUploading(true)
     setAvatarError(null)
     setAvatarNotice(null)
     try {
       await api.deleteAvatar()
-      if (isStale(key)) {
+      if (isStale(opEpoch)) {
         return
       }
       mutationSeqRef.current += 1
       setAvatarOverride({
-        key,
+        epoch: opEpoch,
         uri: null,
         seq: mutationSeqRef.current,
-        baseline: overviewData,
       })
       setAvatarNotice('Avatar removed.')
       refreshOverview()
     } catch (reason) {
       const error = toError(reason)
-      if (isStale(key)) {
+      if (isStale(opEpoch)) {
         return
       }
       setMutationError(error)
@@ -370,10 +362,8 @@ export default function ProfileScreen() {
         setAvatarError("Couldn't remove your avatar. Try again.")
       }
     } finally {
-      if (avatarBusyFor.current === key) {
+      if (avatarBusyFor.current === opEpoch) {
         avatarBusyFor.current = null
-      }
-      if (!isStale(key)) {
         setUploading(false)
       }
     }
@@ -419,7 +409,12 @@ export default function ProfileScreen() {
     isUnauthorizedError(historyError) ||
     isUnauthorizedError(mutationError)
   ) {
-    return <ProfileSignIn expired onSignIn={openSignIn} />
+    return (
+      <View className="flex-1 bg-cetus-canvas">
+        <ProfileSignIn expired onSignIn={openSignIn} />
+        <View className="px-4 pb-10">{signOutControl}</View>
+      </View>
+    )
   }
 
   if (overviewData === undefined) {
@@ -442,7 +437,7 @@ export default function ProfileScreen() {
   const displayName =
     profile.displayName ?? session.user.name ?? session.user.email
   const serverImage =
-    avatarOverride !== null && avatarOverride.key === sessionKey
+    avatarOverride !== null && avatarOverride.epoch === epoch
       ? avatarOverride.uri
       : profile.image
   const memberSince = new Date(profile.createdAt).toLocaleDateString()

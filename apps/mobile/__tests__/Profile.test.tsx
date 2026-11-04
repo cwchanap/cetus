@@ -1385,3 +1385,417 @@ describe('profile tab — refetch lifecycle', () => {
     expect(getScoreHistory).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('profile tab — operation ownership across session epochs', () => {
+  const signedIn = async (image: string | null = null) => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    await settleOverview(overviewRuns[0], overview({ image }))
+    await settleHistory(historyRuns[0], historyOf([]))
+    return tree
+  }
+
+  const switchToUserB = async (tree: TestRenderer.ReactTestRenderer) => {
+    signIn('user-b')
+    await rerender(tree, <ProfileScreen />)
+    await settleOverview(
+      overviewRuns[overviewRuns.length - 1],
+      overview({ username: 'diver_b' })
+    )
+    await settleHistory(historyRuns[historyRuns.length - 1], historyOf([]))
+  }
+
+  const returnToUserA = async (
+    tree: TestRenderer.ReactTestRenderer,
+    image: string | null = null
+  ) => {
+    signIn('user-a')
+    await rerender(tree, <ProfileScreen />)
+    await settleOverview(
+      overviewRuns[overviewRuns.length - 1],
+      overview({ image })
+    )
+    await settleHistory(historyRuns[historyRuns.length - 1], historyOf([]))
+  }
+
+  const avatarUri = (tree: TestRenderer.ReactTestRenderer) =>
+    (
+      tree.root.findByProps({ testID: 'profile-avatar-image' }).props
+        .source as { uri: string }
+    ).uri
+
+  test('returning to a cached session allows a new save while the stale op is unresolved', async () => {
+    const tree = await signedIn()
+
+    const pendingA = deferred<{ success: true; message: string }>()
+    updateProfile.mockImplementationOnce(() => pendingA.promise)
+    await typeInto(tree, 'Display name', 'A edit')
+    await press(tree, 'Save profile')
+    expect(updateProfile).toHaveBeenCalledTimes(1)
+
+    await switchToUserB(tree)
+    await returnToUserA(tree)
+
+    const saveButton = tree.root.findByProps({
+      accessibilityLabel: 'Save profile',
+    })
+    expect(saveButton.props.disabled).toBeFalsy()
+    const pendingA2 = deferred<{ success: true; message: string }>()
+    updateProfile.mockImplementationOnce(() => pendingA2.promise)
+    await press(tree, 'Save profile')
+    expect(updateProfile).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      pendingA2.resolve({ success: true, message: 'ok' })
+      await pendingA2.promise
+    })
+    await drain()
+    expect(renderedText(tree)).toContain('Profile updated')
+
+    await act(async () => {
+      pendingA.resolve({ success: true, message: 'ok' })
+      await pendingA.promise
+    })
+    await drain()
+    expect(renderedText(tree)).toContain('Profile updated')
+    expect(updateProfile).toHaveBeenCalledTimes(2)
+  })
+
+  test('a stale same-account save resolving after the newer save started cannot release it or publish', async () => {
+    const tree = await signedIn()
+
+    const pendingA = deferred<{ success: true; message: string }>()
+    updateProfile.mockImplementationOnce(() => pendingA.promise)
+    await typeInto(tree, 'Display name', 'A edit')
+    await press(tree, 'Save profile')
+    expect(updateProfile).toHaveBeenCalledTimes(1)
+
+    await switchToUserB(tree)
+
+    await typeInto(tree, 'Display name', 'B edit')
+    await press(tree, 'Save profile')
+    expect(updateProfile).toHaveBeenCalledTimes(2)
+    expect(renderedText(tree)).toContain('Profile updated')
+
+    await returnToUserA(tree)
+
+    const pendingA2 = deferred<{ success: true; message: string }>()
+    updateProfile.mockImplementationOnce(() => pendingA2.promise)
+    await press(tree, 'Save profile')
+    expect(updateProfile).toHaveBeenCalledTimes(3)
+    expect(renderedText(tree)).toContain('Saving…')
+
+    await act(async () => {
+      pendingA.resolve({ success: true, message: 'ok' })
+      await pendingA.promise
+    })
+    await drain()
+    expect(renderedText(tree)).toContain('Saving…')
+    expect(renderedText(tree)).not.toContain('Profile updated')
+
+    await act(async () => {
+      pendingA2.resolve({ success: true, message: 'ok' })
+      await pendingA2.promise
+    })
+    await drain()
+    expect(renderedText(tree)).toContain('Profile updated')
+  })
+
+  test('a stale same-account upload resolving after the newer upload started cannot overwrite or release it', async () => {
+    const tree = await signedIn('data:image/png;base64,OLD=')
+
+    const pendingA = deferred<{
+      success: true
+      message: string
+      avatar: string
+    }>()
+    uploadAvatar.mockImplementationOnce(() => pendingA.promise)
+    await press(tree, 'Change avatar')
+    expect(uploadAvatar).toHaveBeenCalledTimes(1)
+
+    await switchToUserB(tree)
+
+    await press(tree, 'Change avatar')
+    expect(uploadAvatar).toHaveBeenCalledTimes(2)
+
+    await returnToUserA(tree, 'data:image/png;base64,OLD=')
+
+    const pendingA2 = deferred<{
+      success: true
+      message: string
+      avatar: string
+    }>()
+    uploadAvatar.mockImplementationOnce(() => pendingA2.promise)
+    await press(tree, 'Change avatar')
+    expect(uploadAvatar).toHaveBeenCalledTimes(3)
+    expect(renderedText(tree)).toContain('Working…')
+
+    await act(async () => {
+      pendingA.resolve({
+        success: true,
+        message: 'ok',
+        avatar: 'data:image/png;base64,STALE_A=',
+      })
+      await pendingA.promise
+    })
+    await drain()
+    expect(avatarUri(tree)).toBe('data:image/png;base64,OLD=')
+    expect(renderedText(tree)).toContain('Working…')
+
+    await act(async () => {
+      pendingA2.resolve({
+        success: true,
+        message: 'ok',
+        avatar: 'data:image/png;base64,NEW_A=',
+      })
+      await pendingA2.promise
+    })
+    await drain()
+    expect(avatarUri(tree)).toBe('data:image/png;base64,NEW_A=')
+
+    await settleOverview(
+      overviewRuns[overviewRuns.length - 1],
+      overview({ image: 'data:image/png;base64,WEB_A=' })
+    )
+    expect(avatarUri(tree)).toBe('data:image/png;base64,WEB_A=')
+  })
+})
+
+describe('profile tab — pending transitions invalidate operations', () => {
+  const signedInWithAvatar = async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    await settleOverview(
+      overviewRuns[0],
+      overview({ image: 'data:image/png;base64,OLD=' })
+    )
+    await settleHistory(historyRuns[0], historyOf([]))
+    return tree
+  }
+
+  const setPending = async (
+    tree: TestRenderer.ReactTestRenderer,
+    isPending: boolean
+  ) => {
+    mockSession = {
+      data: mockSession.data,
+      isPending,
+      refetch: mockSessionRefetch,
+    }
+    await rerender(tree, <ProfileScreen />)
+  }
+
+  const settleLatestReads = async () => {
+    await settleOverview(
+      overviewRuns[overviewRuns.length - 1],
+      overview({ image: 'data:image/png;base64,OLD=' })
+    )
+    await settleHistory(historyRuns[historyRuns.length - 1], historyOf([]))
+  }
+
+  const openPendingPicker = async (tree: TestRenderer.ReactTestRenderer) => {
+    const picker = deferred<{
+      canceled: boolean
+      assets: unknown[] | null
+    }>()
+    mockLaunchLibrary.mockImplementationOnce(() => picker.promise)
+    const change = tree.root.findByProps({
+      accessibilityLabel: 'Change avatar',
+    })
+    await act(async () => {
+      change.props.onPress()
+    })
+    await drain()
+    expect(mockLaunchLibrary).toHaveBeenCalledTimes(1)
+    return picker
+  }
+
+  const resolvePicker = async (
+    picker: Deferred<{ canceled: boolean; assets: unknown[] | null }>
+  ) => {
+    await act(async () => {
+      picker.resolve({
+        canceled: false,
+        assets: [
+          {
+            uri: 'file://picked/avatar.png',
+            fileName: 'avatar.png',
+            fileSize: 1024,
+            mimeType: 'image/png',
+            width: 512,
+            height: 512,
+          },
+        ],
+      })
+      await picker.promise
+    })
+    await drain()
+  }
+
+  test('a pending→ready transition before the picker settles abandons the pick and releases busy', async () => {
+    const tree = await signedInWithAvatar()
+    const picker = await openPendingPicker(tree)
+
+    await setPending(tree, true)
+    await setPending(tree, false)
+    await settleLatestReads()
+
+    await resolvePicker(picker)
+
+    expect(uploadAvatar).not.toHaveBeenCalled()
+    expect(renderedText(tree)).not.toContain('Working…')
+
+    await press(tree, 'Change avatar')
+    expect(uploadAvatar).toHaveBeenCalledTimes(1)
+  })
+
+  test('an upload completing while the session is pending releases avatar busy state', async () => {
+    const tree = await signedInWithAvatar()
+
+    const pendingUpload = deferred<{
+      success: true
+      message: string
+      avatar: string
+    }>()
+    uploadAvatar.mockImplementationOnce(() => pendingUpload.promise)
+    await press(tree, 'Change avatar')
+    expect(uploadAvatar).toHaveBeenCalledTimes(1)
+    expect(renderedText(tree)).toContain('Working…')
+
+    await setPending(tree, true)
+
+    await act(async () => {
+      pendingUpload.resolve({
+        success: true,
+        message: 'ok',
+        avatar: 'data:image/png;base64,NEW=',
+      })
+      await pendingUpload.promise
+    })
+    await drain()
+
+    await setPending(tree, false)
+    await settleLatestReads()
+
+    expect(renderedText(tree)).not.toContain('Working…')
+    const change = tree.root.findByProps({
+      accessibilityLabel: 'Change avatar',
+    })
+    expect(change.props.disabled).toBeFalsy()
+
+    await press(tree, 'Change avatar')
+    expect(uploadAvatar).toHaveBeenCalledTimes(2)
+  })
+
+  test('a save completing while the session is pending releases the busy state', async () => {
+    const tree = await signedInWithAvatar()
+
+    const pendingSave = deferred<{ success: true; message: string }>()
+    updateProfile.mockImplementationOnce(() => pendingSave.promise)
+    await typeInto(tree, 'Display name', 'Pending edit')
+    await press(tree, 'Save profile')
+    expect(updateProfile).toHaveBeenCalledTimes(1)
+    expect(renderedText(tree)).toContain('Saving…')
+
+    await setPending(tree, true)
+
+    await act(async () => {
+      pendingSave.resolve({ success: true, message: 'ok' })
+      await pendingSave.promise
+    })
+    await drain()
+
+    await setPending(tree, false)
+    await settleLatestReads()
+
+    expect(renderedText(tree)).not.toContain('Saving…')
+    const saveButton = tree.root.findByProps({
+      accessibilityLabel: 'Save profile',
+    })
+    expect(saveButton.props.disabled).toBeFalsy()
+
+    await press(tree, 'Save profile')
+    expect(updateProfile).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('profile tab — override provenance', () => {
+  const signedInWithAvatar = async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    await settleOverview(
+      overviewRuns[0],
+      overview({ image: 'data:image/png;base64,OLD=' })
+    )
+    await settleHistory(historyRuns[0], historyOf([]))
+    return tree
+  }
+
+  const avatarUri = (tree: TestRenderer.ReactTestRenderer) =>
+    (
+      tree.root.findByProps({ testID: 'profile-avatar-image' }).props
+        .source as { uri: string }
+    ).uri
+
+  test('a pre-mutation read accepted during the upload cannot retire the override', async () => {
+    const tree = await signedInWithAvatar()
+
+    const upload = deferred<{
+      success: true
+      message: string
+      avatar: string
+    }>()
+    uploadAvatar.mockImplementationOnce(() => upload.promise)
+    await press(tree, 'Change avatar')
+    expect(uploadAvatar).toHaveBeenCalledTimes(1)
+
+    await focus()
+    await blur()
+    await focus()
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+    await settleOverview(
+      overviewRuns[1],
+      overview({ image: 'data:image/png;base64,STALE=' })
+    )
+    expect(avatarUri(tree)).toBe('data:image/png;base64,STALE=')
+
+    await act(async () => {
+      upload.resolve({
+        success: true,
+        message: 'ok',
+        avatar: 'data:image/png;base64,NEW=',
+      })
+      await upload.promise
+    })
+    await drain()
+    expect(getUserOverview).toHaveBeenCalledTimes(3)
+    expect(avatarUri(tree)).toBe('data:image/png;base64,NEW=')
+
+    await settleOverview(
+      overviewRuns[2],
+      overview({ image: 'data:image/png;base64,WEB=' })
+    )
+    expect(avatarUri(tree)).toBe('data:image/png;base64,WEB=')
+  })
+})
+
+describe('profile tab — expired session sign-out', () => {
+  test('keeps sign-out available on the expired branch while cached session data remains', async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    await settleOverviewRejection(overviewRuns[0], unauthorized())
+
+    expect(renderedText(tree)).toContain('expired')
+
+    await press(tree, 'Sign out')
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
+
+    signOut()
+    await rerender(tree, <ProfileScreen />)
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel: 'Sign in to view your profile',
+      })
+    ).toBeTruthy()
+  })
+})
