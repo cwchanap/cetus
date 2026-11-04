@@ -3,7 +3,11 @@ import TestRenderer, { act } from 'react-test-renderer'
 import { Text, View } from 'react-native'
 
 import * as Ui from '@cetus/ui'
-import type { ChallengeProgressResponse } from '@cetus/shared/api-dto'
+import type {
+  ChallengeProgressResponse,
+  LoginRewardClaimResponse,
+  LoginRewardStatusResponse,
+} from '@cetus/shared/api-dto'
 import { ChallengeType } from '@cetus/shared/challenges'
 import { Button as DeepButton } from '@cetus/ui/components/ui/button'
 import { Card as DeepCard } from '@cetus/ui/components/ui/card'
@@ -11,6 +15,10 @@ import { Badge as DeepBadge } from '@cetus/ui/components/ui/badge'
 import { Heading as DeepHeading } from '@cetus/ui/components/ui/heading'
 import { Select as DeepSelect } from '@cetus/ui/components/ui/select'
 import { Toggle as DeepToggle } from '@cetus/ui/components/ui/toggle'
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}))
 
 const mountedTrees: TestRenderer.ReactTestRenderer[] = []
 
@@ -564,6 +572,7 @@ test('root export exposes only implemented native components', () => {
   expect(root.Select).toBeDefined()
   expect(root.Toggle).toBeDefined()
   expect(root.DailyMissionsPanel).toBeDefined()
+  expect(root.LoginRewardModal).toBeDefined()
   for (const key of [
     'Avatar',
     'Container',
@@ -849,4 +858,215 @@ test('DailyMissionsPanel constrains the expired countdown within the metadata ro
     return texts.includes('Level 3') && texts.includes('Daily missions reset')
   })
   expect(metadataRow).toBeTruthy()
+})
+
+const REWARD_STATUS: LoginRewardStatusResponse = {
+  loginStreak: 2,
+  currentCycleDay: 3,
+  totalCycles: 1,
+  totalConsecutiveDays: 9,
+  todayReward: {
+    day: 3,
+    xp: 30,
+    icon: '✨',
+    description: 'Day 3 - Building momentum!',
+  },
+  alreadyClaimed: false,
+  canClaim: true,
+  nextMilestone: {
+    totalDays: 30,
+    achievementId: 'login_streak_30',
+    name: 'Monthly Master',
+    description: 'Complete 30 days of consecutive logins',
+    icon: '🎖️',
+  },
+  daysUntilMilestone: 21,
+}
+
+const CLAIM_RESULT: LoginRewardClaimResponse = {
+  success: true,
+  xpEarned: 30,
+  newTotalXP: 480,
+  newLevel: 4,
+  leveledUp: true,
+  previousLevel: 3,
+  milestoneBadge: {
+    totalDays: 30,
+    achievementId: 'login_streak_30',
+    name: 'Monthly Master',
+    description: 'Complete 30 days of consecutive logins',
+    icon: '🎖️',
+  },
+}
+
+const rewardModalProps = {
+  claimPhase: 'idle' as const,
+  claimError: null,
+  claimResult: null,
+  onClaim: () => {},
+  onClose: () => {},
+}
+
+test('deep import resolves the same native LoginRewardModal as the root', () => {
+  const deep = jest.requireActual('@cetus/ui/components/login-reward-modal')
+    .LoginRewardModal as unknown
+  expect(deep).toBe(Ui.LoginRewardModal)
+})
+
+test('LoginRewardModal renders nothing while closed', async () => {
+  const tree = await render(
+    <Ui.LoginRewardModal
+      {...rewardModalProps}
+      status={REWARD_STATUS}
+      open={false}
+    />
+  )
+
+  expect(renderedText(tree)).not.toContain('Daily Login Reward')
+})
+
+test('LoginRewardModal renders the server-provided status honestly', async () => {
+  const tree = await render(
+    <Ui.LoginRewardModal {...rewardModalProps} status={REWARD_STATUS} open />
+  )
+
+  const rendered = renderedText(tree)
+  expect(rendered).toContain('Daily Login Reward')
+  expect(rendered).toContain('DAILY REWARD')
+  expect(rendered).toContain('+30 XP')
+  expect(rendered).toContain('Day 3 - Building momentum!')
+  expect(rendered).toContain('Day Streak')
+  expect(rendered).toContain('Cycles')
+  expect(rendered).toContain('Claim Reward')
+  for (const day of [1, 2, 3, 4, 5, 6, 7]) {
+    expect(rendered).toContain(`Day ${day}`)
+  }
+  expect(
+    tree.root.findByProps({ accessibilityLabel: 'Day 1, 10 XP, claimed' })
+  ).toBeTruthy()
+  expect(
+    tree.root.findByProps({ accessibilityLabel: 'Day 3, 30 XP, today' })
+  ).toBeTruthy()
+  expect(
+    tree.root.findByProps({ accessibilityLabel: 'Day 7, 100 XP, upcoming' })
+  ).toBeTruthy()
+})
+
+test('LoginRewardModal wires claim, close, backdrop and request-close actions', async () => {
+  const onClaim = jest.fn()
+  const onClose = jest.fn()
+  const tree = await render(
+    <Ui.LoginRewardModal
+      {...rewardModalProps}
+      status={REWARD_STATUS}
+      open
+      onClaim={onClaim}
+      onClose={onClose}
+    />
+  )
+
+  const claim = tree.root.findByProps({
+    accessibilityLabel: 'Claim daily login reward',
+  })
+  expect(claim.props.accessibilityRole).toBe('button')
+  await act(async () => {
+    claim.props.onPress()
+  })
+  expect(onClaim).toHaveBeenCalledTimes(1)
+
+  const dismiss = tree.root.findByProps({
+    accessibilityLabel: 'Dismiss daily login reward',
+  })
+  await act(async () => {
+    dismiss.props.onPress()
+  })
+  expect(onClose).toHaveBeenCalledTimes(1)
+
+  const close = tree.root.findByProps({
+    accessibilityLabel: 'Close daily login reward',
+  })
+  await act(async () => {
+    close.props.onPress()
+  })
+  expect(onClose).toHaveBeenCalledTimes(2)
+
+  const modal = tree.root.find(node => node.props.onRequestClose)
+  await act(async () => {
+    modal.props.onRequestClose()
+  })
+  expect(onClose).toHaveBeenCalledTimes(3)
+})
+
+test('LoginRewardModal marks the claim control busy and disabled while claiming', async () => {
+  const tree = await render(
+    <Ui.LoginRewardModal
+      {...rewardModalProps}
+      status={REWARD_STATUS}
+      open
+      claimPhase="claiming"
+    />
+  )
+
+  const claim = tree.root.findByProps({
+    accessibilityLabel: 'Claim daily login reward',
+  })
+  expect(claim.props.accessibilityState?.disabled).toBe(true)
+  expect(claim.props.accessibilityState?.busy).toBe(true)
+  expect(renderedText(tree)).toContain('Claiming')
+})
+
+test('LoginRewardModal surfaces the claim error on the claim control', async () => {
+  const tree = await render(
+    <Ui.LoginRewardModal
+      {...rewardModalProps}
+      status={REWARD_STATUS}
+      open
+      claimPhase="error"
+      claimError="Network error. Try again."
+    />
+  )
+
+  expect(renderedText(tree)).toContain('Network error. Try again.')
+})
+
+test('LoginRewardModal shows the claimed state and hides the claim CTA when claimed', async () => {
+  const tree = await render(
+    <Ui.LoginRewardModal
+      {...rewardModalProps}
+      status={{ ...REWARD_STATUS, canClaim: false, alreadyClaimed: true }}
+      open
+    />
+  )
+
+  const rendered = renderedText(tree)
+  expect(rendered).toContain('Claimed Today')
+  expect(rendered).toContain('Come back tomorrow!')
+  expect(
+    tree.root.findAllByProps({
+      accessibilityLabel: 'Claim daily login reward',
+    })
+  ).toHaveLength(0)
+})
+
+test('LoginRewardModal surfaces level-up and milestone outcomes from the claim result', async () => {
+  const tree = await render(
+    <Ui.LoginRewardModal
+      {...rewardModalProps}
+      status={REWARD_STATUS}
+      open
+      claimPhase="success"
+      claimResult={CLAIM_RESULT}
+    />
+  )
+
+  const rendered = renderedText(tree)
+  expect(rendered).toContain('LEVEL UP! Level 4')
+  expect(rendered).toContain('Monthly Master')
+  expect(rendered).toContain('Complete 30 days of consecutive logins')
+  expect(rendered).toContain('Claimed Today')
+  expect(
+    tree.root.findAllByProps({
+      accessibilityLabel: 'Claim daily login reward',
+    })
+  ).toHaveLength(0)
 })
