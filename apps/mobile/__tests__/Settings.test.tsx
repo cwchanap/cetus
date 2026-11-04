@@ -49,6 +49,11 @@ jest.mock('../src/lib/auth-client', () => ({
 
 import SettingsScreen from '../app/settings'
 import { api } from '../src/lib/api'
+import {
+  claimSettingsWrite,
+  releaseSettingsWrite,
+  type SettingsWriteLease,
+} from '../src/lib/settings'
 
 const getSettings = jest.mocked(api.getSettings)
 const updateSettings = jest.mocked(api.updateSettings)
@@ -111,6 +116,17 @@ const rerender = async (
     tree.update(element)
   })
   await drain()
+}
+
+const createOutsideAct = (element: React.ReactElement) => {
+  const globalRef = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  const previous = globalRef.IS_REACT_ACT_ENVIRONMENT
+  globalRef.IS_REACT_ACT_ENVIRONMENT = false
+  try {
+    return TestRenderer.create(element)
+  } finally {
+    globalRef.IS_REACT_ACT_ENVIRONMENT = previous
+  }
 }
 
 const settle = async (
@@ -971,6 +987,130 @@ describe('settings route — write ownership', () => {
       switchFor(remounted, 'Push Notifications').props.accessibilityState
         .checked
     ).toBe(true)
+  })
+
+  test('unlocks and reconciles when an acknowledged write settles between remount render and effect adoption', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    mountedTrees.splice(mountedTrees.indexOf(tree), 1)
+    await act(async () => {
+      tree.unmount()
+    })
+
+    const remounted = createOutsideAct(<SettingsScreen />)
+    mountedTrees.push(remounted)
+    await new Promise<void>(resolve => setImmediate(resolve))
+    writes[0].run.resolve(updateOk({ push_notifications: true }))
+    await act(async () => {
+      await writes[0].run.promise
+    })
+    await drain()
+
+    expect(getSettings).toHaveBeenCalledTimes(3)
+    await settle(runs[2], prefs({ push_notifications: true }))
+    expectDisabled(remounted, false)
+    expect(
+      switchFor(remounted, 'Push Notifications').props.accessibilityState
+        .checked
+    ).toBe(true)
+  })
+
+  test('unlocks and reconciles when a rejected write settles between remount render and effect adoption', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    mountedTrees.splice(mountedTrees.indexOf(tree), 1)
+    await act(async () => {
+      tree.unmount()
+    })
+
+    const remounted = createOutsideAct(<SettingsScreen />)
+    mountedTrees.push(remounted)
+    await new Promise<void>(resolve => setImmediate(resolve))
+    writes[0].run.reject(
+      new ApiClientError('Internal server error', 500, 'http')
+    )
+    await act(async () => {
+      await writes[0].run.promise.catch(() => undefined)
+    })
+    await drain()
+
+    expect(getSettings).toHaveBeenCalledTimes(3)
+    await settle(runs[2], prefs())
+    expectDisabled(remounted, false)
+    const rendered = renderedText(remounted)
+    expect(rendered).not.toContain('Preferences saved')
+    expect(rendered).not.toContain("Couldn't save")
+    expect(
+      switchFor(remounted, 'Push Notifications').props.accessibilityState
+        .checked
+    ).toBe(false)
+  })
+
+  test('an older settle notification cannot unlock a newer outstanding write', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+    expectDisabled(tree, true)
+
+    const claimed: { lease: SettingsWriteLease | null } = { lease: null }
+    try {
+      writes[0].run.promise.then(() => {
+        claimed.lease = claimSettingsWrite('user-b')
+      })
+      writes[0].run.resolve(updateOk({ push_notifications: true }))
+      await act(async () => {
+        await writes[0].run.promise
+      })
+      await drain()
+
+      if (claimed.lease === null) {
+        throw new Error('the newer lease was never claimed')
+      }
+      const newer = claimed.lease
+      expectDisabled(tree, true)
+
+      signIn('user-b')
+      await rerender(tree, <SettingsScreen />)
+      expect(getSettings).toHaveBeenCalledTimes(2)
+      await settle(runs[1], prefs())
+      expectDisabled(tree, true)
+
+      await act(async () => {
+        releaseSettingsWrite(newer)
+        newer.finish()
+      })
+      await drain()
+      claimed.lease = null
+
+      expectDisabled(tree, false)
+      expect(getSettings).toHaveBeenCalledTimes(3)
+      await settle(runs[2], prefs({ push_notifications: false }))
+      expect(
+        switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+      ).toBe(false)
+    } finally {
+      const remaining = claimed.lease
+      if (remaining !== null) {
+        await act(async () => {
+          releaseSettingsWrite(remaining)
+          remaining.finish()
+        })
+        await drain()
+      }
+    }
   })
 })
 

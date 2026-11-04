@@ -106,7 +106,8 @@ export default function SettingsScreen() {
   const [failedKeys, setFailedKeys] = useState<
     ReadonlySet<NotificationPrefKey>
   >(new Set())
-  const [saving, setSaving] = useState(() => settingsWriteLease() !== null)
+  const [initialLease] = useState(settingsWriteLease)
+  const [saving, setSaving] = useState(initialLease !== null)
   const confirmedRef = useRef<{
     epoch: number
     prefs: NotificationPrefs
@@ -136,6 +137,11 @@ export default function SettingsScreen() {
         if (!mountedRef.current) {
           return
         }
+        const outstanding = settingsWriteLease()
+        if (outstanding !== null) {
+          watchLease(outstanding)
+          return
+        }
         setSaving(false)
         if (lease.userId === userIdRef.current) {
           refresh()
@@ -146,11 +152,11 @@ export default function SettingsScreen() {
   )
 
   useEffect(() => {
-    const lease = settingsWriteLease()
+    const lease = settingsWriteLease() ?? initialLease
     if (lease !== null) {
       watchLease(lease)
     }
-  }, [sessionKey, watchLease])
+  }, [sessionKey, watchLease, initialLease])
 
   const saveKey = async (
     key: NotificationPrefKey,
