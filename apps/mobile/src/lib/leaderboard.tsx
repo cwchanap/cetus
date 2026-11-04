@@ -1,17 +1,6 @@
-import { useCallback, useRef } from 'react'
-import { useFocusEffect } from 'expo-router'
-import {
-  ActivityIndicator,
-  AppState,
-  Pressable,
-  Text,
-  View,
-} from 'react-native'
+import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Button, cn } from '@cetus/ui'
-import {
-  ApiClientError,
-  type LeaderboardQuery,
-} from '@cetus/api-client/api-client'
+import type { LeaderboardQuery } from '@cetus/api-client/api-client'
 import type {
   AllGamesLeaderboardResponse,
   GameLeaderboardResponse,
@@ -20,6 +9,14 @@ import type {
   ScopedLeaderboardResponse,
 } from '@cetus/shared/api-dto'
 import { getGameIcon, type Game, type GameID } from '@cetus/shared/games'
+
+import {
+  isNetworkError,
+  isServiceUnavailable,
+  useRefetchOnFocus,
+} from './refetch'
+
+export { isNetworkError, isServiceUnavailable, useRefetchOnFocus }
 
 export const LEADERBOARD_OVERVIEW_LIMIT = 10
 export const LEADERBOARD_BOARD_LIMIT = 25
@@ -72,33 +69,6 @@ export function boardsFor(
   }
   const game = games.find(candidate => candidate.id === scope)
   return game ? [{ game, entries: data.leaderboard }] : null
-}
-
-export function isServiceUnavailable(error: Error | null): boolean {
-  return error instanceof ApiClientError && error.status === 503
-}
-
-export function isNetworkError(error: Error | null): boolean {
-  return error instanceof ApiClientError && error.kind === 'network'
-}
-
-export function useRefetchOnFocus(refetch: () => void): void {
-  const skipInitialFocus = useRef(true)
-  useFocusEffect(
-    useCallback(() => {
-      const subscription = AppState.addEventListener('change', state => {
-        if (state === 'active') {
-          refetch()
-        }
-      })
-      if (skipInitialFocus.current) {
-        skipInitialFocus.current = false
-      } else {
-        refetch()
-      }
-      return () => subscription.remove()
-    }, [refetch])
-  )
 }
 
 export function GameBoardHeader({
