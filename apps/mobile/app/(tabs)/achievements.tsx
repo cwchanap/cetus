@@ -1,15 +1,143 @@
-import { Text, View } from 'react-native'
+import { useCallback, useMemo, useState } from 'react'
+import { useRouter } from 'expo-router'
+import { FlatList, RefreshControl, Text, View } from 'react-native'
+import { useNativeVariable } from 'react-native-css/native'
+import { useRemoteData } from '@cetus/app-core'
+import { Heading, Select } from '@cetus/ui'
+import type { UserOverviewResponse } from '@cetus/shared/api-dto'
+
+import { api } from '../../src/lib/api'
+import { authClient } from '../../src/lib/auth-client'
+import {
+  ACHIEVEMENT_GAME_ALL,
+  achievementGameOptions,
+  AchievementRow,
+  AchievementsEmpty,
+  AchievementsError,
+  AchievementsLoading,
+  AchievementsSignIn,
+  achievementViewsFor,
+  filterAchievementViews,
+  StatusFilterChips,
+  type AchievementGameScope,
+  type AchievementStatusFilter,
+  type AchievementView,
+} from '../../src/lib/achievements'
+import { isUnauthorizedError, useRefetchOnFocus } from '../../src/lib/refetch'
+
+const GAME_OPTIONS = achievementGameOptions()
 
 export default function AchievementsScreen() {
+  const router = useRouter()
+  const accent = useNativeVariable('--cetus-accent')
+  const { data: session, isPending } = authClient.useSession()
+  const userId = session?.user.id ?? null
+  const [status, setStatus] = useState<AchievementStatusFilter>('all')
+  const [game, setGame] = useState<AchievementGameScope>(ACHIEVEMENT_GAME_ALL)
+
+  const { data, loading, error, refresh } = useRemoteData<UserOverviewResponse>(
+    useCallback(() => api.getUserOverview(), []),
+    ['achievements', userId ?? 'anonymous'],
+    userId !== null
+  )
+  useRefetchOnFocus(refresh)
+
+  const views = useMemo(() => achievementViewsFor(data), [data])
+  const filtered = useMemo(
+    () => filterAchievementViews(views ?? [], status, game),
+    [views, status, game]
+  )
+  const earnedCount = useMemo(
+    () => (views ?? []).filter(view => view.earned).length,
+    [views]
+  )
+  const selectedGameLabel =
+    GAME_OPTIONS.find(option => option.value === game)?.label ?? 'All games'
+
+  const openSignIn = useCallback(() => {
+    router.push({
+      pathname: '/sign-in',
+      params: { returnTo: '/(tabs)/achievements' },
+    })
+  }, [router])
+
+  if (isPending) {
+    return (
+      <View className="flex-1 bg-cetus-canvas">
+        <AchievementsLoading />
+      </View>
+    )
+  }
+
+  if (!session) {
+    return <AchievementsSignIn onSignIn={openSignIn} />
+  }
+
+  if (error !== null && isUnauthorizedError(error)) {
+    return <AchievementsSignIn expired onSignIn={openSignIn} />
+  }
+
+  if (views === null) {
+    return (
+      <View className="flex-1 bg-cetus-canvas">
+        {loading ? (
+          <AchievementsLoading />
+        ) : (
+          <AchievementsError
+            error={error ?? new Error('Achievements request failed')}
+            onRetry={refresh}
+          />
+        )}
+      </View>
+    )
+  }
+
+  const header = (
+    <View className="gap-3">
+      <View className="gap-1">
+        <Heading level={4} variant="section" kicker="ACHIEVEMENT LOG">
+          Achievements
+        </Heading>
+        <Text className="font-sans text-xs text-cetus-ink-muted">
+          {earnedCount} of {views.length} earned ·{' '}
+          {views.length === 0
+            ? 0
+            : Math.round((earnedCount / views.length) * 100)}
+          %
+        </Text>
+      </View>
+      <StatusFilterChips status={status} onChange={setStatus} />
+      <Select
+        accessibilityLabel="Achievement game filter"
+        accessibilityHint="Chooses which game's achievements to show"
+        accessibilityValue={{ text: selectedGameLabel }}
+        options={GAME_OPTIONS}
+        value={game}
+        onValueChange={next => setGame(next as AchievementGameScope)}
+      />
+    </View>
+  )
+
   return (
-    <View className="flex-1 items-center justify-center gap-2 bg-cetus-canvas p-6">
-      <Text className="font-display text-xl font-bold text-cetus-ink">
-        Achievements
-      </Text>
-      <Text className="font-sans text-center text-sm text-cetus-ink-muted">
-        Achievement tracking is not available on mobile yet — coming in a later
-        update.
-      </Text>
+    <View className="flex-1 bg-cetus-canvas">
+      <FlatList<AchievementView>
+        className="flex-1"
+        contentContainerClassName="gap-2.5 px-4 pb-8 pt-3"
+        data={filtered}
+        initialNumToRender={views.length}
+        keyExtractor={view => view.achievement.id}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={header}
+        ListEmptyComponent={<AchievementsEmpty status={status} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={refresh}
+            tintColor={accent}
+          />
+        }
+        renderItem={({ item }) => <AchievementRow view={item} />}
+      />
     </View>
   )
 }
