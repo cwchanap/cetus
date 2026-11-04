@@ -1,11 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { POST } from '@/pages/api/user/profile'
-import { updateUser, isUsernameAvailable } from '@/lib/server/db/queries'
+import { GET, POST } from '@/pages/api/user/profile'
+import {
+    updateUser,
+    isUsernameAvailable,
+    getUserIdentityByIdStrict,
+    getUserStatsStrict,
+    getUserAchievementsStrict,
+} from '@/lib/server/db/queries'
 
 // Mock dependencies
 vi.mock('@/lib/server/db/queries', () => ({
     updateUser: vi.fn(),
     isUsernameAvailable: vi.fn(),
+    getUserIdentityByIdStrict: vi.fn(),
+    getUserStatsStrict: vi.fn(),
+    getUserAchievementsStrict: vi.fn(),
 }))
 
 describe('POST /api/user/profile', () => {
@@ -450,6 +459,205 @@ describe('POST /api/user/profile', () => {
             expect(response.headers.get('Content-Type')).toBe(
                 'application/json'
             )
+        })
+    })
+})
+
+describe('GET /api/user/profile', () => {
+    const mockUser = {
+        id: 'user-123',
+        name: 'Test User',
+        email: 'test@example.com',
+    }
+
+    const mockIdentity = {
+        id: 'user-123',
+        name: 'Test User',
+        email: 'test@example.com',
+        username: 'testuser',
+        displayName: 'Test Display',
+        image: 'https://example.com/avatar.png',
+        createdAt: '2024-01-15T00:00:00.000Z',
+    }
+
+    const mockStats = {
+        id: 1,
+        user_id: 'user-123',
+        total_games_played: 7,
+        total_score: 42000,
+        favorite_game: 'tetris',
+        streak_days: 5,
+        xp: 1300,
+        level: 4,
+    }
+
+    const mockAchievements = [
+        { id: 1, user_id: 'user-123', achievement_id: 'first_win' },
+        { id: 2, user_id: 'user-123', achievement_id: 'global_ace' },
+    ]
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        vi.mocked(getUserIdentityByIdStrict).mockResolvedValue(mockIdentity)
+        vi.mocked(getUserStatsStrict).mockResolvedValue(mockStats as any)
+        vi.mocked(getUserAchievementsStrict).mockResolvedValue(
+            mockAchievements as any
+        )
+    })
+
+    describe('authentication', () => {
+        it('should return 401 when user is not authenticated', async () => {
+            const request = new Request('http://localhost/api/user/profile')
+
+            const response = await GET({ request, locals: {} } as any)
+
+            expect(response.status).toBe(401)
+            const data = await response.json()
+            expect(data).toHaveProperty('error', 'Unauthorized')
+            expect(getUserIdentityByIdStrict).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('success', () => {
+        it('should return the canonical overview for the session user', async () => {
+            const request = new Request('http://localhost/api/user/profile')
+
+            const response = await GET({
+                request,
+                locals: { user: mockUser },
+            } as any)
+
+            expect(response.status).toBe(200)
+            expect(getUserIdentityByIdStrict).toHaveBeenCalledWith('user-123')
+            expect(getUserStatsStrict).toHaveBeenCalledWith('user-123')
+            expect(getUserAchievementsStrict).toHaveBeenCalledWith('user-123')
+
+            const data = await response.json()
+            expect(data).toEqual({
+                profile: {
+                    name: 'Test User',
+                    displayName: 'Test Display',
+                    username: 'testuser',
+                    image: 'https://example.com/avatar.png',
+                    createdAt: '2024-01-15T00:00:00.000Z',
+                },
+                stats: {
+                    totalGamesPlayed: 7,
+                    totalScore: 42000,
+                    favoriteGame: 'tetris',
+                    streakDays: 5,
+                    xp: 1300,
+                    level: 4,
+                },
+                earnedAchievementIds: ['first_win', 'global_ace'],
+            })
+        })
+
+        it('should not expose email or other personal data in the profile', async () => {
+            const request = new Request('http://localhost/api/user/profile')
+
+            const response = await GET({
+                request,
+                locals: { user: mockUser },
+            } as any)
+
+            const data = await response.json()
+            expect(data.profile).not.toHaveProperty('email')
+            expect(data.profile).not.toHaveProperty('id')
+        })
+
+        it('should return zeroed stats and empty achievements when no stats row exists', async () => {
+            vi.mocked(getUserStatsStrict).mockResolvedValue(null)
+            vi.mocked(getUserAchievementsStrict).mockResolvedValue([])
+
+            const request = new Request('http://localhost/api/user/profile')
+
+            const response = await GET({
+                request,
+                locals: { user: mockUser },
+            } as any)
+
+            expect(response.status).toBe(200)
+            const data = await response.json()
+            expect(data.stats).toEqual({
+                totalGamesPlayed: 0,
+                totalScore: 0,
+                favoriteGame: null,
+                streakDays: 0,
+                xp: 0,
+                level: 1,
+            })
+            expect(data.earnedAchievementIds).toEqual([])
+        })
+    })
+
+    describe('missing identity', () => {
+        it('should return 404 when the session user has no identity row', async () => {
+            vi.mocked(getUserIdentityByIdStrict).mockResolvedValue(null)
+
+            const request = new Request('http://localhost/api/user/profile')
+
+            const response = await GET({
+                request,
+                locals: { user: mockUser },
+            } as any)
+
+            expect(response.status).toBe(404)
+            const data = await response.json()
+            expect(data).toHaveProperty('error')
+        })
+    })
+
+    describe('database errors', () => {
+        it('should return 500 when the identity read fails', async () => {
+            vi.mocked(getUserIdentityByIdStrict).mockRejectedValue(
+                new Error('Database error')
+            )
+
+            const request = new Request('http://localhost/api/user/profile')
+
+            const response = await GET({
+                request,
+                locals: { user: mockUser },
+            } as any)
+
+            expect(response.status).toBe(500)
+            const data = await response.json()
+            expect(data).toHaveProperty('error')
+        })
+
+        it('should return 500 when the stats read fails', async () => {
+            vi.mocked(getUserStatsStrict).mockRejectedValue(
+                new Error('Database error')
+            )
+
+            const request = new Request('http://localhost/api/user/profile')
+
+            const response = await GET({
+                request,
+                locals: { user: mockUser },
+            } as any)
+
+            expect(response.status).toBe(500)
+            const data = await response.json()
+            expect(data).toHaveProperty('error')
+        })
+
+        it('should return 500 when the achievements read fails', async () => {
+            vi.mocked(getUserAchievementsStrict).mockRejectedValue(
+                new Error('Database error')
+            )
+
+            const request = new Request('http://localhost/api/user/profile')
+
+            const response = await GET({
+                request,
+                locals: { user: mockUser },
+            } as any)
+
+            expect(response.status).toBe(500)
+            const data = await response.json()
+            expect(data).toHaveProperty('error')
         })
     })
 })

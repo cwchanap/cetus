@@ -7,6 +7,7 @@ import type {
     LoginRewardClaimResponse,
     LoginRewardStatusResponse,
     ScoreHistoryResponse,
+    UserOverviewResponse,
 } from '@cetus/shared/api-dto'
 import { ApiClientError, createApiClient } from './api-client'
 
@@ -685,6 +686,71 @@ describe('createApiClient', () => {
             const apiError = error as ApiClientError
             expect(apiError.kind).toBe('http')
             expect(apiError.serverMessage).toBe('Username is already taken')
+        })
+    })
+
+    // --- GET /api/user/profile -------------------------------------------------
+
+    describe('getUserOverview', () => {
+        it('GETs the current user overview as a typed DTO', async () => {
+            const body: UserOverviewResponse = {
+                profile: {
+                    name: 'Nova Pilot',
+                    displayName: 'Nova',
+                    username: 'nova',
+                    image: 'https://example.com/a.png',
+                    createdAt: '2026-01-02T00:00:00.000Z',
+                },
+                stats: {
+                    totalGamesPlayed: 12,
+                    totalScore: 84500,
+                    favoriteGame: 'tetris',
+                    streakDays: 3,
+                    xp: 2400,
+                    level: 5,
+                },
+                earnedAchievementIds: ['first_win', 'global_ace'],
+            }
+            fetchImpl.mockResolvedValue(okResponse(body))
+
+            const result: UserOverviewResponse =
+                await makeClient().getUserOverview()
+
+            expect(fetchImpl).toHaveBeenCalledWith('/api/user/profile', {
+                method: 'GET',
+                headers: {},
+                body: undefined,
+                signal: undefined,
+            })
+            expect(result).toEqual(body)
+        })
+
+        it('throws an ApiClientError on a 401 signed-out response', async () => {
+            fetchImpl.mockResolvedValue(
+                errorResponse(401, { error: 'Unauthorized' })
+            )
+
+            const error = await makeClient()
+                .getUserOverview()
+                .catch((e: unknown) => e)
+
+            expect(error).toBeInstanceOf(ApiClientError)
+            const apiError = error as ApiClientError
+            expect(apiError.status).toBe(401)
+            expect(apiError.kind).toBe('http')
+        })
+
+        it('throws an ApiClientError on a 500 read failure', async () => {
+            fetchImpl.mockResolvedValue(
+                errorResponse(500, { error: 'Internal server error' })
+            )
+
+            const error = await makeClient()
+                .getUserOverview()
+                .catch((e: unknown) => e)
+
+            expect(error).toBeInstanceOf(ApiClientError)
+            expect((error as ApiClientError).status).toBe(500)
         })
     })
 
