@@ -57,16 +57,17 @@ export function LoginRewardHost() {
   )
 
   const statusSeqRef = useRef(0)
-  const { data, error, refresh } = useRemoteData<{
+  const { data, error, loading, refresh } = useRemoteData<{
     seq: number
     status: LoginRewardStatusResponse
-    fetchedDate: string
+    requestDate: string
   }>(
     useCallback(() => {
       const seq = ++statusSeqRef.current
+      const requestDate = getTodayUTC()
       return api
         .getLoginRewardStatus()
-        .then(status => ({ seq, status, fetchedDate: getTodayUTC() }))
+        .then(status => ({ seq, status, requestDate }))
     }, []),
     ['login-rewards', userId ?? 'anonymous', sessionKey ?? 'none'],
     eligible
@@ -246,6 +247,16 @@ export function LoginRewardHost() {
       setClaimOverlay(null)
     }
   }, [claimOverlay, data])
+  useEffect(() => {
+    if (
+      eligible &&
+      !loading &&
+      data !== undefined &&
+      data.requestDate !== getTodayUTC()
+    ) {
+      refresh()
+    }
+  }, [data, eligible, loading, refresh])
 
   const overlayActive =
     claimOverlay !== null &&
@@ -256,7 +267,7 @@ export function LoginRewardHost() {
     : (data?.status ?? null)
   const statusDate = overlayActive
     ? claimOverlay.date
-    : (data?.fetchedDate ?? null)
+    : (data?.requestDate ?? null)
   const today = getTodayUTC()
   const canClaimNow =
     eligible && status?.canClaim === true && statusDate === today
@@ -292,7 +303,11 @@ export function LoginRewardHost() {
       return
     }
     claimBusyForRef.current = epoch
-    const operation = { epoch, openSeq: openSeqRef.current }
+    const operation = {
+      epoch,
+      openSeq: openSeqRef.current,
+      requestDate: getTodayUTC(),
+    }
     setClaimPhase('claiming')
     setClaimError(null)
     try {
@@ -306,7 +321,7 @@ export function LoginRewardHost() {
             setClaimOverlay({
               epoch,
               coversThrough: statusSeqRef.current,
-              date: getTodayUTC(),
+              date: operation.requestDate,
               status: result.updatedStatus,
             })
           }
