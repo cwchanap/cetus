@@ -14,6 +14,7 @@ export interface DailyMissionsPanelProps {
   xpToNextLevel: number
   streak: number
   resetIn: number
+  responseStamp: unknown
   onResetRefresh?: () => void
 }
 
@@ -33,22 +34,30 @@ function formatCountdown(seconds: number): string {
 
 function ResetCountdown({
   resetIn,
+  responseStamp,
   onResetRefresh,
 }: {
   resetIn: number
+  responseStamp: unknown
   onResetRefresh?: () => void
 }) {
   const [clock, setClock] = useState(() => {
     const now = Date.now()
     return {
+      responseStamp,
       resetIn,
       deadline: now + Math.max(0, resetIn) * 1000,
       now,
     }
   })
-  if (clock.resetIn !== resetIn) {
+  if (clock.responseStamp !== responseStamp || clock.resetIn !== resetIn) {
     const now = Date.now()
-    setClock({ resetIn, deadline: now + Math.max(0, resetIn) * 1000, now })
+    setClock({
+      responseStamp,
+      resetIn,
+      deadline: now + Math.max(0, resetIn) * 1000,
+      now,
+    })
   }
   const remaining = Math.max(0, Math.ceil((clock.deadline - clock.now) / 1000))
 
@@ -65,8 +74,11 @@ function ResetCountdown({
 
   if (remaining <= 0) {
     return (
-      <View className="flex-row items-center gap-2">
-        <Text className="font-sans text-sm text-cetus-ink-muted">
+      <View className="shrink flex-row flex-wrap items-center gap-2">
+        <Text
+          numberOfLines={2}
+          className="shrink font-sans text-sm text-cetus-ink-muted"
+        >
           Daily missions reset
         </Text>
         {onResetRefresh ? (
@@ -86,7 +98,10 @@ function ResetCountdown({
   }
 
   return (
-    <Text className="font-sans text-sm text-cetus-ink-muted">
+    <Text
+      numberOfLines={1}
+      className="shrink font-sans text-sm text-cetus-ink-muted"
+    >
       {formatCountdown(remaining)}
     </Text>
   )
@@ -169,6 +184,7 @@ export function DailyMissionsPanel({
   xpToNextLevel,
   streak,
   resetIn,
+  responseStamp,
   onResetRefresh,
 }: DailyMissionsPanelProps) {
   const clampedProgress = Math.min(100, Math.max(0, xpProgress))
@@ -189,7 +205,11 @@ export function DailyMissionsPanel({
           <Badge variant="outline" size="sm" className="bg-cetus-accent-2/20">
             Level {level}
           </Badge>
-          <ResetCountdown resetIn={resetIn} onResetRefresh={onResetRefresh} />
+          <ResetCountdown
+            resetIn={resetIn}
+            responseStamp={responseStamp}
+            onResetRefresh={onResetRefresh}
+          />
         </View>
       </View>
 

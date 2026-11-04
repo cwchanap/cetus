@@ -521,6 +521,26 @@ describe('challenges route — signed in', () => {
     }
   })
 
+  test('re-anchors the countdown when a refreshed response repeats resetIn', async () => {
+    signIn('user-a')
+    const tree = await render(<ChallengesScreen />)
+    await settle(runs[0], payload([mission()], { resetIn: 600 }))
+    expect(renderedText(tree)).toContain('Resets in 00:10:00')
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 1300))
+    })
+    expect(renderedText(tree)).not.toContain('Resets in 00:10:00')
+
+    await focus()
+    await blur()
+    await focus()
+    expect(getChallenges).toHaveBeenCalledTimes(2)
+
+    await settle(runs[1], payload([mission()], { resetIn: 600 }))
+    expect(renderedText(tree)).toContain('Resets in 00:10:00')
+  })
+
   test('surfaces a network error distinctly and retries into data', async () => {
     signIn('user-a')
     const tree = await render(<ChallengesScreen />)
@@ -834,6 +854,42 @@ describe('challenges route — malformed responses', () => {
       'mission missing required fields',
       { ...payload([]), challenges: [{ challengeId: 'broken' }] },
     ],
+    ['non-integral resetIn', payload([mission()], { resetIn: 1.5 })],
+    ['resetIn above a UTC day', payload([mission()], { resetIn: 86_401 })],
+    ['overflowing resetIn', payload([mission()], { resetIn: 1e308 })],
+    ['negative resetIn', payload([mission()], { resetIn: -1 })],
+    ['zero level', payload([mission()], { level: 0 })],
+    ['negative XP', payload([mission()], { xp: -10 })],
+    ['fractional XP', payload([mission()], { xp: 1.5 })],
+    ['XP progress above 100', payload([mission()], { xpProgress: 101 })],
+    ['negative XP progress', payload([mission()], { xpProgress: -0.5 })],
+    ['negative XP to next level', payload([mission()], { xpToNextLevel: -1 })],
+    ['negative streak', payload([mission()], { streak: -1 })],
+    ['fractional streak', payload([mission()], { streak: 0.5 })],
+    ['date with wrong shape', payload([mission()], { date: 'tomorrow' })],
+    ['impossible calendar date', payload([mission()], { date: '2026-02-30' })],
+    ['nonpositive mission target', payload([mission({ targetValue: 0 })])],
+    ['fractional mission target', payload([mission({ targetValue: 1.5 })])],
+    ['negative mission progress', payload([mission({ currentValue: -1 })])],
+    ['negative XP reward', payload([mission({ xpReward: -30 })])],
+    [
+      'unsupported mission difficulty',
+      payload([mission({ difficulty: 'epic' as never })]),
+    ],
+    [
+      'unsupported mission type',
+      payload([
+        mission({ type: 'double_or_nothing' as unknown as ChallengeType }),
+      ]),
+    ],
+    [
+      'unknown mission gameId',
+      payload([mission({ gameId: 'not_a_game' as never })]),
+    ],
+    [
+      'unparseable completedAt',
+      payload([mission({ completedAt: 'yesterday' })]),
+    ],
   ]
 
   test.each(MALFORMED)(
@@ -850,6 +906,30 @@ describe('challenges route — malformed responses', () => {
       ).toHaveLength(0)
     }
   )
+
+  test('accepts boundary values the server can legitimately emit', async () => {
+    signIn('user-a')
+    const tree = await render(<ChallengesScreen />)
+    await settle(
+      runs[0],
+      payload([mission({ currentValue: 0 })], {
+        xp: 16_500,
+        level: 10,
+        xpProgress: 100,
+        xpToNextLevel: 0,
+        streak: 0,
+        resetIn: 86_400,
+      })
+    )
+
+    expect(
+      tree.root.findAllByProps({ testID: 'challenges-error' })
+    ).toHaveLength(0)
+    const rendered = renderedText(tree)
+    expect(rendered).toContain('Level 10')
+    expect(rendered).toContain('Resets in 24:00:00')
+    expect(rendered).toContain('Warm Up')
+  })
 
   test('a retry after a malformed payload still recovers into data', async () => {
     signIn('user-a')

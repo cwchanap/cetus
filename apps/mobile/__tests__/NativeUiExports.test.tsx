@@ -489,6 +489,7 @@ const PANEL_PROPS = {
   xpToNextLevel: 130,
   streak: 4,
   resetIn: 5415,
+  responseStamp: {},
 }
 
 test('deep import resolves the same native DailyMissionsPanel as the root', () => {
@@ -571,12 +572,18 @@ test('DailyMissionsPanel re-anchors the countdown when a new response changes re
   expect(text).not.toContain('Daily missions reset')
 })
 
-test('DailyMissionsPanel keeps its deadline when successive responses repeat resetIn', async () => {
+test('DailyMissionsPanel retains its deadline across ordinary rerenders', async () => {
   const tree = await render(
     <Ui.DailyMissionsPanel {...PANEL_PROPS} resetIn={1} />
   )
   await act(async () => {
-    tree.update(<Ui.DailyMissionsPanel {...PANEL_PROPS} resetIn={1} />)
+    tree.update(
+      <Ui.DailyMissionsPanel
+        {...PANEL_PROPS}
+        resetIn={1}
+        responseStamp={PANEL_PROPS.responseStamp}
+      />
+    )
   })
 
   await act(async () => {
@@ -585,6 +592,34 @@ test('DailyMissionsPanel keeps its deadline when successive responses repeat res
 
   const text = renderedText(tree)
   expect(text).toContain('Daily missions reset')
+})
+
+test('DailyMissionsPanel re-anchors when a new response repeats resetIn', async () => {
+  const tree = await render(
+    <Ui.DailyMissionsPanel
+      {...PANEL_PROPS}
+      resetIn={1}
+      responseStamp={{ date: '2026-11-02' }}
+    />
+  )
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 1300))
+  })
+  expect(renderedText(tree)).toContain('Daily missions reset')
+
+  await act(async () => {
+    tree.update(
+      <Ui.DailyMissionsPanel
+        {...PANEL_PROPS}
+        resetIn={1}
+        responseStamp={{ date: '2026-11-03' }}
+      />
+    )
+  })
+
+  const text = renderedText(tree)
+  expect(text).toContain('Resets in 00:00:01')
+  expect(text).not.toContain('Daily missions reset')
 })
 
 test('DailyMissionsPanel expires on wall time while ticks are suspended', async () => {
@@ -658,4 +693,46 @@ test('DailyMissionsPanel stacks level and reset metadata below the title for nar
   })
   expect(metadataRow).toBeTruthy()
   expect(metadataRow).not.toBe(titleRow)
+})
+
+test('DailyMissionsPanel constrains the expired countdown within the metadata row', async () => {
+  const tree = await render(
+    <Ui.DailyMissionsPanel
+      {...PANEL_PROPS}
+      resetIn={0}
+      onResetRefresh={() => {}}
+    />
+  )
+
+  const resetLabel = tree.root
+    .findAllByType(Text)
+    .find(node => scalarText(node.props.children) === 'Daily missions reset')
+  if (!resetLabel) {
+    throw new Error('Expected the expired reset label')
+  }
+  expect(resetLabel.props.className).toContain('shrink')
+  expect(resetLabel.props.numberOfLines).toBe(2)
+
+  let expiredRow: TestRenderer.ReactTestInstance | null = resetLabel.parent
+  while (expiredRow && expiredRow.type !== View) {
+    expiredRow = expiredRow.parent
+  }
+  if (expiredRow === null) {
+    throw new Error('Expected a View row containing the reset label')
+  }
+  expect(expiredRow.props.className).toContain('flex-wrap')
+  expect(expiredRow.props.className).toContain('shrink')
+
+  const metadataRow = tree.root.findAllByType(View).find(node => {
+    const className = node.props.className as string | undefined
+    if (!className?.includes('justify-between')) {
+      return false
+    }
+    const texts = node
+      .findAllByType(Text)
+      .map(child => scalarText(child.props.children))
+      .join('\n')
+    return texts.includes('Level 3') && texts.includes('Daily missions reset')
+  })
+  expect(metadataRow).toBeTruthy()
 })
