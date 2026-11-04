@@ -1112,6 +1112,302 @@ describe('settings route — write ownership', () => {
       }
     }
   })
+
+  test('keeps the remounted screen on account A reconciled through an A to B lease handoff', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    mountedTrees.splice(mountedTrees.indexOf(tree), 1)
+    await act(async () => {
+      tree.unmount()
+    })
+
+    const remounted = await render(<SettingsScreen />)
+    expect(getSettings).toHaveBeenCalledTimes(2)
+    await settle(runs[1], prefs({ push_notifications: false }))
+    expectDisabled(remounted, true)
+
+    const claimed: { lease: SettingsWriteLease | null } = { lease: null }
+    try {
+      writes[0].run.promise.then(() => {
+        claimed.lease = claimSettingsWrite('user-b')
+      })
+      writes[0].run.resolve(updateOk({ push_notifications: true }))
+      await act(async () => {
+        await writes[0].run.promise
+      })
+      await drain()
+
+      if (claimed.lease === null) {
+        throw new Error('the newer lease was never claimed')
+      }
+      const newer = claimed.lease
+      expectDisabled(remounted, true)
+      expect(getSettings).toHaveBeenCalledTimes(2)
+
+      await act(async () => {
+        releaseSettingsWrite(newer)
+        newer.finish()
+      })
+      await drain()
+      claimed.lease = null
+
+      expectDisabled(remounted, false)
+      expect(getSettings).toHaveBeenCalledTimes(3)
+      await settle(runs[2], prefs({ push_notifications: true }))
+      expect(
+        switchFor(remounted, 'Push Notifications').props.accessibilityState
+          .checked
+      ).toBe(true)
+    } finally {
+      const remaining = claimed.lease
+      if (remaining !== null) {
+        await act(async () => {
+          releaseSettingsWrite(remaining)
+          remaining.finish()
+        })
+        await drain()
+      }
+    }
+  })
+
+  test('adopts the captured initial lease when a newer lease wins the adoption race', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    mountedTrees.splice(mountedTrees.indexOf(tree), 1)
+    await act(async () => {
+      tree.unmount()
+    })
+
+    const remounted = createOutsideAct(<SettingsScreen />)
+    mountedTrees.push(remounted)
+    await new Promise<void>(resolve => setImmediate(resolve))
+
+    const claimed: { lease: SettingsWriteLease | null } = { lease: null }
+    try {
+      writes[0].run.promise.then(() => {
+        claimed.lease = claimSettingsWrite('user-b')
+      })
+      writes[0].run.resolve(updateOk({ push_notifications: true }))
+      await act(async () => {
+        await writes[0].run.promise
+      })
+      await drain()
+
+      if (claimed.lease === null) {
+        throw new Error('the newer lease was never claimed')
+      }
+      const newer = claimed.lease
+      expect(getSettings).toHaveBeenCalledTimes(2)
+
+      await settle(runs[1], prefs({ push_notifications: false }))
+      expectDisabled(remounted, true)
+
+      await act(async () => {
+        releaseSettingsWrite(newer)
+        newer.finish()
+      })
+      await drain()
+      claimed.lease = null
+
+      expectDisabled(remounted, false)
+      expect(getSettings).toHaveBeenCalledTimes(3)
+      await settle(runs[2], prefs({ push_notifications: true }))
+      expect(
+        switchFor(remounted, 'Push Notifications').props.accessibilityState
+          .checked
+      ).toBe(true)
+    } finally {
+      const remaining = claimed.lease
+      if (remaining !== null) {
+        await act(async () => {
+          releaseSettingsWrite(remaining)
+          remaining.finish()
+        })
+        await drain()
+      }
+    }
+  })
+
+  test('reconciles the current account once after multiple lease handoffs', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    const claimed: {
+      second: SettingsWriteLease | null
+      third: SettingsWriteLease | null
+    } = { second: null, third: null }
+    try {
+      writes[0].run.promise.then(() => {
+        claimed.second = claimSettingsWrite('user-b')
+        void claimed.second?.settled.then(() => {
+          claimed.third = claimSettingsWrite('user-c')
+        })
+      })
+      writes[0].run.resolve(updateOk({ push_notifications: true }))
+      await act(async () => {
+        await writes[0].run.promise
+      })
+      await drain()
+
+      if (claimed.second === null) {
+        throw new Error('the second lease was never claimed')
+      }
+      const second = claimed.second
+      expectDisabled(tree, true)
+      expect(getSettings).toHaveBeenCalledTimes(1)
+
+      await act(async () => {
+        releaseSettingsWrite(second)
+        second.finish()
+      })
+      await drain()
+      claimed.second = null
+
+      if (claimed.third === null) {
+        throw new Error('the third lease was never claimed')
+      }
+      const third = claimed.third
+      expectDisabled(tree, true)
+      expect(getSettings).toHaveBeenCalledTimes(1)
+
+      await act(async () => {
+        releaseSettingsWrite(third)
+        third.finish()
+      })
+      await drain()
+      claimed.third = null
+
+      expectDisabled(tree, false)
+      expect(getSettings).toHaveBeenCalledTimes(2)
+      await settle(runs[1], prefs({ push_notifications: true }))
+      expect(
+        switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+      ).toBe(true)
+    } finally {
+      for (const remaining of [claimed.second, claimed.third]) {
+        if (remaining !== null) {
+          await act(async () => {
+            releaseSettingsWrite(remaining)
+            remaining.finish()
+          })
+        }
+      }
+      await drain()
+    }
+  })
+
+  test('unlocks without reconciling when only an unrelated account lease settles', async () => {
+    signIn('user-a')
+    const unrelated = claimSettingsWrite('user-b')
+    if (unrelated === null) {
+      throw new Error('the unrelated lease was never claimed')
+    }
+    const held: { lease: SettingsWriteLease | null } = { lease: unrelated }
+    try {
+      const tree = await render(<SettingsScreen />)
+      expect(getSettings).toHaveBeenCalledTimes(1)
+      await settle(runs[0], prefs())
+
+      expectDisabled(tree, true)
+      expect(
+        switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+      ).toBe(false)
+
+      await act(async () => {
+        releaseSettingsWrite(unrelated)
+        unrelated.finish()
+      })
+      await drain()
+      held.lease = null
+
+      expectDisabled(tree, false)
+      expect(getSettings).toHaveBeenCalledTimes(1)
+      expect(
+        switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+      ).toBe(false)
+    } finally {
+      const remaining = held.lease
+      if (remaining !== null) {
+        await act(async () => {
+          releaseSettingsWrite(remaining)
+          remaining.finish()
+        })
+        await drain()
+      }
+    }
+  })
+
+  test('drops the handoff chain on unmount without reconciling', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    mountedTrees.splice(mountedTrees.indexOf(tree), 1)
+    await act(async () => {
+      tree.unmount()
+    })
+
+    const remounted = await render(<SettingsScreen />)
+    expect(getSettings).toHaveBeenCalledTimes(2)
+    await settle(runs[1], prefs())
+    expectDisabled(remounted, true)
+
+    mountedTrees.splice(mountedTrees.indexOf(remounted), 1)
+    await act(async () => {
+      remounted.unmount()
+    })
+
+    const claimed: { lease: SettingsWriteLease | null } = { lease: null }
+    try {
+      writes[0].run.promise.then(() => {
+        claimed.lease = claimSettingsWrite('user-b')
+      })
+      writes[0].run.resolve(updateOk({ push_notifications: true }))
+      await act(async () => {
+        await writes[0].run.promise
+      })
+      await drain()
+
+      if (claimed.lease === null) {
+        throw new Error('the newer lease was never claimed')
+      }
+      const newer = claimed.lease
+      await act(async () => {
+        releaseSettingsWrite(newer)
+        newer.finish()
+      })
+      await drain()
+      claimed.lease = null
+
+      expect(getSettings).toHaveBeenCalledTimes(2)
+    } finally {
+      const remaining = claimed.lease
+      if (remaining !== null) {
+        await act(async () => {
+          releaseSettingsWrite(remaining)
+          remaining.finish()
+        })
+        await drain()
+      }
+    }
+  })
 })
 
 describe('settings route — fetch errors and expiry', () => {
