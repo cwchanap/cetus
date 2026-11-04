@@ -9,13 +9,15 @@ const mockPush = jest.fn()
 const mockReplace = jest.fn()
 const mockCanGoBack = jest.fn()
 let mockFocusCallback: (() => void) | undefined
+const mockSessionRefetch = jest.fn()
 let mockSession: {
   data: {
     user: { id: string; name: string; email: string }
-    session: { id: string }
+    session: { id: string; updatedAt: string }
   } | null
   isPending: boolean
-} = { data: null, isPending: false }
+  refetch: jest.Mock
+} = { data: null, isPending: false, refetch: mockSessionRefetch }
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
@@ -211,18 +213,23 @@ const appState = async (state: AppStateStatus) => {
   await drain()
 }
 
-const signIn = (id: string, sessionId = `sess-${id}`) => {
+const signIn = (
+  id: string,
+  sessionId = `sess-${id}`,
+  sessionUpdatedAt = '2026-01-01T00:00:00Z'
+) => {
   mockSession = {
     data: {
       user: { id, name: `Diver ${id}`, email: `${id}@cetus.test` },
-      session: { id: sessionId },
+      session: { id: sessionId, updatedAt: sessionUpdatedAt },
     },
     isPending: false,
+    refetch: mockSessionRefetch,
   }
 }
 
 const signOut = () => {
-  mockSession = { data: null, isPending: false }
+  mockSession = { data: null, isPending: false, refetch: mockSessionRefetch }
 }
 
 const overview = (earnedAchievementIds: string[]): UserOverviewResponse => ({
@@ -250,7 +257,8 @@ beforeEach(() => {
   mockCanGoBack.mockReset().mockReturnValue(true)
   mockFocusCallback = undefined
   focusCleanup = undefined
-  mockSession = { data: null, isPending: false }
+  mockSessionRefetch.mockReset().mockResolvedValue(undefined)
+  mockSession = { data: null, isPending: false, refetch: mockSessionRefetch }
   runs = []
   appStateListeners = []
   addAppStateListener.mockReset()
@@ -323,7 +331,7 @@ describe('achievements tab — signed out', () => {
 
 describe('achievements tab — session resolving', () => {
   test('shows loading and issues no request while the session resolves', async () => {
-    mockSession = { data: null, isPending: true }
+    mockSession = { data: null, isPending: true, refetch: mockSessionRefetch }
 
     const tree = await render(<AchievementsScreen />)
 
@@ -346,9 +354,10 @@ describe('achievements tab — session resolving', () => {
           name: 'Diver user-a',
           email: 'user-a@cetus.test',
         },
-        session: { id: 'sess-a' },
+        session: { id: 'sess-a', updatedAt: '2026-01-01T00:00:00Z' },
       },
       isPending: true,
+      refetch: mockSessionRefetch,
     }
 
     const tree = await render(<AchievementsScreen />)
@@ -363,7 +372,11 @@ describe('achievements tab — session resolving', () => {
       })
     ).toHaveLength(0)
 
-    mockSession = { data: mockSession.data, isPending: false }
+    mockSession = {
+      data: mockSession.data,
+      isPending: false,
+      refetch: mockSessionRefetch,
+    }
     await rerender(tree, <AchievementsScreen />)
 
     expect(getUserOverview).toHaveBeenCalledTimes(1)
@@ -674,6 +687,7 @@ describe('achievements tab — signed in', () => {
       new ApiClientError('Request failed with status 401', 401, 'http')
     )
     expect(getUserOverview).toHaveBeenCalledTimes(1)
+    expect(mockSessionRefetch).toHaveBeenCalledTimes(1)
 
     signIn('user-a', 'sess-a2')
     await rerender(tree, <AchievementsScreen />)
@@ -687,6 +701,167 @@ describe('achievements tab — signed in', () => {
       })
     ).toBeTruthy()
     expect(renderedText(tree)).not.toContain('expired')
+  })
+
+  test('resumes fetching when reconciliation refreshes the same session id', async () => {
+    signIn('user-a')
+    const tree = await render(<AchievementsScreen />)
+    await settleRejection(
+      runs[0],
+      new ApiClientError('Request failed with status 401', 401, 'http')
+    )
+    expect(getUserOverview).toHaveBeenCalledTimes(1)
+    expect(mockSessionRefetch).toHaveBeenCalledTimes(1)
+
+    signIn('user-a', 'sess-user-a', '2026-01-02T00:00:00Z')
+    await rerender(tree, <AchievementsScreen />)
+
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+    await settle(runs[1], overview(['space_explorer']))
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel:
+          'Space Explorer, common achievement, Global, Welcome to the Cetus universe!, earned',
+      })
+    ).toBeTruthy()
+    expect(renderedText(tree)).not.toContain('expired')
+  })
+
+  test('stays suppressed when reconciliation returns the identical session', async () => {
+    signIn('user-a')
+    const tree = await render(<AchievementsScreen />)
+    await settleRejection(
+      runs[0],
+      new ApiClientError('Request failed with status 401', 401, 'http')
+    )
+    expect(getUserOverview).toHaveBeenCalledTimes(1)
+    expect(mockSessionRefetch).toHaveBeenCalledTimes(1)
+
+    await rerender(tree, <AchievementsScreen />)
+    await focus()
+    await blur()
+    await focus()
+    await appState('active')
+
+    expect(getUserOverview).toHaveBeenCalledTimes(1)
+    expect(mockSessionRefetch).toHaveBeenCalledTimes(1)
+    expect(renderedText(tree)).toContain('expired')
+    expect(
+      tree.root.findAllByProps({ testID: 'achievements-loading' })
+    ).toHaveLength(0)
+  })
+
+  test('shows the plain sign-in CTA when reconciliation finds no session', async () => {
+    signIn('user-a')
+    const tree = await render(<AchievementsScreen />)
+    await settleRejection(
+      runs[0],
+      new ApiClientError('Request failed with status 401', 401, 'http')
+    )
+    expect(mockSessionRefetch).toHaveBeenCalledTimes(1)
+
+    signOut()
+    await rerender(tree, <AchievementsScreen />)
+
+    expect(getUserOverview).toHaveBeenCalledTimes(1)
+    const rendered = renderedText(tree)
+    expect(rendered).not.toContain('expired')
+    expect(rendered).toContain('Sign in')
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel: 'Sign in to view achievements',
+      })
+    ).toBeTruthy()
+  })
+
+  test('latches again after a second 401 and never loops', async () => {
+    signIn('user-a')
+    const tree = await render(<AchievementsScreen />)
+    await settleRejection(
+      runs[0],
+      new ApiClientError('Request failed with status 401', 401, 'http')
+    )
+
+    signIn('user-a', 'sess-user-a', '2026-01-02T00:00:00Z')
+    await rerender(tree, <AchievementsScreen />)
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+
+    await settleRejection(
+      runs[1],
+      new ApiClientError('Request failed with status 401', 401, 'http')
+    )
+    expect(mockSessionRefetch).toHaveBeenCalledTimes(2)
+
+    await rerender(tree, <AchievementsScreen />)
+    await focus()
+    await blur()
+    await focus()
+    await appState('active')
+
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+    expect(mockSessionRefetch).toHaveBeenCalledTimes(2)
+    expect(renderedText(tree)).toContain('expired')
+    expect(
+      tree.root.findAllByProps({ testID: 'achievements-loading' })
+    ).toHaveLength(0)
+  })
+
+  test('a stale reconciliation cannot unlock a newer session’s suppression', async () => {
+    signIn('user-a')
+    const tree = await render(<AchievementsScreen />)
+    await settleRejection(
+      runs[0],
+      new ApiClientError('Request failed with status 401', 401, 'http')
+    )
+    expect(mockSessionRefetch).toHaveBeenCalledTimes(1)
+
+    signIn('user-b')
+    await rerender(tree, <AchievementsScreen />)
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+
+    await settleRejection(
+      runs[1],
+      new ApiClientError('Request failed with status 401', 401, 'http')
+    )
+    expect(mockSessionRefetch).toHaveBeenCalledTimes(2)
+
+    signIn('user-a', 'sess-user-a', '2026-01-01T00:00:00Z')
+    await rerender(tree, <AchievementsScreen />)
+
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+    expect(renderedText(tree)).toContain('expired')
+    expect(
+      tree.root.findAllByProps({
+        accessibilityLabel:
+          'Space Explorer, common achievement, Global, Welcome to the Cetus universe!, earned',
+      })
+    ).toHaveLength(0)
+  })
+
+  test('signing out and back in as the same user resumes fetching', async () => {
+    signIn('user-a')
+    const tree = await render(<AchievementsScreen />)
+    await settleRejection(
+      runs[0],
+      new ApiClientError('Request failed with status 401', 401, 'http')
+    )
+    expect(getUserOverview).toHaveBeenCalledTimes(1)
+
+    signOut()
+    await rerender(tree, <AchievementsScreen />)
+    expect(getUserOverview).toHaveBeenCalledTimes(1)
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel: 'Sign in to view achievements',
+      })
+    ).toBeTruthy()
+
+    signIn('user-a', 'sess-a3')
+    await rerender(tree, <AchievementsScreen />)
+
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+    await settle(runs[1], overview(['space_explorer']))
+    expect(renderedText(tree)).toContain('Space Explorer')
   })
 
   test('a different account still fetches after a 401 on the previous account', async () => {
