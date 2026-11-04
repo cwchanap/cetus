@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router'
 import { RefreshControl, ScrollView, View } from 'react-native'
 import { useNativeVariable } from 'react-native-css/native'
 import { useRemoteData } from '@cetus/app-core'
+import { Select } from '@cetus/ui'
 import type { LeaderboardResponse } from '@cetus/shared/api-dto'
 import { getActiveGames } from '@cetus/shared/games'
 
@@ -16,12 +17,16 @@ import {
   LeaderboardLoading,
   LeaderboardRow,
   leaderboardQueryFor,
-  ScopeChip,
   useRefetchOnFocus,
   type LeaderboardScope,
 } from '../../src/lib/leaderboard'
 
 const ACTIVE_GAMES = getActiveGames()
+
+const SCOPE_OPTIONS = [
+  { value: ALL_GAMES_SCOPE, label: 'All games' },
+  ...ACTIVE_GAMES.map(game => ({ value: game.id as string, label: game.name })),
+]
 
 export default function LeaderboardScreen() {
   const router = useRouter()
@@ -46,29 +51,21 @@ export default function LeaderboardScreen() {
     (data !== undefined && boards === null
       ? new Error('Unexpected leaderboard response')
       : null)
+  const selectedLabel =
+    SCOPE_OPTIONS.find(option => option.value === scope)?.label ?? 'All games'
 
   return (
     <View className="flex-1 bg-cetus-canvas">
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="grow-0"
-        contentContainerClassName="gap-2 px-4 py-3"
-      >
-        <ScopeChip
-          label="All games"
-          active={scope === ALL_GAMES_SCOPE}
-          onPress={() => setScope(ALL_GAMES_SCOPE)}
+      <View className="px-4 pb-1 pt-3">
+        <Select
+          accessibilityLabel="Leaderboard game selector"
+          accessibilityHint="Chooses which game's leaderboard to show"
+          accessibilityValue={{ text: selectedLabel }}
+          options={SCOPE_OPTIONS}
+          value={scope}
+          onValueChange={next => setScope(next as LeaderboardScope)}
         />
-        {ACTIVE_GAMES.map(game => (
-          <ScopeChip
-            key={game.id}
-            label={game.name}
-            active={scope === game.id}
-            onPress={() => setScope(game.id)}
-          />
-        ))}
-      </ScrollView>
+      </View>
       {boards === null ? (
         loading ? (
           <LeaderboardLoading />
