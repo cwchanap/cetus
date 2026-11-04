@@ -8,6 +8,7 @@ import type {
   LoginRewardClaimResponse,
   LoginRewardStatusResponse,
 } from '@cetus/shared/api-dto'
+import { getTodayUTC } from '@cetus/shared/challenges'
 
 import { api } from './api'
 import { authClient } from './auth-client'
@@ -24,7 +25,7 @@ const leaseReleaseSubscribers = new Set<() => void>()
 let mountedHostCount = 0
 let dismissedReward: {
   sessionKey: string | null
-  loginStreak: number
+  rewardDate: string
 } | null = null
 
 const toError = (reason: unknown): Error =>
@@ -59,10 +60,13 @@ export function LoginRewardHost() {
   const { data, error, refresh } = useRemoteData<{
     seq: number
     status: LoginRewardStatusResponse
+    fetchedDate: string
   }>(
     useCallback(() => {
       const seq = ++statusSeqRef.current
-      return api.getLoginRewardStatus().then(status => ({ seq, status }))
+      return api
+        .getLoginRewardStatus()
+        .then(status => ({ seq, status, fetchedDate: getTodayUTC() }))
     }, []),
     ['login-rewards', userId ?? 'anonymous', sessionKey ?? 'none'],
     eligible
@@ -94,6 +98,7 @@ export function LoginRewardHost() {
   const [claimOverlay, setClaimOverlay] = useState<{
     epoch: number
     coversThrough: number
+    date: string
     status: LoginRewardStatusResponse
   } | null>(null)
   const mountedRef = useRef(true)
@@ -119,10 +124,10 @@ export function LoginRewardHost() {
   const tokenRef = useRef<object>({})
   const claimBusyForRef = useRef<number | null>(null)
   const armedRef = useRef(false)
-  const prevClaimableRef = useRef(false)
+  const prevWindowRef = useRef<string | null>(null)
   const claimableWindowRef = useRef<{
     sessionKey: string | null
-    loginStreak: number
+    rewardDate: string
   } | null>(null)
 
   const [flowFor, setFlowFor] = useState<string | null>(sessionKey)
@@ -134,7 +139,7 @@ export function LoginRewardHost() {
     setClaimResult(null)
     setClaimOverlay(null)
     armedRef.current = false
-    prevClaimableRef.current = false
+    prevWindowRef.current = null
   }
 
   const isStaleClaim = (operation: { epoch: number; openSeq: number }) =>
@@ -178,7 +183,7 @@ export function LoginRewardHost() {
       dismissedReward !== null &&
       claimableWindow !== null &&
       dismissedReward.sessionKey === claimableWindow.sessionKey &&
-      dismissedReward.loginStreak === claimableWindow.loginStreak
+      dismissedReward.rewardDate === claimableWindow.rewardDate
     ) {
       armedRef.current = false
       return
@@ -198,7 +203,7 @@ export function LoginRewardHost() {
     if (claimableWindow !== null) {
       dismissedReward = {
         sessionKey: claimableWindow.sessionKey,
-        loginStreak: claimableWindow.loginStreak,
+        rewardDate: claimableWindow.rewardDate,
       }
     }
     hideModal()
@@ -232,29 +237,40 @@ export function LoginRewardHost() {
     }
   }, [eligible, focused, open, hideModal])
 
-  const status: LoginRewardStatusResponse | null = (() => {
+  useEffect(() => {
     if (
       claimOverlay !== null &&
-      claimOverlay.epoch === epoch &&
-      (data === undefined || data.seq <= claimOverlay.coversThrough)
+      data !== undefined &&
+      data.seq > claimOverlay.coversThrough
     ) {
-      return claimOverlay.status
+      setClaimOverlay(null)
     }
-    return data?.status ?? null
-  })()
-  const canClaimNow = eligible && status?.canClaim === true
+  }, [claimOverlay, data])
+
+  const overlayActive =
+    claimOverlay !== null &&
+    claimOverlay.epoch === epoch &&
+    (data === undefined || data.seq <= claimOverlay.coversThrough)
+  const status: LoginRewardStatusResponse | null = overlayActive
+    ? claimOverlay.status
+    : (data?.status ?? null)
+  const statusDate = overlayActive
+    ? claimOverlay.date
+    : (data?.fetchedDate ?? null)
+  const today = getTodayUTC()
+  const canClaimNow =
+    eligible && status?.canClaim === true && statusDate === today
+  const claimableDate = canClaimNow ? today : null
   claimableWindowRef.current =
-    canClaimNow && status !== null
-      ? { sessionKey, loginStreak: status.loginStreak }
-      : null
+    claimableDate !== null ? { sessionKey, rewardDate: claimableDate } : null
   useEffect(() => {
-    if (!canClaimNow) {
-      prevClaimableRef.current = false
+    if (claimableDate === null) {
+      prevWindowRef.current = null
       armedRef.current = false
       return
     }
-    if (!prevClaimableRef.current) {
-      prevClaimableRef.current = true
+    if (prevWindowRef.current !== claimableDate) {
+      prevWindowRef.current = claimableDate
       armedRef.current = true
     }
     if (!armedRef.current || open || !focused) {
@@ -262,7 +278,7 @@ export function LoginRewardHost() {
     }
     const timer = setTimeout(presentIfAllowed, AUTO_OPEN_DELAY_MS)
     return () => clearTimeout(timer)
-  }, [canClaimNow, focused, open, presentIfAllowed])
+  }, [claimableDate, focused, open, presentIfAllowed])
 
   useEffect(() => {
     if (claimPhase === 'success' && open) {
@@ -290,6 +306,7 @@ export function LoginRewardHost() {
             setClaimOverlay({
               epoch,
               coversThrough: statusSeqRef.current,
+              date: getTodayUTC(),
               status: result.updatedStatus,
             })
           }
@@ -302,14 +319,18 @@ export function LoginRewardHost() {
         refresh()
         return
       }
-      refresh()
+      if (mountedRef.current && latestRef.current.epoch === operation.epoch) {
+        refresh()
+      }
       if (isStaleClaim(operation)) {
         return
       }
       setClaimError(result.error || 'Failed to claim reward')
       setClaimPhase('error')
     } catch (reason) {
-      if (isStaleClaim(operation)) {
+      const sameSession =
+        mountedRef.current && latestRef.current.epoch === operation.epoch
+      if (!sameSession) {
         return
       }
       const caught = toError(reason)
@@ -318,6 +339,9 @@ export function LoginRewardHost() {
         return
       }
       refresh()
+      if (openSeqRef.current !== operation.openSeq) {
+        return
+      }
       setClaimError(
         caught instanceof ApiClientError
           ? caught.message

@@ -86,6 +86,13 @@ jest.mock('../src/lib/auth-client', () => ({
   },
 }))
 
+let mockTodayUTC = '2026-03-04'
+
+jest.mock('@cetus/shared/challenges', () => ({
+  ...jest.requireActual('@cetus/shared/challenges'),
+  getTodayUTC: () => mockTodayUTC,
+}))
+
 import { LoginRewardHost } from '../src/lib/login-rewards'
 import GamesScreen from '../app/(tabs)/index'
 import ProfileScreen from '../app/(tabs)/profile'
@@ -311,6 +318,7 @@ beforeEach(() => {
   mockFocusCallbacks.length = 0
   mockFocusCleanups = []
   mockFocusOnRegister = true
+  mockTodayUTC = '2026-03-04'
   mockSessionRefetch.mockReset().mockResolvedValue(undefined)
   mockNotificationAsync.mockReset().mockResolvedValue(undefined)
   mockRequestPermission.mockReset().mockResolvedValue({ granted: true })
@@ -780,6 +788,43 @@ describe('login reward host — claiming', () => {
     expect(renderedText(tree)).toContain('Claimed Today')
   })
 
+  test('a failed refetch cannot resurrect the retired claim overlay', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await openClaimable(tree)
+    await press(tree, 'Claim daily login reward')
+    await settle(claimRuns[0], claimSuccess())
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+    expect(renderedText(tree)).toContain('Claimed Today')
+
+    await settle(
+      statusRuns[1],
+      status({
+        loginStreak: 3,
+        currentCycleDay: 4,
+        todayReward: {
+          day: 4,
+          xp: 40,
+          icon: '💫',
+          description: 'Day 4 - Half way there!',
+        },
+        totalConsecutiveDays: 10,
+        daysUntilMilestone: 20,
+      })
+    )
+    expect(renderedText(tree)).toContain('+40 XP')
+
+    await focus()
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(3)
+    await settleRejection(
+      statusRuns[2],
+      new ApiClientError('Reward service unavailable', 500, 'http')
+    )
+
+    expect(renderedText(tree)).not.toContain('+30 XP')
+    expect(renderedText(tree)).not.toContain('Day 3 - Building momentum!')
+  })
+
   test('an unresolved claim from account A does not block account B', async () => {
     signIn('user-a')
     const tree = await render(<LoginRewardHost />)
@@ -1178,6 +1223,131 @@ describe('login reward host — focus-scoped presentation', () => {
     await focus()
     await drain(AUTO_OPEN_WAIT)
 
+    expect(openModals(tree)).toHaveLength(0)
+  })
+
+  test('a claim rejection while blurred still reconciles the same session status', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+    await press(tree, 'Claim daily login reward')
+
+    await blur()
+    expect(openModals(tree)).toHaveLength(0)
+
+    await settleRejection(
+      claimRuns[0],
+      new ApiClientError('Network error occurred', 0, 'network')
+    )
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+    expect(
+      tree.root.findAllByProps({ accessibilityRole: 'alert' })
+    ).toHaveLength(0)
+
+    await settle(
+      statusRuns[1],
+      status({ alreadyClaimed: true, canClaim: false })
+    )
+    await focus()
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(0)
+  })
+
+  test('a claim rejection after the account switched reconciles nothing', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+    await press(tree, 'Claim daily login reward')
+
+    signIn('user-b')
+    await rerender(tree, <LoginRewardHost />)
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+
+    await settleRejection(claimRuns[0], unauthorized())
+    expect(mockSessionRefetch).not.toHaveBeenCalled()
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+    expect(
+      tree.root.findAllByProps({ accessibilityRole: 'alert' })
+    ).toHaveLength(0)
+  })
+})
+
+describe('login reward host — dismissal window identity', () => {
+  test('re-presents the same-streak reward on the next UTC day', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+
+    await press(tree, 'Close daily login reward')
+    expect(openModals(tree)).toHaveLength(0)
+
+    mockTodayUTC = '2026-03-05'
+    await focus()
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+    await settle(statusRuns[1], status())
+    await drain(AUTO_OPEN_WAIT)
+
+    expect(openModals(tree)).toHaveLength(1)
+    expect(renderedText(tree)).toContain('Daily Login Reward')
+  })
+
+  test('re-presents a repeated-cycle day after the dismissed UTC day passes', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    const dayOne = () =>
+      status({
+        loginStreak: 0,
+        currentCycleDay: 1,
+        totalCycles: 1,
+        totalConsecutiveDays: 7,
+        todayReward: {
+          day: 1,
+          xp: 10,
+          icon: '🌟',
+          description: 'Day 1 - Welcome back!',
+        },
+        daysUntilMilestone: 23,
+      })
+    await settle(statusRuns[0], dayOne())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+
+    await press(tree, 'Close daily login reward')
+    expect(openModals(tree)).toHaveLength(0)
+
+    mockTodayUTC = '2026-03-12'
+    await focus()
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(2)
+    await settle(statusRuns[1], dayOne())
+    await drain(AUTO_OPEN_WAIT)
+
+    expect(openModals(tree)).toHaveLength(1)
+  })
+
+  test('a status fetched under a prior UTC day does not re-present after rollover', async () => {
+    signIn('user-a')
+    const tree = await render(<LoginRewardHost />)
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    await press(tree, 'Close daily login reward')
+    expect(openModals(tree)).toHaveLength(0)
+
+    mockTodayUTC = '2026-03-05'
+    await focus()
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(0)
+
+    await settle(
+      statusRuns[1],
+      status({ alreadyClaimed: true, canClaim: false })
+    )
+    await drain(AUTO_OPEN_WAIT)
     expect(openModals(tree)).toHaveLength(0)
   })
 })
