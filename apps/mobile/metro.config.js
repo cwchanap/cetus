@@ -5,6 +5,8 @@ const { getDefaultConfig } = require('expo/metro-config')
 
 const { withNativewind } = require('nativewind/metro')
 
+const { withWebOnlyUiGuard } = require('./metro-native-guard.config')
+
 const config = getDefaultConfig(__dirname)
 
 // react-native-css inlines every CSS variable declared exactly once. The
@@ -13,7 +15,7 @@ const config = getDefaultConfig(__dirname)
 // drop them from the runtime variable context. (Multi-declared vars like
 // --foreground, --cetus-ink, --font-sans and --cetus-display-font are never
 // inlined anyway and need no exclusion.)
-module.exports = withNativewind(config, {
+const nativewindConfig = withNativewind(config, {
   inlineVariables: {
     exclude: [
       '--cetus-canvas',
@@ -26,3 +28,9 @@ module.exports = withNativewind(config, {
     ],
   },
 })
+
+nativewindConfig.resolver.resolveRequest = withWebOnlyUiGuard(
+  nativewindConfig.resolver.resolveRequest
+)
+
+module.exports = nativewindConfig
