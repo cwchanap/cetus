@@ -43,6 +43,10 @@ import { sessionKeyFor, useExpiredSessionGate } from '../../src/lib/session'
 const toError = (reason: unknown): Error =>
   reason instanceof Error ? reason : new Error(String(reason))
 
+// Protected-API proof: the same `GET /api/settings` must succeed while
+// signed in and return 401 once signed out. Mounted in both session states
+// so the post-sign-out 401 is observable in the UI (live checks against the
+// real backend are the manual/device acceptance gate).
 export default function ProfileScreen() {
   const router = useRouter()
   const accent = useNativeVariable('--cetus-accent')
@@ -58,13 +62,18 @@ export default function ProfileScreen() {
   const { authExpired, markSessionExpired } = useExpiredSessionGate(sessionKey)
   const canFetch = userId !== null && !isPending && !authExpired
 
+  const mutationSeqRef = useRef(0)
+  const overviewDispatchSeqRef = useRef(0)
   const {
     data: overviewData,
     loading: overviewLoading,
     error: overviewError,
     refresh: refreshOverview,
   } = useRemoteData<UserOverviewResponse>(
-    useCallback(() => api.getUserOverview(), []),
+    useCallback(() => {
+      overviewDispatchSeqRef.current = mutationSeqRef.current
+      return api.getUserOverview()
+    }, []),
     ['profile', userId ?? 'anonymous', sessionKey ?? 'none'],
     canFetch
   )
@@ -115,14 +124,23 @@ export default function ProfileScreen() {
       mountedRef.current = false
     }
   }, [])
-  const sessionKeyRef = useRef(sessionKey)
-  useEffect(() => {
-    sessionKeyRef.current = sessionKey
-  }, [sessionKey])
-  const saveBusyRef = useRef(false)
-  const avatarBusyRef = useRef(false)
+  const saveBusyFor = useRef<string | null>(null)
+  const avatarBusyFor = useRef<string | null>(null)
+  const latestRef = useRef({ key: null as string | null, eligible: false })
+  latestRef.current = {
+    key: sessionKey,
+    eligible:
+      sessionKey !== null &&
+      !isPending &&
+      !authExpired &&
+      !isUnauthorizedError(overviewError) &&
+      !isUnauthorizedError(historyError) &&
+      !isUnauthorizedError(mutationError),
+  }
   const isStale = (key: string) =>
-    !mountedRef.current || sessionKeyRef.current !== key
+    !mountedRef.current ||
+    latestRef.current.key !== key ||
+    !latestRef.current.eligible
 
   const [draftFor, setDraftFor] = useState<string | null>(sessionKey)
   const [displayNameDraft, setDisplayNameDraft] = useState('')
@@ -135,6 +153,8 @@ export default function ProfileScreen() {
   const [avatarOverride, setAvatarOverride] = useState<{
     key: string
     uri: string | null
+    seq: number
+    baseline: UserOverviewResponse | undefined
   } | null>(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -162,6 +182,14 @@ export default function ProfileScreen() {
     setDisplayNameDraft(overviewData.profile.displayName ?? '')
     setUsernameDraft(overviewData.profile.username ?? '')
   }
+  if (
+    avatarOverride !== null &&
+    overviewData !== undefined &&
+    overviewData !== avatarOverride.baseline &&
+    overviewDispatchSeqRef.current >= avatarOverride.seq
+  ) {
+    setAvatarOverride(null)
+  }
 
   const openSignIn = useCallback(() => {
     router.push({
@@ -172,7 +200,12 @@ export default function ProfileScreen() {
 
   const saveProfile = async () => {
     const key = sessionKey
-    if (key === null || authExpired || saveBusyRef.current) {
+    if (
+      key === null ||
+      authExpired ||
+      isPending ||
+      saveBusyFor.current === key
+    ) {
       return
     }
     setProfileError(null)
@@ -187,13 +220,14 @@ export default function ProfileScreen() {
       )
       return
     }
-    saveBusyRef.current = true
+    saveBusyFor.current = key
     setSaving(true)
     try {
       await api.updateProfile(parsed.data)
       if (isStale(key)) {
         return
       }
+      mutationSeqRef.current += 1
       setProfileNotice('Profile updated.')
       refreshOverview()
     } catch (reason) {
@@ -206,7 +240,9 @@ export default function ProfileScreen() {
         setProfileError(error.message || 'Could not save your profile.')
       }
     } finally {
-      saveBusyRef.current = false
+      if (saveBusyFor.current === key) {
+        saveBusyFor.current = null
+      }
       if (!isStale(key)) {
         setSaving(false)
       }
@@ -215,10 +251,15 @@ export default function ProfileScreen() {
 
   const pickAvatar = async () => {
     const key = sessionKey
-    if (key === null || authExpired || avatarBusyRef.current) {
+    if (
+      key === null ||
+      authExpired ||
+      isPending ||
+      avatarBusyFor.current === key
+    ) {
       return
     }
-    avatarBusyRef.current = true
+    avatarBusyFor.current = key
     setUploading(true)
     setAvatarError(null)
     setAvatarNotice(null)
@@ -263,7 +304,13 @@ export default function ProfileScreen() {
       if (isStale(key)) {
         return
       }
-      setAvatarOverride({ key, uri: updated.avatar })
+      mutationSeqRef.current += 1
+      setAvatarOverride({
+        key,
+        uri: updated.avatar,
+        seq: mutationSeqRef.current,
+        baseline: overviewData,
+      })
       setAvatarNotice('Avatar updated.')
       refreshOverview()
     } catch (reason) {
@@ -276,7 +323,9 @@ export default function ProfileScreen() {
         setAvatarError("Couldn't update your avatar. Try again.")
       }
     } finally {
-      avatarBusyRef.current = false
+      if (avatarBusyFor.current === key) {
+        avatarBusyFor.current = null
+      }
       if (!isStale(key)) {
         setUploading(false)
       }
@@ -285,10 +334,15 @@ export default function ProfileScreen() {
 
   const removeAvatar = async () => {
     const key = sessionKey
-    if (key === null || authExpired || avatarBusyRef.current) {
+    if (
+      key === null ||
+      authExpired ||
+      isPending ||
+      avatarBusyFor.current === key
+    ) {
       return
     }
-    avatarBusyRef.current = true
+    avatarBusyFor.current = key
     setUploading(true)
     setAvatarError(null)
     setAvatarNotice(null)
@@ -297,7 +351,13 @@ export default function ProfileScreen() {
       if (isStale(key)) {
         return
       }
-      setAvatarOverride({ key, uri: null })
+      mutationSeqRef.current += 1
+      setAvatarOverride({
+        key,
+        uri: null,
+        seq: mutationSeqRef.current,
+        baseline: overviewData,
+      })
       setAvatarNotice('Avatar removed.')
       refreshOverview()
     } catch (reason) {
@@ -310,17 +370,41 @@ export default function ProfileScreen() {
         setAvatarError("Couldn't remove your avatar. Try again.")
       }
     } finally {
-      avatarBusyRef.current = false
+      if (avatarBusyFor.current === key) {
+        avatarBusyFor.current = null
+      }
       if (!isStale(key)) {
         setUploading(false)
       }
     }
   }
 
+  const handleSignOut = () => {
+    // The expo client clears the local session in its fetch `init`
+    // hook — before the request resolves — so a failed sign-out is
+    // never observable here: the screen is already on the signed-out
+    // view (and the user IS signed out locally regardless). Swallow
+    // rejections; there is nothing to surface.
+    void authClient.signOut().catch(() => {})
+  }
+
+  const signOutControl = (
+    <Button
+      variant="outline"
+      accessibilityRole="button"
+      accessibilityLabel="Sign out"
+      onPress={handleSignOut}
+      className="mt-1"
+    >
+      Sign out
+    </Button>
+  )
+
   if (isPending) {
     return (
       <View className="flex-1 bg-cetus-canvas">
         <ProfileLoading />
+        {session ? <View className="px-4 pb-10">{signOutControl}</View> : null}
       </View>
     )
   }
@@ -349,6 +433,7 @@ export default function ProfileScreen() {
             onRetry={refreshOverview}
           />
         )}
+        <View className="px-4 pb-10">{signOutControl}</View>
       </View>
     )
   }
@@ -359,7 +444,7 @@ export default function ProfileScreen() {
   const serverImage =
     avatarOverride !== null && avatarOverride.key === sessionKey
       ? avatarOverride.uri
-      : (profile.image ?? session.user.image ?? null)
+      : profile.image
   const memberSince = new Date(profile.createdAt).toLocaleDateString()
 
   return (
@@ -584,22 +669,7 @@ export default function ProfileScreen() {
           )}
         </Card>
 
-        <Button
-          variant="outline"
-          accessibilityRole="button"
-          accessibilityLabel="Sign out"
-          onPress={() => {
-            // The expo client clears the local session in its fetch `init`
-            // hook — before the request resolves — so a failed sign-out is
-            // never observable here: the screen is already on the signed-out
-            // view (and the user IS signed out locally regardless). Swallow
-            // rejections; there is nothing to surface.
-            void authClient.signOut().catch(() => {})
-          }}
-          className="mt-1"
-        >
-          Sign out
-        </Button>
+        {signOutControl}
       </ScrollView>
     </KeyboardAvoidingView>
   )
