@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import type { ChallengeProgressResponse } from '@cetus/shared/api-dto'
+import { LEVEL_THRESHOLDS } from '@cetus/shared/challenges'
 import { Badge } from './ui/badge.native'
 import { Card } from './ui/card.native'
 import { cn } from '../lib/utils'
@@ -227,7 +228,9 @@ export function DailyMissionsPanel({
           />
         </View>
         <Text className="font-sans text-xs text-cetus-ink-muted">
-          {xpToNextLevel} XP to Level {level + 1}
+          {level >= LEVEL_THRESHOLDS.length
+            ? 'Maximum level reached'
+            : `${xpToNextLevel} XP to Level ${level + 1}`}
         </Text>
       </View>
 

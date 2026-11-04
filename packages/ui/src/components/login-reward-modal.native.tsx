@@ -36,6 +36,7 @@ export function LoginRewardModal({
   const showLevelUp =
     claimResult?.leveledUp === true && claimResult.newLevel !== undefined
   const milestone = claimResult?.milestoneBadge
+  const daysUntilMilestone = status?.daysUntilMilestone
   const todayReward = status?.todayReward ?? {
     icon: '🌟',
     xp: 10,
@@ -152,14 +153,24 @@ export function LoginRewardModal({
                     Cycles
                   </Text>
                 </View>
-                <View className="items-center">
-                  <Text className="font-mono text-xl font-bold text-cetus-accent-3">
-                    {status?.daysUntilMilestone ?? 7}
-                  </Text>
-                  <Text className="font-sans text-sm text-cetus-ink-muted">
-                    Days to 🏅
-                  </Text>
-                </View>
+                {daysUntilMilestone === null ? (
+                  <View className="items-center">
+                    <Text className="text-xl">🏅</Text>
+                    <Text className="font-sans text-sm text-cetus-ink-muted">
+                      All milestones earned
+                    </Text>
+                  </View>
+                ) : null}
+                {typeof daysUntilMilestone === 'number' ? (
+                  <View className="items-center">
+                    <Text className="font-mono text-xl font-bold text-cetus-accent-3">
+                      {daysUntilMilestone}
+                    </Text>
+                    <Text className="font-sans text-sm text-cetus-ink-muted">
+                      Days to 🏅
+                    </Text>
+                  </View>
+                ) : null}
               </View>
 
               {showLevelUp ? (

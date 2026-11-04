@@ -1,6 +1,6 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { Text, View } from 'react-native'
+import { ScrollView, Text, View } from 'react-native'
 
 import * as Ui from '@cetus/ui'
 import type {
@@ -17,7 +17,12 @@ import { Select as DeepSelect } from '@cetus/ui/components/ui/select'
 import { Toggle as DeepToggle } from '@cetus/ui/components/ui/toggle'
 
 jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+  useSafeAreaInsets: jest.fn(() => ({
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  })),
 }))
 
 const mountedTrees: TestRenderer.ReactTestRenderer[] = []
@@ -451,6 +456,43 @@ test('Select styles muted text and the sheet with generated theme colors', async
   ).toBe(true)
 })
 
+const safeAreaContext = jest.requireMock('react-native-safe-area-context') as {
+  useSafeAreaInsets: jest.Mock
+}
+
+test('Select pads the sheet scroll content by the bottom safe-area inset', async () => {
+  safeAreaContext.useSafeAreaInsets.mockReturnValue({
+    top: 0,
+    right: 0,
+    bottom: 24,
+    left: 0,
+  })
+  try {
+    const tree = await render(
+      <Ui.Select
+        options={SELECT_OPTIONS}
+        value="all"
+        onValueChange={() => {}}
+      />
+    )
+    await act(async () => {
+      comboboxOf(tree).props.onPress()
+    })
+
+    const scrollView = tree.root.findByType(ScrollView)
+    expect(scrollView.props.contentContainerStyle).toEqual({
+      paddingBottom: 24,
+    })
+  } finally {
+    safeAreaContext.useSafeAreaInsets.mockImplementation(() => ({
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    }))
+  }
+})
+
 const switchOf = (
   tree: TestRenderer.ReactTestRenderer,
   accessibilityLabel: string
@@ -639,6 +681,38 @@ test('DailyMissionsPanel renders missions, XP progress, streak and the UTC reset
         'Warm Up, easy mission, Play 2 games today, 1 of 2 complete, 30 XP reward, in progress',
     })
   ).toBeTruthy()
+})
+
+test('DailyMissionsPanel reports the maximum level instead of a phantom next level', async () => {
+  const tree = await render(
+    <Ui.DailyMissionsPanel
+      {...PANEL_PROPS}
+      xp={16_500}
+      level={10}
+      xpProgress={100}
+      xpToNextLevel={0}
+    />
+  )
+
+  const text = renderedText(tree)
+  expect(text).toContain('Level 10')
+  expect(text).not.toContain('XP to Level 11')
+  expect(text).toContain('Maximum level reached')
+})
+
+test('DailyMissionsPanel still counts toward the level cap just below it', async () => {
+  const tree = await render(
+    <Ui.DailyMissionsPanel
+      {...PANEL_PROPS}
+      xp={15_800}
+      level={9}
+      xpToNextLevel={200}
+    />
+  )
+
+  const text = renderedText(tree)
+  expect(text).toContain('Level 9')
+  expect(text).toContain('200 XP to Level 10')
 })
 
 test('DailyMissionsPanel swaps the countdown for a refresh control once the reset passes', async () => {
@@ -1077,4 +1151,67 @@ test('LoginRewardModal surfaces level-up and milestone outcomes from the claim r
       accessibilityLabel: 'Claim daily login reward',
     })
   ).toHaveLength(0)
+})
+
+const milestoneStatText = (
+  tree: TestRenderer.ReactTestRenderer,
+  label: string
+) => {
+  const labelNode = tree.root
+    .findAllByType(Text)
+    .find(node => scalarText(node.props.children) === label)
+  if (!labelNode?.parent) {
+    return null
+  }
+  return labelNode.parent
+    .findAllByType(Text)
+    .map(node => scalarText(node.props.children))
+}
+
+test('LoginRewardModal renders the server-provided milestone countdown', async () => {
+  const tree = await render(
+    <Ui.LoginRewardModal {...rewardModalProps} status={REWARD_STATUS} open />
+  )
+
+  expect(milestoneStatText(tree, 'Days to 🏅')).toEqual(['21', 'Days to 🏅'])
+})
+
+test('LoginRewardModal renders a zero-day milestone countdown verbatim', async () => {
+  const tree = await render(
+    <Ui.LoginRewardModal
+      {...rewardModalProps}
+      status={{ ...REWARD_STATUS, daysUntilMilestone: 0 }}
+      open
+    />
+  )
+
+  expect(milestoneStatText(tree, 'Days to 🏅')).toEqual(['0', 'Days to 🏅'])
+})
+
+test('LoginRewardModal shows an earned state when the server reports no upcoming milestone', async () => {
+  const tree = await render(
+    <Ui.LoginRewardModal
+      {...rewardModalProps}
+      status={{
+        ...REWARD_STATUS,
+        nextMilestone: null,
+        daysUntilMilestone: null,
+      }}
+      open
+    />
+  )
+
+  const rendered = renderedText(tree)
+  expect(rendered).not.toContain('Days to 🏅')
+  expect(rendered).toContain('All milestones earned')
+})
+
+test('LoginRewardModal fabricates no milestone countdown while the status is loading', async () => {
+  const tree = await render(
+    <Ui.LoginRewardModal {...rewardModalProps} status={null} open />
+  )
+
+  const rendered = renderedText(tree)
+  expect(rendered).not.toContain('Days to 🏅')
+  expect(rendered).not.toContain('All milestones earned')
 })

@@ -8,6 +8,7 @@ import {
   View,
   type PressableProps,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cn } from '../../lib/utils'
 import type { SelectSize, SelectVariant } from '../../variants'
 
@@ -19,9 +20,7 @@ export interface SelectProps extends Omit<
   size?: SelectSize
   placeholder?: string
   options: Array<{ value: string; label: string }>
-  /** Controlled selected value. */
   value?: string
-  /** Uncontrolled initial selected value. */
   defaultValue?: string
   onValueChange?: (value: string) => void
   disabled?: boolean
@@ -71,6 +70,7 @@ export function Select({
   const [internalValue, setInternalValue] = useState(defaultValue ?? '')
   const currentValue = isControlled ? value : internalValue
   const [open, setOpen] = useState(false)
+  const insets = useSafeAreaInsets()
 
   const selected = options.find(option => option.value === currentValue)
   const displayLabel = selected?.label ?? placeholder
@@ -141,7 +141,9 @@ export function Select({
             onPress={() => setOpen(false)}
           />
           <View className="max-h-[70%] rounded-t-2xl border-t border-cetus-hairline bg-cetus-canvas">
-            <ScrollView>
+            <ScrollView
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
+            >
               {options.map(option => {
                 const isSelected = option.value === currentValue
                 return (
