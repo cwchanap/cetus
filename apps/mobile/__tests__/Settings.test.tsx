@@ -784,6 +784,194 @@ describe('settings route — signed in', () => {
     expect(rendered).toContain('Preferences saved')
     expect(rendered).not.toContain("Couldn't save")
   })
+
+  test('tracks each failed key until its own save succeeds', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Email Notifications', false)
+    await settleWriteRejection(
+      writes[0].run,
+      new ApiClientError('Internal server error', 500, 'http')
+    )
+
+    await flip(tree, 'Push Notifications', true)
+    await settleWriteRejection(
+      writes[1].run,
+      new ApiClientError('Internal server error', 500, 'http')
+    )
+
+    await flip(tree, 'Push Notifications', true)
+    await settleWrite(writes[2].run, updateOk({ push_notifications: true }))
+
+    let rendered = renderedText(tree)
+    expect(rendered).toContain("Couldn't save")
+    expect(rendered).not.toContain('Preferences saved')
+
+    await flip(tree, 'Email Notifications', false)
+    await settleWrite(
+      writes[3].run,
+      updateOk({ push_notifications: true, email_notifications: false })
+    )
+
+    rendered = renderedText(tree)
+    expect(rendered).toContain('Preferences saved')
+    expect(rendered).not.toContain("Couldn't save")
+  })
+})
+
+describe('settings route — write ownership', () => {
+  const ALL_LABELS = [
+    'Email Notifications',
+    'Push Notifications',
+    'Daily Challenge Reminders',
+  ]
+
+  const expectDisabled = (
+    tree: TestRenderer.ReactTestRenderer,
+    disabled: boolean
+  ) => {
+    for (const label of ALL_LABELS) {
+      expect(switchFor(tree, label).props.accessibilityState.disabled).toBe(
+        disabled
+      )
+    }
+  }
+
+  test('keeps toggles locked across a same-user session renewal until the write settles', async () => {
+    signIn('user-a', 'sess-a1')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    signIn('user-a', 'sess-a2')
+    await rerender(tree, <SettingsScreen />)
+    expect(getSettings).toHaveBeenCalledTimes(2)
+    await settle(runs[1], prefs({ push_notifications: false }))
+
+    expectDisabled(tree, true)
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(false)
+
+    await flip(tree, 'Push Notifications', false)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    await settleWrite(writes[0].run, updateOk({ push_notifications: true }))
+    expect(getSettings).toHaveBeenCalledTimes(3)
+
+    await settle(runs[2], prefs({ push_notifications: true }))
+    expectDisabled(tree, false)
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(true)
+  })
+
+  test('keeps toggles locked while session resolution dips mid-write', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    const sessionData = mockSession.data
+    mockSession = {
+      data: sessionData,
+      isPending: true,
+      refetch: mockSessionRefetch,
+    }
+    await rerender(tree, <SettingsScreen />)
+    expect(tree.root.findByProps({ testID: 'settings-loading' })).toBeTruthy()
+
+    mockSession = {
+      data: sessionData,
+      isPending: false,
+      refetch: mockSessionRefetch,
+    }
+    await rerender(tree, <SettingsScreen />)
+    expect(getSettings).toHaveBeenCalledTimes(2)
+    await settle(runs[1], prefs({ push_notifications: false }))
+
+    expectDisabled(tree, true)
+    await flip(tree, 'Push Notifications', false)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    await settleWrite(writes[0].run, updateOk({ push_notifications: true }))
+    expect(getSettings).toHaveBeenCalledTimes(3)
+    await settle(runs[2], prefs({ push_notifications: true }))
+    expectDisabled(tree, false)
+  })
+
+  test('locks a different account until the outstanding write settles without publishing into it', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    signIn('user-b')
+    await rerender(tree, <SettingsScreen />)
+    expect(getSettings).toHaveBeenCalledTimes(2)
+    await settle(runs[1], prefs())
+
+    expectDisabled(tree, true)
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(false)
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    await settleWrite(writes[0].run, updateOk({ push_notifications: true }))
+
+    expectDisabled(tree, false)
+    expect(getSettings).toHaveBeenCalledTimes(2)
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(false)
+  })
+
+  test('a remounted route stays locked until the outstanding write settles and then reconciles', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    mountedTrees.splice(mountedTrees.indexOf(tree), 1)
+    await act(async () => {
+      tree.unmount()
+    })
+
+    const remounted = await render(<SettingsScreen />)
+    expect(getSettings).toHaveBeenCalledTimes(2)
+    await settle(runs[1], prefs({ push_notifications: false }))
+
+    expectDisabled(remounted, true)
+    expect(
+      switchFor(remounted, 'Push Notifications').props.accessibilityState
+        .checked
+    ).toBe(false)
+
+    await flip(remounted, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    await settleWrite(writes[0].run, updateOk({ push_notifications: true }))
+    expect(getSettings).toHaveBeenCalledTimes(3)
+
+    await settle(runs[2], prefs({ push_notifications: true }))
+    expectDisabled(remounted, false)
+    expect(
+      switchFor(remounted, 'Push Notifications').props.accessibilityState
+        .checked
+    ).toBe(true)
+  })
 })
 
 describe('settings route — fetch errors and expiry', () => {

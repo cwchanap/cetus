@@ -86,6 +86,37 @@ export function notificationPrefsFor(
   return result
 }
 
+export type SettingsWriteLease = {
+  userId: string
+  settled: Promise<void>
+  finish: () => void
+}
+
+let activeSettingsWrite: SettingsWriteLease | null = null
+
+export function settingsWriteLease(): SettingsWriteLease | null {
+  return activeSettingsWrite
+}
+
+export function claimSettingsWrite(userId: string): SettingsWriteLease | null {
+  if (activeSettingsWrite !== null) {
+    return null
+  }
+  let finish!: () => void
+  const settled = new Promise<void>(resolve => {
+    finish = resolve
+  })
+  const lease: SettingsWriteLease = { userId, settled, finish }
+  activeSettingsWrite = lease
+  return lease
+}
+
+export function releaseSettingsWrite(lease: SettingsWriteLease): void {
+  if (activeSettingsWrite === lease) {
+    activeSettingsWrite = null
+  }
+}
+
 export function SettingsLoading() {
   return (
     <View
