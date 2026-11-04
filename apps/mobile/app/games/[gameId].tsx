@@ -85,6 +85,16 @@ export default function GameDetailScreen() {
           Not playable on mobile yet — the native port is still in progress.
         </Text>
       </View>
+      {router.canGoBack() ? null : (
+        <Button
+          variant="outline"
+          accessibilityLabel="Back to games"
+          accessibilityHint="Returns to the games catalog"
+          onPress={() => router.replace('/')}
+        >
+          Back to games
+        </Button>
+      )}
     </ScrollView>
   )
 }

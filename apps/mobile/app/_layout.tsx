@@ -42,6 +42,10 @@ SplashScreen.preventAutoHideAsync().catch(() => {
   // Keep booting if the splash cannot be held (e.g. already hidden).
 })
 
+export const unstable_settings = {
+  initialRouteName: '(tabs)',
+}
+
 export default function RootLayout() {
   // Splash stays up until the fonts load or definitively fail — or a
   // bounded timeout expires so a stalled font promise cannot hold startup

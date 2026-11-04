@@ -4,11 +4,16 @@ import { Text } from 'react-native'
 
 const mockPush = jest.fn()
 const mockReplace = jest.fn()
+const mockCanGoBack = jest.fn()
 const mockParams: { gameId?: string | string[] } = {}
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
-  useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  useRouter: () => ({
+    push: mockPush,
+    replace: mockReplace,
+    canGoBack: mockCanGoBack,
+  }),
   useLocalSearchParams: () => mockParams,
 }))
 
@@ -48,6 +53,7 @@ const ACTIVE_GAMES = GAMES.filter(game => game.isActive)
 beforeEach(() => {
   mockPush.mockClear()
   mockReplace.mockClear()
+  mockCanGoBack.mockReset().mockReturnValue(true)
   mockParams.gameId = undefined
 })
 
@@ -183,5 +189,45 @@ describe('game detail', () => {
       back.props.onPress()
     })
     expect(mockReplace).toHaveBeenCalledWith('/')
+  })
+})
+
+describe('cold-link recovery', () => {
+  test('valid details offer a Back to games fallback when the stack cannot go back', async () => {
+    mockParams.gameId = 'tetris'
+    mockCanGoBack.mockReturnValue(false)
+    const tree = await render(<GameDetailScreen />)
+
+    const back = tree.root.findByProps({ accessibilityLabel: 'Back to games' })
+    await act(async () => {
+      back.props.onPress()
+    })
+    expect(mockReplace).toHaveBeenCalledWith('/')
+  })
+
+  test('valid details hide the fallback while ordinary stack back is available', async () => {
+    mockParams.gameId = 'tetris'
+    mockCanGoBack.mockReturnValue(true)
+    const tree = await render(<GameDetailScreen />)
+
+    expect(
+      tree.root.findAllByProps({ accessibilityLabel: 'Back to games' })
+    ).toHaveLength(0)
+  })
+
+  test('the root layout anchors (tabs) beneath cold deep links', () => {
+    const fs = jest.requireActual('node:fs') as {
+      readFileSync: (filePath: string, encoding: 'utf-8') => string
+    }
+    const nodePath = jest.requireActual('node:path') as {
+      resolve: (...segments: string[]) => string
+    }
+    const proc = jest.requireActual('node:process') as { cwd: () => string }
+    const source = fs.readFileSync(
+      nodePath.resolve(proc.cwd(), 'app/_layout.tsx'),
+      'utf-8'
+    )
+    expect(source).toContain('unstable_settings')
+    expect(source).toContain("initialRouteName: '(tabs)'")
   })
 })
