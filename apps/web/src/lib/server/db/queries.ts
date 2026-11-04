@@ -325,6 +325,19 @@ export async function getGameLeaderboard(
             }
         }
 
+        try {
+            await sharedUserIdentityMigration()
+        } catch (error) {
+            console.warn(
+                '[getGameLeaderboard] identity schema unavailable:',
+                sanitizeError(error)
+            )
+            return {
+                status: 'unavailable',
+                code: 'SCORE_CONTEXT_UNAVAILABLE',
+            }
+        }
+
         const query = applyUnscopedContextIsolation(
             db
                 .selectFrom('game_scores')
@@ -402,13 +415,24 @@ async function applyUserIdentityColumns(): Promise<void> {
     _migrationsRun.add('userIdentity')
 }
 
+let _userIdentitySchemaPromise: Promise<void> | null = null
+
+function sharedUserIdentityMigration(): Promise<void> {
+    if (!_userIdentitySchemaPromise) {
+        _userIdentitySchemaPromise = applyUserIdentityColumns().finally(() => {
+            _userIdentitySchemaPromise = null
+        })
+    }
+    return _userIdentitySchemaPromise
+}
+
 /**
  * Ensure user identity columns (displayName, username) and unique index exist.
  * Safe and idempotent for SQLite/LibSQL.
  */
 export async function ensureUserIdentityColumns(): Promise<void> {
     try {
-        await applyUserIdentityColumns()
+        await sharedUserIdentityMigration()
     } catch (error) {
         // Log but swallow to avoid breaking primary flows
         console.warn('[ensureUserIdentityColumns] Migration warning:', error)
@@ -549,7 +573,7 @@ export async function getUserIdentityById(
 export async function getUserIdentityByIdStrict(
     userId: string
 ): Promise<PublicUser | null> {
-    await applyUserIdentityColumns()
+    await sharedUserIdentityMigration()
     return readUserIdentityById(userId)
 }
 
