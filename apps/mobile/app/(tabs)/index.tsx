@@ -8,6 +8,8 @@ import { getActiveGames, searchGames, type Game } from '@cetus/shared/games'
 import { difficultyBadgeVariant } from '../../src/lib/game-catalog'
 import { LoginRewardHost } from '../../src/lib/login-rewards'
 
+declare const __DEV__: boolean
+
 // All registry games are listed honestly: none are playable on mobile yet
 // (HPA-182/HPA-425 own the screens), so entries carry no tap handler at all.
 const ACTIVE_GAMES = getActiveGames()
@@ -97,6 +99,28 @@ export default function GamesScreen() {
           <Text className="font-sans text-sm text-cetus-ink-muted">›</Text>
         </Card>
       </Pressable>
+      {__DEV__ ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="UI gallery"
+          accessibilityHint="Opens the dev-only native component gallery"
+          onPress={() => router.push('/dev/ui-gallery')}
+          className="active:opacity-80"
+        >
+          <Card variant="sci-fi" className="flex-row items-center gap-3 p-4">
+            <Text className="text-xl">🧪</Text>
+            <View className="flex-1 gap-0.5">
+              <Text className="font-display text-sm font-bold text-cetus-ink">
+                UI gallery
+              </Text>
+              <Text className="font-sans text-xs text-cetus-ink-muted">
+                Dev-only component preview
+              </Text>
+            </View>
+            <Text className="font-sans text-sm text-cetus-ink-muted">›</Text>
+          </Card>
+        </Pressable>
+      ) : null}
       <TextInput
         accessibilityLabel="Search games"
         placeholder="Search games"
