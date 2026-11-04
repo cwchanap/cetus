@@ -547,21 +547,43 @@ describe('settings route — signed in', () => {
     expect(renderedText(tree)).toContain("Couldn't save")
   })
 
-  test('serializes rapid toggles on one key instead of racing them', async () => {
+  test('refuses another change while a save is pending, then accepts it after the acknowledgement', async () => {
     signIn('user-a')
     const tree = await render(<SettingsScreen />)
     await settle(runs[0], prefs())
 
     await flip(tree, 'Push Notifications', true)
     expect(updateSettings).toHaveBeenCalledTimes(1)
+    expect(renderedText(tree)).not.toContain('Preferences saved')
+
+    for (const label of [
+      'Email Notifications',
+      'Push Notifications',
+      'Daily Challenge Reminders',
+    ]) {
+      expect(switchFor(tree, label).props.accessibilityState.disabled).toBe(
+        true
+      )
+    }
 
     await flip(tree, 'Push Notifications', false)
     expect(updateSettings).toHaveBeenCalledTimes(1)
     expect(
       switchFor(tree, 'Push Notifications').props.accessibilityState.checked
-    ).toBe(false)
+    ).toBe(true)
 
     await settleWrite(writes[0].run, updateOk({ push_notifications: true }))
+    for (const label of [
+      'Email Notifications',
+      'Push Notifications',
+      'Daily Challenge Reminders',
+    ]) {
+      expect(switchFor(tree, label).props.accessibilityState.disabled).toBe(
+        false
+      )
+    }
+
+    await flip(tree, 'Push Notifications', false)
     expect(updateSettings).toHaveBeenCalledTimes(2)
     expect(writes[1].payload).toEqual({ push_notifications: false })
 
@@ -572,13 +594,64 @@ describe('settings route — signed in', () => {
     await settle(runs[runs.length - 1], prefs({ push_notifications: false }))
   })
 
-  test('a newer intent survives an older write failing underneath it', async () => {
+  test('a change arriving before the disabled state renders is still refused', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    const node = switchFor(tree, 'Push Notifications')
+    await act(async () => {
+      node.props.onChange({ nativeEvent: { value: true } })
+      node.props.onChange({ nativeEvent: { value: false } })
+    })
+    await drain()
+
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+    expect(writes[0].payload).toEqual({ push_notifications: true })
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(true)
+
+    await settleWrite(writes[0].run, updateOk({ push_notifications: true }))
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(true)
+    await settle(runs[runs.length - 1], prefs({ push_notifications: true }))
+  })
+
+  test('an accepted write still reaches the server when the route unmounts mid-flight', async () => {
     signIn('user-a')
     const tree = await render(<SettingsScreen />)
     await settle(runs[0], prefs())
 
     await flip(tree, 'Push Notifications', true)
     await flip(tree, 'Push Notifications', false)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+    expect(writes[0].payload).toEqual({ push_notifications: true })
+
+    mountedTrees.splice(mountedTrees.indexOf(tree), 1)
+    await act(async () => {
+      tree.unmount()
+    })
+    await settleWrite(writes[0].run, updateOk({ push_notifications: true }))
+
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+    expect(updateSettings).toHaveBeenLastCalledWith({
+      push_notifications: true,
+    })
+  })
+
+  test('a rejected save rolls back the pending value and flags the key', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    await flip(tree, 'Push Notifications', false)
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(true)
 
     await settleWriteRejection(
       writes[0].run,
@@ -631,7 +704,7 @@ describe('settings route — signed in', () => {
     })
   })
 
-  test('toggles on different keys save independently', async () => {
+  test('saves different keys one at a time so acknowledgements cannot overlap', async () => {
     signIn('user-a')
     const tree = await render(<SettingsScreen />)
     await settle(runs[0], prefs())
@@ -639,14 +712,18 @@ describe('settings route — signed in', () => {
     await flip(tree, 'Push Notifications', true)
     await flip(tree, 'Email Notifications', false)
 
-    expect(updateSettings).toHaveBeenCalledTimes(2)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
     expect(writes[0].payload).toEqual({ push_notifications: true })
+    expect(
+      switchFor(tree, 'Email Notifications').props.accessibilityState.checked
+    ).toBe(true)
+
+    await settleWrite(writes[0].run, updateOk({ push_notifications: true }))
+
+    await flip(tree, 'Email Notifications', false)
+    expect(updateSettings).toHaveBeenCalledTimes(2)
     expect(writes[1].payload).toEqual({ email_notifications: false })
 
-    await settleWrite(
-      writes[0].run,
-      updateOk({ push_notifications: true, email_notifications: true })
-    )
     await settleWrite(
       writes[1].run,
       updateOk({ push_notifications: true, email_notifications: false })
@@ -658,6 +735,54 @@ describe('settings route — signed in', () => {
     expect(
       switchFor(tree, 'Email Notifications').props.accessibilityState.checked
     ).toBe(false)
+  })
+
+  test('an unrelated success does not clear a visible save failure', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Email Notifications', false)
+    await settleWriteRejection(
+      writes[0].run,
+      new ApiClientError('Internal server error', 500, 'http')
+    )
+    expect(renderedText(tree)).toContain("Couldn't save")
+
+    await flip(tree, 'Push Notifications', true)
+    await settleWrite(writes[1].run, updateOk({ push_notifications: true }))
+
+    const rendered = renderedText(tree)
+    expect(rendered).toContain("Couldn't save")
+    expect(rendered).not.toContain('Preferences saved')
+  })
+
+  test('retrying the failed key resolves the failure and shows the acknowledgement', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Email Notifications', false)
+    await settleWriteRejection(
+      writes[0].run,
+      new ApiClientError('Internal server error', 500, 'http')
+    )
+    expect(renderedText(tree)).toContain("Couldn't save")
+
+    await flip(tree, 'Push Notifications', true)
+    await settleWrite(writes[1].run, updateOk({ push_notifications: true }))
+    expect(renderedText(tree)).toContain("Couldn't save")
+
+    await flip(tree, 'Email Notifications', false)
+    expect(writes[2].payload).toEqual({ email_notifications: false })
+    await settleWrite(
+      writes[2].run,
+      updateOk({ push_notifications: true, email_notifications: false })
+    )
+
+    const rendered = renderedText(tree)
+    expect(rendered).toContain('Preferences saved')
+    expect(rendered).not.toContain("Couldn't save")
   })
 })
 
@@ -999,6 +1124,57 @@ describe('settings route — refetch lifecycle', () => {
     expect(
       switchFor(tree, 'Push Notifications').props.accessibilityState.checked
     ).toBe(true)
+  })
+
+  test('a refresh issued before a save cannot regress the acknowledged value', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+    await focus()
+
+    await blur()
+    await focus()
+    expect(getSettings).toHaveBeenCalledTimes(2)
+
+    await flip(tree, 'Push Notifications', true)
+    expect(updateSettings).toHaveBeenCalledTimes(1)
+
+    await settleWrite(writes[0].run, updateOk({ push_notifications: true }))
+    expect(getSettings).toHaveBeenCalledTimes(3)
+    expect(renderedText(tree)).toContain('Preferences saved')
+
+    await settle(runs[1], prefs({ push_notifications: false }))
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(true)
+
+    await settle(runs[2], prefs({ push_notifications: true }))
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(true)
+  })
+
+  test('a refresh resolving mid-save does not clobber the pending intent', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+    await focus()
+
+    await blur()
+    await focus()
+    expect(getSettings).toHaveBeenCalledTimes(2)
+
+    await flip(tree, 'Push Notifications', true)
+    await settle(runs[1], prefs({ push_notifications: false }))
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(true)
+
+    await settleWrite(writes[0].run, updateOk({ push_notifications: true }))
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(true)
+    await settle(runs[runs.length - 1], prefs({ push_notifications: true }))
   })
 
   test('a focus refresh reflects preferences changed elsewhere', async () => {
