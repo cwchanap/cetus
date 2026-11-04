@@ -182,6 +182,16 @@ export function LoginRewardModal({
                 </View>
               ) : null}
 
+              {claimPhase === 'error' && claimError !== null ? (
+                <Text
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="assertive"
+                  className="text-center font-sans text-sm text-red-400"
+                >
+                  {claimError}
+                </Text>
+              ) : null}
+
               {showClaimButton ? (
                 <Button
                   variant="primary"
@@ -200,7 +210,7 @@ export function LoginRewardModal({
                   {claiming
                     ? 'Claiming...'
                     : claimPhase === 'error'
-                      ? claimError
+                      ? 'Try again'
                       : 'Claim Reward'}
                 </Button>
               ) : null}

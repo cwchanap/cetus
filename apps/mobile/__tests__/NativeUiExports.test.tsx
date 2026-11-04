@@ -1015,7 +1015,7 @@ test('LoginRewardModal marks the claim control busy and disabled while claiming'
   expect(renderedText(tree)).toContain('Claiming')
 })
 
-test('LoginRewardModal surfaces the claim error on the claim control', async () => {
+test('LoginRewardModal exposes the claim error through a dedicated alert surface', async () => {
   const tree = await render(
     <Ui.LoginRewardModal
       {...rewardModalProps}
@@ -1026,7 +1026,15 @@ test('LoginRewardModal surfaces the claim error on the claim control', async () 
     />
   )
 
-  expect(renderedText(tree)).toContain('Network error. Try again.')
+  const alert = tree.root.findByProps({ accessibilityRole: 'alert' })
+  expect(scalarText(alert.props.children)).toBe('Network error. Try again.')
+
+  const claim = tree.root.findByProps({
+    accessibilityLabel: 'Claim daily login reward',
+  })
+  expect(claim.props.accessibilityRole).toBe('button')
+  expect(claim.props.accessibilityState?.disabled).toBeFalsy()
+  expect(scalarText(claim.findByType(Text).props.children)).toBe('Try again')
 })
 
 test('LoginRewardModal shows the claimed state and hides the claim CTA when claimed', async () => {
