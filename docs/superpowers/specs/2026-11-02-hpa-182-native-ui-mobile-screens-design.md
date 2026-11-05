@@ -1,6 +1,6 @@
 # HPA-182 — Native UI components and mobile screens: design
 
-**Status:** Planning only; design-review corrections incorporated (2026-11-02). No implementation or device verification yet.
+**Status:** Implemented in PR #103; design-review corrections incorporated (2026-11-02). Device and external HPA-179 acceptance not yet verified.
 **Linear:** https://linear.app/cwchanap/issue/HPA-182/build-the-native-cetusui-components-and-the-mobile-app-screens
 **Baseline:** `main` at `9ba318b80d93542d61985bf0348248b8eab69516` (after HPA-179/#100; recheck at implementation start).
 **Implementation:** [Single-PR plan](../plans/2026-11-02-hpa-182-native-ui-mobile-screens-plan.md) · [Review discussion](https://github.com/cwchanap/cetus/pull/103#issuecomment-6597169546).

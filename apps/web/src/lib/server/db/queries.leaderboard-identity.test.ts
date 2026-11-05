@@ -160,6 +160,40 @@ describe('getGameLeaderboard — user identity schema', () => {
         }
     })
 
+    it('keeps the leaderboard readable when legacy duplicate usernames block the unique index', async () => {
+        vi.resetModules()
+        const { sql, db, queries } = await importFreshQueries()
+
+        await resetSchema(db, sql, USER_TABLE_WITH_IDENTITY_COLUMNS)
+        await sql
+            .raw(
+                `INSERT INTO user (id, name, email, emailVerified, username, displayName)
+                 VALUES ('u1', 'Alice', 'a@t.co', 0, 'diver', 'A'),
+                        ('u2', 'Bob', 'b@t.co', 0, 'diver', 'B')`
+            )
+            .execute(db)
+        await sql.raw(seedScore('snake', 100)).execute(db)
+
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        try {
+            const result = await queries.getGameLeaderboard('snake')
+
+            expect(result).toEqual([
+                expect.objectContaining({
+                    name: 'A',
+                    username: 'diver',
+                    score: 100,
+                }),
+            ])
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[applyUserIdentityColumns] username unique index unavailable:',
+                expect.any(String)
+            )
+        } finally {
+            warnSpy.mockRestore()
+        }
+    })
+
     it('surfaces an identity migration failure as unavailable instead of an empty list', async () => {
         vi.resetModules()
         const { sql, db, queries } = await importFreshQueries()
