@@ -38,7 +38,10 @@ import {
   RECENT_SCORE_LIMIT,
   StatChip,
 } from '../../src/lib/profile'
-import { LoginRewardHost } from '../../src/lib/login-rewards'
+import {
+  LoginRewardHost,
+  onLoginRewardClaimed,
+} from '../../src/lib/login-rewards'
 import { isUnauthorizedError, useRefetchOnFocus } from '../../src/lib/refetch'
 import { sessionKeyFor, useExpiredSessionGate } from '../../src/lib/session'
 
@@ -95,6 +98,7 @@ function ProfileScreenBody() {
     refreshHistory()
   }, [refreshOverview, refreshHistory])
   useRefetchOnFocus(refreshAll)
+  useEffect(() => onLoginRewardClaimed(refreshOverview), [refreshOverview])
 
   const [mutationError, setMutationError] = useState<Error | null>(null)
   const reconciledForRef = useRef<string | null>(null)

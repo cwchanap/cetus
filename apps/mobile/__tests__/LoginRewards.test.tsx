@@ -1502,4 +1502,18 @@ describe('login reward host — screen mounting', () => {
     expect(openModals(tree)).toHaveLength(1)
     expect(renderedText(tree)).toContain('Daily Login Reward')
   })
+
+  test('refreshes the profile overview after a claim on the profile tab', async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    expect(getUserOverview).toHaveBeenCalledTimes(1)
+
+    await settle(statusRuns[0], status())
+    await drain(AUTO_OPEN_WAIT)
+    await press(tree, 'Claim daily login reward')
+    await settle(claimRuns[0], claimSuccess())
+
+    expect(getUserOverview).toHaveBeenCalledTimes(2)
+    expect(getScoreHistory).toHaveBeenCalledTimes(1)
+  })
 })
