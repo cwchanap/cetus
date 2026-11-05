@@ -1208,6 +1208,37 @@ describe('login reward host — single visible modal', () => {
     expect(openModals(tree)).toHaveLength(1)
     expect(renderedText(tree)).toContain('+40 XP')
   })
+
+  test('a stale claim resolving after an account switch does not suppress the next account', async () => {
+    signIn('user-a')
+    const tree = await render(
+      <>
+        <LoginRewardHost key="a" />
+        <LoginRewardHost key="b" />
+      </>
+    )
+    await settle(statusRuns[0], status())
+    await settle(statusRuns[1], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+
+    await press(tree, 'Claim daily login reward')
+    expect(claimLoginReward).toHaveBeenCalledTimes(1)
+
+    // The session switches to another account while A's claim is still in
+    // flight; only the sibling host survives the switch.
+    signIn('user-b')
+    await rerender(tree, <LoginRewardHost key="b" />)
+
+    // A's claim resolves late. Its broadcast is scoped to A's session, so
+    // it must not disarm B's host or dismiss B's unclaimed same-day reward.
+    await settle(claimRuns[0], claimSuccess())
+    await settle(statusRuns[2], status())
+    await drain(AUTO_OPEN_WAIT)
+
+    expect(openModals(tree)).toHaveLength(1)
+    expect(renderedText(tree)).toContain('Daily Login Reward')
+  })
 })
 
 describe('login reward host — focus-scoped presentation', () => {

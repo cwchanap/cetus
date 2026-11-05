@@ -48,6 +48,7 @@ export default function SettingsScreen() {
     isPending,
     userId,
     sessionKey,
+    gateKey,
     authExpired,
     reconcileSession,
   } = useSessionGuard()
@@ -65,6 +66,17 @@ export default function SettingsScreen() {
   useRefetchOnFocus(refresh)
 
   const [mutationError, setMutationError] = useState<Error | null>(null)
+  // A mutation 401 belongs to the gate that was live when it failed. When
+  // reconciliation refreshes a renewed session record the gate key rotates
+  // but the stable sessionKey does not — clearing here keeps the stale 401
+  // from re-latching the renewed gate.
+  const [mutationErrorFor, setMutationErrorFor] = useState<string | null>(
+    gateKey
+  )
+  if (mutationErrorFor !== gateKey) {
+    setMutationErrorFor(gateKey)
+    setMutationError(null)
+  }
   useUnauthorizedReconcile([error, mutationError], reconcileSession)
 
   const eligible =

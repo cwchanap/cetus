@@ -25,10 +25,17 @@ const AUTO_CLOSE_MS = 3000
 
 let modalLease: object | null = null
 const leaseReleaseSubscribers = new Set<() => void>()
-// Identifies the concrete reward a claim retired: `cycleDay` distinguishes
-// the claimed offer from newer same-day truth (e.g. a rollover to the next
-// cycle day), which must still be allowed to open the modal.
-type ClaimedWindow = { rewardDate: string; cycleDay: number | null }
+// Identifies the concrete reward a claim retired: `sessionKey` scopes the
+// broadcast to the session that claimed (a claim resolving after an account
+// switch must not dismiss the next account's offer), and `cycleDay`
+// distinguishes the claimed offer from newer same-day truth (e.g. a
+// rollover to the next cycle day), which must still be allowed to open the
+// modal.
+type ClaimedWindow = {
+  sessionKey: string | null
+  rewardDate: string
+  cycleDay: number | null
+}
 const claimSubscribers = new Set<
   (claimedBy: object, claimed: ClaimedWindow) => void
 >()
@@ -118,15 +125,20 @@ export function LoginRewardHost() {
     cycleDay: number | null
   } | null>(null)
 
-  // Sibling hosts refetch immediately when a claim lands elsewhere. Anything
-  // they currently offer is pre-claim truth, so disarm it and mark the
-  // claimed reward dismissed: a stale response landing after this broadcast
-  // (one that read the server before the claim committed) cannot reopen the
-  // modal for the retired reward.
+  // Sibling hosts on the same session refetch immediately when a claim
+  // lands elsewhere. Anything they currently offer is pre-claim truth, so
+  // disarm it and mark the claimed reward dismissed: a stale response
+  // landing after this broadcast (one that read the server before the
+  // claim committed) cannot reopen the modal for the retired reward. A
+  // claim broadcast from another session (e.g. a stale in-flight claim
+  // resolving after sign-out) is not this account's truth — ignore it.
   useEffect(
     () =>
       onLoginRewardClaimed((claimedBy, claimed) => {
-        if (claimedBy === tokenRef.current) {
+        if (
+          claimedBy === tokenRef.current ||
+          claimed.sessionKey !== sessionKey
+        ) {
           return
         }
         armedRef.current = false
@@ -366,6 +378,7 @@ export function LoginRewardHost() {
         refresh()
         for (const subscriber of [...claimSubscribers]) {
           subscriber(tokenRef.current, {
+            sessionKey: operation.sessionKey,
             rewardDate: operation.requestDate,
             cycleDay: operation.cycleDay,
           })
