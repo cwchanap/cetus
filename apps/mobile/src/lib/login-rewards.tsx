@@ -22,6 +22,7 @@ const AUTO_CLOSE_MS = 3000
 
 let modalLease: object | null = null
 const leaseReleaseSubscribers = new Set<() => void>()
+const claimSubscribers = new Set<() => void>()
 let mountedHostCount = 0
 let dismissedReward: {
   sessionKey: string | null
@@ -30,6 +31,16 @@ let dismissedReward: {
 
 const toError = (reason: unknown): Error =>
   reason instanceof Error ? reason : new Error(String(reason))
+
+// A successful claim changes XP/level server-side; sibling surfaces on the
+// same screen (the profile's dive stats) subscribe to refetch since closing
+// the modal is not a navigation focus change. Returns an unsubscribe.
+export function onLoginRewardClaimed(listener: () => void): () => void {
+  claimSubscribers.add(listener)
+  return () => {
+    claimSubscribers.delete(listener)
+  }
+}
 
 export function LoginRewardHost() {
   const {
@@ -332,6 +343,9 @@ export function LoginRewardHost() {
           ).catch(() => undefined)
         }
         refresh()
+        for (const subscriber of [...claimSubscribers]) {
+          subscriber()
+        }
         return
       }
       if (mountedRef.current && latestRef.current.epoch === operation.epoch) {

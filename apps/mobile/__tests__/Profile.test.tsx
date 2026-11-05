@@ -66,6 +66,7 @@ const mockLoginRewardHost = jest.fn((_props: object) => null)
 
 jest.mock('../src/lib/login-rewards', () => ({
   LoginRewardHost: (props: object) => mockLoginRewardHost(props),
+  onLoginRewardClaimed: () => () => {},
 }))
 
 import ProfileScreen from '../app/(tabs)/profile'
