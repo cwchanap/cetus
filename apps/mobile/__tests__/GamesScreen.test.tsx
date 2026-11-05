@@ -1,6 +1,6 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { Text } from 'react-native'
+import { Text, TextInput } from 'react-native'
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -34,4 +34,26 @@ test('games screen renders every active registry game', async () => {
   for (const game of active) {
     expect(rendered).toContain(game.name)
   }
+})
+
+// Mobile keyboards commonly append a trailing space; the search term must be
+// trimmed before matching, not just when deciding whether to search.
+test('search matches a game despite surrounding whitespace', async () => {
+  let tree: TestRenderer.ReactTestRenderer | undefined
+  await act(async () => {
+    tree = TestRenderer.create(<GamesScreen />)
+  })
+
+  const input = tree?.root.findByType(TextInput)
+  await act(async () => {
+    input?.props.onChangeText(' snake ')
+  })
+
+  const rendered =
+    tree?.root
+      .findAllByType(Text)
+      .map(node => JSON.stringify(node.props.children))
+      .join('\n') ?? ''
+  expect(rendered).toContain('Snake')
+  expect(rendered).not.toContain('No games match your search.')
 })

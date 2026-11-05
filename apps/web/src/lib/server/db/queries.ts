@@ -408,10 +408,20 @@ async function applyUserIdentityColumns(): Promise<void> {
         await sql`ALTER TABLE "user" ADD COLUMN username TEXT`.execute(db)
     }
 
-    // Create unique index for username (allows multiple NULLs by SQLite semantics)
-    await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON "user" (username)`.execute(
-        db
-    )
+    // The unique index is a uniqueness backstop, not a read dependency. A
+    // legacy database can hold duplicate usernames that make index creation
+    // fail; reads (leaderboard joins, identity lookups) must stay available,
+    // so warn and continue rather than blocking every consumer.
+    try {
+        await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON "user" (username)`.execute(
+            db
+        )
+    } catch (error) {
+        console.warn(
+            '[applyUserIdentityColumns] username unique index unavailable:',
+            sanitizeError(error)
+        )
+    }
     _migrationsRun.add('userIdentity')
 }
 
@@ -468,6 +478,24 @@ export async function isUsernameAvailable(
 }
 
 /**
+ * Normalize a `user.createdAt` value to an ISO string. The column's `date`
+ * affinity lets SQLite/libsql return a `Date`, an ISO string, or a numeric
+ * millisecond timestamp depending on how the row was written; `String(value)`
+ * alone cannot parse a bare timestamp and silently drops milliseconds off
+ * `Date` instances. Unparseable values still throw (RangeError) so strict
+ * callers surface 5xx rather than fabricate a date.
+ */
+function createdAtToIsoString(value: unknown): string {
+    if (value instanceof Date) {
+        return value.toISOString()
+    }
+    const str = String(value)
+    const timestamp = /^\d+$/.test(str) ? Number(str) : NaN
+    const parsed = Number.isNaN(timestamp) ? new Date(str) : new Date(timestamp)
+    return parsed.toISOString()
+}
+
+/**
  * Get a user by username (for public profile viewing)
  */
 export type PublicUser = {
@@ -509,7 +537,7 @@ export async function getUserByUsername(
             image: row.image ?? null,
             name: row.name,
             email: row.email,
-            createdAt: new Date(String(row.createdAt)).toISOString(),
+            createdAt: createdAtToIsoString(row.createdAt),
         }
     } catch (error) {
         console.error(
@@ -548,7 +576,7 @@ async function readUserIdentityById(
         image: row.image ?? null,
         name: row.name,
         email: row.email,
-        createdAt: new Date(String(row.createdAt)).toISOString(),
+        createdAt: createdAtToIsoString(row.createdAt),
     }
 }
 

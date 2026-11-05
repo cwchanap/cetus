@@ -71,7 +71,8 @@ export default function GamesScreen() {
   const [category, setCategory] = useState<CategoryFilter>('all')
 
   const games = useMemo(() => {
-    const base = query.trim() ? searchGames(query) : ACTIVE_GAMES
+    const trimmed = query.trim()
+    const base = trimmed ? searchGames(trimmed) : ACTIVE_GAMES
     return category === 'all'
       ? base
       : base.filter(game => game.category === category)
