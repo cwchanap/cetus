@@ -11,8 +11,12 @@ export function isNetworkError(error: Error | null): boolean {
     return error instanceof ApiClientError && error.kind === 'network'
 }
 
-export function isUnauthorizedError(error: Error | null): boolean {
+export function isUnauthorizedError(error: Error | null | undefined): boolean {
     return error instanceof ApiClientError && error.status === 401
+}
+
+export function toError(reason: unknown): Error {
+    return reason instanceof Error ? reason : new Error(String(reason))
 }
 
 export function useRefetchOnFocus(refetch: () => void): void {

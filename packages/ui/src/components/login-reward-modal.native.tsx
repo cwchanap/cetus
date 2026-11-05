@@ -226,7 +226,7 @@ export function LoginRewardModal({
                 </Button>
               ) : null}
 
-              {!canClaim || claimPhase === 'success' ? (
+              {(status !== null && !canClaim) || claimPhase === 'success' ? (
                 <View className="items-center">
                   <Text className="font-sans font-semibold text-green-400">
                     ✓ Claimed Today

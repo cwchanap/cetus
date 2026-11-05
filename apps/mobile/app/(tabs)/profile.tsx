@@ -42,29 +42,30 @@ import {
   LoginRewardHost,
   onLoginRewardClaimed,
 } from '../../src/lib/login-rewards'
-import { isUnauthorizedError, useRefetchOnFocus } from '../../src/lib/refetch'
-import { sessionKeyFor, useExpiredSessionGate } from '../../src/lib/session'
+import { userOverviewResponseFor } from '../../src/lib/overview'
+import {
+  isUnauthorizedError,
+  toError,
+  useRefetchOnFocus,
+} from '../../src/lib/refetch'
+import {
+  useOperationEpoch,
+  useSessionGuard,
+  useUnauthorizedReconcile,
+} from '../../src/lib/session'
 
-const toError = (reason: unknown): Error =>
-  reason instanceof Error ? reason : new Error(String(reason))
-
-// Protected-API proof: the same `GET /api/settings` must succeed while
-// signed in and return 401 once signed out. Mounted in both session states
-// so the post-sign-out 401 is observable in the UI (live checks against the
-// real backend are the manual/device acceptance gate).
 function ProfileScreenBody() {
   const router = useRouter()
   const accent = useNativeVariable('--cetus-accent')
   const inkMuted = useNativeVariable('--cetus-ink-muted')
-  // useSession is Better Auth's react binding over getSession.
   const {
-    data: session,
+    session,
     isPending,
-    refetch: refetchSession,
-  } = authClient.useSession()
-  const userId = session?.user.id ?? null
-  const sessionKey = sessionKeyFor(session)
-  const { authExpired, markSessionExpired } = useExpiredSessionGate(sessionKey)
+    userId,
+    sessionKey,
+    authExpired,
+    reconcileSession,
+  } = useSessionGuard()
   const canFetch = userId !== null && !isPending && !authExpired
 
   const mutationSeqRef = useRef(0)
@@ -81,7 +82,10 @@ function ProfileScreenBody() {
     ['profile', userId ?? 'anonymous', sessionKey ?? 'none'],
     canFetch
   )
-  const overviewData = overviewResult?.overview
+  const overviewData =
+    overviewResult === undefined
+      ? undefined
+      : userOverviewResponseFor(overviewResult.overview)
   const overviewSeq = overviewResult?.seq
   const {
     data: historyData,
@@ -101,36 +105,11 @@ function ProfileScreenBody() {
   useEffect(() => onLoginRewardClaimed(refreshOverview), [refreshOverview])
 
   const [mutationError, setMutationError] = useState<Error | null>(null)
-  const reconciledForRef = useRef<string | null>(null)
-  useEffect(() => {
-    const unauthorized =
-      isUnauthorizedError(overviewError) ||
-      isUnauthorizedError(historyError) ||
-      isUnauthorizedError(mutationError)
-    if (!unauthorized || sessionKey === null) {
-      return
-    }
-    markSessionExpired()
-    if (reconciledForRef.current !== sessionKey) {
-      reconciledForRef.current = sessionKey
-      void Promise.resolve(refetchSession?.()).catch(() => undefined)
-    }
-  }, [
-    overviewError,
-    historyError,
-    mutationError,
-    sessionKey,
-    markSessionExpired,
-    refetchSession,
-  ])
+  useUnauthorizedReconcile(
+    [overviewError, historyError, mutationError],
+    reconcileSession
+  )
 
-  const mountedRef = useRef(true)
-  useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
   const eligible =
     sessionKey !== null &&
     !isPending &&
@@ -138,24 +117,18 @@ function ProfileScreenBody() {
     !isUnauthorizedError(overviewError) &&
     !isUnauthorizedError(historyError) &&
     !isUnauthorizedError(mutationError)
-  const epochRef = useRef(0)
-  const latestRef = useRef({ key: sessionKey, eligible, epoch: 0 })
-  if (
-    latestRef.current.key !== sessionKey ||
-    latestRef.current.eligible !== eligible
-  ) {
-    epochRef.current += 1
-  }
-  latestRef.current = { key: sessionKey, eligible, epoch: epochRef.current }
+  const { latest: latestRef, isStale } = useOperationEpoch(sessionKey, eligible)
   const epoch = latestRef.current.epoch
   const saveBusyFor = useRef<number | null>(null)
   const avatarBusyFor = useRef<number | null>(null)
-  const isStale = (operationEpoch: number) =>
-    !mountedRef.current || latestRef.current.epoch !== operationEpoch
 
   const [draftFor, setDraftFor] = useState<string | null>(sessionKey)
   const [displayNameDraft, setDisplayNameDraft] = useState('')
   const [usernameDraft, setUsernameDraft] = useState('')
+  const [draftBaseline, setDraftBaseline] = useState<{
+    displayName: string | null
+    username: string | null
+  } | null>(null)
   const [syncedFor, setSyncedFor] = useState<string | null>(null)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileNotice, setProfileNotice] = useState<string | null>(null)
@@ -175,6 +148,7 @@ function ProfileScreenBody() {
     setSyncedFor(null)
     setDisplayNameDraft('')
     setUsernameDraft('')
+    setDraftBaseline(null)
     setProfileError(null)
     setProfileNotice(null)
     setAvatarError(null)
@@ -184,14 +158,14 @@ function ProfileScreenBody() {
     setSaving(false)
     setUploading(false)
   }
-  if (
-    overviewData !== undefined &&
-    sessionKey !== null &&
-    syncedFor !== sessionKey
-  ) {
+  if (overviewData && sessionKey !== null && syncedFor !== sessionKey) {
     setSyncedFor(sessionKey)
     setDisplayNameDraft(overviewData.profile.displayName ?? '')
     setUsernameDraft(overviewData.profile.username ?? '')
+    setDraftBaseline({
+      displayName: overviewData.profile.displayName,
+      username: overviewData.profile.username,
+    })
   }
   if (busyResetEpoch !== epoch) {
     setBusyResetEpoch(epoch)
@@ -231,14 +205,57 @@ function ProfileScreenBody() {
       )
       return
     }
+    // Only fields that differ from the last-synced server values go over the
+    // wire — resending an untouched draft would overwrite a change made on
+    // the web with this session's stale value.
+    const updates: {
+      displayName?: string | null
+      username?: string | null
+    } = {}
+    if (
+      draftBaseline !== null &&
+      parsed.data.displayName !== undefined &&
+      parsed.data.displayName !== draftBaseline.displayName
+    ) {
+      updates.displayName = parsed.data.displayName
+    }
+    if (
+      draftBaseline !== null &&
+      parsed.data.username !== undefined &&
+      parsed.data.username !== draftBaseline.username
+    ) {
+      updates.username = parsed.data.username
+    }
+    if (updates.displayName === undefined && updates.username === undefined) {
+      setProfileNotice('No changes to save.')
+      return
+    }
     saveBusyFor.current = opEpoch
     setSaving(true)
     try {
-      await api.updateProfile(parsed.data)
+      await api.updateProfile(updates)
       if (isStale(opEpoch)) {
         return
       }
       mutationSeqRef.current += 1
+      setDraftBaseline(current => ({
+        displayName:
+          updates.displayName !== undefined
+            ? updates.displayName
+            : (current?.displayName ?? null),
+        username:
+          updates.username !== undefined
+            ? updates.username
+            : (current?.username ?? null),
+      }))
+      // Echo the schema normalization (trim/lowercase) the server stored
+      // back into the inputs instead of leaving the raw typing behind.
+      if (updates.displayName !== undefined) {
+        setDisplayNameDraft(updates.displayName ?? '')
+      }
+      if (updates.username !== undefined) {
+        setUsernameDraft(updates.username ?? '')
+      }
       setProfileNotice('Profile updated.')
       refreshOverview()
     } catch (reason) {
@@ -268,14 +285,9 @@ function ProfileScreenBody() {
     setAvatarError(null)
     setAvatarNotice(null)
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
-      if (isStale(opEpoch)) {
-        return
-      }
-      if (!permission.granted) {
-        setAvatarError('Allow photo library access to choose an avatar.')
-        return
-      }
+      // launchImageLibraryAsync presents the system picker out-of-process;
+      // media-library permission is only required on iOS 10 and must not
+      // gate opening the picker.
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
@@ -423,14 +435,21 @@ function ProfileScreenBody() {
     )
   }
 
-  if (overviewData === undefined) {
+  if (overviewData === undefined || overviewData === null) {
     return (
       <View className="flex-1 bg-cetus-canvas">
-        {overviewLoading ? (
+        {overviewLoading && overviewData === undefined ? (
           <ProfileLoading />
         ) : (
           <ProfileError
-            error={overviewError ?? new Error('Profile request failed')}
+            error={
+              overviewError ??
+              new Error(
+                overviewData === null
+                  ? 'Unexpected profile response'
+                  : 'Profile request failed'
+              )
+            }
             onRetry={refreshOverview}
           />
         )}

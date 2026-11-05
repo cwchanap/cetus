@@ -14,13 +14,13 @@ This project uses **Bun** (`bun@1.3.14`) as the package manager.
 ### Repository Layout
 Bun-workspaces monorepo with a single root `bun.lock` (`bunfig.toml` pins the hoisted linker):
 - `apps/web` (`@cetus/web`) — the Astro app: all renderers, DOM pages, Astro, auth, DB and `e2e/`/`scripts/`/`db/` live here
-- `apps/mobile` (`@cetus/mobile`) — the Expo Router iOS/Android shell: four tabs, the shared 23-game catalog, Google/Apple browser OAuth via the web app's Better Auth server (application code consumes `@cetus/shared` + `@cetus/api-client` only; styling pulls `@cetus/tokens` and tooling extends `@cetus/config`; mobile Jest is separate from root Vitest)
+- `apps/mobile` (`@cetus/mobile`) — the Expo Router iOS/Android shell: four tabs, the shared 23-game catalog, Google/Apple browser OAuth via the web app's Better Auth server (application code consumes `@cetus/shared`, `@cetus/api-client` and `@cetus/app-core`; components come from `@cetus/ui` — Metro resolves its `react-native` export conditions to `*.native.tsx` variants; styling pulls `@cetus/tokens` and tooling extends `@cetus/config`; mobile Jest is separate from root Vitest)
 - `packages/shared` (`@cetus/shared`) — portable domain: Zod request schemas, wire DTOs, score types, achievements, challenges, validations (no DOM, no server deps)
 - `packages/games` (`@cetus/games`) — portable game rules for all 23 games (BaseGame framework, game logic; depends on `@cetus/shared`, no DOM)
 - `packages/api-client` (`@cetus/api-client`) — typed fetch client for the app API (14 methods; depends on `@cetus/shared`)
 - `packages/config` (`@cetus/config`) — shared tsconfig/eslint base configs
 - `packages/tokens` (`@cetus/tokens`) — CSS-only semantic theme tokens
-- Dependency direction: `web → api-client → shared`, `web → games → shared` and `web → app-core → shared`/`games`; packages never import from `apps/web` or each other sideways (enforced by root ESLint `no-restricted-imports` on `packages/**` and per-package no-DOM `typecheck`)
+- Dependency direction: `web → api-client → shared`, `web → games → shared`, `web → app-core → shared`/`games` and `mobile → api-client`/`app-core`/`ui`/`tokens` → `shared`; packages never import from `apps/web` or each other sideways (enforced by root ESLint `no-restricted-imports` on `packages/**` and per-package no-DOM `typecheck`)
 - Root `package.json` scripts proxy into the web workspace via `bun run --cwd apps/web ...`; root `lint` runs `eslint .` over the whole repo
 
 ### Core Commands

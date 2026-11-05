@@ -1151,6 +1151,63 @@ describe('login reward host — single visible modal', () => {
     expect(openModals(tree)).toHaveLength(0)
     expect(renderedText(tree)).not.toContain('Daily Login Reward')
   })
+
+  test('a claim on one host disarms a sibling still holding stale claimable truth', async () => {
+    signIn('user-a')
+    const tree = await render(
+      <>
+        <LoginRewardHost key="a" />
+        <LoginRewardHost key="b" />
+      </>
+    )
+    await settle(statusRuns[0], status())
+    await settle(statusRuns[1], status())
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+
+    await press(tree, 'Claim daily login reward')
+    await settle(claimRuns[0], claimSuccess())
+    // The claim broadcasts to the sibling, which refreshes on its own.
+    expect(getLoginRewardStatus).toHaveBeenCalledTimes(4)
+
+    // The sibling's broadcast-triggered refetch resolves with a pre-claim
+    // read (server state from before the claim committed).
+    await settle(statusRuns[3], status())
+    await settle(
+      statusRuns[2],
+      status({ alreadyClaimed: true, canClaim: false })
+    )
+
+    // After the claiming host's modal auto-closes and frees the lease, the
+    // sibling's stale window must not reopen the modal.
+    await drain(3200)
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(0)
+
+    // Genuinely newer truth (the next cycle day) still re-arms the sibling.
+    await focus()
+    await settle(
+      statusRuns[4],
+      status({ alreadyClaimed: true, canClaim: false })
+    )
+    await settle(
+      statusRuns[5],
+      status({
+        loginStreak: 3,
+        currentCycleDay: 4,
+        todayReward: {
+          day: 4,
+          xp: 40,
+          icon: '💫',
+          description: 'Day 4 - Half way there!',
+        },
+        daysUntilMilestone: 20,
+      })
+    )
+    await drain(AUTO_OPEN_WAIT)
+    expect(openModals(tree)).toHaveLength(1)
+    expect(renderedText(tree)).toContain('+40 XP')
+  })
 })
 
 describe('login reward host — focus-scoped presentation', () => {

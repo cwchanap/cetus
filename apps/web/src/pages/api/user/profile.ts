@@ -28,15 +28,14 @@ export const GET: APIRoute = async ({ locals }) => {
     }
 
     try {
-        const identity = await getUserIdentityByIdStrict(user.id)
-        if (!identity) {
-            return notFoundResponse('User not found')
-        }
-
-        const [stats, achievements] = await Promise.all([
+        const [identity, stats, achievements] = await Promise.all([
+            getUserIdentityByIdStrict(user.id),
             getUserStatsStrict(user.id),
             getUserAchievementsStrict(user.id),
         ])
+        if (!identity) {
+            return notFoundResponse('User not found')
+        }
 
         return jsonResponse<UserOverviewResponse>({
             profile: {

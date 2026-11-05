@@ -650,6 +650,7 @@ describe('profile tab — signed in', () => {
     await settleHistory(historyRuns[0], historyOf([]))
 
     updateProfile.mockRejectedValueOnce(unauthorized())
+    await typeInto(tree, 'Display name', 'New name')
     await press(tree, 'Save profile')
 
     expect(renderedText(tree)).toContain('expired')
@@ -854,7 +855,7 @@ describe('profile tab — avatar', () => {
     await press(tree, 'Change avatar')
 
     expect(uploadAvatar).not.toHaveBeenCalled()
-    expect(mockRequestPermission).toHaveBeenCalledTimes(1)
+    expect(mockRequestPermission).not.toHaveBeenCalled()
     expect(mockLaunchLibrary).toHaveBeenCalledTimes(1)
     const options = mockLaunchLibrary.mock.calls[0][0] as {
       allowsEditing?: boolean
@@ -865,15 +866,14 @@ describe('profile tab — avatar', () => {
     expect(options.aspect).toEqual([1, 1])
   })
 
-  test('explains when photo permission is denied and never launches the picker', async () => {
+  test('opens the picker without requesting photo-library permission', async () => {
     const tree = await signedInWithAvatar()
-    mockRequestPermission.mockResolvedValueOnce({ granted: false })
 
     await press(tree, 'Change avatar')
 
-    expect(mockLaunchLibrary).not.toHaveBeenCalled()
-    expect(uploadAvatar).not.toHaveBeenCalled()
-    expect(renderedText(tree)).toContain('photo library access')
+    expect(mockRequestPermission).not.toHaveBeenCalled()
+    expect(mockLaunchLibrary).toHaveBeenCalledTimes(1)
+    expect(uploadAvatar).toHaveBeenCalledTimes(1)
   })
 
   test.each([
@@ -1456,6 +1456,7 @@ describe('profile tab — operation ownership across session epochs', () => {
     expect(saveButton.props.disabled).toBeFalsy()
     const pendingA2 = deferred<{ success: true; message: string }>()
     updateProfile.mockImplementationOnce(() => pendingA2.promise)
+    await typeInto(tree, 'Display name', 'A edit again')
     await press(tree, 'Save profile')
     expect(updateProfile).toHaveBeenCalledTimes(2)
 
@@ -1495,6 +1496,7 @@ describe('profile tab — operation ownership across session epochs', () => {
 
     const pendingA2 = deferred<{ success: true; message: string }>()
     updateProfile.mockImplementationOnce(() => pendingA2.promise)
+    await typeInto(tree, 'Display name', 'A edit again')
     await press(tree, 'Save profile')
     expect(updateProfile).toHaveBeenCalledTimes(3)
     expect(renderedText(tree)).toContain('Saving…')
@@ -1728,6 +1730,7 @@ describe('profile tab — pending transitions invalidate operations', () => {
     })
     expect(saveButton.props.disabled).toBeFalsy()
 
+    await typeInto(tree, 'Display name', 'Another edit')
     await press(tree, 'Save profile')
     expect(updateProfile).toHaveBeenCalledTimes(2)
   })
