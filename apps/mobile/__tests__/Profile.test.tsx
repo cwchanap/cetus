@@ -657,6 +657,30 @@ describe('profile tab — signed in', () => {
     expect(mockSessionRefetch).toHaveBeenCalledTimes(1)
   })
 
+  test('a mutation 401 does not re-latch a session the server renewed', async () => {
+    signIn('user-a')
+    const tree = await render(<ProfileScreen />)
+    await settleOverview(overviewRuns[0], overview())
+    await settleHistory(historyRuns[0], historyOf([]))
+
+    updateProfile.mockRejectedValueOnce(unauthorized())
+    await typeInto(tree, 'Display name', 'New name')
+    await press(tree, 'Save profile')
+    expect(renderedText(tree)).toContain('expired')
+    expect(mockSessionRefetch).toHaveBeenCalledTimes(1)
+
+    // The refetched record comes back renewed (same session id, newer
+    // updatedAt): the gate unlatches and the stale mutation 401 must not
+    // re-latch it.
+    signIn('user-a', 'sess-user-a', '2026-01-02T00:00:00Z')
+    await rerender(tree, <ProfileScreen />)
+
+    await settleOverview(overviewRuns[1], overview())
+    await settleHistory(historyRuns[1], historyOf(HISTORY_ENTRIES))
+    expect(renderedText(tree)).not.toContain('expired')
+    expect(renderedText(tree)).toContain('Wave Rider')
+  })
+
   test('mounts the login reward host on the profile tab', async () => {
     await render(<ProfileScreen />)
 

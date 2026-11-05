@@ -720,6 +720,29 @@ describe('settings route — signed in', () => {
     })
   })
 
+  test('a save 401 does not re-latch a session the server renewed', async () => {
+    signIn('user-a')
+    const tree = await render(<SettingsScreen />)
+    await settle(runs[0], prefs())
+
+    await flip(tree, 'Push Notifications', true)
+    await settleWriteRejection(writes[0].run, unauthorized())
+    expect(renderedText(tree)).toContain('expired')
+    expect(mockSessionRefetch).toHaveBeenCalledTimes(1)
+
+    // The refetched record comes back renewed (same session id, newer
+    // updatedAt): the gate unlatches and the stale save 401 must not
+    // re-latch it.
+    signIn('user-a', 'sess-user-a', '2026-01-02T00:00:00Z')
+    await rerender(tree, <SettingsScreen />)
+
+    await settle(runs[runs.length - 1], prefs())
+    expect(renderedText(tree)).not.toContain('expired')
+    expect(
+      switchFor(tree, 'Push Notifications').props.accessibilityState.checked
+    ).toBe(false)
+  })
+
   test('saves different keys one at a time so acknowledgements cannot overlap', async () => {
     signIn('user-a')
     const tree = await render(<SettingsScreen />)
