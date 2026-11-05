@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type ReactNode } from 'react'
+import { useCallback, type ReactNode } from 'react'
 import { Stack, useRouter } from 'expo-router'
 import { RefreshControl, ScrollView, Text, View } from 'react-native'
 import { useNativeVariable } from 'react-native-css/native'
@@ -8,7 +8,6 @@ import { Button, DailyMissionsPanel, Heading } from '@cetus/ui'
 import type { ChallengesResponse } from '@cetus/shared/api-dto'
 
 import { api } from '../src/lib/api'
-import { authClient } from '../src/lib/auth-client'
 import {
   ChallengesEmpty,
   ChallengesError,
@@ -17,20 +16,20 @@ import {
   challengesResponseFor,
 } from '../src/lib/challenges'
 import { isUnauthorizedError, useRefetchOnFocus } from '../src/lib/refetch'
-import { sessionKeyFor, useExpiredSessionGate } from '../src/lib/session'
+import { useSessionGuard, useUnauthorizedReconcile } from '../src/lib/session'
 
 export default function ChallengesScreen() {
   const router = useRouter()
   const accent = useNativeVariable('--cetus-accent')
   const insets = useSafeAreaInsets()
   const {
-    data: session,
+    session,
     isPending,
-    refetch: refetchSession,
-  } = authClient.useSession()
-  const userId = session?.user.id ?? null
-  const sessionKey = sessionKeyFor(session)
-  const { authExpired, markSessionExpired } = useExpiredSessionGate(sessionKey)
+    userId,
+    sessionKey,
+    authExpired,
+    reconcileSession,
+  } = useSessionGuard()
 
   const { data, loading, error, refresh } = useRemoteData<ChallengesResponse>(
     useCallback((signal: AbortSignal) => api.getChallenges({ signal }), []),
@@ -39,12 +38,7 @@ export default function ChallengesScreen() {
   )
   useRefetchOnFocus(refresh)
 
-  useEffect(() => {
-    if (error !== null && isUnauthorizedError(error) && sessionKey !== null) {
-      markSessionExpired()
-      void Promise.resolve(refetchSession?.()).catch(() => undefined)
-    }
-  }, [error, sessionKey, markSessionExpired, refetchSession])
+  useUnauthorizedReconcile([error], reconcileSession)
 
   const openSignIn = useCallback(() => {
     router.push({

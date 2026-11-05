@@ -55,6 +55,7 @@ export function Button({
   size = 'default',
   className,
   children,
+  accessibilityRole = 'button',
   ...rest
 }: ButtonProps) {
   const textClassName = cn('text-sm font-bold', textVariants.variant[variant])
@@ -64,6 +65,7 @@ export function Button({
     items.every(item => typeof item === 'string' || typeof item === 'number')
   return (
     <Pressable
+      accessibilityRole={accessibilityRole}
       className={cn(
         'flex-row items-center justify-center rounded-md active:opacity-80 disabled:opacity-50',
         buttonVariants.variant[variant],

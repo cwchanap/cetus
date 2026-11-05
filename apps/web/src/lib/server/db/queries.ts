@@ -410,19 +410,31 @@ async function applyUserIdentityColumns(): Promise<void> {
 
     // The unique index is a uniqueness backstop, not a read dependency. A
     // legacy database can hold duplicate usernames that make index creation
-    // fail; reads (leaderboard joins, identity lookups) must stay available,
-    // so warn and continue rather than blocking every consumer.
+    // fail with a constraint error; reads (leaderboard joins, identity
+    // lookups) must stay available, so warn and mark done rather than
+    // blocking every consumer. Transient failures (network/timeout) are
+    // different: leave the migration unmarked so the next call retries
+    // instead of running without the index until the next deploy.
     try {
         await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON "user" (username)`.execute(
             db
         )
+        _migrationsRun.add('userIdentity')
     } catch (error) {
-        console.warn(
-            '[applyUserIdentityColumns] username unique index unavailable:',
-            sanitizeError(error)
-        )
+        const message = error instanceof Error ? error.message : String(error)
+        if (message.toLowerCase().includes('unique constraint')) {
+            console.warn(
+                '[applyUserIdentityColumns] username unique index unavailable:',
+                sanitizeError(error)
+            )
+            _migrationsRun.add('userIdentity')
+        } else {
+            console.warn(
+                '[applyUserIdentityColumns] username unique index attempt failed; will retry on next call:',
+                sanitizeError(error)
+            )
+        }
     }
-    _migrationsRun.add('userIdentity')
 }
 
 let _userIdentitySchemaPromise: Promise<void> | null = null

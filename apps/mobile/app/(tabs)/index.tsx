@@ -11,7 +11,8 @@ import { LoginRewardHost } from '../../src/lib/login-rewards'
 declare const __DEV__: boolean
 
 // All registry games are listed honestly: none are playable on mobile yet
-// (HPA-182/HPA-425 own the screens), so entries carry no tap handler at all.
+// (HPA-182/HPA-425 own the screens); entries open the game detail page,
+// which states that plainly.
 const ACTIVE_GAMES = getActiveGames()
 const ACTIVE_COUNT = ACTIVE_GAMES.length
 

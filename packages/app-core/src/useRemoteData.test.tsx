@@ -327,6 +327,55 @@ describe('useRemoteData', () => {
     expect(result.current.loading).toBe(false)
   })
 
+  it('keeps the last good data when a refetch fails', async () => {
+    const runs: Deferred<string>[] = []
+    const load = deferredLoader(runs)
+    const { result } = renderHook(() => useRemoteData(load, ['k']))
+    await settle(runs[0], 'first')
+    expect(result.current.data).toBe('first')
+
+    act(() => result.current.refresh())
+    expect(load).toHaveBeenCalledTimes(2)
+
+    const failure = new Error('refetch-boom')
+    await settleRejection(runs[1], failure)
+    expect(result.current.error).toBe(failure)
+    expect(result.current.data).toBe('first')
+    expect(result.current.loading).toBe(false)
+
+    act(() => result.current.refresh())
+    await settle(runs[2], 'recovered')
+    expect(result.current.data).toBe('recovered')
+    expect(result.current.error).toBeNull()
+  })
+
+  it('clears data and surfaces the error when the first load fails', async () => {
+    const runs: Deferred<string>[] = []
+    const load = deferredLoader(runs)
+    const { result } = renderHook(() => useRemoteData(load, ['k']))
+
+    await settleRejection(runs[0], new Error('initial-boom'))
+    expect(result.current.data).toBeUndefined()
+    expect(result.current.error).not.toBeNull()
+  })
+
+  it('does not leak the previous key data across a failed load', async () => {
+    const runs: Deferred<string>[] = []
+    const load = deferredLoader(runs)
+    const { result, rerender } = renderHook(
+      ({ k }) => useRemoteData(load, ['k', k]),
+      { initialProps: { k: 'a' } }
+    )
+    await settle(runs[0], 'a-data')
+
+    rerender({ k: 'b' })
+    expect(result.current.data).toBeUndefined()
+
+    await settleRejection(runs[1], new Error('b-boom'))
+    expect(result.current.data).toBeUndefined()
+    expect(result.current.error?.message).toBe('b-boom')
+  })
+
   it('does not refetch for fresh inline callbacks or equal key arrays', async () => {
     const d = deferred<string>()
     const load = vi.fn((_signal: AbortSignal) => d.promise)

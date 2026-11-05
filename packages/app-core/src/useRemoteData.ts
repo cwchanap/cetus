@@ -124,13 +124,25 @@ export function useRemoteData<T>(
                     generation === generationRef.current &&
                     !controller.signal.aborted
                 ) {
-                    setResult({
-                        key: keySnapshot,
-                        enabled: true,
-                        data: undefined,
-                        error: toError(reason),
-                        pending: false,
-                    })
+                    // Keep the last good value when a refetch fails: only an
+                    // initial-load failure (no data for this key yet) clears
+                    // the result. Key-matched failures surface the error
+                    // alongside the stale data instead of blanking the view.
+                    setResult(current =>
+                        current.key === keySnapshot && current.enabled === true
+                            ? {
+                                  ...current,
+                                  error: toError(reason),
+                                  pending: false,
+                              }
+                            : {
+                                  key: keySnapshot,
+                                  enabled: true,
+                                  data: undefined,
+                                  error: toError(reason),
+                                  pending: false,
+                              }
+                    )
                 }
             }
         )

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'expo-router'
 import { FlatList, RefreshControl, Text, View } from 'react-native'
 import { useNativeVariable } from 'react-native-css/native'
@@ -7,7 +7,6 @@ import { Heading, Select } from '@cetus/ui'
 import type { UserOverviewResponse } from '@cetus/shared/api-dto'
 
 import { api } from '../../src/lib/api'
-import { authClient } from '../../src/lib/auth-client'
 import {
   ACHIEVEMENT_GAME_ALL,
   achievementGameOptions,
@@ -23,8 +22,12 @@ import {
   type AchievementStatusFilter,
   type AchievementView,
 } from '../../src/lib/achievements'
+import { userOverviewResponseFor } from '../../src/lib/overview'
 import { isUnauthorizedError, useRefetchOnFocus } from '../../src/lib/refetch'
-import { sessionKeyFor, useExpiredSessionGate } from '../../src/lib/session'
+import {
+  useSessionGuard,
+  useUnauthorizedReconcile,
+} from '../../src/lib/session'
 
 const GAME_OPTIONS = achievementGameOptions()
 
@@ -32,13 +35,13 @@ export default function AchievementsScreen() {
   const router = useRouter()
   const accent = useNativeVariable('--cetus-accent')
   const {
-    data: session,
+    session,
     isPending,
-    refetch: refetchSession,
-  } = authClient.useSession()
-  const userId = session?.user.id ?? null
-  const sessionKey = sessionKeyFor(session)
-  const { authExpired, markSessionExpired } = useExpiredSessionGate(sessionKey)
+    userId,
+    sessionKey,
+    authExpired,
+    reconcileSession,
+  } = useSessionGuard()
   const [status, setStatus] = useState<AchievementStatusFilter>('all')
   const [game, setGame] = useState<AchievementGameScope>(ACHIEVEMENT_GAME_ALL)
 
@@ -49,14 +52,14 @@ export default function AchievementsScreen() {
   )
   useRefetchOnFocus(refresh)
 
-  useEffect(() => {
-    if (error !== null && isUnauthorizedError(error) && sessionKey !== null) {
-      markSessionExpired()
-      void Promise.resolve(refetchSession?.()).catch(() => undefined)
-    }
-  }, [error, sessionKey, markSessionExpired, refetchSession])
+  useUnauthorizedReconcile([error], reconcileSession)
 
-  const views = useMemo(() => achievementViewsFor(data), [data])
+  const overview =
+    data === undefined ? undefined : userOverviewResponseFor(data)
+  const views = useMemo(
+    () => achievementViewsFor(overview ?? undefined),
+    [overview]
+  )
   const filtered = useMemo(
     () => filterAchievementViews(views ?? [], status, game),
     [views, status, game]
@@ -94,11 +97,18 @@ export default function AchievementsScreen() {
   if (views === null) {
     return (
       <View className="flex-1 bg-cetus-canvas">
-        {loading ? (
+        {loading && overview === undefined ? (
           <AchievementsLoading />
         ) : (
           <AchievementsError
-            error={error ?? new Error('Achievements request failed')}
+            error={
+              error ??
+              new Error(
+                overview === null
+                  ? 'Unexpected achievements response'
+                  : 'Achievements request failed'
+              )
+            }
             onRetry={refresh}
           />
         )}

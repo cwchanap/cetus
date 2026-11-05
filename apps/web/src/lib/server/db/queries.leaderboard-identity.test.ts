@@ -194,6 +194,54 @@ describe('getGameLeaderboard — user identity schema', () => {
         }
     })
 
+    it('retries the unique index on the next call after a transient failure', async () => {
+        vi.resetModules()
+        const { sql, db, queries } = await importFreshQueries()
+
+        await resetSchema(db, sql, USER_TABLE_WITH_IDENTITY_COLUMNS)
+        await sql.raw(SEED_USER_WITH_IDENTITY_SQL).execute(db)
+        await sql.raw(seedScore('snake', 100)).execute(db)
+
+        const executor = db.getExecutor()
+        const originalExecute = executor.executeQuery.bind(executor)
+        let indexAttempts = 0
+        executor.executeQuery = vi.fn(
+            async (query: Parameters<typeof executor.executeQuery>[0]) => {
+                if (/CREATE\s+UNIQUE\s+INDEX/i.test(query.sql ?? '')) {
+                    indexAttempts += 1
+                    if (indexAttempts === 1) {
+                        throw new Error('ECONNRESET: connection dropped')
+                    }
+                }
+                return originalExecute(query)
+            }
+        ) as typeof executor.executeQuery
+
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        try {
+            const first = await queries.getGameLeaderboard('snake')
+            expect(first).toEqual([
+                expect.objectContaining({ username: 'alice', score: 100 }),
+            ])
+            expect(indexAttempts).toBe(1)
+            expect(warnSpy).toHaveBeenCalledWith(
+                expect.stringContaining('will retry'),
+                expect.any(String)
+            )
+
+            const second = await queries.getGameLeaderboard('snake')
+            expect(second).toEqual(first)
+            expect(indexAttempts).toBe(2)
+
+            const third = await queries.getGameLeaderboard('snake')
+            expect(third).toEqual(first)
+            expect(indexAttempts).toBe(2)
+        } finally {
+            executor.executeQuery = originalExecute
+            warnSpy.mockRestore()
+        }
+    })
+
     it('surfaces an identity migration failure as unavailable instead of an empty list', async () => {
         vi.resetModules()
         const { sql, db, queries } = await importFreshQueries()

@@ -11,9 +11,12 @@ import type {
 import { getTodayUTC } from '@cetus/shared/challenges'
 
 import { api } from './api'
-import { authClient } from './auth-client'
-import { isUnauthorizedError, useRefetchOnFocus } from './refetch'
-import { sessionKeyFor, useExpiredSessionGate } from './session'
+import { isUnauthorizedError, toError, useRefetchOnFocus } from './refetch'
+import {
+  useOperationEpoch,
+  useSessionGuard,
+  useUnauthorizedReconcile,
+} from './session'
 
 type ClaimPhase = 'idle' | 'claiming' | 'success' | 'error'
 
@@ -22,20 +25,29 @@ const AUTO_CLOSE_MS = 3000
 
 let modalLease: object | null = null
 const leaseReleaseSubscribers = new Set<() => void>()
-const claimSubscribers = new Set<() => void>()
+// Identifies the concrete reward a claim retired: `cycleDay` distinguishes
+// the claimed offer from newer same-day truth (e.g. a rollover to the next
+// cycle day), which must still be allowed to open the modal.
+type ClaimedWindow = { rewardDate: string; cycleDay: number | null }
+const claimSubscribers = new Set<
+  (claimedBy: object, claimed: ClaimedWindow) => void
+>()
 let mountedHostCount = 0
 let dismissedReward: {
   sessionKey: string | null
   rewardDate: string
+  cycleDay: number | null
 } | null = null
 
-const toError = (reason: unknown): Error =>
-  reason instanceof Error ? reason : new Error(String(reason))
-
 // A successful claim changes XP/level server-side; sibling surfaces on the
-// same screen (the profile's dive stats) subscribe to refetch since closing
-// the modal is not a navigation focus change. Returns an unsubscribe.
-export function onLoginRewardClaimed(listener: () => void): () => void {
+// same screen (the profile's dive stats) and sibling hosts on other tabs
+// subscribe to refetch since closing the modal is not a navigation focus
+// change. The claiming host passes its lease token as `claimedBy` plus the
+// claimed reward's identity so other hosts can refetch and dismiss the
+// retired offer without the claimer double-fetching. Returns an unsubscribe.
+export function onLoginRewardClaimed(
+  listener: (claimedBy: object, claimed: ClaimedWindow) => void
+): () => void {
   claimSubscribers.add(listener)
   return () => {
     claimSubscribers.delete(listener)
@@ -43,14 +55,8 @@ export function onLoginRewardClaimed(listener: () => void): () => void {
 }
 
 export function LoginRewardHost() {
-  const {
-    data: session,
-    isPending,
-    refetch: refetchSession,
-  } = authClient.useSession()
-  const userId = session?.user.id ?? null
-  const sessionKey = sessionKeyFor(session)
-  const { authExpired, markSessionExpired } = useExpiredSessionGate(sessionKey)
+  const { isPending, userId, sessionKey, authExpired, reconcileSession } =
+    useSessionGuard()
   const eligible =
     userId !== null && sessionKey !== null && !isPending && !authExpired
 
@@ -84,23 +90,7 @@ export function LoginRewardHost() {
     eligible
   )
   useRefetchOnFocus(refresh)
-
-  const reconciledForRef = useRef<string | null>(null)
-  const reconcileSession = useCallback(() => {
-    if (sessionKey === null) {
-      return
-    }
-    markSessionExpired()
-    if (reconciledForRef.current !== sessionKey) {
-      reconciledForRef.current = sessionKey
-      void Promise.resolve(refetchSession?.()).catch(() => undefined)
-    }
-  }, [sessionKey, markSessionExpired, refetchSession])
-  useEffect(() => {
-    if (isUnauthorizedError(error)) {
-      reconcileSession()
-    }
-  }, [error, reconcileSession])
+  useUnauthorizedReconcile([error], reconcileSession)
 
   const [open, setOpen] = useState(false)
   const [claimPhase, setClaimPhase] = useState<ClaimPhase>('idle')
@@ -113,22 +103,7 @@ export function LoginRewardHost() {
     date: string
     status: LoginRewardStatusResponse
   } | null>(null)
-  const mountedRef = useRef(true)
-  useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
-  const epochRef = useRef(0)
-  const latestRef = useRef({ key: sessionKey, eligible, epoch: 0 })
-  if (
-    latestRef.current.key !== sessionKey ||
-    latestRef.current.eligible !== eligible
-  ) {
-    epochRef.current += 1
-  }
-  latestRef.current = { key: sessionKey, eligible, epoch: epochRef.current }
+  const { latest: latestRef, isStale } = useOperationEpoch(sessionKey, eligible)
   const epoch = latestRef.current.epoch
   const openSeqRef = useRef(0)
   const openRef = useRef(open)
@@ -140,7 +115,30 @@ export function LoginRewardHost() {
   const claimableWindowRef = useRef<{
     sessionKey: string | null
     rewardDate: string
+    cycleDay: number | null
   } | null>(null)
+
+  // Sibling hosts refetch immediately when a claim lands elsewhere. Anything
+  // they currently offer is pre-claim truth, so disarm it and mark the
+  // claimed reward dismissed: a stale response landing after this broadcast
+  // (one that read the server before the claim committed) cannot reopen the
+  // modal for the retired reward.
+  useEffect(
+    () =>
+      onLoginRewardClaimed((claimedBy, claimed) => {
+        if (claimedBy === tokenRef.current) {
+          return
+        }
+        armedRef.current = false
+        dismissedReward = {
+          sessionKey,
+          rewardDate: claimed.rewardDate,
+          cycleDay: claimed.cycleDay,
+        }
+        refresh()
+      }),
+    [refresh, sessionKey]
+  )
 
   const [flowFor, setFlowFor] = useState<string | null>(sessionKey)
   if (flowFor !== sessionKey) {
@@ -155,9 +153,7 @@ export function LoginRewardHost() {
   }
 
   const isStaleClaim = (operation: { epoch: number; openSeq: number }) =>
-    !mountedRef.current ||
-    latestRef.current.epoch !== operation.epoch ||
-    openSeqRef.current !== operation.openSeq
+    isStale(operation.epoch) || openSeqRef.current !== operation.openSeq
 
   const releaseLeaseIfHeld = useCallback(() => {
     if (modalLease === tokenRef.current) {
@@ -195,7 +191,8 @@ export function LoginRewardHost() {
       dismissedReward !== null &&
       claimableWindow !== null &&
       dismissedReward.sessionKey === claimableWindow.sessionKey &&
-      dismissedReward.rewardDate === claimableWindow.rewardDate
+      dismissedReward.rewardDate === claimableWindow.rewardDate &&
+      dismissedReward.cycleDay === claimableWindow.cycleDay
     ) {
       armedRef.current = false
       return
@@ -216,6 +213,7 @@ export function LoginRewardHost() {
       dismissedReward = {
         sessionKey: claimableWindow.sessionKey,
         rewardDate: claimableWindow.rewardDate,
+        cycleDay: claimableWindow.cycleDay,
       }
     }
     hideModal()
@@ -283,16 +281,29 @@ export function LoginRewardHost() {
   const canClaimNow =
     eligible && status?.canClaim === true && statusDate === today
   const claimableDate = canClaimNow ? today : null
+  const claimableCycleDay = canClaimNow
+    ? (status?.todayReward?.day ?? null)
+    : null
   claimableWindowRef.current =
-    claimableDate !== null ? { sessionKey, rewardDate: claimableDate } : null
+    claimableDate !== null
+      ? {
+          sessionKey,
+          rewardDate: claimableDate,
+          cycleDay: claimableCycleDay,
+        }
+      : null
   useEffect(() => {
     if (claimableDate === null) {
       prevWindowRef.current = null
       armedRef.current = false
       return
     }
-    if (prevWindowRef.current !== claimableDate) {
-      prevWindowRef.current = claimableDate
+    // Re-arm only when the offered reward changes identity: refetches
+    // returning the same claimable day must not reopen a dismissed or
+    // suppressed window, but genuinely newer truth (next cycle day) must.
+    const windowKey = `${claimableDate}:${claimableCycleDay}`
+    if (prevWindowRef.current !== windowKey) {
+      prevWindowRef.current = windowKey
       armedRef.current = true
     }
     if (!armedRef.current || open || !focused) {
@@ -300,7 +311,7 @@ export function LoginRewardHost() {
     }
     const timer = setTimeout(presentIfAllowed, AUTO_OPEN_DELAY_MS)
     return () => clearTimeout(timer)
-  }, [claimableDate, focused, open, presentIfAllowed])
+  }, [claimableDate, claimableCycleDay, focused, open, presentIfAllowed])
 
   useEffect(() => {
     if (claimPhase === 'success' && open) {
@@ -318,12 +329,22 @@ export function LoginRewardHost() {
       epoch,
       openSeq: openSeqRef.current,
       requestDate: getTodayUTC(),
+      sessionKey,
+      cycleDay: status?.todayReward?.day ?? null,
     }
     setClaimPhase('claiming')
     setClaimError(null)
     try {
       const result = await api.claimLoginReward()
       if (result.success) {
+        // The reward is claimed server-side regardless of this host's visual
+        // state: mark it dismissed so this host and siblings still holding a
+        // stale canClaim status cannot reopen the modal for it.
+        dismissedReward = {
+          sessionKey: operation.sessionKey,
+          rewardDate: operation.requestDate,
+          cycleDay: operation.cycleDay,
+        }
         if (!isStaleClaim(operation)) {
           if (
             result.updatedStatus !== undefined &&
@@ -344,11 +365,14 @@ export function LoginRewardHost() {
         }
         refresh()
         for (const subscriber of [...claimSubscribers]) {
-          subscriber()
+          subscriber(tokenRef.current, {
+            rewardDate: operation.requestDate,
+            cycleDay: operation.cycleDay,
+          })
         }
         return
       }
-      if (mountedRef.current && latestRef.current.epoch === operation.epoch) {
+      if (!isStale(operation.epoch)) {
         refresh()
       }
       if (isStaleClaim(operation)) {
@@ -357,8 +381,7 @@ export function LoginRewardHost() {
       setClaimError(result.error || 'Failed to claim reward')
       setClaimPhase('error')
     } catch (reason) {
-      const sameSession =
-        mountedRef.current && latestRef.current.epoch === operation.epoch
+      const sameSession = !isStale(operation.epoch)
       if (!sameSession) {
         return
       }

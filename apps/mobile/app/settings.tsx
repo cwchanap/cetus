@@ -8,7 +8,6 @@ import { Button, Card, Heading, Toggle } from '@cetus/ui'
 import type { NotificationSettingsResponse } from '@cetus/shared/api-dto'
 
 import { api } from '../src/lib/api'
-import { authClient } from '../src/lib/auth-client'
 import {
   claimSettingsWrite,
   NOTIFICATION_PREFS,
@@ -24,11 +23,16 @@ import {
   type NotificationPrefs,
   type SettingsWriteLease,
 } from '../src/lib/settings'
-import { isUnauthorizedError, useRefetchOnFocus } from '../src/lib/refetch'
-import { sessionKeyFor, useExpiredSessionGate } from '../src/lib/session'
-
-const toError = (reason: unknown): Error =>
-  reason instanceof Error ? reason : new Error(String(reason))
+import {
+  isUnauthorizedError,
+  toError,
+  useRefetchOnFocus,
+} from '../src/lib/refetch'
+import {
+  useOperationEpoch,
+  useSessionGuard,
+  useUnauthorizedReconcile,
+} from '../src/lib/session'
 
 type SettingsFetch = {
   settledAfter: number
@@ -40,13 +44,13 @@ export default function SettingsScreen() {
   const accent = useNativeVariable('--cetus-accent')
   const insets = useSafeAreaInsets()
   const {
-    data: session,
+    session,
     isPending,
-    refetch: refetchSession,
-  } = authClient.useSession()
-  const userId = session?.user.id ?? null
-  const sessionKey = sessionKeyFor(session)
-  const { authExpired, markSessionExpired } = useExpiredSessionGate(sessionKey)
+    userId,
+    sessionKey,
+    authExpired,
+    reconcileSession,
+  } = useSessionGuard()
 
   const writesSettledRef = useRef(0)
   const { data, loading, error, refresh } = useRemoteData<SettingsFetch>(
@@ -61,19 +65,15 @@ export default function SettingsScreen() {
   useRefetchOnFocus(refresh)
 
   const [mutationError, setMutationError] = useState<Error | null>(null)
-  const reconciledForRef = useRef<string | null>(null)
-  useEffect(() => {
-    const unauthorized =
-      isUnauthorizedError(error) || isUnauthorizedError(mutationError)
-    if (!unauthorized || sessionKey === null) {
-      return
-    }
-    markSessionExpired()
-    if (reconciledForRef.current !== sessionKey) {
-      reconciledForRef.current = sessionKey
-      void Promise.resolve(refetchSession?.()).catch(() => undefined)
-    }
-  }, [error, mutationError, sessionKey, markSessionExpired, refetchSession])
+  useUnauthorizedReconcile([error, mutationError], reconcileSession)
+
+  const eligible =
+    sessionKey !== null &&
+    !isPending &&
+    !authExpired &&
+    !isUnauthorizedError(error) &&
+    !isUnauthorizedError(mutationError)
+  const { latest: latestRef, isStale } = useOperationEpoch(sessionKey, eligible)
 
   const mountedRef = useRef(true)
   useEffect(() => {
@@ -82,23 +82,6 @@ export default function SettingsScreen() {
       mountedRef.current = false
     }
   }, [])
-  const eligible =
-    sessionKey !== null &&
-    !isPending &&
-    !authExpired &&
-    !isUnauthorizedError(error) &&
-    !isUnauthorizedError(mutationError)
-  const epochRef = useRef(0)
-  const latestRef = useRef({ key: sessionKey, eligible, epoch: 0 })
-  if (
-    latestRef.current.key !== sessionKey ||
-    latestRef.current.eligible !== eligible
-  ) {
-    epochRef.current += 1
-  }
-  latestRef.current = { key: sessionKey, eligible, epoch: epochRef.current }
-  const isStale = (operationEpoch: number) =>
-    !mountedRef.current || latestRef.current.epoch !== operationEpoch
 
   const [prefsFor, setPrefsFor] = useState<string | null>(sessionKey)
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null)
