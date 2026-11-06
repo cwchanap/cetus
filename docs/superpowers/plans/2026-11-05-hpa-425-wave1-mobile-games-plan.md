@@ -16,84 +16,101 @@
 
 **Checkpoint:** design matches the *current* repo and the ticket, not assumptions from an older mobile migration document.
 
-## Stage 1 — Mobile dependency, routing and minimal session host
 
-- [ ] Add `"@cetus/games": "workspace:*"` to `apps/mobile/package.json` and update the **single root** `bun.lock`. Do not add Skia, a new animation engine, AsyncStorage, Redux, or a second API client.
-- [ ] Define one explicit constant of the eight supported `GameID`s and a small typed registry mapping to native screens. Change catalog labels and `/games/[gameId]` Play CTA **only** for those IDs; other 15 remain disabled. Add `apps/mobile/app/games/[gameId]/play.tsx` with unknown/unported ID handling and a normal back path. Keep the existing intro route.
-- [ ] Make a small `apps/mobile/src/games` game-host helper/component. Construct each concrete `@cetus/games` class with `{ submitScore: data => api.submitScore(data), platform: Platform.OS }`, then `createBaseGameSession(game, stableProjector)` and `useGameSession(session)`. Do not import `apps/web` initializers, `window`/`document`, DOM classes, or any Pixi renderer.
-- [ ] Scope game instance to the mounted route and stable authenticated account identity. Dispose session **before** calling `game.destroy()` on unmount, account switch or route replacement; ensure restart does not leave a timer/listener behind. Allow guest play but communicate that guest scores do not persist.
-- [ ] Implement the smallest shared native score/time/start/reset/replay/result chrome consumed by the pilot; reuse existing native Button/Card/Heading/Badge. Use per-game controls only where needed. Add native variants of web `GameStats`/`GameControls`/`GameOverlay` **only when there is a real consumer**; no blanket port of `GameTitle`, `GameBreadcrumb` or decorative DOM effects.
-- [ ] Add Jest coverage for registry gating (8 enabled / 15 disabled), unknown paths, account-scoped lifecycle, unmount cleanup, and the native package import graph. Verify Metro iOS/Android bundle resolves game subpaths without browser dependencies; avoid a second native development-client rebuild unless a new native module actually requires one.
+## Stage 1 — Shared contracts first, then mobile routing/session host
 
-**Checkpoint:** navigation to a stubbed native game screen works; existing 15 games still say unavailable; no new score/reward API is invented.
+**Commit 1: all portable contract changes and Vitest regressions (no native screen required).** Settle the stable contracts before building eight views:
 
-## Stage 2 — First playable game and trustworthy score results
+- [ ] Extend \`BaseGame.end()\` structured \`end\` with **\`save: { success, code }\`** from the existing \`saveResult\`. Add \`saveStatus: 'pending' | 'saved' | 'unconfirmed'\` and optional \`saveCode\` to \`GameSessionResult\`, projected by \`createBaseGameSession\`. Reuse provisional result for \`pending\`, not a second state machine. Handle the code-less \`{success:false}\` from \`ScoreManager.saveFinalScore\` on a throwing submitter.
+- [ ] Add exactly one \`createStableProjector(select)\` helper in \`@cetus/app-core\`; \`select\` returns a new **plain serializable visible-state snapshot** (never mutable board references), compare structurally and reuse previous reference when unchanged. Use the lightweight serialized structural comparison suitable for 12×12-and-smaller boards. Vitest: mutate a nested cell **in place** and observe new projection; timer tick without board change retains prior reference. All 8 native views will consume this helper; do not refactor 16 web projectors.
+- [ ] Make Quick Math \`generateNextQuestion\` and Word Scramble \`generateNextChallenge\` emit \`state-change\` on relevant updates (wrong answers, skip, etc.) while keeping existing callbacks. Vitest: correct/wrong/skip and reset projection; no duplicate score calls.
+- [ ] Extract \`forwardBaseGameResults(game, { onAchievements, onChallenges })\` with the existing structured-\`end\` filtering to \`@cetus/app-core\`. Keep a **thin adapter** at \`apps/web/src/lib/games/core/notificationForwarder.ts\` passing the web \`window.*\` sinks, so the existing web imports stay unchanged. On mobile, provide one mounted-account-scoped banner sink. Test bare \`end\` filtering, one reward delivery, **same-account stale-run reward forwarding**, and no listener after dispose; preserve the session adapter's stale-\`runId\` suppression of **score/results**.
+- [ ] Run portable Vitest and existing web GameScreen/forwarder regressions before touching native routing. No new event bus, reward store or backend API.
 
-**Pilot = Chromatic Tide:** small tap-based API, fixed palette and board; proves shared game/session/API lifecycle before replicating it seven times.
+**Commit 2: native app integration and route gating.**
 
-- [ ] Implement the `ChromaticTideGame` native board/palette using model state and `chooseColor`. Render captured territory, timer, moves and completion with NativeWind tokens. Add accessible color names and scalable board layout.
-- [ ] Ensure a model `state-change` yields a fresh immutable projected board; `time-update`/score-only changes retain stable projection references when board contents are unchanged. Add tests that flood-fill visibly updates the board and that reset/replay creates a valid new run.
-- [ ] Examine the real `ScoreSubmissionResult` flow: `ScoreManager.saveFinalScore` -> `BaseGame.end` -> structured `end` -> `createBaseGameSession` -> native result. Right now the structured end does not report success. Extend it **narrowly** with save success/failure/code; set projected result status to `pending` while save is in flight, then `saved` or `unconfirmed`. Preserve the existing stale-`runId` filter; never re-POST from the UI.
-- [ ] Render saved status, server-confirmed `newAchievements` and `challengeUpdates`; otherwise render an honest "not confirmed" state. For `UNAUTHENTICATED`, offer sign-in to save *future* scores, not a replay of the old request. For `NETWORK_ERROR`, explicitly allow that the server may already have committed; do not introduce one-tap blind resubmission or AsyncStorage.
-- [ ] Add focused **portable** tests for pending/success/failure end payloads, stale result suppression, no extra score POST on replay, and native Jest tests for the result screen. Reuse `api.submitScore`, with platform set by game config to `ios`/`android`; verify it reaches the existing endpoint.
-- [ ] With a real signed-in backend fixture, confirm the pilot score persists and server awards the same achievement/challenge updates as web. If a device/HTTPS OAuth is unavailable, leave this checkpoint **blocked/external** (automated API tests can still run) rather than mark it done.
-- [ ] **Retry decision gate:** document any actual evidence that next-launch/offline retry is essential. Default: **no persistent queue**. If proven necessary, first design idempotent server admission, same-account binding, UTC date/competition validity, permanent error behavior and duplicate-prevention tests, then implement within **this PR**. A `NETWORK_ERROR` does not establish that the POST was uncommitted.
+- [ ] Add \`"@cetus/games": "workspace:*"\` to \`apps/mobile/package.json\`; update the one root \`bun.lock\`. No Skia, AsyncStorage or new native dependency unless a concrete component actually needs one.
+- [ ] Add exactly **one** \`NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>>\` map under \`apps/mobile/src/games/registry.ts\`. The Games hub, detail Play button and \`apps/mobile/app/games/[gameId]/play.tsx\` all consult it (use own-key check for unknown strings). Eight playable; 15 disabled; no second ID constant/list. Jest: verify each expected ID and all registry/catalog counts.
+- [ ] In the play route use \`useSessionGuard()\`; while \`isPending\`, render a loading state **without starting a game**. Then mount \`<NativeGameHost key={sessionKey ?? 'guest'} gameId={gameId} />\`, including an explicit unknown/unported ID fallback. Do not key by renewal-sensitive \`gateKey\`; stable \`sessionKey\` must not reset a normal active run on session refresh. Test cold-start pending -> signed-in and guest transitions.
+- [ ] Create the concrete \`@cetus/games\` class with \`submitScore: data => api.submitScore(data)\` and \`platform: Platform.OS\`, then one \`createBaseGameSession(game, projector)\` and \`useGameSession(session)\`. One mount effect attaches the reward forwarder; cleanup **removes forwarder, disposes session and calls game.destroy() in that order**. On an account/session change the key remount drops old-account banners and game UI. Do not import web initializers, DOM or Pixi.
+- [ ] Minimal shared native score/time/start/pause/reset/replay/result chrome only. Prefer optional \`projected.clock\` when provided (Sudoku elapsed time), else snapshot \`timeRemaining\`; use \`formatTime\` from \`@cetus/games/shared/utils\`. Reuse Button/Card/Badge/Heading; use native \`Select\` and \`Toggle\` where consumed. No blanket web chrome port.
+- [ ] Jest: unknown route, account remount, guest behavior, one \`Platform.OS\` score submitter contract test, cleanup/timer and package import-graph. Metro iOS/Android resolves native-only imports. No separate PR.
 
-**Checkpoint:** one working game end-to-end, with accurate save/pending/error/reward UI. Obtain review before copying the host pattern to seven screens.
+**Checkpoint:** all pure contract changes test green and the native route/host scaffolding is coherent. Review shared contract/event changes before screen proliferation.
 
-## Stage 3 — Remaining seven native games (commits, not PRs)
 
-Implement each entry as a small view backed by its existing rules class. Add its Jest interaction test and, only if game logic requires a change, a portable Vitest regression test **in the same commit**. After each commit the app must still launch; do not create seven new Linear tickets or PRs.
+## Stage 2 — Two pilot games: network flow **and** in-place board mutation
 
-- [ ] **Memory Matrix:** `flipCard({row,col})`; responsive 6×8 board, one/two flipped cards, async mismatch delay, matched state, time and accuracy. Test processing guard and reset while a delayed match is pending.
-- [ ] **Mine Grid:** `revealCell(row,col)`, `toggleFlag(row,col)`, `newGame(difficulty)`; preset 8×8/10×10/12×12 sizes, safe first tap, timer, flags and game-over. Use `Pressable.onLongPress` plus a visible Reveal/Flag toggle for discoverability and accessibility. Suppress the follow-up `onPress` so a flag gesture never reveals that cell. Test both touch sequences and mode changes.
-- [ ] **Pattern Pulse:** `pressPad(0..3)`, phase/sequence feedback and mistake count. Show sequence via the model's active pad; accept input only during the input phase. Use already-installed `expo-haptics` for optional discrete feedback, never add required audio assets. Test timed phase changes, wrong input and teardown of scheduled callbacks.
-- [ ] **Potion Sorter:** `activateTube(index)`, `undo`, `canUndo`; selectable tube, valid/invalid pour indication, difficulty preset, move/undo counts, solved/timeout. Test rejection of illegal pours and undo after a valid move.
-- [ ] **Sudoku:** `selectCell`, `placeNumber`, `clearSelectedCell`, `newGame`; 9×9 tap board, 1–9 pad, erase, immutable projected grid, conflict/given/highlight indicators. UI time is elapsed time (`getElapsedTime()`), **not** the internal `Number.MAX_SAFE_INTEGER` countdown; keep pause/reset semantics. Test editing a given cell is rejected, difficulty reset, finished state.
-- [ ] **Quick Math:** `QuickMathFrameworkGame.submitAnswer(string)` and `getCurrentQuestion()`; native keypad with clear/backspace/submit, score, accuracy. First add/verify a narrow `state-change` event when `generateNextQuestion()` replaces the question; its current callback-only notification otherwise misses wrong-answer UI updates in `useGameSession`. Keep existing callbacks. Test wrong and correct answer both advance.
-- [ ] **Word Scramble:** `WordScrambleGame.submitAnswer(string)`, `skipCurrentChallenge()` and `getCurrentChallenge()`; selectable letter tiles with undo/clear, submit, skip and counters. Emit a narrow `state-change` when `generateNextChallenge()` changes the model (currently callback-only), without double-publishing reward events. Test repeated letters, wrong answer, skip and reset.
+**Pilot 1 — Chromatic Tide (simple action + score save).**
 
-**Projection note:** `BaseGame.getState()` shallow-copies state; board arrays/cells may be mutated in place. Do not pass the mutable model object as an unchanged snapshot and assume React will rerender. Copy necessary visible fields for each board update, and memoize unchanged projection values. Keep one local projector per game unless a tiny shared projector actually reduces code.
+- [ ] Render the 12×12 board, palette, captured territory and moves from the existing \`ChromaticTideGame\` state, using \`createStableProjector(select)\`; invoke \`chooseColor\`, not copied flood-fill rules. Test tap -> model call -> updated board, finish and reset.
+- [ ] Display the Stage-1 save contract: provisional \`pending\` -> server-confirmed \`saved\`, otherwise \`unconfirmed\` with generic fallback if no \`code\`. For \`NETWORK_ERROR\` the message must allow that a request was committed; never auto-retry/re-POST. For 401, sign-in CTA applies to **future** scores only.
+- [ ] Attach the portable event forwarder to the native host, routing achievements/challenges into **one** small banner. Keep the result sheet to outcome/score/save-status; avoid duplicate reward rendering from both. Test successful response, a rejected/error response, same-account quick replay during an in-flight save (old-run reward still visible **once**), and new-account remount (old-account reward not visible).
+- [ ] Use the existing cookie-backed \`api.submitScore\` with \`platform: 'ios' | 'android'\`; do not create a new endpoint or persistence layer. Use the existing server score tests rather than duplicating them.
 
-**Interaction note:** On narrow phones, preserve touch targets and labels. Use horizontal/vertical scroll or focused viewport for large grids; don't reduce every 12×12 cell below a usable target just to fit. For long press, offer a visible tap alternative. Test app background/foreground and navigation to ensure timers, delayed reveals and submissions do not leak to an abandoned screen.
+**Pilot 2 — Memory Matrix (mutating board + delayed callback).**
 
-## Stage 4 — Cross-platform score and reward verification
+- [ ] Build the 6×8 card board with \`flipCard({row,col})\`, matched and processing flags, and the configured flip delay. The \`select\` callback **copies visible cell values** rather than returning mutated \`board\` references.
+- [ ] Jest/Vitest: in-place card flip updates the projected board, two-card delayed mismatch clears visuals, rapid third tap blocked, reset during delayed match does not update the new run, \`time-update\` does not churn unchanged projection refs. Finish and replay work.
 
-- [ ] Drive the same deterministic model runs with the web and native submitter and compare `score` and `getGameData` (especially achievements input fields). Keep score submission exactly **once** per completed run and ensure account switching cannot attribute an old run to the new user.
-- [ ] Test the existing `POST /api/scores` with `platform: ios` and `platform: android`, persisted history and leaderboard visibility. Server awards achievements/challenges; native simply displays response data. Include 401, 400, network/ambiguous result and successful reward payload cases.
-- [ ] Test stale structured end after reset/new run; empty or delayed successful response; logout during a pending save; anonymous play; and a changed account identity while game screen is open. No stale reward banner may appear for another run/account.
-- [ ] Mobile Jest/jest-expo: every game has at least a play/action/complete-or-error/reset scenario, and the host has pending/saved/unconfirmed reward scenarios. Portable game changes get Vitest tests; preserve existing web GameScreen behavior and root Codecov gate.
-- [ ] Verify no race or double end from timer completion and explicit game-completion callbacks; observe actual `BaseGame.destroy` behavior. If an AppState/background edge case is real, fix the specific timer/session interaction, not with a new global task scheduler.
+**Mandatory pilot-pair checkpoint:** review the app-core projector, reward-forwarder behavior, score flow and one **mutating-board** native view before copying the pattern to remaining games. No second PR.
 
-## Stage 5 — Final validation, manual sign-off and handoff
 
-- [ ] Root: `bun run lint`, `bun run format:check`, `bun run turbo run typecheck`, `bun run test:coverage`, `bun run build`, `bun run test:e2e`. Mobile: `bun --cwd apps/mobile test --runInBand` and an actual Metro/dev build on both platforms. Recheck Jest native export conditions, dependency bans and no accidental browser import. Record actual outputs/sha and pre-existing failures in this plan or PR body.
-- [ ] Manual **iOS** smoke: all 8 game loops; memory flip, mine long-press, pulse playback, potion undo, tide color, Sudoku keypad, math pad, word tiles; tiny screen/safe area, VoiceOver, sign-in and score/reward status.
-- [ ] Manual **Android** smoke: repeat the same input/control/score checks, including Android long-press vs tap suppression, back/navigation, app background/foreground and auth cookie.
-- [ ] Compare persisted score/leaderboard/achievement/challenge state with an equivalent web run, not just client screenshots. If OAuth fixed HTTPS host/EAS/devices are unavailable, mark **manual/external validation incomplete**, not successful.
-- [ ] Update [HPA-425](https://linear.app/cwchanap/issue/HPA-425/port-wave-1-games-to-mobile-8-view-based-games) with the final PR and checklist evidence. Keep the PR **draft** until implementation and required acceptance are actually checked. Mark the ticket Done only after its two Done-when conditions are evidenced.
+## Stage 3 — Remaining **six** native games (commits, not PRs)
 
-## Expected file touch list (approximate, adjust from live code)
+Implement each as a small React Native view over its existing class; **one reviewable commit per game within this PR**. Every view uses \`createStableProjector(select)\`, has a native Jest test for **tap/press -> concrete model method args -> updated visible projection**, and checks finish/reset. Continue passing all earlier screens after each commit.
+
+- [ ] **Mine Grid:** \`revealCell(row,col)\`, \`toggleFlag(row,col)\`, \`newGame(difficulty)\`. Native \`Select\` for easy/medium/hard, \`Toggle\` for visible Reveal/Flag mode and RN \`Pressable.onLongPress\` for direct flagging. Let Pressability's existing cancellation suppress \`onPress\` on a successful long press; **test** it, don't hand-roll a flag-click suppression state machine. In-place cells need copied visible data; test safe first reveal, win, bad flag, reset.
+- [ ] **Pattern Pulse:** \`pressPad(0..3)\`, phase/sequence, streak/mistakes; model drives active pad and feedback timings. Only input during allowed phase; optional already-installed \`expo-haptics\`, no new SFX. Test timing, wrong pad, cleanup/cancel.
+- [ ] **Potion Sorter:** \`activateTube(index)\`, \`undo()\`, \`canUndo()\`; selected source, illegal pour indication, progress and \`Select\` difficulty. Test correct/incorrect pour, undo and solve/timeout.
+- [ ] **Sudoku:** \`selectCell\`, \`placeNumber\`, \`clearSelectedCell\`, \`newGame\`; native 9×9 grid, 1–9 pad, erase, conflict/given/highlight and \`Select\` difficulty. Select copy of cell values and an optional \`projected.clock: game.getElapsedTime()\`, so the shared host displays **elapsed** time without Sudoku-specific branching. Test given-cell lock, number entry, finish, pause/reset.
+- [ ] **Quick Math:** \`QuickMathFrameworkGame.submitAnswer(string)\` and \`getCurrentQuestion()\`; keypad/backspace/submit, accuracy and score. Stage-1 source event fixes already cover wrong-answer question progression; test both outcomes and reset.
+- [ ] **Word Scramble:** \`WordScrambleGame.submitAnswer(string)\`, \`skipCurrentChallenge()\`, \`getCurrentChallenge()\`; letter tiles (incl. repeated letters), undo/clear/submit/skip and counters. Stage-1 event fixes already cover next-question propagation; test incorrect/skip and reset.
+
+**UI rule:** Keep boards readable on narrow devices via scroll/viewport; don't shrink every 12×12 hit target to an inaccessible size. Reuse NativeWind tokens and existing \`Select\`/\`Toggle\`/Button/Card. Don't add another renderer layer or duplicate scoring.
+
+**Checkpoint:** all eight games work with focused view/controller tests and minimal chrome. Keep implementation in PR #105.
+
+
+## Stage 4 — Focused host/event integration tests (no duplicate parity harness)
+
+- [ ] Add **one** native host Jest test that \`Platform.OS\` becomes \`platform: ios/android\` in the \`ScoreData\` passed to the injected \`api.submitScore\`, exactly once per completed run. Reuse existing \`apps/web/src/pages/api/scores.test.ts\` server tests for platform persistence and award rules; only add endpoint tests if a real server defect is found.
+- [ ] Native Jest for each game's input -> concrete method arguments -> updated projection, and finish/reset (Stage 2–3 tests); no second web-vs-native deterministic rules harness. The two platforms run the **same** \`@cetus/games\` simulation covered by its existing portable tests.
+- [ ] Portable/new host tests: provisional \`pending\`, saved/unconfirmed and code-less false; no duplicate result/banner; stale-\`runId\` **score/results** dropped even if a newer run finishes; **same-account stale-run rewards forwarded once**; cross-account/replaced host rewards suppressed; guest/401; timer vs explicit completion emits no double submission.
+- [ ] Verify \`useSessionGuard().isPending\` prevents cold-start remount, stable \`sessionKey\` does not reset on routine session renewal, and cleanup removes forwarder, session listeners, timers and delayed callbacks. Test a route exit while save is in flight.
+- [ ] Preserve existing web GameScreen and notification-forwarder behavior with focused regression checks; no broad refactor of 16 web projectors, no duplicate POST endpoint test suite.
+
+
+## Stage 5 — Validation and honest external acceptance fallback
+
+- [ ] Automated gates: \`bun run lint\`, \`bun run format:check\`, \`bun run turbo run typecheck\`, \`bun run test:coverage\`, \`bun run build\`, relevant \`bun run test:e2e\`; \`bun --cwd apps/mobile test --runInBand\`; Metro/dev build for both iOS and Android. Record exact commands/outputs and any pre-existing failures. Check no browser/DOM renderer imports and unchanged Codecov gates.
+- [ ] **Required HPA-425 playability gate:** run **guest** start/action/finish/reset on **all eight games on iOS simulator and Android emulator**. Check taps, memory mismatch delay, mine flag/long-press, pulse timing, potion undo, tide color, Sudoku keypad, math keypad and word tiles; small screen/safe area, navigation/back and background/foreground. Use real devices if available, but simulators satisfy this ticket's gameplay verification.
+- [ ] **Required code-level score/reward gate:** one host test proves mobile \`platform\` and exactly one \`api.submitScore\` call; focused tests prove pending/saved/unconfirmed, rewards once after same-account quick replay, isolation after account change; existing server suite exercises score persistence/awards. This is **contract/integration evidence**, not proof of a signed-in phone-to-backend transaction.
+- [ ] **Conditional signed-in device gate:** if fixed HTTPS origin, Google/Apple provider credentials, dev clients and EAS are available, perform authenticated end-to-end score/leaderboard/achievement/challenge verification on both devices now and record results. If not, document **not verified (external HPA-179 prerequisite)**, link the release-gate follow-up to **existing HPA-199**, and do **not** indefinitely block HPA-425's code-complete state on external sign-in setup. HPA-199 remains **blocked for release** until real authenticated device parity is proven. Don't claim end-to-end persistence succeeded based solely on mocks.
+- [ ] Update Linear HPA-425 with the PR and evidence summary. Mark HPA-425 **Done** only after both platform guest playability and code-level score/reward tests pass; record any deferred signed-in device gap on HPA-199. The draft PR may become ready after these scoped HPA-425 gates, with release-device sign-off explicitly deferred; do not auto-merge on the basis of the plan.
+
+
+## Expected file touch list (adjust from live code)
 
 | Area | Expected changes |
 | --- | --- |
-| `apps/mobile/package.json`, `bun.lock` | `@cetus/games` workspace dependency, no speculative native libs |
-| `apps/mobile/app/(tabs)/index.tsx` and `app/games/[gameId].tsx` | Eight enabled game entries/Play CTA, 15 honestly unported |
-| `apps/mobile/app/games/[gameId]/play.tsx` | Shared play leaf/unknown game fallback |
-| `apps/mobile/src/games/*` | Small host/result components and eight view-based boards |
-| `apps/mobile/__tests__/*` | Host/router/game interaction, platform score and account lifecycle tests |
-| `packages/games/src/core/BaseGame.ts`, `packages/app-core/src/{createBaseGameSession,types}.ts` and tests | Narrow score-result signaling, preserving the stale-run guard |
-| `packages/games/src/{quick-math,word-scramble}/*` and tests | Missing question/challenge `state-change` notifications, only if confirmed |
-| `packages/ui/src/*` | Optional native chrome pieces **only** if at least one port consumes them |
-| `apps/web/src/*` / `packages/api-client/*` | No anticipated production changes; touch tests/code only if an actual parity defect is found |
+| \`packages/games/src/core/BaseGame.ts\`, \`packages/app-core/src/{types,createBaseGameSession}.ts\`, tests | Narrow \`save\` payload, \`saveStatus\`/\`saveCode\`, stale-run regression |
+| \`packages/app-core/src/createStableProjector.ts\`, tests | One serializable visible-data projector; mutable nested board fixture |
+| \`packages/app-core/src/forwardBaseGameResults.ts\`, tests; \`apps/web/src/lib/games/core/notificationForwarder.ts\` | Portable forwarder with injected sinks and thin existing web \`window\` adapter (leave call sites alone) |
+| \`packages/games/src/{quick-math,word-scramble}/*\`, tests | Missing \`state-change\` notification only |
+| \`apps/mobile/package.json\`, \`bun.lock\` | \`@cetus/games\` direct dependency; no speculative native libs |
+| \`apps/mobile/src/games/registry.ts\`, existing catalog/detail, \`app/games/[gameId]/play.tsx\` | Single 8-game map and supported/unported routing |
+| \`apps/mobile/src/games/*\` | Tiny account-keyed host, result/banner and eight native views |
+| \`apps/mobile/__tests__/*\` | Focused model-input/view projections, host lifecycle/score/reward tests |
+| \`apps/web/src/pages/api/scores.ts\` and DB schema | **No planned changes**; existing endpoint/tests are sufficient |
+
 
 ## Explicit deferrals and risks
 
-- **Not in HPA-425:** Skia, game waves 2/3, App Store/Play Store submission, generic offline queues, idempotency schema by default, broad refactors, a new score service, duplicated game rules, new art/SFX, ornamental animation system.
-- **Known risk: ambiguous commit.** The client can report `NETWORK_ERROR` after an HTTP 2xx response is persisted but parsing fails; auto-replay can duplicate rows. Default to "not confirmed" feedback.
-- **Known risk: daily/context rollover.** Retry of a future contextual score could use a stale `competitionKey`/UTC day; never promise a durable retry without server validation.
-- **Known risk: external acceptance.** Prior mobile PRs merged without proven OAuth/device/EAS setup. Automated tests do not substitute for real iOS + Android playability.
-- **Known risk: mutable projected state.** Root app-core snapshots must reflect game `state-change` even when models mutate nested boards. Add focused tests instead of a new state management framework.
-- **Known risk: callback-only games.** Quick Math/Word Scramble can advance without a score event. Fix portable event signaling narrowly; don't compensate with duplicate native domain state.
+- **Firm exclusions:** No Skia, waves 2/3, store release, new auth/API/DB schema, broad refactors, second UI store, custom renderer, duplicate rules, art/SFX generation or persistent score queue. Do not turn a score-retry discussion into a server project inside HPA-425.
+- **Deferred retry:** A failed response parse may be classified \`NETWORK_ERROR\` **after the server committed**. Blind replay can duplicate rows or use stale UTC/\`competitionKey\` context. Default to honest \`not confirmed\`. If real usage eventually justifies durable retry, plan a **separate** narrowly scoped future ticket (reuse a cancelled/duplicate Graveyard issue rather than creating a new one needlessly); no ticket now.
+- **Mutable state:** Memory Matrix, Mine Grid and Sudoku mutate nested cells. All eight native views use the Stage-1 \`createStableProjector\`, and Memory Matrix is the second pilot to test the hard case before mass porting.
+- **Same-account delayed rewards:** The session adapter rightly discards stale **score/status** from a previous run, but the separately injected forwarder must deliver that run's committed awards **once** on the same account. Account-key remount removes the old forwarder, preventing other-user banners. No double delivery from a result overlay.
+- **External auth:** HPA-179 OAuth/EAS/device sign-in is not proven by merged mobile scaffolding. Require both-platform **guest simulator gameplay** plus automated score/award contract checks for this ticket; track actual authenticated device-to-backend parity as the existing HPA-199 release gate unless it can be proven now.
+- **Single-PR review cadence:** portable contracts + routing first, Chromatic Tide **and Memory Matrix** pilot pair second, six further views as staged commits, focused contract tests and final sign-off — all inside PR #105. Keep Linear and docs aligned with review comments, do not open a second PR.
 
-**Single-PR review cadence:** first design, then routing/host, pilot score result, each of the seven game views, and final parity evidence as successive commits **to this existing PR**. Keep the docs aligned with Linear as review findings evolve; do not split implementation into a second PR.
