@@ -24,7 +24,20 @@ jest.mock('../src/lib/login-rewards', () => ({
 
 import GamesScreen from '../app/(tabs)/index'
 import GameDetailScreen from '../app/games/[gameId]'
-import { GAMES } from '@cetus/shared/games'
+import { GAMES, GameID } from '@cetus/shared/games'
+import { isNativePlayable } from '../src/games/registry'
+
+// HPA-425 wave 1: the eight games with native ports (boards land per game).
+const NATIVE_WAVE_IDS = [
+  GameID.CHROMATIC_TIDE,
+  GameID.MEMORY_MATRIX,
+  GameID.MINE_GRID,
+  GameID.PATTERN_PULSE,
+  GameID.POTION_SORTER,
+  GameID.QUICK_MATH,
+  GameID.SUDOKU,
+  GameID.WORD_SCRAMBLE,
+] as const
 
 const render = async (element: React.ReactElement) => {
   let tree: TestRenderer.ReactTestRenderer | undefined
@@ -182,8 +195,48 @@ describe('game detail', () => {
     expect(rendered).toContain('5-15 minutes')
   })
 
-  test('honestly disables the play CTA for every registry game', async () => {
+  test('marks the eight native registry games playable in the hub list', async () => {
+    const tree = await render(<GamesScreen />)
+
+    const rendered = renderedText(tree)
     for (const game of ACTIVE_GAMES) {
+      const expected = isNativePlayable(game.id)
+        ? 'Playable on mobile'
+        : 'Not playable on mobile yet'
+      expect(rendered).toContain(`${game.category}\n${expected}`)
+    }
+    expect(ACTIVE_GAMES.filter(game => isNativePlayable(game.id))).toHaveLength(
+      8
+    )
+  })
+
+  test('links playable games to the native play route from the detail CTA', async () => {
+    for (const id of NATIVE_WAVE_IDS) {
+      mockPush.mockClear()
+      mockParams.gameId = id
+      const game = GAMES.find(entry => entry.id === id)
+      expect(game).toBeDefined()
+      if (!game) {
+        continue
+      }
+      const tree = await render(<GameDetailScreen />)
+
+      const cta = tree.root.findByProps({
+        accessibilityLabel: `Play ${game.name}`,
+      })
+      expect(cta.props.disabled).toBe(false)
+      await act(async () => {
+        cta.props.onPress?.()
+      })
+      expect(mockPush).toHaveBeenCalledWith(`/games/${id}/play`)
+    }
+  })
+
+  test('honestly disables the play CTA for the fifteen unported games', async () => {
+    const unported = ACTIVE_GAMES.filter(game => !isNativePlayable(game.id))
+    expect(unported).toHaveLength(15)
+    for (const game of unported) {
+      mockPush.mockClear()
       mockParams.gameId = game.id
       const tree = await render(<GameDetailScreen />)
 
@@ -197,8 +250,8 @@ describe('game detail', () => {
 
       const rendered = renderedText(tree)
       expect(rendered).toContain('Not playable on mobile yet')
+      expect(mockPush).not.toHaveBeenCalled()
     }
-    expect(mockPush).not.toHaveBeenCalled()
     expect(mockReplace).not.toHaveBeenCalled()
   })
 

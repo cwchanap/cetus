@@ -4,6 +4,7 @@ import { Badge, Button, Card, Heading } from '@cetus/ui'
 import { getGameById, type GameID } from '@cetus/shared/games'
 
 import { difficultyBadgeVariant } from '../../src/lib/game-catalog'
+import { isNativePlayable } from '../../src/games/registry'
 
 export default function GameDetailScreen() {
   const router = useRouter()
@@ -12,6 +13,7 @@ export default function GameDetailScreen() {
   }>()
   const id = Array.isArray(gameId) ? gameId[0] : gameId
   const game = id ? getGameById(id as GameID) : undefined
+  const nativePlayable = id ? isNativePlayable(id) : false
 
   if (!game) {
     return (
@@ -76,13 +78,20 @@ export default function GameDetailScreen() {
         <Button
           variant="primary"
           size="lg"
-          disabled
+          disabled={!nativePlayable}
           accessibilityLabel={`Play ${game.name}`}
+          onPress={
+            nativePlayable
+              ? () => router.push(`/games/${game.id}/play`)
+              : undefined
+          }
         >
           Play
         </Button>
         <Text className="font-sans text-center text-xs text-cetus-ink-muted">
-          Not playable on mobile yet — the native port is still in progress.
+          {nativePlayable
+            ? 'Opens the native play screen.'
+            : 'Not playable on mobile yet — the native port is still in progress.'}
         </Text>
       </View>
       {router.canGoBack() ? null : (
