@@ -20,6 +20,10 @@ const TIDE_COLORS: Record<ChromaticTideColor, string> = {
 
 const TOTAL_CELLS = CHROMATIC_TIDE_RULES.rows * CHROMATIC_TIDE_RULES.cols
 
+/** Explicit dark label color: the bright tide fills need it over the
+ *  theme's near-white ink (the mobile app enforces the dark theme). */
+const TIDE_LABEL_COLOR = 'rgba(3, 10, 20, 0.82)'
+
 const colorLabel = (color: ChromaticTideColor): string =>
   `${color[0].toUpperCase()}${color.slice(1)}`
 
@@ -104,7 +108,7 @@ export function ChromaticTideBoard({ projected, game }: NativeGameViewProps) {
               >
                 <Text
                   className="text-[9px] font-bold"
-                  style={{ color: 'rgba(3, 10, 20, 0.82)' }}
+                  style={{ color: TIDE_LABEL_COLOR }}
                 >
                   {CHROMATIC_TIDE_PALETTE.indexOf(cell.color) + 1}
                 </Text>
@@ -136,7 +140,15 @@ export function ChromaticTideBoard({ projected, game }: NativeGameViewProps) {
               style={{ backgroundColor: TIDE_COLORS[color] }}
               onPress={() => (game as ChromaticTideGame).chooseColor(color)}
             >
-              {index + 1} {colorLabel(color)}
+              {/* Explicit dark label: the ghost Button's text-cetus-ink is
+                  near-white in the dark theme and unreadable on these
+                  bright fills; a Text child keeps Button's label sizing. */}
+              <Text
+                className="text-sm font-bold"
+                style={{ color: TIDE_LABEL_COLOR }}
+              >
+                {index + 1} {colorLabel(color)}
+              </Text>
             </Button>
           )
         })}
