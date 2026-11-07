@@ -270,6 +270,13 @@ export class WordScrambleGame extends BaseGame<
         if (callbacks.onChallengeUpdate) {
             callbacks.onChallengeUpdate(this.state.currentChallenge)
         }
+        // House pattern (2048/Mine Grid/…): callback first, then the shared
+        // `state-change` event so session projections refresh even when an
+        // incorrect answer or skip changes no score/timer field.
+        if (this.callbacks.onStateChange) {
+            this.callbacks.onStateChange(this.getState())
+        }
+        this.emit('state-change', { state: this.getState() })
     }
 }
 

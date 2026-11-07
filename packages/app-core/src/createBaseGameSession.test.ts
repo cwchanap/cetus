@@ -194,6 +194,7 @@ describe('createBaseGameSession', () => {
         expect(session.getCachedSnapshot().result).toEqual({
             score: 12,
             stats: { finalScore: 12, timeElapsed: 0, gameCompleted: true },
+            saveStatus: 'pending',
         })
 
         await ended
@@ -206,6 +207,8 @@ describe('createBaseGameSession', () => {
             stats: { finalScore: 12, timeElapsed: 0, gameCompleted: true },
             newAchievements: undefined,
             challengeUpdates: undefined,
+            saveStatus: 'saved',
+            saveCode: undefined,
         })
         // A finished run keeps replaying events without re-submitting.
         game.emit('time-update', { time: 0 })
@@ -258,6 +261,7 @@ describe('createBaseGameSession', () => {
         expect(stalled.result).toEqual({
             score: 9,
             stats: { finalScore: 9, timeElapsed: 0, gameCompleted: true },
+            saveStatus: 'pending',
         })
 
         // The provisional reference is stable across unrelated refreshes.
@@ -273,6 +277,7 @@ describe('createBaseGameSession', () => {
             stats: { finalScore: 9, timeElapsed: 0, gameCompleted: true },
             newAchievements: undefined,
             challengeUpdates: undefined,
+            saveStatus: 'saved',
         })
         // The structured end replaced the provisional result.
         expect(finished.result).not.toBe(stalled.result)
@@ -327,6 +332,7 @@ describe('createBaseGameSession', () => {
         expect(provisional).toEqual({
             score: 20,
             stats: { finalScore: 20, timeElapsed: 0, gameCompleted: true },
+            saveStatus: 'pending',
         })
 
         // A's save resolves late: its structured end carries the old runId
@@ -346,7 +352,47 @@ describe('createBaseGameSession', () => {
             stats: { finalScore: 20, timeElapsed: 0, gameCompleted: true },
             newAchievements: undefined,
             challengeUpdates: undefined,
+            saveStatus: 'saved',
         })
+    })
+
+    it('reports a coded failed save as unconfirmed with the public code', async () => {
+        const submitScore = vi.fn(async () => ({
+            success: false,
+            code: 'NETWORK_ERROR' as const,
+        }))
+        game = createStubGame({ submitScore })
+        const session = createBaseGameSession(game, state => state.score)
+        game.start()
+
+        await game.end()
+
+        expect(session.getCachedSnapshot().result).toMatchObject({
+            saveStatus: 'unconfirmed',
+            saveCode: 'NETWORK_ERROR',
+        })
+    })
+
+    it('reports a code-less failed save as unconfirmed', async () => {
+        // ScoreManager.saveFinalScore catches a throwing submitter and
+        // returns { success: false } with no code.
+        const consoleSpy = vi
+            .spyOn(console, 'error')
+            .mockImplementation(() => {})
+        const submitScore = vi.fn(async () => {
+            throw new Error('offline')
+        })
+        game = createStubGame({ submitScore })
+        const session = createBaseGameSession(game, state => state.score)
+        game.start()
+
+        await game.end()
+
+        expect(session.getCachedSnapshot().result).toMatchObject({
+            saveStatus: 'unconfirmed',
+            saveCode: undefined,
+        })
+        consoleSpy.mockRestore()
     })
 
     it('keeps the current run result when saves resolve out of order', async () => {
