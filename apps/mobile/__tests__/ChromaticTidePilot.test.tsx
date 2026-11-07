@@ -208,6 +208,27 @@ describe('Chromatic Tide pilot — board', () => {
     }
   })
 
+  test('palette labels use an explicit dark foreground on the bright tide fills', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.CHROMATIC_TIDE} />)
+
+    const colors = ['teal', 'amber', 'magenta', 'ice', 'green']
+    colors.forEach((color, index) => {
+      const button = tree.root.findByProps({
+        accessibilityLabel: `Choose ${color}`,
+      })
+      const label = button.findAllByType(Text)[0]
+      // The ghost Button's default text-cetus-ink is near-white under the
+      // enforced dark theme and unreadable on the bright tide fills; the
+      // label must carry the same explicit dark color as the cell digits.
+      expect(label.props.style).toMatchObject({
+        color: 'rgba(3, 10, 20, 0.82)',
+      })
+      expect(scalarText(label.props.children)).toBe(
+        `${index + 1} ${color[0].toUpperCase()}${color.slice(1)}`
+      )
+    })
+  })
+
   test('a palette tap calls chooseColor on the live game, updates the board and finishes', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.CHROMATIC_TIDE} />)
     const game = createdGames[0]
