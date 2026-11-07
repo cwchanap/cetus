@@ -13,6 +13,7 @@
     "@better-auth/expo": "1.7.10",
     "@cetus/api-client": "workspace:*",
     "@cetus/app-core": "workspace:*",
+    "@cetus/games": "workspace:*",
     "@cetus/shared": "workspace:*",
     "@cetus/tokens": "workspace:*",
     "@cetus/ui": "workspace:*",
