@@ -11,6 +11,15 @@ jest.mock('../src/lib/api', () => ({
   },
 }))
 
+const mockPush = jest.fn()
+jest.mock('expo-router', () => ({
+  useRouter: () => ({
+    push: mockPush,
+    replace: jest.fn(),
+    canGoBack: jest.fn(),
+  }),
+}))
+
 // Wrap the two host seams whose cleanup ORDER is the contract under test;
 // each wrapper delegates to the real implementation. The `mock` prefix is
 // required by babel-plugin-jest-hoist (the factory runs before imports).
@@ -310,9 +319,11 @@ describe('NativeGameHost — Platform.OS score submitter contract', () => {
     await drain()
 
     const rendered = renderedText(tree)
-    expect(rendered).toContain('Score not confirmed')
-    expect(rendered).toContain('NETWORK_ERROR')
+    // The network message stays honest: the request may have committed.
+    expect(rendered).toContain('may still have been saved')
     expect(rendered).not.toContain('Score saved')
+    // Never auto-retried.
+    expect(submitScore).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -449,14 +460,26 @@ describe('NativeGameHost — per-instance board binding', () => {
   })
 
   test('a production entry without a board view runs a live session behind the placeholder board', async () => {
-    const tree = await render(<NativeGameHost gameId={GameID.CHROMATIC_TIDE} />)
+    // No production entry is viewless anymore; blank the pilot's view to
+    // keep guarding the honest placeholder for future ports.
+    const original = NATIVE_GAMES[GameID.CHROMATIC_TIDE]
+    NATIVE_GAMES[GameID.CHROMATIC_TIDE] = original?.port
+      ? { port: { ...original.port, view: undefined } }
+      : {}
+    try {
+      const tree = await render(
+        <NativeGameHost gameId={GameID.CHROMATIC_TIDE} />
+      )
 
-    // The chrome is fully live: the run can start, save and earn rewards.
-    expect(
-      tree.root.findByProps({ accessibilityLabel: 'Start game' })
-    ).toBeTruthy()
-    expect(renderedText(tree).toLowerCase()).toContain('native board')
-    expect(submitScore).not.toHaveBeenCalled()
+      // The chrome is fully live: the run can start, save and earn rewards.
+      expect(
+        tree.root.findByProps({ accessibilityLabel: 'Start game' })
+      ).toBeTruthy()
+      expect(renderedText(tree).toLowerCase()).toContain('native board')
+      expect(submitScore).not.toHaveBeenCalled()
+    } finally {
+      NATIVE_GAMES[GameID.CHROMATIC_TIDE] = original
+    }
   })
 })
 

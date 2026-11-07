@@ -2,7 +2,7 @@ import type { ComponentType } from 'react'
 import { GameID } from '@cetus/shared/games'
 import type { ScoreSubmitter } from '@cetus/shared/scores'
 import type { ScorePlatform } from '@cetus/shared/validations'
-import type { BaseGame, BaseGameState } from '@cetus/games'
+import type { BaseGame, BaseGameState, BaseGameStats } from '@cetus/games'
 import { MemoryMatrixGame } from '@cetus/games/memory-matrix/MemoryMatrixGame'
 import type { MemoryMatrixState } from '@cetus/games/memory-matrix/frameworkTypes'
 import { MineGridGame } from '@cetus/games/mine-grid/MineGridGame'
@@ -20,7 +20,11 @@ import type { SudokuState } from '@cetus/games/sudoku/frameworkTypes'
 import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
 import type { WordScrambleState } from '@cetus/games/word-scramble/frameworkTypes'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
-import type { ChromaticTideState } from '@cetus/games/chromatic-tide/types'
+import type {
+    ChromaticTideState,
+    ChromaticTideStats,
+} from '@cetus/games/chromatic-tide/types'
+import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
 
 /**
  * Host-injected transport every native game run receives: the cookie-backed
@@ -63,6 +67,9 @@ export interface NativeGameViewProps {
 export interface NativeGamePort {
     createGame(deps: NativeGameHostDeps): BaseGame
     project(state: BaseGameState, game: BaseGame): NativeGameProjection
+    /** Optional result-sheet outcome label derived from the finished
+     * run's stats (e.g. Chromatic Tide Cleared/Timeout); null hides it. */
+    resultOutcomeLabel?: (stats: BaseGameStats) => string | null
     view?: ComponentType<NativeGameViewProps>
 }
 
@@ -196,15 +203,36 @@ const chromaticTidePort: NativeGamePort = {
             platform: deps.platform,
         }),
     project: state => {
-        const { board, territoryColor, movesUsed, capturedCells } =
-            state as ChromaticTideState
-        return {
-            colors: board.map(row => row.map(cell => cell.color)),
+        const {
+            board,
             territoryColor,
             movesUsed,
             capturedCells,
+            outcome,
+            isActive,
+        } = state as ChromaticTideState
+        return {
+            cells: board.map(row =>
+                row.map(cell => ({
+                    color: cell.color,
+                    captured: cell.captured,
+                }))
+            ),
+            territoryColor,
+            movesUsed,
+            capturedCells,
+            canChooseColor: isActive && outcome === 'playing',
         }
     },
+    resultOutcomeLabel: stats => {
+        const outcome = (stats as ChromaticTideStats).outcome
+        return outcome === 'cleared'
+            ? 'Cleared'
+            : outcome === 'timeout'
+              ? 'Timeout'
+              : null
+    },
+    view: ChromaticTideBoard,
 }
 
 /**

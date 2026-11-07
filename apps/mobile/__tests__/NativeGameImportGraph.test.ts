@@ -365,6 +365,10 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
         '@cetus/games/memory-matrix/MemoryMatrixGame',
         /packages\/games\/src\/memory-matrix\/MemoryMatrixGame\.ts$/,
     ],
+    [
+        '@cetus/games/chromatic-tide/types',
+        /packages\/games\/src\/chromatic-tide\/types\.ts$/,
+    ],
     ['@cetus/app-core', /packages\/app-core\/src\/index\.ts$/],
     ['@cetus/shared/games', /packages\/shared\/src\/games\.ts$/],
     ['@cetus/ui', /packages\/ui\/src\/index\.native\.ts$/],

@@ -9,7 +9,7 @@ import {
 } from '../src/games/registry'
 import { GAMES, GameID, getActiveGames } from '@cetus/shared/games'
 import type { ScoreSubmitter } from '@cetus/shared/scores'
-import type { BaseGame, BaseGameConfig } from '@cetus/games'
+import type { BaseGame, BaseGameConfig, BaseGameStats } from '@cetus/games'
 import { MemoryMatrixGame } from '@cetus/games/memory-matrix/MemoryMatrixGame'
 import { MineGridGame } from '@cetus/games/mine-grid/MineGridGame'
 import { PatternPulseGame } from '@cetus/games/pattern-pulse/PatternPulseGame'
@@ -140,6 +140,43 @@ describe('NATIVE_GAMES registry', () => {
         expect(projected.clock).toBe(game.getTimerStatus().elapsedTime)
         expect(projected.clock).toBeGreaterThan(0)
         game.destroy()
+    })
+
+    test('the Chromatic Tide pilot ships a board view and a captured-cell projection', () => {
+        const port = getNativeGameEntry(GameID.CHROMATIC_TIDE)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        const projected = port.project(game.getState(), game) as {
+            cells: Array<Array<{ color: string; captured: boolean }>>
+            territoryColor: string
+            capturedCells: number
+        }
+        // The 12×12 visible board carries each cell's color and captured
+        // flag; the captured count lines up with the captured cells.
+        expect(projected.cells).toHaveLength(12)
+        expect(projected.cells.every(row => row.length === 12)).toBe(true)
+        expect(projected.capturedCells).toBe(
+            projected.cells.flat().filter(cell => cell.captured).length
+        )
+        expect(projected.territoryColor).toBe(projected.cells[0][0].color)
+        game.destroy()
+    })
+
+    test('the Chromatic Tide port labels finished-run outcomes', () => {
+        const port = getNativeGameEntry(GameID.CHROMATIC_TIDE)?.port
+        expect(port).toBeDefined()
+        if (!port?.resultOutcomeLabel) {
+            return
+        }
+        const stats = (outcome: string) =>
+            ({ outcome }) as unknown as BaseGameStats
+        expect(port.resultOutcomeLabel(stats('cleared'))).toBe('Cleared')
+        expect(port.resultOutcomeLabel(stats('timeout'))).toBe('Timeout')
+        expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
     })
 
     test('keys are computed from imported enum members, never bare strings', () => {
