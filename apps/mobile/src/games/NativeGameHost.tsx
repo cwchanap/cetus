@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Platform, Text, View } from 'react-native'
+import { useRouter } from 'expo-router'
 import { Heading } from '@cetus/ui'
 import {
   createBaseGameSession,
@@ -40,6 +41,7 @@ const IDLE_NATIVE_SNAPSHOT: GameSessionSnapshot<NativeGameProjection> = {
  * banners and game UI wholesale.
  */
 export function NativeGameHost({ gameId }: { gameId: GameID }) {
+  const router = useRouter()
   const entry = getNativeGameEntry(gameId)
   const port = entry?.port
   const [game, setGame] = useState<BaseGame | null>(null)
@@ -97,6 +99,10 @@ export function NativeGameHost({ gameId }: { gameId: GameID }) {
   }
 
   const BoardView = port.view
+  const outcomeLabel =
+    port.resultOutcomeLabel && snapshot.result
+      ? port.resultOutcomeLabel(snapshot.result.stats)
+      : null
   return (
     <View className="flex-1 bg-cetus-canvas">
       <NativeGameChrome
@@ -104,6 +110,8 @@ export function NativeGameHost({ gameId }: { gameId: GameID }) {
         actions={actions}
         capabilities={capabilities}
         rewardBanner={rewardBanner}
+        outcomeLabel={outcomeLabel}
+        onSignIn={() => router.push('/sign-in')}
       />
       {session && game ? (
         BoardView ? (

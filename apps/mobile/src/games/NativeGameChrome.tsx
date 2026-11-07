@@ -3,6 +3,7 @@ import { Text, View } from 'react-native'
 import type {
   GameSessionActions,
   GameSessionCapabilities,
+  GameSessionResult,
   GameSessionSnapshot,
 } from '@cetus/app-core'
 import { formatTime } from '@cetus/games/shared/utils'
@@ -22,6 +23,26 @@ export interface NativeGameChromeProps {
   actions: GameSessionActions
   capabilities: GameSessionCapabilities
   rewardBanner: NativeRewardBanner | null
+  /** Finished-run outcome label from the port (e.g. "Cleared"). */
+  outcomeLabel?: string | null
+  /** Sign-in destination for the 401 CTA (future scores only). */
+  onSignIn?: () => void
+}
+
+/**
+ * Honest unconfirmed-save copy per public failure code. A dropped
+ * connection must allow that the request was committed server-side;
+ * nothing here ever auto-retries — the single POST is all there was.
+ */
+function unconfirmedSaveMessage(code: GameSessionResult['saveCode']): string {
+  switch (code) {
+    case 'NETWORK_ERROR':
+      return 'Score not confirmed — the connection dropped after sending. It may still have been saved.'
+    case 'UNAUTHENTICATED':
+      return 'Score not saved — you are signed out.'
+    default:
+      return code ? `Score not confirmed (${code})` : 'Score not confirmed'
+  }
 }
 
 /**
@@ -34,6 +55,8 @@ export function NativeGameChrome({
   actions,
   capabilities,
   rewardBanner,
+  outcomeLabel,
+  onSignIn,
 }: NativeGameChromeProps) {
   // Sudoku-style games count up via projected.clock; countdown games use
   // the session's timeRemaining snapshot.
@@ -140,6 +163,14 @@ export function NativeGameChrome({
           <Heading level={5} variant="section" align="center">
             Run complete
           </Heading>
+          {outcomeLabel ? (
+            <Text
+              testID="result-outcome"
+              className="text-center font-display text-lg text-cetus-ink"
+            >
+              {outcomeLabel}
+            </Text>
+          ) : null}
           <Text
             testID="final-score"
             className="text-center font-display text-2xl text-cetus-ink"
@@ -163,13 +194,25 @@ export function NativeGameChrome({
             </Text>
           ) : null}
           {result.saveStatus === 'unconfirmed' ? (
-            <Text
-              testID="result-save-status"
-              className="text-center font-sans text-xs text-cetus-ink-muted"
-            >
-              Score not confirmed
-              {result.saveCode ? ` (${result.saveCode})` : ''}
-            </Text>
+            <>
+              <Text
+                testID="result-save-status"
+                className="text-center font-sans text-xs text-cetus-ink-muted"
+              >
+                {unconfirmedSaveMessage(result.saveCode)}
+              </Text>
+              {/* The 401 CTA promises future scores only — the finished
+                  run was never saved and is never re-submitted. */}
+              {result.saveCode === 'UNAUTHENTICATED' && onSignIn ? (
+                <Button
+                  variant="outline"
+                  accessibilityLabel="Sign in to save future scores"
+                  onPress={onSignIn}
+                >
+                  Sign in to save future scores
+                </Button>
+              ) : null}
+            </>
           ) : null}
         </Card>
       ) : null}
