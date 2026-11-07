@@ -8,6 +8,35 @@ import {
     NATIVE_GAMES,
 } from '../src/games/registry'
 import { GAMES, GameID, getActiveGames } from '@cetus/shared/games'
+import type { ScoreSubmitter } from '@cetus/shared/scores'
+import type { BaseGame, BaseGameConfig } from '@cetus/games'
+import { MemoryMatrixGame } from '@cetus/games/memory-matrix/MemoryMatrixGame'
+import { MineGridGame } from '@cetus/games/mine-grid/MineGridGame'
+import { PatternPulseGame } from '@cetus/games/pattern-pulse/PatternPulseGame'
+import { PotionSorterGame } from '@cetus/games/potion-sorter/PotionSorterGame'
+import { QuickMathFrameworkGame } from '@cetus/games/quick-math/game'
+import { SudokuGame } from '@cetus/games/sudoku/SudokuGame'
+import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
+import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
+
+// Any-constructor shape: `never` params accept every concrete ctor.
+type AnyGameCtor = abstract new (...args: never[]) => unknown
+
+const CONCRETE_GAMES: ReadonlyArray<readonly [GameID, AnyGameCtor]> = [
+    [GameID.MEMORY_MATRIX, MemoryMatrixGame],
+    [GameID.MINE_GRID, MineGridGame],
+    [GameID.PATTERN_PULSE, PatternPulseGame],
+    [GameID.POTION_SORTER, PotionSorterGame],
+    [GameID.QUICK_MATH, QuickMathFrameworkGame],
+    [GameID.SUDOKU, SudokuGame],
+    [GameID.WORD_SCRAMBLE, WordScrambleGame],
+    [GameID.CHROMATIC_TIDE, ChromaticTideGame],
+]
+
+const hostDeps = (platform: 'ios' | 'android') => {
+    const submitScore: ScoreSubmitter = async () => ({ success: true })
+    return { submitScore, platform }
+}
 
 // HPA-425 wave 1: exactly these eight games are native-destined. The list
 // is duplicated here on purpose — the test must fail if the registry drifts.
@@ -62,6 +91,55 @@ describe('NATIVE_GAMES registry', () => {
         // The fifteen unported registry games stay disabled.
         expect(isNativePlayable(GameID.TETRIS)).toBe(false)
         expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(false)
+    })
+
+    test('production entries construct their concrete game with the injected deps', () => {
+        for (const [id, Ctor] of CONCRETE_GAMES) {
+            const port = getNativeGameEntry(id)?.port
+            expect(port).toBeDefined()
+            if (!port) {
+                continue
+            }
+            const { submitScore, platform } = hostDeps('android')
+            const game: BaseGame = port.createGame({ submitScore, platform })
+            expect(game).toBeInstanceOf(Ctor)
+            // The host deps land in the game config: this submitter identity
+            // and OS label are what a finished run stamps onto ScoreData.
+            const config = (game as unknown as { config: BaseGameConfig })
+                .config
+            expect(config.submitScore).toBe(submitScore)
+            expect(config.platform).toBe('android')
+            expect(typeof game.getState().score).toBe('number')
+            game.destroy()
+        }
+    })
+
+    test('production projections are JSON-serializable visible snapshots', () => {
+        for (const [id] of CONCRETE_GAMES) {
+            const port = getNativeGameEntry(id)?.port
+            if (!port) {
+                continue
+            }
+            const game = port.createGame(hostDeps('ios'))
+            const projected = port.project(game.getState(), game)
+            expect(JSON.parse(JSON.stringify(projected))).toEqual(projected)
+            game.destroy()
+        }
+    })
+
+    test('the Sudoku projector reads the elapsed clock off the constructed instance', async () => {
+        const port = getNativeGameEntry(GameID.SUDOKU)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        const game = port.createGame(hostDeps('ios'))
+        game.start()
+        await new Promise(resolve => setTimeout(resolve, 1100))
+        const projected = port.project(game.getState(), game)
+        expect(projected.clock).toBe(game.getTimerStatus().elapsedTime)
+        expect(projected.clock).toBeGreaterThan(0)
+        game.destroy()
     })
 
     test('keys are computed from imported enum members, never bare strings', () => {
