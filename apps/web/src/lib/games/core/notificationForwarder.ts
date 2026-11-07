@@ -1,56 +1,30 @@
-// Shared BaseGame-only web notification forwarder (HPA-393 §2): every
-// standard React-controlled BaseGame screen attaches exactly one 'end'
-// listener through this helper instead of a per-game toast bridge. It
-// forwards only structured end payloads — numeric `score` plus object
-// `stats`, the same discrimination rule as the app-core adapter — so the
-// timer's bare 'end' is ignored, and it never resubmits scores. Reward
-// fields describe what the completed run's committed save actually earned,
-// so they are delivered even when the run went stale while its save was
-// in flight (the payload's runId is what lets the session adapter keep the
-// stale score/stats out of the result projection — a separate concern).
+// Thin web adapter (HPA-425 Stage 1) over the portable forwarder in
+// `@cetus/app-core`: keeps the existing import path and forwards rewards to
+// the web `window.*` toast sinks registered by the AppNotifications island.
+// The structured-end filtering and reward delivery live in app-core; mobile
+// passes its own mounted-account-scoped banner sink instead.
+import { forwardBaseGameResults as forwardPortableResults } from '@cetus/app-core'
 import type { BaseGame } from '@cetus/games/core/BaseGame'
-import type { ChallengeUpdates, GameEvent } from '@cetus/games/core/types'
-import type { AchievementNotification } from '@cetus/shared/achievements'
 
 export function forwardBaseGameResults(
     game: Pick<BaseGame, 'on' | 'off'>
 ): () => void {
-    const onGameEnd = (event: GameEvent): void => {
-        const data = event.data
-        // Bare timer end carries no payload; structured end has score + stats.
-        if (
-            !data ||
-            typeof data.score !== 'number' ||
-            typeof data.stats !== 'object' ||
-            data.stats === null
-        ) {
-            return
-        }
-        const payload = data as {
-            newAchievements?: AchievementNotification[]
-            challengeUpdates?: ChallengeUpdates
-        }
-        if (payload.newAchievements && payload.newAchievements.length > 0) {
+    return forwardPortableResults(game, {
+        onAchievements: achievements => {
             if (
                 typeof window !== 'undefined' &&
                 typeof window.showAchievementAward === 'function'
             ) {
-                window.showAchievementAward(payload.newAchievements)
+                window.showAchievementAward(achievements)
             }
-        }
-        if (payload.challengeUpdates?.completedChallenges?.length) {
+        },
+        onChallenges: updates => {
             if (
                 typeof window !== 'undefined' &&
                 typeof window.showChallengeComplete === 'function'
             ) {
-                window.showChallengeComplete(payload.challengeUpdates)
+                window.showChallengeComplete(updates)
             }
-        }
-    }
-    game.on('end', onGameEnd)
-    // GameEventEmitter.off is already a no-op for unregistered listeners,
-    // so calling the remover twice is safe.
-    return () => {
-        game.off('end', onGameEnd)
-    }
+        },
+    })
 }

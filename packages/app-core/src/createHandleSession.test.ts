@@ -116,6 +116,20 @@ describe('createHandleSession', () => {
         expect(finished.result).toBe(endResult)
     })
 
+    it('accepts handle-produced results without saveStatus (absent means not reported)', () => {
+        // Circuit Hacker / Satellite Sync / Ice Slide persist through their
+        // own saveGameScore path; their display-only results never claim a
+        // save status. Only the BaseGame adapter populates saveStatus.
+        const { session, handlers } = createSession()
+        handlers.onStart()
+        handlers.onEnd(endResult)
+
+        const result = session.getCachedSnapshot().result
+        expect(result).toBe(endResult)
+        expect(result?.saveStatus).toBeUndefined()
+        expect(result?.saveCode).toBeUndefined()
+    })
+
     it('onIdle returns a running session to the pre-start idle state', () => {
         const { session, handlers } = createSession()
         const listener = vi.fn()

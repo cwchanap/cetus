@@ -93,6 +93,9 @@ export function createBaseGameSession<TProjected>(
                 provisionalResult = {
                     score: state.score,
                     stats: game.getGameStats(),
+                    // The structured end has not landed: the save outcome is
+                    // still unknown, never "saved".
+                    saveStatus: 'pending',
                 }
             }
             result = provisionalResult
@@ -135,6 +138,10 @@ export function createBaseGameSession<TProjected>(
                 score: number
                 stats: GameSessionResult['stats']
                 runId?: number
+                save?: {
+                    success?: boolean
+                    code?: GameSessionResult['saveCode']
+                }
                 newAchievements?: GameSessionResult['newAchievements']
                 challengeUpdates?: GameSessionResult['challengeUpdates']
             }
@@ -149,11 +156,18 @@ export function createBaseGameSession<TProjected>(
             ) {
                 return
             }
+            // BaseGame reports the transport outcome on every structured
+            // end; a payload without it (or a failed save) leaves the save
+            // unconfirmed rather than pretending success.
+            const save = payload.save
+            const saveConfirmed = save?.success === true
             pendingResult = {
                 score: payload.score,
                 stats: payload.stats,
                 newAchievements: payload.newAchievements,
                 challengeUpdates: payload.challengeUpdates,
+                saveStatus: saveConfirmed ? 'saved' : 'unconfirmed',
+                saveCode: saveConfirmed ? undefined : save?.code,
             }
             provisionalResult = null
         }

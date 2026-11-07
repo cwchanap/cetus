@@ -420,3 +420,120 @@ describe('WordScrambleGame', () => {
         })
     })
 })
+
+describe('WordScramble state-change propagation', () => {
+    function buildGame(callbacks: WordScrambleCallbacks = {}) {
+        return new WordScrambleGame(
+            {
+                duration: 60,
+                pointsPerWord: { easy: 10, medium: 20, hard: 30 },
+                wordCategories: ['general'],
+                minWordLength: 3,
+                maxWordLength: 12,
+                submitScore,
+            },
+            callbacks
+        )
+    }
+
+    it('emits state-change with the next challenge on a correct answer, exactly one score call', () => {
+        const onScoreUpdate = vi.fn()
+        const onCorrectAnswer = vi.fn()
+        const onChallengeUpdate = vi.fn()
+        const game = buildGame({
+            onScoreUpdate,
+            onCorrectAnswer,
+            onChallengeUpdate,
+        })
+        const stateChanges: Array<{
+            data?: { state?: { currentChallenge: { id: string } | null } }
+        }> = []
+        game.on('state-change', e => stateChanges.push(e as any))
+
+        game.start()
+        const startChallenge = game.getCurrentChallenge()!
+        stateChanges.length = 0
+        onScoreUpdate.mockClear()
+        onChallengeUpdate.mockClear()
+
+        game.submitAnswer(startChallenge.originalWord)
+
+        const last = stateChanges[stateChanges.length - 1].data!.state!
+        expect(last.currentChallenge).not.toBeNull()
+        expect(last.currentChallenge!.id).not.toBe(startChallenge.id)
+        // Existing callbacks stay, and the score moved exactly once.
+        expect(onCorrectAnswer).toHaveBeenCalledTimes(1)
+        expect(onChallengeUpdate).toHaveBeenCalledTimes(1)
+        expect(onScoreUpdate).toHaveBeenCalledTimes(1)
+        game.destroy()
+    })
+
+    it('emits state-change on an incorrect answer without scoring', () => {
+        const onScoreUpdate = vi.fn()
+        const onIncorrectAnswer = vi.fn()
+        const game = buildGame({ onScoreUpdate, onIncorrectAnswer })
+        const stateChanges: Array<{
+            data?: {
+                state?: {
+                    currentChallenge: { id: string } | null
+                    incorrectAnswers: number
+                }
+            }
+        }> = []
+        game.on('state-change', e => stateChanges.push(e as any))
+
+        game.start()
+        const startChallenge = game.getCurrentChallenge()!
+        stateChanges.length = 0
+
+        game.submitAnswer('definitely-not-the-word')
+
+        const last = stateChanges[stateChanges.length - 1].data!.state!
+        expect(last.incorrectAnswers).toBe(1)
+        expect(last.currentChallenge!.id).not.toBe(startChallenge.id)
+        expect(onIncorrectAnswer).toHaveBeenCalledTimes(1)
+        expect(onScoreUpdate).not.toHaveBeenCalled()
+        game.destroy()
+    })
+
+    it('emits state-change on skip and keeps counters moving without scoring', () => {
+        const onScoreUpdate = vi.fn()
+        const game = buildGame({ onScoreUpdate })
+        const stateChanges: Array<{
+            data?: {
+                state?: {
+                    currentChallenge: { id: string } | null
+                    wordsUnscrambled: number
+                }
+            }
+        }> = []
+        game.on('state-change', e => stateChanges.push(e as any))
+
+        game.start()
+        const startChallenge = game.getCurrentChallenge()!
+        stateChanges.length = 0
+
+        game.skipCurrentChallenge()
+
+        const last = stateChanges[stateChanges.length - 1].data!.state!
+        expect(last.wordsUnscrambled).toBe(1)
+        expect(last.currentChallenge!.id).not.toBe(startChallenge.id)
+        expect(onScoreUpdate).not.toHaveBeenCalled()
+        game.destroy()
+    })
+
+    it('resets the challenge projection after reset', () => {
+        const game = buildGame()
+        game.start()
+        expect(game.getCurrentChallenge()).not.toBeNull()
+
+        game.reset()
+
+        const state = game.getState()
+        expect(state.currentChallenge).toBeNull()
+        expect(state.wordsUnscrambled).toBe(0)
+        expect(state.correctAnswers).toBe(0)
+        expect(state.incorrectAnswers).toBe(0)
+        game.destroy()
+    })
+})

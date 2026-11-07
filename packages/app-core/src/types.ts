@@ -13,6 +13,19 @@ export interface GameSessionResult {
     stats: BaseGameStats
     newAchievements?: NonNullable<ScoreSubmissionResult['newAchievements']>
     challengeUpdates?: NonNullable<ScoreSubmissionResult['challengeUpdates']>
+    /**
+     * Producer-reported save outcome for the finished run. OPTIONAL by
+     * design: `createBaseGameSession` always sets it — 'pending' on the
+     * provisional result, 'saved' / 'unconfirmed' from the structured end
+     * — while handle-based games (Circuit Hacker, Satellite Sync, Ice
+     * Slide) persist through their own path and leave it ABSENT. Absent
+     * means the producer did not report save status; it never means
+     * "saved" or "pending".
+     */
+    saveStatus?: 'pending' | 'saved' | 'unconfirmed'
+    /** Public failure code accompanying `saveStatus: 'unconfirmed'`, when
+     * the transport reported one (a throwing submitter reports none). */
+    saveCode?: ScoreSubmissionResult['code']
 }
 
 /**

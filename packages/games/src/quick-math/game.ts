@@ -185,6 +185,17 @@ export class QuickMathFrameworkGame extends BaseGame<
         if (callbacks.onQuestionUpdate) {
             callbacks.onQuestionUpdate(question)
         }
+        this.emitStateChange()
+    }
+
+    /** House pattern (2048/Mine Grid/…): callback first, then the shared
+     *  `state-change` event so session projections refresh even when a
+     *  wrong answer or skip changes no score/timer field. */
+    private emitStateChange(): void {
+        if (this.callbacks.onStateChange) {
+            this.callbacks.onStateChange(this.getState())
+        }
+        this.emit('state-change', { state: this.getState() })
     }
 
     public submitAnswer(answer: string): boolean {
