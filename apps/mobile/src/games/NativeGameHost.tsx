@@ -15,6 +15,7 @@ import type { ScorePlatform } from '@cetus/shared/validations'
 import { api } from '../lib/api'
 import { getNativeGameEntry, type NativeGameProjection } from './registry'
 import { NativeGameChrome, type NativeRewardBanner } from './NativeGameChrome'
+import type { BaseGame, BaseGameState } from '@cetus/games'
 
 /** Stable null-session default for the pre-effect render. */
 const IDLE_NATIVE_SNAPSHOT: GameSessionSnapshot<NativeGameProjection> = {
@@ -30,7 +31,10 @@ const IDLE_NATIVE_SNAPSHOT: GameSessionSnapshot<NativeGameProjection> = {
  * entry's concrete `@cetus/games` class with the cookie-backed score
  * transport and the OS platform label, adapts it through ONE
  * `createBaseGameSession` + `useGameSession`, and forwards committed
- * rewards to ONE banner. Unmount cleanup removes the forwarder, disposes
+ * rewards to ONE banner. The constructed instance is the per-instance
+ * binding: the projector and the board view both receive it, so boards
+ * call model commands on the live game while the projection stays a
+ * serializable snapshot. Unmount cleanup removes the forwarder, disposes
  * the session and destroys the game — in that order. The play route's
  * `key` (settled identity) remounts this host, dropping old-account
  * banners and game UI wholesale.
@@ -38,6 +42,7 @@ const IDLE_NATIVE_SNAPSHOT: GameSessionSnapshot<NativeGameProjection> = {
 export function NativeGameHost({ gameId }: { gameId: GameID }) {
   const entry = getNativeGameEntry(gameId)
   const port = entry?.port
+  const [game, setGame] = useState<BaseGame | null>(null)
   const [session, setSession] =
     useState<GameSession<NativeGameProjection> | null>(null)
   const [rewardBanner, setRewardBanner] = useState<NativeRewardBanner | null>(
@@ -48,16 +53,19 @@ export function NativeGameHost({ gameId }: { gameId: GameID }) {
     if (!port) {
       return
     }
-    const game = port.createGame({
+    const createdGame = port.createGame({
       submitScore: data => api.submitScore(data),
       platform: Platform.OS as ScorePlatform,
     })
     const nextSession = createBaseGameSession(
-      game,
-      createStableProjector(port.project)
+      createdGame,
+      createStableProjector((state: BaseGameState) =>
+        port.project(state, createdGame)
+      )
     )
+    setGame(createdGame)
     setSession(nextSession)
-    const removeForwarder = forwardBaseGameResults(game, {
+    const removeForwarder = forwardBaseGameResults(createdGame, {
       // One banner merges both deliveries of a single end payload.
       onAchievements: achievements =>
         setRewardBanner(current => ({ ...current, achievements })),
@@ -69,7 +77,7 @@ export function NativeGameHost({ gameId }: { gameId: GameID }) {
       // the game (its timer and listeners) last.
       removeForwarder()
       nextSession.dispose()
-      game.destroy()
+      createdGame.destroy()
     }
   }, [port])
 
@@ -79,16 +87,11 @@ export function NativeGameHost({ gameId }: { gameId: GameID }) {
   )
 
   if (!port) {
-    // Placeholder until this game's Stage 2/3 port lands — honest, no
-    // session, no saves.
+    // Defensive: every production entry ships a port, but a portless entry
+    // still fails honestly — no session, no saves, just the notice.
     return (
-      <View className="flex-1 items-center justify-center gap-2.5 bg-cetus-canvas p-6">
-        <Heading level={4} variant="section" align="center">
-          Native board in progress
-        </Heading>
-        <Text className="text-center font-sans text-sm text-cetus-ink-muted">
-          This game's native board lands later in this release wave.
-        </Text>
+      <View className="flex-1 bg-cetus-canvas">
+        <NativeBoardPending />
       </View>
     )
   }
@@ -102,7 +105,30 @@ export function NativeGameHost({ gameId }: { gameId: GameID }) {
         capabilities={capabilities}
         rewardBanner={rewardBanner}
       />
-      {session ? <BoardView projected={snapshot.projected} /> : null}
+      {session && game ? (
+        BoardView ? (
+          <BoardView projected={snapshot.projected} game={game} />
+        ) : (
+          <NativeBoardPending />
+        )
+      ) : null}
+    </View>
+  )
+}
+
+/**
+ * Placeholder board area for ports whose Stage 2/3 view has not landed;
+ * the session above it is fully live (start, save, rewards).
+ */
+function NativeBoardPending() {
+  return (
+    <View className="flex-1 items-center justify-center gap-2.5 p-6">
+      <Heading level={4} variant="section" align="center">
+        Native board in progress
+      </Heading>
+      <Text className="text-center font-sans text-sm text-cetus-ink-muted">
+        This game's native board lands later in this release wave.
+      </Text>
     </View>
   )
 }

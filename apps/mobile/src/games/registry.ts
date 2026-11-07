@@ -3,6 +3,24 @@ import { GameID } from '@cetus/shared/games'
 import type { ScoreSubmitter } from '@cetus/shared/scores'
 import type { ScorePlatform } from '@cetus/shared/validations'
 import type { BaseGame, BaseGameState } from '@cetus/games'
+import { MemoryMatrixGame } from '@cetus/games/memory-matrix/MemoryMatrixGame'
+import type { MemoryMatrixState } from '@cetus/games/memory-matrix/frameworkTypes'
+import { MineGridGame } from '@cetus/games/mine-grid/MineGridGame'
+import type { MineGridState } from '@cetus/games/mine-grid/types'
+import { PatternPulseGame } from '@cetus/games/pattern-pulse/PatternPulseGame'
+import type { PatternPulseState } from '@cetus/games/pattern-pulse/types'
+import { PotionSorterGame } from '@cetus/games/potion-sorter/PotionSorterGame'
+import type { PotionSorterState } from '@cetus/games/potion-sorter/types'
+import {
+    QuickMathFrameworkGame,
+    type QuickMathState,
+} from '@cetus/games/quick-math/game'
+import { SudokuGame } from '@cetus/games/sudoku/SudokuGame'
+import type { SudokuState } from '@cetus/games/sudoku/frameworkTypes'
+import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
+import type { WordScrambleState } from '@cetus/games/word-scramble/frameworkTypes'
+import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
+import type { ChromaticTideState } from '@cetus/games/chromatic-tide/types'
 
 /**
  * Host-injected transport every native game run receives: the cookie-backed
@@ -26,21 +44,167 @@ export interface NativeGameProjection {
 
 export interface NativeGameViewProps {
     projected: NativeGameProjection
+    /**
+     * Per-instance binding: the live game this host created. Board inputs
+     * call model commands on it (e.g. ChromaticTideGame.chooseColor) —
+     * never on the frozen projection.
+     */
+    game: BaseGame
 }
 
 /**
- * One game's native port. Stage 2/3 commits fill this in per game; until a
- * port lands the host renders an honest arriving notice — no session, no
- * score submission, no pretend gameplay.
+ * One game's native port. `createGame` wires the concrete `@cetus/games`
+ * class with the host deps; `project` also receives the constructed
+ * instance so instance-dependent reads (Sudoku's elapsed clock) work
+ * beside the state. The board `view` is each port's Stage 2/3 deliverable —
+ * until it lands the host renders its placeholder board behind a fully
+ * live session.
  */
 export interface NativeGamePort {
     createGame(deps: NativeGameHostDeps): BaseGame
-    project(state: BaseGameState): NativeGameProjection
-    view: ComponentType<NativeGameViewProps>
+    project(state: BaseGameState, game: BaseGame): NativeGameProjection
+    view?: ComponentType<NativeGameViewProps>
 }
 
 export interface NativeGameEntry {
     port?: NativeGamePort
+}
+
+const memoryMatrixPort: NativeGamePort = {
+    createGame: deps =>
+        new MemoryMatrixGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: state => ({
+        cards: (state as MemoryMatrixState).board.flat().map(card => ({
+            id: card.id,
+            shape: card.shape,
+            color: card.color,
+            isFlipped: card.isFlipped,
+            isMatched: card.isMatched,
+        })),
+    }),
+}
+
+const mineGridPort: NativeGamePort = {
+    createGame: deps =>
+        new MineGridGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: state => ({
+        cells: (state as MineGridState).board.map(row =>
+            row.map(cell => ({
+                revealed: cell.revealed,
+                flagged: cell.flagged,
+                adjacentMines: cell.adjacentMines,
+                hasMine: cell.hasMine,
+            }))
+        ),
+    }),
+}
+
+const patternPulsePort: NativeGamePort = {
+    createGame: deps =>
+        new PatternPulseGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: state => {
+        const { phase, activePad, feedback, completedRounds, streak } =
+            state as PatternPulseState
+        // The sequence is the answer key; playback surfaces via activePad.
+        return { phase, activePad, feedback, completedRounds, streak }
+    },
+}
+
+const potionSorterPort: NativeGamePort = {
+    createGame: deps =>
+        new PotionSorterGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: state => {
+        const { tubes, selectedTubeIndex, movesMade } =
+            state as PotionSorterState
+        return {
+            tubes: tubes.map(tube => [...tube]),
+            selectedTubeIndex,
+            movesMade,
+        }
+    },
+}
+
+const quickMathPort: NativeGamePort = {
+    createGame: deps =>
+        // Quick Math's ctor takes its catalog id before the config.
+        new QuickMathFrameworkGame(GameID.QUICK_MATH, {
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: state => ({
+        question: (state as QuickMathState).currentQuestion?.question ?? null,
+    }),
+}
+
+const sudokuPort: NativeGamePort = {
+    createGame: deps =>
+        new SudokuGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: (state, game) => {
+        const { grid, mistakes } = state as SudokuState
+        return {
+            cells: grid.cells.map(row =>
+                row.map(cell => ({
+                    value: cell.value,
+                    isGiven: cell.isGiven,
+                    isConflicting: cell.isConflicting,
+                }))
+            ),
+            mistakes,
+            // Elapsed clock read off the constructed instance: the count-up
+            // HUD ticks without a per-second state event.
+            clock: game.getTimerStatus().elapsedTime,
+        }
+    },
+}
+
+const wordScramblePort: NativeGamePort = {
+    createGame: deps =>
+        new WordScrambleGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: state => {
+        const { currentChallenge, wordsUnscrambled } =
+            state as WordScrambleState
+        return {
+            scrambledWord: currentChallenge?.scrambledWord ?? null,
+            difficulty: currentChallenge?.difficulty ?? null,
+            wordsUnscrambled,
+        }
+    },
+}
+
+const chromaticTidePort: NativeGamePort = {
+    createGame: deps =>
+        new ChromaticTideGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: state => {
+        const { board, territoryColor, movesUsed, capturedCells } =
+            state as ChromaticTideState
+        return {
+            colors: board.map(row => row.map(cell => cell.color)),
+            territoryColor,
+            movesUsed,
+            capturedCells,
+        }
+    },
 }
 
 /**
@@ -50,14 +214,14 @@ export interface NativeGameEntry {
  * route all consult. Eight playable, fifteen disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
-    [GameID.MEMORY_MATRIX]: {},
-    [GameID.MINE_GRID]: {},
-    [GameID.PATTERN_PULSE]: {},
-    [GameID.POTION_SORTER]: {},
-    [GameID.QUICK_MATH]: {},
-    [GameID.SUDOKU]: {},
-    [GameID.WORD_SCRAMBLE]: {},
-    [GameID.CHROMATIC_TIDE]: {},
+    [GameID.MEMORY_MATRIX]: { port: memoryMatrixPort },
+    [GameID.MINE_GRID]: { port: mineGridPort },
+    [GameID.PATTERN_PULSE]: { port: patternPulsePort },
+    [GameID.POTION_SORTER]: { port: potionSorterPort },
+    [GameID.QUICK_MATH]: { port: quickMathPort },
+    [GameID.SUDOKU]: { port: sudokuPort },
+    [GameID.WORD_SCRAMBLE]: { port: wordScramblePort },
+    [GameID.CHROMATIC_TIDE]: { port: chromaticTidePort },
 }
 
 /** Own-key lookup so unknown strings (even "__proto__") never resolve. */

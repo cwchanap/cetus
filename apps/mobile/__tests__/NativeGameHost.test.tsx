@@ -1,6 +1,6 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { Platform, Text } from 'react-native'
+import { Platform, Pressable, Text } from 'react-native'
 import { GameID } from '@cetus/shared/games'
 import type { ScoreData } from '@cetus/shared/scores'
 import { BaseGame, type BaseGameConfig, type BaseGameState } from '@cetus/games'
@@ -103,6 +103,20 @@ const createdGames: TestNativeGame[] = []
 
 const TestBoardView = ({ projected }: NativeGameViewProps) => (
   <Text testID="native-board">{(projected.board as number[]).join(',')}</Text>
+)
+
+// Board whose input handler drives the HOST-created instance through the
+// per-instance `game` binding — the Chromatic-Tide chooseColor shape.
+const InteractiveBoardView = ({ projected, game }: NativeGameViewProps) => (
+  <>
+    <Text testID="native-board">{(projected.board as number[]).join(',')}</Text>
+    <Pressable
+      accessibilityLabel="Flip first cell"
+      onPress={() => (game as TestNativeGame).flipBoardCell(0)}
+    >
+      <Text>Flip</Text>
+    </Pressable>
+  </>
 )
 
 const testPort: NativeGamePort = {
@@ -407,16 +421,63 @@ describe('NativeGameHost — cleanup order', () => {
   })
 })
 
-describe('NativeGameHost — placeholder entries', () => {
-  test('portless entries render an honest arriving notice with no session or saves', async () => {
+describe('NativeGameHost — per-instance board binding', () => {
+  test('a board view drives the host-created game through its game prop', async () => {
+    const original = NATIVE_GAMES[GameID.MINE_GRID]
+    NATIVE_GAMES[GameID.MINE_GRID] = {
+      port: { ...testPort, view: InteractiveBoardView },
+    }
+    try {
+      const tree = await render(<NativeGameHost gameId={GameID.MINE_GRID} />)
+      expect(
+        tree.root.findByProps({ testID: 'native-board' }).props.children
+      ).toBe('1,2,3')
+
+      // The binding is exactly the instance the host constructed.
+      const board = tree.root.findByType(InteractiveBoardView)
+      expect(board.props.game).toBe(createdGames[0])
+
+      // Board input -> model command -> state-change -> new projection.
+      await press(tree, 'Flip first cell')
+      expect(
+        tree.root.findByProps({ testID: 'native-board' }).props.children
+      ).toBe('2,2,3')
+      expect(createdGames[0].getState().board).toEqual([2, 2, 3])
+    } finally {
+      NATIVE_GAMES[GameID.MINE_GRID] = original
+    }
+  })
+
+  test('a production entry without a board view runs a live session behind the placeholder board', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.CHROMATIC_TIDE} />)
 
-    const rendered = renderedText(tree)
-    expect(rendered.toLowerCase()).toContain('native board')
+    // The chrome is fully live: the run can start, save and earn rewards.
     expect(
-      tree.root.findAllByProps({ accessibilityLabel: 'Start game' })
-    ).toHaveLength(0)
-    expect(createdGames).toHaveLength(0)
+      tree.root.findByProps({ accessibilityLabel: 'Start game' })
+    ).toBeTruthy()
+    expect(renderedText(tree).toLowerCase()).toContain('native board')
     expect(submitScore).not.toHaveBeenCalled()
+  })
+})
+
+describe('NativeGameHost — placeholder entries', () => {
+  test('portless entries render an honest arriving notice with no session or saves', async () => {
+    const original = NATIVE_GAMES[GameID.CHROMATIC_TIDE]
+    NATIVE_GAMES[GameID.CHROMATIC_TIDE] = {}
+    try {
+      const tree = await render(
+        <NativeGameHost gameId={GameID.CHROMATIC_TIDE} />
+      )
+
+      const rendered = renderedText(tree)
+      expect(rendered.toLowerCase()).toContain('native board')
+      expect(
+        tree.root.findAllByProps({ accessibilityLabel: 'Start game' })
+      ).toHaveLength(0)
+      expect(createdGames).toHaveLength(0)
+      expect(submitScore).not.toHaveBeenCalled()
+    } finally {
+      NATIVE_GAMES[GameID.CHROMATIC_TIDE] = original
+    }
   })
 })

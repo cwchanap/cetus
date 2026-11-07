@@ -361,6 +361,10 @@ const resolveSourceFile = (specifier: string, platform: string): string => {
 const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
     ['@cetus/games', /packages\/games\/src\/index\.ts$/],
     ['@cetus/games/shared/utils', /packages\/games\/src\/shared\/utils\.ts$/],
+    [
+        '@cetus/games/memory-matrix/MemoryMatrixGame',
+        /packages\/games\/src\/memory-matrix\/MemoryMatrixGame\.ts$/,
+    ],
     ['@cetus/app-core', /packages\/app-core\/src\/index\.ts$/],
     ['@cetus/shared/games', /packages\/shared\/src\/games\.ts$/],
     ['@cetus/ui', /packages\/ui\/src\/index\.native\.ts$/],
