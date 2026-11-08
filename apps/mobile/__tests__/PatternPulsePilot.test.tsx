@@ -242,6 +242,57 @@ afterEach(async () => {
   }
 })
 
+/** Element children only — text children type as string. */
+const elementChildren = (
+  node: TestRenderer.ReactTestInstance
+): TestRenderer.ReactTestInstance[] =>
+  node.children.filter(
+    (child): child is TestRenderer.ReactTestInstance =>
+      child !== null && typeof child === 'object'
+  )
+
+describe('Pattern Pulse board — 2×2 layout structure', () => {
+  test('the square board holds two flex-row containers of two pads each', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
+
+    // The pads group must be a true 2×2 grid: two row containers inside
+    // the square board — never four pads stacked in its default column.
+    const board = tree.root.findAll(
+      node =>
+        typeof node.type === 'string' &&
+        node.props.accessibilityLabel === 'Pattern Pulse signal pads'
+    )[0]
+
+    // Exactly two row containers sit directly in the board, in order.
+    const boardRows = elementChildren(board)
+    expect(boardRows).toHaveLength(2)
+    boardRows.forEach((child, index) => {
+      expect(child.props.testID).toBe(`pp-row-${index}`)
+    })
+
+    // Host-tag row elements (jest-expo renders a React wrapper AND a
+    // host element with identical props) carry the horizontal layout,
+    // each holding its own pair of pads.
+    ;[0, 1].forEach(index => {
+      const row = tree.root.findAll(
+        node =>
+          typeof node.type === 'string' &&
+          node.props.testID === `pp-row-${index}`
+      )[0]
+      expect(String(row?.props.className)).toContain('flex-1')
+      expect(String(row?.props.className)).toContain('flex-row')
+      const pads = elementChildren(row).filter(child =>
+        /^pp-pad-(idle|active|wrong)-\d$/.test(String(child.props.testID))
+      )
+      expect(pads).toHaveLength(2)
+      expect(pads.map(pad => pad.props.testID)).toEqual([
+        `pp-pad-idle-${index * 2}`,
+        `pp-pad-idle-${index * 2 + 1}`,
+      ])
+    })
+  })
+})
+
 describe('Pattern Pulse board — idle render', () => {
   test('renders four disabled pads, READY status and a zeroed HUD', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
