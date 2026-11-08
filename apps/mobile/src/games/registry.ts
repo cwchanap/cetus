@@ -6,7 +6,11 @@ import type { BaseGame, BaseGameState, BaseGameStats } from '@cetus/games'
 import { MemoryMatrixGame } from '@cetus/games/memory-matrix/MemoryMatrixGame'
 import type { MemoryMatrixState } from '@cetus/games/memory-matrix/frameworkTypes'
 import { MineGridGame } from '@cetus/games/mine-grid/MineGridGame'
-import type { MineGridState } from '@cetus/games/mine-grid/types'
+import {
+    MINE_GRID_PRESETS,
+    type MineGridState,
+    type MineGridStats,
+} from '@cetus/games/mine-grid/types'
 import { PatternPulseGame } from '@cetus/games/pattern-pulse/PatternPulseGame'
 import type { PatternPulseState } from '@cetus/games/pattern-pulse/types'
 import { PotionSorterGame } from '@cetus/games/potion-sorter/PotionSorterGame'
@@ -26,6 +30,7 @@ import type {
 } from '@cetus/games/chromatic-tide/types'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
 import { MemoryMatrixBoard } from './boards/MemoryMatrixBoard'
+import { MineGridBoard } from './boards/MineGridBoard'
 
 /**
  * Host-injected transport every native game run receives: the cookie-backed
@@ -113,16 +118,37 @@ const mineGridPort: NativeGamePort = {
             submitScore: deps.submitScore,
             platform: deps.platform,
         }),
-    project: state => ({
-        cells: (state as MineGridState).board.map(row =>
-            row.map(cell => ({
-                revealed: cell.revealed,
-                flagged: cell.flagged,
-                adjacentMines: cell.adjacentMines,
-                hasMine: cell.hasMine,
-            }))
-        ),
-    }),
+    // Copy every visible cell value (the model mutates flags and flood-
+    // reveals cells in place) plus the control-facing HUD fields.
+    project: state => {
+        const { board, difficulty, flagsPlaced, isActive, isGameOver, result } =
+            state as MineGridState
+        return {
+            cells: board.map(row =>
+                row.map(cell => ({
+                    revealed: cell.revealed,
+                    flagged: cell.flagged,
+                    adjacentMines: cell.adjacentMines,
+                    hasMine: cell.hasMine,
+                }))
+            ),
+            difficulty,
+            flagsPlaced,
+            mines: MINE_GRID_PRESETS[difficulty].mines,
+            canAct: isActive && !isGameOver && result === 'playing',
+        }
+    },
+    resultOutcomeLabel: stats => {
+        const result = (stats as MineGridStats).result
+        return result === 'cleared'
+            ? 'Cleared'
+            : result === 'mine'
+              ? 'Mine hit'
+              : result === 'timeout'
+                ? 'Timeout'
+                : null
+    },
+    view: MineGridBoard,
 }
 
 const patternPulsePort: NativeGamePort = {
