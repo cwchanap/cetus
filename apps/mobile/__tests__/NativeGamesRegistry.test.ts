@@ -15,6 +15,7 @@ import { MineGridGame } from '@cetus/games/mine-grid/MineGridGame'
 import type { MineGridState } from '@cetus/games/mine-grid/types'
 import { PatternPulseGame } from '@cetus/games/pattern-pulse/PatternPulseGame'
 import { PotionSorterGame } from '@cetus/games/potion-sorter/PotionSorterGame'
+import type { PotionSorterState } from '@cetus/games/potion-sorter/types'
 import { QuickMathFrameworkGame } from '@cetus/games/quick-math/game'
 import { SudokuGame } from '@cetus/games/sudoku/SudokuGame'
 import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
@@ -339,6 +340,68 @@ describe('NATIVE_GAMES registry', () => {
             ({ outcome }) as unknown as BaseGameStats
         expect(port.resultOutcomeLabel(stats('timeout'))).toBe('Timeout')
         expect(port.resultOutcomeLabel(stats('mistakes'))).toBe('Mistake Limit')
+        expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
+    })
+
+    test('the Potion Sorter pilot ships a board view and a copied-tube projection', () => {
+        const port = getNativeGameEntry(GameID.POTION_SORTER)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        const projected = port.project(game.getState(), game) as {
+            tubes: string[][]
+            selectedTubeIndex: number | null
+            movesMade: number
+            undosUsed: number
+            difficulty: string
+            result: string
+            canUndo: boolean
+            canAct: boolean
+        }
+        // The default medium board: seven tubes, the preset's layers,
+        // idle controls and an empty undo history.
+        expect(projected.tubes).toHaveLength(7)
+        expect(projected.tubes[0]).toEqual([
+            'magenta',
+            'magenta',
+            'amber',
+            'cyan',
+        ])
+        expect(projected.tubes[5]).toEqual([])
+        expect(projected).toMatchObject({
+            selectedTubeIndex: null,
+            movesMade: 0,
+            undosUsed: 0,
+            difficulty: 'medium',
+            result: 'playing',
+            canUndo: false,
+            canAct: false,
+        })
+
+        // Copies, not tube references: a live-state mutation must
+        // surface through the next projection as fresh values.
+        const liveState = game.getState() as PotionSorterState
+        liveState.tubes[6].push('lime')
+        const mutated = port.project(liveState, game) as {
+            tubes: string[][]
+        }
+        expect(mutated.tubes[6]).toEqual(['lime'])
+        game.destroy()
+    })
+
+    test('the Potion Sorter port labels finished-run outcomes', () => {
+        const port = getNativeGameEntry(GameID.POTION_SORTER)?.port
+        expect(port).toBeDefined()
+        if (!port?.resultOutcomeLabel) {
+            return
+        }
+        const stats = (result: string) =>
+            ({ result }) as unknown as BaseGameStats
+        expect(port.resultOutcomeLabel(stats('solved'))).toBe('Solved')
+        expect(port.resultOutcomeLabel(stats('timeout'))).toBe('Timeout')
         expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
     })
 
