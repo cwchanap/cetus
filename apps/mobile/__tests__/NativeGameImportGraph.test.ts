@@ -369,6 +369,10 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
         '@cetus/games/chromatic-tide/types',
         /packages\/games\/src\/chromatic-tide\/types\.ts$/,
     ],
+    [
+        '@cetus/games/mine-grid/types',
+        /packages\/games\/src\/mine-grid\/types\.ts$/,
+    ],
     ['@cetus/app-core', /packages\/app-core\/src\/index\.ts$/],
     ['@cetus/shared/games', /packages\/shared\/src\/games\.ts$/],
     ['@cetus/ui', /packages\/ui\/src\/index\.native\.ts$/],

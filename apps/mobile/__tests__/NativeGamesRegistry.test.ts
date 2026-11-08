@@ -12,6 +12,7 @@ import type { ScoreSubmitter } from '@cetus/shared/scores'
 import type { BaseGame, BaseGameConfig, BaseGameStats } from '@cetus/games'
 import { MemoryMatrixGame } from '@cetus/games/memory-matrix/MemoryMatrixGame'
 import { MineGridGame } from '@cetus/games/mine-grid/MineGridGame'
+import type { MineGridState } from '@cetus/games/mine-grid/types'
 import { PatternPulseGame } from '@cetus/games/pattern-pulse/PatternPulseGame'
 import { PotionSorterGame } from '@cetus/games/potion-sorter/PotionSorterGame'
 import { QuickMathFrameworkGame } from '@cetus/games/quick-math/game'
@@ -228,6 +229,66 @@ describe('NATIVE_GAMES registry', () => {
         }
         expect(mutated.cards[3][4].isFlipped).toBe(true)
         game.destroy()
+    })
+
+    test('the Mine Grid pilot ships a board view and a copied-cell projection', () => {
+        const port = getNativeGameEntry(GameID.MINE_GRID)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        const projected = port.project(game.getState(), game) as {
+            cells: Array<
+                Array<{
+                    revealed: boolean
+                    flagged: boolean
+                    adjacentMines: number
+                    hasMine: boolean
+                }>
+            >
+            difficulty: string
+            flagsPlaced: number
+            mines: number
+            canAct: boolean
+        }
+        // The default medium board is a 10×10 grid with 15 mines, idle.
+        expect(projected.cells).toHaveLength(10)
+        expect(projected.cells.every(row => row.length === 10)).toBe(true)
+        expect(
+            projected.cells
+                .flat()
+                .every(cell => !cell.revealed && !cell.flagged)
+        ).toBe(true)
+        expect(projected.difficulty).toBe('medium')
+        expect(projected.flagsPlaced).toBe(0)
+        expect(projected.mines).toBe(15)
+        expect(projected.canAct).toBe(false)
+
+        // Copies, not board references: an in-place model mutation must
+        // surface through the next projection as a fresh cell value.
+        const liveState = game.getState() as MineGridState
+        liveState.board[3][4].flagged = true
+        const mutated = port.project(liveState, game) as {
+            cells: Array<Array<{ flagged: boolean }>>
+        }
+        expect(mutated.cells[3][4].flagged).toBe(true)
+        game.destroy()
+    })
+
+    test('the Mine Grid port labels finished-run outcomes', () => {
+        const port = getNativeGameEntry(GameID.MINE_GRID)?.port
+        expect(port).toBeDefined()
+        if (!port?.resultOutcomeLabel) {
+            return
+        }
+        const stats = (result: string) =>
+            ({ result }) as unknown as BaseGameStats
+        expect(port.resultOutcomeLabel(stats('cleared'))).toBe('Cleared')
+        expect(port.resultOutcomeLabel(stats('mine'))).toBe('Mine hit')
+        expect(port.resultOutcomeLabel(stats('timeout'))).toBe('Timeout')
+        expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
     })
 
     test('keys are computed from imported enum members, never bare strings', () => {
