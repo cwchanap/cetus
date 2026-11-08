@@ -193,6 +193,23 @@ export class MemoryMatrixGame extends BaseGame<
         return true
     }
 
+    /**
+     * Resolve a pending pair check at completion, BEFORE BaseGame.end()
+     * snapshots and submits the score. A pair flipped before the run ends
+     * (timer expiry or host end()) must count exactly once in the HUD,
+     * result sheet and submission — leaving the check pending would let the
+     * delayed callback award points after the snapshot (deadline-crossing
+     * regression). Covers every completion path with one mechanism; the
+     * win path's own this.end() call re-enters with no pending check left.
+     */
+    override async end(): Promise<void> {
+        if (this.matchTimeoutId !== null) {
+            clearTimeout(this.matchTimeoutId)
+            this.checkForMatch()
+        }
+        await super.end()
+    }
+
     getConfig(): MemoryMatrixConfig {
         return { ...this.config }
     }
@@ -209,6 +226,12 @@ export class MemoryMatrixGame extends BaseGame<
 
     private checkForMatch(): void {
         this.matchTimeoutId = null
+        if (!this.state.isActive || this.state.isGameOver) {
+            // The run already completed and its score was snapshotted and
+            // submitted — a stale match-check must never change it after
+            // the fact.
+            return
+        }
         const [card1, card2] = this.state.flippedCards
 
         if (cardsMatch(card1, card2)) {

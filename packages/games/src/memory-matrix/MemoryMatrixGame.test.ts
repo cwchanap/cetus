@@ -400,6 +400,107 @@ describe('MemoryMatrixGame', () => {
         })
     })
 
+    describe('Deadline crossing — pending pair resolved at completion', () => {
+        beforeEach(() => {
+            game.start()
+        })
+
+        it('resolves a pair pending at time-up into the submitted score exactly once', async () => {
+            const shapeMap = buildShapeMap(game.getState().board)
+            const positions = [...shapeMap.values()][0]
+
+            // Run to t=59.4s, then flip a matching pair whose 700ms check
+            // would land at t=60.1s — after the 60s deadline.
+            await vi.advanceTimersByTimeAsync(59_400)
+            game.flipCard(positions[0])
+            game.flipCard(positions[1])
+            expect(game.getState().isProcessing).toBe(true)
+
+            // Deadline ends the run; the whole stale-check window passes.
+            await vi.advanceTimersByTimeAsync(600)
+            await vi.advanceTimersByTimeAsync(CONSTANTS.FLIP_DELAY)
+            await Promise.resolve()
+            await Promise.resolve()
+
+            // The pair flipped before the deadline counts exactly once —
+            // HUD state, result stats and submission all agree.
+            const state = game.getState()
+            expect(state.isGameOver).toBe(true)
+            expect(state.score).toBe(CONSTANTS.POINTS_PER_MATCH)
+            expect(state.matchedPairs).toBe(1)
+            expect(submitScore).toHaveBeenCalledTimes(1)
+            expect(submitScore.mock.calls[0][0].score).toBe(
+                CONSTANTS.POINTS_PER_MATCH
+            )
+        })
+
+        it('resolves a pair pending at host end() into the submitted score exactly once', async () => {
+            const shapeMap = buildShapeMap(game.getState().board)
+            const positions = [...shapeMap.values()][0]
+
+            game.flipCard(positions[0])
+            game.flipCard(positions[1])
+
+            await game.end()
+            await vi.advanceTimersByTimeAsync(CONSTANTS.FLIP_DELAY)
+            await Promise.resolve()
+
+            const state = game.getState()
+            expect(state.score).toBe(CONSTANTS.POINTS_PER_MATCH)
+            expect(state.matchedPairs).toBe(1)
+            expect(submitScore).toHaveBeenCalledTimes(1)
+            expect(submitScore.mock.calls[0][0].score).toBe(
+                CONSTANTS.POINTS_PER_MATCH
+            )
+            expect(submitScore.mock.calls[0][0].gameData).toMatchObject({
+                matchesFound: 1,
+                moves: 1,
+            })
+        })
+
+        it('counts a final pair resolved at the deadline as a win with one submission', async () => {
+            const small = new MemoryMatrixGame({
+                submitScore,
+                boardRows: 2,
+                boardCols: 2,
+                duration: 1,
+            })
+            try {
+                small.start()
+                const allPairs = [
+                    ...buildShapeMap(small.getState().board).values(),
+                ]
+
+                // First pair resolves normally at t=0.7s.
+                small.flipCard(allPairs[0][0])
+                small.flipCard(allPairs[0][1])
+                await vi.advanceTimersByTimeAsync(CONSTANTS.FLIP_DELAY)
+
+                // Second (final) pair flipped at t=0.8s — its check would
+                // land at t=1.5s, past the 1s deadline.
+                await vi.advanceTimersByTimeAsync(100)
+                small.flipCard(allPairs[1][0])
+                small.flipCard(allPairs[1][1])
+
+                await vi.advanceTimersByTimeAsync(200)
+                await vi.advanceTimersByTimeAsync(CONSTANTS.FLIP_DELAY)
+                await Promise.resolve()
+                await Promise.resolve()
+
+                const state = small.getState()
+                expect(state.gameWon).toBe(true)
+                // 2 matches, no time bonus at the buzzer.
+                expect(state.score).toBe(2 * CONSTANTS.POINTS_PER_MATCH)
+                expect(submitScore).toHaveBeenCalledTimes(1)
+                expect(submitScore.mock.calls[0][0].score).toBe(
+                    2 * CONSTANTS.POINTS_PER_MATCH
+                )
+            } finally {
+                small.destroy()
+            }
+        })
+    })
+
     describe('DEFAULT_MEMORY_MATRIX_CONFIG', () => {
         it('should match CONSTANTS', () => {
             expect(DEFAULT_MEMORY_MATRIX_CONFIG.duration).toBe(
