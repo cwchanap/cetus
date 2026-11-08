@@ -125,43 +125,51 @@ export function PatternPulseBoard({ projected, game }: NativeGameViewProps) {
         className="aspect-square w-full gap-3"
         accessibilityLabel="Pattern Pulse signal pads"
       >
-        {[0, 1].map(row =>
-          PADS.slice(row * 2, row * 2 + 2).map(({ pad, glyph, label }) => {
-            const active = pulse.activePad === pad
-            const wrong = active && pulse.feedback === 'wrong'
-            return (
-              <Pressable
-                key={pad}
-                testID={`pp-pad-${wrong ? 'wrong' : active ? 'active' : 'idle'}-${pad}`}
-                accessibilityRole="button"
-                accessibilityLabel={label}
-                accessibilityState={{
-                  disabled: !pulse.canPress,
-                }}
-                disabled={!pulse.canPress}
-                onPress={() => (game as PatternPulseGame).pressPad(pad)}
-                className={cn(
-                  'flex flex-1 items-center justify-center rounded-lg border-2',
-                  wrong
-                    ? 'border-cetus-accent-3 bg-cetus-accent-3/20'
-                    : active
-                      ? 'border-cetus-accent bg-cetus-accent/20'
-                      : 'border-cetus-hairline bg-cetus-surface'
-                )}
-              >
-                <Text
+        {[0, 1].map(row => (
+          <View
+            key={row}
+            testID={`pp-row-${row}`}
+            className="flex-1 flex-row gap-3"
+          >
+            {PADS.slice(row * 2, row * 2 + 2).map(({ pad, glyph, label }) => {
+              const active = pulse.activePad === pad
+              const wrong = active && pulse.feedback === 'wrong'
+              return (
+                <Pressable
+                  key={pad}
+                  testID={`pp-pad-${wrong ? 'wrong' : active ? 'active' : 'idle'}-${pad}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={label}
+                  accessibilityState={{
+                    disabled: !pulse.canPress,
+                  }}
+                  disabled={!pulse.canPress}
+                  onPress={() => (game as PatternPulseGame).pressPad(pad)}
                   className={cn(
-                    'text-3xl',
-                    wrong ? 'text-cetus-accent-3' : 'text-cetus-accent'
+                    'flex flex-1 items-center justify-center rounded-lg border-2',
+                    wrong
+                      ? 'border-cetus-accent-3 bg-cetus-accent-3/20'
+                      : active
+                        ? 'border-cetus-accent bg-cetus-accent/20'
+                        : 'border-cetus-hairline bg-cetus-surface'
                   )}
                 >
-                  {glyph}
-                </Text>
-                <Text className="text-sm text-cetus-ink-muted">{pad + 1}</Text>
-              </Pressable>
-            )
-          })
-        )}
+                  <Text
+                    className={cn(
+                      'text-3xl',
+                      wrong ? 'text-cetus-accent-3' : 'text-cetus-accent'
+                    )}
+                  >
+                    {glyph}
+                  </Text>
+                  <Text className="text-sm text-cetus-ink-muted">
+                    {pad + 1}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        ))}
       </View>
     </ScrollView>
   )
