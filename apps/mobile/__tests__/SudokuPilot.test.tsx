@@ -163,6 +163,11 @@ const cellLabel = (
   hostView(tree, `sudoku-cell-${state}-r${pos.row}c${pos.col}`).props
     .accessibilityLabel as string
 
+/** The complete expected accessibility label for a cell — exact match, so
+ *  a coordinate digit can never stand in for a displayed number. */
+const fullCellLabel = (pos: CellPos, value: string, ...extra: string[]) =>
+  [`Row ${pos.row + 1}, column ${pos.col + 1}`, value, ...extra].join(', ')
+
 /** Count cells whose testID carries the given visual state suffix. */
 const cellsInState = (
   tree: TestRenderer.ReactTestRenderer,
@@ -364,6 +369,17 @@ describe('Sudoku board — input', () => {
     // its own visual state.
     expect(cellsInState(tree, 'highlight')).toBe(20)
     expect(cellsInState(tree, 'selected')).toBe(1)
+    // Selection is exposed to assistive technology: the target reads
+    // selected, its related cells do not.
+    expect(
+      hostView(tree, `sudoku-cell-selected-r${pos.row}c${pos.col}`).props
+        .accessibilityState.selected
+    ).toBe(true)
+    const siblingCol = pos.col === 0 ? 1 : 0
+    expect(
+      hostView(tree, `sudoku-cell-highlight-r${pos.row}c${siblingCol}`).props
+        .accessibilityState.selected
+    ).toBe(false)
     expect(
       hostView(tree, `sudoku-cell-selected-r${pos.row}c${pos.col}`).props
         .accessibilityState.disabled
@@ -373,6 +389,10 @@ describe('Sudoku board — input', () => {
     await pressCell(tree, 'selected', pos)
     expect(cellsInState(tree, 'highlight')).toBe(0)
     expect(cellsInState(tree, 'selected')).toBe(0)
+    expect(
+      hostView(tree, `sudoku-cell-plain-r${pos.row}c${pos.col}`).props
+        .accessibilityState.selected
+    ).toBe(false)
   })
 
   test('a pad press calls placeNumber(num) and a valid number lands visibly', async () => {
@@ -393,7 +413,7 @@ describe('Sudoku board — input', () => {
 
     // The placed number surfaces through the projection; the model
     // cleared selection + highlights after the placement.
-    expect(cellLabel(tree, 'plain', pos)).toContain(String(num))
+    expect(cellLabel(tree, 'plain', pos)).toBe(fullCellLabel(pos, String(num)))
     expect(cellsInState(tree, 'selected')).toBe(0)
     expect(cellsInState(tree, 'highlight')).toBe(0)
     expect(testText(tree, 'sudoku-mistakes')).toBe('Mistakes 0')
@@ -442,7 +462,7 @@ describe('Sudoku board — input', () => {
     }
     await pressCell(tree, 'plain', pos)
     await press(tree, `Place ${num}`)
-    expect(cellLabel(tree, 'plain', pos)).toContain(String(num))
+    expect(cellLabel(tree, 'plain', pos)).toBe(fullCellLabel(pos, String(num)))
 
     // Select the filled cell again, then erase it.
     await pressCell(tree, 'plain', pos)
@@ -477,9 +497,9 @@ describe('Sudoku board — input', () => {
       originalValue
     )
     expect(cellsInState(tree, 'selected')).toBe(1)
-    const label = cellLabel(tree, 'selected', pos)
-    expect(label).toContain(String(originalValue))
-    expect(label).toContain('given')
+    expect(cellLabel(tree, 'selected', pos)).toBe(
+      fullCellLabel(pos, String(originalValue), 'given')
+    )
   })
 
   test('the difficulty Select calls newGame(difficulty) while idle only', async () => {
@@ -597,7 +617,7 @@ describe('Sudoku board — pause, finish and reset', () => {
     }
     await pressCell(tree, 'plain', pos)
     await press(tree, `Place ${num}`)
-    expect(cellLabel(tree, 'plain', pos)).toContain(String(num))
+    expect(cellLabel(tree, 'plain', pos)).toBe(fullCellLabel(pos, String(num)))
 
     await press(tree, 'Reset game')
     const state = game.getState()
