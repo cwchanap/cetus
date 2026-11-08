@@ -501,6 +501,120 @@ describe('MemoryMatrixGame', () => {
         })
     })
 
+    describe('Completion ownership — single awaited end()', () => {
+        // A pending FINAL pair resolved inside end() must not re-enter
+        // end(): the outer call stays the single awaited completion owner.
+        // Callbacks (onEnd) go in the constructor's second argument.
+        function buildTwoPairGame(
+            transport: typeof submitScore,
+            callbacks: { onEnd?: () => void } = {}
+        ): MemoryMatrixGame {
+            return new MemoryMatrixGame(
+                { submitScore: transport, boardRows: 2, boardCols: 2 },
+                callbacks
+            )
+        }
+
+        /** Flip both remaining pairs, leaving the final one pending. */
+        async function playToPendingFinalPair(g: MemoryMatrixGame) {
+            const allPairs = [...buildShapeMap(g.getState().board).values()]
+            g.flipCard(allPairs[0][0])
+            g.flipCard(allPairs[0][1])
+            await vi.advanceTimersByTimeAsync(CONSTANTS.FLIP_DELAY)
+            expect(g.getState().matchedPairs).toBe(1)
+
+            g.flipCard(allPairs[1][0])
+            g.flipCard(allPairs[1][1])
+            expect(g.getState().isProcessing).toBe(true)
+        }
+
+        it('end() awaits the score save when it resolves the pending final pair (deferred transport)', async () => {
+            let releaseSave: (value: { success: true }) => void = () => {}
+            submitScore.mockReturnValueOnce(
+                new Promise<{ success: true }>(resolve => {
+                    releaseSave = resolve
+                })
+            )
+            const small = buildTwoPairGame(submitScore)
+            try {
+                small.start()
+                await playToPendingFinalPair(small)
+
+                let ended = false
+                const endPromise = small.end().then(() => {
+                    ended = true
+                })
+                // Let the synchronous pair resolution and every microtask
+                // short of the transport settle.
+                await vi.advanceTimersByTimeAsync(0)
+                await Promise.resolve()
+                await Promise.resolve()
+
+                // end() is still waiting on the deferred transport: the
+                // pair's win resolution must not have split completion into
+                // a fire-and-forget inner end().
+                expect(ended).toBe(false)
+                expect(submitScore).toHaveBeenCalledTimes(1)
+                expect(submitScore.mock.calls[0][0].gameData).toMatchObject({
+                    matchesFound: 2,
+                    moves: 2,
+                    perfectGame: true,
+                })
+
+                releaseSave({ success: true })
+                await endPromise
+
+                expect(ended).toBe(true)
+                expect(small.getState().gameWon).toBe(true)
+                expect(submitScore).toHaveBeenCalledTimes(1)
+                // 2 matches (200) + time bonus: no 1s tick has fired at
+                // t=0.7s, so timeRemaining is still the full 60s × 5.
+                expect(submitScore.mock.calls[0][0].score).toBe(
+                    2 * CONSTANTS.POINTS_PER_MATCH +
+                        CONSTANTS.GAME_DURATION *
+                            CONSTANTS.TIME_BONUS_MULTIPLIER
+                )
+            } finally {
+                small.destroy()
+            }
+        })
+
+        it('end() resolving a pending final pair does not end a replay started by onEnd', async () => {
+            const small = buildTwoPairGame(submitScore, {
+                onEnd: () => {
+                    small.start() // synchronous replay, supported by BaseGame
+                },
+            })
+            try {
+                small.start()
+                await playToPendingFinalPair(small)
+
+                await small.end()
+
+                // Exactly one submission: the finished run's.
+                expect(submitScore).toHaveBeenCalledTimes(1)
+                expect(submitScore.mock.calls[0][0].gameData).toMatchObject({
+                    matchesFound: 2,
+                    moves: 2,
+                })
+                expect(submitScore.mock.calls[0][0].score).toBe(
+                    2 * CONSTANTS.POINTS_PER_MATCH +
+                        CONSTANTS.GAME_DURATION *
+                            CONSTANTS.TIME_BONUS_MULTIPLIER
+                )
+
+                // The replay run is alive and untouched — not ended, not
+                // submitted — by the completion of the previous run.
+                const replay = small.getState()
+                expect(replay.isActive).toBe(true)
+                expect(replay.matchedPairs).toBe(0)
+                expect(replay.score).toBe(0)
+            } finally {
+                small.destroy()
+            }
+        })
+    })
+
     describe('DEFAULT_MEMORY_MATRIX_CONFIG', () => {
         it('should match CONSTANTS', () => {
             expect(DEFAULT_MEMORY_MATRIX_CONFIG.duration).toBe(

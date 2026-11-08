@@ -199,13 +199,16 @@ export class MemoryMatrixGame extends BaseGame<
      * (timer expiry or host end()) must count exactly once in the HUD,
      * result sheet and submission — leaving the check pending would let the
      * delayed callback award points after the snapshot (deadline-crossing
-     * regression). Covers every completion path with one mechanism; the
-     * win path's own this.end() call re-enters with no pending check left.
+     * regression). checkForMatch(true) keeps this end() the single awaited
+     * completion owner: the pair resolves (match + win bonus) but must not
+     * re-enter end(), which would hand completion to a fire-and-forget inner
+     * call — the awaited end() would then no longer wait for the save, and a
+     * replay synchronously started by onEnd would get ended and submitted.
      */
     override async end(): Promise<void> {
         if (this.matchTimeoutId !== null) {
             clearTimeout(this.matchTimeoutId)
-            this.checkForMatch()
+            this.checkForMatch(true)
         }
         await super.end()
     }
@@ -224,7 +227,13 @@ export class MemoryMatrixGame extends BaseGame<
 
     // --- Private game logic ---
 
-    private checkForMatch(): void {
+    /**
+     * Resolve the two flipped cards. When `fromEnd` is true this runs as
+     * part of the end() override's synchronous resolution — the override
+     * itself owns completion, so a winning board must not call end()
+     * again from here.
+     */
+    private checkForMatch(fromEnd = false): void {
         this.matchTimeoutId = null
         if (!this.state.isActive || this.state.isGameOver) {
             // The run already completed and its score was snapshotted and
@@ -262,9 +271,11 @@ export class MemoryMatrixGame extends BaseGame<
             )
             // Repaint the final matched pair before the game-over overlay
             this.emitStateChange()
-            this.end().catch((err: unknown) =>
-                console.error('MemoryMatrix end failed', err)
-            )
+            if (!fromEnd) {
+                this.end().catch((err: unknown) =>
+                    console.error('MemoryMatrix end failed', err)
+                )
+            }
         } else {
             this.emitStateChange()
         }
