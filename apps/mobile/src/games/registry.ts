@@ -25,6 +25,7 @@ import type {
     ChromaticTideStats,
 } from '@cetus/games/chromatic-tide/types'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
+import { MemoryMatrixBoard } from './boards/MemoryMatrixBoard'
 
 /**
  * Host-injected transport every native game run receives: the cookie-backed
@@ -83,15 +84,27 @@ const memoryMatrixPort: NativeGamePort = {
             submitScore: deps.submitScore,
             platform: deps.platform,
         }),
-    project: state => ({
-        cards: (state as MemoryMatrixState).board.flat().map(card => ({
-            id: card.id,
-            shape: card.shape,
-            color: card.color,
-            isFlipped: card.isFlipped,
-            isMatched: card.isMatched,
-        })),
-    }),
+    // Copy every visible cell value: the model mutates card flags in
+    // place, so returning board references would freeze the view.
+    project: state => {
+        const { board, isProcessing, matchedPairs, totalPairs, isActive } =
+            state as MemoryMatrixState
+        return {
+            cards: board.map(row =>
+                row.map(card => ({
+                    shape: card.shape,
+                    color: card.color,
+                    isFlipped: card.isFlipped,
+                    isMatched: card.isMatched,
+                }))
+            ),
+            isProcessing,
+            matchedPairs,
+            totalPairs,
+            canFlip: isActive,
+        }
+    },
+    view: MemoryMatrixBoard,
 }
 
 const mineGridPort: NativeGamePort = {

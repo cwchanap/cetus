@@ -179,6 +179,57 @@ describe('NATIVE_GAMES registry', () => {
         expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
     })
 
+    test('the Memory Matrix pilot ships a board view and a copied-cell projection', () => {
+        const port = getNativeGameEntry(GameID.MEMORY_MATRIX)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        const projected = port.project(game.getState(), game) as {
+            cards: Array<
+                Array<{
+                    shape: string
+                    color: string
+                    isFlipped: boolean
+                    isMatched: boolean
+                }>
+            >
+            isProcessing: boolean
+            matchedPairs: number
+            totalPairs: number
+            canFlip: boolean
+        }
+        // The 6×8 visible board copies each cell's face values.
+        expect(projected.cards).toHaveLength(6)
+        expect(projected.cards.every(row => row.length === 8)).toBe(true)
+        expect(
+            projected.cards
+                .flat()
+                .every(
+                    card =>
+                        typeof card.shape === 'string' &&
+                        !card.isFlipped &&
+                        !card.isMatched
+                )
+        ).toBe(true)
+        expect(projected.isProcessing).toBe(false)
+        expect(projected.matchedPairs).toBe(0)
+        expect(projected.totalPairs).toBe(24)
+        expect(projected.canFlip).toBe(false)
+
+        // Copies, not board references: an in-place model mutation must
+        // surface through the next projection as a fresh cell value.
+        const memoryGame = game as MemoryMatrixGame
+        memoryGame.getBoard()[3][4].isFlipped = true
+        const mutated = port.project(game.getState(), game) as {
+            cards: Array<Array<{ isFlipped: boolean }>>
+        }
+        expect(mutated.cards[3][4].isFlipped).toBe(true)
+        game.destroy()
+    })
+
     test('keys are computed from imported enum members, never bare strings', () => {
         const source = readFileSync(
             resolve(process.cwd(), 'src/games/registry.ts'),
