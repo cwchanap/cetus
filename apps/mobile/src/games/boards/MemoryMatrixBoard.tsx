@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { cn } from '@cetus/ui'
+import { CONSTANTS } from '@cetus/games/memory-matrix/utils'
 import type { MemoryMatrixGame } from '@cetus/games/memory-matrix/MemoryMatrixGame'
 
 import type { NativeGameViewProps } from '../registry'
@@ -18,6 +19,14 @@ interface MemoryMatrixProjection {
   totalPairs: number
   canFlip: boolean
 }
+
+/**
+ * Minimum board width keeping every card at the 44×44pt HIG touch target:
+ * 8 columns × 44 + 7 1px gaps. Narrower viewports scroll horizontally
+ * instead of shrinking the cards.
+ */
+export const BOARD_MIN_WIDTH =
+  CONSTANTS.BOARD_COLS * 44 + (CONSTANTS.BOARD_COLS - 1)
 
 const cardAccessibilityLabel = (
   row: number,
@@ -41,7 +50,8 @@ const cardAccessibilityLabel = (
  * — pair matching, the processing gate and the configured flip delay all
  * stay in `@cetus/games`. Each card is a real hit target (unlike the
  * display-only Tide grid), so the 48 controls stay individually
- * accessible; a ScrollView keeps the board usable on short screens.
+ * accessible; a vertical ScrollView keeps the board usable on short
+ * screens and a horizontal one keeps cards ≥ 44×44pt on narrow ones.
  */
 export function MemoryMatrixBoard({ projected, game }: NativeGameViewProps) {
   const memory = projected as unknown as MemoryMatrixProjection
@@ -63,61 +73,75 @@ export function MemoryMatrixBoard({ projected, game }: NativeGameViewProps) {
         Matched {memory.matchedPairs} / {memory.totalPairs}
       </Text>
 
-      <View className="aspect-[4/3] w-full gap-px">
-        {memory.cards.map((row, rowIndex) => (
-          <View
-            key={rowIndex}
-            testID="mm-row"
-            className="flex-1 flex-row gap-px"
-          >
-            {row.map((card, colIndex) => {
-              const revealed = card.isFlipped || card.isMatched
-              const disabled = !inputOpen || revealed
-              return (
-                <Pressable
-                  key={colIndex}
-                  testID={`mm-card-${
-                    card.isMatched ? 'matched' : card.isFlipped ? 'up' : 'down'
-                  }-r${rowIndex}c${colIndex}`}
-                  accessibilityRole={revealed ? 'image' : 'button'}
-                  accessibilityLabel={cardAccessibilityLabel(
-                    rowIndex,
-                    colIndex,
-                    card
-                  )}
-                  accessibilityState={{ disabled }}
-                  disabled={disabled}
-                  onPress={() =>
-                    (game as MemoryMatrixGame).flipCard({
-                      row: rowIndex,
-                      col: colIndex,
-                    })
-                  }
-                  className={cn(
-                    'flex flex-1 items-center justify-center rounded-md border-2 border-cetus-hairline',
-                    card.isMatched && 'opacity-60',
-                    !revealed && 'bg-cetus-surface'
-                  )}
-                  // Face-up cards carry their own game-data color (web
-                  // board parity); face-down stays a neutral tile.
-                  style={revealed ? { borderColor: card.color } : undefined}
-                >
-                  <Text
-                    className={cn(
-                      'font-bold',
-                      card.isMatched || card.isFlipped
-                        ? 'text-2xl'
-                        : 'text-lg text-cetus-ink-muted'
+      <ScrollView
+        horizontal
+        testID="mm-board-scroller"
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
+        <View
+          testID="mm-board"
+          className="aspect-[4/3] gap-px"
+          style={{ flex: 1, minWidth: BOARD_MIN_WIDTH }}
+        >
+          {memory.cards.map((row, rowIndex) => (
+            <View
+              key={rowIndex}
+              testID="mm-row"
+              className="flex-1 flex-row gap-px"
+            >
+              {row.map((card, colIndex) => {
+                const revealed = card.isFlipped || card.isMatched
+                const disabled = !inputOpen || revealed
+                return (
+                  <Pressable
+                    key={colIndex}
+                    testID={`mm-card-${
+                      card.isMatched
+                        ? 'matched'
+                        : card.isFlipped
+                          ? 'up'
+                          : 'down'
+                    }-r${rowIndex}c${colIndex}`}
+                    accessibilityRole={revealed ? 'image' : 'button'}
+                    accessibilityLabel={cardAccessibilityLabel(
+                      rowIndex,
+                      colIndex,
+                      card
                     )}
+                    accessibilityState={{ disabled }}
+                    disabled={disabled}
+                    onPress={() =>
+                      (game as MemoryMatrixGame).flipCard({
+                        row: rowIndex,
+                        col: colIndex,
+                      })
+                    }
+                    className={cn(
+                      'flex flex-1 items-center justify-center rounded-md border-2 border-cetus-hairline',
+                      card.isMatched && 'opacity-60',
+                      !revealed && 'bg-cetus-surface'
+                    )}
+                    // Face-up cards carry their own game-data color (web
+                    // board parity); face-down stays a neutral tile.
+                    style={revealed ? { borderColor: card.color } : undefined}
                   >
-                    {revealed ? card.shape : '?'}
-                  </Text>
-                </Pressable>
-              )
-            })}
-          </View>
-        ))}
-      </View>
+                    <Text
+                      className={cn(
+                        'font-bold',
+                        card.isMatched || card.isFlipped
+                          ? 'text-2xl'
+                          : 'text-lg text-cetus-ink-muted'
+                      )}
+                    >
+                      {revealed ? card.shape : '?'}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
     </ScrollView>
   )
 }

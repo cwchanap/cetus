@@ -1,6 +1,6 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { Text } from 'react-native'
+import { StyleSheet, Text } from 'react-native'
 import { GameID } from '@cetus/shared/games'
 import { createStableProjector } from '@cetus/app-core'
 import { MemoryMatrixGame } from '@cetus/games/memory-matrix/MemoryMatrixGame'
@@ -24,6 +24,7 @@ jest.mock('expo-router', () => ({
 import { api } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import { NATIVE_GAMES, type NativeGamePort } from '../src/games/registry'
+import { BOARD_MIN_WIDTH } from '../src/games/boards/MemoryMatrixBoard'
 const submitScore = jest.mocked(api.submitScore)
 
 const createdGames: MemoryMatrixGame[] = []
@@ -203,6 +204,16 @@ const thirdPosition = (
   throw new Error('board has no third position')
 }
 
+/** First host-tag element carrying the testID (jest-expo double-render —
+ *  see countViews). */
+const hostView = (
+  tree: TestRenderer.ReactTestRenderer,
+  testID: string
+): TestRenderer.ReactTestInstance =>
+  tree.root.findAll(
+    node => typeof node.type === 'string' && node.props.testID === testID
+  )[0]
+
 beforeEach(() => {
   submitScore.mockReset()
   submitScore.mockResolvedValue({ success: true })
@@ -234,6 +245,22 @@ describe('Memory Matrix pilot — board', () => {
       'Card row 1, column 1, face down'
     )
     expect(card.props.disabled).toBe(true)
+  })
+
+  test('narrow screens scroll horizontally instead of shrinking cards below the 44pt touch target', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.MEMORY_MATRIX} />)
+
+    // At a 320pt viewport the old w-full board compressed cards to ~35pt.
+    // The board now has a minimum width (8 cols × 44pt HIG target + 7 1px
+    // gaps) and lives in a horizontal scroller so nothing shrinks below it.
+    const scroller = hostView(tree, 'mm-board-scroller')
+    expect(scroller.props.horizontal).toBe(true)
+
+    const board = hostView(tree, 'mm-board')
+    const { minWidth } = StyleSheet.flatten(board.props.style)
+    expect(minWidth).toBe(BOARD_MIN_WIDTH)
+    // (minWidth − 7 gaps) / 8 columns keeps every card ≥ 44×44.
+    expect((BOARD_MIN_WIDTH - 7) / 8).toBeGreaterThanOrEqual(44)
   })
 
   test('the production port keeps the configured 700ms flip delay', () => {
