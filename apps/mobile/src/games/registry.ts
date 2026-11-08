@@ -12,7 +12,10 @@ import {
     type MineGridStats,
 } from '@cetus/games/mine-grid/types'
 import { PatternPulseGame } from '@cetus/games/pattern-pulse/PatternPulseGame'
-import type { PatternPulseState } from '@cetus/games/pattern-pulse/types'
+import type {
+    PatternPulseState,
+    PatternPulseStats,
+} from '@cetus/games/pattern-pulse/types'
 import { PotionSorterGame } from '@cetus/games/potion-sorter/PotionSorterGame'
 import type { PotionSorterState } from '@cetus/games/potion-sorter/types'
 import {
@@ -31,6 +34,7 @@ import type {
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
 import { MemoryMatrixBoard } from './boards/MemoryMatrixBoard'
 import { MineGridBoard } from './boards/MineGridBoard'
+import { PatternPulseBoard } from './boards/PatternPulseBoard'
 
 /**
  * Host-injected transport every native game run receives: the cookie-backed
@@ -157,12 +161,42 @@ const patternPulsePort: NativeGamePort = {
             submitScore: deps.submitScore,
             platform: deps.platform,
         }),
+    // All primitives: playback phase/outcome, the lit pad, feedback and
+    // the HUD counters. The sequence array is the answer key — only its
+    // length is visible.
     project: state => {
-        const { phase, activePad, feedback, completedRounds, streak } =
-            state as PatternPulseState
-        // The sequence is the answer key; playback surfaces via activePad.
-        return { phase, activePad, feedback, completedRounds, streak }
+        const {
+            phase,
+            outcome,
+            activePad,
+            feedback,
+            sequence,
+            completedRounds,
+            mistakes,
+            streak,
+            isActive,
+        } = state as PatternPulseState
+        return {
+            phase,
+            outcome,
+            activePad,
+            feedback,
+            sequenceLength: sequence.length,
+            completedRounds,
+            mistakes,
+            streak,
+            canPress: isActive && phase === 'input',
+        }
     },
+    resultOutcomeLabel: stats => {
+        const outcome = (stats as PatternPulseStats).outcome
+        return outcome === 'timeout'
+            ? 'Timeout'
+            : outcome === 'mistakes'
+              ? 'Mistake Limit'
+              : null
+    },
+    view: PatternPulseBoard,
 }
 
 const potionSorterPort: NativeGamePort = {

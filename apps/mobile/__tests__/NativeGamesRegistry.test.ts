@@ -291,6 +291,57 @@ describe('NATIVE_GAMES registry', () => {
         expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
     })
 
+    test('the Pattern Pulse pilot ships a board view and a phase/feedback projection', () => {
+        const port = getNativeGameEntry(GameID.PATTERN_PULSE)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        const idle = port.project(game.getState(), game)
+        // All primitives: playback phase/outcome, the lit pad, feedback,
+        // HUD counters and the input gate. The sequence array itself is
+        // the answer key — only its length is visible.
+        expect(idle).toEqual({
+            phase: 'idle',
+            outcome: 'playing',
+            activePad: null,
+            feedback: null,
+            sequenceLength: 3,
+            completedRounds: 0,
+            streak: 0,
+            mistakes: 0,
+            canPress: false,
+        })
+
+        // beginPlayback emits synchronously from start(); input outside
+        // the input phase is rejected by the model, so canPress stays off.
+        game.start()
+        expect(port.project(game.getState(), game)).toMatchObject({
+            phase: 'watch',
+            canPress: false,
+        })
+        expect((game as PatternPulseGame).pressPad(0)).toBe(false)
+        expect(port.project(game.getState(), game)).toMatchObject({
+            phase: 'watch',
+        })
+        game.destroy()
+    })
+
+    test('the Pattern Pulse port labels finished-run outcomes', () => {
+        const port = getNativeGameEntry(GameID.PATTERN_PULSE)?.port
+        expect(port).toBeDefined()
+        if (!port?.resultOutcomeLabel) {
+            return
+        }
+        const stats = (outcome: string) =>
+            ({ outcome }) as unknown as BaseGameStats
+        expect(port.resultOutcomeLabel(stats('timeout'))).toBe('Timeout')
+        expect(port.resultOutcomeLabel(stats('mistakes'))).toBe('Mistake Limit')
+        expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
+    })
+
     test('keys are computed from imported enum members, never bare strings', () => {
         const source = readFileSync(
             resolve(process.cwd(), 'src/games/registry.ts'),
