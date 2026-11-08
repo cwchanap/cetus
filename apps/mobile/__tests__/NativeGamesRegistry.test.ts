@@ -18,6 +18,7 @@ import { PotionSorterGame } from '@cetus/games/potion-sorter/PotionSorterGame'
 import type { PotionSorterState } from '@cetus/games/potion-sorter/types'
 import { QuickMathFrameworkGame } from '@cetus/games/quick-math/game'
 import { SudokuGame } from '@cetus/games/sudoku/SudokuGame'
+import type { SudokuState } from '@cetus/games/sudoku/frameworkTypes'
 import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 
@@ -403,6 +404,75 @@ describe('NATIVE_GAMES registry', () => {
         expect(port.resultOutcomeLabel(stats('solved'))).toBe('Solved')
         expect(port.resultOutcomeLabel(stats('timeout'))).toBe('Timeout')
         expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
+    })
+
+    test('the Sudoku pilot ships a board view and a separately stabilized grid projection', () => {
+        const port = getNativeGameEntry(GameID.SUDOKU)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        const projected = port.project(game.getState(), game) as {
+            grid: {
+                cells: Array<
+                    Array<{
+                        value: number | null
+                        isGiven: boolean
+                        isConflicting: boolean
+                    }>
+                >
+                selectedCell: { row: number; col: number } | null
+            }
+            difficulty: string
+            mistakes: number
+            clock: number
+            canAct: boolean
+            difficultyLocked: boolean
+        }
+        // The default medium board: a 9×9 copied-cell grid, idle controls
+        // and the count-up clock starting at zero.
+        expect(projected.grid.cells).toHaveLength(9)
+        expect(projected.grid.cells.every(row => row.length === 9)).toBe(true)
+        expect(projected.grid.selectedCell).toBeNull()
+        expect(projected.difficulty).toBe('medium')
+        expect(projected.mistakes).toBe(0)
+        expect(projected.clock).toBe(0)
+        expect(projected.canAct).toBe(false)
+        expect(projected.difficultyLocked).toBe(false)
+
+        // The grid is separately stabilized: an unchanged grid keeps the
+        // same snapshot reference across projections (clock-only ticks).
+        expect(port.project(game.getState(), game).grid).toBe(projected.grid)
+
+        // An in-place model mutation must surface as a NEW snapshot
+        // carrying the fresh value — the memo barrier opens on it.
+        const liveState = (game as unknown as { state: SudokuState }).state
+        const flatIndex = liveState.grid.cells
+            .flat()
+            .findIndex(cell => cell.value === null)
+        liveState.grid.cells[Math.floor(flatIndex / 9)][flatIndex % 9].value = 9
+        const mutated = port.project(game.getState(), game) as {
+            grid: { cells: Array<Array<{ value: number | null }>> }
+        }
+        expect(mutated.grid).not.toBe(projected.grid)
+        expect(
+            mutated.grid.cells[Math.floor(flatIndex / 9)][flatIndex % 9].value
+        ).toBe(9)
+        game.destroy()
+    })
+
+    test('the Sudoku port labels finished-run outcomes', () => {
+        const port = getNativeGameEntry(GameID.SUDOKU)?.port
+        expect(port).toBeDefined()
+        if (!port?.resultOutcomeLabel) {
+            return
+        }
+        const stats = (isComplete: boolean) =>
+            ({ isComplete }) as unknown as BaseGameStats
+        expect(port.resultOutcomeLabel(stats(true))).toBe('Solved')
+        expect(port.resultOutcomeLabel(stats(false))).toBeNull()
     })
 
     test('keys are computed from imported enum members, never bare strings', () => {

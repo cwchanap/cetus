@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import { GameID } from '@cetus/shared/games'
+import { createStableProjector } from '@cetus/app-core'
 import type { ScoreSubmitter } from '@cetus/shared/scores'
 import type { ScorePlatform } from '@cetus/shared/validations'
 import type { BaseGame, BaseGameState, BaseGameStats } from '@cetus/games'
@@ -26,7 +27,10 @@ import {
     type QuickMathState,
 } from '@cetus/games/quick-math/game'
 import { SudokuGame } from '@cetus/games/sudoku/SudokuGame'
-import type { SudokuState } from '@cetus/games/sudoku/frameworkTypes'
+import type {
+    SudokuState,
+    SudokuStats,
+} from '@cetus/games/sudoku/frameworkTypes'
 import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
 import type { WordScrambleState } from '@cetus/games/word-scramble/frameworkTypes'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
@@ -39,6 +43,7 @@ import { MemoryMatrixBoard } from './boards/MemoryMatrixBoard'
 import { MineGridBoard } from './boards/MineGridBoard'
 import { PatternPulseBoard } from './boards/PatternPulseBoard'
 import { PotionSorterBoard } from './boards/PotionSorterBoard'
+import { SudokuBoard } from './boards/SudokuBoard'
 
 /**
  * Host-injected transport every native game run receives: the cookie-backed
@@ -256,28 +261,59 @@ const quickMathPort: NativeGamePort = {
     }),
 }
 
+// Sudoku's separately stabilized grid snapshot (see sudokuPort): copied
+// cell values + the selection, structurally memoized so clock-only ticks
+// keep the same reference for the memoized board.
+const projectSudokuGrid = createStableProjector(
+    (grid: SudokuState['grid']) => ({
+        cells: grid.cells.map(row =>
+            row.map(cell => ({
+                value: cell.value,
+                isGiven: cell.isGiven,
+                isHighlighted: cell.isHighlighted,
+                isConflicting: cell.isConflicting,
+            }))
+        ),
+        selectedCell: grid.selectedCell ? { ...grid.selectedCell } : null,
+    })
+)
+
 const sudokuPort: NativeGamePort = {
     createGame: deps =>
         new SudokuGame({
             submitScore: deps.submitScore,
             platform: deps.platform,
         }),
+    // The 9×9 grid is separately stabilized: the snapshot keeps its
+    // reference across clock-only ticks (the model mutates cell values,
+    // flags and selection in place) so the memoized board's barrier
+    // holds while the count-up clock moves the HUD.
     project: (state, game) => {
-        const { grid, mistakes } = state as SudokuState
+        const {
+            grid,
+            difficulty,
+            mistakes,
+            isActive,
+            isPaused,
+            isGameOver,
+            isComplete,
+        } = state as SudokuState
         return {
-            cells: grid.cells.map(row =>
-                row.map(cell => ({
-                    value: cell.value,
-                    isGiven: cell.isGiven,
-                    isConflicting: cell.isConflicting,
-                }))
-            ),
+            grid: projectSudokuGrid(grid),
+            difficulty,
             mistakes,
             // Elapsed clock read off the constructed instance: the count-up
             // HUD ticks without a per-second state event.
-            clock: game.getTimerStatus().elapsedTime,
+            clock: (game as SudokuGame).getElapsedTime(),
+            canAct: isActive && !isPaused && !isGameOver && !isComplete,
+            // Web parity: difficulty buttons lock for the whole run, even
+            // while paused.
+            difficultyLocked: isActive && !isGameOver,
         }
     },
+    resultOutcomeLabel: stats =>
+        (stats as SudokuStats).isComplete ? 'Solved' : null,
+    view: SudokuBoard,
 }
 
 const wordScramblePort: NativeGamePort = {
