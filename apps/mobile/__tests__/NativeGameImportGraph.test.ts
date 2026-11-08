@@ -377,6 +377,14 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
         '@cetus/games/pattern-pulse/types',
         /packages\/games\/src\/pattern-pulse\/types\.ts$/,
     ],
+    [
+        '@cetus/games/potion-sorter/puzzle',
+        /packages\/games\/src\/potion-sorter\/puzzle\.ts$/,
+    ],
+    [
+        '@cetus/games/potion-sorter/types',
+        /packages\/games\/src\/potion-sorter\/types\.ts$/,
+    ],
     ['@cetus/app-core', /packages\/app-core\/src\/index\.ts$/],
     ['@cetus/shared/games', /packages\/shared\/src\/games\.ts$/],
     ['@cetus/ui', /packages\/ui\/src\/index\.native\.ts$/],

@@ -17,7 +17,10 @@ import type {
     PatternPulseStats,
 } from '@cetus/games/pattern-pulse/types'
 import { PotionSorterGame } from '@cetus/games/potion-sorter/PotionSorterGame'
-import type { PotionSorterState } from '@cetus/games/potion-sorter/types'
+import type {
+    PotionSorterState,
+    PotionSorterStats,
+} from '@cetus/games/potion-sorter/types'
 import {
     QuickMathFrameworkGame,
     type QuickMathState,
@@ -35,6 +38,7 @@ import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
 import { MemoryMatrixBoard } from './boards/MemoryMatrixBoard'
 import { MineGridBoard } from './boards/MineGridBoard'
 import { PatternPulseBoard } from './boards/PatternPulseBoard'
+import { PotionSorterBoard } from './boards/PotionSorterBoard'
 
 /**
  * Host-injected transport every native game run receives: the cookie-backed
@@ -205,15 +209,39 @@ const potionSorterPort: NativeGamePort = {
             submitScore: deps.submitScore,
             platform: deps.platform,
         }),
-    project: state => {
-        const { tubes, selectedTubeIndex, movesMade } =
-            state as PotionSorterState
+    // Copy every visible tube value (the model swaps tube arrays, but the
+    // projection must stay a serializable snapshot) plus the control-
+    // facing HUD fields; canUndo reads the live instance's history.
+    project: (state, game) => {
+        const {
+            tubes,
+            selectedTubeIndex,
+            movesMade,
+            undosUsed,
+            difficulty,
+            isActive,
+            result,
+        } = state as PotionSorterState
         return {
             tubes: tubes.map(tube => [...tube]),
             selectedTubeIndex,
             movesMade,
+            undosUsed,
+            difficulty,
+            result,
+            canUndo: (game as PotionSorterGame).canUndo(),
+            canAct: isActive && result === 'playing',
         }
     },
+    resultOutcomeLabel: stats => {
+        const result = (stats as PotionSorterStats).result
+        return result === 'solved'
+            ? 'Solved'
+            : result === 'timeout'
+              ? 'Timeout'
+              : null
+    },
+    view: PotionSorterBoard,
 }
 
 const quickMathPort: NativeGamePort = {
