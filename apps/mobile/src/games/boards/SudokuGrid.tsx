@@ -106,7 +106,7 @@ export function SudokuGrid({ grid, canAct, onSelectCell }: SudokuGridProps) {
                   colIndex,
                   cell
                 )}
-                accessibilityState={{ disabled: !canAct }}
+                accessibilityState={{ disabled: !canAct, selected: isSelected }}
                 disabled={!canAct}
                 onPress={() => onSelectCell(rowIndex, colIndex)}
                 className={cn(
