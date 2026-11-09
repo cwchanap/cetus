@@ -475,6 +475,66 @@ describe('NATIVE_GAMES registry', () => {
         expect(port.resultOutcomeLabel(stats(false))).toBeNull()
     })
 
+    test('the Quick Math pilot ships a board view and a question/accuracy projection', () => {
+        const port = getNativeGameEntry(GameID.QUICK_MATH)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        const quickMath = game as QuickMathFrameworkGame
+        const idle = port.project(game.getState(), game)
+        // All primitives: the question text read through
+        // getCurrentQuestion(), the counters, the model-owned accuracy
+        // and the keypad gate. Idle shows no question at all.
+        expect(idle).toEqual({
+            question: null,
+            questionsAnswered: 0,
+            correctAnswers: 0,
+            incorrectAnswers: 0,
+            accuracy: 0,
+            canAnswer: false,
+        })
+
+        game.start()
+        const running = port.project(game.getState(), game) as {
+            question: string | null
+            canAnswer: boolean
+        }
+        expect(typeof running.question).toBe('string')
+        expect(running.canAnswer).toBe(true)
+
+        // One correct answer drives the model's own accuracy formula.
+        const answer = quickMath.getCurrentQuestion()?.answer
+        expect(answer).toBeDefined()
+        quickMath.submitAnswer(String(answer))
+        expect(port.project(game.getState(), game)).toMatchObject({
+            questionsAnswered: 1,
+            correctAnswers: 1,
+            incorrectAnswers: 0,
+            accuracy: 100,
+        })
+
+        // A wrong answer still advances the quiz (Stage-1 state-change
+        // fix): the fresh question reaches the projection.
+        const wrongQuestion = quickMath.getCurrentQuestion()
+        expect(wrongQuestion).toBeDefined()
+        quickMath.submitAnswer(String((wrongQuestion?.answer ?? 0) + 1))
+        const afterWrong = port.project(game.getState(), game) as {
+            question: string | null
+            incorrectAnswers: number
+            accuracy: number
+        }
+        expect(afterWrong.incorrectAnswers).toBe(1)
+        expect(afterWrong.accuracy).toBe(50)
+        expect(afterWrong.question).toBe(
+            quickMath.getCurrentQuestion()?.question
+        )
+        expect(afterWrong.question).not.toBe(wrongQuestion?.question)
+        game.destroy()
+    })
+
     test('keys are computed from imported enum members, never bare strings', () => {
         const source = readFileSync(
             resolve(process.cwd(), 'src/games/registry.ts'),
