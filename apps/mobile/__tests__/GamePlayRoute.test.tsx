@@ -2,6 +2,7 @@ import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
 import { Text } from 'react-native'
 import { GameID } from '@cetus/shared/games'
+import { AchievementRarity } from '@cetus/shared/achievements'
 import { BaseGame, type BaseGameConfig, type BaseGameState } from '@cetus/games'
 
 const mockPush = jest.fn()
@@ -50,6 +51,7 @@ jest.mock('../src/lib/api', () => ({
   },
 }))
 
+import { api } from '../src/lib/api'
 import GamePlayScreen from '../app/games/[gameId]/play'
 import {
   NATIVE_GAMES,
@@ -119,6 +121,8 @@ const testPort: NativeGamePort = {
   project: state => ({ board: [...(state as TestGameState).board] }),
   view: TestBoardView,
 }
+
+const submitScore = jest.mocked(api.submitScore)
 
 const originalEntry = NATIVE_GAMES[GameID.QUICK_MATH]
 beforeAll(() => {
@@ -199,6 +203,7 @@ beforeEach(() => {
   mockCanGoBack.mockReset().mockReturnValue(true)
   mockParams.gameId = 'quick_math'
   createdGames.length = 0
+  submitScore.mockReset().mockResolvedValue({ success: true })
   Object.assign(mockSession, guest)
 })
 
@@ -285,9 +290,14 @@ describe('play route — resolved guest revalidation keeps the run alive', () =>
     const runningGame = createdGames[0]
     expect(runningGame.getTimerStatus().isRunning).toBe(true)
 
-    // Revalidation flips pending while the guest run is live.
+    // Revalidation flips pending while the guest run is live; the last
+    // settled identity is kept, so the same host stays mounted mid-flight.
     Object.assign(mockSession, { ...guest, isPending: true })
     await rerender(tree, <GamePlayScreen />)
+    expect(createdGames).toHaveLength(1)
+    expect(createdGames[0]).toBe(runningGame)
+    expect(boardText(tree)).toBe('1,3,3')
+    expect(renderedText(tree)).not.toContain('Resolving session')
     Object.assign(mockSession, guest)
     await rerender(tree, <GamePlayScreen />)
 
@@ -321,6 +331,54 @@ describe('play route — settled identity changes remount the host', () => {
     // The new account host starts fresh (not running) on its own instance.
     expect(createdGames[1]).not.toBe(guestGame)
     expect(createdGames[1].getState().isActive).toBe(false)
+  })
+
+  test('a replaced host late reward emission never reaches the new account', async () => {
+    type SubmitResult = Awaited<ReturnType<typeof api.submitScore>>
+    let releaseSave: ((value: SubmitResult) => void) | undefined
+    submitScore.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          releaseSave = resolve
+        })
+    )
+    const tree = await render(<GamePlayScreen />)
+    await press(tree, 'Start game')
+    const guestGame = createdGames[0]
+
+    // The guest run's single POST is still in flight when a real account
+    // settles and the host remounts (the guest host is destroyed above).
+    await act(async () => {
+      void guestGame.end()
+    })
+    Object.assign(mockSession, signedIn('user-1', 'sess-1'))
+    await rerender(tree, <GamePlayScreen />)
+    expect(createdGames).toHaveLength(2)
+
+    // The save later commits with guest-era rewards: the replaced host
+    // emits its structured end to nobody — the new account never sees
+    // that banner, and nothing re-submits on the new host.
+    await act(async () => {
+      releaseSave?.({
+        success: true,
+        newAchievements: [
+          {
+            id: 'ach-guest-era',
+            name: 'Guest Era Reward',
+            description: 'Earned before the account switch',
+            icon: '🏆',
+            rarity: AchievementRarity.COMMON,
+          },
+        ],
+      })
+    })
+    await drain()
+
+    const rendered = renderedText(tree)
+    expect(rendered).not.toContain('Guest Era Reward')
+    expect(rendered).not.toContain('Achievement unlocked')
+    expect(rendered).not.toContain('Challenge complete')
+    expect(submitScore).toHaveBeenCalledTimes(1)
   })
 
   test('signed-in → guest changes the host again', async () => {

@@ -761,6 +761,11 @@ describe('BaseGame default hooks', () => {
         game.start()
         await vi.runAllTimersAsync()
         expect(onEnd).toHaveBeenCalled()
+        // Timer expiry already completed the run; an explicit end()
+        // arriving afterwards (host "End game") must not submit a second
+        // score.
+        await game.end()
+        expect(submitScore).toHaveBeenCalledTimes(1)
         game.destroy()
         vi.useRealTimers()
     })

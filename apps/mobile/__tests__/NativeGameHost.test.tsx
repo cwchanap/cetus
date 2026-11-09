@@ -250,35 +250,50 @@ describe('NativeGameHost — session wiring', () => {
 })
 
 describe('NativeGameHost — Platform.OS score submitter contract', () => {
-  test('a completed run submits once through api.submitScore with the OS platform', async () => {
+  test('a completed run submits once through api.submitScore with the OS platform, on ios and android', async () => {
     submitScore.mockResolvedValue({ success: true })
-    const tree = await render(<NativeGameHost gameId={GameID.QUICK_MATH} />)
+    const originalOS = Platform.OS
+    try {
+      // The single submitter-contract test drives a completed run per OS
+      // label: Platform.OS must flow into ScoreData.platform verbatim.
+      for (const os of ['ios', 'android'] as const) {
+        Platform.OS = os
+        submitScore.mockClear()
+        createdGames.length = 0
+        const tree = await render(<NativeGameHost gameId={GameID.QUICK_MATH} />)
 
-    await press(tree, 'Start game')
-    await act(async () => {
-      createdGames[0].addScore(25, 'run')
-    })
-    await act(async () => {
-      await createdGames[0].end()
-    })
-    await drain()
+        await press(tree, 'Start game')
+        await act(async () => {
+          createdGames[0].addScore(25, 'run')
+        })
+        await act(async () => {
+          await createdGames[0].end()
+        })
+        await drain()
 
-    expect(submitScore).toHaveBeenCalledTimes(1)
-    expect(submitScore).toHaveBeenCalledWith(
-      expect.objectContaining({
-        gameId: GameID.QUICK_MATH,
-        platform: 'ios',
-        score: 25,
-      })
-    )
-    expect(renderedText(tree)).toContain('Score saved')
-    // Replay restarts the run through the same single session.
-    await press(tree, 'Play again')
-    expect(createdGames[0].getState().isActive).toBe(true)
-    // Stop the live timer so no tick lands after the test ends.
-    await act(async () => {
-      createdGames[0].pause()
-    })
+        expect(submitScore).toHaveBeenCalledTimes(1)
+        expect(submitScore).toHaveBeenCalledWith(
+          expect.objectContaining({
+            gameId: GameID.QUICK_MATH,
+            platform: os,
+            score: 25,
+          })
+        )
+        expect(renderedText(tree)).toContain('Score saved')
+        // Replay restarts the run through the same single session.
+        await press(tree, 'Play again')
+        expect(createdGames[0].getState().isActive).toBe(true)
+        // Stop the live timer and drop this OS's host before the next one.
+        await act(async () => {
+          createdGames[0].pause()
+        })
+        await act(async () => {
+          tree.unmount()
+        })
+      }
+    } finally {
+      Platform.OS = originalOS
+    }
   })
 
   test('provisional pending result shows before the save settles', async () => {
@@ -429,6 +444,48 @@ describe('NativeGameHost — cleanup order', () => {
     })
 
     expect(createdGames[0].getTimerStatus().isRunning).toBe(false)
+  })
+
+  test('a route exit while the save is in flight tears down cleanly and never re-submits', async () => {
+    let releaseSave: ((value: { success: boolean }) => void) | undefined
+    submitScore.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          releaseSave = resolve
+        })
+    )
+    const tree = await render(<NativeGameHost gameId={GameID.QUICK_MATH} />)
+
+    await press(tree, 'Start game')
+    const game = createdGames[0]
+    const originalDestroy = game.destroy.bind(game)
+    jest.spyOn(game, 'destroy').mockImplementation(() => {
+      mockCleanupOrder.push('game-destroyed')
+      originalDestroy()
+    })
+    await act(async () => {
+      void game.end()
+    })
+    await drain()
+    expect(renderedText(tree)).toContain('Saving score…')
+
+    // Leaving the route mid-save runs the full teardown in order…
+    await act(async () => {
+      tree.unmount()
+    })
+    expect(mockCleanupOrder).toEqual([
+      'forwarder-removed',
+      'session-disposed',
+      'game-destroyed',
+    ])
+
+    // …and the in-flight save resolving afterwards reaches no removed
+    // listener (the destroyed game emits to nobody) and never retries.
+    await act(async () => {
+      releaseSave?.({ success: true })
+    })
+    await drain()
+    expect(submitScore).toHaveBeenCalledTimes(1)
   })
 })
 
