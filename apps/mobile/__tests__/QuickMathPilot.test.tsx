@@ -110,6 +110,13 @@ const testText = (
     tree.root.findByProps({ testID }).props.children as React.ReactNode
   )
 
+/** The screen-reader output for the answer slot: the label must carry
+ *  the current digits (or the placeholder) — a static label would hide
+ *  the input from review before submitting. */
+const answerA11yLabel = (tree: TestRenderer.ReactTestRenderer): string =>
+  tree.root.findByProps({ testID: 'quick-math-answer' }).props
+    .accessibilityLabel as string
+
 /** First host-tag element carrying the accessibility label (jest-expo
  *  mocks render a React wrapper AND a host element with identical
  *  props — query host-tag elements only). */
@@ -196,12 +203,17 @@ describe('Quick Math board — keypad and answers', () => {
 
     await typeDigits(tree, '12')
     expect(testText(tree, 'quick-math-answer')).toBe('12')
+    // Accessible output tracks the typed digits, so screen readers can
+    // review the input before submitting (not a static "Answer").
+    expect(answerA11yLabel(tree)).toBe('Answer, 12')
 
     await press(tree, 'Backspace')
     expect(testText(tree, 'quick-math-answer')).toBe('1')
+    expect(answerA11yLabel(tree)).toBe('Answer, 1')
 
     await press(tree, 'Backspace')
     expect(testText(tree, 'quick-math-answer')).toBe('Enter answer')
+    expect(answerA11yLabel(tree)).toBe('Answer, Enter answer')
 
     // Backspace on an empty answer is a harmless no-op.
     await press(tree, 'Backspace')
