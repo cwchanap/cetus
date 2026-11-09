@@ -45,6 +45,7 @@ import { PatternPulseBoard } from './boards/PatternPulseBoard'
 import { PotionSorterBoard } from './boards/PotionSorterBoard'
 import { QuickMathBoard } from './boards/QuickMathBoard'
 import { SudokuBoard } from './boards/SudokuBoard'
+import { WordScrambleBoard } from './boards/WordScrambleBoard'
 
 /**
  * Host-injected transport every native game run receives: the cookie-backed
@@ -345,15 +346,30 @@ const wordScramblePort: NativeGamePort = {
             submitScore: deps.submitScore,
             platform: deps.platform,
         }),
-    project: state => {
-        const { currentChallenge, wordsUnscrambled } =
-            state as WordScrambleState
-        return {
-            scrambledWord: currentChallenge?.scrambledWord ?? null,
-            difficulty: currentChallenge?.difficulty ?? null,
+    // All primitives, with the challenge read through the model's own
+    // getCurrentChallenge(): the id lets the tray reset on every new
+    // challenge (answer/skip advance it without a score event), the
+    // scrambled letters feed the tile tray, and the two counters mirror
+    // the web board's Words/Correct pair.
+    project: (state, game) => {
+        const {
             wordsUnscrambled,
+            correctAnswers,
+            isActive,
+            isPaused,
+            isGameOver,
+        } = state as WordScrambleState
+        const challenge = (game as WordScrambleGame).getCurrentChallenge()
+        return {
+            challengeId: challenge?.id ?? null,
+            scrambledWord: challenge?.scrambledWord ?? null,
+            difficulty: challenge?.difficulty ?? null,
+            wordsUnscrambled,
+            correctAnswers,
+            canAnswer: isActive && !isPaused && !isGameOver,
         }
     },
+    view: WordScrambleBoard,
 }
 
 const chromaticTidePort: NativeGamePort = {

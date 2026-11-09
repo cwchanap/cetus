@@ -535,6 +535,83 @@ describe('NATIVE_GAMES registry', () => {
         game.destroy()
     })
 
+    test('the Word Scramble pilot ships a board view and a challenge/counters projection', () => {
+        const port = getNativeGameEntry(GameID.WORD_SCRAMBLE)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        const words = game as WordScrambleGame
+        const idle = port.project(game.getState(), game)
+        // All primitives: the challenge read through getCurrentChallenge()
+        // (id for tray resets, scrambled letters, difficulty), the two
+        // web-parity counters and the input gate. Idle shows no challenge.
+        expect(idle).toEqual({
+            challengeId: null,
+            scrambledWord: null,
+            difficulty: null,
+            wordsUnscrambled: 0,
+            correctAnswers: 0,
+            canAnswer: false,
+        })
+
+        game.start()
+        const first = words.getCurrentChallenge()
+        expect(first).toBeDefined()
+        if (!first) {
+            return
+        }
+        expect(port.project(game.getState(), game)).toMatchObject({
+            challengeId: first.id,
+            scrambledWord: first.scrambledWord,
+            difficulty: first.difficulty,
+            canAnswer: true,
+        })
+
+        // A correct answer counts on both counters.
+        words.submitAnswer(first.originalWord)
+        expect(port.project(game.getState(), game)).toMatchObject({
+            wordsUnscrambled: 1,
+            correctAnswers: 1,
+        })
+
+        // A wrong answer (Stage-1 state-change fix) still advances: the
+        // fresh challenge reaches the projection while Correct holds.
+        const second = words.getCurrentChallenge()
+        expect(second).toBeDefined()
+        if (!second) {
+            return
+        }
+        words.submitAnswer(second.originalWord.split('').reverse().join(''))
+        const afterWrong = port.project(game.getState(), game) as {
+            challengeId: string | null
+            scrambledWord: string | null
+            wordsUnscrambled: number
+            correctAnswers: number
+        }
+        expect(afterWrong.correctAnswers).toBe(1)
+        expect(afterWrong.wordsUnscrambled).toBe(2)
+        expect(afterWrong.challengeId).not.toBe(second.id)
+        expect(afterWrong.scrambledWord).toBe(
+            words.getCurrentChallenge()?.scrambledWord
+        )
+
+        // A skip advances too, without touching Correct.
+        words.skipCurrentChallenge()
+        expect(port.project(game.getState(), game)).toMatchObject({
+            wordsUnscrambled: 3,
+            correctAnswers: 1,
+        })
+        expect(words.getCurrentChallenge()?.id).not.toBe(afterWrong.challengeId)
+
+        // Reset returns the exact idle snapshot.
+        game.reset()
+        expect(port.project(game.getState(), game)).toEqual(idle)
+        game.destroy()
+    })
+
     test('keys are computed from imported enum members, never bare strings', () => {
         const source = readFileSync(
             resolve(process.cwd(), 'src/games/registry.ts'),
