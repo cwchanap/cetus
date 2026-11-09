@@ -402,6 +402,11 @@ describe('play route — settled identity changes remount the host', () => {
     const tree = await render(<GamePlayScreen />)
     await press(tree, 'Start game')
     const accountGame = createdGames[0]
+    await act(async () => {
+      accountGame.flipBoardCell(1)
+    })
+    await drain()
+    expect(boardText(tree)).toBe('1,3,3')
     expect(createdGames).toHaveLength(1)
 
     // Same user + same session row, just a renewal refetch in flight.
@@ -410,6 +415,17 @@ describe('play route — settled identity changes remount the host', () => {
       isPending: true,
     })
     await rerender(tree, <GamePlayScreen />)
+    // The refetch temporarily exposes null session data while still
+    // pending: the route must keep the last SETTLED identity, not adopt
+    // the null sessionKey mid-flight (that would destroy the live
+    // account run for a transiently empty cache).
+    Object.assign(mockSession, { data: null, isPending: true })
+    await rerender(tree, <GamePlayScreen />)
+    expect(createdGames).toHaveLength(1)
+    expect(createdGames[0]).toBe(accountGame)
+    expect(boardText(tree)).toBe('1,3,3')
+    expect(accountGame.getTimerStatus().isRunning).toBe(true)
+    expect(renderedText(tree)).not.toContain('Resolving session')
     // The server renewed the session row (updatedAt bump only).
     const renewed = signedIn('user-1', 'sess-1')
     renewed.data.session.updatedAt = '2026-02-02T00:00:00Z'
@@ -418,6 +434,7 @@ describe('play route — settled identity changes remount the host', () => {
 
     expect(createdGames).toHaveLength(1)
     expect(createdGames[0]).toBe(accountGame)
+    expect(boardText(tree)).toBe('1,3,3')
     expect(accountGame.getTimerStatus().isRunning).toBe(true)
     // Stop the live timer so no tick lands after the test ends.
     await act(async () => {
