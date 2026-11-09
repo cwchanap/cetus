@@ -80,7 +80,10 @@ export function QuickMathBoard({ projected, game }: NativeGameViewProps) {
         </Text>
         <Text
           testID="quick-math-answer"
-          accessibilityLabel="Answer"
+          // The label replaces the visible text for screen readers, so
+          // it must carry the current digits (or the placeholder) for
+          // users to review their input before submitting.
+          accessibilityLabel={`Answer, ${answer === '' ? ANSWER_PLACEHOLDER : answer}`}
           className="w-full rounded-lg border-2 border-cetus-hairline bg-cetus-surface px-4 py-3 text-center font-display text-2xl text-cetus-ink"
         >
           {answer === '' ? ANSWER_PLACEHOLDER : answer}
