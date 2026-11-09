@@ -43,6 +43,7 @@ import { MemoryMatrixBoard } from './boards/MemoryMatrixBoard'
 import { MineGridBoard } from './boards/MineGridBoard'
 import { PatternPulseBoard } from './boards/PatternPulseBoard'
 import { PotionSorterBoard } from './boards/PotionSorterBoard'
+import { QuickMathBoard } from './boards/QuickMathBoard'
 import { SudokuBoard } from './boards/SudokuBoard'
 
 /**
@@ -256,9 +257,31 @@ const quickMathPort: NativeGamePort = {
             submitScore: deps.submitScore,
             platform: deps.platform,
         }),
-    project: state => ({
-        question: (state as QuickMathState).currentQuestion?.question ?? null,
-    }),
+    // All primitives, read off the live instance where the model owns
+    // the formula: the question text via getCurrentQuestion() and the
+    // accuracy via getGameStats(). The typed answer itself is view-local
+    // (the model tracks none), so the snapshot carries no board
+    // references at all.
+    project: (state, game) => {
+        const quickMath = game as QuickMathFrameworkGame
+        const {
+            questionsAnswered,
+            correctAnswers,
+            incorrectAnswers,
+            isActive,
+            isPaused,
+            isGameOver,
+        } = state as QuickMathState
+        return {
+            question: quickMath.getCurrentQuestion()?.question ?? null,
+            questionsAnswered,
+            correctAnswers,
+            incorrectAnswers,
+            accuracy: quickMath.getGameStats().accuracy,
+            canAnswer: isActive && !isPaused && !isGameOver,
+        }
+    },
+    view: QuickMathBoard,
 }
 
 // Sudoku's separately stabilized grid snapshot (see sudokuPort): copied
