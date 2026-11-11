@@ -10,9 +10,10 @@ dist/
 web-build/
 
 # generated types
-# (expo-env.d.ts is committed: CI typechecks without running expo start,
-# and the side-effect `import '../global.css'` needs expo/types' *.css shim)
-# expo-env.d.ts
+# (expo CLI force-deletes expo-env.d.ts while experiments.typedRoutes is
+# disabled, so it stays untracked; the side-effect `import '../global.css'`
+# shim lives in src/css-modules.d.ts instead)
+expo-env.d.ts
 
 # dependencies
 node_modules/

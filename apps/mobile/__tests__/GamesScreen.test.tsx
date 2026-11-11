@@ -13,6 +13,19 @@ jest.mock('../src/lib/login-rewards', () => ({
 import GamesScreen from '../app/(tabs)/index'
 import { GAMES } from '@cetus/shared/games'
 
+// VirtualizedList leaves a 50ms window-fill timer pending after the last
+// test; unmounting here clears it so nothing logs after tests are done
+// (which would fail the suite despite all tests passing).
+const mountedTrees: TestRenderer.ReactTestRenderer[] = []
+afterEach(async () => {
+  while (mountedTrees.length > 0) {
+    const tree = mountedTrees.pop()
+    await act(async () => {
+      tree?.unmount()
+    })
+  }
+})
+
 // The catalog must render every active registry game (23 today). The screen
 // sets initialNumToRender to the registry size, so no row is virtualized away.
 // FlatList fills its window asynchronously, so the initial render is flushed
@@ -22,6 +35,9 @@ test('games screen renders every active registry game', async () => {
   await act(async () => {
     tree = TestRenderer.create(<GamesScreen />)
   })
+  if (tree) {
+    mountedTrees.push(tree)
+  }
 
   expect(tree).toBeDefined()
   const rendered =
@@ -43,6 +59,9 @@ test('search matches a game despite surrounding whitespace', async () => {
   await act(async () => {
     tree = TestRenderer.create(<GamesScreen />)
   })
+  if (tree) {
+    mountedTrees.push(tree)
+  }
 
   const input = tree?.root.findByType(TextInput)
   await act(async () => {

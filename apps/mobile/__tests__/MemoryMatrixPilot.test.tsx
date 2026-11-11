@@ -446,6 +446,8 @@ describe('Memory Matrix pilot — projection stability', () => {
 })
 
 describe('Memory Matrix pilot — finish and replay', () => {
+  // 24 real-timer pair drains (~75ms each) plus render overhead: give an
+  // explicit timeout, the Jest 5s default is exceeded on a loaded machine.
   test('matching every pair finishes, saves once, and replays fresh', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.MEMORY_MATRIX} />)
     const game = createdGames[0]
@@ -483,5 +485,5 @@ describe('Memory Matrix pilot — finish and replay', () => {
     expect(cardsInState(tree, 'matched')).toBe(2)
     expect(testText(tree, 'mm-matched')).toBe('Matched 1 / 24')
     expect(submitScore).toHaveBeenCalledTimes(1)
-  })
+  }, 15000)
 })
