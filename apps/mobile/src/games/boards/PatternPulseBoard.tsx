@@ -1,5 +1,11 @@
-import { useEffect } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { useEffect, useRef } from 'react'
+import {
+  AccessibilityInfo,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native'
 import * as Haptics from 'expo-haptics'
 import { cn } from '@cetus/ui'
 import type { PatternPulseGame } from '@cetus/games/pattern-pulse/PatternPulseGame'
@@ -76,6 +82,35 @@ export function PatternPulseBoard({ projected, game }: NativeGameViewProps) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
     }
   }, [pulse.feedback])
+
+  // VoiceOver/TalkBack receive none of the lit-pad styling or test IDs, so
+  // the model's own projection is announced directly: each playback phase
+  // switch, and each lit pad by its accessible name. Repeated pads still
+  // announce once per cue because the model nulls activePad between cues —
+  // every cue is a value change. No sequence rules are duplicated here:
+  // phase and activePad are the game's projection, not a local re-derivation.
+  const announcedPhaseRef = useRef(pulse.phase)
+  useEffect(() => {
+    if (pulse.phase === announcedPhaseRef.current) {
+      return
+    }
+    announcedPhaseRef.current = pulse.phase
+    if (pulse.phase === 'watch') {
+      void AccessibilityInfo.announceForAccessibility('Watch the pattern')
+    } else if (pulse.phase === 'input') {
+      void AccessibilityInfo.announceForAccessibility(
+        'Your turn — repeat the pattern'
+      )
+    }
+  }, [pulse.phase])
+
+  useEffect(() => {
+    if (pulse.phase === 'watch' && pulse.activePad !== null) {
+      void AccessibilityInfo.announceForAccessibility(
+        PADS[pulse.activePad].label
+      )
+    }
+  }, [pulse.phase, pulse.activePad])
 
   return (
     <ScrollView

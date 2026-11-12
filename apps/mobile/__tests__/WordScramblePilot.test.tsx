@@ -4,11 +4,7 @@ import { Text } from 'react-native'
 import { GameID } from '@cetus/shared/games'
 import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
 
-jest.mock('../src/lib/api', () => ({
-  api: {
-    submitScore: jest.fn(),
-  },
-}))
+jest.mock('../src/lib/api', () => mockApiModule)
 
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
@@ -19,6 +15,7 @@ jest.mock('expo-router', () => ({
   }),
 }))
 
+import * as mockApiModule from '../src/test/mockApiModule'
 import { api } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import { NATIVE_GAMES } from '../src/games/registry'
@@ -203,6 +200,23 @@ afterEach(async () => {
   }
 })
 
+/** The fast-answer bonus keys off wall-clock `Date.now` (timeToAnswer
+ *  < 3s against the challenge start): CI jitter between steps can drop
+ *  the bonus and flip the expected score. Freezing the clock for the
+ *  whole test makes every answer instant, so the bonus is deterministic.
+ *  Real timers (setTimeout) still run — only Date.now is stubbed. */
+const withFrozenClock =
+  (run: () => Promise<void>): (() => Promise<void>) =>
+  async () => {
+    const base = Date.now()
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(base)
+    try {
+      await run()
+    } finally {
+      clock.mockRestore()
+    }
+  }
+
 describe('Word Scramble board — render', () => {
   test('renders the idle word, no tiles, a locked control row and zeroed counters', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.WORD_SCRAMBLE} />)
@@ -331,42 +345,47 @@ describe('Word Scramble board — tiles and controls', () => {
 })
 
 describe('Word Scramble board — answers and skip', () => {
-  test('a correct answer submits the assembled word, scores 20 and advances the challenge', async () => {
-    const tree = await render(<NativeGameHost gameId={GameID.WORD_SCRAMBLE} />)
-    const game = createdGames[0]
-    const submitAnswer = jest.spyOn(game, 'submitAnswer')
+  test(
+    'a correct answer submits the assembled word, scores 20 and advances the challenge',
+    withFrozenClock(async () => {
+      const tree = await render(
+        <NativeGameHost gameId={GameID.WORD_SCRAMBLE} />
+      )
+      const game = createdGames[0]
+      const submitAnswer = jest.spyOn(game, 'submitAnswer')
 
-    await press(tree, 'Start game')
-    const answered = game.getCurrentChallenge()
-    if (!answered) {
-      throw new Error('no challenge after start')
-    }
-    await pressWord(tree, answered.originalWord)
-    await press(tree, 'Submit answer')
+      await press(tree, 'Start game')
+      const answered = game.getCurrentChallenge()
+      if (!answered) {
+        throw new Error('no challenge after start')
+      }
+      await pressWord(tree, answered.originalWord)
+      await press(tree, 'Submit answer')
 
-    // The tray passed exactly the assembled string to the model.
-    expect(submitAnswer).toHaveBeenCalledTimes(1)
-    expect(submitAnswer).toHaveBeenCalledWith(answered.originalWord)
+      // The tray passed exactly the assembled string to the model.
+      expect(submitAnswer).toHaveBeenCalledTimes(1)
+      expect(submitAnswer).toHaveBeenCalledWith(answered.originalWord)
 
-    // The visible projection reflects the model: counters, the easy
-    // word's 10 points + fast-answer bonus, and the next challenge
-    // with a fresh tray.
-    expect(testText(tree, 'word-scramble-words')).toBe('Words 1')
-    expect(testText(tree, 'word-scramble-correct')).toBe('Correct 1')
-    expect(renderedText(tree)).toContain('Score 20')
-    const next = game.getCurrentChallenge()
-    expect(next?.id).not.toBe(answered.id)
-    expect(testText(tree, 'word-scramble-word')).toBe(
-      next?.scrambledWord.toUpperCase()
-    )
-    expect(testText(tree, 'word-scramble-answer')).toBe('Your answer')
-    // The tray is fresh: every tile of the new challenge is free.
-    const nextFirst = next?.scrambledWord[0]
-    if (!nextFirst) {
-      throw new Error('no letters in the next challenge')
-    }
-    expect(freeTileCount(tree, nextFirst)).toBeGreaterThan(0)
-  })
+      // The visible projection reflects the model: counters, the easy
+      // word's 10 points + fast-answer bonus, and the next challenge
+      // with a fresh tray.
+      expect(testText(tree, 'word-scramble-words')).toBe('Words 1')
+      expect(testText(tree, 'word-scramble-correct')).toBe('Correct 1')
+      expect(renderedText(tree)).toContain('Score 20')
+      const next = game.getCurrentChallenge()
+      expect(next?.id).not.toBe(answered.id)
+      expect(testText(tree, 'word-scramble-word')).toBe(
+        next?.scrambledWord.toUpperCase()
+      )
+      expect(testText(tree, 'word-scramble-answer')).toBe('Your answer')
+      // The tray is fresh: every tile of the new challenge is free.
+      const nextFirst = next?.scrambledWord[0]
+      if (!nextFirst) {
+        throw new Error('no letters in the next challenge')
+      }
+      expect(freeTileCount(tree, nextFirst)).toBeGreaterThan(0)
+    })
+  )
 
   test('a wrong answer keeps Correct 0 but still advances the challenge', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.WORD_SCRAMBLE} />)
@@ -428,88 +447,98 @@ describe('Word Scramble board — answers and skip', () => {
 })
 
 describe('Word Scramble board — finish and reset', () => {
-  test('time-up finish saves once with the OS platform and run gameData, then replays fresh', async () => {
-    const tree = await render(<NativeGameHost gameId={GameID.WORD_SCRAMBLE} />)
-    const game = createdGames[0]
+  test(
+    'time-up finish saves once with the OS platform and run gameData, then replays fresh',
+    withFrozenClock(async () => {
+      const tree = await render(
+        <NativeGameHost gameId={GameID.WORD_SCRAMBLE} />
+      )
+      const game = createdGames[0]
 
-    await press(tree, 'Start game')
-    const word = await answerCorrect(tree)
-    expect(renderedText(tree)).toContain('Score 20')
+      await press(tree, 'Start game')
+      const word = await answerCorrect(tree)
+      expect(renderedText(tree)).toContain('Score 20')
 
-    // The production end path (the 60s timer's own expiry route).
-    await act(async () => {
-      await game.end()
-    })
-    await settle()
-
-    expect(submitScore).toHaveBeenCalledTimes(1)
-    expect(submitScore).toHaveBeenCalledWith(
-      expect.objectContaining({
-        gameId: GameID.WORD_SCRAMBLE,
-        platform: 'ios',
-        gameData: expect.objectContaining({
-          correctWords: [word],
-          totalWordsScrambled: 1,
-        }),
+      // The production end path (the 60s timer's own expiry route).
+      await act(async () => {
+        await game.end()
       })
-    )
-    expect(testText(tree, 'final-score')).toBe('20')
-    expect(renderedText(tree)).toContain('Score saved')
+      await settle()
 
-    // Time-up locks the controls.
-    expect(
-      tree.root.findAll(
-        node =>
-          typeof node.type === 'string' &&
-          node.props.accessibilityLabel === 'Submit answer'
-      )[0].props.accessibilityState.disabled
-    ).toBe(true)
-    expect(
-      tree.root.findAll(
-        node =>
-          typeof node.type === 'string' &&
-          node.props.accessibilityLabel === 'Skip word'
-      )[0].props.accessibilityState.disabled
-    ).toBe(true)
+      expect(submitScore).toHaveBeenCalledTimes(1)
+      expect(submitScore).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gameId: GameID.WORD_SCRAMBLE,
+          platform: 'ios',
+          gameData: expect.objectContaining({
+            correctWords: [word],
+            totalWordsScrambled: 1,
+          }),
+        })
+      )
+      expect(testText(tree, 'final-score')).toBe('20')
+      expect(renderedText(tree)).toContain('Score saved')
 
-    // Play again starts a fresh run: a new challenge, zeroed counters
-    // and no second save.
-    const lastChallenge = game.getCurrentChallenge()
-    await press(tree, 'Play again')
-    expect(game.getState().isActive).toBe(true)
-    expect(game.getCurrentChallenge()?.id).not.toBe(lastChallenge?.id)
-    expect(testText(tree, 'word-scramble-words')).toBe('Words 0')
-    expect(testText(tree, 'word-scramble-correct')).toBe('Correct 0')
-    expect(testText(tree, 'word-scramble-answer')).toBe('Your answer')
-    expect(submitScore).toHaveBeenCalledTimes(1)
-  })
+      // Time-up locks the controls.
+      expect(
+        tree.root.findAll(
+          node =>
+            typeof node.type === 'string' &&
+            node.props.accessibilityLabel === 'Submit answer'
+        )[0].props.accessibilityState.disabled
+      ).toBe(true)
+      expect(
+        tree.root.findAll(
+          node =>
+            typeof node.type === 'string' &&
+            node.props.accessibilityLabel === 'Skip word'
+        )[0].props.accessibilityState.disabled
+      ).toBe(true)
 
-  test('a mid-run reset returns to READY? and zeroed counters without saving', async () => {
-    const tree = await render(<NativeGameHost gameId={GameID.WORD_SCRAMBLE} />)
-    const game = createdGames[0]
+      // Play again starts a fresh run: a new challenge, zeroed counters
+      // and no second save.
+      const lastChallenge = game.getCurrentChallenge()
+      await press(tree, 'Play again')
+      expect(game.getState().isActive).toBe(true)
+      expect(game.getCurrentChallenge()?.id).not.toBe(lastChallenge?.id)
+      expect(testText(tree, 'word-scramble-words')).toBe('Words 0')
+      expect(testText(tree, 'word-scramble-correct')).toBe('Correct 0')
+      expect(testText(tree, 'word-scramble-answer')).toBe('Your answer')
+      expect(submitScore).toHaveBeenCalledTimes(1)
+    })
+  )
 
-    await press(tree, 'Start game')
-    await answerCorrect(tree)
-    expect(testText(tree, 'word-scramble-correct')).toBe('Correct 1')
-    // Leave letters on the tray: reset must clear them too.
-    await pressLetter(tree, game.getCurrentChallenge()?.originalWord[0] ?? '')
+  test(
+    'a mid-run reset returns to READY? and zeroed counters without saving',
+    withFrozenClock(async () => {
+      const tree = await render(
+        <NativeGameHost gameId={GameID.WORD_SCRAMBLE} />
+      )
+      const game = createdGames[0]
 
-    await press(tree, 'Reset game')
-    expect(game.getState().isActive).toBe(false)
-    expect(game.getCurrentChallenge()).toBeNull()
-    expect(testText(tree, 'word-scramble-word')).toBe('READY?')
-    expect(testText(tree, 'word-scramble-words')).toBe('Words 0')
-    expect(testText(tree, 'word-scramble-correct')).toBe('Correct 0')
-    expect(testText(tree, 'word-scramble-answer')).toBe('Your answer')
-    expect(renderedText(tree)).not.toContain('Run complete')
-    expect(submitScore).not.toHaveBeenCalled()
+      await press(tree, 'Start game')
+      await answerCorrect(tree)
+      expect(testText(tree, 'word-scramble-correct')).toBe('Correct 1')
+      // Leave letters on the tray: reset must clear them too.
+      await pressLetter(tree, game.getCurrentChallenge()?.originalWord[0] ?? '')
 
-    // The reset board plays normally.
-    await press(tree, 'Start game')
-    expect(game.getCurrentChallenge()).not.toBeNull()
-    await answerCorrect(tree)
-    expect(testText(tree, 'word-scramble-correct')).toBe('Correct 1')
-    expect(renderedText(tree)).toContain('Score 20')
-    expect(submitScore).not.toHaveBeenCalled()
-  })
+      await press(tree, 'Reset game')
+      expect(game.getState().isActive).toBe(false)
+      expect(game.getCurrentChallenge()).toBeNull()
+      expect(testText(tree, 'word-scramble-word')).toBe('READY?')
+      expect(testText(tree, 'word-scramble-words')).toBe('Words 0')
+      expect(testText(tree, 'word-scramble-correct')).toBe('Correct 0')
+      expect(testText(tree, 'word-scramble-answer')).toBe('Your answer')
+      expect(renderedText(tree)).not.toContain('Run complete')
+      expect(submitScore).not.toHaveBeenCalled()
+
+      // The reset board plays normally.
+      await press(tree, 'Start game')
+      expect(game.getCurrentChallenge()).not.toBeNull()
+      await answerCorrect(tree)
+      expect(testText(tree, 'word-scramble-correct')).toBe('Correct 1')
+      expect(renderedText(tree)).toContain('Score 20')
+      expect(submitScore).not.toHaveBeenCalled()
+    })
+  )
 })

@@ -5,11 +5,7 @@ import { GameID } from '@cetus/shared/games'
 import type { ScoreData } from '@cetus/shared/scores'
 import { BaseGame, type BaseGameConfig, type BaseGameState } from '@cetus/games'
 
-jest.mock('../src/lib/api', () => ({
-  api: {
-    submitScore: jest.fn(),
-  },
-}))
+jest.mock('../src/lib/api', () => mockApiModule)
 
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
@@ -54,7 +50,8 @@ jest.mock('@cetus/app-core', () => {
   }
 })
 
-import { api } from '../src/lib/api'
+import * as mockApiModule from '../src/test/mockApiModule'
+import { api, createScoreSubmitter } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import {
   NATIVE_GAMES,
@@ -64,6 +61,7 @@ import {
 } from '../src/games/registry'
 
 const submitScore = jest.mocked(api.submitScore)
+const mockCreateScoreSubmitter = jest.mocked(createScoreSubmitter)
 
 // --- minimal concrete @cetus/games fixture ---------------------------------
 
@@ -198,6 +196,10 @@ const renderedText = (tree: TestRenderer.ReactTestRenderer) =>
 
 beforeEach(() => {
   submitScore.mockReset()
+  mockCreateScoreSubmitter.mockReset()
+  mockCreateScoreSubmitter.mockResolvedValue(async data =>
+    api.submitScore(data)
+  )
   capturedDeps = undefined
   createdGames.length = 0
   mockCleanupOrder.length = 0
@@ -559,5 +561,58 @@ describe('NativeGameHost — placeholder entries', () => {
     } finally {
       NATIVE_GAMES[GameID.CHROMATIC_TIDE] = original
     }
+  })
+})
+
+describe('NativeGameHost — identity-bound score submitter', () => {
+  test('binds the score submitter to the settled identity and saves through the bound fn', async () => {
+    submitScore.mockResolvedValue({ success: true })
+    const tree = await render(
+      <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-1" />
+    )
+
+    expect(mockCreateScoreSubmitter).toHaveBeenCalledTimes(1)
+    expect(mockCreateScoreSubmitter).toHaveBeenCalledWith('user-1')
+
+    // The game's submitter is the BOUND function: it routes to the mocked
+    // api.submitScore (same assertion surface as every other suite).
+    const scoreData: ScoreData = { gameId: GameID.QUICK_MATH, score: 7 }
+    const submit = capturedDeps?.submitScore
+    expect(submit).toBeDefined()
+    if (submit) {
+      await submit(scoreData)
+    }
+    expect(submitScore).toHaveBeenCalledWith(scoreData)
+    await act(async () => {
+      tree.unmount()
+    })
+  })
+
+  test('a settled-identity change rebinds the credential and swaps the game', async () => {
+    submitScore.mockResolvedValue({ success: true })
+    const tree = await render(
+      <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-1" />
+    )
+    const firstGame = createdGames[0]
+    const destroySpy = jest.spyOn(firstGame, 'destroy')
+
+    await act(async () => {
+      tree.update(
+        <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-2" />
+      )
+    })
+    await drain()
+
+    expect(mockCreateScoreSubmitter).toHaveBeenLastCalledWith('user-2')
+    expect(createdGames).toHaveLength(2)
+    expect(createdGames[1]).not.toBe(firstGame)
+    // The replaced instance was torn down: forwarder, session, then the
+    // game itself (its timer stopped with it).
+    expect(mockCleanupOrder).toEqual(['forwarder-removed', 'session-disposed'])
+    expect(destroySpy).toHaveBeenCalledTimes(1)
+    expect(firstGame.getTimerStatus().isRunning).toBe(false)
+    await act(async () => {
+      tree.unmount()
+    })
   })
 })

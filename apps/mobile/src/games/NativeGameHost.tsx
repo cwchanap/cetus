@@ -13,7 +13,7 @@ import {
 import type { GameID } from '@cetus/shared/games'
 import type { ScorePlatform } from '@cetus/shared/validations'
 
-import { api } from '../lib/api'
+import { createScoreSubmitter } from '../lib/api'
 import { getNativeGameEntry, type NativeGameProjection } from './registry'
 import { NativeGameChrome, type NativeRewardBanner } from './NativeGameChrome'
 import type { BaseGame, BaseGameState } from '@cetus/games'
@@ -29,18 +29,24 @@ const IDLE_NATIVE_SNAPSHOT: GameSessionSnapshot<NativeGameProjection> = {
 
 /**
  * Generic native session host (HPA-425 Stage 1). Creates the registry
- * entry's concrete `@cetus/games` class with the cookie-backed score
- * transport and the OS platform label, adapts it through ONE
- * `createBaseGameSession` + `useGameSession`, and forwards committed
- * rewards to ONE banner. The constructed instance is the per-instance
- * binding: the projector and the board view both receive it, so boards
- * call model commands on the live game while the projection stays a
- * serializable snapshot. Unmount cleanup removes the forwarder, disposes
- * the session and destroys the game — in that order. The play route's
- * `key` (settled identity) remounts this host, dropping old-account
- * banners and game UI wholesale.
+ * entry's concrete `@cetus/games` class with a score transport pinned to
+ * ONE identity-verified cookie snapshot (see `createScoreSubmitter`) and
+ * the OS platform label, adapts it through ONE `createBaseGameSession` +
+ * `useGameSession`, and forwards committed rewards to ONE banner. The
+ * constructed instance is the per-instance binding: the projector and the
+ * board view both receive it, so boards call model commands on the live
+ * game while the projection stays a serializable snapshot. Unmount
+ * cleanup removes the forwarder, disposes the session and destroys the
+ * game — in that order. The play route's `key` (settled identity)
+ * remounts this host, dropping old-account banners and game UI wholesale.
  */
-export function NativeGameHost({ gameId }: { gameId: GameID }) {
+export function NativeGameHost({
+  gameId,
+  settledUserId = null,
+}: {
+  gameId: GameID
+  settledUserId?: string | null
+}) {
   const router = useRouter()
   const entry = getNativeGameEntry(gameId)
   const port = entry?.port
@@ -55,33 +61,50 @@ export function NativeGameHost({ gameId }: { gameId: GameID }) {
     if (!port) {
       return
     }
-    const createdGame = port.createGame({
-      submitScore: data => api.submitScore(data),
-      platform: Platform.OS as ScorePlatform,
-    })
-    const nextSession = createBaseGameSession(
-      createdGame,
-      createStableProjector((state: BaseGameState) =>
-        port.project(state, createdGame)
+    let cancelled = false
+    let teardown: (() => void) | null = null
+    void (async () => {
+      // ONE credential snapshot per mount, verified once at the real
+      // cookie/header boundary against this host's settled identity;
+      // every save reuses it verbatim (api.submitScore's live-cookie
+      // read could otherwise attach a new account's cookie to an old
+      // host mid-race). Guest and unverifiable bindings send nothing.
+      const submitScore = await createScoreSubmitter(settledUserId)
+      if (cancelled) {
+        return
+      }
+      const createdGame = port.createGame({
+        submitScore,
+        platform: Platform.OS as ScorePlatform,
+      })
+      const nextSession = createBaseGameSession(
+        createdGame,
+        createStableProjector((state: BaseGameState) =>
+          port.project(state, createdGame)
+        )
       )
-    )
-    setGame(createdGame)
-    setSession(nextSession)
-    const removeForwarder = forwardBaseGameResults(createdGame, {
-      // One banner merges both deliveries of a single end payload.
-      onAchievements: achievements =>
-        setRewardBanner(current => ({ ...current, achievements })),
-      onChallenges: challenges =>
-        setRewardBanner(current => ({ ...current, challenges })),
-    })
+      setGame(createdGame)
+      setSession(nextSession)
+      const removeForwarder = forwardBaseGameResults(createdGame, {
+        // One banner merges both deliveries of a single end payload.
+        onAchievements: achievements =>
+          setRewardBanner(current => ({ ...current, achievements })),
+        onChallenges: challenges =>
+          setRewardBanner(current => ({ ...current, challenges })),
+      })
+      teardown = () => {
+        // Order matters: no new rewards, then session listeners, then
+        // the game (its timer and listeners) last.
+        removeForwarder()
+        nextSession.dispose()
+        createdGame.destroy()
+      }
+    })()
     return () => {
-      // Order matters: no new rewards, then session listeners, then
-      // the game (its timer and listeners) last.
-      removeForwarder()
-      nextSession.dispose()
-      createdGame.destroy()
+      cancelled = true
+      teardown?.()
     }
-  }, [port])
+  }, [port, settledUserId])
 
   const { snapshot, actions, capabilities } = useGameSession(
     session,
