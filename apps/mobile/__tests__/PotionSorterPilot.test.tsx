@@ -18,11 +18,7 @@ import type { BaseGame, BaseGameState } from '@cetus/games'
 
 jest.setTimeout(15000)
 
-jest.mock('../src/lib/api', () => ({
-  api: {
-    submitScore: jest.fn(),
-  },
-}))
+jest.mock('../src/lib/api', () => mockApiModule)
 
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
@@ -39,6 +35,7 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }))
 
+import * as mockApiModule from '../src/test/mockApiModule'
 import { api } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import { NATIVE_GAMES, type NativeGamePort } from '../src/games/registry'

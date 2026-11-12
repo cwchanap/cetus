@@ -30,21 +30,26 @@ export default function GamePlayScreen() {
   const game = id ? getGameById(id as GameID) : undefined
   const entry = id ? getNativeGameEntry(id) : undefined
 
-  const { isPending, sessionKey } = useSessionGuard()
+  const { isPending, sessionKey, userId } = useSessionGuard()
 
   const [resolvedOnce, setResolvedOnce] = useState(!isPending)
   const [settledKey, setSettledKey] = useState<string | null | undefined>(
     isPending ? undefined : sessionKey
+  )
+  const [settledUserId, setSettledUserId] = useState<string | null | undefined>(
+    isPending ? undefined : (userId ?? null)
   )
   useEffect(() => {
     if (isPending) {
       return
     }
     setResolvedOnce(true)
-    // Same value ⇒ React bails out; only a real identity change moves
-    // the key and remounts the host.
+    // Same values ⇒ React bails out; only a real identity change moves
+    // the key and remounts the host (which rebinds its score credential
+    // to the new identity).
     setSettledKey(sessionKey)
-  }, [isPending, sessionKey])
+    setSettledUserId(userId ?? null)
+  }, [isPending, sessionKey, userId])
 
   const renderFallback = (title: string, message: string) => (
     <View className="flex-1 items-center justify-center gap-2.5 bg-cetus-canvas p-6">
@@ -94,7 +99,11 @@ export default function GamePlayScreen() {
   return (
     <View className="flex-1 bg-cetus-canvas">
       <Stack.Screen options={{ title: game.name }} />
-      <NativeGameHost key={settledKey ?? 'guest'} gameId={game.id} />
+      <NativeGameHost
+        key={settledKey ?? 'guest'}
+        gameId={game.id}
+        settledUserId={settledUserId ?? null}
+      />
     </View>
   )
 }

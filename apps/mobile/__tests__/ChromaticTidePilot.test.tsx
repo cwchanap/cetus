@@ -10,11 +10,7 @@ import {
 import type { ChallengeUpdatesPayload } from '@cetus/shared/api-dto'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 
-jest.mock('../src/lib/api', () => ({
-  api: {
-    submitScore: jest.fn(),
-  },
-}))
+jest.mock('../src/lib/api', () => mockApiModule)
 
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
@@ -25,6 +21,7 @@ jest.mock('expo-router', () => ({
   }),
 }))
 
+import * as mockApiModule from '../src/test/mockApiModule'
 import { api } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import { NATIVE_GAMES } from '../src/games/registry'
@@ -205,6 +202,33 @@ describe('Chromatic Tide pilot — board', () => {
       })
       // Idle run: the palette is visible but disabled.
       expect(button.props.disabled).toBe(true)
+    }
+  })
+
+  test('the board summary stays exposed while the decorative cell subtree is hidden', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.CHROMATIC_TIDE} />)
+
+    const board = tree.root.findAll(
+      node =>
+        typeof node.props.accessibilityLabel === 'string' &&
+        node.props.accessibilityLabel.startsWith('Chromatic Tide board:')
+    )[0]
+    expect(board).toBeTruthy()
+    // The summary container must not hide itself (Android's
+    // no-hide-descendants on this node would bury the accessible summary
+    // along with the decorative cells).
+    expect(board.props.accessible).toBe(true)
+    expect(board.props.importantForAccessibility).not.toBe(
+      'no-hide-descendants'
+    )
+    // Every decorative row hides its subtree from screen readers instead.
+    const rows = tree.root.findAll(
+      node => typeof node.type === 'string' && node.props.testID === 'tide-row'
+    )
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of rows) {
+      expect(row.props.accessibilityElementsHidden).toBe(true)
+      expect(row.props.importantForAccessibility).toBe('no-hide-descendants')
     }
   })
 

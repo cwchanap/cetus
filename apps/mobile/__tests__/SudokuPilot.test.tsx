@@ -8,11 +8,7 @@ import type { SudokuState } from '@cetus/games/sudoku/frameworkTypes'
 import { isValidMove } from '@cetus/games/sudoku/utils'
 import type { BaseGame, BaseGameState } from '@cetus/games'
 
-jest.mock('../src/lib/api', () => ({
-  api: {
-    submitScore: jest.fn(),
-  },
-}))
+jest.mock('../src/lib/api', () => mockApiModule)
 
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
@@ -29,6 +25,7 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }))
 
+import * as mockApiModule from '../src/test/mockApiModule'
 import { api } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import { NATIVE_GAMES, type NativeGamePort } from '../src/games/registry'
@@ -610,14 +607,21 @@ describe('Sudoku board — pause, finish and reset', () => {
     const game = createdGames[0]
 
     await press(tree, 'Start game')
-    const num = 3
-    const pos = findValidPlacement(game, num)
-    if (!pos) {
-      throw new Error('no valid placement for 3')
+    // Establish a real mistake first (a guaranteed row conflict): the
+    // reset below must genuinely clear it, not a zero that never moved.
+    const conflict = findConflictPlacement(game)
+    if (!conflict) {
+      throw new Error('no conflicting placement found')
     }
-    await pressCell(tree, 'plain', pos)
-    await press(tree, `Place ${num}`)
-    expect(cellLabel(tree, 'plain', pos)).toBe(fullCellLabel(pos, String(num)))
+    await pressCell(tree, 'plain', conflict.pos)
+    await press(tree, `Place ${conflict.num}`)
+    expect(game.getState().mistakes).toBe(1)
+
+    // Leave an ACTIVE selection behind for reset to clear (placement
+    // clears the selection itself, so select again).
+    const selection = emptyPosition(game)
+    await pressCell(tree, 'plain', selection)
+    expect(game.getState().grid.selectedCell).not.toBeNull()
 
     await press(tree, 'Reset game')
     const state = game.getState()

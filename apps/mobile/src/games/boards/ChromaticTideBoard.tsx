@@ -45,9 +45,10 @@ interface TideProjection {
  * visible-state snapshot (12×12 cells, captured territory, palette, moves)
  * and routes every input to the live host-created game's `chooseColor` —
  * the flood-fill rules stay in `@cetus/games`. The board grid itself is a
- * display surface (web parity): the five full-size palette buttons are the
- * only hit targets, so nothing shrinks to an inaccessible size on narrow
- * devices.
+ * display surface (web parity): the container's summary label is the one
+ * screen-reader focusable (hiding IT with no-hide-descendants would bury
+ * the summary too), while each row hides its decorative cell subtree so
+ * the 144 cells never bury the palette buttons.
  */
 export function ChromaticTideBoard({ projected, game }: NativeGameViewProps) {
   const tide = projected as unknown as TideProjection
@@ -86,15 +87,14 @@ export function ChromaticTideBoard({ projected, game }: NativeGameViewProps) {
         className="aspect-square w-full gap-px"
         accessible
         accessibilityLabel={`Chromatic Tide board: ${tide.capturedCells} of ${TOTAL_CELLS} cells captured, territory ${tide.territoryColor}, ${tide.movesUsed} moves used`}
-        // 144 non-interactive cells would bury the palette buttons for
-        // screen-reader users; the summary label above carries the state.
-        importantForAccessibility="no-hide-descendants"
       >
         {tide.cells.map((row, rowIndex) => (
           <View
             key={rowIndex}
             testID="tide-row"
             className="flex-1 flex-row gap-px"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
           >
             {row.map((cell, colIndex) => (
               <View

@@ -45,13 +45,10 @@ jest.mock('../src/lib/auth-client', () => ({
   },
 }))
 
-jest.mock('../src/lib/api', () => ({
-  api: {
-    submitScore: jest.fn().mockResolvedValue({ success: true }),
-  },
-}))
+jest.mock('../src/lib/api', () => mockApiModule)
 
-import { api } from '../src/lib/api'
+import * as mockApiModule from '../src/test/mockApiModule'
+import { api, createScoreSubmitter } from '../src/lib/api'
 import GamePlayScreen from '../app/games/[gameId]/play'
 import {
   NATIVE_GAMES,
@@ -123,6 +120,7 @@ const testPort: NativeGamePort = {
 }
 
 const submitScore = jest.mocked(api.submitScore)
+const mockCreateScoreSubmitter = jest.mocked(createScoreSubmitter)
 
 const originalEntry = NATIVE_GAMES[GameID.QUICK_MATH]
 beforeAll(() => {
@@ -204,6 +202,10 @@ beforeEach(() => {
   mockParams.gameId = 'quick_math'
   createdGames.length = 0
   submitScore.mockReset().mockResolvedValue({ success: true })
+  mockCreateScoreSubmitter.mockReset()
+  mockCreateScoreSubmitter.mockResolvedValue(async data =>
+    api.submitScore(data)
+  )
   Object.assign(mockSession, guest)
 })
 
@@ -357,7 +359,9 @@ describe('play route — settled identity changes remount the host', () => {
 
     // The save later commits with guest-era rewards: the replaced host
     // emits its structured end to nobody — the new account never sees
-    // that banner, and nothing re-submits on the new host.
+    // that banner, and nothing re-submits on the new host. The payload
+    // carries a COMPLETED challenge fixture too: its name must be
+    // suppressed exactly like the achievement's.
     await act(async () => {
       releaseSave?.({
         success: true,
@@ -370,12 +374,26 @@ describe('play route — settled identity changes remount the host', () => {
             rarity: AchievementRarity.COMMON,
           },
         ],
+        challengeUpdates: {
+          completedChallenges: [
+            {
+              id: 'ch-guest-era',
+              name: 'Guest Era Challenge',
+              description: 'Completed before the account switch',
+              icon: '🎯',
+              xpReward: 10,
+            },
+          ],
+          xpEarned: 10,
+          levelUp: false,
+        },
       })
     })
     await drain()
 
     const rendered = renderedText(tree)
     expect(rendered).not.toContain('Guest Era Reward')
+    expect(rendered).not.toContain('Guest Era Challenge')
     expect(rendered).not.toContain('Achievement unlocked')
     expect(rendered).not.toContain('Challenge complete')
     expect(submitScore).toHaveBeenCalledTimes(1)
@@ -439,6 +457,53 @@ describe('play route — settled identity changes remount the host', () => {
     // Stop the live timer so no tick lands after the test ends.
     await act(async () => {
       accountGame.pause()
+    })
+  })
+})
+
+describe('play route — score credential binds to the settled identity', () => {
+  test('each mounted host binds its score submitter to the settled user id', async () => {
+    const tree = await render(<GamePlayScreen />)
+    expect(mockCreateScoreSubmitter).toHaveBeenCalledTimes(1)
+    expect(mockCreateScoreSubmitter).toHaveBeenLastCalledWith(null)
+
+    Object.assign(mockSession, signedIn('user-1', 'sess-1'))
+    await rerender(tree, <GamePlayScreen />)
+    expect(mockCreateScoreSubmitter).toHaveBeenLastCalledWith('user-1')
+
+    Object.assign(mockSession, signedIn('user-2', 'sess-2'))
+    await rerender(tree, <GamePlayScreen />)
+    expect(mockCreateScoreSubmitter).toHaveBeenLastCalledWith('user-2')
+    // Every identity settle created exactly one fresh binding.
+    expect(mockCreateScoreSubmitter).toHaveBeenCalledTimes(3)
+  })
+
+  test('pending churn and renewal never rebind the score credential', async () => {
+    Object.assign(mockSession, signedIn('user-1', 'sess-1'))
+    const tree = await render(<GamePlayScreen />)
+    await press(tree, 'Start game')
+    expect(mockCreateScoreSubmitter).toHaveBeenCalledTimes(1)
+
+    // Revalidation pending, transient null cache, then a renewed session
+    // row: the settled identity never changes, so the credential binding
+    // — like the host itself — stays untouched.
+    Object.assign(mockSession, {
+      ...signedIn('user-1', 'sess-1'),
+      isPending: true,
+    })
+    await rerender(tree, <GamePlayScreen />)
+    Object.assign(mockSession, { data: null, isPending: true })
+    await rerender(tree, <GamePlayScreen />)
+    const renewed = signedIn('user-1', 'sess-1')
+    renewed.data.session.updatedAt = '2026-02-02T00:00:00Z'
+    Object.assign(mockSession, renewed)
+    await rerender(tree, <GamePlayScreen />)
+
+    expect(mockCreateScoreSubmitter).toHaveBeenCalledTimes(1)
+    expect(createdGames).toHaveLength(1)
+    // Stop the live timer so no tick lands after the test ends.
+    await act(async () => {
+      createdGames[0].pause()
     })
   })
 })

@@ -1,6 +1,6 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { Text } from 'react-native'
+import { AccessibilityInfo, Text } from 'react-native'
 import { GameID } from '@cetus/shared/games'
 import { createStableProjector } from '@cetus/app-core'
 import { PatternPulseGame } from '@cetus/games/pattern-pulse/PatternPulseGame'
@@ -9,11 +9,7 @@ import type { BaseGame, BaseGameState } from '@cetus/games'
 
 jest.setTimeout(15000)
 
-jest.mock('../src/lib/api', () => ({
-  api: {
-    submitScore: jest.fn(),
-  },
-}))
+jest.mock('../src/lib/api', () => mockApiModule)
 
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
@@ -34,6 +30,11 @@ jest.mock('expo-haptics', () => ({
   },
 }))
 
+const mockAnnounce = jest
+  .spyOn(AccessibilityInfo, 'announceForAccessibility')
+  .mockImplementation(() => undefined)
+
+import * as mockApiModule from '../src/test/mockApiModule'
 import { api } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import { NATIVE_GAMES, type NativeGamePort } from '../src/games/registry'
@@ -229,6 +230,7 @@ beforeEach(() => {
   submitScore.mockReset()
   submitScore.mockResolvedValue({ success: true })
   mockNotificationAsync.mockReset()
+  mockAnnounce.mockClear()
   mockPush.mockReset()
   createdGames.length = 0
   pilotConfig = { rng: () => 0, initialSequenceLength: 1 }
@@ -403,6 +405,17 @@ describe('Pattern Pulse board — input', () => {
 
     await press(tree, 'Start game')
     await waitFor(game, state => state.phase === 'input')
+    // Bank a correct round FIRST so the reset below starts from a real
+    // positive streak — resetting from zero proves nothing.
+    await act(async () => {
+      padButton(tree, 'idle', 0).props.onPress()
+    })
+    await waitFor(
+      game,
+      state => state.phase === 'input' && state.sequence.length === 2
+    )
+    expect(testText(tree, 'pp-streak')).toBe('Streak 1')
+    expect(testText(tree, 'pp-rounds')).toBe('Rounds 1')
 
     await act(async () => {
       padButton(tree, 'idle', 1).props.onPress()
@@ -413,6 +426,7 @@ describe('Pattern Pulse board — input', () => {
     expect(testText(tree, 'pp-status')).toBe('WRONG — WATCH AGAIN')
     expect(hasPad(tree, 'wrong', 1)).toBe(true)
     expect(testText(tree, 'pp-mistakes')).toBe('Mistakes 1')
+    // The streak genuinely RESET here: from 1 down to 0.
     expect(testText(tree, 'pp-streak')).toBe('Streak 0')
     // The wrong-pad cue is the one sensory extra: a haptic keyed off the
     // model's feedback state (no SFX).
@@ -422,7 +436,7 @@ describe('Pattern Pulse board — input', () => {
     // The feedback window ends in a replay of the SAME sequence.
     await waitFor(game, state => state.phase === 'watch')
     await waitFor(game, state => state.phase === 'input')
-    expect(testText(tree, 'pp-length')).toBe('Length 1')
+    expect(testText(tree, 'pp-length')).toBe('Length 2')
     expect(testText(tree, 'pp-mistakes')).toBe('Mistakes 1')
   })
 })
@@ -604,5 +618,75 @@ describe('Pattern Pulse board — projection stability', () => {
     expect(afterRound.feedback).toBe('correct')
 
     game.destroy()
+  })
+})
+
+describe('Pattern Pulse board — screen-reader cues', () => {
+  test('playback phases and every model cue are announced, including repeated pads', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
+    const game = createdGames[0]
+    // Nothing is announced while the board sits idle.
+    expect(mockAnnounce).not.toHaveBeenCalled()
+
+    await press(tree, 'Start game')
+    await waitFor(game, state => state.phase === 'input')
+
+    // Phase entry is announced, then each lit pad by its accessible name.
+    expect(
+      mockAnnounce.mock.calls.some(([m]) => m === 'Watch the pattern')
+    ).toBe(true)
+    expect(mockAnnounce.mock.calls.some(([m]) => m === 'Pad 1, triangle')).toBe(
+      true
+    )
+    expect(
+      mockAnnounce.mock.calls.some(
+        ([m]) => m === 'Your turn — repeat the pattern'
+      )
+    ).toBe(true)
+
+    // Round 2 grows the sequence to [0, 0]: the repeated pad must be
+    // announced once PER cue, not once per distinct pad.
+    await act(async () => {
+      padButton(tree, 'idle', 0).props.onPress()
+    })
+    await waitFor(
+      game,
+      state => state.phase === 'input' && state.sequence.length === 2
+    )
+
+    // One pad cue in round 1 plus two in round 2 (the repeat announces
+    // again): three per-cue announcements across two rounds.
+    expect(
+      mockAnnounce.mock.calls.filter(([m]) => m === 'Pad 1, triangle')
+    ).toHaveLength(3)
+    expect(
+      mockAnnounce.mock.calls.filter(([m]) => m === 'Watch the pattern')
+    ).toHaveLength(2)
+    expect(
+      mockAnnounce.mock.calls.filter(
+        ([m]) => m === 'Your turn — repeat the pattern'
+      )
+    ).toHaveLength(2)
+  })
+
+  test('a wrong tap replays the sequence with the announcements again', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    await waitFor(game, state => state.phase === 'input')
+    await act(async () => {
+      padButton(tree, 'idle', 1).props.onPress()
+    })
+    await waitFor(game, state => state.phase === 'watch')
+    // The replay restarts with its phase cue.
+    expect(
+      mockAnnounce.mock.calls.some(([m]) => m === 'Watch the pattern')
+    ).toBe(true)
+    await waitFor(game, state => state.phase === 'input')
+    // The same single-pad cue announced again for the replay.
+    expect(
+      mockAnnounce.mock.calls.filter(([m]) => m === 'Pad 1, triangle')
+    ).toHaveLength(2)
   })
 })

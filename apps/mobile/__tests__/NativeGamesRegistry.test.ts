@@ -525,13 +525,18 @@ describe('NATIVE_GAMES registry', () => {
             question: string | null
             incorrectAnswers: number
             accuracy: number
+            questionsAnswered: number
         }
         expect(afterWrong.incorrectAnswers).toBe(1)
         expect(afterWrong.accuracy).toBe(50)
         expect(afterWrong.question).toBe(
             quickMath.getCurrentQuestion()?.question
         )
-        expect(afterWrong.question).not.toBe(wrongQuestion?.question)
+        // Stable advance: the model regenerated its question object (new
+        // question each answer). Text inequality is flaky — random
+        // consecutive questions can repeat the same text.
+        expect(afterWrong.questionsAnswered).toBe(2)
+        expect(quickMath.getCurrentQuestion()).not.toBe(wrongQuestion)
         game.destroy()
     })
 
