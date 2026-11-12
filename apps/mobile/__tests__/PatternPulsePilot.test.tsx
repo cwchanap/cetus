@@ -622,7 +622,12 @@ describe('Pattern Pulse board — projection stability', () => {
 })
 
 describe('Pattern Pulse board — screen-reader cues', () => {
-  test('playback phases and every model cue are announced, including repeated pads', async () => {
+  // One complete ordered recap per input phase replaces per-cue
+  // announcements: announceForAccessibility interrupts on VoiceOver and
+  // high-rate per-pad calls would trample each other. The recap is read
+  // from the live model AT input entry — the model only enters input
+  // after full playback, so the recap can never be partial.
+  test('input entry announces one ordered recap; repeated pads stay distinguishable', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
     const game = createdGames[0]
     // Nothing is announced while the board sits idle.
@@ -631,21 +636,15 @@ describe('Pattern Pulse board — screen-reader cues', () => {
     await press(tree, 'Start game')
     await waitFor(game, state => state.phase === 'input')
 
-    // Phase entry is announced, then each lit pad by its accessible name.
-    expect(
-      mockAnnounce.mock.calls.some(([m]) => m === 'Watch the pattern')
-    ).toBe(true)
-    expect(mockAnnounce.mock.calls.some(([m]) => m === 'Pad 1, triangle')).toBe(
-      true
-    )
-    expect(
-      mockAnnounce.mock.calls.some(
-        ([m]) => m === 'Your turn — repeat the pattern'
-      )
-    ).toBe(true)
+    // Exactly two utterances so far: the playback cue and ONE recap of
+    // the complete sequence — no per-pad announcements at all.
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle.',
+    ])
 
     // Round 2 grows the sequence to [0, 0]: the repeated pad must be
-    // announced once PER cue, not once per distinct pad.
+    // spoken twice, in order, inside the single recap utterance.
     await act(async () => {
       padButton(tree, 'idle', 0).props.onPress()
     })
@@ -654,22 +653,15 @@ describe('Pattern Pulse board — screen-reader cues', () => {
       state => state.phase === 'input' && state.sequence.length === 2
     )
 
-    // One pad cue in round 1 plus two in round 2 (the repeat announces
-    // again): three per-cue announcements across two rounds.
-    expect(
-      mockAnnounce.mock.calls.filter(([m]) => m === 'Pad 1, triangle')
-    ).toHaveLength(3)
-    expect(
-      mockAnnounce.mock.calls.filter(([m]) => m === 'Watch the pattern')
-    ).toHaveLength(2)
-    expect(
-      mockAnnounce.mock.calls.filter(
-        ([m]) => m === 'Your turn — repeat the pattern'
-      )
-    ).toHaveLength(2)
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle.',
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle. Pad 1, triangle.',
+    ])
   })
 
-  test('a wrong tap replays the sequence with the announcements again', async () => {
+  test('a wrong tap replays and the recap repeats the full sequence', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
     const game = createdGames[0]
 
@@ -679,14 +671,51 @@ describe('Pattern Pulse board — screen-reader cues', () => {
       padButton(tree, 'idle', 1).props.onPress()
     })
     await waitFor(game, state => state.phase === 'watch')
-    // The replay restarts with its phase cue.
-    expect(
-      mockAnnounce.mock.calls.some(([m]) => m === 'Watch the pattern')
-    ).toBe(true)
+    // The replay restarts with its playback cue — and NOTHING is spoken
+    // during the watch phase itself (no per-cue interruptions).
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle.',
+      'Watch the pattern',
+    ])
+
     await waitFor(game, state => state.phase === 'input')
-    // The same single-pad cue announced again for the replay.
+    // The same complete sequence recapped again for the replay.
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle.',
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle.',
+    ])
+  })
+
+  test('reset or unmount during playback never queues stale speech', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    expect(testText(tree, 'pp-status')).toBe('WATCH')
+    // Reset mid-playback: input is never entered, so no recap — and no
+    // partial-sequence speech — is ever queued.
+    await press(tree, 'Reset game')
+    expect(game.getState().phase).toBe('idle')
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+    ])
+
+    // Restart, then unmount before input opens: nothing further queues.
+    await press(tree, 'Start game')
+    expect(testText(tree, 'pp-status')).toBe('WATCH')
+    await unmountNow(tree)
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 1600))
+    })
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      'Watch the pattern',
+    ])
     expect(
-      mockAnnounce.mock.calls.filter(([m]) => m === 'Pad 1, triangle')
-    ).toHaveLength(2)
+      mockAnnounce.mock.calls.filter(([m]) => m.includes('Pad 1'))
+    ).toHaveLength(0)
   })
 })
