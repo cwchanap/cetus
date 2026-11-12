@@ -342,10 +342,45 @@ describe('identity-bound score submission — the real fetch boundary', () => {
     // Fail closed: an unverifiable binding sends NO score POST at all.
     expect(submits()).toHaveLength(0)
     // Truthful outcome: the account may be perfectly valid, so this is
-    // never "signed out" and never carries a sign-in prompt.
+    // never "signed out" and never carries a sign-in prompt. The copy is
+    // neutral between the two sources of this code (unverifiable local
+    // binding AND the server's context-storage refusal), so it names no
+    // transport story.
     expect(renderedText(tree)).toContain(
-      'Score not saved — account verification unavailable.'
+      'Score not saved — the account context needed to save was unavailable.'
     )
+    expect(renderedText(tree)).not.toContain('you are signed out')
+    expect(renderedText(tree)).not.toContain('Sign in to save')
+    expect(renderedText(tree)).not.toContain('Score saved')
+    await stopTree(tree)
+  })
+
+  test('a server SCORE_CONTEXT_UNAVAILABLE refusal renders the same neutral copy', async () => {
+    // The verified binding POSTs and the server refuses the save because
+    // its score-context storage is unavailable (coded 500 envelope — the
+    // same public code the client's fail-closed binding uses). One
+    // neutral string must be true for both sources: nothing here may
+    // claim the request did or did not go out.
+    getCookie.mockResolvedValue('better-auth.session_token=token-a')
+    sessionBodies = [sessionUser('user-a')]
+    scoreStatus = 500
+    scoreBody = {
+      error: 'Score context is unavailable',
+      code: 'SCORE_CONTEXT_UNAVAILABLE',
+    }
+
+    const tree = await runAndFinish(
+      <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
+    )
+
+    // The request WAS sent and refused server-side.
+    expect(submits()).toHaveLength(1)
+    expect(renderedText(tree)).toContain(
+      'Score not saved — the account context needed to save was unavailable.'
+    )
+    // No stale account-verification wording, no sign-out claim, no CTA,
+    // no false "saved".
+    expect(renderedText(tree)).not.toContain('account verification unavailable')
     expect(renderedText(tree)).not.toContain('you are signed out')
     expect(renderedText(tree)).not.toContain('Sign in to save')
     expect(renderedText(tree)).not.toContain('Score saved')
@@ -385,7 +420,7 @@ describe('identity-bound score submission — the real fetch boundary', () => {
     expect(submits()).toHaveLength(0)
     // Truthful outcome: an unreachable get-session never means signed out.
     expect(renderedText(tree)).toContain(
-      'Score not saved — account verification unavailable.'
+      'Score not saved — the account context needed to save was unavailable.'
     )
     expect(renderedText(tree)).not.toContain('you are signed out')
     expect(renderedText(tree)).not.toContain('Sign in to save')

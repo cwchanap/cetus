@@ -45,9 +45,13 @@ function unconfirmedSaveMessage(code: GameSessionResult['saveCode']): string {
     case 'UNAUTHENTICATED':
       return 'Score not saved — you are signed out.'
     case 'SCORE_CONTEXT_UNAVAILABLE':
-      // The host could not confirm its credential binding, so nothing was
-      // sent. The account may be valid — no sign-out claim, no sign-in CTA.
-      return 'Score not saved — account verification unavailable.'
+      // ONE shared public code, TWO honest sources: the host's fail-closed
+      // credential binding (nothing was ever sent) and the server's
+      // context-storage refusal (the request WAS sent, the save was
+      // refused). The copy must be true for both — no transport claim in
+      // either direction, no sign-out claim, and the sign-in CTA stays
+      // bound to UNAUTHENTICATED only.
+      return 'Score not saved — the account context needed to save was unavailable.'
     default:
       return code ? `Score not confirmed (${code})` : 'Score not confirmed'
   }
