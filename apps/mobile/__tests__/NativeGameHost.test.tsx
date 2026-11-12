@@ -564,6 +564,107 @@ describe('NativeGameHost — placeholder entries', () => {
   })
 })
 
+describe('NativeGameHost — pending credential binding', () => {
+  test('shows a truthful loading state and no Start control until the binding settles', async () => {
+    type SubmitterFn = (data: ScoreData) => Promise<{ success: boolean }>
+    let releaseBinding: ((value: SubmitterFn) => void) | undefined
+    mockCreateScoreSubmitter.mockImplementation(
+      () =>
+        new Promise<SubmitterFn>(resolve => {
+          releaseBinding = resolve
+        })
+    )
+    const tree = await render(
+      <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-1" />
+    )
+
+    // While the verification roundtrip is pending the Start control must
+    // NOT render (it would sit enabled doing nothing for up to ~15s), and
+    // the loading state must say so truthfully.
+    expect(
+      tree.root.findAllByProps({ accessibilityLabel: 'Start game' })
+    ).toHaveLength(0)
+    // jest-expo duplicates testID across wrapper + host nodes; presence is
+    // the assertion, not the exact count.
+    expect(
+      tree.root.findAllByProps({ testID: 'host-binding' }).length
+    ).toBeGreaterThan(0)
+    expect(renderedText(tree)).toContain('Preparing game')
+
+    // Binding settles → the host is live and Start appears.
+    await act(async () => {
+      releaseBinding?.(async (data: ScoreData) => api.submitScore(data))
+    })
+    await drain()
+    expect(
+      tree.root.findByProps({ accessibilityLabel: 'Start game' })
+    ).toBeTruthy()
+    expect(tree.root.findAllByProps({ testID: 'host-binding' })).toHaveLength(0)
+    await act(async () => {
+      tree.unmount()
+    })
+  })
+  test('unmount while the binding is pending resolves into no game', async () => {
+    type SubmitterFn = (data: ScoreData) => Promise<{ success: boolean }>
+    let releaseBinding: ((value: SubmitterFn) => void) | undefined
+    mockCreateScoreSubmitter.mockImplementation(
+      () =>
+        new Promise<SubmitterFn>(resolve => {
+          releaseBinding = resolve
+        })
+    )
+    const tree = await render(
+      <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-1" />
+    )
+    await act(async () => {
+      tree.unmount()
+    })
+    await act(async () => {
+      releaseBinding?.(async (data: ScoreData) => api.submitScore(data))
+    })
+    await drain()
+    // The cancelled mount never creates a game and never binds deps.
+    expect(createdGames).toHaveLength(0)
+    expect(capturedDeps).toBeUndefined()
+  })
+
+  test('an identity replacement while pending keeps only the latest host', async () => {
+    type SubmitterFn = (data: ScoreData) => Promise<{ success: boolean }>
+    const resolvers: Array<(value: SubmitterFn) => void> = []
+    mockCreateScoreSubmitter.mockImplementation(
+      () =>
+        new Promise<SubmitterFn>(resolve => {
+          resolvers.push(resolve)
+        })
+    )
+    const tree = await render(
+      <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-1" />
+    )
+    await act(async () => {
+      tree.update(
+        <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-2" />
+      )
+    })
+    // Resolve the abandoned first binding after the replacement: the
+    // cancelled effect must not create a game for it.
+    await act(async () => {
+      resolvers[0]?.(async (data: ScoreData) => api.submitScore(data))
+    })
+    await drain()
+    expect(createdGames).toHaveLength(0)
+    // Resolve the live second binding: exactly one game, bound to user-2.
+    await act(async () => {
+      resolvers[1]?.(async (data: ScoreData) => api.submitScore(data))
+    })
+    await drain()
+    expect(createdGames).toHaveLength(1)
+    expect(mockCreateScoreSubmitter).toHaveBeenLastCalledWith('user-2')
+    await act(async () => {
+      tree.unmount()
+    })
+  })
+})
+
 describe('NativeGameHost — identity-bound score submitter', () => {
   test('binds the score submitter to the settled identity and saves through the bound fn', async () => {
     submitScore.mockResolvedValue({ success: true })

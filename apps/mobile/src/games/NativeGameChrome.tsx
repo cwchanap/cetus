@@ -1,5 +1,5 @@
 import { Badge, Button, Card, Heading } from '@cetus/ui'
-import { Text, View } from 'react-native'
+import { ActivityIndicator, Text, View } from 'react-native'
 import type {
   GameSessionActions,
   GameSessionCapabilities,
@@ -27,6 +27,10 @@ export interface NativeGameChromeProps {
   outcomeLabel?: string | null
   /** Sign-in destination for the 401 CTA (future scores only). */
   onSignIn?: () => void
+  /** The host's identity-verified credential binding is still in flight:
+   * every action is withheld for a truthful loading state — an enabled
+   * Start would just sit there doing nothing. */
+  bindingPending?: boolean
 }
 
 /**
@@ -40,6 +44,10 @@ function unconfirmedSaveMessage(code: GameSessionResult['saveCode']): string {
       return 'Score not confirmed — the connection dropped after sending. It may still have been saved.'
     case 'UNAUTHENTICATED':
       return 'Score not saved — you are signed out.'
+    case 'SCORE_CONTEXT_UNAVAILABLE':
+      // The host could not confirm its credential binding, so nothing was
+      // sent. The account may be valid — no sign-out claim, no sign-in CTA.
+      return 'Score not saved — account verification unavailable.'
     default:
       return code ? `Score not confirmed (${code})` : 'Score not confirmed'
   }
@@ -57,6 +65,7 @@ export function NativeGameChrome({
   rewardBanner,
   outcomeLabel,
   onSignIn,
+  bindingPending = false,
 }: NativeGameChromeProps) {
   // Sudoku-style games count up via projected.clock; countdown games use
   // the session's timeRemaining snapshot.
@@ -83,55 +92,64 @@ export function NativeGameChrome({
         </Badge>
       </View>
 
-      <View className="flex-row flex-wrap gap-2">
-        {status === 'idle' ? (
-          <Button
-            variant="primary"
-            accessibilityLabel="Start game"
-            onPress={actions.start}
-          >
-            Start
-          </Button>
-        ) : null}
-        {status === 'running' && capabilities.pausable ? (
-          <Button
-            variant="outline"
-            accessibilityLabel="Pause game"
-            onPress={actions.pause}
-          >
-            Pause
-          </Button>
-        ) : null}
-        {status === 'paused' && capabilities.pausable ? (
-          <Button
-            variant="primary"
-            accessibilityLabel="Resume game"
-            onPress={actions.resume}
-          >
-            Resume
-          </Button>
-        ) : null}
-        {status !== 'idle' &&
-        status !== 'finished' &&
-        capabilities.resettable ? (
-          <Button
-            variant="ghost"
-            accessibilityLabel="Reset game"
-            onPress={actions.reset}
-          >
-            Reset
-          </Button>
-        ) : null}
-        {status === 'finished' ? (
-          <Button
-            variant="primary"
-            accessibilityLabel="Play again"
-            onPress={actions.start}
-          >
-            Play again
-          </Button>
-        ) : null}
-      </View>
+      {bindingPending ? (
+        <View testID="host-binding" className="flex-row items-center gap-2">
+          <ActivityIndicator size="small" />
+          <Text className="font-sans text-sm text-cetus-ink-muted">
+            Preparing game…
+          </Text>
+        </View>
+      ) : (
+        <View className="flex-row flex-wrap gap-2">
+          {status === 'idle' ? (
+            <Button
+              variant="primary"
+              accessibilityLabel="Start game"
+              onPress={actions.start}
+            >
+              Start
+            </Button>
+          ) : null}
+          {status === 'running' && capabilities.pausable ? (
+            <Button
+              variant="outline"
+              accessibilityLabel="Pause game"
+              onPress={actions.pause}
+            >
+              Pause
+            </Button>
+          ) : null}
+          {status === 'paused' && capabilities.pausable ? (
+            <Button
+              variant="primary"
+              accessibilityLabel="Resume game"
+              onPress={actions.resume}
+            >
+              Resume
+            </Button>
+          ) : null}
+          {status !== 'idle' &&
+          status !== 'finished' &&
+          capabilities.resettable ? (
+            <Button
+              variant="ghost"
+              accessibilityLabel="Reset game"
+              onPress={actions.reset}
+            >
+              Reset
+            </Button>
+          ) : null}
+          {status === 'finished' ? (
+            <Button
+              variant="primary"
+              accessibilityLabel="Play again"
+              onPress={actions.start}
+            >
+              Play again
+            </Button>
+          ) : null}
+        </View>
+      )}
 
       {rewardBanner ? (
         <Card variant="sci-fi" className="gap-1 p-3">

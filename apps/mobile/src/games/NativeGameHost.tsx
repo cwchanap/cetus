@@ -135,6 +135,7 @@ export function NativeGameHost({
         rewardBanner={rewardBanner}
         outcomeLabel={outcomeLabel}
         onSignIn={() => router.push('/sign-in')}
+        bindingPending={!session}
       />
       {session && game ? (
         BoardView ? (

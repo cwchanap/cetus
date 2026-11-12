@@ -26,6 +26,11 @@ const apiOrigin = (() => {
     return `${scheme}://${host}${isDefaultPort ? '' : `:${port}`}`
 })()
 
+// Trailing-slash-normalized base URL for endpoints built by hand here
+// (get-session verification): the typed client strips trailing slashes
+// from its own baseUrl, and this origin must match that exactly.
+const apiBase = apiBaseUrl.replace(/\/+$/, '')
+
 // The single mobile API client. The cookie header is the only session
 // transport: native fetch's implicit cookie jar is disabled with
 // `credentials: 'omit'` (Better Auth's Expo guidance) so it cannot compete
@@ -69,7 +74,7 @@ async function cookieBelongsTo(
         VERIFICATION_TIMEOUT_MS
     )
     try {
-        const response = await fetch(`${apiBaseUrl}/api/auth/get-session`, {
+        const response = await fetch(`${apiBase}/api/auth/get-session`, {
             headers: {
                 Origin: apiOrigin,
                 ...(cookie ? { Cookie: cookie } : {}),
@@ -107,9 +112,10 @@ async function cookieBelongsTo(
  * account, and same-account renewals (which keep the token value) keep
  * saving. Guest hosts never send credentials at all; an unverifiable
  * account binding (mismatch or transport failure after bounded retries)
- * sends NO credentials so the save fails honestly unauthenticated rather
- * than guessing. Never rejects; the returned submitter surfaces every
- * transport failure through ScoreSubmissionResult as before.
+ * sends NO request and reports SCORE_CONTEXT_UNAVAILABLE — the account may
+ * be valid, so it is never reported as signed out. Never rejects; the
+ * returned submitter surfaces every transport failure through
+ * ScoreSubmissionResult as before.
  */
 export async function createScoreSubmitter(
     expectedUserId: string | null
@@ -131,6 +137,20 @@ export async function createScoreSubmitter(
                 break
             }
         }
+    }
+    // Fail closed for an unverifiable ACCOUNT binding (identity mismatch,
+    // transport failure, no cookie): no score POST is sent at all. The
+    // account itself may be perfectly valid — the host just could not
+    // confirm it — so the result carries SCORE_CONTEXT_UNAVAILABLE, never
+    // UNAUTHENTICATED (that would lie "you are signed out" and prompt a
+    // bogus sign-in). Guest hosts keep the real POST: their cookieless
+    // 401 IS the truthful outcome.
+    if (expectedUserId !== null && cookie === null) {
+        return async () => ({
+            success: false,
+            error: 'Account verification unavailable',
+            code: 'SCORE_CONTEXT_UNAVAILABLE',
+        })
     }
     const pinnedClient = createApiClient({
         baseUrl: apiBaseUrl,

@@ -84,11 +84,15 @@ export function PatternPulseBoard({ projected, game }: NativeGameViewProps) {
   }, [pulse.feedback])
 
   // VoiceOver/TalkBack receive none of the lit-pad styling or test IDs, so
-  // the model's own projection is announced directly: each playback phase
-  // switch, and each lit pad by its accessible name. Repeated pads still
-  // announce once per cue because the model nulls activePad between cues —
-  // every cue is a value change. No sequence rules are duplicated here:
-  // phase and activePad are the game's projection, not a local re-derivation.
+  // the model's own projection drives the announcements — but per-cue
+  // announceForAccessibility calls fire every few hundred ms and interrupt
+  // each other on VoiceOver (iOS default) while TalkBack's queue would
+  // trail the gameplay. Instead: one short cue when playback starts, then
+  // ONE complete ordered recap when the input phase opens. The recap is
+  // read from the live model at input entry — beginInput() only runs after
+  // a full playback pass, so the recap can never be partial — and repeated
+  // pads stay distinguishable as ordered repeats inside the one utterance.
+  // No sequence rules are re-derived here: sequence is the game's state.
   const announcedPhaseRef = useRef(pulse.phase)
   useEffect(() => {
     if (pulse.phase === announcedPhaseRef.current) {
@@ -98,19 +102,16 @@ export function PatternPulseBoard({ projected, game }: NativeGameViewProps) {
     if (pulse.phase === 'watch') {
       void AccessibilityInfo.announceForAccessibility('Watch the pattern')
     } else if (pulse.phase === 'input') {
-      void AccessibilityInfo.announceForAccessibility(
-        'Your turn — repeat the pattern'
-      )
+      const sequence = (game as PatternPulseGame).getState().sequence
+      if (sequence.length > 0) {
+        void AccessibilityInfo.announceForAccessibility(
+          `Your turn — repeat the pattern: ${sequence
+            .map(pad => PADS[pad].label)
+            .join('. ')}.`
+        )
+      }
     }
-  }, [pulse.phase])
-
-  useEffect(() => {
-    if (pulse.phase === 'watch' && pulse.activePad !== null) {
-      void AccessibilityInfo.announceForAccessibility(
-        PADS[pulse.activePad].label
-      )
-    }
-  }, [pulse.phase, pulse.activePad])
+  }, [pulse.phase, game])
 
   return (
     <ScrollView

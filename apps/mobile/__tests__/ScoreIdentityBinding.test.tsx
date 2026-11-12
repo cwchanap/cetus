@@ -288,10 +288,12 @@ describe('identity-bound score submission — the real fetch boundary', () => {
     expect(save).toHaveLength(1)
     expect(headersOf(save[0]).Cookie).toBeUndefined()
     expect(save[0].init.credentials).toBe('omit')
-    // Unauthenticated saves stay honest: definitively unsaved, never faked.
+    // A GUEST's 401 stays honest and its sign-in CTA truthful: the guest
+    // genuinely has no account.
     expect(renderedText(tree)).toContain(
       'Score not saved — you are signed out.'
     )
+    expect(renderedText(tree)).toContain('Sign in to save future scores')
     expect(renderedText(tree)).not.toContain('Score saved')
     await stopTree(tree)
   })
@@ -337,12 +339,15 @@ describe('identity-bound score submission — the real fetch boundary', () => {
     )
 
     expect(getSessions()).toHaveLength(3)
-    const save = submits()
-    expect(save).toHaveLength(1)
-    expect(headersOf(save[0]).Cookie).toBeUndefined()
+    // Fail closed: an unverifiable binding sends NO score POST at all.
+    expect(submits()).toHaveLength(0)
+    // Truthful outcome: the account may be perfectly valid, so this is
+    // never "signed out" and never carries a sign-in prompt.
     expect(renderedText(tree)).toContain(
-      'Score not saved — you are signed out.'
+      'Score not saved — account verification unavailable.'
     )
+    expect(renderedText(tree)).not.toContain('you are signed out')
+    expect(renderedText(tree)).not.toContain('Sign in to save')
     expect(renderedText(tree)).not.toContain('Score saved')
     await stopTree(tree)
   })
@@ -376,12 +381,14 @@ describe('identity-bound score submission — the real fetch boundary', () => {
     )
 
     expect(getSessions()).toHaveLength(3)
-    const save = submits()
-    expect(save).toHaveLength(1)
-    expect(headersOf(save[0]).Cookie).toBeUndefined()
+    // Fail closed: a transport-failed binding sends NO score POST at all.
+    expect(submits()).toHaveLength(0)
+    // Truthful outcome: an unreachable get-session never means signed out.
     expect(renderedText(tree)).toContain(
-      'Score not saved — you are signed out.'
+      'Score not saved — account verification unavailable.'
     )
+    expect(renderedText(tree)).not.toContain('you are signed out')
+    expect(renderedText(tree)).not.toContain('Sign in to save')
     expect(renderedText(tree)).not.toContain('Score saved')
     await stopTree(tree)
   })
