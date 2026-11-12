@@ -64,6 +64,11 @@ function statusText(pulse: PatternPulseProjection): string {
   return 'READY'
 }
 
+/** The ordered pad labels — repeated pads stay repeated in the speech. */
+function spokenSequence(sequence: ReadonlyArray<PatternPad>): string {
+  return sequence.map(pad => PADS[pad].label).join('. ')
+}
+
 /**
  * Pattern Pulse native board (HPA-425 task 7). Renders the frozen
  * visible-state projection (phase, lit pad, feedback, streak/mistake HUD)
@@ -93,6 +98,14 @@ export function PatternPulseBoard({ projected, game }: NativeGameViewProps) {
   // a full playback pass, so the recap can never be partial — and repeated
   // pads stay distinguishable as ordered repeats inside the one utterance.
   // No sequence rules are re-derived here: sequence is the game's state.
+  //
+  // RN exposes NO speech cancellation and its queue/priority options are
+  // iOS-only (Android/TalkBack ignores them), so a recap already in flight
+  // when the phase moves on cannot be revoked. The honest mitigation:
+  // terminal and reset transitions speak a short status utterance — iOS
+  // interrupts the stale recap with it, Android queues it after — and the
+  // labeled replay control below lets the user re-hear the CURRENT run's
+  // sequence on demand whenever anything interrupted earlier speech.
   const announcedPhaseRef = useRef(pulse.phase)
   useEffect(() => {
     if (pulse.phase === announcedPhaseRef.current) {
@@ -105,13 +118,31 @@ export function PatternPulseBoard({ projected, game }: NativeGameViewProps) {
       const sequence = (game as PatternPulseGame).getState().sequence
       if (sequence.length > 0) {
         void AccessibilityInfo.announceForAccessibility(
-          `Your turn — repeat the pattern: ${sequence
-            .map(pad => PADS[pad].label)
-            .join('. ')}.`
+          `Your turn — repeat the pattern: ${spokenSequence(sequence)}.`
         )
       }
+    } else if (pulse.phase === 'ended') {
+      void AccessibilityInfo.announceForAccessibility(
+        pulse.outcome === 'timeout'
+          ? 'Run ended — time is up.'
+          : 'Run ended — signal lost.'
+      )
+    } else if (pulse.phase === 'idle') {
+      void AccessibilityInfo.announceForAccessibility('Game reset.')
     }
-  }, [pulse.phase, game])
+  }, [pulse.phase, pulse.outcome, game])
+
+  // Interruption recovery: the user can always re-hear the CURRENT run's
+  // complete ordered sequence — but only while the input phase is valid,
+  // so the control can never speak a stale or discarded run.
+  const replayCurrentSequence = () => {
+    const sequence = (game as PatternPulseGame).getState().sequence
+    if (sequence.length > 0) {
+      void AccessibilityInfo.announceForAccessibility(
+        `Current pattern: ${spokenSequence(sequence)}.`
+      )
+    }
+  }
 
   return (
     <ScrollView
@@ -207,6 +238,30 @@ export function PatternPulseBoard({ projected, game }: NativeGameViewProps) {
           </View>
         ))}
       </View>
+
+      <Pressable
+        testID="pp-replay-sequence"
+        accessibilityRole="button"
+        accessibilityLabel="Repeat pattern sequence"
+        accessibilityState={{ disabled: !pulse.canPress }}
+        disabled={!pulse.canPress}
+        onPress={replayCurrentSequence}
+        className={cn(
+          'self-center rounded-lg border px-4 py-2',
+          pulse.canPress
+            ? 'border-cetus-accent bg-cetus-accent/10'
+            : 'border-cetus-hairline bg-cetus-surface opacity-50'
+        )}
+      >
+        <Text
+          className={cn(
+            'text-sm',
+            pulse.canPress ? 'text-cetus-accent' : 'text-cetus-ink-muted'
+          )}
+        >
+          Repeat pattern
+        </Text>
+      </Pressable>
     </ScrollView>
   )
 }

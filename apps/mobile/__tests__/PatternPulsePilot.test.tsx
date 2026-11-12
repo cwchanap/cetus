@@ -136,6 +136,21 @@ const settle = async () => {
   })
 }
 
+/** Poll (inside act) until a plain predicate holds; for host-creation
+ *  waits where no specific game instance is known yet. */
+const waitUntil = async (predicate: () => boolean, timeoutMs = 8000) => {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 25))
+    })
+    if (predicate()) {
+      return
+    }
+  }
+  throw new Error('waitUntil timed out')
+}
+
 const scalarText = (children: React.ReactNode): string => {
   if (Array.isArray(children)) {
     return children.map(scalarText).join('')
@@ -689,18 +704,22 @@ describe('Pattern Pulse board — screen-reader cues', () => {
     ])
   })
 
-  test('reset or unmount during playback never queues stale speech', async () => {
+  test('reset or unmount during playback never queues sequence speech', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
     const game = createdGames[0]
 
     await press(tree, 'Start game')
     expect(testText(tree, 'pp-status')).toBe('WATCH')
     // Reset mid-playback: input is never entered, so no recap — and no
-    // partial-sequence speech — is ever queued.
+    // partial-sequence speech — is ever queued. The reset itself IS
+    // announced: the one truthful status update available to supersede
+    // any in-flight speech on iOS (interrupt-by-default) or follow it in
+    // order on Android (no cancel API exists to promise more).
     await press(tree, 'Reset game')
     expect(game.getState().phase).toBe('idle')
     expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
       'Watch the pattern',
+      'Game reset.',
     ])
 
     // Restart, then unmount before input opens: nothing further queues.
@@ -712,10 +731,208 @@ describe('Pattern Pulse board — screen-reader cues', () => {
     })
     expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
       'Watch the pattern',
+      'Game reset.',
       'Watch the pattern',
     ])
     expect(
       mockAnnounce.mock.calls.filter(([m]) => m.includes('Pad 1'))
     ).toHaveLength(0)
+  })
+})
+
+describe('Pattern Pulse board — sequence replay affordance', () => {
+  // The input-entry recap is one global utterance: if VoiceOver/TalkBack
+  // navigation or a notification interrupts it, nothing re-speaks the
+  // sequence. The recovery path is a clearly labeled control that reads
+  // the LIVE model sequence on demand — enabled only while the input
+  // phase is valid, so it can never speak a stale or discarded run.
+  const replayControl = (tree: TestRenderer.ReactTestRenderer) => {
+    const nodes = tree.root.findAll(
+      node => node.props.accessibilityLabel === 'Repeat pattern sequence'
+    )
+    if (nodes.length === 0) {
+      throw new Error('replay control not rendered')
+    }
+    return nodes[0]
+  }
+
+  test('length-three recap with repeated pads; the control re-speaks the live sequence on demand', async () => {
+    // Production-length first sequence (3) with a repeated pad, mixed
+    // pads after: floor(rng*4) → pads [0, 0, 2], then the grown sequence
+    // appends pad 0 again.
+    const rolls = [0.1, 0.1, 0.62]
+    let roll = 0
+    pilotConfig = {
+      rng: () => rolls[roll++ % rolls.length],
+      initialSequenceLength: 3,
+    }
+    const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    await waitFor(game, state => state.phase === 'input')
+    expect(testText(tree, 'pp-length')).toBe('Length 3')
+
+    const recap =
+      'Your turn — repeat the pattern: Pad 1, triangle. Pad 1, triangle. Pad 3, diamond.'
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      recap,
+    ])
+
+    // Interruption recovery: pressing the control re-speaks the FULL
+    // ordered sequence — repeated pads included — every time.
+    await act(async () => {
+      replayControl(tree).props.onPress()
+    })
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      recap,
+      'Current pattern: Pad 1, triangle. Pad 1, triangle. Pad 3, diamond.',
+    ])
+
+    // After the round completes the sequence GROWS; the control must
+    // read the live model, not a copy frozen at the last recap.
+    await act(async () => {
+      padButton(tree, 'idle', 0).props.onPress()
+    })
+    await act(async () => {
+      padButton(tree, 'idle', 0).props.onPress()
+    })
+    await act(async () => {
+      padButton(tree, 'idle', 2).props.onPress()
+    })
+    await waitFor(
+      game,
+      state => state.phase === 'input' && state.sequence.length === 4
+    )
+    await act(async () => {
+      replayControl(tree).props.onPress()
+    })
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      recap,
+      'Current pattern: Pad 1, triangle. Pad 1, triangle. Pad 3, diamond.',
+      // Round completion queued its own watch cue + grown recap.
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle. Pad 1, triangle. Pad 3, diamond. Pad 1, triangle.',
+      'Current pattern: Pad 1, triangle. Pad 1, triangle. Pad 3, diamond. Pad 1, triangle.',
+    ])
+  })
+
+  test('the control is enabled only while the input phase is valid', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
+    const game = createdGames[0]
+
+    // Idle mount: rendered but disabled.
+    expect(replayControl(tree).props.accessibilityState.disabled).toBe(true)
+
+    await press(tree, 'Start game')
+    expect(testText(tree, 'pp-status')).toBe('WATCH')
+    expect(replayControl(tree).props.accessibilityState.disabled).toBe(true)
+
+    await waitFor(game, state => state.phase === 'input')
+    expect(replayControl(tree).props.accessibilityState.disabled).toBe(false)
+
+    // A wrong tap disables it through the feedback window and the watch
+    // replay — no stale sequence is speakable outside input.
+    await act(async () => {
+      padButton(tree, 'idle', 1).props.onPress()
+    })
+    await waitFor(game, state => state.feedback === 'wrong')
+    expect(replayControl(tree).props.accessibilityState.disabled).toBe(true)
+    await waitFor(game, state => state.phase === 'watch')
+    expect(replayControl(tree).props.accessibilityState.disabled).toBe(true)
+  })
+
+  test('a timeout after the recap announces the run end once, then a new game re-cues', async () => {
+    // duration 3s: the first playback (~1s) finishes, the recap queues,
+    // THEN the run expires mid-input — the after-recap terminal case.
+    pilotConfig = { rng: () => 0, initialSequenceLength: 1, duration: 3 }
+    const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    await waitFor(game, state => state.phase === 'input')
+    await waitFor(game, state => state.isGameOver)
+
+    // The terminal announcement follows the stale recap (Android queue
+    // order; on iOS it interrupts it) — no cancellation is claimed.
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle.',
+      'Run ended — time is up.',
+    ])
+    expect(replayControl(tree).props.accessibilityState.disabled).toBe(true)
+
+    await settle()
+    // Nothing else queues after the end.
+    expect(mockAnnounce.mock.calls).toHaveLength(3)
+
+    // New game: the ended→watch transition re-cues, then the fresh run
+    // recaps its own sequence.
+    await press(tree, 'Play again')
+    await waitFor(game, state => state.phase === 'input')
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle.',
+      'Run ended — time is up.',
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle.',
+    ])
+    expect(replayControl(tree).props.accessibilityState.disabled).toBe(false)
+  })
+
+  test('a reset after the recap announces the reset and disables replay', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    await waitFor(game, state => state.phase === 'input')
+    await press(tree, 'Reset game')
+
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle.',
+      'Game reset.',
+    ])
+    expect(replayControl(tree).props.accessibilityState.disabled).toBe(true)
+  })
+
+  test('unmount after the recap queues nothing further; a replacement account mounts silent', async () => {
+    const tree = await render(
+      <NativeGameHost gameId={GameID.PATTERN_PULSE} settledUserId="user-a" />
+    )
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    await waitFor(game, state => state.phase === 'input')
+    const callsAtUnmount = mockAnnounce.mock.calls.map(([m]) => m)
+
+    // Unmount mid-input: the already-submitted recap cannot be canceled
+    // (no platform API), but nothing NEW may queue from the dead run.
+    await unmountNow(tree)
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 1600))
+    })
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual(callsAtUnmount)
+
+    // Production swaps identity by REMOUNTING the host (route key): the
+    // fresh board must stay silent until its own run starts.
+    const replacement = await render(
+      <NativeGameHost gameId={GameID.PATTERN_PULSE} settledUserId="user-b" />
+    )
+    await waitUntil(() => createdGames.length === 2)
+    expect(testText(replacement, 'pp-status')).toBe('READY')
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual(callsAtUnmount)
+
+    // The replacement run announces normally, from its own model.
+    await press(replacement, 'Start game')
+    await waitFor(createdGames[1], state => state.phase === 'input')
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      ...callsAtUnmount,
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle.',
+    ])
   })
 })
