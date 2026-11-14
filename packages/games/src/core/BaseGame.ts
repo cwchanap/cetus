@@ -225,11 +225,17 @@ export abstract class BaseGame<
         // The reward fields still describe what the completed run actually
         // earned server-side (its save committed before it went stale), so
         // they are carried untouched and the notification forwarder decides
-        // what to show.
+        // what to show. `save` mirrors the transport outcome for hosts:
+        // success carries no code; a throwing submitter surfaces through
+        // ScoreManager as a code-less { success: false }.
         this.emit('end', {
             score: finalScore,
             stats: finalStats,
             runId,
+            save: {
+                success: saveResult.success,
+                code: saveResult.code,
+            },
             newAchievements: saveResult.newAchievements,
             challengeUpdates: saveResult.challengeUpdates,
         })

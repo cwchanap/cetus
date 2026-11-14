@@ -376,3 +376,93 @@ describe('QuickMathFrameworkGame achievement flags', () => {
         expect(data.zeroAnswerIncorrect).toBe(true)
     })
 })
+
+describe('QuickMath state-change propagation', () => {
+    const stateChangeConfig = {
+        duration: 60,
+        pausable: false,
+        resettable: true,
+        pointsPerCorrectAnswer: 20,
+        maxNumber: 10,
+        operations: ['addition'] as Array<'addition' | 'subtraction'>,
+    }
+
+    function buildGame(callbacks: QuickMathCallbacks = {}) {
+        return new QuickMathFrameworkGame(
+            GameID.QUICK_MATH,
+            { ...stateChangeConfig, submitScore },
+            callbacks
+        )
+    }
+
+    it('emits state-change with the advanced question on a correct answer, exactly one score call', () => {
+        const onScoreUpdate = vi.fn()
+        const onAnswerSubmit = vi.fn()
+        const game = buildGame({ onScoreUpdate, onAnswerSubmit })
+        const stateChanges: Array<{
+            data?: { state?: { currentQuestion: { id: string } | null } }
+        }> = []
+        game.on('state-change', e => stateChanges.push(e as any))
+
+        game.start()
+        const startQuestion = game.getCurrentQuestion()!
+        stateChanges.length = 0
+        onScoreUpdate.mockClear()
+
+        game.submitAnswer(startQuestion.answer.toString())
+
+        // Wrong-answer-safe session adapters refresh from this event.
+        expect(stateChanges.length).toBeGreaterThanOrEqual(1)
+        const last = stateChanges[stateChanges.length - 1].data!.state!
+        expect(last.currentQuestion).not.toBeNull()
+        expect(last.currentQuestion!.id).not.toBe(startQuestion.id)
+        // Existing callbacks stay, and the score moved exactly once.
+        expect(onAnswerSubmit).toHaveBeenCalledTimes(1)
+        expect(onScoreUpdate).toHaveBeenCalledTimes(1)
+        expect(game.getScoreManager().getScore()).toBe(20)
+        game.destroy()
+    })
+
+    it('emits state-change on a wrong answer without touching the score', () => {
+        const onScoreUpdate = vi.fn()
+        const game = buildGame({ onScoreUpdate })
+        const stateChanges: Array<{
+            data?: {
+                state?: {
+                    currentQuestion: { id: string } | null
+                    incorrectAnswers: number
+                }
+            }
+        }> = []
+        game.on('state-change', e => stateChanges.push(e as any))
+
+        game.start()
+        const startQuestion = game.getCurrentQuestion()!
+        stateChanges.length = 0
+
+        game.submitAnswer((startQuestion.answer + 999).toString())
+
+        const last = stateChanges[stateChanges.length - 1].data!.state!
+        expect(last.incorrectAnswers).toBe(1)
+        expect(last.currentQuestion!.id).not.toBe(startQuestion.id)
+        // A wrong answer never scores.
+        expect(onScoreUpdate).not.toHaveBeenCalled()
+        expect(game.getScoreManager().getScore()).toBe(0)
+        game.destroy()
+    })
+
+    it('resets the question projection after reset', () => {
+        const game = buildGame()
+        game.start()
+        expect(game.getCurrentQuestion()).not.toBeNull()
+
+        game.reset()
+
+        const state = game.getState()
+        expect(state.currentQuestion).toBeNull()
+        expect(state.questionsAnswered).toBe(0)
+        expect(state.correctAnswers).toBe(0)
+        expect(state.incorrectAnswers).toBe(0)
+        game.destroy()
+    })
+})

@@ -6,6 +6,12 @@ import {
     type BaseGameState,
     type BaseGameStats,
 } from '@cetus/games'
+import {
+    QuickMathFrameworkGame,
+    type QuickMathState,
+} from '@cetus/games/quick-math/game'
+import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
+import type { WordScrambleState } from '@cetus/games/word-scramble/frameworkTypes'
 import { GameID } from '@cetus/shared/games'
 import { AchievementRarity } from '@cetus/shared/achievements'
 import { createBaseGameSession } from './createBaseGameSession'
@@ -194,6 +200,7 @@ describe('createBaseGameSession', () => {
         expect(session.getCachedSnapshot().result).toEqual({
             score: 12,
             stats: { finalScore: 12, timeElapsed: 0, gameCompleted: true },
+            saveStatus: 'pending',
         })
 
         await ended
@@ -206,6 +213,8 @@ describe('createBaseGameSession', () => {
             stats: { finalScore: 12, timeElapsed: 0, gameCompleted: true },
             newAchievements: undefined,
             challengeUpdates: undefined,
+            saveStatus: 'saved',
+            saveCode: undefined,
         })
         // A finished run keeps replaying events without re-submitting.
         game.emit('time-update', { time: 0 })
@@ -258,6 +267,7 @@ describe('createBaseGameSession', () => {
         expect(stalled.result).toEqual({
             score: 9,
             stats: { finalScore: 9, timeElapsed: 0, gameCompleted: true },
+            saveStatus: 'pending',
         })
 
         // The provisional reference is stable across unrelated refreshes.
@@ -273,6 +283,7 @@ describe('createBaseGameSession', () => {
             stats: { finalScore: 9, timeElapsed: 0, gameCompleted: true },
             newAchievements: undefined,
             challengeUpdates: undefined,
+            saveStatus: 'saved',
         })
         // The structured end replaced the provisional result.
         expect(finished.result).not.toBe(stalled.result)
@@ -327,6 +338,7 @@ describe('createBaseGameSession', () => {
         expect(provisional).toEqual({
             score: 20,
             stats: { finalScore: 20, timeElapsed: 0, gameCompleted: true },
+            saveStatus: 'pending',
         })
 
         // A's save resolves late: its structured end carries the old runId
@@ -346,7 +358,47 @@ describe('createBaseGameSession', () => {
             stats: { finalScore: 20, timeElapsed: 0, gameCompleted: true },
             newAchievements: undefined,
             challengeUpdates: undefined,
+            saveStatus: 'saved',
         })
+    })
+
+    it('reports a coded failed save as unconfirmed with the public code', async () => {
+        const submitScore = vi.fn(async () => ({
+            success: false,
+            code: 'NETWORK_ERROR' as const,
+        }))
+        game = createStubGame({ submitScore })
+        const session = createBaseGameSession(game, state => state.score)
+        game.start()
+
+        await game.end()
+
+        expect(session.getCachedSnapshot().result).toMatchObject({
+            saveStatus: 'unconfirmed',
+            saveCode: 'NETWORK_ERROR',
+        })
+    })
+
+    it('reports a code-less failed save as unconfirmed', async () => {
+        // ScoreManager.saveFinalScore catches a throwing submitter and
+        // returns { success: false } with no code.
+        const consoleSpy = vi
+            .spyOn(console, 'error')
+            .mockImplementation(() => {})
+        const submitScore = vi.fn(async () => {
+            throw new Error('offline')
+        })
+        game = createStubGame({ submitScore })
+        const session = createBaseGameSession(game, state => state.score)
+        game.start()
+
+        await game.end()
+
+        expect(session.getCachedSnapshot().result).toMatchObject({
+            saveStatus: 'unconfirmed',
+            saveCode: undefined,
+        })
+        consoleSpy.mockRestore()
     })
 
     it('keeps the current run result when saves resolve out of order', async () => {
@@ -436,5 +488,111 @@ describe('createBaseGameSession', () => {
         game.emit('end')
         expect(listener).toHaveBeenCalledTimes(2) // start + pause only
         expect(session.getCachedSnapshot().status).toBe('paused')
+    })
+})
+
+describe('createBaseGameSession reset projection (real games)', () => {
+    const submitScore = vi.fn(async () => ({ success: true }))
+
+    it("clears Quick Math's cached question projection and counters on session reset", () => {
+        const game = new QuickMathFrameworkGame(GameID.QUICK_MATH, {
+            duration: 60,
+            pausable: false,
+            resettable: true,
+            pointsPerCorrectAnswer: 20,
+            maxNumber: 10,
+            operations: ['addition'],
+            submitScore,
+        })
+        // The cached snapshot must show what a native view would display:
+        // the current question and the answer counters.
+        const session = createBaseGameSession(game, state => {
+            const s = state as QuickMathState
+            return {
+                question: s.currentQuestion?.question ?? null,
+                questionsAnswered: s.questionsAnswered,
+                correctAnswers: s.correctAnswers,
+                incorrectAnswers: s.incorrectAnswers,
+            }
+        })
+
+        session.actions.start()
+        const running = session.getCachedSnapshot()
+        expect(running.status).toBe('running')
+        expect(running.projected.question).not.toBeNull()
+
+        // Move the counters so a stale cache has non-zero values to leak.
+        const question = game.getCurrentQuestion()
+        expect(question).not.toBeNull()
+        if (question) {
+            game.submitAnswer(question.answer.toString())
+        }
+        expect(session.getCachedSnapshot().projected).toMatchObject({
+            questionsAnswered: 1,
+            correctAnswers: 1,
+        })
+
+        session.actions.reset()
+
+        // Assert the CACHED projection (no intervening game read): a reset
+        // that cleared the model but left this stale would fail here.
+        const reset = session.getCachedSnapshot()
+        expect(reset.status).toBe('idle')
+        expect(reset.score).toBe(0)
+        expect(reset.projected).toEqual({
+            question: null,
+            questionsAnswered: 0,
+            correctAnswers: 0,
+            incorrectAnswers: 0,
+        })
+        game.destroy()
+    })
+
+    it("clears Word Scramble's cached challenge projection and counters on session reset", () => {
+        const game = new WordScrambleGame(
+            {
+                duration: 60,
+                pointsPerWord: { easy: 10, medium: 20, hard: 30 },
+                wordCategories: ['general'],
+                minWordLength: 3,
+                maxWordLength: 12,
+                submitScore,
+            },
+            {}
+        )
+        const session = createBaseGameSession(game, state => {
+            const s = state as WordScrambleState
+            return {
+                challenge: s.currentChallenge?.scrambledWord ?? null,
+                wordsUnscrambled: s.wordsUnscrambled,
+                correctAnswers: s.correctAnswers,
+                incorrectAnswers: s.incorrectAnswers,
+            }
+        })
+
+        session.actions.start()
+        const running = session.getCachedSnapshot()
+        expect(running.status).toBe('running')
+        expect(running.projected.challenge).not.toBeNull()
+
+        // Skip moves the counters without needing the unscrambled word.
+        game.skipCurrentChallenge()
+        expect(session.getCachedSnapshot().projected).toMatchObject({
+            wordsUnscrambled: 1,
+            incorrectAnswers: 1,
+        })
+
+        session.actions.reset()
+
+        const reset = session.getCachedSnapshot()
+        expect(reset.status).toBe('idle')
+        expect(reset.score).toBe(0)
+        expect(reset.projected).toEqual({
+            challenge: null,
+            wordsUnscrambled: 0,
+            correctAnswers: 0,
+            incorrectAnswers: 0,
+        })
+        game.destroy()
     })
 })

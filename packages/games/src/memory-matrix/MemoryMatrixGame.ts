@@ -193,6 +193,26 @@ export class MemoryMatrixGame extends BaseGame<
         return true
     }
 
+    /**
+     * Resolve a pending pair check at completion, BEFORE BaseGame.end()
+     * snapshots and submits the score. A pair flipped before the run ends
+     * (timer expiry or host end()) must count exactly once in the HUD,
+     * result sheet and submission — leaving the check pending would let the
+     * delayed callback award points after the snapshot (deadline-crossing
+     * regression). checkForMatch(true) keeps this end() the single awaited
+     * completion owner: the pair resolves (match + win bonus) but must not
+     * re-enter end(), which would hand completion to a fire-and-forget inner
+     * call — the awaited end() would then no longer wait for the save, and a
+     * replay synchronously started by onEnd would get ended and submitted.
+     */
+    override async end(): Promise<void> {
+        if (this.matchTimeoutId !== null) {
+            clearTimeout(this.matchTimeoutId)
+            this.checkForMatch(true)
+        }
+        await super.end()
+    }
+
     getConfig(): MemoryMatrixConfig {
         return { ...this.config }
     }
@@ -207,8 +227,20 @@ export class MemoryMatrixGame extends BaseGame<
 
     // --- Private game logic ---
 
-    private checkForMatch(): void {
+    /**
+     * Resolve the two flipped cards. When `fromEnd` is true this runs as
+     * part of the end() override's synchronous resolution — the override
+     * itself owns completion, so a winning board must not call end()
+     * again from here.
+     */
+    private checkForMatch(fromEnd = false): void {
         this.matchTimeoutId = null
+        if (!this.state.isActive || this.state.isGameOver) {
+            // The run already completed and its score was snapshotted and
+            // submitted — a stale match-check must never change it after
+            // the fact.
+            return
+        }
         const [card1, card2] = this.state.flippedCards
 
         if (cardsMatch(card1, card2)) {
@@ -239,9 +271,11 @@ export class MemoryMatrixGame extends BaseGame<
             )
             // Repaint the final matched pair before the game-over overlay
             this.emitStateChange()
-            this.end().catch((err: unknown) =>
-                console.error('MemoryMatrix end failed', err)
-            )
+            if (!fromEnd) {
+                this.end().catch((err: unknown) =>
+                    console.error('MemoryMatrix end failed', err)
+                )
+            }
         } else {
             this.emitStateChange()
         }

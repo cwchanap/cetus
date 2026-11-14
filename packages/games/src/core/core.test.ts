@@ -761,6 +761,11 @@ describe('BaseGame default hooks', () => {
         game.start()
         await vi.runAllTimersAsync()
         expect(onEnd).toHaveBeenCalled()
+        // Timer expiry already completed the run; an explicit end()
+        // arriving afterwards (host "End game") must not submit a second
+        // score.
+        await game.end()
+        expect(submitScore).toHaveBeenCalledTimes(1)
         game.destroy()
         vi.useRealTimers()
     })
@@ -1764,6 +1769,108 @@ describe('BaseGame stale-run guard', () => {
             levelUp: false,
         })
 
+        game.destroy()
+    })
+})
+
+describe('BaseGame structured end save outcome', () => {
+    class MiniGame extends BaseGame {
+        createInitialState() {
+            return {
+                score: 0,
+                timeRemaining: 60,
+                isActive: false,
+                isPaused: false,
+                isGameOver: false,
+                gameStarted: false,
+            }
+        }
+        update() {}
+        render() {}
+        cleanup() {}
+        getGameStats() {
+            return { finalScore: 0, timeElapsed: 0, gameCompleted: false }
+        }
+    }
+
+    function createGame(submitScore: () => Promise<unknown>) {
+        return new MiniGame(
+            GameID.QUICK_MATH,
+            {
+                duration: 60,
+                pausable: false,
+                resettable: true,
+                submitScore: submitScore as MiniGame['config']['submitScore'],
+            },
+            {}
+        )
+    }
+
+    it('carries save success on the structured end event', async () => {
+        const game = createGame(vi.fn().mockResolvedValue({ success: true }))
+        const endEvents: Array<{
+            data?: { save?: { success: boolean; code?: string } }
+        }> = []
+        game.on('end', e => endEvents.push(e as any))
+
+        game.start()
+        await game.end()
+
+        const structuredEnds = endEvents.filter(
+            e => e.data && 'score' in e.data
+        )
+        expect(structuredEnds).toHaveLength(1)
+        expect(structuredEnds[0].data!.save).toEqual({ success: true })
+        game.destroy()
+    })
+
+    it('carries the public error code when the save fails with one', async () => {
+        const game = createGame(
+            vi.fn().mockResolvedValue({ success: false, code: 'NETWORK_ERROR' })
+        )
+        const endEvents: Array<{
+            data?: { save?: { success: boolean; code?: string } }
+        }> = []
+        game.on('end', e => endEvents.push(e as any))
+
+        game.start()
+        await game.end()
+
+        const structuredEnds = endEvents.filter(
+            e => e.data && 'score' in e.data
+        )
+        expect(structuredEnds).toHaveLength(1)
+        expect(structuredEnds[0].data!.save).toEqual({
+            success: false,
+            code: 'NETWORK_ERROR',
+        })
+        game.destroy()
+    })
+
+    it('carries a code-less failure when the submitter throws', async () => {
+        // ScoreManager.saveFinalScore catches the throw and reports
+        // { success: false } with no code — the end payload must survive it.
+        const consoleSpy = vi
+            .spyOn(console, 'error')
+            .mockImplementation(() => {})
+        const game = createGame(vi.fn().mockRejectedValue(new Error('offline')))
+        const endEvents: Array<{
+            data?: { save?: { success: boolean; code?: string } }
+        }> = []
+        game.on('end', e => endEvents.push(e as any))
+
+        game.start()
+        await game.end()
+
+        const structuredEnds = endEvents.filter(
+            e => e.data && 'score' in e.data
+        )
+        expect(structuredEnds).toHaveLength(1)
+        expect(structuredEnds[0].data!.save).toEqual({
+            success: false,
+            code: undefined,
+        })
+        consoleSpy.mockRestore()
         game.destroy()
     })
 })

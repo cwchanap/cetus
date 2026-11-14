@@ -6,13 +6,15 @@ import { Badge, Card, cn } from '@cetus/ui'
 import { getActiveGames, searchGames, type Game } from '@cetus/shared/games'
 
 import { difficultyBadgeVariant } from '../../src/lib/game-catalog'
+import { isNativePlayable } from '../../src/games/registry'
 import { LoginRewardHost } from '../../src/lib/login-rewards'
 
 declare const __DEV__: boolean
 
-// All registry games are listed honestly: none are playable on mobile yet
-// (HPA-182/HPA-425 own the screens); entries open the game detail page,
-// which states that plainly.
+// All registry games are listed: the eight HPA-425 wave-1 entries are
+// marked playable (their boards land per game); the rest state plainly
+// that they are not playable on mobile yet. Entries open the game detail
+// page.
 const ACTIVE_GAMES = getActiveGames()
 const ACTIVE_COUNT = ACTIVE_GAMES.length
 
@@ -26,6 +28,7 @@ const CATEGORY_FILTERS: { value: CategoryFilter; label: string }[] = [
 ]
 
 function GameCard({ game, onOpen }: { game: Game; onOpen: () => void }) {
+  const playable = isNativePlayable(game.id)
   return (
     // Dark non-abyssal theme: surfaces/ink/hairline come from the shared
     // --cetus-* tokens (see global.css); unsupported effects (wordmark
@@ -56,8 +59,13 @@ function GameCard({ game, onOpen }: { game: Game; onOpen: () => void }) {
           <Text className="font-sans text-xs text-cetus-ink-muted">
             {game.category}
           </Text>
-          <Text className="font-sans text-xs text-cetus-accent">
-            Not playable on mobile yet
+          <Text
+            className={cn(
+              'font-sans text-xs',
+              playable ? 'text-cetus-accent' : 'text-cetus-ink-muted'
+            )}
+          >
+            {playable ? 'Playable on mobile' : 'Not playable on mobile yet'}
           </Text>
         </View>
       </Card>
