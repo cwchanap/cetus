@@ -34,14 +34,15 @@ export interface NativeGameChromeProps {
 }
 
 /**
- * Honest unconfirmed-save copy per public failure code. A dropped
- * connection must allow that the request was committed server-side;
- * nothing here ever auto-retries — the single POST is all there was.
+ * Honest unconfirmed-save copy per public failure code. A failed fetch may
+ * have dropped before OR after the request was sent, and a server that
+ * received it may still have committed — nothing here claims which, and
+ * nothing ever auto-retries: the single POST is all there was.
  */
 function unconfirmedSaveMessage(code: GameSessionResult['saveCode']): string {
   switch (code) {
     case 'NETWORK_ERROR':
-      return 'Score not confirmed — the connection dropped after sending. It may still have been saved.'
+      return 'Score not confirmed — the connection failed. It may still have been saved.'
     case 'UNAUTHENTICATED':
       return 'Score not saved — you are signed out.'
     case 'SCORE_CONTEXT_UNAVAILABLE':

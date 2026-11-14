@@ -77,7 +77,8 @@ function spokenSequence(sequence: ReadonlyArray<PatternPad>): string {
  * stay in `@cetus/games`; the view owns no timers of its own. Pads are
  * hit targets only while the model is in its input phase, and the wrong
  * answer gets the one sensory extra the brief allows: a haptic keyed off
- * the model's own feedback state (no SFX).
+ * the model's own feedback state (no SFX). Screen-reader users get the
+ * same feedback model-driven: one utterance per feedback transition.
  */
 export function PatternPulseBoard({ projected, game }: NativeGameViewProps) {
   const pulse = projected as unknown as PatternPulseProjection
@@ -91,21 +92,26 @@ export function PatternPulseBoard({ projected, game }: NativeGameViewProps) {
   // VoiceOver/TalkBack receive none of the lit-pad styling or test IDs, so
   // the model's own projection drives the announcements — but per-cue
   // announceForAccessibility calls fire every few hundred ms and interrupt
-  // each other on VoiceOver (iOS default) while TalkBack's queue would
-  // trail the gameplay. Instead: one short cue when playback starts, then
-  // ONE complete ordered recap when the input phase opens. The recap is
-  // read from the live model at input entry — beginInput() only runs after
-  // a full playback pass, so the recap can never be partial — and repeated
-  // pads stay distinguishable as ordered repeats inside the one utterance.
-  // No sequence rules are re-derived here: sequence is the game's state.
+  // each other on VoiceOver (iOS default), while TalkBack's handling of
+  // rapid calls is platform-dependent. Instead: one short cue when
+  // playback starts, ONE complete ordered recap when the input phase
+  // opens, and one utterance per round-outcome feedback transition (see
+  // below). The recap is read from the live model at input entry —
+  // beginInput() only runs after a full playback pass, so the recap can
+  // never be partial — and repeated pads stay distinguishable as ordered
+  // repeats inside the one utterance. No sequence rules are re-derived
+  // here: sequence is the game's state.
   //
   // RN exposes NO speech cancellation and its queue/priority options are
   // iOS-only (Android/TalkBack ignores them), so a recap already in flight
-  // when the phase moves on cannot be revoked. The honest mitigation:
-  // terminal and reset transitions speak a short status utterance — iOS
-  // interrupts the stale recap with it, Android queues it after — and the
-  // labeled replay control below lets the user re-hear the CURRENT run's
-  // sequence on demand whenever anything interrupted earlier speech.
+  // when the phase moves on cannot be revoked, and how utterances order
+  // on each platform is not established by RN's docs — no ordering or
+  // cancellation is claimed here. The honest mitigation: terminal and
+  // reset transitions speak a short status utterance (on iOS it typically
+  // supersedes the stale recap; elsewhere it follows platform behavior),
+  // and the labeled replay control below lets the user re-hear the
+  // CURRENT run's sequence on demand whenever anything interrupted
+  // earlier speech.
   const announcedPhaseRef = useRef(pulse.phase)
   useEffect(() => {
     if (pulse.phase === announcedPhaseRef.current) {
@@ -131,6 +137,31 @@ export function PatternPulseBoard({ projected, game }: NativeGameViewProps) {
       void AccessibilityInfo.announceForAccessibility('Game reset.')
     }
   }, [pulse.phase, pulse.outcome, game])
+
+  // Round outcomes are model-driven too: the projection's feedback field
+  // transitions exactly once per accepted round ('correct') or rejected
+  // tap ('wrong'), and beginPlayback() nulls it when playback resumes —
+  // null never speaks, so each cue is announced exactly once even though
+  // the clearing follows within feedbackMs. A terminal mistake emits
+  // feedback='wrong' together with phase='ended' in ONE state change:
+  // there is no watch-again after a finished run, so that combination
+  // speaks only the run-end announcement above.
+  const announcedFeedbackRef = useRef(pulse.feedback)
+  useEffect(() => {
+    if (pulse.feedback === announcedFeedbackRef.current) {
+      return
+    }
+    announcedFeedbackRef.current = pulse.feedback
+    if (pulse.feedback === 'correct') {
+      void AccessibilityInfo.announceForAccessibility(
+        'Correct — pattern complete.'
+      )
+    } else if (pulse.feedback === 'wrong' && pulse.phase !== 'ended') {
+      void AccessibilityInfo.announceForAccessibility(
+        'Wrong — watch the pattern again.'
+      )
+    }
+  }, [pulse.feedback, pulse.phase])
 
   // Interruption recovery: the user can always re-hear the CURRENT run's
   // complete ordered sequence — but only while the input phase is valid,

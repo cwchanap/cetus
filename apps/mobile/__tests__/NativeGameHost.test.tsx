@@ -2,7 +2,8 @@ import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
 import { Platform, Pressable, Text } from 'react-native'
 import { GameID } from '@cetus/shared/games'
-import type { ScoreData } from '@cetus/shared/scores'
+import type { ScoreData, ScoreSubmissionResult } from '@cetus/shared/scores'
+import { AchievementRarity } from '@cetus/shared/achievements'
 import { BaseGame, type BaseGameConfig, type BaseGameState } from '@cetus/games'
 
 jest.mock('../src/lib/api', () => mockApiModule)
@@ -408,6 +409,140 @@ describe('NativeGameHost — reward banner', () => {
     expect(renderedText(tree)).not.toContain('Achievement unlocked')
     expect(renderedText(tree)).not.toContain('Challenge complete')
   })
+
+  test("a new run clears the previous run's banner before delivering its own rewards", async () => {
+    // Run 1's committed save carries one achievement AND one challenge.
+    submitScore.mockResolvedValue({
+      success: true,
+      newAchievements: [
+        {
+          id: 'ach-1',
+          name: 'Deep Thinker',
+          description: 'd',
+          icon: '🧠',
+          rarity: AchievementRarity.RARE,
+        },
+      ],
+      challengeUpdates: {
+        completedChallenges: [
+          {
+            id: 'ch-1',
+            name: 'Daily drill',
+            description: 'd',
+            icon: '🎯',
+            xpReward: 10,
+          },
+        ],
+        xpEarned: 10,
+        levelUp: false,
+      },
+    })
+    const tree = await render(<NativeGameHost gameId={GameID.QUICK_MATH} />)
+
+    await press(tree, 'Start game')
+    await act(async () => {
+      await createdGames[0].end()
+    })
+    await drain()
+    expect(renderedText(tree)).toContain('Deep Thinker')
+    expect(renderedText(tree)).toContain('Daily drill')
+
+    // Replay: the new run's start clears run 1's already-delivered banner.
+    await press(tree, 'Play again')
+    expect(renderedText(tree)).not.toContain('Deep Thinker')
+    expect(renderedText(tree)).not.toContain('Daily drill')
+
+    // Run 2's committed save carries an achievement only: the old
+    // challenge must not be resurrected or merged into the new run's
+    // banner.
+    submitScore.mockResolvedValue({
+      success: true,
+      newAchievements: [
+        {
+          id: 'ach-2',
+          name: 'Comeback Kid',
+          description: 'd',
+          icon: '⚡',
+          rarity: AchievementRarity.COMMON,
+        },
+      ],
+    })
+    await act(async () => {
+      await createdGames[0].end()
+    })
+    await drain()
+    const rendered = renderedText(tree)
+    expect(rendered).toContain('Comeback Kid')
+    expect(rendered).not.toContain('Daily drill')
+    expect(rendered.match(/Comeback Kid/g)).toHaveLength(1)
+    // Stop the live timer so no tick lands after the test ends.
+    await act(async () => {
+      createdGames[0].pause()
+    })
+  })
+
+  test('a late same-account save after replay still delivers its rewards exactly once', async () => {
+    let releaseSave: ((value: ScoreSubmissionResult) => void) | undefined
+    submitScore.mockImplementation(
+      () =>
+        new Promise<ScoreSubmissionResult>(resolve => {
+          releaseSave = resolve
+        })
+    )
+    const tree = await render(<NativeGameHost gameId={GameID.QUICK_MATH} />)
+
+    await press(tree, 'Start game')
+    // Run 1 ends while its save is still in flight.
+    await act(async () => {
+      void createdGames[0].end()
+    })
+    await drain()
+
+    // Quick replay before the save settles: the run-1 banner is cleared
+    // by the new run's start — nothing stale shows mid-flight.
+    await press(tree, 'Play again')
+    expect(renderedText(tree)).not.toContain('Achievement unlocked')
+    expect(renderedText(tree)).not.toContain('Challenge complete')
+
+    // The slow save resolves AFTER run 2 started. Its committed rewards
+    // still deliver — exactly once — through the same forwarder.
+    await act(async () => {
+      releaseSave?.({
+        success: true,
+        newAchievements: [
+          {
+            id: 'ach-1',
+            name: 'Deep Thinker',
+            description: 'd',
+            icon: '🧠',
+            rarity: AchievementRarity.RARE,
+          },
+        ],
+        challengeUpdates: {
+          completedChallenges: [
+            {
+              id: 'ch-1',
+              name: 'Daily drill',
+              description: 'd',
+              icon: '🎯',
+              xpReward: 10,
+            },
+          ],
+          xpEarned: 10,
+          levelUp: false,
+        },
+      })
+    })
+    await drain()
+    const rendered = renderedText(tree)
+    expect(rendered.match(/Deep Thinker/g)).toHaveLength(1)
+    expect(rendered.match(/Daily drill/g)).toHaveLength(1)
+
+    // Stop run 2's live timer so no tick lands after the test ends.
+    await act(async () => {
+      createdGames[0].pause()
+    })
+  })
 })
 
 describe('NativeGameHost — cleanup order', () => {
@@ -712,6 +847,88 @@ describe('NativeGameHost — identity-bound score submitter', () => {
     expect(mockCleanupOrder).toEqual(['forwarder-removed', 'session-disposed'])
     expect(destroySpy).toHaveBeenCalledTimes(1)
     expect(firstGame.getTimerStatus().isRunning).toBe(false)
+    await act(async () => {
+      tree.unmount()
+    })
+  })
+
+  test('an unkeyed identity rebind exposes no old game, board or banner while the new binding is pending', async () => {
+    submitScore.mockResolvedValue({ success: true })
+    type SubmitterFn = (data: ScoreData) => Promise<{ success: boolean }>
+    const resolvers: Array<(value: SubmitterFn) => void> = []
+    mockCreateScoreSubmitter.mockImplementation(
+      () =>
+        new Promise<SubmitterFn>(resolve => {
+          resolvers.push(resolve)
+        })
+    )
+    const tree = await render(
+      <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
+    )
+    await act(async () => {
+      resolvers[0]?.(async (data: ScoreData) => api.submitScore(data))
+    })
+    await drain()
+
+    // Run 1 leaves a delivered banner and a live interactive board.
+    await press(tree, 'Start game')
+    await act(async () => {
+      createdGames[0].emit('end', {
+        score: 10,
+        stats: { finalScore: 10, timeElapsed: 1, gameCompleted: true },
+        runId: createdGames[0].getRunId(),
+        save: { success: true },
+        newAchievements: [
+          {
+            id: 'ach-1',
+            name: 'Deep Thinker',
+            description: 'd',
+            icon: '🧠',
+            rarity: 'rare',
+          },
+        ],
+      })
+    })
+    await drain()
+    expect(renderedText(tree)).toContain('Deep Thinker')
+
+    const firstGame = createdGames[0]
+    const destroySpy = jest.spyOn(firstGame, 'destroy')
+
+    // An unkeyed caller can swap the settled identity without a remount
+    // (production remounts via a keyed route). While the NEXT binding is
+    // in flight, the destroyed game's UI must not linger: no old board,
+    // no old banner, no enabled controls — only the truthful loading
+    // state, exactly like a first mount before its binding settles.
+    await act(async () => {
+      tree.update(
+        <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-b" />
+      )
+    })
+
+    expect(mockCleanupOrder).toEqual(['forwarder-removed', 'session-disposed'])
+    expect(destroySpy).toHaveBeenCalledTimes(1)
+    expect(firstGame.getTimerStatus().isRunning).toBe(false)
+    expect(renderedText(tree)).not.toContain('Deep Thinker')
+    expect(tree.root.findAllByProps({ testID: 'native-board' })).toHaveLength(0)
+    expect(
+      tree.root.findAllByProps({ accessibilityLabel: 'Start game' })
+    ).toHaveLength(0)
+    expect(
+      tree.root.findAllByProps({ testID: 'host-binding' }).length
+    ).toBeGreaterThan(0)
+
+    // The live binding settles: exactly one fresh game, still no old banner.
+    await act(async () => {
+      resolvers[1]?.(async (data: ScoreData) => api.submitScore(data))
+    })
+    await drain()
+    expect(createdGames).toHaveLength(2)
+    expect(mockCreateScoreSubmitter).toHaveBeenLastCalledWith('user-b')
+    expect(renderedText(tree)).not.toContain('Deep Thinker')
+    expect(
+      tree.root.findByProps({ accessibilityLabel: 'Start game' })
+    ).toBeTruthy()
     await act(async () => {
       tree.unmount()
     })
