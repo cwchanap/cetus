@@ -362,8 +362,11 @@ describe('Chromatic Tide pilot — Stage-1 save contract', () => {
     })
     await drain()
 
-    expect(testText(tree, 'result-save-status')).toContain(
-      'may still have been saved'
+    // The exact message stays pinned: a fetch can reject BEFORE anything
+    // is sent (offline/DNS/refused), so the copy must not claim a drop
+    // "after sending" — it stays neutral and keeps the uncertainty.
+    expect(testText(tree, 'result-save-status')).toBe(
+      'Score not confirmed — the connection failed. It may still have been saved.'
     )
     expect(renderedText(tree)).not.toContain('Score saved')
     // No retry path: the single POST is all there ever was.

@@ -85,6 +85,15 @@ export function NativeGameHost({
       )
       setGame(createdGame)
       setSession(nextSession)
+      // A bare 'start' is the model's own new-run boundary: clear the
+      // previous run's already-delivered banner here so its rewards never
+      // merge into a newer run's delivery, while a stale same-account save
+      // that settles mid-run still delivers exactly once afterwards. The
+      // clearing is idempotent (BaseGame emits 'start' once per timer
+      // start plus once directly) and stays LOCAL to this host: the
+      // shared forwarder keeps its end-only contract.
+      const clearBannerOnRunStart = (): void => setRewardBanner(null)
+      createdGame.on('start', clearBannerOnRunStart)
       const removeForwarder = forwardBaseGameResults(createdGame, {
         // One banner merges both deliveries of a single end payload.
         onAchievements: achievements =>
@@ -95,9 +104,19 @@ export function NativeGameHost({
       teardown = () => {
         // Order matters: no new rewards, then session listeners, then
         // the game (its timer and listeners) last.
+        createdGame.off('start', clearBannerOnRunStart)
         removeForwarder()
         nextSession.dispose()
         createdGame.destroy()
+        // Dropping the state here keeps an unkeyed settled-identity swap
+        // honest while the next binding is in flight: no destroyed game's
+        // board, controls or banner can linger (production never hits this
+        // path — the play route remounts the host by identity key). On a
+        // real unmount these are plain no-ops; StrictMode's effect
+        // re-run just re-creates the binding.
+        setGame(null)
+        setSession(null)
+        setRewardBanner(null)
       }
     })()
     return () => {

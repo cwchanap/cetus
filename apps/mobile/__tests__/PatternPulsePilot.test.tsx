@@ -641,7 +641,9 @@ describe('Pattern Pulse board — screen-reader cues', () => {
   // announcements: announceForAccessibility interrupts on VoiceOver and
   // high-rate per-pad calls would trample each other. The recap is read
   // from the live model AT input entry — the model only enters input
-  // after full playback, so the recap can never be partial.
+  // after full playback, so the recap can never be partial. Round
+  // outcomes speak one model-driven feedback utterance each (correct /
+  // wrong), keyed off the projection's own feedback transitions.
   test('input entry announces one ordered recap; repeated pads stay distinguishable', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
     const game = createdGames[0]
@@ -671,6 +673,7 @@ describe('Pattern Pulse board — screen-reader cues', () => {
     expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
       'Watch the pattern',
       'Your turn — repeat the pattern: Pad 1, triangle.',
+      'Correct — pattern complete.',
       'Watch the pattern',
       'Your turn — repeat the pattern: Pad 1, triangle. Pad 1, triangle.',
     ])
@@ -686,19 +689,24 @@ describe('Pattern Pulse board — screen-reader cues', () => {
       padButton(tree, 'idle', 1).props.onPress()
     })
     await waitFor(game, state => state.phase === 'watch')
-    // The replay restarts with its playback cue — and NOTHING is spoken
-    // during the watch phase itself (no per-cue interruptions).
+    // The rejected tap speaks its own wrong cue once, then the replay
+    // restarts with its playback cue — and NOTHING is spoken during the
+    // watch phase itself (no per-cue interruptions). beginPlayback()
+    // nulling the feedback must not add a second wrong utterance.
     expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
       'Watch the pattern',
       'Your turn — repeat the pattern: Pad 1, triangle.',
+      'Wrong — watch the pattern again.',
       'Watch the pattern',
     ])
 
     await waitFor(game, state => state.phase === 'input')
-    // The same complete sequence recapped again for the replay.
+    // The same complete sequence recapped again for the replay; the
+    // wrong cue stays in the record exactly once.
     expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
       'Watch the pattern',
       'Your turn — repeat the pattern: Pad 1, triangle.',
+      'Wrong — watch the pattern again.',
       'Watch the pattern',
       'Your turn — repeat the pattern: Pad 1, triangle.',
     ])
@@ -713,8 +721,9 @@ describe('Pattern Pulse board — screen-reader cues', () => {
     // Reset mid-playback: input is never entered, so no recap — and no
     // partial-sequence speech — is ever queued. The reset itself IS
     // announced: the one truthful status update available to supersede
-    // any in-flight speech on iOS (interrupt-by-default) or follow it in
-    // order on Android (no cancel API exists to promise more).
+    // any in-flight speech on iOS (interrupt-by-default); Android
+    // ordering is platform-dependent (no cancel API exists to promise
+    // more).
     await press(tree, 'Reset game')
     expect(game.getState().phase).toBe('idle')
     expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
@@ -813,10 +822,36 @@ describe('Pattern Pulse board — sequence replay affordance', () => {
       'Watch the pattern',
       recap,
       'Current pattern: Pad 1, triangle. Pad 1, triangle. Pad 3, diamond.',
-      // Round completion queued its own watch cue + grown recap.
+      // Round completion queued its own correct cue + watch cue + grown
+      // recap.
+      'Correct — pattern complete.',
       'Watch the pattern',
       'Your turn — repeat the pattern: Pad 1, triangle. Pad 1, triangle. Pad 3, diamond. Pad 1, triangle.',
       'Current pattern: Pad 1, triangle. Pad 1, triangle. Pad 3, diamond. Pad 1, triangle.',
+    ])
+  })
+
+  test('a terminal wrong announces the run end, never a watch-again cue', async () => {
+    // mistakeLimit 1: the rejected tap is ALSO the last mistake. The
+    // model emits feedback='wrong' together with phase='ended' in ONE
+    // state change — the feedback cue must stay silent (there is no
+    // watch-again after a finished run) and the run-end announcement is
+    // the only new utterance.
+    pilotConfig = { rng: () => 0, initialSequenceLength: 1, mistakeLimit: 1 }
+    const tree = await render(<NativeGameHost gameId={GameID.PATTERN_PULSE} />)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    await waitFor(game, state => state.phase === 'input')
+    await act(async () => {
+      padButton(tree, 'idle', 1).props.onPress()
+    })
+    await waitFor(game, state => state.isGameOver)
+
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Watch the pattern',
+      'Your turn — repeat the pattern: Pad 1, triangle.',
+      'Run ended — signal lost.',
     ])
   })
 
@@ -856,8 +891,9 @@ describe('Pattern Pulse board — sequence replay affordance', () => {
     await waitFor(game, state => state.phase === 'input')
     await waitFor(game, state => state.isGameOver)
 
-    // The terminal announcement follows the stale recap (Android queue
-    // order; on iOS it interrupts it) — no cancellation is claimed.
+    // The terminal utterance is submitted after the stale recap; actual
+    // ordering is platform-dependent and unverified natively — no
+    // cancellation or ordering is claimed.
     expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
       'Watch the pattern',
       'Your turn — repeat the pattern: Pad 1, triangle.',
