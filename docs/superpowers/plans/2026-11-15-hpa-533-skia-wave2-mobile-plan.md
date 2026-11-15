@@ -10,7 +10,7 @@
 
 - [x] Confirm HPA-533 is Backlog and unblocked by completed HPA-179/HPA-393; HPA-535 and HPA-199 remain downstream.
 - [x] Confirm #105 is merged; `main` contains wave-1 host/registry/chrome and 8/23 playable games; no dedicated HPA-533 PR/branch existed before this planning branch.
-- [x] Inspect `apps/mobile/src/games/{NativeGameHost,NativeGameChrome,registry}.tsx`, the Expo route, portable engines, and web Snake loop. Verify that existing score/auth/reward contracts must be reused.
+- [x] Inspect `apps/mobile/src/games/{NativeGameHost.tsx,NativeGameChrome.tsx,registry.ts}`, the Expo route, portable engines, and web Snake loop. Verify that existing score/auth/reward contracts must be reused.
 - [x] Confirm there are no Linear-attached mockups for HPA-533. Use current web renders and shared mobile tokens for automated visual comparison.
 - [ ] Record `main` baseline gates: `bun install --frozen-lockfile`, `bun run lint`, `bun run format:check`, `bun run turbo run typecheck`, `bun run test:coverage`, `bun run build`, `bun run test:e2e`, `bun run --cwd apps/mobile test --runInBand`. Record failures as preexisting if reproducible; do not weaken checks.
 - [ ] Verify the available iOS simulator/dev-client build path and whether the fixed HTTPS API/auth origin supports authenticated device checks. Guest gameplay and deterministic score-response tests must **not** depend on provider setup.
@@ -51,7 +51,7 @@
 
 **Commit 4: 2048 (native views, deliberately no Skia).**
 
-- [ ] Add `[GameID.GAME_2048]` using the **actual** `GameID` enum member from `@cetus/shared/games` (verify exact spelling when implementing) and `Game2048` from `@cetus/games/2048/Game2048`. Do not add a second game catalog.
+- [ ] Add `[GameID.GAME_2048]` using the existing `GameID.GAME_2048` enum member from `@cetus/shared/games` and `Game2048` from `@cetus/games/2048/Game2048`. Do not add a second game catalog.
 - [ ] Build `boards/Game2048Board.tsx` from RN views (4×4 grid) and existing Reanimated for tile position/merge/spawn transitions. Swipe `move(direction)`, Undo `undo()`; respect `won`, `stuck` and model score. Use a `createStableProjector` for copied cells and a lightweight elapsed `projected.clock` so the HUD does not show the model's giant countdown duration. Keep model tile ID identity for animation; never reproduce merge logic.
 - [ ] Jest: swipes/undo, rapid gesture rejection or serialization while animating, win/stuck presentation, save/replay, tile snapshot stability across clock ticks.
 
