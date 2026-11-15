@@ -1,6 +1,14 @@
 /// <reference types="node" />
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import {
+    existsSync,
+    mkdtempSync,
+    readFileSync,
+    realpathSync,
+    statSync,
+    writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 
 const mobileRoot = resolve(__dirname, '..')
@@ -24,7 +32,8 @@ const ts = jest.requireActual('typescript') as typeof import('typescript')
 type TsNode = import('typescript').Node
 type TsExpression = import('typescript').Expression
 
-const FORBIDDEN_EXTERNAL = /^(react-dom|react-native-web|pixi\.js|@\/)(\/|$)/
+const FORBIDDEN_EXTERNAL =
+    /^(react-dom|react-native-web|pixi\.js|canvaskit-wasm|@\/)(\/|$)/
 
 const extractRuntimeEdges = (
     file: string,
@@ -225,6 +234,36 @@ describe('the native game routing graph stays portable', () => {
             false
         )
     })
+
+    test('lets Skia ports import Skia but rejects its DOM backends', () => {
+        // Probe file standing in for a new Skia port: the Skia package is an
+        // allowed external (it is a mobile dependency), but canvaskit-wasm —
+        // Skia's DOM/WebAssembly web backend — and Pixi must never be
+        // imported by native graph code.
+        const probeDir = mkdtempSync(join(tmpdir(), 'skia-port-probe-'))
+        const probeFile = join(probeDir, 'probe.ts')
+        writeFileSync(
+            probeFile,
+            [
+                "import { Canvas } from '@shopify/react-native-skia'",
+                "import 'canvaskit-wasm'",
+                "import * as PIXI from 'pixi.js'",
+                '',
+            ].join('\n')
+        )
+        const probeGraph = collectNativeDependencyGraph([probeFile])
+        expect(probeGraph.unresolved).toEqual([])
+        expect(probeGraph.externals.has('@shopify/react-native-skia')).toBe(
+            true
+        )
+        expect(
+            ALLOWED_EXTERNAL_PACKAGES.has('@shopify/react-native-skia')
+        ).toBe(true)
+        expect(probeGraph.forbidden.map(edge => edge.specifier)).toEqual([
+            'canvaskit-wasm',
+            'pixi.js',
+        ])
+    })
 })
 
 // --- Metro resolution of the native-only package imports ---------------------
@@ -388,6 +427,10 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
     ['@cetus/app-core', /packages\/app-core\/src\/index\.ts$/],
     ['@cetus/shared/games', /packages\/shared\/src\/games\.ts$/],
     ['@cetus/ui', /packages\/ui\/src\/index\.native\.ts$/],
+    [
+        '@shopify/react-native-skia',
+        /node_modules\/@shopify\/react-native-skia\/src\/index\.ts$/,
+    ],
 ]
 
 describe('Metro resolves the native game imports on device platforms', () => {
