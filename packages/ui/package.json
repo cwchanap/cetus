@@ -37,13 +37,13 @@
         "@cetus/config": "workspace:*",
         "@testing-library/jest-dom": "^6.6.3",
         "@testing-library/react": "^16.3.3",
-        "@types/react": "~19.2.0",
-        "@types/react-dom": "~19.2.0",
-        "react": "19.2.3",
-        "react-dom": "19.2.3",
-        "react-native": "0.86.3",
+        "@types/react": "~19.3.0",
+        "@types/react-dom": "~19.3.0",
+        "react": "19.3.1",
+        "react-dom": "19.3.1",
+        "react-native": "0.88.1",
         "react-native-css": "3.1.0-rc.0",
-        "react-native-safe-area-context": "~5.7.0",
+        "react-native-safe-area-context": "~5.11.1",
         "typescript": "^6.0.3"
     }
 }
