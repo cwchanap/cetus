@@ -211,6 +211,22 @@ const findValidPlacement = (
   return undefined
 }
 
+/** First digit 1–9 with a legal empty cell, and that cell: a generated
+ *  puzzle can keep all nine clues of one digit (createPuzzle only
+ *  guarantees a unique solution), so tests must pick the digit from THIS
+ *  puzzle rather than hard-code one. */
+const findAnyValidPlacement = (
+  game: SudokuGame
+): { num: number; pos: CellPos } | undefined => {
+  for (let num = 1; num <= 9; num++) {
+    const pos = findValidPlacement(game, num)
+    if (pos) {
+      return { num, pos }
+    }
+  }
+  return undefined
+}
+
 /** First empty cell and a value that already sits in its row (a
  *  guaranteed conflict). */
 const findConflictPlacement = (
@@ -398,12 +414,12 @@ describe('Sudoku board — input', () => {
     const placeNumber = jest.spyOn(game, 'placeNumber')
 
     await press(tree, 'Start game')
-    const num = 1
-    const pos = findValidPlacement(game, num)
-    expect(pos).toBeDefined()
-    if (!pos) {
+    const placement = findAnyValidPlacement(game)
+    expect(placement).toBeDefined()
+    if (!placement) {
       return
     }
+    const { num, pos } = placement
     await pressCell(tree, 'plain', pos)
     await press(tree, `Place ${num}`)
     expect(placeNumber).toHaveBeenCalledWith(num)
@@ -452,11 +468,11 @@ describe('Sudoku board — input', () => {
     const clearSelectedCell = jest.spyOn(game, 'clearSelectedCell')
 
     await press(tree, 'Start game')
-    const num = 2
-    const pos = findValidPlacement(game, num)
-    if (!pos) {
-      throw new Error('no valid placement for 2')
+    const placement = findAnyValidPlacement(game)
+    if (!placement) {
+      throw new Error('no valid placement for any digit')
     }
+    const { num, pos } = placement
     await pressCell(tree, 'plain', pos)
     await press(tree, `Place ${num}`)
     expect(cellLabel(tree, 'plain', pos)).toBe(fullCellLabel(pos, String(num)))

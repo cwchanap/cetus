@@ -1,6 +1,6 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { Text } from 'react-native'
+import { AccessibilityInfo, Text } from 'react-native'
 import { GameID } from '@cetus/shared/games'
 import type { ScoreSubmissionResult } from '@cetus/shared/scores'
 import {
@@ -20,6 +20,10 @@ jest.mock('expo-router', () => ({
     canGoBack: jest.fn(),
   }),
 }))
+
+const mockAnnounce = jest
+  .spyOn(AccessibilityInfo, 'announceForAccessibility')
+  .mockImplementation(() => undefined)
 
 import * as mockApiModule from '../src/test/mockApiModule'
 import { api } from '../src/lib/api'
@@ -172,6 +176,7 @@ beforeEach(() => {
   submitScore.mockResolvedValue({ success: true })
   createdGames.length = 0
   mockPush.mockReset()
+  mockAnnounce.mockClear()
 })
 
 afterEach(async () => {
@@ -230,6 +235,32 @@ describe('Chromatic Tide pilot — board', () => {
       expect(row.props.accessibilityElementsHidden).toBe(true)
       expect(row.props.importantForAccessibility).toBe('no-hide-descendants')
     }
+    // The summary container is the TalkBack live region too (web parity:
+    // the board speaks its summary through a polite aria-live).
+    expect(board.props.accessibilityLiveRegion).toBe('polite')
+  })
+
+  test('each move speaks the board summary once — the web live-region parity', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.CHROMATIC_TIDE} />)
+
+    // Mount and the idle/start transitions never speak: the same text is
+    // already the focused board's accessibility label.
+    expect(mockAnnounce).not.toHaveBeenCalled()
+    await press(tree, 'Start game')
+    expect(mockAnnounce).not.toHaveBeenCalled()
+
+    // One utterance per move — the same summary the web aria-live
+    // region announces on every state change.
+    await press(tree, 'Choose magenta')
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Chromatic Tide board: 143 of 144 cells captured, territory magenta, 1 moves used',
+    ])
+
+    await press(tree, 'Choose amber')
+    expect(mockAnnounce.mock.calls.map(([m]) => m)).toEqual([
+      'Chromatic Tide board: 143 of 144 cells captured, territory magenta, 1 moves used',
+      'Chromatic Tide board: 144 of 144 cells captured, territory amber, 2 moves used',
+    ])
   })
 
   test('palette labels use an explicit dark foreground on the bright tide fills', async () => {

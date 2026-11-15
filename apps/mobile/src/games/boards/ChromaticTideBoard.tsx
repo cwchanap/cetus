@@ -1,4 +1,5 @@
-import { ScrollView, Text, View } from 'react-native'
+import { useEffect, useRef } from 'react'
+import { AccessibilityInfo, ScrollView, Text, View } from 'react-native'
 import { Button, cn } from '@cetus/ui'
 import {
   CHROMATIC_TIDE_PALETTE,
@@ -53,6 +54,23 @@ interface TideProjection {
 export function ChromaticTideBoard({ projected, game }: NativeGameViewProps) {
   const tide = projected as unknown as TideProjection
 
+  const boardSummary = `Chromatic Tide board: ${tide.capturedCells} of ${TOTAL_CELLS} cells captured, territory ${tide.territoryColor}, ${tide.movesUsed} moves used`
+
+  // The web board speaks this summary through a polite aria-live region
+  // on every state change. An accessibilityLabel here is only re-read on
+  // focus, so each transition announces once — one utterance per move,
+  // same cadence as web. The mount value never speaks: focusing the
+  // board reads the same label. TalkBack additionally gets the container
+  // marked polite-live below.
+  const announcedSummaryRef = useRef(boardSummary)
+  useEffect(() => {
+    if (boardSummary === announcedSummaryRef.current) {
+      return
+    }
+    announcedSummaryRef.current = boardSummary
+    void AccessibilityInfo.announceForAccessibility(boardSummary)
+  }, [boardSummary])
+
   return (
     <ScrollView
       className="flex-1"
@@ -86,7 +104,8 @@ export function ChromaticTideBoard({ projected, game }: NativeGameViewProps) {
       <View
         className="aspect-square w-full gap-px"
         accessible
-        accessibilityLabel={`Chromatic Tide board: ${tide.capturedCells} of ${TOTAL_CELLS} cells captured, territory ${tide.territoryColor}, ${tide.movesUsed} moves used`}
+        accessibilityLiveRegion="polite"
+        accessibilityLabel={boardSummary}
       >
         {tide.cells.map((row, rowIndex) => (
           <View
