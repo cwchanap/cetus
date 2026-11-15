@@ -27,6 +27,7 @@ import * as mockApiModule from '../src/test/mockApiModule'
 import { api } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import { NATIVE_GAMES, type NativeGamePort } from '../src/games/registry'
+import { BOARD_CELL_MIN } from '../src/games/boards/MineGridBoard'
 const submitScore = jest.mocked(api.submitScore)
 
 const createdGames: MineGridGame[] = []
@@ -290,20 +291,49 @@ describe('Mine Grid board — render', () => {
     ).toBeTruthy()
   })
 
-  test('board fits viewport width without horizontal scrolling', async () => {
+  test('the board floor is cols × 44pt; narrower viewports pan horizontally instead of shrinking cells', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.MINE_GRID} />)
 
-    expect(
-      tree.root.findAll(
-        node =>
-          typeof node.type === 'string' &&
-          node.props.testID === 'mg-board-scroller'
-      )
-    ).toHaveLength(0)
+    const scroller = hostView(tree, 'mg-board-scroller')
+    expect(scroller.props.horizontal).toBe(true)
 
-    const board = hostView(tree, 'mg-board')
-    expect(String(board.props.className)).toContain('w-full')
-    expect(StyleSheet.flatten(board.props.style)?.minWidth).toBeUndefined()
+    // flexGrow container + flex:1 board: fills the viewport when the
+    // min-width fits, scrolls when it doesn't (easy stays full-width on
+    // phones wide enough for 8×44pt + gaps).
+    const boardMinWidth = (cols: number) => cols * BOARD_CELL_MIN + (cols - 1)
+    const boardStyle = () =>
+      StyleSheet.flatten(hostView(tree, 'mg-board').props.style)
+    expect(boardStyle()?.flex).toBe(1)
+    // Default medium 10×10.
+    expect(boardStyle()?.minWidth).toBe(boardMinWidth(10))
+    expect((boardMinWidth(10) - 9) / 10).toBeGreaterThanOrEqual(44)
+
+    // Hard 12×12 widens the floor; easy 8×8 narrows it.
+    await act(async () => {
+      tree.root.findByProps({ accessibilityRole: 'combobox' }).props.onPress()
+    })
+    await act(async () => {
+      tree.root
+        .findByProps({
+          accessibilityRole: 'menuitem',
+          accessibilityLabel: 'Hard 12×12',
+        })
+        .props.onPress()
+    })
+    expect(boardStyle()?.minWidth).toBe(boardMinWidth(12))
+
+    await act(async () => {
+      tree.root.findByProps({ accessibilityRole: 'combobox' }).props.onPress()
+    })
+    await act(async () => {
+      tree.root
+        .findByProps({
+          accessibilityRole: 'menuitem',
+          accessibilityLabel: 'Easy 8×8',
+        })
+        .props.onPress()
+    })
+    expect(boardStyle()?.minWidth).toBe(boardMinWidth(8))
   })
 })
 
