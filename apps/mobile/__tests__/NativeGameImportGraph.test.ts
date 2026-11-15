@@ -33,7 +33,7 @@ type TsNode = import('typescript').Node
 type TsExpression = import('typescript').Expression
 
 const FORBIDDEN_EXTERNAL =
-    /^(react-dom|react-native-web|pixi\.js|canvaskit-wasm|@\/)(\/|$)/
+    /^(react-dom|react-native-web|pixi\.js|canvaskit-wasm|@\/)(\/|$)|^@shopify\/react-native-skia\/(.+\/)?web(\/|$)|^@shopify\/react-native-skia\/.+\.web(\.|$)/
 
 const extractRuntimeEdges = (
     file: string,
@@ -236,16 +236,15 @@ describe('the native game routing graph stays portable', () => {
     })
 
     test('lets Skia ports import Skia but rejects its DOM backends', () => {
-        // Probe file standing in for a new Skia port: the Skia package is an
-        // allowed external (it is a mobile dependency), but canvaskit-wasm —
-        // Skia's DOM/WebAssembly web backend — and Pixi must never be
-        // imported by native graph code.
         const probeDir = mkdtempSync(join(tmpdir(), 'skia-port-probe-'))
         const probeFile = join(probeDir, 'probe.ts')
         writeFileSync(
             probeFile,
             [
                 "import { Canvas } from '@shopify/react-native-skia'",
+                "import '@shopify/react-native-skia/src/web/LoadSkiaWeb'",
+                "import '@shopify/react-native-skia/lib/module/web'",
+                "import '@shopify/react-native-skia/src/skia/Skia.web'",
                 "import 'canvaskit-wasm'",
                 "import * as PIXI from 'pixi.js'",
                 '',
@@ -260,6 +259,9 @@ describe('the native game routing graph stays portable', () => {
             ALLOWED_EXTERNAL_PACKAGES.has('@shopify/react-native-skia')
         ).toBe(true)
         expect(probeGraph.forbidden.map(edge => edge.specifier)).toEqual([
+            '@shopify/react-native-skia/src/web/LoadSkiaWeb',
+            '@shopify/react-native-skia/lib/module/web',
+            '@shopify/react-native-skia/src/skia/Skia.web',
             'canvaskit-wasm',
             'pixi.js',
         ])
