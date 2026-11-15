@@ -338,7 +338,9 @@ describe('identity-bound score submission — the real fetch boundary', () => {
       <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
     )
 
-    expect(getSessions()).toHaveLength(3)
+    // 3 startup attempts + the save's one bounded recovery retry (the
+    // get-session queue is empty by then, so it fails closed again).
+    expect(getSessions()).toHaveLength(4)
     // Fail closed: an unverifiable binding sends NO score POST at all.
     expect(submits()).toHaveLength(0)
     // Truthful outcome: the account may be perfectly valid, so this is
@@ -415,7 +417,9 @@ describe('identity-bound score submission — the real fetch boundary', () => {
       <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
     )
 
-    expect(getSessions()).toHaveLength(3)
+    // 3 startup attempts + the save's one bounded recovery retry, which
+    // hits the same dead transport.
+    expect(getSessions()).toHaveLength(4)
     // Fail closed: a transport-failed binding sends NO score POST at all.
     expect(submits()).toHaveLength(0)
     // Truthful outcome: an unreachable get-session never means signed out.
@@ -425,6 +429,84 @@ describe('identity-bound score submission — the real fetch boundary', () => {
     expect(renderedText(tree)).not.toContain('you are signed out')
     expect(renderedText(tree)).not.toContain('Sign in to save')
     expect(renderedText(tree)).not.toContain('Score saved')
+    await stopTree(tree)
+  })
+
+  test('a transient startup verification failure recovers on save and stays pinned for replay', async () => {
+    // Offline at mount: all bounded bind attempts hit the dead transport.
+    getCookie.mockResolvedValue('better-auth.session_token=token-a')
+    failSessionFetch = true
+
+    const tree = await render(
+      <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
+    )
+    expect(getSessions()).toHaveLength(3)
+
+    // Connectivity returns mid-run: the save retries ONE verification at
+    // the real get-session boundary against the same settled identity,
+    // then pins the recovered client for the host's remaining lifetime.
+    failSessionFetch = false
+    sessionBodies = [sessionUser('user-a')]
+    await press(tree, 'Start game')
+    await act(async () => {
+      await createdGames[createdGames.length - 1].end()
+    })
+    await drain()
+
+    expect(getSessions()).toHaveLength(4)
+    const save = submits()
+    expect(save).toHaveLength(1)
+    expect(headersOf(save[0]).Cookie).toBe('better-auth.session_token=token-a')
+    expect(renderedText(tree)).toContain('Score saved')
+
+    // Replay: the recovered pin is the host's lifetime binding — the
+    // next save reuses it verbatim with no second recovery.
+    await press(tree, 'Play again')
+    await act(async () => {
+      await createdGames[createdGames.length - 1].end()
+    })
+    await drain()
+
+    expect(getSessions()).toHaveLength(4)
+    expect(submits()).toHaveLength(2)
+    expect(headersOf(submits()[1]).Cookie).toBe(
+      'better-auth.session_token=token-a'
+    )
+    await stopTree(tree)
+  })
+
+  test('a recovered binding still refuses a cookie owned by another account', async () => {
+    // Startup fails offline; by save time the store holds B's cookie —
+    // the recovery retry must clear the same expectedUserId gate, so
+    // user-b's credential can never bind user-a's host.
+    getCookie.mockResolvedValue('better-auth.session_token=token-b')
+    failSessionFetch = true
+
+    const tree = await render(
+      <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
+    )
+    expect(getSessions()).toHaveLength(3)
+
+    failSessionFetch = false
+    sessionBodies = [sessionUser('user-b')]
+    await press(tree, 'Start game')
+    await act(async () => {
+      await createdGames[createdGames.length - 1].end()
+    })
+    await drain()
+
+    // One bounded retry, still refused: no score POST may carry a
+    // credential the same-identity check did not clear.
+    expect(getSessions()).toHaveLength(4)
+    expect(headersOf(getSessions()[3]).Cookie).toBe(
+      'better-auth.session_token=token-b'
+    )
+    expect(submits()).toHaveLength(0)
+    expect(renderedText(tree)).toContain(
+      'Score not saved — the account context needed to save was unavailable.'
+    )
+    expect(renderedText(tree)).not.toContain('you are signed out')
+    expect(renderedText(tree)).not.toContain('Sign in to save')
     await stopTree(tree)
   })
 })

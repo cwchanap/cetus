@@ -304,7 +304,16 @@ describe('Memory Matrix pilot — board', () => {
 
     await press(tree, 'Start game')
     await pressCard(tree, a)
-    await pressCard(tree, b)
+    const secondCard = tree.root.findByProps({
+      testID: `mm-card-down-r${b.row}c${b.col}`,
+    })
+    // Sync act: the second flip arms the model's flip-delay timer inside
+    // the same synchronous window as the transient-state reads below, so
+    // the timer cannot fire mid-assertion the way an awaited act could
+    // let it under load.
+    act(() => {
+      secondCard.props.onPress()
+    })
     expect(cardsInState(tree, 'up')).toBe(2)
     expect(testText(tree, 'mm-matched')).toBe('Matched 0 / 24')
 
@@ -352,10 +361,11 @@ describe('Memory Matrix pilot — board', () => {
     const thirdCard = tree.root.findByProps({
       testID: `mm-card-down-r${third.row}c${third.col}`,
     })
-    // Same macrotask: the flip-delay timer scheduled by the second press
-    // cannot fire between the two calls, so the processing window is
-    // guaranteed still open for the rapid third tap.
-    await act(async () => {
+    // Same synchronous window: the flip-delay timer scheduled by the
+    // second press cannot fire before these reads, so the processing
+    // window is guaranteed still open for the rapid third tap AND for
+    // the pending-pair assertions after it.
+    act(() => {
       secondCard.props.onPress()
       thirdCard.props.onPress()
     })

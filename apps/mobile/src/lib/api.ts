@@ -100,6 +100,18 @@ async function cookieBelongsTo(
     }
 }
 
+// The pinned transport every bound host submits through: the verified
+// snapshot cookie (or none, for guests) goes out verbatim on every save.
+const pinnedClientFor = (boundCookie: string | null) =>
+    createApiClient({
+        baseUrl: apiBaseUrl,
+        getHeaders: () => ({
+            Origin: apiOrigin,
+            ...(boundCookie ? { Cookie: boundCookie } : {}),
+        }),
+        fetchImpl: omitCredentialsFetch,
+    })
+
 /**
  * ONE identity-bound score submitter per mounted game host (HPA-425
  * final review). The play route keeps an old host mounted while the auth
@@ -139,26 +151,43 @@ export async function createScoreSubmitter(
         }
     }
     // Fail closed for an unverifiable ACCOUNT binding (identity mismatch,
-    // transport failure, no cookie): no score POST is sent at all. The
-    // account itself may be perfectly valid — the host just could not
-    // confirm it — so the result carries SCORE_CONTEXT_UNAVAILABLE, never
-    // UNAUTHENTICATED (that would lie "you are signed out" and prompt a
-    // bogus sign-in). Guest hosts keep the real POST: their cookieless
-    // 401 IS the truthful outcome.
+    // transport failure, no cookie): while verification fails no score
+    // POST is sent at all. The account itself may be perfectly valid —
+    // the host just could not confirm it — so the result carries
+    // SCORE_CONTEXT_UNAVAILABLE, never UNAUTHENTICATED (that would lie
+    // "you are signed out" and prompt a bogus sign-in). The failure is
+    // not terminal: a mounted host can outlive a transient startup
+    // failure, so each save retries ONE bounded verification against the
+    // same expectedUserId and pins the recovered client for the host's
+    // remaining lifetime — the identical gate as the startup bind, so a
+    // cookie that flipped accounts still cannot attach. Guest hosts keep
+    // the real POST: their cookieless 401 IS the truthful outcome.
     if (expectedUserId !== null && cookie === null) {
-        return async () => ({
-            success: false,
-            error: 'Account verification unavailable',
-            code: 'SCORE_CONTEXT_UNAVAILABLE',
-        })
+        let recoveredClient: ReturnType<typeof pinnedClientFor> | null = null
+        return async data => {
+            if (recoveredClient === null) {
+                let candidate: string | null
+                try {
+                    const stored = await authClient.getCookie()
+                    candidate = stored && stored.length > 0 ? stored : null
+                } catch {
+                    candidate = null
+                }
+                if (
+                    candidate === null ||
+                    !(await cookieBelongsTo(candidate, expectedUserId))
+                ) {
+                    return {
+                        success: false,
+                        error: 'Account verification unavailable',
+                        code: 'SCORE_CONTEXT_UNAVAILABLE',
+                    }
+                }
+                recoveredClient = pinnedClientFor(candidate)
+            }
+            return recoveredClient.submitScore(data)
+        }
     }
-    const pinnedClient = createApiClient({
-        baseUrl: apiBaseUrl,
-        getHeaders: () => ({
-            Origin: apiOrigin,
-            ...(cookie ? { Cookie: cookie } : {}),
-        }),
-        fetchImpl: omitCredentialsFetch,
-    })
+    const pinnedClient = pinnedClientFor(cookie)
     return data => pinnedClient.submitScore(data)
 }
