@@ -17,8 +17,10 @@ const RETURN_TO_ALLOWED = [
   '/',
 ] as const
 
-function isAllowedReturnTo(value: string | undefined): value is string {
-  if (!value) {
+function isAllowedReturnTo(
+  value: string | string[] | undefined
+): value is string {
+  if (typeof value !== 'string' || !value) {
     return false
   }
   if (RETURN_TO_ALLOWED.includes(value as (typeof RETURN_TO_ALLOWED)[number])) {
@@ -32,7 +34,9 @@ function isAllowedReturnTo(value: string | undefined): value is string {
 // browser and returns via the cetus:// deep link; no native provider SDKs.
 export default function SignInScreen() {
   const router = useRouter()
-  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>()
+  const { returnTo } = useLocalSearchParams<{
+    returnTo?: string | string[]
+  }>()
   const destination = isAllowedReturnTo(returnTo) ? returnTo : '/(tabs)/profile'
   const [pending, setPending] = useState<Provider | null>(null)
   const [error, setError] = useState<string | null>(null)
