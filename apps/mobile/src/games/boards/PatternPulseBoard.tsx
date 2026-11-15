@@ -186,7 +186,6 @@ export function PatternPulseBoard({ projected, game }: NativeGameViewProps) {
     >
       <Text
         testID="pp-status"
-        accessibilityLiveRegion="polite"
         className="text-center font-display text-base text-cetus-accent"
       >
         {statusText(pulse)}

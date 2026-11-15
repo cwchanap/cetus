@@ -10,8 +10,14 @@ const mockReplace = jest.fn()
 const mockCanGoBack = jest.fn()
 const mockParams: { gameId?: string | string[] } = {}
 
+const mockScreenOptions = jest.fn()
 jest.mock('expo-router', () => ({
-  Stack: { Screen: () => null },
+  Stack: {
+    Screen: (props: { options?: Record<string, unknown> }) => {
+      mockScreenOptions(props.options)
+      return null
+    },
+  },
   useRouter: () => ({
     push: mockPush,
     replace: mockReplace,
@@ -198,6 +204,7 @@ const guest = { data: null, isPending: false, refetch: mockSessionRefetch }
 beforeEach(() => {
   mockPush.mockClear()
   mockReplace.mockClear()
+  mockScreenOptions.mockClear()
   mockCanGoBack.mockReset().mockReturnValue(true)
   mockParams.gameId = 'quick_math'
   createdGames.length = 0
@@ -252,6 +259,7 @@ describe('play route — first-read gate', () => {
     }
     expect(createdGames).toHaveLength(0)
     expect(renderedText(tree)).toContain('Resolving session')
+    expect(mockScreenOptions).toHaveBeenCalledWith({ title: 'Quick Math' })
 
     Object.assign(mockSession, guest)
     await rerender(tree, <GamePlayScreen />)

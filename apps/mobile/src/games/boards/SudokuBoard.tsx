@@ -75,17 +75,11 @@ export function SudokuBoard({ projected, game }: NativeGameViewProps) {
         </Text>
       </View>
 
-      <ScrollView
-        horizontal
-        testID="sudoku-board-scroller"
-        contentContainerStyle={{ flexGrow: 1 }}
-      >
-        <MemoSudokuGrid
-          grid={view.grid}
-          canAct={view.canAct}
-          onSelectCell={onSelectCell}
-        />
-      </ScrollView>
+      <MemoSudokuGrid
+        grid={view.grid}
+        canAct={view.canAct}
+        onSelectCell={onSelectCell}
+      />
 
       <View className="flex-row flex-wrap gap-2">
         {PAD_NUMBERS.map(number => (

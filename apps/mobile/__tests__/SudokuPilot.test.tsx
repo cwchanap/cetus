@@ -25,14 +25,30 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }))
 
+// Count MemoSudokuGrid renders in-test without shipping a test-only
+// counter from SudokuGrid.tsx.
+const mockGridRenders = { count: 0 }
+jest.mock('../src/games/boards/SudokuGrid', () => {
+  const ReactActual = jest.requireActual<typeof import('react')>('react')
+  const actual = jest.requireActual<
+    typeof import('../src/games/boards/SudokuGrid')
+  >('../src/games/boards/SudokuGrid')
+  const TrackedGrid = (
+    props: React.ComponentProps<typeof actual.SudokuGrid>
+  ) => {
+    mockGridRenders.count++
+    return <actual.SudokuGrid {...props} />
+  }
+  return {
+    ...actual,
+    MemoSudokuGrid: ReactActual.memo(TrackedGrid),
+  }
+})
+
 import * as mockApiModule from '../src/test/mockApiModule'
 import { api } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import { NATIVE_GAMES, type NativeGamePort } from '../src/games/registry'
-import {
-  BOARD_CELL_MIN,
-  sudokuGridRenders,
-} from '../src/games/boards/SudokuGrid'
 const submitScore = jest.mocked(api.submitScore)
 
 const createdGames: SudokuGame[] = []
@@ -303,6 +319,7 @@ beforeEach(() => {
   submitScore.mockResolvedValue({ success: true })
   createdGames.length = 0
   mockPush.mockReset()
+  mockGridRenders.count = 0
 })
 
 afterEach(async () => {
@@ -353,17 +370,20 @@ describe('Sudoku board — render', () => {
     }
   })
 
-  test('narrow screens scroll horizontally instead of shrinking cells below the 44pt touch target', async () => {
+  test('board fits viewport width without horizontal scrolling', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.SUDOKU} />)
 
-    const scroller = hostView(tree, 'sudoku-board-scroller')
-    expect(scroller.props.horizontal).toBe(true)
+    expect(
+      tree.root.findAll(
+        node =>
+          typeof node.type === 'string' &&
+          node.props.testID === 'sudoku-board-scroller'
+      )
+    ).toHaveLength(0)
 
     const board = hostView(tree, 'sudoku-board')
-    const { minWidth } = StyleSheet.flatten(board.props.style)
-    const cols = 9
-    expect(minWidth).toBe(cols * BOARD_CELL_MIN + (cols - 1))
-    expect((minWidth - (cols - 1)) / cols).toBeGreaterThanOrEqual(44)
+    expect(String(board.props.className)).toContain('w-full')
+    expect(StyleSheet.flatten(board.props.style)?.minWidth).toBeUndefined()
   })
 })
 
@@ -666,7 +686,7 @@ describe('Sudoku board — clock-only ticks and the memoized grid', () => {
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 100))
     })
-    const gridRendersAtStart = sudokuGridRenders.count
+    const gridRendersAtStart = mockGridRenders.count
     expect(gridRendersAtStart).toBeGreaterThan(0)
 
     // Two+ clock-only ticks: the HUD time advances while the memoized
@@ -675,11 +695,11 @@ describe('Sudoku board — clock-only ticks and the memoized grid', () => {
       await new Promise(resolve => setTimeout(resolve, 2200))
     })
     expect(testText(tree, 'game-time')).not.toBe('00:00')
-    expect(sudokuGridRenders.count).toBe(gridRendersAtStart)
+    expect(mockGridRenders.count).toBe(gridRendersAtStart)
 
     // A real grid change (selection highlight) re-opens the memo.
     await pressCell(tree, 'plain', emptyPosition(game))
-    expect(sudokuGridRenders.count).toBe(gridRendersAtStart + 1)
+    expect(mockGridRenders.count).toBe(gridRendersAtStart + 1)
   })
 
   test('the grid reference the memo receives stays identical across clock-only ticks', async () => {
@@ -747,5 +767,46 @@ describe('Sudoku projection stability', () => {
     expect(afterEdit.grid).not.toBe(afterTick.grid)
 
     game.destroy()
+  })
+
+  test('each Sudoku game has its own grid cache and createProjector stringifies the grid only once per tick', async () => {
+    const port = originalPort as NativeGamePort
+    const gameA = new SudokuGame({
+      submitScore: async () => ({ success: true }),
+      platform: 'ios',
+    })
+    const gameB = new SudokuGame({
+      submitScore: async () => ({ success: true }),
+      platform: 'ios',
+    })
+    try {
+      const gridA1 = port.project(gameA.getState(), gameA).grid
+      // Projecting a second game must not evict gameA's cached grid reference.
+      port.project(gameB.getState(), gameB)
+      const gridA2 = port.project(gameA.getState(), gameA).grid
+      expect(gridA2).toBe(gridA1)
+
+      const projector = port.createProjector?.(gameA)
+      expect(projector).toBeDefined()
+      if (!projector) {
+        return
+      }
+      gameA.start()
+      projector(gameA.getState())
+
+      const stringifySpy = jest.spyOn(JSON, 'stringify')
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 1100))
+      })
+      stringifySpy.mockClear()
+      projector(gameA.getState())
+      // Only the 9×9 grid is serialized; top-level primitives are compared
+      // directly so the grid is never converted to a string twice.
+      expect(stringifySpy).toHaveBeenCalledTimes(1)
+      stringifySpy.mockRestore()
+    } finally {
+      gameA.destroy()
+      gameB.destroy()
+    }
   })
 })

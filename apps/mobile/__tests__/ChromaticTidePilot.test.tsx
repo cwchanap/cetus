@@ -235,9 +235,9 @@ describe('Chromatic Tide pilot — board', () => {
       expect(row.props.accessibilityElementsHidden).toBe(true)
       expect(row.props.importantForAccessibility).toBe('no-hide-descendants')
     }
-    // The summary container is the TalkBack live region too (web parity:
-    // the board speaks its summary through a polite aria-live).
-    expect(board.props.accessibilityLiveRegion).toBe('polite')
+    // Announcements run exclusively through AccessibilityInfo so TalkBack
+    // does not speak every move twice via both live-region and announce.
+    expect(board.props.accessibilityLiveRegion).toBeUndefined()
   })
 
   test('each move speaks the board summary once — the web live-region parity', async () => {
@@ -423,7 +423,10 @@ describe('Chromatic Tide pilot — Stage-1 save contract', () => {
     expect(renderedText(tree)).not.toContain('Score saved')
 
     await press(tree, 'Sign in to save future scores')
-    expect(mockPush).toHaveBeenCalledWith('/sign-in')
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/sign-in',
+      params: { returnTo: '/games/chromatic_tide/play' },
+    })
     // The CTA routes to sign-in; it never re-submits the finished run.
     expect(submitScore).toHaveBeenCalledTimes(1)
   })

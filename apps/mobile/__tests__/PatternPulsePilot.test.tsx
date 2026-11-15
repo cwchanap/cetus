@@ -320,6 +320,12 @@ describe('Pattern Pulse board — idle render', () => {
     expect(padsDisabled(tree, true)).toBe(true)
 
     expect(testText(tree, 'pp-status')).toBe('READY')
+    // Announcements run through AccessibilityInfo so TalkBack does not
+    // speak both a live-region change and announceForAccessibility.
+    expect(
+      tree.root.findByProps({ testID: 'pp-status' }).props
+        .accessibilityLiveRegion
+    ).toBeUndefined()
     expect(testText(tree, 'pp-length')).toBe('Length 1')
     expect(testText(tree, 'pp-rounds')).toBe('Rounds 0')
     expect(testText(tree, 'pp-streak')).toBe('Streak 0')
