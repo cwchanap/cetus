@@ -58,10 +58,10 @@ export function ChromaticTideBoard({ projected, game }: NativeGameViewProps) {
 
   // The web board speaks this summary through a polite aria-live region
   // on every state change. An accessibilityLabel here is only re-read on
-  // focus, so each transition announces once — one utterance per move,
-  // same cadence as web. The mount value never speaks: focusing the
-  // board reads the same label. TalkBack additionally gets the container
-  // marked polite-live below.
+  // focus, so announceForAccessibility speaks each transition once —
+  // one utterance per move without a duplicate live-region announcement on
+  // TalkBack. The mount value never speaks: focusing the board reads the
+  // same label.
   const announcedSummaryRef = useRef(boardSummary)
   useEffect(() => {
     if (boardSummary === announcedSummaryRef.current) {
@@ -102,9 +102,9 @@ export function ChromaticTideBoard({ projected, game }: NativeGameViewProps) {
       </View>
 
       <View
+        testID="tide-board"
         className="aspect-square w-full gap-px"
         accessible
-        accessibilityLiveRegion="polite"
         accessibilityLabel={boardSummary}
       >
         {tide.cells.map((row, rowIndex) => (

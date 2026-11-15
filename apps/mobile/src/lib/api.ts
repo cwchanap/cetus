@@ -31,14 +31,43 @@ const apiOrigin = (() => {
 // from its own baseUrl, and this origin must match that exactly.
 const apiBase = apiBaseUrl.replace(/\/+$/, '')
 
+// Native fetch has no default timeout; bound every mobile request and
+// session-verification call so hung sockets cannot stall UI states forever.
+const REQUEST_TIMEOUT_MS = 10_000
+const VERIFICATION_TIMEOUT_MS = 5000
+
 // The single mobile API client. The cookie header is the only session
 // transport: native fetch's implicit cookie jar is disabled with
 // `credentials: 'omit'` (Better Auth's Expo guidance) so it cannot compete
 // with the explicit SecureStore-backed Cookie header.
-const omitCredentialsFetch = (
+const omitCredentialsFetch = async (
     input: Parameters<typeof fetch>[0],
     init?: Parameters<typeof fetch>[1]
-) => fetch(input, { ...init, credentials: 'omit' })
+): Promise<Response> => {
+    const controller = new AbortController()
+    const callerSignal = init?.signal
+    const onCallerAbort = () => controller.abort()
+    if (callerSignal) {
+        if (callerSignal.aborted) {
+            controller.abort()
+        } else {
+            callerSignal.addEventListener('abort', onCallerAbort, {
+                once: true,
+            })
+        }
+    }
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+    try {
+        return await fetch(input, {
+            ...init,
+            credentials: 'omit',
+            signal: controller.signal,
+        })
+    } finally {
+        clearTimeout(timeout)
+        callerSignal?.removeEventListener('abort', onCallerAbort)
+    }
+}
 
 export const api = createApiClient({
     baseUrl: apiBaseUrl,
@@ -53,13 +82,14 @@ export const api = createApiClient({
     fetchImpl: omitCredentialsFetch,
 })
 
-// A mismatching or failing verification re-reads the cookie a bounded
-// number of times to absorb a SecureStore write that lands between the
-// route's settled identity and this read.
-const BIND_ATTEMPTS = 3
-// Native fetch has no default timeout; an unbounded hang would keep a
-// game host from ever creating its game.
-const VERIFICATION_TIMEOUT_MS = 5000
+async function readStoredCookie(): Promise<string | null> {
+    try {
+        const stored = await authClient.getCookie()
+        return stored && stored.length > 0 ? stored : null
+    } catch {
+        return null
+    }
+}
 
 // Server-side truth for one candidate cookie: does THIS cookie string
 // authenticate as the expected user? The fetch pins the candidate so the
@@ -116,78 +146,46 @@ const pinnedClientFor = (boundCookie: string | null) =>
  * ONE identity-bound score submitter per mounted game host (HPA-425
  * final review). The play route keeps an old host mounted while the auth
  * session re-settles, so a live-cookie read at save time could attach a
- * NEW account's cookie to an old host's score. This factory instead
- * verifies one cookie snapshot against the host's settled identity at
- * the real get-session fetch boundary and freezes it for the host's
- * lifetime: every save reuses the same credentials verbatim, so a cookie
- * that flips mid-run (guest→account, A→B) can never switch the request's
- * account, and same-account renewals (which keep the token value) keep
- * saving. Guest hosts never send credentials at all; an unverifiable
- * account binding (mismatch or transport failure after bounded retries)
- * sends NO request and reports SCORE_CONTEXT_UNAVAILABLE — the account may
- * be valid, so it is never reported as signed out. Never rejects; the
- * returned submitter surfaces every transport failure through
- * ScoreSubmissionResult as before.
+ * NEW account's cookie to an old host's score. This factory captures one
+ * local cookie snapshot at mount (no network call at startup) and
+ * verifies it against the host's settled identity at the real
+ * get-session fetch boundary on the first save, pinning the verified
+ * client for the host's remaining lifetime. Guest hosts never send
+ * credentials at all; an unverifiable account binding (missing cookie,
+ * mismatch, or transport failure) sends NO score POST and reports
+ * SCORE_CONTEXT_UNAVAILABLE. Never rejects; the returned submitter
+ * surfaces every transport failure through ScoreSubmissionResult.
  */
 export async function createScoreSubmitter(
     expectedUserId: string | null
 ): Promise<ScoreSubmitter> {
     // Guest binding: nothing to verify — no credentials may ever leave a
     // guest-bound host, even if a sign-in lands mid-run.
-    let cookie: string | null = null
-    if (expectedUserId !== null) {
-        for (let attempt = 0; attempt < BIND_ATTEMPTS; attempt++) {
-            let candidate: string | null
-            try {
-                const stored = await authClient.getCookie()
-                candidate = stored && stored.length > 0 ? stored : null
-            } catch {
-                candidate = null
-            }
-            if (await cookieBelongsTo(candidate, expectedUserId)) {
-                cookie = candidate
-                break
-            }
-        }
+    if (expectedUserId === null) {
+        const guestClient = pinnedClientFor(null)
+        return data => guestClient.submitScore(data)
     }
-    // Fail closed for an unverifiable ACCOUNT binding (identity mismatch,
-    // transport failure, no cookie): while verification fails no score
-    // POST is sent at all. The account itself may be perfectly valid —
-    // the host just could not confirm it — so the result carries
-    // SCORE_CONTEXT_UNAVAILABLE, never UNAUTHENTICATED (that would lie
-    // "you are signed out" and prompt a bogus sign-in). The failure is
-    // not terminal: a mounted host can outlive a transient startup
-    // failure, so each save retries ONE bounded verification against the
-    // same expectedUserId and pins the recovered client for the host's
-    // remaining lifetime — the identical gate as the startup bind, so a
-    // cookie that flipped accounts still cannot attach. Guest hosts keep
-    // the real POST: their cookieless 401 IS the truthful outcome.
-    if (expectedUserId !== null && cookie === null) {
-        let recoveredClient: ReturnType<typeof pinnedClientFor> | null = null
-        return async data => {
-            if (recoveredClient === null) {
-                let candidate: string | null
-                try {
-                    const stored = await authClient.getCookie()
-                    candidate = stored && stored.length > 0 ? stored : null
-                } catch {
-                    candidate = null
+
+    // Snapshot the stored cookie locally at mount without blocking startup
+    // on a get-session round-trip; save time verifies it once against
+    // expectedUserId and pins the recovered client.
+    const snapshotCookie = await readStoredCookie()
+    let verifiedClient: ReturnType<typeof pinnedClientFor> | null = null
+    return async data => {
+        if (verifiedClient === null) {
+            const candidate = snapshotCookie ?? (await readStoredCookie())
+            if (
+                candidate === null ||
+                !(await cookieBelongsTo(candidate, expectedUserId))
+            ) {
+                return {
+                    success: false,
+                    error: 'Account verification unavailable',
+                    code: 'SCORE_CONTEXT_UNAVAILABLE',
                 }
-                if (
-                    candidate === null ||
-                    !(await cookieBelongsTo(candidate, expectedUserId))
-                ) {
-                    return {
-                        success: false,
-                        error: 'Account verification unavailable',
-                        code: 'SCORE_CONTEXT_UNAVAILABLE',
-                    }
-                }
-                recoveredClient = pinnedClientFor(candidate)
             }
-            return recoveredClient.submitScore(data)
+            verifiedClient = pinnedClientFor(candidate)
         }
+        return verifiedClient.submitScore(data)
     }
-    const pinnedClient = pinnedClientFor(cookie)
-    return data => pinnedClient.submitScore(data)
 }

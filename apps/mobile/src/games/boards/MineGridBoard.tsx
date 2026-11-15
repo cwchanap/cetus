@@ -9,10 +9,6 @@ import type { MineGridGame } from '@cetus/games/mine-grid/MineGridGame'
 
 import type { NativeGameViewProps } from '../registry'
 
-/** HIG minimum touch target: grid cells never shrink below 44×44pt —
- *  narrower viewports scroll the board horizontally instead. */
-export const BOARD_CELL_MIN = 44
-
 const DIFFICULTY_OPTIONS: Array<{ value: MineGridDifficulty; label: string }> =
   [
     {
@@ -115,9 +111,6 @@ export function MineGridBoard({ projected, game }: NativeGameViewProps) {
     }
   }, [grid.canAct])
 
-  const cols = grid.cells[0]?.length ?? 0
-  const boardMinWidth = cols * BOARD_CELL_MIN + Math.max(0, cols - 1)
-
   return (
     <ScrollView
       className="flex-1"
@@ -155,68 +148,57 @@ export function MineGridBoard({ projected, game }: NativeGameViewProps) {
         onCheckedChange={setFlagMode}
       />
 
-      <ScrollView
-        horizontal
-        testID="mg-board-scroller"
-        contentContainerStyle={{ flexGrow: 1 }}
-      >
-        <View
-          testID="mg-board"
-          className="aspect-square gap-px"
-          style={{ flex: 1, minWidth: boardMinWidth }}
-        >
-          {grid.cells.map((row, rowIndex) => (
-            <View
-              key={rowIndex}
-              testID="mg-row"
-              className="flex-1 flex-row gap-px"
-            >
-              {row.map((cell, colIndex) => {
-                const state = cellViewState(cell)
-                const disabled = !grid.canAct || cell.revealed
-                return (
-                  <Pressable
-                    key={colIndex}
-                    testID={`mg-cell-${state}-r${rowIndex}c${colIndex}`}
-                    accessibilityRole="button"
-                    accessibilityLabel={cellAccessibilityLabel(
-                      rowIndex,
-                      colIndex,
-                      state,
-                      cell
-                    )}
-                    accessibilityState={{ disabled }}
-                    disabled={disabled}
-                    onPress={() =>
-                      flagMode
-                        ? mineGame.toggleFlag(rowIndex, colIndex)
-                        : mineGame.revealCell(rowIndex, colIndex)
-                    }
-                    onLongPress={() => mineGame.toggleFlag(rowIndex, colIndex)}
+      <View testID="mg-board" className="aspect-square w-full gap-px">
+        {grid.cells.map((row, rowIndex) => (
+          <View
+            key={rowIndex}
+            testID="mg-row"
+            className="flex-1 flex-row gap-px"
+          >
+            {row.map((cell, colIndex) => {
+              const state = cellViewState(cell)
+              const disabled = !grid.canAct || cell.revealed
+              return (
+                <Pressable
+                  key={colIndex}
+                  testID={`mg-cell-${state}-r${rowIndex}c${colIndex}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={cellAccessibilityLabel(
+                    rowIndex,
+                    colIndex,
+                    state,
+                    cell
+                  )}
+                  accessibilityState={{ disabled }}
+                  disabled={disabled}
+                  onPress={() =>
+                    flagMode
+                      ? mineGame.toggleFlag(rowIndex, colIndex)
+                      : mineGame.revealCell(rowIndex, colIndex)
+                  }
+                  onLongPress={() => mineGame.toggleFlag(rowIndex, colIndex)}
+                  className={cn(
+                    'flex flex-1 items-center justify-center rounded-sm border border-cetus-hairline',
+                    state === 'hidden' && 'bg-cetus-surface',
+                    state === 'flagged' && 'border-amber-400 bg-cetus-surface',
+                    state === 'revealed' && 'bg-cetus-canvas',
+                    state === 'mine' && 'border-red-400 bg-red-500/25'
+                  )}
+                >
+                  <Text
                     className={cn(
-                      'flex flex-1 items-center justify-center rounded-sm border border-cetus-hairline',
-                      state === 'hidden' && 'bg-cetus-surface',
-                      state === 'flagged' &&
-                        'border-amber-400 bg-cetus-surface',
-                      state === 'revealed' && 'bg-cetus-canvas',
-                      state === 'mine' && 'border-red-400 bg-red-500/25'
+                      'font-bold text-cetus-ink',
+                      state === 'flagged' && 'text-base text-amber-400'
                     )}
                   >
-                    <Text
-                      className={cn(
-                        'font-bold text-cetus-ink',
-                        state === 'flagged' && 'text-lg text-amber-400'
-                      )}
-                    >
-                      {cellContent(state, cell)}
-                    </Text>
-                  </Pressable>
-                )
-              })}
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+                    {cellContent(state, cell)}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        ))}
+      </View>
     </ScrollView>
   )
 }

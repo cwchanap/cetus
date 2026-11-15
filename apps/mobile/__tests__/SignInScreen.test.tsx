@@ -132,6 +132,40 @@ test('carries the settings returnTo through the OAuth callback', async () => {
   })
 })
 
+test('carries a valid game play returnTo through the OAuth callback', async () => {
+  mockParams.mockReturnValueOnce({ returnTo: '/games/chromatic_tide/play' })
+  signInSocial.mockResolvedValueOnce({
+    data: null,
+    error: { message: 'Access denied' },
+  })
+
+  const tree = await render()
+  await press(tree, 'Continue with Google')
+
+  expect(signInSocial).toHaveBeenCalledWith({
+    provider: 'google',
+    callbackURL: '/games/chromatic_tide/play',
+    errorCallbackURL: '/games/chromatic_tide/play',
+  })
+})
+
+test('falls back to profile for unknown game play returnTo values', async () => {
+  mockParams.mockReturnValueOnce({ returnTo: '/games/not_a_game/play' })
+  signInSocial.mockResolvedValueOnce({
+    data: null,
+    error: { message: 'Access denied' },
+  })
+
+  const tree = await render()
+  await press(tree, 'Continue with Google')
+
+  expect(signInSocial).toHaveBeenCalledWith({
+    provider: 'google',
+    callbackURL: '/(tabs)/profile',
+    errorCallbackURL: '/(tabs)/profile',
+  })
+})
+
 test('falls back to profile for unknown returnTo values', async () => {
   mockParams.mockReturnValueOnce({ returnTo: 'evil://screen' })
   signInSocial.mockResolvedValueOnce({

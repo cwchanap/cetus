@@ -543,6 +543,96 @@ describe('NativeGameHost — reward banner', () => {
       createdGames[0].pause()
     })
   })
+
+  test('merges late old-run awards with new-run awards on the same banner without dropping either', async () => {
+    const pendingSaves: Array<(value: ScoreSubmissionResult) => void> = []
+    submitScore.mockImplementation(
+      () =>
+        new Promise<ScoreSubmissionResult>(resolve => {
+          pendingSaves.push(resolve)
+        })
+    )
+    const tree = await render(<NativeGameHost gameId={GameID.QUICK_MATH} />)
+
+    await press(tree, 'Start game')
+    await act(async () => {
+      void createdGames[0].end()
+    })
+    await drain()
+
+    // Quick replay starts run 2 while run 1's save is still in flight.
+    await press(tree, 'Play again')
+    await act(async () => {
+      void createdGames[0].end()
+    })
+    await drain()
+
+    // Run 1's late save settles with an achievement + challenge.
+    await act(async () => {
+      pendingSaves[0]?.({
+        success: true,
+        newAchievements: [
+          {
+            id: 'ach-1',
+            name: 'Deep Thinker',
+            description: 'd',
+            icon: '🧠',
+            rarity: AchievementRarity.RARE,
+          },
+        ],
+        challengeUpdates: {
+          completedChallenges: [
+            {
+              id: 'ch-1',
+              name: 'Daily drill',
+              description: 'd',
+              icon: '🎯',
+              xpReward: 10,
+            },
+          ],
+          xpEarned: 10,
+          levelUp: false,
+        },
+      })
+    })
+    await drain()
+
+    // Run 2's save settles with its own achievement + challenge: both sets remain.
+    await act(async () => {
+      pendingSaves[1]?.({
+        success: true,
+        newAchievements: [
+          {
+            id: 'ach-2',
+            name: 'Comeback Kid',
+            description: 'd',
+            icon: '⚡',
+            rarity: AchievementRarity.COMMON,
+          },
+        ],
+        challengeUpdates: {
+          completedChallenges: [
+            {
+              id: 'ch-2',
+              name: 'Double streak',
+              description: 'd',
+              icon: '🔥',
+              xpReward: 20,
+            },
+          ],
+          xpEarned: 20,
+          levelUp: false,
+        },
+      })
+    })
+    await drain()
+
+    const rendered = renderedText(tree)
+    expect(rendered).toContain('Deep Thinker')
+    expect(rendered).toContain('Comeback Kid')
+    expect(rendered).toContain('Daily drill')
+    expect(rendered).toContain('Double streak')
+  })
 })
 
 describe('NativeGameHost — cleanup order', () => {
@@ -932,5 +1022,68 @@ describe('NativeGameHost — identity-bound score submitter', () => {
     await act(async () => {
       tree.unmount()
     })
+  })
+})
+
+describe('NativeGameHost — setup error recovery & board memoization', () => {
+  test('setup errors clear the spinner, render an error, and allow retrying setup', async () => {
+    mockCreateScoreSubmitter.mockRejectedValueOnce(new Error('storage boom'))
+    const tree = await render(
+      <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-1" />
+    )
+
+    expect(tree.root.findAllByProps({ testID: 'host-binding' })).toHaveLength(0)
+    expect(renderedText(tree)).not.toContain('Preparing game')
+    expect(renderedText(tree)).toContain('Unable to prepare game')
+
+    mockCreateScoreSubmitter.mockResolvedValueOnce(async data =>
+      api.submitScore(data)
+    )
+    await press(tree, 'Try again')
+    await drain()
+
+    expect(renderedText(tree)).not.toContain('Unable to prepare game')
+    expect(
+      tree.root.findByProps({ accessibilityLabel: 'Start game' })
+    ).toBeTruthy()
+    await act(async () => {
+      tree.unmount()
+    })
+  })
+
+  test('BoardView is memoized and skips re-rendering on clock-only timer ticks', async () => {
+    let boardRenderCount = 0
+    const CountingBoard = ({ projected }: NativeGameViewProps) => {
+      boardRenderCount++
+      return (
+        <Text testID="native-board">
+          {(projected.board as number[]).join(',')}
+        </Text>
+      )
+    }
+    const original = NATIVE_GAMES[GameID.QUICK_MATH]
+    NATIVE_GAMES[GameID.QUICK_MATH] = {
+      port: { ...testPort, view: CountingBoard },
+    }
+    try {
+      const tree = await render(<NativeGameHost gameId={GameID.QUICK_MATH} />)
+      await press(tree, 'Start game')
+      const rendersAfterStart = boardRenderCount
+
+      // Advance past one 1-second timer tick; timeRemaining updates in the
+      // chrome HUD, while the unchanged projected snapshot keeps the
+      // memoized board render count flat.
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 1150))
+      })
+      expect(boardRenderCount).toBe(rendersAfterStart)
+
+      await act(async () => {
+        createdGames[0].pause()
+        tree.unmount()
+      })
+    } finally {
+      NATIVE_GAMES[GameID.QUICK_MATH] = original
+    }
   })
 })

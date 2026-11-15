@@ -50,6 +50,7 @@ let sessionBodies: unknown[] = []
 let scoreStatus = 200
 let scoreBody: unknown = { success: true }
 let failSessionFetch = false
+let hangScorePost = false
 
 const fetchMock = jest.fn((input: unknown, init?: RequestInit) => {
   fetchCalls.push({ input, init: { credentials: 'include', ...init } })
@@ -65,6 +66,13 @@ const fetchMock = jest.fn((input: unknown, init?: RequestInit) => {
         headers: { 'content-type': 'application/json' },
       })
     )
+  }
+  if (hangScorePost) {
+    return new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        reject(new Error('Aborted'))
+      })
+    })
   }
   // Server contract: a score POST without a session cookie is
   // unauthenticated and rejected — the honest-failure path.
@@ -236,6 +244,7 @@ beforeEach(() => {
   scoreStatus = 200
   scoreBody = { success: true }
   failSessionFetch = false
+  hangScorePost = false
   getCookie.mockReset()
   createdGames.length = 0
 })
@@ -324,23 +333,18 @@ describe('identity-bound score submission — the real fetch boundary', () => {
 
   test('initial-mount race: a snapshot cookie owned by another identity never reaches a request', async () => {
     // Identity settled for A while the store already holds B's cookie.
-    // The snapshot fails verification (user-b ≠ user-a) on every bounded
-    // retry, so the host binds NO credential: saves stay honestly
-    // unconfirmed instead of landing on B.
+    // The snapshot fails verification (user-b ≠ user-a) on save, so the
+    // host sends NO score POST and stays honestly unconfirmed instead of
+    // landing on B.
     getCookie.mockResolvedValue('better-auth.session_token=token-b')
-    sessionBodies = [
-      sessionUser('user-b'),
-      sessionUser('user-b'),
-      sessionUser('user-b'),
-    ]
+    sessionBodies = [sessionUser('user-b')]
 
     const tree = await runAndFinish(
       <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
     )
 
-    // 3 startup attempts + the save's one bounded recovery retry (the
-    // get-session queue is empty by then, so it fails closed again).
-    expect(getSessions()).toHaveLength(4)
+    // Verified once lazily at save time (no startup round-trip).
+    expect(getSessions()).toHaveLength(1)
     // Fail closed: an unverifiable binding sends NO score POST at all.
     expect(submits()).toHaveLength(0)
     // Truthful outcome: the account may be perfectly valid, so this is
@@ -417,9 +421,8 @@ describe('identity-bound score submission — the real fetch boundary', () => {
       <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
     )
 
-    // 3 startup attempts + the save's one bounded recovery retry, which
-    // hits the same dead transport.
-    expect(getSessions()).toHaveLength(4)
+    // Single lazy verification at save time hits the dead transport.
+    expect(getSessions()).toHaveLength(1)
     // Fail closed: a transport-failed binding sends NO score POST at all.
     expect(submits()).toHaveLength(0)
     // Truthful outcome: an unreachable get-session never means signed out.
@@ -432,42 +435,68 @@ describe('identity-bound score submission — the real fetch boundary', () => {
     await stopTree(tree)
   })
 
-  test('a transient startup verification failure recovers on save and stays pinned for replay', async () => {
-    // Offline at mount: all bounded bind attempts hit the dead transport.
+  test('missing stored cookie makes zero get-session calls at startup or save', async () => {
+    getCookie.mockResolvedValue(null)
+
+    const tree = await runAndFinish(
+      <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
+    )
+
+    expect(getSessions()).toHaveLength(0)
+    expect(submits()).toHaveLength(0)
+    expect(renderedText(tree)).toContain(
+      'Score not saved — the account context needed to save was unavailable.'
+    )
+    await stopTree(tree)
+  })
+
+  test('a transient save verification failure recovers on the next save and stays pinned for replay', async () => {
+    // Startup never blocks on get-session.
     getCookie.mockResolvedValue('better-auth.session_token=token-a')
     failSessionFetch = true
 
     const tree = await render(
       <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
     )
-    expect(getSessions()).toHaveLength(3)
+    expect(getSessions()).toHaveLength(0)
 
-    // Connectivity returns mid-run: the save retries ONE verification at
-    // the real get-session boundary against the same settled identity,
-    // then pins the recovered client for the host's remaining lifetime.
-    failSessionFetch = false
-    sessionBodies = [sessionUser('user-a')]
+    // First run ends while verification transport is offline: fails closed.
     await press(tree, 'Start game')
     await act(async () => {
       await createdGames[createdGames.length - 1].end()
     })
     await drain()
+    expect(getSessions()).toHaveLength(1)
+    expect(submits()).toHaveLength(0)
+    expect(renderedText(tree)).toContain(
+      'Score not saved — the account context needed to save was unavailable.'
+    )
 
-    expect(getSessions()).toHaveLength(4)
-    const save = submits()
-    expect(save).toHaveLength(1)
-    expect(headersOf(save[0]).Cookie).toBe('better-auth.session_token=token-a')
-    expect(renderedText(tree)).toContain('Score saved')
-
-    // Replay: the recovered pin is the host's lifetime binding — the
-    // next save reuses it verbatim with no second recovery.
+    // Connectivity returns for replay: the save verifies once at the real
+    // get-session boundary and pins the recovered client for the host.
+    failSessionFetch = false
+    sessionBodies = [sessionUser('user-a')]
     await press(tree, 'Play again')
     await act(async () => {
       await createdGames[createdGames.length - 1].end()
     })
     await drain()
 
-    expect(getSessions()).toHaveLength(4)
+    expect(getSessions()).toHaveLength(2)
+    const save = submits()
+    expect(save).toHaveLength(1)
+    expect(headersOf(save[0]).Cookie).toBe('better-auth.session_token=token-a')
+    expect(renderedText(tree)).toContain('Score saved')
+
+    // Replay again: the recovered pin is the host's lifetime binding —
+    // the next save reuses it verbatim with no second verification.
+    await press(tree, 'Play again')
+    await act(async () => {
+      await createdGames[createdGames.length - 1].end()
+    })
+    await drain()
+
+    expect(getSessions()).toHaveLength(2)
     expect(submits()).toHaveLength(2)
     expect(headersOf(submits()[1]).Cookie).toBe(
       'better-auth.session_token=token-a'
@@ -476,29 +505,32 @@ describe('identity-bound score submission — the real fetch boundary', () => {
   })
 
   test('a recovered binding still refuses a cookie owned by another account', async () => {
-    // Startup fails offline; by save time the store holds B's cookie —
-    // the recovery retry must clear the same expectedUserId gate, so
-    // user-b's credential can never bind user-a's host.
+    // Save 1 fails offline; save 2 sees B's cookie and refuses it.
     getCookie.mockResolvedValue('better-auth.session_token=token-b')
     failSessionFetch = true
 
     const tree = await render(
       <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
     )
-    expect(getSessions()).toHaveLength(3)
+    expect(getSessions()).toHaveLength(0)
 
-    failSessionFetch = false
-    sessionBodies = [sessionUser('user-b')]
     await press(tree, 'Start game')
     await act(async () => {
       await createdGames[createdGames.length - 1].end()
     })
     await drain()
+    expect(getSessions()).toHaveLength(1)
 
-    // One bounded retry, still refused: no score POST may carry a
-    // credential the same-identity check did not clear.
-    expect(getSessions()).toHaveLength(4)
-    expect(headersOf(getSessions()[3]).Cookie).toBe(
+    failSessionFetch = false
+    sessionBodies = [sessionUser('user-b')]
+    await press(tree, 'Play again')
+    await act(async () => {
+      await createdGames[createdGames.length - 1].end()
+    })
+    await drain()
+
+    expect(getSessions()).toHaveLength(2)
+    expect(headersOf(getSessions()[1]).Cookie).toBe(
       'better-auth.session_token=token-b'
     )
     expect(submits()).toHaveLength(0)
@@ -508,5 +540,47 @@ describe('identity-bound score submission — the real fetch boundary', () => {
     expect(renderedText(tree)).not.toContain('you are signed out')
     expect(renderedText(tree)).not.toContain('Sign in to save')
     await stopTree(tree)
+  })
+
+  test('a hanging score POST aborts on timeout instead of leaving Saving score… forever', async () => {
+    getCookie.mockResolvedValue('better-auth.session_token=token-a')
+    sessionBodies = [sessionUser('user-a')]
+    hangScorePost = true
+
+    jest.useFakeTimers()
+    try {
+      let tree: TestRenderer.ReactTestRenderer | undefined
+      await act(async () => {
+        tree = TestRenderer.create(
+          <NativeGameHost gameId={GameID.QUICK_MATH} settledUserId="user-a" />
+        )
+      })
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(25)
+      })
+      if (!tree) {
+        throw new Error('TestRenderer.create returned nothing')
+      }
+
+      await press(tree, 'Start game')
+      await act(async () => {
+        void createdGames[createdGames.length - 1].end()
+      })
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(25)
+      })
+      expect(renderedText(tree)).toContain('Saving score…')
+
+      // Advance past the mobile request timeout: the aborted POST settles
+      // to NETWORK_ERROR so the spinner/saving message clears truthfully.
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000)
+      })
+      expect(renderedText(tree)).not.toContain('Saving score…')
+      expect(renderedText(tree)).toContain('may still have been saved')
+      await stopTree(tree)
+    } finally {
+      jest.useRealTimers()
+    }
   })
 })

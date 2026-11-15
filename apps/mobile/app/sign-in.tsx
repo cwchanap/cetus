@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { getGameById, type GameID } from '@cetus/shared/games'
 
 import { authClient } from '../src/lib/auth-client'
 
 type Provider = 'google' | 'apple'
 
-// Only known tab roots may be used as a post-login destination.
+// Only known tab/app roots and catalog play routes may be used as a
+// post-login destination.
 const RETURN_TO_ALLOWED = [
   '/(tabs)/profile',
   '/(tabs)/achievements',
@@ -15,16 +17,23 @@ const RETURN_TO_ALLOWED = [
   '/',
 ] as const
 
+function isAllowedReturnTo(value: string | undefined): value is string {
+  if (!value) {
+    return false
+  }
+  if (RETURN_TO_ALLOWED.includes(value as (typeof RETURN_TO_ALLOWED)[number])) {
+    return true
+  }
+  const playMatch = value.match(/^\/games\/([a-z0-9_]+)\/play$/)
+  return playMatch !== null && getGameById(playMatch[1] as GameID) !== undefined
+}
+
 // Browser OAuth on both platforms: the expo client plugin opens the system
 // browser and returns via the cetus:// deep link; no native provider SDKs.
 export default function SignInScreen() {
   const router = useRouter()
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>()
-  const destination = RETURN_TO_ALLOWED.includes(
-    returnTo as (typeof RETURN_TO_ALLOWED)[number]
-  )
-    ? (returnTo as string)
-    : '/(tabs)/profile'
+  const destination = isAllowedReturnTo(returnTo) ? returnTo : '/(tabs)/profile'
   const [pending, setPending] = useState<Provider | null>(null)
   const [error, setError] = useState<string | null>(null)
 

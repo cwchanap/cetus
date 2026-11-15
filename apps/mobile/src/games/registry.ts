@@ -88,6 +88,11 @@ export interface NativeGameViewProps {
 export interface NativeGamePort {
     createGame(deps: NativeGameHostDeps): BaseGame
     project(state: BaseGameState, game: BaseGame): NativeGameProjection
+    /** Optional per-instance projector factory for ports with sub-projected
+     *  boards so the host avoids re-serializing the board on clock ticks. */
+    createProjector?: (
+        game: BaseGame
+    ) => (state: BaseGameState) => NativeGameProjection
     /** Optional result-sheet outcome label derived from the finished
      * run's stats (e.g. Chromatic Tide Cleared/Timeout); null hides it. */
     resultOutcomeLabel?: (stats: BaseGameStats) => string | null
@@ -285,22 +290,82 @@ const quickMathPort: NativeGamePort = {
     view: QuickMathBoard,
 }
 
-// Sudoku's separately stabilized grid snapshot (see sudokuPort): copied
-// cell values + the selection, structurally memoized so clock-only ticks
-// keep the same reference for the memoized board.
-const projectSudokuGrid = createStableProjector(
-    (grid: SudokuState['grid']) => ({
-        cells: grid.cells.map(row =>
-            row.map(cell => ({
-                value: cell.value,
-                isGiven: cell.isGiven,
-                isHighlighted: cell.isHighlighted,
-                isConflicting: cell.isConflicting,
-            }))
-        ),
-        selectedCell: grid.selectedCell ? { ...grid.selectedCell } : null,
-    })
-)
+interface SudokuProjectedGrid {
+    cells: Array<
+        Array<{
+            value: number | null
+            isGiven: boolean
+            isHighlighted: boolean
+            isConflicting: boolean
+        }>
+    >
+    selectedCell: { row: number; col: number } | null
+}
+
+interface SudokuProjectedView extends NativeGameProjection {
+    grid: SudokuProjectedGrid
+    difficulty: SudokuState['difficulty']
+    mistakes: number
+    clock: number
+    canAct: boolean
+    difficultyLocked: boolean
+}
+
+const copySudokuGrid = (grid: SudokuState['grid']): SudokuProjectedGrid => ({
+    cells: grid.cells.map(row =>
+        row.map(cell => ({
+            value: cell.value,
+            isGiven: cell.isGiven,
+            isHighlighted: cell.isHighlighted,
+            isConflicting: cell.isConflicting,
+        }))
+    ),
+    selectedCell: grid.selectedCell ? { ...grid.selectedCell } : null,
+})
+
+// Per-game grid cache for direct `port.project(state, game)` callers so
+// separate Sudoku instances never share or overwrite one another's cache.
+const sudokuGridProjectors = new WeakMap<
+    BaseGame,
+    (grid: SudokuState['grid']) => SudokuProjectedGrid
+>()
+
+const getSudokuGridProjector = (game: BaseGame) => {
+    let projector = sudokuGridProjectors.get(game)
+    if (!projector) {
+        projector = createStableProjector(copySudokuGrid)
+        sudokuGridProjectors.set(game, projector)
+    }
+    return projector
+}
+
+const buildSudokuProjection = (
+    state: BaseGameState,
+    game: BaseGame,
+    projectGrid: (grid: SudokuState['grid']) => SudokuProjectedGrid
+): SudokuProjectedView => {
+    const {
+        grid,
+        difficulty,
+        mistakes,
+        isActive,
+        isPaused,
+        isGameOver,
+        isComplete,
+    } = state as SudokuState
+    return {
+        grid: projectGrid(grid),
+        difficulty,
+        mistakes,
+        // Elapsed clock read off the constructed instance: the count-up
+        // HUD ticks without a per-second state event.
+        clock: (game as SudokuGame).getElapsedTime(),
+        canAct: isActive && !isPaused && !isGameOver && !isComplete,
+        // Web parity: difficulty buttons lock for the whole run, even
+        // while paused.
+        difficultyLocked: isActive && !isGameOver,
+    }
+}
 
 const sudokuPort: NativeGamePort = {
     createGame: deps =>
@@ -308,31 +373,30 @@ const sudokuPort: NativeGamePort = {
             submitScore: deps.submitScore,
             platform: deps.platform,
         }),
-    // The 9×9 grid is separately stabilized: the snapshot keeps its
-    // reference across clock-only ticks (the model mutates cell values,
-    // flags and selection in place) so the memoized board's barrier
-    // holds while the count-up clock moves the HUD.
-    project: (state, game) => {
-        const {
-            grid,
-            difficulty,
-            mistakes,
-            isActive,
-            isPaused,
-            isGameOver,
-            isComplete,
-        } = state as SudokuState
-        return {
-            grid: projectSudokuGrid(grid),
-            difficulty,
-            mistakes,
-            // Elapsed clock read off the constructed instance: the count-up
-            // HUD ticks without a per-second state event.
-            clock: (game as SudokuGame).getElapsedTime(),
-            canAct: isActive && !isPaused && !isGameOver && !isComplete,
-            // Web parity: difficulty buttons lock for the whole run, even
-            // while paused.
-            difficultyLocked: isActive && !isGameOver,
+    // The 9×9 grid is separately stabilized per game instance so the
+    // memoized grid keeps its reference across clock-only ticks.
+    project: (state, game) =>
+        buildSudokuProjection(state, game, getSudokuGridProjector(game)),
+    // Stabilize the grid once and compare the primitive HUD fields by
+    // reference/value so clock ticks never re-stringify the 81-cell grid.
+    createProjector: game => {
+        const projectGrid = createStableProjector(copySudokuGrid)
+        let previous: SudokuProjectedView | null = null
+        return (state: BaseGameState) => {
+            const next = buildSudokuProjection(state, game, projectGrid)
+            if (
+                previous !== null &&
+                next.grid === previous.grid &&
+                next.difficulty === previous.difficulty &&
+                next.mistakes === previous.mistakes &&
+                next.clock === previous.clock &&
+                next.canAct === previous.canAct &&
+                next.difficultyLocked === previous.difficultyLocked
+            ) {
+                return previous
+            }
+            previous = next
+            return next
         }
     },
     resultOutcomeLabel: stats =>

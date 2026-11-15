@@ -74,6 +74,7 @@ export default function GamePlayScreen() {
   if (!resolvedOnce) {
     return (
       <View className="flex-1 items-center justify-center gap-3 bg-cetus-canvas p-6">
+        <Stack.Screen options={{ title: game?.name ?? 'Play' }} />
         <ActivityIndicator size="large" />
         <Text className="font-sans text-sm text-cetus-ink-muted">
           Resolving session…

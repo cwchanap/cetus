@@ -2,10 +2,6 @@ import { memo } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { cn } from '@cetus/ui'
 
-/** HIG minimum touch target: grid cells never shrink below 44×44pt —
- *  narrower viewports scroll the board horizontally instead. */
-export const BOARD_CELL_MIN = 44
-
 /** Serializable 9×9 grid snapshot the memoized board renders. Kept as
  *  one separately stabilized reference so count-up clock ticks (which
  *  change the top-level projection) never invalidate the memo barrier. */
@@ -70,21 +66,9 @@ const cellAccessibilityLabel = (
   return parts.join(', ')
 }
 
-/** Test seam: counts real renders of the 81-cell grid (memo barrier
- *  openings). Clock-only ticks must not bump it — that is the whole
- *  point of the separately stabilized grid prop. */
-export const sudokuGridRenders = { count: 0 }
-
 export function SudokuGrid({ grid, canAct, onSelectCell }: SudokuGridProps) {
-  sudokuGridRenders.count++
-  const boardMinWidth = 9 * BOARD_CELL_MIN + 8
-
   return (
-    <View
-      testID="sudoku-board"
-      className="aspect-square gap-px"
-      style={{ flex: 1, minWidth: boardMinWidth }}
-    >
+    <View testID="sudoku-board" className="aspect-square w-full gap-px">
       {grid.cells.map((row, rowIndex) => (
         <View
           key={rowIndex}

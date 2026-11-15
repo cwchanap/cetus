@@ -21,7 +21,6 @@ import * as mockApiModule from '../src/test/mockApiModule'
 import { api } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import { NATIVE_GAMES, type NativeGamePort } from '../src/games/registry'
-import { BOARD_MIN_WIDTH } from '../src/games/boards/MemoryMatrixBoard'
 const submitScore = jest.mocked(api.submitScore)
 
 const createdGames: MemoryMatrixGame[] = []
@@ -244,20 +243,20 @@ describe('Memory Matrix pilot — board', () => {
     expect(card.props.disabled).toBe(true)
   })
 
-  test('narrow screens scroll horizontally instead of shrinking cards below the 44pt touch target', async () => {
+  test('board fits viewport width without horizontal scrolling', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.MEMORY_MATRIX} />)
 
-    // At a 320pt viewport the old w-full board compressed cards to ~35pt.
-    // The board now has a minimum width (8 cols × 44pt HIG target + 7 1px
-    // gaps) and lives in a horizontal scroller so nothing shrinks below it.
-    const scroller = hostView(tree, 'mm-board-scroller')
-    expect(scroller.props.horizontal).toBe(true)
+    expect(
+      tree.root.findAll(
+        node =>
+          typeof node.type === 'string' &&
+          node.props.testID === 'mm-board-scroller'
+      )
+    ).toHaveLength(0)
 
     const board = hostView(tree, 'mm-board')
-    const { minWidth } = StyleSheet.flatten(board.props.style)
-    expect(minWidth).toBe(BOARD_MIN_WIDTH)
-    // (minWidth − 7 gaps) / 8 columns keeps every card ≥ 44×44.
-    expect((BOARD_MIN_WIDTH - 7) / 8).toBeGreaterThanOrEqual(44)
+    expect(String(board.props.className)).toContain('w-full')
+    expect(StyleSheet.flatten(board.props.style)?.minWidth).toBeUndefined()
   })
 
   test('the production port keeps the configured 700ms flip delay', () => {

@@ -27,7 +27,6 @@ import * as mockApiModule from '../src/test/mockApiModule'
 import { api } from '../src/lib/api'
 import { NativeGameHost } from '../src/games/NativeGameHost'
 import { NATIVE_GAMES, type NativeGamePort } from '../src/games/registry'
-import { BOARD_CELL_MIN } from '../src/games/boards/MineGridBoard'
 const submitScore = jest.mocked(api.submitScore)
 
 const createdGames: MineGridGame[] = []
@@ -291,18 +290,20 @@ describe('Mine Grid board — render', () => {
     ).toBeTruthy()
   })
 
-  test('narrow screens scroll horizontally instead of shrinking cells below the 44pt touch target', async () => {
+  test('board fits viewport width without horizontal scrolling', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.MINE_GRID} />)
 
-    const scroller = hostView(tree, 'mg-board-scroller')
-    expect(scroller.props.horizontal).toBe(true)
+    expect(
+      tree.root.findAll(
+        node =>
+          typeof node.type === 'string' &&
+          node.props.testID === 'mg-board-scroller'
+      )
+    ).toHaveLength(0)
 
     const board = hostView(tree, 'mg-board')
-    const { minWidth } = StyleSheet.flatten(board.props.style)
-    const cols = 10
-    expect(minWidth).toBe(cols * BOARD_CELL_MIN + (cols - 1))
-    // (minWidth − 9 gaps) / 10 columns keeps every cell ≥ 44×44.
-    expect((minWidth - (cols - 1)) / cols).toBeGreaterThanOrEqual(44)
+    expect(String(board.props.className)).toContain('w-full')
+    expect(StyleSheet.flatten(board.props.style)?.minWidth).toBeUndefined()
   })
 })
 

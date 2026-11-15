@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { Platform, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
-import { Heading } from '@cetus/ui'
+import { Button, Heading } from '@cetus/ui'
 import {
   createBaseGameSession,
   createStableProjector,
@@ -56,6 +56,8 @@ export function NativeGameHost({
   const [rewardBanner, setRewardBanner] = useState<NativeRewardBanner | null>(
     null
   )
+  const [setupError, setSetupError] = useState(false)
+  const [setupAttempt, setSetupAttempt] = useState(0)
 
   useEffect(() => {
     if (!port) {
@@ -63,71 +65,112 @@ export function NativeGameHost({
     }
     let cancelled = false
     let teardown: (() => void) | null = null
+    setSetupError(false)
     void (async () => {
-      // ONE credential snapshot per mount, verified once at the real
-      // cookie/header boundary against this host's settled identity;
-      // every save reuses it verbatim (api.submitScore's live-cookie
-      // read could otherwise attach a new account's cookie to an old
-      // host mid-race). Guest and unverifiable bindings send nothing.
-      const submitScore = await createScoreSubmitter(settledUserId)
-      if (cancelled) {
-        return
-      }
-      const createdGame = port.createGame({
-        submitScore,
-        platform: Platform.OS as ScorePlatform,
-      })
-      const nextSession = createBaseGameSession(
-        createdGame,
-        createStableProjector((state: BaseGameState) =>
-          port.project(state, createdGame)
-        )
-      )
-      setGame(createdGame)
-      setSession(nextSession)
-      // A bare 'start' is the model's own new-run boundary: clear the
-      // previous run's already-delivered banner here so its rewards never
-      // merge into a newer run's delivery, while a stale same-account save
-      // that settles mid-run still delivers exactly once afterwards. The
-      // clearing is idempotent (BaseGame emits 'start' once per timer
-      // start plus once directly) and stays LOCAL to this host: the
-      // shared forwarder keeps its end-only contract.
-      const clearBannerOnRunStart = (): void => setRewardBanner(null)
-      createdGame.on('start', clearBannerOnRunStart)
-      const removeForwarder = forwardBaseGameResults(createdGame, {
-        // One banner merges both deliveries of a single end payload.
-        onAchievements: achievements =>
-          setRewardBanner(current => ({ ...current, achievements })),
-        onChallenges: challenges =>
-          setRewardBanner(current => ({ ...current, challenges })),
-      })
-      teardown = () => {
-        // Order matters: no new rewards, then session listeners, then
-        // the game (its timer and listeners) last.
-        createdGame.off('start', clearBannerOnRunStart)
-        removeForwarder()
-        nextSession.dispose()
-        createdGame.destroy()
-        // Dropping the state here keeps an unkeyed settled-identity swap
-        // honest while the next binding is in flight: no destroyed game's
-        // board, controls or banner can linger (production never hits this
-        // path — the play route remounts the host by identity key). On a
-        // real unmount these are plain no-ops; StrictMode's effect
-        // re-run just re-creates the binding.
-        setGame(null)
-        setSession(null)
-        setRewardBanner(null)
+      let createdGame: BaseGame | null = null
+      let nextSession: GameSession<NativeGameProjection> | null = null
+      let clearBannerOnRunStart: (() => void) | null = null
+      let removeForwarder: (() => void) | null = null
+      try {
+        // ONE credential snapshot per mount, pinned against this host's
+        // settled identity; guest and unverifiable bindings never send
+        // another account's cookie.
+        const submitScore = await createScoreSubmitter(settledUserId)
+        if (cancelled) {
+          return
+        }
+        createdGame = port.createGame({
+          submitScore,
+          platform: Platform.OS as ScorePlatform,
+        })
+        const builtGame = createdGame
+        const projector = port.createProjector
+          ? port.createProjector(builtGame)
+          : createStableProjector((state: BaseGameState) =>
+              port.project(state, builtGame)
+            )
+        nextSession = createBaseGameSession(builtGame, projector)
+        const builtSession = nextSession
+        // A bare 'start' is the model's own new-run boundary: clear the
+        // previous run's already-delivered banner here so its rewards never
+        // merge into a newer run's delivery, while a stale same-account save
+        // that settles mid-run still delivers and merges with any awards
+        // earned on the current run.
+        clearBannerOnRunStart = (): void => setRewardBanner(null)
+        builtGame.on('start', clearBannerOnRunStart)
+        removeForwarder = forwardBaseGameResults(builtGame, {
+          onAchievements: achievements =>
+            setRewardBanner(current => {
+              const existing = current?.achievements ?? []
+              const seen = new Set(existing.map(a => a.id))
+              const merged = [
+                ...existing,
+                ...achievements.filter(a => !seen.has(a.id)),
+              ]
+              return { ...current, achievements: merged }
+            }),
+          onChallenges: challenges =>
+            setRewardBanner(current => {
+              const existing = current?.challenges?.completedChallenges ?? []
+              const seen = new Set(existing.map(c => c.id))
+              const merged = [
+                ...existing,
+                ...challenges.completedChallenges.filter(c => !seen.has(c.id)),
+              ]
+              return {
+                ...current,
+                challenges: {
+                  ...challenges,
+                  completedChallenges: merged,
+                },
+              }
+            }),
+        })
+        setGame(builtGame)
+        setSession(builtSession)
+        teardown = () => {
+          // Order matters: no new rewards, then session listeners, then
+          // the game (its timer and listeners) last.
+          if (clearBannerOnRunStart) {
+            builtGame.off('start', clearBannerOnRunStart)
+          }
+          removeForwarder?.()
+          builtSession.dispose()
+          builtGame.destroy()
+          setGame(null)
+          setSession(null)
+          setRewardBanner(null)
+        }
+      } catch {
+        if (clearBannerOnRunStart && createdGame) {
+          createdGame.off('start', clearBannerOnRunStart)
+        }
+        removeForwarder?.()
+        nextSession?.dispose()
+        createdGame?.destroy()
+        if (!cancelled) {
+          setGame(null)
+          setSession(null)
+          setRewardBanner(null)
+          setSetupError(true)
+        }
       }
     })()
     return () => {
       cancelled = true
       teardown?.()
     }
-  }, [port, settledUserId])
+  }, [port, settledUserId, setupAttempt])
 
   const { snapshot, actions, capabilities } = useGameSession(
     session,
     IDLE_NATIVE_SNAPSHOT
+  )
+
+  const BoardView = port?.view
+  const MemoBoardView = useMemo(
+    () => (BoardView ? memo(BoardView) : null),
+    [BoardView]
   )
 
   if (!port) {
@@ -140,7 +183,29 @@ export function NativeGameHost({
     )
   }
 
-  const BoardView = port.view
+  if (setupError) {
+    return (
+      <View
+        testID="host-setup-error"
+        className="flex-1 items-center justify-center gap-3 bg-cetus-canvas p-6"
+      >
+        <Heading level={4} variant="section" align="center">
+          Unable to prepare game
+        </Heading>
+        <Text className="text-center font-sans text-sm text-cetus-ink-muted">
+          Something went wrong while setting up this session.
+        </Text>
+        <Button
+          variant="outline"
+          accessibilityLabel="Try again"
+          onPress={() => setSetupAttempt(attempt => attempt + 1)}
+        >
+          Try again
+        </Button>
+      </View>
+    )
+  }
+
   const outcomeLabel =
     port.resultOutcomeLabel && snapshot.result
       ? port.resultOutcomeLabel(snapshot.result.stats)
@@ -153,12 +218,17 @@ export function NativeGameHost({
         capabilities={capabilities}
         rewardBanner={rewardBanner}
         outcomeLabel={outcomeLabel}
-        onSignIn={() => router.push('/sign-in')}
+        onSignIn={() =>
+          router.push({
+            pathname: '/sign-in',
+            params: { returnTo: `/games/${gameId}/play` },
+          })
+        }
         bindingPending={!session}
       />
       {session && game ? (
-        BoardView ? (
-          <BoardView projected={snapshot.projected} game={game} />
+        MemoBoardView ? (
+          <MemoBoardView projected={snapshot.projected} game={game} />
         ) : (
           <NativeBoardPending />
         )
