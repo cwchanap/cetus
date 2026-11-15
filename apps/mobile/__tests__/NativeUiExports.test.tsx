@@ -64,6 +64,21 @@ const renderedText = (tree: TestRenderer.ReactTestRenderer) =>
     .map(node => scalarText(node.props.children))
     .join('\n')
 
+/** Poll (inside act) until a plain predicate holds; countdown ticks ride
+ *  real 1s timers, so a fixed sleep can miss them under CI load. An
+ *  attempt bound keeps working when Date.now is mocked mid-test. */
+const waitUntil = async (predicate: () => boolean, maxAttempts = 200) => {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 25))
+    })
+    if (predicate()) {
+      return
+    }
+  }
+  throw new Error('waitUntil timed out')
+}
+
 const pressableOf = (tree: TestRenderer.ReactTestRenderer) =>
   tree.root.find(
     node =>
@@ -745,9 +760,7 @@ test('DailyMissionsPanel ticks through zero into the reset state', async () => {
   )
   expect(renderedText(tree)).toContain('Resets in 00:00:01')
 
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 1300))
-  })
+  await waitUntil(() => renderedText(tree).includes('Daily missions reset'))
 
   const text = renderedText(tree)
   expect(text).toContain('Daily missions reset')
@@ -783,9 +796,7 @@ test('DailyMissionsPanel retains its deadline across ordinary rerenders', async 
     )
   })
 
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 1300))
-  })
+  await waitUntil(() => renderedText(tree).includes('Daily missions reset'))
 
   const text = renderedText(tree)
   expect(text).toContain('Daily missions reset')
@@ -799,9 +810,7 @@ test('DailyMissionsPanel re-anchors when a new response repeats resetIn', async 
       responseStamp={{ date: '2026-11-02' }}
     />
   )
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 1300))
-  })
+  await waitUntil(() => renderedText(tree).includes('Daily missions reset'))
   expect(renderedText(tree)).toContain('Daily missions reset')
 
   await act(async () => {
@@ -830,9 +839,7 @@ test('DailyMissionsPanel expires on wall time while ticks are suspended', async 
     expect(renderedText(tree)).toContain('Resets in 01:00:00')
 
     nowSpy.mockReturnValue(t0 + 3_605_000)
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 1300))
-    })
+    await waitUntil(() => renderedText(tree).includes('Daily missions reset'))
 
     const text = renderedText(tree)
     expect(text).toContain('Daily missions reset')

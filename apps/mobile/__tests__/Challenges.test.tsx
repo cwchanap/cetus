@@ -84,6 +84,21 @@ const drain = async () => {
   })
 }
 
+/** Poll (inside act) until a plain predicate holds; countdown ticks ride
+ *  real 1s timers, so a fixed sleep can miss them under CI load. An
+ *  attempt bound keeps working when Date.now is mocked mid-test. */
+const waitUntil = async (predicate: () => boolean, maxAttempts = 200) => {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 25))
+    })
+    if (predicate()) {
+      return
+    }
+  }
+  throw new Error('waitUntil timed out')
+}
+
 const mountedTrees: TestRenderer.ReactTestRenderer[] = []
 
 const render = async (element: React.ReactElement) => {
@@ -503,9 +518,7 @@ describe('challenges route — signed in', () => {
       expect(renderedText(tree)).toContain('Resets in 01:00:00')
 
       nowSpy.mockReturnValue(t0 + 3_605_000)
-      await act(async () => {
-        await new Promise(resolve => setTimeout(resolve, 1300))
-      })
+      await waitUntil(() => renderedText(tree).includes('Daily missions reset'))
       expect(renderedText(tree)).toContain('Daily missions reset')
 
       await focus()
@@ -527,9 +540,7 @@ describe('challenges route — signed in', () => {
     await settle(runs[0], payload([mission()], { resetIn: 600 }))
     expect(renderedText(tree)).toContain('Resets in 00:10:00')
 
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 1300))
-    })
+    await waitUntil(() => !renderedText(tree).includes('Resets in 00:10:00'))
     expect(renderedText(tree)).not.toContain('Resets in 00:10:00')
 
     await focus()
