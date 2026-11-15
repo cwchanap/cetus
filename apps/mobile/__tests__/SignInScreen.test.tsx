@@ -166,6 +166,27 @@ test('falls back to profile for unknown game play returnTo values', async () => 
   })
 })
 
+test('falls back to profile for an array-valued returnTo', async () => {
+  // A repeated `returnTo` query key reaches the screen as string[]; the
+  // guard must reject it instead of crashing on value.match mid-render.
+  mockParams.mockReturnValueOnce({
+    returnTo: ['/games/chromatic_tide/play', '/challenges'],
+  })
+  signInSocial.mockResolvedValueOnce({
+    data: null,
+    error: { message: 'Access denied' },
+  })
+
+  const tree = await render()
+  await press(tree, 'Continue with Google')
+
+  expect(signInSocial).toHaveBeenCalledWith({
+    provider: 'google',
+    callbackURL: '/(tabs)/profile',
+    errorCallbackURL: '/(tabs)/profile',
+  })
+})
+
 test('falls back to profile for unknown returnTo values', async () => {
   mockParams.mockReturnValueOnce({ returnTo: 'evil://screen' })
   signInSocial.mockResolvedValueOnce({
