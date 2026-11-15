@@ -1,116 +1,120 @@
-# HPA-533 — Skia GameCanvas, Snake and wave 2: single-PR implementation plan
+# HPA-533 — Skia GameCanvas + eight wave-2 games: single-PR implementation plan (revised)
 
-**Status:** Planning draft, 2026-11-15; all implementation and verification checkboxes are future work unless marked checked.
+**Status:** Design-review revision, 2026-11-15; implementation and executable checks are **not yet performed**.
 **Linear:** [HPA-533](https://linear.app/cwchanap/issue/HPA-533/build-the-skia-gamecanvas-with-snake-and-port-the-wave-2-games)
-**Design:** [Native GameCanvas / wave 2 specification](../specs/2026-11-15-hpa-533-skia-wave2-mobile-design.md)
-**Baseline:** `main` after merged [HPA-425 / PR #105](https://github.com/cwchanap/cetus/pull/105).
-**PR rule:** **One Linear ticket = one PR.** All docs, native modules, eight ports, fixes and verification changes land as successive commits on this **same** branch. Stage boundaries are reviewable commits, *not* additional PRs. No new artwork or SFX is required; create a separate ticket if needed later.
+**Design:** [Revised design specification](../specs/2026-11-15-hpa-533-skia-wave2-mobile-design.md)
+**Review:** [PR #108 design review](https://github.com/cwchanap/cetus/pull/108#pullrequestreview-5912173255)
+**Base:** Current `main` after merged [HPA-425 / PR #105](https://github.com/cwchanap/cetus/pull/105).
+**Delivery rule:** **One Linear ticket, one draft PR (#108).** Stages below are commits/checkpoints within that same PR; do not create additional implementation PRs. Reuse existing game shapes and tokens; if new image art/SFX is needed, plan it as a **separate task**, not a mixed coding commit.
 
-## Stage 0 — Dependency, source and tooling inventory
+## Stage 0 — Confirm real contracts and baseline
 
-- [x] Confirm HPA-533 is Backlog and unblocked by completed HPA-179/HPA-393; HPA-535 and HPA-199 remain downstream.
-- [x] Confirm #105 is merged; `main` contains wave-1 host/registry/chrome and 8/23 playable games; no dedicated HPA-533 PR/branch existed before this planning branch.
-- [x] Inspect `apps/mobile/src/games/{NativeGameHost.tsx,NativeGameChrome.tsx,registry.ts}`, the Expo route, portable engines, and web Snake loop. Verify that existing score/auth/reward contracts must be reused.
-- [x] Confirm there are no Linear-attached mockups for HPA-533. Use current web renders and shared mobile tokens for automated visual comparison.
-- [ ] Record `main` baseline gates: `bun install --frozen-lockfile`, `bun run lint`, `bun run format:check`, `bun run turbo run typecheck`, `bun run test:coverage`, `bun run build`, `bun run test:e2e`, `bun run --cwd apps/mobile test --runInBand`. Record failures as preexisting if reproducible; do not weaken checks.
-- [ ] Verify the available iOS simulator/dev-client build path and whether the fixed HTTPS API/auth origin supports authenticated device checks. Guest gameplay and deterministic score-response tests must **not** depend on provider setup.
+- [x] Recheck Linear: HPA-533 is unblocked (HPA-179/HPA-393 complete); HPA-535 and HPA-199 depend on its output.
+- [x] Inspect merged wave-1 native `registry.ts`, `NativeGameHost.tsx`, `NativeGameChrome.tsx`, `app/games/[gameId]/play.tsx`, `createBaseGameSession`, game models, web controls and web animation loops.
+- [x] Check model update units: `BaseGame.update` takes seconds; web physics loops clamp at 0.1 seconds; Snake ignores delta; Gravity Flip/Signal Switch/Asteroid Drift also clamp internally; Evader needs the loop's clamp.
+- [x] Confirm Gravity Flip, Signal Switch and Asteroid Drift are **non-pausable**, existing app CI skips draft PRs, there is no native export step or Maestro/Detox flow, and HPA-533 has no linked UI mockup.
+- [ ] Record baseline: `bun install --frozen-lockfile`, `bun run lint`, `bun run format:check`, `bun run turbo run typecheck`, `bun run test:coverage`, `bun run build`, `bun run test:e2e`, `bun run --cwd apps/mobile test --runInBand`. Treat pre-existing failures separately; no gate weakening.
+- [ ] Confirm iPhone simulator/dev-client availability. Authenticated provider/backend parity is not assumed; run all guest gameplay checks without external OAuth setup.
 
-**Commit checkpoint:** the documentation only (this PR starts here). No claim of iOS/Android native verification.
+**Checkpoint:** The reviewed plan matches `main`, not the earlier speculative worklets/stepper path.
 
-## Stage 1 — Native module and minimal reusable frame/canvas primitives
+## Stage 1 — Skia native module, focused CI, and a single JS frame loop
 
-**Commit 1: dependency/native-build smoke.**
+**Commit 1: install Skia and establish honest draft-PR CI proof.**
 
-- [ ] Add an SDK-57-compatible `@shopify/react-native-skia` dependency in `apps/mobile/package.json` (start with Expo SDK 57's recommended 2.6.2, not `latest`). Use `expo install` from the mobile workspace and update the root `bun.lock`. If importing Worklets `scheduleOnRN` directly, declare the compatible `react-native-worklets` dependency explicitly rather than relying on an incidental transitive resolution.
-- [ ] Ensure one `GestureHandlerRootView` wraps navigation without disrupting the current `VariableContextProvider` / token context. Keep existing dev-client, Expo Router and NativeWind configuration.
-- [ ] Mount a temporary Skia `Canvas` rectangle and simple tap/pan in the existing mobile app, build/load on an iOS simulator using a rebuilt development client, and check Metro does not import web Pixi/DOM or bundle a second React copy. Test Android bundling in CI. **Do not** use `makeImageFromView`; SDK-57's recommended Skia has a reported RN-0.86 issue in that particular API. If actual required primitives fail, capture a minimal reproduction before considering a tested alternate Skia version.
-- [ ] Remove the temporary canvas after the real Snake pilot consumes the dependency; no permanent demo screen unless existing dev gallery needs it.
+- [ ] Install Expo SDK 57-compatible `@shopify/react-native-skia` with `expo install` in `apps/mobile`, updating **one root `bun.lock`**. Start with Expo's recommended 2.6.2 and verify against actual installed SDK; avoid the incompatible/unneeded `makeImageFromView` API. No `react-native-worklets` dependency or broad Expo/RN upgrade.
+- [ ] Wrap the app root in `GestureHandlerRootView` while preserving `VariableContextProvider`, safe area, fonts and theme.
+- [ ] Rebuild the current iOS development client once; render one Skia rectangle and exercise a basic gesture. Fail early if native Skia prerequisites are missing; document a minimal reproduction before changing package pins. Remove the temporary scene after the Snake pilot.
+- [ ] Add a **separate, unconditional `mobile-export` job** to `.github/workflows/ci.yml`. It runs on `pull_request` including Draft, not behind the existing draft jobs' `if`, and runs `bun install --frozen-lockfile` plus `bunx expo export --platform all` with `working-directory: apps/mobile` for export. Expo CLI `--platform all` covers iOS **and** Android JS/assets bundles. The export must not be represented as Android native compilation, Skia runtime testing or device readiness.
+- [ ] Extend the **existing** `apps/mobile/__tests__/NativeGameImportGraph.test.ts` to prevent DOM/Pixi imports through new Skia ports. Keep the existing tests and existing app runtime dependency checks. No second import graph checker.
 
-**Commit 2: the tiny platform-neutral stepper.**
+**Commit 2: tiny canvas/loop primitives and host background behavior.**
 
-- [ ] Add `packages/games/src/core/GameStepper.ts`: `createGameStepper(update: (deltaSeconds: number) => void)` returning `tick(timestampMs)` and `reset()`. Reject initial/invalid/out-of-order times; cap a single stall delta at ~0.05 s and **never** replay catch-up frames. Do not add a fixed-physics accumulator (Asteroid Drift and Gravity Flip already own substeps).
-- [ ] Add portable Vitest: zero on first frame; 16-ms → ~0.016-second update; 1000-ms stall capped; reset/restart no jump; duplicate/backward timestamps ignored.
-- [ ] Add `apps/mobile/src/games/canvas/useGameFrameDriver.ts`: one Reanimated `useFrameCallback`, schedules **JS** `stepper.tick` with `scheduleOnRN`, no second rAF or interval, and no worklet captures of a `BaseGame` instance. Start/stop based on lifecycle and `AppState`; pause foreground-only games on background, restore only an auto-paused game, clear held controls and reset step timing. Add a bounded backlog policy if scheduling stalls. Make the bridge work with installed Reanimated 4 / Worklets, not removed v3 helpers.
-- [ ] Add `apps/mobile/src/games/canvas/GameCanvas.tsx` plus a pure coordinate transform helper: logical scene dimensions, aspect ratio, touch-to-world conversion with letterbox exclusion, Skia children and optional composable gestures. **No game-ID switch, physics, scene store or renderer registry** in this wrapper.
-- [ ] Jest test coordinate transform on narrow/tall displays, touch bounds, frame stop/background/unmount and event teardown. Verify a stub screen can supply its own children, gestures and frame callback without changing `GameCanvas`.
+- [ ] `apps/mobile/src/games/canvas/GameCanvas.tsx`: Skia `Canvas` + `Group` letterbox transform and measured layout; pass logical width/height and child drawing elements. Expose pure `toGamePoint` only for Reflex and Path Navigator. No `GameCanvas` gesture API; each board owns its own `GestureDetector`.
+- [ ] Add a tiny shared `swipeDirection` helper for Snake/2048 using a fixed threshold in **density-independent points** (RNGH already provides them); no scaling or input queue.
+- [ ] Add `apps/mobile/src/games/canvas/useGameLoop.ts`: **one JS-thread** `requestAnimationFrame` with `cancelAnimationFrame`, stable frame callback and last timestamp retained in a ref, `deltaSeconds = first ? 0 : Math.min(Math.max(0, now - last) / 1000, 0.1)`. Only `game.update(deltaSeconds)` for active, unpaused models; reset timestamp after stopped/paused/foreground. Dispose promptly when the board unmounts and avoid re-creating the loop on every React scene update. Do **not** add portable `createGameStepper`, UI worklets, backlog handling, fixed physics or a second scheduler. Keep the 0.1 web cap to preserve Asteroid Drift's simulated-time survival/achievement semantics as closely as the current web does.
+- [ ] In `NativeGameHost`, subscribe to `AppState` **once per mounted host** and call existing `actions.pause()` when leaving active *only for pausable games*. Never auto-resume; user uses Resume. For non-pausable games, continue wall-clock timer semantics and suspend/limit visual frame updates. Do not falsely claim a non-pausable game is paused.
+- [ ] Jest: `toGamePoint` letterbox/on-margin rejects; swipe directions; one loop frame at ~0.016 s, first frame 0, 0.1 cap (including a 0.08-s hitch), inactive/pause/resume/unmount timestamp reset and no second loop; host-level AppState **pausable vs non-pausable**, one pause call and no auto-resume. Ensure host-level test mocks retain current account/score behavior.
 
-**Checkpoint:** simplest possible canvas API is reusable and SDK-57 native build is verified before porting seven Skia scenes.
+**Checkpoint:** Skia *actually boots* on an iPhone simulator, CI export runs on this Draft PR, and the JS loop/HUD separation is ready before more ports.
 
-## Stage 2 — Snake pilot: exercise the whole vertical pipeline
+## Stage 2 — Two pilots: Snake **and Gravity Flip**
 
-**Commit 3: Snake end to end.**
+**Commit 3: first two registry ports and board implementations.**
 
-- [ ] Add `[GameID.SNAKE]` to **existing** `NATIVE_GAMES` with `SnakeGame({ submitScore, platform })` and `createStableProjector` that copies only head/body/food/direction/grid and relevant HUD data. Preserve the current `NativeGameHost` identity-bound submitter/forwarder and `NativeGameChrome`; do not create a second game lifecycle.
-- [ ] Add `apps/mobile/src/games/boards/SnakeBoard.tsx`: `GameCanvas` at logical 500×500/20×20, Skia cells, Gesture Pan swipe directions, existing `SnakeGame.changeDirection`; drive `game.update(deltaSeconds)` through the frame driver while honoring `SnakeGame`'s own wall-clock move interval. Mark processed redraws through existing `markRendered()` so the model doesn't emit redundant scene updates.
-- [ ] Verify Start → swipe → moving body/food → collision/timeout → provisional result → saved/unconfirmed result → replay, all via existing host. Pause stops both model motion and frame dispatch; navigation/unmount removes callbacks and destroys game once; user identity change remounts without carrying previous state or banners.
-- [ ] Add Jest smoke for valid/reverse swipes, scaled swipe threshold, score submitter/platform, stale-run/identity guards, held app background, timer teardown and replay. Test the Canvas primitive without mocking the entire existing game host.
+- [ ] Add `[GameID.SNAKE]` and `[GameID.GRAVITY_FLIP]` to the existing `NATIVE_GAMES`, with the same identity-bound `createGame({submitScore,platform})`/result contracts as wave 1. Use existing host/chrome/reward paths.
+- [ ] **Snake:** 20×20 Skia cells/food/body at logical 500×500, swipe → `changeDirection`, one `useGameLoop`; obey existing `Date.now()` movement cadence and `markRendered()` redrawing. Reversal is rejected by the model, not reimplemented.
+- [ ] **Gravity Flip:** Skia corridor/player/obstacles/stars at model logical dimensions; an accessible `Flip gravity` button invokes `flipGravity`, with `useGameLoop` calling the existing `update(deltaSeconds)`. The model owns substeps, collisions, spawn, score and non-pausable timer.
+- [ ] **Critical scene/HUD separation (prove here, not in later stages):** both ports' `createProjector` returns small stable **HUD-only** data (clock/status/score already covered by common snapshot); no full moving-scene arrays in the host projector. Inside each board, `useGameLoop` reads current model state and copies visible primitives to **board-local** React state; only the scene updates every frame. Existing `createBaseGameSession.refresh` equality avoids host/chrome React rerender when model HUD/time/score did not change. A timer/score update still propagates normally.
+- [ ] Add Jest/model integration for Snake direction/reset/end/result, Gravity Flip frame physics/collision/finish, HUD renderer counts across 60 same-HUD frames, cleanup/stale account transitions, single score POST, awards and unconfirmed status.
+- [ ] **iOS simulator acceptance here:** guest Start → swipe/flip → visible movement → finish → replay → leave; capture `xcrun simctl io booted screenshot` for Snake and Gravity Flip active/result states. Check Gravity Flip still advances physics under normal frame timing and doesn't fake a pause on background.
 
-**Checkpoint:** Snake is runnable in the iPhone simulator with existing native HUD and server-contract semantics. If this fails, repair this stage before spreading the pattern.
+**Checkpoint:** both input-driven Snake and **delta-driven, non-pausable** Gravity Flip validate the pattern before any other real-time ports.
 
-## Stage 3 — Turn/interval-driven wave 2 ports
+## Stage 3 — 2048, Reflex and Signal Switch
 
-**Commit 4: 2048 (native views, deliberately no Skia).**
+**Commit 4: 2048 RN views, not Skia.**
 
-- [ ] Add `[GameID.GAME_2048]` using the existing `GameID.GAME_2048` enum member from `@cetus/shared/games` and `Game2048` from `@cetus/games/2048/Game2048`. Do not add a second game catalog.
-- [ ] Build `boards/Game2048Board.tsx` from RN views (4×4 grid) and existing Reanimated for tile position/merge/spawn transitions. Swipe `move(direction)`, Undo `undo()`; respect `won`, `stuck` and model score. Use a `createStableProjector` for copied cells and a lightweight elapsed `projected.clock` so the HUD does not show the model's giant countdown duration. Keep model tile ID identity for animation; never reproduce merge logic.
-- [ ] Jest: swipes/undo, rapid gesture rejection or serialization while animating, win/stuck presentation, save/replay, tile snapshot stability across clock ticks.
+- [ ] Add `[GameID.GAME_2048]` with `Game2048`; render a 4×4 board using RN views and existing Reanimated tile positioning/merging keyed from model tile IDs. Swipe `move(direction)`, Undo `undo()`, read `won/stuck/maxTile` from the model. **No Skia and no new gesture serialization/animation input queue**; model moves are synchronous.
+- [ ] Use a copied, stable board projection and a separate elapsed-time `projected.clock` in the chrome (Sudoku precedent). Don't show the effectively infinite countdown.
+- [ ] Jest: horizontal/vertical moves, invalid move, undo, duplicate final-score suppression, board identity across clock tick, result/replay.
+- [ ] iOS guest simulator play + screenshot; check tile alignment, safe-area, animated tile readability and Undo placement.
 
-**Commit 5: Reflex and Signal Switch (model-owned timers).**
+**Commit 5: Reflex (interval) and Signal Switch (frame).**
 
-- [ ] `ReflexBoard.tsx`: 12×12 Skia board, tap mapping to `handleCellClick(row,col)`, existing spawn interval and hit/miss score. **No** added frame driver/spawn timer where model already schedules objects.
-- [ ] `SignalSwitchBoard.tsx`: Skia lanes/gates/drones; tap `cycleGate(laneIndex)`, use frame driver for model movement. Reject taps outside locked/visible lanes.
-- [ ] Both get native registry ports, stable visible-state projections, result labels if needed and Jest start/input/end/score tests. Keep one score path via `BaseGame` and `NativeGameHost`.
+- [ ] **Reflex:** 12×12 Skia shapes with `toGamePoint` tap-to-row/col → `handleCellClick`. Model's existing spawn/lifetime interval remains the only scheduler; use `createStableProjector` for copied board data. No `useGameLoop`.
+- [ ] **Signal Switch:** Skia lanes/drones/gates with the existing `useGameLoop` for physics and **four labelled RN gate `Pressable`s** → `cycleGate`; disabled for locked lanes. Keep moving scene local to the board, host projection HUD-only, model-owned unlock/collision behavior.
+- [ ] Jest: Reflex hit/miss/start/end; Signal Switch lane gate cycling/unlock, 0.1-second physics step, non-pausable background semantics and finish/replay.
+- [ ] iOS guest simulator play and screenshots for both games, checking accessible gate labels, lane colors and tap hit regions.
 
-**Checkpoint:** 12/23 native games are playable; 2048 uses no Skia; interval/turn-driven games have no unnecessary update loop.
+**Checkpoint:** 13/23 native-playable games and the event-driven vs frame-driven split is exercised without adding a second store/scheduler.
 
-## Stage 4 — Drag/touch real-time ports
+## Stage 4 — Evader and Path Navigator
 
-**Commit 6: Evader and Path Navigator.**
+**Commit 6: shared labelled `HeldDpad`, Evader and Path Navigator.**
 
-- [ ] `EvaderBoard.tsx`: Skia arena and model objects; touch drag pad translates into `pressKey/releaseKey(_, 'touch')`. Use frame driver for `update(deltaSeconds)`; release held keys on cancel/blur/pause/unmount. Do not change collision/spawn/scoring code.
-- [ ] `PathNavigatorBoard.tsx`: Skia path and cursor; drag positions transformed from measured canvas to model coordinates, passed to `updatePlayerPosition(x, y)`. Start at actual model cursor and display model collision/end feedback. No custom path-collision implementation and no frame driver (input-driven).
-- [ ] Jest verifies drag/world-space mapping, touch cancellation/return, pause and one final result per game.
+- [ ] Add a single small `HeldDpad` RN component with four `Pressable` directions, descriptive `accessibilityLabel`s, `onPressIn`/ `onPressOut` and explicit unmount/blur held-state release. It has no game/engine imports; each board maps directions to its own model interface.
+- [ ] **Evader:** Skia arena/objects/player; `HeldDpad` maps directions to the existing Arrow-key inputs via `EvaderGame.pressKey/releaseKey(key, 'touch')`. The shared loop handles seconds with the 0.1 cap; model still owns spawn interval/score/collisions. Board-local scene, host HUD-only.
+- [ ] **Path Navigator:** Skia authored paths + cursor; `Gesture.Pan` transforms touches using `toGamePoint` to `updatePlayerPosition(x,y)`. Read model cursor/start, collision, win/out-of-bounds; **no separate frame loop or collision logic**. Use stable projected board data.
+- [ ] Jest: two simultaneous D-pad directions, press/release, interruption/teardown, Evader model movement/clamping, Path Navigator accurate position after letterbox and margin touch ignored.
+- [ ] iOS guest simulator play/screenshot for both, verifying held buttons, path fit and result/replay.
 
-**Commit 7: Gravity Flip.**
+**Checkpoint:** 15/23 playable; the HeldDpad can serve Asteroid Drift directly.
 
-- [ ] `GravityFlipBoard.tsx`: Skia corridor/hazards/stars/player, full-canvas tap `flipGravity()`; frame driver only calls existing `GravityFlipGame.update(deltaSeconds)`. Preserve its internal substeps and model scoring, including stars/flips.
-- [ ] Jest: flip, paused input ignored, collision/timeout, replay, and no background delta jump.
+## Stage 5 — Asteroid Drift
 
-**Checkpoint:** 15/23 games playable. New game-specific input logic lives in each board, not `GameCanvas`.
+**Commit 7: reuse D-pad, test outcome/achievement semantics.**
 
-## Stage 5 — Asteroid Drift, momentum and result parity
+- [ ] Add `[GameID.ASTEROID_DRIFT]`; Skia arena/ship/asteroids/orbs with board-local scene from `game.getState()`; HUD-only projection; existing `useGameLoop` and current model physics.
+- [ ] Reuse `HeldDpad`. Each pressed arrow invokes `pressDirection(dir, 'touch')`, each release invokes `releaseDirection(dir, 'touch')`. These are the model's **existing thrust directions**, not a separate stick/thrust gate. Validate diagonal held inputs, interruption and inertia after release without reimplementing velocity/collision/scoring.
+- [ ] Jest / portable existing model regression: frame 80 ms -> 0.08 s (not truncated at 0.05); 0.1 s clamp at a larger JS hitch; survival-time result `survivedFullRun` and existing deep-space/long-haul achievement data on an uninterrupted 90-second deterministic run; correct `expired` outcome if simulated time genuinely falls behind; network saved/unconfirmed states, one score POST and no double award.
+- [ ] iOS guest simulator play/screenshot for held-direction movement, coast/inertia, avoiding obstacles, result and replay. Document that background hitches longer than 0.1 s have the web's simulation-vs-wall-clock limitation, not a new mobile guarantee.
 
-**Commit 8: Asteroid Drift.**
+**Checkpoint:** 16/23 playable; all **seven actual Skia boards** share `GameCanvas` without a game-specific branch. Wave-3 has a validated practical pattern; no speculative stub/contract test.
 
-- [ ] `AsteroidDriftBoard.tsx`: Skia ship, asteroids and orbs using native logical bounds and existing `AsteroidDriftGame`. Provide a left directional stick and a right press-and-hold thrust button. While held, translate stick axes to the model's existing touch held-direction set via `pressDirection/releaseDirection`; release all on cancel, game finish, pause and unmount. Without thrust, allow the model's own drag/inertia to continue. Never add a second velocity integrator.
-- [ ] Use the shared frame driver, preserving the game's own max-physics-step logic; use cloned, visible scene data for smooth drawing. Verify portrait safe area and touch targets.
-- [ ] Jest: diagonals, stick direction changes, release/thrust gating, movement momentum and timeout/collision result, score/save/rewards, app background.
-- [ ] Confirm `NATIVE_GAMES` lists **16/23**, leaving the exact seven HPA-535 IDs unplayable; no routing changes needed.
+## Stage 6 — Final automated acceptance and regression gates
 
-**Checkpoint:** wave 2 is feature-complete on one PR. The HPA-535 team can create a trivial dummy canvas screen without changing `GameCanvas` or core frame API.
+- [ ] Root and mobile quality: `bun install --frozen-lockfile`; `bun run lint`; `bun run format:check`; `bun run turbo run typecheck`; `bun run --cwd apps/mobile test --runInBand`; `bun run test:coverage`; `bun run build`; `bun run test:e2e`. Existing Codecov project/patch targets remain unchanged; check native-only Jest is picked up correctly.
+- [ ] **Draft-PR verification:** `mobile-export` CI job runs on each pushed draft commit. Other CI/e2e jobs currently skip draft; run those commands locally before finishing and use full CI when PR is marked ready. Record actual evidence rather than treating skipped checks as green. Expo CLI `bunx expo export --platform all` produces iOS+Android **JS/assets bundles only**.
+- [ ] **iOS simulator end-to-end guest acceptance:** for **each of the eight games**, validate hub/detail Play enabled → Start → game-specific input → visible progress → game finishes/result (saved/unconfirmed separately tested via Jest) → Replay → navigate back, with cleanup. Collect per-game screenshot(s) as they land, not a speculative all-at-end Maestro/Detox implementation. If automation is already available, use it to drive taps; otherwise record deterministic simulator flow execution and screenshot artifacts, **without making human sign-off an acceptance criterion**.
+- [ ] **Native visual checks on iOS:** screenshots of idle/active/result representative screens at compact and large iPhone simulator sizes; board fits within safe areas, logical aspect ratio and letterbox hold, labelled D-pad/gates/flip button not clipped, canvas elements visible and contrast tokens match existing Cetus UI. Check against a Linear ticket UI mockup **only if supplied** (none attached now). No new pixel-diff comparison with desktop web or unbounded visual harness.
+- [ ] **Contract tests (Jest):** one score submit call, `Platform.OS`, saved vs unconfirmed result, post-save award notification and account isolation; do not overclaim a working **real authenticated provider/backend** run. Host-level tests already cover most contracts and must be extended for new ports. Real-authenticated iOS score/leaderboard parity remains a distinct release gate for HPA-199.
+- [ ] **Android/Linux:** validation through CI export/automated tests only; **Android native Skia compile/runtime remains unverified** without a later Android native CI/EAS build, explicitly tracked under HPA-199. No manual Android/Linux acceptance.
+- [ ] **macOS/Windows:** Expo mobile app does not target them; no invented native desktop criteria. The existing web build/Playwright regressions remain in scope.
+- [ ] Web remains all 23 game routes with Pixi unchanged; native remains 16 playable/7 unavailable; no game-specific registry inside canvas, no extra scheduler/stepper/worklets, no new API, no new art/SFX. Update README only for factual native game availability and Skia dev-client prerequisites.
 
-## Stage 6 — Automated acceptance and cleanup
+## Acceptance evidence ledger (fill with artifacts, not approvals)
 
-- [ ] Run `bun install --frozen-lockfile`; `bun run lint`; `bun run format:check`; `bun run turbo run typecheck`; `bun run test:coverage` (retain existing 90% project/patch gates); `bun run --cwd apps/mobile test --runInBand`; `bun run build`; `bun run test:e2e`.
-- [ ] Run Expo production exports/bundle validation for **both iOS and Android** in CI, including Skia native import-graph and GestureHandler wiring checks. Android/Linux have **CI-only validation**, not manual sign-off.
-- [ ] Automated **iOS simulator** end-to-end run for all eight: navigate hub → game → start → characteristic input → finish/result → replay → leave. Verify no leftover timers/held controls on route change. Exercise a controlled authenticated test-server response with saved score and achievements/challenges, plus a failed/unconfirmed response, asserting one POST and no automatic retry.
-- [ ] Automated screenshot/visual check on iOS for each game in active play plus representative idle/paused/result screens: compare against existing web layouts/shared Cetus tokens and check aspect ratios, touch-target placement, nav header/safe-area, clipping, readable labels/contrast and animation glitches. If a Linear UI mockup is subsequently attached, include side-by-side comparison with it; there is **no mockup attached now**.
-- [ ] Check gameplay on iPhone simulator at common compact/large dimensions: Snake directional timing, Evader held controls, Path Navigator coordinate fit, Gravity Flip hit areas, and Asteroid Drift inertia. Use automated input and visual artifacts; **no human approval criterion**.
-- [ ] Distinguish automated score-contract checks from **actual** authenticated device/backend parity, which depends on the fixed HTTPS login/EAS/provider setup still unverified in #105. Perform an authenticated iOS end-to-end check when available and record the evidence, otherwise leave it explicitly pending and keep HPA-199's cross-platform release parity gate intact. Never claim a real backend or production award check passed on the basis of a stub.
-- [ ] Confirm the web still uses Pixi and all 23 web routes; no browser-only dependency entered `@cetus/games` or mobile. No duplicate frame source, no new database/API/auth endpoints, no new art/SFX and no changes to HPA-535's seven games.
-- [ ] Update `README.md`/development notes only where wave-2 availability or Expo/Skia setup is now outdated. Keep this PR as Draft until the relevant automated acceptance checks can be evidenced.
-
-## Acceptance ledger (fill with concrete evidence during implementation)
-
-| End-to-end criterion | Platform / method | Evidence | Status |
+| End-to-end requirement | Platform and method | Evidence to collect | Status |
 | --- | --- | --- | --- |
-| 16/23 native games registered and playable; other seven disabled | iOS simulator + Jest | Route and registry test, simulator flow | Pending |
-| All eight start, accept input, end, replay and release resources | iOS simulator automation | Eight named game flows/logs | Pending |
-| Score saved/unconfirmed and rewards displayed correctly without double POST | iOS simulated server + Jest integration | Network trace, screenshots and test output | Pending |
-| Gesture, scale, orientation, safe areas and touch controls usable | iOS simulator visual/interaction | Automated screenshots against web/UI tokens (and Linear mockup if later provided) | Pending |
-| Wave-3 dummy scene reuses Canvas/frame API unchanged | Jest/TypeScript | Adapter contract test | Pending |
-| Native bundles and Android coverage | CI only (iOS/Android export and unit) | CI checks | Pending |
-| Existing web regressions and coverage still pass | CI | Lint/type/unit/coverage/build/Playwright | Pending |
-| Real authenticated backend/device parity (if access exists) | iOS test path; HPA-199 release gate | Authenticated device trace or explicitly 'not verified' | Not verified |
+| All eight new games start/input/progress/finish/replay/navigate back | iOS simulator, each stage | Per-game command/log and screenshot | Pending |
+| Full-motion Snake and Gravity Flip pilots prove canvas/frame/host separation | iOS + Jest | Native screenshots and board-vs-host render-count tests | Pending |
+| 2048 tile animations/undo, Reflex taps, Signal lanes, Evader D-pad, Path drag, Gravity Flip and Asteroid inertia work | iOS simulator | Gameplay screenshots + Jest controls/state tests | Pending |
+| Native UI geometry/accessibility against current Cetus tokens; compare Linear mockup if later attached | iOS screenshot review | Screenshot set, visible unclipped controls and logical aspect-fit assertions | Pending |
+| Score POST/result/award contract, no retry and account isolation | Mobile Jest with stubbed responses | Test logs + assertion names | Pending |
+| 16 playable / 7 unavailable, all web games intact | Jest + existing web CI | Registry test and web CI | Pending |
+| iOS+Android Expo JS/assets bundles resolve on **draft** PR | CI `mobile-export` | CI job links (does not prove native build) | Pending |
+| Android native compile/device parity | HPA-199 CI/EAS release gate | **Not claimed for HPA-533** | Unverified |
+| Real authenticated cross-platform score and achievement parity | HPA-199 release gate | **Not claimed by guest/Jest tests** | Unverified |
 
-**Platform exclusions:** this is an Expo iOS/Android app, **not a macOS or Windows app**. Do not invent desktop E2E sign-offs. Do not add Android/Linux manual acceptance criteria or human review sign-off. A single PR serves this ticket from design through implementation.
+**Done-for-this-PR criterion:** all eight wave-2 games play on iOS simulator with recorded gameplay/visual evidence; backend score-contract unit assertions and established web checks pass; the new always-on draft CI job exports iOS and Android JS bundles; registration is 16/23; existing wave-3 is untouched. Leave real Android native runtime/store submission and real cross-platform authenticated parity as explicitly **unverified HPA-199 gates**. No human acceptance/sign-off checklist.
