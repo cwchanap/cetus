@@ -12,6 +12,7 @@ import {
   useNativeVariable,
   VariableContextProvider,
 } from 'react-native-css/native'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import '../global.css'
@@ -87,27 +88,29 @@ export default function RootLayout() {
   }
 
   return (
-    <VariableContextProvider
-      value={fontsReady && !timedOut ? CUSTOM_FONTS : SYSTEM_FONTS}
-    >
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        {/* `dark` activates the shared .dark token scope from @cetus/tokens —
-            react-native-css cascades its variables to every descendant, so
-            mobile reuses the exact dark declarations web serves. */}
-        <View className="dark flex-1">
-          <Stack
-            screenOptions={{
-              headerStyle: { backgroundColor: chromeBg },
-              headerTintColor: chromeTint,
-              contentStyle: { backgroundColor: canvas },
-            }}
-          >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="sign-in" options={{ title: 'Sign in' }} />
-          </Stack>
-        </View>
-      </SafeAreaProvider>
-    </VariableContextProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <VariableContextProvider
+        value={fontsReady && !timedOut ? CUSTOM_FONTS : SYSTEM_FONTS}
+      >
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          {/* `dark` activates the shared .dark token scope from @cetus/tokens —
+              react-native-css cascades its variables to every descendant, so
+              mobile reuses the exact dark declarations web serves. */}
+          <View className="dark flex-1">
+            <Stack
+              screenOptions={{
+                headerStyle: { backgroundColor: chromeBg },
+                headerTintColor: chromeTint,
+                contentStyle: { backgroundColor: canvas },
+              }}
+            >
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="sign-in" options={{ title: 'Sign in' }} />
+            </Stack>
+          </View>
+        </SafeAreaProvider>
+      </VariableContextProvider>
+    </GestureHandlerRootView>
   )
 }

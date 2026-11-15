@@ -6,6 +6,10 @@
     "orientation": "portrait",
     "scheme": "cetus",
     "userInterfaceStyle": "dark",
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "ios": {
       "bundleIdentifier": "com.hapadona.cetus"
     },
