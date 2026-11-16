@@ -31,7 +31,7 @@ Environment variables (`.env`) live in `apps/web/.env` (see `CLAUDE.md` for the 
 
 ## 📱 Mobile App (Expo)
 
-`apps/mobile` (`@cetus/mobile`) is the Expo Router shell for iOS/Android: four tabs, the 23-game catalog from `@cetus/shared`, and Google/Apple **browser** sign-in against the same Better Auth server as the web app. Native game screens, native UI kit and Skia are separate tickets (HPA-182/HPA-425/HPA-533).
+`apps/mobile` (`@cetus/mobile`) is the Expo Router shell for iOS/Android: four tabs, the 23-game catalog from `@cetus/shared`, and Google/Apple **browser** sign-in against the same Better Auth server as the web app. Native screens exist for 16 of the 23 catalog games — Skia boards registered in `NATIVE_GAMES` (HPA-425 wave 1, HPA-533 wave 2); the rest stay disabled.
 
 ```sh
 bun run mobile:dev              # expo start --dev-client (development builds only, no Expo Go)
@@ -40,7 +40,7 @@ bun run --cwd apps/mobile typecheck
 bun run --cwd apps/mobile lint
 ```
 
-Package boundaries: mobile **application code** consumes `@cetus/shared` and `@cetus/api-client` only — no `@cetus/ui` (web React; native variants are HPA-182), `@cetus/games` or `@cetus/app-core` (not imported until native screens exist). Styling still pulls the shared theme tokens (`@cetus/tokens/theme.css` via `global.css`) and tooling extends `@cetus/config`.
+Package boundaries: mobile **application code** consumes `@cetus/shared` (subpath imports), `@cetus/api-client`, `@cetus/games` (game models) and `@cetus/app-core` (game host/projection infra, `useRemoteData`), plus `@cetus/ui` — its `react-native` conditional exports resolve to `.native` variants rather than the web React ones. Styling still pulls the shared theme tokens (`@cetus/tokens/theme.css` via `global.css`) and tooling extends `@cetus/config`.
 
 **Mobile auth setup (manual prerequisites):**
 
@@ -52,8 +52,8 @@ Package boundaries: mobile **application code** consumes `@cetus/shared` and `@c
 **Native build prerequisites (Skia binaries, manual opt-in):**
 
 - `@shopify/react-native-skia` is pinned to 2.6.2 and Bun blocks its `postinstall` (`scripts/install-libs.js`) as an untrusted lifecycle script — `bun pm untrusted` lists it. That installer copies prebuilt Skia binaries from the `react-native-skia-*` platform packages into the package's `libs/` directory; while it stays blocked, `libs/` remains empty, `pod install` fails (the podspec hard-errors when `libs/ios` is missing) and the Android Gradle build finds no `libs/android`. Jest and `expo export`/Metro bundling never compile native code, so they cannot catch this.
-- To unblock a real native build, a human must run `bun pm trust @shopify/react-native-skia` from the repo root — scoped to this one package (not `--all`). It adds `@shopify/react-native-skia` to `trustedDependencies` in `package.json`, a change to the project's dependency trust configuration — clear it with the project owner/security policy first — then runs the blocked installer, which replaces/regenerates the package's generated `libs/` directories.
-- Afterward, rebuild the native development client (`cd apps/mobile && bunx expo run:android`, or `eas build --profile development`; iOS `pod install`/`expo run:ios` stays deferred until macOS/Xcode setup). Expo Go cannot run Skia, and a Metro/`expo export` bundle does not prove native compilation.
+- To unblock a real native build, a human must run `bun pm trust @shopify/react-native-skia` from the repo root — scoped to this one package (not `--all`). It adds `@shopify/react-native-skia` to `trustedDependencies` in `package.json` and runs the blocked installer, which replaces/regenerates the package's generated `libs/` directories. No manifest currently defines `trustedDependencies`, and an explicit list **replaces** Bun's built-in default trusted list rather than extending it (per Bun's lifecycle docs) — so this changes the project's dependency-trust configuration: clear it with the project owner/security policy, and have the review assess whether any other package needs lifecycle scripts that the default list currently covers (`bun pm untrusted` currently lists only Skia).
+- Afterward, rebuild this project's native development client (`cd apps/mobile && bunx expo run:android`, or `eas build --profile development`; iOS `pod install`/`expo run:ios` stays deferred until macOS/Xcode setup). Skia 2.6.2 is a bundled native module in Expo Go on SDK 57, but this project's workflow is `expo start --dev-client` against its own development build — only that build proves this app's native side compiles and links; a Metro/`expo export` bundle does not.
 
 ## 🧪 Development Workflow
 
