@@ -549,6 +549,55 @@ describe('Signal Switch pilot — lifecycle', () => {
     expect(submitScore).toHaveBeenCalledTimes(1)
   })
 
+  test('a backgrounded run still expires on the wall clock and ends one Survived result', async () => {
+    jest.useFakeTimers({
+      doNotFake: ['requestAnimationFrame', 'cancelAnimationFrame'],
+    })
+    try {
+      let tree: TestRenderer.ReactTestRenderer | undefined
+      await act(async () => {
+        tree = TestRenderer.create(
+          <NativeGameHost gameId={GameID.SIGNAL_SWITCH} />
+        )
+        jest.advanceTimersByTime(50)
+      })
+      if (!tree) {
+        throw new Error('TestRenderer.create returned nothing')
+      }
+      trees.push(tree)
+      const game = createdGames[0]
+      fireLayout(tree)
+
+      await press(tree, 'Start game')
+      fireFrame(100)
+      fireFrame(200)
+      const x = game.getState().drones[0].x
+      expect(x).toBeGreaterThan(64)
+
+      emitAppState('background')
+      expect(game.getState().isPaused).toBe(false)
+
+      await act(async () => {
+        jest.advanceTimersByTime(91_000)
+      })
+      await act(async () => {
+        for (let i = 0; i < 10; i++) {
+          await Promise.resolve()
+        }
+      })
+
+      expect(game.getState().isGameOver).toBe(true)
+      expect(game.getGameStats().outcome).toBe('survived')
+      expect(game.getState().drones[0].x).toBe(x)
+      expect(game.getState().activeLaneCount).toBe(2)
+      expect(submitScore).toHaveBeenCalledTimes(1)
+      expect(testText(tree, 'result-outcome')).toBe('Survived')
+      expect(testText(tree, 'result-save-status')).toBe('Score saved')
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
   test('unmount destroys the game, the loop and the listeners', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.SIGNAL_SWITCH} />)
     const destroy = jest.spyOn(createdGames[0], 'destroy')
