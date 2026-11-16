@@ -85,6 +85,7 @@ const Tile2048View = memo(function Tile2048View({
     <Animated.View
       testID={`game-2048-tile-${tile.id}`}
       entering={FadeIn.duration(duration)}
+      accessible
       accessibilityLabel={`Tile ${tile.value} row ${tile.row + 1} column ${tile.col + 1}`}
       style={[
         styles.tile,
