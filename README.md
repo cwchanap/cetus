@@ -31,7 +31,7 @@ Environment variables (`.env`) live in `apps/web/.env` (see `CLAUDE.md` for the 
 
 ## 📱 Mobile App (Expo)
 
-`apps/mobile` (`@cetus/mobile`) is the Expo Router shell for iOS/Android: four tabs, the 23-game catalog from `@cetus/shared`, and Google/Apple **browser** sign-in against the same Better Auth server as the web app. Native screens exist for 16 of the 23 catalog games — Skia boards registered in `NATIVE_GAMES` (HPA-425 wave 1, HPA-533 wave 2); the rest stay disabled.
+`apps/mobile` (`@cetus/mobile`) is the Expo Router shell for iOS/Android: four tabs, the 23-game catalog from `@cetus/shared`, and Google/Apple **browser** sign-in against the same Better Auth server as the web app. Native boards exist for 16 of the 23 catalog games, registered in `NATIVE_GAMES` — eight wave-1 boards (HPA-425) plus eight wave-2 boards (HPA-533), of which seven are Skia-based and 2048 uses native views; the rest stay disabled.
 
 ```sh
 bun run mobile:dev              # expo start --dev-client (development builds only, no Expo Go)
