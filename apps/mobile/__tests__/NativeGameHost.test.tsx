@@ -1,6 +1,12 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { Platform, Pressable, Text } from 'react-native'
+import {
+  AppState,
+  Platform,
+  Pressable,
+  Text,
+  type AppStateStatus,
+} from 'react-native'
 import { GameID } from '@cetus/shared/games'
 import type { ScoreData, ScoreSubmissionResult } from '@cetus/shared/scores'
 import { AchievementRarity } from '@cetus/shared/achievements'
@@ -142,6 +148,22 @@ const testPort: NativeGamePort = {
   },
   project: state => ({ board: [...(state as TestGameState).board] }),
   view: TestBoardView,
+}
+
+const nonPausableTestPort: NativeGamePort = {
+  ...testPort,
+  createGame(deps) {
+    capturedDeps = deps
+    const game = new TestNativeGame({
+      duration: 60,
+      pausable: false,
+      resettable: true,
+      submitScore: deps.submitScore,
+      platform: deps.platform,
+    })
+    createdGames.push(game)
+    return game
+  },
 }
 
 // Fill the Stage 2/3 seam with a real port for this file only; each Jest
@@ -1080,6 +1102,83 @@ describe('NativeGameHost — setup error recovery & board memoization', () => {
 
       await act(async () => {
         createdGames[0].pause()
+        tree.unmount()
+      })
+    } finally {
+      NATIVE_GAMES[GameID.QUICK_MATH] = original
+    }
+  })
+})
+
+describe('NativeGameHost — app background policy', () => {
+  const appStateHandlers = new Set<(state: AppStateStatus) => void>()
+
+  const emitAppState = async (state: AppStateStatus) => {
+    await act(async () => {
+      for (const handler of appStateHandlers) {
+        handler(state)
+      }
+    })
+  }
+
+  beforeEach(() => {
+    appStateHandlers.clear()
+    jest
+      .mocked(AppState.addEventListener)
+      .mockImplementation((_type, listener) => {
+        appStateHandlers.add(listener)
+        return { remove: () => appStateHandlers.delete(listener) }
+      })
+  })
+
+  afterEach(() => {
+    jest
+      .mocked(AppState.addEventListener)
+      .mockImplementation(() => ({ remove: jest.fn() }))
+  })
+
+  test('a pausable game gets exactly one pause when the app leaves active, with no auto-resume', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.QUICK_MATH} />)
+    expect(appStateHandlers.size).toBe(1)
+
+    await press(tree, 'Start game')
+    const pauseSpy = jest.spyOn(createdGames[0], 'pause')
+    const resumeSpy = jest.spyOn(createdGames[0], 'resume')
+
+    await emitAppState('background')
+    expect(pauseSpy).toHaveBeenCalledTimes(1)
+    expect(createdGames[0].getState().isPaused).toBe(true)
+
+    await emitAppState('active')
+    expect(resumeSpy).not.toHaveBeenCalled()
+    expect(createdGames[0].getState().isPaused).toBe(true)
+
+    await act(async () => {
+      tree.unmount()
+    })
+    expect(appStateHandlers.size).toBe(0)
+  })
+
+  test('a non-pausable game is never paused or fake-resumed on background/foreground', async () => {
+    const original = NATIVE_GAMES[GameID.QUICK_MATH]
+    NATIVE_GAMES[GameID.QUICK_MATH] = { port: nonPausableTestPort }
+    try {
+      const tree = await render(<NativeGameHost gameId={GameID.QUICK_MATH} />)
+      expect(appStateHandlers.size).toBe(1)
+      await press(tree, 'Start game')
+      const pauseSpy = jest.spyOn(createdGames[0], 'pause')
+      const resumeSpy = jest.spyOn(createdGames[0], 'resume')
+
+      await emitAppState('background')
+      expect(pauseSpy).not.toHaveBeenCalled()
+      expect(createdGames[0].getState().isPaused).toBe(false)
+      expect(createdGames[0].getState().isActive).toBe(true)
+
+      await emitAppState('active')
+      expect(resumeSpy).not.toHaveBeenCalled()
+      expect(createdGames[0].getState().isPaused).toBe(false)
+
+      await act(async () => {
         tree.unmount()
       })
     } finally {
