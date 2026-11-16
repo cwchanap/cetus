@@ -221,8 +221,6 @@ afterEach(async () => {
 
 const CURSOR_RADIUS = 8
 
-// The board is laid out at 400×300 for the 800×600 logical arena, so a
-// view coordinate (vx, vy) lands on the game point (2·vx, 2·vy).
 const cursorCircle = (tree: TestRenderer.ReactTestRenderer) => {
   const circle = shapes(tree, 'Circle').find(props => props.r === CURSOR_RADIUS)
   if (!circle) {
@@ -244,7 +242,6 @@ describe('Path Navigator pilot — board', () => {
     expect(testText(tree, 'path-level')).toBe(`Level 1 / ${GAME_LEVELS.length}`)
 
     const circles = shapes(tree, 'Circle')
-    // Start marker (cyan, r15) and goal marker (green, r15).
     expect(
       circles.find(
         props => props.r === 15 && props.color === 'rgb(0, 255, 255)'
@@ -254,7 +251,6 @@ describe('Path Navigator pilot — board', () => {
       circles.find(props => props.r === 15 && props.color === 'rgb(0, 255, 0)')
     ).toMatchObject({ cx: level1End.x, cy: level1End.y })
 
-    // Level 1 draws its single straight segment; the cursor sits on start.
     expect(shapes(tree, 'Path').length).toBeGreaterThanOrEqual(1)
     expect(cursorCircle(tree)).toMatchObject({
       cx: level1Start.x,
@@ -303,7 +299,6 @@ describe('Path Navigator pilot — board', () => {
 
   test('a touch landing in the letterbox margin is ignored', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.PATH_NAVIGATOR} />)
-    // 500×300 letterboxes 800×600 at scale 0.5 with a 50px left margin.
     fireLayout(tree, 500, 300)
     const game = createdGames[0]
     const updatePlayerPosition = jest.spyOn(game, 'updatePlayerPosition')
@@ -356,8 +351,6 @@ describe('Path Navigator pilot — board', () => {
       cy: level2Start.y,
     })
 
-    // The still-held finger's continuing samples stay out of level 2 —
-    // (400,500) is well off the curved path and would fail if forwarded.
     panMove(tree, 390, 160)
     panMove(tree, 200, 250)
     expect(updatePlayerPosition).toHaveBeenCalledTimes(3)
@@ -381,13 +374,11 @@ describe('Path Navigator pilot — board', () => {
     expect(game.getState().currentLevel).toBe(2)
     expect(updatePlayerPosition).toHaveBeenCalledTimes(2)
 
-    // Off-zone re-entry stays ignored.
     panBegin(tree, 200, 30)
     panMove(tree, 210, 40)
     panRelease(tree)
     expect(updatePlayerPosition).toHaveBeenCalledTimes(2)
 
-    // Inside the level-2 start buffer (start is (50,150) → view (25,75)).
     panBegin(tree, 30, 75)
     panMove(tree, 35, 80)
     panRelease(tree)
@@ -410,7 +401,6 @@ describe('Path Navigator pilot — board', () => {
     panRelease(tree)
     expect(updatePlayerPosition).toHaveBeenCalledTimes(2)
 
-    // A stale update stream (cancelled/interrupted finger) is ignored.
     panMove(tree, 210, 150)
     panMove(tree, 220, 150)
     expect(updatePlayerPosition).toHaveBeenCalledTimes(2)
@@ -458,7 +448,6 @@ describe('Path Navigator pilot — board', () => {
     expect(game.getState().isGameOver).toBe(true)
     expect(updatePlayerPosition).toHaveBeenCalledTimes(2)
 
-    // The finger is still down; further samples stay disarmed.
     panMove(tree, 220, 150)
     expect(updatePlayerPosition).toHaveBeenCalledTimes(2)
 
@@ -469,7 +458,9 @@ describe('Path Navigator pilot — board', () => {
         platform: 'ios',
       })
     )
-    expect(testText(tree, 'result-outcome')).toBe('Off path')
+    expect(tree.root.findAllByProps({ testID: 'result-outcome' })).toHaveLength(
+      0
+    )
     panRelease(tree)
   })
 })

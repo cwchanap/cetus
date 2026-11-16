@@ -600,7 +600,6 @@ describe('EvaderGame', () => {
             expect(game.pressedKeys.has('up')).toBe(true)
             expect(game.pressedKeys.has('right')).toBe(true)
 
-            // Releasing one direction keeps the other driving movement.
             game.releaseKey('ArrowUp', 'touch')
             game.update(0.1)
             expect(game.getState().player.x).toBeGreaterThan(midX)

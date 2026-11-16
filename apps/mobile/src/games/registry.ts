@@ -780,11 +780,7 @@ const pathNavigatorPort: NativeGamePort = {
     createProjector: () => createStableProjector(selectPathNavigatorHud),
     resultOutcomeLabel: stats => {
         const navStats = stats as PathNavigatorStats
-        return navStats.levelsCompleted >= GAME_LEVELS.length
-            ? 'Cleared'
-            : navStats.pathViolations > 0
-              ? 'Off path'
-              : 'Timeout'
+        return navStats.levelsCompleted >= GAME_LEVELS.length ? 'Cleared' : null
     },
     view: PathNavigatorBoard,
 }

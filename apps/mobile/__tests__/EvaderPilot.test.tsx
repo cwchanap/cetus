@@ -1,6 +1,7 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
 import { AppState, type AppStateStatus } from 'react-native'
+import { GestureDetector } from 'react-native-gesture-handler'
 import { GameID } from '@cetus/shared/games'
 import type { ScoreSubmissionResult } from '@cetus/shared/scores'
 import { EvaderGame } from '@cetus/games/evader/EvaderGame'
@@ -183,25 +184,137 @@ const shapes = (
     .filter(node => node.props.testID === `skia-${name}`)
     .map(node => node.props)
 
-const dpadButton = (tree: TestRenderer.ReactTestRenderer, label: string) => {
+type DpadDirection = 'up' | 'down' | 'left' | 'right'
+
+interface DpadTouch {
+  id: number
+  x: number
+  y: number
+  absoluteX: number
+  absoluteY: number
+}
+
+interface DpadTouchEvent {
+  changedTouches: DpadTouch[]
+  allTouches: DpadTouch[]
+}
+
+const dpadTouch = (id: number, x = 20, y = 20): DpadTouch => ({
+  id,
+  x,
+  y,
+  absoluteX: x,
+  absoluteY: y,
+})
+
+const dpadButton = (
+  tree: TestRenderer.ReactTestRenderer,
+  direction: DpadDirection
+) => {
   const button = tree.root
-    .findAll(node => node.props.accessibilityLabel === label)
-    .find(node => typeof node.props.onPressIn === 'function')
+    .findAll(node => node.props.testID === `dpad-${direction}`)
+    .find(node => typeof node.props.onAccessibilityAction === 'function')
   if (!button) {
-    throw new Error(`no held D-pad button labelled ${label}`)
+    throw new Error(`no held D-pad button for ${direction}`)
   }
   return button
 }
 
-const pressIn = (button: TestRenderer.ReactTestInstance) => {
+const dpadGesture = (
+  tree: TestRenderer.ReactTestRenderer,
+  direction: DpadDirection
+) => {
+  const detector = tree.root
+    .findAllByType(GestureDetector)
+    .find(
+      node =>
+        node.findAll(child => child.props.testID === `dpad-${direction}`)
+          .length > 0
+    )
+  if (!detector) {
+    throw new Error(`no gesture detector wrapping dpad-${direction}`)
+  }
+  return detector.props.gesture.handlers as Record<
+    string,
+    (event: DpadTouchEvent) => void
+  >
+}
+
+const fireTouches = (
+  tree: TestRenderer.ReactTestRenderer,
+  direction: DpadDirection,
+  handler: string,
+  event: DpadTouchEvent
+) => {
+  const handlers = dpadGesture(tree, direction)
+  const callback = handlers[handler]
+  if (typeof callback !== 'function') {
+    throw new Error(`dpad-${direction} gesture is missing ${handler}`)
+  }
   act(() => {
-    button.props.onPressIn()
+    callback(event)
   })
 }
 
-const pressOut = (button: TestRenderer.ReactTestInstance) => {
-  act(() => {
-    button.props.onPressOut()
+const touchDown = (
+  tree: TestRenderer.ReactTestRenderer,
+  direction: DpadDirection,
+  touchId: number
+) => {
+  const touch = dpadTouch(touchId)
+  fireTouches(tree, direction, 'onTouchesDown', {
+    changedTouches: [touch],
+    allTouches: [touch],
+  })
+}
+
+const touchMove = (
+  tree: TestRenderer.ReactTestRenderer,
+  direction: DpadDirection,
+  touchId: number,
+  x: number,
+  y: number
+) => {
+  const touch = dpadTouch(touchId, x, y)
+  fireTouches(tree, direction, 'onTouchesMove', {
+    changedTouches: [touch],
+    allTouches: [touch],
+  })
+}
+
+const touchUp = (
+  tree: TestRenderer.ReactTestRenderer,
+  direction: DpadDirection,
+  touchId: number
+) => {
+  fireTouches(tree, direction, 'onTouchesUp', {
+    changedTouches: [dpadTouch(touchId)],
+    allTouches: [],
+  })
+}
+
+const touchCancel = (
+  tree: TestRenderer.ReactTestRenderer,
+  direction: DpadDirection,
+  touchId: number
+) => {
+  fireTouches(tree, direction, 'onTouchesCancelled', {
+    changedTouches: [dpadTouch(touchId)],
+    allTouches: [],
+  })
+}
+
+const activate = async (button: TestRenderer.ReactTestInstance) => {
+  await act(async () => {
+    button.props.onAccessibilityAction({
+      nativeEvent: { actionName: 'activate' },
+    })
+  })
+}
+
+const pressButton = async (button: TestRenderer.ReactTestInstance) => {
+  await act(async () => {
+    button.props.onPress()
   })
 }
 
@@ -278,12 +391,18 @@ describe('Evader pilot — board', () => {
     const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
     fireLayout(tree)
 
-    for (const label of ['Move up', 'Move down', 'Move left', 'Move right']) {
-      expect(dpadButton(tree, label)).toBeTruthy()
+    const labels: Array<[DpadDirection, string]> = [
+      ['up', 'Move up'],
+      ['down', 'Move down'],
+      ['left', 'Move left'],
+      ['right', 'Move right'],
+    ]
+    for (const [direction, label] of labels) {
+      expect(dpadButton(tree, direction).props.accessibilityLabel).toBe(label)
     }
   })
 
-  test('a D-pad press reaches the model as a touch Arrow-key, release releases it', async () => {
+  test('a D-pad touch reaches the model as a touch Arrow-key and lifting it releases', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
     fireLayout(tree)
     const game = createdGames[0]
@@ -291,55 +410,161 @@ describe('Evader pilot — board', () => {
     const releaseKey = jest.spyOn(game, 'releaseKey')
 
     await press(tree, 'Start game')
-    pressIn(dpadButton(tree, 'Move up'))
+    const handlers = dpadGesture(tree, 'up')
+    expect(typeof handlers.onTouchesDown).toBe('function')
+    expect(typeof handlers.onTouchesUp).toBe('function')
+
+    touchDown(tree, 'up', 1)
     expect(pressKey).toHaveBeenCalledWith('ArrowUp', 'touch')
     expect(game.pressedKeys.has('up')).toBe(true)
 
-    pressOut(dpadButton(tree, 'Move up'))
+    touchUp(tree, 'up', 1)
     expect(releaseKey).toHaveBeenCalledWith('ArrowUp', 'touch')
     expect(game.pressedKeys.size).toBe(0)
   })
 
-  test('two simultaneous held directions move the player diagonally', async () => {
+  test('two simultaneous fingers on different directions both hold and release independently', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
     fireLayout(tree)
     const game = createdGames[0]
 
     await press(tree, 'Start game')
-    pressIn(dpadButton(tree, 'Move up'))
-    pressIn(dpadButton(tree, 'Move right'))
+    touchDown(tree, 'up', 1)
+    touchDown(tree, 'right', 2)
     expect(game.pressedKeys.has('up')).toBe(true)
     expect(game.pressedKeys.has('right')).toBe(true)
 
     fireFrame(16)
     fireFrame(116)
 
-    const player = game.getState().player
-    expect(player.x).toBeCloseTo(20 + 30, 5)
-    expect(player.y).toBeCloseTo(150 - 30, 5)
+    expect(game.getState().player.x).toBeCloseTo(20 + 30, 5)
+    expect(game.getState().player.y).toBeCloseTo(150 - 30, 5)
     expect(playerRect(tree)).toMatchObject({
       x: 50 - PLAYER_SIZE / 2,
       y: 120 - PLAYER_SIZE / 2,
     })
+
+    touchUp(tree, 'up', 1)
+    expect(game.pressedKeys.has('up')).toBe(false)
+    expect(game.pressedKeys.has('right')).toBe(true)
+
+    fireFrame(216)
+    expect(game.getState().player.x).toBeCloseTo(80, 5)
+    expect(game.getState().player.y).toBeCloseTo(120, 5)
+
+    touchUp(tree, 'right', 2)
+    expect(game.pressedKeys.size).toBe(0)
   })
 
-  test('releasing one of two held directions keeps moving in the other', async () => {
+  test('two fingers on one direction keep it held until the second finger lifts', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+    const pressKey = jest.spyOn(game, 'pressKey')
+
+    await press(tree, 'Start game')
+    touchDown(tree, 'up', 1)
+    touchDown(tree, 'up', 2)
+    expect(pressKey).toHaveBeenCalledTimes(1)
+
+    touchUp(tree, 'up', 1)
+    expect(game.pressedKeys.has('up')).toBe(true)
+
+    touchUp(tree, 'up', 2)
+    expect(game.pressedKeys.size).toBe(0)
+  })
+
+  test('a finger sliding off its button releases the direction', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+    const releaseKey = jest.spyOn(game, 'releaseKey')
+
+    await press(tree, 'Start game')
+    touchDown(tree, 'down', 1)
+    expect(game.pressedKeys.has('down')).toBe(true)
+
+    touchMove(tree, 'down', 1, -4, 10)
+    expect(releaseKey).toHaveBeenCalledWith('ArrowDown', 'touch')
+    expect(game.pressedKeys.size).toBe(0)
+
+    fireFrame(16)
+    fireFrame(116)
+    expect(game.getState().player.y).toBe(150)
+  })
+
+  test('a cancelled touch releases the direction', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+    const releaseKey = jest.spyOn(game, 'releaseKey')
+
+    await press(tree, 'Start game')
+    touchDown(tree, 'left', 3)
+    expect(game.pressedKeys.has('left')).toBe(true)
+
+    touchCancel(tree, 'left', 3)
+    expect(releaseKey).toHaveBeenCalledWith('ArrowLeft', 'touch')
+    expect(game.pressedKeys.size).toBe(0)
+  })
+
+  test('accessibility activation toggles a held direction and announces the checked state', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
     fireLayout(tree)
     const game = createdGames[0]
 
     await press(tree, 'Start game')
-    pressIn(dpadButton(tree, 'Move up'))
-    pressIn(dpadButton(tree, 'Move right'))
+    const button = dpadButton(tree, 'up')
+    expect(button.props.accessibilityState).toMatchObject({ checked: false })
+    expect(typeof button.props.onAccessibilityAction).toBe('function')
+    expect(typeof button.props.onPress).toBe('function')
+
+    await activate(button)
+    expect(game.pressedKeys.has('up')).toBe(true)
+    expect(dpadButton(tree, 'up').props.accessibilityState).toMatchObject({
+      checked: true,
+    })
+
     fireFrame(16)
     fireFrame(116)
+    expect(game.getState().player.y).toBeLessThan(150)
 
-    pressOut(dpadButton(tree, 'Move up'))
-    fireFrame(216)
+    await activate(dpadButton(tree, 'up'))
+    expect(game.pressedKeys.size).toBe(0)
+    expect(dpadButton(tree, 'up').props.accessibilityState).toMatchObject({
+      checked: false,
+    })
+  })
 
-    const player = game.getState().player
-    expect(player.x).toBeCloseTo(80, 5)
-    expect(player.y).toBeCloseTo(120, 5)
+  test('an accessibility click toggles hold without a physical touch', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    await pressButton(dpadButton(tree, 'right'))
+    expect(game.pressedKeys.has('right')).toBe(true)
+
+    await pressButton(dpadButton(tree, 'right'))
+    expect(game.pressedKeys.size).toBe(0)
+  })
+
+  test('an ordinary tap does not latch the direction after the finger lifts', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    touchDown(tree, 'down', 7)
+    touchUp(tree, 'down', 7)
+    expect(game.pressedKeys.size).toBe(0)
+
+    await pressButton(dpadButton(tree, 'down'))
+    expect(game.pressedKeys.size).toBe(0)
+
+    fireFrame(16)
+    fireFrame(116)
+    expect(game.getState().player.y).toBe(150)
   })
 
   test('the player clamps at the arena edges instead of leaving', async () => {
@@ -348,17 +573,18 @@ describe('Evader pilot — board', () => {
     const game = createdGames[0]
 
     await press(tree, 'Start game')
-    pressIn(dpadButton(tree, 'Move left'))
+    touchDown(tree, 'left', 1)
     fireFrame(16)
     fireFrame(116)
     expect(game.getState().player.x).toBe(PLAYER_SIZE / 2)
-    pressOut(dpadButton(tree, 'Move left'))
+    touchUp(tree, 'left', 1)
 
-    pressIn(dpadButton(tree, 'Move up'))
+    touchDown(tree, 'up', 2)
     for (let i = 0; i < 8; i++) {
       fireFrame(216 + 100 * i)
     }
     expect(game.getState().player.y).toBe(PLAYER_SIZE / 2)
+    touchUp(tree, 'up', 2)
   })
 
   test('a held direction released by blur does not move the player', async () => {
@@ -368,12 +594,11 @@ describe('Evader pilot — board', () => {
     const releaseKey = jest.spyOn(game, 'releaseKey')
 
     await press(tree, 'Start game')
-    const button = dpadButton(tree, 'Move down')
-    pressIn(button)
+    touchDown(tree, 'down', 1)
     expect(game.pressedKeys.has('down')).toBe(true)
 
     act(() => {
-      button.props.onBlur?.()
+      dpadButton(tree, 'down').props.onBlur?.()
     })
     expect(releaseKey).toHaveBeenCalledWith('ArrowDown', 'touch')
     expect(game.pressedKeys.size).toBe(0)
@@ -390,7 +615,7 @@ describe('Evader pilot — board', () => {
     const releaseKey = jest.spyOn(game, 'releaseKey')
 
     await press(tree, 'Start game')
-    pressIn(dpadButton(tree, 'Move right'))
+    touchDown(tree, 'right', 1)
     expect(game.pressedKeys.has('right')).toBe(true)
 
     await unmount(tree)
@@ -438,7 +663,6 @@ describe('Evader pilot — board', () => {
     }
     expect(formatTimeSpy.mock.calls.length).toBe(rendersAfterStart)
 
-    // A genuine HUD change still re-renders: collect a coin.
     internalState(createdGames[0]).objects.push({
       id: 'pilot-coin',
       type: 'coin',
@@ -459,7 +683,7 @@ describe('Evader pilot — board', () => {
     const game = createdGames[0]
 
     await press(tree, 'Start game')
-    pressIn(dpadButton(tree, 'Move right'))
+    touchDown(tree, 'right', 1)
     await press(tree, 'Pause game')
     fireFrame(16)
     fireFrame(116)
@@ -469,7 +693,7 @@ describe('Evader pilot — board', () => {
     fireFrame(216)
     fireFrame(316)
     expect(game.getState().player.x).toBeGreaterThan(20)
-    pressOut(dpadButton(tree, 'Move right'))
+    touchUp(tree, 'right', 1)
   })
 
   test('backgrounding pauses the run and unmount destroys the game', async () => {

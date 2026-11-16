@@ -1045,8 +1045,6 @@ describe('NATIVE_GAMES registry', () => {
             game.update(1 / 60)
             expect(project(game.getState())).toBe(first)
         }
-        // The spawned object slid left across 60 frames without leaking
-        // into the HUD projection.
         const state = game.getState() as EvaderState
         expect(state.objects.length).toBeGreaterThan(0)
         expect(state.objects[0].x).toBeLessThan(800)
@@ -1093,8 +1091,6 @@ describe('NATIVE_GAMES registry', () => {
         game.start()
         const first = project(game.getState())
 
-        // On-path cursor samples mutate the model every input event but
-        // never change the HUD projection — the board owns the live cursor.
         game.updatePlayerPosition(200, 300)
         game.updatePlayerPosition(400, 300)
         expect((game.getState() as PathNavigatorState).cursor.x).toBe(400)
@@ -1116,30 +1112,35 @@ describe('NATIVE_GAMES registry', () => {
         game.destroy()
     })
 
-    test('the Path Navigator port labels finished-run outcomes', () => {
+    test('the Path Navigator port labels only genuine clears, never a cause it cannot verify', async () => {
         const port = getNativeGameEntry(GameID.PATH_NAVIGATOR)?.port
         expect(port).toBeDefined()
         expect(port?.resultOutcomeLabel).toBeDefined()
         if (!port?.resultOutcomeLabel) {
             return
         }
-        const stats = (patch: Partial<PathNavigatorStats>) =>
-            ({
-                levelsCompleted: 0,
-                pathViolations: 0,
-                ...patch,
-            }) as unknown as PathNavigatorStats
+        const label = port.resultOutcomeLabel
         expect(
-            port.resultOutcomeLabel(
-                stats({ levelsCompleted: GAME_LEVELS.length })
-            )
+            label({
+                levelsCompleted: GAME_LEVELS.length,
+            } as PathNavigatorStats)
         ).toBe('Cleared')
-        expect(port.resultOutcomeLabel(stats({ pathViolations: 1 }))).toBe(
-            'Off path'
-        )
-        expect(port.resultOutcomeLabel(stats({ levelsCompleted: 2 }))).toBe(
-            'Timeout'
-        )
+
+        jest.useFakeTimers()
+        try {
+            const game = port.createGame(hostDeps('ios')) as PathNavigatorGame
+            game.start()
+            await jest.advanceTimersByTimeAsync(61_000)
+
+            expect(game.getState().isGameOver).toBe(true)
+            const stats = game.getGameStats() as PathNavigatorStats
+            expect(stats.levelsCompleted).toBe(0)
+            expect(stats.pathViolations).toBe(1)
+            expect(label(stats)).toBeNull()
+            game.destroy()
+        } finally {
+            jest.useRealTimers()
+        }
     })
 
     test('keys are computed from imported enum members, never bare strings', () => {

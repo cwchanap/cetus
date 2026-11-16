@@ -131,8 +131,6 @@ export function PathNavigatorBoard({ projected, game }: NativeGameViewProps) {
     )
   }
 
-  // Any status or level change (pause, fail, completion, restart) drops an
-  // armed gesture and resyncs the local cursor to the model's position.
   useEffect(() => {
     armedRef.current = false
     const modelCursor = nav.getState().cursor
@@ -148,8 +146,6 @@ export function PathNavigatorBoard({ projected, game }: NativeGameViewProps) {
     nav.updatePlayerPosition(point.x, point.y)
     const state = nav.getState()
     setCursor({ x: state.cursor.x, y: state.cursor.y })
-    // A goal sample advances the level synchronously: drop the gesture in the
-    // same tick so a still-held finger cannot drag the next level's path.
     if (
       state.currentLevel !== levelBefore ||
       !state.isActive ||

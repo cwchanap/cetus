@@ -1,5 +1,16 @@
-import { useEffect, useRef } from 'react'
-import { Pressable, Text, View, StyleSheet } from 'react-native'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Pressable,
+  Text,
+  View,
+  StyleSheet,
+  type LayoutChangeEvent,
+} from 'react-native'
+import {
+  Gesture,
+  GestureDetector,
+  type GestureTouchEvent,
+} from 'react-native-gesture-handler'
 
 export type HeldDpadDirection = 'up' | 'down' | 'left' | 'right'
 
@@ -15,56 +26,148 @@ const BUTTONS = [
   { direction: 'down', label: 'Move down', glyph: '↓' },
 ] as const
 
-export function HeldDpad({
+const PHYSICAL_TAP_WINDOW_MS = 400
+
+interface DpadButtonProps extends HeldDpadProps {
+  direction: HeldDpadDirection
+  label: string
+  glyph: string
+}
+
+function DpadButton({
+  direction,
+  label,
+  glyph,
   onPressDirection,
   onReleaseDirection,
-}: HeldDpadProps) {
-  const heldRef = useRef<Set<HeldDpadDirection>>(new Set())
+}: DpadButtonProps) {
+  const touchIdsRef = useRef(new Set<number>())
+  const assistiveHoldRef = useRef(false)
+  const lastTouchEndRef = useRef(Number.NEGATIVE_INFINITY)
+  const activationLockRef = useRef(false)
+  const sizeRef = useRef({ width: 0, height: 0 })
+  const heldRef = useRef(false)
+  const [held, setHeld] = useState(false)
   const callbacksRef = useRef({ onPressDirection, onReleaseDirection })
   callbacksRef.current = { onPressDirection, onReleaseDirection }
 
-  const press = (direction: HeldDpadDirection) => {
-    if (heldRef.current.has(direction)) {
-      return
-    }
-    heldRef.current.add(direction)
-    callbacksRef.current.onPressDirection(direction)
-  }
-
-  const release = (direction: HeldDpadDirection) => {
-    if (!heldRef.current.delete(direction)) {
-      return
-    }
-    callbacksRef.current.onReleaseDirection(direction)
-  }
-
-  // A finger cut short must not leave a direction latched: RN reports an
-  // interrupted press through onPressOut/onBlur, and an unmounting board
-  // releases whatever is still held here.
-  useEffect(
-    () => () => {
-      for (const direction of heldRef.current) {
+  const controls = useMemo(() => {
+    const sync = () => {
+      const next = touchIdsRef.current.size > 0 || assistiveHoldRef.current
+      if (next === heldRef.current) {
+        return
+      }
+      heldRef.current = next
+      setHeld(next)
+      if (next) {
+        callbacksRef.current.onPressDirection(direction)
+      } else {
         callbacksRef.current.onReleaseDirection(direction)
       }
-      heldRef.current.clear()
+    }
+    const onTouchEnd = (event: GestureTouchEvent) => {
+      for (const touch of event.changedTouches) {
+        touchIdsRef.current.delete(touch.id)
+      }
+      lastTouchEndRef.current = Date.now()
+      sync()
+    }
+    const gesture = Gesture.Manual()
+      .runOnJS(true)
+      .onTouchesDown((event: GestureTouchEvent) => {
+        for (const touch of event.changedTouches) {
+          touchIdsRef.current.add(touch.id)
+        }
+        sync()
+      })
+      .onTouchesMove((event: GestureTouchEvent) => {
+        if (touchIdsRef.current.size === 0) {
+          return
+        }
+        const { width, height } = sizeRef.current
+        for (const touch of event.allTouches) {
+          if (
+            touchIdsRef.current.has(touch.id) &&
+            (touch.x < 0 || touch.y < 0 || touch.x > width || touch.y > height)
+          ) {
+            touchIdsRef.current.delete(touch.id)
+          }
+        }
+        sync()
+      })
+      .onTouchesUp(onTouchEnd)
+      .onTouchesCancelled(onTouchEnd)
+    const activate = () => {
+      if (activationLockRef.current) {
+        return
+      }
+      activationLockRef.current = true
+      queueMicrotask(() => {
+        activationLockRef.current = false
+      })
+      assistiveHoldRef.current = !assistiveHoldRef.current
+      sync()
+    }
+    return { gesture, sync, activate }
+  }, [direction])
+
+  const releaseEverySource = () => {
+    touchIdsRef.current.clear()
+    assistiveHoldRef.current = false
+    controls.sync()
+  }
+
+  useEffect(
+    () => () => {
+      if (heldRef.current) {
+        callbacksRef.current.onReleaseDirection(direction)
+      }
     },
-    []
+    [direction]
   )
 
+  return (
+    <GestureDetector gesture={controls.gesture}>
+      <Pressable
+        testID={`dpad-${direction}`}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint="Hold to move, or activate to keep moving until you activate again"
+        accessibilityState={{ checked: held }}
+        accessibilityActions={[{ name: 'activate', label }]}
+        onAccessibilityAction={event => {
+          if (event.nativeEvent.actionName === 'activate') {
+            controls.activate()
+          }
+        }}
+        onPress={() => {
+          if (Date.now() - lastTouchEndRef.current < PHYSICAL_TAP_WINDOW_MS) {
+            return
+          }
+          controls.activate()
+        }}
+        onBlur={releaseEverySource}
+        onLayout={(event: LayoutChangeEvent) => {
+          sizeRef.current = event.nativeEvent.layout
+        }}
+        className="h-14 w-14 items-center justify-center rounded-xl border-2 border-cetus-hairline bg-cetus-surface"
+        style={({ pressed }) => (pressed ? styles.pressed : null)}
+      >
+        <Text className="text-2xl text-cetus-ink">{glyph}</Text>
+      </Pressable>
+    </GestureDetector>
+  )
+}
+
+export function HeldDpad(props: HeldDpadProps) {
   const button = ({ direction, label, glyph }: (typeof BUTTONS)[number]) => (
-    <Pressable
+    <DpadButton
       key={direction}
-      testID={`dpad-${direction}`}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPressIn={() => press(direction)}
-      onPressOut={() => release(direction)}
-      onBlur={() => release(direction)}
-      className="h-14 w-14 items-center justify-center rounded-xl border-2 border-cetus-hairline bg-cetus-surface"
-      style={({ pressed }) => (pressed ? styles.pressed : null)}
-    >
-      <Text className="text-2xl text-cetus-ink">{glyph}</Text>
-    </Pressable>
+      direction={direction}
+      label={label}
+      glyph={glyph}
+      {...props}
+    />
   )
 
   return (
