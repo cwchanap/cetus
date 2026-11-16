@@ -1,13 +1,15 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { AppState, type AppStateStatus } from 'react-native'
+import { AppState, Text, type AppStateStatus } from 'react-native'
 import { GestureDetector } from 'react-native-gesture-handler'
 import { GameID } from '@cetus/shared/games'
 import type { ScoreSubmissionResult } from '@cetus/shared/scores'
+import { ACHIEVEMENTS } from '@cetus/shared/achievements'
 import { AsteroidDriftGame } from '@cetus/games/asteroid-drift/AsteroidDriftGame'
 import {
   createAsteroidDriftConfig,
   type AsteroidDriftConfig,
+  type AsteroidDriftGameData,
   type AsteroidDriftState,
 } from '@cetus/games/asteroid-drift/types'
 import * as sharedUtils from '@cetus/games/shared/utils'
@@ -163,6 +165,12 @@ const testText = (
   scalarText(
     tree.root.findByProps({ testID }).props.children as React.ReactNode
   )
+
+const renderedText = (tree: TestRenderer.ReactTestRenderer) =>
+  tree.root
+    .findAllByType(Text)
+    .map(node => scalarText(node.props.children))
+    .join('\n')
 
 const fireLayout = (
   tree: TestRenderer.ReactTestRenderer,
@@ -874,6 +882,168 @@ describe('Asteroid Drift pilot — run outcomes and save contract', () => {
     })
     await drain()
     expect(testText(tree, 'result-save-status')).toBe('Score saved')
+    expect(submitScore).toHaveBeenCalledTimes(1)
+  })
+
+  test('a qualifying 10-orb run satisfies the shipped achievement predicates and delivers one reward', async () => {
+    modelOverrides = { maxAsteroids: 0, orbSpawnInterval: 1, orbLifetime: 30 }
+    jest.useFakeTimers({
+      doNotFake: ['requestAnimationFrame', 'cancelAnimationFrame'],
+    })
+    try {
+      let tree: TestRenderer.ReactTestRenderer | undefined
+      await act(async () => {
+        tree = TestRenderer.create(
+          <NativeGameHost gameId={GameID.ASTEROID_DRIFT} />
+        )
+        jest.advanceTimersByTime(50)
+      })
+      if (!tree) {
+        throw new Error('TestRenderer.create returned nothing')
+      }
+      trees.push(tree)
+      const game = createdGames[0]
+      fireLayout(tree)
+
+      const deepSpaceAce = ACHIEVEMENTS.find(
+        achievement => achievement.id === 'asteroid_drift_deep_space_ace'
+      )
+      if (!deepSpaceAce) {
+        throw new Error('asteroid_drift_deep_space_ace definition missing')
+      }
+      submitScore.mockResolvedValue({
+        success: true,
+        newAchievements: [
+          {
+            id: deepSpaceAce.id,
+            name: deepSpaceAce.name,
+            description: deepSpaceAce.description,
+            icon: deepSpaceAce.logo,
+            rarity: deepSpaceAce.rarity,
+          },
+        ],
+      })
+
+      await press(tree, 'Start game')
+      internalState(game).asteroids[0].x = -10_000
+
+      let frame = 0
+      const step = () => fireFrame(1_000 + frame++ * 100)
+
+      while (game.getState().orbsCollected < 10) {
+        const collectedBefore = game.getState().orbsCollected
+        let guard = 0
+        while (game.getState().energyOrb === null && guard++ < 60) {
+          step()
+        }
+        const orb = game.getState().energyOrb
+        if (!orb) {
+          throw new Error('energy orb never spawned')
+        }
+        const player = internalState(game).player
+        player.x = orb.x
+        player.y = orb.y
+        player.velocityX = 0
+        player.velocityY = 0
+        step()
+        expect(game.getState().orbsCollected).toBe(collectedBefore + 1)
+      }
+      expect(game.getState().isActive).toBe(true)
+
+      while (game.getGameStats().survivalSeconds < 90) {
+        step()
+      }
+
+      await act(async () => {
+        jest.advanceTimersByTime(91_000)
+        for (let i = 0; i < 10; i++) {
+          await Promise.resolve()
+        }
+      })
+
+      expect(game.getState()).toMatchObject({
+        outcome: 'survived',
+        orbsCollected: 10,
+      })
+      expect(submitScore).toHaveBeenCalledTimes(1)
+      const submission = submitScore.mock.calls[0][0]
+      const submittedGameData = (submission.gameData ??
+        {}) as AsteroidDriftGameData
+      const earned = ACHIEVEMENTS.filter(
+        achievement =>
+          achievement.gameId === GameID.ASTEROID_DRIFT &&
+          achievement.condition.check?.(submittedGameData, submission.score)
+      ).map(achievement => achievement.id)
+      expect(earned.sort()).toEqual([
+        'asteroid_drift_deep_space_ace',
+        'asteroid_drift_energy_runner',
+        'asteroid_drift_first_charge',
+        'asteroid_drift_long_haul',
+      ])
+
+      expect(testText(tree, 'result-outcome')).toBe('Survived')
+      expect(testText(tree, 'final-score')).toBe('1900')
+      expect(testText(tree, 'result-save-status')).toBe('Score saved')
+      expect(renderedText(tree).match(/Deep Space Ace/g)).toHaveLength(1)
+      expect(renderedText(tree)).toContain('Achievement unlocked')
+
+      await act(async () => {
+        await game.end()
+      })
+      await act(async () => {
+        jest.advanceTimersByTime(10_000)
+        for (let i = 0; i < 10; i++) {
+          await Promise.resolve()
+        }
+      })
+      step()
+      step()
+
+      expect(submitScore).toHaveBeenCalledTimes(1)
+      expect(renderedText(tree).match(/Deep Space Ace/g)).toHaveLength(1)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  test('a failed save reports unconfirmed honestly and never re-POSTs', async () => {
+    submitScore.mockResolvedValue({ success: false, code: 'NETWORK_ERROR' })
+    const tree = await render(<NativeGameHost gameId={GameID.ASTEROID_DRIFT} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    const intro = internalState(game).asteroids[0]
+    intro.x = game.getState().player.x
+    intro.y = game.getState().player.y
+    fireFrame(16)
+    fireFrame(116)
+    await drain()
+
+    expect(game.getState()).toMatchObject({
+      outcome: 'collision',
+      isGameOver: true,
+    })
+    expect(testText(tree, 'result-outcome')).toBe('Collision')
+    expect(testText(tree, 'result-save-status')).toBe(
+      'Score not confirmed — the connection failed. It may still have been saved.'
+    )
+    expect(renderedText(tree)).not.toContain('Score saved')
+    expect(renderedText(tree)).not.toContain('Achievement unlocked')
+    expect(tree.root.findAllByProps({ testID: 'reward-banner' })).toHaveLength(
+      0
+    )
+
+    await act(async () => {
+      await game.end()
+    })
+    fireFrame(216)
+    fireFrame(316)
+    await drain()
+
+    expect(testText(tree, 'result-save-status')).toBe(
+      'Score not confirmed — the connection failed. It may still have been saved.'
+    )
     expect(submitScore).toHaveBeenCalledTimes(1)
   })
 })
