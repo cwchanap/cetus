@@ -293,6 +293,25 @@ describe('ReflexGame', () => {
             expect(game.getState().score).toBe(0)
         })
 
+        it('emits state-change on empty-cell misses so listeners see the new click count', () => {
+            const onStateChange = vi.fn()
+            game.on('state-change', onStateChange)
+            game.start()
+            const callsBefore = onStateChange.mock.calls.length
+
+            const result = game.handleCellClick(5, 5)
+
+            expect(result).toEqual({ hit: false, points: 0 })
+            expect(game.getState().totalClicks).toBe(1)
+            expect(onStateChange).toHaveBeenCalledTimes(callsBefore + 1)
+            expect(
+                onStateChange.mock.calls[onStateChange.mock.calls.length - 1][0]
+            ).toMatchObject({
+                type: 'state-change',
+                data: { state: { totalClicks: 1 } },
+            })
+        })
+
         it('does not handle clicks when game is inactive', () => {
             const result = game.handleCellClick(5, 5)
             expect(result).toEqual({ hit: false, points: 0 })

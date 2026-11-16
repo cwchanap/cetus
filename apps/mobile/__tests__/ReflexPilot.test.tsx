@@ -321,6 +321,24 @@ describe('Reflex pilot — board', () => {
     expect(testText(tree, 'reflex-accuracy')).toBe('Accuracy 0%')
   })
 
+  test('a hit followed by an empty-cell tap drops the projected accuracy on that same click', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.REFLEX} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+    jest.spyOn(Math, 'random').mockReturnValue(0.5)
+
+    await press(tree, 'Start game')
+    spawn(game)
+    const target = game.getActiveObjects()[0]
+    tap(tree, target.cell.col * 40 + 20, target.cell.row * 40 + 20)
+    expect(testText(tree, 'reflex-accuracy')).toBe('Accuracy 100%')
+
+    tap(tree, target.cell.col * 40 + 20, target.cell.row * 40 + 20)
+    expect(game.getState().totalClicks).toBe(2)
+    expect(game.getState().correctClicks).toBe(1)
+    expect(testText(tree, 'reflex-accuracy')).toBe('Accuracy 50%')
+  })
+
   test('a bomb tap costs points and counts as an incorrect click', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.REFLEX} />)
     fireLayout(tree)

@@ -191,6 +191,7 @@ export class ReflexGame extends BaseGame<
         )
 
         if (!clickedObject) {
+            this.emitStateChange()
             return { hit: false, points: 0 }
         }
 
