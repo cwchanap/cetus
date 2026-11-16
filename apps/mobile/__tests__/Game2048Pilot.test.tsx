@@ -154,7 +154,7 @@ const hasAccessibleAncestor = (
 ): boolean => {
   let current = node.parent
   while (current) {
-    if (current.props.accessible === true) {
+    if (typeof current.type === 'string' && current.props.accessible === true) {
       return true
     }
     current = current.parent
@@ -399,6 +399,7 @@ describe('2048 pilot — board', () => {
           node.props.accessibilityLabel === label
       )
       expect(element).toBeDefined()
+      expect(element!.props.accessible).toBe(true)
       expect(hasAccessibleAncestor(element!)).toBe(false)
     }
   })
