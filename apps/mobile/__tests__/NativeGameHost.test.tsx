@@ -1145,6 +1145,8 @@ describe('NativeGameHost — app background policy', () => {
     const pauseSpy = jest.spyOn(createdGames[0], 'pause')
     const resumeSpy = jest.spyOn(createdGames[0], 'resume')
 
+    await emitAppState('active')
+    await emitAppState('inactive')
     await emitAppState('background')
     expect(pauseSpy).toHaveBeenCalledTimes(1)
     expect(createdGames[0].getState().isPaused).toBe(true)
@@ -1152,6 +1154,9 @@ describe('NativeGameHost — app background policy', () => {
     await emitAppState('active')
     expect(resumeSpy).not.toHaveBeenCalled()
     expect(createdGames[0].getState().isPaused).toBe(true)
+
+    await emitAppState('background')
+    expect(pauseSpy).toHaveBeenCalledTimes(2)
 
     await act(async () => {
       tree.unmount()
