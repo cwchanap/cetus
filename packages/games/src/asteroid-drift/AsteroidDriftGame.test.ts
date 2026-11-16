@@ -112,6 +112,19 @@ describe('AsteroidDriftGame', () => {
             ])
             game.destroy()
         })
+
+        it('returns a copy of the config from getConfig', () => {
+            const game = createGame({ duration: 42, playerRadius: 20 })
+
+            const config = game.getConfig()
+
+            expect(config.duration).toBe(42)
+            expect(config.playerRadius).toBe(20)
+            expect(config).not.toBe(
+                (game as unknown as { config: AsteroidDriftConfig }).config
+            )
+            game.destroy()
+        })
     })
 
     describe('held input sources', () => {
