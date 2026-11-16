@@ -582,6 +582,30 @@ describe('EvaderGame', () => {
             const afterReleaseY = game.getState().player.y
             expect(afterReleaseY).toBe(initialY)
         })
+
+        it('should move diagonally while two touch directions are held', () => {
+            game.start()
+            const initialX = game.getState().player.x
+            const initialY = game.getState().player.y
+
+            game.pressKey('ArrowUp', 'touch')
+            game.pressKey('ArrowRight', 'touch')
+            game.update(0.1)
+
+            const state = game.getState()
+            const midX = state.player.x
+            const midY = state.player.y
+            expect(midX).toBeGreaterThan(initialX)
+            expect(midY).toBeLessThan(initialY)
+            expect(game.pressedKeys.has('up')).toBe(true)
+            expect(game.pressedKeys.has('right')).toBe(true)
+
+            // Releasing one direction keeps the other driving movement.
+            game.releaseKey('ArrowUp', 'touch')
+            game.update(0.1)
+            expect(game.getState().player.x).toBeGreaterThan(midX)
+            expect(game.getState().player.y).toBe(midY)
+        })
     })
 
     describe('getGameData contract', () => {

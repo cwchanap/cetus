@@ -428,6 +428,22 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
     ],
     ['@cetus/games/2048/Game2048', /packages\/games\/src\/2048\/Game2048\.ts$/],
     ['@cetus/games/2048/utils', /packages\/games\/src\/2048\/utils\.ts$/],
+    [
+        '@cetus/games/evader/EvaderGame',
+        /packages\/games\/src\/evader\/EvaderGame\.ts$/,
+    ],
+    [
+        '@cetus/games/path-navigator/PathNavigatorGame',
+        /packages\/games\/src\/path-navigator\/PathNavigatorGame\.ts$/,
+    ],
+    [
+        '@cetus/games/shared/geometry',
+        /packages\/games\/src\/shared\/geometry\.ts$/,
+    ],
+    [
+        'react-native-gesture-handler',
+        /node_modules\/react-native-gesture-handler\/src\/index\.ts$/,
+    ],
     ['@cetus/app-core', /packages\/app-core\/src\/index\.ts$/],
     ['@cetus/shared/games', /packages\/shared\/src\/games\.ts$/],
     ['@cetus/ui', /packages\/ui\/src\/index\.native\.ts$/],

@@ -37,6 +37,16 @@ import {
     type SignalSwitchState,
     type SignalSwitchStats,
 } from '@cetus/games/signal-switch/types'
+import { EvaderGame } from '@cetus/games/evader/EvaderGame'
+import type { EvaderState } from '@cetus/games/evader/frameworkTypes'
+import {
+    GAME_LEVELS,
+    PathNavigatorGame,
+} from '@cetus/games/path-navigator/PathNavigatorGame'
+import type {
+    PathNavigatorState,
+    PathNavigatorStats,
+} from '@cetus/games/path-navigator/types'
 
 // Any-constructor shape: `never` params accept every concrete ctor.
 type AnyGameCtor = abstract new (...args: never[]) => unknown
@@ -55,6 +65,8 @@ const CONCRETE_GAMES: ReadonlyArray<readonly [GameID, AnyGameCtor]> = [
     [GameID.GAME_2048, Game2048],
     [GameID.REFLEX, ReflexGame],
     [GameID.SIGNAL_SWITCH, SignalSwitchGame],
+    [GameID.EVADER, EvaderGame],
+    [GameID.PATH_NAVIGATOR, PathNavigatorGame],
 ]
 
 const hostDeps = (platform: 'ios' | 'android') => {
@@ -66,10 +78,12 @@ const hostDeps = (platform: 'ios' | 'android') => {
 // is duplicated here on purpose — the test must fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
     GameID.CHROMATIC_TIDE,
+    GameID.EVADER,
     GameID.GAME_2048,
     GameID.GRAVITY_FLIP,
     GameID.MEMORY_MATRIX,
     GameID.MINE_GRID,
+    GameID.PATH_NAVIGATOR,
     GameID.PATTERN_PULSE,
     GameID.POTION_SORTER,
     GameID.QUICK_MATH,
@@ -83,7 +97,7 @@ const EXPECTED_NATIVE_IDS = [
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the thirteen registry game ids', () => {
+    test('contains exactly the fifteen registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -92,16 +106,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 13 playable, 10 disabled of 23', () => {
+    test('registry and catalog counts line up: 15 playable, 8 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(13)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(15)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(10)
+        expect(disabled).toHaveLength(8)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -120,6 +134,8 @@ describe('NATIVE_GAMES registry', () => {
         // The fifteen unported registry games stay disabled.
         expect(isNativePlayable(GameID.TETRIS)).toBe(false)
         expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(false)
+        expect(isNativePlayable(GameID.EVADER)).toBe(true)
+        expect(isNativePlayable(GameID.PATH_NAVIGATOR)).toBe(true)
     })
 
     test('production entries construct their concrete game with the injected deps', () => {
@@ -991,6 +1007,139 @@ describe('NATIVE_GAMES registry', () => {
             'Systems failed'
         )
         expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
+    })
+
+    test('the Evader pilot ships a board view and a HUD-only coins/bombs projection', () => {
+        const port = getNativeGameEntry(GameID.EVADER)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        expect(port.project(game.getState(), game)).toEqual({
+            coins: 0,
+            bombs: 0,
+        })
+
+        game.start()
+        const running = port.project(game.getState(), game)
+        expect(running).not.toHaveProperty('objects')
+        expect(running).not.toHaveProperty('player')
+        game.destroy()
+    })
+
+    test('the Evader frame projector stays value-stable across 60 moving frames', () => {
+        const port = getNativeGameEntry(GameID.EVADER)?.port
+        expect(port).toBeDefined()
+        expect(port?.createProjector).toBeDefined()
+        if (!port?.createProjector) {
+            return
+        }
+        const game = port.createGame(hostDeps('ios')) as EvaderGame
+        const project = port.createProjector(game)
+        game.start()
+        game.spawnRandomObject()
+        const first = project(game.getState())
+        for (let frame = 0; frame < 60; frame++) {
+            game.update(1 / 60)
+            expect(project(game.getState())).toBe(first)
+        }
+        // The spawned object slid left across 60 frames without leaking
+        // into the HUD projection.
+        const state = game.getState() as EvaderState
+        expect(state.objects.length).toBeGreaterThan(0)
+        expect(state.objects[0].x).toBeLessThan(800)
+
+        ;(game as unknown as { state: EvaderState }).state.coinsCollected = 2
+        const afterCoin = project(game.getState())
+        expect(afterCoin).not.toBe(first)
+        expect(afterCoin.coins).toBe(2)
+        game.destroy()
+    })
+
+    test('the Path Navigator pilot ships a board view and a HUD-only level projection', () => {
+        const port = getNativeGameEntry(GameID.PATH_NAVIGATOR)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        expect(port.project(game.getState(), game)).toEqual({
+            currentLevel: 1,
+            totalLevels: GAME_LEVELS.length,
+            isGameWon: false,
+            canNavigate: false,
+        })
+
+        game.start()
+        const running = port.project(game.getState(), game)
+        expect(running).toMatchObject({ canNavigate: true })
+        expect(running).not.toHaveProperty('cursor')
+        expect(running).not.toHaveProperty('isOnPath')
+        game.destroy()
+    })
+
+    test('the Path Navigator projector ignores cursor samples and re-projects on pause and level changes', () => {
+        const port = getNativeGameEntry(GameID.PATH_NAVIGATOR)?.port
+        expect(port).toBeDefined()
+        expect(port?.createProjector).toBeDefined()
+        if (!port?.createProjector) {
+            return
+        }
+        const game = port.createGame(hostDeps('ios')) as PathNavigatorGame
+        const project = port.createProjector(game)
+        game.start()
+        const first = project(game.getState())
+
+        // On-path cursor samples mutate the model every input event but
+        // never change the HUD projection — the board owns the live cursor.
+        game.updatePlayerPosition(200, 300)
+        game.updatePlayerPosition(400, 300)
+        expect((game.getState() as PathNavigatorState).cursor.x).toBe(400)
+        expect(project(game.getState())).toBe(first)
+
+        game.pause()
+        const paused = project(game.getState())
+        expect(paused).not.toBe(first)
+        expect(paused.canNavigate).toBe(false)
+
+        game.resume()
+        expect(project(game.getState())).toMatchObject({ canNavigate: true })
+
+        const endPoint = GAME_LEVELS[0].path.endPoint
+        game.updatePlayerPosition(endPoint.x, endPoint.y)
+        const afterLevel = project(game.getState())
+        expect(afterLevel).not.toBe(first)
+        expect(afterLevel).toMatchObject({ currentLevel: 2 })
+        game.destroy()
+    })
+
+    test('the Path Navigator port labels finished-run outcomes', () => {
+        const port = getNativeGameEntry(GameID.PATH_NAVIGATOR)?.port
+        expect(port).toBeDefined()
+        expect(port?.resultOutcomeLabel).toBeDefined()
+        if (!port?.resultOutcomeLabel) {
+            return
+        }
+        const stats = (patch: Partial<PathNavigatorStats>) =>
+            ({
+                levelsCompleted: 0,
+                pathViolations: 0,
+                ...patch,
+            }) as unknown as PathNavigatorStats
+        expect(
+            port.resultOutcomeLabel(
+                stats({ levelsCompleted: GAME_LEVELS.length })
+            )
+        ).toBe('Cleared')
+        expect(port.resultOutcomeLabel(stats({ pathViolations: 1 }))).toBe(
+            'Off path'
+        )
+        expect(port.resultOutcomeLabel(stats({ levelsCompleted: 2 }))).toBe(
+            'Timeout'
+        )
     })
 
     test('keys are computed from imported enum members, never bare strings', () => {

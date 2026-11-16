@@ -519,6 +519,63 @@ describe('PathNavigatorGame', () => {
             expect(result.hasReachedGoal).toBe(false)
         })
 
+        it('updatePlayerPosition should ignore cursor input while paused', () => {
+            game.start()
+            const startPoint = GAME_LEVELS[0].path.startPoint
+            game.pause()
+
+            // A goal-reaching sample must not complete the level, and an
+            // off-path sample must not end the run, while paused.
+            const endPoint = GAME_LEVELS[0].path.endPoint
+            const goalResult = game.updatePlayerPosition(endPoint.x, endPoint.y)
+            const offPathResult = game.updatePlayerPosition(0, 0)
+
+            expect(goalResult).toEqual({
+                isOnPath: true,
+                hasReachedGoal: false,
+            })
+            expect(offPathResult).toEqual({
+                isOnPath: true,
+                hasReachedGoal: false,
+            })
+            const state = game.getState()
+            expect(state.currentLevel).toBe(1)
+            expect(state.cursor.x).toBe(startPoint.x)
+            expect(state.cursor.y).toBe(startPoint.y)
+            expect(state.isGameOver).toBe(false)
+        })
+
+        it('updatePlayerPosition should ignore cursor input after the run is finished', async () => {
+            game.start()
+            await game.end()
+
+            const startPoint = GAME_LEVELS[0].path.startPoint
+            const endPoint = GAME_LEVELS[0].path.endPoint
+            const result = game.updatePlayerPosition(endPoint.x, endPoint.y)
+
+            expect(result).toEqual({ isOnPath: true, hasReachedGoal: false })
+            const state = game.getState()
+            expect(state.currentLevel).toBe(1)
+            expect(state.cursor.x).toBe(startPoint.x)
+            expect(state.cursor.y).toBe(startPoint.y)
+        })
+
+        it('updatePlayerPosition should ignore cursor input while isGameOver is set', async () => {
+            game.start()
+            await game.end()
+            // A torn lifecycle can leave isGameOver set beside a stuck
+            // isActive flag; the input gate must still refuse the move.
+            stateOf(game).isActive = true
+
+            const result = game.updatePlayerPosition(
+                GAME_LEVELS[0].path.endPoint.x,
+                GAME_LEVELS[0].path.endPoint.y
+            )
+
+            expect(result).toEqual({ isOnPath: true, hasReachedGoal: false })
+            expect(game.getState().currentLevel).toBe(1)
+        })
+
         it('completeLevel should use levelTime=0 when levelStartTime is null', () => {
             game.start()
             // Null out levelStartTime to trigger fallback path

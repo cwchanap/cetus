@@ -313,7 +313,11 @@ export class PathNavigatorGame extends BaseGame<
      * Update the player's cursor position and run collision/progress checks.
      */
     updatePlayerPosition(x: number, y: number): CollisionResult {
-        if (!this.state.isActive) {
+        if (
+            !this.state.isActive ||
+            this.state.isPaused ||
+            this.state.isGameOver
+        ) {
             return { isOnPath: true, hasReachedGoal: false }
         }
 
