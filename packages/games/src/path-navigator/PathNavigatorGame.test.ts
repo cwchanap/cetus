@@ -524,8 +524,6 @@ describe('PathNavigatorGame', () => {
             const startPoint = GAME_LEVELS[0].path.startPoint
             game.pause()
 
-            // A goal-reaching sample must not complete the level, and an
-            // off-path sample must not end the run, while paused.
             const endPoint = GAME_LEVELS[0].path.endPoint
             const goalResult = game.updatePlayerPosition(endPoint.x, endPoint.y)
             const offPathResult = game.updatePlayerPosition(0, 0)
@@ -563,8 +561,6 @@ describe('PathNavigatorGame', () => {
         it('updatePlayerPosition should ignore cursor input while isGameOver is set', async () => {
             game.start()
             await game.end()
-            // A torn lifecycle can leave isGameOver set beside a stuck
-            // isActive flag; the input gate must still refuse the move.
             stateOf(game).isActive = true
 
             const result = game.updatePlayerPosition(
