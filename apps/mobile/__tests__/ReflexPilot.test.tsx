@@ -239,9 +239,9 @@ describe('Reflex pilot — board', () => {
     expect(testText(tree, 'reflex-bombs')).toBe('Bombs 0')
     expect(testText(tree, 'reflex-accuracy')).toBe('Accuracy 0%')
 
-    const board = tree.root.findByProps({ testID: 'reflex-board' })
-    expect(board.props.accessibilityLabel).toBe(
-      'Reflex board: 0 targets on a 12 by 12 grid'
+    const hint = tree.root.findByProps({ testID: 'reflex-hint' })
+    expect(hint.props.accessibilityLabel).toBe(
+      'Reflex board: 0 targets on a 12 by 12 grid. Tap coins before they fade — avoid the bombs.'
     )
     expect(shapes(tree, 'Rect').length).toBeGreaterThan(0)
     expect(shapes(tree, 'Path').length).toBeGreaterThan(0)
@@ -298,6 +298,36 @@ describe('Reflex pilot — board', () => {
     expect(testText(tree, 'reflex-accuracy')).toBe('Accuracy 100%')
     expect(shapes(tree, 'Circle')).toHaveLength(0)
     expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a spawned coin exposes an actionable target bound to handleCellClick', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.REFLEX} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+    const handleCellClick = jest.spyOn(game, 'handleCellClick')
+    jest.spyOn(Math, 'random').mockReturnValue(0.5)
+
+    await press(tree, 'Start game')
+    spawn(game)
+    const target = game.getActiveObjects()[0]
+
+    const control = tree.root.findByProps({
+      accessibilityLabel: `Coin at row ${target.cell.row + 1} column ${target.cell.col + 1}`,
+    })
+    expect(control.props.accessibilityRole).toBe('button')
+
+    await act(async () => {
+      control.props.onAccessibilityAction({
+        nativeEvent: { actionName: 'activate' },
+      })
+    })
+
+    expect(handleCellClick).toHaveBeenCalledWith(
+      target.cell.row,
+      target.cell.col
+    )
+    expect(game.getState().coinsCollected).toBe(1)
+    expect(game.getActiveObjects()).toHaveLength(0)
   })
 
   test('taps in the letterbox margin, past the grid edge and on empty cells behave', async () => {

@@ -32,7 +32,7 @@ const letterbox = (geometry: GameCanvasGeometry) => {
   }
 }
 
-export function toGamePoint(
+export function toLogicalPoint(
   localX: number,
   localY: number,
   geometry: GameCanvasGeometry
@@ -46,17 +46,28 @@ export function toGamePoint(
     return null
   }
   const { scale, offsetX, offsetY } = letterbox(geometry)
-  const x = (localX - offsetX) / scale
-  const y = (localY - offsetY) / scale
+  return {
+    x: (localX - offsetX) / scale,
+    y: (localY - offsetY) / scale,
+  }
+}
+
+export function toGamePoint(
+  localX: number,
+  localY: number,
+  geometry: GameCanvasGeometry
+): GamePoint | null {
+  const point = toLogicalPoint(localX, localY, geometry)
   if (
-    x < 0 ||
-    y < 0 ||
-    x > geometry.logicalWidth ||
-    y > geometry.logicalHeight
+    point === null ||
+    point.x < 0 ||
+    point.y < 0 ||
+    point.x > geometry.logicalWidth ||
+    point.y > geometry.logicalHeight
   ) {
     return null
   }
-  return { x, y }
+  return point
 }
 
 export function GameCanvas({

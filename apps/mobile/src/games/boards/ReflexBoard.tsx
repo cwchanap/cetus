@@ -117,7 +117,11 @@ export function ReflexBoard({ projected, game }: NativeGameViewProps) {
           Accuracy {hud.accuracy}%
         </Text>
       </View>
-      <Text className="font-sans text-xs text-cetus-ink-muted">
+      <Text
+        testID="reflex-hint"
+        className="font-sans text-xs text-cetus-ink-muted"
+        accessibilityLabel={`Reflex board: ${hud.objects.length} targets on a ${config.gridSize} by ${config.gridSize} grid. Tap coins before they fade — avoid the bombs.`}
+      >
         Tap coins before they fade — avoid the bombs.
       </Text>
       <GestureDetector gesture={tap}>
@@ -126,8 +130,6 @@ export function ReflexBoard({ projected, game }: NativeGameViewProps) {
           className="w-full"
           style={{ aspectRatio: 1 }}
           onLayout={onLayout}
-          accessible
-          accessibilityLabel={`Reflex board: ${hud.objects.length} targets on a ${config.gridSize} by ${config.gridSize} grid`}
         >
           <GameCanvas logicalWidth={logicalSize} logicalHeight={logicalSize}>
             <Rect
@@ -189,6 +191,30 @@ export function ReflexBoard({ projected, game }: NativeGameViewProps) {
               )
             })}
           </GameCanvas>
+          {hud.objects.map(object => (
+            <View
+              key={object.id}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel={`${object.type === 'coin' ? 'Coin' : 'Bomb'} at row ${object.row + 1} column ${object.col + 1}`}
+              accessibilityActions={[{ name: 'activate', label: 'Tap target' }]}
+              onAccessibilityTap={() =>
+                reflex.handleCellClick(object.row, object.col)
+              }
+              onAccessibilityAction={event => {
+                if (event.nativeEvent.actionName === 'activate') {
+                  reflex.handleCellClick(object.row, object.col)
+                }
+              }}
+              style={{
+                position: 'absolute',
+                left: `${(object.col / config.gridSize) * 100}%`,
+                top: `${(object.row / config.gridSize) * 100}%`,
+                width: `${100 / config.gridSize}%`,
+                height: `${100 / config.gridSize}%`,
+              }}
+            />
+          ))}
         </View>
       </GestureDetector>
     </View>

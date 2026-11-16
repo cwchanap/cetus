@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { Button } from '@cetus/ui'
 import type { Game2048 } from '@cetus/games/2048/Game2048'
-import { GAME_CONSTANTS } from '@cetus/games/2048/types'
+import { GAME_CONSTANTS, type Direction } from '@cetus/games/2048/types'
 import {
   getTileColor,
   getTileFontSize,
@@ -118,6 +118,17 @@ for (let row = 0; row < GAME_CONSTANTS.BOARD_SIZE; row++) {
   }
 }
 
+const MOVE_CONTROLS: ReadonlyArray<{
+  direction: Direction
+  label: string
+  glyph: string
+}> = [
+  { direction: 'up', label: 'Move up', glyph: '↑' },
+  { direction: 'left', label: 'Move left', glyph: '←' },
+  { direction: 'down', label: 'Move down', glyph: '↓' },
+  { direction: 'right', label: 'Move right', glyph: '→' },
+]
+
 export function Game2048Board({ projected, game }: NativeGameViewProps) {
   const view = projected as unknown as Game2048Projection
   const game2048 = game as Game2048
@@ -201,6 +212,19 @@ export function Game2048Board({ projected, game }: NativeGameViewProps) {
         </View>
       </GestureDetector>
       <View className="flex-row flex-wrap items-center gap-2">
+        {MOVE_CONTROLS.map(({ direction, label, glyph }) => (
+          <Button
+            key={direction}
+            variant="outline"
+            size="icon"
+            accessibilityLabel={label}
+            accessibilityState={{ disabled: !view.canAct }}
+            disabled={!view.canAct}
+            onPress={() => game2048.move(direction)}
+          >
+            {glyph}
+          </Button>
+        ))}
         <Button
           variant="outline"
           accessibilityLabel="Undo move"

@@ -12,6 +12,7 @@ import {
 import {
   GameCanvas,
   toGamePoint,
+  toLogicalPoint,
   type GameCanvasGeometry,
   type GamePoint,
 } from '../canvas/GameCanvas'
@@ -156,7 +157,12 @@ export function PathNavigatorBoard({ projected, game }: NativeGameViewProps) {
     }
   }
 
-  const sample = (event: { x?: number; y?: number }): GamePoint | null => {
+  // clampToBoard keeps margin touches from arming a pan; an armed drag
+  // reports unclamped positions so leaving the playfield fails the run.
+  const sample = (
+    event: { x?: number; y?: number },
+    clampToBoard: boolean
+  ): GamePoint | null => {
     const geometry = geometryRef.current
     if (
       geometry === null ||
@@ -165,7 +171,9 @@ export function PathNavigatorBoard({ projected, game }: NativeGameViewProps) {
     ) {
       return null
     }
-    return toGamePoint(event.x, event.y, geometry)
+    return clampToBoard
+      ? toGamePoint(event.x, event.y, geometry)
+      : toLogicalPoint(event.x, event.y, geometry)
   }
 
   const pan = useMemo(
@@ -173,7 +181,7 @@ export function PathNavigatorBoard({ projected, game }: NativeGameViewProps) {
       Gesture.Pan()
         .runOnJS(true)
         .onBegin(event => {
-          const point = sample(event)
+          const point = sample(event, true)
           if (point === null) {
             return
           }
@@ -195,7 +203,7 @@ export function PathNavigatorBoard({ projected, game }: NativeGameViewProps) {
           if (!armedRef.current) {
             return
           }
-          const point = sample(event)
+          const point = sample(event, false)
           if (point === null) {
             return
           }
