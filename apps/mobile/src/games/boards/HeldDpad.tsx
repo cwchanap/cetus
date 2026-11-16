@@ -17,6 +17,7 @@ export type HeldDpadDirection = 'up' | 'down' | 'left' | 'right'
 export interface HeldDpadProps {
   onPressDirection: (direction: HeldDpadDirection) => void
   onReleaseDirection: (direction: HeldDpadDirection) => void
+  disabled?: boolean | (() => boolean)
 }
 
 const BUTTONS = [
@@ -38,6 +39,7 @@ function DpadButton({
   direction,
   label,
   glyph,
+  disabled = false,
   onPressDirection,
   onReleaseDirection,
 }: DpadButtonProps) {
@@ -50,10 +52,16 @@ function DpadButton({
   const [held, setHeld] = useState(false)
   const callbacksRef = useRef({ onPressDirection, onReleaseDirection })
   callbacksRef.current = { onPressDirection, onReleaseDirection }
+  const disabledRef = useRef<() => boolean>(() => false)
+  disabledRef.current =
+    typeof disabled === 'function' ? disabled : () => disabled === true
+  const disabledNow = disabledRef.current()
 
   const controls = useMemo(() => {
     const sync = () => {
-      const next = touchIdsRef.current.size > 0 || assistiveHoldRef.current
+      const next =
+        !disabledRef.current() &&
+        (touchIdsRef.current.size > 0 || assistiveHoldRef.current)
       if (next === heldRef.current) {
         return
       }
@@ -75,6 +83,9 @@ function DpadButton({
     const gesture = Gesture.Manual()
       .runOnJS(true)
       .onTouchesDown((event: GestureTouchEvent) => {
+        if (disabledRef.current()) {
+          return
+        }
         for (const touch of event.changedTouches) {
           touchIdsRef.current.add(touch.id)
         }
@@ -98,7 +109,7 @@ function DpadButton({
       .onTouchesUp(onTouchEnd)
       .onTouchesCancelled(onTouchEnd)
     const activate = () => {
-      if (activationLockRef.current) {
+      if (disabledRef.current() || activationLockRef.current) {
         return
       }
       activationLockRef.current = true
@@ -117,6 +128,14 @@ function DpadButton({
     controls.sync()
   }
 
+  useEffect(() => {
+    if (disabledNow) {
+      touchIdsRef.current.clear()
+      assistiveHoldRef.current = false
+      controls.sync()
+    }
+  }, [disabledNow, controls])
+
   useEffect(
     () => () => {
       if (heldRef.current) {
@@ -133,7 +152,7 @@ function DpadButton({
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityHint="Hold to move, or activate to keep moving until you activate again"
-        accessibilityState={{ checked: held }}
+        accessibilityState={{ checked: held, disabled: disabledNow }}
         accessibilityActions={[{ name: 'activate', label }]}
         onAccessibilityTap={controls.activate}
         onAccessibilityAction={event => {

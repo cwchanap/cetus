@@ -67,6 +67,12 @@ import type {
     PathNavigatorState,
     PathNavigatorStats,
 } from '@cetus/games/path-navigator/types'
+import { AsteroidDriftGame } from '@cetus/games/asteroid-drift/AsteroidDriftGame'
+import type {
+    AsteroidDriftState,
+    AsteroidDriftStats,
+} from '@cetus/games/asteroid-drift/types'
+import { AsteroidDriftBoard } from './boards/AsteroidDriftBoard'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
 import { EvaderBoard } from './boards/EvaderBoard'
 import { Game2048Board } from './boards/Game2048Board'
@@ -785,6 +791,32 @@ const pathNavigatorPort: NativeGamePort = {
     view: PathNavigatorBoard,
 }
 
+const selectAsteroidDriftHud = (state: BaseGameState): NativeGameProjection => {
+    const { orbsCollected } = state as AsteroidDriftState
+    return { orbs: orbsCollected }
+}
+
+const asteroidDriftPort: NativeGamePort = {
+    createGame: deps =>
+        new AsteroidDriftGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: selectAsteroidDriftHud,
+    createProjector: () => createStableProjector(selectAsteroidDriftHud),
+    resultOutcomeLabel: stats => {
+        const outcome = (stats as AsteroidDriftStats).outcome
+        return outcome === 'survived'
+            ? 'Survived'
+            : outcome === 'collision'
+              ? 'Collision'
+              : outcome === 'expired'
+                ? 'Expired'
+                : null
+    },
+    view: AsteroidDriftBoard,
+}
+
 /**
  * The single native game registry (HPA-425 wave 1). Keys are computed from
  * the imported `GameID` enum members — never bare id strings — and presence
@@ -807,6 +839,7 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.SIGNAL_SWITCH]: { port: signalSwitchPort },
     [GameID.EVADER]: { port: evaderPort },
     [GameID.PATH_NAVIGATOR]: { port: pathNavigatorPort },
+    [GameID.ASTEROID_DRIFT]: { port: asteroidDriftPort },
 }
 
 /** Own-key lookup so unknown strings (even "__proto__") never resolve. */

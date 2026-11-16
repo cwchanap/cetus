@@ -47,6 +47,8 @@ import type {
     PathNavigatorState,
     PathNavigatorStats,
 } from '@cetus/games/path-navigator/types'
+import { AsteroidDriftGame } from '@cetus/games/asteroid-drift/AsteroidDriftGame'
+import type { AsteroidDriftState } from '@cetus/games/asteroid-drift/types'
 
 // Any-constructor shape: `never` params accept every concrete ctor.
 type AnyGameCtor = abstract new (...args: never[]) => unknown
@@ -67,6 +69,7 @@ const CONCRETE_GAMES: ReadonlyArray<readonly [GameID, AnyGameCtor]> = [
     [GameID.SIGNAL_SWITCH, SignalSwitchGame],
     [GameID.EVADER, EvaderGame],
     [GameID.PATH_NAVIGATOR, PathNavigatorGame],
+    [GameID.ASTEROID_DRIFT, AsteroidDriftGame],
 ]
 
 const hostDeps = (platform: 'ios' | 'android') => {
@@ -77,6 +80,7 @@ const hostDeps = (platform: 'ios' | 'android') => {
 // HPA-425 wave 1: exactly these eight games are native-destined. The list
 // is duplicated here on purpose — the test must fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
+    GameID.ASTEROID_DRIFT,
     GameID.CHROMATIC_TIDE,
     GameID.EVADER,
     GameID.GAME_2048,
@@ -97,7 +101,7 @@ const EXPECTED_NATIVE_IDS = [
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the fifteen registry game ids', () => {
+    test('contains exactly the sixteen registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -106,16 +110,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 15 playable, 8 disabled of 23', () => {
+    test('registry and catalog counts line up: 16 playable, 7 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(15)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(16)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(8)
+        expect(disabled).toHaveLength(7)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -136,6 +140,7 @@ describe('NATIVE_GAMES registry', () => {
         expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(false)
         expect(isNativePlayable(GameID.EVADER)).toBe(true)
         expect(isNativePlayable(GameID.PATH_NAVIGATOR)).toBe(true)
+        expect(isNativePlayable(GameID.ASTEROID_DRIFT)).toBe(true)
     })
 
     test('production entries construct their concrete game with the injected deps', () => {
@@ -1141,6 +1146,67 @@ describe('NATIVE_GAMES registry', () => {
         } finally {
             jest.useRealTimers()
         }
+    })
+
+    test('the Asteroid Drift pilot ships a board view and a HUD-only orbs projection', () => {
+        const port = getNativeGameEntry(GameID.ASTEROID_DRIFT)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        expect(port.project(game.getState(), game)).toEqual({ orbs: 0 })
+
+        game.start()
+        const running = port.project(game.getState(), game)
+        expect(running).not.toHaveProperty('asteroids')
+        expect(running).not.toHaveProperty('player')
+        expect(running).not.toHaveProperty('energyOrb')
+        game.destroy()
+    })
+
+    test('the Asteroid Drift frame projector stays value-stable across 60 moving frames', () => {
+        const port = getNativeGameEntry(GameID.ASTEROID_DRIFT)?.port
+        expect(port).toBeDefined()
+        expect(port?.createProjector).toBeDefined()
+        if (!port?.createProjector) {
+            return
+        }
+        const game = port.createGame(hostDeps('ios')) as AsteroidDriftGame
+        const project = port.createProjector(game)
+        game.start()
+        const first = project(game.getState())
+        for (let frame = 0; frame < 60; frame++) {
+            game.update(1 / 60)
+            expect(project(game.getState())).toBe(first)
+        }
+        const state = game.getState() as AsteroidDriftState
+        expect(state.asteroids.length).toBeGreaterThan(0)
+        expect(state.asteroids[0].x).toBeLessThan(800)
+
+        ;(
+            game as unknown as { state: AsteroidDriftState }
+        ).state.orbsCollected = 2
+        const afterOrb = project(game.getState())
+        expect(afterOrb).not.toBe(first)
+        expect(afterOrb.orbs).toBe(2)
+        game.destroy()
+    })
+
+    test('the Asteroid Drift port labels finished-run outcomes', () => {
+        const port = getNativeGameEntry(GameID.ASTEROID_DRIFT)?.port
+        expect(port).toBeDefined()
+        expect(port?.resultOutcomeLabel).toBeDefined()
+        if (!port?.resultOutcomeLabel) {
+            return
+        }
+        const stats = (outcome: string) =>
+            ({ outcome }) as unknown as BaseGameStats
+        expect(port.resultOutcomeLabel(stats('survived'))).toBe('Survived')
+        expect(port.resultOutcomeLabel(stats('collision'))).toBe('Collision')
+        expect(port.resultOutcomeLabel(stats('expired'))).toBe('Expired')
+        expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
     })
 
     test('keys are computed from imported enum members, never bare strings', () => {

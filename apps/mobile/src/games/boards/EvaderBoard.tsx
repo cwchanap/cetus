@@ -168,6 +168,7 @@ export function EvaderBoard({ projected, game }: NativeGameViewProps) {
         </GameCanvas>
       </View>
       <HeldDpad
+        disabled={() => !evader.getState().isActive}
         onPressDirection={direction => {
           if (evader.getState().isActive) {
             evader.pressKey(KEY_BY_DIRECTION[direction], 'touch')
