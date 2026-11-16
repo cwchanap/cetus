@@ -484,10 +484,6 @@ const chromaticTidePort: NativeGamePort = {
     view: ChromaticTideBoard,
 }
 
-// HUD-only projection for the frame-driven ports: score/time/status ride
-// the common session snapshot; the moving scene never leaves the model —
-// each board copies visible primitives into local state inside its own
-// frame loop instead of serializing snake/hazard arrays here.
 const projectSnakeHud = (state: BaseGameState): NativeGameProjection => {
     const { snake, foodsEaten } = state as SnakeState
     return { length: snake.length, foodsEaten }
@@ -500,24 +496,16 @@ const snakePort: NativeGamePort = {
             platform: deps.platform,
         }),
     project: projectSnakeHud,
-    // Value-stable HUD reference: frame emissions that leave length/food
-    // untouched return the previous object, so the session's refresh
-    // equality skips a host rerender.
     createProjector: () => createStableProjector(projectSnakeHud),
     view: SnakeBoard,
 }
 
-// HUD-only badges, web GravityFlipScreen parity. `canFlip` is the input
-// gate for the board's Flip gravity button (the model guards the call
-// itself too).
 const projectGravityFlipHud = (state: BaseGameState): NativeGameProjection => {
     const flipState = state as GravityFlipState
     return {
         gravityLabel: flipState.gravity === 'down' ? 'FLOOR ↓' : 'CEILING ↑',
-        distance: Math.floor(flipState.distance),
         stars: flipState.starsCollected,
         flips: flipState.flips,
-        speed: String(Math.round(flipState.worldSpeed)),
         canFlip: flipState.isActive,
     }
 }
@@ -542,11 +530,10 @@ const gravityFlipPort: NativeGamePort = {
 }
 
 /**
- * The single native game registry (HPA-425 wave 1, HPA-533 wave 2). Keys
- * are computed from the imported `GameID` enum members — never bare id
- * strings — and presence in this map is what the Games hub, the detail
- * Play button and the play route all consult. Ten playable, thirteen
- * disabled.
+ * The single native game registry (HPA-425 wave 1). Keys are computed from
+ * the imported `GameID` enum members — never bare id strings — and presence
+ * in this map is what the Games hub, the detail Play button and the play
+ * route all consult. Eight playable, fifteen disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.MEMORY_MATRIX]: { port: memoryMatrixPort },

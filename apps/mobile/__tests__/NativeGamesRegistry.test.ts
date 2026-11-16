@@ -23,6 +23,7 @@ import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 import { SnakeGame } from '@cetus/games/snake/SnakeGame'
 import { GravityFlipGame } from '@cetus/games/gravity-flip/GravityFlipGame'
+import type { GravityFlipState } from '@cetus/games/gravity-flip/types'
 
 // Any-constructor shape: `never` params accept every concrete ctor.
 type AnyGameCtor = abstract new (...args: never[]) => unknown
@@ -45,9 +46,8 @@ const hostDeps = (platform: 'ios' | 'android') => {
     return { submitScore, platform }
 }
 
-// HPA-425 wave 1 + HPA-533 wave 2: exactly these ten games are
-// native-destined. The list is duplicated here on purpose — the test must
-// fail if the registry drifts.
+// HPA-425 wave 1: exactly these eight games are native-destined. The list
+// is duplicated here on purpose — the test must fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
     GameID.CHROMATIC_TIDE,
     GameID.GRAVITY_FLIP,
@@ -98,7 +98,7 @@ describe('NATIVE_GAMES registry', () => {
         expect(getNativeGameEntry('toString')).toBeUndefined()
         expect(getNativeGameEntry('constructor')).toBeUndefined()
         expect(isNativePlayable('__proto__')).toBe(false)
-        // The thirteen unported registry games stay disabled.
+        // The fifteen unported registry games stay disabled.
         expect(isNativePlayable(GameID.TETRIS)).toBe(false)
         expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(false)
     })
@@ -632,15 +632,11 @@ describe('NATIVE_GAMES registry', () => {
         }
         expect(port.view).toBeDefined()
         const game = port.createGame(hostDeps('ios')) as SnakeGame
-        // HUD-only: the moving scene (snake array, food) never enters the
-        // host projection — the board copies it frame-locally.
         expect(port.project(game.getState(), game)).toEqual({
             length: 3,
             foodsEaten: 0,
         })
 
-        // The frame projector stays value-stable across moves that leave
-        // the HUD untouched; a HUD change yields a fresh reference.
         const project = port.createProjector?.(game)
         expect(project).toBeDefined()
         if (!project) {
@@ -652,9 +648,6 @@ describe('NATIVE_GAMES registry', () => {
         expect(started).toBe(idle)
 
         const snakeGame = game as SnakeGame
-        // Move the snake once via the model's own Date.now cadence. The
-        // randomly spawned start food is cleared first so this move can
-        // never eat (a (11,10) spawn would otherwise flake the check).
         const mutable = snakeGame as unknown as {
             state: { lastMoveTime: number; food: unknown }
         }
@@ -686,15 +679,10 @@ describe('NATIVE_GAMES registry', () => {
         }
         expect(port.view).toBeDefined()
         const game = port.createGame(hostDeps('ios'))
-        // HUD-only badges, web parity: gravity/distance/stars/flips/speed
-        // plus the flip gate. No player/hazard/star arrays in the host
-        // projection — the board copies the scene frame-locally.
         expect(port.project(game.getState(), game)).toEqual({
             gravityLabel: 'FLOOR ↓',
-            distance: 0,
             stars: 0,
             flips: 0,
-            speed: '220',
             canFlip: false,
         })
 
@@ -702,11 +690,15 @@ describe('NATIVE_GAMES registry', () => {
         game.update(0.016)
         const running = port.project(game.getState(), game)
         expect(running).toMatchObject({ canFlip: true })
-        expect((running.distance as number) > 0).toBe(true)
+        expect(running).not.toHaveProperty('distance')
+        expect(running).not.toHaveProperty('speed')
+        expect((game.getState() as GravityFlipState).distance).toBeGreaterThan(
+            0
+        )
         game.destroy()
     })
 
-    test('the Gravity Flip frame projector stays value-stable across 60 same-HUD frames', () => {
+    test('the Gravity Flip frame projector stays value-stable across 60 normal-timestep frames', () => {
         const port = getNativeGameEntry(GameID.GRAVITY_FLIP)?.port
         expect(port).toBeDefined()
         if (!port?.createProjector) {
@@ -716,14 +708,13 @@ describe('NATIVE_GAMES registry', () => {
         const project = port.createProjector(game)
         game.start()
         const first = project(game.getState())
-        // 60 frames whose simulated dt is small enough that every floored
-        // HUD value holds — each call must return the SAME reference so
-        // the session's refresh equality skips a host rerender.
         for (let frame = 0; frame < 60; frame++) {
-            game.update(0.000_01)
+            game.update(1 / 60)
             expect(project(game.getState())).toBe(first)
         }
-        // A real HUD change still produces a new reference.
+        expect((game.getState() as GravityFlipState).distance).toBeGreaterThan(
+            150
+        )
         ;(game as GravityFlipGame).flipGravity()
         const afterFlip = project(game.getState())
         expect(afterFlip).not.toBe(first)

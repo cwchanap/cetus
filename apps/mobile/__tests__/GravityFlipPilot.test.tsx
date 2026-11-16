@@ -21,9 +21,6 @@ jest.mock('expo-router', () => ({
   }),
 }))
 
-// Skia → host-View stubs that forward every prop, so assertions read the
-// board's geometry/color arguments off rendered elements (host-tag filter
-// skips jest-expo's doubled wrapper nodes).
 jest.mock('@shopify/react-native-skia', () => {
   const mockReact = jest.requireActual<typeof import('react')>('react')
   const { View: MockView } =
@@ -63,9 +60,6 @@ beforeAll(() => {
   if (!originalPort) {
     throw new Error('Gravity Flip registry port missing')
   }
-  // Production port (view, projector, outcome label) with only a
-  // deterministic challenge picker added: rng() => 0 always selects the
-  // first catalog kind (floor-spike), so spawn order/positions are fixed.
   NATIVE_GAMES[GameID.GRAVITY_FLIP] = {
     port: {
       ...originalPort,
@@ -178,7 +172,6 @@ const testText = (
     tree.root.findByProps({ testID }).props.children as React.ReactNode
   )
 
-/** GameCanvas only mounts Skia children after measuring — fire the layout. */
 const fireLayout = (
   tree: TestRenderer.ReactTestRenderer,
   width = 800,
@@ -197,7 +190,6 @@ const fireLayout = (
   })
 }
 
-/** Current rendered Skia-shape props by component name (host-tag filter). */
 const shapes = (
   tree: TestRenderer.ReactTestRenderer,
   name: string
@@ -226,8 +218,6 @@ beforeEach(() => {
   rafQueue = []
   nextRafId = 1
   appStateHandlers.clear()
-  // Frozen clock: physics runs on frame deltas, and a real 1s timer tick
-  // still computes 60s remaining — so it never perturbs render counting.
   now = 1_000_000
   jest.spyOn(Date, 'now').mockImplementation(() => now)
   jest.spyOn(global, 'requestAnimationFrame').mockImplementation(cb => {
@@ -271,18 +261,14 @@ describe('Gravity Flip pilot — board', () => {
     expect(testText(tree, 'gf-flips')).toBe('Flips 0')
     expect(testText(tree, 'gf-speed')).toBe('Speed 220')
 
-    // Player diamond parked on the floor rail (y=270, size 28).
     expect(pathsWith(tree, PLAYER_FILL)).toEqual([
       'M150 256L164 270L150 284L136 270L150 256',
     ])
-    // No challenges until the run starts.
     expect(pathsWith(tree, SPIKE_FILL)).toHaveLength(0)
 
-    // Non-pausable: chrome never offers a Pause control here.
     expect(
       tree.root.findAllByProps({ accessibilityLabel: 'Pause game' })
     ).toHaveLength(0)
-    // The accessible flip control exists but is gated while idle.
     const flip = tree.root.findByProps({ accessibilityLabel: 'Flip gravity' })
     expect(flip.props.disabled).toBe(true)
   })
@@ -296,15 +282,12 @@ describe('Gravity Flip pilot — board', () => {
     const flip = tree.root.findByProps({ accessibilityLabel: 'Flip gravity' })
     expect(flip.props.disabled).toBe(false)
 
-    // The model's opening floor-spike challenge (x=880 spawn, w=52, h=34)
-    // and its star on the opposite rail (x=906, y=50).
     fireFrame(100)
     expect(pathsWith(tree, SPIKE_FILL)).toEqual([
       'M880 284L906 250L932 284L880 284',
     ])
     expect(pathsWith(tree, STAR_FILL)[0]?.startsWith('M906 40')).toBe(true)
 
-    // Real frame deltas step the model: world scrolls left, distance grows.
     fireFrame(200)
     expect(game.getState().distance).toBeGreaterThan(0)
     const moved = pathsWith(tree, SPIKE_FILL)[0]
@@ -327,7 +310,6 @@ describe('Gravity Flip pilot — board', () => {
     expect(testText(tree, 'gf-gravity')).toBe('Gravity CEILING ↑')
     expect(testText(tree, 'gf-flips')).toBe('Flips 1')
 
-    // ~0.5s of sim clamps the player onto the ceiling rail (y=50).
     for (let i = 0; i < 6; i++) {
       fireFrame(200 + i * 100)
     }
@@ -345,7 +327,6 @@ describe('Gravity Flip pilot — board', () => {
     await press(tree, 'Start game')
     fireFrame(100)
     await press(tree, 'Flip gravity')
-    // ~4s of sim: player reaches the ceiling, the ceiling star scrolls in.
     for (let i = 0; i < 40; i++) {
       fireFrame(200 + i * 100)
     }
@@ -361,7 +342,6 @@ describe('Gravity Flip pilot — board', () => {
     const game = createdGames[0]
 
     await press(tree, 'Start game')
-    // No flips: the parked-floor player meets the incoming floor spike.
     for (let i = 0; i < 40; i++) {
       fireFrame(100 + i * 100)
     }
@@ -410,28 +390,33 @@ describe('Gravity Flip pilot — board', () => {
     expect(submitScore).not.toHaveBeenCalled()
   })
 
-  test('60 same-HUD frames never rerender the chrome while tiny deltas keep projecting the same values', async () => {
+  test('60 normal-timestep frames notify the chrome only on real score ticks, never per frame', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.GRAVITY_FLIP} />)
     fireLayout(tree)
+    const game = createdGames[0]
 
     await press(tree, 'Start game')
-    fireFrame(100) // zero-delta entry frame — no step
-    fireFrame(200) // first real 0.1s step: distance crosses 20 → one notify
-    expect(testText(tree, 'gf-distance')).toBe('Distance 22')
+    fireFrame(100)
     const rendersAfterStart = formatTimeSpy.mock.calls.length
 
-    // Each frame emits state-change + score-update through the real session,
-    // but the HUD values stay identical, so the store must not notify. The
-    // 0.05ms rAF timestamps keep every step at 0.00005s (≈0.01px each).
+    let lastScore = game.getState().score
+    let scoreTicks = 0
     for (let i = 0; i < 60; i++) {
-      fireFrame(200.05 + i * 0.05)
+      fireFrame(200 + i * (1000 / 60))
+      const score = game.getState().score
+      if (score !== lastScore) {
+        scoreTicks += 1
+        lastScore = score
+      }
     }
-    expect(formatTimeSpy.mock.calls.length).toBe(rendersAfterStart)
 
-    // A real 100ms step crosses the distance floor — the HUD notifies again.
-    fireFrame(400)
-    expect(testText(tree, 'gf-distance')).toBe('Distance 44')
-    expect(formatTimeSpy.mock.calls.length).toBeGreaterThan(rendersAfterStart)
+    const distance = game.getState().distance
+    expect(distance).toBeGreaterThan(150)
+    expect(testText(tree, 'gf-distance')).toBe(
+      `Distance ${Math.floor(distance)}`
+    )
+    expect(scoreTicks).toBeGreaterThan(0)
+    expect(formatTimeSpy.mock.calls.length - rendersAfterStart).toBe(scoreTicks)
   })
 
   test('backgrounding never fakes a pause and the run resumes stepping on return', async () => {
@@ -446,15 +431,13 @@ describe('Gravity Flip pilot — board', () => {
 
     emitAppState('background')
     fireFrame(300)
-    // No pause was faked — the model reports the run still active/unpaused
-    // and the loop simply stopped stepping while backgrounded.
     expect(game.getState().isPaused).toBe(false)
     expect(game.getState().isActive).toBe(true)
     expect(game.getState().distance).toBe(distance)
 
     emitAppState('active')
-    fireFrame(400) // timestamp reset -> zero-delta frame, no step
-    fireFrame(500) // real delta resumes the corridor
+    fireFrame(400)
+    fireFrame(500)
     expect(game.getState().distance).toBeGreaterThan(distance)
   })
 })
@@ -536,8 +519,6 @@ describe('Gravity Flip pilot — lifecycle', () => {
     expect(submitScore).toHaveBeenCalledTimes(1)
 
     await press(tree, 'Play again')
-    // Play again starts the replay run immediately — the corridor is back
-    // at distance 0 with the spike challenge re-spawned on the next frame.
     expect(testText(tree, 'gf-distance')).toBe('Distance 0')
     expect(testText(tree, 'gf-gravity')).toBe('Gravity FLOOR ↓')
     expect(
@@ -560,28 +541,43 @@ describe('Gravity Flip pilot — lifecycle', () => {
     expect(appStateHandlers.size).toBe(0)
   })
 
-  test('a new-account remount drops the previous account reward banner', async () => {
-    submitScore.mockResolvedValue({
-      success: true,
-      newAchievements: [ACHIEVEMENT],
-    })
-    const treeA = await render(<NativeGameHost gameId={GameID.GRAVITY_FLIP} />)
+  test('a stale save resolving after an account switch delivers nothing to the new host', async () => {
+    const pendingSaves: Array<(value: ScoreSubmissionResult) => void> = []
+    submitScore.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          pendingSaves.push(resolve)
+        })
+    )
+    const treeA = await render(
+      <NativeGameHost gameId={GameID.GRAVITY_FLIP} settledUserId="user-a" />
+    )
 
     await press(treeA, 'Start game')
     await act(async () => {
-      await createdGames[0].end()
+      void createdGames[0].end()
     })
     await drain()
-    expect(renderedText(treeA).match(/Ceiling Runner/g)).toHaveLength(1)
+    expect(renderedText(treeA)).toContain('Saving score…')
 
     await unmount(treeA)
-    const treeB = await render(<NativeGameHost gameId={GameID.GRAVITY_FLIP} />)
+    const treeB = await render(
+      <NativeGameHost gameId={GameID.GRAVITY_FLIP} settledUserId="user-b" />
+    )
 
+    await act(async () => {
+      pendingSaves[0]?.({ success: true, newAchievements: [ACHIEVEMENT] })
+    })
+    await drain()
+
+    expect(submitScore).toHaveBeenCalledTimes(1)
+    expect(createdGames).toHaveLength(2)
     expect(treeB.root.findAllByProps({ testID: 'reward-banner' })).toHaveLength(
       0
     )
+    expect(treeB.root.findAllByProps({ testID: 'final-score' })).toHaveLength(0)
     expect(renderedText(treeB)).not.toContain('Ceiling Runner')
-    expect(createdGames).toHaveLength(2)
+    expect(renderedText(treeB)).not.toContain('Score saved')
     expect(
       treeB.root.findByProps({ accessibilityLabel: 'Start game' })
     ).toBeTruthy()

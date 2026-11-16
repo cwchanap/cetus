@@ -22,9 +22,6 @@ jest.mock('expo-router', () => ({
   }),
 }))
 
-// Skia → host-View stubs that forward every prop, so assertions read the
-// board's geometry/color arguments off rendered elements (host-tag filter
-// skips jest-expo's doubled wrapper nodes).
 jest.mock('@shopify/react-native-skia', () => {
   const mockReact = jest.requireActual<typeof import('react')>('react')
   const { View: MockView } =
@@ -64,8 +61,6 @@ beforeAll(() => {
   if (!originalPort) {
     throw new Error('Snake registry port missing')
   }
-  // Production port (view, projector) with only instance capture added;
-  // createGame still injects the host deps.
   NATIVE_GAMES[GameID.SNAKE] = {
     port: {
       ...originalPort,
@@ -177,7 +172,6 @@ const testText = (
     tree.root.findByProps({ testID }).props.children as React.ReactNode
   )
 
-/** GameCanvas only mounts Skia children after measuring — fire the layout. */
 const fireLayout = (
   tree: TestRenderer.ReactTestRenderer,
   width = 500,
@@ -196,7 +190,6 @@ const fireLayout = (
   })
 }
 
-/** Current rendered Skia-shape props by component name (host-tag filter). */
 const shapes = (
   tree: TestRenderer.ReactTestRenderer,
   name: string
@@ -206,7 +199,6 @@ const shapes = (
     .filter(node => node.props.testID === `skia-${name}`)
     .map(node => node.props)
 
-/** Fires the board's pan gesture end-callback with fake translations. */
 const swipe = (
   tree: TestRenderer.ReactTestRenderer,
   translationX: number,
@@ -256,9 +248,6 @@ afterEach(async () => {
   jest.restoreAllMocks()
 })
 
-// Food script: Math.random pairs for generateFoodPosition — the first food
-// lands two cells right of the head ((12,10) on the 20×20 grid), later
-// calls fall back to 0.5.
 const seedFoodRolls = (...rolls: number[]) => {
   const queue = [...rolls]
   jest.spyOn(Math, 'random').mockImplementation(() => queue.shift() ?? 0.5)
@@ -276,7 +265,6 @@ describe('Snake pilot — board', () => {
     const tree = await render(<NativeGameHost gameId={GameID.SNAKE} />)
     fireLayout(tree)
 
-    // Idle clock renders the model's seconds — not milliseconds-as-seconds.
     expect(testText(tree, 'game-time')).toBe('1:00')
     expect(testText(tree, 'snake-length')).toBe('Length 3')
     expect(testText(tree, 'snake-foods')).toBe('Food 0')
@@ -292,7 +280,6 @@ describe('Snake pilot — board', () => {
     })
     expect(segments[2]).toMatchObject(segRect(8, 10))
 
-    // No food until the run starts.
     expect(shapes(tree, 'Circle')).toHaveLength(0)
   })
 
@@ -315,6 +302,14 @@ describe('Snake pilot — board', () => {
     })
   })
 
+  test('the steering pan gesture is pinned to the JS thread', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SNAKE} />)
+    fireLayout(tree)
+
+    const detector = tree.root.findByType(GestureDetector)
+    expect(detector.props.gesture.config.runOnJS).toBe(true)
+  })
+
   test('a swipe calls changeDirection on the live game and the model still rejects reversals', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.SNAKE} />)
     fireLayout(tree)
@@ -326,7 +321,6 @@ describe('Snake pilot — board', () => {
     now += 160
     fireFrame(16)
 
-    // Reversal: direction is right, so a left swipe is rejected by the model.
     swipe(tree, -50, 0)
     expect(changeDirection).toHaveBeenLastCalledWith('left')
     expect(game.getState().nextDirection).toBe('right')
@@ -382,7 +376,6 @@ describe('Snake pilot — board', () => {
     expect(testText(tree, 'snake-length')).toBe('Length 3')
     expect(testText(tree, 'snake-foods')).toBe('Food 0')
     expect(testText(tree, 'game-time')).toBe('1:00')
-    // The eaten food is gone and no stale scene survives the reset.
     expect(shapes(tree, 'Circle')).toHaveLength(0)
     const segments = shapes(tree, 'RoundedRect').filter(
       props => props.style !== 'stroke'
@@ -400,7 +393,6 @@ describe('Snake pilot — board', () => {
     seedFoodRolls(0.61, 0.51)
 
     await press(tree, 'Start game')
-    // Drive right into the wall: the head starts at x=10, so 10 moves hit it.
     for (let i = 0; i < 12; i++) {
       now += 160
       fireFrame(16 * (i + 1))
@@ -434,16 +426,11 @@ describe('Snake pilot — board', () => {
     fireFrame(16)
     const rendersAfterStart = formatTimeSpy.mock.calls.length
 
-    // 60 frames without a move interval crossing: the scene stays put and
-    // the HUD projection is value-stable, so the session never notifies.
     for (let i = 0; i < 60; i++) {
       fireFrame(32 + 16 * i)
     }
     expect(formatTimeSpy.mock.calls.length).toBe(rendersAfterStart)
 
-    // A real move still propagates through the normal refresh path; the
-    // head already stepped to x=11 on the first running frame and eats the
-    // scripted food at (12,10) here.
     now += 160
     fireFrame(32 + 16 * 60)
     expect(createdGames[0].getHead().x).toBe(12)
@@ -578,28 +565,43 @@ describe('Snake pilot — lifecycle', () => {
     expect(appStateHandlers.size).toBe(0)
   })
 
-  test('a new-account remount drops the previous account reward banner', async () => {
-    submitScore.mockResolvedValue({
-      success: true,
-      newAchievements: [ACHIEVEMENT],
-    })
-    const treeA = await render(<NativeGameHost gameId={GameID.SNAKE} />)
+  test('a stale save resolving after an account switch delivers nothing to the new host', async () => {
+    const pendingSaves: Array<(value: ScoreSubmissionResult) => void> = []
+    submitScore.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          pendingSaves.push(resolve)
+        })
+    )
+    const treeA = await render(
+      <NativeGameHost gameId={GameID.SNAKE} settledUserId="user-a" />
+    )
 
     await press(treeA, 'Start game')
     await act(async () => {
-      await createdGames[0].end()
+      void createdGames[0].end()
     })
     await drain()
-    expect(renderedText(treeA).match(/Serpent/g)).toHaveLength(1)
+    expect(renderedText(treeA)).toContain('Saving score…')
 
     await unmount(treeA)
-    const treeB = await render(<NativeGameHost gameId={GameID.SNAKE} />)
+    const treeB = await render(
+      <NativeGameHost gameId={GameID.SNAKE} settledUserId="user-b" />
+    )
 
+    await act(async () => {
+      pendingSaves[0]?.({ success: true, newAchievements: [ACHIEVEMENT] })
+    })
+    await drain()
+
+    expect(submitScore).toHaveBeenCalledTimes(1)
+    expect(createdGames).toHaveLength(2)
     expect(treeB.root.findAllByProps({ testID: 'reward-banner' })).toHaveLength(
       0
     )
+    expect(treeB.root.findAllByProps({ testID: 'final-score' })).toHaveLength(0)
     expect(renderedText(treeB)).not.toContain('Serpent')
-    expect(createdGames).toHaveLength(2)
+    expect(renderedText(treeB)).not.toContain('Score saved')
     expect(
       treeB.root.findByProps({ accessibilityLabel: 'Start game' })
     ).toBeTruthy()

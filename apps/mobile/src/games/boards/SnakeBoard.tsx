@@ -13,7 +13,6 @@ import type { NativeGameViewProps } from '../registry'
 const SEGMENT_PADDING = 2
 const SEGMENT_RADIUS = 4
 
-/** Config colors are packed 0xRRGGBB numbers (model/game data). */
 const cssColor = (hex: number, alpha = 1): string => {
   const r = (hex >> 16) & 0xff
   const g = (hex >> 8) & 0xff
@@ -33,23 +32,11 @@ interface SnakeScene {
   food: { x: number; y: number } | null
 }
 
-/** Board-local copy of the moving scene — primitives only, never the
- *  model's mutable snake/food references. */
 const readSnakeScene = (state: SnakeState): SnakeScene => ({
   segments: state.snake.map(segment => ({ x: segment.x, y: segment.y })),
   food: state.food === null ? null : { x: state.food.x, y: state.food.y },
 })
 
-/**
- * Snake native board (HPA-533 wave 2). The single `useGameLoop` drives the
- * model's own update(); the model owns the `Date.now()` move cadence and
- * flags `needsRedraw` only when a move or food spawn changed the picture —
- * the board re-copies the scene into local state exactly then and calls
- * `markRendered()`. A pan swipe resolves to one `changeDirection` on the
- * live game; reversal stays rejected inside the model. The host projector
- * carries only the length/food HUD primitives — the grid, body and food
- * drawn here are the whole visual state.
- */
 export function SnakeBoard({ projected, game }: NativeGameViewProps) {
   const snake = game as SnakeGame
   const config = snake.getConfig()
@@ -68,12 +55,14 @@ export function SnakeBoard({ projected, game }: NativeGameViewProps) {
     snake.markRendered()
   })
 
-  const pan = Gesture.Pan().onEnd(event => {
-    const direction = swipeDirection(event.translationX, event.translationY)
-    if (direction) {
-      snake.changeDirection(direction)
-    }
-  })
+  const pan = Gesture.Pan()
+    .runOnJS(true)
+    .onEnd(event => {
+      const direction = swipeDirection(event.translationX, event.translationY)
+      if (direction) {
+        snake.changeDirection(direction)
+      }
+    })
 
   const gridLines: string[] = []
   for (let x = 0; x <= config.gridWidth; x++) {

@@ -1,12 +1,10 @@
-/* eslint-disable no-undef, @typescript-eslint/no-require-imports -- test-only Node script */
+/* eslint-disable no-undef -- test-only Node script */
 // Test env for the mobile Jest project: the mobile lib modules throw at
 // import time without a backend origin, so give them a deterministic one.
 process.env.EXPO_PUBLIC_API_BASE_URL ??= 'https://cetus-test.example'
 
-// The game registry transitively reaches the Skia/gesture boards in every
-// suite, but both native entry points throw at import time under Jest.
-// The defaults below only guarantee import safety — suites that assert on
-// shapes or gestures install their own per-file jest.mock factories.
+import 'react-native-gesture-handler/jestSetup'
+
 jest.mock('@shopify/react-native-skia', () => {
   const mockReact = jest.requireActual('react')
   const stubCache = new Map()
@@ -31,5 +29,3 @@ jest.mock('@shopify/react-native-skia', () => {
     }
   )
 })
-
-require('react-native-gesture-handler/jestSetup')

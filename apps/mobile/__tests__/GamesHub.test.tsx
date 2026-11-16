@@ -27,7 +27,7 @@ import GameDetailScreen from '../app/games/[gameId]'
 import { GAMES, GameID } from '@cetus/shared/games'
 import { isNativePlayable } from '../src/games/registry'
 
-// HPA-425 wave 1 + HPA-533 wave 2: the ten games with native ports.
+// HPA-425 wave 1: the eight games with native ports (boards land per game).
 const NATIVE_WAVE_IDS = [
   GameID.CHROMATIC_TIDE,
   GameID.GRAVITY_FLIP,

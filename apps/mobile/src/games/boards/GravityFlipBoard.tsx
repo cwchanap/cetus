@@ -13,7 +13,6 @@ import { GameCanvas } from '../canvas/GameCanvas'
 import { useGameLoop } from '../canvas/useGameLoop'
 import type { NativeGameViewProps } from '../registry'
 
-// Corridor palette — web GravityFlipRenderer parity (game data colors).
 const CORRIDOR_BACKGROUND = '#020817'
 const RAIL_FILL = '#0f172a'
 const RAIL_LINE = '#22d3ee'
@@ -28,15 +27,15 @@ const STAR_STROKE = '#fef08a'
 
 interface GravityFlipHud {
   gravityLabel: string
-  distance: number
   stars: number
   flips: number
-  speed: string
   canFlip: boolean
 }
 
 interface GravityFlipScene {
   gravity: GravityFlipState['gravity']
+  distance: number
+  worldSpeed: number
   player: { x: number; y: number; size: number }
   hazards: Array<{
     id: string
@@ -49,10 +48,10 @@ interface GravityFlipScene {
   stars: Array<{ id: string; x: number; y: number; radius: number }>
 }
 
-/** Board-local copy of the moving scene — primitives only, never the
- *  model's mutable player/hazard/star references. */
 const readGravityFlipScene = (state: GravityFlipState): GravityFlipScene => ({
   gravity: state.gravity,
+  distance: state.distance,
+  worldSpeed: state.worldSpeed,
   player: { x: state.player.x, y: state.player.y, size: state.player.size },
   hazards: state.hazards.map(hazard => ({
     id: hazard.id,
@@ -70,7 +69,6 @@ const readGravityFlipScene = (state: GravityFlipState): GravityFlipScene => ({
   })),
 })
 
-/** Five-point star outline, same vertices as the web renderer. */
 const starPath = (x: number, y: number, radius: number): string => {
   const inner = radius * 0.45
   return (
@@ -88,16 +86,6 @@ const starPath = (x: number, y: number, radius: number): string => {
   )
 }
 
-/**
- * Gravity Flip native board (HPA-533 wave 2). The model owns substeps,
- * collisions, spawning and the non-pausable timer; the single
- * `useGameLoop` feeds it real capped frame deltas and the board re-copies
- * the visible scene into local state each frame. The host projector
- * carries only the HUD badges (gravity/distance/stars/flips/speed and the
- * flip gate); the corridor, player, hazards and stars drawn here are the
- * whole visual state. The Flip gravity button is the accessible control —
- * the model decides whether a flip lands.
- */
 export function GravityFlipBoard({ projected, game }: NativeGameViewProps) {
   const flip = game as GravityFlipGame
   const config = flip.getConfig()
@@ -132,7 +120,7 @@ export function GravityFlipBoard({ projected, game }: NativeGameViewProps) {
           testID="gf-distance"
           className="font-sans text-sm text-cetus-ink-muted"
         >
-          Distance {hud.distance}
+          Distance {Math.floor(scene.distance)}
         </Text>
         <Text
           testID="gf-stars"
@@ -150,7 +138,7 @@ export function GravityFlipBoard({ projected, game }: NativeGameViewProps) {
           testID="gf-speed"
           className="font-sans text-sm text-cetus-ink-muted"
         >
-          Speed {hud.speed}
+          Speed {Math.round(scene.worldSpeed)}
         </Text>
       </View>
       <View
@@ -158,7 +146,7 @@ export function GravityFlipBoard({ projected, game }: NativeGameViewProps) {
         className="w-full"
         style={{ aspectRatio: config.canvasWidth / config.canvasHeight }}
         accessible
-        accessibilityLabel={`Gravity Flip corridor: gravity ${scene.gravity}, distance ${hud.distance}, ${scene.hazards.length} hazards`}
+        accessibilityLabel={`Gravity Flip corridor: gravity ${scene.gravity}, distance ${Math.floor(scene.distance)}, ${scene.hazards.length} hazards`}
       >
         <GameCanvas
           logicalWidth={config.canvasWidth}

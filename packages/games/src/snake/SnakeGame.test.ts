@@ -142,9 +142,6 @@ describe('SnakeGame', () => {
     })
 
     describe('countdown clock units', () => {
-        // Regression: createInitialState seeded timeRemaining with
-        // duration * 1000 (ms), while GameTimer ticks and the shared
-        // formatTime both work in seconds — the HUD read 16:40:00.
         it('starts idle at duration seconds, not milliseconds', () => {
             expect(game.getState().timeRemaining).toBe(60)
             expect(formatTime(game.getState().timeRemaining)).toBe('1:00')
@@ -152,8 +149,6 @@ describe('SnakeGame', () => {
 
         it('keeps the full minute after start, before the first timer tick', () => {
             game.start()
-            // GameTimer ticks every 1000ms; until the first tick lands the
-            // state's own clock must still read the full duration.
             expect(game.getState().timeRemaining).toBe(60)
             expect(formatTime(game.getState().timeRemaining)).toBe('1:00')
 
