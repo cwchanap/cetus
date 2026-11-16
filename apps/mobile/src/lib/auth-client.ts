@@ -9,6 +9,24 @@ import { apiBaseUrl } from './env'
 // SecureStore and handles the cetus:// deep-link return from browser OAuth.
 export const authClient = createAuthClient({
     baseURL: apiBaseUrl,
+    fetchOptions: {
+        onResponse({ request, response }) {
+            // A proxy login page must never reach Expo's session cache.
+            if (
+                new URL(request.url).pathname.endsWith('/get-session') &&
+                response.ok &&
+                response.headers
+                    .get('content-type')
+                    ?.split(';')[0]
+                    .trim()
+                    .toLowerCase() !== 'application/json'
+            ) {
+                throw new Error(
+                    'Authentication server returned a non-JSON session response'
+                )
+            }
+        },
+    },
     plugins: [
         expoClient({
             scheme: 'cetus',
