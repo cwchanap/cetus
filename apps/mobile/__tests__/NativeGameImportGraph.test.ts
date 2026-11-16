@@ -426,12 +426,18 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
         '@cetus/games/potion-sorter/types',
         /packages\/games\/src\/potion-sorter\/types\.ts$/,
     ],
+    ['@cetus/games/2048/Game2048', /packages\/games\/src\/2048\/Game2048\.ts$/],
+    ['@cetus/games/2048/utils', /packages\/games\/src\/2048\/utils\.ts$/],
     ['@cetus/app-core', /packages\/app-core\/src\/index\.ts$/],
     ['@cetus/shared/games', /packages\/shared\/src\/games\.ts$/],
     ['@cetus/ui', /packages\/ui\/src\/index\.native\.ts$/],
     [
         '@shopify/react-native-skia',
         /node_modules\/@shopify\/react-native-skia\/src\/index\.ts$/,
+    ],
+    [
+        'react-native-reanimated',
+        /node_modules\/react-native-reanimated\/src\/index\.ts$/,
     ],
 ]
 

@@ -45,7 +45,13 @@ import type {
     GravityFlipState,
     GravityFlipStats,
 } from '@cetus/games/gravity-flip/types'
+import { Game2048 } from '@cetus/games/2048/Game2048'
+import type {
+    Game2048State,
+    Game2048Stats,
+} from '@cetus/games/2048/frameworkTypes'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
+import { Game2048Board } from './boards/Game2048Board'
 import { GravityFlipBoard } from './boards/GravityFlipBoard'
 import { MemoryMatrixBoard } from './boards/MemoryMatrixBoard'
 import { MineGridBoard } from './boards/MineGridBoard'
@@ -529,11 +535,135 @@ const gravityFlipPort: NativeGamePort = {
     view: GravityFlipBoard,
 }
 
+interface Game2048ProjectedTile {
+    id: string
+    value: number
+    row: number
+    col: number
+    pop: boolean
+}
+
+interface Game2048ProjectedView extends NativeGameProjection {
+    tiles: Game2048ProjectedTile[]
+    maxTile: number
+    undosLeft: number
+    won: boolean
+    stuck: boolean
+    canUndo: boolean
+    canAct: boolean
+    clock: number
+}
+
+// Copied visible tile primitives, keyed by the model's own tile ids so the
+// board's animated views keep identity across moves. `pop` flags the tiles
+// the LAST move merged (read off lastMoveAnimations, so an undo clears it)
+// — the merge pulse the Reanimated views replay.
+const copy2048Tiles = (state: Game2048State): Game2048ProjectedTile[] => {
+    const mergeIds = new Set(
+        state.lastMoveAnimations
+            .filter(animation => animation.type === 'merge')
+            .map(animation => animation.tileId)
+    )
+    const tiles: Game2048ProjectedTile[] = []
+    for (let row = 0; row < state.board.length; row++) {
+        for (let col = 0; col < state.board[row].length; col++) {
+            const tile = state.board[row][col]
+            if (tile) {
+                tiles.push({
+                    id: tile.id,
+                    value: tile.value,
+                    row,
+                    col,
+                    pop: mergeIds.has(tile.id),
+                })
+            }
+        }
+    }
+    return tiles
+}
+
+// Per-game tile-list cache for direct `port.project(state, game)` callers so
+// separate 2048 instances never share or overwrite one another's cache.
+const game2048TileProjectors = new WeakMap<
+    BaseGame,
+    (state: Game2048State) => Game2048ProjectedTile[]
+>()
+
+const getGame2048TileProjector = (game: BaseGame) => {
+    let projector = game2048TileProjectors.get(game)
+    if (!projector) {
+        projector = createStableProjector(copy2048Tiles)
+        game2048TileProjectors.set(game, projector)
+    }
+    return projector
+}
+
+const buildGame2048Projection = (
+    state: BaseGameState,
+    game: BaseGame,
+    projectTiles: (state: Game2048State) => Game2048ProjectedTile[]
+): Game2048ProjectedView => {
+    const { maxTile, undosLeft, won, stuck, isActive, isPaused, isGameOver } =
+        state as Game2048State
+    return {
+        tiles: projectTiles(state as Game2048State),
+        maxTile,
+        undosLeft,
+        won,
+        stuck,
+        canUndo: (game as Game2048).canUndo(),
+        canAct: isActive && !isPaused && !isGameOver,
+        // Elapsed clock read off the constructed instance: the countdown
+        // duration is effectively infinite, so the count-up HUD ticks off
+        // the live timer instead (Sudoku precedent).
+        clock: Math.floor(game.getTimerStatus().elapsedTime || 0),
+    }
+}
+
+const game2048Port: NativeGamePort = {
+    createGame: deps =>
+        new Game2048({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    // The tile list is separately stabilized per game instance so the
+    // memoized board keeps its reference across clock-only ticks.
+    project: (state, game) =>
+        buildGame2048Projection(state, game, getGame2048TileProjector(game)),
+    // Stabilize the tile list once and compare the primitive HUD fields by
+    // value so clock ticks never re-serialize the 4×4 board.
+    createProjector: game => {
+        const projectTiles = createStableProjector(copy2048Tiles)
+        let previous: Game2048ProjectedView | null = null
+        return (state: BaseGameState) => {
+            const next = buildGame2048Projection(state, game, projectTiles)
+            if (
+                previous !== null &&
+                next.tiles === previous.tiles &&
+                next.maxTile === previous.maxTile &&
+                next.undosLeft === previous.undosLeft &&
+                next.won === previous.won &&
+                next.stuck === previous.stuck &&
+                next.canUndo === previous.canUndo &&
+                next.canAct === previous.canAct &&
+                next.clock === previous.clock
+            ) {
+                return previous
+            }
+            previous = next
+            return next
+        }
+    },
+    resultOutcomeLabel: stats =>
+        (stats as Game2048Stats).won ? 'Reached 2048' : null,
+    view: Game2048Board,
+}
+
 /**
  * The single native game registry (HPA-425 wave 1). Keys are computed from
  * the imported `GameID` enum members — never bare id strings — and presence
  * in this map is what the Games hub, the detail Play button and the play
- * route all consult. Eight playable, fifteen disabled.
+ * route all consult. Eleven playable, twelve disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.MEMORY_MATRIX]: { port: memoryMatrixPort },
@@ -546,6 +676,7 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.CHROMATIC_TIDE]: { port: chromaticTidePort },
     [GameID.SNAKE]: { port: snakePort },
     [GameID.GRAVITY_FLIP]: { port: gravityFlipPort },
+    [GameID.GAME_2048]: { port: game2048Port },
 }
 
 /** Own-key lookup so unknown strings (even "__proto__") never resolve. */
