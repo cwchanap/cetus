@@ -38,12 +38,21 @@ import type {
     ChromaticTideState,
     ChromaticTideStats,
 } from '@cetus/games/chromatic-tide/types'
+import { SnakeGame } from '@cetus/games/snake/SnakeGame'
+import type { SnakeState } from '@cetus/games/snake/types'
+import { GravityFlipGame } from '@cetus/games/gravity-flip/GravityFlipGame'
+import type {
+    GravityFlipState,
+    GravityFlipStats,
+} from '@cetus/games/gravity-flip/types'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
+import { GravityFlipBoard } from './boards/GravityFlipBoard'
 import { MemoryMatrixBoard } from './boards/MemoryMatrixBoard'
 import { MineGridBoard } from './boards/MineGridBoard'
 import { PatternPulseBoard } from './boards/PatternPulseBoard'
 import { PotionSorterBoard } from './boards/PotionSorterBoard'
 import { QuickMathBoard } from './boards/QuickMathBoard'
+import { SnakeBoard } from './boards/SnakeBoard'
 import { SudokuBoard } from './boards/SudokuBoard'
 import { WordScrambleBoard } from './boards/WordScrambleBoard'
 
@@ -475,11 +484,69 @@ const chromaticTidePort: NativeGamePort = {
     view: ChromaticTideBoard,
 }
 
+// HUD-only projection for the frame-driven ports: score/time/status ride
+// the common session snapshot; the moving scene never leaves the model —
+// each board copies visible primitives into local state inside its own
+// frame loop instead of serializing snake/hazard arrays here.
+const projectSnakeHud = (state: BaseGameState): NativeGameProjection => {
+    const { snake, foodsEaten } = state as SnakeState
+    return { length: snake.length, foodsEaten }
+}
+
+const snakePort: NativeGamePort = {
+    createGame: deps =>
+        new SnakeGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: projectSnakeHud,
+    // Value-stable HUD reference: frame emissions that leave length/food
+    // untouched return the previous object, so the session's refresh
+    // equality skips a host rerender.
+    createProjector: () => createStableProjector(projectSnakeHud),
+    view: SnakeBoard,
+}
+
+// HUD-only badges, web GravityFlipScreen parity. `canFlip` is the input
+// gate for the board's Flip gravity button (the model guards the call
+// itself too).
+const projectGravityFlipHud = (state: BaseGameState): NativeGameProjection => {
+    const flipState = state as GravityFlipState
+    return {
+        gravityLabel: flipState.gravity === 'down' ? 'FLOOR ↓' : 'CEILING ↑',
+        distance: Math.floor(flipState.distance),
+        stars: flipState.starsCollected,
+        flips: flipState.flips,
+        speed: String(Math.round(flipState.worldSpeed)),
+        canFlip: flipState.isActive,
+    }
+}
+
+const gravityFlipPort: NativeGamePort = {
+    createGame: deps =>
+        new GravityFlipGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: projectGravityFlipHud,
+    createProjector: () => createStableProjector(projectGravityFlipHud),
+    resultOutcomeLabel: stats => {
+        const outcome = (stats as GravityFlipStats).outcome
+        return outcome === 'survived'
+            ? 'Survived'
+            : outcome === 'collision'
+              ? 'Collision'
+              : null
+    },
+    view: GravityFlipBoard,
+}
+
 /**
- * The single native game registry (HPA-425 wave 1). Keys are computed from
- * the imported `GameID` enum members — never bare id strings — and presence
- * in this map is what the Games hub, the detail Play button and the play
- * route all consult. Eight playable, fifteen disabled.
+ * The single native game registry (HPA-425 wave 1, HPA-533 wave 2). Keys
+ * are computed from the imported `GameID` enum members — never bare id
+ * strings — and presence in this map is what the Games hub, the detail
+ * Play button and the play route all consult. Ten playable, thirteen
+ * disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.MEMORY_MATRIX]: { port: memoryMatrixPort },
@@ -490,6 +557,8 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.SUDOKU]: { port: sudokuPort },
     [GameID.WORD_SCRAMBLE]: { port: wordScramblePort },
     [GameID.CHROMATIC_TIDE]: { port: chromaticTidePort },
+    [GameID.SNAKE]: { port: snakePort },
+    [GameID.GRAVITY_FLIP]: { port: gravityFlipPort },
 }
 
 /** Own-key lookup so unknown strings (even "__proto__") never resolve. */

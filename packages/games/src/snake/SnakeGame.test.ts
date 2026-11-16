@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { SnakeGame, DEFAULT_SNAKE_CONFIG } from './SnakeGame'
+import { formatTime } from '../shared/utils'
 import type { SnakeConfig } from './types'
 
 // Injected score transport so saveFinalScore never hits a network path
@@ -137,6 +138,38 @@ describe('SnakeGame', () => {
             expect(state.gameStarted).toBe(false)
             expect(state.score).toBe(0)
             expect(state.snake).toHaveLength(3)
+        })
+    })
+
+    describe('countdown clock units', () => {
+        // Regression: createInitialState seeded timeRemaining with
+        // duration * 1000 (ms), while GameTimer ticks and the shared
+        // formatTime both work in seconds — the HUD read 16:40:00.
+        it('starts idle at duration seconds, not milliseconds', () => {
+            expect(game.getState().timeRemaining).toBe(60)
+            expect(formatTime(game.getState().timeRemaining)).toBe('1:00')
+        })
+
+        it('keeps the full minute after start, before the first timer tick', () => {
+            game.start()
+            // GameTimer ticks every 1000ms; until the first tick lands the
+            // state's own clock must still read the full duration.
+            expect(game.getState().timeRemaining).toBe(60)
+            expect(formatTime(game.getState().timeRemaining)).toBe('1:00')
+
+            vi.advanceTimersByTime(1100)
+            expect(game.getState().timeRemaining).toBe(59)
+            expect(formatTime(game.getState().timeRemaining)).toBe('0:59')
+        })
+
+        it('restores duration seconds on reset, before the next timer tick', () => {
+            game.start()
+            vi.advanceTimersByTime(1100)
+            expect(game.getState().timeRemaining).toBe(59)
+
+            game.reset()
+            expect(game.getState().timeRemaining).toBe(60)
+            expect(formatTime(game.getState().timeRemaining)).toBe('1:00')
         })
     })
 

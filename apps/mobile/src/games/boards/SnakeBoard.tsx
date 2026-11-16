@@ -1,0 +1,173 @@
+import { useState } from 'react'
+import { Text, View } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import { Circle, Path, Rect, RoundedRect } from '@shopify/react-native-skia'
+import type { SnakeGame } from '@cetus/games/snake/SnakeGame'
+import type { SnakeState } from '@cetus/games/snake/types'
+
+import { GameCanvas } from '../canvas/GameCanvas'
+import { swipeDirection } from '../canvas/swipeDirection'
+import { useGameLoop } from '../canvas/useGameLoop'
+import type { NativeGameViewProps } from '../registry'
+
+const SEGMENT_PADDING = 2
+const SEGMENT_RADIUS = 4
+
+/** Config colors are packed 0xRRGGBB numbers (model/game data). */
+const cssColor = (hex: number, alpha = 1): string => {
+  const r = (hex >> 16) & 0xff
+  const g = (hex >> 8) & 0xff
+  const b = hex & 0xff
+  return alpha === 1
+    ? `rgb(${r}, ${g}, ${b})`
+    : `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+interface SnakeHud {
+  length: number
+  foodsEaten: number
+}
+
+interface SnakeScene {
+  segments: Array<{ x: number; y: number }>
+  food: { x: number; y: number } | null
+}
+
+/** Board-local copy of the moving scene — primitives only, never the
+ *  model's mutable snake/food references. */
+const readSnakeScene = (state: SnakeState): SnakeScene => ({
+  segments: state.snake.map(segment => ({ x: segment.x, y: segment.y })),
+  food: state.food === null ? null : { x: state.food.x, y: state.food.y },
+})
+
+/**
+ * Snake native board (HPA-533 wave 2). The single `useGameLoop` drives the
+ * model's own update(); the model owns the `Date.now()` move cadence and
+ * flags `needsRedraw` only when a move or food spawn changed the picture —
+ * the board re-copies the scene into local state exactly then and calls
+ * `markRendered()`. A pan swipe resolves to one `changeDirection` on the
+ * live game; reversal stays rejected inside the model. The host projector
+ * carries only the length/food HUD primitives — the grid, body and food
+ * drawn here are the whole visual state.
+ */
+export function SnakeBoard({ projected, game }: NativeGameViewProps) {
+  const snake = game as SnakeGame
+  const config = snake.getConfig()
+  const cell = config.cellSize
+  const hud = projected as unknown as SnakeHud
+  const [scene, setScene] = useState<SnakeScene>(() =>
+    readSnakeScene(snake.getState())
+  )
+
+  useGameLoop(snake, () => {
+    const state = snake.getState()
+    if (!state.needsRedraw) {
+      return
+    }
+    setScene(readSnakeScene(state))
+    snake.markRendered()
+  })
+
+  const pan = Gesture.Pan().onEnd(event => {
+    const direction = swipeDirection(event.translationX, event.translationY)
+    if (direction) {
+      snake.changeDirection(direction)
+    }
+  })
+
+  const gridLines: string[] = []
+  for (let x = 0; x <= config.gridWidth; x++) {
+    gridLines.push(`M${x * cell} 0L${x * cell} ${config.gameHeight}`)
+  }
+  for (let y = 0; y <= config.gridHeight; y++) {
+    gridLines.push(`M0 ${y * cell}L${config.gameWidth} ${y * cell}`)
+  }
+
+  return (
+    <View className="flex-1 gap-3 px-4 pb-4">
+      <View className="flex-row items-center justify-between gap-2">
+        <Text
+          testID="snake-length"
+          className="font-sans text-sm text-cetus-ink-muted"
+        >
+          Length {hud.length}
+        </Text>
+        <Text
+          testID="snake-foods"
+          className="font-sans text-sm text-cetus-ink-muted"
+        >
+          Food {hud.foodsEaten}
+        </Text>
+      </View>
+      <GestureDetector gesture={pan}>
+        <View
+          testID="snake-board"
+          className="w-full"
+          style={{ aspectRatio: config.gameWidth / config.gameHeight }}
+          accessible
+          accessibilityLabel={`Snake board: length ${scene.segments.length}; swipe to steer`}
+        >
+          <GameCanvas
+            logicalWidth={config.gameWidth}
+            logicalHeight={config.gameHeight}
+          >
+            <Rect
+              x={0}
+              y={0}
+              width={config.gameWidth}
+              height={config.gameHeight}
+              color={cssColor(config.backgroundColor)}
+            />
+            <Path
+              path={gridLines.join('')}
+              style="stroke"
+              strokeWidth={1}
+              color={cssColor(config.gridColor, 0.15)}
+            />
+            {scene.segments.map((segment, index) => (
+              <RoundedRect
+                key={index}
+                x={segment.x * cell + SEGMENT_PADDING}
+                y={segment.y * cell + SEGMENT_PADDING}
+                width={cell - SEGMENT_PADDING * 2}
+                height={cell - SEGMENT_PADDING * 2}
+                r={SEGMENT_RADIUS}
+                color={cssColor(config.snakeColor)}
+              />
+            ))}
+            {scene.segments[0] ? (
+              <RoundedRect
+                x={scene.segments[0].x * cell + SEGMENT_PADDING}
+                y={scene.segments[0].y * cell + SEGMENT_PADDING}
+                width={cell - SEGMENT_PADDING * 2}
+                height={cell - SEGMENT_PADDING * 2}
+                r={SEGMENT_RADIUS}
+                style="stroke"
+                strokeWidth={2}
+                color="rgba(255, 255, 255, 0.8)"
+              />
+            ) : null}
+            {scene.food ? (
+              <>
+                <Circle
+                  cx={scene.food.x * cell + cell / 2}
+                  cy={scene.food.y * cell + cell / 2}
+                  r={cell / 2 - 3}
+                  color={cssColor(config.foodColor)}
+                />
+                <Circle
+                  cx={scene.food.x * cell + cell / 2}
+                  cy={scene.food.y * cell + cell / 2}
+                  r={cell / 2 - 3}
+                  style="stroke"
+                  strokeWidth={2}
+                  color="rgba(255, 255, 255, 0.5)"
+                />
+              </>
+            ) : null}
+          </GameCanvas>
+        </View>
+      </GestureDetector>
+    </View>
+  )
+}
