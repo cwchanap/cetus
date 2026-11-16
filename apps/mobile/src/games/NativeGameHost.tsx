@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react'
-import { Platform, Text, View } from 'react-native'
+import { AppState, Platform, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Button, Heading } from '@cetus/ui'
 import {
@@ -166,6 +166,18 @@ export function NativeGameHost({
     session,
     IDLE_NATIVE_SNAPSHOT
   )
+
+  useEffect(() => {
+    if (!session) {
+      return
+    }
+    const subscription = AppState.addEventListener('change', next => {
+      if (next !== 'active' && session.capabilities.pausable) {
+        session.actions.pause()
+      }
+    })
+    return () => subscription.remove()
+  }, [session])
 
   const BoardView = port?.view
   const MemoBoardView = useMemo(
