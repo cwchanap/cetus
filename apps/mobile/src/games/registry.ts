@@ -57,11 +57,23 @@ import type {
     SignalSwitchState,
     SignalSwitchStats,
 } from '@cetus/games/signal-switch/types'
+import { EvaderGame } from '@cetus/games/evader/EvaderGame'
+import type { EvaderState } from '@cetus/games/evader/frameworkTypes'
+import {
+    GAME_LEVELS,
+    PathNavigatorGame,
+} from '@cetus/games/path-navigator/PathNavigatorGame'
+import type {
+    PathNavigatorState,
+    PathNavigatorStats,
+} from '@cetus/games/path-navigator/types'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
+import { EvaderBoard } from './boards/EvaderBoard'
 import { Game2048Board } from './boards/Game2048Board'
 import { GravityFlipBoard } from './boards/GravityFlipBoard'
 import { MemoryMatrixBoard } from './boards/MemoryMatrixBoard'
 import { MineGridBoard } from './boards/MineGridBoard'
+import { PathNavigatorBoard } from './boards/PathNavigatorBoard'
 import { PatternPulseBoard } from './boards/PatternPulseBoard'
 import { PotionSorterBoard } from './boards/PotionSorterBoard'
 import { QuickMathBoard } from './boards/QuickMathBoard'
@@ -731,6 +743,52 @@ const signalSwitchPort: NativeGamePort = {
     view: SignalSwitchBoard,
 }
 
+const selectEvaderHud = (state: BaseGameState): NativeGameProjection => {
+    const { coinsCollected, bombsHit } = state as EvaderState
+    return { coins: coinsCollected, bombs: bombsHit }
+}
+
+const evaderPort: NativeGamePort = {
+    createGame: deps =>
+        new EvaderGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: selectEvaderHud,
+    createProjector: () => createStableProjector(selectEvaderHud),
+    view: EvaderBoard,
+}
+
+const selectPathNavigatorHud = (state: BaseGameState): NativeGameProjection => {
+    const navState = state as PathNavigatorState
+    return {
+        currentLevel: navState.currentLevel,
+        totalLevels: navState.totalLevels,
+        isGameWon: navState.isGameWon,
+        canNavigate:
+            navState.isActive && !navState.isPaused && !navState.isGameOver,
+    }
+}
+
+const pathNavigatorPort: NativeGamePort = {
+    createGame: deps =>
+        new PathNavigatorGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: selectPathNavigatorHud,
+    createProjector: () => createStableProjector(selectPathNavigatorHud),
+    resultOutcomeLabel: stats => {
+        const navStats = stats as PathNavigatorStats
+        return navStats.levelsCompleted >= GAME_LEVELS.length
+            ? 'Cleared'
+            : navStats.pathViolations > 0
+              ? 'Off path'
+              : 'Timeout'
+    },
+    view: PathNavigatorBoard,
+}
+
 /**
  * The single native game registry (HPA-425 wave 1). Keys are computed from
  * the imported `GameID` enum members — never bare id strings — and presence
@@ -751,6 +809,8 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.GAME_2048]: { port: game2048Port },
     [GameID.REFLEX]: { port: reflexPort },
     [GameID.SIGNAL_SWITCH]: { port: signalSwitchPort },
+    [GameID.EVADER]: { port: evaderPort },
+    [GameID.PATH_NAVIGATOR]: { port: pathNavigatorPort },
 }
 
 /** Own-key lookup so unknown strings (even "__proto__") never resolve. */

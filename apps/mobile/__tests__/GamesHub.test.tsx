@@ -30,10 +30,12 @@ import { isNativePlayable } from '../src/games/registry'
 // HPA-425 wave 1: the eight games with native ports (boards land per game).
 const NATIVE_WAVE_IDS = [
   GameID.CHROMATIC_TIDE,
+  GameID.EVADER,
   GameID.GAME_2048,
   GameID.GRAVITY_FLIP,
   GameID.MEMORY_MATRIX,
   GameID.MINE_GRID,
+  GameID.PATH_NAVIGATOR,
   GameID.PATTERN_PULSE,
   GameID.POTION_SORTER,
   GameID.QUICK_MATH,
@@ -200,7 +202,7 @@ describe('game detail', () => {
     expect(rendered).toContain('5-15 minutes')
   })
 
-  test('marks the thirteen native registry games playable in the hub list', async () => {
+  test('marks the fifteen native registry games playable in the hub list', async () => {
     const tree = await render(<GamesScreen />)
 
     const rendered = renderedText(tree)
@@ -211,7 +213,7 @@ describe('game detail', () => {
       expect(rendered).toContain(`${game.category}\n${expected}`)
     }
     expect(ACTIVE_GAMES.filter(game => isNativePlayable(game.id))).toHaveLength(
-      13
+      15
     )
   })
 
@@ -237,9 +239,9 @@ describe('game detail', () => {
     }
   })
 
-  test('honestly disables the play CTA for the ten unported games', async () => {
+  test('honestly disables the play CTA for the eight unported games', async () => {
     const unported = ACTIVE_GAMES.filter(game => !isNativePlayable(game.id))
-    expect(unported).toHaveLength(10)
+    expect(unported).toHaveLength(8)
     for (const game of unported) {
       mockPush.mockClear()
       mockParams.gameId = game.id
