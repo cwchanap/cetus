@@ -67,5 +67,8 @@
     "*.{json,md,css}": [
       "prettier --write"
     ]
-  }
+  },
+  "trustedDependencies": [
+    "@shopify/react-native-skia"
+  ]
 }
