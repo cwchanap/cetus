@@ -321,6 +321,10 @@ export class PathNavigatorGame extends BaseGame<
             return { isOnPath: true, hasReachedGoal: false }
         }
 
+        const previous = {
+            x: this.state.cursor.x,
+            y: this.state.cursor.y,
+        }
         this.state.cursor.x = x
         this.state.cursor.y = y
 
@@ -329,7 +333,8 @@ export class PathNavigatorGame extends BaseGame<
         // Enable boundary detection immediately for keyboard controls
         this.state.isBoundaryDetectionEnabled = true
 
-        const collisionResult = this.checkCollision(
+        const collisionResult = this.checkMovement(
+            previous,
             { x, y },
             currentLevel.path,
             this.state.cursor.radius
@@ -425,6 +430,35 @@ export class PathNavigatorGame extends BaseGame<
         // The addScore above emitted score-update before the transition;
         // notify now so session projections see the new level immediately.
         this.emitStateChange()
+    }
+
+    /**
+     * Validate the straight-line movement between the previous cursor
+     * position and a new sample so a fast drag cannot skip over off-path
+     * space. Reaching the goal buffer at any point along the way counts.
+     */
+    private checkMovement(
+        from: Point,
+        to: Point,
+        path: GamePath,
+        tolerance: number
+    ): CollisionResult {
+        const samples = Math.ceil(distance(from, to) / Math.max(1, tolerance))
+        for (let i = 1; i <= samples; i++) {
+            const t = i / samples
+            const result = this.checkCollision(
+                {
+                    x: from.x + (to.x - from.x) * t,
+                    y: from.y + (to.y - from.y) * t,
+                },
+                path,
+                tolerance
+            )
+            if (!result.isOnPath || result.hasReachedGoal) {
+                return result
+            }
+        }
+        return { isOnPath: true, hasReachedGoal: false }
     }
 
     private checkCollision(

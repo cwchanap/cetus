@@ -4,7 +4,8 @@ import {
     DEFAULT_PATH_NAVIGATOR_CONFIG,
     GAME_LEVELS,
 } from './PathNavigatorGame'
-import type { PathNavigatorState } from './types'
+import type { GamePath, PathNavigatorState } from './types'
+import { quadraticBezierPoint } from '../shared/geometry'
 
 // Injected score transport so saveFinalScore never hits a network path
 const submitScore = vi.fn().mockResolvedValue({
@@ -15,6 +16,39 @@ const submitScore = vi.fn().mockResolvedValue({
 // Direct access to internal state for edge-case tests.
 function stateOf(game: PathNavigatorGame): PathNavigatorState {
     return (game as unknown as { state: PathNavigatorState }).state
+}
+
+// Drive the cursor along the authored path in small steps so movement
+// validation sees continuous motion instead of a teleport to the goal.
+function followPath(game: PathNavigatorGame, path: GamePath): void {
+    const SAMPLES_PER_SEGMENT = 50
+    for (const segment of path.segments) {
+        for (let i = 1; i <= SAMPLES_PER_SEGMENT; i++) {
+            const t = i / SAMPLES_PER_SEGMENT
+            const point =
+                segment.type === 'curve' && segment.controlPoint
+                    ? quadraticBezierPoint(
+                          t,
+                          segment.start,
+                          segment.controlPoint,
+                          segment.end
+                      )
+                    : {
+                          x:
+                              segment.start.x +
+                              (segment.end.x - segment.start.x) * t,
+                          y:
+                              segment.start.y +
+                              (segment.end.y - segment.start.y) * t,
+                      }
+            const levelBefore = game.getState().currentLevel
+            game.updatePlayerPosition(point.x, point.y)
+            const state = game.getState()
+            if (state.currentLevel !== levelBefore || state.isGameOver) {
+                return
+            }
+        }
+    }
 }
 
 describe('PathNavigatorGame', () => {
@@ -203,6 +237,22 @@ describe('PathNavigatorGame', () => {
 
             expect(game.getState().isGameOver).toBe(true)
         })
+
+        it('should reject a jump across off-path space', () => {
+            game.start()
+            followPath(game, GAME_LEVELS[0].path)
+            expect(game.getState().currentLevel).toBe(2)
+
+            // Level 2's start→goal straight line crosses off-path space;
+            // checking only the destination would complete the level.
+            const level2End = GAME_LEVELS[1].path.endPoint
+            game.updatePlayerPosition(level2End.x, level2End.y)
+
+            const state = game.getState()
+            expect(state.isGameOver).toBe(true)
+            expect(state.currentLevel).toBe(2)
+            expect(state.isGameWon).toBe(false)
+        })
     })
 
     describe('level progression', () => {
@@ -248,8 +298,7 @@ describe('PathNavigatorGame', () => {
 
             // Complete all levels
             for (let i = 0; i < GAME_LEVELS.length; i++) {
-                const endPoint = GAME_LEVELS[i].path.endPoint
-                game.updatePlayerPosition(endPoint.x, endPoint.y)
+                followPath(game, GAME_LEVELS[i].path)
             }
 
             expect(game.getState().isGameWon).toBe(true)
@@ -348,8 +397,7 @@ describe('PathNavigatorGame', () => {
         it('should return GAME_LEVELS.length for levelsCompleted when game is won', () => {
             game.start()
             for (let i = 0; i < GAME_LEVELS.length; i++) {
-                const levelEnd = GAME_LEVELS[i].path.endPoint
-                game.updatePlayerPosition(levelEnd.x, levelEnd.y)
+                followPath(game, GAME_LEVELS[i].path)
             }
             const stats = game.getGameStats()
             expect(stats.levelsCompleted).toBe(GAME_LEVELS.length)
@@ -380,8 +428,7 @@ describe('PathNavigatorGame', () => {
         it('should preserve pathsCompleted and perfectPaths fields', () => {
             game.start()
             for (let i = 0; i < GAME_LEVELS.length; i++) {
-                const levelEnd = GAME_LEVELS[i].path.endPoint
-                game.updatePlayerPosition(levelEnd.x, levelEnd.y)
+                followPath(game, GAME_LEVELS[i].path)
             }
             // Access protected method for verification
             const data = (

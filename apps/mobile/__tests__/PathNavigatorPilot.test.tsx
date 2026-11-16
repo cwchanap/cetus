@@ -7,6 +7,7 @@ import {
   GAME_LEVELS,
   PathNavigatorGame,
 } from '@cetus/games/path-navigator/PathNavigatorGame'
+import { quadraticBezierPoint } from '@cetus/games/shared/geometry'
 import * as sharedUtils from '@cetus/games/shared/utils'
 
 jest.mock('../src/lib/api', () => mockApiModule)
@@ -187,6 +188,36 @@ const panRelease = (tree: TestRenderer.ReactTestRenderer) => {
   act(() => {
     panHandlers(tree).onFinalize({})
   })
+}
+
+// Trace a level's authored path in small pan steps — the model validates
+// movement between samples, so a jump straight to the goal is not a
+// stand-in for completing the level.
+const traceLevel = (
+  tree: TestRenderer.ReactTestRenderer,
+  levelIndex: number
+) => {
+  const level = GAME_LEVELS[levelIndex]
+  panBegin(tree, level.path.startPoint.x / 2, level.path.startPoint.y / 2)
+  for (const segment of level.path.segments) {
+    for (let i = 1; i <= 40; i++) {
+      const t = i / 40
+      const point =
+        segment.type === 'curve' && segment.controlPoint
+          ? quadraticBezierPoint(
+              t,
+              segment.start,
+              segment.controlPoint,
+              segment.end
+            )
+          : {
+              x: segment.start.x + (segment.end.x - segment.start.x) * t,
+              y: segment.start.y + (segment.end.y - segment.start.y) * t,
+            }
+      panMove(tree, point.x / 2, point.y / 2)
+    }
+  }
+  panRelease(tree)
 }
 
 let formatTimeSpy: jest.SpyInstance
@@ -463,6 +494,22 @@ describe('Path Navigator pilot — board', () => {
     )
     panRelease(tree)
   })
+
+  test('an armed drag that leaves the board fails the run', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.PATH_NAVIGATOR} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+    const updatePlayerPosition = jest.spyOn(game, 'updatePlayerPosition')
+
+    await press(tree, 'Start game')
+    panBegin(tree, 25, 150)
+    panMove(tree, -10, 150)
+    await drain()
+
+    expect(updatePlayerPosition).toHaveBeenCalledTimes(2)
+    expect(game.getState().isGameOver).toBe(true)
+    panRelease(tree)
+  })
 })
 
 describe('Path Navigator pilot — completion and replay', () => {
@@ -473,11 +520,7 @@ describe('Path Navigator pilot — completion and replay', () => {
 
     await press(tree, 'Start game')
     for (let level = 0; level < GAME_LEVELS.length; level++) {
-      const start = GAME_LEVELS[level].path.startPoint
-      const end = GAME_LEVELS[level].path.endPoint
-      panBegin(tree, start.x / 2, start.y / 2)
-      panMove(tree, end.x / 2, end.y / 2)
-      panRelease(tree)
+      traceLevel(tree, level)
     }
     await drain()
 
@@ -487,6 +530,27 @@ describe('Path Navigator pilot — completion and replay', () => {
     expect(submitScore).toHaveBeenCalledTimes(1)
     expect(testText(tree, 'result-outcome')).toBe('Cleared')
     expect(testText(tree, 'result-save-status')).toBe('Score saved')
+  })
+
+  test('a jump across off-path space fails the run instead of completing the level', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.PATH_NAVIGATOR} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    traceLevel(tree, 0)
+    expect(game.getState().currentLevel).toBe(2)
+
+    const level2 = GAME_LEVELS[1]
+    panBegin(tree, level2.path.startPoint.x / 2, level2.path.startPoint.y / 2)
+    panMove(tree, level2.path.endPoint.x / 2, level2.path.endPoint.y / 2)
+    await drain()
+
+    const state = game.getState()
+    expect(state.isGameOver).toBe(true)
+    expect(state.currentLevel).toBe(2)
+    expect(state.isGameWon).toBe(false)
+    panRelease(tree)
   })
 
   test('a replay starts a fresh run and the old one saves only once', async () => {

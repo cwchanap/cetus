@@ -364,6 +364,33 @@ describe('2048 pilot — board', () => {
     expect(tileElements(tree)).toHaveLength(1)
   })
 
+  test('the labelled move controls slide tiles without a swipe', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.GAME_2048} />)
+    fireLayout(tree)
+
+    for (const label of ['Move up', 'Move left', 'Move down', 'Move right']) {
+      expect(byLabel(tree, label)[0].props.accessibilityState).toMatchObject({
+        disabled: true,
+      })
+    }
+
+    await press(tree, 'Start game')
+    const game = createdGames[0]
+    setBoard(game, [
+      [makeTile('a', 2, 0, 0), makeTile('b', 2, 0, 1), null, null],
+      [null, null, null, null],
+      [null, null, null, null],
+      [null, null, null, null],
+    ])
+    const move = jest.spyOn(game, 'move')
+
+    await press(tree, 'Move left')
+
+    expect(move).toHaveBeenCalledWith('left')
+    expect(game.getState().moveCount).toBe(1)
+    expect(game.getState().board[0][0]?.value).toBe(4)
+  })
+
   test('a sub-threshold drag never reaches the model', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.GAME_2048} />)
     fireLayout(tree)

@@ -256,6 +256,9 @@ const fireTouches = (
   })
 }
 
+// shortcut: these helpers fire gesture-handler callbacks directly, skipping
+// native recognition and cross-handler/Pressable cancellation — re-check
+// simultaneous holds on-device if the D-pad gesture wiring changes.
 const touchDown = (
   tree: TestRenderer.ReactTestRenderer,
   direction: DpadDirection,
