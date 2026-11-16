@@ -29,3 +29,36 @@ jest.mock('@shopify/react-native-skia', () => {
     }
   )
 })
+
+// The real module installs the worklets native runtime at import time; the
+// boards only need the JS-side hooks, so the mock evaluates animated styles
+// eagerly (with* return their target value) over a plain View.
+jest.mock('react-native-reanimated', () => {
+  const mockReact = jest.requireActual('react')
+  const { View: MockView } = jest.requireActual('react-native')
+  const AnimatedView = props =>
+    mockReact.createElement(MockView, props, props && props.children)
+  const entering = { duration: () => ({}) }
+  return {
+    __esModule: true,
+    default: {
+      View: AnimatedView,
+      createAnimatedComponent: component => component,
+    },
+    useSharedValue: initial => ({ value: initial }),
+    useAnimatedStyle: updater => updater(),
+    // GestureDetector's reanimatedWrapper hooks; the JS-side handlers are
+    // driven straight through gesture.handlers in tests.
+    useEvent: () => () => {},
+    useHandler: () => ({}),
+    useAnimatedReaction: () => {},
+    setGestureState: () => {},
+    withTiming: value => value,
+    withSequence: (...values) => values[values.length - 1],
+    withDelay: (_delay, value) => value,
+    cancelAnimation: () => {},
+    FadeIn: { ...entering },
+    ZoomIn: { ...entering },
+    Easing: { linear: value => value, ease: value => value },
+  }
+})

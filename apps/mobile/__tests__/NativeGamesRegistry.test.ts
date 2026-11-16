@@ -24,6 +24,12 @@ import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame
 import { SnakeGame } from '@cetus/games/snake/SnakeGame'
 import { GravityFlipGame } from '@cetus/games/gravity-flip/GravityFlipGame'
 import type { GravityFlipState } from '@cetus/games/gravity-flip/types'
+import { Game2048 } from '@cetus/games/2048/Game2048'
+import type {
+    Game2048State,
+    Game2048Stats,
+} from '@cetus/games/2048/frameworkTypes'
+import type { Tile } from '@cetus/games/2048/types'
 
 // Any-constructor shape: `never` params accept every concrete ctor.
 type AnyGameCtor = abstract new (...args: never[]) => unknown
@@ -39,6 +45,7 @@ const CONCRETE_GAMES: ReadonlyArray<readonly [GameID, AnyGameCtor]> = [
     [GameID.CHROMATIC_TIDE, ChromaticTideGame],
     [GameID.SNAKE, SnakeGame],
     [GameID.GRAVITY_FLIP, GravityFlipGame],
+    [GameID.GAME_2048, Game2048],
 ]
 
 const hostDeps = (platform: 'ios' | 'android') => {
@@ -50,6 +57,7 @@ const hostDeps = (platform: 'ios' | 'android') => {
 // is duplicated here on purpose — the test must fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
     GameID.CHROMATIC_TIDE,
+    GameID.GAME_2048,
     GameID.GRAVITY_FLIP,
     GameID.MEMORY_MATRIX,
     GameID.MINE_GRID,
@@ -64,7 +72,7 @@ const EXPECTED_NATIVE_IDS = [
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the ten registry game ids', () => {
+    test('contains exactly the eleven registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -73,16 +81,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 10 playable, 13 disabled of 23', () => {
+    test('registry and catalog counts line up: 11 playable, 12 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(10)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(11)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(13)
+        expect(disabled).toHaveLength(12)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -736,13 +744,127 @@ describe('NATIVE_GAMES registry', () => {
         expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
     })
 
+    test('the 2048 pilot ships a board view and a copied-tile projection', () => {
+        const port = getNativeGameEntry(GameID.GAME_2048)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        const idle = port.project(game.getState(), game)
+        // All primitives plus the copied tile list: an empty board, one
+        // undo left, no win/stuck flags and the elapsed count-up clock
+        // parked at zero.
+        expect(idle).toEqual({
+            tiles: [],
+            maxTile: 0,
+            undosLeft: 1,
+            won: false,
+            stuck: false,
+            canUndo: false,
+            canAct: false,
+            clock: 0,
+        })
+
+        game.start()
+        const running = port.project(game.getState(), game) as {
+            tiles: Array<{
+                id: string
+                value: number
+                row: number
+                col: number
+                pop: boolean
+            }>
+            canAct: boolean
+        }
+        // The two dealt tiles carry copied id/value/position primitives —
+        // never Tile object references.
+        expect(running.tiles).toHaveLength(2)
+        for (const tile of running.tiles) {
+            expect(typeof tile.id).toBe('string')
+            expect([2, 4]).toContain(tile.value)
+            expect(tile.row).toBeGreaterThanOrEqual(0)
+            expect(tile.row).toBeLessThan(4)
+            expect(tile.col).toBeGreaterThanOrEqual(0)
+            expect(tile.col).toBeLessThan(4)
+            expect(tile.pop).toBe(false)
+        }
+        expect(running.canAct).toBe(true)
+
+        // Copies, not tile references: an in-place model mutation must
+        // surface through the next projection as a fresh value.
+        const liveState = game.getState() as Game2048State
+        const liveTile = liveState.board.flat().find(Boolean) as Tile
+        liveTile.value = 128
+        const mutated = port.project(game.getState(), game) as {
+            tiles: Array<{ id: string; value: number }>
+        }
+        expect(mutated.tiles.find(tile => tile.id === liveTile.id)?.value).toBe(
+            128
+        )
+        game.destroy()
+    })
+
+    test('the 2048 projector keeps the tile list stable across clock-only ticks', async () => {
+        const port = getNativeGameEntry(GameID.GAME_2048)?.port
+        expect(port).toBeDefined()
+        expect(port?.createProjector).toBeDefined()
+        if (!port?.createProjector) {
+            return
+        }
+        const game = port.createGame(hostDeps('ios'))
+        const project = port.createProjector(game)
+        game.start()
+        const first = project(game.getState())
+        // One real elapsed second moves the count-up clock, so the
+        // top-level projection is new while the copied tile list keeps
+        // its reference.
+        await new Promise(resolve => setTimeout(resolve, 1100))
+        const afterTick = project(game.getState())
+        expect(afterTick).not.toBe(first)
+        expect(afterTick.clock).toBeGreaterThan(0)
+        expect(afterTick.tiles).toBe(first.tiles)
+
+        // A visible board change still opens the memo.
+        const liveState = game.getState() as Game2048State
+        const emptyIndex = liveState.board.flat().findIndex(cell => !cell)
+        const row = Math.floor(emptyIndex / 4)
+        const col = emptyIndex % 4
+        liveState.board[row][col] = {
+            id: 'registry-extra',
+            value: 16,
+            position: { row, col },
+        }
+        const afterEdit = project(game.getState())
+        expect(afterEdit.tiles).not.toBe(first.tiles)
+        expect(afterEdit.tiles).toHaveLength(3)
+        game.destroy()
+    })
+
+    test('the 2048 port labels finished-run outcomes', () => {
+        const port = getNativeGameEntry(GameID.GAME_2048)?.port
+        expect(port).toBeDefined()
+        expect(port?.resultOutcomeLabel).toBeDefined()
+        if (!port?.resultOutcomeLabel) {
+            return
+        }
+        const stats = (won: boolean) => ({ won }) as unknown as Game2048Stats
+        expect(port.resultOutcomeLabel(stats(true))).toBe('Reached 2048')
+        expect(port.resultOutcomeLabel(stats(false))).toBeNull()
+    })
+
     test('keys are computed from imported enum members, never bare strings', () => {
         const source = readFileSync(
             resolve(process.cwd(), 'src/games/registry.ts'),
             'utf-8'
         )
+        // String values are not member names (GameID.GAME_2048 === '2048'):
+        // resolve each id back to its enum member name for the source check.
+        const memberName = (id: GameID): string | undefined =>
+            Object.entries(GameID).find(([, value]) => value === id)?.[0]
         for (const id of EXPECTED_NATIVE_IDS) {
-            expect(source).toContain(`[GameID.${id.toUpperCase()}]:`)
+            expect(source).toContain(`[GameID.${String(memberName(id))}]:`)
         }
         for (const bare of EXPECTED_NATIVE_IDS) {
             expect(source).not.toContain(`'${bare}'`)
