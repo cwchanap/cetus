@@ -21,6 +21,8 @@ import { SudokuGame } from '@cetus/games/sudoku/SudokuGame'
 import type { SudokuState } from '@cetus/games/sudoku/frameworkTypes'
 import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
+import { SnakeGame } from '@cetus/games/snake/SnakeGame'
+import { GravityFlipGame } from '@cetus/games/gravity-flip/GravityFlipGame'
 
 // Any-constructor shape: `never` params accept every concrete ctor.
 type AnyGameCtor = abstract new (...args: never[]) => unknown
@@ -34,6 +36,8 @@ const CONCRETE_GAMES: ReadonlyArray<readonly [GameID, AnyGameCtor]> = [
     [GameID.SUDOKU, SudokuGame],
     [GameID.WORD_SCRAMBLE, WordScrambleGame],
     [GameID.CHROMATIC_TIDE, ChromaticTideGame],
+    [GameID.SNAKE, SnakeGame],
+    [GameID.GRAVITY_FLIP, GravityFlipGame],
 ]
 
 const hostDeps = (platform: 'ios' | 'android') => {
@@ -41,15 +45,18 @@ const hostDeps = (platform: 'ios' | 'android') => {
     return { submitScore, platform }
 }
 
-// HPA-425 wave 1: exactly these eight games are native-destined. The list
-// is duplicated here on purpose — the test must fail if the registry drifts.
+// HPA-425 wave 1 + HPA-533 wave 2: exactly these ten games are
+// native-destined. The list is duplicated here on purpose — the test must
+// fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
     GameID.CHROMATIC_TIDE,
+    GameID.GRAVITY_FLIP,
     GameID.MEMORY_MATRIX,
     GameID.MINE_GRID,
     GameID.PATTERN_PULSE,
     GameID.POTION_SORTER,
     GameID.QUICK_MATH,
+    GameID.SNAKE,
     GameID.SUDOKU,
     GameID.WORD_SCRAMBLE,
 ] as const
@@ -57,7 +64,7 @@ const EXPECTED_NATIVE_IDS = [
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the eight wave-1 game ids', () => {
+    test('contains exactly the ten registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -66,16 +73,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 8 playable, 15 disabled of 23', () => {
+    test('registry and catalog counts line up: 10 playable, 13 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(8)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(10)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(15)
+        expect(disabled).toHaveLength(13)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -91,7 +98,7 @@ describe('NATIVE_GAMES registry', () => {
         expect(getNativeGameEntry('toString')).toBeUndefined()
         expect(getNativeGameEntry('constructor')).toBeUndefined()
         expect(isNativePlayable('__proto__')).toBe(false)
-        // The fifteen unported registry games stay disabled.
+        // The thirteen unported registry games stay disabled.
         expect(isNativePlayable(GameID.TETRIS)).toBe(false)
         expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(false)
     })
@@ -615,6 +622,127 @@ describe('NATIVE_GAMES registry', () => {
         game.reset()
         expect(port.project(game.getState(), game)).toEqual(idle)
         game.destroy()
+    })
+
+    test('the Snake pilot ships a board view and a HUD-only length/food projection', () => {
+        const port = getNativeGameEntry(GameID.SNAKE)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios')) as SnakeGame
+        // HUD-only: the moving scene (snake array, food) never enters the
+        // host projection — the board copies it frame-locally.
+        expect(port.project(game.getState(), game)).toEqual({
+            length: 3,
+            foodsEaten: 0,
+        })
+
+        // The frame projector stays value-stable across moves that leave
+        // the HUD untouched; a HUD change yields a fresh reference.
+        const project = port.createProjector?.(game)
+        expect(project).toBeDefined()
+        if (!project) {
+            return
+        }
+        const idle = project(game.getState())
+        game.start()
+        const started = project(game.getState())
+        expect(started).toBe(idle)
+
+        const snakeGame = game as SnakeGame
+        // Move the snake once via the model's own Date.now cadence. The
+        // randomly spawned start food is cleared first so this move can
+        // never eat (a (11,10) spawn would otherwise flake the check).
+        const mutable = snakeGame as unknown as {
+            state: { lastMoveTime: number; food: unknown }
+        }
+        mutable.state.food = null
+        mutable.state.lastMoveTime = Date.now() - 200
+        snakeGame.update(0.016)
+        const moved = project(game.getState())
+        expect(moved).toBe(idle)
+
+        mutable.state.food = {
+            x: snakeGame.getHead().x + 1,
+            y: snakeGame.getHead().y,
+            id: 'registry-test-food',
+            spawnTime: Date.now(),
+        }
+        mutable.state.lastMoveTime = Date.now() - 200
+        snakeGame.update(0.016)
+        const afterFood = project(game.getState())
+        expect(afterFood).not.toBe(idle)
+        expect(afterFood).toMatchObject({ length: 4, foodsEaten: 1 })
+        game.destroy()
+    })
+
+    test('the Gravity Flip pilot ships a board view and a HUD-only badge projection', () => {
+        const port = getNativeGameEntry(GameID.GRAVITY_FLIP)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        // HUD-only badges, web parity: gravity/distance/stars/flips/speed
+        // plus the flip gate. No player/hazard/star arrays in the host
+        // projection — the board copies the scene frame-locally.
+        expect(port.project(game.getState(), game)).toEqual({
+            gravityLabel: 'FLOOR ↓',
+            distance: 0,
+            stars: 0,
+            flips: 0,
+            speed: '220',
+            canFlip: false,
+        })
+
+        game.start()
+        game.update(0.016)
+        const running = port.project(game.getState(), game)
+        expect(running).toMatchObject({ canFlip: true })
+        expect((running.distance as number) > 0).toBe(true)
+        game.destroy()
+    })
+
+    test('the Gravity Flip frame projector stays value-stable across 60 same-HUD frames', () => {
+        const port = getNativeGameEntry(GameID.GRAVITY_FLIP)?.port
+        expect(port).toBeDefined()
+        if (!port?.createProjector) {
+            return
+        }
+        const game = port.createGame(hostDeps('ios'))
+        const project = port.createProjector(game)
+        game.start()
+        const first = project(game.getState())
+        // 60 frames whose simulated dt is small enough that every floored
+        // HUD value holds — each call must return the SAME reference so
+        // the session's refresh equality skips a host rerender.
+        for (let frame = 0; frame < 60; frame++) {
+            game.update(0.000_01)
+            expect(project(game.getState())).toBe(first)
+        }
+        // A real HUD change still produces a new reference.
+        ;(game as GravityFlipGame).flipGravity()
+        const afterFlip = project(game.getState())
+        expect(afterFlip).not.toBe(first)
+        expect(afterFlip.gravityLabel).toBe('CEILING ↑')
+        expect(afterFlip.flips).toBe(1)
+        game.destroy()
+    })
+
+    test('the Gravity Flip port labels finished-run outcomes', () => {
+        const port = getNativeGameEntry(GameID.GRAVITY_FLIP)?.port
+        expect(port).toBeDefined()
+        if (!port?.resultOutcomeLabel) {
+            return
+        }
+        const stats = (outcome: string) =>
+            ({ outcome }) as unknown as BaseGameStats
+        expect(port.resultOutcomeLabel(stats('survived'))).toBe('Survived')
+        expect(port.resultOutcomeLabel(stats('collision'))).toBe('Collision')
+        expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
     })
 
     test('keys are computed from imported enum members, never bare strings', () => {
