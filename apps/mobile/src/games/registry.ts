@@ -50,6 +50,13 @@ import type {
     Game2048State,
     Game2048Stats,
 } from '@cetus/games/2048/frameworkTypes'
+import { ReflexGame } from '@cetus/games/reflex/ReflexGame'
+import type { ReflexState } from '@cetus/games/reflex/frameworkTypes'
+import { SignalSwitchGame } from '@cetus/games/signal-switch/SignalSwitchGame'
+import type {
+    SignalSwitchState,
+    SignalSwitchStats,
+} from '@cetus/games/signal-switch/types'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
 import { Game2048Board } from './boards/Game2048Board'
 import { GravityFlipBoard } from './boards/GravityFlipBoard'
@@ -58,6 +65,8 @@ import { MineGridBoard } from './boards/MineGridBoard'
 import { PatternPulseBoard } from './boards/PatternPulseBoard'
 import { PotionSorterBoard } from './boards/PotionSorterBoard'
 import { QuickMathBoard } from './boards/QuickMathBoard'
+import { ReflexBoard } from './boards/ReflexBoard'
+import { SignalSwitchBoard } from './boards/SignalSwitchBoard'
 import { SnakeBoard } from './boards/SnakeBoard'
 import { SudokuBoard } from './boards/SudokuBoard'
 import { WordScrambleBoard } from './boards/WordScrambleBoard'
@@ -646,6 +655,82 @@ const game2048Port: NativeGamePort = {
     view: Game2048Board,
 }
 
+interface ReflexProjectedObject {
+    id: string
+    type: 'coin' | 'bomb'
+    row: number
+    col: number
+}
+
+interface ReflexProjectedView extends NativeGameProjection {
+    objects: ReflexProjectedObject[]
+    coins: number
+    bombs: number
+    accuracy: number
+}
+
+const selectReflexBoard = (state: BaseGameState): ReflexProjectedView => {
+    const { objects, coinsCollected, bombsHit, totalClicks, correctClicks } =
+        state as ReflexState
+    return {
+        objects: objects
+            .filter(object => object.isActive)
+            .map(object => ({
+                id: object.id,
+                type: object.type,
+                row: object.cell.row,
+                col: object.cell.col,
+            })),
+        coins: coinsCollected,
+        bombs: bombsHit,
+        accuracy:
+            totalClicks > 0
+                ? Math.round((correctClicks / totalClicks) * 100)
+                : 0,
+    }
+}
+
+const reflexPort: NativeGamePort = {
+    createGame: deps =>
+        new ReflexGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: state => selectReflexBoard(state),
+    createProjector: () => createStableProjector(selectReflexBoard),
+    view: ReflexBoard,
+}
+
+const selectSignalSwitchHud = (state: BaseGameState): NativeGameProjection => {
+    const { integrity, combo, safePasses, activeLaneCount, gateSignals } =
+        state as SignalSwitchState
+    return {
+        integrity,
+        combo,
+        safePasses,
+        lanes: `${activeLaneCount} / ${gateSignals.length}`,
+    }
+}
+
+const signalSwitchPort: NativeGamePort = {
+    createGame: deps =>
+        new SignalSwitchGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    project: selectSignalSwitchHud,
+    createProjector: () => createStableProjector(selectSignalSwitchHud),
+    resultOutcomeLabel: stats => {
+        const outcome = (stats as SignalSwitchStats).outcome
+        return outcome === 'survived'
+            ? 'Survived'
+            : outcome === 'systems-failed'
+              ? 'Systems failed'
+              : null
+    },
+    view: SignalSwitchBoard,
+}
+
 /**
  * The single native game registry (HPA-425 wave 1). Keys are computed from
  * the imported `GameID` enum members — never bare id strings — and presence
@@ -664,6 +749,8 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.SNAKE]: { port: snakePort },
     [GameID.GRAVITY_FLIP]: { port: gravityFlipPort },
     [GameID.GAME_2048]: { port: game2048Port },
+    [GameID.REFLEX]: { port: reflexPort },
+    [GameID.SIGNAL_SWITCH]: { port: signalSwitchPort },
 }
 
 /** Own-key lookup so unknown strings (even "__proto__") never resolve. */

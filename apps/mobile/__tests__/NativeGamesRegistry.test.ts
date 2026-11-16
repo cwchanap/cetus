@@ -30,6 +30,13 @@ import type {
     Game2048Stats,
 } from '@cetus/games/2048/frameworkTypes'
 import type { Tile } from '@cetus/games/2048/types'
+import { ReflexGame } from '@cetus/games/reflex/ReflexGame'
+import { SignalSwitchGame } from '@cetus/games/signal-switch/SignalSwitchGame'
+import {
+    SIGNAL_SWITCH_RULES,
+    type SignalSwitchState,
+    type SignalSwitchStats,
+} from '@cetus/games/signal-switch/types'
 
 // Any-constructor shape: `never` params accept every concrete ctor.
 type AnyGameCtor = abstract new (...args: never[]) => unknown
@@ -46,6 +53,8 @@ const CONCRETE_GAMES: ReadonlyArray<readonly [GameID, AnyGameCtor]> = [
     [GameID.SNAKE, SnakeGame],
     [GameID.GRAVITY_FLIP, GravityFlipGame],
     [GameID.GAME_2048, Game2048],
+    [GameID.REFLEX, ReflexGame],
+    [GameID.SIGNAL_SWITCH, SignalSwitchGame],
 ]
 
 const hostDeps = (platform: 'ios' | 'android') => {
@@ -64,6 +73,8 @@ const EXPECTED_NATIVE_IDS = [
     GameID.PATTERN_PULSE,
     GameID.POTION_SORTER,
     GameID.QUICK_MATH,
+    GameID.REFLEX,
+    GameID.SIGNAL_SWITCH,
     GameID.SNAKE,
     GameID.SUDOKU,
     GameID.WORD_SCRAMBLE,
@@ -72,7 +83,7 @@ const EXPECTED_NATIVE_IDS = [
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the eleven registry game ids', () => {
+    test('contains exactly the thirteen registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -81,16 +92,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 11 playable, 12 disabled of 23', () => {
+    test('registry and catalog counts line up: 13 playable, 10 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(11)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(13)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(12)
+        expect(disabled).toHaveLength(10)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -841,6 +852,145 @@ describe('NATIVE_GAMES registry', () => {
         const stats = (won: boolean) => ({ won }) as unknown as Game2048Stats
         expect(port.resultOutcomeLabel(stats(true))).toBe('Reached 2048')
         expect(port.resultOutcomeLabel(stats(false))).toBeNull()
+    })
+
+    test('the Reflex pilot ships a board view and a copied-object projection', () => {
+        const port = getNativeGameEntry(GameID.REFLEX)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios')) as ReflexGame
+        const idle = port.project(game.getState(), game)
+        expect(idle).toEqual({
+            objects: [],
+            coins: 0,
+            bombs: 0,
+            accuracy: 0,
+        })
+
+        game.start()
+        const spawn = game.spawnRandomObject()
+        expect(spawn.success).toBe(true)
+        const live = game.getActiveObjects()[0]
+        const running = port.project(game.getState(), game) as {
+            objects: Array<{
+                id: string
+                type: string
+                row: number
+                col: number
+            }>
+        }
+        expect(running.objects).toEqual([
+            {
+                id: live.id,
+                type: live.type,
+                row: live.cell.row,
+                col: live.cell.col,
+            },
+        ])
+
+        live.cell.row = 3
+        live.cell.col = 4
+        const moved = port.project(game.getState(), game) as {
+            objects: Array<{ row: number; col: number }>
+        }
+        expect(moved.objects[0]).toMatchObject({ row: 3, col: 4 })
+        game.destroy()
+    })
+
+    test('the Reflex projector stays value-stable across 60 no-op updates and re-projects on real changes', () => {
+        const port = getNativeGameEntry(GameID.REFLEX)?.port
+        expect(port).toBeDefined()
+        expect(port?.createProjector).toBeDefined()
+        if (!port?.createProjector) {
+            return
+        }
+        const game = port.createGame(hostDeps('ios')) as ReflexGame
+        const project = port.createProjector(game)
+        game.start()
+        game.spawnRandomObject()
+        const first = project(game.getState())
+        for (let frame = 0; frame < 60; frame++) {
+            game.update(1 / 60)
+            expect(project(game.getState())).toBe(first)
+        }
+
+        const live = game.getActiveObjects()[0]
+        game.handleCellClick(live.cell.row, live.cell.col)
+        const afterClick = project(game.getState())
+        expect(afterClick).not.toBe(first)
+        expect(afterClick).toMatchObject({ objects: [] })
+        game.destroy()
+    })
+
+    test('the Signal Switch pilot ships a board view and a HUD-only projection', () => {
+        const port = getNativeGameEntry(GameID.SIGNAL_SWITCH)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios'))
+        expect(port.project(game.getState(), game)).toEqual({
+            integrity: 3,
+            combo: 0,
+            safePasses: 0,
+            lanes: '2 / 4',
+        })
+
+        game.start()
+        game.update(0.1)
+        const running = port.project(game.getState(), game)
+        expect(running).not.toHaveProperty('drones')
+        expect(running).not.toHaveProperty('gateSignals')
+        expect(running).not.toHaveProperty('speed')
+        expect(running).not.toHaveProperty('activeLaneCount')
+        game.destroy()
+    })
+
+    test('the Signal Switch frame projector stays value-stable across 60 moving frames', () => {
+        const port = getNativeGameEntry(GameID.SIGNAL_SWITCH)?.port
+        expect(port).toBeDefined()
+        expect(port?.createProjector).toBeDefined()
+        if (!port?.createProjector) {
+            return
+        }
+        const game = port.createGame(hostDeps('ios')) as SignalSwitchGame
+        const project = port.createProjector(game)
+        game.start()
+        const first = project(game.getState())
+        for (let frame = 0; frame < 60; frame++) {
+            game.update(1 / 60)
+            expect(project(game.getState())).toBe(first)
+        }
+        const state = game.getState() as SignalSwitchState
+        expect(state.drones[0]?.x).toBeGreaterThan(
+            SIGNAL_SWITCH_RULES.droneSpawnX
+        )
+
+        ;(game as unknown as { state: SignalSwitchState }).state.integrity = 2
+        const afterHit = project(game.getState())
+        expect(afterHit).not.toBe(first)
+        expect(afterHit.integrity).toBe(2)
+        game.destroy()
+    })
+
+    test('the Signal Switch port labels finished-run outcomes', () => {
+        const port = getNativeGameEntry(GameID.SIGNAL_SWITCH)?.port
+        expect(port).toBeDefined()
+        expect(port?.resultOutcomeLabel).toBeDefined()
+        if (!port?.resultOutcomeLabel) {
+            return
+        }
+        const stats = (outcome: string) =>
+            ({ outcome }) as unknown as SignalSwitchStats
+        expect(port.resultOutcomeLabel(stats('survived'))).toBe('Survived')
+        expect(port.resultOutcomeLabel(stats('systems-failed'))).toBe(
+            'Systems failed'
+        )
+        expect(port.resultOutcomeLabel(stats('playing'))).toBeNull()
     })
 
     test('keys are computed from imported enum members, never bare strings', () => {
