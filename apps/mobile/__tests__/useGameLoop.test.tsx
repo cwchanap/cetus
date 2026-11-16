@@ -284,6 +284,96 @@ describe('useGameLoop', () => {
     expect(game.deltas).toEqual([0, 0])
   })
 
+  test('a replay after an update-ended run steps zero without an intervening idle frame', () => {
+    const game = makeGame(false)
+    mount(game)
+    act(() => {
+      game.start()
+    })
+    fireFrame(100)
+    fireFrame(116)
+
+    game.endDuringUpdate = true
+    fireFrame(132)
+    expect(mountedScenes.at(-1)?.isGameOver).toBe(true)
+
+    act(() => {
+      game.start()
+    })
+    fireFrame(200)
+
+    expect(game.deltas).toEqual([0, 0.016, 0.016, 0])
+    const scene = mountedScenes.at(-1)
+    expect(scene?.isActive).toBe(true)
+    expect(scene?.isGameOver).toBe(false)
+  })
+
+  test('a reset-then-start between frames steps zero on the new run', () => {
+    const game = makeGame(false)
+    mount(game)
+    act(() => {
+      game.start()
+    })
+    fireFrame(100)
+    fireFrame(116)
+
+    act(() => {
+      game.reset()
+      game.start()
+    })
+    fireFrame(200)
+
+    expect(game.deltas).toEqual([0, 0.016, 0])
+    const scene = mountedScenes.at(-1)
+    expect(scene?.isActive).toBe(true)
+    expect(scene?.hazards).toEqual([0])
+  })
+
+  test('a frame delivered while backgrounded does not step the model or the scene', () => {
+    const game = makeGame(false)
+    mount(game)
+    act(() => {
+      game.start()
+    })
+    fireFrame(100)
+    fireFrame(116)
+    expect(game.deltas).toEqual([0, 0.016])
+
+    emitAppState('background')
+    fireFrame(200)
+    expect(game.deltas).toEqual([0, 0.016])
+    const scenesWhileBackgrounded = mountedScenes.length
+    fireFrame(300)
+    expect(mountedScenes).toHaveLength(scenesWhileBackgrounded)
+
+    emitAppState('active')
+    fireFrame(400)
+    expect(game.deltas).toEqual([0, 0.016, 0])
+    expect(mountedScenes.at(-1)?.isActive).toBe(true)
+  })
+
+  test('a lifecycle change while backgrounded still syncs once without stepping', () => {
+    const game = makeGame(true)
+    mount(game)
+    act(() => {
+      game.start()
+    })
+    fireFrame(100)
+    fireFrame(116)
+
+    emitAppState('background')
+    act(() => {
+      game.pause()
+    })
+    fireFrame(200)
+    expect(mountedScenes.at(-1)?.isPaused).toBe(true)
+    const scenesAfterPause = mountedScenes.length
+
+    fireFrame(300)
+    expect(mountedScenes).toHaveLength(scenesAfterPause)
+    expect(game.deltas).toEqual([0, 0.016])
+  })
+
   test('a foreground return resets timing instead of stepping a stale delta', () => {
     const game = makeGame(false)
     mount(game)

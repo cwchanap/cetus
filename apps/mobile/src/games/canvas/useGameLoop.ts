@@ -21,10 +21,15 @@ export function useGameLoop(game: BaseGame, onFrame: () => void): void {
         signatureRef.current = lifecycleSignature(game)
         onFrameRef.current()
 
+        let appActive = true
         let frameId: number | null = null
         const frame = (now: number): void => {
+            const signatureBefore = lifecycleSignature(game)
+            if (signatureBefore !== signatureRef.current) {
+                lastTimestampRef.current = null
+            }
             const state = game.getState()
-            const running = state.isActive && !state.isPaused
+            const running = appActive && state.isActive && !state.isPaused
             if (running) {
                 const last = lastTimestampRef.current
                 const deltaSeconds =
@@ -33,6 +38,9 @@ export function useGameLoop(game: BaseGame, onFrame: () => void): void {
                         : Math.min(Math.max(0, now - last) / 1000, 0.1)
                 lastTimestampRef.current = now
                 game.update(deltaSeconds)
+                if (lifecycleSignature(game) !== signatureBefore) {
+                    lastTimestampRef.current = null
+                }
             } else {
                 lastTimestampRef.current = null
             }
@@ -47,7 +55,8 @@ export function useGameLoop(game: BaseGame, onFrame: () => void): void {
         frameId = requestAnimationFrame(frame)
 
         const subscription = AppState.addEventListener('change', next => {
-            if (next === 'active') {
+            appActive = next === 'active'
+            if (appActive) {
                 lastTimestampRef.current = null
             }
         })

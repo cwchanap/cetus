@@ -1,5 +1,11 @@
 import { memo, useEffect, useMemo, useState } from 'react'
-import { AppState, Platform, Text, View } from 'react-native'
+import {
+  AppState,
+  Platform,
+  Text,
+  View,
+  type AppStateStatus,
+} from 'react-native'
 import { useRouter } from 'expo-router'
 import { Button, Heading } from '@cetus/ui'
 import {
@@ -171,8 +177,11 @@ export function NativeGameHost({
     if (!session) {
       return
     }
+    let previousState: AppStateStatus = 'active'
     const subscription = AppState.addEventListener('change', next => {
-      if (next !== 'active' && session.capabilities.pausable) {
+      const leavingActive = previousState === 'active' && next !== 'active'
+      previousState = next
+      if (leavingActive && session.capabilities.pausable) {
         session.actions.pause()
       }
     })
