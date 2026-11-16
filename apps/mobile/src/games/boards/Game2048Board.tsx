@@ -52,12 +52,6 @@ interface TileGeometry {
 const tileOffset = (index: number, { cell, gap }: TileGeometry) =>
   gap + index * (cell + gap)
 
-/**
- * One model tile as an animated view. The keyed view keeps its identity
- * across moves: translate offsets retarget with timing, a merge (the
- * projection's `pop` flag, read off the model's lastMoveAnimations) plays a
- * scale pulse and a freshly mounted tile fades in — the spawn.
- */
 const Tile2048View = memo(function Tile2048View({
   tile,
   geometry,
@@ -74,7 +68,7 @@ const Tile2048View = memo(function Tile2048View({
           withTiming(1, { duration: duration / 2 })
         )
       : withTiming(1, { duration })
-  }, [tile.pop, scale, duration])
+  }, [tile.pop, tile.value, scale, duration])
   const x = tileOffset(tile.col, geometry)
   const y = tileOffset(tile.row, geometry)
   const animatedStyle = useAnimatedStyle(
@@ -123,16 +117,6 @@ for (let row = 0; row < GAME_CONSTANTS.BOARD_SIZE; row++) {
   }
 }
 
-/**
- * 2048 native board (HPA-533 task 4): RN views, never Skia. Renders the
- * frozen visible-state projection and routes input straight to the live
- * host-created game — synchronous `move(direction)` on swipe (the model
- * itself rejects non-moves, pauses and finished runs; no queue), `undo()`
- * on the web-parity `↶ Undo · N` button and `void game.end()` on Finish
- * run so a stuck-with-undo or already-won run can still bank its score.
- * Tile positions/merges animate through Reanimated keyed on model tile
- * ids; the model keeps the rules, history, scoring and the save.
- */
 export function Game2048Board({ projected, game }: NativeGameViewProps) {
   const view = projected as unknown as Game2048Projection
   const game2048 = game as Game2048
@@ -144,8 +128,6 @@ export function Game2048Board({ projected, game }: NativeGameViewProps) {
     setBoardWidth(current => (current === width ? current : width))
   }
 
-  // The model's logical geometry (90px tiles, 10px gaps on a 410px board)
-  // scaled into the measured view width.
   const scale = boardWidth === null ? 0 : boardWidth / config.gameWidth
   const geometry: TileGeometry = {
     cell: config.tileSize * scale,
@@ -189,7 +171,6 @@ export function Game2048Board({ projected, game }: NativeGameViewProps) {
             { backgroundColor: cssColor(config.boardBgColor) },
           ]}
           onLayout={onLayout}
-          accessible
           accessibilityLabel={`2048 board: ${view.tiles.length} tiles; swipe to move`}
         >
           {boardWidth === null

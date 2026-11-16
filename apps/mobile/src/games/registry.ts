@@ -554,10 +554,6 @@ interface Game2048ProjectedView extends NativeGameProjection {
     clock: number
 }
 
-// Copied visible tile primitives, keyed by the model's own tile ids so the
-// board's animated views keep identity across moves. `pop` flags the tiles
-// the LAST move merged (read off lastMoveAnimations, so an undo clears it)
-// — the merge pulse the Reanimated views replay.
 const copy2048Tiles = (state: Game2048State): Game2048ProjectedTile[] => {
     const mergeIds = new Set(
         state.lastMoveAnimations
@@ -582,8 +578,6 @@ const copy2048Tiles = (state: Game2048State): Game2048ProjectedTile[] => {
     return tiles
 }
 
-// Per-game tile-list cache for direct `port.project(state, game)` callers so
-// separate 2048 instances never share or overwrite one another's cache.
 const game2048TileProjectors = new WeakMap<
     BaseGame,
     (state: Game2048State) => Game2048ProjectedTile[]
@@ -613,9 +607,6 @@ const buildGame2048Projection = (
         stuck,
         canUndo: (game as Game2048).canUndo(),
         canAct: isActive && !isPaused && !isGameOver,
-        // Elapsed clock read off the constructed instance: the countdown
-        // duration is effectively infinite, so the count-up HUD ticks off
-        // the live timer instead (Sudoku precedent).
         clock: Math.floor(game.getTimerStatus().elapsedTime || 0),
     }
 }
@@ -626,12 +617,8 @@ const game2048Port: NativeGamePort = {
             submitScore: deps.submitScore,
             platform: deps.platform,
         }),
-    // The tile list is separately stabilized per game instance so the
-    // memoized board keeps its reference across clock-only ticks.
     project: (state, game) =>
         buildGame2048Projection(state, game, getGame2048TileProjector(game)),
-    // Stabilize the tile list once and compare the primitive HUD fields by
-    // value so clock ticks never re-serialize the 4×4 board.
     createProjector: game => {
         const projectTiles = createStableProjector(copy2048Tiles)
         let previous: Game2048ProjectedView | null = null
@@ -663,7 +650,7 @@ const game2048Port: NativeGamePort = {
  * The single native game registry (HPA-425 wave 1). Keys are computed from
  * the imported `GameID` enum members — never bare id strings — and presence
  * in this map is what the Games hub, the detail Play button and the play
- * route all consult. Eleven playable, twelve disabled.
+ * route all consult. Eight playable, fifteen disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.MEMORY_MATRIX]: { port: memoryMatrixPort },

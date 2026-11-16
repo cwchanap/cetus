@@ -753,9 +753,6 @@ describe('NATIVE_GAMES registry', () => {
         expect(port.view).toBeDefined()
         const game = port.createGame(hostDeps('ios'))
         const idle = port.project(game.getState(), game)
-        // All primitives plus the copied tile list: an empty board, one
-        // undo left, no win/stuck flags and the elapsed count-up clock
-        // parked at zero.
         expect(idle).toEqual({
             tiles: [],
             maxTile: 0,
@@ -778,8 +775,6 @@ describe('NATIVE_GAMES registry', () => {
             }>
             canAct: boolean
         }
-        // The two dealt tiles carry copied id/value/position primitives —
-        // never Tile object references.
         expect(running.tiles).toHaveLength(2)
         for (const tile of running.tiles) {
             expect(typeof tile.id).toBe('string')
@@ -792,8 +787,6 @@ describe('NATIVE_GAMES registry', () => {
         }
         expect(running.canAct).toBe(true)
 
-        // Copies, not tile references: an in-place model mutation must
-        // surface through the next projection as a fresh value.
         const liveState = game.getState() as Game2048State
         const liveTile = liveState.board.flat().find(Boolean) as Tile
         liveTile.value = 128
@@ -817,16 +810,12 @@ describe('NATIVE_GAMES registry', () => {
         const project = port.createProjector(game)
         game.start()
         const first = project(game.getState())
-        // One real elapsed second moves the count-up clock, so the
-        // top-level projection is new while the copied tile list keeps
-        // its reference.
         await new Promise(resolve => setTimeout(resolve, 1100))
         const afterTick = project(game.getState())
         expect(afterTick).not.toBe(first)
         expect(afterTick.clock).toBeGreaterThan(0)
         expect(afterTick.tiles).toBe(first.tiles)
 
-        // A visible board change still opens the memo.
         const liveState = game.getState() as Game2048State
         const emptyIndex = liveState.board.flat().findIndex(cell => !cell)
         const row = Math.floor(emptyIndex / 4)
@@ -859,8 +848,6 @@ describe('NATIVE_GAMES registry', () => {
             resolve(process.cwd(), 'src/games/registry.ts'),
             'utf-8'
         )
-        // String values are not member names (GameID.GAME_2048 === '2048'):
-        // resolve each id back to its enum member name for the source check.
         const memberName = (id: GameID): string | undefined =>
             Object.entries(GameID).find(([, value]) => value === id)?.[0]
         for (const id of EXPECTED_NATIVE_IDS) {

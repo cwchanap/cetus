@@ -2,6 +2,7 @@ import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
 import { StyleSheet } from 'react-native'
 import { GestureDetector } from 'react-native-gesture-handler'
+import * as Reanimated from 'react-native-reanimated'
 import { GameID } from '@cetus/shared/games'
 import { Game2048 } from '@cetus/games/2048/Game2048'
 import type { Game2048State } from '@cetus/games/2048/frameworkTypes'
@@ -94,8 +95,6 @@ const testText = (
     tree.root.findByProps({ testID }).props.children as React.ReactNode
   )
 
-/** Host-tag elements carrying the label (jest-expo mocks render a React
- *  wrapper AND a host element with identical props — count host only). */
 const byLabel = (
   tree: TestRenderer.ReactTestRenderer,
   label: string
@@ -150,7 +149,19 @@ const tileElements = (tree: TestRenderer.ReactTestRenderer) =>
       node.props.testID.startsWith('game-2048-tile-')
   )
 
-/** The tile prop object the board view received, by model tile id. */
+const hasAccessibleAncestor = (
+  node: TestRenderer.ReactTestInstance
+): boolean => {
+  let current = node.parent
+  while (current) {
+    if (current.props.accessible === true) {
+      return true
+    }
+    current = current.parent
+  }
+  return false
+}
+
 const tileProp = (
   tree: TestRenderer.ReactTestRenderer,
   id: string
@@ -159,7 +170,6 @@ const tileProp = (
     .findAll(node => (node.props.tile as ProjectedTile | undefined)?.id === id)
     .map(node => node.props.tile as ProjectedTile)[0]
 
-/** Flattened translate offsets the mocked animated style hands the view. */
 const tilePosition = (
   tree: TestRenderer.ReactTestRenderer,
   id: string
@@ -189,8 +199,6 @@ const makeTile = (
   position: { row, col },
 })
 
-/** Overwrite the model board in place, then push a state-change so the
- *  session refresh rebuilds the projection the view renders. */
 const setBoard = (game: Game2048, board: Board): void => {
   const state = (game as unknown as { state: Game2048State }).state
   state.board = board
@@ -211,7 +219,6 @@ const flagState = (
   })
 }
 
-// A packed no-merge checkerboard: the model's own canMove() returns false.
 const STUCK_BOARD = (startId: number): Board => {
   const board: Board = []
   let id = startId
@@ -369,6 +376,71 @@ describe('2048 pilot — board', () => {
     expect(move).not.toHaveBeenCalled()
   })
 
+  test('per-tile value and coordinate labels stay reachable to screen readers', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.GAME_2048} />)
+    fireLayout(tree)
+    await press(tree, 'Start game')
+    const game = createdGames[0]
+    setBoard(game, [
+      [makeTile('a', 2, 0, 0), null, null, makeTile('b', 4, 0, 3)],
+      [null, null, null, null],
+      [null, null, null, null],
+      [null, null, null, null],
+    ])
+
+    for (const expected of [
+      { id: 'a', value: 2, row: 0, col: 0 },
+      { id: 'b', value: 4, row: 0, col: 3 },
+    ]) {
+      const label = `Tile ${expected.value} row ${expected.row + 1} column ${expected.col + 1}`
+      const element = tileElements(tree).find(
+        node =>
+          node.props.testID === `game-2048-tile-${expected.id}` &&
+          node.props.accessibilityLabel === label
+      )
+      expect(element).toBeDefined()
+      expect(hasAccessibleAncestor(element!)).toBe(false)
+    }
+  })
+
+  test('consecutive merges on the same tile id each replay the pulse while a clock tick does not', async () => {
+    const sequence = jest.spyOn(Reanimated, 'withSequence')
+    const tree = await render(<NativeGameHost gameId={GameID.GAME_2048} />)
+    fireLayout(tree)
+    await press(tree, 'Start game')
+    const game = createdGames[0]
+    setBoard(game, [
+      [makeTile('a', 2, 0, 0), makeTile('b', 2, 0, 1), null, null],
+      [null, null, null, null],
+      [null, null, null, null],
+      [null, null, null, null],
+    ])
+
+    swipe(tree, -50, 0)
+    expect(game.getState().board[0][0]?.id).toBe('b')
+    expect(tileProp(tree, 'b')).toMatchObject({ value: 4, pop: true })
+    expect(sequence).toHaveBeenCalledTimes(1)
+
+    setBoard(game, [
+      [makeTile('b', 4, 0, 0), null, null, makeTile('c', 4, 0, 3)],
+      [null, null, null, null],
+      [null, null, null, null],
+      [null, null, null, null],
+    ])
+    swipe(tree, 50, 0)
+    const merged = game.getState().board[0][3]
+    expect(merged?.id).toBe('b')
+    expect(merged?.value).toBe(8)
+    expect(tileProp(tree, 'b')).toMatchObject({ value: 8, pop: true })
+    expect(sequence).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 2200))
+    })
+    expect(testText(tree, 'game-time')).not.toBe('0:00')
+    expect(sequence).toHaveBeenCalledTimes(2)
+  })
+
   test('Undo restores the pre-move board and hands the merge score back', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.GAME_2048} />)
     fireLayout(tree)
@@ -415,7 +487,6 @@ describe('2048 pilot — finish run', () => {
     fireLayout(tree)
     await press(tree, 'Start game')
     const game = createdGames[0]
-    // A real move first so the run still holds its undo.
     setBoard(game, [
       [makeTile('a', 2, 0, 0), makeTile('b', 2, 0, 1), null, null],
       [null, null, null, null],
@@ -474,7 +545,6 @@ describe('2048 pilot — finish run', () => {
       )
     ).toHaveLength(1)
 
-    // A second end() — from anywhere — can never re-POST the same run.
     await act(async () => {
       await game.end()
     })
