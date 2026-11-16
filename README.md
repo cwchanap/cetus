@@ -49,6 +49,12 @@ Package boundaries: mobile **application code** consumes `@cetus/shared` and `@c
 - Apple sign-in needs a real Apple Developer setup: Services ID + return URL `<origin>/api/auth/callback/apple`, Team ID, Key ID and `.p8` key set via `APPLE_SERVICE_ID` / `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` in `apps/web/.env` (all four or none; partial config fails fast with the missing names). Google needs redirect `<origin>/api/auth/callback/google`.
 - Deep-link scheme is `cetus://`. Bundle ID `com.hapadona.cetus` is a **proposal pending owner confirmation**. No EAS project is linked yet — run `eas init` when the account exists; never invent a project ID.
 
+**Native build prerequisites (Skia binaries, manual opt-in):**
+
+- `@shopify/react-native-skia` is pinned to 2.6.2 and Bun blocks its `postinstall` (`scripts/install-libs.js`) as an untrusted lifecycle script — `bun pm untrusted` lists it. That installer copies prebuilt Skia binaries from the `react-native-skia-*` platform packages into the package's `libs/` directory; while it stays blocked, `libs/` remains empty, `pod install` fails (the podspec hard-errors when `libs/ios` is missing) and the Android Gradle build finds no `libs/android`. Jest and `expo export`/Metro bundling never compile native code, so they cannot catch this.
+- To unblock a real native build, a human must run `bun pm trust @shopify/react-native-skia` from the repo root — scoped to this one package (not `--all`). It adds `@shopify/react-native-skia` to `trustedDependencies` in `package.json`, a change to the project's dependency trust configuration — clear it with the project owner/security policy first — then runs the blocked installer, which replaces/regenerates the package's generated `libs/` directories.
+- Afterward, rebuild the native development client (`cd apps/mobile && bunx expo run:android`, or `eas build --profile development`; iOS `pod install`/`expo run:ios` stays deferred until macOS/Xcode setup). Expo Go cannot run Skia, and a Metro/`expo export` bundle does not prove native compilation.
+
 ## 🧪 Development Workflow
 
 ### Testing
