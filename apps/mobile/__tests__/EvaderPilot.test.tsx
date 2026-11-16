@@ -318,6 +318,12 @@ const pressButton = async (button: TestRenderer.ReactTestInstance) => {
   })
 }
 
+const tapAccessibility = async (button: TestRenderer.ReactTestInstance) => {
+  await act(async () => {
+    button.props.onAccessibilityTap()
+  })
+}
+
 let formatTimeSpy: jest.SpyInstance
 
 beforeEach(() => {
@@ -534,6 +540,49 @@ describe('Evader pilot — board', () => {
     expect(dpadButton(tree, 'up').props.accessibilityState).toMatchObject({
       checked: false,
     })
+  })
+
+  test('default accessibility activation toggles a held direction and announces checked', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    const button = dpadButton(tree, 'up')
+    expect(typeof button.props.onAccessibilityTap).toBe('function')
+
+    await tapAccessibility(button)
+    expect(game.pressedKeys.has('up')).toBe(true)
+    expect(dpadButton(tree, 'up').props.accessibilityState).toMatchObject({
+      checked: true,
+    })
+
+    fireFrame(16)
+    fireFrame(116)
+    expect(game.getState().player.y).toBeLessThan(150)
+
+    await tapAccessibility(dpadButton(tree, 'up'))
+    expect(game.pressedKeys.size).toBe(0)
+    expect(dpadButton(tree, 'up').props.accessibilityState).toMatchObject({
+      checked: false,
+    })
+  })
+
+  test('default accessibility activation toggles immediately after an ordinary tap releases', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    touchDown(tree, 'down', 7)
+    touchUp(tree, 'down', 7)
+    expect(game.pressedKeys.size).toBe(0)
+
+    await tapAccessibility(dpadButton(tree, 'down'))
+    expect(game.pressedKeys.has('down')).toBe(true)
+
+    await tapAccessibility(dpadButton(tree, 'down'))
+    expect(game.pressedKeys.size).toBe(0)
   })
 
   test('an accessibility click toggles hold without a physical touch', async () => {

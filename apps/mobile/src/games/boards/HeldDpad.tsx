@@ -135,6 +135,7 @@ function DpadButton({
         accessibilityHint="Hold to move, or activate to keep moving until you activate again"
         accessibilityState={{ checked: held }}
         accessibilityActions={[{ name: 'activate', label }]}
+        onAccessibilityTap={controls.activate}
         onAccessibilityAction={event => {
           if (event.nativeEvent.actionName === 'activate') {
             controls.activate()
