@@ -126,6 +126,10 @@ export class AsteroidDriftGame extends BaseGame<
 
     render(): void {}
 
+    getConfig(): AsteroidDriftConfig {
+        return { ...this.config }
+    }
+
     getGameStats(): AsteroidDriftStats {
         return {
             finalScore: this.state.score,

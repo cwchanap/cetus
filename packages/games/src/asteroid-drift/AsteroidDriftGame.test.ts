@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { GameID } from '@cetus/shared/games'
 import { ASTEROID_DRIFT_ORB_ANCHORS, createIntroAsteroid } from './spawning'
 import { AsteroidDriftGame } from './AsteroidDriftGame'
 import {
@@ -298,6 +299,36 @@ describe('AsteroidDriftGame', () => {
                     config.introAsteroidRadius -
                     config.asteroidInitialSpeed * config.maxUpdateDelta,
                 6
+            )
+            game.destroy()
+        })
+
+        it('advances a full 80 ms frame without truncating it to a step', () => {
+            const config = createAsteroidDriftConfig({})
+            const game = createGame({ orbSpawnInterval: 1e6 })
+            game.start()
+            const before = introAsteroid(game).x
+
+            game.update(0.08)
+
+            expect(introAsteroid(game).x).toBeCloseTo(
+                before - config.asteroidInitialSpeed * 0.08,
+                10
+            )
+            game.destroy()
+        })
+
+        it('clamps a hitch frame at the 0.1 s outer cap', () => {
+            const config = createAsteroidDriftConfig({})
+            const game = createGame({ orbSpawnInterval: 1e6 })
+            game.start()
+            const before = introAsteroid(game).x
+
+            game.update(0.5)
+
+            expect(introAsteroid(game).x).toBeCloseTo(
+                before - config.asteroidInitialSpeed * config.maxUpdateDelta,
+                10
             )
             game.destroy()
         })
@@ -806,6 +837,64 @@ describe('AsteroidDriftGame', () => {
                 isGameOver: true,
                 isActive: false,
             })
+            game.destroy()
+        })
+    })
+
+    describe('full deterministic run', () => {
+        it('survives an uninterrupted 90 seconds and posts the score once', async () => {
+            vi.useFakeTimers()
+            const game = createGame({
+                rng: () => 0,
+                maxAsteroids: 0,
+                orbSpawnInterval: 1e6,
+            })
+            game.start()
+            clearIntro(game)
+
+            advance(game, 90.5)
+            await vi.advanceTimersByTimeAsync(91_000)
+            await Promise.resolve()
+
+            expect(game.getState()).toMatchObject({
+                outcome: 'survived',
+                isGameOver: true,
+                isActive: false,
+            })
+            expect(game.getState().score).toBe(900)
+            expect(game.getGameStats()).toMatchObject({
+                outcome: 'survived',
+                survivalSeconds: 90,
+                orbsCollected: 0,
+                gameCompleted: true,
+            })
+            expect(gameDataOf(game)).toEqual({
+                survivalSeconds: 90,
+                orbsCollected: 0,
+                survivedFullRun: true,
+            })
+            expect(submitScore).toHaveBeenCalledTimes(1)
+            expect(submitScore).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    gameId: GameID.ASTEROID_DRIFT,
+                    gameData: {
+                        survivalSeconds: 90,
+                        orbsCollected: 0,
+                        survivedFullRun: true,
+                    },
+                })
+            )
+            game.destroy()
+        })
+
+        it('clears a touch-held direction at start instead of carrying it in', () => {
+            const game = createGame()
+            game.pressDirection('up', 'touch')
+            expect(game.pressedDirections.has('up')).toBe(true)
+
+            game.start()
+
+            expect(game.pressedDirections.size).toBe(0)
             game.destroy()
         })
     })

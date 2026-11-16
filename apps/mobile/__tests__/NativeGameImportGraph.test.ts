@@ -437,6 +437,14 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
         /packages\/games\/src\/path-navigator\/PathNavigatorGame\.ts$/,
     ],
     [
+        '@cetus/games/asteroid-drift/AsteroidDriftGame',
+        /packages\/games\/src\/asteroid-drift\/AsteroidDriftGame\.ts$/,
+    ],
+    [
+        '@cetus/games/asteroid-drift/types',
+        /packages\/games\/src\/asteroid-drift\/types\.ts$/,
+    ],
+    [
         '@cetus/games/shared/geometry',
         /packages\/games\/src\/shared\/geometry\.ts$/,
     ],

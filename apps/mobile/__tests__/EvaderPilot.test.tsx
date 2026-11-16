@@ -598,6 +598,83 @@ describe('Evader pilot — board', () => {
     expect(game.pressedKeys.size).toBe(0)
   })
 
+  test('an assistive activation while idle does not latch — one activation after start holds', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+
+    expect(dpadButton(tree, 'up').props.accessibilityState).toMatchObject({
+      checked: false,
+      disabled: true,
+    })
+    await activate(dpadButton(tree, 'up'))
+    expect(dpadButton(tree, 'up').props.accessibilityState).toMatchObject({
+      checked: false,
+    })
+    expect(game.pressedKeys.size).toBe(0)
+
+    await press(tree, 'Start game')
+    fireFrame(16)
+    await activate(dpadButton(tree, 'up'))
+    expect(game.pressedKeys.has('up')).toBe(true)
+    expect(dpadButton(tree, 'up').props.accessibilityState).toMatchObject({
+      checked: true,
+      disabled: false,
+    })
+  })
+
+  test('a physical touch while idle does not carry into the started run', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+
+    touchDown(tree, 'right', 1)
+    expect(game.pressedKeys.size).toBe(0)
+    expect(dpadButton(tree, 'right').props.accessibilityState).toMatchObject({
+      checked: false,
+    })
+
+    await press(tree, 'Start game')
+    fireFrame(16)
+    expect(game.pressedKeys.size).toBe(0)
+    touchUp(tree, 'right', 1)
+    expect(game.pressedKeys.size).toBe(0)
+
+    touchDown(tree, 'right', 2)
+    expect(game.pressedKeys.has('right')).toBe(true)
+  })
+
+  test('an assistive hold releases itself when the run ends underneath it', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+    const releaseKey = jest.spyOn(game, 'releaseKey')
+
+    await press(tree, 'Start game')
+    fireFrame(16)
+    await activate(dpadButton(tree, 'left'))
+    expect(game.pressedKeys.has('left')).toBe(true)
+
+    await act(async () => {
+      await game.end()
+    })
+    await drain()
+    fireFrame(32)
+    expect(dpadButton(tree, 'left').props.accessibilityState).toMatchObject({
+      checked: false,
+      disabled: true,
+    })
+    expect(releaseKey).toHaveBeenCalledWith('ArrowLeft', 'touch')
+
+    await activate(dpadButton(tree, 'left'))
+    expect(game.pressedKeys.size).toBe(0)
+
+    await press(tree, 'Play again')
+    fireFrame(48)
+    await activate(dpadButton(tree, 'left'))
+    expect(game.pressedKeys.has('left')).toBe(true)
+  })
+
   test('an ordinary tap does not latch the direction after the finger lifts', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
     fireLayout(tree)
