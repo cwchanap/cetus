@@ -142,18 +142,19 @@ afterEach(() => {
 })
 
 describe('useGameLoop', () => {
-  test('invokes onFrame once at mount and stays inert while the game is idle', () => {
+  test('invokes onFrame once at mount, runs one inert frame while idle, then sleeps', () => {
     const game = makeGame(false)
     mount(game)
 
     expect(mountedScenes).toHaveLength(1)
     expect(mountedScenes[0].isActive).toBe(false)
+    expect(rafQueue).toHaveLength(1)
 
     fireFrame(16)
-    fireFrame(32)
 
     expect(game.deltas).toEqual([])
     expect(mountedScenes).toHaveLength(1)
+    expect(rafQueue).toHaveLength(0)
   })
 
   test('steps the model with a zero first delta, then the real frame delta', () => {
@@ -202,7 +203,7 @@ describe('useGameLoop', () => {
     })
     fireFrame(200)
     expect(mountedScenes.at(-1)?.isPaused).toBe(true)
-    fireFrame(232)
+    expect(rafQueue).toHaveLength(0)
     expect(game.deltas).toEqual([0, 0.016])
     expect(mountedScenes).toHaveLength(4)
 
@@ -329,7 +330,7 @@ describe('useGameLoop', () => {
     expect(scene?.hazards).toEqual([0])
   })
 
-  test('a frame delivered while backgrounded does not step the model or the scene', () => {
+  test('the loop does not gate on AppState — the session owner does', () => {
     const game = makeGame(false)
     mount(game)
     act(() => {
@@ -339,20 +340,17 @@ describe('useGameLoop', () => {
     fireFrame(116)
     expect(game.deltas).toEqual([0, 0.016])
 
+    // The loop installs no AppState listener (NativeGameHost pauses pausable
+    // games). In production RN suspends RAF while suspended, so no frame
+    // arrives; a stray one steps honestly like a hidden web tab.
     emitAppState('background')
+    expect(appStateHandlers.size).toBe(0)
     fireFrame(200)
-    expect(game.deltas).toEqual([0, 0.016])
-    const scenesWhileBackgrounded = mountedScenes.length
-    fireFrame(300)
-    expect(mountedScenes).toHaveLength(scenesWhileBackgrounded)
-
-    emitAppState('active')
-    fireFrame(400)
-    expect(game.deltas).toEqual([0, 0.016, 0])
+    expect(game.deltas).toEqual([0, 0.016, 0.084])
     expect(mountedScenes.at(-1)?.isActive).toBe(true)
   })
 
-  test('a lifecycle change while backgrounded still syncs once without stepping', () => {
+  test('a paused game sleeps and wakes exactly once on resume', () => {
     const game = makeGame(true)
     mount(game)
     act(() => {
@@ -361,43 +359,58 @@ describe('useGameLoop', () => {
     fireFrame(100)
     fireFrame(116)
 
-    emitAppState('background')
     act(() => {
       game.pause()
     })
     fireFrame(200)
     expect(mountedScenes.at(-1)?.isPaused).toBe(true)
-    const scenesAfterPause = mountedScenes.length
-
-    fireFrame(300)
-    expect(mountedScenes).toHaveLength(scenesAfterPause)
+    expect(rafQueue).toHaveLength(0)
     expect(game.deltas).toEqual([0, 0.016])
+
+    act(() => {
+      game.resume()
+    })
+    expect(rafQueue).toHaveLength(1)
+    fireFrame(300)
+    expect(game.deltas).toEqual([0, 0.016, 0])
+    expect(mountedScenes.at(-1)?.isPaused).toBe(false)
   })
 
-  test('a foreground return resets timing instead of stepping a stale delta', () => {
+  test('an end emitted while suspended still surfaces the terminal scene on the next frame', async () => {
     const game = makeGame(false)
     mount(game)
     act(() => {
       game.start()
     })
     fireFrame(100)
-    fireFrame(116)
-    expect(game.deltas).toEqual([0, 0.016])
 
-    emitAppState('background')
-    emitAppState('active')
+    // One frame stays queued while the platform suspends RAF; the end event
+    // wake-up dedups onto it, and resume renders the terminal scene once.
+    await act(async () => {
+      await game.end()
+    })
     fireFrame(5000)
 
-    expect(game.deltas).toEqual([0, 0.016, 0])
+    const scene = mountedScenes.at(-1)
+    expect(scene?.isGameOver).toBe(true)
+    expect(game.deltas).toEqual([0])
+    expect(rafQueue).toHaveLength(0)
   })
 
-  test('keeps exactly one frame scheduled, ignores React re-renders and cancels on unmount', () => {
+  test('sleeps while idle, keeps exactly one frame queued while running, ignores re-renders, cancels on unmount', () => {
     const game = makeGame(false)
     const tree = mount(game)
     expect(rafQueue).toHaveLength(1)
 
     fireFrame(100)
+    expect(rafQueue).toHaveLength(0)
+
+    act(() => {
+      game.start()
+    })
+    expect(rafQueue).toHaveLength(1)
     fireFrame(116)
+    fireFrame(132)
     expect(rafQueue).toHaveLength(1)
 
     const scenesBefore = mountedScenes.length
@@ -412,6 +425,7 @@ describe('useGameLoop', () => {
     })
     expect(cancelAnimationFrame).toHaveBeenCalledTimes(1)
     expect(rafQueue).toHaveLength(0)
+    expect(AppState.addEventListener).not.toHaveBeenCalled()
     expect(appStateHandlers.size).toBe(0)
   })
 })

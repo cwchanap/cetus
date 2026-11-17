@@ -806,23 +806,32 @@ describe('Evader pilot — board', () => {
     expect(formatTimeSpy.mock.calls.length).toBeGreaterThan(rendersAfterStart)
   })
 
-  test('a paused run refuses to move a held player', async () => {
+  test('a paused run releases held input instead of carrying it into resume', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.EVADER} />)
     fireLayout(tree)
     const game = createdGames[0]
+    const releaseKey = jest.spyOn(game, 'releaseKey')
 
     await press(tree, 'Start game')
     touchDown(tree, 'right', 1)
+    expect(game.pressedKeys.has('right')).toBe(true)
+
     await press(tree, 'Pause game')
     fireFrame(16)
-    fireFrame(116)
+    expect(releaseKey).toHaveBeenCalledWith('ArrowRight', 'touch')
+    expect(game.pressedKeys.size).toBe(0)
+    expect(rafQueue).toHaveLength(0)
     expect(game.getState().player.x).toBe(20)
 
     await press(tree, 'Resume game')
     fireFrame(216)
     fireFrame(316)
+    expect(game.getState().player.x).toBe(20)
+
+    touchDown(tree, 'right', 2)
+    fireFrame(416)
     expect(game.getState().player.x).toBeGreaterThan(20)
-    touchUp(tree, 'right', 1)
+    touchUp(tree, 'right', 2)
   })
 
   test('backgrounding pauses the run and unmount destroys the game', async () => {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { Circle, Path, Rect, RoundedRect } from '@shopify/react-native-skia'
@@ -9,18 +9,10 @@ import { GameCanvas } from '../canvas/GameCanvas'
 import { swipeDirection } from '../canvas/swipeDirection'
 import { useGameLoop } from '../canvas/useGameLoop'
 import type { NativeGameViewProps } from '../registry'
+import { cssColor } from '../canvas/cssColor'
 
 const SEGMENT_PADDING = 2
 const SEGMENT_RADIUS = 4
-
-const cssColor = (hex: number, alpha = 1): string => {
-  const r = (hex >> 16) & 0xff
-  const g = (hex >> 8) & 0xff
-  const b = hex & 0xff
-  return alpha === 1
-    ? `rgb(${r}, ${g}, ${b})`
-    : `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
 
 interface SnakeHud {
   length: number
@@ -55,14 +47,21 @@ export function SnakeBoard({ projected, game }: NativeGameViewProps) {
     snake.markRendered()
   })
 
-  const pan = Gesture.Pan()
-    .runOnJS(true)
-    .onEnd(event => {
-      const direction = swipeDirection(event.translationX, event.translationY)
-      if (direction) {
-        snake.changeDirection(direction)
-      }
-    })
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .runOnJS(true)
+        .onEnd(event => {
+          const direction = swipeDirection(
+            event.translationX,
+            event.translationY
+          )
+          if (direction) {
+            snake.changeDirection(direction)
+          }
+        }),
+    [snake]
+  )
 
   const gridLines: string[] = []
   for (let x = 0; x <= config.gridWidth; x++) {

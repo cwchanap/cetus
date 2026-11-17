@@ -379,7 +379,7 @@ describe('Signal Switch pilot — board', () => {
     const game = createdGames[0]
 
     await press(tree, 'Start game')
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 60 && !game.getState().isGameOver; i++) {
       fireFrame(100 + i * 100)
     }
     await drain()
@@ -444,7 +444,8 @@ describe('Signal Switch pilot — board', () => {
     const x = game.getState().drones[0].x
 
     emitAppState('background')
-    fireFrame(300)
+    // RN suspends RAF while suspended — no frames arrive, but the shift is
+    // never fake-paused (NativeGameHost only pauses pausable games).
     expect(game.getState().isPaused).toBe(false)
     expect(game.getState().isActive).toBe(true)
     expect(game.getState().drones[0].x).toBe(x)
@@ -527,7 +528,7 @@ describe('Signal Switch pilot — lifecycle', () => {
     const game = createdGames[0]
 
     await press(tree, 'Start game')
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 60 && !game.getState().isGameOver; i++) {
       fireFrame(100 + i * 100)
     }
     await drain()

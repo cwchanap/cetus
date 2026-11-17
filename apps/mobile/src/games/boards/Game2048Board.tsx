@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
@@ -18,10 +18,8 @@ import {
 } from '@cetus/games/2048/utils'
 
 import { swipeDirection } from '../canvas/swipeDirection'
+import { cssColor } from '../canvas/cssColor'
 import type { NativeGameViewProps } from '../registry'
-
-const cssColor = (hex: number): string =>
-  `#${hex.toString(16).padStart(6, '0')}`
 
 const MERGE_SCALE = 1.18
 
@@ -147,14 +145,21 @@ export function Game2048Board({ projected, game }: NativeGameViewProps) {
     duration: config.animationDuration,
   }
 
-  const pan = Gesture.Pan()
-    .runOnJS(true)
-    .onEnd(event => {
-      const direction = swipeDirection(event.translationX, event.translationY)
-      if (direction) {
-        game2048.move(direction)
-      }
-    })
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .runOnJS(true)
+        .onEnd(event => {
+          const direction = swipeDirection(
+            event.translationX,
+            event.translationY
+          )
+          if (direction) {
+            game2048.move(direction)
+          }
+        }),
+    [game2048]
+  )
 
   const status = view.won ? '2048 reached' : view.stuck ? 'No moves left' : ''
 

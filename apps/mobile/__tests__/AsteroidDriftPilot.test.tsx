@@ -687,8 +687,8 @@ describe('Asteroid Drift pilot — board', () => {
 
     emitAppState('background')
     expect(game.getState().isPaused).toBe(false)
-    fireFrame(216)
-    fireFrame(316)
+    // RN suspends RAF while suspended — no frames arrive, but the run is
+    // never fake-paused (NativeGameHost only pauses pausable games).
     expect(game.getState().asteroids[0].x).toBe(asteroidX)
     expect(game.getState().isActive).toBe(true)
 
@@ -928,7 +928,11 @@ describe('Asteroid Drift pilot — run outcomes and save contract', () => {
       internalState(game).asteroids[0].x = -10_000
 
       let frame = 0
-      const step = () => fireFrame(1_000 + frame++ * 100)
+      const step = () => {
+        if (!game.getState().isGameOver) {
+          fireFrame(1_000 + frame++ * 100)
+        }
+      }
 
       while (game.getState().orbsCollected < 10) {
         const collectedBefore = game.getState().orbsCollected
@@ -950,7 +954,10 @@ describe('Asteroid Drift pilot — run outcomes and save contract', () => {
       }
       expect(game.getState().isActive).toBe(true)
 
-      while (game.getGameStats().survivalSeconds < 90) {
+      while (
+        game.getGameStats().survivalSeconds < 90 &&
+        !game.getState().isGameOver
+      ) {
         step()
       }
 
@@ -1038,7 +1045,6 @@ describe('Asteroid Drift pilot — run outcomes and save contract', () => {
       await game.end()
     })
     fireFrame(216)
-    fireFrame(316)
     await drain()
 
     expect(testText(tree, 'result-save-status')).toBe(

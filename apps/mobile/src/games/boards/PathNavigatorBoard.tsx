@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Text, View, type LayoutChangeEvent } from 'react-native'
+import { Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { Circle, Path, Rect } from '@shopify/react-native-skia'
 import type { PathNavigatorGame } from '@cetus/games/path-navigator/PathNavigatorGame'
@@ -17,15 +17,7 @@ import {
   type GamePoint,
 } from '../canvas/GameCanvas'
 import type { NativeGameViewProps } from '../registry'
-
-const cssColor = (hex: number, alpha = 1): string => {
-  const r = (hex >> 16) & 0xff
-  const g = (hex >> 8) & 0xff
-  const b = hex & 0xff
-  return alpha === 1
-    ? `rgb(${r}, ${g}, ${b})`
-    : `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
+import { cssColor } from '../canvas/cssColor'
 
 const START_BUFFER = 30
 const GOAL_BUFFER = 25
@@ -103,34 +95,12 @@ export function PathNavigatorBoard({ projected, game }: NativeGameViewProps) {
   const nav = game as PathNavigatorGame
   const config = nav.getConfig()
   const hud = projected as unknown as PathNavigatorHud
-  const [viewSize, setViewSize] = useState<{
-    width: number
-    height: number
-  } | null>(null)
   const [cursor, setCursor] = useState(() => {
     const modelCursor = nav.getState().cursor
     return { x: modelCursor.x, y: modelCursor.y }
   })
   const armedRef = useRef(false)
   const geometryRef = useRef<GameCanvasGeometry | null>(null)
-  geometryRef.current =
-    viewSize === null
-      ? null
-      : {
-          logicalWidth: config.gameWidth,
-          logicalHeight: config.gameHeight,
-          viewWidth: viewSize.width,
-          viewHeight: viewSize.height,
-        }
-
-  const onLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout
-    setViewSize(current =>
-      current !== null && current.width === width && current.height === height
-        ? current
-        : { width, height }
-    )
-  }
 
   useEffect(() => {
     armedRef.current = false
@@ -190,10 +160,12 @@ export function PathNavigatorBoard({ projected, game }: NativeGameViewProps) {
             return
           }
           const start = nav.getCurrentLevel().path.startPoint
-          if (
-            !pointInCircle(point, start, START_BUFFER) &&
-            !pointInCircle(point, state.cursor, START_BUFFER)
-          ) {
+          if (pointInCircle(point, start, START_BUFFER)) {
+            // A fresh touch in the start circle restarts the trace there;
+            // sweeping from wherever the cursor was parked would cross
+            // off-path space and end the run.
+            nav.setCursorPosition(start.x, start.y)
+          } else if (!pointInCircle(point, state.cursor, START_BUFFER)) {
             return
           }
           armedRef.current = true
@@ -246,13 +218,13 @@ export function PathNavigatorBoard({ projected, game }: NativeGameViewProps) {
           testID="path-board"
           className="w-full"
           style={{ aspectRatio: config.gameWidth / config.gameHeight }}
-          onLayout={onLayout}
           accessible
           accessibilityLabel={`Path Navigator board: level ${hud.currentLevel} ${level.name}; drag from the cyan start`}
         >
           <GameCanvas
             logicalWidth={config.gameWidth}
             logicalHeight={config.gameHeight}
+            geometryRef={geometryRef}
           >
             <Rect
               x={0}
