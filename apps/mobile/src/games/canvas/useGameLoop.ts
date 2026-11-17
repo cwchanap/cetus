@@ -22,6 +22,11 @@ const WAKE_EVENTS = [
     'time-complete',
 ] as const
 
+// Pause and resume can both land while a frame is still pending, leaving the
+// lifecycle signature unchanged when it runs. Dropping the timestamp keeps
+// the first resumed frame at a zero delta instead of accruing the pause.
+const TIMESTAMP_RESET_EVENTS = ['pause', 'resume'] as const
+
 export function useGameLoop(game: BaseGame, onFrame: () => void): void {
     const onFrameRef = useRef(onFrame)
     const lastTimestampRef = useRef<number | null>(null)
@@ -75,8 +80,14 @@ export function useGameLoop(game: BaseGame, onFrame: () => void): void {
         const wake = (): void => {
             schedule()
         }
+        const resetTimestamp = (): void => {
+            lastTimestampRef.current = null
+        }
         for (const eventType of WAKE_EVENTS) {
             game.on(eventType, wake)
+        }
+        for (const eventType of TIMESTAMP_RESET_EVENTS) {
+            game.on(eventType, resetTimestamp)
         }
         return () => {
             if (frameId !== null) {
@@ -84,6 +95,9 @@ export function useGameLoop(game: BaseGame, onFrame: () => void): void {
             }
             for (const eventType of WAKE_EVENTS) {
                 game.off(eventType, wake)
+            }
+            for (const eventType of TIMESTAMP_RESET_EVENTS) {
+                game.off(eventType, resetTimestamp)
             }
         }
     }, [game])
