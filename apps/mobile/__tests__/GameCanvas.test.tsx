@@ -107,6 +107,43 @@ describe('GameCanvas', () => {
       { scale: 0.8 },
     ])
   })
+
+  test('publishes the measured geometry through geometryRef for gesture hit-testing', () => {
+    const geometryRef = { current: null }
+    const tree = render(
+      <GameCanvas
+        logicalWidth={500}
+        logicalHeight={500}
+        geometryRef={geometryRef}
+      >
+        <Text testID="scene-shape">shape</Text>
+      </GameCanvas>
+    )
+
+    expect(geometryRef.current).toBeNull()
+
+    fireLayout(tree, 400, 800)
+    expect(geometryRef.current).toEqual({
+      logicalWidth: 500,
+      logicalHeight: 500,
+      viewWidth: 400,
+      viewHeight: 800,
+    })
+    // The published geometry resolves touches to the same mapping drawn by
+    // the letterboxed group above (scale 0.8, 200px top margin).
+    expect(toGamePoint(200, 600, geometryRef.current as never)).toEqual({
+      x: 250,
+      y: 500,
+    })
+
+    fireLayout(tree, 800, 400)
+    expect(geometryRef.current).toEqual({
+      logicalWidth: 500,
+      logicalHeight: 500,
+      viewWidth: 800,
+      viewHeight: 400,
+    })
+  })
 })
 
 describe('toGamePoint', () => {

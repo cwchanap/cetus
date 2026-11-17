@@ -1,4 +1,10 @@
-import { useState, type ReactNode } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import {
   StyleSheet,
   View,
@@ -73,11 +79,15 @@ export function toGamePoint(
 export function GameCanvas({
   logicalWidth,
   logicalHeight,
+  geometryRef,
   style,
   children,
 }: {
   logicalWidth: number
   logicalHeight: number
+  /** Receives the measured letterbox geometry so gesture handlers hit-test
+   *  the same mapping the canvas draws with. */
+  geometryRef?: RefObject<GameCanvasGeometry | null>
   style?: StyleProp<ViewStyle>
   children?: ReactNode
 }) {
@@ -95,16 +105,25 @@ export function GameCanvas({
     )
   }
 
-  const geometry: GameCanvasGeometry | null =
-    viewSize === null
-      ? null
-      : {
-          logicalWidth,
-          logicalHeight,
-          viewWidth: viewSize.width,
-          viewHeight: viewSize.height,
-        }
+  const geometry: GameCanvasGeometry | null = useMemo(
+    () =>
+      viewSize === null
+        ? null
+        : {
+            logicalWidth,
+            logicalHeight,
+            viewWidth: viewSize.width,
+            viewHeight: viewSize.height,
+          },
+    [viewSize, logicalWidth, logicalHeight]
+  )
   const layout = geometry === null ? null : letterbox(geometry)
+
+  useEffect(() => {
+    if (geometryRef) {
+      geometryRef.current = geometry
+    }
+  }, [geometry, geometryRef])
 
   return (
     <View style={[styles.container, style]} onLayout={onLayout}>

@@ -94,7 +94,7 @@ export class SnakeGame extends BaseGame<SnakeState, SnakeConfig, SnakeStats> {
         return {
             // BaseGameState fields
             score: 0,
-            timeRemaining: this.config.duration, // Convert to ms
+            timeRemaining: this.config.duration,
             isActive: false,
             isPaused: false,
             isGameOver: false,

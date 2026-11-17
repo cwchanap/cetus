@@ -420,6 +420,45 @@ describe('Path Navigator pilot — board', () => {
     expect(cursorCircle(tree)).toMatchObject({ cx: 70, cy: 160 })
   })
 
+  test('retouching the start circle after a partial drag snaps the cursor back instead of sweeping off-path', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.PATH_NAVIGATOR} />)
+    fireLayout(tree)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    traceLevel(tree, 0)
+    expect(game.getState().currentLevel).toBe(2)
+
+    // Drag along level 2's first curve to its end (300,300), then release.
+    const curve = GAME_LEVELS[1].path.segments[0]
+    if (!curve.controlPoint) {
+      throw new Error('level 2 first segment is not a curve')
+    }
+    panBegin(tree, level2Start.x / 2, level2Start.y / 2)
+    for (let i = 1; i <= 40; i++) {
+      const point = quadraticBezierPoint(
+        i / 40,
+        curve.start,
+        curve.controlPoint,
+        curve.end
+      )
+      panMove(tree, point.x / 2, point.y / 2)
+    }
+    panRelease(tree)
+    expect(game.getState().cursor.x).toBe(300)
+    expect(game.getState().cursor.y).toBe(300)
+
+    // A fresh touch in the start circle must not sweep the chord from
+    // (300,300) back to (50,150) — that line crosses off-path space.
+    panBegin(tree, level2Start.x / 2, level2Start.y / 2)
+
+    expect(game.getState().isGameOver).toBe(false)
+    expect(game.getState().isActive).toBe(true)
+    expect(game.getState().cursor.x).toBe(level2Start.x)
+    expect(game.getState().cursor.y).toBe(level2Start.y)
+    panRelease(tree)
+  })
+
   test('release disarms: samples after onFinalize are ignored until a new pan', async () => {
     const tree = await render(<NativeGameHost gameId={GameID.PATH_NAVIGATOR} />)
     fireLayout(tree)

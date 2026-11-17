@@ -99,6 +99,7 @@ export class EvaderGame extends BaseGame<
 
     protected onGamePause(): void {
         this.stopSpawnTimer()
+        this.clearHeldKeys()
     }
 
     protected onGameResume(): void {

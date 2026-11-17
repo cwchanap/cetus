@@ -12,18 +12,29 @@ export const authClient = createAuthClient({
     fetchOptions: {
         onResponse({ request, response }) {
             // A proxy login page must never reach Expo's session cache.
+            // Substitute a 401 rather than throwing so get-session resolves
+            // to a signed-out result. Missing Content-Type and JSON-family
+            // media types (application/*+json) are still session responses.
             if (
-                new URL(request.url).pathname.endsWith('/get-session') &&
-                response.ok &&
-                response.headers
-                    .get('content-type')
-                    ?.split(';')[0]
-                    .trim()
-                    .toLowerCase() !== 'application/json'
+                !new URL(request.url).pathname.endsWith('/get-session') ||
+                !response.ok
             ) {
-                throw new Error(
-                    'Authentication server returned a non-JSON session response'
-                )
+                return
+            }
+            const mediaType = response.headers
+                .get('content-type')
+                ?.split(';')[0]
+                .trim()
+                .toLowerCase()
+            const isJson =
+                mediaType === undefined ||
+                mediaType === 'application/json' ||
+                mediaType.endsWith('+json')
+            if (!isJson) {
+                return new Response(null, {
+                    status: 401,
+                    statusText: 'Unauthorized',
+                })
             }
         },
     },

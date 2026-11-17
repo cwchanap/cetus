@@ -7,16 +7,8 @@ import type { EvaderState } from '@cetus/games/evader/frameworkTypes'
 import { GameCanvas } from '../canvas/GameCanvas'
 import { useGameLoop } from '../canvas/useGameLoop'
 import type { NativeGameViewProps } from '../registry'
+import { cssColor } from '../canvas/cssColor'
 import { HeldDpad, type HeldDpadDirection } from './HeldDpad'
-
-const cssColor = (hex: number, alpha = 1): string => {
-  const r = (hex >> 16) & 0xff
-  const g = (hex >> 8) & 0xff
-  const b = hex & 0xff
-  return alpha === 1
-    ? `rgb(${r}, ${g}, ${b})`
-    : `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
 
 const PLAYER_FILL = '#00ff66'
 const PLAYER_STROKE = '#6bffae'
@@ -168,9 +160,13 @@ export function EvaderBoard({ projected, game }: NativeGameViewProps) {
         </GameCanvas>
       </View>
       <HeldDpad
-        disabled={() => !evader.getState().isActive}
+        disabled={() => {
+          const state = evader.getState()
+          return !state.isActive || state.isPaused
+        }}
         onPressDirection={direction => {
-          if (evader.getState().isActive) {
+          const state = evader.getState()
+          if (state.isActive && !state.isPaused) {
             evader.pressKey(KEY_BY_DIRECTION[direction], 'touch')
           }
         }}

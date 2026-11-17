@@ -1,10 +1,15 @@
-import { useState } from 'react'
-import { Text, View, type LayoutChangeEvent } from 'react-native'
+import { useMemo, useRef } from 'react'
+import { Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { Circle, Group, Path, Rect } from '@shopify/react-native-skia'
 import type { ReflexGame } from '@cetus/games/reflex/ReflexGame'
 
-import { GameCanvas, toGamePoint } from '../canvas/GameCanvas'
+import {
+  GameCanvas,
+  toGamePoint,
+  type GameCanvasGeometry,
+} from '../canvas/GameCanvas'
+import { cssColor } from '../canvas/cssColor'
 import type { NativeGameViewProps } from '../registry'
 
 const COIN_FILL = '#ffd700'
@@ -15,15 +20,6 @@ const BOMB_GLOW = 'rgba(255, 0, 0, 0.4)'
 const BOMB_STROKE = '#ff0000'
 const FUSE_COLOR = '#8b4513'
 const SPARK_COLOR = '#ffff00'
-
-const cssColor = (hex: number, alpha = 1): string => {
-  const r = (hex >> 16) & 0xff
-  const g = (hex >> 8) & 0xff
-  const b = hex & 0xff
-  return alpha === 1
-    ? `rgb(${r}, ${g}, ${b})`
-    : `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
 
 interface ReflexHud {
   objects: Array<{
@@ -43,47 +39,35 @@ export function ReflexBoard({ projected, game }: NativeGameViewProps) {
   const cell = config.cellSize
   const logicalSize = config.gridSize * cell
   const hud = projected as unknown as ReflexHud
-  const [viewSize, setViewSize] = useState<{
-    width: number
-    height: number
-  } | null>(null)
+  const geometryRef = useRef<GameCanvasGeometry | null>(null)
 
-  const onLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout
-    setViewSize(current =>
-      current !== null && current.width === width && current.height === height
-        ? current
-        : { width, height }
-    )
-  }
-
-  const tap = Gesture.Tap()
-    .runOnJS(true)
-    .onEnd(event => {
-      if (viewSize === null) {
-        return
-      }
-      const point = toGamePoint(event.x, event.y, {
-        logicalWidth: logicalSize,
-        logicalHeight: logicalSize,
-        viewWidth: viewSize.width,
-        viewHeight: viewSize.height,
-      })
-      if (point === null) {
-        return
-      }
-      const row = Math.floor(point.y / cell)
-      const col = Math.floor(point.x / cell)
-      if (
-        row < 0 ||
-        row >= config.gridSize ||
-        col < 0 ||
-        col >= config.gridSize
-      ) {
-        return
-      }
-      reflex.handleCellClick(row, col)
-    })
+  const tap = useMemo(
+    () =>
+      Gesture.Tap()
+        .runOnJS(true)
+        .onEnd(event => {
+          const geometry = geometryRef.current
+          if (geometry === null) {
+            return
+          }
+          const point = toGamePoint(event.x, event.y, geometry)
+          if (point === null) {
+            return
+          }
+          const row = Math.floor(point.y / cell)
+          const col = Math.floor(point.x / cell)
+          if (
+            row < 0 ||
+            row >= config.gridSize ||
+            col < 0 ||
+            col >= config.gridSize
+          ) {
+            return
+          }
+          reflex.handleCellClick(row, col)
+        }),
+    [reflex, cell, config.gridSize]
+  )
 
   const gridLines: string[] = []
   for (let x = 0; x <= config.gridSize; x++) {
@@ -129,9 +113,12 @@ export function ReflexBoard({ projected, game }: NativeGameViewProps) {
           testID="reflex-board"
           className="w-full"
           style={{ aspectRatio: 1 }}
-          onLayout={onLayout}
         >
-          <GameCanvas logicalWidth={logicalSize} logicalHeight={logicalSize}>
+          <GameCanvas
+            logicalWidth={logicalSize}
+            logicalHeight={logicalSize}
+            geometryRef={geometryRef}
+          >
             <Rect
               x={0}
               y={0}

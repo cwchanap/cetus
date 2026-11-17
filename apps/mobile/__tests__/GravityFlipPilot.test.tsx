@@ -342,7 +342,7 @@ describe('Gravity Flip pilot — board', () => {
     const game = createdGames[0]
 
     await press(tree, 'Start game')
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 40 && !game.getState().isGameOver; i++) {
       fireFrame(100 + i * 100)
     }
     await drain()
@@ -430,7 +430,8 @@ describe('Gravity Flip pilot — board', () => {
     const distance = game.getState().distance
 
     emitAppState('background')
-    fireFrame(300)
+    // RN suspends RAF while suspended — no frames arrive, but the run is
+    // never fake-paused (NativeGameHost only pauses pausable games).
     expect(game.getState().isPaused).toBe(false)
     expect(game.getState().isActive).toBe(true)
     expect(game.getState().distance).toBe(distance)

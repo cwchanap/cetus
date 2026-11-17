@@ -393,13 +393,13 @@ describe('Snake pilot — board', () => {
     seedFoodRolls(0.61, 0.51)
 
     await press(tree, 'Start game')
-    for (let i = 0; i < 12; i++) {
+    const game = createdGames[0]
+    for (let i = 0; i < 12 && !game.getState().isGameOver; i++) {
       now += 160
       fireFrame(16 * (i + 1))
     }
     await drain()
 
-    const game = createdGames[0]
     expect(game.getState().isGameOver).toBe(true)
     expect(submitScore).toHaveBeenCalledTimes(1)
     expect(submitScore).toHaveBeenCalledWith(

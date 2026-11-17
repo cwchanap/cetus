@@ -1,11 +1,26 @@
 import { useEffect, useRef } from 'react'
-import { AppState } from 'react-native'
 import type { BaseGame } from '@cetus/games'
 
 const lifecycleSignature = (game: BaseGame): string => {
     const { isActive, isPaused, isGameOver } = game.getState()
     return `${isActive}|${isPaused}|${isGameOver}|${game.getRunId()}`
 }
+
+// Lifecycle events wake a sleeping loop so paused/ended/reset scenes still
+// render once. Background handling belongs to the session owner
+// (NativeGameHost), which pauses pausable games; non-pausable games rely on
+// the platform suspending animation frames, matching the web hidden-tab
+// policy.
+const WAKE_EVENTS = [
+    'start',
+    'pause',
+    'resume',
+    'end',
+    'state-change',
+    'score-update',
+    'time-update',
+    'time-complete',
+] as const
 
 export function useGameLoop(game: BaseGame, onFrame: () => void): void {
     const onFrameRef = useRef(onFrame)
@@ -21,15 +36,20 @@ export function useGameLoop(game: BaseGame, onFrame: () => void): void {
         signatureRef.current = lifecycleSignature(game)
         onFrameRef.current()
 
-        let appActive = true
         let frameId: number | null = null
+        const schedule = (): void => {
+            if (frameId === null) {
+                frameId = requestAnimationFrame(frame)
+            }
+        }
         const frame = (now: number): void => {
-            const signatureBefore = lifecycleSignature(game)
-            if (signatureBefore !== signatureRef.current) {
+            frameId = null
+            const signatureBefore = signatureRef.current
+            if (lifecycleSignature(game) !== signatureBefore) {
                 lastTimestampRef.current = null
             }
             const state = game.getState()
-            const running = appActive && state.isActive && !state.isPaused
+            const running = state.isActive && !state.isPaused
             if (running) {
                 const last = lastTimestampRef.current
                 const deltaSeconds =
@@ -38,33 +58,33 @@ export function useGameLoop(game: BaseGame, onFrame: () => void): void {
                         : Math.min(Math.max(0, now - last) / 1000, 0.1)
                 lastTimestampRef.current = now
                 game.update(deltaSeconds)
-                if (lifecycleSignature(game) !== signatureBefore) {
-                    lastTimestampRef.current = null
-                }
             } else {
                 lastTimestampRef.current = null
             }
             const signature = lifecycleSignature(game)
-            const signatureChanged = signature !== signatureRef.current
             signatureRef.current = signature
-            if (running || signatureChanged) {
+            if (running || signature !== signatureBefore) {
                 onFrameRef.current()
             }
-            frameId = requestAnimationFrame(frame)
-        }
-        frameId = requestAnimationFrame(frame)
-
-        const subscription = AppState.addEventListener('change', next => {
-            appActive = next === 'active'
-            if (appActive) {
-                lastTimestampRef.current = null
+            if (running) {
+                schedule()
             }
-        })
+        }
+        schedule()
+
+        const wake = (): void => {
+            schedule()
+        }
+        for (const eventType of WAKE_EVENTS) {
+            game.on(eventType, wake)
+        }
         return () => {
             if (frameId !== null) {
                 cancelAnimationFrame(frameId)
             }
-            subscription.remove()
+            for (const eventType of WAKE_EVENTS) {
+                game.off(eventType, wake)
+            }
         }
     }, [game])
 }

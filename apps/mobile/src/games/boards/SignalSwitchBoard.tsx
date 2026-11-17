@@ -18,6 +18,7 @@ import {
 
 import { GameCanvas } from '../canvas/GameCanvas'
 import { useGameLoop } from '../canvas/useGameLoop'
+import { cssColor } from '../canvas/cssColor'
 import type { NativeGameViewProps } from '../registry'
 
 const LANE_BACKGROUND = '#020817'
@@ -27,15 +28,6 @@ const LOCKED_LANE_COVER = 'rgba(2, 8, 23, 0.55)'
 const DRONE_FILL = 'rgba(15, 23, 42, 0.95)'
 const GATE_MARKER_RADIUS = 9
 const DRONE_MARKER_RADIUS = 7
-
-const cssColor = (hex: number, alpha = 1): string => {
-  const r = (hex >> 16) & 0xff
-  const g = (hex >> 8) & 0xff
-  const b = hex & 0xff
-  return alpha === 1
-    ? `rgb(${r}, ${g}, ${b})`
-    : `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
 
 interface SignalSwitchHud {
   integrity: number
