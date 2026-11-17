@@ -215,6 +215,29 @@ describe('useGameLoop', () => {
     expect(game.deltas).toEqual([0, 0.016, 0, 0.016])
   })
 
+  test('pause and resume landing before the pending frame still restart timing from zero', () => {
+    const game = makeGame(true)
+    mount(game)
+    act(() => {
+      game.start()
+    })
+    fireFrame(100)
+    fireFrame(116)
+    expect(game.deltas).toEqual([0, 0.016])
+
+    // Both events dedup onto the already-pending frame, so the signature is
+    // unchanged when it runs; the stale timestamp must not leak through.
+    act(() => {
+      game.pause()
+      game.resume()
+    })
+    expect(rafQueue).toHaveLength(1)
+
+    fireFrame(200)
+    fireFrame(216)
+    expect(game.deltas).toEqual([0, 0.016, 0, 0.016])
+  })
+
   test('a mid-run reset syncs the cleared scene without a model state-change', () => {
     const game = makeGame(false)
     mount(game)
