@@ -1,106 +1,93 @@
 # HPA-535 — Port seven wave-3 games to Expo: single-PR implementation plan
 
-**Status:** Proposal / docs-only first commit (2026-11-16). All implementation and verification checkboxes remain unchecked.
+**Status:** Revised in response to [PR #110 design review](https://github.com/cwchanap/cetus/pull/110#pullrequestreview-5941818871), 2026-11-17. Still docs-only: all implementation and verification boxes are unchecked.
 **Linear:** [HPA-535](https://linear.app/cwchanap/issue/HPA-535/port-the-wave-3-games-to-mobile-7-heavy-canvas-games) · **Design:** [Wave-3 design](../specs/2026-11-16-hpa-535-wave3-mobile-design.md)
 **Base:** current `main` after [HPA-533 / PR #108](https://github.com/cwchanap/cetus/pull/108); mobile **16/23** playable.
-**Delivery:** **One PR for HPA-535.** This draft starts with the two docs; all stages below become *commits within this same PR*. No per-game PRs. Keep the existing `NATIVE_GAMES`, `NativeGameHost`, `NativeGameChrome`, `GameCanvas`, `useGameLoop`, `createHandleSession`, `@cetus/api-client` and `@cetus/games`. No new general framework.
-**Separate asset task:** [HPA-1140](https://linear.app/cwchanap/issue/HPA-1140/create-an-original-60-second-rhythm-reactor-metronome-audio-asset) delivers original rhythm audio independently; no music, image or SFX creation in the code PR.
+**Delivery:** **One PR for HPA-535.** This draft starts with the two docs; all stages below become *commits within this same PR*. No per-game PRs. Keep the existing `NATIVE_GAMES`, `NativeGameHost`, `NativeGameChrome`, `GameCanvas`, `useGameLoop`, `createHandleSession`, `@cetus/api-client` and `@cetus/games`. Add only a normalized runtime producer, a small shared frame-loop core, and one pure Ice Slide score policy. No generic plugin framework.
+**Separate asset task:** [HPA-1140](https://linear.app/cwchanap/issue/HPA-1140/create-an-original-60-second-rhythm-reactor-metronome-audio-asset) delivers original rhythm audio independently; no music, image or SFX creation in the code PR. **Decision: do not merge this PR at 22/23**. If HPA-1140 is not ready, leave this **one** PR in draft and wait for the asset before completing Rhythm.
 **Release follow-on:** [HPA-199](https://linear.app/cwchanap/issue/HPA-199/verify-cross-platform-parity-and-release-on-the-app-store-and-google) owns **real cross-platform authenticated** parity, Android native/device verification and store release.
 
-## Stage 0 — Baseline and source-of-truth check
+## Stage 0 — Baseline, then iOS audio-clock risk spike **first**
 
-- [ ] Rebase the draft branch on latest `main`. Confirm the existing 16-game registry, Skia native imports, no pre-existing wave-3 branch/PR, and existing callback contract for Circuit Hacker, Satellite Sync, Ice Slide. Check whether HPA-1140 audio asset is ready before scheduling the final Rhythm integration step.
-- [ ] Capture baseline commands/results: `bun install --frozen-lockfile`, `bun run lint`, `bun run format:check`, `bun run turbo run typecheck`, `bun run --cwd apps/mobile test --runInBand`, `bun run test:coverage`, `bun run build`, `bun run test:e2e`. Never weaken a gate to make the branch pass; distinguish pre-existing failures.
-- [ ] Verify a bootable **iOS simulator + current Skia development client** and MCP-based simulator interaction/screenshot capability. No attached Linear UI mockup; compare native screens to the existing Cetus chrome/theme using captured screenshots, not manual acceptance.
-- [ ] Record a 16-game regression screenshot baseline, where useful. Keep every new board's screen/layout implementation in the same PR as its game model binding.
+- [ ] Rebase the draft branch on current `main`; verify the existing **16** games, that no wave-3 implementation is already present, and the true BaseGame/handle model APIs. Keep existing native tests unchanged until a registration commit.
+- [ ] Record baseline: `bun install --frozen-lockfile`, `bun run lint`, `bun run format:check`, `bun run turbo run typecheck`, `bun run --cwd apps/mobile test --runInBand`, `bun run test:coverage`, `bun run build`, `bun run test:e2e`. Do not weaken failures. Confirm an MCP-controllable iOS simulator and the current Skia dev-client; obtain a screenshot of existing native UI as visual baseline.
+- [ ] **Early timebase spike, before the seven game boards:** `bunx expo install expo-audio` in `apps/mobile`, one root `bun.lock`, rebuild the iOS dev-client. Play **any temporary local short audio fixture not committed to the repo**; no new art or SFX production. Inspect `AudioPlayer.currentTime` polled from JS frame callbacks vs `useAudioPlayerStatus` events (`updateInterval` defaults to **500ms** per [Expo SDK 57 docs](https://docs.expo.dev/versions/v57.0.0/sdk/audio/)). Test 16ms/80ms cadence, initial play latency, ±200–500ms JS hitches, pause/background and playback end. Try a shorter `updateInterval` only if necessary; do not assume status events are sample-accurate.
+- [ ] Record actual timing/simulator logs, an audio-playback screenshot and fallback decision in this PR. If the player clock cannot support the 80ms perfect window, **stop/revise the design in this same PR** based on evidence rather than quietly adding a second unsynced wall clock or modifying `RhythmReactorGame` speculatively.
+- [ ] **Asset gate now decided:** HPA-1140 is external audio art, tracked separately; the code can proceed using the validated player API, but **final completion/merge requires the real HPA-1140 asset and 23/23 games**, never a partial merge at 22/23.
 
-**Checkpoint:** source and testing prerequisites recorded. Docs are proposed, not evidence that a simulator/test has run.
+**Checkpoint:** reliable or explicitly blocked native audio timebase established early, before investing in game integration. No generated audio assets enter the coding PR.
 
-## Stage 1 — Minimal native adapter for three callback/handle games
+## Stage 1 — Circuit Hacker **with** the minimal native handle seam (16 → 17)
 
-**Goal:** Add the missing native seam once without replacing the working BaseGame host.
+- [ ] Keep the 16 BaseGame registry ports as-is. Introduce **two explicit native port producers** at construction time, both yielding the minimal **common runtime** `{ session, binding, view, onRewards, onRunStart, dispose }`. Adapt the existing BaseGame creation/projector/`forwardBaseGameResults`/destroy path as one producer without rewriting existing boards. Implement the other producer with `createHandleSession` and handle-game callbacks. `NativeGameHost` calls **one** identity-bound `createScoreSubmitter(settledUserId)`, consumes this common shape and renders **one** `useGameSession` + `NativeGameChrome`; no five scattered `BaseGame` branches.
+- [ ] Extract the existing reward banner's merge reducer once, reused for both producers. Keep the BaseGame rule: stale prior-run result never overwrites current UI; **late same-account rewards are still delivered** if the old score committed. Runtime disposal/account switch suppresses further UI updates, and the model cleanup remains idempotent.
+- [ ] Write **one** handle-result helper now for all three handle titles, using `createRunGuard` (no new hand-rolled token type). On score-eligible finish: publish pending result, issue **one** injected score POST with `platform`, `gameData` and `context`, then saved/unconfirmed; forward awards once even for late same-account saves. For non-save finish: show local result without fake `pending`/`saved`. No retries, duplicate completion POSTs or replays of old results. Keep each model's honest `pausable:false` capabilities; existing AppState listener already checks capabilities.
+- [ ] Add **real first consumer in this same stage**: `CircuitHackerBoard.tsx` using Skia, pre-run difficulty, lazy grid generation on Start, tap-to-`rotateTile`, powered/locked tiles, model-owned timeout and cleanup. Bind `onGameStart/onTimeUpdate/onRotation/onSolved/onFail` to the handle session. On solve save once with `{difficulty,secondsRemaining,rotationsUsed,solved}`; on timeout/manual fail **do not POST**, just show result.
+- [ ] Register `GameID.CIRCUIT_HACKER`; update `NativeGamesRegistry.test.ts` and `GamesHub.test.tsx` IDs/counts **in this registration commit** (**16→17**, six disabled); extend `NativeGameImportGraph.test.ts` for the new producer without DOM/Pixi imports.
+- [ ] Jest: shared-host regression across both variants, lazy generation, locked tile/no-op, solve/timeout/manual fail, one POST on solve, no POST on failure, pending/saved/unconfirmed, guest/platform binding, account switch cleanup, stale result discarded **and same-account late rewards forwarded**, destroy/timer disposal, no fabricated Pause. **MCP iOS simulator**: select difficulty → Start → rotate tiles → solve/fail → result → Replay/back; screenshot active, solved and failed states.
 
-- [ ] In `apps/mobile/src/games/registry.ts`, add a small **explicit handle-port** option beside the existing BaseGame port; preserve all 16 BaseGame entries unchanged. Handle-port creation gets the already identity-bound `submitScore` and `Platform.OS` from the host; returns a `createHandleSession` session, model/board binding and idempotent cleanup. A registry entry must pick exactly one variant.
-- [ ] In `NativeGameHost.tsx`, choose either existing `createBaseGameSession` or the new handle session after the same `createScoreSubmitter(settledUserId)`. Feed **both** into the same `useGameSession` and `NativeGameChrome`, with the same reward banner and identity-keyed remount. Do not add a separate handle-game screen or score client.
-- [ ] Provide a small handle-run result helper **only if needed by all three models**. Map callbacks to `createHandleSession.handlers`, publish pending/saved/unconfirmed when a score is submitted, and forward rewards once; games that deliberately do not save show an end result without a fake saved flag. Bind each async completion to a local run token + mounted identity. Preserve completed older-run server submissions while suppressing stale UI. Never retry a submit automatically.
-- [ ] Handle stop/reset/replay by invoking **real model methods**, not fake `BaseGame` methods. Three callback models have no generic `pause`; hide Pause for them. Cleanup calls `cleanup()`/stop on the model and tears down active timers, rAF, listeners and pending view effects.
-- [ ] Add focused Jest for two variants using the **same host/chrome**: BaseGame still works, handle can start/finish/reset/replay, score result statuses, one POST, awards once, guest vs identity binding, account switch/unmount, run-token stale callbacks, timer disposal and no fabricated Pause. Keep unrelated 16 board files untouched.
+**Checkpoint:** one common host backed by two real producers, Circuit playable (**17/23**). No unused handle abstraction stage and no second native chrome.
 
-**Checkpoint:** isolated handle pilot tests pass; **0** new games registered yet. No new endpoint, database or global state store.
+## Stage 2 — Satellite Sync and shared frame-loop core (17 → 18)
 
-## Stage 2 — First three native BaseGame boards (16 → 19)
+- [ ] Extract the rAF scheduling, wake subscription, capped delta, idle timestamp reset, lifecycle `onFrame` and cleanup from `useGameLoop` into a **small** `useFrameLoop({isRunning,step,subscribe,onFrame,lifecycleKey})` core. Keep existing `useGameLoop(game,onFrame)` as a BaseGame adapter with identical behavior and no changes to the 16 existing boards. Add Jest proving Start/Reset/Pause lifecycle rendering, first-delta zero, 0.1s wall-delta cap, one loop, unmount cancellation and callback freshness.
+- [ ] Create `SatelliteSyncBoard.tsx`: Skia orbital rings, moving targets/obstacles and beams; pan `beginAim/updateAim/endAim` using portable geometry helpers; no duplicate orbital math. Subscribe to the handle model's Start/Stop/level callbacks to wake the shared frame loop, without treating it as `BaseGame`.
+- [ ] **Critical time-unit conversion:** `step: dtSeconds => satellite.update(dtSeconds * 1000)` since its API expects **milliseconds**. Copy live scene into board-local state, project only score/time/level to the common host. Preserve the model's deferred pending-level swap.
+- [ ] Use same handle-result helper for `onFail` and `onWin` (both **save once** with `game.getGameData()`); Stop clears to idle with **no fabricated POST**. `cleanup()` stops timer/rAF/gesture handling; late results cannot overwrite new state.
+- [ ] Register Satellite with registry/hub expectations **17→18** in the same commit. Jest 16ms→16ms unit check, lock/level-clear/moving target, loss/win/save once and stale reward semantics. MCP iOS simulator: lock target → reach result → replay/back; screenshot orbit/beam/finished state.
 
-Commit/register each game with its board and its registry + hub tests, so `NativeGamesRegistry.test.ts` and `GamesHub.test.tsx` remain green **after each commit**, not only at the end. Existing `NativeGameImportGraph.test.ts` must cover the new runtime import path without any web/Pixi import.
+**Checkpoint:** Satellite uses **exactly the same** frame-loop core as existing BaseGame boards, with correct ms delta and no duplicated timer engine.
 
-### Tetris (16 → 17)
+## Stage 3 — Extract Ice Slide policy, then native modes (18 → 19)
 
-- [ ] Build `TetrisBoard.tsx` with Skia 10×20 playfield + next/held previews. Use existing `TetrisGame`, `useGameLoop` and an explicitly copied board-local scene; the portable model owns gravity via `Date.now()`, line clear, hold rules and score.
-- [ ] Swipe left/right to move, swipe down for soft drop; labelled Rotate, Hold and Hard drop touch buttons. Do **not** map tap/gesture release to duplicate moves. Display `projected.clock` as elapsed time instead of `Number.MAX_SAFE_INTEGER` countdown.
-- [ ] Jest: one gesture→one move, model rotation/hold cooldown/hard drop/top-out, paused input refusal, result/save once and lifecycle reset. MCP iOS play + active/result screenshot check.
+- [ ] Extract `iceSlideScoreSubmission({score,gameData,reason:'win'|'stop',wasPlaying}) → {score,gameData,context?}|null` into **portable** `@cetus/games/ice-slide`. The numeric `score` is required separately—**`IceSlideGameData` does not contain it**. Return `null` for nonpositive score, Daily early Stop, or already-stopped Stop; preserve Campaign/Expedition score-positive early-stop and winning-run context. **Refactor web `apps/web/src/lib/games/ice-slide/init.ts` to call the same function**; do not copy decision branches into mobile. One Vitest matrix covers web and native consumers, with web Playwright score-context e2e regression.
+- [ ] Extract web-only `createExpeditionSeed` into a portable Ice Slide helper; share 4×32-bit hexadecimal format and accept an injectable random-word source so web retains `crypto.getRandomValues` and mobile can use a minimal fallback if Hermes lacks it. Confirm native Hermes behavior in the simulator. No new RNG library or server API.
+- [ ] Add `IceSlideBoard.tsx`: Skia cell grid, swipe directional `move`, level/stage/progress, Undo and Reset Level, and mode chooser. Campaign uses `game.start()`. Daily fixes UTC date/runKey at Start with `createIceSlideDailyRunDefinition(toIceSlideUtcDateKey(new Date()))`. Expedition uses `createIceSlideExpeditionRunDefinition(seed)`, exposes safe/risky route after stages 2 and 4, charged Undo and **same seed on Replay**.
+- [ ] Map `onGameStart/onMove/onLevelClear/onTimeUpdate/onWin` into the handle session, and use the shared score-policy return value to post **once**. Daily stop never saves; Campaign/Expedition stopped early only save for positive score. Preserve exact `gameData`, daily `{mode:'daily',competitionKey:runKey,rulesetVersion}`, expedition `{mode:'expedition',rulesetVersion}` and unscoped Campaign.
+- [ ] **Reuse native leaderboard kit**: `useRemoteData`, `isSingleBoard`, `LeaderboardLoading/Row/EmptyBoard/Error`, `useRefetchOnFocus` from the existing mobile game leaderboard page. New work is only Daily `api.getLeaderboard({gameId:GameID.ICE_SLIDE,mode:'daily',competitionKey:runKey,limit})`, UTC date header and run-keyed query cache; no copied UI error/retry/empty states.
+- [ ] Register Ice Slide and update registry/hub expected counts **18→19**. Jest score/stop matrix, date/seed/route determinism, score and achievement payload, distinct daily scopes and retry/error states, stale results/reward forwarding. MCP iOS simulator Campaign, Daily+leaderboard, Expedition route/Undo/replay seed + active/mode/leaderboard screenshots.
 
-### Bejeweled (17 → 18)
+**Checkpoint:** **19/23** native games, and web and mobile now **share** the Ice Slide decision contract.
 
-- [ ] Build `BejeweledBoard.tsx` using Skia for 8×8 cells. Swipe between neighboring cells via the existing `clickCell` two-step selection; taps are an accessible fallback. Use `setAnimator` to implement modest swap/undo/clear feedback; the model controls cascade timings/scoring.
-- [ ] Block touch during `isAnimating`; do not duplicate scoring rules in animations. Ensure unmount/reset invalidates ongoing visual animation work, and all scene values are copied from model state.
-- [ ] Jest: valid/invalid adjacent swaps, cascade, guarded taps, async swap reset/unmount cleanup and score/achievement results. MCP iOS play + screenshot check.
+## Stage 4 — Three BaseGame native boards (19 → 22)
 
-### Bubble Shooter (18 → 19)
+Each new registration changes both `NativeGamesRegistry.test.ts` and `GamesHub.test.tsx` **in the same commit**, with import graph and targeted Jest tests; no placeholder registrations. Use existing BaseGame runtime producer and `useGameLoop` wrapper.
 
-- [ ] Build `BubbleShooterBoard.tsx` using Skia, project the shooter and actual existing hex geometry. Convert pan to logical space using `GameCanvas.toGamePoint`; update `setAimAngle` while dragging and `shoot()` **exactly once** when released inside valid board. The model owns projectile physics, wall bounces, attachment and group clears; no second geometry/collision engine.
-- [ ] Use existing `useGameLoop` seconds-capped update with board-local projection; never fire from outside the board, cancelled gesture or during active projectile.
-- [ ] Jest: aim clamp, shoot once, projectile attachment, popped-group score, pause/reset, result/replay and single saved/unconfirmed submission. MCP iOS play + aim/active/result screenshots.
+### Tetris (19 → 20)
 
-**Checkpoint:** registry/hub counts **19 playable / 4 disabled**; three scenario suites and simulator screenshots recorded. No changes to shared host scene scheduling.
+- [ ] `TetrisBoard.tsx`: Skia 10×20 field + next/hold previews; copy local scene and use the existing model `Date.now()` gravity. Swipe left/right/down, labelled Rotate/Hold/Hard drop controls; guard duplicate gestures and one hold per piece. Use `projected.clock` elapsed duration in chrome rather than `MAX_SAFE_INTEGER`.
+- [ ] Jest: valid rotation, top-out, hold rules, pause, one POST/stats and replay/reset. MCP iOS gameplay and active/result screenshots.
 
-## Stage 3 — Circuit Hacker and Satellite Sync handle pilots (19 → 21)
+### Bejeweled (20 → 21)
 
-### Circuit Hacker (19 → 20)
+- [ ] `BejeweledBoard.tsx`: Skia 8×8 cells, adjacent swipe/tap through `clickCell`, modest `setAnimator` swap/swap-back/clear feedback. Model owns matches, cascades and scoring; ignore input during `isAnimating`; cancel stale animation visuals on reset/disposal. No rAF physics loop.
+- [ ] Jest: invalid/valid swap, cascade, reset during animation, save/reward and cleanup. MCP iOS gameplay and selection/cascade/result screenshots.
 
-- [ ] Add `CircuitHackerBoard.tsx` using Skia tile grid and labels, pre-run difficulty selection and `rotateTile(row,col)` touch mapping. Grid is generated **at Start**, not in constructor. No frame loop: redraw on model callbacks/ticks.
-- [ ] Create the game's handle session with `onGameStart`, `onTimeUpdate`, `onRotation`, `onSolved`, `onFail`; wire Start, manual Stop, Replay and cleanup. A solved run submits **once** with `difficulty, secondsRemaining, rotationsUsed, solved`; timeout/manual fail produces result **without score submission** per existing web behavior.
-- [ ] Jest: locked tile no-op, rotate/connect solve, timeout/manual fail, score gameData, one POST on solve, no POST on fail, stale score response after reset/unmount. MCP iOS stage solve and fail + screenshots.
+### Bubble Shooter (21 → 22)
 
-### Satellite Sync (20 → 21)
+- [ ] `BubbleShooterBoard.tsx`: Skia hex-grid, shooter/bubbles/projectile + aim guide. `toGamePoint` translates board pan; `setAimAngle` during drag, **one** `shoot()` on valid release. Model owns clamping/physics/attachment and elimination; `useGameLoop` drives model update in **seconds**; scene stays board-local.
+- [ ] Jest: angle clamp, invalid/cancelled gesture, one projectile, match elimination, pause/result and one score POST. MCP iOS drag/aim/active/result screenshots.
 
-- [ ] Add `SatelliteSyncBoard.tsx`: Skia orbits, satellites, target receivers/obstacles and beam status. Map pan begin/move/end to model `beginAim`, `updateAim(worldAngleDegrees)` and `endAim` via existing portable geometry helpers; don't implement a new orbital math engine.
-- [ ] Use the existing one board-local JS rAF. **Convert `deltaSeconds * 1000` before calling `SatelliteSyncGame.update(deltaMs)`**; all other BaseGame games still receive seconds. Copy moving scene locally, stable host HUD projection.
-- [ ] Bind `onGameStart`, score/time/locks/combos/level clear, `onFail` and `onWin` to the handle session. **Both** loss and win submit exactly once with `game.getGameData()`; Stop aborts the run and clears screen without a fabricated score save.
-- [ ] Jest: 16ms frame passes 16ms, target movement and lock snapping, level transition deferred entity swap, timeout and win save once, timer cleanup and stale response guards. MCP iOS target lock/level progress/result + screenshots.
+**Checkpoint:** **22 playable / 1 disabled**; all three use unchanged BaseGame model port paths.
 
-**Checkpoint:** registry/hub counts **21 playable / 2 disabled**; both handle models proved through same native host.
+## Stage 5 — Rhythm Reactor integrated using the proven clock (22 → 23)
 
-## Stage 4 — Ice Slide with all web modes (21 → 22)
+- [ ] Integrate the **original HPA-1140** bundled 60-second click track (separate asset PR; do not generate/edit SFX/music here). If HPA-1140 is not ready, **leave this HPA-535 PR open/draft at 22/23; do not split/merge/declare done**. Rebuild the native dev client with `expo-audio` already verified in Stage 0.
+- [ ] Add `RhythmReactorBoard.tsx`: Skia four-lane falling notes, labelled tap lanes, readable beat feedback, a **pre-run only** bounded millisecond calibration control (default 0, locked while playing) and clear audio-loading/error states.
+- [ ] **No planned portable Rhythm model change.** Construct `RhythmReactorGame` with `maxUpdateDelta: duration` (web still defaults to 0.1s). Through **the same `useFrameLoop`**, compute `targetSeconds = clamp(player.currentTime - calibrationOffsetSeconds, 0, duration)` only while player is loaded and playing, then `game.update(Math.max(0, targetSeconds - game.getState().elapsedSeconds))`. Render notes from `game.getState().elapsedSeconds`, not a competing wall/media clock; immediately advance to the current audio time **before `hitLane`** for between-frame taps. Positive offset subtracts from player time; lock calibration during play to keep clock monotonic. No `hitLane(atTime)` API or new sync engine.
+- [ ] Check the model's existing **60s wall timer** against actual audio end in the simulator (Stage 0 measurements); prove start, completion and clean shutdown. Handle replay, background interruption, stale results and audio player disposal. If Stage 0 showed inaccurate time getter, revise this same PR on evidence before integration.
+- [ ] Jest fake player timeline: first note 2s, 0.5s beat, perfect ±0.08/good ±0.16 and missed notes, 200ms hitch catch-up, calibration offset sign, tap-before-frame sample, 60s timeout, one POST, **stale result dropped but same-account late rewards forwarded**, audio cleanup.
+- [ ] Register Rhythm and update both registry/hub expectations **22→23**. MCP iOS **actual audio playback**, count-in, calibrated lane hit, result/replay/back and screenshots.
 
-- [ ] Build `IceSlideBoard.tsx` using Skia cell geometry, swipe-to-`move(Direction)`, live player/crystals/hazards, level progress and score. Provide board-local Start/Stop/Undo/Reset Level controls and clear stage-result presentation; model owns physics and solvability.
-- [ ] Add a compact mode chooser: **Campaign** (`game.start()`), **Daily** (`createIceSlideDailyRunDefinition(toIceSlideUtcDateKey(new Date()))` fixed once at Start), and **Expedition** (`createIceSlideExpeditionRunDefinition(seed)`). Display/copy Expedition seed for Retry and keep its run definition on retry; expose **safe/risky** route choices at stage 2/4 and charged Undo using existing `chooseExpeditionRoute/canUndo/undo`.
-- [ ] At the existing model end/stop boundaries, submit once (when eligible) using `game.getGameData()` and **exact** score context:
-  - Campaign: no extra mode context.
-  - Daily: `{mode:'daily', competitionKey:runKey, rulesetVersion}` (never device-local date).
-  - Expedition: `{mode:'expedition', rulesetVersion}`.
-  - Daily early Stop: **no score POST**. Campaign/Expedition early Stop: **only score > 0**. A completed positive run submits once.
-- [ ] Show **per-day leaderboard** by calling the existing `api.getLeaderboard({gameId: GameID.ICE_SLIDE, mode:'daily', competitionKey:runKey, limit})`; distinguish loading, rows, empty, service error and Retry. No new backend API, schema, URL or score partition logic.
-- [ ] Jest: deterministic UTC Daily key and run signatures, Expedition seed and route choice replay, score/no-score stop matrix, context payloads/achievement data, one POST, unconfirmed/guest handling, scoped leaderboard requests and states.
-- [ ] MCP iOS simulator: Campaign move + result, Daily run + leaderboard, Expedition route-choice/Undo and retry seed; take active/mode/result/leaderboard screenshots and verify safe-area/controls.
-
-**Checkpoint:** registry/hub **22 playable / 1 disabled**; original web Ice Slide contexts remain unchanged.
-
-## Stage 5 — Rhythm Reactor, local audio and calibration (22 → 23)
-
-- [ ] Integrate the **separately produced HPA-1140 original 60-second click track**; do not create or edit the audio art under HPA-535. Use `bunx expo install expo-audio` (Expo SDK57-compatible version), update **only root `bun.lock`**, rebuild iOS dev-client and verify native audio output. A JS bundle alone is not a native audio runtime check.
-- [ ] Add `RhythmReactorBoard.tsx`: four Skia falling-note lanes, labelled touch lane buttons, a simple latency adjustment with a visible bounded millisecond offset, start/reset/result and audio unavailable status. Keep the chart and score predicates in `RhythmReactorGame` without duplicating judgment logic.
-- [ ] Align the chart to `expo-audio`'s **real player timeline**. Because the current `RhythmReactorGame.update(deltaSeconds)` caps at 0.1s, add a **small, tested portable sync-to-absolute-playback-time method** or equivalent monotonic model seam; keep `update` intact for web. Player position drives both falling-note presentation and model's judgment clock. Calibration shifts *input-hit offset*, not the chart or score payload. No second scheduler/state store.
-- [ ] Handle preload, playback failure, output/input latency, count-in 2s, end/Replay, app background and unmount: stop/release audio and reset timeline; never leave a running sound after leaving game. Retain non-pausable model truth.
-- [ ] Jest with fake media clock: 60s chart/cue, ±0.08/±0.16 perfect/good/miss windows, latency adjustment sign, 200ms hitch (no silent dropped timeline), single tap, end/cleanup and old-run rewards. E2E iOS MCP **actual audio playback** / lane hit / calibration / result and active/result screenshots.
-- [ ] Add the last registry port and update exact registry/hub IDs/counts **in same commit**: 23 playable, 0 disabled.
-
-**Checkpoint:** **all 23** web catalog games have a working native Play entry. Rhythm acceptance requires the separately sourced audio and a real iOS dev-client run.
+**Checkpoint:** **all 23/23** playable. Completion is blocked until the separate audio asset is integrated and native rhythm timing is demonstrated.
 
 ## Stage 6 — Executable acceptance and evidence ledger
 
 **Functional regression checks (automated):**
 - [ ] `bun install --frozen-lockfile`, `bun run lint`, `bun run format:check`, `bun run turbo run typecheck`, `bun run --cwd apps/mobile test --runInBand`, `bun run test:coverage`, `bun run build`, `bun run test:e2e` all pass on the implementation commit; **do not infer pass from this docs-only draft**. Preserve existing web 23-game routes and Playwright e2e.
 - [ ] New native regression/Jest tests prove 23/23 registry and catalog, correct game constructors/handle lifetimes, no web/Pixi imports, no host per-frame 60Hz rerenders, each input, model end state, no duplicate score POST, score platform and proper `gameData`/`context`, rewards, guest identity binding, stale async response safety, timers/gestures/audio cleanup and honest result statuses.
-- [ ] Handle-specific controller tests verify `createHandleSession` status semantics, game-specific stop/replay/timeout, and every callback subscription canceled on unmount.
+- [ ] Handle-specific controller tests verify `createHandleSession` status semantics, shared pending/saved/unconfirmed helper, `createRunGuard` old-result suppression **without suppressing same-account late rewards**, model-specific stop/replay/timeout, and all callback subscriptions canceled on unmount.
+- [ ] Shared Ice Slide score matrix exercises **both** web and native through the portable helper, with no duplicated policy. Shared `useFrameLoop` Jest verifies BaseGame, Satellite (milliseconds) and Rhythm (absolute audio) adapters; no extra schedulers.
 - [ ] **MCP-driven iOS simulator e2e for all seven games**: Games hub → detail Play enabled → Start → game-specific interaction → visible progress/end → correct result state → Replay → back; assert no stale game motion/audio/timer and no missing safe areas. Run at least one functional path per game and the additional targeted mode/animation/audio scenarios above. **Do not require a human to accept results.**
 - [ ] **Visual screenshot acceptance**: after each game flow, save screenshots of game-active and result (plus mode/calibration/leaderboard as appropriate). The Linear issue has **no attached UI mockup**, so use objective screenshot-based checks against current Cetus mobile visual conventions: consistent chrome, text contrast/legibility, no clipped Skia board or letterbox hit target, touch controls reachable/labelled, safe-area insets, stable portrait layout; attach evidence to PR and compare again after UI changes.
 - [ ] **Automated UI checks** on iOS suffice for this shared RN implementation without platform-specific UI changes. `mobile-export` CI runs **iOS+Android JS/assets on every draft push** using the placeholder origin. Other lint/test/build workflows are **draft-gated**; verify their local commands and then require full CI on Ready for Review. Android **native** compile/device and actual Google/Apple login + server cross-platform parity remain **HPA-199**, not claims from Metro/Jest.
@@ -128,7 +115,8 @@ Commit/register each game with its board and its registry + hub tests, so `Nativ
 | Draft-PR iOS+Android Expo JS export | pending | Not run |
 | MCP iOS simulator functional flows × 7 | pending | Not run |
 | MCP iOS screenshot visual checks × 7 | pending | Not run |
+| Early iOS audio clock/500ms status-cadence spike | pending native dev-client test | Not run |
 | iOS native `expo-audio` playback/calibration | pending HPA-1140 asset | Not run |
 | Cross-platform real-auth/server parity + Android native device | HPA-199 | **Out of scope / unverified** |
 
-**Definition of done:** seven native boards integrated and enabled (**23/23**), game-specific semantics/score contexts preserved, the HPA-1140 asset integrated by the coding stage, MCP-driven **iOS simulator e2e plus screenshot visual checks**, automated model/Jest/web regressions and build/type/lint gates all passing with links to evidence. This docs-only PR is not yet a completion claim; implementation commits remain in **this same PR**.
+**Definition of done:** seven native boards integrated and enabled (**23/23**), one host and one frame-loop core retained, the same extracted Ice Slide policy used by web and mobile, HPA-1140 asset integrated (no partial merge at 22/23), an early recorded audio-clock spike, MCP-driven **iOS simulator e2e plus screenshot visual checks**, automated model/Jest/web regressions and build/type/lint gates passing with evidence links. This docs-only PR is not a completion claim; implementation commits remain in **this same PR**.
