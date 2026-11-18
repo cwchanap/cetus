@@ -23,6 +23,7 @@ import type {
     SatelliteSyncState,
     RuntimeSatellite,
     SatelliteSyncGameData,
+    SatelliteAimSnapshot,
 } from './types'
 
 export class SatelliteSyncGame {
@@ -291,6 +292,53 @@ export class SatelliteSyncGame {
             }
         }
         sat.snapCandidateId = null
+    }
+
+    /** Read-only pre-drag snapshot; never mutates the run. */
+    captureAimState(satId: string): SatelliteAimSnapshot | null {
+        const sat = this.findSatellite(satId)
+        if (!sat) {
+            return null
+        }
+        return {
+            satelliteId: satId,
+            aimAngle: sat.aimAngle,
+            snapCandidateId: sat.snapCandidateId,
+            lockedTargetId: sat.lockedTargetId,
+            combo: this.state.combo,
+            multiplier: this.state.multiplier,
+        }
+    }
+
+    /**
+     * Undo a cancelled drag's aim/unlock mutations. Restores the captured
+     * lock, aim, snap candidate and combo WITHOUT scoring or emitting lock
+     * callbacks; a cancellation must never change the run's points.
+     */
+    restoreAimState(snapshot: SatelliteAimSnapshot): void {
+        const sat = this.findSatellite(snapshot.satelliteId)
+        if (!sat) {
+            return
+        }
+        const restoredTarget = snapshot.lockedTargetId
+            ? this.state.targets.find(t => t.id === snapshot.lockedTargetId)
+            : undefined
+        sat.lockedTargetId = restoredTarget ? restoredTarget.id : null
+        for (const target of this.state.targets) {
+            if (target.id === sat.lockedTargetId) {
+                target.locked = true
+                target.lockedBySatId = sat.id
+            } else if (target.lockedBySatId === sat.id) {
+                // Defensive: a drag cannot commit, but never leave this
+                // satellite holding a second lock.
+                target.locked = false
+                target.lockedBySatId = null
+            }
+        }
+        sat.aimAngle = snapshot.aimAngle
+        sat.snapCandidateId = snapshot.snapCandidateId
+        this.state.combo = snapshot.combo
+        this.state.multiplier = snapshot.multiplier
     }
 
     aimAtTarget(satId: string, targetId: string): boolean {

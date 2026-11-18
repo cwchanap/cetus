@@ -14,6 +14,7 @@ import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
 import type {
   BeamColor,
   RuntimeTarget,
+  SatelliteAimSnapshot,
   SatelliteSyncState,
 } from '@cetus/games/satellite-sync/types'
 
@@ -91,7 +92,10 @@ export function SatelliteSyncBoard({
   )
   const [aimStatus, setAimStatus] = useState<string | null>(null)
   const geometryRef = useRef<GameCanvasGeometry | null>(null)
-  const draggingRef = useRef<string | null>(null)
+  const dragCandidateRef = useRef<string | null>(null)
+  const dragActiveRef = useRef(false)
+  const dragBeganRef = useRef(false)
+  const dragSnapshotRef = useRef<SatelliteAimSnapshot | null>(null)
   const sceneLevelRef = useRef<number | null>(null)
 
   const syncScene = () => {
@@ -173,7 +177,13 @@ export function SatelliteSyncBoard({
     () =>
       Gesture.Pan()
         .runOnJS(true)
+        // onBegin only hit-tests: a touch-down that turns into a scroll or
+        // a failed pan must not unlock or re-aim anything.
         .onBegin(event => {
+          dragCandidateRef.current = null
+          dragActiveRef.current = false
+          dragBeganRef.current = false
+          dragSnapshotRef.current = null
           if (!controller.isRunning()) {
             return
           }
@@ -181,21 +191,16 @@ export function SatelliteSyncBoard({
           if (!point) {
             return
           }
-          const satelliteId = satelliteIdAt(point)
-          if (!satelliteId) {
-            return
-          }
-          draggingRef.current = satelliteId
-          controller.beginAim(satelliteId)
-          const angle = aimAngleAt(satelliteId, point)
-          if (angle !== null) {
-            controller.updateAim(satelliteId, angle)
-          }
-          syncScene()
+          dragCandidateRef.current = satelliteIdAt(point)
+        })
+        // ACTIVE: the first aim mutation happens on the first move, after
+        // activation, and captures the pre-drag state for cancellation.
+        .onStart(() => {
+          dragActiveRef.current = dragCandidateRef.current !== null
         })
         .onUpdate(event => {
-          const satelliteId = draggingRef.current
-          if (!satelliteId) {
+          const satelliteId = dragCandidateRef.current
+          if (!dragActiveRef.current || satelliteId === null) {
             return
           }
           const point = worldPointOf(event.x, event.y)
@@ -203,18 +208,35 @@ export function SatelliteSyncBoard({
             return
           }
           const angle = aimAngleAt(satelliteId, point)
-          if (angle !== null) {
-            controller.updateAim(satelliteId, angle)
-          }
-          syncScene()
-        })
-        .onFinalize(() => {
-          const satelliteId = draggingRef.current
-          draggingRef.current = null
-          if (!satelliteId) {
+          if (angle === null) {
             return
           }
-          controller.endAim(satelliteId)
+          if (!dragBeganRef.current) {
+            dragBeganRef.current = true
+            dragSnapshotRef.current = controller.beginAim(satelliteId)
+          }
+          controller.updateAim(satelliteId, angle)
+          syncScene()
+        })
+        // RNGH calls onFinalize for BOTH outcomes with the success flag
+        // (true = END, false = FAILED/CANCELLED). Commit only a completed
+        // drag; restore a cancelled one; always clear the drag references.
+        .onFinalize((_event, success) => {
+          const satelliteId = dragCandidateRef.current
+          const began = dragBeganRef.current
+          const snapshot = dragSnapshotRef.current
+          dragCandidateRef.current = null
+          dragActiveRef.current = false
+          dragBeganRef.current = false
+          dragSnapshotRef.current = null
+          if (satelliteId === null || !began) {
+            return
+          }
+          if (success) {
+            controller.endAim(satelliteId)
+          } else if (snapshot) {
+            controller.restoreAim(snapshot)
+          }
           syncScene()
         }),
     [controller]
