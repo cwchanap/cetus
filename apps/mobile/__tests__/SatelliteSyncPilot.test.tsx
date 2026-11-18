@@ -131,6 +131,25 @@ const press = async (tree: TestRenderer.ReactTestRenderer, label: string) => {
   await drain()
 }
 
+/** Press the first control whose accessibility label matches a prefix. */
+const pressMatching = async (
+  tree: TestRenderer.ReactTestRenderer,
+  pattern: RegExp
+) => {
+  const button = tree.root.findAll(
+    node =>
+      typeof node.props.accessibilityLabel === 'string' &&
+      pattern.test(node.props.accessibilityLabel)
+  )[0]
+  if (!button) {
+    throw new Error(`no control matching ${pattern}`)
+  }
+  await act(async () => {
+    button.props.onPress()
+  })
+  await drain()
+}
+
 const fireLayout = (tree: TestRenderer.ReactTestRenderer) => {
   const layoutHost = tree.root
     .findAll(node => typeof node.type === 'string')
@@ -542,6 +561,161 @@ describe('Satellite Sync pilot — score contract', () => {
     await drain()
     expect(testText(tree, 'result-save-status')).toBe('Score saved')
     expect(submitScore).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('Satellite Sync pilot — accessible aiming', () => {
+  test('satellite controls describe every satellite and target actions stay disabled until one is selected', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireFrame(100)
+
+    for (let index = 0; index < 3; index++) {
+      const satellite = tree.root.findByProps({
+        accessibilityLabel: `Select satellite ${index + 1}: cyan`,
+      })
+      expect(satellite.props.accessibilityState?.disabled).toBe(false)
+      expect(satellite.props.accessibilityState?.selected).toBe(false)
+    }
+    for (let index = 0; index < 3; index++) {
+      const target = tree.root.findByProps({
+        accessibilityLabel: `Lock target ${index + 1}: cyan, unlocked`,
+      })
+      expect(target.props.disabled).toBe(true)
+      expect(target.props.accessibilityState?.disabled).toBe(true)
+      expect(target.props.accessibilityHint).toBe('Select a satellite first')
+    }
+
+    await pressMatching(tree, /^Select satellite 1: cyan$/)
+
+    for (let index = 0; index < 3; index++) {
+      const target = tree.root.findByProps({
+        accessibilityLabel: `Lock target ${index + 1}: cyan, unlocked`,
+      })
+      expect(target.props.disabled).toBe(false)
+      expect(target.props.accessibilityState?.disabled).toBe(false)
+    }
+    expect(
+      tree.root.findByProps({ accessibilityLabel: 'Select satellite 1: cyan' })
+        .props.accessibilityState?.selected
+    ).toBe(true)
+  })
+
+  test('selecting a satellite then a target locks it through the model and announces the result', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireFrame(100)
+
+    await pressMatching(tree, /^Select satellite 1: cyan$/)
+    await pressMatching(tree, /^Lock target 1: cyan, unlocked$/)
+
+    const game = controllerOf(tree).getGame() as SatelliteSyncGame
+    expect(game.getState().targets[0].locked).toBe(true)
+    expect(game.getState().score).toBe(100)
+    expect(testText(tree, 'ss-aim-status')).toBe(
+      'Target 1 locked by satellite 1.'
+    )
+
+    const lockedTarget = tree.root
+      .findAll(
+        node =>
+          typeof node.props.accessibilityLabel === 'string' &&
+          node.props.accessibilityLabel.startsWith('Lock target 1: cyan')
+      )
+      .at(-1)
+    expect(lockedTarget?.props.accessibilityLabel).toBe(
+      'Lock target 1: cyan, locked by satellite 1'
+    )
+    expect(lockedTarget?.props.accessibilityState?.disabled).toBe(true)
+    const satelliteAfterLock = tree.root
+      .findAll(
+        node =>
+          typeof node.props.accessibilityLabel === 'string' &&
+          node.props.accessibilityLabel.startsWith('Select satellite 1: cyan')
+      )
+      .at(-1)
+    expect(satelliteAfterLock?.props.accessibilityLabel).toBe(
+      'Select satellite 1: cyan, locked to target 1'
+    )
+    expect(satelliteAfterLock?.props.accessibilityState?.selected).toBe(false)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('only matching-colour, unlocked targets enable and the hint names the required colour', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireFrame(100)
+
+    const game = controllerOf(tree).getGame() as SatelliteSyncGame
+    act(() => {
+      solveCurrentLevel(game)
+    })
+    await drain()
+    fireFrame(116)
+    expect(game.getState().levelIndex).toBe(1)
+
+    await pressMatching(tree, /^Select satellite 1: cyan$/)
+    const magenta = tree.root.findByProps({
+      accessibilityLabel: 'Lock target 2: magenta, unlocked',
+    })
+    expect(magenta.props.disabled).toBe(true)
+    expect(magenta.props.accessibilityHint).toBe(
+      'Select a magenta satellite to aim this target'
+    )
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel: 'Lock target 1: cyan, unlocked',
+      }).props.disabled
+    ).toBe(false)
+
+    await pressMatching(tree, /^Select satellite 2: magenta$/)
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel: 'Lock target 2: magenta, unlocked',
+      }).props.disabled
+    ).toBe(false)
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel: 'Lock target 1: cyan, unlocked',
+      }).props.disabled
+    ).toBe(true)
+  })
+
+  test('a real asteroid-blocked target reports failure, stays unlocked and keeps the satellite selected', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireFrame(100)
+
+    const controller = controllerOf(tree)
+    const game = controller.getGame() as SatelliteSyncGame
+    act(() => {
+      // Clear levels 1–5 so level 6 (Shifting Debris) is live.
+      for (let level = 0; level < 5; level++) {
+        solveCurrentLevel(game)
+      }
+    })
+    await drain()
+    fireFrame(116)
+    // 6 s of level-6 drift puts the moving asteroid on satellite 2's beam
+    // to moving target 2; the frame just resyncs the board scene.
+    act(() => {
+      controller.update(6000)
+    })
+    fireFrame(132)
+
+    expect(game.getState().levelIndex).toBe(5)
+    await pressMatching(tree, /^Select satellite 2: magenta$/)
+    await pressMatching(tree, /^Lock target 2: magenta, moving, unlocked$/)
+
+    expect(game.getState().targets[1].locked).toBe(false)
+    expect(game.getState().score).toBeGreaterThan(0)
+    expect(testText(tree, 'ss-aim-status')).toContain('could not be locked')
+    expect(
+      tree.root.findByProps({
+        accessibilityLabel: 'Select satellite 2: magenta',
+      }).props.accessibilityState?.selected
+    ).toBe(true)
+    expect(submitScore).not.toHaveBeenCalled()
   })
 })
 

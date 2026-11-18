@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Text, View } from 'react-native'
+import { AccessibilityInfo, ScrollView, Text, View } from 'react-native'
 import { Button } from '@cetus/ui'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { Circle, Group, Path, Rect } from '@shopify/react-native-skia'
@@ -13,6 +13,7 @@ import {
 import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
 import type {
   BeamColor,
+  RuntimeTarget,
   SatelliteSyncState,
 } from '@cetus/games/satellite-sync/types'
 
@@ -51,6 +52,9 @@ const BEAM_COLORS: Record<BeamColor, string> = {
   green: '#4ade80',
 }
 
+const colorLabel = (color: BeamColor): string =>
+  color.charAt(0).toUpperCase() + color.slice(1)
+
 interface ScenePoint {
   x: number
   y: number
@@ -82,11 +86,28 @@ export function SatelliteSyncBoard({
   const [scene, setScene] = useState<SatelliteSyncState | null>(() =>
     controller.getScene()
   )
+  const [selectedSatelliteId, setSelectedSatelliteId] = useState<string | null>(
+    null
+  )
+  const [aimStatus, setAimStatus] = useState<string | null>(null)
   const geometryRef = useRef<GameCanvasGeometry | null>(null)
   const draggingRef = useRef<string | null>(null)
+  const sceneLevelRef = useRef<number | null>(null)
 
   const syncScene = () => {
-    setScene(controller.getScene())
+    const next = controller.getScene()
+    // A stop or a level swap invalidates any selection/attempt from the
+    // previous scene.
+    if (
+      next === null ||
+      (sceneLevelRef.current !== null &&
+        next.levelIndex !== sceneLevelRef.current)
+    ) {
+      setSelectedSatelliteId(null)
+      setAimStatus(null)
+    }
+    sceneLevelRef.current = next?.levelIndex ?? null
+    setScene(next)
   }
 
   useFrameLoop(
@@ -211,6 +232,36 @@ export function SatelliteSyncBoard({
   const level = hud.level ?? 1
   const levelName = scene?.levelName ?? SATELLITE_SYNC_LEVELS[level - 1]?.name
   const playing = scene?.status === 'playing'
+  const selectedSatellite =
+    satellites.find(satellite => satellite.id === selectedSatelliteId) ?? null
+
+  const selectSatellite = (satelliteId: string): void => {
+    setSelectedSatelliteId(current =>
+      current === satelliteId ? null : satelliteId
+    )
+    setAimStatus(null)
+  }
+
+  const lockTarget = (target: RuntimeTarget, index: number): void => {
+    if (selectedSatellite === null) {
+      return
+    }
+    const satelliteIndex = satellites.findIndex(
+      satellite => satellite.id === selectedSatellite.id
+    )
+    const locked = controller.lockTarget(selectedSatellite.id, target.id)
+    syncScene()
+    const message = locked
+      ? `Target ${index + 1} locked by satellite ${satelliteIndex + 1}.`
+      : `Target ${index + 1} could not be locked — blocked or out of range. Select another target or satellite.`
+    setAimStatus(message)
+    // announceForAccessibility (not a live region) keeps TalkBack to one
+    // utterance per attempt, matching Chromatic Tide's transition pattern.
+    void AccessibilityInfo.announceForAccessibility(message)
+    if (locked) {
+      setSelectedSatelliteId(null)
+    }
+  }
 
   const summary =
     scene === null
@@ -218,7 +269,14 @@ export function SatelliteSyncBoard({
       : `Satellite Sync board: level ${level} ${levelName ?? ''}, ${lockedCount} of ${targets.length} targets locked, combo ×${scene.multiplier}`
 
   return (
-    <View className="flex-1 gap-3 px-4 pb-4">
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingBottom: 24,
+      }}
+    >
       <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1">
         <Text
           testID="ss-level"
@@ -357,6 +415,109 @@ export function SatelliteSyncBoard({
         </View>
       </GestureDetector>
 
+      {playing ? (
+        <View className="gap-2" accessibilityLabel="Screen-reader aiming">
+          <Text className="font-sans text-xs text-cetus-ink-muted">
+            Screen-reader aiming: select a satellite, then a matching-colour
+            target.
+          </Text>
+          <View
+            className="flex-row flex-wrap gap-2"
+            accessibilityLabel="Aim satellites"
+          >
+            {satellites.map((satellite, index) => {
+              const lockedTargetIndex = satellite.lockedTargetId
+                ? targets.findIndex(
+                    target => target.id === satellite.lockedTargetId
+                  )
+                : -1
+              const selected = satellite.id === selectedSatelliteId
+              return (
+                <Button
+                  key={satellite.id}
+                  testID={`ss-satellite-${index}`}
+                  variant={selected ? 'primary' : 'outline'}
+                  size="sm"
+                  accessibilityLabel={`Select satellite ${index + 1}: ${
+                    satellite.color
+                  }${
+                    lockedTargetIndex >= 0
+                      ? `, locked to target ${lockedTargetIndex + 1}`
+                      : ''
+                  }`}
+                  accessibilityState={{ selected, disabled: !playing }}
+                  disabled={!playing}
+                  className="min-w-[30%] flex-1"
+                  onPress={() => selectSatellite(satellite.id)}
+                >
+                  {`Sat ${index + 1} · ${colorLabel(satellite.color)}${
+                    lockedTargetIndex >= 0 ? ` → T${lockedTargetIndex + 1}` : ''
+                  }`}
+                </Button>
+              )
+            })}
+          </View>
+          <View
+            className="flex-row flex-wrap gap-2"
+            accessibilityLabel="Lock targets"
+          >
+            {targets.map((target, index) => {
+              const lockedByIndex = target.lockedBySatId
+                ? satellites.findIndex(
+                    satellite => satellite.id === target.lockedBySatId
+                  )
+                : -1
+              const colourMismatch =
+                selectedSatellite !== null &&
+                target.color !== selectedSatellite.color
+              const disabled =
+                selectedSatellite === null || target.locked || colourMismatch
+              const hint = target.locked
+                ? 'This target is already locked'
+                : selectedSatellite === null
+                  ? 'Select a satellite first'
+                  : colourMismatch
+                    ? `Select a ${target.color} satellite to aim this target`
+                    : 'Aims the selected satellite and locks on release'
+              return (
+                <Button
+                  key={target.id}
+                  testID={`ss-target-${index}`}
+                  variant="ghost"
+                  size="sm"
+                  accessibilityLabel={`Lock target ${index + 1}: ${
+                    target.color
+                  }${target.moving ? ', moving' : ''}, ${
+                    target.locked
+                      ? lockedByIndex >= 0
+                        ? `locked by satellite ${lockedByIndex + 1}`
+                        : 'locked'
+                      : 'unlocked'
+                  }`}
+                  accessibilityHint={hint}
+                  accessibilityState={{ disabled }}
+                  disabled={disabled}
+                  className="min-w-[30%] flex-1"
+                  onPress={() => lockTarget(target, index)}
+                >
+                  {`T${index + 1} · ${colorLabel(target.color)}${
+                    target.moving ? ' · moving' : ''
+                  }${target.locked ? ' · locked' : ''}`}
+                </Button>
+              )
+            })}
+          </View>
+          {aimStatus ? (
+            <Text
+              testID="ss-aim-status"
+              className="font-sans text-sm text-cetus-accent"
+            >
+              {aimStatus}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       <Text className="font-sans text-xs text-cetus-ink-muted">
         Drag a satellite beam onto a matching-colour target, then release to
         lock it. Asteroids block the beam — find a clear path.
@@ -374,6 +535,6 @@ export function SatelliteSyncBoard({
           Stop run
         </Button>
       ) : null}
-    </View>
+    </ScrollView>
   )
 }
