@@ -282,11 +282,21 @@ describe('Circuit Hacker pilot — pre-run selection and board', () => {
       accessibilityLabel: `Rotate tile row ${source.row + 1} column ${source.col + 1}`,
     })
     expect(sourceButton.props.disabled).toBe(true)
+    // The Skia shapes are invisible to screen readers: the tile's type,
+    // connectors and lock/power state must be spoken on the cell.
+    expect(sourceButton.props.accessibilityHint).toContain('Power source')
+    expect(sourceButton.props.accessibilityHint).toContain('locked')
+    expect(sourceButton.props.accessibilityValue?.text).toBe('Powered, locked')
 
     let target: { row: number; col: number } | null = null
     for (let row = 0; row < state.rows && !target; row++) {
       for (let col = 0; col < state.cols; col++) {
-        if (!state.grid[row][col].locked) {
+        // A cross keeps the same connectors under rotation; choose a wire
+        // whose spoken directions must change after the tap.
+        if (
+          !state.grid[row][col].locked &&
+          state.grid[row][col].type !== 'cross'
+        ) {
           target = { row, col }
           break
         }
@@ -297,6 +307,12 @@ describe('Circuit Hacker pilot — pre-run selection and board', () => {
       return
     }
     const before = state.grid[target.row][target.col].orientation
+    const hintOf = (row: number, col: number): string =>
+      tree.root.findAllByProps({
+        accessibilityLabel: `Rotate tile row ${row + 1} column ${col + 1}`,
+      })[0].props.accessibilityHint as string
+    const beforeHint = hintOf(target.row, target.col)
+    expect(beforeHint).toContain('connectors')
 
     await press(
       tree,
@@ -308,6 +324,10 @@ describe('Circuit Hacker pilot — pre-run selection and board', () => {
     )
     expect(game.getState().rotationsUsed).toBe(1)
     expect(testText(tree, 'circuit-rotations')).toBe('Rotations 1')
+    // The accessible description follows the new orientation.
+    const afterHint = hintOf(target.row, target.col)
+    expect(afterHint).not.toBe(beforeHint)
+    expect(afterHint).toContain('connectors')
     expect(
       tree.root.findAllByProps({ testID: 'skia-Rect' }).length
     ).toBeGreaterThan(0)
@@ -564,3 +584,77 @@ function formatTestTime(seconds: number): string {
   const remaining = Math.floor(seconds % 60)
   return `${minutes}:${String(remaining).padStart(2, '0')}`
 }
+
+describe('Circuit Hacker pilot — start failure recovery', () => {
+  test('a puzzle-generation failure is caught, cleaned up and recoverable without a POST', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.CIRCUIT_HACKER} />)
+    const controller = controllerOf(tree)
+    await press(tree, 'Select difficulty easy')
+
+    const cleanup = jest.spyOn(CircuitHackerGame.prototype, 'cleanup')
+    jest
+      .spyOn(CircuitHackerGame.prototype, 'startGame')
+      .mockImplementationOnce(() => {
+        throw new Error('generation exhausted')
+      })
+
+    await press(tree, 'Start game')
+
+    expect(controller.getGame()).toBeNull()
+    expect(cleanup).toHaveBeenCalledTimes(1)
+    expect(testText(tree, 'circuit-start-error')).toContain(
+      'Unable to start the circuit board'
+    )
+    expect(renderedText(tree)).toContain('generation exhausted')
+    expect(submitScore).not.toHaveBeenCalled()
+    // Recoverable: the idle Start control is back and no result sheet shows.
+    expect(
+      tree.root.findByProps({ accessibilityLabel: 'Start game' })
+    ).toBeTruthy()
+    expect(tree.root.findAllByProps({ testID: 'result-outcome' })).toHaveLength(
+      0
+    )
+
+    // Retry after generation succeeds: a real run, same no-POST contract.
+    await press(tree, 'Start game')
+    expect(controller.getGame()).not.toBeNull()
+    expect(
+      tree.root.findAllByProps({ testID: 'circuit-start-error' })
+    ).toHaveLength(0)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a start failure during Replay clears the previous finished result', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.CIRCUIT_HACKER} />)
+    const controller = controllerOf(tree)
+    await press(tree, 'Select difficulty easy')
+    await press(tree, 'Start game')
+    await press(tree, 'Stop run')
+    await drain()
+    expect(renderedText(tree)).toContain('Run complete')
+
+    jest
+      .spyOn(CircuitHackerGame.prototype, 'startGame')
+      .mockImplementationOnce(() => {
+        throw new Error('generation exhausted')
+      })
+
+    await press(tree, 'Play again')
+
+    const rendered = renderedText(tree)
+    expect(controller.getGame()).toBeNull()
+    expect(rendered).not.toContain('Run complete')
+    expect(rendered).toContain('Score 0')
+    expect(tree.root.findAllByProps({ testID: 'result-outcome' })).toHaveLength(
+      0
+    )
+    expect(tree.root.findAllByProps({ testID: 'final-score' })).toHaveLength(0)
+    expect(testText(tree, 'circuit-start-error')).toContain(
+      'Unable to start the circuit board'
+    )
+    expect(
+      tree.root.findByProps({ accessibilityLabel: 'Start game' })
+    ).toBeTruthy()
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+})

@@ -1394,6 +1394,10 @@ describe('NativeGameHost — handle variant shares the one host', () => {
 })
 
 describe('NativeGameHost — runtime producers', () => {
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
   test('both producers dispose idempotently: cleanup runs exactly once', () => {
     const deps = {
       submitScore: async () => ({ success: true as const }),
@@ -1416,5 +1420,48 @@ describe('NativeGameHost — runtime producers', () => {
     handleRuntime.dispose()
     handleRuntime.dispose()
     expect(cleanup).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('NativeGameHost — producer setup rollback', () => {
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  test('a throwing projector destroys the already-created game exactly once', () => {
+    const destroy = jest.spyOn(TestNativeGame.prototype, 'destroy')
+    const brokenPort: NativeGamePort = {
+      ...testPort,
+      createProjector: () => {
+        throw new Error('projector boom')
+      },
+    }
+
+    expect(() =>
+      createBaseGameRuntime(brokenPort, {
+        submitScore: async () => ({ success: true as const }),
+        platform: 'ios',
+      })
+    ).toThrow('projector boom')
+    expect(createdGames).toHaveLength(1)
+    expect(destroy).toHaveBeenCalledTimes(1)
+  })
+
+  test('a throwing initial projection (inside the session) also rolls the game back', () => {
+    const destroy = jest.spyOn(TestNativeGame.prototype, 'destroy')
+    const brokenPort: NativeGamePort = {
+      ...testPort,
+      project: () => {
+        throw new Error('project boom')
+      },
+    }
+
+    expect(() =>
+      createBaseGameRuntime(brokenPort, {
+        submitScore: async () => ({ success: true as const }),
+        platform: 'ios',
+      })
+    ).toThrow('project boom')
+    expect(destroy).toHaveBeenCalledTimes(1)
   })
 })
