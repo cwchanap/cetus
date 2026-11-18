@@ -277,15 +277,20 @@ describe('the native game routing graph stays portable', () => {
             'src/games/rewards.ts',
             'src/games/circuit-hacker/controller.ts',
             'src/games/boards/CircuitHackerBoard.tsx',
+            'src/games/satellite-sync/controller.ts',
+            'src/games/boards/SatelliteSyncBoard.tsx',
+            'src/games/canvas/useFrameLoop.ts',
         ]) {
             expect(reachable).toContain(expected)
         }
         // The shared producer must not fake a BaseGame model for handles.
-        const source = readFileSync(
-            join(mobileRoot, 'src/games/circuit-hacker/controller.ts'),
-            'utf-8'
-        )
-        expect(source).not.toMatch(/extends\s+BaseGame/)
+        for (const controller of [
+            'src/games/circuit-hacker/controller.ts',
+            'src/games/satellite-sync/controller.ts',
+        ]) {
+            const source = readFileSync(join(mobileRoot, controller), 'utf-8')
+            expect(source).not.toMatch(/extends\s+BaseGame/)
+        }
     })
 })
 
@@ -476,6 +481,22 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
     [
         '@cetus/games/circuit-hacker/utils',
         /packages\/games\/src\/circuit-hacker\/utils\.ts$/,
+    ],
+    [
+        '@cetus/games/satellite-sync/game',
+        /packages\/games\/src\/satellite-sync\/game\.ts$/,
+    ],
+    [
+        '@cetus/games/satellite-sync/geometry',
+        /packages\/games\/src\/satellite-sync\/geometry\.ts$/,
+    ],
+    [
+        '@cetus/games/satellite-sync/levels',
+        /packages\/games\/src\/satellite-sync\/levels\.ts$/,
+    ],
+    [
+        '@cetus/games/satellite-sync/types',
+        /packages\/games\/src\/satellite-sync\/types\.ts$/,
     ],
     [
         '@cetus/games/shared/geometry',

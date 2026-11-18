@@ -57,6 +57,20 @@ export function bearing(from: WorldPoint, to: WorldPoint): number {
     return normalizeAngle((Math.atan2(dx, -dy) * 180) / Math.PI)
 }
 
+/** The point reached by travelling `distance` from `from` along a bearing
+ *  (inverse of `bearing`; same 0 = up, 90 = right convention). */
+export function pointAlongBearing(
+    from: WorldPoint,
+    angleDeg: number,
+    distance: number
+): WorldPoint {
+    const rad = (angleDeg * Math.PI) / 180
+    return {
+        x: from.x + Math.sin(rad) * distance,
+        y: from.y - Math.cos(rad) * distance,
+    }
+}
+
 export function segmentIntersectsCircle(
     p1: WorldPoint,
     p2: WorldPoint,

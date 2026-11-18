@@ -7,6 +7,7 @@ import {
     bearing,
     segmentIntersectsCircle,
     findLockableTarget,
+    pointAlongBearing,
 } from './geometry'
 
 describe('normalizeAngle', () => {
@@ -54,6 +55,19 @@ describe('bearing', () => {
 
     it('points down (180) when target is directly below', () => {
         expect(bearing({ x: 0, y: 0 }, { x: 0, y: 1 })).toBeCloseTo(180)
+    })
+})
+
+describe('pointAlongBearing', () => {
+    it('extends a world point along a bearing (0 = up, 90 = right)', () => {
+        const top = polarToWorld(0, 0)
+        const right = pointAlongBearing(top, 90, 2)
+        expect(right.x).toBeCloseTo(2)
+        expect(right.y).toBeCloseTo(-ringRadius(0))
+
+        const down = pointAlongBearing({ x: 0, y: 0 }, 180, 1)
+        expect(down.x).toBeCloseTo(0)
+        expect(down.y).toBeCloseTo(1)
     })
 })
 

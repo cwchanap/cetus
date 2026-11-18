@@ -79,11 +79,13 @@ import type {
 } from '@cetus/games/asteroid-drift/types'
 import { DIFFICULTY_CONFIGS } from '@cetus/games/circuit-hacker/utils'
 import type { CircuitHackerStats } from '@cetus/games/circuit-hacker/types'
+import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
 import {
     CIRCUIT_HACKER_DEFAULT_DIFFICULTY,
     CircuitHackerController,
     projectCircuitHackerState,
 } from './circuit-hacker/controller'
+import { SatelliteSyncController } from './satellite-sync/controller'
 import type { HandleResultHelper } from './handleResult'
 import { AsteroidDriftBoard } from './boards/AsteroidDriftBoard'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
@@ -98,6 +100,7 @@ import { PatternPulseBoard } from './boards/PatternPulseBoard'
 import { PotionSorterBoard } from './boards/PotionSorterBoard'
 import { QuickMathBoard } from './boards/QuickMathBoard'
 import { ReflexBoard } from './boards/ReflexBoard'
+import { SatelliteSyncBoard } from './boards/SatelliteSyncBoard'
 import { SignalSwitchBoard } from './boards/SignalSwitchBoard'
 import { SnakeBoard } from './boards/SnakeBoard'
 import { SudokuBoard } from './boards/SudokuBoard'
@@ -888,11 +891,26 @@ const circuitHackerHandlePort: NativeHandlePort = {
     view: CircuitHackerBoard,
 }
 
+const satelliteSyncHandlePort: NativeHandlePort = {
+    gameId: GameID.SATELLITE_SYNC,
+    initialSnapshot: {
+        status: 'idle',
+        score: 0,
+        timeRemaining: SATELLITE_SYNC_LEVELS[0].timeBudget,
+        projected: { level: 1 },
+        result: null,
+    },
+    createBinding: context => new SatelliteSyncController(context),
+    resultOutcomeLabel: result =>
+        result.stats.gameCompleted ? 'Mission complete' : "Time's up",
+    view: SatelliteSyncBoard,
+}
+
 /**
  * The single native game registry (HPA-425 wave 1, extended per HPA-535).
  * Keys are computed from the imported `GameID` enum members — never bare
  * id strings — and presence in this map is what the Games hub, the detail
- * Play button and the play route all consult. Seventeen playable, six
+ * Play button and the play route all consult. Eighteen playable, five
  * disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
@@ -913,6 +931,7 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.PATH_NAVIGATOR]: { port: pathNavigatorPort },
     [GameID.ASTEROID_DRIFT]: { port: asteroidDriftPort },
     [GameID.CIRCUIT_HACKER]: { handlePort: circuitHackerHandlePort },
+    [GameID.SATELLITE_SYNC]: { handlePort: satelliteSyncHandlePort },
 }
 
 /** Own-key lookup so unknown strings (even "__proto__") never resolve. */

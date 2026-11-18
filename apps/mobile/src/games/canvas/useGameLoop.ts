@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
 import type { BaseGame } from '@cetus/games'
+
+import { useFrameLoop } from './useFrameLoop'
 
 const lifecycleSignature = (game: BaseGame): string => {
     const { isActive, isPaused, isGameOver } = game.getState()
@@ -27,78 +28,35 @@ const WAKE_EVENTS = [
 // the first resumed frame at a zero delta instead of accruing the pause.
 const TIMESTAMP_RESET_EVENTS = ['pause', 'resume'] as const
 
+/** BaseGame adapter over the shared frame-loop core: unchanged behavior
+ *  for every existing board. */
 export function useGameLoop(game: BaseGame, onFrame: () => void): void {
-    const onFrameRef = useRef(onFrame)
-    const lastTimestampRef = useRef<number | null>(null)
-    const signatureRef = useRef('')
-
-    useEffect(() => {
-        onFrameRef.current = onFrame
-    })
-
-    useEffect(() => {
-        lastTimestampRef.current = null
-        signatureRef.current = lifecycleSignature(game)
-        onFrameRef.current()
-
-        let frameId: number | null = null
-        const schedule = (): void => {
-            if (frameId === null) {
-                frameId = requestAnimationFrame(frame)
-            }
-        }
-        const frame = (now: number): void => {
-            frameId = null
-            const signatureBefore = signatureRef.current
-            if (lifecycleSignature(game) !== signatureBefore) {
-                lastTimestampRef.current = null
-            }
-            const state = game.getState()
-            const running = state.isActive && !state.isPaused
-            if (running) {
-                const last = lastTimestampRef.current
-                const deltaSeconds =
-                    last === null
-                        ? 0
-                        : Math.min(Math.max(0, now - last) / 1000, 0.1)
-                lastTimestampRef.current = now
-                game.update(deltaSeconds)
-            } else {
-                lastTimestampRef.current = null
-            }
-            const signature = lifecycleSignature(game)
-            signatureRef.current = signature
-            if (running || signature !== signatureBefore) {
-                onFrameRef.current()
-            }
-            if (running) {
-                schedule()
-            }
-        }
-        schedule()
-
-        const wake = (): void => {
-            schedule()
-        }
-        const resetTimestamp = (): void => {
-            lastTimestampRef.current = null
-        }
-        for (const eventType of WAKE_EVENTS) {
-            game.on(eventType, wake)
-        }
-        for (const eventType of TIMESTAMP_RESET_EVENTS) {
-            game.on(eventType, resetTimestamp)
-        }
-        return () => {
-            if (frameId !== null) {
-                cancelAnimationFrame(frameId)
-            }
-            for (const eventType of WAKE_EVENTS) {
-                game.off(eventType, wake)
-            }
-            for (const eventType of TIMESTAMP_RESET_EVENTS) {
-                game.off(eventType, resetTimestamp)
-            }
-        }
-    }, [game])
+    useFrameLoop(
+        {
+            isRunning: () => {
+                const { isActive, isPaused } = game.getState()
+                return isActive && !isPaused
+            },
+            step: deltaSeconds => game.update(deltaSeconds),
+            subscribe: (wake, resetTimestamp) => {
+                for (const eventType of WAKE_EVENTS) {
+                    game.on(eventType, wake)
+                }
+                for (const eventType of TIMESTAMP_RESET_EVENTS) {
+                    game.on(eventType, resetTimestamp)
+                }
+                return () => {
+                    for (const eventType of WAKE_EVENTS) {
+                        game.off(eventType, wake)
+                    }
+                    for (const eventType of TIMESTAMP_RESET_EVENTS) {
+                        game.off(eventType, resetTimestamp)
+                    }
+                }
+            },
+            onFrame,
+            lifecycleKey: () => lifecycleSignature(game),
+        },
+        game
+    )
 }
