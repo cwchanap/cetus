@@ -658,3 +658,62 @@ describe('Circuit Hacker pilot — start failure recovery', () => {
     expect(submitScore).not.toHaveBeenCalled()
   })
 })
+
+describe('Circuit Hacker pilot — failed Replay vs pending save', () => {
+  test('a pending previous save cannot resurrect its result after a failed Replay, but its award still forwards', async () => {
+    let releaseSave: ((value: ScoreSubmissionResult) => void) | undefined
+    submitScore.mockImplementation(
+      () =>
+        new Promise<ScoreSubmissionResult>(resolve => {
+          releaseSave = resolve
+        })
+    )
+    const tree = await render(
+      <NativeGameHost gameId={GameID.CIRCUIT_HACKER} settledUserId="user-1" />
+    )
+    const controller = controllerOf(tree)
+    await press(tree, 'Select difficulty easy')
+    await press(tree, 'Start game')
+    await act(async () => {
+      solveBoard(controller)
+    })
+    await drain()
+    expect(testText(tree, 'result-save-status')).toBe('Saving score…')
+
+    // Replay fails BEFORE onGameStart → no beginRun for the new run.
+    jest
+      .spyOn(CircuitHackerGame.prototype, 'startGame')
+      .mockImplementationOnce(() => {
+        throw new Error('generation exhausted')
+      })
+    await press(tree, 'Play again')
+    expect(controller.getGame()).toBeNull()
+    expect(testText(tree, 'circuit-start-error')).toContain(
+      'Unable to start the circuit board'
+    )
+
+    // The old save now succeeds. Its run was invalidated by the recovery
+    // idle transition, so it must not restore the finished result …
+    await act(async () => {
+      releaseSave?.({ success: true, newAchievements: [ACHIEVEMENT] })
+    })
+    await drain()
+
+    const rendered = renderedText(tree)
+    expect(rendered).not.toContain('Score saved')
+    expect(rendered).not.toContain('Run complete')
+    expect(tree.root.findAllByProps({ testID: 'result-outcome' })).toHaveLength(
+      0
+    )
+    expect(tree.root.findAllByProps({ testID: 'final-score' })).toHaveLength(0)
+    expect(testText(tree, 'circuit-start-error')).toContain(
+      'Unable to start the circuit board'
+    )
+    expect(
+      tree.root.findByProps({ accessibilityLabel: 'Start game' })
+    ).toBeTruthy()
+    // … while the committed award still reaches the banner exactly once.
+    expect(rendered.match(/Circuit Master/g)).toHaveLength(1)
+    expect(submitScore).toHaveBeenCalledTimes(1)
+  })
+})
