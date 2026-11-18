@@ -1542,6 +1542,42 @@ test.describe('Ice Slide', () => {
         ).toBeUndefined()
     })
 
+    test('submits a positive partial Campaign run with no score context', async ({
+        page,
+    }) => {
+        let scoresBody: Record<string, unknown> = {}
+        let scoresRequests = 0
+        await page.route('**/api/scores', async route => {
+            scoresRequests += 1
+            scoresBody = JSON.parse(route.request().postData() ?? '{}')
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ success: true, newAchievements: [] }),
+            })
+        })
+        await page.goto('/ice-slide')
+        await startGameWhenReady(page)
+        // Keyboard input attaches after the async canvas setup.
+        await expectVisibleGameSurface(page, '#game-canvas-container canvas')
+
+        // ArrowDown clears First Frost in one slide; end on stage 2.
+        await page.keyboard.press('ArrowDown')
+        await expect(page.locator('#level')).toHaveText('2', { timeout: 5000 })
+        await page.locator('#end-btn').click()
+        await expect(page.locator('#game-over-overlay')).not.toHaveClass(
+            /hidden/
+        )
+
+        await expect.poll(() => scoresRequests, { timeout: 10_000 }).toBe(1)
+        expect(scoresBody.score).toBeGreaterThan(0)
+        expect(scoresBody.context).toBeUndefined()
+        expect(scoresBody).toMatchObject({
+            gameId: 'ice_slide',
+            gameData: { mode: 'campaign', solved: false },
+        })
+    })
+
     test('locks input after a non-final Expedition clear until Continue', async ({
         page,
     }) => {

@@ -16,8 +16,13 @@ import {
 } from '@cetus/games/ice-slide/daily'
 import {
     createIceSlideExpeditionRunDefinition,
+    createIceSlideExpeditionSeed,
     type IceSlideExpeditionRouteChoice,
 } from '@cetus/games/ice-slide/expedition'
+import {
+    iceSlideScoreSubmission,
+    type IceSlideScoreSubmission,
+} from '@cetus/games/ice-slide/scoreSubmission'
 import {
     cloneIceSlideRunDefinition,
     parseIceSlideDailyRunKey,
@@ -36,17 +41,6 @@ import type {
 const runGuard = createRunGuard()
 
 export const CELL_SIZE = 48
-
-function createExpeditionSeed(): string {
-    const words = new Uint32Array(4)
-    ;(
-        words as unknown as { __iceSlideExpeditionSeed?: boolean }
-    ).__iceSlideExpeditionSeed = true
-    crypto.getRandomValues(words)
-    return Array.from(words, word => word.toString(16).padStart(8, '0')).join(
-        ''
-    )
-}
 
 /**
  * Shared-HUD values the island renders from React state (HPA-393 Stage
@@ -423,35 +417,13 @@ export async function initializeIceSlide(
         setVisible('expedition-summary', true)
     }
 
-    const submitScore = (finalScore: number): void => {
-        if (!game || finalScore <= 0) {
-            return
-        }
-        const gameData = game.getGameData()
+    const saveSubmission = (submission: IceSlideScoreSubmission): void => {
         const runId = runGuard.current()
         const isStale = () => runGuard.isStale(runId)
-        const options =
-            gameData.mode === 'daily'
-                ? {
-                      isStale,
-                      context: {
-                          mode: 'daily' as const,
-                          competitionKey: gameData.runKey,
-                          rulesetVersion: gameData.rulesetVersion,
-                      },
-                  }
-                : gameData.mode === 'expedition'
-                  ? {
-                        isStale,
-                        context: {
-                            mode: 'expedition' as const,
-                            rulesetVersion: gameData.rulesetVersion,
-                        },
-                    }
-                  : { isStale }
+        const gameData = submission.gameData
         saveGameScore(
             GameID.ICE_SLIDE,
-            finalScore,
+            submission.score,
             result => {
                 if (isStale()) {
                     return
@@ -480,9 +452,26 @@ export async function initializeIceSlide(
                 callbacks.onError?.('Score not saved', formatError(error))
             },
             gameData,
-            options
+            submission.context
+                ? { isStale, context: submission.context }
+                : { isStale }
         )
     }
+
+    /** The ONE shared score decision (see `iceSlideScoreSubmission`). */
+    const policyFor = (
+        score: number,
+        reason: 'win' | 'stop',
+        wasPlaying: boolean
+    ): IceSlideScoreSubmission | null =>
+        game
+            ? iceSlideScoreSubmission({
+                  score,
+                  gameData: game.getGameData(),
+                  reason,
+                  wasPlaying,
+              })
+            : null
 
     const canAcceptMove = (): boolean =>
         !!game && game.getState().status === 'playing' && !inputLocked
@@ -613,7 +602,10 @@ export async function initializeIceSlide(
                 hideStageClear()
                 hideRouteChoice()
                 callbacks.onRunEnded?.('MISSION COMPLETE!', finalScore, true)
-                submitScore(finalScore)
+                const submission = policyFor(finalScore, 'win', false)
+                if (submission) {
+                    saveSubmission(submission)
+                }
                 syncHud()
                 populateExpeditionSummary()
             },
@@ -651,7 +643,7 @@ export async function initializeIceSlide(
             if (mode === 'expedition') {
                 let run: IceSlideRunDefinition
                 try {
-                    const seed = createExpeditionSeed()
+                    const seed = createIceSlideExpeditionSeed()
                     run = createIceSlideExpeditionRunDefinition(seed, {
                         onFallback: info => {
                             if (import.meta.env.DEV) {
@@ -704,16 +696,17 @@ export async function initializeIceSlide(
                 return
             }
             const { status, score, mode } = game.getState()
+            const wasPlaying = status === 'playing'
+            const submission = policyFor(score, 'stop', wasPlaying)
             if (mode === 'expedition') {
-                if (status !== 'playing') {
+                if (!wasPlaying) {
                     return
                 }
                 hideStageClear()
-                const shouldSubmit = score > 0
                 game.stop()
                 callbacks.onRunEnded?.('RUN ENDED', score, false)
-                if (shouldSubmit) {
-                    submitScore(score)
+                if (submission) {
+                    saveSubmission(submission)
                 }
                 syncHud()
                 populateExpeditionSummary()
@@ -721,7 +714,7 @@ export async function initializeIceSlide(
             }
 
             if (mode === 'daily') {
-                if (status !== 'playing') {
+                if (!wasPlaying) {
                     return
                 }
                 hideStageClear()
@@ -731,11 +724,10 @@ export async function initializeIceSlide(
                 return
             }
 
-            const shouldSubmit = status === 'playing' && score > 0
             game.stop()
-            if (shouldSubmit) {
+            if (submission) {
                 callbacks.onRunEnded?.('RUN ENDED', score, false)
-                submitScore(score)
+                saveSubmission(submission)
             }
         },
 

@@ -54,6 +54,8 @@ import type { CircuitHackerController } from '../src/games/circuit-hacker/contro
 import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
 import { SatelliteSyncGame } from '@cetus/games/satellite-sync/game'
 import type { SatelliteSyncController } from '../src/games/satellite-sync/controller'
+import type { IceSlideController } from '../src/games/ice-slide/controller'
+import { IceSlideBoard } from '../src/games/boards/IceSlideBoard'
 
 // Any-constructor shape: `never` params accept every concrete ctor.
 type AnyGameCtor = abstract new (...args: never[]) => unknown
@@ -82,7 +84,7 @@ const hostDeps = (platform: 'ios' | 'android') => {
     return { submitScore, platform }
 }
 
-// HPA-425 wave 1 plus HPA-535 Stages 1–2: exactly these eighteen games are
+// HPA-425 wave 1 plus HPA-535 Stages 1–3: exactly these nineteen games are
 // native-destined. The list is duplicated here on purpose — the test must
 // fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
@@ -92,6 +94,7 @@ const EXPECTED_NATIVE_IDS = [
     GameID.EVADER,
     GameID.GAME_2048,
     GameID.GRAVITY_FLIP,
+    GameID.ICE_SLIDE,
     GameID.MEMORY_MATRIX,
     GameID.MINE_GRID,
     GameID.PATH_NAVIGATOR,
@@ -109,7 +112,7 @@ const EXPECTED_NATIVE_IDS = [
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the eighteen registry game ids', () => {
+    test('contains exactly the nineteen registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -118,16 +121,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 18 playable, 5 disabled of 23', () => {
+    test('registry and catalog counts line up: 19 playable, 4 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(18)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(19)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(5)
+        expect(disabled).toHaveLength(4)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -143,9 +146,10 @@ describe('NATIVE_GAMES registry', () => {
         expect(getNativeGameEntry('toString')).toBeUndefined()
         expect(getNativeGameEntry('constructor')).toBeUndefined()
         expect(isNativePlayable('__proto__')).toBe(false)
-        // The five unported registry games stay disabled.
+        // The four unported registry games stay disabled.
         expect(isNativePlayable(GameID.TETRIS)).toBe(false)
-        expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(false)
+        expect(isNativePlayable(GameID.RHYTHM_REACTOR)).toBe(false)
+        expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(true)
         expect(isNativePlayable(GameID.EVADER)).toBe(true)
         expect(isNativePlayable(GameID.PATH_NAVIGATOR)).toBe(true)
         expect(isNativePlayable(GameID.ASTEROID_DRIFT)).toBe(true)
@@ -354,6 +358,111 @@ describe('NATIVE_GAMES registry', () => {
             SATELLITE_SYNC_LEVELS[0].timeBudget
         )
         expect(handlers.setProjected).toHaveBeenLastCalledWith({ level: 1 })
+    })
+
+    test('Ice Slide registers the handle variant with an idle mode/HUD state', () => {
+        const entry = getNativeGameEntry(GameID.ICE_SLIDE)
+        expect(entry?.port).toBeUndefined()
+        expect(entry?.handlePort).toBeDefined()
+        const port = entry?.handlePort
+        if (!port) {
+            return
+        }
+        expect(port.gameId).toBe(GameID.ICE_SLIDE)
+        expect(port.view).toBe(IceSlideBoard)
+        expect(port.initialSnapshot).toMatchObject({
+            status: 'idle',
+            score: 0,
+            timeRemaining: 0,
+            result: null,
+            projected: {
+                mode: 'campaign',
+                status: 'idle',
+                rows: 0,
+                grid: [],
+                canChooseMode: true,
+                canMove: false,
+                canUndo: false,
+            },
+        })
+        expect(JSON.parse(JSON.stringify(port.initialSnapshot))).toEqual(
+            port.initialSnapshot
+        )
+        const label = (gameCompleted: boolean) =>
+            port.resultOutcomeLabel?.({
+                score: 10,
+                stats: { finalScore: 10, timeElapsed: 0, gameCompleted },
+            } as never)
+        expect(label(true)).toBe('Mission complete')
+        expect(label(false)).toBe('Run ended')
+    })
+
+    test('the Ice Slide controller starts lazily and idles a zero-score stop', () => {
+        const port = getNativeGameEntry(GameID.ICE_SLIDE)?.handlePort
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        const handlers = {
+            onStart: jest.fn(),
+            onEnd: jest.fn(),
+            onIdle: jest.fn(),
+            onTime: jest.fn(),
+            onScore: jest.fn(),
+            setProjected: jest.fn(),
+        }
+        const results = {
+            beginRun: jest.fn(),
+            finishAndSave: jest.fn(),
+            finishLocal: jest.fn(),
+            idle: jest.fn(),
+        }
+        const binding = port.createBinding({
+            ...hostDeps('android'),
+            handlers,
+            results,
+        }) as unknown as IceSlideController
+
+        expect(binding.getGame()).toBeNull()
+        expect(binding.getProjection()).toMatchObject({
+            mode: 'campaign',
+            status: 'idle',
+            rows: 0,
+            canChooseMode: true,
+            canMove: false,
+        })
+
+        binding.start()
+        const game = binding.getGame()
+        expect(game?.getState().mode).toBe('campaign')
+        expect(game?.getState().status).toBe('playing')
+        expect(results.beginRun).toHaveBeenCalledWith(0)
+        expect(JSON.parse(JSON.stringify(binding.getProjection()))).toEqual(
+            binding.getProjection()
+        )
+        expect(binding.getProjection()).toMatchObject({
+            rows: 5,
+            cols: 5,
+            level: 1,
+            levelsTotal: 8,
+            canMove: true,
+            canChooseMode: false,
+        })
+
+        binding.stop()
+        expect(binding.getGame()).toBeNull()
+        expect(results.idle).toHaveBeenCalledTimes(1)
+        expect(results.finishAndSave).not.toHaveBeenCalled()
+        expect(handlers.onScore).toHaveBeenLastCalledWith(0)
+        expect(handlers.onTime).toHaveBeenLastCalledWith(0)
+        expect(handlers.setProjected).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                status: 'idle',
+                rows: 0,
+                canChooseMode: true,
+            })
+        )
+        binding.cleanup()
     })
 
     test('the Sudoku projector reads the elapsed clock off the constructed instance', async () => {

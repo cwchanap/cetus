@@ -279,6 +279,8 @@ describe('the native game routing graph stays portable', () => {
             'src/games/boards/CircuitHackerBoard.tsx',
             'src/games/satellite-sync/controller.ts',
             'src/games/boards/SatelliteSyncBoard.tsx',
+            'src/games/ice-slide/controller.ts',
+            'src/games/boards/IceSlideBoard.tsx',
             'src/games/canvas/useFrameLoop.ts',
         ]) {
             expect(reachable).toContain(expected)
@@ -287,6 +289,7 @@ describe('the native game routing graph stays portable', () => {
         for (const controller of [
             'src/games/circuit-hacker/controller.ts',
             'src/games/satellite-sync/controller.ts',
+            'src/games/ice-slide/controller.ts',
         ]) {
             const source = readFileSync(join(mobileRoot, controller), 'utf-8')
             expect(source).not.toMatch(/extends\s+BaseGame/)
@@ -497,6 +500,31 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
     [
         '@cetus/games/satellite-sync/types',
         /packages\/games\/src\/satellite-sync\/types\.ts$/,
+    ],
+    [
+        '@cetus/games/ice-slide/game',
+        /packages\/games\/src\/ice-slide\/game\.ts$/,
+    ],
+    [
+        '@cetus/games/ice-slide/daily',
+        /packages\/games\/src\/ice-slide\/daily\.ts$/,
+    ],
+    [
+        '@cetus/games/ice-slide/expedition',
+        /packages\/games\/src\/ice-slide\/expedition\.ts$/,
+    ],
+    [
+        '@cetus/games/ice-slide/objectives',
+        /packages\/games\/src\/ice-slide\/objectives\.ts$/,
+    ],
+    ['@cetus/games/ice-slide/run', /packages\/games\/src\/ice-slide\/run\.ts$/],
+    [
+        '@cetus/games/ice-slide/scoreSubmission',
+        /packages\/games\/src\/ice-slide\/scoreSubmission\.ts$/,
+    ],
+    [
+        '@cetus/games/ice-slide/types',
+        /packages\/games\/src\/ice-slide\/types\.ts$/,
     ],
     [
         '@cetus/games/shared/geometry',

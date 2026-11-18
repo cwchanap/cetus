@@ -7,6 +7,8 @@ module.exports = {
   // Workspace TS sources resolve through node_modules symlinks; transform
   // them (and the native deps jest-expo already allowlists) for Node.
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|@cetus/.*|nativewind|react-native-css))',
+    // `standard-navigation` is expo-router's ESM navigation helper; the Ice
+    // Slide board reaches expo-router through the shared leaderboard kit.
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|@cetus/.*|nativewind|react-native-css|standard-navigation))',
   ],
 }

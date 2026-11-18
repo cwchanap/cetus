@@ -27,6 +27,44 @@ export type { IceSlideExpeditionRouteChoice } from '@cetus/shared/game-data'
 import type { IceSlideExpeditionRouteChoice } from '@cetus/shared/game-data'
 export type IceSlideExpeditionChoiceStage = 2 | 4
 
+/** Fills the four seed words; injectable for tests and non-WebCrypto hosts. */
+export type IceSlideRandomWordSource = (words: Uint32Array) => void
+
+const fillRandomWords: IceSlideRandomWordSource = words => {
+    const cryptoApi = (
+        globalThis as unknown as {
+            crypto?: { getRandomValues?: (array: Uint32Array) => void }
+        }
+    ).crypto
+    if (typeof cryptoApi?.getRandomValues === 'function') {
+        cryptoApi.getRandomValues(words)
+        return
+    }
+    // Minimal fallback where Hermes has no WebCrypto (no new RNG library).
+    for (let index = 0; index < words.length; index += 1) {
+        words[index] = Math.floor(Math.random() * 0x1_0000_0000)
+    }
+}
+
+/**
+ * The shared web/native Expedition seed: 4×32-bit words formatted as 32
+ * lowercase hex characters (no separator). Web keeps
+ * `crypto.getRandomValues`; the `__iceSlideExpeditionSeed` marker lets the
+ * web e2e pin that one draw without touching unrelated crypto calls.
+ */
+export function createIceSlideExpeditionSeed(
+    randomWords: IceSlideRandomWordSource = fillRandomWords
+): string {
+    const words = new Uint32Array(4)
+    ;(
+        words as unknown as { __iceSlideExpeditionSeed?: boolean }
+    ).__iceSlideExpeditionSeed = true
+    randomWords(words)
+    return Array.from(words, word => word.toString(16).padStart(8, '0')).join(
+        ''
+    )
+}
+
 export interface IceSlideExpeditionRouteEffect {
     run: IceSlideRunDefinition
     undoChargesGranted: number
