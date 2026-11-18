@@ -41,9 +41,11 @@ export interface HandleResultOptions {
  * score-eligible finish publishes a provisional `pending` result, issues
  * exactly ONE injected POST, then settles the SAME run to `saved` or
  * `unconfirmed`. A non-saving finish publishes a local result with no
+ * published. A non-saving finish publishes a local result with no
  * `saveStatus` at all. Stale prior-run completions never overwrite a newer
- * run's result, yet a prior run's committed awards still forward once
- * (matching BaseGame); disposal suppresses everything. No retries.
+ * run's result, `idle` invalidates any in-flight run, yet a prior run's
+ * committed awards still forward once (matching BaseGame); disposal
+ * suppresses everything. No retries.
  */
 export function createHandleResult(options: HandleResultOptions) {
     const guard = createRunGuard()
@@ -141,6 +143,12 @@ export function createHandleResult(options: HandleResultOptions) {
         },
 
         idle(): void {
+            // Stop / failed-start boundary: invalidate the current run token
+            // so an in-flight save can no longer settle the previous run's
+            // result over fresh UI. Committed rewards still forward
+            // independently in finishAndSave.
+            guard.next()
+            finishedRun = null
             options.handlers.onIdle?.()
         },
     }

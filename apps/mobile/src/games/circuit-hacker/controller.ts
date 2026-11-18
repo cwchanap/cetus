@@ -203,7 +203,10 @@ export class CircuitHackerController {
             }`
             this.deps.handlers.onScore?.(0)
             this.deps.handlers.onTime?.(duration)
-            this.deps.handlers.onIdle?.()
+            // Shared idle transition also invalidates the run token, so a
+            // save still in flight from the previous finished run can never
+            // settle its result over this recovery UI (rewards still land).
+            this.deps.results.idle()
             this.publish()
         }
     }

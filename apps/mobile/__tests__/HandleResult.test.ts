@@ -254,6 +254,61 @@ describe('createHandleResult', () => {
         )
     })
 
+    test('idle invalidates the current run so a pending save cannot restore its result, while committed rewards still forward once', async () => {
+        let releaseSave: ((value: ScoreSubmissionResult) => void) | undefined
+        const submitScore = jest.fn(
+            () =>
+                new Promise<ScoreSubmissionResult>(resolve => {
+                    releaseSave = resolve
+                })
+        )
+        const { session, results, onRewards } = setup({
+            submitter: submitScore,
+        })
+
+        results.beginRun(IDLE_TIME)
+        results.finishAndSave({
+            score: 100,
+            stats: STATS,
+            gameData: { difficulty: 'easy' },
+        })
+        expect(session.getCachedSnapshot().result).toMatchObject({
+            saveStatus: 'pending',
+        })
+
+        // Failed Replay / manual idle boundary: the run token must be
+        // invalidated even though no new beginRun happened.
+        results.idle()
+        expect(session.getCachedSnapshot().status).toBe('idle')
+        expect(session.getCachedSnapshot().result).toBeNull()
+
+        releaseSave?.({
+            success: true,
+            newAchievements: [
+                {
+                    id: 'late-idle',
+                    name: 'Late Idle',
+                    description: 'd',
+                    icon: 'x',
+                    rarity: AchievementRarity.RARE,
+                },
+            ],
+        })
+        await flush()
+
+        const snapshot = session.getCachedSnapshot()
+        expect(snapshot.status).toBe('idle')
+        expect(snapshot.result).toBeNull()
+        // The save legitimately committed: its award still forwards once.
+        expect(onRewards).toHaveBeenCalledTimes(1)
+        expect(onRewards).toHaveBeenCalledWith(
+            expect.objectContaining({
+                achievements: [expect.objectContaining({ id: 'late-idle' })],
+            })
+        )
+        expect(submitScore).toHaveBeenCalledTimes(1)
+    })
+
     test('disposal suppresses late UI updates and rewards', async () => {
         let releaseSave: ((value: ScoreSubmissionResult) => void) | undefined
         const submitScore = jest.fn(
