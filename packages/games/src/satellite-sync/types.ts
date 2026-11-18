@@ -65,9 +65,20 @@ export interface RuntimeObstacle {
     moving: MovingConfig | null
 }
 
+/** Identity of the model instance and entity generation a gesture began
+ *  against; lifetime changes invalidate outstanding gesture events. */
+export interface SatelliteAimIdentity {
+    modelInstanceId: number
+    entityGeneration: number
+}
+
 /** Pre-drag aim/lock state captured before `beginAim` mutates a satellite,
- *  so a cancelled drag can be restored without scoring. */
+ *  so a cancelled drag can be restored without scoring. `modelInstanceId`
+ *  and `entityGeneration` bind the snapshot to the model/run and level
+ *  entity set that produced it; a stale snapshot is rejected. */
 export interface SatelliteAimSnapshot {
+    modelInstanceId: number
+    entityGeneration: number
     satelliteId: string
     aimAngle: number
     snapCandidateId: string | null
