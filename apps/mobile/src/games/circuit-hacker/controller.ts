@@ -36,12 +36,16 @@ export interface CircuitHackerProjection extends NativeGameProjection {
     rotationsUsed: number
     cores: number
     poweredCores: number
+    /** Honest, recoverable Start failure (e.g. puzzle generation); null
+     *  while idle/running/finished normally. */
+    startError: string | null
 }
 
 /** Serializable visible snapshot: copied cell values, never grid refs. */
 export const projectCircuitHackerState = (
     difficulty: Difficulty,
-    state: CircuitHackerState | null
+    state: CircuitHackerState | null,
+    startError: string | null = null
 ): CircuitHackerProjection => {
     const tier = DIFFICULTY_CONFIGS[difficulty]
     const rows = state?.rows ?? tier.rows
@@ -84,6 +88,7 @@ export const projectCircuitHackerState = (
                   pos => state.grid[pos.row][pos.col].powered
               ).length
             : 0,
+        startError,
     }
 }
 
@@ -100,6 +105,7 @@ export const projectCircuitHackerState = (
 export class CircuitHackerController {
     private game: CircuitHackerGame | null = null
     private difficulty: Difficulty
+    private startError: string | null = null
 
     constructor(
         private readonly deps: {
@@ -123,7 +129,8 @@ export class CircuitHackerController {
     getProjection(): CircuitHackerProjection {
         return projectCircuitHackerState(
             this.difficulty,
-            this.game?.getState() ?? null
+            this.game?.getState() ?? null,
+            this.startError
         )
     }
 
@@ -143,6 +150,8 @@ export class CircuitHackerController {
 
     start(): void {
         this.game?.cleanup()
+        this.game = null
+        this.startError = null
         const difficulty = this.difficulty
         const duration = DIFFICULTY_CONFIGS[difficulty].duration
         const game = new CircuitHackerGame(
@@ -180,7 +189,23 @@ export class CircuitHackerController {
             }
         )
         this.game = game
-        game.startGame()
+        try {
+            game.startGame()
+        } catch (error) {
+            // Generation exhausted its retries (or the model failed to
+            // start): drop the failed instance and return an HONEST,
+            // recoverable idle error — no score, no pending save, and no
+            // stale finished result left over from a Replay.
+            game.cleanup()
+            this.game = null
+            this.startError = `Unable to start the circuit board: ${
+                error instanceof Error ? error.message : String(error)
+            }`
+            this.deps.handlers.onScore?.(0)
+            this.deps.handlers.onTime?.(duration)
+            this.deps.handlers.onIdle?.()
+            this.publish()
+        }
     }
 
     rotateTile(row: number, col: number): void {

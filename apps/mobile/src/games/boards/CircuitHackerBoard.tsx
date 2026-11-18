@@ -1,7 +1,11 @@
 import { Pressable, Text, View } from 'react-native'
 import { Button } from '@cetus/ui'
 import { Circle, Group, Path, Rect } from '@shopify/react-native-skia'
-import type { Difficulty, Direction } from '@cetus/games/circuit-hacker/types'
+import type {
+  Difficulty,
+  Direction,
+  TileType,
+} from '@cetus/games/circuit-hacker/types'
 import {
   DIFFICULTY_CONFIGS,
   getBaseConnectors,
@@ -43,8 +47,47 @@ const DIR_OFFSET: Record<Direction, { dx: number; dy: number }> = {
   W: { dx: -1, dy: 0 },
 }
 
+const DIRECTION_LABEL: Record<Direction, string> = {
+  N: 'north',
+  E: 'east',
+  S: 'south',
+  W: 'west',
+}
+
+const TILE_TYPE_LABEL: Record<TileType, string> = {
+  straight: 'Straight wire',
+  elbow: 'Elbow wire',
+  't-junction': 'T-junction wire',
+  cross: 'Cross wire',
+  source: 'Power source',
+  core: 'Core',
+  blocker: 'Blocker',
+}
+
 const connectorsOf = (cell: CircuitHackerCellSnapshot): Direction[] =>
   rotateConnectors(getBaseConnectors(cell.type), cell.orientation)
+
+/**
+ * Spoken tile description: the wire type, its current connector directions,
+ * power and lock state are Skia-only shapes, so screen readers receive them
+ * through the cell's accessibility hint/value instead. Rotation changes the
+ * connector list, so the description stays truthful after every tap.
+ */
+const describeCell = (cell: CircuitHackerCellSnapshot): string => {
+  const type = TILE_TYPE_LABEL[cell.type]
+  if (cell.type === 'blocker') {
+    return `${type}: no connectors, unpowered, locked`
+  }
+  const connectors = connectorsOf(cell).map(dir => DIRECTION_LABEL[dir])
+  return `${type}: connectors ${
+    connectors.length > 0 ? connectors.join(' and ') : 'none'
+  }, ${cell.powered ? 'powered' : 'unpowered'}, ${
+    cell.locked ? 'locked' : 'unlocked'
+  }`
+}
+
+const cellValue = (cell: CircuitHackerCellSnapshot): string =>
+  `${cell.powered ? 'Powered' : 'Unpowered'}${cell.locked ? ', locked' : ''}`
 
 /** Cell hit label (1-based for screen readers). */
 export const circuitCellLabel = (row: number, col: number): string =>
@@ -225,6 +268,8 @@ export function CircuitHackerBoard({
                 testID={`circuit-cell-${row}-${col}`}
                 accessibilityRole="button"
                 accessibilityLabel={circuitCellLabel(row, col)}
+                accessibilityHint={describeCell(tile)}
+                accessibilityValue={{ text: cellValue(tile) }}
                 accessibilityState={{ disabled }}
                 disabled={disabled}
                 onPress={() => controller.rotateTile(row, col)}
@@ -247,6 +292,16 @@ export function CircuitHackerBoard({
       >
         Tap tiles to rotate the wires until every core is powered.
       </Text>
+
+      {scene.startError ? (
+        <Text
+          testID="circuit-start-error"
+          accessibilityRole="alert"
+          className="font-sans text-sm text-red-400"
+        >
+          {scene.startError}
+        </Text>
+      ) : null}
 
       <View
         className="flex-row flex-wrap gap-2"

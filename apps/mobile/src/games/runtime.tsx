@@ -57,10 +57,21 @@ export function createBaseGameRuntime(
   deps: NativeGameHostDeps
 ): NativeGameRuntime {
   const game = port.createGame(deps)
-  const projector = port.createProjector
-    ? port.createProjector(game)
-    : createStableProjector((state: BaseGameState) => port.project(state, game))
-  const session = createBaseGameSession(game, projector)
+  // A projector (or the session's initial projection) can throw. Roll the
+  // partially-built runtime back before rethrowing so the host's setup
+  // error path never leaks a live game/timer.
+  let session: GameSession<NativeGameProjection>
+  try {
+    const projector = port.createProjector
+      ? port.createProjector(game)
+      : createStableProjector((state: BaseGameState) =>
+          port.project(state, game)
+        )
+    session = createBaseGameSession(game, projector)
+  } catch (error) {
+    game.destroy()
+    throw error
+  }
   const rewardHandlers = new Set<(delivery: NativeRewardDelivery) => void>()
   const runStartHandlers = new Set<() => void>()
   let disposed = false
