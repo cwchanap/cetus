@@ -130,6 +130,30 @@ describe('createHandleSession', () => {
         expect(result?.saveCode).toBeUndefined()
     })
 
+    it('onStart clears a finished run result so Replay never shows it', () => {
+        const { session, handlers } = createSession()
+        handlers.onStart()
+        handlers.onEnd(endResult)
+        expect(session.getCachedSnapshot().result).toBe(endResult)
+
+        // Replay: the chrome's zero-argument Start begins a new run; the
+        // previous run's result must not linger on the fresh run.
+        handlers.onStart()
+        expect(session.getCachedSnapshot().status).toBe('running')
+        expect(session.getCachedSnapshot().result).toBeNull()
+    })
+
+    it('onIdle clears a finished run result', () => {
+        const { session, handlers } = createSession()
+        handlers.onStart()
+        handlers.onEnd(endResult)
+        expect(session.getCachedSnapshot().result).toBe(endResult)
+
+        handlers.onIdle?.()
+        expect(session.getCachedSnapshot().status).toBe('idle')
+        expect(session.getCachedSnapshot().result).toBeNull()
+    })
+
     it('onIdle returns a running session to the pre-start idle state', () => {
         const { session, handlers } = createSession()
         const listener = vi.fn()
