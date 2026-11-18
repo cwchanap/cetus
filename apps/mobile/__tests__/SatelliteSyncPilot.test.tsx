@@ -195,18 +195,19 @@ const controllerOf = (tree: TestRenderer.ReactTestRenderer) =>
   tree.root.findByType(SatelliteSyncBoard).props
     .binding as SatelliteSyncController
 
+type PanEvent = { x?: number; y?: number }
+type PanHandler = (event: PanEvent, success?: boolean) => void
+
 const panHandlers = (tree: TestRenderer.ReactTestRenderer) => {
   const detector = tree.root.findByType(GestureDetector)
-  return detector.props.gesture.handlers as Record<
-    string,
-    (event: { x?: number; y?: number }) => void
-  >
+  return detector.props.gesture.handlers as Record<string, PanHandler>
 }
 
 const firePan = (
   tree: TestRenderer.ReactTestRenderer,
-  handler: 'onBegin' | 'onUpdate' | 'onFinalize',
-  point?: { x: number; y: number }
+  handler: 'onBegin' | 'onStart' | 'onUpdate' | 'onFinalize',
+  point?: PanEvent,
+  success?: boolean
 ) => {
   const handlers = panHandlers(tree)
   const callback = handlers[handler]
@@ -214,8 +215,33 @@ const firePan = (
     throw new Error(`pan gesture is missing ${handler}`)
   }
   act(() => {
-    callback(point ?? {})
+    // RNGH passes the terminal success flag to onFinalize (true = END,
+    // false = FAILED/CANCELLED); the other callbacks ignore it.
+    callback(point ?? {}, success)
   })
+}
+
+/** A real RNGH pan lifecycle: begin (read-only) → activate → aim → finish. */
+const dragSatelliteToTarget = (
+  tree: TestRenderer.ReactTestRenderer,
+  satelliteId: string,
+  targetId: string,
+  success = true
+) => {
+  const game = controllerOf(tree).getGame()
+  if (!game) {
+    throw new Error('no live Satellite Sync model')
+  }
+  const state = game.getState()
+  const satellite = state.satellites.find(entry => entry.id === satelliteId)
+  const target = state.targets.find(entry => entry.id === targetId)
+  if (!satellite || !target) {
+    throw new Error(`missing satellite ${satelliteId} or target ${targetId}`)
+  }
+  firePan(tree, 'onBegin', scenePoint(satellite.ring, satellite.angle))
+  firePan(tree, 'onStart')
+  firePan(tree, 'onUpdate', scenePoint(target.ring, target.currentAngle))
+  firePan(tree, 'onFinalize', undefined, success)
 }
 
 /** Same level solve the portable model suite uses: try free satellites. */
@@ -360,9 +386,10 @@ describe('Satellite Sync pilot — aiming', () => {
     const target = game.getState().targets[0]
 
     firePan(tree, 'onBegin', scenePoint(satellite.ring, satellite.angle))
+    firePan(tree, 'onStart')
     firePan(tree, 'onUpdate', scenePoint(target.ring, target.currentAngle))
     expect(game.getState().satellites[0].snapCandidateId).toBe(target.id)
-    firePan(tree, 'onFinalize')
+    firePan(tree, 'onFinalize', undefined, true)
 
     expect(game.getState().targets[0].locked).toBe(true)
     expect(game.getState().score).toBe(100)
@@ -380,12 +407,92 @@ describe('Satellite Sync pilot — aiming', () => {
 
     const game = controllerOf(tree).getGame() as SatelliteSyncGame
     firePan(tree, 'onBegin', { x: 2, y: 2 })
+    firePan(tree, 'onStart')
     firePan(tree, 'onUpdate', scenePoint(1, 60))
-    firePan(tree, 'onFinalize')
+    firePan(tree, 'onFinalize', undefined, true)
 
     expect(game.getState().targets[0].locked).toBe(false)
     expect(game.getState().score).toBe(0)
     expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a pan that never activates is read-only and preserves an existing lock and score', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireLayout(tree)
+    fireFrame(100)
+
+    const game = controllerOf(tree).getGame() as SatelliteSyncGame
+    dragSatelliteToTarget(tree, 'sat-0', 'target-0')
+    expect(game.getState().targets[0].locked).toBe(true)
+    const scoreBefore = game.getState().score
+
+    // Touch down on the locked satellite, then the pan fails to activate
+    // (e.g. the surrounding ScrollView takes the gesture).
+    const satellite = game.getState().satellites[0]
+    firePan(tree, 'onBegin', scenePoint(satellite.ring, satellite.angle))
+    firePan(tree, 'onFinalize', undefined, false)
+
+    const after = game.getState()
+    expect(after.targets[0].locked).toBe(true)
+    expect(after.satellites[0].lockedTargetId).toBe('target-0')
+    expect(after.score).toBe(scoreBefore)
+    expect(submitScore).not.toHaveBeenCalled()
+
+    // The cleared drag reference does not block the next successful drag.
+    dragSatelliteToTarget(tree, 'sat-1', 'target-1')
+    expect(game.getState().targets[1].locked).toBe(true)
+    expect(game.getState().score).toBeGreaterThan(scoreBefore)
+  })
+
+  test('a cancelled active drag restores the previous lock, aim and score', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireLayout(tree)
+    fireFrame(100)
+
+    const game = controllerOf(tree).getGame() as SatelliteSyncGame
+    dragSatelliteToTarget(tree, 'sat-0', 'target-0')
+    const before = game.getState()
+    expect(before.targets[0].locked).toBe(true)
+
+    const satellite = before.satellites[0]
+    const nextTarget = before.targets[1]
+    firePan(tree, 'onBegin', scenePoint(satellite.ring, satellite.angle))
+    firePan(tree, 'onStart')
+    firePan(
+      tree,
+      'onUpdate',
+      scenePoint(nextTarget.ring, nextTarget.currentAngle)
+    )
+    // Once active, the drag re-aims (and thus unlocks) the satellite …
+    expect(game.getState().satellites[0].snapCandidateId).toBe(nextTarget.id)
+    expect(game.getState().targets[0].locked).toBe(false)
+
+    // … but a cancelled gesture restores the pre-drag state without scoring.
+    firePan(tree, 'onFinalize', undefined, false)
+
+    const after = game.getState()
+    expect(after.targets[0].locked).toBe(true)
+    expect(after.targets[0].lockedBySatId).toBe('sat-0')
+    expect(after.targets[1].locked).toBe(false)
+    expect(after.satellites[0].lockedTargetId).toBe('target-0')
+    expect(after.satellites[0].snapCandidateId).toBeNull()
+    expect(after.satellites[0].aimAngle).toBeCloseTo(
+      before.satellites[0].aimAngle,
+      6
+    )
+    expect(after.score).toBe(before.score)
+    expect(after.combo).toBe(before.combo)
+    expect(after.multiplier).toBe(before.multiplier)
+    expect(submitScore).not.toHaveBeenCalled()
+
+    // A later successful drag still re-aims and scores once.
+    dragSatelliteToTarget(tree, 'sat-0', 'target-1')
+    const reaimed = game.getState()
+    expect(reaimed.targets[0].locked).toBe(false)
+    expect(reaimed.targets[1].locked).toBe(true)
+    expect(reaimed.score).toBeGreaterThan(before.score)
   })
 })
 
@@ -638,6 +745,32 @@ describe('Satellite Sync pilot — accessible aiming', () => {
       'Select satellite 1: cyan, locked to target 1'
     )
     expect(satelliteAfterLock?.props.accessibilityState?.selected).toBe(false)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a failed accessible lock attempt keeps the previous lock and score', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireFrame(100)
+
+    await pressMatching(tree, /^Select satellite 1: cyan$/)
+    await pressMatching(tree, /^Lock target 1: cyan, unlocked$/)
+    const game = controllerOf(tree).getGame() as SatelliteSyncGame
+    expect(game.getState().targets[0].locked).toBe(true)
+    const scoreBefore = game.getState().score
+
+    jest
+      .spyOn(SatelliteSyncGame.prototype, 'aimAtTarget')
+      .mockReturnValueOnce(false)
+    await pressMatching(tree, /^Select satellite 1: cyan, locked to target 1$/)
+    await pressMatching(tree, /^Lock target 2: cyan, unlocked$/)
+
+    const after = game.getState()
+    expect(after.targets[0].locked).toBe(true)
+    expect(after.satellites[0].lockedTargetId).toBe('target-0')
+    expect(after.targets[1].locked).toBe(false)
+    expect(after.score).toBe(scoreBefore)
+    expect(testText(tree, 'ss-aim-status')).toContain('could not be locked')
     expect(submitScore).not.toHaveBeenCalled()
   })
 

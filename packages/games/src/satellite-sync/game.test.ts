@@ -177,6 +177,95 @@ describe('SatelliteSyncGame', () => {
         game.cleanup()
     })
 
+    it('captureAimState/restoreAimState undo a cancelled drag without scoring', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        const s = game.getState()
+        const sat = s.satellites[0]
+        const target = s.targets[0]
+        game.beginAim(sat.id)
+        game.aimAtTarget(sat.id, target.id)
+        game.endAim(sat.id)
+        expect(game.getState().targets[0].locked).toBe(true)
+
+        const scoreBefore = game.getState().score
+        const lockCallsBefore = (cbs.calls.lock ?? []).length
+        const snapshot = game.captureAimState(sat.id)
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+        // Capture is read-only.
+        expect(game.getState().targets[0].locked).toBe(true)
+
+        // An active drag unlocks the satellite and re-aims it …
+        game.beginAim(sat.id)
+        game.updateAim(sat.id, 90)
+        expect(game.getState().targets[0].locked).toBe(false)
+
+        // … but cancellation restores the lock/aim/combo with no points.
+        game.restoreAimState(snapshot)
+        const after = game.getState()
+        expect(after.targets[0].locked).toBe(true)
+        expect(after.targets[0].lockedBySatId).toBe(sat.id)
+        expect(after.satellites[0].lockedTargetId).toBe(target.id)
+        expect(after.satellites[0].aimAngle).toBe(snapshot.aimAngle)
+        expect(after.satellites[0].snapCandidateId).toBe(
+            snapshot.snapCandidateId
+        )
+        expect(after.combo).toBe(snapshot.combo)
+        expect(after.multiplier).toBe(snapshot.multiplier)
+        expect(after.score).toBe(scoreBefore)
+        expect((cbs.calls.lock ?? []).length).toBe(lockCallsBefore)
+        game.cleanup()
+    })
+
+    it('restoreAimState returns an unlocked satellite to its pre-drag aim', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        const sat = game.getState().satellites[1]
+        const snapshot = game.captureAimState(sat.id)
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+
+        game.beginAim(sat.id)
+        expect(game.aimAtTarget(sat.id, 'target-0')).toBe(true)
+        expect(game.getState().satellites[1].snapCandidateId).toBe('target-0')
+
+        game.restoreAimState(snapshot)
+        const after = game.getState()
+        expect(after.satellites[1].lockedTargetId).toBeNull()
+        expect(after.satellites[1].aimAngle).toBe(snapshot.aimAngle)
+        expect(after.satellites[1].snapCandidateId).toBe(
+            snapshot.snapCandidateId
+        )
+        expect(after.targets[0].locked).toBe(false)
+        expect(after.score).toBe(0)
+        game.cleanup()
+    })
+
+    it('captureAimState rejects unknown satellites and restore is a no-op', () => {
+        const cbs = makeCallbacks()
+        const game = new SatelliteSyncGame(cbs)
+        game.start()
+        expect(game.captureAimState('does-not-exist')).toBeNull()
+        const before = game.getState()
+        game.restoreAimState({
+            satelliteId: 'does-not-exist',
+            aimAngle: 123,
+            snapCandidateId: 'target-0',
+            lockedTargetId: 'target-0',
+            combo: 3,
+            multiplier: 2,
+        })
+        expect(game.getState()).toEqual(before)
+        game.cleanup()
+    })
+
     it('fires onScoreUpdate(0) on start so the DOM score badge resets', () => {
         const cbs = makeCallbacks()
         const game = new SatelliteSyncGame(cbs)

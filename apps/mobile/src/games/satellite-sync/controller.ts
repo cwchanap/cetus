@@ -6,6 +6,7 @@ import type {
     SatelliteSyncCallbacks,
     SatelliteSyncState,
     SatelliteSyncStatus,
+    SatelliteAimSnapshot,
 } from '@cetus/games/satellite-sync/types'
 
 import type { HandleResultHelper } from '../handleResult'
@@ -81,8 +82,19 @@ export class SatelliteSyncController {
         this.game?.update(deltaMs)
     }
 
-    beginAim(satelliteId: string): void {
-        this.game?.beginAim(satelliteId)
+    /**
+     * Start a real drag only after RNGH activates the pan: capture the
+     * pre-drag state first so a cancelled gesture can be restored, then
+     * unlock/aim. Returns the snapshot (null when idle/no model).
+     */
+    beginAim(satelliteId: string): SatelliteAimSnapshot | null {
+        const game = this.game
+        if (!game) {
+            return null
+        }
+        const snapshot = game.captureAimState(satelliteId)
+        game.beginAim(satelliteId)
+        return snapshot
     }
 
     updateAim(satelliteId: string, worldAngle: number): void {
@@ -93,22 +105,32 @@ export class SatelliteSyncController {
         this.game?.endAim(satelliteId)
     }
 
+    /** Cancelled-drag cleanup: restore the pre-drag lock/aim/combo with no
+     *  scoring or lock callbacks. */
+    restoreAim(snapshot: SatelliteAimSnapshot): void {
+        this.game?.restoreAimState(snapshot)
+    }
+
     /**
      * Screen-reader aiming: aim at a target through the model's own
      * `aimAtTarget` check (colour, snap threshold and obstacle blocking).
      * Releases only when the model reports the target as its snap
      * candidate, so a blocked/out-of-range target never locks something
-     * else. Returns that result so the board can announce it honestly.
+     * else, and restores an existing lock when the attempt fails. Returns
+     * that result so the board can announce it honestly.
      */
     lockTarget(satelliteId: string, targetId: string): boolean {
         const game = this.game
         if (!game) {
             return false
         }
+        const snapshot = game.captureAimState(satelliteId)
         game.beginAim(satelliteId)
         const locked = game.aimAtTarget(satelliteId, targetId)
         if (locked) {
             game.endAim(satelliteId)
+        } else if (snapshot) {
+            game.restoreAimState(snapshot)
         }
         return locked
     }

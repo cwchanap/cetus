@@ -65,6 +65,17 @@ export interface RuntimeObstacle {
     moving: MovingConfig | null
 }
 
+/** Pre-drag aim/lock state captured before `beginAim` mutates a satellite,
+ *  so a cancelled drag can be restored without scoring. */
+export interface SatelliteAimSnapshot {
+    satelliteId: string
+    aimAngle: number
+    snapCandidateId: string | null
+    lockedTargetId: string | null
+    combo: number
+    multiplier: number
+}
+
 export type SatelliteSyncStatus = 'idle' | 'playing' | 'won' | 'lost'
 
 export interface SatelliteSyncState {
