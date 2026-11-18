@@ -1,6 +1,11 @@
 import type { ComponentType } from 'react'
 import { GameID } from '@cetus/shared/games'
-import { createStableProjector } from '@cetus/app-core'
+import {
+    createStableProjector,
+    type GameSessionResult,
+    type GameSessionSnapshot,
+    type HandleSessionHandlers,
+} from '@cetus/app-core'
 import type { ScoreSubmitter } from '@cetus/shared/scores'
 import type { ScorePlatform } from '@cetus/shared/validations'
 import type { BaseGame, BaseGameState, BaseGameStats } from '@cetus/games'
@@ -72,8 +77,17 @@ import type {
     AsteroidDriftState,
     AsteroidDriftStats,
 } from '@cetus/games/asteroid-drift/types'
+import { DIFFICULTY_CONFIGS } from '@cetus/games/circuit-hacker/utils'
+import type { CircuitHackerStats } from '@cetus/games/circuit-hacker/types'
+import {
+    CIRCUIT_HACKER_DEFAULT_DIFFICULTY,
+    CircuitHackerController,
+    projectCircuitHackerState,
+} from './circuit-hacker/controller'
+import type { HandleResultHelper } from './handleResult'
 import { AsteroidDriftBoard } from './boards/AsteroidDriftBoard'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
+import { CircuitHackerBoard } from './boards/CircuitHackerBoard'
 import { EvaderBoard } from './boards/EvaderBoard'
 import { Game2048Board } from './boards/Game2048Board'
 import { GravityFlipBoard } from './boards/GravityFlipBoard'
@@ -143,6 +157,39 @@ export interface NativeGamePort {
 
 export interface NativeGameEntry {
     port?: NativeGamePort
+    /** Distinct handle-based variant for callback/imperative games that do
+     *  NOT extend BaseGame (Circuit Hacker, Satellite Sync, Ice Slide). */
+    handlePort?: NativeHandlePort
+}
+
+/** Board props for a handle-based runtime: the projection plus the
+ *  stable per-host controller — never an assumed raw model prop. */
+export interface NativeHandleGameViewProps {
+    projected: NativeGameProjection
+    binding: unknown
+}
+
+/** Stable per-host controller a handle port builds; the chrome's
+ *  zero-argument Start/Replay resolves the pre-run selection here. */
+export interface NativeHandleBinding {
+    start(): void
+    cleanup(): void
+}
+
+export interface NativeHandleBindingContext extends NativeGameHostDeps {
+    handlers: HandleSessionHandlers<NativeGameProjection>
+    results: HandleResultHelper
+}
+
+/** One handle game's native port: its controller factory, board view and
+ *  finished-run label. The shared producer owns the session, the handle
+ *  result helper and teardown. */
+export interface NativeHandlePort {
+    gameId: GameID
+    initialSnapshot: GameSessionSnapshot<NativeGameProjection>
+    createBinding(context: NativeHandleBindingContext): NativeHandleBinding
+    view: ComponentType<NativeHandleGameViewProps>
+    resultOutcomeLabel?: (result: GameSessionResult) => string | null
 }
 
 const memoryMatrixPort: NativeGamePort = {
@@ -817,11 +864,36 @@ const asteroidDriftPort: NativeGamePort = {
     view: AsteroidDriftBoard,
 }
 
+// Handle-based port: CircuitHackerGame is callback/imperative (no BaseGame,
+// no pause API) and takes difficulty only in its constructor. The
+// controller owns the pre-run selection and the zero-argument replay.
+const circuitHackerHandlePort: NativeHandlePort = {
+    gameId: GameID.CIRCUIT_HACKER,
+    initialSnapshot: {
+        status: 'idle',
+        score: 0,
+        timeRemaining:
+            DIFFICULTY_CONFIGS[CIRCUIT_HACKER_DEFAULT_DIFFICULTY].duration,
+        projected: projectCircuitHackerState(
+            CIRCUIT_HACKER_DEFAULT_DIFFICULTY,
+            null
+        ) as unknown as NativeGameProjection,
+        result: null,
+    },
+    createBinding: context => new CircuitHackerController(context),
+    resultOutcomeLabel: result =>
+        (result.stats as unknown as CircuitHackerStats).solved
+            ? 'Solved'
+            : 'Not solved',
+    view: CircuitHackerBoard,
+}
+
 /**
- * The single native game registry (HPA-425 wave 1). Keys are computed from
- * the imported `GameID` enum members — never bare id strings — and presence
- * in this map is what the Games hub, the detail Play button and the play
- * route all consult. Eight playable, fifteen disabled.
+ * The single native game registry (HPA-425 wave 1, extended per HPA-535).
+ * Keys are computed from the imported `GameID` enum members — never bare
+ * id strings — and presence in this map is what the Games hub, the detail
+ * Play button and the play route all consult. Seventeen playable, six
+ * disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.MEMORY_MATRIX]: { port: memoryMatrixPort },
@@ -840,6 +912,7 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.EVADER]: { port: evaderPort },
     [GameID.PATH_NAVIGATOR]: { port: pathNavigatorPort },
     [GameID.ASTEROID_DRIFT]: { port: asteroidDriftPort },
+    [GameID.CIRCUIT_HACKER]: { handlePort: circuitHackerHandlePort },
 }
 
 /** Own-key lookup so unknown strings (even "__proto__") never resolve. */
