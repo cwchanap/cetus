@@ -93,6 +93,26 @@ export class SatelliteSyncController {
         this.game?.endAim(satelliteId)
     }
 
+    /**
+     * Screen-reader aiming: aim at a target through the model's own
+     * `aimAtTarget` check (colour, snap threshold and obstacle blocking).
+     * Releases only when the model reports the target as its snap
+     * candidate, so a blocked/out-of-range target never locks something
+     * else. Returns that result so the board can announce it honestly.
+     */
+    lockTarget(satelliteId: string, targetId: string): boolean {
+        const game = this.game
+        if (!game) {
+            return false
+        }
+        game.beginAim(satelliteId)
+        const locked = game.aimAtTarget(satelliteId, targetId)
+        if (locked) {
+            game.endAim(satelliteId)
+        }
+        return locked
+    }
+
     /** Manual stop: the model fires nothing, so idle the session, reset the
      *  HUD/scene and wake the loop for one final render. No score POST. */
     stop(): void {
