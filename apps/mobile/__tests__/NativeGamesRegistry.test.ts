@@ -49,6 +49,8 @@ import type {
 } from '@cetus/games/path-navigator/types'
 import { AsteroidDriftGame } from '@cetus/games/asteroid-drift/AsteroidDriftGame'
 import type { AsteroidDriftState } from '@cetus/games/asteroid-drift/types'
+import { DIFFICULTY_CONFIGS } from '@cetus/games/circuit-hacker/utils'
+import type { CircuitHackerController } from '../src/games/circuit-hacker/controller'
 
 // Any-constructor shape: `never` params accept every concrete ctor.
 type AnyGameCtor = abstract new (...args: never[]) => unknown
@@ -77,10 +79,12 @@ const hostDeps = (platform: 'ios' | 'android') => {
     return { submitScore, platform }
 }
 
-// HPA-425 wave 1: exactly these eight games are native-destined. The list
-// is duplicated here on purpose — the test must fail if the registry drifts.
+// HPA-425 wave 1 plus HPA-535 Stage 1: exactly these seventeen games are
+// native-destined. The list is duplicated here on purpose — the test must
+// fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
     GameID.ASTEROID_DRIFT,
+    GameID.CIRCUIT_HACKER,
     GameID.CHROMATIC_TIDE,
     GameID.EVADER,
     GameID.GAME_2048,
@@ -101,7 +105,7 @@ const EXPECTED_NATIVE_IDS = [
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the sixteen registry game ids', () => {
+    test('contains exactly the seventeen registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -110,16 +114,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 16 playable, 7 disabled of 23', () => {
+    test('registry and catalog counts line up: 17 playable, 6 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(16)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(17)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(7)
+        expect(disabled).toHaveLength(6)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -135,12 +139,13 @@ describe('NATIVE_GAMES registry', () => {
         expect(getNativeGameEntry('toString')).toBeUndefined()
         expect(getNativeGameEntry('constructor')).toBeUndefined()
         expect(isNativePlayable('__proto__')).toBe(false)
-        // The fifteen unported registry games stay disabled.
+        // The six unported registry games stay disabled.
         expect(isNativePlayable(GameID.TETRIS)).toBe(false)
         expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(false)
         expect(isNativePlayable(GameID.EVADER)).toBe(true)
         expect(isNativePlayable(GameID.PATH_NAVIGATOR)).toBe(true)
         expect(isNativePlayable(GameID.ASTEROID_DRIFT)).toBe(true)
+        expect(isNativePlayable(GameID.CIRCUIT_HACKER)).toBe(true)
     })
 
     test('production entries construct their concrete game with the injected deps', () => {
@@ -175,6 +180,96 @@ describe('NATIVE_GAMES registry', () => {
             expect(JSON.parse(JSON.stringify(projected))).toEqual(projected)
             game.destroy()
         }
+    })
+
+    test('Circuit Hacker registers the distinct handle variant, not a BaseGame port', () => {
+        const entry = getNativeGameEntry(GameID.CIRCUIT_HACKER)
+        expect(entry?.port).toBeUndefined()
+        expect(entry?.handlePort).toBeDefined()
+        const port = entry?.handlePort
+        if (!port) {
+            return
+        }
+        expect(port.gameId).toBe(GameID.CIRCUIT_HACKER)
+        expect(port.view).toBeDefined()
+        expect(JSON.parse(JSON.stringify(port.initialSnapshot))).toEqual(
+            port.initialSnapshot
+        )
+        expect(port.initialSnapshot).toMatchObject({
+            status: 'idle',
+            score: 0,
+            timeRemaining: DIFFICULTY_CONFIGS.medium.duration,
+            result: null,
+            projected: {
+                rows: DIFFICULTY_CONFIGS.medium.rows,
+                cols: DIFFICULTY_CONFIGS.medium.cols,
+                cells: [],
+                difficulty: 'medium',
+                phase: 'idle',
+            },
+        })
+        expect(
+            port.resultOutcomeLabel?.({
+                score: 10,
+                stats: { solved: true },
+            } as never)
+        ).toBe('Solved')
+        expect(
+            port.resultOutcomeLabel?.({
+                score: 0,
+                stats: { solved: false },
+            } as never)
+        ).toBe('Not solved')
+    })
+
+    test('the Circuit Hacker controller constructs its model lazily on start with the selected difficulty', () => {
+        const port = getNativeGameEntry(GameID.CIRCUIT_HACKER)?.handlePort
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        const handlers = {
+            onStart: jest.fn(),
+            onEnd: jest.fn(),
+            onTime: jest.fn(),
+            setProjected: jest.fn(),
+        }
+        const results = {
+            beginRun: jest.fn(),
+            finishAndSave: jest.fn(),
+            finishLocal: jest.fn(),
+            idle: jest.fn(),
+        }
+        const binding = port.createBinding({
+            ...hostDeps('android'),
+            handlers,
+            results,
+        }) as unknown as CircuitHackerController
+
+        // No grid before Start: generation is lazy.
+        expect(binding.getGame()).toBeNull()
+        binding.selectDifficulty('easy')
+        expect(binding.getProjection()).toMatchObject({
+            difficulty: 'easy',
+            rows: 5,
+            cols: 5,
+            phase: 'idle',
+            cells: [],
+        })
+
+        binding.start()
+        const game = binding.getGame()
+        expect(game).not.toBeNull()
+        expect(game?.getState().grid).toHaveLength(5)
+        expect(results.beginRun).toHaveBeenCalledWith(
+            DIFFICULTY_CONFIGS.easy.duration
+        )
+        expect(handlers.setProjected).toHaveBeenCalled()
+        const projected = binding.getProjection()
+        expect(JSON.parse(JSON.stringify(projected))).toEqual(projected)
+        expect(projected.phase).toBe('running')
+        binding.cleanup()
+        expect(binding.getGame()).toBeNull()
     })
 
     test('the Sudoku projector reads the elapsed clock off the constructed instance', async () => {

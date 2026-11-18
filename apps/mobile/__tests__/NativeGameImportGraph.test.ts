@@ -266,6 +266,27 @@ describe('the native game routing graph stays portable', () => {
             'pixi.js',
         ])
     })
+
+    test('the handle-game producer, controller and board join the same portable graph', () => {
+        const reachable = [...graph.reachable.keys()].map(file =>
+            relative(mobileRoot, file)
+        )
+        for (const expected of [
+            'src/games/runtime.tsx',
+            'src/games/handleResult.ts',
+            'src/games/rewards.ts',
+            'src/games/circuit-hacker/controller.ts',
+            'src/games/boards/CircuitHackerBoard.tsx',
+        ]) {
+            expect(reachable).toContain(expected)
+        }
+        // The shared producer must not fake a BaseGame model for handles.
+        const source = readFileSync(
+            join(mobileRoot, 'src/games/circuit-hacker/controller.ts'),
+            'utf-8'
+        )
+        expect(source).not.toMatch(/extends\s+BaseGame/)
+    })
 })
 
 // --- Metro resolution of the native-only package imports ---------------------
@@ -443,6 +464,18 @@ const NATIVE_GAME_SPECIFIERS: Array<[string, RegExp]> = [
     [
         '@cetus/games/asteroid-drift/types',
         /packages\/games\/src\/asteroid-drift\/types\.ts$/,
+    ],
+    [
+        '@cetus/games/circuit-hacker/game',
+        /packages\/games\/src\/circuit-hacker\/game\.ts$/,
+    ],
+    [
+        '@cetus/games/circuit-hacker/types',
+        /packages\/games\/src\/circuit-hacker\/types\.ts$/,
+    ],
+    [
+        '@cetus/games/circuit-hacker/utils',
+        /packages\/games\/src\/circuit-hacker\/utils\.ts$/,
     ],
     [
         '@cetus/games/shared/geometry',
