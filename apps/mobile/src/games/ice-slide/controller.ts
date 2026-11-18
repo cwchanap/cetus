@@ -109,10 +109,11 @@ export interface IceSlideControllerOptions {
  * chrome Start/Replay reads the pre-run mode selection here.
  *
  * Mode binding: Campaign replays `game.start()`; Daily captures the UTC date
- * once at Start; Expedition builds `createIceSlideExpeditionRunDefinition`
- * from a seed. The last finished run is retained so Play again replays the
- * same Daily date / Expedition seed, while the board-local New Expedition
- * draws a fresh seed.
+ * at every Start (Play again after midnight starts the new daily, never
+ * yesterday's run); Expedition builds
+ * `createIceSlideExpeditionRunDefinition` from a seed. The last finished
+ * Expedition run is retained so Play again replays the same seed, while the
+ * board-local New Expedition draws a fresh one.
  *
  * `undo()`, `resetLevel()`, `chooseExpeditionRoute()` and `stop()` emit no
  * model callbacks, so every wrapper republishes the copied scene and the
@@ -223,20 +224,18 @@ export class IceSlideController {
 
     /** Chrome Start AND Play again: binds the selected mode / retained run. */
     start(): void {
-        const replay = this.ended
         const mode = this.mode
         let run: IceSlideRunDefinition | undefined
         try {
             if (mode === 'daily') {
-                if (replay && this.retainedRun?.mode === 'daily') {
-                    run = cloneIceSlideRunDefinition(this.retainedRun)
-                } else {
-                    this.dailyDateKey = toIceSlideUtcDateKey(this.now())
-                    run = createIceSlideDailyRunDefinition(this.dailyDateKey)
-                    this.retainedRun = cloneIceSlideRunDefinition(run)
-                }
+                // Daily identity is bound at EVERY Start and frozen for that
+                // run: a Play again after midnight starts the new UTC daily,
+                // never yesterday's retained definition.
+                this.retainedRun = null
+                this.dailyDateKey = toIceSlideUtcDateKey(this.now())
+                run = createIceSlideDailyRunDefinition(this.dailyDateKey)
             } else if (mode === 'expedition') {
-                if (replay && this.retainedRun?.mode === 'expedition') {
+                if (this.ended && this.retainedRun?.mode === 'expedition') {
                     run = cloneIceSlideRunDefinition(this.retainedRun)
                 } else {
                     run = createIceSlideExpeditionRunDefinition(

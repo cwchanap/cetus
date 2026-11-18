@@ -217,7 +217,7 @@ describe('Ice Slide controller — mode binding and start', () => {
         controller.cleanup()
     })
 
-    test('Daily fixes the UTC date at Start and Play again keeps it across midnight', () => {
+    test('Daily binds the UTC date at every Start, including Play again after midnight', () => {
         let now = new Date('2026-08-12T23:59:59Z')
         const { controller, results } = createController({ now: () => now })
         controller.selectMode('daily')
@@ -244,15 +244,18 @@ describe('Ice Slide controller — mode binding and start', () => {
             })
         )
 
-        // Midnight passes while the result sits on screen.
+        // Midnight passes while the result sits on screen: Play again is a
+        // NEW Start, so it binds the new UTC daily (yesterday's run is not
+        // retained for Daily).
         now = new Date('2026-08-13T00:00:01Z')
         controller.start()
         expect(gameOf(controller).getState().runKey).toBe(
-            'ice-slide:daily:2026-08-12:g1:r1'
+            'ice-slide:daily:2026-08-13:g1:r1'
         )
-        expect(controller.getProjection().dailyDateKey).toBe('2026-08-12')
+        expect(controller.getProjection().dailyDateKey).toBe('2026-08-13')
 
-        // A Daily early stop never saves; the NEXT fresh start is today's.
+        // A Daily early stop never saves; the next Start is a fresh same-day
+        // run bound to the current UTC date.
         controller.stop()
         expect(results.finishAndSave).toHaveBeenCalledTimes(1)
         expect(results.idle).toHaveBeenCalled()

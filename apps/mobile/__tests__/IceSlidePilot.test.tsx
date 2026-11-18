@@ -178,6 +178,9 @@ const boardLabel = (tree: TestRenderer.ReactTestRenderer): string => {
   return String(node.props.accessibilityLabel)
 }
 
+const cursorCopy = (player: { row: number; col: number }): string =>
+  `You at row ${player.row + 1}, column ${player.col + 1}.`
+
 /** Breadth-first fall-free route to the goal from the live stage. */
 function findRoute(current: IceSlideState): Direction[] {
   const key = (position: GridPosition) => `${position.row},${position.col}`
@@ -379,6 +382,19 @@ describe('Ice Slide pilot — Campaign start, moves and stop', () => {
     expect(testText(tree, 'ice-stage')).toBe('Stage 1 / 8 · First Frost')
     expect(testText(tree, 'ice-moves')).toBe('Moves 0 · Par 1')
     expect(testText(tree, 'game-time')).toBe('0:00')
+    // The Skia grid colours are described textually for screen readers.
+    expect(boardLabel(tree)).toBe(
+      'Ice Slide board: stage 1 of 8, First Frost. You at row 2, column 2. Goal at row 4, column 2. 0 moves, 0 crystals remaining.'
+    )
+    expect(testText(tree, 'ice-board-row-0')).toBe(
+      'Row 1: wall at columns 1, 2, 3, 4 and 5.'
+    )
+    expect(testText(tree, 'ice-board-row-1')).toBe(
+      'Row 2: wall at columns 1 and 5; you at column 2; ice at columns 3 and 4.'
+    )
+    expect(testText(tree, 'ice-board-row-3')).toBe(
+      'Row 4: wall at columns 1 and 5; goal at column 2; ice at columns 3 and 4.'
+    )
     expect(
       tree.root.findByProps({ accessibilityLabel: 'Slide south' }).props
         .disabled
@@ -395,6 +411,10 @@ describe('Ice Slide pilot — Campaign start, moves and stop', () => {
     expect(game.getState().levelIndex).toBe(1)
     expect(game.getState().score).toBeGreaterThan(0)
     expect(testText(tree, 'ice-stage')).toBe('Stage 2 / 8 · Corner Pocket')
+    expect(boardLabel(tree)).toContain('stage 2 of 8, Corner Pocket.')
+    expect(testText(tree, 'ice-board-row-0')).toBe(
+      'Row 1: wall at columns 1, 2, 3, 4, 5 and 6.'
+    )
     expect(renderedText(tree)).toContain(`Score ${game.getState().score}`)
     expect(submitScore).not.toHaveBeenCalled()
   })
@@ -594,8 +614,9 @@ describe('Ice Slide pilot — no-callback Reset refresh', () => {
     // No drain: the controller wrapper published before returning.
     expect(game.getState().player).toEqual(start)
     expect(game.getState().resets).toBe(1)
-    expect(boardLabel(tree)).toContain(
-      `row ${start.row + 1} column ${start.col + 1}`
+    expect(boardLabel(tree)).toContain(cursorCopy(start))
+    expect(testText(tree, `ice-board-row-${start.row}`)).toContain(
+      `you at column ${start.col + 1}`
     )
     expect(testText(tree, 'ice-moves')).toContain('Moves 1 · Par 1')
     expect(submitScore).not.toHaveBeenCalled()
@@ -645,11 +666,10 @@ describe('Ice Slide pilot — Expedition route, Undo and refresh', () => {
     await press(tree, directionLabel)
     expect(game.getState().player).not.toEqual(start)
     const movesAfterMove = game.getState().moves
-    expect(boardLabel(tree)).toContain(
-      `row ${game.getState().player.row + 1} column ${
-        game.getState().player.col + 1
-      }`
-    )
+    expect(boardLabel(tree)).toContain(cursorCopy(game.getState().player))
+    expect(
+      testText(tree, `ice-board-row-${game.getState().player.row}`)
+    ).toContain('you at column')
     expect(
       tree.root.findByProps({ accessibilityLabel: 'Undo last move' }).props
         .disabled
@@ -660,8 +680,9 @@ describe('Ice Slide pilot — Expedition route, Undo and refresh', () => {
     expect(game.getState().player).toEqual(start)
     expect(game.getState().moves).toBe(movesAfterMove)
     expect(game.getState().undoChargesAvailable).toBe(0)
-    expect(boardLabel(tree)).toContain(
-      `row ${start.row + 1} column ${start.col + 1}`
+    expect(boardLabel(tree)).toContain(cursorCopy(start))
+    expect(testText(tree, `ice-board-row-${start.row}`)).toContain(
+      `you at column ${start.col + 1}`
     )
     expect(
       tree.root.findByProps({ accessibilityLabel: 'Undo last move' }).props
