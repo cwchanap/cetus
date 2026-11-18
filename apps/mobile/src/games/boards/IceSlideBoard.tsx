@@ -19,6 +19,10 @@ import {
 } from '../../lib/leaderboard'
 import { GameCanvas } from '../canvas/GameCanvas'
 import {
+  describeIceSlideBoard,
+  iceSlideRowLabels,
+} from '../ice-slide/boardText'
+import {
   ICE_SLIDE_DAILY_LEADERBOARD_LIMIT,
   ICE_SLIDE_MODES,
   type IceSlideController,
@@ -170,14 +174,8 @@ export function IceSlideBoard({
     [controller]
   )
 
-  const summary =
-    scene.rows === 0
-      ? `Ice Slide board: ${MODE_LABEL[scene.mode]}, waiting to start`
-      : `Ice Slide board: stage ${scene.level} of ${scene.levelsTotal}, ${
-          scene.stageName
-        }, row ${scene.player.row + 1} column ${scene.player.col + 1}, ${
-          scene.moves
-        } moves`
+  const summary = describeIceSlideBoard(scene)
+  const rowLabels = iceSlideRowLabels(scene)
 
   return (
     <ScrollView
@@ -370,6 +368,25 @@ export function IceSlideBoard({
           The ice field appears when you start a run.
         </Text>
       )}
+
+      {rowLabels.length > 0 ? (
+        <View testID="ice-board-text" className="gap-0.5">
+          <Text className="font-sans text-xs text-cetus-ink">
+            Board map (screen-reader friendly)
+          </Text>
+          {rowLabels.map((label, rowIndex) => (
+            <Text
+              key={`row-${rowIndex}`}
+              testID={`ice-board-row-${rowIndex}`}
+              accessibilityRole="text"
+              accessibilityLabel={label}
+              className="font-sans text-xs text-cetus-ink-muted"
+            >
+              {label}
+            </Text>
+          ))}
+        </View>
+      ) : null}
 
       {scene.pendingRouteChoice !== null ? (
         <View
