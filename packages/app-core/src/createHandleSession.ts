@@ -95,11 +95,13 @@ export function createHandleSession<TProjected>(
     }
 
     const handlers: HandleSessionHandlers<TProjected> = {
-        onStart: () => update({ status: 'running' }),
+        // Starting or idling leaves the previous run's result behind in
+        // the cache; clear it so Replay/Stop never shows a stale result.
+        onStart: () => update({ status: 'running', result: null }),
         onPause: () => update({ status: 'paused' }),
         onResume: () => update({ status: 'running' }),
         onEnd: result => update({ status: 'finished', result }),
-        onIdle: () => update({ status: 'idle' }),
+        onIdle: () => update({ status: 'idle', result: null }),
         onScore: score => update({ score }),
         onTime: timeRemaining => update({ timeRemaining }),
         setProjected: projected => update({ projected }),
