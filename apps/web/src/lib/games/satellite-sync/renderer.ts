@@ -2,6 +2,7 @@ import { Application, Graphics } from 'pixi.js'
 import {
     polarToWorld,
     ringRadius,
+    pointAlongBearing,
     type WorldPoint,
 } from '@cetus/games/satellite-sync/geometry'
 import type {
@@ -157,12 +158,7 @@ export function render(
 
     for (const sat of state.satellites) {
         const sp = worldToPixel(polarToWorld(sat.ring, sat.angle), layout)
-        const rad = (sat.aimAngle * Math.PI) / 180
-        const len = beamLength(layout)
-        const beamEnd = {
-            x: sp.x + Math.sin(rad) * len,
-            y: sp.y - Math.cos(rad) * len,
-        }
+        const beamEnd = pointAlongBearing(sp, sat.aimAngle, beamLength(layout))
         const beamColor = BEAM_COLORS[sat.color] ?? 0x22d3ee
         scene
             .moveTo(sp.x, sp.y)

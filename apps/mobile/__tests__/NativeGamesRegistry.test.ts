@@ -51,6 +51,9 @@ import { AsteroidDriftGame } from '@cetus/games/asteroid-drift/AsteroidDriftGame
 import type { AsteroidDriftState } from '@cetus/games/asteroid-drift/types'
 import { DIFFICULTY_CONFIGS } from '@cetus/games/circuit-hacker/utils'
 import type { CircuitHackerController } from '../src/games/circuit-hacker/controller'
+import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
+import { SatelliteSyncGame } from '@cetus/games/satellite-sync/game'
+import type { SatelliteSyncController } from '../src/games/satellite-sync/controller'
 
 // Any-constructor shape: `never` params accept every concrete ctor.
 type AnyGameCtor = abstract new (...args: never[]) => unknown
@@ -79,7 +82,7 @@ const hostDeps = (platform: 'ios' | 'android') => {
     return { submitScore, platform }
 }
 
-// HPA-425 wave 1 plus HPA-535 Stage 1: exactly these seventeen games are
+// HPA-425 wave 1 plus HPA-535 Stages 1–2: exactly these eighteen games are
 // native-destined. The list is duplicated here on purpose — the test must
 // fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
@@ -96,6 +99,7 @@ const EXPECTED_NATIVE_IDS = [
     GameID.POTION_SORTER,
     GameID.QUICK_MATH,
     GameID.REFLEX,
+    GameID.SATELLITE_SYNC,
     GameID.SIGNAL_SWITCH,
     GameID.SNAKE,
     GameID.SUDOKU,
@@ -105,7 +109,7 @@ const EXPECTED_NATIVE_IDS = [
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the seventeen registry game ids', () => {
+    test('contains exactly the eighteen registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -114,16 +118,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 17 playable, 6 disabled of 23', () => {
+    test('registry and catalog counts line up: 18 playable, 5 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(17)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(18)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(6)
+        expect(disabled).toHaveLength(5)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -139,13 +143,14 @@ describe('NATIVE_GAMES registry', () => {
         expect(getNativeGameEntry('toString')).toBeUndefined()
         expect(getNativeGameEntry('constructor')).toBeUndefined()
         expect(isNativePlayable('__proto__')).toBe(false)
-        // The six unported registry games stay disabled.
+        // The five unported registry games stay disabled.
         expect(isNativePlayable(GameID.TETRIS)).toBe(false)
         expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(false)
         expect(isNativePlayable(GameID.EVADER)).toBe(true)
         expect(isNativePlayable(GameID.PATH_NAVIGATOR)).toBe(true)
         expect(isNativePlayable(GameID.ASTEROID_DRIFT)).toBe(true)
         expect(isNativePlayable(GameID.CIRCUIT_HACKER)).toBe(true)
+        expect(isNativePlayable(GameID.SATELLITE_SYNC)).toBe(true)
     })
 
     test('production entries construct their concrete game with the injected deps', () => {
@@ -270,6 +275,85 @@ describe('NATIVE_GAMES registry', () => {
         expect(projected.phase).toBe('running')
         binding.cleanup()
         expect(binding.getGame()).toBeNull()
+    })
+
+    test('Satellite Sync registers the handle variant with idle level/HUD state', () => {
+        const entry = getNativeGameEntry(GameID.SATELLITE_SYNC)
+        expect(entry?.port).toBeUndefined()
+        expect(entry?.handlePort).toBeDefined()
+        const port = entry?.handlePort
+        if (!port) {
+            return
+        }
+        expect(port.gameId).toBe(GameID.SATELLITE_SYNC)
+        expect(port.view).toBeDefined()
+        expect(port.initialSnapshot).toMatchObject({
+            status: 'idle',
+            score: 0,
+            timeRemaining: SATELLITE_SYNC_LEVELS[0].timeBudget,
+            result: null,
+            projected: { level: 1 },
+        })
+        expect(JSON.parse(JSON.stringify(port.initialSnapshot))).toEqual(
+            port.initialSnapshot
+        )
+        const label = (gameCompleted: boolean) =>
+            port.resultOutcomeLabel?.({
+                score: 10,
+                stats: { finalScore: 10, timeElapsed: 0, gameCompleted },
+            } as never)
+        expect(label(true)).toBe('Mission complete')
+        expect(label(false)).toBe("Time's up")
+    })
+
+    test('the Satellite Sync controller builds lazily, publishes the level and resets on stop', () => {
+        const port = getNativeGameEntry(GameID.SATELLITE_SYNC)?.handlePort
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        const handlers = {
+            onStart: jest.fn(),
+            onEnd: jest.fn(),
+            onIdle: jest.fn(),
+            onTime: jest.fn(),
+            onScore: jest.fn(),
+            setProjected: jest.fn(),
+        }
+        const results = {
+            beginRun: jest.fn(),
+            finishAndSave: jest.fn(),
+            finishLocal: jest.fn(),
+            idle: jest.fn(),
+        }
+        const binding = port.createBinding({
+            ...hostDeps('android'),
+            handlers,
+            results,
+        }) as unknown as SatelliteSyncController
+
+        expect(binding.getGame()).toBeNull()
+        expect(binding.getProjection()).toEqual({ level: 1 })
+
+        binding.start()
+        const game = binding.getGame()
+        expect(game).toBeInstanceOf(SatelliteSyncGame)
+        expect(game?.getState().status).toBe('playing')
+        expect(results.beginRun).toHaveBeenCalledWith(
+            SATELLITE_SYNC_LEVELS[0].timeBudget
+        )
+        expect(JSON.parse(JSON.stringify(binding.getProjection()))).toEqual(
+            binding.getProjection()
+        )
+
+        binding.stop()
+        expect(binding.getGame()).toBeNull()
+        expect(results.idle).toHaveBeenCalledTimes(1)
+        expect(handlers.onScore).toHaveBeenLastCalledWith(0)
+        expect(handlers.onTime).toHaveBeenLastCalledWith(
+            SATELLITE_SYNC_LEVELS[0].timeBudget
+        )
+        expect(handlers.setProjected).toHaveBeenLastCalledWith({ level: 1 })
     })
 
     test('the Sudoku projector reads the elapsed clock off the constructed instance', async () => {
