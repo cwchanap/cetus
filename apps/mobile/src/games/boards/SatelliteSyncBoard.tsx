@@ -14,6 +14,7 @@ import { SATELLITE_SYNC_LEVELS } from '@cetus/games/satellite-sync/levels'
 import type {
   BeamColor,
   RuntimeTarget,
+  SatelliteAimIdentity,
   SatelliteAimSnapshot,
   SatelliteSyncState,
 } from '@cetus/games/satellite-sync/types'
@@ -93,15 +94,24 @@ export function SatelliteSyncBoard({
   const [aimStatus, setAimStatus] = useState<string | null>(null)
   const geometryRef = useRef<GameCanvasGeometry | null>(null)
   const dragCandidateRef = useRef<string | null>(null)
+  const dragIdentityRef = useRef<SatelliteAimIdentity | null>(null)
   const dragActiveRef = useRef(false)
   const dragBeganRef = useRef(false)
   const dragSnapshotRef = useRef<SatelliteAimSnapshot | null>(null)
   const sceneLevelRef = useRef<number | null>(null)
 
+  const clearDrag = () => {
+    dragCandidateRef.current = null
+    dragIdentityRef.current = null
+    dragActiveRef.current = false
+    dragBeganRef.current = false
+    dragSnapshotRef.current = null
+  }
+
   const syncScene = () => {
     const next = controller.getScene()
-    // A stop or a level swap invalidates any selection/attempt from the
-    // previous scene.
+    // A stop, new run or level swap invalidates any selection/attempt and
+    // any outstanding gesture from the previous scene.
     if (
       next === null ||
       (sceneLevelRef.current !== null &&
@@ -109,6 +119,7 @@ export function SatelliteSyncBoard({
     ) {
       setSelectedSatelliteId(null)
       setAimStatus(null)
+      clearDrag()
     }
     sceneLevelRef.current = next?.levelIndex ?? null
     setScene(next)
@@ -180,10 +191,7 @@ export function SatelliteSyncBoard({
         // onBegin only hit-tests: a touch-down that turns into a scroll or
         // a failed pan must not unlock or re-aim anything.
         .onBegin(event => {
-          dragCandidateRef.current = null
-          dragActiveRef.current = false
-          dragBeganRef.current = false
-          dragSnapshotRef.current = null
+          clearDrag()
           if (!controller.isRunning()) {
             return
           }
@@ -191,7 +199,13 @@ export function SatelliteSyncBoard({
           if (!point) {
             return
           }
-          dragCandidateRef.current = satelliteIdAt(point)
+          const satelliteId = satelliteIdAt(point)
+          if (satelliteId === null) {
+            return
+          }
+          dragCandidateRef.current = satelliteId
+          // Bind the gesture to the model/run + entity set it began on.
+          dragIdentityRef.current = controller.getAimIdentity()
         })
         // ACTIVE: the first aim mutation happens on the first move, after
         // activation, and captures the pre-drag state for cancellation.
@@ -200,7 +214,14 @@ export function SatelliteSyncBoard({
         })
         .onUpdate(event => {
           const satelliteId = dragCandidateRef.current
-          if (!dragActiveRef.current || satelliteId === null) {
+          const identity = dragIdentityRef.current
+          if (!dragActiveRef.current || satelliteId === null || !identity) {
+            return
+          }
+          if (!controller.isAimIdentityCurrent(identity)) {
+            // A stop/restart or level swap happened before the board synced;
+            // this event must not touch the replacement entities.
+            clearDrag()
             return
           }
           const point = worldPointOf(event.x, event.y)
@@ -213,28 +234,44 @@ export function SatelliteSyncBoard({
           }
           if (!dragBeganRef.current) {
             dragBeganRef.current = true
-            dragSnapshotRef.current = controller.beginAim(satelliteId)
+            const snapshot = controller.beginAim(satelliteId)
+            dragSnapshotRef.current = snapshot
+            if (snapshot && !controller.isAimCurrent(snapshot)) {
+              clearDrag()
+              return
+            }
+          } else {
+            const snapshot = dragSnapshotRef.current
+            if (snapshot && !controller.isAimCurrent(snapshot)) {
+              // Another action claimed the pre-drag lock: stop the drag.
+              clearDrag()
+              return
+            }
           }
           controller.updateAim(satelliteId, angle)
           syncScene()
         })
         // RNGH calls onFinalize for BOTH outcomes with the success flag
         // (true = END, false = FAILED/CANCELLED). Commit only a completed
-        // drag; restore a cancelled one; always clear the drag references.
+        // drag still bound to its originating model/run/entities; restore a
+        // cancelled one; always clear the drag references.
         .onFinalize((_event, success) => {
           const satelliteId = dragCandidateRef.current
+          const identity = dragIdentityRef.current
           const began = dragBeganRef.current
           const snapshot = dragSnapshotRef.current
-          dragCandidateRef.current = null
-          dragActiveRef.current = false
-          dragBeganRef.current = false
-          dragSnapshotRef.current = null
-          if (satelliteId === null || !began) {
+          clearDrag()
+          if (satelliteId === null || !identity || !began || !snapshot) {
+            return
+          }
+          if (!controller.isAimIdentityCurrent(identity)) {
             return
           }
           if (success) {
-            controller.endAim(satelliteId)
-          } else if (snapshot) {
+            if (controller.isAimCurrent(snapshot)) {
+              controller.endAim(satelliteId)
+            }
+          } else {
             controller.restoreAim(snapshot)
           }
           syncScene()

@@ -6,6 +6,7 @@ import type {
     SatelliteSyncCallbacks,
     SatelliteSyncState,
     SatelliteSyncStatus,
+    SatelliteAimIdentity,
     SatelliteAimSnapshot,
 } from '@cetus/games/satellite-sync/types'
 
@@ -106,9 +107,30 @@ export class SatelliteSyncController {
     }
 
     /** Cancelled-drag cleanup: restore the pre-drag lock/aim/combo with no
-     *  scoring or lock callbacks. */
-    restoreAim(snapshot: SatelliteAimSnapshot): void {
-        this.game?.restoreAimState(snapshot)
+     *  scoring or lock callbacks. The snapshot carries its originating
+     *  model + entity generation, so a stale one is rejected by the model. */
+    restoreAim(snapshot: SatelliteAimSnapshot): boolean {
+        const game = this.game
+        if (!game) {
+            return false
+        }
+        return game.restoreAimState(snapshot)
+    }
+
+    /** True while the captured drag still belongs to this live model, run
+     *  and entity set and nothing newer owns its satellite/target. */
+    isAimCurrent(snapshot: SatelliteAimSnapshot): boolean {
+        return this.game?.isAimStateCurrent(snapshot) ?? false
+    }
+
+    /** Identity of the current model/run + entity generation at gesture
+     *  start; a later mismatch invalidates outstanding gesture events. */
+    getAimIdentity(): SatelliteAimIdentity | null {
+        return this.game?.getAimIdentity() ?? null
+    }
+
+    isAimIdentityCurrent(identity: SatelliteAimIdentity): boolean {
+        return this.game?.isAimIdentityCurrent(identity) ?? false
     }
 
     /**

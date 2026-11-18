@@ -494,6 +494,200 @@ describe('Satellite Sync pilot — aiming', () => {
     expect(reaimed.targets[1].locked).toBe(true)
     expect(reaimed.score).toBeGreaterThan(before.score)
   })
+
+  test('a stale cancelled drag cannot roll back a fresh run after Stop and Replay', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireLayout(tree)
+    fireFrame(100)
+
+    const controller = controllerOf(tree)
+    const firstGame = controller.getGame() as SatelliteSyncGame
+    dragSatelliteToTarget(tree, 'sat-0', 'target-0')
+    expect(firstGame.getState().targets[0].locked).toBe(true)
+
+    // Leave an active drag open on the now-locked satellite: its snapshot
+    // expects the old run's target-0 lock to be restored.
+    const satellite = firstGame.getState().satellites[0]
+    const nextTarget = firstGame.getState().targets[1]
+    firePan(tree, 'onBegin', scenePoint(satellite.ring, satellite.angle))
+    firePan(tree, 'onStart')
+    firePan(
+      tree,
+      'onUpdate',
+      scenePoint(nextTarget.ring, nextTarget.currentAngle)
+    )
+    expect(firstGame.getState().targets[0].locked).toBe(false)
+
+    await press(tree, 'Stop run')
+    expect(controller.getGame()).toBeNull()
+    await press(tree, 'Start game')
+    const secondGame = controller.getGame() as SatelliteSyncGame
+    expect(secondGame).not.toBe(firstGame)
+
+    // The outstanding RNGH finalize arrives after the lifecycle change.
+    firePan(tree, 'onFinalize', undefined, false)
+
+    const state = secondGame.getState()
+    expect(state.status).toBe('playing')
+    expect(state.targets.every(target => !target.locked)).toBe(true)
+    expect(
+      state.satellites.every(satellite => satellite.lockedTargetId === null)
+    ).toBe(true)
+    expect(state.score).toBe(0)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a stale cancelled drag cannot inject a lock into the next level', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireLayout(tree)
+    fireFrame(100)
+
+    const controller = controllerOf(tree)
+    const game = controller.getGame() as SatelliteSyncGame
+    dragSatelliteToTarget(tree, 'sat-0', 'target-0')
+    expect(game.getState().targets[0].locked).toBe(true)
+
+    // Open a drag on the locked satellite: beginAim unlocks target-0 and
+    // the snapshot now expects to restore that lock.
+    const satellite = game.getState().satellites[0]
+    const nextTarget = game.getState().targets[1]
+    firePan(tree, 'onBegin', scenePoint(satellite.ring, satellite.angle))
+    firePan(tree, 'onStart')
+    firePan(
+      tree,
+      'onUpdate',
+      scenePoint(nextTarget.ring, nextTarget.currentAngle)
+    )
+    expect(game.getState().targets[0].locked).toBe(false)
+
+    // Clear level 1, then flush the deferred entity swap before the board
+    // resyncs, so the drag refs are still armed when the cancel arrives.
+    act(() => {
+      solveCurrentLevel(game)
+    })
+    await drain()
+    act(() => {
+      controller.update(0)
+    })
+    const replaced = game.getState()
+    expect(replaced.levelIndex).toBe(1)
+    const scoreBefore = replaced.score
+
+    firePan(tree, 'onFinalize', undefined, false)
+
+    const after = game.getState()
+    expect(after.targets.every(target => !target.locked)).toBe(true)
+    expect(
+      after.satellites.every(satellite => satellite.lockedTargetId === null)
+    ).toBe(true)
+    expect(after.score).toBe(scoreBefore)
+    expect(testText(tree, 'ss-level')).toBe(`Level 2 / ${LEVEL_COUNT}`)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a stale drag update after a level swap cannot aim or lock replacement entities', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireLayout(tree)
+    fireFrame(100)
+
+    const controller = controllerOf(tree)
+    const game = controller.getGame() as SatelliteSyncGame
+    dragSatelliteToTarget(tree, 'sat-0', 'target-0')
+
+    const satellite = game.getState().satellites[0]
+    const nextTarget = game.getState().targets[1]
+    firePan(tree, 'onBegin', scenePoint(satellite.ring, satellite.angle))
+    firePan(tree, 'onStart')
+    firePan(
+      tree,
+      'onUpdate',
+      scenePoint(nextTarget.ring, nextTarget.currentAngle)
+    )
+
+    // Clear level 1 and flush the deferred swap before the board resyncs.
+    act(() => {
+      solveCurrentLevel(game)
+    })
+    await drain()
+    act(() => {
+      controller.update(0)
+    })
+    const replaced = game.getState()
+    expect(replaced.levelIndex).toBe(1)
+    const scoreBefore = replaced.score
+    const aimBefore = replaced.satellites[0].aimAngle
+    const levelTwoTarget = replaced.targets[0]
+    expect(levelTwoTarget.color).toBe('cyan')
+
+    // Stale RNGH events arrive before the board's next sync; neither may
+    // touch the replacement entities even though they complete "successfully".
+    firePan(
+      tree,
+      'onUpdate',
+      scenePoint(levelTwoTarget.ring, levelTwoTarget.currentAngle)
+    )
+    firePan(tree, 'onFinalize', undefined, true)
+
+    const after = game.getState()
+    expect(after.satellites[0].aimAngle).toBe(aimBefore)
+    expect(after.satellites[0].snapCandidateId).toBeNull()
+    expect(after.targets.every(target => !target.locked)).toBe(true)
+    expect(after.score).toBe(scoreBefore)
+
+    fireFrame(132)
+    expect(testText(tree, 'ss-level')).toBe(`Level 2 / ${LEVEL_COUNT}`)
+    expect(testText(tree, 'ss-targets')).toBe('Targets 0 / 3')
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a target claimed by another satellite during a drag is never double-owned on cancel', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.SATELLITE_SYNC} />)
+    await press(tree, 'Start game')
+    fireLayout(tree)
+    fireFrame(100)
+
+    const game = controllerOf(tree).getGame() as SatelliteSyncGame
+    dragSatelliteToTarget(tree, 'sat-0', 'target-0')
+    expect(game.getState().targets[0].lockedBySatId).toBe('sat-0')
+
+    // Arm the accessible flow with satellite 2 (also cyan on level 1).
+    await pressMatching(tree, /^Select satellite 2: cyan$/)
+
+    // Open a drag on satellite 1, which temporarily unlocks target 1.
+    const satellite = game.getState().satellites[0]
+    const nextTarget = game.getState().targets[1]
+    firePan(tree, 'onBegin', scenePoint(satellite.ring, satellite.angle))
+    firePan(tree, 'onStart')
+    firePan(
+      tree,
+      'onUpdate',
+      scenePoint(nextTarget.ring, nextTarget.currentAngle)
+    )
+    expect(game.getState().targets[0].locked).toBe(false)
+
+    // The accessible action claims target 1 while the drag is still open.
+    await pressMatching(tree, /^Lock target 1: cyan, unlocked$/)
+    expect(game.getState().targets[0].lockedBySatId).toBe('sat-1')
+    const scoreBefore = game.getState().score
+
+    // The outstanding cancel must reject instead of stealing it back.
+    firePan(tree, 'onFinalize', undefined, false)
+
+    const after = game.getState()
+    expect(after.targets[0].lockedBySatId).toBe('sat-1')
+    expect(after.satellites[0].lockedTargetId).toBeNull()
+    expect(after.satellites[1].lockedTargetId).toBe('target-0')
+    expect(
+      after.satellites.filter(
+        satellite => satellite.lockedTargetId === 'target-0'
+      )
+    ).toHaveLength(1)
+    expect(after.score).toBe(scoreBefore)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
 })
 
 describe('Satellite Sync pilot — level progression', () => {

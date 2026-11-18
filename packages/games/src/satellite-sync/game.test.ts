@@ -198,14 +198,17 @@ describe('SatelliteSyncGame', () => {
         }
         // Capture is read-only.
         expect(game.getState().targets[0].locked).toBe(true)
+        expect(game.isAimStateCurrent(snapshot)).toBe(false)
 
         // An active drag unlocks the satellite and re-aims it …
         game.beginAim(sat.id)
+        expect(game.isAimIdentityCurrent(game.getAimIdentity())).toBe(true)
+        expect(game.isAimStateCurrent(snapshot)).toBe(true)
         game.updateAim(sat.id, 90)
         expect(game.getState().targets[0].locked).toBe(false)
 
         // … but cancellation restores the lock/aim/combo with no points.
-        game.restoreAimState(snapshot)
+        expect(game.restoreAimState(snapshot)).toBe(true)
         const after = game.getState()
         expect(after.targets[0].locked).toBe(true)
         expect(after.targets[0].lockedBySatId).toBe(sat.id)
@@ -236,7 +239,7 @@ describe('SatelliteSyncGame', () => {
         expect(game.aimAtTarget(sat.id, 'target-0')).toBe(true)
         expect(game.getState().satellites[1].snapCandidateId).toBe('target-0')
 
-        game.restoreAimState(snapshot)
+        expect(game.restoreAimState(snapshot)).toBe(true)
         const after = game.getState()
         expect(after.satellites[1].lockedTargetId).toBeNull()
         expect(after.satellites[1].aimAngle).toBe(snapshot.aimAngle)
@@ -248,20 +251,170 @@ describe('SatelliteSyncGame', () => {
         game.cleanup()
     })
 
+    it('restoreAimState rejects a snapshot from another model instance', () => {
+        const first = new SatelliteSyncGame(makeCallbacks())
+        first.start()
+        const state = first.getState()
+        first.beginAim(state.satellites[0].id)
+        first.aimAtTarget(state.satellites[0].id, state.targets[0].id)
+        first.endAim(state.satellites[0].id)
+        const snapshot = first.captureAimState(state.satellites[0].id)
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+
+        const second = new SatelliteSyncGame(makeCallbacks())
+        second.start()
+        expect(second.isAimIdentityCurrent(snapshot)).toBe(false)
+        expect(second.isAimStateCurrent(snapshot)).toBe(false)
+        expect(second.restoreAimState(snapshot)).toBe(false)
+        const after = second.getState()
+        expect(after.targets.every(target => !target.locked)).toBe(true)
+        expect(
+            after.satellites.every(
+                satellite => satellite.lockedTargetId === null
+            )
+        ).toBe(true)
+        expect(after.score).toBe(0)
+        // The originating model is untouched by the rejected rollback.
+        expect(first.getState().targets[0].locked).toBe(true)
+        first.cleanup()
+        second.cleanup()
+    })
+
+    it('restoreAimState rejects a snapshot after a level/entity replacement', () => {
+        const game = new SatelliteSyncGame(makeCallbacks())
+        game.start()
+        game.updateAim('sat-0', 123)
+        const snapshot = game.captureAimState('sat-0')
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+
+        solveCurrentLevel(game)
+        // Flush the deferred level swap, replacing every entity.
+        game.update(0)
+        const replaced = game.getState()
+        expect(replaced.levelIndex).toBe(1)
+        expect(replaced.satellites[0].angle).toBe(30)
+        expect(replaced.satellites[0].aimAngle).toBe(0)
+        const scoreBefore = replaced.score
+
+        expect(game.isAimIdentityCurrent(snapshot)).toBe(false)
+        expect(game.isAimStateCurrent(snapshot)).toBe(false)
+        expect(game.restoreAimState(snapshot)).toBe(false)
+        const after = game.getState()
+        expect(after.satellites[0].angle).toBe(replaced.satellites[0].angle)
+        expect(after.satellites[0].aimAngle).toBe(0)
+        expect(after.satellites[0].aimAngle).not.toBe(snapshot.aimAngle)
+        expect(after.targets.every(target => !target.locked)).toBe(true)
+        expect(after.score).toBe(scoreBefore)
+        game.cleanup()
+    })
+
+    it('restoreAimState rejects after stop and never revives the run', () => {
+        const game = new SatelliteSyncGame(makeCallbacks())
+        game.start()
+        const snapshot = game.captureAimState('sat-0')
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+        game.stop()
+        const before = game.getState()
+        expect(before.status).toBe('idle')
+        expect(game.isAimIdentityCurrent(snapshot)).toBe(false)
+        expect(game.restoreAimState(snapshot)).toBe(false)
+        const after = game.getState()
+        expect(after.status).toBe('idle')
+        expect(after.satellites[0].aimAngle).toBe(before.satellites[0].aimAngle)
+        expect(after.score).toBe(before.score)
+        game.cleanup()
+    })
+
+    it('restoreAimState refuses to steal a target claimed by another satellite', () => {
+        const game = new SatelliteSyncGame(makeCallbacks())
+        game.start()
+        game.beginAim('sat-0')
+        game.aimAtTarget('sat-0', 'target-0')
+        game.endAim('sat-0')
+        const snapshot = game.captureAimState('sat-0')
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+
+        // Drag unlocks the target, then a concurrent action claims it.
+        game.beginAim('sat-0')
+        expect(game.getState().targets[0].locked).toBe(false)
+        game.beginAim('sat-1')
+        game.aimAtTarget('sat-1', 'target-0')
+        game.endAim('sat-1')
+        expect(game.getState().targets[0].lockedBySatId).toBe('sat-1')
+        const scoreBefore = game.getState().score
+
+        expect(game.isAimIdentityCurrent(snapshot)).toBe(true)
+        expect(game.isAimStateCurrent(snapshot)).toBe(false)
+        expect(game.restoreAimState(snapshot)).toBe(false)
+        const after = game.getState()
+        expect(after.targets[0].lockedBySatId).toBe('sat-1')
+        expect(after.satellites[0].lockedTargetId).toBeNull()
+        expect(after.satellites[1].lockedTargetId).toBe('target-0')
+        expect(
+            after.satellites.filter(
+                satellite => satellite.lockedTargetId === 'target-0'
+            )
+        ).toHaveLength(1)
+        expect(after.score).toBe(scoreBefore)
+        game.cleanup()
+    })
+
+    it('restoreAimState never rolls back a combo a newer lock changed', () => {
+        const game = new SatelliteSyncGame(makeCallbacks())
+        game.start()
+        game.beginAim('sat-0')
+        game.aimAtTarget('sat-0', 'target-0')
+        game.endAim('sat-0')
+        game.beginAim('sat-1')
+        game.aimAtTarget('sat-1', 'target-1')
+        game.endAim('sat-1')
+        expect(game.getState().combo).toBe(2)
+        const snapshot = game.captureAimState('sat-0')
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
+
+        game.beginAim('sat-0')
+        game.beginAim('sat-2')
+        game.aimAtTarget('sat-2', 'target-2')
+        game.endAim('sat-2')
+
+        expect(game.restoreAimState(snapshot)).toBe(true)
+        const after = game.getState()
+        expect(after.targets[0].lockedBySatId).toBe('sat-0')
+        // The restore must not rewind the combo earned by satellite 3.
+        expect(after.combo).toBe(1)
+        expect(after.multiplier).toBe(1)
+        game.cleanup()
+    })
+
     it('captureAimState rejects unknown satellites and restore is a no-op', () => {
         const cbs = makeCallbacks()
         const game = new SatelliteSyncGame(cbs)
         game.start()
         expect(game.captureAimState('does-not-exist')).toBeNull()
+        const snapshot = game.captureAimState('sat-0')
+        expect(snapshot).not.toBeNull()
+        if (!snapshot) {
+            return
+        }
         const before = game.getState()
-        game.restoreAimState({
-            satelliteId: 'does-not-exist',
-            aimAngle: 123,
-            snapCandidateId: 'target-0',
-            lockedTargetId: 'target-0',
-            combo: 3,
-            multiplier: 2,
-        })
+        expect(
+            game.restoreAimState({ ...snapshot, satelliteId: 'does-not-exist' })
+        ).toBe(false)
         expect(game.getState()).toEqual(before)
         game.cleanup()
     })
