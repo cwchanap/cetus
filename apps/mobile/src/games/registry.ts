@@ -86,6 +86,10 @@ import {
     projectCircuitHackerState,
 } from './circuit-hacker/controller'
 import { SatelliteSyncController } from './satellite-sync/controller'
+import {
+    ICE_SLIDE_INITIAL_PROJECTION,
+    IceSlideController,
+} from './ice-slide/controller'
 import type { HandleResultHelper } from './handleResult'
 import { AsteroidDriftBoard } from './boards/AsteroidDriftBoard'
 import { ChromaticTideBoard } from './boards/ChromaticTideBoard'
@@ -93,6 +97,7 @@ import { CircuitHackerBoard } from './boards/CircuitHackerBoard'
 import { EvaderBoard } from './boards/EvaderBoard'
 import { Game2048Board } from './boards/Game2048Board'
 import { GravityFlipBoard } from './boards/GravityFlipBoard'
+import { IceSlideBoard } from './boards/IceSlideBoard'
 import { MemoryMatrixBoard } from './boards/MemoryMatrixBoard'
 import { MineGridBoard } from './boards/MineGridBoard'
 import { PathNavigatorBoard } from './boards/PathNavigatorBoard'
@@ -906,11 +911,27 @@ const satelliteSyncHandlePort: NativeHandlePort = {
     view: SatelliteSyncBoard,
 }
 
+const iceSlideHandlePort: NativeHandlePort = {
+    gameId: GameID.ICE_SLIDE,
+    initialSnapshot: {
+        status: 'idle',
+        score: 0,
+        timeRemaining: 0,
+        projected:
+            ICE_SLIDE_INITIAL_PROJECTION as unknown as NativeGameProjection,
+        result: null,
+    },
+    createBinding: context => new IceSlideController(context),
+    resultOutcomeLabel: result =>
+        result.stats.gameCompleted ? 'Mission complete' : 'Run ended',
+    view: IceSlideBoard,
+}
+
 /**
  * The single native game registry (HPA-425 wave 1, extended per HPA-535).
  * Keys are computed from the imported `GameID` enum members — never bare
  * id strings — and presence in this map is what the Games hub, the detail
- * Play button and the play route all consult. Eighteen playable, five
+ * Play button and the play route all consult. Nineteen playable, four
  * disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
@@ -932,6 +953,7 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.ASTEROID_DRIFT]: { port: asteroidDriftPort },
     [GameID.CIRCUIT_HACKER]: { handlePort: circuitHackerHandlePort },
     [GameID.SATELLITE_SYNC]: { handlePort: satelliteSyncHandlePort },
+    [GameID.ICE_SLIDE]: { handlePort: iceSlideHandlePort },
 }
 
 /** Own-key lookup so unknown strings (even "__proto__") never resolve. */
