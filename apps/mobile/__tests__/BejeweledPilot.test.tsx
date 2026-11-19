@@ -112,13 +112,16 @@ const BASE_GRID = (): Array<Array<JewelType | null>> =>
     )
   )
 
-/** Row 3 has red, ?, red; the red above column 1 makes the up-swap clear. */
+/** Row 3 has red, ?, red; the red above column 1 makes the up-swap clear.
+ *  The purple below column 1 keeps the horizontal (3,0)↔(3,1) pair invalid,
+ *  so a swipe must not silently swap the selected neighbour instead. */
 const VALID_SWAP_GRID = (): Array<Array<JewelType | null>> => {
   const grid = BASE_GRID()
   grid[3][0] = 'red'
   grid[3][1] = 'blue'
   grid[3][2] = 'red'
   grid[2][1] = 'red'
+  grid[4][1] = 'purple'
   return grid
 }
 
@@ -470,6 +473,35 @@ describe('Bejeweled pilot — board', () => {
     beginSwipeAt(tree, 400, 400)
     endSwipe(tree, 0, -CELL)
     expect(game.getState().movesMade).toBe(1)
+    expect(submitScore).not.toHaveBeenCalled()
+  })
+
+  test('a swipe from a cell next to the previous selection swaps the intended pair', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.BEJEWELED} />)
+    fireLayouts(tree)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    setGrid(game, VALID_SWAP_GRID())
+
+    // Select (3,0) so its right neighbour (3,1) is the swipe origin. The
+    // old path would immediately swap selection↔origin and ignore the
+    // intended upward pair.
+    await tapCell(tree, 3, 0)
+    expect(game.getState().selected).toEqual({ row: 3, col: 0 })
+
+    beginSwipe(tree, 3, 1)
+    endSwipe(tree, 0, -CELL)
+
+    // The stale selection was deselected first, so the model is animating
+    // the origin→target pair and the selection sits on the origin.
+    expect(game.getState().isAnimating).toBe(true)
+    expect(game.getState().selected).toEqual({ row: 3, col: 1 })
+
+    await waitFor(game, state => !state.isAnimating && state.movesMade === 1)
+    expect(game.getState().movesMade).toBe(1)
+    expect(game.getState().selected).toBeNull()
+    expect(game.getState().score).toBeGreaterThanOrEqual(30)
     expect(submitScore).not.toHaveBeenCalled()
   })
 
