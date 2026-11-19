@@ -1,6 +1,6 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { Text } from 'react-native'
+import { ScrollView, StyleSheet, Text } from 'react-native'
 import { GestureDetector } from 'react-native-gesture-handler'
 import { GameID } from '@cetus/shared/games'
 import { TetrisGame } from '@cetus/games/tetris/TetrisGame'
@@ -303,16 +303,15 @@ describe('Tetris pilot — board', () => {
 
     const spawned = game.getState().currentPiece!
     const spawnedY = spawned.y
-    const spawnedX = spawned.x
     expect(spawned.type).toBe('T')
     expect(pieceRects(tree)).toHaveLength(4)
     const top = Math.min(...pieceRects(tree).map(props => props.y as number))
     expect(top).toBe(spawnedY * CELL + 1)
 
     const label = boardLabel(tree)
-    expect(label).toContain('Level 1, 0 lines cleared, 0 blocks placed.')
+    expect(label).toContain('Level 1, 0 lines cleared.')
     expect(label).toContain(
-      `${spawned.type} piece at row ${spawnedY + 1}, column ${spawnedX + 1}.`
+      'Falling T: row 1 column 5; row 2 columns 4, 5 and 6.'
     )
     expect(
       tree.root.findByProps({ accessibilityLabel: 'Rotate piece' }).props
@@ -358,6 +357,7 @@ describe('Tetris pilot — board', () => {
     const beforeShape = before.shape.map(row => [...row])
     const beforeX = before.x
     const beforeY = before.y
+    const beforeLabel = boardLabel(tree)
     const expected = rotateMatrix(beforeShape)
 
     await press(tree, 'Rotate piece')
@@ -368,6 +368,71 @@ describe('Tetris pilot — board', () => {
     expect(after.shape).not.toEqual(beforeShape)
     expect(after.x).toBe(beforeX)
     expect(after.y).toBe(beforeY)
+    // Same origin, different orientation: the accessible state must change.
+    const rotatedLabel = boardLabel(tree)
+    expect(beforeLabel).toContain(
+      'Falling T: row 1 column 5; row 2 columns 4, 5 and 6.'
+    )
+    expect(rotatedLabel).toContain(
+      'Falling T: row 1 column 4; row 2 columns 4 and 5; row 3 column 4.'
+    )
+    expect(rotatedLabel).not.toBe(beforeLabel)
+  })
+
+  test('the board description exposes occupied rows and stack gaps', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.TETRIS} />)
+    fireLayouts(tree)
+    const game = createdGames[0]
+
+    await press(tree, 'Start game')
+    fireFrame(16)
+    const state = game.getState()
+    const live = game as unknown as { state: { needsRedraw: boolean } }
+    for (const column of [0, 1, 2, 3]) {
+      state.board[19][column] = 0xff0000
+    }
+    live.state.needsRedraw = true
+    fireFrame(32)
+    const filled = boardLabel(tree)
+    expect(filled).toContain('Row 20: columns 1, 2, 3 and 4.')
+
+    // Same occupied count, different gap: a blind player can tell them apart.
+    state.board[19][1] = null
+    state.board[19][2] = null
+    live.state.needsRedraw = true
+    fireFrame(48)
+    const gapped = boardLabel(tree)
+    expect(gapped).toContain('Row 20: columns 1 and 4.')
+    expect(gapped).not.toContain('Row 20: columns 1, 2, 3 and 4.')
+    expect(gapped).not.toBe(filled)
+  })
+
+  test('fits the field to available height and scrolls when space is tight', async () => {
+    const tree = await render(<NativeGameHost gameId={GameID.TETRIS} />)
+    fireLayouts(tree)
+    const scroll = tree.root.findByType(ScrollView)
+    const setViewport = (width: number, height: number) => {
+      act(() => {
+        scroll.props.onLayout({
+          nativeEvent: { layout: { x: 0, y: 0, width, height } },
+        })
+      })
+    }
+    const fieldWidth = () =>
+      StyleSheet.flatten(
+        tree.root.findByProps({ testID: 'tetris-board' }).props.style
+      ).width as number
+
+    setViewport(390, 800)
+    expect(fieldWidth()).toBe(234)
+
+    setViewport(390, 500)
+    expect(fieldWidth()).toBe(175)
+
+    // Below the static reserve the field keeps a usable floor and the
+    // ScrollView carries the overflow (for example enlarged text).
+    setViewport(390, 200)
+    expect(fieldWidth()).toBe(120)
   })
 
   test('swipes move once each; down soft-drops; cancelled and duplicate gestures do nothing', async () => {
