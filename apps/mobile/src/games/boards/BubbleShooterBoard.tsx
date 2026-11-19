@@ -275,8 +275,11 @@ export function BubbleShooterBoard({ projected, game }: NativeGameViewProps) {
         })
         // onFinalize runs for completed AND cancelled gestures: success is
         // the only valid release, the refs clear on first use (a duplicate
-        // finalize is a no-op) and a stale run is refused.
-        .onFinalize((_event, success) => {
+        // finalize is a no-op) and a stale run is refused. Recognition
+        // success alone does not mean the finger is still on the board: a
+        // pan can wander into the letterbox or leave the view without being
+        // cancelled, so the release point must also map onto the board.
+        .onFinalize((event, success) => {
           const runId = gestureRunRef.current
           const start = gestureStartRef.current
           gestureRunRef.current = null
@@ -286,6 +289,18 @@ export function BubbleShooterBoard({ projected, game }: NativeGameViewProps) {
             runId === null ||
             start === null ||
             runId !== shooterGame.getRunId()
+          ) {
+            return
+          }
+          const geometry = geometryRef.current
+          if (geometry === null) {
+            return
+          }
+          const release = toGamePoint(event.x, event.y, geometry)
+          if (
+            release === null ||
+            !Number.isFinite(release.x) ||
+            !Number.isFinite(release.y)
           ) {
             return
           }
