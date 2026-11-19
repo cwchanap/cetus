@@ -769,6 +769,52 @@ describe('Rhythm Reactor pilot — media clock', () => {
     expect(submitScore).not.toHaveBeenCalled()
   })
 
+  test('keeps the earned score when a resolved chart misses frames before timer end', async () => {
+    const tree = await renderWithFakeTimers(
+      <NativeGameHost gameId={GameID.RHYTHM_REACTOR} />
+    )
+    fireLayouts(tree)
+    await loadAudioWithFakeTimers()
+    const game = createdGames[0]
+    await startWithFakeTimers(tree)
+    expect(game.getState().isActive).toBe(true)
+
+    // Play through the chart in 100 ms frames up to the final note at
+    // 57.5 s. Earlier notes have been hit, missed or expired.
+    for (let step = 1; step <= 575; step += 1) {
+      mockAudioPlayer.currentTime = step / 10
+      await runFakeFrame(100)
+    }
+    expect(game.getState().elapsedSeconds).toBeCloseTo(57.5, 5)
+    expect(game.getState().pendingNotes).toHaveLength(1)
+    expect(game.getState().pendingNotes[0].hitTimeSeconds).toBe(57.5)
+
+    // Perfect final hit, caught up between frames at 57.5 s. The chart is
+    // now fully resolved even though the model clock is still at 57.5.
+    mockAudioPlayer.currentTime = 57.5
+    await press(tree, 'Tap lane 3')
+    expect(game.getState().pendingNotes).toHaveLength(0)
+    expect(game.getState().perfectHits).toBeGreaterThanOrEqual(1)
+    const earnedScore = game.getState().score
+    expect(earnedScore).toBeGreaterThan(0)
+
+    // Audio reaches 60 s normally, but no animation callback arrives before
+    // the independent timer completes. The resolved model must keep its
+    // earned score.
+    mockAudioPlayer.currentTime = RHYTHM_REACTOR_RULES.duration
+    await act(async () => {
+      jest.advanceTimersByTime(2_500)
+      for (let i = 0; i < 10; i += 1) {
+        await Promise.resolve()
+      }
+    })
+
+    expect(game.getState().isGameOver).toBe(true)
+    expect(submitScore).toHaveBeenCalledTimes(1)
+    expect(testText(tree, 'final-score')).toBe(String(earnedScore))
+    expect(testText(tree, 'result-save-status')).toBe('Score saved')
+  })
+
   test('does not post when frame callbacks are absent at timer end', async () => {
     const tree = await renderWithFakeTimers(
       <NativeGameHost gameId={GameID.RHYTHM_REACTOR} />
