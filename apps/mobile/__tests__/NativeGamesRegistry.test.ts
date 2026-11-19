@@ -20,6 +20,8 @@ import { QuickMathFrameworkGame } from '@cetus/games/quick-math/game'
 import { SudokuGame } from '@cetus/games/sudoku/SudokuGame'
 import type { SudokuState } from '@cetus/games/sudoku/frameworkTypes'
 import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
+import { TetrisGame } from '@cetus/games/tetris/TetrisGame'
+import type { TetrisState } from '@cetus/games/tetris/types'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 import { SnakeGame } from '@cetus/games/snake/SnakeGame'
 import { GravityFlipGame } from '@cetus/games/gravity-flip/GravityFlipGame'
@@ -77,6 +79,7 @@ const CONCRETE_GAMES: ReadonlyArray<readonly [GameID, AnyGameCtor]> = [
     [GameID.EVADER, EvaderGame],
     [GameID.PATH_NAVIGATOR, PathNavigatorGame],
     [GameID.ASTEROID_DRIFT, AsteroidDriftGame],
+    [GameID.TETRIS, TetrisGame],
 ]
 
 const hostDeps = (platform: 'ios' | 'android') => {
@@ -84,7 +87,7 @@ const hostDeps = (platform: 'ios' | 'android') => {
     return { submitScore, platform }
 }
 
-// HPA-425 wave 1 plus HPA-535 Stages 1–3: exactly these nineteen games are
+// HPA-425 wave 1 plus HPA-535 Stages 1–4: exactly these twenty games are
 // native-destined. The list is duplicated here on purpose — the test must
 // fail if the registry drifts.
 const EXPECTED_NATIVE_IDS = [
@@ -106,13 +109,14 @@ const EXPECTED_NATIVE_IDS = [
     GameID.SIGNAL_SWITCH,
     GameID.SNAKE,
     GameID.SUDOKU,
+    GameID.TETRIS,
     GameID.WORD_SCRAMBLE,
 ] as const
 
 const process = jest.requireActual('node:process') as { cwd: () => string }
 
 describe('NATIVE_GAMES registry', () => {
-    test('contains exactly the nineteen registry game ids', () => {
+    test('contains exactly the twenty registry game ids', () => {
         expect(Object.keys(NATIVE_GAMES).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
@@ -121,16 +125,16 @@ describe('NATIVE_GAMES registry', () => {
         }
     })
 
-    test('registry and catalog counts line up: 19 playable, 4 disabled of 23', () => {
+    test('registry and catalog counts line up: 20 playable, 3 disabled of 23', () => {
         expect(GAMES).toHaveLength(23)
         expect(getActiveGames()).toHaveLength(23)
-        expect(Object.keys(NATIVE_GAMES)).toHaveLength(19)
+        expect(Object.keys(NATIVE_GAMES)).toHaveLength(20)
         const playable = GAMES.filter(game => isNativePlayable(game.id))
         const disabled = GAMES.filter(game => !isNativePlayable(game.id))
         expect(playable.map(game => game.id).sort()).toEqual(
             [...EXPECTED_NATIVE_IDS].sort()
         )
-        expect(disabled).toHaveLength(4)
+        expect(disabled).toHaveLength(3)
     })
 
     test('resolves each expected id through the own-key lookup', () => {
@@ -146,9 +150,11 @@ describe('NATIVE_GAMES registry', () => {
         expect(getNativeGameEntry('toString')).toBeUndefined()
         expect(getNativeGameEntry('constructor')).toBeUndefined()
         expect(isNativePlayable('__proto__')).toBe(false)
-        // The four unported registry games stay disabled.
-        expect(isNativePlayable(GameID.TETRIS)).toBe(false)
+        // The three unported registry games stay disabled.
+        expect(isNativePlayable(GameID.BEJEWELED)).toBe(false)
+        expect(isNativePlayable(GameID.BUBBLE_SHOOTER)).toBe(false)
         expect(isNativePlayable(GameID.RHYTHM_REACTOR)).toBe(false)
+        expect(isNativePlayable(GameID.TETRIS)).toBe(true)
         expect(isNativePlayable(GameID.ICE_SLIDE)).toBe(true)
         expect(isNativePlayable(GameID.EVADER)).toBe(true)
         expect(isNativePlayable(GameID.PATH_NAVIGATOR)).toBe(true)
@@ -477,6 +483,49 @@ describe('NATIVE_GAMES registry', () => {
         const projected = port.project(game.getState(), game)
         expect(projected.clock).toBe(game.getTimerStatus().elapsedTime)
         expect(projected.clock).toBeGreaterThan(0)
+        game.destroy()
+    })
+
+    test('the Tetris projector reads the elapsed clock and HUD off the running instance', () => {
+        const port = getNativeGameEntry(GameID.TETRIS)?.port
+        expect(port).toBeDefined()
+        if (!port) {
+            return
+        }
+        expect(port.view).toBeDefined()
+        const game = port.createGame(hostDeps('ios')) as TetrisGame
+        expect(port.project(game.getState(), game)).toEqual({
+            level: 1,
+            lines: 0,
+            holdUsed: false,
+            canAct: false,
+            clock: 0,
+        })
+        game.start()
+        const running = port.project(game.getState(), game) as {
+            level: number
+            holdUsed: boolean
+            canAct: boolean
+            clock: number
+        }
+        expect(running).toMatchObject({
+            level: 1,
+            holdUsed: false,
+            canAct: true,
+        })
+        expect(running.clock).toBe(game.getTimerStatus().elapsedTime)
+        // The model's countdown duration is the framework placeholder the
+        // chrome must never display; the elapsed clock replaces it.
+        expect(game.getState().timeRemaining).toBe(Number.MAX_SAFE_INTEGER)
+        // getState() is a copy; the model's live state is what projection
+        // reads, so mutate that.
+        const state = (game as unknown as { state: TetrisState }).state
+        state.lines = 8
+        state.holdUsed = true
+        expect(port.project(game.getState(), game)).toMatchObject({
+            lines: 8,
+            holdUsed: true,
+        })
         game.destroy()
     })
 

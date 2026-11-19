@@ -27,7 +27,7 @@ import GameDetailScreen from '../app/games/[gameId]'
 import { GAMES, GameID } from '@cetus/shared/games'
 import { isNativePlayable } from '../src/games/registry'
 
-// HPA-425 wave 1 + HPA-535 Stages 1–3: the games with native ports.
+// HPA-425 wave 1 + HPA-535 Stages 1–4: the games with native ports.
 const NATIVE_WAVE_IDS = [
   GameID.ASTEROID_DRIFT,
   GameID.CIRCUIT_HACKER,
@@ -47,6 +47,7 @@ const NATIVE_WAVE_IDS = [
   GameID.SIGNAL_SWITCH,
   GameID.SNAKE,
   GameID.SUDOKU,
+  GameID.TETRIS,
   GameID.WORD_SCRAMBLE,
 ] as const
 
@@ -206,7 +207,7 @@ describe('game detail', () => {
     expect(rendered).toContain('5-15 minutes')
   })
 
-  test('marks the nineteen native registry games playable in the hub list', async () => {
+  test('marks the twenty native registry games playable in the hub list', async () => {
     const tree = await render(<GamesScreen />)
 
     const rendered = renderedText(tree)
@@ -217,7 +218,7 @@ describe('game detail', () => {
       expect(rendered).toContain(`${game.category}\n${expected}`)
     }
     expect(ACTIVE_GAMES.filter(game => isNativePlayable(game.id))).toHaveLength(
-      19
+      20
     )
   })
 
@@ -243,9 +244,9 @@ describe('game detail', () => {
     }
   })
 
-  test('honestly disables the play CTA for the four unported games', async () => {
+  test('honestly disables the play CTA for the three unported games', async () => {
     const unported = ACTIVE_GAMES.filter(game => !isNativePlayable(game.id))
-    expect(unported).toHaveLength(4)
+    expect(unported).toHaveLength(3)
     for (const game of unported) {
       mockPush.mockClear()
       mockParams.gameId = game.id

@@ -38,6 +38,8 @@ import type {
 } from '@cetus/games/sudoku/frameworkTypes'
 import { WordScrambleGame } from '@cetus/games/word-scramble/WordScrambleGame'
 import type { WordScrambleState } from '@cetus/games/word-scramble/frameworkTypes'
+import { TetrisGame } from '@cetus/games/tetris/TetrisGame'
+import type { TetrisState } from '@cetus/games/tetris/types'
 import { ChromaticTideGame } from '@cetus/games/chromatic-tide/ChromaticTideGame'
 import type {
     ChromaticTideState,
@@ -109,6 +111,7 @@ import { SatelliteSyncBoard } from './boards/SatelliteSyncBoard'
 import { SignalSwitchBoard } from './boards/SignalSwitchBoard'
 import { SnakeBoard } from './boards/SnakeBoard'
 import { SudokuBoard } from './boards/SudokuBoard'
+import { TetrisBoard } from './boards/TetrisBoard'
 import { WordScrambleBoard } from './boards/WordScrambleBoard'
 
 /**
@@ -533,6 +536,40 @@ const wordScramblePort: NativeGamePort = {
     view: WordScrambleBoard,
 }
 
+const projectTetrisHud = (
+    state: BaseGameState,
+    game: BaseGame
+): NativeGameProjection => {
+    const { level, lines, holdUsed, isActive, isPaused, isGameOver } =
+        state as TetrisState
+    return {
+        level,
+        lines,
+        holdUsed,
+        canAct: isActive && !isPaused && !isGameOver,
+        // The model's countdown duration is Number.MAX_SAFE_INTEGER, so the
+        // shared chrome must show the elapsed clock instead of that value.
+        clock: Math.floor(
+            (game as TetrisGame).getTimerStatus().elapsedTime || 0
+        ),
+    }
+}
+
+const tetrisPort: NativeGamePort = {
+    createGame: deps =>
+        new TetrisGame({
+            submitScore: deps.submitScore,
+            platform: deps.platform,
+        }),
+    // HUD primitives only; the board copies its own scene.
+    project: projectTetrisHud,
+    createProjector: game =>
+        createStableProjector((state: BaseGameState) =>
+            projectTetrisHud(state, game)
+        ),
+    view: TetrisBoard,
+}
+
 const chromaticTidePort: NativeGamePort = {
     createGame: deps =>
         new ChromaticTideGame({
@@ -931,7 +968,7 @@ const iceSlideHandlePort: NativeHandlePort = {
  * The single native game registry (HPA-425 wave 1, extended per HPA-535).
  * Keys are computed from the imported `GameID` enum members — never bare
  * id strings — and presence in this map is what the Games hub, the detail
- * Play button and the play route all consult. Nineteen playable, four
+ * Play button and the play route all consult. Twenty playable, three
  * disabled.
  */
 export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
@@ -951,6 +988,7 @@ export const NATIVE_GAMES: Partial<Record<GameID, NativeGameEntry>> = {
     [GameID.EVADER]: { port: evaderPort },
     [GameID.PATH_NAVIGATOR]: { port: pathNavigatorPort },
     [GameID.ASTEROID_DRIFT]: { port: asteroidDriftPort },
+    [GameID.TETRIS]: { port: tetrisPort },
     [GameID.CIRCUIT_HACKER]: { handlePort: circuitHackerHandlePort },
     [GameID.SATELLITE_SYNC]: { handlePort: satelliteSyncHandlePort },
     [GameID.ICE_SLIDE]: { handlePort: iceSlideHandlePort },
